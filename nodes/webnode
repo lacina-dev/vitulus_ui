@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+
+import os
+import rospy
+import yaml
+from flask import Flask, render_template, send_from_directory, jsonify, request, send_file, abort
+import threading
+import sys
+import signal
+import subprocess
+from werkzeug.serving import make_server
+
+port = 7779
+
+# systemd service that runs the whole robot. Restarting it from the web requires
+# a passwordless sudoers rule (see setup/vitulus-ui-sudoers); without it the
+# restart endpoint returns an error instead of hanging on a password prompt.
+ROBOT_SERVICE = "vitulus.service"
+host = "0.0.0.0"
+
+# Absolute path to this package's web root (templates + assets). Mirrors the
+# original vitulus_webui approach of pointing at the source tree, since the
+# template/asset files are not copied into the install space.
+WEB_ROOT = "/home/vitulus/catkin_ws/src/vitulus/vitulus_ui/nodes/templates"
+
+# Default falls back to the rosbag config default; overridden by YAML at runtime.
+ROSBAG_BASE_DIR = "/home/vitulus/rosbags"
+ROSBAG_CONFIG_PATHS = [
+    "/home/vitulus/catkin_ws/src/vitulus/vitulus_rosbag/config/recorders.yaml",
+    "/home/vitulus/catkin_ws/install/share/vitulus_rosbag/config/recorders.yaml",
+]
+
+
+def _load_rosbag_base_dir():
+    for path in ROSBAG_CONFIG_PATHS:
+        try:
+            with open(path, 'r') as fh:
+                cfg = yaml.safe_load(fh) or {}
+            base = cfg.get('rosbag_base_dir')
+            if base:
+                return os.path.abspath(os.path.expanduser(base))
+        except Exception:
+            continue
+    return os.path.abspath(os.path.expanduser(ROSBAG_BASE_DIR))
+
+
+def _safe_resolve(rel_path: str, base: str) -> str:
+    """Resolve ``rel_path`` against ``base`` and ensure it stays inside ``base``.
+
+    Returns the absolute path or raises ValueError if the target escapes the
+    base directory (protects against traversal/symlink attacks).
+    """
+    if not rel_path:
+        raise ValueError("empty path")
+    # Reject absolute paths and backslashes
+    rel_path = rel_path.replace('\\', '/').lstrip('/')
+    full = os.path.realpath(os.path.join(base, rel_path))
+    base_real = os.path.realpath(base)
+    if not (full == base_real or full.startswith(base_real + os.sep)):
+        raise ValueError("path escapes base directory")
+    return full
+
+
+class ServerThread(threading.Thread):
+
+    def __init__(self, app, host_ip, host_port):
+        threading.Thread.__init__(self)
+        self.server = make_server(host_ip, host_port, app, threaded=True)
+        self.ctx = app.app_context()
+        self.ctx.push()
+
+    def run(self):
+        self.server.serve_forever()
+
+    def shutdown(self):
+        self.server.shutdown()
+
+
+if __name__ == '__main__':
+
+    def signal_handler(signal, frame):
+        server.shutdown()
+        rospy.signal_shutdown("end")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        rospy.init_node('webnode', anonymous=True)
+        app = Flask(__name__,
+                    static_url_path='/assets',
+                    static_folder=os.path.join(WEB_ROOT, 'assets'),
+                    template_folder=WEB_ROOT)
+
+        @app.route('/manifest.json')
+        def manifest():
+            return send_from_directory(WEB_ROOT, 'manifest.json')
+
+        @app.route("/")
+        def nav():
+            return render_template('index.html', ros_ip=host)
+
+        # Backwards-compatible aliases: the old WebUI had separate pages for the
+        # planner and IMU calibration. They are now sections of the single page,
+        # so old bookmarks land on the unified UI (deep-linked via hash).
+        @app.route("/map_edit")
+        def map_edit():
+            return render_template('index.html', ros_ip=host)
+
+        @app.route("/imu_calibration")
+        def mob_imu_calibration():
+            return render_template('index.html', ros_ip=host)
+
+        # -----------------------------------------------------------------
+        # Robot service control (restart the whole robot from the web)
+        # -----------------------------------------------------------------
+        def _sudo_systemctl_ok():
+            """True if we can run systemctl on the service via passwordless sudo."""
+            try:
+                r = subprocess.run(
+                    ['sudo', '-n', '/usr/bin/systemctl', 'is-enabled', ROBOT_SERVICE],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                return r.returncode == 0
+            except Exception:
+                return False
+
+        @app.route('/system/restart', methods=['POST'])
+        def system_restart():
+            # Verify passwordless sudo works BEFORE we claim success — otherwise
+            # the detached restart below would fail silently and the UI would spin
+            # forever waiting for a restart that never happens.
+            if not _sudo_systemctl_ok():
+                return jsonify({'ok': False, 'error':
+                                'passwordless sudo for systemctl not configured '
+                                '(install setup/vitulus-ui-sudoers to '
+                                '/etc/sudoers.d/vitulus-ui)'}), 403
+            # Run detached + slightly delayed: `systemctl restart` will kill this
+            # very web server, so we answer the browser first and let the restart
+            # happen ~1 s later from a process that survives our death.
+            cmd = 'sleep 1 && sudo -n /usr/bin/systemctl restart ' + ROBOT_SERVICE
+            try:
+                subprocess.Popen(['/bin/sh', '-c', cmd],
+                                 start_new_session=True,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                rospy.logwarn("[webnode] robot restart requested from %s",
+                              request.remote_addr)
+                return jsonify({'ok': True})
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 500
+
+        @app.route('/system/restart_check')
+        def system_restart_check():
+            # Quick check that the passwordless sudo rule is in place, so the UI
+            # can warn up-front instead of silently failing.
+            return jsonify({'sudo_ok': _sudo_systemctl_ok()})
+
+        # -----------------------------------------------------------------
+        # Rosbag management API
+        # -----------------------------------------------------------------
+        @app.route('/rosbag/list')
+        def rosbag_list():
+            base = _load_rosbag_base_dir()
+            items = []
+            if os.path.isdir(base):
+                for root, dirs, files in os.walk(base):
+                    dirs.sort()
+                    for fname in sorted(files):
+                        # include both closed bags and active recordings (.bag.active)
+                        if not (fname.endswith('.bag') or fname.endswith('.bag.active')):
+                            continue
+                        full = os.path.join(root, fname)
+                        try:
+                            st = os.stat(full)
+                        except OSError:
+                            continue
+                        rel = os.path.relpath(full, base)
+                        items.append({
+                            'name': fname,
+                            'path': rel.replace(os.sep, '/'),
+                            'subdir': os.path.relpath(root, base).replace(os.sep, '/') if root != base else '',
+                            'size': st.st_size,
+                            'mtime': int(st.st_mtime),
+                            'active': fname.endswith('.bag.active'),
+                        })
+            # newest first
+            items.sort(key=lambda x: x['mtime'], reverse=True)
+            total = sum(i['size'] for i in items)
+            return jsonify({'base': base, 'items': items, 'total_size': total})
+
+        @app.route('/rosbag/download')
+        def rosbag_download():
+            base = _load_rosbag_base_dir()
+            rel = request.args.get('path', '')
+            try:
+                full = _safe_resolve(rel, base)
+            except ValueError:
+                abort(400)
+            if not os.path.isfile(full):
+                abort(404)
+            return send_file(full, as_attachment=True,
+                             download_name=os.path.basename(full))
+
+        @app.route('/rosbag/delete', methods=['POST', 'DELETE'])
+        def rosbag_delete():
+            base = _load_rosbag_base_dir()
+            rel = request.args.get('path', '') or (request.get_json(silent=True) or {}).get('path', '')
+            try:
+                full = _safe_resolve(rel, base)
+            except ValueError:
+                return jsonify({'ok': False, 'error': 'invalid path'}), 400
+            if not os.path.isfile(full):
+                return jsonify({'ok': False, 'error': 'not found'}), 404
+            if full.endswith('.bag.active'):
+                return jsonify({'ok': False, 'error': 'recording in progress'}), 409
+            try:
+                os.remove(full)
+            except OSError as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 500
+            return jsonify({'ok': True})
+
+        server = ServerThread(app, host, port)
+        server.start()
+        rospy.loginfo("Initialising webnode node...")
+        rospy.loginfo("http://{}:{}".format(host, port))
+        rospy.spin()
+
+    except rospy.ROSInterruptException:
+        rospy.logerr("Webnode doesn't start!!!!!")
+        print("Webnode doesn't start!!!!!")
+
+
+

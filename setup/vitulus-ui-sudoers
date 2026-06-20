@@ -1,0 +1,18 @@
+# Allow the 'vitulus' user (and therefore the vitulus_ui web server, which runs
+# as that user) to restart/start/stop the robot service WITHOUT a password, so
+# the "Restart robot" button in the web UI works.
+#
+# Install once (as root):
+#   sudo install -o root -g root -m 0440 \
+#     /home/vitulus/catkin_ws/src/vitulus/vitulus_ui/setup/vitulus-ui-sudoers \
+#     /etc/sudoers.d/vitulus-ui
+#   sudo visudo -cf /etc/sudoers.d/vitulus-ui      # should print "parsed OK"
+#
+# Security note: anything that can reach the web server on :7779 can then
+# restart the robot. That matches the existing trust model (rosbridge on :9090
+# already exposes full ROS control on the same network).
+
+vitulus ALL=(root) NOPASSWD: /usr/bin/systemctl restart vitulus.service
+vitulus ALL=(root) NOPASSWD: /usr/bin/systemctl start vitulus.service
+vitulus ALL=(root) NOPASSWD: /usr/bin/systemctl stop vitulus.service
+vitulus ALL=(root) NOPASSWD: /usr/bin/systemctl is-enabled vitulus.service

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>vitulus_ui</name>
+  <version>0.0.1</version>
+  <description>Unified single-page WebUI for Vitulus (map view + planner + IMU calibration merged into one responsive page).</description>
+
+  <maintainer email="robert@lacina.dev">Robert Lacina</maintainer>
+  <license>MIT</license>
+  <author email="robert@lacina.dev">Robert Lacina</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>rospy</depend>
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <exec_depend>rosserial_python</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <build_depend>message_generation</build_depend>
+</package>

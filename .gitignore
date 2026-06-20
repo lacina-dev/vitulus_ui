@@ -1,0 +1,5 @@
+# local backups created during edits
+*.bak_*
+# python
+__pycache__/
+*.pyc

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html data-bs-theme="light">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>VITULUS UI</title>
+    <meta name="" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="../assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/VitulusOnGrassBlended16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/VitulusOnGrassBlended16x16Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/VitulusOnGrassBlended32x32.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/VitulusOnGrassBlended32x32Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="180x180" href="../assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="../assets/img/VitulusOnGrassBlended192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="../assets/img/VitulusOnGrassBlended512x512.png">
+    <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
+    <link rel="manifest" href="../manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:400,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700">
+    <link rel="stylesheet" href="../assets/fonts/font-awesome.min.css">
+    <link rel="stylesheet" href="../assets/css/bs-theme-overrides.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar-1.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar-2.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar.css">
+    <link rel="stylesheet" href="../assets/css/Feature-Section-MD.css">
+    <link rel="stylesheet" href="../assets/css/Header-Dark.css">
+    <link rel="stylesheet" href="../assets/css/map_edit_item_poly.css">
+    <link rel="stylesheet" href="../assets/css/Navbar-mob.css">
+    <link rel="stylesheet" href="../assets/css/Navigation-Clean.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/Vitulus_mobile_template.css">
+<script src="/assets/js/mob/motors.js"></script>
+<script src="/assets/js/three.min.js"></script>
+<script src="/assets/js/easeljs.js"></script>
+<script src="/assets/js/eventemitter2.js"></script>
+<script src="/assets/js/roslib.js"></script>
+</head>
+
+<body>
+    <div>
+        <nav class="navbar navbar-expand-lg" id="div_menu" style="background: #282b30;padding-top: 3px;padding-bottom: 3px;position: absolute;display: block;width: 100vw;">
+            <div class="container-fluid"><a class="navbar-brand d-flex flex-grow-1 align-items-end" href="#" style="display: flex;padding: 2px;"><img src="../assets/img/vitulusShape.svg" width="114" height="27"><span style="margin-left: 9px;">Motors</span></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1" id="btn_navbar_toggler" style="height: 36px;border-width: 0px;"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+                <div class="collapse navbar-collapse" id="navcol-1">
+                    <ul class="navbar-nav" style="color: rgba(40,43,48,0.99);/*z-index: 5000;*/">
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/map_view"><span><i class="fa fa-map" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i></span>Map view</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/motors"><span><i class="fa fa-gears" style="margin-right: 8px;color: rgb(241,125,34);"></i></span>Motors</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/power_module"><i class="fa fa-battery-3" style="margin-right: 8px;color: rgb(241,125,34);"></i>Power module</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/imu_calibration"><i class="fa fa-compass" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i>Imu calibration</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/mower"><i class="fa fa-gear" style="margin-right: 11px;font-size: 18px;color: rgb(241,125,34);"></i>Mower</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/diagnostics"><i class="fa fa-heartbeat" style="margin-right: 8px;font-size: 15px;color: rgb(241,125,34);"></i>Diagnostics</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <div id="menu_spacer" style="height: 42px;"></div>
+        <div id="div_content" style="height: calc(100vh - 42px);width: 100vw;">
+            <div>
+                <div class="row" style="margin: 0px;padding-top: 2px;">
+                    <div class="col" style="margin: 0px;">
+                        <div class="input-group input-group-sm"><span class="input-group-text">Motor torque</span><span class="text-info input-group-text" id="span_motor_torque" style="border-right-style: none;border-left-style: none;padding-right: 1px;width: 45px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;">Nm</span><input class="form-control" type="number" id="intput_motor_torque" min="0" max="24" step="1" style="color: var(--bs-gray-200);background: var(--bs-gray-800);"><button class="btn btn-outline-info" id="btn_motor_torque" type="button">Save</button></div>
+                    </div>
+                </div>
+                <div class="row" style="margin: 0px;padding-top: 4px;">
+                    <div class="col" style="margin: 0px;">
+                        <div class="input-group input-group-sm"><span class="text-success input-group-text" id="span_motors">Motors</span><button class="btn btn-outline-success" id="btn_motors_on" type="button" style="width: 74.9375px;">ON</button><button class="btn btn-outline-danger" id="btn_motors_off" type="button" style="width: 74.9375px;">OFF</button></div>
+                    </div>
+                </div>
+                <div class="row" style="margin: 0px;padding-top: 2px;">
+                    <div class="col" style="margin: 0px;padding-top: 8px;">
+                        <div class="d-flex align-items-center"><img id="ico_fl_motor" src="../assets/img/robot_icons/Nextion_ico_motorLF_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-blue);padding-left: 2px;font-size: 14px;width: 106px;">FRONT LEFT</span></div>
+                        <div style="font-size: 14px;"><span>Id:&nbsp;</span><span id="span_motor1_id" style="min-width: 20px;color: var(--bs-blue);">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Status:&nbsp;</span><span id="span_motor1_status" style="min-width: 20px;">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Torque:&nbsp;</span><span id="span_motor1_torque" style="min-width: 20px;">&nbsp;</span><span>&nbsp;Nm</span></div>
+                        <div style="font-size: 14px;"><span>Temp:&nbsp;</span><span id="span_motor1_temp" style="min-width: 20px;">&nbsp;</span><span>&nbsp;°C</span></div>
+                        <div style="font-size: 14px;"><span>Velocity:&nbsp;</span><span id="span_motor1_velocity" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m/s</span></div>
+                        <div style="font-size: 14px;"><span>Position:&nbsp;</span><span id="span_motor1_position" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m</span></div>
+                        <div style="font-size: 14px;"><span>Volts:&nbsp;</span><span id="span_motor1_volts" style="min-width: 20px;">&nbsp;</span><span>&nbsp;V</span></div>
+                        <div style="font-size: 14px;"><span>Mode:&nbsp;</span><span id="span_motor1_mode" style="min-width: 20px;">&nbsp;</span></div>
+                    </div>
+                    <div class="col" style="margin: 0px;padding-top: 8px;">
+                        <div class="d-flex align-items-center"><img id="ico_fr_motor" src="../assets/img/robot_icons/Nextion_ico_motorRF_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-blue);padding-left: 2px;font-size: 14px;width: 106px;">FRONT RIGHT</span></div>
+                        <div style="font-size: 14px;"><span>Id:&nbsp;</span><span id="span_motor2_id" style="min-width: 20px;color: var(--bs-blue);">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Status:&nbsp;</span><span id="span_motor2_status" style="min-width: 20px;">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Torque:&nbsp;</span><span id="span_motor2_torque" style="min-width: 20px;">&nbsp;</span><span>&nbsp;Nm</span></div>
+                        <div style="font-size: 14px;"><span>Temp:&nbsp;</span><span id="span_motor2_temp" style="min-width: 20px;">&nbsp;</span><span>&nbsp;°C</span></div>
+                        <div style="font-size: 14px;"><span>Velocity:&nbsp;</span><span id="span_motor2_velocity" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m/s</span></div>
+                        <div style="font-size: 14px;"><span>Position:&nbsp;</span><span id="span_motor2_position" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m</span></div>
+                        <div style="font-size: 14px;"><span>Volts:&nbsp;</span><span id="span_motor2_volts" style="min-width: 20px;">&nbsp;</span><span>&nbsp;V</span></div>
+                        <div style="font-size: 14px;"><span>Mode:&nbsp;</span><span id="span_motor2_mode" style="min-width: 20px;">&nbsp;</span></div>
+                    </div>
+                    <div class="col" style="margin: 0px;padding-top: 8px;">
+                        <div class="d-flex align-items-center"><img id="ico_rl_motor" src="../assets/img/robot_icons/Nextion_ico_motorLR_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-blue);padding-left: 2px;font-size: 14px;width: 106px;">REAR LEFT</span></div>
+                        <div style="font-size: 14px;"><span>Id:&nbsp;</span><span id="span_motor3_id" style="min-width: 20px;color: var(--bs-blue);">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Status:&nbsp;</span><span id="span_motor3_status" style="min-width: 20px;">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Torque:&nbsp;</span><span id="span_motor3_torque" style="min-width: 20px;">&nbsp;</span><span>&nbsp;Nm</span></div>
+                        <div style="font-size: 14px;"><span>Temp:&nbsp;</span><span id="span_motor3_temp" style="min-width: 20px;">&nbsp;</span><span>&nbsp;°C</span></div>
+                        <div style="font-size: 14px;"><span>Velocity:&nbsp;</span><span id="span_motor3_velocity" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m/s</span></div>
+                        <div style="font-size: 14px;"><span>Position:&nbsp;</span><span id="span_motor3_position" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m</span></div>
+                        <div style="font-size: 14px;"><span>Volts:&nbsp;</span><span id="span_motor3_volts" style="min-width: 20px;">&nbsp;</span><span>&nbsp;V</span></div>
+                        <div style="font-size: 14px;"><span>Mode:&nbsp;</span><span id="span_motor3_mode" style="min-width: 20px;">&nbsp;</span></div>
+                    </div>
+                    <div class="col" style="margin: 0px;padding-top: 8px;">
+                        <div class="d-flex align-items-center"><img id="ico_rr_motor" src="../assets/img/robot_icons/Nextion_ico_motorRR_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-blue);padding-left: 2px;font-size: 14px;width: 106px;">REAR RIGHT</span></div>
+                        <div style="font-size: 14px;"><span>Id:&nbsp;</span><span id="span_motor4_id" style="min-width: 20px;color: var(--bs-blue);">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Status:&nbsp;</span><span id="span_motor4_status" style="min-width: 20px;">&nbsp;</span></div>
+                        <div style="font-size: 14px;"><span>Torque:&nbsp;</span><span id="span_motor4_torque" style="min-width: 20px;">&nbsp;</span><span>&nbsp;Nm</span></div>
+                        <div style="font-size: 14px;"><span>Temp:&nbsp;</span><span id="span_motor4_temp" style="min-width: 20px;">&nbsp;</span><span>&nbsp;°C</span></div>
+                        <div style="font-size: 14px;"><span>Velocity:&nbsp;</span><span id="span_motor4_velocity" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m/s</span></div>
+                        <div style="font-size: 14px;"><span>Position:&nbsp;</span><span id="span_motor4_position" style="min-width: 20px;">&nbsp;</span><span>&nbsp;m</span></div>
+                        <div style="font-size: 14px;"><span>Volts:&nbsp;</span><span id="span_motor4_volts" style="min-width: 20px;">&nbsp;</span><span>&nbsp;V</span></div>
+                        <div style="font-size: 14px;"><span>Mode:&nbsp;</span><span id="span_motor4_mode" style="min-width: 20px;">&nbsp;</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../assets/js/jquery.min.js"></script>
+    <script src="../assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="../assets/js/bs-init.js"></script>
+    <script src="../assets/js/webui.js"></script>
+</body>
+
+</html>

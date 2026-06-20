@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   style="fill:currentColor"
+   id="svg8"
+   version="1.1"
+   class="bi bi-joystick"
+   viewBox="0 0 45 44.370987"
+   height="44.370987"
+   width="45">
+  <metadata
+     id="metadata14">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs12" />
+  <path
+     style="fill:#b3d8b2;fill-opacity:1;stroke:#b3d8b2;stroke-width:2.64705753;stroke-opacity:1"
+     id="path2"
+     d="M 20.133497,42.486815 2.7873491,33.812414 A 2.6470606,2.6470606 0 0 1 1.3235288,31.445932 V 26.387407 A 2.6470606,2.6470606 0 0 1 2.9276481,24.031525 L 17.205872,17.911526 v 2.88 L 3.9705872,26.46417 18.947654,33.955347 a 7.9411756,7.9411756 0 0 0 7.104666,0 L 41.029377,26.46417 27.794112,20.791526 v -2.877355 l 14.278198,6.12 a 2.6470606,2.6470606 0 0 1 1.604161,2.355882 v 5.058533 a 2.6470606,2.6470606 0 0 1 -1.463804,2.366461 l -17.346191,8.67444 a 5.2941149,5.2941149 0 0 1 -4.732979,0 z" />
+  <path
+     style="fill:#b3d8b2;fill-opacity:1;fill-rule:evenodd;stroke-width:2.64705753"
+     id="path4"
+     d="M 21.176485,26.46417 V 10.581824 h 2.647016 V 26.46417 Z" />
+  <path
+     style="fill:#b3d8b2;fill-opacity:1;stroke:#b3d8b2;stroke-width:2.64705753;stroke-opacity:1"
+     id="path6"
+     d="m 27.794112,27.125936 c 0,1.095883 -2.36912,1.985282 -5.29412,1.985282 -2.924999,0 -5.29412,-0.889399 -5.29412,-1.985282 0,-1.095883 2.369121,-1.985295 5.29412,-1.985295 2.925,0 5.29412,0.889412 5.29412,1.985295 z m 0,-20.5147117 a 5.2941239,5.2941239 0 1 1 -10.58824,0 5.2941239,5.2941239 0 0 1 10.58824,0 z" />
+</svg>

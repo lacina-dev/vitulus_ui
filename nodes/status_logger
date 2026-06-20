@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""status_logger — caches the transient status messages that flash at the top
+of the WebUI map view (the ``/nextion/log_info`` feed) into a persistent log.
+
+This node is intentionally independent of the WebUI: it runs as its own ROS
+process, so the status messages are captured and written to disk even when no
+browser is connected. The WebUI reads the cached history purely over ROS (no
+HTTP), via a latched ``history`` topic, so a freshly connected client receives
+the recent backlog immediately and then keeps receiving live updates.
+
+Persisted format: one JSON object per line (JSONL), size-rotated. Each entry::
+
+    {"seq": 42, "t": 1717108800.123, "iso": "2026-05-31T00:20:00", "msg": "..."}
+
+Parameters (private):
+    ~source_topic   (str)  topic to cache             [default /nextion/log_info]
+    ~history_topic  (str)  latched JSON-array output   [default ~/history]
+    ~log_dir        (str)  directory for the log file  [default ~/.ros/vitulus_status_log]
+    ~log_file       (str)  log file name               [default status_log.jsonl]
+    ~buffer_size    (int)  entries kept in memory / republished  [default 500]
+    ~max_bytes      (int)  rotate after this many bytes [default 5*1024*1024]
+    ~backup_count   (int)  rotated files to keep        [default 3]
+"""
+
+import json
+import logging
+import logging.handlers
+import os
+import threading
+import time
+from collections import deque
+
+import rospy
+from std_msgs.msg import String
+
+
+class StatusLogger(object):
+    def __init__(self):
+        self.source_topic = rospy.get_param('~source_topic', '/nextion/log_info')
+        self.history_topic = rospy.get_param('~history_topic', '~history')
+        log_dir = rospy.get_param('~log_dir', '~/.ros/vitulus_status_log')
+        log_file = rospy.get_param('~log_file', 'status_log.jsonl')
+        self.buffer_size = int(rospy.get_param('~buffer_size', 500))
+        max_bytes = int(rospy.get_param('~max_bytes', 5 * 1024 * 1024))
+        backup_count = int(rospy.get_param('~backup_count', 3))
+
+        self.log_dir = os.path.abspath(os.path.expanduser(log_dir))
+        self.log_path = os.path.join(self.log_dir, log_file)
+        os.makedirs(self.log_dir, exist_ok=True)
+
+        self.lock = threading.Lock()
+        self.buffer = deque(maxlen=self.buffer_size)
+        self.seq = 0
+
+        # Size-rotating file writer; the formatter is a bare "%(message)s" so the
+        # file contains exactly the JSON lines we hand it.
+        self.file_logger = logging.getLogger('vitulus_status_log_file')
+        self.file_logger.setLevel(logging.INFO)
+        self.file_logger.propagate = False
+        handler = logging.handlers.RotatingFileHandler(
+            self.log_path, maxBytes=max_bytes, backupCount=backup_count,
+            encoding='utf-8')
+        handler.setFormatter(logging.Formatter('%(message)s'))
+        self.file_logger.addHandler(handler)
+        self.backup_count = backup_count
+
+        # Restore recent history (and the running seq) from disk so a node
+        # restart doesn't lose the backlog the WebUI shows.
+        self._load_existing()
+
+        self.history_pub = rospy.Publisher(
+            self.history_topic, String, queue_size=1, latch=True)
+        self._publish_history()
+
+        self.sub = rospy.Subscriber(
+            self.source_topic, String, self._on_message, queue_size=50)
+
+        rospy.loginfo('status_logger: caching %s -> %s (buffer=%d)',
+                      self.source_topic, self.log_path, self.buffer_size)
+
+    def _load_existing(self):
+        """Seed the in-memory buffer (and running seq) from the tail of the log,
+        reading rotated backups oldest-first so backlog/seq survive a rotation."""
+        # RotatingFileHandler names backups <file>.1 (newest) .. <file>.N (oldest).
+        paths = [self.log_path + '.' + str(i)
+                 for i in range(self.backup_count, 0, -1)]
+        paths.append(self.log_path)
+        lines = []
+        for path in paths:
+            if not os.path.isfile(path):
+                continue
+            try:
+                with open(path, 'r', encoding='utf-8') as fh:
+                    lines.extend(fh.readlines())
+            except OSError as exc:
+                rospy.logwarn('status_logger: could not read %s: %s', path, exc)
+        for line in lines[-self.buffer_size:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            self.buffer.append(entry)
+            try:
+                self.seq = max(self.seq, int(entry.get('seq', 0)) + 1)
+            except (TypeError, ValueError):
+                pass
+
+    def _on_message(self, message):
+        now = time.time()  # wall-clock seconds (float), independent of ROS sim time
+        msg = message.data if message.data is not None else ''
+        with self.lock:
+            entry = {
+                'seq': self.seq,
+                't': now,
+                'iso': _iso(now),
+                'msg': msg,
+            }
+            self.seq += 1
+            self.buffer.append(entry)
+            line = json.dumps(entry, ensure_ascii=False)
+            try:
+                self.file_logger.info(line)
+            except Exception as exc:  # never let disk issues kill the node
+                rospy.logwarn_throttle(60, 'status_logger: write failed: %s', exc)
+            self._publish_history()
+
+    def _publish_history(self):
+        try:
+            payload = json.dumps(list(self.buffer), ensure_ascii=False)
+        except (TypeError, ValueError) as exc:
+            rospy.logwarn('status_logger: encode history failed: %s', exc)
+            return
+        self.history_pub.publish(String(data=payload))
+
+
+def _iso(epoch):
+    import datetime
+    return datetime.datetime.fromtimestamp(epoch).isoformat(timespec='seconds')
+
+
+if __name__ == '__main__':
+    try:
+        rospy.init_node('status_logger')
+        StatusLogger()
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass

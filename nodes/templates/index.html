@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html data-bs-theme="light">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>VITULUS UI</title>
+    <meta name="" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/VitulusOnGrassBlended16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/VitulusOnGrassBlended16x16Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/VitulusOnGrassBlended32x32.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/VitulusOnGrassBlended32x32Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="180x180" href="assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/img/VitulusOnGrassBlended192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/img/VitulusOnGrassBlended512x512.png">
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:400,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700">
+    <link rel="stylesheet" href="assets/fonts/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/fonts/line-awesome.min.css">
+    <link rel="stylesheet" href="assets/fonts/material-icons.min.css">
+    <link rel="stylesheet" href="assets/fonts/simple-line-icons.min.css">
+    <link rel="stylesheet" href="assets/fonts/typicons.min.css">
+    <link rel="stylesheet" href="assets/css/bs-theme-overrides.css">
+    <link rel="stylesheet" href="assets/css/Dark-NavBar-1.css">
+    <link rel="stylesheet" href="assets/css/Dark-NavBar-2.css">
+    <link rel="stylesheet" href="assets/css/Dark-NavBar.css">
+    <link rel="stylesheet" href="assets/css/Feature-Section-MD.css">
+    <link rel="stylesheet" href="assets/css/Header-Dark.css">
+    <link rel="stylesheet" href="assets/css/map_edit_item_poly.css">
+    <link rel="stylesheet" href="assets/css/Navbar-mob.css">
+    <link rel="stylesheet" href="assets/css/Navigation-Clean.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/Vitulus_mobile_template.css">
+<script src="/assets/js/three.js"></script>
+<script src="/assets/js/easeljs.js"></script>
+<script src="/assets/js/eventemitter2.js"></script>
+<script src="/assets/js/roslib.js"></script>
+<script src="/assets/js/ros3d.js"></script>
+<script src="/assets/js/nipplejs.js"></script>
+<script src="/assets/js/mjpegcanvas.js"></script>
+<script src="/assets/js/rain_alert.js"></script>
+<script src="/assets/js/dock.js"></script>
+<script src="/assets/js/map_view.js"></script>
+<script src="/assets/js/calendar_manager.js"></script>
+<script src="/assets/js/keyboardteleop.js"></script>
+<script src="/assets/js/planner3d.js"></script>
+<script src="/assets/js/map_edit.js"></script>
+<script src="/assets/js/mapeditor.js"></script>
+<script src="/assets/js/imu_calibration.js"></script>
+<script src="/assets/js/app.js"></script>
+<style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
+<style>
+/* ROS log viewer (compact + expanded) */
+#div_log_view { padding: 0 !important; overflow: visible !important; }
+#div_log_view #div_log_content { overflow-y: auto; overflow-x: hidden; height: 100%; padding: 2px 6px; -webkit-overflow-scrolling: touch; }
+#div_log_view #div_log_toolbar { display: none; }
+#div_log_view #btn_log_expand {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    top: -18px;
+    width: clamp(90px, 20vw, 150px);
+    height: 18px;
+    padding: 0;
+    line-height: 18px;
+    font-size: 11px;
+    border-radius: 9px 9px 0 0;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-bottom: none;
+    background: rgb(36,48,57);
+    color: rgba(180,210,230,0.80);
+    opacity: 1;
+    z-index: 2;
+    white-space: nowrap;
+    box-shadow: 0 -3px 9px rgba(0,0,0,0.45);
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+#div_log_view #btn_log_expand:hover, #div_log_view #btn_log_expand:focus {
+    background: rgb(52,72,90);
+    color: #d0eeff;
+    box-shadow: 0 -3px 12px rgba(0,160,240,0.28);
+}
+#div_log_view.log-expanded {
+    display: flex !important; flex-direction: column;
+    position: fixed !important;
+    overflow: hidden !important;
+    top: 46px !important; right: 6px !important; bottom: 6px !important; left: 6px !important;
+    width: auto !important; height: auto !important;
+    margin: 0 !important; max-width: none !important;
+    z-index: 1080 !important;
+    background: rgb(28,38,44) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.55) !important;
+}
+#div_log_view.log-expanded #div_log_toolbar { display: block; }
+#div_log_view.log-expanded #div_log_content { flex: 1 1 auto; height: auto; padding: 4px 8px; }
+#div_log_view.log-expanded #btn_log_expand { display: none; }
+.log-toolbar { padding: 6px 8px; background: rgb(20,28,33); border-bottom: 1px solid rgba(255,255,255,0.08); }
+.log-toolbar-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.log-toolbar .log-source-filter { position: relative; flex: 1 1 140px; min-width: 110px; }
+.log-toolbar .log-source-btn { width: 100%; text-align: left; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 2px 8px; line-height: 1.5; }
+.log-source-panel { position: absolute; left: 0; top: calc(100% + 2px); min-width: 100%; width: max-content; max-width: 300px; max-height: 220px; display: flex; flex-direction: column; background: rgb(24,32,40); border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; z-index: 30; box-shadow: 0 4px 20px rgba(0,0,0,0.65); }
+.log-source-panel-hdr { display: flex; align-items: center; gap: 4px; padding: 3px 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; font-size: 11px; color: #9aa0a6; }
+.log-source-list { overflow-y: auto; flex: 1 1 auto; padding: 4px 0; -webkit-overflow-scrolling: touch; }
+.log-source-list label { display: flex; align-items: center; gap: 7px; padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; user-select: none; }
+.log-source-list label:hover { background: rgba(255,255,255,0.07); }
+.log-source-list input[type=checkbox] { accent-color: #0299fd; width: 14px; height: 14px; flex-shrink: 0; cursor: pointer; margin: 0; }
+.log-toolbar .log-search { width: auto; min-width: 120px; flex: 2 1 200px; padding: 2px 8px; font-size: 12px; }
+.log-toolbar .log-counter { font-size: 11px; color: #9aa0a6; margin-left: auto; white-space: nowrap; }
+.log-toolbar .log-level-group .btn { font-size: 11px; padding: 2px 7px; line-height: 1.3; }
+.log-toolbar .log-mode-group .btn { font-size: 11px; padding: 2px 9px; line-height: 1.3; }
+.log-toolbar .log-iconbtn { font-size: 11px; padding: 2px 8px; line-height: 1.3; }
+.log-line { font-size: 11px; line-height: 1.4; font-family: var(--bs-font-monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); white-space: pre-wrap; word-break: break-word; display: block; }
+.log-line .log-meta { opacity: 0.85; }
+.log-line .log-name { font-weight: 600; }
+.log-line.lvl-1 { color: #7a8288; }
+.log-line.lvl-2 { color: rgb(2,153,253); }
+.log-line.lvl-4 { color: #fc7e14; }
+.log-line.lvl-8 { color: #e83e8c; }
+.log-line.lvl-16 { color: #e83e8c; font-weight: 600; }
+.log-line.status { color: #cfd4d8; }
+.log-line.status .log-date { opacity: 0.6; }
+@media (max-width: 600px) {
+    .log-toolbar .log-source-select, .log-toolbar .log-search { flex-basis: 100%; max-width: none; }
+    .log-toolbar .log-counter { flex-basis: 100%; text-align: right; margin-left: 0; }
+    #div_log_view.log-expanded { top: 46px !important; right: 4px !important; bottom: 4px !important; left: 4px !important; }
+    .log-line { font-size: 12px; }
+}
+
+/* Rosbag list */
+.bag-list .bag-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 12px;
+}
+.bag-list .bag-row:last-child { border-bottom: 0; }
+.bag-list .bag-info { flex: 1 1 auto; min-width: 0; }
+.bag-list .bag-name { font-weight: 600; color: #e9ecef; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bag-list .bag-meta { font-size: 10.5px; color: #9aa0a6; }
+.bag-list .bag-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+.bag-list .bag-actions .btn { padding: 2px 8px; font-size: 11px; line-height: 1.3; }
+.bag-list .bag-row.active .bag-name::after {
+    content: " ● REC"; color: var(--bs-danger); font-size: 10px; font-weight: 700;
+}
+@media (max-width: 500px) {
+    .bag-list .bag-row { flex-wrap: wrap; }
+    .bag-list .bag-actions { width: 100%; justify-content: flex-end; }
+}
+</style>
+<style id="vitulus-ui-responsive">
+#div_menu_mapedit > div { width: 100% !important; max-width: 494px; }
+@media (max-width: 540px) {
+  #div_menu_mapedit > div { width: 100% !important; }
+}
+/* IMU tab: propagate the bounded outer height down the row + columns so
+   the left controls column fills the block; #3d_view gets its own
+   explicit viewport height (set in build) and no longer relies on this. */
+#div_content_imu > .row,
+#div_content_imu > .row > [class*="col-"] { height: 100%; }
+</style>
+</head>
+
+<body>
+
+    <div class="modal fade" role="dialog" tabindex="-1" id="modal_remove_bag">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Delete rosbag</h4><button class="btn-close" type="button" aria-label="Close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Delete&nbsp;<span id="span_modal_remove_bag_name" style="font-weight:600;color:var(--bs-warning);"></span>?</p>
+                    <p style="font-size:12px;color:#9aa0a6;margin-bottom:0;">This cannot be undone.</p>
+                </div>
+                <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="btn_modal_remove_bag" type="button">Delete</button></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" role="dialog" tabindex="-1" id="modal_remove_map">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Remove map</h4><button class="btn-close" type="button" aria-label="Close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Do you really want to remove&nbsp;<span id="span_modal_remove_map_name">&nbsp;&nbsp;</span> map?</p>
+                </div>
+                <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="btn_modal_remove_map" type="button">Remove</button></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" role="dialog" tabindex="-1" id="modal_remove_point">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Remove point</h4><button class="btn-close" type="button" aria-label="Close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Do you really want to remove&nbsp;<span id="span_modal_remove_point_name">&nbsp;&nbsp;</span> point?</p>
+                </div>
+                <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="btn_modal_remove_point" type="button">Remove</button></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" role="dialog" tabindex="-1" id="modal_remove_path">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Remove path</h4><button class="btn-close" type="button" aria-label="Close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Do you really want to remove&nbsp;<span id="span_modal_remove_path_name">&nbsp;&nbsp;</span> path?</p>
+                </div>
+                <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="btn_modal_remove_path" type="button">Remove</button></div>
+            </div>
+        </div>
+    </div>
+    <nav class="navbar navbar-expand-lg" id="div_menu" style="background: #282b30;padding-top: 3px;padding-bottom: 3px;position: absolute;display: block;width: 100vw;">
+        <div class="container-fluid"><a class="navbar-brand d-flex flex-grow-1 align-items-end" href="#" style="display: flex;padding: 2px;border-right-style: none;"><img src="assets/img/vitulusShape.svg" width="114" height="27"><span style="margin-left: 9px;">Map view</span><span id="conn_status" style="display:inline-flex;align-items:center;gap:5px;padding:0 6px;margin-left:6px;margin-bottom:4px;font-size:11px;font-weight:bold;color:var(--bs-warning);background:transparent;border:none;transition:color 0.25s;cursor:pointer;user-select:none;white-space:nowrap;line-height:1;" title="Click to reconnect"><i id="conn_status_icon" class="la la-wifi" style="font-size:15px;vertical-align:middle;animation:vitulus-spin 1s linear infinite;"></i><span id="conn_status_text" style="vertical-align:middle;">CONNECTING</span></span><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" class="bi bi-cloud-sun" id="ico_rain_ok" style="margin-left: 6px;font-size: 17.2px;color: var(--bs-success);margin-bottom: 6px;display: none;">
+                    <path d="M7 8a3.5 3.5 0 0 1 3.5 3.555.5.5 0 0 0 .624.492A1.503 1.503 0 0 1 13 13.5a1.5 1.5 0 0 1-1.5 1.5H3a2 2 0 1 1 .1-3.998.5.5 0 0 0 .51-.375A3.502 3.502 0 0 1 7 8m4.473 3a4.5 4.5 0 0 0-8.72-.99A3 3 0 0 0 3 16h8.5a2.5 2.5 0 0 0 0-5z"></path>
+                    <path d="M10.5 1.5a.5.5 0 0 0-1 0v1a.5.5 0 0 0 1 0zm3.743 1.964a.5.5 0 1 0-.707-.707l-.708.707a.5.5 0 0 0 .708.708l.707-.708zm-7.779-.707a.5.5 0 0 0-.707.707l.707.708a.5.5 0 1 0 .708-.708l-.708-.707zm1.734 3.374a2 2 0 1 1 3.296 2.198c.199.281.372.582.516.898a3 3 0 1 0-4.84-3.225c.352.011.696.055 1.028.129m4.484 4.074c.6.215 1.125.59 1.522 1.072a.5.5 0 0 0 .039-.742l-.707-.707a.5.5 0 0 0-.854.377M14.5 6.5a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1z"></path>
+                </svg><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" class="bi bi-cloud-rain-fill" id="ico_rain_warn" style="margin-left: 8px;font-size: 17.2px;color: var(--bs-warning);margin-bottom: 6px;display: none;">
+                    <path d="M4.158 12.025a.5.5 0 0 1 .316.633l-.5 1.5a.5.5 0 1 1-.948-.316l.5-1.5a.5.5 0 0 1 .632-.317m3 0a.5.5 0 0 1 .316.633l-1 3a.5.5 0 1 1-.948-.316l1-3a.5.5 0 0 1 .632-.317zm3 0a.5.5 0 0 1 .316.633l-.5 1.5a.5.5 0 1 1-.948-.316l.5-1.5a.5.5 0 0 1 .632-.317m3 0a.5.5 0 0 1 .316.633l-1 3a.5.5 0 1 1-.948-.316l1-3a.5.5 0 0 1 .632-.317m.247-6.998a5.001 5.001 0 0 0-9.499-1.004A3.5 3.5 0 1 0 3.5 11H13a3 3 0 0 0 .405-5.973z"></path>
+                </svg><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" class="bi bi-cloud-rain-heavy-fill" id="ico_rain_danger" style="margin-left: 8px;font-size: 17.2px;color: #e8112d;margin-bottom: 6px;display: none;">
+                    <path d="M4.176 11.032a.5.5 0 0 1 .292.643l-1.5 4a.5.5 0 0 1-.936-.35l1.5-4a.5.5 0 0 1 .644-.293zm3 0a.5.5 0 0 1 .292.643l-1.5 4a.5.5 0 0 1-.936-.35l1.5-4a.5.5 0 0 1 .644-.293zm3 0a.5.5 0 0 1 .292.643l-1.5 4a.5.5 0 0 1-.936-.35l1.5-4a.5.5 0 0 1 .644-.293zm3 0a.5.5 0 0 1 .292.643l-1.5 4a.5.5 0 0 1-.936-.35l1.5-4a.5.5 0 0 1 .644-.293zm.229-7.005a5.001 5.001 0 0 0-9.499-1.004A3.5 3.5 0 1 0 3.5 10H13a3 3 0 0 0 .405-5.973"></path>
+                </svg></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1" id="btn_navbar_toggler" style="height: 36px;border-width: 0px;"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse d-lg-flex justify-content-lg-end" id="navcol-1">
+                <ul class="navbar-nav" style="color: rgba(40,43,48,0.99);">
+                    
+                    
+                    
+                </ul>
+            </div>
+        </div>
+    </nav>
+<div id="section_map">
+
+    <div id="div_bottom_menu" style="margin-top: calc(100vh - 29px);position: absolute;display: block;width: 100%;z-index: 1;">
+        <div class="btn-group btn-group-sm bg-dark border rounded border-1 border-primary" role="group" style="width: 100%;background: rgba(0,0,0,0.6);"><button class="btn btn-outline-danger active d-flex justify-content-center align-items-center" id="btn_stop_all" type="button" style="border-top-left-radius: 6px;border-bottom-left-radius: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" class="bi bi-sign-stop-fill" style="font-size: 17px;font-weight: bold;">
+                    <path d="M10.371 8.277v-.553c0-.827-.422-1.234-.987-1.234-.572 0-.99.407-.99 1.234v.553c0 .83.418 1.237.99 1.237.565 0 .987-.408.987-1.237m2.586-.24c.463 0 .735-.272.735-.744s-.272-.741-.735-.741h-.774v1.485h.774"></path>
+                    <path d="M4.893 0a.5.5 0 0 0-.353.146L.146 4.54A.5.5 0 0 0 0 4.893v6.214a.5.5 0 0 0 .146.353l4.394 4.394a.5.5 0 0 0 .353.146h6.214a.5.5 0 0 0 .353-.146l4.394-4.394a.5.5 0 0 0 .146-.353V4.893a.5.5 0 0 0-.146-.353L11.46.146A.5.5 0 0 0 11.107 0zM3.16 10.08c-.931 0-1.447-.493-1.494-1.132h.653c.065.346.396.583.891.583.524 0 .83-.246.83-.62 0-.303-.203-.467-.637-.572l-.656-.164c-.61-.147-.978-.51-.978-1.078 0-.706.597-1.184 1.444-1.184.853 0 1.386.475 1.436 1.087h-.645c-.064-.32-.352-.542-.797-.542-.472 0-.77.246-.77.6 0 .261.196.437.553.522l.654.161c.673.164 1.06.487 1.06 1.11 0 .736-.574 1.228-1.544 1.228Zm3.427-3.51V10h-.665V6.57H4.753V6h3.006v.568H6.587Zm4.458 1.16v.544c0 1.131-.636 1.805-1.661 1.805-1.026 0-1.664-.674-1.664-1.805V7.73c0-1.136.638-1.807 1.664-1.807 1.025 0 1.66.674 1.66 1.807ZM11.52 6h1.535c.82 0 1.316.55 1.316 1.292 0 .747-.501 1.289-1.321 1.289h-.865V10h-.665V6.001Z"></path>
+                </svg></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center" id="btn_camera_show" type="button"><i class="la la-camera" style="font-size: 17px;font-weight: bold;"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center" id="btn_joy" type="button"><i class="material-icons" style="font-size: 17px;font-weight: bold;">games</i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center" id="btn_follow" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-viewfinder" style="font-size: 17px;font-weight: bold;">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                    <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
+                    <path d="M12 3l0 4"></path>
+                    <path d="M12 21l0 -3"></path>
+                    <path d="M3 12l4 0"></path>
+                    <path d="M21 12l-3 0"></path>
+                    <path d="M12 12l0 .01"></path>
+                </svg></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center" id="btn_log" type="button" style="border-top-right-radius: 6px;border-bottom-right-radius: 6px;"><svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 17px;font-weight: bold;">
+                    <g>
+                        <rect fill="none" height="24" width="24"></rect>
+                        <path d="M20,15H4v-2h16V15z M20,17H4v2h16V17z M15,11l5-3.55L20,5l-5,3.55L10,5L4,8.66L4,11l5.92-3.61L15,11z"></path>
+                    </g>
+                </svg></button></div>
+    </div>
+    <div id="div_container">
+        <div id="menu_spacer" style="height: 42px;"></div>
+        <div id="div_content" style="height: calc(100vh - 42px);">
+            <div class="no-event" style="position: absolute;width: 100%;z-index: 10;">
+                <div class="row g-0 all-events" id="row_menu">
+                    <div class="col">
+                        <div class="btn-group btn-group-sm bg-dark border-1 border-primary" role="group" style="width: 100%;background: rgba(0,0,0,0.6);border-bottom-left-radius: 0px;border-bottom-right-radius: 0px;border-width: 5px;border-style: solid;"><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_marker" type="button" style="border-top-left-radius: 6px;border-bottom-left-radius: 0px;"><i class="la la-hand-pointer-o" style="font-size: 17px;font-weight: bold;"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_settings" type="button"><i class="la la-gear" style="font-size: 17px;font-weight: bold;"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_map" type="button"><i class="la la-map" style="font-size: 17px;font-weight: bold;"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_programs" type="button"><i class="la la-play" style="font-size: 17px;font-weight: bold;"></i></button></div>
+                    </div>
+                </div>
+                <div class="row all-events" id="row_submenu" style="margin-right: 0px;margin-left: 0px;">
+                    <div class="col" style="padding-right: 0px;padding-left: 0px;">
+                        <div class="bg-primary border-primary" id="div_menu_marker" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 1%, var(--bs-primary)), var(--bs-secondary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;border: 1px solid var(--bs-info);border-top-style: none;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 8px;">
+                            <div class="row g-0">
+                                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="height: auto;margin-top: 8px;"><label class="form-label" style="font-size: 12px;margin-bottom: 4px;display: block;">Marker</label><button class="btn btn-primary btn-sm" id="btn_marker_send_goal" type="button">Send goal</button><button class="btn btn-warning btn-sm" id="btn_marker_cancel_navigation" type="button">Cancel navigation</button></div>
+                                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="display: block;height: auto;margin-top: 8px;"><label class="form-label" style="font-size: 12px;margin-bottom: 4px;display: block;">Marker orientation</label><input class="form-range bg-secondary border rounded-pill border-secondary" type="range" id="range_marker_orientation" min="0" max="6.28" step="0.05" value="0" style="padding: 12px;"></div>
+                            </div>
+                        </div>
+                        <div class="border-primary" id="div_menu_map" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;display: none;">
+                            <div>
+                                
+<ul class="nav nav-tabs d-flex d-xl-flex justify-content-start justify-content-xl-center" role="tablist" style="font-size: 13px;display: inline-flex;background: var(--bs-secondary-text-emphasis);">
+                                    <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-map" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Map</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-path" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Path</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-point" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Point</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-dock" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Dock</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-rain" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Rain</a></li>
+                                </ul>
+                                <div class="tab-content" style="overflow: clip;">
+                                    <div class="tab-pane active" role="tabpanel" id="tab-map" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">New map</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-baseline" id="btn_menu_map_new_indoor" type="button" style="width: 55px;">&nbsp;<i class="material-icons" style="font-size: 18px;">home</i></button><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-middle" id="btn_menu_map_new_outdoor" type="button" style="width: 55px;">&nbsp;<i class="fa fa-tree"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Save map as</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -32 576 576" width="1em" height="1em" fill="currentColor">
+                                                            <!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc. -->
+                                                            <path d="M565.6 36.2C572.1 40.7 576 48.1 576 56V392c0 10-6.2 18.9-15.5 22.4l-168 64c-5.2 2-10.9 2.1-16.1 .3L192.5 417.5l-160 61c-7.4 2.8-15.7 1.8-22.2-2.7S0 463.9 0 456V120c0-10 6.1-18.9 15.5-22.4l168-64c5.2-2 10.9-2.1 16.1-.3L383.5 94.5l160-61c7.4-2.8 15.7-1.8 22.2 2.7zM48 136.5V421.2l120-45.7V90.8L48 136.5zM360 422.7V137.3l-144-48V374.7l144 48zm48-1.5l120-45.7V90.8L408 136.5V421.2z"></path>
+                                                        </svg></span><input class="bg-secondary form-control" type="text" id="input_menu_map_new" style="width: 125px;" placeholder="Map name"><button class="btn btn-primary" id="btn_menu_map_new_save" type="button">Save</button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Map</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button">Localization</button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Active map</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-info" id="active_map_name" style="font-size: 13px;margin-right: 8px;">Map name</span><button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit map detail (planner data, zones, polygons)"><i class="la la-edit text-info" style="font-size: 16px;"></i><span class="text-info" style="font-size: 12px;margin-left: 6px;">Edit map</span></button></div>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row g-0" id="div_menu_map_items_row" style="overflow: auto;">
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 14px;display: inline-block;color: var(--bs-light);">
+                                                                <path d="M0 0h24v24H0z" fill="none"></path>
+                                                                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path>
+                                                            </svg>&nbsp;</span></button><button class="btn btn-primary" id="btn_tst_modal" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 14px;display: inline-block;color: var(--bs-light);">
+                                                                <g>
+                                                                    <rect fill="none" height="24" width="24"></rect>
+                                                                </g>
+                                                                <g>
+                                                                    <polygon points="17,12 19,12 12,2 5.05,12 7,12 3.1,18 10.02,18 10.02,22 13.98,22 13.98,18 21,18"></polygon>
+                                                                </g>
+                                                            </svg>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="fa fa-home" style="font-size: 14px;display: inline-block;color: var(--bs-light);"></i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 4px;width: 19.5px;"><i class="fa fa-tree" style="font-size: 14px;display: inline-block;color: var(--bs-light);"></i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                        </div>
+</div>
+                                    <!-- map editor: zones -->
+
+<!-- map editor: polygons -->
+
+<div class="tab-pane" role="tabpanel" id="tab-path" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Add path, current position as start</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-road"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_path_new" style="width: 125px;" placeholder="Path name"><button class="btn btn-primary" id="btn_menu_path_new_save" type="button">New</button><button class="btn btn-primary" id="btn_menu_path_new_auto" type="button">&nbsp;New auto</button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Autopath stop</span><button class="btn btn-warning btn-sm" id="btn_menu_path_stop_auto" type="button">Stop auto</button></div>
+                                            <div class="col-auto" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Clear paths in map</span><button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button">Clear</button></div>
+                                            <div class="col" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Cancel navi</span><button class="btn btn-warning btn-sm" id="btn_menu_path_cancel" type="button">Cancel</button></div>
+                                        </div>
+                                        <hr>
+                                        <div class="row g-0" id="div_menu_path_items_row" style="overflow: auto;">
+                                            <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 143.1562px;padding-right: 5px;font-size: 13px;">Path name</span><button class="btn btn-primary" type="button">Add</button><button class="btn btn-primary" type="button">Show</button><button class="btn btn-primary" type="button" style="width: 40px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane" role="tabpanel" id="tab-point" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Add current position as point</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-map-marker"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_point_new" style="width: 125px;" placeholder="Point name"><button class="btn btn-primary" id="btn_menu_point_new_save" type="button">Add</button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Clear points in map</span><button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button">Clear</button></div>
+                                            <div class="col" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Cancel navi</span><button class="btn btn-warning btn-sm" id="btn_menu_point_cancel" type="button">Cancel</button></div>
+                                        </div>
+                                        <hr>
+                                        <div class="row g-0" id="div_menu_point_items_row" style="overflow: auto;">
+                                            <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-map-marker text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 185.9219px;padding-right: 5px;font-size: 13px;">Point name</span><button class="btn btn-primary" type="button">Show</button><button class="btn btn-primary" type="button" style="width: 40px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane" role="tabpanel" id="tab-dock" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Current map</span><label class="form-label" style="display: block;font-size: 14px;">Dock point</label>
+                                                <div class="btn-group" role="group" style="display: block;margin-bottom: 4px;"><button class="btn btn-primary btn-sm" id="map_dock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_dock_btn_update_point" type="button">Update</button></div><label class="form-label" style="display: block;font-size: 14px;">Undock point</label>
+                                                <div class="btn-group" role="group" style="display: block;"><button class="btn btn-primary btn-sm" id="map_undock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_undock_btn_update_point" type="button">Update</button></div>
+                                                <hr>
+                                                <div id="map_dock_point_name"></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock by lidar map</span>
+                                                <div class="form-check" style="margin-bottom: 7px;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="formCheck-1" style="font-size: 15px;">Enable</label></div><button class="btn btn-primary btn-sm" id="predock_btn_by_map" type="button">Predock</button><button class="btn btn-primary btn-sm" id="dock_btn_by_map" type="button">Dock</button><button class="btn btn-primary btn-sm" id="dock_btn_undock_by_map" type="button">Undock</button><button class="btn btn-danger btn-sm" id="dock_btn_by_map-stop" type="button">Stop</button><span style="display: block;font-size: 12px;margin-bottom: 4px;margin-top: 5px;">Map mangement</span><button class="btn btn-primary btn-sm" id="dock_btn_new_map" type="button">New map</button><button class="btn btn-primary btn-sm" id="dock_btn_edit_map" type="button">Edit map</button><button class="btn btn-warning btn-sm" id="dock_btn_stop_mapping" type="button">Save map</button>
+                                                <hr>
+                                                <div id="dock_div_map_status"></div>
+                                                <div id="dock_div_map_image"></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock by intensity</span>
+                                                <div class="form-check" style="margin-bottom: 5px;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="formCheck-2" style="font-size: 15px;">Enable</label></div><button class="btn btn-primary btn-sm" id="dock_btn_by_intensity" type="button">Dock</button><button class="btn btn-primary btn-sm" id="undock_btn_by_intensity" type="button">Undock</button><button class="btn btn-danger btn-sm" id="dock_btn_by_intensity-stop" type="button">Stop</button>
+                                                <hr>
+                                                <div id="dock_div_intensity_status"></div>
+                                                <div id="dock_div_intensity_image"></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock program</span>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_map"><label class="form-check-label" for="formCheck-1" style="font-size: 14px;">Use dock map point</label></div>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_lidar_map"><label class="form-check-label" for="formCheck-3" style="font-size: 14px;">Use lidar map path</label></div><select id="program_dock_select_lidar_path">
+                                                    <option value="PREDOCK" selected="">PREDOCK</option>
+                                                    <option value="DOCK">DOCK</option>
+                                                    <option value="UNDOCK">UNDOCK</option>
+                                                </select>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_intensity"><label class="form-check-label" for="formCheck-2" style="font-size: 14px;">Use intensity action</label></div><select id="program_dock_select_intesity_action" style="margin-bottom: 7px;display: block;">
+                                                    <option value="DOCK" selected="">DOCK</option>
+                                                    <option value="UNDOCK">UNDOCK</option>
+                                                </select>
+                                                <div class="btn-group" role="group"><button class="btn btn-primary btn-sm" id="program_dock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_dock_btn_save" type="button">Save</button></div>
+                                                <hr>
+                                                <div id="program_dock_div_status"></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Undock program</span>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_intensity"><label class="form-check-label" for="program_dock_check_intensity-1" style="font-size: 14px;">Use intensity action</label></div><select id="program_predock_select_intesity_action" style="margin-bottom: 7px;">
+                                                    <option value="DOCK" selected="">DOCK</option>
+                                                    <option value="UNDOCK">UNDOCK</option>
+                                                </select>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_lidar_map"><label class="form-check-label" for="program_dock_check_lidar_map-1" style="font-size: 14px;">Use lidar map path</label></div><select id="program_predock_select_lidar_path">
+                                                    <option value="PREDOCK" selected="">PREDOCK</option>
+                                                    <option value="DOCK">DOCK</option>
+                                                    <option value="UNDOCK">UNDOCK</option>
+                                                </select>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_map"><label class="form-check-label" for="program_dock_check_map-1" style="font-size: 14px;">Use undock map point</label></div>
+                                                <div class="btn-group" role="group"><button class="btn btn-primary btn-sm" id="program_undock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_undock_btn_save" type="button">Save</button></div>
+                                                <hr>
+                                                <div id="program_predock_div_status"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane" role="tabpanel" id="tab-rain" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                        <div class="row g-0">
+                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Report</label>
+                                                <div id="rain_div_report"></div>
+                                            </div>
+                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Rain now</label>
+                                                <div id="rain_div_map"></div>
+                                            </div>
+                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Forecast: Now, Now + 10, 20, 30 min.&nbsp;</label>
+                                                <div id="rain_div_forecast"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border-primary" id="div_menu_map_point" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;"></div>
+                        <div class="border-primary" id="div_menu_map_path" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;"></div>
+                        <div class="border-primary" id="div_menu_map_program" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;overflow: auto;max-height: calc(100vh - 105px);">
+<ul class="nav nav-tabs justify-content-center" role="tablist" style="font-size: 13px;background: var(--bs-secondary-text-emphasis);margin-bottom: 6px;"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs" style="padding: 5px 14px;">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_calendar" style="padding: 5px 14px;">Calendar</a></li></ul>
+<div class="tab-content">
+<div class="tab-pane active" role="tabpanel" id="tab_programs">
+                            <div class="row align-items-end" style="margin-bottom: 3px;">
+                                <div class="col-auto" style="margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Programs</span></div>
+                                <div class="col-auto ms-auto" style="margin-top: 8px;"><button class="btn btn-primary btn-sm text-info" id="btn_program_new_prog" type="button" onclick="programs.newProgram()" style="font-size: 11px;">New program</button></div>
+                            </div>
+                            <div class="row" id="div_menu_program_items_row" style="overflow: auto;">
+                                <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;width: 343px;">
+                                    <div class="input-group input-group-sm" style="width: 319px;"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 277.1562px;padding-right: 5px;font-size: 13px;"><span class="text-info" style="font-size: 13px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</span><span class="text-info" style="font-size: 13px;padding-left: 3px;">m</span><span class="text-info" style="font-size: 9px;">2</span></span></div>
+                                </div>
+                            </div>
+                            <div class="row" id="div_menu_program_detail_row" style="display: block;">
+                                <div class="col" style="overflow: hidden;margin-bottom: 3px;padding-top: 7px;">
+                                    <div style="background: var(--bs-primary);border-radius: 4px;padding-bottom: 8px;padding-right: 8px;padding-left: 8px;">
+                                        <div class="row">
+                                            <div class="col-auto"><span style="font-size: 12px;">Name</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><input class="form-control form-control-sm" id="inp_program_name" type="text" placeholder="Program name" style="width: 150px;"><span class="text-info" id="span_menu_program_name" style="display: none;"></span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Area</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_area" style="display: inline-flex;margin-right: 2px;">0</span><span class="text-light" style="display: inline-flex;margin-right: 2px;">m</span><span class="text-light" style="display: inline-flex;font-size: 9px;margin-bottom: -3px;">2&nbsp;</span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Length</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_length" style="display: inline-flex;margin-right: 2px;">0</span><span class="text-light" style="display: inline-flex;margin-right: 2px;">m</span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Duration</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_duration" style="display: inline-flex;margin-right: 2px;">0</span><span class="text-light" style="display: inline-flex;margin-right: 2px;">min</span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Map</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_map" style="display: inline-flex;margin-right: 2px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Environment</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_env" style="display: inline-flex;margin-right: 2px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Action</span>
+                                                <div class="btn-group btn-group-sm" role="group" style="display: block;"><button class="btn btn-primary" id="btn_menu_program_run" type="button" style="width: 86px;">Run</button><button class="btn btn-primary" id="btn_menu_program_resume" type="button" style="width: 86px;">Resume</button><button class="btn btn-primary" id="btn_menu_program_show" type="button" style="width: 86px;">Show</button><button class="btn btn-warning" id="btn_menu_program_stop" type="button" style="width: 86px;">Stop</button><button class="btn btn-danger" id="btn_menu_program_reset" type="button" style="width: 86px;">Reset</button></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Status</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_status" style="display: inline-flex;margin-right: 2px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Last result</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_last_result" style="display: inline-flex;margin-right: 2px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span></div>
+                                            </div>
+                                        </div>
+                                        <div class="row" style="margin-top: 8px;padding-bottom: 2px;">
+                                            <div class="col-auto"><span style="font-size: 12px;">RPM</span>
+                                                <div><input class="form-control form-control-sm" id="inp_program_rpm" type="number" min="0" max="9999" style="width: 80px;"></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Cut height</span>
+                                                <div class="input-group input-group-sm"><input class="form-control" id="inp_program_cut_height" type="number" min="0" max="999" style="width: 65px;"><span class="input-group-text">mm</span></div>
+                                            </div>
+                                            <div class="col-auto"><span style="font-size: 12px;">Speed</span>
+                                                <div class="btn-group btn-group-sm" role="group" style="display: block;">
+                                                    <button class="btn btn-sm btn-outline-secondary" id="btn_program_speed_slow" type="button">Slow</button>
+                                                    <button class="btn btn-sm btn-secondary" id="btn_program_speed_mid" type="button">Mid</button>
+                                                    <button class="btn btn-sm btn-outline-secondary" id="btn_program_speed_fast" type="button">Fast</button>
+                                                </div>
+                                            </div>
+                                            <div class="col-auto d-flex flex-column justify-content-end"><span style="font-size: 12px;">Override zone</span>
+                                                <div class="form-check" style="height: 31px;display: flex;align-items: center;">
+                                                    <input class="form-check-input" type="checkbox" id="chk_program_override_zone">
+                                                </div>
+                                            </div>
+                                            <div class="col-auto d-flex flex-column justify-content-end">
+                                                <button class="btn btn-success btn-sm" id="btn_program_save_settings" type="button" style="height: 31px;">Save</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row align-items-center" style="margin-top: 7px;margin-bottom: 3px;">
+                                        <div class="col-auto">
+                                            <div class="d-flex align-items-center"><span style="font-size: 12px;">Program zones</span></div>
+                                        </div>
+                                        <div class="col-auto d-flex align-items-center" style="gap: 4px;">
+                                            <select class="form-select form-select-sm" id="sel_program_add_zone" style="width: 150px;font-size: 12px;"></select>
+                                            <button class="btn btn-primary btn-sm" id="btn_program_add_zone_sel" type="button" onclick="programs.addZoneToProgram()" style="font-size: 11px;">Add zone</button>
+                                        </div>
+                                    </div>
+                                    <div class="row" id="row_menu_program_detail_zones">
+                                        <div class="col-auto" style="margin-top: 4px;">
+                                            <div style="background: #37434d;padding: 5px;border-radius: 4px;padding-left: 8px;padding-right: 8px;">
+                                                <div class="row" style="padding-left: 7px;padding-right: 7px;">
+                                                    <div class="col-auto" style="padding-left: 5px;padding-right: 2px;">
+                                                        <div class="d-flex align-items-center"><span class="text-info" style="display: block;color: var(--bs-gray-500);font-size: 14px;padding-right: 6px;">Front garden</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Cut height:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">65</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;cm</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">RPM:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">4500</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Coverage angle:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">175</span><span class="text-light" style="display: block;font-size: 14px;">°</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Path distance:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">0.25</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Area:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">2000</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span><span class="text-light" style="display: block;font-size: 9px;">&nbsp;2</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Length:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">2500</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Borders:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;2</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Paths:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;35</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto" style="margin-top: 4px;">
+                                            <div style="background: #37434d;padding: 5px;border-radius: 4px;padding-left: 8px;padding-right: 8px;">
+                                                <div class="row" style="padding-left: 7px;padding-right: 7px;">
+                                                    <div class="col-auto" style="padding-left: 5px;padding-right: 2px;">
+                                                        <div class="d-flex align-items-center"><span class="text-info" style="display: block;color: var(--bs-gray-500);font-size: 14px;padding-right: 6px;">Front garden</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Cut height:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">65</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;cm</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">RPM:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">4500</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Coverage angle:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">175</span><span class="text-light" style="display: block;font-size: 14px;">°</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Path distance:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">0.25</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Area:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">2000</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span><span class="text-light" style="display: block;font-size: 9px;">&nbsp;2</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Length:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">2500</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Borders:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;2</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Paths:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;35</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto" style="margin-top: 4px;">
+                                            <div style="background: #37434d;padding: 5px;border-radius: 4px;padding-left: 8px;padding-right: 8px;">
+                                                <div class="row" style="padding-left: 7px;padding-right: 7px;">
+                                                    <div class="col-auto" style="padding-left: 5px;padding-right: 2px;">
+                                                        <div class="d-flex align-items-center"><span class="text-info" style="display: block;color: var(--bs-gray-500);font-size: 14px;padding-right: 6px;">Front garden</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Cut height:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">65</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;cm</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">RPM:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">4500</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Coverage angle:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">175</span><span class="text-light" style="display: block;font-size: 14px;">°</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Path distance:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">0.25</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Area:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">2000</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span><span class="text-light" style="display: block;font-size: 9px;">&nbsp;2</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Length:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">2500</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;m</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Borders:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;2</span></div>
+                                                    </div>
+                                                    <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
+                                                        <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">Paths:&nbsp;</span><span class="text-light" style="display: block;font-size: 14px;">&nbsp;35</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+<div class="tab-pane" role="tabpanel" id="tab_calendar"><!-- ===== Calendar Events Section ===== -->
+                            <div class="row" style="margin-top: 12px;margin-bottom: 3px;">
+                                <div class="col-auto d-flex align-items-center" style="gap: 8px;">
+                                    <span style="font-size: 12px;font-weight: 600;color: var(--bs-info);">Calendar</span>
+                                    <button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button" style="font-size: 11px;padding: 2px 8px;">+ Add event</button>
+                                    <span id="span_scheduler_status" style="font-size: 11px;color: #9aa0a6;margin-left: 8px;"></span>
+                                    <span id="span_scheduler_next" style="font-size: 11px;color: #6fae6f;margin-left: 8px;"></span>
+                                    <div class="form-check form-switch" style="margin:0;margin-left:auto;">
+                                        <input class="form-check-input" type="checkbox" id="chk_scheduler_inhibit" style="cursor:pointer;">
+                                        <label class="form-check-label" for="chk_scheduler_inhibit" style="font-size:11px;color:#9aa0a6;">Inhibit</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="div_calendar_events" style="max-height: calc(100vh - 360px);overflow-y: auto;"></div>
+                            <!-- Calendar event edit form (hidden by default) -->
+                            <div id="div_calendar_form" style="display:none;background:#37434d;border-radius:4px;padding:10px;margin-top:6px;">
+                                <div class="row g-2 align-items-center" style="flex-wrap:wrap;">
+                                    <div class="col-auto">
+                                        <label style="font-size:11px;color:#9aa0a6;">Program</label>
+                                        <select id="sel_cal_program" class="form-select form-select-sm" style="width:160px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);"></select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <label style="font-size:11px;color:#9aa0a6;">Time</label>
+                                        <div class="d-flex align-items-center">
+                                            <input class="form-control form-control-sm" type="number" id="input_cal_hour" min="0" max="23" step="1" style="width:48px;font-size:12px;text-align:center;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="8">
+                                            <span style="margin:0 2px;color:#ccc;">:</span>
+                                            <input class="form-control form-control-sm" type="text" id="input_cal_minute" maxlength="2" style="width:48px;font-size:12px;text-align:center;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="00">
+                                        </div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <label style="font-size:11px;color:#9aa0a6;">Recurrence</label>
+                                        <select id="sel_cal_recurrence" class="form-select form-select-sm" style="width:110px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);">
+                                            <option value="none">Once</option>
+                                            <option value="daily">Daily</option>
+                                            <option value="weekly" selected>Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                            <option value="yearly">Yearly</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-auto" id="div_cal_days">
+                                        <label style="font-size:11px;color:#9aa0a6;">Days</label>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="0" style="font-size:10px;padding:2px 5px;">Mo</button>
+                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="1" style="font-size:10px;padding:2px 5px;">Tu</button>
+                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="2" style="font-size:10px;padding:2px 5px;">We</button>
+                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="3" style="font-size:10px;padding:2px 5px;">Th</button>
+                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="4" style="font-size:10px;padding:2px 5px;">Fr</button>
+                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="5" style="font-size:10px;padding:2px 5px;">Sa</button>
+                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="6" style="font-size:10px;padding:2px 5px;">Su</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-auto" id="div_cal_date" style="display:none;">
+                                        <label style="font-size:11px;color:#9aa0a6;">Date</label>
+                                        <input class="form-control form-control-sm" type="date" id="input_cal_date" style="width:140px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);">
+                                    </div>
+                                    <div class="col-auto" id="div_cal_dom" style="display:none;">
+                                        <label style="font-size:11px;color:#9aa0a6;">Day of month</label>
+                                        <input class="form-control form-control-sm" type="number" id="input_cal_dom" min="1" max="31" style="width:58px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="1">
+                                    </div>
+                                    <div class="col-auto" id="div_cal_month" style="display:none;">
+                                        <label style="font-size:11px;color:#9aa0a6;">Month</label>
+                                        <input class="form-control form-control-sm" type="number" id="input_cal_month" min="1" max="12" style="width:54px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="1">
+                                    </div>
+                                    <div class="col-auto d-flex align-items-end" style="gap:4px;padding-top:14px;">
+                                        <button class="btn btn-sm btn-success" id="btn_cal_save" type="button" style="font-size:11px;padding:3px 10px;">Save</button>
+                                        <button class="btn btn-sm btn-secondary" id="btn_cal_cancel" type="button" style="font-size:11px;padding:3px 10px;">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+</div>
+</div>
+                        
+                        <div class="border-primary" id="div_menu_config" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;z-index: 2;position: relative;">
+                            <div class="row">
+                                <div class="col" style="margin-top: 8px;padding-right: 2px;padding-left: 2px;">
+                                    <div>
+                                        <ul class="nav nav-tabs d-flex d-xl-flex justify-content-start justify-content-xl-center" role="tablist" style="font-size: 13px;display: inline-flex;background: var(--bs-secondary-text-emphasis);">
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_motors" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Motors</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_lidar" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Navi</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_power" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Power</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_mower" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Mower</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Diag</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Rosbag</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">IMU</a></li>
+                                        </ul>
+                                        <div class="tab-content" style="display: block;position: relative;">
+                                            <div class="tab-pane fade" role="tabpanel" id="tab_motors" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                                <div class="d-xl-flex justify-content-xl-center">
+                                                    <div class="row g-0 d-xl-flex justify-content-xl-end" style="margin: 0px;">
+                                                        <div class="col-auto col-xl-6" style="height: auto;margin-top: 8px;margin-left: 4px;"><span id="span_motors" style="display: block;font-size: 12px;margin-bottom: 4px;">Motors</span>
+                                                            <div class="btn-group btn-group-sm" role="group" id="btngroup_motors_on_off" style="border: 2px solid var(--bs-danger);border-radius: 4px;"><button class="btn btn-primary fw-bold" id="btn_motors_on" type="button">ON&nbsp;<i class="la la-check" style="font-weight: bold;color: var(--bs-success);"></i></button><button class="btn btn-primary fw-bold" id="btn_motors_off" type="button">OFF&nbsp;<i class="la la-close" style="font-weight: bold;color: var(--bs-danger);"></i></button></div>
+                                                        </div>
+                                                        <div class="col-auto col-xl-6" style="margin: 0px;margin-top: 8px;margin-left: 4px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Torque</span>
+                                                            <div class="input-group input-group-sm" style="padding-top: 2px;"><span class="text-info input-group-text" id="span_motor_torque" style="border-right-style: none;border-left-style: none;padding-right: 1px;width: 45px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;">Nm</span><input class="form-control" type="number" id="input_motor_torque" min="0" max="24" step="1" style="color: var(--bs-gray-200);background: var(--bs-gray-800);max-width: 66px;"><button class="btn btn-primary" id="btn_motor_torque" type="button">Save</button></div>
+                                                        </div>
+                                                    </div>
+                                                    <hr style="margin-bottom: 3px;margin-top: 12px;">
+                                                    <div class="row g-0" style="margin: 0px;padding-top: 2px;overflow: auto;">
+                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
+                                                            <div class="d-flex align-items-center"><img id="ico_fl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLF_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">FRONT LEFT</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor1_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor1_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor1_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor1_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor1_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor1_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor1_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
+                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor1_mode" style="min-width: 20px;">&nbsp;</span></div>
+                                                        </div>
+                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
+                                                            <div class="d-flex align-items-center"><img id="ico_fr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRF_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">FRONT RIGHT</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor2_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor2_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor2_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor2_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor2_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor2_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor2_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
+                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor2_mode" style="min-width: 20px;">&nbsp;</span></div>
+                                                        </div>
+                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
+                                                            <div class="d-flex align-items-center"><img id="ico_rl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLR_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">REAR LEFT</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor3_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor3_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor3_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor3_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor3_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor3_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor3_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
+                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor3_mode" style="min-width: 20px;">&nbsp;</span></div>
+                                                        </div>
+                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
+                                                            <div class="d-flex align-items-center"><img id="ico_rr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRR_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">REAR RIGHT</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor4_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor4_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor4_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor4_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor4_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor4_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
+                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor4_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
+                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor4_mode" style="min-width: 20px;">&nbsp;</span></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane fade show active" role="tabpanel" id="tab_lidar" style="padding-left: 8px;padding-right: 8px;">
+                                                <div class="row">
+                                                    <div class="col-auto" style="height: auto;margin-top: 8px;margin-left: 4px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Speed</span>
+                                                        <div class="btn-group btn-group-sm" role="group" style="padding-top: 2px;"><button class="btn btn-primary" id="btn_menu_speed_low" type="button">SLOW</button><button class="btn btn-primary" id="btn_menu_speed_moderate" type="button">MODERATE</button><button class="btn btn-primary" id="btn_menu_speed_fast" type="button">FAST</button></div>
+                                                    </div>
+                                                    <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Lidar</span>
+                                                        <div class="btn-group btn-group-sm" role="group" id="btngroup_lidar_on_off" style="border: 2px solid var(--bs-danger);border-radius: 4px;"><button class="btn btn-primary fw-bold" id="btn_menu_lidar_on" type="button">ON&nbsp;<i class="la la-check" style="font-weight: bold;color: var(--bs-success);"></i></button><button class="btn btn-primary fw-bold" id="btn_menu_lidar_off" type="button">OFF&nbsp;<i class="la la-close" style="font-weight: bold;color: var(--bs-danger);"></i></button></div>
+                                                    </div>
+                                                    <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap sensor source</span>
+                                                        <div class="btn-group btn-group-sm" role="group" id="btngroup_lidar_on_off-1" style="border-radius: 4px;border: 2px solid var(--bs-info) ;"><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_camera" type="button">Camera&nbsp;</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_lidar" type="button">Lidar&nbsp;</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_both" type="button">Both&nbsp;</button></div>
+                                                    </div>
+                                                    <div class="col-auto" style="height: auto;margin-top: 8px;">
+                                                        <div style="width: 184.281px;display: flex;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap sensor distance</span><span class="d-flex justify-content-end" id="span_rtabmap_distance" style="margin-left: 4px;display: inline;font-size: 12px;color: var(--bs-info);">0</span><span id="span_rtabmap_distance-1" style="margin-left: 3px;display: inline;font-size: 12px;">m</span></div>
+                                                        <div class="d-flex"><input class="form-range" type="range" id="input_range_rtabmap_distance" style="margin-top: 3px;" min="0.1" max="8.0" step="0.1" value="2.7"><span style="margin-left: 2px;font-size: 12px;display: block;margin-top: 6px;"><span id="span_menu_rtabmap_distance_apply" style="margin-left: 4px;font-size: 12px;margin-right: 6px;display: inline;">0.0</span>m</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane fade" role="tabpanel" id="tab_power" style="overflow: auto;max-height: calc(100vh - 145px);">
+                                                <div class="justify-content-xl-center">
+                                                    <div class="row d-xl-flex justify-content-xl-center" style="margin-left: 0px;margin-right: 0px;">
+                                                        <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: hidden;padding-top: 5px;width: 336px;">
+                                                            <div class="d-flex align-items-center"><img id="ico_supply_conf" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 5px;margin-right: 13px;">Input</span><span class="text-info" id="span_supply_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_supply_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_supply_status" style="margin-left: 4px;width: 109px;text-align: right;">&nbsp;</span></div>
+                                                            <div class="d-inline-flex align-items-center" style="margin-top: 4px;"><span style="text-align: center;width: 36px;padding-right: 5px;"><img id="ico_batt_conf" src="assets/img/robot_icons/Nextion_ico_battCHARGE_disabled.png" style="transform: scale(0.75);height: 26px;"></span><span style="margin-left: -8px;">Battery</span><span class="text-info" id="span_batt_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_batt_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_batt_status" style="margin-left: 4px;width: 109px;text-align: right;">DISCHARGING&nbsp;</span></div>
+                                                            <div style="margin-top: -1px;margin-bottom: 4px;display: block;">
+                                                                <div style="display: block;">
+                                                                    <div style="padding-left: 25px;padding-right: 21px;">
+                                                                        <div class="progress" style="height: 7px;padding: 3px;border-style: none;">
+                                                                            <div class="progress-bar progress-bar-animated" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress_batt_capacity" style="width: 0%;"><span class="visually-hidden">0%</span></div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style="text-align: center;padding-left: 25px;padding-right: 21px;"><span style="margin-right: 5px;">Capacity</span><span id="span_batt_capacity" style="margin-left: 2px;margin-right: 1px;width: 28px;text-align: right;">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span><span>%</span></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="d-flex align-items-center" style="margin-top: 3px;display: inline-block;"><img id="ico_nuc_conf" src="assets/img/robot_icons/ico_nuc_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 0px;">NUC output</span><span class="text-info" id="span_nuc_volts" style="margin-left: 7px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_nuc_amps" style="margin-left: 8px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span></div>
+                                                            <div class="d-flex align-items-center" style="margin-top: 3px;display: inline-block;"><img id="ico_motor_conf" src="assets/img/robot_icons/ico_motor_grey.png" style="margin-left: 8px;transform: scale(0.75);height: 26px;"><span style="margin-left: 4px;">Motors output</span>
+                                                                <div class="d-flex justify-content-end align-items-center" style="width: 182.172px;text-align: right;"><img id="ico_mower_conf" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" style="margin-left: 13px;transform: scale(0.75);height: 26px;"><span style="margin-left: 2px;">Mower output</span></div>
+                                                            </div>
+                                                            <hr style="width: 318px;">
+                                                            <div class="d-flex justify-content-center align-items-center" style="margin-top: 0px;padding-right: 19px;"><img id="ico_temp_pcb_conf" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_pcb_temp" style="margin-left: 2px;text-align: right;width: 45px;">&nbsp;&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_pcb_conf" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_pcb_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
+                                                            <div class="d-flex justify-content-center align-items-center" style="margin-top: 0px;padding-right: 19px;"><img id="ico_temp_conf" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_ext_temp" style="margin-left: 2px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_conf" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_ext_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
+                                                            <div class="d-flex align-items-center" style="display: inline-block;"></div>
+                                                        </div>
+                                                        <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: auto;padding-top: 5px;width: 336px;">
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button" style="width: 73px;">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button" style="width: 73px;">OFF</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button" style="width: 73px;">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button" style="width: 73px;">OFF</button></div>
+                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 109px;">Run charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_run_charge" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Run cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_run_cutoff" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Stanby charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_standby_charge" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Standby cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_standby_cutoff" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">PCB temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_pcb_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_pcb_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_pcb_temp" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">External temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_ext_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_ext_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_ext_temp" type="button">Save</button></div>
+                                                        </div>
+                                                        <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: auto;padding-top: 5px;width: 336px;">
+                                                            <div style="font-size: 12px;color: var(--bs-secondary-color);margin-bottom: 3px;">Sleep control</div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 155px;">Sleep time</span><span class="text-info d-flex justify-content-end input-group-text" id="span_sleep_time_min" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_sleep_time_min" min="1" max="1440" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_sleep_time_save" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 155px;">Sleep now</span><button class="btn btn-warning" id="btn_sleep_timed" type="button" style="flex: 1;">Timed</button><button class="btn btn-warning" id="btn_sleep_until_charged" type="button" style="flex: 1;">Until charged</button></div>
+                                                            <hr style="margin-top: 6px;margin-bottom: 5px;">
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 155px;">Standby delay</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_delay" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_standby_delay" min="0" max="60" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_standby_delay" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 155px;">Charged offset</span><span class="text-info d-flex justify-content-end input-group-text" id="span_sleep_charged_offset" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_sleep_charged_offset" min="0" max="60" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_sleep_charged_offset" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 155px;">Discharge timeout</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_timeout_discharging" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_standby_timeout_discharging" min="0" max="1440" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_standby_timeout_discharging" type="button">Save</button></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane fade" role="tabpanel" id="tab_mower" style="max-height: calc(100vh - 145px);overflow: auto;">
+                                                <div>
+                                                    <div class="row d-xl-flex justify-content-xl-center" style="margin: 0px;padding: 0px;padding-top: 6px;">
+                                                        <div class="col-auto" style="margin: 0px;padding: 0px;overflow: auto;width: 337px;">
+                                                            <div class="row" style="margin: 0px;">
+                                                                <div class="col" style="margin: 0px;">
+                                                                    <div class="input-group input-group-sm" id="inputgroup_mower_on_off" style="padding: 2px;border-radius: 5px;border: 2px solid var(--bs-danger) ;border-right-width: 1px;border-right-style: solid;"><button class="btn btn-primary fw-bold" id="btn_mower_on" type="button" style="width: 72px;white-space: nowrap;">ON&nbsp;<i class="la la-check" style="font-weight: bold;color: var(--bs-success);"></i></button><button class="btn btn-primary fw-bold" id="btn_mower_off" type="button" style="width: 72px;white-space: nowrap;">OFF&nbsp;<i class="la la-close" style="font-weight: bold;color: var(--bs-danger);"></i></button><span class="text-info d-flex justify-content-center input-group-text form-control" id="span_mower_temp" style="min-width: 47px;">0˚C</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_status" style="width: 109.5156px;">UNK</span></div>
+                                                                    <div class="input-group input-group-sm" style="margin-top: 4px;"><span class="input-group-text">Direction</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_direction" style="border-left-style: none;">UNK</span><button class="btn btn-primary" id="btn_mower_left" type="button" style="width: 62px;">Left</button><button class="btn btn-primary" id="btn_mower_right" type="button" style="width: 62px;">Right</button></div>
+                                                                    <div class="input-group input-group-sm" style="margin-top: 3px;"><span class="input-group-text">Height</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_cut_height" style="border-left-style: none;">0/0 cm</span><input class="form-control" type="number" id="input_mower_cut_height" style="flex: 0 0 auto;width: 62px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="10" max="90"><button class="btn btn-primary" id="btn_mower_set_height" type="button" style="width: 62px;">Set</button></div>
+                                                                    <div class="input-group input-group-sm" style="display: flex;margin-top: 3px;"><span class="input-group-text">RPM</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_rpm" style="border-left-style: none;">0/0 rpm</span><input class="form-control" type="number" id="input_mower_rpm" style="flex: 0 0 auto;width: 62px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="500" max="4000"><button class="btn btn-primary" id="btn_mower_set_rpm" type="button" style="width: 62px;">Set</button></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="row" style="margin: 0px;margin-top: 3px;">
+                                                                <div class="col" style="margin: 0px;">
+                                                                    <div class="btn-group" role="group" style="display: flex;"><button class="btn btn-primary btn-sm" id="btn_mower_home" type="button" style="width: 100%;">Home</button><button class="btn btn-primary btn-sm" id="btn_mower_calibration" type="button" style="width: 100%;display: none;">&nbsp;Height calibration</button></div>
+                                                                    <div class="btn-group btn-group-sm" role="group" style="display: flex;margin-top: 2px;"><button class="btn btn-success btn-sm fw-bold" id="btn_mower_start_motor" type="button" style="width: 100%;">START MOTOR</button><button class="btn btn-danger fw-bold" id="btn_mower_stop_motor" type="button" style="width: 100%;height: 100%;border-radius: 4px;">STOP MOTOR</button></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-auto" style="margin: 0px;padding: 0px;overflow: auto;width: 337px;">
+                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
+                                                                <div class="col" style="margin: 0px;">
+                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd1" style="color: var(--bs-gray-200);background: var(--bs-gray-800);" placeholder="PRINT HELP"><button class="btn btn-primary" id="btn_mower_cmd1_send" type="button">Send</button></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
+                                                                <div class="col" style="margin: 0px;">
+                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd2" style="color: var(--bs-gray-200);background: var(--bs-gray-800);"><button class="btn btn-primary" id="btn_mower_cmd2_send" type="button">Send</button></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
+                                                                <div class="col" style="margin: 0px;">
+                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd3" style="color: var(--bs-gray-200);background: var(--bs-gray-800);"><button class="btn btn-primary" id="btn_mower_cmd3_send" type="button">Send</button></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
+                                                                <div class="col" style="margin: 0px;">
+                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd4" style="color: var(--bs-gray-200);background: var(--bs-gray-800);"><button class="btn btn-primary" id="btn_mower_cmd4_send" type="button">Send</button></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="row" style="margin: 0px;padding-top: 8px;">
+                                                                <div class="col" style="margin: 0px;">
+                                                                    <p id="paragraph_mower_config" style="font-size: 12px;color: var(--bs-blue);margin-bottom: 0px;overflow: auto;height: 71px;">Try "PRINT HELP" command.&nbsp;</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane fade" role="tabpanel" id="tab_diag" style="overflow: auto;">
+                                                <div>
+                                                    <div id="div_diag_all" style="overflow: auto;padding: 3px;font-size: 13px;height: 100%;"></div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane fade" role="tabpanel" id="tab_rosbag" style="max-height: calc(100vh - 145px);overflow: auto;">
+                                                <div class="row d-xl-flex justify-content-xl-center" style="margin: 0px;padding: 0px;padding-top: 6px;">
+                                                    <div class="col-auto" style="margin: 0px;padding: 4px;min-width: 310px;">
+                                                        <p style="font-size: 12px;color: var(--bs-info);margin-bottom: 4px;"><i class="fa fa-video-camera" style="margin-right: 5px;"></i>D435 RGB-D camera</p>
+                                                        <div class="input-group input-group-sm" id="inputgroup_d435_rec" style="padding: 2px;border-radius: 5px;border: 2px solid var(--bs-danger);">
+                                                            <button class="btn btn-primary fw-bold" id="btn_d435_rec_start" type="button" style="width: 70px;white-space: nowrap;">REC&nbsp;<i class="la la-circle" style="font-weight: bold;color: var(--bs-danger);"></i></button>
+                                                            <button class="btn btn-primary fw-bold" id="btn_d435_rec_stop" type="button" style="width: 82px;white-space: nowrap;">STOP&nbsp;<i class="la la-stop" style="font-weight: bold;color: var(--bs-warning);"></i></button>
+                                                            <span class="text-info d-flex justify-content-end input-group-text form-control" id="span_d435_rec_status" style="font-size: 11px;">idle</span>
+                                                        </div>
+                                                        <div class="input-group input-group-sm" style="margin-top: 3px;">
+                                                            <span class="input-group-text">FPS</span>
+                                                            <input class="form-control" type="number" id="input_d435_rec_fps" style="flex: 0 0 auto;width: 62px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="0.1" max="30" step="0.5" value="5">
+                                                            <button class="btn btn-primary" id="btn_d435_rec_fps" type="button" style="width: 62px;">Set</button>
+                                                            <span class="text-info d-flex justify-content-end input-group-text form-control" id="span_d435_rec_fps">5.0 fps</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="row d-xl-flex justify-content-xl-center" style="margin: 0px;padding: 0px;padding-top: 10px;">
+                                                    <div class="col-auto" style="margin: 0px;padding: 4px;min-width: 310px;max-width: 100%;">
+                                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                                                            <p style="font-size: 12px;color: var(--bs-info);margin:0;"><i class="fa fa-database" style="margin-right: 5px;"></i>Stored bags</p>
+                                                            <span id="span_bag_total" style="font-size:11px;color:#9aa0a6;"></span>
+                                                            <button id="btn_bag_refresh" type="button" class="btn btn-sm btn-outline-secondary" style="margin-left:auto;padding:2px 8px;font-size:11px;" title="Refresh list">↻</button>
+                                                        </div>
+                                                        <div id="div_bag_list" class="bag-list" style="max-height: calc(100vh - 380px);min-height: 120px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:5px;background:rgba(0,0,0,0.2);padding:2px;">
+                                                            <div class="bag-empty" style="padding:12px;font-size:12px;color:#9aa0a6;text-align:center;">Loading…</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="tab-pane" role="tabpanel" id="tab_imu" style="max-height: calc(100vh - 150px);overflow: auto;"><div id="div_content_imu" style="height: calc(100vh - 165px);">
+            <div class="row" style="margin-left: 0px;margin-right: 0px;">
+                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="padding-right: 0px;padding-left: 0px;overflow: hidden;padding-top: 3px;padding-bottom: 8px;">
+                    <div id="div_btns" style="font-size: 13px;padding: 5px;background: rgba(58,63,68,0);border-radius: 8px;border: 1px none var(--bs-gray-800) ;">
+                        <div class="btn-group btn-group-sm d-flex ms-auto flo" role="group" id="btngroup_imu_tools-1"><button class="btn btn-outline-danger" id="btn_remove_dcd" type="button">Remove DCD</button><button class="btn btn-outline-info" id="btn_reset_imu" type="button">Reset IMU</button><button class="btn btn-outline-info" id="btn_run_calibration" type="button">Run</button><button class="btn btn-outline-info" id="btn_save_dcd" type="button">Save</button></div>
+                    </div>
+                    <div id="div_diag" style="font-size: 13px;padding: 6px;height: 200px;"></div>
+                    <div class="text-start text-center d-flex img float-end" id="joy_view_imu" style="width: 100%;background: url(&quot;assets/img/joystick_icon_45px.svg&quot;) center / auto no-repeat, rgba(2,60,85,0.22);/*resize: vertical;*/overflow: hidden;position: relative;height: 50px;"></div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="padding-right: 0px;padding-left: 0px;overflow: hidden;">
+                    <div style="position: absolute;display: grid;"><span id="span_imu_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #1eb53a;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Imu:&nbsp;</span><span id="span_nav_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #017bd5;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Nav:&nbsp;</span><span id="span_mag_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #b70002;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Mag:&nbsp;</span><span id="span_rtk_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #9200b7;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">RTK:&nbsp;</span><span id="span_fuse_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #ffffff;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Fuse:&nbsp;</span></div>
+                    <div class="text-start" id="3d_view" style="width: 100%;background: rgba(2,60,85,0.22);/*resize: vertical;*/overflow: hidden;height: calc(100vh - 175px);min-height: 0;max-height: none;padding: 2px;"></div>
+                </div>
+            </div>
+        </div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+<div id="div_map_detail" class="all-events border-primary" style="display: none;width: 452px;margin-top: 4px;padding: 8px 10px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border: 1px solid var(--bs-secondary);border-radius: 5px;pointer-events: auto;max-height: calc(100vh - 110px);overflow: auto;">
+<div class="d-flex align-items-center" style="margin-bottom: 6px;"><span class="text-uppercase fw-bold" style="font-size: 12px;letter-spacing: .5px;">Map detail</span><button class="btn btn-sm btn-outline-warning ms-auto" id="btn_map_detail_close" type="button" style="padding: 0 8px;font-size: 14px;line-height: 1.3;">&times;</button></div>
+
+<div style="margin-bottom: 8px;">
+<div class="d-flex align-items-center" style="margin-bottom: 6px;">
+                                <span class="text-uppercase fw-bold" style="font-size: 12px;letter-spacing: .5px;">Active map</span>
+                                
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group" style="margin-bottom: 6px;">
+                                <button class="btn btn-primary" id="btn_save_planner_data" type="button" style="font-size: 11px;">Save data</button>
+                                <button class="btn btn-primary" id="btn_load_planner_data" type="button" style="font-size: 11px;">Load data</button>
+                                <button class="btn btn-primary" id="btn_reload_map" type="button" style="font-size: 11px;">Reload</button>
+                            </div>
+                            <div id="div_log" style="font-size: 11px;color: var(--bs-info);min-height: 16px;margin-bottom: 6px;padding-left: 2px;"><span id="log-2">Initialized</span></div>
+</div>
+
+                                    
+<hr style="margin:6px 0;border-color:var(--bs-secondary);">
+<div style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
+                                        <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
+                                            <div><span style="font-size: 12px;display: block;">Filter noise in free</span>
+                                                <div class="input-group input-group-sm" style="width: 86px;"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
+                                            </div>
+                                            <div><span style="font-size: 12px;display: block;">Obstacle margin</span>
+                                                <div class="input-group input-group-sm" style="width: 86px;"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
+                                            </div>
+                                            <div><span style="font-size: 12px;display: block;">Fill shape</span><select class="form-select form-select-sm" id="input_fill_shape" style="width: 100px;">
+                                                <option value="square">square</option>
+                                                <option value="ellipse" selected="">ellipse</option>
+                                            </select></div>
+                                        </div>
+                                        <div class="d-flex flex-wrap" style="gap: 4px;margin-top: 8px;">
+                                            <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button" style="font-size: 11px;">Assemble map</button>
+                                            <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button" style="font-size: 11px;">Path thin</button>
+                                            <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button" style="font-size: 11px;">Path footprint</button>
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show map layer</span></div>
+                                    <div class="btn-group btn-group-sm flex-wrap" role="group" style="margin-bottom: 8px;">
+                                        <button class="btn btn-outline-primary" id="btn_show_original" type="button" style="font-size: 11px;">Original</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_fill" type="button" style="font-size: 11px;">Free</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_free_poly" type="button" style="font-size: 11px;">Free poly</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_obstacles_poly" type="button" style="font-size: 11px;">Obstacle poly</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button" style="font-size: 11px;">Semi assembled</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_assembled" type="button" style="font-size: 11px;">Assembled</button>
+                                    </div>
+                                    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show zone layer</span></div>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-outline-info" id="btn_show_zone_map" type="button" style="font-size: 11px;">Zone</button>
+                                        <button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button" style="font-size: 11px;">Path</button>
+                                        <button class="btn btn-outline-info" id="btn_show_zone_navi" type="button" style="font-size: 11px;">Navi</button>
+                                    </div>
+
+<div style="margin-top: 10px;">
+<div style="font-size: 12px;margin-bottom: 4px;">Edit polygons &amp; zones</div>
+<ul class="nav nav-tabs" role="tablist" style="font-size: 13px;background: var(--bs-secondary-text-emphasis);">
+<li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-edit-zone" style="padding: 5px 14px;">Zones</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-edit-poly" style="padding: 5px 14px;">Polygons</a></li>
+</ul>
+<div class="tab-content" style="padding-top: 8px;">
+<div class="tab-pane active" role="tabpanel" id="tab-edit-zone">
+                                    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
+                                        <span style="font-size: 12px;">Zones for the active map</span>
+                                        <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button" style="font-size: 11px;">New zone</button>
+                                    </div>
+                                    <div id="div_zone_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
+                                        <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
+                                            <div style="width: 100%;"><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
+                                            <div><span style="font-size: 12px;display: block;">Cut height</span>
+                                                <div class="input-group input-group-sm" style="width: 92px;"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
+                                            </div>
+                                            <div><span style="font-size: 12px;display: block;">Cut rpm</span><input class="form-control form-control-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300" style="width: 78px;"></div>
+                                            <div id="header_zone_template_border_path"><span style="font-size: 12px;display: block;">Paths around obst.</span><input class="form-control form-control-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2" style="width: 70px;"></div>
+                                            <div id="header_zone_template_coverage_path"><span style="font-size: 12px;display: block;">Coverage angle (°)</span><input class="form-control form-control-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160" style="width: 70px;"></div>
+                                            <div><span style="font-size: 12px;display: block;">Path dist. (m)</span><input class="form-control form-control-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2" style="width: 70px;"></div>
+                                            <div><span style="font-size: 12px;display: block;">Simplify (m)</span><input class="form-control form-control-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1" style="width: 70px;"></div>
+                                            <div id="header_zone_template_path_list" style="display: none;"></div>
+                                        </div>
+                                        <div class="d-flex" style="gap: 4px;margin-top: 8px;">
+                                            <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button" style="font-size: 11px;">Save</button>
+                                            <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button" style="font-size: 11px;">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <div id="div_zone_list"></div>
+                                </div>
+<div class="tab-pane" role="tabpanel" id="tab-edit-poly">
+                                    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
+                                        <span style="font-size: 12px;">Free / obstacle polygons</span>
+                                        <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button" style="font-size: 11px;">New polygon</button>
+                                    </div>
+                                    <div id="div_poly_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;align-items: end;gap: 8px;flex-wrap: wrap;">
+                                        <div><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_poly_template_name" type="text" placeholder="Polygon name" style="width: 150px;"></div>
+                                        <div><span style="font-size: 12px;">Type</span><select class="form-select form-select-sm" id="input_poly_template_type" style="width: 110px;">
+                                            <option value="obstacle">obstacle</option>
+                                            <option value="free">free</option>
+                                        </select></div>
+                                        <div class="d-flex" style="gap: 4px;">
+                                            <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button" style="font-size: 11px;">Save</button>
+                                            <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button" style="font-size: 11px;">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <div id="div_poly_list"></div>
+                                </div>
+</div>
+</div>
+</div>
+
+                <div class="row" id="row_icons" style="margin-right: 0px;margin-left: 0px;">
+                    <div class="col-1 text-start d-flex align-items-end" style="padding-right: 0px;padding-left: 0px;">
+                        <div id="div_status_follow_ico" class="status-panels" style="min-width: 17px;min-height: 17px;display: inline-flex;border-bottom-style: none;border-bottom-right-radius: 0px;border-bottom-left-radius: 0px;margin-bottom: -3px;z-index: 2;padding-top: 2px;padding-right: 2px;padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-viewfinder no-event" id="ico_status_follow" style="font-size: 13px;font-weight: bold;display: block;color: var(--bs-info);">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                                <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
+                                <path d="M12 3l0 4"></path>
+                                <path d="M12 21l0 -3"></path>
+                                <path d="M3 12l4 0"></path>
+                                <path d="M21 12l-3 0"></path>
+                                <path d="M12 12l0 .01"></path>
+                            </svg></div>
+                    </div>
+                    <div class="col-10" style="padding-right: 0px;padding-left: 0px;">
+                        <div class="text-center" id="status_div" style="padding: 4px;border-radius: 7px;box-shadow: 2px 2px var(--primary);position: relative;"><img id="ico_wifi" src="assets/img/robot_icons/Nextion_ico_wifi_grey.png" style="transform: scale(0.75);margin-left: -2px;"><img id="ico_gps" src="assets/img/robot_icons/Nextion_ico_gps_grey.png" style="transform: scale(0.75);margin-left: -4px;"><img id="ico_gps_nav" src="assets/img/robot_icons/Nextion_ico_gpsnav_grey.png" style="transform: scale(0.75);margin-left: -3px;"><img id="ico_imu" src="assets/img/robot_icons/Nextion_ico_imu_grey.png" style="transform: scale(0.75);margin-left: -2px;"><img id="ico_lidar" src="assets/img/robot_icons/Nextion_ico_lidar_grey.png" style="transform: scale(0.75);margin-left: -2px;"><img id="ico_camera" src="assets/img/robot_icons/Nextion_ico_camera_grey.png" style="transform: scale(0.75);margin-left: -2px;"><img id="ico_mower" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" style="transform: scale(0.75);margin-left: -2px;"><img id="ico_fl_motor" src="assets/img/robot_icons/Nextion_ico_motorLF_grey.png" style="transform: scale(0.75);margin-left: -2px;"><img id="ico_fr_motor" src="assets/img/robot_icons/Nextion_ico_motorRF_grey.png" style="transform: scale(0.75);"><img id="ico_rl_motor" src="assets/img/robot_icons/Nextion_ico_motorLR_grey.png" style="transform: scale(0.75);margin-left: -1px;"><img id="ico_rr_motor" src="assets/img/robot_icons/Nextion_ico_motorRR_grey.png" style="transform: scale(0.75);"><img id="ico_temp_pcb" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" style="transform: scale(0.75);margin-left: 0px;"><img id="ico_fan_pcb" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" style="transform: scale(0.75);margin-left: -3px;"><img id="ico_temp" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" style="transform: scale(0.75);margin-left: -3px;"><img id="ico_fan" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" style="transform: scale(0.75);margin-left: -5px;"><img id="ico_supply" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" style="margin-left: -2px;transform: scale(0.75);"><img id="ico_batt" src="assets/img/robot_icons/Nextion_ico_batt_disabled.png" style="transform: scale(0.75);"></div>
+                    </div>
+                    <div class="col-1 text-end d-flex justify-content-end align-items-end flo" style="padding-right: 0px;padding-left: 0px;">
+                        <div id="div_status_map_ico" class="status-panels" style="min-width: 17px;min-height: 17px;display: inline-flex;border-bottom-style: none;border-bottom-right-radius: 0px;border-bottom-left-radius: 0px;margin-bottom: -3px;z-index: 2;padding-top: 2px;padding-right: 2px;padding-left: 2px;"><i class="material-icons no-event" id="ico_map_indoor" style="font-size: 13px;font-weight: bold;display: block;color: var(--bs-info);">home</i><svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" id="ico_map_outdoor" class="no-event" style="font-size: 13px;font-weight: bold;display: none;color: var(--bs-info);">
+                                <g>
+                                    <rect fill="none" height="24" width="24"></rect>
+                                </g>
+                                <g>
+                                    <polygon points="17,12 19,12 12,2 5.05,12 7,12 3.1,18 10.02,18 10.02,22 13.98,22 13.98,18 21,18"></polygon>
+                                </g>
+                            </svg></div>
+                    </div>
+                </div>
+                <div class="row no-event" style="margin-left: 0px;margin-right: 0px;">
+                    <div class="col-3 d-flex justify-content-start align-items-center no-event" style="text-align: left;padding-right: 0px;padding-left: 0px;">
+                        <div id="div_status_follow_txt" class="status-panels" style="display: inline-flex;border-top-left-radius: 0px;"><span id="span_status_follow" class="no-event" style="font-size: 12px;margin-left: 2px;min-width: 30px;display: inline-flex;padding-right: 2px;padding-left: 2px;">&nbsp; &nbsp; &nbsp;</span></div>
+                    </div>
+                    <div class="col-6 text-center d-flex justify-content-center align-items-center no-event" style="padding-right: 0px;padding-left: 0px;height: 24px;"><span id="span_status_info" class="no-event" style="color: rgb(255,255,255);font-weight: bold;height: 24px;">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span></div>
+                    <div class="col-3 d-flex justify-content-end align-items-center no-event" style="text-align: right;padding-right: 0px;padding-left: 0px;">
+                        <div id="div_status_map_name" class="status-panels" style="display: inline-flex;border-top-right-radius: 0px;"><span id="span_status_map_name" class="no-event" style="font-size: 12px;padding-right: 2px;min-width: 30px;display: inline-flex;padding-left: 2px;">&nbsp; &nbsp; &nbsp;</span></div>
+                    </div>
+                </div>
+                <div class="row no-event" style="margin-left: 0px;margin-right: 0px;">
+                    <div class="col-6 no-event" style="text-align: left;padding-right: 0px;padding-left: 0px;">
+                        <div id="div_rtabmap" class="status-panels" style="padding: 1px;padding-left: 3px;padding-right: 4px;/*background: var(--bs-gray-900);*//*border-radius: 8px;*//*border: 1px solid var(--bs-primary);*/height: 46px;width: 128px;display: grid;">
+                            <div class="align-items-center" style="width: 120px;height: 24px;display: inline-flex;"><span id="span_status_follow-1" class="no-event" style="font-size: 12px;margin-left: 2px;color: var(--bs-info);display: inline-block;">RtabMap&nbsp;</span><span id="span_rtabmap_id" style="margin-left: 2px;height: auto;font-size: 12px;width: 37px;display: inline-block;">00000&nbsp;</span><span id="span_rtabmap_proximity" class="no-event" style="font-size: 12px;margin-left: 4px;width: 15px;height: 9px;background: #fff500;border-radius: 24px;border: 1px solid var(--bs-emphasis-color);">&nbsp;&nbsp;</span><span id="span_rtabmap_lc" class="no-event" style="font-size: 12px;margin-left: 4px;width: 15px;height: 9px;background: #00d716;border-radius: 24px;border: 1px solid var(--bs-emphasis-color);">&nbsp;&nbsp;</span></div>
+                            <div style="display: inline-flex;"><span id="span_rtabmap_loc_map" style="font-size: 10px;margin-left: 2px;">&nbsp; &nbsp;</span></div>
+                        </div>
+                        <div id="div_odom" class="status-panels" style="padding: 1px;padding-left: 3px;padding-right: 4px;/*background: var(--bs-gray-900);*//*border-radius: 8px;*//*border: 1px solid var(--bs-primary);*/height: 46px;width: 128px;display: grid;">
+                            <div class="align-items-center" style="width: 120px;height: 24px;display: inline-flex;"><span id="span_status_follow-2" class="no-event" style="font-size: 12px;margin-left: 2px;color: var(--bs-info);display: inline-block;">Odom&nbsp;</span><span id="span_odom_status" style="margin-left: 2px;height: auto;font-size: 12px;width: 42px;display: inline-block;">fusion</span><span id="span_odom_position" class="no-event" style="font-size: 12px;margin-left: 4px;width: 15px;height: 9px;background: var(--bs-info);border-radius: 24px;border: 1px solid var(--bs-emphasis-color);">&nbsp;&nbsp;</span><span id="span_odom_heading" class="no-event" style="font-size: 12px;margin-left: 4px;width: 15px;height: 9px;background: #5bc0de00;border-radius: 24px;border: 1px solid var(--bs-emphasis-color);">&nbsp;&nbsp;</span></div>
+                            <div style="display: inline-flex;"><span id="span_odom_info" style="font-size: 10px;margin-left: 2px;">&nbsp; &nbsp;</span></div>
+                        </div>
+                    </div>
+                    <div class="col-6 d-flex flex-column justify-content-end align-items-end no-event" style="text-align: right;padding-right: 0px;padding-left: 0px;">
+                        <div id="div_mower_info_panel" class="status-panels align-items-center" style="display: none;padding: 1px;padding-right: 4px;padding-left: 4px;font-size: 11px;margin-bottom: 2px;"><span id="span_mower_panel_status" style="font-weight: bold;margin-right: 4px;color: var(--bs-success);">RUN</span><span id="span_mower_panel_rpm" style="margin-right: 4px;">0 rpm</span><span id="span_mower_panel_height" style="margin-right: 4px;">0 cm</span><span id="span_mower_panel_temp">0°C</span></div>
+                        <div id="div_status_speed" class="status-panels align-items-center" style="display: inline-flex;padding: 1px;padding-right: 2px;padding-left: 3px;"><i class="icon-speedometer" style="font-size: 13px;color: var(--bs-info);margin-right: 2px;"></i>
+                            <div class="btn-group all-events" role="group"><button class="btn btn-primary" id="btn_menu_speed_low_sm" type="button" style="height: 18px;width: 42px;padding: 6px 16px;padding-top: 0px;padding-right: 2px;padding-bottom: 0px;padding-left: 3px;font-size: 11px;">Slow</button><button class="btn btn-primary" id="btn_menu_speed_moderate_sm" type="button" style="height: 18px;width: 42px;padding: 6px 16px;padding-top: 0px;padding-right: 2px;padding-bottom: 0px;padding-left: 3px;font-size: 11px;">Mid</button><button class="btn btn-primary" id="btn_menu_speed_fast_sm" type="button" style="height: 18px;width: 42px;padding: 6px 16px;padding-top: 0px;padding-right: 2px;padding-bottom: 0px;padding-left: 3px;font-size: 11px;">Fast</button></div><span id="span_status_speed" class="no-event" style="font-size: 12px;padding-right: 2px;min-width: 20px;display: none;padding-left: 2px;margin-left: 3px;">&nbsp; &nbsp; &nbsp;</span>
+                        </div>
+                        <div id="div_status_speed-1" class="status-panels align-items-center" style="display: inline-flex;padding: 1px;padding-right: 2px;padding-left: 3px;margin-top: 2px;"><i class="typcn typcn-keyboard" style="font-size: 13px;color: var(--bs-info);"></i><input type="checkbox" id="checkbox_keyboard_teleop" class="all-events" style="margin-right: 4px;margin-left: 5px;"></div>
+                        <div id="div_status_speed-2" class="status-panels align-items-center" style="display: inline-flex;padding: 1px;padding-right: 2px;padding-left: 3px;margin-top: 3px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" class="bi bi-lightning-charge-fill" id="dock_icon_in_dock" style="font-size: 13px;color: var(--bs-secondary);margin-right: 2px;">
+                                <path d="M11.251.068a.5.5 0 0 1 .227.58L9.677 6.5H13a.5.5 0 0 1 .364.843l-8 8.5a.5.5 0 0 1-.842-.49L6.323 9.5H3a.5.5 0 0 1-.364-.843l8-8.5a.5.5 0 0 1 .615-.09z"></path>
+                            </svg>
+                            <span id="span_batt_pct" class="no-event" title="Battery capacity" style="font-size: 12px;font-weight: 600;color: var(--bs-secondary);margin-right: 5px;min-width: 28px;text-align: right;">--%</span>
+                            <div class="btn-group all-events" role="group"><button class="btn btn-primary" id="dock_btn_menu_dock" type="button" style="height: 18px;width: 50px;padding: 6px 16px;padding-top: 0px;padding-right: 2px;padding-bottom: 0px;padding-left: 3px;font-size: 11px;">Dock</button><button class="btn btn-primary" id="dock_btn_menu_undock" type="button" style="height: 18px;width: 50px;padding: 6px 16px;padding-top: 0px;padding-right: 2px;padding-bottom: 0px;padding-left: 3px;font-size: 11px;">Undock</button><button class="btn btn-primary" id="dock_btn_menu_stop" type="button" style="height: 18px;width: 50px;padding: 6px 16px;padding-top: 0px;padding-right: 2px;padding-bottom: 0px;padding-left: 3px;font-size: 11px;">Stop</button></div><span id="span_status_speed-1" class="no-event" style="font-size: 12px;padding-right: 2px;min-width: 20px;display: none;padding-left: 2px;margin-left: 3px;">&nbsp; &nbsp; &nbsp;</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="map_view" style="width: 100%;height: 100%;background: rgba(2,60,85,0.22);color: rgba(2,60,85,0.22);overflow: hidden;"></div>
+        </div>
+    </div>
+    <div id="joy_view" style="width: 120px;height: 120px;position: absolute;border-radius: 118px;margin-top: calc(100vh - 269px);margin-left: calc(100vw - 170px);background: url(&quot;assets/img/joystick_icon_45px.svg&quot;) center no-repeat, radial-gradient(#00000033 43%, rgba(255,255,255,0) 74%), rgba(0,0,0,0);display: none;border: 0px solid var(--bs-secondary);z-index: 1;"></div>
+    <div id="div_camera_view" style="width: 180px;height: 120px;position: absolute;border-radius: 5px;margin-top: calc(100vh - 268px);background: rgba(0,0,0,0.2);display: none;overflow: hidden;backdrop-filter: blur(0px);-webkit-backdrop-filter: blur(0px);filter: blur(0px);padding: 0px;float: right;margin-left: calc(4px);border: 0px solid var(--bs-secondary);z-index: 1;"></div>
+    <div id="div_log_view" class="log-compact" style="width: calc(100vw - 8px);height: 106px;position: absolute;border-radius: 5px;margin-top: calc(100vh - 141px);background: rgb(28,38,44);display: none;overflow: auto;/*backdrop-filter: blur(0px);-webkit-backdrop-filter: blur(0px);*/filter: blur(0px);padding: 0px;/*float: right;*/margin-left: calc(4px);padding-right: 6px;padding-left: 5px;border: 0px none var(--bs-secondary);z-index: 1;box-shadow: 0px 0px 1px 0px #1e252c;">
+        <div id="div_log_toolbar" class="log-toolbar">
+            <div class="log-toolbar-row">
+                <div class="btn-group btn-group-sm log-mode-group" role="group" aria-label="Log source">
+                    <button type="button" class="btn btn-outline-info active" data-logmode="rosout" title="ROS console (/rosout)">ROS</button>
+                    <button type="button" class="btn btn-outline-info" data-logmode="status" title="Cached status messages">Status</button>
+                </div>
+                <div class="btn-group btn-group-sm log-level-group log-rosout-only" role="group" aria-label="Log level filter">
+                    <button type="button" class="btn btn-outline-secondary" data-level="1" title="Debug">DBG</button>
+                    <button type="button" class="btn btn-outline-info active" data-level="2" title="Info">INFO</button>
+                    <button type="button" class="btn btn-outline-warning active" data-level="4" title="Warning">WARN</button>
+                    <button type="button" class="btn btn-outline-danger active" data-level="8" title="Error">ERR</button>
+                    <button type="button" class="btn btn-outline-danger active" data-level="16" title="Fatal">FATAL</button>
+                </div>
+                <div class="log-source-filter log-rosout-only">
+                    <button type="button" id="btn_log_source_toggle" class="btn btn-sm btn-outline-secondary log-source-btn" title="Filter by node">All nodes &#x25be;</button>
+                    <div id="div_log_source_panel" class="log-source-panel" style="display:none">
+                        <div class="log-source-panel-hdr">
+                            <span style="flex:1">Nodes</span>
+                            <button type="button" id="btn_log_src_all" class="btn btn-sm btn-link py-0 px-1" style="font-size:11px">All</button>
+                        </div>
+                        <div id="div_log_source_list" class="log-source-list"></div>
+                    </div>
+                </div>
+                <input id="input_log_search" type="search" class="form-control form-control-sm log-search log-rosout-only" placeholder="Search text…" autocomplete="off">
+                <button id="btn_log_pause" type="button" class="btn btn-sm btn-outline-info log-iconbtn" title="Pause autoscroll"><span>Live</span></button>
+                <button id="btn_log_clear" type="button" class="btn btn-sm btn-outline-secondary log-iconbtn" title="Clear log buffer">Clear</button>
+                <button id="btn_log_collapse" type="button" class="btn btn-sm btn-outline-secondary log-iconbtn" title="Collapse">×</button>
+                <span id="span_log_counter" class="log-counter">0</span>
+            </div>
+        </div>
+        <button id="btn_log_expand" type="button" class="btn btn-sm" title="Expand log to full screen" aria-label="Expand log">▲</button>
+        <div id="div_log_content"></div>
+    </div>
+
+</div>
+    <script src="assets/js/jquery.min.js"></script>
+    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="assets/js/bs-init.js"></script>
+    <script src="assets/js/webui.js"></script>
+
+</body>
+
+</html>

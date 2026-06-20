@@ -1,0 +1,17 @@
+<launch>
+  <node pkg="vitulus_ui" type="webnode" name="webnode" output="screen"/>
+
+  <!-- Caches the transient /nextion/log_info status strip into a persistent,
+       size-rotated JSONL log and republishes recent history over ROS (latched)
+       for the WebUI. Runs independently of the web frontend. -->
+  <node pkg="vitulus_ui" type="status_logger" name="status_logger" output="screen"/>
+
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find vitulus_ui)/launch/rosconsole.conf"/>
+  <node pkg="web_video_server" type="web_video_server" name="web_video_server" output="screen"/>
+  <node pkg="tf2_web_republisher" type="tf2_web_republisher" name="tf2_web_republisher" output="screen"/>
+  <!-- <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"></include> -->
+  <include file="$(find vitulus_ui)/launch/rosbridge_websocket.launch"></include>
+
+
+
+</launch>

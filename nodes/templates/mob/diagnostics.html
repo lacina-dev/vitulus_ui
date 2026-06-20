@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html data-bs-theme="light">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>VITULUS UI</title>
+    <meta name="" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="../assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/VitulusOnGrassBlended16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/VitulusOnGrassBlended16x16Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/VitulusOnGrassBlended32x32.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/VitulusOnGrassBlended32x32Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="180x180" href="../assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="../assets/img/VitulusOnGrassBlended192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="../assets/img/VitulusOnGrassBlended512x512.png">
+    <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
+    <link rel="manifest" href="../manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:400,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700">
+    <link rel="stylesheet" href="../assets/fonts/font-awesome.min.css">
+    <link rel="stylesheet" href="../assets/css/bs-theme-overrides.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar-1.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar-2.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar.css">
+    <link rel="stylesheet" href="../assets/css/Feature-Section-MD.css">
+    <link rel="stylesheet" href="../assets/css/Header-Dark.css">
+    <link rel="stylesheet" href="../assets/css/map_edit_item_poly.css">
+    <link rel="stylesheet" href="../assets/css/Navbar-mob.css">
+    <link rel="stylesheet" href="../assets/css/Navigation-Clean.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/Vitulus_mobile_template.css">
+<script src="/assets/js/mob/diagnostics.js"></script>
+<script src="/assets/js/three.min.js"></script>
+<script src="/assets/js/easeljs.js"></script>
+<script src="/assets/js/eventemitter2.js"></script>
+<script src="/assets/js/roslib.js"></script>
+</head>
+
+<body>
+    <div>
+        <nav class="navbar navbar-expand-lg" id="div_menu" style="background: #282b30;padding-top: 3px;padding-bottom: 3px;position: absolute;display: block;width: 100vw;">
+            <div class="container-fluid"><a class="navbar-brand d-flex flex-grow-1 align-items-end" href="#" style="display: flex;padding: 2px;"><img src="../assets/img/vitulusShape.svg" width="114" height="27"><span style="margin-left: 9px;">Diagnostics</span></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1" id="btn_navbar_toggler" style="height: 36px;border-width: 0px;"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+                <div class="collapse navbar-collapse" id="navcol-1">
+                    <ul class="navbar-nav" style="color: rgba(40,43,48,0.99);/*z-index: 5000;*/">
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/map_view"><span><i class="fa fa-map" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i></span>Map view</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/motors"><span><i class="fa fa-gears" style="margin-right: 8px;color: rgb(241,125,34);"></i></span>Motors</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/power_module"><i class="fa fa-battery-3" style="margin-right: 8px;color: rgb(241,125,34);"></i>Power module</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/imu_calibration"><i class="fa fa-compass" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i>Imu calibration</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/mower"><i class="fa fa-gear" style="margin-right: 11px;font-size: 18px;color: rgb(241,125,34);"></i>Mower</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/diagnostics"><i class="fa fa-heartbeat" style="margin-right: 8px;font-size: 15px;color: rgb(241,125,34);"></i>Diagnostics</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <div id="menu_spacer" style="height: 42px;"></div>
+        <div id="div_content" style="height: calc(100vh - 42px);">
+            <div>
+                <div id="div_diag_all" style="overflow: auto;padding: 3px;font-size: 13px;height: 100%;"></div>
+            </div>
+        </div>
+    </div>
+    <script src="../assets/js/jquery.min.js"></script>
+    <script src="../assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="../assets/js/bs-init.js"></script>
+    <script src="../assets/js/webui.js"></script>
+</body>
+
+</html>

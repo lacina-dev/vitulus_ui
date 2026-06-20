@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html data-bs-theme="light" style="height: 100%;">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>VITULUS UI</title>
+    <meta name="" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/VitulusOnGrassBlended16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/VitulusOnGrassBlended16x16Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/VitulusOnGrassBlended32x32.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/VitulusOnGrassBlended32x32Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="180x180" href="assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/img/VitulusOnGrassBlended192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/img/VitulusOnGrassBlended512x512.png">
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:400,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700">
+    <link rel="stylesheet" href="assets/fonts/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/css/bs-theme-overrides.css">
+    <link rel="stylesheet" href="assets/css/Dark-NavBar-1.css">
+    <link rel="stylesheet" href="assets/css/Dark-NavBar-2.css">
+    <link rel="stylesheet" href="assets/css/Dark-NavBar.css">
+    <link rel="stylesheet" href="assets/css/Feature-Section-MD.css">
+    <link rel="stylesheet" href="assets/css/Header-Dark.css">
+    <link rel="stylesheet" href="assets/css/map_edit_item_poly.css">
+    <link rel="stylesheet" href="assets/css/Navbar-mob.css">
+    <link rel="stylesheet" href="assets/css/Navigation-Clean.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/Vitulus_mobile_template.css">
+<script src="assets/js/dashboard.js"></script>
+</head>
+
+<body style="height: 100%;">
+    <div class="container-fluid min-100 d-flex flex-column" style="min-height: 100%;">
+        <nav class="navbar navbar-expand-md sticky-top navigation-clean-button flex-shrink-0 navbar-light" style="height: 34px;background-color: #37434d;color: #ffffff;">
+            <div class="container-fluid"><a class="navbar-brand" href="#" style="color: var(--yellow);padding-top: 5px;padding-bottom: 5px;margin-right: 20px;">&nbsp;Vitulus UI</a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+                <div id="status_div" style="padding: 4px;background: #000000;border-radius: 7px;box-shadow: 2px 2px var(--primary);"><img id="ico_wifi" src="assets/img/robot_icons/Nextion_ico_wifi_grey.png" style="margin-left: 4px;transform: scale(0.75);"><img id="ico_gps" src="assets/img/robot_icons/Nextion_ico_gps_grey.png" style="margin-left: 4px;transform: scale(0.75);"><img id="ico_gps_nav" src="assets/img/robot_icons/Nextion_ico_gpsnav_grey.png" style="margin-left: 1px;transform: scale(0.75);"><img id="ico_imu" src="assets/img/robot_icons/Nextion_ico_imu_grey.png" style="margin-left: 1px;transform: scale(0.75);"><img id="ico_lidar" src="assets/img/robot_icons/Nextion_ico_lidar_grey.png" style="margin-left: 1px;transform: scale(0.75);"><img id="ico_camera" src="assets/img/robot_icons/Nextion_ico_camera_grey.png" style="margin-left: 1px;transform: scale(0.75);"><img id="ico_mower" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" style="margin-left: 9px;transform: scale(0.75);"><img id="ico_fl_motor" src="assets/img/robot_icons/Nextion_ico_motorLF_grey.png" style="margin-left: 7px;transform: scale(0.75);"><img id="ico_fr_motor" src="assets/img/robot_icons/Nextion_ico_motorRF_grey.png" style="margin-left: -1px;transform: scale(0.75);"><img id="ico_rl_motor" src="assets/img/robot_icons/Nextion_ico_motorLR_grey.png" style="margin-left: -2px;transform: scale(0.75);"><img id="ico_rr_motor" src="assets/img/robot_icons/Nextion_ico_motorRR_grey.png" style="margin-left: -1px;transform: scale(0.75);"><img id="ico_temp_pcb" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" style="margin-left: 8px;transform: scale(0.75);"><img id="ico_fan_pcb" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" style="margin-left: -3px;transform: scale(0.75);"><img id="ico_temp" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" style="margin-left: 3px;transform: scale(0.75);"><img id="ico_fan" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" style="margin-left: -5px;transform: scale(0.75);"><img id="ico_supply" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" style="margin-left: 5px;transform: scale(0.75);"><img id="ico_batt" src="assets/img/robot_icons/Nextion_ico_batt_disabled.png" style="margin-left: 0px;transform: scale(0.75);"></div>
+                <div class="collapse navbar-collapse" id="navcol-1">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item"><a class="nav-link active" style="color: #ffffff;padding-top: 5px;padding-bottom: 5px;" href="#"><i class="fa fa-th-large"></i>&nbsp;Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link active" style="color: #ffffff;padding-top: 5px;padding-bottom: 5px;" href="#"><i class="fa fa-th-large"></i>&nbsp;Map</a></li>
+                        <li class="nav-item"><a class="nav-link" style="color: #ffffff;padding-top: 5px;padding-bottom: 5px;" href="http://{{ ros_ip }}:7778/?rosbridge-websocket-url=ws://{{ ros_ip }}:9090"><i class="fa fa-wpexplorer"></i>&nbsp;WebViz</a></li>
+                        <li class="nav-item"><a class="nav-link" style="color: #ffffff;padding-top: 5px;padding-bottom: 5px;" href="#"><i class="fa fa-book"></i>&nbsp;Docs</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <div class="row flex-grow-1" style="margin-top: 7px;max-height: 100%;">
+            <div class="col-7 flex-grow-1 d-flex flex-column" style="padding-right: 3px;">
+                <div class="row flex-shrink-0">
+                    <div class="col">
+                        <div>
+                            <header class="text-center d-xl-flex justify-content-xl-center" style="background: #333333;padding: 3px;padding-right: 6px;padding-left: 7px;">
+                                <div class="text-start d-xl-flex justify-content-xl-start align-items-xl-center"><span class="text-nowrap text-uppercase fw-bold" style="font-size: 13px;">Map&nbsp;</span></div>
+                                <div class="text-end d-xl-flex flex-fill justify-content-xl-end">
+                                    <div class="btn-group btn-group-sm" role="group" style="margin-right: 7px;"><button class="btn btn-outline-primary" id="btn_show_original" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Original</button><button class="btn btn-outline-primary" id="btn_show_fill" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Free</button><button class="btn btn-outline-primary" id="btn_show_free_poly" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Free poly</button><button class="btn btn-outline-primary" id="btn_show_obstacles_poly" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Obstacle poly</button><button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Semi assembled</button><button class="btn btn-outline-primary" id="btn_show_obstacle_margin" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Margin</button><button class="btn btn-outline-primary" id="btn_show_assembled" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Assembled</button></div>
+                                    <div class="btn-group btn-group-sm" role="group"><button class="btn btn-outline-info" id="btn_show_zone_map" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">Zone</button><button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">&nbsp;Path</button><button class="btn btn-outline-info" id="btn_show_zone_navi" type="button" style="padding-top: 1px;padding-bottom: 1px;font-size: 12px;">&nbsp;Navi</button></div>
+                                </div>
+                            </header>
+                        </div>
+                    </div>
+                </div>
+                <div class="row flex-grow-1">
+                    <div class="col flex-grow-1">
+                        <div class="d-flex flex-grow-1" id="div_map_parent" style="border-style: solid;border-top-style: none;border-right-color: rgb(51,51,51);border-bottom-color: #333333;border-left-color: #333333;height: 100%;">
+                            <div class="text-start d-xl-flex justify-content-xl-center align-items-xl-center flex-grow-1" id="map" style="background: rgba(2,60,85,0.22);resize: vertical;overflow: hidden;width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-5 flex-grow-1" style="padding-left: 3px;">
+                <div>
+                    <div id="panel_log" style="border: 1px solid #636363;">
+                        <header class="d-flex" style="padding: 2px;background: #333333;padding-left: 8px;"><span class="text-nowrap text-uppercase fw-bold" style="font-size: 13px;">STATUS</span></header>
+                        <div></div>
+                        <div id="maplist-3" style="border-top-style: none;border-right-color: rgb(51,51,51);border-bottom-color: #333333;border-left-color: #333333;">
+                            <div style="margin-top: 4px;"></div>
+                            <div id="div_log" style="color: var(--info);resize: vertical;overflow: hidden;height: 32px;padding-right: 3px;padding-left: 6px;"><span id="log-2" style="color: #00aeef;padding: 0px;">Initialized</span></div>
+                        </div>
+                        <div style="margin: 4px;margin-top: 3px;"></div>
+                    </div>
+                    <div id="polygons" style="border: 1px solid #636363;margin-top: 6px;">
+                        <header style="padding: 2px;background: #333333;padding-left: 8px;margin-bottom: 0px;width: 100%;"><span class="text-nowrap text-uppercase fw-bold" style="font-size: 13px;">MAP Polygons</span><button class="btn btn-outline-info text-nowrap d-inline-flex float-end btn-sm-s" id="btn_new_poly" type="button">New polygon</button></header>
+                        <div id="maplist-5" style="border-right-color: rgb(51,51,51);border-bottom-color: #333333;border-left-color: #333333;">
+                            <header class="d-flex align-items-center visible" id="div_poly_template" style="background: #333333;padding-top: 10px;padding-bottom: 10px;padding-right: 3px;">
+                                <div style="padding-left: 6px;"><input class="bg-dark border rounded-0 border-secondary" type="text" id="input_poly_template_name" value="" style="color: #b5b5b5;width: 155px;margin-right: 9px;height: 22px;padding-left: 4px;font-size: 13.2px;" placeholder="Polygon name"></div><select class="bg-dark" id="input_poly_template_type" style="color: rgb(184,179,179);font-size: 13.2px;padding-bottom: 2px;padding-top: 1px;">
+                                    <option value="obstacle">obstacle</option>
+                                    <option value="free">free</option>
+                                </select>
+                                <div class="d-flex"></div>
+                                <div class="btn-group btn-group-sm d-flex ms-auto" role="group"><button class="btn btn-outline-success d-inline-flex btn-sm-s" id="btn_poly_template_save" type="button">Save</button><button class="btn btn-outline-warning text-nowrap d-inline-flex btn-sm-s" id="btn_poly_template_cancel" type="button">Cancel</button></div>
+                            </header>
+                            <div id="div_poly_list" style="margin-top: 3px;margin-right: 3px;margin-left: 4px;">
+                                <div class="d-flex align-items-center" id="div_poly" style="border-bottom: 1px solid #444444;padding-right: 2px;padding-left: 6px;padding-bottom: 2px;padding-top: 2px;">
+                                    <div class="d-flex"><span id="span_poly_name" style="margin-right: 6px;width: 155px;font-size: 13.2px;">Polygon</span><span class="text-nowrap" id="span_poly_type" style="margin-right: 12px;font-size: 13.2px;">obstacle</span></div>
+                                    <div class="btn-group btn-group-sm d-flex ms-auto" role="group"><button class="btn btn-outline-info d-inline-flex btn-sm-s" id="btn_poly_edit" type="button">Edit</button><button class="btn btn-outline-danger d-inline-flex btn-sm-s" id="btn_poly_remove" type="button">Remove</button></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="panel_finish_map" style="border: 1px solid #636363;margin-top: 6px;">
+                        <header style="padding: 2px;background: #333333;padding-left: 8px;width: 100%;"><span class="text-nowrap text-uppercase fw-bold" style="font-size: 13px;">map</span><button class="btn btn-outline-success text-nowrap d-inline-flex float-end btn-sm-s" id="btn_assemble_map" type="button" style="margin-right: 4px;margin-left: 3px;">Assemble map</button></header>
+                        <header style="padding: 2px;background: #333333;padding-left: 8px;width: 100%;padding-top: 3px;padding-bottom: 3px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-10" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Filter noise in free:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_fill_free" style="color: #b5b5b5;margin-right: 3px;" min="0" max="20" step="1" placeholder="filter" value="2"><span class="text-nowrap d-inline-flex" id="span_zone_height-12" style="margin-right: 12px;font-size: 13.2px;margin-left: 2px;">px</span></header>
+                        <header style="padding: 2px;background: #333333;padding-left: 8px;width: 100%;padding-top: 3px;padding-bottom: 3px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-11" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Obstacle margin:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_obstacle_margin" style="color: #b5b5b5;margin-right: 3px;" min="0" max="3" step="0.1" placeholder="margin" value="0.3"><span class="text-nowrap d-inline-flex" id="span_zone_height-13" style="margin-right: 12px;font-size: 13.2px;margin-left: 2px;">m</span></header>
+                        <header style="padding: 2px;background: #333333;padding-left: 8px;width: 100%;padding-top: 3px;padding-bottom: 3px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-14" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Fill shape:</span><select class="bg-dark" id="input_fill_shape" style="color: rgb(184,179,179);font-size: 13.2px;padding-bottom: 2px;padding-top: 1px;">
+                                <option value="square">square</option>
+                                <option value="ellipse" selected="">ellipse</option>
+                            </select></header>
+                    </div>
+                    <div id="panel_zones" style="border: 1px solid #636363;margin-top: 6px;">
+                        <header style="padding: 2px;background: #333333;padding-left: 8px;margin-bottom: 0px;width: 100%;padding-right: 5px;"><span class="text-nowrap text-uppercase fw-bold" style="font-size: 13px;">ZONES</span><button class="btn btn-outline-info text-nowrap d-inline-flex float-end btn-sm-s" id="btn_new_zone" type="button">New zone</button></header>
+                        <div id="div_zone_template" style="border-right-color: rgb(51,51,51);border-bottom-color: #333333;border-left-color: #333333;">
+                            <header class="d-flex align-items-center visible" id="zone_template_main" style="background: #333333;padding-top: 10px;padding-bottom: 10px;padding-right: 5px;padding-left: 2px;">
+                                <div style="padding-left: 6px;"><input class="bg-dark border rounded-0 border-secondary" type="text" id="input_zone_template_name" value="Zone" style="color: #b5b5b5;width: 155px;margin-right: 9px;height: 22px;padding-left: 4px;font-size: 13.2px;" placeholder="Zone name"></div>
+                                <div class="d-flex"></div>
+                                <div class="btn-group btn-group-sm d-flex ms-auto" role="group"><button class="btn btn-outline-success d-inline-flex btn-sm-s" id="btn_zone_template_save" type="button">Save</button><button class="btn btn-outline-warning text-nowrap d-inline-flex btn-sm-s" id="btn_zone_template_cancel" type="button">Cancel</button></div>
+                            </header>
+                            <header class="d-flex align-items-center visible" id="header_zone_template_border_path-2" style="background: #333333;padding-top: 3px;padding-bottom: 3px;padding-right: 3px;margin-left: 1px;">
+                                <div style="padding-left: 6px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-5" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Cut height:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_zone_template_cut_height" style="color: #b5b5b5;margin-right: 3px;" min="20" max="65" step="1" placeholder="height" value="45"></div><span class="text-nowrap d-inline-flex" id="span_zone_height-8" style="margin-right: 12px;font-size: 13.2px;margin-left: 2px;">mm</span>
+                                <div></div>
+                                <div class="d-flex"></div>
+                            </header>
+                            <header class="d-flex align-items-center visible" id="header_zone_template_border_path-1" style="background: #333333;padding-top: 3px;padding-bottom: 3px;padding-right: 3px;margin-left: 1px;">
+                                <div style="padding-left: 6px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-4" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Cut rpm:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_zone_template_rpm" style="color: #b5b5b5;margin-right: 3px;" min="600" max="4000" step="100" placeholder="rpm" value="3300"></div><span class="text-nowrap d-inline-flex" id="span_zone_height-9" style="margin-right: 12px;font-size: 13.2px;margin-left: 2px;">rpm</span>
+                                <div></div>
+                                <div class="d-flex"></div>
+                            </header>
+                            <header class="d-flex align-items-center visible" id="header_zone_template_border_path" style="background: #333333;padding-top: 3px;padding-bottom: 3px;padding-right: 3px;margin-left: 1px;">
+                                <div style="padding-left: 6px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-1" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Paths around obstacles:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_zone_template_border_path" style="color: #b5b5b5;margin-right: 3px;" min="1" max="200" step="1" placeholder="nr." value="2"></div>
+                                <div></div>
+                                <div class="d-flex"></div>
+                            </header>
+                            <header class="d-flex align-items-center visible" id="header_zone_template_coverage_path" style="background: #333333;padding-top: 3px;padding-bottom: 3px;padding-right: 3px;">
+                                <div style="padding-left: 6px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-2" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Coverage path angle:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_zone_template_coverage_path" style="color: #b5b5b5;margin-right: 3px;" min="0" max="180" step="5" value="160" placeholder="angle"></div><span class="text-nowrap d-inline-flex" id="span_zone_height-7" style="margin-right: 12px;font-size: 13.2px;margin-left: 2px;">°</span>
+                                <div></div>
+                                <div class="d-flex"></div>
+                            </header>
+                            <header class="d-flex align-items-center visible" id="header_zone_template_coverage_path-1" style="background: #333333;padding-top: 3px;padding-bottom: 3px;padding-right: 3px;">
+                                <div style="padding-left: 6px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-3" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Between paths distance:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_zone_template_path_distance" style="color: #b5b5b5;margin-right: 3px;" min="0.01" max="100" step="0.1" value="0.2" placeholder="dist."></div><span class="text-nowrap d-inline-flex" id="span_zone_height-6" style="margin-right: 12px;font-size: 13.2px;margin-left: 2px;">m</span>
+                                <div></div>
+                                <div class="d-flex"></div>
+                            </header>
+                            <header class="d-flex align-items-center visible" id="header_zone_template_coverage_path-2" style="background: #333333;padding-top: 3px;padding-bottom: 3px;padding-right: 3px;">
+                                <div style="padding-left: 6px;"><span class="text-nowrap d-inline-flex" id="span_zone_height-15" style="margin-right: 12px;font-size: 13.2px;width: 143px;">Simplify polygons:</span><input class="bg-dark border rounded-0 border-secondary btn-sm-s" type="number" id="input_zone_template_simplify" style="color: #b5b5b5;margin-right: 3px;" min="0.00" max="1" step="0.02" value="0.1" placeholder="simpl."></div><span class="text-nowrap d-inline-flex" id="span_zone_height-16" style="margin-right: 12px;font-size: 13.2px;margin-left: 2px;">m</span>
+                                <div></div>
+                                <div class="d-flex"></div>
+                            </header>
+                        </div>
+                        <div id="div_zone_list" style="margin-top: 3px;">
+                            <div class="d-flex align-items-center" id="div_zone" style="border-bottom: 1px solid #444444;padding-right: 2px;padding-left: 6px;padding-bottom: 2px;padding-top: 2px;">
+                                <div class="d-flex"><span id="span_zone_name" style="margin-right: 6px;width: 155px;font-size: 13.2px;">Zone</span><span class="text-nowrap" id="span_zone_height" style="margin-right: 12px;font-size: 13.2px;">height</span><span class="text-nowrap" id="span_zone_rpm" style="margin-right: 12px;font-size: 13.2px;">rpm</span><span class="text-nowrap" id="span_zone_area" style="margin-right: 12px;font-size: 13.2px;">area</span></div>
+                                <div class="btn-group btn-group-sm d-flex ms-auto" role="group"><button class="btn btn-outline-info d-inline-flex btn-sm-s" id="btn_zone_edit" type="button">Edit</button><button class="btn btn-outline-danger d-inline-flex btn-sm-s" id="btn_zone_remove" type="button">Remove</button></div>
+                            </div>
+                        </div>
+                        <div id="panel_finish_map-1" style="border: 1px solid #636363;margin-top: 6px;">
+                            <header style="padding: 2px;background: #333333;padding-left: 8px;width: 100%;"><span class="text-nowrap text-uppercase fw-bold" style="font-size: 13px;">PROGRAMS</span><button class="btn btn-outline-info text-nowrap d-inline-flex float-end btn-sm-s" id="btn_program_new" type="button" style="margin-right: 4px;margin-left: 3px;">New program</button></header>
+                        </div>
+                        <div id="div_program_template" style="border-right-color: rgb(51,51,51);border-bottom-color: #333333;border-left-color: #333333;">
+                            <header class="d-flex align-items-center visible" id="program_template_main" style="background: #333333;padding-top: 10px;padding-bottom: 10px;padding-right: 5px;padding-left: 2px;">
+                                <div style="padding-left: 6px;"><input class="bg-dark border rounded-0 border-secondary" type="text" id="input_program_template_name" value="Program" style="color: #b5b5b5;width: 155px;margin-right: 9px;height: 22px;padding-left: 4px;font-size: 13.2px;" placeholder="Zone name"></div>
+                                <div class="d-flex"></div>
+                                <div class="btn-group btn-group-sm d-flex ms-auto" role="group"><button class="btn btn-outline-success d-inline-flex btn-sm-s" id="btn_program_template_save" type="button">Save</button><button class="btn btn-outline-warning text-nowrap d-inline-flex btn-sm-s" id="btn_program_template_cancel" type="button">Cancel</button></div>
+                            </header>
+                            <header class="d-flex align-items-center visible" id="header_program_template_add_zone" style="background: #333333;padding-top: 3px;padding-bottom: 3px;padding-right: 3px;margin-left: 1px;">
+                                <div style="padding-left: 6px;"></div><select class="bg-dark" id="input_program_add_zone" style="color: rgb(184,179,179);font-size: 13.2px;padding-bottom: 2px;padding-top: 1px;">
+                                    <option value="todo" selected="">todo</option>
+                                </select><button class="btn btn-outline-info text-nowrap d-inline-flex float-end btn-sm-s" id="btn_program_add_zone" type="button" style="margin-right: 4px;margin-left: 3px;">Add zone</button>
+                                <div></div>
+                                <div class="d-flex"></div>
+                            </header>
+                        </div>
+                        <div id="div_program_list" style="margin-top: 3px;">
+                            <div class="d-flex align-items-center" id="div_program" style="border-bottom: 1px solid #444444;padding-right: 2px;padding-left: 6px;padding-bottom: 2px;padding-top: 2px;">
+                                <div class="d-flex"><span id="span_program_name" style="margin-right: 6px;width: 155px;font-size: 13.2px;">Program</span><span class="text-nowrap" id="span_program_duration" style="margin-right: 12px;font-size: 13.2px;">last duration</span><span class="text-nowrap" id="span_program_area" style="margin-right: 12px;font-size: 13.2px;">area</span></div>
+                                <div class="btn-group btn-group-sm d-flex ms-auto" role="group"><button class="btn btn-outline-success d-inline-flex btn-sm-s" id="btn_program_run" type="button">Run</button><button class="btn btn-outline-info d-inline-flex btn-sm-s" id="btn_program_edit" type="button">Edit</button><button class="btn btn-outline-danger d-inline-flex btn-sm-s" id="btn_program_remove" type="button">Remove</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="assets/js/jquery.min.js"></script>
+    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="assets/js/bs-init.js"></script>
+    <script src="assets/js/webui.js"></script>
+</body>
+
+</html>

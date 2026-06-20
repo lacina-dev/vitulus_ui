@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html data-bs-theme="light">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>VITULUS UI</title>
+    <meta name="" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="../assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/VitulusOnGrassBlended16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/VitulusOnGrassBlended16x16Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/VitulusOnGrassBlended32x32.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/VitulusOnGrassBlended32x32Dark.png" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" sizes="180x180" href="../assets/img/VitulusOnGrassBlended180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="../assets/img/VitulusOnGrassBlended192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="../assets/img/VitulusOnGrassBlended512x512.png">
+    <link rel="stylesheet" href="../assets/bootstrap/css/bootstrap.min.css">
+    <link rel="manifest" href="../manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:400,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700">
+    <link rel="stylesheet" href="../assets/fonts/font-awesome.min.css">
+    <link rel="stylesheet" href="../assets/css/bs-theme-overrides.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar-1.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar-2.css">
+    <link rel="stylesheet" href="../assets/css/Dark-NavBar.css">
+    <link rel="stylesheet" href="../assets/css/Feature-Section-MD.css">
+    <link rel="stylesheet" href="../assets/css/Header-Dark.css">
+    <link rel="stylesheet" href="../assets/css/map_edit_item_poly.css">
+    <link rel="stylesheet" href="../assets/css/Navbar-mob.css">
+    <link rel="stylesheet" href="../assets/css/Navigation-Clean.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/Vitulus_mobile_template.css">
+<script src="/assets/js/mob/mower.js"></script>
+<script src="/assets/js/three.min.js"></script>
+<script src="/assets/js/easeljs.js"></script>
+<script src="/assets/js/eventemitter2.js"></script>
+<script src="/assets/js/roslib.js"></script>
+</head>
+
+<body>
+    <div>
+        <nav class="navbar navbar-expand-lg" id="div_menu" style="background: #282b30;padding-top: 3px;padding-bottom: 3px;position: absolute;display: block;width: 100vw;">
+            <div class="container-fluid"><a class="navbar-brand d-flex flex-grow-1 align-items-end" href="#" style="display: flex;padding: 2px;"><img src="../assets/img/vitulusShape.svg" width="114" height="27"><span style="margin-left: 9px;">Mower</span></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1" id="btn_navbar_toggler" style="height: 36px;border-width: 0px;"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+                <div class="collapse navbar-collapse" id="navcol-1">
+                    <ul class="navbar-nav" style="color: rgba(40,43,48,0.99);/*z-index: 5000;*/">
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/map_view"><span><i class="fa fa-map" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i></span>Map view</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/motors"><span><i class="fa fa-gears" style="margin-right: 8px;color: rgb(241,125,34);"></i></span>Motors</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/power_module"><i class="fa fa-battery-3" style="margin-right: 8px;color: rgb(241,125,34);"></i>Power module</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/imu_calibration"><i class="fa fa-compass" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i>Imu calibration</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/mower"><i class="fa fa-gear" style="margin-right: 11px;font-size: 18px;color: rgb(241,125,34);"></i>Mower</a></li>
+                        <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/mob/diagnostics"><i class="fa fa-heartbeat" style="margin-right: 8px;font-size: 15px;color: rgb(241,125,34);"></i>Diagnostics</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <div id="menu_spacer" style="height: 42px;"></div>
+        <div id="div_content" style="height: calc(100vh - 42px);">
+            <div>
+                <div class="row" style="margin: 0px;padding: 0px;">
+                    <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="margin: 0px;padding: 0px;overflow: auto;">
+                        <div class="row" style="margin: 0px;">
+                            <div class="col" style="margin: 0px;">
+                                <div class="input-group input-group-sm" style="padding: 2px;border-width: 2px;border-style: solid;border-right-width: 1px;border-right-style: solid;border-radius: 5px;"><span class="input-group-text" style="width: 91px;">Mower</span><button class="btn btn-outline-success" id="btn_mower_on" type="button" style="width: 62px;">ON</button><button class="btn btn-outline-danger" id="btn_mower_off" type="button" style="width: 62px;">OFF</button><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_status">UNK</span></div>
+                                <div class="input-group input-group-sm" style="margin-top: 13px;"><span class="input-group-text" style="width: 91px;">Direction</span><button class="btn btn-outline-info" id="btn_mower_left" type="button" style="width: 62px;">LEFT</button><button class="btn btn-outline-info" id="btn_mower_right" type="button" style="width: 62px;">RIGHT</button><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_direction">UNK</span></div>
+                                <div class="input-group input-group-sm" style="margin-top: 3px;"><span class="input-group-text" style="width: 56px;">Height</span><input class="form-control" type="number" id="input_mower_cut_height" style="flex: 0 0 auto;width: 53px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="10" max="90"><button class="btn btn-outline-info" id="btn_mower_set_height" type="button" style="width: 62px;">SET</button><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_cut_height">0/0 cm</span></div>
+                                <div class="input-group input-group-sm" style="display: flex;margin-top: 3px;"><span class="input-group-text" style="width: 56px;">RPM</span><input class="form-control" type="number" id="input_mower_rpm" style="flex: 0 0 auto;width: 53px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="500" max="4000"><button class="btn btn-outline-info" id="btn_mower_set_rpm" type="button" style="width: 62px;">SET</button><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_rpm">0/0 rpm</span></div>
+                            </div>
+                        </div>
+                        <div class="row" style="margin: 0px;margin-top: 4px;">
+                            <div class="col" style="margin: 0px;padding-right: 3px;">
+                                <div class="btn-group-vertical" role="group" style="width: 100%;"><button class="btn btn-outline-info btn-sm" id="btn_mower_home" type="button" style="width: 100%;">HOME</button><button class="btn btn-outline-info btn-sm" id="btn_mower_calibration" type="button" style="width: 100%;">&nbsp;CALIBRATION</button><button class="btn btn-success" id="btn_mower_start_motor" type="button" style="width: 100%;">START MOTOR</button></div>
+                            </div>
+                            <div class="col" style="margin: 0px;padding-left: 3px;"><button class="btn btn-danger" id="btn_mower_stop_motor" type="button" style="width: 100%;height: 100%;border-radius: 4px;">STOP MOTOR</button></div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="margin: 0px;padding: 0px;overflow: auto;">
+                        <div class="row" style="margin: 0px;padding-top: 8px;">
+                            <div class="col" style="margin: 0px;">
+                                <p style="margin-top: 9px;font-size: 15px;color: var(--bs-blue);margin-bottom: -4px;">PID tununig (experimental)</p>
+                            </div>
+                        </div>
+                        <div class="row" style="margin: 0px;padding-top: 11px;">
+                            <div class="col" style="margin: 0px;">
+                                <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd1" style="color: var(--bs-gray-200);background: var(--bs-gray-800);" placeholder="PIDP0502"><button class="btn btn-primary" id="btn_mower_cmd1_send" type="button">Send</button></div>
+                            </div>
+                        </div>
+                        <div class="row" style="margin: 0px;padding-top: 11px;">
+                            <div class="col" style="margin: 0px;">
+                                <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd2" style="color: var(--bs-gray-200);background: var(--bs-gray-800);" placeholder="PIDI0502"><button class="btn btn-primary" id="btn_mower_cmd2_send" type="button">Send</button></div>
+                            </div>
+                        </div>
+                        <div class="row" style="margin: 0px;padding-top: 11px;">
+                            <div class="col" style="margin: 0px;">
+                                <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd3" style="color: var(--bs-gray-200);background: var(--bs-gray-800);" placeholder="PIDD0502"><button class="btn btn-primary" id="btn_mower_cmd3_send" type="button">Send</button></div>
+                            </div>
+                        </div>
+                        <div class="row" style="margin: 0px;padding-top: 11px;">
+                            <div class="col" style="margin: 0px;">
+                                <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd4" style="color: var(--bs-gray-200);background: var(--bs-gray-800);" placeholder="PRNT0001"><button class="btn btn-primary" id="btn_mower_cmd4_send" type="button">Send</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../assets/js/jquery.min.js"></script>
+    <script src="../assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="../assets/js/bs-init.js"></script>
+    <script src="../assets/js/webui.js"></script>
+</body>
+
+</html>
