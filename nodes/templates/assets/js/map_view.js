@@ -3537,90 +3537,113 @@ class LayoutManager {
     };
 }
 
+// Nav status: two compact panels.
+//  POSE  — what currently drives the position estimate (RTK / VO / LiDAR /
+//          WHEEL), the heading source (SAT/IMU), per-source availability chips
+//          (green=usable, grey=no, white outline=active) and bridge divergence.
+//  GNSS  — RTK fix state, satellite count, position and heading accuracy.
 class Odom{
     constructor(ros) {
         this.div_odom = document.getElementById("div_odom");
-        // this.div_odom.style.display = "none";
-        this.span_odom_status = document.getElementById("span_odom_status");
-        this.span_odom_position = document.getElementById("span_odom_position");
-        this.span_odom_heading = document.getElementById("span_odom_heading");
-        this.span_odom_info = document.getElementById("span_odom_info");
-        // Phase-1 bridge sources (VO / lidar ICP) availability + active source.
-        this.span_odom_vo = document.getElementById("span_odom_vo");
-        this.span_odom_licp = document.getElementById("span_odom_licp");
-        this.bridge_status_topic = new ROSLIB.Topic({
-            ros : ros,
-            name : '/nav_tf/bridge_status',
-            messageType : 'std_msgs/String'
-        });
+        // POSE panel
+        this.span_odom_drive = document.getElementById("span_odom_drive");
+        this.span_odom_hdg   = document.getElementById("span_odom_hdg");
+        this.span_odom_vo    = document.getElementById("span_odom_vo");
+        this.span_odom_licp  = document.getElementById("span_odom_licp");
+        this.span_odom_wheel = document.getElementById("span_odom_wheel");
+        this.span_odom_div   = document.getElementById("span_odom_div");
+        // GNSS panel
+        this.span_gnss_fix   = document.getElementById("span_gnss_fix");
+        this.span_gnss_sats  = document.getElementById("span_gnss_sats");
+        this.span_gnss_pos   = document.getElementById("span_gnss_pos");
+        this.span_gnss_hdg   = document.getElementById("span_gnss_hdg");
+
         var self = this;
-        this.bridge_status_topic.subscribe(function (m) { self.process_bridge(m.data); });
-        // this.btn_menu_map_rtabmap_mapping = document.getElementById("btn_menu_map_rtabmap_mapping");
-        // this.btn_menu_map_rtabmap_localization = document.getElementById("btn_menu_map_rtabmap_localization");
+        // heading source (SAT/IMU) — subscribed externally too (process_msg)
         this.odom_status_topic = new ROSLIB.Topic({
-            ros : ros,
-            name : '/nav_tf/odom_status',
-            messageType : 'vitulus_msgs/Navi_transform'
+            ros : ros, name : '/nav_tf/odom_status', messageType : 'vitulus_msgs/Navi_transform'
         });
-
-        // this.rtabmap_localization_srvs = new ROSLIB.Service({
-        //     ros : ros,
-        //     name : '/rtabmap/set_mode_localization',
-        //     serviceType : 'std_srvs/EmptyRequest'
-        // });
-        // this.request = new ROSLIB.ServiceRequest({});
-
-        this.span_odom_heading.style.background = "#555555";
-        this.span_odom_position.style.background = "#555555";
-        this.span_odom_status.textContent = "";
+        // what drives the pose + source availability
+        this.bridge_status_topic = new ROSLIB.Topic({
+            ros : ros, name : '/nav_tf/bridge_status', messageType : 'std_msgs/String'
+        });
+        this.bridge_status_topic.subscribe(function (m) { self.process_bridge(m.data); });
+        // GNSS detail
+        this.gnss_fix_topic = new ROSLIB.Topic({
+            ros : ros, name : '/gnss/fix', messageType : 'sensor_msgs/NavSatFix'
+        });
+        this.gnss_fix_topic.subscribe(function (m) { self.process_gnss_fix(m); });
+        this.navpvt_topic = new ROSLIB.Topic({
+            ros : ros, name : '/gnss/navpvt', messageType : 'ublox_msgs/NavPVT'
+        });
+        this.navpvt_topic.subscribe(function (m) { self.process_navpvt(m); });
+        this.navheading_topic = new ROSLIB.Topic({
+            ros : ros, name : '/gnss_heading/navheading', messageType : 'sensor_msgs/Imu'
+        });
+        this.navheading_topic.subscribe(function (m) { self.process_navheading(m); });
     }
 
-    // set_rtabmap_localization(){
-    //     this.rtabmap_localization_srvs.callService(this.request, function(result) {
-    //         // console.log(result);
-    //         console.log('Result for service call on rtabmap localization: ' + result);
-    //     });
-    // }
-
-
-
+    // heading source SAT (RTK dual-antenna) vs IMU fallback
     process_msg(message) {
-        if (message.position === 0) {
-            this.span_odom_position.style.background = "#555555";
-        } else {
-            this.span_odom_position.style.background = "#5bc0de";
-        }
-
-        if (message.heading === 0) {
-            this.span_odom_heading.style.background = "#555555";
-        } else {
-            this.span_odom_heading.style.background = "#5bc0de";
-        }
-
-        this.span_odom_status.textContent = message.status;
-        this.span_odom_info.textContent = message.info;
-        // console.log(message.status);
+        if (!this.span_odom_hdg) return;
+        var sat = message.status === "SAT";
+        this.span_odom_hdg.textContent = message.status || "—";
+        this.span_odom_hdg.style.background = sat ? "#5cb85c" : "#777777";
     }
 
-    // Phase-1 bridge: colour the VO / Li chips green when that source is usable
-    // (gated), grey otherwise; a white outline marks the currently active source.
+    _chip(el, m, active) {
+        if (!el) return;
+        el.style.background = (m && m[1] === "1") ? "#5cb85c" : "#555555";
+        el.style.outline = active ? "1px solid #fff" : "none";
+    }
+
     process_bridge(s) {
         if (!s) return;
-        var vo = /vo\[use=(\d)/.exec(s);
-        var li = /licp\[use=(\d)/.exec(s);
-        var act = /active=(\w+)/.exec(s);
-        var on = "#5cb85c", off = "#555555";
+        var g = /gps_good=(\d)/.exec(s), act = /active=(\w+)/.exec(s), dv = /div_from_live=([\d.]+)/.exec(s);
         var a = act ? act[1] : "";
-        if (this.span_odom_vo) {
-            this.span_odom_vo.style.background = (vo && vo[1] === "1") ? on : off;
-            this.span_odom_vo.style.outline = (a === "vo") ? "1px solid #fff" : "none";
+        if (this.span_odom_drive) {
+            var label = (g && g[1] === "1") ? "RTK"
+                      : ({vo: "VO", licp: "LiDAR", wheel: "WHEEL"}[a] || (a ? a.toUpperCase() : "—"));
+            var color = label === "RTK" ? "#5cb85c" : (label === "WHEEL" ? "#d9534f" : "#f0ad4e");
+            this.span_odom_drive.textContent = label;
+            this.span_odom_drive.style.background = color;
         }
-        if (this.span_odom_licp) {
-            this.span_odom_licp.style.background = (li && li[1] === "1") ? on : off;
-            this.span_odom_licp.style.outline = (a === "licp") ? "1px solid #fff" : "none";
+        this._chip(this.span_odom_vo,    /vo\[use=(\d)/.exec(s),    a === "vo");
+        this._chip(this.span_odom_licp,  /licp\[use=(\d)/.exec(s),  a === "licp");
+        this._chip(this.span_odom_wheel, /wheel\[use=(\d)/.exec(s), a === "wheel");
+        if (this.span_odom_div && dv) this.span_odom_div.textContent = "Δ" + parseFloat(dv[1]).toFixed(2);
+    }
+
+    process_gnss_fix(m) {
+        var st = (m.status && typeof m.status.status === "number") ? m.status.status : 0;
+        if (this.span_gnss_fix) {
+            var fix = st === 2 ? "FIX" : (st === 1 ? "SBAS" : "NO FIX");
+            this.span_gnss_fix.textContent = fix;
+            this.span_gnss_fix.style.background = st === 2 ? "#5cb85c" : (st === 1 ? "#f0ad4e" : "#d9534f");
+        }
+        if (this.span_gnss_pos && m.position_covariance) {
+            var cm = Math.sqrt(m.position_covariance[0]) * 100.0;
+            this.span_gnss_pos.textContent = "pos ±" + (cm < 10 ? cm.toFixed(1) : cm.toFixed(0)) + "cm";
+            this.span_gnss_pos.style.color = cm <= 5 ? "#5cb85c" : (cm <= 50 ? "#f0ad4e" : "#d9534f");
         }
     }
 
+    process_navpvt(m) {
+        if (this.span_gnss_sats) this.span_gnss_sats.textContent = "sats " + (m.numSV != null ? m.numSV : "–");
+    }
+
+    process_navheading(m) {
+        if (!this.span_gnss_hdg) return;
+        var cov = m.orientation_covariance ? m.orientation_covariance[8] : null;
+        if (cov == null || cov >= 100) {   // 1000 == no RTK heading
+            this.span_gnss_hdg.textContent = "hdg —";
+            this.span_gnss_hdg.style.color = "#777777";
+            return;
+        }
+        var deg = Math.sqrt(cov) * 180.0 / Math.PI;
+        this.span_gnss_hdg.textContent = "hdg ±" + deg.toFixed(1) + "°";
+        this.span_gnss_hdg.style.color = deg <= 1 ? "#5cb85c" : (deg <= 5 ? "#f0ad4e" : "#d9534f");
+    }
 }
 
 class RtabMap{
