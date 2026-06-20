@@ -3583,11 +3583,13 @@ class Odom{
         this.navheading_topic.subscribe(function (m) { self.process_navheading(m); });
     }
 
-    // heading source SAT (RTK dual-antenna) vs IMU fallback
+    // heading source SAT (RTK dual-antenna) vs IMU fallback.
+    // Use the live `heading` usability flag, NOT the `status` string: status is
+    // sticky and stayed "SAT" even after the RTK heading was lost (flag=0).
     process_msg(message) {
         if (!this.span_odom_hdg) return;
-        var sat = message.status === "SAT";
-        this.span_odom_hdg.textContent = message.status || "—";
+        var sat = message.heading !== 0;
+        this.span_odom_hdg.textContent = sat ? "SAT" : "IMU";
         this.span_odom_hdg.style.background = sat ? "#5cb85c" : "#777777";
     }
 
@@ -3623,10 +3625,18 @@ class Odom{
             this.span_gnss_fix.textContent = fix;
             this.span_gnss_fix.style.background = st === 2 ? "#5cb85c" : (st === 1 ? "#f0ad4e" : "#d9534f");
         }
-        if (this.span_gnss_pos && m.position_covariance) {
-            var cm = Math.sqrt(m.position_covariance[0]) * 100.0;
-            this.span_gnss_pos.textContent = "pos ±" + (cm < 10 ? cm.toFixed(1) : cm.toFixed(0)) + "cm";
-            this.span_gnss_pos.style.color = cm <= 5 ? "#5cb85c" : (cm <= 50 ? "#f0ad4e" : "#d9534f");
+        if (this.span_gnss_pos) {
+            // Only trust the position covariance when there is a real fix — the
+            // receiver keeps reporting a tiny ~1.5cm covariance even at status=0
+            // (no fix), which is why we must gate on the fix status.
+            if (st === 0 || !m.position_covariance) {
+                this.span_gnss_pos.textContent = "pos —";
+                this.span_gnss_pos.style.color = "#d9534f";
+            } else {
+                var cm = Math.sqrt(m.position_covariance[0]) * 100.0;
+                this.span_gnss_pos.textContent = "pos ±" + (cm < 10 ? cm.toFixed(1) : cm.toFixed(0)) + "cm";
+                this.span_gnss_pos.style.color = cm <= 5 ? "#5cb85c" : (cm <= 50 ? "#f0ad4e" : "#d9534f");
+            }
         }
     }
 
