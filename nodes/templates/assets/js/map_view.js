@@ -3593,7 +3593,9 @@ class Odom{
 
     _chip(el, m, active) {
         if (!el) return;
-        el.style.background = (m && m[1] === "1") ? "#5cb85c" : "#555555";
+        var on = (m && m[1] === "1");
+        el.style.background = on ? "#5cb85c" : "#555555";
+        el.style.color = on ? "#0c2a12" : "#dddddd";   // dark text on green, light on grey
         el.style.outline = active ? "1px solid #fff" : "none";
     }
 
@@ -3642,7 +3644,9 @@ class Odom{
         }
         var deg = Math.sqrt(cov) * 180.0 / Math.PI;
         this.span_gnss_hdg.textContent = "hdg ±" + deg.toFixed(1) + "°";
-        this.span_gnss_hdg.style.color = deg <= 1 ? "#5cb85c" : (deg <= 5 ? "#f0ad4e" : "#d9534f");
+        // green up to ~2 deg: that is the band navi_transform actually accepts
+        // RTK heading at, so normal good heading reads green, not amber.
+        this.span_gnss_hdg.style.color = deg <= 2 ? "#5cb85c" : (deg <= 6 ? "#f0ad4e" : "#d9534f");
     }
 }
 
