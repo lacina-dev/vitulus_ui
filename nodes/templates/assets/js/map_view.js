@@ -3734,7 +3734,9 @@ class RtabMap{
             }
         });
         this.is_localization = localize;
-        this.span_rtabmap_loc_map.innerText = status;
+        // loc/map text row was removed from the panel (it just flipped mapping<->
+        // localization noisily); keep the is_localization logic for the buttons.
+        if (this.span_rtabmap_loc_map) this.span_rtabmap_loc_map.innerText = status;
     }
     rtabmap_loc_map_buttons_state(){
         // console.log("rtabmap_loc_map_buttons_state");
