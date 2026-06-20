@@ -3545,6 +3545,16 @@ class Odom{
         this.span_odom_position = document.getElementById("span_odom_position");
         this.span_odom_heading = document.getElementById("span_odom_heading");
         this.span_odom_info = document.getElementById("span_odom_info");
+        // Phase-1 bridge sources (VO / lidar ICP) availability + active source.
+        this.span_odom_vo = document.getElementById("span_odom_vo");
+        this.span_odom_licp = document.getElementById("span_odom_licp");
+        this.bridge_status_topic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/nav_tf/bridge_status',
+            messageType : 'std_msgs/String'
+        });
+        var self = this;
+        this.bridge_status_topic.subscribe(function (m) { self.process_bridge(m.data); });
         // this.btn_menu_map_rtabmap_mapping = document.getElementById("btn_menu_map_rtabmap_mapping");
         // this.btn_menu_map_rtabmap_localization = document.getElementById("btn_menu_map_rtabmap_localization");
         this.odom_status_topic = new ROSLIB.Topic({
@@ -3590,6 +3600,25 @@ class Odom{
         this.span_odom_status.textContent = message.status;
         this.span_odom_info.textContent = message.info;
         // console.log(message.status);
+    }
+
+    // Phase-1 bridge: colour the VO / Li chips green when that source is usable
+    // (gated), grey otherwise; a white outline marks the currently active source.
+    process_bridge(s) {
+        if (!s) return;
+        var vo = /vo\[use=(\d)/.exec(s);
+        var li = /licp\[use=(\d)/.exec(s);
+        var act = /active=(\w+)/.exec(s);
+        var on = "#5cb85c", off = "#555555";
+        var a = act ? act[1] : "";
+        if (this.span_odom_vo) {
+            this.span_odom_vo.style.background = (vo && vo[1] === "1") ? on : off;
+            this.span_odom_vo.style.outline = (a === "vo") ? "1px solid #fff" : "none";
+        }
+        if (this.span_odom_licp) {
+            this.span_odom_licp.style.background = (li && li[1] === "1") ? on : off;
+            this.span_odom_licp.style.outline = (a === "licp") ? "1px solid #fff" : "none";
+        }
     }
 
 }
