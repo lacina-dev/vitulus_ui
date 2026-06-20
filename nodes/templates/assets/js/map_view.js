@@ -3663,7 +3663,9 @@ class Odom{
 class RtabMap{
     constructor(ros) {
         this.div_rtabmap = document.getElementById("div_rtabmap");
-        this.div_rtabmap.style.display = "none";
+        // visibility (not display) so the panel always reserves its slot and the
+        // right-hand panels don't shift down when rtabmap appears/disappears.
+        this.div_rtabmap.style.visibility = "hidden";
         this.span_rtabmap_id = document.getElementById("span_rtabmap_id");
         this.span_rtabmap_proximity = document.getElementById("span_rtabmap_proximity");
         this.span_rtabmap_lc = document.getElementById("span_rtabmap_lc");
@@ -5088,12 +5090,12 @@ window.initMapView = function () {
     rtabmap.rtabmap_status_topic.subscribe(function(message) {
          // console.log(message);
         if (message.data){
-            rtabmap.div_rtabmap.style.display = "grid";
+            rtabmap.div_rtabmap.style.visibility = "visible";
             rtabmap.is_rtabmap = true;
             rtabmap.rtabmap_loc_map_buttons_state();
         }
         else {
-            rtabmap.div_rtabmap.style.display = "none";
+            rtabmap.div_rtabmap.style.visibility = "hidden";
             rtabmap.is_rtabmap = false;
             rtabmap.rtabmap_loc_map_buttons_state();
         }
