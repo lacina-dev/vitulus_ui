@@ -5058,8 +5058,16 @@ window.initMapView = function () {
             var env = parts[1] || '';
             var lbl = document.getElementById('active_map_name');
             if (lbl) lbl.textContent = env ? (name + ' (' + env + ')') : name;
+            // Populate the "Save map as" input ONLY when the current map actually
+            // changes (freshly loaded / newly created) — NOT on every status
+            // update — otherwise it overwrites whatever the user is typing.
             var inp = document.getElementById('input_menu_map_new');
-            if (inp) inp.value = name;   // name only — no OUTDOOR/INDOOR suffix
+            if (inp && name !== status_bar._last_map_name) {
+                status_bar._last_map_name = name;
+                if (document.activeElement !== inp) {
+                    inp.value = name;   // name only — no OUTDOOR/INDOOR suffix
+                }
+            }
         } catch (e) {}
     });
     status_bar.is_indoor_Topic.subscribe(function (message) {
