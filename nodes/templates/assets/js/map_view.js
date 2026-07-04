@@ -5695,6 +5695,12 @@ window.initMapView = function () {
     //     rain_alert.rain_alert_data(message);
     // });
 
+    /**
+     *  Gloc — lidar global localization (Loc tab)
+     */
+
+    gloc = new Gloc(ros.ros);
+
 
     /**
      *  orientation control

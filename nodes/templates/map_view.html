@@ -44,6 +44,7 @@
 <script src="/assets/js/mjpegcanvas.js"></script>
 <script src="/assets/js/rain_alert.js"></script>
 <script src="/assets/js/dock.js"></script>
+<script src="/assets/js/gloc.js"></script>
 <script src="/assets/js/map_view.js"></script>
 <script src="/assets/js/calendar_manager.js"></script>
 <script src="/assets/js/keyboardteleop.js"></script>
@@ -265,6 +266,7 @@
                                     <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-point" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Point</a></li>
                                     <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-dock" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Dock</a></li>
                                     <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-rain" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Rain</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-gloc" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Loc</a></li>
                                 </ul>
                                 <div class="tab-content" style="overflow: clip;">
                                     <div class="tab-pane active" role="tabpanel" id="tab-map" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
@@ -423,6 +425,45 @@
                                             </div>
                                             <div class="col-auto"><label class="form-label" style="font-size: 14px;">Forecast: Now, Now + 10, 20, 30 min.&nbsp;</label>
                                                 <div id="rain_div_forecast"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane" role="tabpanel" id="tab-gloc" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                        <div class="row g-0" style="align-items: center;">
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 10px;">
+                                                <span style="display: block;font-size: 12px;margin-bottom: 4px;">Lidar global localization (scan vs. map)</span>
+                                                <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button" style="margin-right: 6px;">Localize</button>
+                                                <div class="form-check form-check-inline" style="margin-left: 4px;">
+                                                    <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
+                                                    <label class="form-check-label" for="gloc_chk_auto" style="font-size: 13px;">auto 5s</label>
+                                                </div>
+                                                <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled style="margin-right: 6px;">Apply&nbsp;&rarr;&nbsp;robot</button>
+                                                <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled>Force</button>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;">
+                                                <span style="display: block;font-size: 12px;margin-bottom: 4px;">Status</span>
+                                                <span id="gloc_status" style="font-size: 13px;">waiting for gloc_server...</span>
+                                            </div>
+                                        </div>
+                                        <div class="row g-0" style="margin-top: 6px;">
+                                            <div class="col-auto" style="margin-right: 14px;">
+                                                <table style="font-size: 13px;border-spacing: 6px 2px;border-collapse: separate;">
+                                                    <tbody>
+                                                    <tr><td style="opacity:.7;">Best hypothesis</td><td id="gloc_best">&mdash;</td></tr>
+                                                    <tr><td style="opacity:.7;">Margin</td><td id="gloc_margin">&mdash;</td></tr>
+                                                    <tr><td style="opacity:.7;">Robot pose now</td><td id="gloc_current">&mdash;</td></tr>
+                                                    <tr><td style="opacity:.7;">&Delta; best vs now</td><td id="gloc_delta">&mdash;</td></tr>
+                                                    <tr><td style="opacity:.7;">Compute</td><td id="gloc_meta">&mdash;</td></tr>
+                                                    </tbody>
+                                                </table>
+                                                <label class="form-label" style="font-size: 13px;margin-top: 6px;margin-bottom: 2px;">Top candidates</label>
+                                                <table style="font-size: 12px;border-spacing: 6px 1px;border-collapse: separate;">
+                                                    <tbody id="gloc_top_tbody"></tbody>
+                                                </table>
+                                            </div>
+                                            <div class="col-auto">
+                                                <label class="form-label" style="font-size: 13px;margin-bottom: 2px;">Score heatmap (dark = better match)</label>
+                                                <div><img id="gloc_heatmap_img" style="max-width: 420px;max-height: calc(100vh - 260px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
                                             </div>
                                         </div>
                                     </div>
