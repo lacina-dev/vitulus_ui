@@ -92,10 +92,14 @@ class Gloc {
         this.el_best.textContent = this.fmtPose(r.best) +
             '  score ' + r.best.score_m.toFixed(3) + ' m';
         const mtxt = (r.margin >= 9) ? '>900%' : Math.round(r.margin * 100) + '%';
-        this.el_margin.textContent = mtxt + (r.margin_ok ?
-            '  ✓ unambiguous' : '  ⚠ AMBIGUOUS (gate ' +
-            Math.round(r.apply_min_margin * 100) + '%)');
-        this.el_margin.style.color = r.margin_ok ? '#51cf66' : '#ff6b6b';
+        const applyOk = (r.apply_ok !== undefined) ? r.apply_ok : r.margin_ok;
+        let verdict;
+        if (applyOk) verdict = '  ✓ unambiguous';
+        else if (!r.margin_ok) verdict = '  ⚠ AMBIGUOUS (gate ' +
+            Math.round(r.apply_min_margin * 100) + '%)';
+        else verdict = '  ⚠ YAW MISMATCH (mirror alias?)';
+        this.el_margin.textContent = mtxt + verdict;
+        this.el_margin.style.color = applyOk ? '#51cf66' : '#ff6b6b';
         this.el_current.textContent = r.current_pose ?
             this.fmtPose(r.current_pose) : 'no map→base tf';
         this.el_delta.textContent = r.delta_to_current ?
@@ -113,7 +117,7 @@ class Gloc {
             this.el_top.appendChild(tr);
         });
 
-        this.btn_apply.disabled = !r.margin_ok;
+        this.btn_apply.disabled = !((r.apply_ok !== undefined) ? r.apply_ok : r.margin_ok);
         this.btn_force.disabled = false;
     }
 }
