@@ -36,10 +36,37 @@ class MappingV3 {
         this.el_caption.textContent = 'no saved map yet — start mapping';
         this.img_raster.parentNode.parentNode.appendChild(this.el_caption);
 
-        // Live mapping grid in the main 3D view: the ground-relative band
-        // raster (auto-regenerated every ~10 s by band_projector) — orange =
-        // obstacle ABOVE ground, green = mapped ground, unknown transparent
-        // (see the green-identifier branch of getColor in map_view.js).
+        // Saved / live mapping-v3 occupancy grids in the MAIN 3D view — the
+        // ground layer under the planner routes / zones / robot pose. Both are
+        // nav_msgs/OccupancyGrid (100=obstacle, 0=free, -1=unknown) rendered by
+        // the SAME ROS3D.OccupancyGridClient pipeline the base map uses; the
+        // free/obstacle/unknown colours come from the getColor() branch in
+        // map_view.js keyed on the `color` identifier below (NOT a real colour).
+
+        // (1) SAVED site_map — latched persistent ground layer served by
+        //     mapping_manager (Serve button). Blue identifier {0,100,255} =>
+        //     free light grey-green, obstacles solid RED, unknown transparent.
+        this.site_group = new THREE.Object3D();
+        viewer3d.scene.add(this.site_group);
+        this.site_client = new ROS3D.OccupancyGridClient({
+            ros: ros,
+            tfClient: tfClient,
+            rootObject: this.site_group,
+            continuous: true,
+            compression: 'cbor',
+            topic: '/mapping_manager/site_map',
+            color: {r: 0, g: 100, b: 255},
+            opacity: 0.9,
+            offsetPose: new ROSLIB.Pose({
+                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.015}),
+                orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
+            })
+        });
+
+        // (2) LIVE obstacle_map — the ground-relative band raster
+        //     (auto-regenerated every ~10 s by band_projector while a session
+        //     runs). Green identifier {0,255,0} => orange = obstacle ABOVE
+        //     ground, green = mapped ground, unknown transparent.
         this.grid_group = new THREE.Object3D();
         viewer3d.scene.add(this.grid_group);
         this.grid_client = new ROS3D.OccupancyGridClient({
@@ -57,19 +84,23 @@ class MappingV3 {
             })
         });
 
-        // "3D" toggle next to Start/Stop (created dynamically, like the caption)
-        const toggle = document.createElement('div');
-        toggle.className = 'form-check form-check-inline';
-        toggle.style.cssText = 'margin-left:4px;margin-top:2px;';
-        toggle.innerHTML =
-            '<input class="form-check-input" type="checkbox" id="mapv3_chk_3d" checked>' +
-            '<label class="form-check-label" for="mapv3_chk_3d" style="font-size:12px;">' +
-            'show in 3D view</label>';
-        document.getElementById("mapv3_run_status").parentNode.appendChild(toggle);
-        this.chk_3d = toggle.querySelector('input');
-        this.chk_3d.addEventListener('change', () => {
-            this.grid_group.visible = this.chk_3d.checked;
-        });
+        // Layer toggles authored in map_view.html (survive index rebuild):
+        //   #mapv3_chk_site => saved site_map, #mapv3_chk_live => live grid.
+        this.el_site_status = document.getElementById("mapv3_site_status");
+        this.chk_site = document.getElementById("mapv3_chk_site");
+        this.chk_live = document.getElementById("mapv3_chk_live");
+        if (this.chk_site) {
+            this.site_group.visible = this.chk_site.checked;
+            this.chk_site.addEventListener('change', () => {
+                this.site_group.visible = this.chk_site.checked;
+            });
+        }
+        if (this.chk_live) {
+            this.grid_group.visible = this.chk_live.checked;
+            this.chk_live.addEventListener('change', () => {
+                this.grid_group.visible = this.chk_live.checked;
+            });
+        }
 
         this.running = false;
 
@@ -222,6 +253,16 @@ class MappingV3 {
                     '/' + s.serving.raster;
             } else {
                 this.el_serving.textContent = 'serving: —';
+            }
+        }
+        // saved-map layer status (the latched site_map rendered in the 3D view)
+        if (this.el_site_status) {
+            if (s.serving) {
+                this.el_site_status.textContent = 'saved map: ' +
+                    s.serving.site + '/' + s.serving.raster + ' (in 3D view)';
+            } else {
+                this.el_site_status.textContent =
+                    'saved map: — (press Serve to load a site into the 3D view)';
             }
         }
         if (s.running) {

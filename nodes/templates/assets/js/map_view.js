@@ -47,6 +47,23 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
         return [0,0,0,0];    // unknown: invisible
     };
 
+    // If map is the Mapping v3 SAVED site_map (blue identifier {0,100,255}):
+    // the persistent ground layer of the 3D view. Free = light grey-green so
+    // the driveable area reads clearly; obstacles = solid red so they POP;
+    // unknown = fully transparent (nothing mapped there yet).
+    if (this.color.r === 0 && this.color.g === 100 && this.color.b === 255){
+        if (value === 100){   // obstacle
+            return [230,40,40,255];
+        };
+        if (value >= 1 && value <= 99){  // probably obstacle
+            return [230,40,40,150];
+        };
+        if (value === 0){    // mapped free space
+            return [170,205,150,160];
+        };
+        return [0,0,0,0];    // unknown: invisible
+    };
+
     // If map is local costmap.
     if (this.color.r === 255 && this.color.g === 0 && this.color.b === 255){
         // this.opacity = 0.4;
