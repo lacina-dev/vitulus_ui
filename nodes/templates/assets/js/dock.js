@@ -281,6 +281,15 @@ class Dock {
         });
         this.is_in_dock_confirmed_subscriber.subscribe(this.handleIsInDockConfirmed.bind(this));
 
+        // Localization seed status (dock-anchored pose seed on docking)
+        this.dock_seed_status_div = document.getElementById("dock_div_seed_status");
+        this.dock_seed_status_subscriber = new ROSLIB.Topic({
+            ros: ros,
+            name: '/dock_localization_seed/status',
+            messageType: 'std_msgs/String'
+        });
+        this.dock_seed_status_subscriber.subscribe(this.handleDockSeedStatus.bind(this));
+
         this.initializeButtons();
     }
 
@@ -292,6 +301,49 @@ class Dock {
                 this.dock_icon_in_dock.style.color = 'var(--bs-secondary)';
             }
         }
+    }
+
+    handleDockSeedStatus(message) {
+        if (!this.dock_seed_status_div) return;
+        let s;
+        try { s = JSON.parse(message.data); } catch (e) { return; }
+
+        let badgeText, badgeColor;
+        if (!s.docked) {
+            badgeText = '—';
+            badgeColor = 'gray';
+        } else if (s.last_seed_unconfirmed) {
+            badgeText = 'seeded (UNCONFIRMED)';
+            badgeColor = 'orange';
+        } else if (s.seeded_this_episode) {
+            badgeText = 'seeded ✓';
+            badgeColor = 'green';
+        } else {
+            badgeText = 'waiting';
+            badgeColor = 'gray';
+        }
+
+        let seedHtml = `
+        <div>
+            <span>Seed: <span style="color:${badgeColor};font-weight:bold;">${badgeText}</span></span>
+        </div>
+        `;
+        if (s.docked_waypoint_present === false) {
+            seedHtml += `
+        <div>
+            <span style="color:red;">docked waypoint MISSING</span>
+        </div>
+            `;
+        }
+        if (s.confirmed_age_s !== null && s.confirmed_age_s !== undefined) {
+            seedHtml += `
+        <div>
+            <span>confirmed ${s.confirmed_age_s.toFixed(0)}s ago</span>
+        </div>
+            `;
+        }
+
+        this.dock_seed_status_div.innerHTML = seedHtml;
     }
 
     setupImageViewers() {

@@ -32,6 +32,21 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
         };
     };
 
+    // If map is the Mapping v3 live grid (green identifier): overlays the
+    // loaded map, so unknown must stay fully transparent.
+    if (this.color.r === 0 && this.color.g === 255 && this.color.b === 0){
+        if (value === 100){   // obstacle
+            return [255,120,0,255];
+        };
+        if (value >= 1 && value <= 99){  // probably obstacle
+            return [255,120,0,140];
+        };
+        if (value === 0){    // mapped free space
+            return [0,200,80,110];
+        };
+        return [0,0,0,0];    // unknown: invisible
+    };
+
     // If map is local costmap.
     if (this.color.r === 255 && this.color.g === 0 && this.color.b === 255){
         // this.opacity = 0.4;
@@ -3552,6 +3567,8 @@ class Odom{
         this.span_odom_licp  = document.getElementById("span_odom_licp");
         this.span_odom_wheel = document.getElementById("span_odom_wheel");
         this.span_odom_div   = document.getElementById("span_odom_div");
+        this.span_odom_fix   = document.getElementById("span_odom_fix");
+        this.span_odom_prob  = document.getElementById("span_odom_prob");
         // GNSS panel
         this.span_gnss_fix   = document.getElementById("span_gnss_fix");
         this.span_gnss_sats  = document.getElementById("span_gnss_sats");
@@ -3568,6 +3585,14 @@ class Odom{
             ros : ros, name : '/nav_tf/bridge_status', messageType : 'std_msgs/String'
         });
         this.bridge_status_topic.subscribe(function (m) { self.process_bridge(m.data); });
+        // authoritative pose ownership (dock/gps/tracker/rtabmap/legacy/dr);
+        // once this arrives it takes over the span_odom_drive badge from the
+        // bridge_status heuristic below (see have_loc_status flag)
+        this.have_loc_status = false;
+        this.loc_status_topic = new ROSLIB.Topic({
+            ros : ros, name : '/nav_tf/loc_status', messageType : 'std_msgs/String'
+        });
+        this.loc_status_topic.subscribe(function (m) { self.process_loc_status(m.data); });
         // GNSS detail
         this.gnss_fix_topic = new ROSLIB.Topic({
             ros : ros, name : '/gnss/fix', messageType : 'sensor_msgs/NavSatFix'
@@ -3604,8 +3629,15 @@ class Odom{
     process_bridge(s) {
         if (!s) return;
         var g = /gps_good=(\d)/.exec(s), act = /active=(\w+)/.exec(s), dv = /div_from_live=([\d.]+)/.exec(s);
+        var fu = /fix_usable=(\d)/.exec(s);
         var a = act ? act[1] : "";
-        if (this.span_odom_drive) {
+        // remembered for the DR badge: which odom source carries dead-reckoning
+        this.last_bridge_active = a;
+        // Ownership badge: loc_status is authoritative once it has arrived
+        // (gps_good here no longer means "pose ownership", it can be false
+        // at dock/during GPS probation even with a good fix). Keep this
+        // heuristic only as a fallback before the first loc_status message.
+        if (!this.have_loc_status && this.span_odom_drive) {
             var label = (g && g[1] === "1") ? "RTK"
                       : ({vo: "VO", licp: "LiDAR", wheel: "WHEEL"}[a] || (a ? a.toUpperCase() : "—"));
             var color = label === "RTK" ? "#5cb85c" : (label === "WHEEL" ? "#d9534f" : "#f0ad4e");
@@ -3616,6 +3648,52 @@ class Odom{
         this._chip(this.span_odom_licp,  /licp\[use=(\d)/.exec(s),  a === "licp");
         this._chip(this.span_odom_wheel, /wheel\[use=(\d)/.exec(s), a === "wheel");
         if (this.span_odom_div && dv) this.span_odom_div.textContent = "Δ" + parseFloat(dv[1]).toFixed(2);
+        // fix_usable fallback (only used if loc_status hasn't supplied it yet)
+        if (!this.have_loc_status && this.span_odom_fix && fu) {
+            var on = fu[1] === "1";
+            this.span_odom_fix.style.background = on ? "#5cb85c" : "#555555";
+            this.span_odom_fix.style.color = on ? "#0c2a12" : "#dddddd";
+        }
+    }
+
+    // authoritative pose ownership + fix/probation chips (/nav_tf/loc_status)
+    process_loc_status(data) {
+        var o;
+        try { o = JSON.parse(data); } catch (e) { return; }
+        this.have_loc_status = true;
+
+        if (this.span_odom_drive) {
+            var labels = {
+                gps: ["RTK", "#5cb85c"],
+                dock: ["DOCK", "#5cb85c"],       // precise anchor, not degraded
+                tracker: ["TRACKER", "#f0ad4e"],
+                rtabmap: ["RTABMAP", "#f0ad4e"],
+                legacy: ["EXT", "#f0ad4e"],
+                dr: ["DEAD-RECKON", "#d9534f"]
+            };
+            var lc = labels[o.owner] || ["—", "#555555"];
+            var txt = lc[0];
+            // DR = unanchored, but show WHICH odometry carries it (wheel+IMU
+            // always; VO/LiDAR when healthy) so "DR (LICP)" reads as "lidar
+            // odometry dead-reckons, no absolute anchor" — not "lidar is dead".
+            if (o.owner === "dr" && this.last_bridge_active &&
+                    this.last_bridge_active !== "none") {
+                txt = "DR (" + this.last_bridge_active.toUpperCase() + ")";
+            }
+            this.span_odom_drive.textContent = txt;
+            this.span_odom_drive.style.background = lc[1];
+            this.span_odom_drive.title = "pose owner (loc_status)";
+        }
+        if (this.span_odom_fix) {
+            var fixOn = !!o.fix_usable;
+            this.span_odom_fix.style.background = fixOn ? "#5cb85c" : "#555555";
+            this.span_odom_fix.style.color = fixOn ? "#0c2a12" : "#dddddd";
+        }
+        if (this.span_odom_prob) {
+            var probOn = !!o.probation_proven;
+            this.span_odom_prob.style.background = probOn ? "#5cb85c" : "#555555";
+            this.span_odom_prob.style.color = probOn ? "#0c2a12" : "#dddddd";
+        }
     }
 
     process_gnss_fix(m) {
@@ -3833,6 +3911,25 @@ class RosbagControl {
 
         this.d435_record_topic.advertise();
         this.d435_fps_topic.advertise();
+
+        // --- GNSS forensics recorder (heading variance, fix quality, pose
+        // ownership — see vitulus_rosbag recorders.yaml 'gnss') ---
+        this.btn_gnss_rec_start   = document.getElementById("btn_gnss_rec_start");
+        this.btn_gnss_rec_stop    = document.getElementById("btn_gnss_rec_stop");
+        this.span_gnss_rec_status = document.getElementById("span_gnss_rec_status");
+        this.inputgroup_gnss_rec  = document.getElementById("inputgroup_gnss_rec");
+
+        this.gnss_record_topic = new ROSLIB.Topic({
+            ros: ros,
+            name: '/vitulus_rosbag/gnss/record',
+            messageType: 'std_msgs/Bool'
+        });
+        this.gnss_status_topic = new ROSLIB.Topic({
+            ros: ros,
+            name: '/vitulus_rosbag/gnss/status',
+            messageType: 'std_msgs/String'
+        });
+        this.gnss_record_topic.advertise();
     }
 
     // --- D435 methods ---
@@ -3862,6 +3959,27 @@ class RosbagControl {
         } else {
             this.inputgroup_d435_rec.style.setProperty('border', '2px solid var(--bs-danger)');
             this.span_d435_rec_status.className = 'text-info d-flex justify-content-end input-group-text form-control';
+        }
+    }
+
+    // --- GNSS methods ---
+
+    gnss_start() {
+        this.gnss_record_topic.publish(new ROSLIB.Message({ data: true }));
+    }
+
+    gnss_stop() {
+        this.gnss_record_topic.publish(new ROSLIB.Message({ data: false }));
+    }
+
+    gnss_status_data(message) {
+        this.span_gnss_rec_status.textContent = message.data;
+        if (message.data.startsWith('recording')) {
+            this.inputgroup_gnss_rec.style.setProperty('border', '2px solid var(--bs-success)');
+            this.span_gnss_rec_status.className = 'text-success d-flex justify-content-end input-group-text form-control';
+        } else {
+            this.inputgroup_gnss_rec.style.setProperty('border', '2px solid var(--bs-danger)');
+            this.span_gnss_rec_status.className = 'text-info d-flex justify-content-end input-group-text form-control';
         }
     }
 }
@@ -5028,6 +5146,15 @@ window.initMapView = function () {
     rosbag_control.d435_status_topic.subscribe(function(message) {
         rosbag_control.d435_status_data(message);
     });
+    rosbag_control.btn_gnss_rec_start.onclick = function() {
+        rosbag_control.gnss_start();
+    };
+    rosbag_control.btn_gnss_rec_stop.onclick = function() {
+        rosbag_control.gnss_stop();
+    };
+    rosbag_control.gnss_status_topic.subscribe(function(message) {
+        rosbag_control.gnss_status_data(message);
+    });
 
     /// Rosbag — stored bag management (HTTP, not ROS)
     bag_manager = new BagManager();
@@ -5700,6 +5827,12 @@ window.initMapView = function () {
      */
 
     gloc = new Gloc(ros.ros);
+
+    /**
+     *  Mapping v3 — terrain & obstacle mapping (Map tab section)
+     */
+
+    mapping_v3 = new MappingV3(ros.ros, tf_client.tfClientMap, viewer.viewer);
 
 
     /**

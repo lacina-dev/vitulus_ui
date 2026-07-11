@@ -1,0 +1,329 @@
+// MappingV3 — Map tab section: "mapping with known poses" pipeline control.
+// Start/stop the per-garden mapping session (mapping_manager spawns the
+// roslaunch), watch the insertion gate (RTK-gated), and pull terrain DEM /
+// obstacle raster previews. All robot topics live under /mapping/*; the
+// manager under /mapping_manager/*.
+class MappingV3 {
+    constructor(ros, tfClient, viewer3d) {
+        this.ros = ros;
+
+        this.input_site = document.getElementById("mapv3_input_site");
+        this.datalist = document.getElementById("mapv3_sites");
+        this.btn_start = document.getElementById("mapv3_btn_start");
+        this.btn_stop = document.getElementById("mapv3_btn_stop");
+        this.btn_serve = document.getElementById("mapv3_btn_serve");
+        this.el_serving = document.getElementById("mapv3_serving_status");
+        this.btn_mode_rtk = document.getElementById("mapv3_btn_mode_rtk");
+        this.btn_mode_force = document.getElementById("mapv3_btn_mode_force");
+        this.btn_mode_off = document.getElementById("mapv3_btn_mode_off");
+        this.btn_raster = document.getElementById("mapv3_btn_raster");
+        this.btn_save = document.getElementById("mapv3_btn_save");
+        this.btn_compare = document.getElementById("mapv3_btn_compare");
+        this.el_run = document.getElementById("mapv3_run_status");
+        this.el_gate = document.getElementById("mapv3_gate_status");
+        this.el_dem = document.getElementById("mapv3_dem_status");
+        this.el_proj = document.getElementById("mapv3_proj_status");
+        this.el_sites = document.getElementById("mapv3_sites_row");
+        this.img_terrain = document.getElementById("mapv3_img_terrain");
+        this.img_raster = document.getElementById("mapv3_img_raster");
+
+        // caption for the previews (created here to avoid an index.html
+        // rebuild): says which site/raster is displayed and its source
+        this.el_caption = document.createElement('span');
+        this.el_caption.id = 'mapv3_preview_caption';
+        this.el_caption.style.cssText =
+            'font-size:12px;display:block;margin-top:2px;opacity:.8;';
+        this.el_caption.textContent = 'no saved map yet — start mapping';
+        this.img_raster.parentNode.parentNode.appendChild(this.el_caption);
+
+        // Live mapping grid in the main 3D view: the ground-relative band
+        // raster (auto-regenerated every ~10 s by band_projector) — orange =
+        // obstacle ABOVE ground, green = mapped ground, unknown transparent
+        // (see the green-identifier branch of getColor in map_view.js).
+        this.grid_group = new THREE.Object3D();
+        viewer3d.scene.add(this.grid_group);
+        this.grid_client = new ROS3D.OccupancyGridClient({
+            ros: ros,
+            tfClient: tfClient,
+            rootObject: this.grid_group,
+            continuous: true,
+            compression: 'cbor',
+            topic: '/mapping/obstacle_map',
+            color: {r: 0, g: 255, b: 0},
+            opacity: 0.85,
+            offsetPose: new ROSLIB.Pose({
+                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.02}),
+                orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
+            })
+        });
+
+        // "3D" toggle next to Start/Stop (created dynamically, like the caption)
+        const toggle = document.createElement('div');
+        toggle.className = 'form-check form-check-inline';
+        toggle.style.cssText = 'margin-left:4px;margin-top:2px;';
+        toggle.innerHTML =
+            '<input class="form-check-input" type="checkbox" id="mapv3_chk_3d" checked>' +
+            '<label class="form-check-label" for="mapv3_chk_3d" style="font-size:12px;">' +
+            'show in 3D view</label>';
+        document.getElementById("mapv3_run_status").parentNode.appendChild(toggle);
+        this.chk_3d = toggle.querySelector('input');
+        this.chk_3d.addEventListener('change', () => {
+            this.grid_group.visible = this.chk_3d.checked;
+        });
+
+        this.running = false;
+
+        const pub = (name) => {
+            const t = new ROSLIB.Topic({
+                ros: ros, name: name, messageType: 'std_msgs/String'
+            });
+            t.advertise();
+            return t;
+        };
+        this.pub_start = pub('/mapping_manager/start');
+        this.pub_stop = pub('/mapping_manager/stop');
+        this.pub_remove = pub('/mapping_manager/remove_site');
+        this.pub_mode = pub('/mapping/gate_mode');
+        this.pub_regen = pub('/mapping/regenerate');
+        this.pub_save = pub('/mapping/save');
+        this.pub_compare = pub('/mapping/compare');
+        this.pub_show = pub('/mapping_manager/show_site');
+        this.pub_clear = pub('/mapping/clear');
+        this.pub_serve = pub('/mapping_manager/serve_site');
+
+        const sub = (name, type, cb) => {
+            const t = new ROSLIB.Topic({ros: ros, name: name, messageType: type});
+            t.subscribe(cb);
+            return t;
+        };
+        sub('/mapping_manager/status', 'std_msgs/String',
+            (m) => this.handleManager(m));
+        sub('/mapping/gate_status', 'std_msgs/String',
+            (m) => this.handleGate(m));
+        sub('/mapping/dem_status', 'std_msgs/String',
+            (m) => this.handleDem(m));
+        sub('/mapping/projector_status', 'std_msgs/String',
+            (m) => this.handleProjector(m));
+        // rosbridge delivers CompressedImage.data as base64 already.
+        // Live previews (only while the pipeline runs)...
+        const showImg = (el) => (m) => {
+            el.src = 'data:image/png;base64,' + m.data;
+            el.style.display = 'block';
+        };
+        sub('/mapping/terrain_png', 'sensor_msgs/CompressedImage',
+            showImg(this.img_terrain));
+        sub('/mapping/obstacle_map_png', 'sensor_msgs/CompressedImage',
+            showImg(this.img_raster));
+        // ...and saved-map previews from mapping_manager (always available)
+        sub('/mapping_manager/terrain_png', 'sensor_msgs/CompressedImage',
+            showImg(this.img_terrain));
+        sub('/mapping_manager/raster_png', 'sensor_msgs/CompressedImage',
+            showImg(this.img_raster));
+        sub('/mapping_manager/preview_info', 'std_msgs/String', (m) => {
+            let p;
+            try { p = JSON.parse(m.data); } catch (e) { return; }
+            // hide previews from a previously shown site
+            if (!p.terrain) this.img_terrain.style.display = 'none';
+            if (!p.raster) this.img_raster.style.display = 'none';
+            if (!p.site) {
+                this.el_caption.textContent = 'no saved map yet — start mapping';
+                return;
+            }
+            if (!p.terrain && !p.raster) {
+                this.el_caption.textContent = 'site "' + p.site +
+                    '" has no data yet — map is built ONLY while the gate ' +
+                    'is OPEN (RTK FIXED outdoors, or Force mode)';
+                return;
+            }
+            let txt = 'showing "' + p.site + '"';
+            if (p.area_m2 !== undefined) txt += ' — ' + p.area_m2 + ' m² terrain';
+            if (p.z_range) txt += ', z ' + p.z_range[0] + '…' + p.z_range[1] + ' m';
+            txt += p.raster ? ', raster ' + p.raster : ', no raster yet';
+            if (!p.terrain) txt += ', no terrain yet';
+            this.el_caption.textContent = txt;
+        });
+
+        this.btn_start.addEventListener('click', () => {
+            const site = this.input_site.value.trim();
+            if (!site) { this.input_site.focus(); return; }
+            this.pub_start.publish(new ROSLIB.Message({data: site}));
+            this.el_run.textContent = 'starting ' + site + '…';
+        });
+        this.btn_stop.addEventListener('click', () => {
+            this.pub_stop.publish(new ROSLIB.Message({data: ''}));
+            this.el_run.textContent = 'stopping…';
+        });
+        if (this.btn_serve) {
+            this.btn_serve.addEventListener('click', () => {
+                const site = this.input_site.value.trim();
+                this.pub_serve.publish(new ROSLIB.Message({data: site}));
+                if (this.el_serving) this.el_serving.textContent = 'serving: requesting…';
+            });
+        }
+        // the middle mode button is 'Fused' now (relabel here to avoid an
+        // index.html rebuild; fused = map from the fused pose, the default)
+        this.btn_mode_force.textContent = 'Fused';
+        this.btn_mode_force.title = 'Map from the fused odometry pose (default)';
+        this.btn_mode_rtk.title = 'Strict: insert only at RTK FIXED';
+        this.btn_mode_rtk.addEventListener('click', () => this.setMode('rtk'));
+        this.btn_mode_force.addEventListener('click', () => this.setMode('fused'));
+        this.btn_mode_off.addEventListener('click', () => this.setMode('off'));
+        this.btn_raster.addEventListener('click', () => {
+            this.el_proj.textContent = 'regenerating…';
+            this.pub_regen.publish(new ROSLIB.Message({data: ''}));
+        });
+        this.btn_save.addEventListener('click', () => {
+            this.el_proj.textContent = 'saving snapshot…';
+            this.pub_save.publish(new ROSLIB.Message({data: ''}));
+        });
+        this.btn_compare.addEventListener('click', () => {
+            this.el_proj.textContent = 'comparing vs rtabmap…';
+            this.pub_compare.publish(new ROSLIB.Message({data: ''}));
+        });
+
+        // Clear 3D — reset the octomap archive after a localization
+        // correction shifted older data (created dynamically, like the
+        // caption, to avoid an index.html rebuild)
+        this.btn_clear = document.createElement('button');
+        this.btn_clear.className = 'btn btn-outline-danger';
+        this.btn_clear.type = 'button';
+        this.btn_clear.textContent = 'Clear 3D';
+        this.btn_clear.title = 'Reset the 3D archive (keeps terrain DEM); ' +
+            'use after the map shifted due to a localization correction';
+        this.btn_clear.disabled = true;
+        this.btn_raster.parentNode.appendChild(this.btn_clear);
+        this.btn_clear.addEventListener('click', () => {
+            if (confirm('Clear the 3D obstacle archive? Terrain DEM is kept; ' +
+                        'obstacles rebuild as you drive.')) {
+                this.pub_clear.publish(new ROSLIB.Message({data: ''}));
+            }
+        });
+    }
+
+    setMode(mode) {
+        this.pub_mode.publish(new ROSLIB.Message({data: mode}));
+    }
+
+    setActionsEnabled(on) {
+        [this.btn_mode_rtk, this.btn_mode_force, this.btn_mode_off,
+         this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear]
+            .forEach((b) => { b.disabled = !on; });
+        this.btn_stop.disabled = !on;
+    }
+
+    handleManager(msg) {
+        let s;
+        try { s = JSON.parse(msg.data); } catch (e) { return; }
+        this.running = s.running;
+        this.setActionsEnabled(s.running);
+        if (this.el_serving) {
+            if (s.serving) {
+                this.el_serving.textContent = 'serving: ' + s.serving.site +
+                    '/' + s.serving.raster;
+            } else {
+                this.el_serving.textContent = 'serving: —';
+            }
+        }
+        if (s.running) {
+            const up = Math.floor(s.uptime_s / 60);
+            this.el_run.textContent = '● mapping "' + s.site + '" (' + up + ' min)';
+            this.el_run.style.color = '#51cf66';
+        } else {
+            this.el_run.textContent = 'stopped';
+            this.el_run.style.color = '';
+            this.el_gate.textContent = '—';
+            this.el_gate.style.color = '';
+        }
+        // sites list: datalist for the input + chips with stats
+        this.datalist.innerHTML = '';
+        this.el_sites.innerHTML = '';
+        (s.sites || []).forEach((site) => {
+            const o = document.createElement('option');
+            o.value = site.name;
+            this.datalist.appendChild(o);
+
+            const col = document.createElement('div');
+            col.className = 'col-auto';
+            col.style.cssText = 'margin-right:6px;margin-bottom:4px;';
+            const active = s.running && s.site === site.name;
+            const info = (site.dem_m2 !== undefined ? site.dem_m2 + ' m²' :
+                          site.dem_kb + ' kB') +
+                         ', ' + site.rasters + ' rasters' +
+                         (site.has_ot ? ', 3D' : '');
+            col.innerHTML =
+                '<div class="input-group input-group-sm">' +
+                '<button class="btn btn-primary" type="button" style="text-align:left;">' +
+                '<span class="text-info"><i class="fa fa-tree text-info" style="margin-right:3px;"></i>' +
+                site.name + (active ? ' ●' : '') + '</span>' +
+                '<span style="font-size:11px;color:var(--bs-gray-500);margin-left:6px;">' +
+                info + '</span></button>' +
+                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;">' +
+                '<i class="fa fa-remove text-danger"></i></button></div>';
+            col.querySelector('button').addEventListener('click', () => {
+                this.input_site.value = site.name;
+                // show this site's saved map in the previews
+                this.pub_show.publish(new ROSLIB.Message({data: site.name}));
+            });
+            col.querySelector('.mapv3-del').addEventListener('click', () => {
+                if (confirm('Remove mapping site "' + site.name +
+                            '" (DEM, 3D archive, rasters)?')) {
+                    this.pub_remove.publish(new ROSLIB.Message({data: site.name}));
+                }
+            });
+            this.el_sites.appendChild(col);
+        });
+    }
+
+    handleGate(msg) {
+        if (!this.running) return;
+        let g;
+        try { g = JSON.parse(msg.data); } catch (e) { return; }
+        const c = g.counters || {};
+        let io_in = 0, io_out = 0;
+        Object.keys(c).forEach((k) => { io_in += c[k].in; io_out += c[k].out; });
+        const detail = [];
+        if (g.pose_src) detail.push('pose:' + g.pose_src);
+        if (g.rtk_fixed !== undefined) detail.push(g.rtk_fixed ? 'RTK✓' : 'noRTK');
+        if (g.heading_rtk === false) detail.push('⚠ HDG-RX no fix');
+        if (g.hacc_mm !== undefined) detail.push('hAcc ' + Math.round(g.hacc_mm) + 'mm');
+        if (g.heading_diff_deg !== undefined) detail.push('Δhdg ' + g.heading_diff_deg + '°');
+        if (g.z_source) detail.push('z:' + g.z_source);
+        if (g.map_corrections) detail.push('⚠ corrections ' + g.map_corrections);
+        detail.push('clouds ' + io_out + '/' + io_in);
+        if (g.pass) {
+            this.el_gate.textContent = 'OPEN ✓ [' + g.mode + '] ' + detail.join(', ');
+            this.el_gate.style.color = '#51cf66';
+        } else {
+            this.el_gate.textContent = 'CLOSED [' + g.mode + '] ' +
+                (g.reasons || []).join(', ') + ' — ' + detail.join(', ');
+            this.el_gate.style.color = g.mode === 'off' ? '' : '#ffd43b';
+        }
+    }
+
+    handleDem(msg) {
+        let d;
+        try { d = JSON.parse(msg.data); } catch (e) { return; }
+        const zr = d.z_range ? (', z ' + d.z_range[0] + '…' + d.z_range[1] + ' m') : '';
+        this.el_dem.textContent = d.area_traj_m2 + ' m² driven, ' +
+            d.samples + ' samples' + zr +
+            (d.gps_alt_ok ? '' : ', ⚠ no RTK altitude') +
+            (d.dz_skips ? ', ' + d.dz_skips + ' dz-skips' : '');
+        this.el_dem.style.color = d.gps_alt_ok ? '' : '#ffd43b';
+    }
+
+    handleProjector(msg) {
+        let p;
+        try { p = JSON.parse(msg.data); } catch (e) { return; }
+        let txt = p.state + ', ' + (p.octomap_points || 0).toLocaleString() + ' voxels';
+        if (p.cells_obstacle !== undefined) {
+            txt += ' | raster: ' + p.cells_obstacle + ' obstacle, ' +
+                   p.cells_free + ' free cells (' + p.took_s + ' s)';
+        }
+        if (p.iou_obstacles !== undefined && p.iou_obstacles !== null) {
+            txt += ' | IoU vs rtabmap ' + Math.round(p.iou_obstacles * 100) + '%';
+        }
+        if (p.error) txt += ' | ' + p.error;
+        this.el_proj.textContent = txt;
+        this.el_proj.style.color = p.state === 'error' ? '#ff6b6b' : '';
+    }
+}

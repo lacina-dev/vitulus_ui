@@ -45,6 +45,7 @@
 <script src="/assets/js/rain_alert.js"></script>
 <script src="/assets/js/dock.js"></script>
 <script src="/assets/js/gloc.js"></script>
+<script src="/assets/js/mapping.js"></script>
 <script src="/assets/js/map_view.js"></script>
 <script src="/assets/js/calendar_manager.js"></script>
 <script src="/assets/js/keyboardteleop.js"></script>
@@ -291,6 +292,36 @@
                                             </div>
                                         </div>
                                         <hr>
+                                        <div class="row g-0" style="align-items: flex-start;">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Mapping v3 &mdash; terrain &amp; obstacles (RTK-gated)</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-tree"></i></span><input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="Site (garden) name" style="width: 140px;"><datalist id="mapv3_sites"></datalist><button class="btn btn-primary" id="mapv3_btn_start" type="button">Start</button><button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled>Stop</button><button class="btn btn-primary" id="mapv3_btn_serve" type="button" title="Serve this site's saved map for localization (empty = newest)">Serve</button></div>
+                                                <span id="mapv3_run_status" style="font-size: 12px;display: block;margin-top: 4px;">waiting for mapping_manager&hellip;</span>
+                                                <span id="mapv3_serving_status" style="font-size: 12px;display: block;margin-top: 2px;">serving: &mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Insertion gate mode</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="mapv3_btn_mode_rtk" type="button" disabled title="Insert only at RTK FIXED (normal mapping)">RTK</button><button class="btn btn-primary" id="mapv3_btn_mode_force" type="button" disabled title="Force insertion without RTK (garage clean pass)">Force</button><button class="btn btn-primary" id="mapv3_btn_mode_off" type="button" disabled title="Pause insertion">Off</button></div>
+                                                <span id="mapv3_gate_status" style="font-size: 12px;display: block;margin-top: 4px;">&mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Actions</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button><button class="btn btn-primary" id="mapv3_btn_save" type="button" disabled title="Save full snapshot: 3D archive (.ot) + DEM + raster">Snapshot</button><button class="btn btn-primary" id="mapv3_btn_compare" type="button" disabled title="A/B stats vs the current rtabmap grid">Compare</button></div>
+                                                <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 4px;">&mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Terrain DEM</span>
+                                                <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
+                                            </div>
+                                        </div>
+                                        <div class="row g-0" id="mapv3_sites_row" style="margin-top: 6px;"></div>
+                                        <div class="row g-0" style="margin-top: 6px;">
+                                            <div class="col-auto" style="margin-right: 10px;">
+                                                <label class="form-label" style="font-size: 13px;margin-bottom: 2px;">Terrain elevation (blue = low, red = high)</label>
+                                                <div><img id="mapv3_img_terrain" style="max-width: 420px;max-height: calc(100vh - 330px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
+                                            </div>
+                                            <div class="col-auto">
+                                                <label class="form-label" style="font-size: 13px;margin-bottom: 2px;">Obstacle raster (0.10&ndash;0.60 m above local ground)</label>
+                                                <div><img id="mapv3_img_raster" style="max-width: 420px;max-height: calc(100vh - 330px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
+                                            </div>
+                                        </div>
+                                        <hr>
                                         <div class="row g-0" id="div_menu_map_items_row" style="overflow: auto;">
                                             <div class="col-auto" style="margin-bottom: 6px;">
                                                 <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 14px;display: inline-block;color: var(--bs-light);">
@@ -327,6 +358,7 @@
                                                 <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
                                             </div>
                                         </div>
+
 </div>
                                     <!-- map editor: zones -->
 
@@ -382,6 +414,9 @@
                                                 <hr>
                                                 <div id="dock_div_intensity_status"></div>
                                                 <div id="dock_div_intensity_image"></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Localization seed</span>
+                                                <div id="dock_div_seed_status"></div>
                                             </div>
                                             <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock program</span>
                                                 <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_map"><label class="form-check-label" for="formCheck-1" style="font-size: 14px;">Use dock map point</label></div>
@@ -934,6 +969,14 @@
                                                             <span class="text-info d-flex justify-content-end input-group-text form-control" id="span_d435_rec_fps">5.0 fps</span>
                                                         </div>
                                                     </div>
+                                                    <div class="col-auto" style="margin: 0px;padding: 4px;min-width: 310px;">
+                                                        <p style="font-size: 12px;color: var(--bs-info);margin-bottom: 4px;"><i class="fa fa-globe" style="margin-right: 5px;"></i>GNSS forensics (heading var, fix, pose ownership)</p>
+                                                        <div class="input-group input-group-sm" id="inputgroup_gnss_rec" style="padding: 2px;border-radius: 5px;border: 2px solid var(--bs-danger);">
+                                                            <button class="btn btn-primary fw-bold" id="btn_gnss_rec_start" type="button" style="width: 70px;white-space: nowrap;">REC&nbsp;<i class="la la-circle" style="font-weight: bold;color: var(--bs-danger);"></i></button>
+                                                            <button class="btn btn-primary fw-bold" id="btn_gnss_rec_stop" type="button" style="width: 82px;white-space: nowrap;">STOP&nbsp;<i class="la la-stop" style="font-weight: bold;color: var(--bs-warning);"></i></button>
+                                                            <span class="text-info d-flex justify-content-end input-group-text form-control" id="span_gnss_rec_status" style="font-size: 11px;">idle</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <div class="row d-xl-flex justify-content-xl-center" style="margin: 0px;padding: 0px;padding-top: 10px;">
                                                     <div class="col-auto" style="margin: 0px;padding: 4px;min-width: 310px;max-width: 100%;">
@@ -1100,9 +1143,10 @@
                 </div>
                 <div class="row no-event" style="margin-left: 0px;margin-right: 0px;">
                     <div class="col-6 no-event" style="text-align: left;padding-right: 0px;padding-left: 0px;">
-                        <div id="div_odom" class="status-panels" style="padding: 1px;padding-left: 3px;padding-right: 4px;/*background: var(--bs-gray-900);*//*border-radius: 8px;*//*border: 1px solid var(--bs-primary);*/height: 46px;width: 128px;display: grid;">
-                            <div class="align-items-center" style="width: 120px;height: 24px;display: inline-flex;"><span class="no-event" style="font-size: 11px;color: var(--bs-info);">Pose</span><span id="span_odom_drive" title="what drives the pose right now" class="no-event" style="font-size: 11px;font-weight: bold;margin-left: 4px;padding: 0px 5px;border-radius: 6px;background: #555555;color: #000;">&mdash;</span><span class="no-event" style="font-size: 9px;margin-left: auto;opacity: 0.6;">hdg</span><span id="span_odom_hdg" title="heading source: SAT=RTK dual-antenna, IMU=fallback" class="no-event" style="font-size: 9px;margin-left: 3px;padding: 0px 4px;border-radius: 6px;background: #777777;color: #000;">&mdash;</span></div>
+                        <div id="div_odom" class="status-panels" style="padding: 1px;padding-left: 3px;padding-right: 4px;/*background: var(--bs-gray-900);*//*border-radius: 8px;*//*border: 1px solid var(--bs-primary);*/height: 66px;width: 128px;display: grid;">
+                            <div class="align-items-center" style="width: 120px;height: 24px;display: inline-flex;"><span class="no-event" style="font-size: 11px;color: var(--bs-info);">Pose</span><span id="span_odom_drive" title="pose owner (loc_status)" class="no-event" style="font-size: 11px;font-weight: bold;margin-left: 4px;padding: 0px 5px;border-radius: 6px;background: #555555;color: #000;">&mdash;</span><span class="no-event" style="font-size: 9px;margin-left: auto;opacity: 0.6;">hdg</span><span id="span_odom_hdg" title="heading source: SAT=RTK dual-antenna, IMU=fallback" class="no-event" style="font-size: 9px;margin-left: 3px;padding: 0px 4px;border-radius: 6px;background: #777777;color: #000;">&mdash;</span></div>
                             <div style="display: inline-flex;align-items: center;"><span id="span_odom_vo" title="visual odometry: usable (green) / active (outline)" class="no-event" style="font-size: 9px;line-height: 1;padding: 1px 3px;border-radius: 6px;background: #555555;">VO</span><span id="span_odom_licp" title="lidar odometry" class="no-event" style="font-size: 9px;line-height: 1;margin-left: 3px;padding: 1px 3px;border-radius: 6px;background: #555555;">Li</span><span id="span_odom_wheel" title="wheel/imu odometry" class="no-event" style="font-size: 9px;line-height: 1;margin-left: 3px;padding: 1px 3px;border-radius: 6px;background: #555555;">Wh</span><span id="span_odom_div" title="bridge divergence from live pose" class="no-event" style="font-size: 9px;margin-left: auto;opacity: 0.8;">&Delta;&ndash;</span></div>
+                            <div style="display: inline-flex;align-items: center;"><span id="span_odom_fix" title="raw RTK fix usable (independent of ownership)" class="no-event" style="font-size: 9px;line-height: 1;padding: 1px 3px;border-radius: 6px;background: #555555;">FIX</span><span id="span_odom_prob" title="GPS proven in motion" class="no-event" style="font-size: 9px;line-height: 1;margin-left: 3px;padding: 1px 3px;border-radius: 6px;background: #555555;">PROB</span></div>
                         </div>
                         <div id="div_gnss" class="status-panels" style="padding: 1px;padding-left: 3px;padding-right: 4px;height: 46px;width: 128px;display: grid;margin-top: 2px;">
                             <div class="align-items-center" style="width: 122px;height: 24px;display: inline-flex;align-items: center;"><span class="no-event" style="font-size: 11px;color: var(--bs-info);">GNSS</span><span id="span_gnss_fix" title="RTK fix state" class="no-event" style="font-size: 11px;font-weight: bold;margin-left: 4px;padding: 0px 5px;border-radius: 6px;background: #555555;color: #000;">&mdash;</span><span id="span_gnss_sats" class="no-event" style="font-size: 10px;margin-left: auto;">sats &ndash;</span></div>
