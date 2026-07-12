@@ -36,6 +36,17 @@ class MappingV3 {
             + '(persisted per site).';
         this.el_band_status = document.getElementById("mapv3_band_status");
         this.band_edited = false;   // don't clobber user typing with live status
+        // per-source range caps (item 3/4): lidar + depth max range, fed to
+        // /mapping/set_ranges, prefilled from gate_status. Same session-gating
+        // and edit-guard pattern as the band controls.
+        this.in_lidar_max = document.getElementById("mapv3_lidar_max");
+        this.in_depth_max = document.getElementById("mapv3_depth_max");
+        this.btn_apply_ranges = document.getElementById("mapv3_btn_apply_ranges");
+        this._applyRangesTitle =
+            'Apply the per-source range caps live (dropped before insertion, '
+            + 'persisted per site).';
+        this.el_ranges_status = document.getElementById("mapv3_ranges_status");
+        this.ranges_edited = false;
         this.el_sites = document.getElementById("mapv3_sites_row");
 
         // Saved / live mapping-v3 occupancy grids in the MAIN 3D view — the
@@ -177,6 +188,7 @@ class MappingV3 {
         this.pub_clear = pub('/mapping/clear');
         this.pub_serve = pub('/mapping_manager/serve_site');
         this.pub_set_band = pub('/mapping/set_band');
+        this.pub_set_ranges = pub('/mapping/set_ranges');
 
         const sub = (name, type, cb) => {
             const t = new ROSLIB.Topic({ros: ros, name: name, messageType: type});
@@ -286,6 +298,14 @@ class MappingV3 {
         });
         if (this.btn_apply_band) {
             this.btn_apply_band.addEventListener('click', () => this.applyBand());
+        }
+
+        // Range caps — same edit-guard + apply pattern as the band controls.
+        [this.in_lidar_max, this.in_depth_max].forEach((el) => {
+            if (el) el.addEventListener('input', () => { this.ranges_edited = true; });
+        });
+        if (this.btn_apply_ranges) {
+            this.btn_apply_ranges.addEventListener('click', () => this.applyRanges());
         }
 
         // Clear 3D — reset the octomap archive after a localization
@@ -1088,10 +1108,28 @@ class MappingV3 {
         this.el_band_status.style.color = '';
     }
 
+    applyRanges() {
+        const lidar = parseFloat(this.in_lidar_max.value);
+        const depth = parseFloat(this.in_depth_max.value);
+        const ok = (v) => (v >= 0.5 && v <= 20.0);
+        if (!ok(lidar) || !ok(depth)) {
+            this.el_ranges_status.textContent =
+                'invalid: each range must be 0.5..20 m';
+            this.el_ranges_status.style.color = '#ff6b6b';
+            return;
+        }
+        const payload = {lidar_max_m: lidar, depth_max_m: depth};
+        this.pub_set_ranges.publish(
+            new ROSLIB.Message({data: JSON.stringify(payload)}));
+        this.ranges_edited = false;   // let gate_status re-sync applied values
+        this.el_ranges_status.textContent = 'applying…';
+        this.el_ranges_status.style.color = '';
+    }
+
     setActionsEnabled(on) {
         [this.btn_mode_rtk, this.btn_mode_force, this.btn_mode_off,
          this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear,
-         this.btn_apply_band]
+         this.btn_apply_band, this.btn_apply_ranges]
             .forEach((b) => { if (b) b.disabled = !on; });
         this.btn_stop.disabled = !on;
         // Obstacle-classification Apply requires the mapping pipeline running:
@@ -1108,6 +1146,19 @@ class MappingV3 {
             this.el_band_status.textContent =
                 'Start a mapping session to tune the obstacle band.';
             this.el_band_status.style.color = '';
+        }
+        // Range caps require the insertion_gate running (subscribes to
+        // /mapping/set_ranges), same as the band Apply.
+        if (this.btn_apply_ranges) {
+            this.btn_apply_ranges.title = on
+                ? this._applyRangesTitle
+                : 'Requires a running mapping session — press Start first '
+                  + '(the insertion gate only exists while mapping runs).';
+        }
+        if (this.el_ranges_status && !on && !this.ranges_edited) {
+            this.el_ranges_status.textContent =
+                'Start a mapping session to set sensor range caps.';
+            this.el_ranges_status.style.color = '';
         }
     }
 
@@ -1188,6 +1239,23 @@ class MappingV3 {
         if (!this.running) return;
         let g;
         try { g = JSON.parse(msg.data); } catch (e) { return; }
+
+        // range caps: prefill inputs (unless user is mid-edit) and show applied
+        if (g.lidar_max_m !== undefined && g.depth_max_m !== undefined) {
+            if (!this.ranges_edited && this.in_lidar_max) {
+                this.in_lidar_max.value = g.lidar_max_m;
+                this.in_depth_max.value = g.depth_max_m;
+            }
+            if (this.el_ranges_status) {
+                const lid = (g.lidar_enabled === false) ? 'lidar OFF' :
+                    ('lidar ≤ ' + g.lidar_max_m + ' m');
+                this.el_ranges_status.textContent =
+                    lid + ', depth ≤ ' + g.depth_max_m + ' m' +
+                    (g.z_corr_mode ? ' | z-corr: ' + g.z_corr_mode : '');
+                this.el_ranges_status.style.color = '';
+            }
+        }
+
         const c = g.counters || {};
         let io_in = 0, io_out = 0;
         Object.keys(c).forEach((k) => { io_in += c[k].in; io_out += c[k].out; });

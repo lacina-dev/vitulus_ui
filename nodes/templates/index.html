@@ -366,6 +366,16 @@
                                                 </div>
                                                 <span id="mapv3_band_status" style="font-size: 12px;display: block;margin-top: 4px;opacity:.8;">&mdash;</span>
                                             </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;" title="Per-source sensor range caps for the map. Lidar = filtered rplidar scan (sun-immune hard geometry at ~0.35 m); Depth = D435 point cloud (noisy in sunlight past a few metres). Points beyond the cap are dropped before insertion. Applied live (0.5..20 m) and persisted per site.">Ranges</span>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;">
+                                                    <span class="input-group-text" title="Lidar max range (m): drop rplidar returns beyond this before mapping (0.5..20)">lidar max m</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_lidar_max" step="0.5" min="0.5" max="20" style="width: 62px;">
+                                                    <span class="input-group-text" title="Depth max range (m): drop D435 depth points beyond this before mapping (0.5..20)">depth max m</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_depth_max" step="0.1" min="0.5" max="20" style="width: 62px;">
+                                                    <button class="btn btn-primary" id="mapv3_btn_apply_ranges" type="button" disabled title="Requires a running mapping session — press Start first (the insertion gate only exists while mapping runs).">Apply</button>
+                                                </div>
+                                                <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 4px;opacity:.8;">&mdash;</span>
+                                            </div>
                                             <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Terrain DEM</span>
                                                 <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
