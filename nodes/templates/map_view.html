@@ -3,10 +3,19 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <!-- Single, fullscreen-aware viewport. viewport-fit=cover lets the app shell
+         extend under the notch / rounded corners (with env(safe-area-inset-*)
+         padding below); interactive-widget=resizes-content keeps the on-screen
+         keyboard from shoving the fixed shell around. maximum-scale/user-scalable
+         disabled so a stray double-tap or pinch can't zoom the locked UI. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>VITULUS UI</title>
-    <meta name="" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <!-- PWA / "add to home screen" fullscreen hints -->
+    <meta name="theme-color" content="#282b30">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VITULUS">
     <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="assets/img/VitulusOnGrassBlended180x180.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/img/VitulusOnGrassBlended16x16.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/img/VitulusOnGrassBlended16x16Dark.png" media="(prefers-color-scheme: dark)">
@@ -147,6 +156,56 @@
     .bag-list .bag-row { flex-wrap: wrap; }
     .bag-list .bag-actions { width: 100%; justify-content: flex-end; }
 }
+</style>
+<style id="vitulus-fullscreen-shell">
+/* ---------------------------------------------------------------------------
+   Fullscreen app-shell lock. Goal: on a phone the page must NOT rubber-band,
+   pull-to-refresh, or let the whole shell scroll ("menu popojíždí"). Only the
+   intended inner panels scroll. We pin html/body to the visual viewport height
+   and forbid scrolling/overscroll on them; #div_content (and other explicit
+   scrollers) keep their own overflow.
+   --------------------------------------------------------------------------- */
+html, body {
+    /* Height: fixed-viewport with graceful fallbacks. 100% -> 100vh -> 100dvh.
+       Browsers that grok dvh use the last one (tracks address-bar collapse). */
+    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;                 /* the shell itself never scrolls */
+    overscroll-behavior: none;        /* kill pull-to-refresh + rubber-band */
+    -webkit-overflow-scrolling: touch;
+    position: fixed;                  /* nail the shell to the viewport... */
+    inset: 0;                         /* ...top/right/bottom/left: 0 */
+    width: 100%;
+    touch-action: manipulation;       /* no double-tap zoom on the shell */
+    /* honour the notch / rounded-corner safe areas under viewport-fit=cover */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+}
+/* JS sets --app-vh to window.innerHeight*0.01 as an extra fallback for old
+   mobile browsers that support neither dvh nor a stable innerHeight. */
+@supports (height: 1px) {
+    html.js-vh, body.js-vh { height: calc(var(--app-vh, 1vh) * 100); }
+}
+/* The map container fills the shell; its inner #div_content owns scrolling. */
+#div_container { touch-action: manipulation; }
+/* Panels that are meant to scroll must keep momentum + contain their overscroll
+   so a scroll that reaches the end doesn't bubble up to move the shell. */
+#div_content,
+#div_log_view #div_log_content,
+.log-source-list,
+.bag-list,
+.tab-content,
+.menu_content,
+[id^="div_menu_"] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+/* Fullscreen toggle button in the navbar (injected by app.js). */
+#btn_fullscreen .la { transition: transform 0.15s; }
 </style>
 </head>
 

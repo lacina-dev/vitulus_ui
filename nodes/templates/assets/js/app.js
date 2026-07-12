@@ -152,8 +152,135 @@
             var id = sectionFromHash();
             if (id) showSection(id);
         });
+        addFullscreenButton();
         addRestartButton();
         wireImuTab();
+        lockAppShell();
+    }
+
+    // ---- Fullscreen (in-browser) toggle button -----------------------------
+    // Uses the Fullscreen API on the app root (documentElement) with vendor
+    // prefixes so it works on older WebKit/Blink. Placed unobtrusively as the
+    // first item in the navbar nav list. On phones this is the in-tab
+    // fullscreen; the PWA/home-screen shortcut path (manifest display) is
+    // separate and needs no button.
+    function fsElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement ||
+               document.mozFullScreenElement || document.msFullscreenElement;
+    }
+    function requestFs(el) {
+        var fn = el.requestFullscreen || el.webkitRequestFullscreen ||
+                 el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (fn) { try { return fn.call(el); } catch (e) { /* rejected */ } }
+    }
+    function exitFs() {
+        var fn = document.exitFullscreen || document.webkitExitFullscreen ||
+                 document.mozCancelFullScreen || document.msExitFullscreen;
+        if (fn) { try { return fn.call(document); } catch (e) { /* ignore */ } }
+    }
+    function updateFsIcon() {
+        var i = document.getElementById('btn_fullscreen_icon');
+        if (!i) return;
+        var on = !!fsElement();
+        i.className = on ? 'la la-compress' : 'la la-expand';
+        var a = document.getElementById('btn_fullscreen');
+        if (a) a.title = on ? 'Exit fullscreen' : 'Fullscreen';
+    }
+    function addFullscreenButton() {
+        var ul = document.querySelector('#div_menu .navbar-nav');
+        if (!ul || document.getElementById('btn_fullscreen')) return;
+        // Fullscreen API is unavailable in some standalone/PWA contexts (already
+        // fullscreen) — hide the button there so it isn't a dead control.
+        var root = document.documentElement;
+        var supported = !!(root.requestFullscreen || root.webkitRequestFullscreen ||
+                           root.mozRequestFullScreen || root.msRequestFullscreen);
+        var standalone = window.matchMedia &&
+            (window.matchMedia('(display-mode: fullscreen)').matches ||
+             window.matchMedia('(display-mode: standalone)').matches);
+        if (!supported || standalone) return;
+        var li = document.createElement('li');
+        li.className = 'nav-item d-inline-flex align-items-center';
+        li.style.display = 'inline-flex';
+        li.innerHTML = '<a class="nav-link" href="#" id="btn_fullscreen" title="Fullscreen">' +
+            '<i id="btn_fullscreen_icon" class="la la-expand" ' +
+            'style="margin-right:8px;font-size:18px;color:#f17d22;"></i>' +
+            '<span class="d-lg-none">Fullscreen</span></a>';
+        // Put it first so it sits left of Restart.
+        ul.insertBefore(li, ul.firstChild);
+        li.querySelector('#btn_fullscreen').addEventListener('click', function (ev) {
+            ev.preventDefault();
+            if (fsElement()) { exitFs(); }
+            else { requestFs(document.documentElement); }
+        });
+        ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange',
+         'MSFullscreenChange'].forEach(function (evt) {
+            document.addEventListener(evt, updateFsIcon);
+        });
+        updateFsIcon();
+    }
+
+    // ---- App-shell lock: no pull-to-refresh / rubber-band; track viewport ---
+    // Complements the CSS lock (overflow/overscroll/position:fixed on the shell).
+    // 1) --app-vh fallback for browsers without dvh, refreshed on resize so the
+    //    shell follows the collapsing address bar instead of overflowing.
+    // 2) touchmove guard: swallow a scroll gesture only when it does NOT
+    //    originate inside a scrollable panel, which otherwise pulls the whole
+    //    page (rubber-band / pull-to-refresh).
+    function lockAppShell() {
+        function setVh() {
+            var h = window.innerHeight || document.documentElement.clientHeight;
+            document.documentElement.style.setProperty('--app-vh', (h * 0.01) + 'px');
+        }
+        // Enable the JS --app-vh fallback only where dvh is unsupported.
+        var supportsDvh = window.CSS && CSS.supports && CSS.supports('height', '100dvh');
+        if (!supportsDvh) {
+            document.documentElement.classList.add('js-vh');
+            document.body.classList.add('js-vh');
+        }
+        setVh();
+        window.addEventListener('resize', setVh, { passive: true });
+        window.addEventListener('orientationchange', function () {
+            setTimeout(setVh, 250);
+        });
+
+        // A node is "scrollable" if it (or an ancestor up to the shell) can
+        // actually scroll in the gesture direction.
+        function scrollableAncestor(node) {
+            while (node && node !== document.body && node !== document.documentElement) {
+                if (node.nodeType === 1) {
+                    var s = window.getComputedStyle(node);
+                    var oy = s.overflowY;
+                    if ((oy === 'auto' || oy === 'scroll') &&
+                        node.scrollHeight > node.clientHeight + 1) {
+                        return node;
+                    }
+                }
+                node = node.parentNode;
+            }
+            return null;
+        }
+        var startY = 0;
+        document.addEventListener('touchstart', function (e) {
+            if (e.touches && e.touches.length === 1) startY = e.touches[0].clientY;
+        }, { passive: true });
+        document.addEventListener('touchmove', function (e) {
+            if (!e.cancelable || !e.touches || e.touches.length !== 1) return;
+            var target = e.target;
+            var sc = scrollableAncestor(target);
+            if (!sc) {
+                // Not inside a scroller -> this gesture would move the shell.
+                e.preventDefault();
+                return;
+            }
+            // Inside a scroller: block only the overscroll at its top/bottom
+            // edge (that's what leaks into a page pull).
+            var dy = e.touches[0].clientY - startY;
+            var atTop = sc.scrollTop <= 0;
+            var atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+            if ((atTop && dy > 0) || (atBottom && dy < 0)) {
+                e.preventDefault();
+            }
+        }, { passive: false });
     }
 
     // ---- "Restart robot" button (POST /system/restart on the web server) ----

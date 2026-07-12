@@ -1,1 +1,32 @@
-{"short_name":"VITULUS","name":"VITULUS webUI","icons":[{"src":"https://lacina.dev/assets/img/VitulusOnGrassBlended192x192.png","type":"image/png","sizes":"192x192"},{"src":"https://lacina.dev/assets/img/VitulusOnGrassBlended512x512.png","type":"image/png","sizes":"512x512"}],"start_url":"/","background_color":"#dbdbdb","display":"fullscreen"}
+{
+  "short_name": "VITULUS",
+  "name": "VITULUS webUI",
+  "description": "Vitulus robotic mower control UI",
+  "icons": [
+    {
+      "src": "/assets/img/VitulusOnGrassBlended192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/VitulusOnGrassBlended512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/VitulusOnGrassBlended512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "background_color": "#282b30",
+  "theme_color": "#282b30",
+  "orientation": "any",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"]
+}
