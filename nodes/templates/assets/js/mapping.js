@@ -146,6 +146,12 @@ class MappingV3 {
         //     nothing is fetched until the checkbox is first ticked.
         this._initAerial();
 
+        // (5) RAIN RADAR — the ČHMÚ radar composite draped as the TOP-most
+        //     layer, floated a few metres above the garden (see the Rain
+        //     methods below). Lazy: the /weather_alert/map_img subscription is
+        //     only created when the checkbox is first ticked.
+        this._initRain();
+
         this.running = false;
 
         const pub = (name) => {
@@ -641,6 +647,301 @@ class MappingV3 {
             return mesh;
         } catch (e) {
             console.error('[mappingv3] _buildTileMesh failed:', e);
+            return null;
+        }
+    }
+
+    // =====================================================================
+    // RAIN RADAR layer — the ČHMÚ radar composite draped ABOVE everything.
+    // ---------------------------------------------------------------------
+    // SOURCE: weather_alert node publishes /weather_alert/map_img as a RAW
+    // sensor_msgs/Image (rgb8, 512x512, latched) — NOT a CompressedImage. The
+    // image is a square crop of the ČHMÚ "pseudocappi2km" radar composite
+    // (Mercator/EPSG:3857) centred on the robot's configured lat/lon, with an
+    // OSM basemap composited underneath and status/frame annotations drawn on
+    // top. rosbridge delivers Image.data as a base64 string of the RGB bytes.
+    //
+    // GEOREF (derivable, exact): chmi.py crops a square of half-extent
+    // half_px = max(int(frame_warning_km * km_px * 1.2) + 2, 32) source pixels
+    // around the centre, where km_px ≈ 1.0015 px/km at 50 °N, frame_warning=20
+    // => half_px = 32 => half_km = 32/1.0015 ≈ 31.95 km. So the image is a
+    // ~63.9 km × 63.9 km square, centred on the config point, resized to
+    // 512 px. We recompute half_km in JS from the same constants so a config
+    // change (frame_warning / location) stays correct. The plane is centred on
+    // the garden by converting the radar-centre lat/lon to map metres through
+    // the SAME /api/datum chain the aerial tiles use (flat-earth around the
+    // datum origin, inside a group carrying the -yaw rotation). The radar
+    // centre ≈ the datum origin (garden), any few-metre offset is applied so
+    // rain features stay aligned with the map. NOTE: the ČHMÚ scale is
+    // ~0.88 km/px, so alignment accuracy is inherently ± a few hundred metres
+    // at garden scale — fine for "is it raining over me / nearby", not for
+    // metre-precise positioning. We show only the central disc (radius select).
+    //
+    // TRANSPARENCY: rather than chroma-key the (varied OSM) background, we do
+    // POSITIVE keying — keep ONLY pixels matching the ČHMÚ rain palette (four
+    // shades) within tolerance; every other pixel (OSM basemap, the red status
+    // border, deepskyblue frame rectangles, purple/grey annotation text) is
+    // made fully transparent. That yields a clean rain-only overlay.
+    _initRain() {
+        this.rain_group = null;        // ROS3D THREE.Object3D, built lazily
+        this.rain_mesh = null;
+        this.rain_datum = null;        // cached /api/datum
+        this.rain_msg = null;          // last-seen Image message
+        this.rain_sub = null;          // rosbridge subscription (lazy)
+        this.rain_token = 0;           // bumps to cancel stale async builds
+
+        // ČHMÚ georef constants (mirror chmi.py). Centre lat/lon come from the
+        // weather_alert config; we can't read that YAML from the browser, so we
+        // default to the garden and correct via the datum. If a site is far
+        // from its ČHMÚ centre this would be visibly off — reported honestly.
+        this.RAIN_LL_LON = 11.266869; this.RAIN_LL_LAT = 48.047275;
+        this.RAIN_UR_LON = 19.623974; this.RAIN_UR_LAT = 51.458369;
+        this.RAIN_DATA_X0 = 1; this.RAIN_DATA_W = 598;
+        this.RAIN_FRAME_WARNING_KM = 20.0;   // radar.frame_warning in config
+
+        // ČHMÚ rain palette in RGB (node converts the source BGR to RGB before
+        // publishing). Order: light / moderate / heavy / very-heavy.
+        this.RAIN_PALETTE = [
+            [56, 0, 112], [48, 0, 168], [0, 108, 192], [0, 0, 252],
+        ];
+        this.RAIN_KEY_TOL = 40;   // per-channel tolerance when matching palette
+
+        this.chk_rain = document.getElementById('mapv3_chk_rain');
+        this.sel_rain_area = document.getElementById('mapv3_rain_area');
+        this.sel_rain_z = document.getElementById('mapv3_rain_z');
+        this.in_rain_opacity = document.getElementById('mapv3_rain_opacity');
+        this.el_rain_status = document.getElementById('mapv3_rain_status');
+
+        if (this.chk_rain) {
+            this.chk_rain.addEventListener('change', () => {
+                if (this.chk_rain.checked) {
+                    this._ensureRainSub();
+                    this.rebuildRain();
+                } else if (this.rain_group) {
+                    this.rain_group.visible = false;
+                }
+            });
+        }
+        [this.sel_rain_area, this.sel_rain_z].forEach((el) => {
+            if (el) el.addEventListener('change', () => {
+                if (this.chk_rain && this.chk_rain.checked) this.rebuildRain();
+            });
+        });
+        if (this.in_rain_opacity) {
+            this.in_rain_opacity.addEventListener('input', () => {
+                this._applyRainOpacity();
+            });
+        }
+    }
+
+    // Subscribe to the raw radar Image exactly once (on first tick). Each new
+    // frame caches the message and, if the layer is on, rebuilds the plane.
+    _ensureRainSub() {
+        if (this.rain_sub) { return; }
+        try {
+            this.rain_sub = new ROSLIB.Topic({
+                ros: this.ros,
+                name: '/weather_alert/map_img',
+                messageType: 'sensor_msgs/Image',
+            });
+            this.rain_sub.subscribe((m) => {
+                this.rain_msg = m;
+                if (this.chk_rain && this.chk_rain.checked) { this.rebuildRain(); }
+            });
+        } catch (e) {
+            console.error('[mappingv3] rain subscribe failed:', e);
+        }
+    }
+
+    _applyRainOpacity() {
+        if (!this.in_rain_opacity || !this.rain_mesh) return;
+        const op = parseFloat(this.in_rain_opacity.value);
+        if (!(op >= 0 && op <= 1)) return;
+        try { if (this.rain_mesh.material) this.rain_mesh.material.opacity = op; }
+        catch (e) {}
+    }
+
+    _ensureRainGroup() {
+        if (this.rain_group) { return this.rain_group; }
+        const T = this._r3d();
+        if (!T || !this.viewer3d || !this.viewer3d.scene) { return null; }
+        this.rain_group = new T.Object3D();   // carries -yaw, like aerial
+        this.viewer3d.scene.add(this.rain_group);
+        return this.rain_group;
+    }
+
+    _disposeRainMesh() {
+        if (!this.rain_mesh) { return; }
+        if (this.rain_group) { this.rain_group.remove(this.rain_mesh); }
+        try {
+            this.rain_mesh.geometry && this.rain_mesh.geometry.dispose();
+            const m = this.rain_mesh.material;
+            if (m) { m.map && m.map.dispose(); m.dispose(); }
+        } catch (e) {}
+        this.rain_mesh = null;
+    }
+
+    // half-extent of the ČHMÚ crop in km (mirrors chmi.py exactly).
+    _rainHalfKm() {
+        const merc = (lat) =>
+            Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
+        // km_px: pixel span of 1 km of longitude at the centre latitude.
+        // Use the datum centre if we have it, else the LL/UR mid latitude.
+        const lat = (this.rain_datum && this.rain_datum.origin_lat != null)
+            ? this.rain_datum.origin_lat : 50.0186436;
+        const lon = (this.rain_datum && this.rain_datum.origin_lon != null)
+            ? this.rain_datum.origin_lon : 14.9033353;
+        const colOf = (lo) => this.RAIN_DATA_X0 +
+            (lo - this.RAIN_LL_LON) / (this.RAIN_UR_LON - this.RAIN_LL_LON) *
+            this.RAIN_DATA_W;
+        // 1 km east in longitude degrees at this latitude.
+        const dLon = 1.0 / (111.320 * Math.cos(lat * Math.PI / 180));
+        const kmPx = Math.max(1e-6, Math.abs(colOf(lon + dLon) - colOf(lon)));
+        const halfPx = Math.max(
+            Math.floor(this.RAIN_FRAME_WARNING_KM * kmPx * 1.2) + 2, 32);
+        return halfPx / kmPx;   // km
+    }
+
+    // Build / update the rain plane from the cached Image message + datum.
+    // Async-safe, cancellable, fully try/catch-wrapped so a bad frame can never
+    // take down the ROS3D render loop.
+    async rebuildRain() {
+        const status = (t, warn) => {
+            if (this.el_rain_status) {
+                this.el_rain_status.textContent = t;
+                this.el_rain_status.style.color = warn ? '#ffd43b' : '';
+            }
+        };
+        const token = ++this.rain_token;
+        try {
+            if (!this.rain_msg) { status('waiting for radar frame…'); return; }
+            // datum — cache once.
+            if (!this.rain_datum) {
+                status('loading datum…');
+                const resp = await fetch('/api/datum', { cache: 'no-store' });
+                if (!resp.ok) { status('no site datum — cannot place radar', true); return; }
+                this.rain_datum = await resp.json();
+            }
+            if (token !== this.rain_token) { return; }
+            const d = this.rain_datum;
+            if (d.origin_lat == null || d.origin_lon == null) {
+                status('datum missing origin_lat/lon', true); return;
+            }
+
+            const T = this._r3d();
+            const group = this._ensureRainGroup();
+            if (!T || !group) { status('3D not ready', true); return; }
+
+            const m = this.rain_msg;
+            const W = m.width | 0, H = m.height | 0;
+            if (!(W > 0) || !(H > 0)) { status('bad radar frame', true); return; }
+
+            // Decode base64 rgb8 -> RGBA with positive palette keying + radius
+            // clip. Runs on a detached canvas, off the render path.
+            const rgba = this._rainDecode(m, W, H);
+            if (!rgba) { status('radar decode failed', true); return; }
+
+            // Geometry: the full frame spans 2*halfKm km. Centre it on the
+            // radar centre expressed in map metres. The radar centre is the
+            // config lat/lon; we approximate it by the datum origin (garden)
+            // — see the header note. side in metres:
+            const halfKm = this._rainHalfKm();
+            const sideM = 2.0 * halfKm * 1000.0;
+
+            // group carries -yaw so a UTM-aligned plane lands in the map frame.
+            group.rotation.z = -(d.yaw_rad || 0.0);
+            group.visible = true;
+
+            // radar centre in map-aligned metres. If the ČHMÚ config centre
+            // differed from the datum origin we'd offset here; they coincide
+            // (garden), so centre = (0,0) in the datum's local frame.
+            const cx = 0.0, cy = 0.0;
+            const z = this.sel_rain_z ? parseFloat(this.sel_rain_z.value) : 5.0;
+
+            const tex = new T.DataTexture(rgba, W, H);
+            tex.flipY = true;   // canvas/data row 0 = top(north) -> +y
+            tex.needsUpdate = true;
+            const geo = new T.Geometry(sideM, sideM);   // PlaneBufferGeometry
+            const opacity = this.in_rain_opacity ?
+                parseFloat(this.in_rain_opacity.value) : 0.5;
+            const mat = new T.Material({
+                map: tex, transparent: true, opacity: opacity, depthWrite: false,
+            });
+            if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
+            // depthTest off => always drawn on top of the lower layers.
+            try { mat.depthTest = false; } catch (e) {}
+            const mesh = new T.Mesh(geo, mat);
+            mesh.position.set(cx, cy, z);
+            mesh.renderOrder = 999;   // topmost
+
+            if (token !== this.rain_token) {
+                try { geo.dispose(); tex.dispose(); mat.dispose(); } catch (e) {}
+                return;
+            }
+            this._disposeRainMesh();
+            this.rain_mesh = mesh;
+            group.add(mesh);
+
+            const rkm = this.sel_rain_area ?
+                (parseInt(this.sel_rain_area.value, 10) / 1000) : (halfKm);
+            status('radar: ' + (2 * halfKm).toFixed(0) + ' km frame, showing r≈' +
+                   rkm + ' km, float ' + z + ' m — updates ~5 min');
+        } catch (e) {
+            console.error('[mappingv3] rebuildRain failed:', e);
+            status('rain build failed (see console)', true);
+        }
+    }
+
+    // Decode a raw rgb8 Image message to an RGBA Uint8Array of the same size.
+    // Positive palette key: opaque only where the pixel matches a ČHMÚ rain
+    // shade; also clip to the selected radius disc around the centre so far-off
+    // regions don't clutter the garden view.
+    _rainDecode(m, W, H) {
+        try {
+            // base64 -> bytes (rgb8, length = W*H*3)
+            const bin = atob(m.data);
+            const n = bin.length;
+            const src = new Uint8Array(n);
+            for (let i = 0; i < n; i++) { src[i] = bin.charCodeAt(i); }
+            if (src.length < W * H * 3) { return null; }
+
+            const out = new Uint8Array(W * H * 4);
+            const pal = this.RAIN_PALETTE, tol = this.RAIN_KEY_TOL;
+
+            // radius clip: keep only pixels within the selected radius of the
+            // centre. km-per-px of the frame = (2*halfKm)/W.
+            const halfKm = this._rainHalfKm();
+            const kmPerPx = (2.0 * halfKm) / W;
+            const areaM = this.sel_rain_area ?
+                parseInt(this.sel_rain_area.value, 10) : 32000;
+            const rPx = (areaM / 1000.0) / kmPerPx;   // radius in px
+            const rPx2 = rPx * rPx;
+            const ccx = W / 2, ccy = H / 2;
+
+            for (let y = 0; y < H; y++) {
+                const dy = y - ccy;
+                for (let x = 0; x < W; x++) {
+                    const si = (y * W + x) * 3;
+                    const di = (y * W + x) * 4;
+                    const r = src[si], g = src[si + 1], b = src[si + 2];
+                    let keep = false;
+                    const dx = x - ccx;
+                    if (dx * dx + dy * dy <= rPx2) {
+                        for (let p = 0; p < pal.length; p++) {
+                            if (Math.abs(r - pal[p][0]) <= tol &&
+                                Math.abs(g - pal[p][1]) <= tol &&
+                                Math.abs(b - pal[p][2]) <= tol) {
+                                keep = true; break;
+                            }
+                        }
+                    }
+                    out[di] = r; out[di + 1] = g; out[di + 2] = b;
+                    out[di + 3] = keep ? 255 : 0;
+                }
+            }
+            return out;
+        } catch (e) {
+            console.error('[mappingv3] _rainDecode failed:', e);
             return null;
         }
     }
