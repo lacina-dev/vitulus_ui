@@ -944,6 +944,17 @@ class Viewer3D{
                 displayPanAndZoomFrame : false
             });
             this.webgl = true;
+            // vitulus_ui RENDER-ORDER FIX: ROS3D.Viewer forces
+            // renderer.sortObjects = false (see ros3d.js), which makes THREE
+            // render transparent objects in SCENE-INSERTION order and completely
+            // IGNORE every mesh.renderOrder. Our whole flat-layer stack (aerial
+            // tiles, terrain, all occupancy grids, rain) relies on renderOrder to
+            // paint bottom-to-top — with sortObjects off, the lazily-created
+            // aerial group (inserted last) painted OVER the maps. Turn depth-sort
+            // back ON so the explicit MapLayerOrder contract is actually applied.
+            try {
+                if (this.viewer.renderer) { this.viewer.renderer.sortObjects = true; }
+            } catch (e) { /* stub / no renderer */ }
         } catch (e) {
             console.error('[vitulus_ui] 3D map disabled — could not create a WebGL context:', e);
             this.webgl = false;
@@ -1045,7 +1056,28 @@ function show_webgl_warning() {
 
 class ViewerGrid{
     constructor(viewer) {
-        viewer.viewer.scene.add(new ROS3D.Grid({num_cells : 50, color: "#333333", lineWidth: 0.1, cellSize: 1.0, }));
+        // vitulus_ui RENDER-ORDER FIX: ROS3D.Grid builds its lines with a plain
+        // OPAQUE LineBasicMaterial (depthWrite=true) at z=0. Opaque objects draw
+        // in the opaque pass BEFORE any transparent object and WRITE the depth
+        // buffer, so the nearer grid lines (z=0) occluded the farther transparent
+        // aerial tiles (z=-0.05) exactly along every reference line — the maps
+        // (drawn earlier) then showed through ONLY along the grid lines while
+        // aerial tiles covered them everywhere else (the reported symptom).
+        // Make the grid depth-INERT: transparent + depthWrite=false so it never
+        // punches holes in the depth buffer, and pin its renderOrder BELOW the
+        // whole flat ground stack so it can never paint over the maps either.
+        var grid = new ROS3D.Grid({num_cells : 50, color: "#333333", lineWidth: 0.1, cellSize: 1.0, });
+        grid.renderOrder = (typeof MapLayerOrder !== 'undefined')
+            ? (MapLayerOrder.AERIAL - 1) : -101;
+        grid.traverse(function (obj) {
+            if (obj && obj.material) {
+                obj.material.transparent = true;
+                obj.material.depthWrite = false;
+                obj.material.needsUpdate = true;
+                obj.renderOrder = grid.renderOrder;
+            }
+        });
+        viewer.viewer.scene.add(grid);
     }
 }
 

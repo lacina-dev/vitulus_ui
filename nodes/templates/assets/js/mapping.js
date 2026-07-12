@@ -7,6 +7,24 @@ class MappingV3 {
     constructor(ros, tfClient, viewer3d) {
         this.ros = ros;
 
+        // vitulus_ui INSERTION-ORDER HARDENING (belt + braces alongside the
+        // renderer.sortObjects=true fix in map_view.js): create the AERIAL and
+        // TERRAIN groups EAGERLY here — empty, and BEFORE the site_map / live
+        // obstacle occupancy groups are added below — so that even if a build
+        // ever reverts to insertion-order transparent rendering (sortObjects
+        // false), these two bottom layers are still inserted FIRST and paint
+        // under the maps instead of the lazily-created aerial group landing last
+        // and covering everything. _r3d() only needs the ROS3D global, and the
+        // _ensure* methods are idempotent, so this is safe this early.
+        this.viewer3d = viewer3d;
+        this._r3dCache = null;
+        this.aerial_group = null;
+        this.terrain_group = null;
+        try {
+            this._ensureAerialGroup();
+            this._ensureTerrainGroup();
+        } catch (e) { /* 3D not ready — groups build lazily as before */ }
+
         this.input_site = document.getElementById("mapv3_input_site");
         this.datalist = document.getElementById("mapv3_sites");
         this.btn_start = document.getElementById("mapv3_btn_start");
@@ -133,9 +151,10 @@ class MappingV3 {
         //     stops responding (the bug this layer originally shipped with).
         //     We therefore harvest ROS3D's THREE constructors from the live
         //     scene (see _r3d()) and build the plane with those, never window.THREE.
-        this.viewer3d = viewer3d;
-        this._r3dCache = null;    // lazily-harvested ROS3D THREE constructors
-        this.terrain_group = null;   // ROS3D THREE.Object3D, created lazily
+        // this.viewer3d / this._r3dCache / this.terrain_group are already set up
+        // eagerly at the top of the constructor (insertion-order hardening) —
+        // do NOT reset them here or the eagerly-created terrain group would be
+        // orphaned and re-created last. Only initialise the terrain-content vars.
         this.terrain_mesh = null;
         this.terrain_png = null;      // last-seen data: URI
         this.terrain_img = null;      // decoded <img> for the current PNG
@@ -369,7 +388,10 @@ class MappingV3 {
     // Every step is try/catch-wrapped and images load async with crossOrigin;
     // a bad tile skips itself and NEVER touches the ROS3D render loop.
     _initAerial() {
-        this.aerial_group = null;      // ROS3D THREE.Object3D, built lazily
+        // NB: aerial_group is created EAGERLY in the constructor (insertion-order
+        // hardening); do NOT null it here or we'd orphan that group and a fresh
+        // lazy one would insert last again. Preserve it if already present.
+        if (typeof this.aerial_group === 'undefined') { this.aerial_group = null; }
         this.aerial_datum = null;      // cached /api/datum result
         this.aerial_meshes = [];       // current tile meshes
         this.aerial_token = 0;         // bumps to cancel stale async builds
