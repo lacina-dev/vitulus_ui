@@ -29,6 +29,11 @@ class MappingV3 {
         this.in_min_evidence = document.getElementById("mapv3_min_evidence");
         this.in_min_cluster = document.getElementById("mapv3_min_cluster");
         this.btn_apply_band = document.getElementById("mapv3_btn_apply_band");
+        // the "what Apply does" tooltip, shown once a session is running
+        // (setActionsEnabled swaps in a "why disabled" tooltip while idle)
+        this._applyBandTitle =
+            'Apply the obstacle classification settings live and re-raster '
+            + '(persisted per site).';
         this.el_band_status = document.getElementById("mapv3_band_status");
         this.band_edited = false;   // don't clobber user typing with live status
         this.el_sites = document.getElementById("mapv3_sites_row");
@@ -1089,6 +1094,21 @@ class MappingV3 {
          this.btn_apply_band]
             .forEach((b) => { if (b) b.disabled = !on; });
         this.btn_stop.disabled = !on;
+        // Obstacle-classification Apply requires the mapping pipeline running:
+        // /mapping/set_band is subscribed by band_projector, which only exists
+        // during a session. Say so instead of leaving a dead greyed button —
+        // swap the tooltip and add a hint to the band status line when idle.
+        if (this.btn_apply_band) {
+            this.btn_apply_band.title = on
+                ? this._applyBandTitle
+                : 'Requires a running mapping session — press Start first '
+                  + '(the obstacle classifier only exists while mapping runs).';
+        }
+        if (this.el_band_status && !on && !this.band_edited) {
+            this.el_band_status.textContent =
+                'Start a mapping session to tune the obstacle band.';
+            this.el_band_status.style.color = '';
+        }
     }
 
     handleManager(msg) {
