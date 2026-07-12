@@ -223,6 +223,64 @@ var MapLayerOpacity = {
 MapLayerOpacity.load();
 
 
+// ===========================================================================
+// OCCUPANCY-GRID COLOR PALETTE (vitulus_ui)
+// ---------------------------------------------------------------------------
+// Single source of truth for every layer's free/obstacle/unknown RGBA values,
+// used by getColor() below. IMPORTANT: these alphas are tuned for readability
+// OVER the aerial/satellite imagery layer (MapProxy tiles, z=Z_AERIAL, drawn
+// UNDERNEATH — see MapLayerOrder above), NOT for the old plain-black viewer
+// background. The original alphas (free ~110-160) were picked back when the
+// aerial layer did not exist and washed out almost invisibly once the imagery
+// is showing at Maps-opacity=100%, leaving only the ROS3D.Grid reference grid
+// lines (see ViewerGrid, further below) visible — reported as "mapa je vidět
+// jen v linkách gridu". Free-cell alphas were raised so the map itself reads
+// clearly over the photo; obstacles were already opaque and are unchanged.
+// The "Unknown opacity" UI slider still multiplies on top of the native
+// unknown alpha here (MapLayerOpacity.unknownAlpha()) — kept LOW by default
+// (native 120) so not-yet-mapped grey doesn't blanket the imagery, but is
+// still visibly present (not near-zero) at slider=100%.
+// ===========================================================================
+var MapPalette = {
+    // base /navi_manager/map grid (cyan identifier {0,255,255}).
+    BASE: {
+        obstacle:      [0, 0, 0, 255],
+        free:          [149, 149, 149, 180],   // was 150 -> 180 (light grey, reads over imagery)
+        unknownNative: 120                     // was 150 -> 120 (native cap for the Unknown slider)
+    },
+    // Mapping v3 LIVE obstacle_map (green identifier {0,255,0}); overlays the
+    // loaded map, so unknown stays fully transparent (not a slider target).
+    LIVE: {
+        obstacle:      [255, 120, 0, 255],
+        obstacleProb:  [255, 120, 0, 140],
+        free:          [0, 200, 80, 110]
+    },
+    // Mapping v3 SAVED site_map (blue identifier {0,100,255}): the persistent
+    // ground layer. Free = light grey-green so the driveable area reads
+    // clearly over imagery; obstacles = solid red so they POP; unknown fully
+    // transparent (nothing mapped there yet).
+    SITE: {
+        obstacle:      [230, 40, 40, 255],
+        obstacleProb:  [230, 40, 40, 150],
+        free:          [170, 205, 150, 180]    // was 160 -> 180
+    },
+    // local costmap (magenta identifier {255,0,255}) — deliberately near-
+    // invisible free space (it's a fast-changing overlay on top of BASE/SITE,
+    // not a ground layer); left as-is.
+    LOCAL_COSTMAP: {
+        obstacle:      [255, 0, 0, 255],
+        free:          [0, 0, 0, 10],
+        unknownNative: 1
+    },
+    // global costmap (yellow identifier {255,255,0}) — free space
+    // intentionally invisible (native alpha 0); left as-is.
+    GLOBAL_COSTMAP: {
+        obstacle:      [0, 0, 0, 255],
+        free:          [149, 149, 149, 0],
+        unknownNative: 0
+    }
+};
+
 // Override getColor() of OccupancyGrid for custom coloring of maps depends on type.
 // It's controled through the color attr of OccupancyGridClient
 ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
@@ -233,35 +291,36 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
 
     // If map is not costmap.
     if (this.color.r === 0 && this.color.g === 255 && this.color.b === 255){
-        // console.log(value);
+        var P = MapPalette.BASE;
         if (value === 100){   // obstacle
-            return [0,0,0,255];
+            return P.obstacle;
         };
         if (value === 0){    // free space
-            return [149,149,149,150];
+            return P.free;
         };
         if (value <= 99 && value >= 1){  // probably obstacle
-            return [149-value,149-value,149-value,150];
+            return [149-value,149-value,149-value,P.free[3]];
         };
         // unknown (-1) and the 205-ish "no info" value costmaps sometimes use:
         // route the alpha through the global Unknown-opacity control so the
         // not-yet-mapped grey can be faded to reveal aerial/terrain beneath.
         if (value === -1 || value === 205){  // unknown
-            return [0,0,0,MapLayerOpacity.unknownAlpha(150)];
+            return [0,0,0,MapLayerOpacity.unknownAlpha(P.unknownNative)];
         };
     };
 
     // If map is the Mapping v3 live grid (green identifier): overlays the
     // loaded map, so unknown must stay fully transparent.
     if (this.color.r === 0 && this.color.g === 255 && this.color.b === 0){
+        var P = MapPalette.LIVE;
         if (value === 100){   // obstacle
-            return [255,120,0,255];
+            return P.obstacle;
         };
         if (value >= 1 && value <= 99){  // probably obstacle
-            return [255,120,0,140];
+            return P.obstacleProb;
         };
         if (value === 0){    // mapped free space
-            return [0,200,80,110];
+            return P.free;
         };
         return [0,0,0,MapLayerOpacity.unknownAlpha(0)];    // unknown: invisible
     };
@@ -271,48 +330,51 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
     // the driveable area reads clearly; obstacles = solid red so they POP;
     // unknown = fully transparent (nothing mapped there yet).
     if (this.color.r === 0 && this.color.g === 100 && this.color.b === 255){
+        var P = MapPalette.SITE;
         if (value === 100){   // obstacle
-            return [230,40,40,255];
+            return P.obstacle;
         };
         if (value >= 1 && value <= 99){  // probably obstacle
-            return [230,40,40,150];
+            return P.obstacleProb;
         };
         if (value === 0){    // mapped free space
-            return [170,205,150,160];
+            return P.free;
         };
         return [0,0,0,MapLayerOpacity.unknownAlpha(0)];    // unknown: invisible
     };
 
     // If map is local costmap.
     if (this.color.r === 255 && this.color.g === 0 && this.color.b === 255){
+        var P = MapPalette.LOCAL_COSTMAP;
         // this.opacity = 0.4;
         // console.log(value);
         if (value === 100){   // obstacle
-            return [255,0,0,255];
+            return P.obstacle;
         };
         if (value === 0){    // free space
-            return [0,0,0,10];
+            return P.free;
         };
         // if (value <= 99 && value >= 1){  // probably obstacle
         //     return [149,149-value,149-value,255];
         // };
         if (value === -1 || value === 205){  // unknown
-            return [0,0,0,MapLayerOpacity.unknownAlpha(1)];
+            return [0,0,0,MapLayerOpacity.unknownAlpha(P.unknownNative)];
         };
     };
     // If map is global costmap.
     if (this.color.r === 255 && this.color.g === 255 && this.color.b === 0){
+        var P = MapPalette.GLOBAL_COSTMAP;
         if (value === 100){   // obstacle
-            return [0,0,0,255];
+            return P.obstacle;
         };
         if (value === 0){    // free space
-            return [149,149,149,0];
+            return P.free;
         };
         if (value <= 99 && value >= 1){  // probably obstacle
             return [149,149-value,149,125];
         };
         if (value === -1 || value === 205){  // unknown
-            return [0,0,0,MapLayerOpacity.unknownAlpha(0)];
+            return [0,0,0,MapLayerOpacity.unknownAlpha(P.unknownNative)];
             // console.log(value);
         };
     };
