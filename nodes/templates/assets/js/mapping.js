@@ -97,6 +97,18 @@ class MappingV3 {
             })
         });
 
+        // vitulus_ui: register both occupancy grids with the global opacity
+        // manager (defined in map_view.js) so the "Maps opacity" / "Unknown
+        // opacity" sliders in the "3D view layers" group drive them alongside
+        // the base /navi_manager/map grid and the local costmap. The rain radar
+        // and aerial tiles keep their own independent opacity sliders.
+        try {
+            if (typeof MapLayerOpacity !== 'undefined') {
+                MapLayerOpacity.registerClient(this.site_client);
+                MapLayerOpacity.registerClient(this.grid_client);
+            }
+        } catch (e) { /* opacity manager optional */ }
+
         // (3) TERRAIN elevation — a textured plane in the 3D view, laid flat at
         //     z~0 UNDER the occupancy layers. We do NOT try to push
         //     grid_map_msgs/GridMap through rosbridge (no ROS3D renderer, heavy

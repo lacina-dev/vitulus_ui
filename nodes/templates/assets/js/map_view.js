@@ -7,6 +7,135 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 };
 
 
+// ===========================================================================
+// GLOBAL OCCUPANCY-MAP OPACITY MANAGER (vitulus_ui)
+// ---------------------------------------------------------------------------
+// One place that owns two user-facing controls that apply to ALL occupancy
+// grid layers at once (the ROS3D.OccupancyGridClient meshes) — i.e. the base
+// /navi_manager/map grid, the local costmap, the saved site_map and the live
+// obstacle_map. It deliberately does NOT touch the rain radar or the aerial
+// MapProxy tiles: those are plain textured planes with their own dedicated
+// opacity sliders and are left completely independent.
+//
+//   (1) "Maps opacity" 0..100 %  -> whole-mesh material.opacity on every grid.
+//       Cheap: just set material.opacity (+ transparent=true) on each client's
+//       currentGrid mesh. Applied live on slider input AND re-applied whenever
+//       a client (re)creates its mesh (we hook the client 'change' event), so
+//       freshly arrived grids inherit the current setting.
+//
+//   (2) "Unknown opacity" 0..100 % -> alpha of UNKNOWN (-1 / 205-ish) cells
+//       only, so the user can fade the "not-yet-mapped" grey while keeping
+//       free/obstacle cells crisp (to see aerial/terrain beneath). This alpha
+//       is baked into the grid TEXTURE by getColor() at build time, so a change
+//       needs a texture rebuild. We keep the last OccupancyGrid message per
+//       registered client and re-run its processMessage() to rebuild the
+//       texture with the new unknown alpha. Slider input is debounced (~100 ms)
+//       so dragging doesn't trigger a rebuild storm.
+//
+// Values persist in localStorage so they survive a page reload, and are read
+// back by getColor() (unknown alpha) / applied to every registered mesh (whole
+// opacity) as soon as the manager is constructed.
+// ===========================================================================
+var MapLayerOpacity = {
+    LS_MAPS: 'vitulus_maps_opacity',       // 0..1
+    LS_UNKNOWN: 'vitulus_unknown_opacity', // 0..1 (fraction of each layer's
+                                           //       native unknown alpha)
+    maps_opacity: 1.0,      // whole-mesh opacity (0..1)
+    unknown_frac: 1.0,      // unknown-cell alpha fraction (0..1)
+    _clients: [],           // registered OccupancyGridClient instances
+    _debounce: null,        // pending unknown-rebuild timer
+
+    _clamp01: function (v, dflt) {
+        v = parseFloat(v);
+        if (!(v >= 0 && v <= 1)) { return dflt; }
+        return v;
+    },
+
+    // load persisted values (called once, before any grid is built)
+    load: function () {
+        try {
+            var m = localStorage.getItem(this.LS_MAPS);
+            if (m !== null) { this.maps_opacity = this._clamp01(m, this.maps_opacity); }
+            var u = localStorage.getItem(this.LS_UNKNOWN);
+            if (u !== null) { this.unknown_frac = this._clamp01(u, this.unknown_frac); }
+        } catch (e) { /* localStorage unavailable — keep defaults */ }
+    },
+
+    // Register an OccupancyGridClient so it participates in both controls.
+    // Re-applies the current whole-mesh opacity every time the client rebuilds
+    // its mesh (fresh map message), and remembers the last message so an
+    // unknown-alpha change can rebuild its texture.
+    registerClient: function (client) {
+        if (!client || this._clients.indexOf(client) !== -1) { return; }
+        this._clients.push(client);
+        var self = this;
+        // capture each incoming message so we can force a texture rebuild later
+        try {
+            var origProc = client.processMessage.bind(client);
+            client.processMessage = function (message) {
+                client._lastMsg = message;
+                return origProc(message);
+            };
+        } catch (e) { /* best-effort */ }
+        // whenever the client (re)creates currentGrid, apply current opacity
+        try {
+            client.on('change', function () { self._applyOpacityToClient(client); });
+        } catch (e) { /* best-effort */ }
+        // apply immediately in case a grid already exists
+        this._applyOpacityToClient(client);
+    },
+
+    _applyOpacityToClient: function (client) {
+        try {
+            var mesh = client && client.currentGrid;
+            if (mesh && mesh.material) {
+                mesh.material.opacity = this.maps_opacity;
+                mesh.material.transparent = true;
+                mesh.material.needsUpdate = true;
+            }
+        } catch (e) { /* best-effort */ }
+    },
+
+    // (1) whole-mesh opacity — live, cheap, no texture rebuild.
+    setMapsOpacity: function (v) {
+        this.maps_opacity = this._clamp01(v, this.maps_opacity);
+        try { localStorage.setItem(this.LS_MAPS, String(this.maps_opacity)); } catch (e) {}
+        for (var i = 0; i < this._clients.length; i++) {
+            this._applyOpacityToClient(this._clients[i]);
+        }
+    },
+
+    // (2) unknown-cell alpha — needs a texture rebuild, so debounce and
+    // re-run each client's processMessage() with its cached last message.
+    setUnknownFrac: function (v) {
+        this.unknown_frac = this._clamp01(v, this.unknown_frac);
+        try { localStorage.setItem(this.LS_UNKNOWN, String(this.unknown_frac)); } catch (e) {}
+        var self = this;
+        if (this._debounce) { clearTimeout(this._debounce); }
+        this._debounce = setTimeout(function () {
+            self._debounce = null;
+            self._rebuildUnknown();
+        }, 100);
+    },
+
+    _rebuildUnknown: function () {
+        for (var i = 0; i < this._clients.length; i++) {
+            var c = this._clients[i];
+            try {
+                if (c && c._lastMsg) { c.processMessage(c._lastMsg); }
+            } catch (e) { /* best-effort — a bad message must not kill the loop */ }
+        }
+    },
+
+    // Scale a layer's native unknown-cell alpha (0..255) by the current
+    // unknown fraction. Called from getColor() for every unknown cell.
+    unknownAlpha: function (nativeAlpha) {
+        return Math.round(nativeAlpha * this.unknown_frac);
+    }
+};
+MapLayerOpacity.load();
+
+
 // Override getColor() of OccupancyGrid for custom coloring of maps depends on type.
 // It's controled through the color attr of OccupancyGridClient
 ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
@@ -27,8 +156,11 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
         if (value <= 99 && value >= 1){  // probably obstacle
             return [149-value,149-value,149-value,150];
         };
-        if (value === -1){  // unknown
-            return [0,0,0,150];
+        // unknown (-1) and the 205-ish "no info" value costmaps sometimes use:
+        // route the alpha through the global Unknown-opacity control so the
+        // not-yet-mapped grey can be faded to reveal aerial/terrain beneath.
+        if (value === -1 || value === 205){  // unknown
+            return [0,0,0,MapLayerOpacity.unknownAlpha(150)];
         };
     };
 
@@ -44,7 +176,7 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
         if (value === 0){    // mapped free space
             return [0,200,80,110];
         };
-        return [0,0,0,0];    // unknown: invisible
+        return [0,0,0,MapLayerOpacity.unknownAlpha(0)];    // unknown: invisible
     };
 
     // If map is the Mapping v3 SAVED site_map (blue identifier {0,100,255}):
@@ -61,7 +193,7 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
         if (value === 0){    // mapped free space
             return [170,205,150,160];
         };
-        return [0,0,0,0];    // unknown: invisible
+        return [0,0,0,MapLayerOpacity.unknownAlpha(0)];    // unknown: invisible
     };
 
     // If map is local costmap.
@@ -77,8 +209,8 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
         // if (value <= 99 && value >= 1){  // probably obstacle
         //     return [149,149-value,149-value,255];
         // };
-        if (value === -1){  // unknown
-            return [0,0,0,1];
+        if (value === -1 || value === 205){  // unknown
+            return [0,0,0,MapLayerOpacity.unknownAlpha(1)];
         };
     };
     // If map is global costmap.
@@ -92,8 +224,8 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
         if (value <= 99 && value >= 1){  // probably obstacle
             return [149,149-value,149,125];
         };
-        if (value === -1){  // unknown
-            return [0,0,0,0];
+        if (value === -1 || value === 205){  // unknown
+            return [0,0,0,MapLayerOpacity.unknownAlpha(0)];
             // console.log(value);
         };
     };
@@ -5851,6 +5983,39 @@ window.initMapView = function () {
 
     mapping_v3 = new MappingV3(ros.ros, tf_client.tfClientMap, viewer.viewer);
 
+    /**
+     *  Global occupancy-map opacity sliders ("3D view layers" group).
+     *  Two range inputs (0..100 %): whole-mesh "Maps opacity" and unknown-only
+     *  "Unknown opacity", both persisted in localStorage and applied through the
+     *  MapLayerOpacity manager. Grid clients register themselves as they are
+     *  created (base map + local costmap in post_load(), site/live in mapping.js).
+     */
+    (function wireMapOpacitySliders() {
+        var sMaps = document.getElementById('mapv3_maps_opacity');
+        var sUnk = document.getElementById('mapv3_unknown_opacity');
+        var vMaps = document.getElementById('mapv3_maps_opacity_val');
+        var vUnk = document.getElementById('mapv3_unknown_opacity_val');
+        if (sMaps) {
+            // reflect the persisted value into the control on load
+            sMaps.value = String(Math.round(MapLayerOpacity.maps_opacity * 100));
+            if (vMaps) { vMaps.textContent = sMaps.value + '%'; }
+            sMaps.addEventListener('input', function () {
+                var pct = parseInt(sMaps.value, 10);
+                if (vMaps) { vMaps.textContent = pct + '%'; }
+                MapLayerOpacity.setMapsOpacity(pct / 100);
+            });
+        }
+        if (sUnk) {
+            sUnk.value = String(Math.round(MapLayerOpacity.unknown_frac * 100));
+            if (vUnk) { vUnk.textContent = sUnk.value + '%'; }
+            sUnk.addEventListener('input', function () {
+                var pct = parseInt(sUnk.value, 10);
+                if (vUnk) { vUnk.textContent = pct + '%'; }
+                MapLayerOpacity.setUnknownFrac(pct / 100);   // debounced rebuild
+            });
+        }
+    })();
+
 
     /**
      *  orientation control
@@ -5887,6 +6052,13 @@ window.initMapView = function () {
             opacity: 0.7,
             offsetPose: maps.map_offset,
         });
+
+        // vitulus_ui: register these two base grids with the global opacity
+        // manager so the "Maps opacity" / "Unknown opacity" sliders drive them
+        // (the mapping-v3 site_map + live obstacle_map register themselves in
+        // mapping.js). See MapLayerOpacity at the top of this file.
+        MapLayerOpacity.registerClient(maps.local_costmap);
+        MapLayerOpacity.registerClient(maps.map);
 
         // Reload planner
         programs.reload_planner_data();
