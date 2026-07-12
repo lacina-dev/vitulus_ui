@@ -1168,11 +1168,18 @@ class MappingV3 {
         this.running = s.running;
         this.setActionsEnabled(s.running);
         if (this.el_serving) {
-            if (s.serving) {
+            if (s.serve_error) {
+                // REPORT 2(b): show WHY a serve was rejected instead of the UI
+                // silently staying on the old map. Cleared on the next success.
+                this.el_serving.textContent = 'serve failed: ' + s.serve_error;
+                this.el_serving.style.color = '#ff6b6b';
+            } else if (s.serving) {
                 this.el_serving.textContent = 'serving: ' + s.serving.site +
                     '/' + s.serving.raster;
+                this.el_serving.style.color = '';
             } else {
                 this.el_serving.textContent = 'serving: —';
+                this.el_serving.style.color = '';
             }
         }
         // saved-map layer status (the latched site_map rendered in the 3D view)
@@ -1211,20 +1218,45 @@ class MappingV3 {
                           site.dem_kb + ' kB') +
                          ', ' + site.rasters + ' rasters' +
                          (site.has_ot ? ', 3D' : '');
+            // REPORT 2(c): the chip body previews (show_site) as before, and a
+            // dedicated Serve button actually publishes serve_site for that site
+            // (the previous handler only ever called show_site, so a chip could
+            // never switch the served map). Serve is only offered when the site
+            // has a raster; without one the manager would reject it (and now
+            // reports why), so we grey it out and hint Snapshot/Stop instead.
+            const servable = site.rasters > 0;
+            const served = s.serving && s.serving.site === site.name;
             col.innerHTML =
                 '<div class="input-group input-group-sm">' +
-                '<button class="btn btn-primary" type="button" style="text-align:left;">' +
+                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;">' +
                 '<span class="text-info"><i class="fa fa-tree text-info" style="margin-right:3px;"></i>' +
-                site.name + (active ? ' ●' : '') + '</span>' +
+                site.name + (active ? ' ●' : '') + (served ? ' ✓' : '') + '</span>' +
                 '<span style="font-size:11px;color:var(--bs-gray-500);margin-left:6px;">' +
                 info + '</span></button>' +
+                '<button class="btn ' + (servable ? 'btn-success' : 'btn-secondary') +
+                ' mapv3-serve" type="button" title="' +
+                (servable ? 'Serve this site\'s newest raster (localization + costmaps)' :
+                 'No raster yet — press Snapshot while mapping, or it is saved on Stop') +
+                '"' + (servable ? '' : ' disabled') + '>Serve</button>' +
                 '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;">' +
                 '<i class="fa fa-remove text-danger"></i></button></div>';
-            col.querySelector('button').addEventListener('click', () => {
+            col.querySelector('.mapv3-show').addEventListener('click', () => {
                 this.input_site.value = site.name;
                 // show this site's saved map in the previews
                 this.pub_show.publish(new ROSLIB.Message({data: site.name}));
             });
+            const serveBtn = col.querySelector('.mapv3-serve');
+            if (serveBtn && servable) {
+                serveBtn.addEventListener('click', () => {
+                    this.input_site.value = site.name;
+                    this.pub_serve.publish(new ROSLIB.Message({data: site.name}));
+                    if (this.el_serving) {
+                        this.el_serving.textContent =
+                            'serving: requesting ' + site.name + '…';
+                        this.el_serving.style.color = '';
+                    }
+                });
+            }
             col.querySelector('.mapv3-del').addEventListener('click', () => {
                 if (confirm('Remove mapping site "' + site.name +
                             '" (DEM, 3D archive, rasters)?')) {
