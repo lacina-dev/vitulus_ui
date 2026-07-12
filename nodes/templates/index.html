@@ -211,6 +211,29 @@ html, body {
 }
 /* Fullscreen toggle button in the navbar (injected by app.js). */
 #btn_fullscreen .la { transition: transform 0.15s; }
+/* Bottom toolbar (STOP / camera / joystick / follow / log icon row): must stay
+   pinned to the true bottom edge of the DYNAMIC viewport. It used to be
+   positioned with "margin-top: calc(100vh - 29px)" from the top of a
+   static-vh page, which is taller than the fixed/dvh shell whenever the
+   mobile browser chrome (Chrome's address/tab bar) is on screen — that pushed
+   the toolbar below the visible, clipped viewport. Anchoring from the
+   BOTTOM with position:fixed inside the shell keeps it visible regardless of
+   how tall the (collapsing) browser chrome is, in both browser tabs and
+   A2HS/standalone fullscreen.
+   !important is required: LayoutManager.set_portrait_layout() /
+   set_landscape_layout() in map_view.js re-apply an inline
+   "margin-top: calc(100vh - 29px)" on every layout pass (resize / orientation
+   change), which would otherwise win over this stylesheet rule (inline beats
+   external unless the external rule is !important). We deliberately do not
+   touch map_view.js; overriding its inline margin-top here is the supported
+   way to keep the toolbar bottom-anchored regardless. */
+#div_bottom_menu {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: env(safe-area-inset-bottom) !important;
+    margin-top: 0 !important;
+}
 </style>
 <style id="vitulus-ui-responsive">
 #div_menu_mapedit > div { width: 100% !important; max-width: 494px; }
@@ -300,7 +323,7 @@ html, body {
     </nav>
 <div id="section_map">
 
-    <div id="div_bottom_menu" style="margin-top: calc(100vh - 29px);position: absolute;display: block;width: 100%;z-index: 1;">
+    <div id="div_bottom_menu" style="display: block;width: 100%;z-index: 1;">
         <div class="btn-group btn-group-sm bg-dark border rounded border-1 border-primary" role="group" style="width: 100%;background: rgba(0,0,0,0.6);"><button class="btn btn-outline-danger active d-flex justify-content-center align-items-center" id="btn_stop_all" type="button" style="border-top-left-radius: 6px;border-bottom-left-radius: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" class="bi bi-sign-stop-fill" style="font-size: 17px;font-weight: bold;">
                     <path d="M10.371 8.277v-.553c0-.827-.422-1.234-.987-1.234-.572 0-.99.407-.99 1.234v.553c0 .83.418 1.237.99 1.237.565 0 .987-.408.987-1.237m2.586-.24c.463 0 .735-.272.735-.744s-.272-.741-.735-.741h-.774v1.485h.774"></path>
                     <path d="M4.893 0a.5.5 0 0 0-.353.146L.146 4.54A.5.5 0 0 0 0 4.893v6.214a.5.5 0 0 0 .146.353l4.394 4.394a.5.5 0 0 0 .353.146h6.214a.5.5 0 0 0 .353-.146l4.394-4.394a.5.5 0 0 0 .146-.353V4.893a.5.5 0 0 0-.146-.353L11.46.146A.5.5 0 0 0 11.107 0zM3.16 10.08c-.931 0-1.447-.493-1.494-1.132h.653c.065.346.396.583.891.583.524 0 .83-.246.83-.62 0-.303-.203-.467-.637-.572l-.656-.164c-.61-.147-.978-.51-.978-1.078 0-.706.597-1.184 1.444-1.184.853 0 1.386.475 1.436 1.087h-.645c-.064-.32-.352-.542-.797-.542-.472 0-.77.246-.77.6 0 .261.196.437.553.522l.654.161c.673.164 1.06.487 1.06 1.11 0 .736-.574 1.228-1.544 1.228Zm3.427-3.51V10h-.665V6.57H4.753V6h3.006v.568H6.587Zm4.458 1.16v.544c0 1.131-.636 1.805-1.661 1.805-1.026 0-1.664-.674-1.664-1.805V7.73c0-1.136.638-1.807 1.664-1.807 1.025 0 1.66.674 1.66 1.807ZM11.52 6h1.535c.82 0 1.316.55 1.316 1.292 0 .747-.501 1.289-1.321 1.289h-.865V10h-.665V6.001Z"></path>
