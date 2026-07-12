@@ -301,6 +301,7 @@
                                             <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">3D view layers</span>
                                                 <div class="form-check form-check-inline" style="margin-right: 8px;"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved map <span style="color:#ff4d4d;">&#9632;</span> obst</label></div>
                                                 <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live mapping <span style="color:#ff7800;">&#9632;</span> obst</label></div>
+                                                <div class="form-check form-check-inline" title="Terrain elevation draped as a coloured plane under the obstacle layers (blue = low, red = high)"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label" for="mapv3_chk_terrain" style="font-size: 12px;">Terrain <span style="background:linear-gradient(90deg,#3060ff,#30ff90,#ff3030);color:transparent;">&#9632;&#9632;&#9632;</span> elev</label></div>
                                                 <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 2px;opacity:.8;">saved map: &mdash;</span>
                                             </div>
                                             <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Insertion gate mode</span>
@@ -332,16 +333,6 @@
                                             </div>
                                         </div>
                                         <div class="row g-0" id="mapv3_sites_row" style="margin-top: 6px;"></div>
-                                        <div class="row g-0" style="margin-top: 6px;">
-                                            <div class="col-auto" style="margin-right: 10px;">
-                                                <label class="form-label" style="font-size: 13px;margin-bottom: 2px;">Terrain elevation (blue = low, red = high)</label>
-                                                <div><img id="mapv3_img_terrain" style="max-width: 420px;max-height: calc(100vh - 330px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <label class="form-label" style="font-size: 13px;margin-bottom: 2px;">Obstacle raster (0.10&ndash;0.60 m above local ground)</label>
-                                                <div><img id="mapv3_img_raster" style="max-width: 420px;max-height: calc(100vh - 330px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
-                                            </div>
-                                        </div>
                                         <hr>
                                         <div class="row g-0" id="div_menu_map_items_row" style="overflow: auto;">
                                             <div class="col-auto" style="margin-bottom: 6px;">

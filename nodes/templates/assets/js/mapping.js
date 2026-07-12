@@ -32,17 +32,6 @@ class MappingV3 {
         this.el_band_status = document.getElementById("mapv3_band_status");
         this.band_edited = false;   // don't clobber user typing with live status
         this.el_sites = document.getElementById("mapv3_sites_row");
-        this.img_terrain = document.getElementById("mapv3_img_terrain");
-        this.img_raster = document.getElementById("mapv3_img_raster");
-
-        // caption for the previews (created here to avoid an index.html
-        // rebuild): says which site/raster is displayed and its source
-        this.el_caption = document.createElement('span');
-        this.el_caption.id = 'mapv3_preview_caption';
-        this.el_caption.style.cssText =
-            'font-size:12px;display:block;margin-top:2px;opacity:.8;';
-        this.el_caption.textContent = 'no saved map yet — start mapping';
-        this.img_raster.parentNode.parentNode.appendChild(this.el_caption);
 
         // Saved / live mapping-v3 occupancy grids in the MAIN 3D view — the
         // ground layer under the planner routes / zones / robot pose. Both are
@@ -92,11 +81,30 @@ class MappingV3 {
             })
         });
 
+        // (3) TERRAIN elevation — a textured plane in the 3D view, laid flat at
+        //     z~0 UNDER the occupancy layers. We do NOT try to push
+        //     grid_map_msgs/GridMap through rosbridge (no ROS3D renderer, heavy
+        //     nested float message); instead we reuse the TURBO-coloured
+        //     terrain_png that is ALREADY streamed as a latched CompressedImage
+        //     and drape it as a map-frame plane. The DEM world bounds
+        //     (min/max x,y in map metres) arrive alongside the PNG:
+        //       - saved sites: mapping_manager /preview_info .terrain_bounds
+        //       - live session: trajectory_dem /dem_status .terrain_bounds
+        //     The scene fixed frame is /map, so a plane placed at those world
+        //     coords lines up with the occupancy grids (map->map is identity).
+        this.terrain_group = new THREE.Object3D();
+        this.terrain_group.position.z = 0.005;   // just below site_map (0.015)
+        viewer3d.scene.add(this.terrain_group);
+        this.terrain_mesh = null;
+        this.terrain_bounds = null;   // last-seen {min_x,min_y,max_x,max_y}
+
         // Layer toggles authored in map_view.html (survive index rebuild):
-        //   #mapv3_chk_site => saved site_map, #mapv3_chk_live => live grid.
+        //   #mapv3_chk_site => saved site_map, #mapv3_chk_live => live grid,
+        //   #mapv3_chk_terrain => terrain elevation plane.
         this.el_site_status = document.getElementById("mapv3_site_status");
         this.chk_site = document.getElementById("mapv3_chk_site");
         this.chk_live = document.getElementById("mapv3_chk_live");
+        this.chk_terrain = document.getElementById("mapv3_chk_terrain");
         if (this.chk_site) {
             this.site_group.visible = this.chk_site.checked;
             this.chk_site.addEventListener('change', () => {
@@ -107,6 +115,12 @@ class MappingV3 {
             this.grid_group.visible = this.chk_live.checked;
             this.chk_live.addEventListener('change', () => {
                 this.grid_group.visible = this.chk_live.checked;
+            });
+        }
+        if (this.chk_terrain) {
+            this.terrain_group.visible = this.chk_terrain.checked;
+            this.chk_terrain.addEventListener('change', () => {
+                this.terrain_group.visible = this.chk_terrain.checked;
             });
         }
 
@@ -144,43 +158,33 @@ class MappingV3 {
             (m) => this.handleDem(m));
         sub('/mapping/projector_status', 'std_msgs/String',
             (m) => this.handleProjector(m));
-        // rosbridge delivers CompressedImage.data as base64 already.
-        // Live previews (only while the pipeline runs)...
-        const showImg = (el) => (m) => {
-            el.src = 'data:image/png;base64,' + m.data;
-            el.style.display = 'block';
+
+        // Terrain elevation as a 3D plane (see terrain_group above). rosbridge
+        // delivers CompressedImage.data as base64. The PNG and the world bounds
+        // arrive on separate topics, so we cache the newest of each and rebuild
+        // the plane whenever both are present. Two sources feed the same layer:
+        //   live session : /mapping/terrain_png  +  /mapping/dem_status bounds
+        //   saved site   : /mapping_manager/terrain_png + /preview_info bounds
+        const setTerrainPng = (m) => {
+            this.terrain_png = 'data:image/png;base64,' + m.data;
+            this.rebuildTerrain();
         };
-        sub('/mapping/terrain_png', 'sensor_msgs/CompressedImage',
-            showImg(this.img_terrain));
-        sub('/mapping/obstacle_map_png', 'sensor_msgs/CompressedImage',
-            showImg(this.img_raster));
-        // ...and saved-map previews from mapping_manager (always available)
+        sub('/mapping/terrain_png', 'sensor_msgs/CompressedImage', setTerrainPng);
         sub('/mapping_manager/terrain_png', 'sensor_msgs/CompressedImage',
-            showImg(this.img_terrain));
-        sub('/mapping_manager/raster_png', 'sensor_msgs/CompressedImage',
-            showImg(this.img_raster));
+            setTerrainPng);
+        // bounds for the SAVED-site terrain plane
         sub('/mapping_manager/preview_info', 'std_msgs/String', (m) => {
             let p;
             try { p = JSON.parse(m.data); } catch (e) { return; }
-            // hide previews from a previously shown site
-            if (!p.terrain) this.img_terrain.style.display = 'none';
-            if (!p.raster) this.img_raster.style.display = 'none';
-            if (!p.site) {
-                this.el_caption.textContent = 'no saved map yet — start mapping';
+            if (!p.terrain) {
+                // shown site has no terrain -> clear the plane
+                this.clearTerrain();
                 return;
             }
-            if (!p.terrain && !p.raster) {
-                this.el_caption.textContent = 'site "' + p.site +
-                    '" has no data yet — map is built ONLY while the gate ' +
-                    'is OPEN (RTK FIXED outdoors, or Force mode)';
-                return;
+            if (p.terrain_bounds) {
+                this.terrain_bounds = p.terrain_bounds;
+                this.rebuildTerrain();
             }
-            let txt = 'showing "' + p.site + '"';
-            if (p.area_m2 !== undefined) txt += ' — ' + p.area_m2 + ' m² terrain';
-            if (p.z_range) txt += ', z ' + p.z_range[0] + '…' + p.z_range[1] + ' m';
-            txt += p.raster ? ', raster ' + p.raster : ', no raster yet';
-            if (!p.terrain) txt += ', no terrain yet';
-            this.el_caption.textContent = txt;
         });
 
         this.btn_start.addEventListener('click', () => {
@@ -253,6 +257,61 @@ class MappingV3 {
 
     setMode(mode) {
         this.pub_mode.publish(new ROSLIB.Message({data: mode}));
+    }
+
+    // Build / update the terrain elevation plane from the cached PNG + bounds.
+    // No-op until BOTH the texture and the world bounds are known. The plane is
+    // sized to the DEM bbox in map metres and centred on it; the scene fixed
+    // frame is /map so those coords are absolute and line up with the grids.
+    rebuildTerrain() {
+        if (!this.terrain_png || !this.terrain_bounds) return;
+        const b = this.terrain_bounds;
+        const w = b.max_x - b.min_x;
+        const h = b.max_y - b.min_y;
+        if (!(w > 0) || !(h > 0)) return;
+
+        const loader = new THREE.TextureLoader();
+        loader.load(this.terrain_png, (tex) => {
+            tex.minFilter = THREE.NearestFilter;
+            tex.magFilter = THREE.NearestFilter;
+            tex.generateMipmaps = false;
+            // dem_to_png(_orient(elev)) => image row 0 = MAX y, col 0 = MIN x.
+            // A THREE plane on the XY ground (default UV: v=0 bottom=min y) would
+            // show the image upside down, so flip V to put row 0 at +y.
+            tex.flipY = true;   // default; row0 -> top (v=1) which maps to +y
+            if (this.terrain_mesh) {
+                this.terrain_group.remove(this.terrain_mesh);
+                this.terrain_mesh.geometry.dispose();
+                this.terrain_mesh.material.map &&
+                    this.terrain_mesh.material.map.dispose();
+                this.terrain_mesh.material.dispose();
+            }
+            const geo = new THREE.PlaneGeometry(w, h);
+            const mat = new THREE.MeshBasicMaterial({
+                map: tex, transparent: true, opacity: 0.85,
+                depthWrite: false, side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            // PlaneGeometry lies in XY already; centre it on the bbox midpoint.
+            mesh.position.set((b.min_x + b.max_x) / 2,
+                              (b.min_y + b.max_y) / 2, 0);
+            this.terrain_mesh = mesh;
+            this.terrain_group.add(mesh);
+        }, undefined, () => {
+            /* texture decode failed — leave any previous plane in place */
+        });
+    }
+
+    clearTerrain() {
+        this.terrain_bounds = null;
+        if (this.terrain_mesh) {
+            this.terrain_group.remove(this.terrain_mesh);
+            this.terrain_mesh.geometry.dispose();
+            this.terrain_mesh.material.map &&
+                this.terrain_mesh.material.map.dispose();
+            this.terrain_mesh.material.dispose();
+            this.terrain_mesh = null;
+        }
     }
 
     applyBand() {
@@ -390,6 +449,11 @@ class MappingV3 {
     handleDem(msg) {
         let d;
         try { d = JSON.parse(msg.data); } catch (e) { return; }
+        // live terrain plane bounds (grows as the DEM grows while mapping)
+        if (d.terrain_bounds) {
+            this.terrain_bounds = d.terrain_bounds;
+            this.rebuildTerrain();
+        }
         const zr = d.z_range ? (', z ' + d.z_range[0] + '…' + d.z_range[1] + ' m') : '';
         this.el_dem.textContent = d.area_traj_m2 + ' m² driven, ' +
             d.samples + ' samples' + zr +
