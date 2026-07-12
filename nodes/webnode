@@ -155,6 +155,41 @@ if __name__ == '__main__':
             return jsonify({'sudo_ok': _sudo_systemctl_ok()})
 
         # -----------------------------------------------------------------
+        # Site datum (georef anchor for the map frame)
+        # -----------------------------------------------------------------
+        # The served site's datum ties the /map frame to the world: the map
+        # origin sits at (utm_e, utm_n) in UTM zone 33N (EPSG:32633) and the map
+        # is rotated by yaw_rad relative to UTM grid north. The Aerial-tiles 3D
+        # layer needs this to place MapProxy XYZ tiles under the map. We expose
+        # the resolved symlink contents (~/.vitulus/saves/site_datum.yaml ->
+        # <site>/datum.yaml) verbatim, 404 if there is no served site.
+        SITE_DATUM_PATH = os.path.expanduser('~/.vitulus/saves/site_datum.yaml')
+
+        @app.route('/api/datum')
+        def api_datum():
+            try:
+                with open(SITE_DATUM_PATH, 'r') as fh:
+                    d = yaml.safe_load(fh) or {}
+            except FileNotFoundError:
+                return jsonify({'error': 'no site datum (no served site)'}), 404
+            except Exception as exc:
+                return jsonify({'error': str(exc)}), 500
+            if not d or 'utm_e' not in d or 'utm_n' not in d:
+                return jsonify({'error': 'datum incomplete'}), 404
+            # normalise the fields the UI needs; keep zone fixed at 33N.
+            out = {
+                'utm_e': d.get('utm_e'),
+                'utm_n': d.get('utm_n'),
+                'alt': d.get('alt'),
+                'yaw_rad': d.get('yaw_rad', 0.0),
+                'utm_zone': d.get('utm_zone', 33),
+                'utm_epsg': 32633,
+                'origin_lat': d.get('origin_lat'),
+                'origin_lon': d.get('origin_lon'),
+            }
+            return jsonify(out)
+
+        # -----------------------------------------------------------------
         # Rosbag management API
         # -----------------------------------------------------------------
         @app.route('/rosbag/list')

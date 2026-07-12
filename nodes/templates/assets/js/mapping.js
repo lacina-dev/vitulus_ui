@@ -141,6 +141,11 @@ class MappingV3 {
             });
         }
 
+        // (4) AERIAL tiles — MapProxy XYZ satellite/OSM tiles draped as textured
+        //     planes under everything (see the AerialTiles methods below). Lazy:
+        //     nothing is fetched until the checkbox is first ticked.
+        this._initAerial();
+
         this.running = false;
 
         const pub = (name) => {
@@ -293,6 +298,313 @@ class MappingV3 {
 
     setMode(mode) {
         this.pub_mode.publish(new ROSLIB.Message({data: mode}));
+    }
+
+    // =====================================================================
+    // AERIAL TILES layer — MapProxy XYZ tiles draped in the /map frame.
+    // ---------------------------------------------------------------------
+    // MapProxy runs on the robot at :8082 and serves EPSG:3857 XYZ tiles:
+    //   satellite : http://<host>:8082/wmts/gm_layer/gm_grid/{z}/{x}/{y}.png
+    //   osm       : http://<host>:8082/wmts/osm_demo/webmercator/{z}/{x}/{y}.png
+    // (WMTS with GLOBAL_MERCATOR grid, origin upper-left => standard slippy XYZ,
+    //  y NOT flipped. CORS: Access-Control-Allow-Origin:* so crossOrigin works.)
+    //
+    // GEOREF: the /map frame is anchored to the served site datum (fetched from
+    // webnode /api/datum): map origin = (utm_e, utm_n) in UTM 33N, map rotated
+    // by yaw_rad vs UTM grid north. We place the whole tile set in a group that
+    // carries the -yaw rotation, and inside it position each tile plane by a
+    // LOCAL flat-earth conversion around the datum's origin_lat/origin_lon
+    // (sub-cm over ~100 m). For a map point the UTM offset from datum is
+    // R(+yaw)*(x,y); we express that offset as metres east/north, convert to
+    // lat/lon via metres-per-degree at the origin, then to XYZ tiles. Each
+    // tile's geographic bounds convert back to map metres the same way (inverse),
+    // giving an axis-aligned plane in the group's (pre-yaw) frame.
+    //
+    // Every step is try/catch-wrapped and images load async with crossOrigin;
+    // a bad tile skips itself and NEVER touches the ROS3D render loop.
+    _initAerial() {
+        this.aerial_group = null;      // ROS3D THREE.Object3D, built lazily
+        this.aerial_datum = null;      // cached /api/datum result
+        this.aerial_meshes = [];       // current tile meshes
+        this.aerial_token = 0;         // bumps to cancel stale async builds
+        this.aerial_area_m = 100;      // square side around map origin (metres)
+
+        this.chk_aerial = document.getElementById('mapv3_chk_aerial');
+        this.sel_aerial_src = document.getElementById('mapv3_aerial_src');
+        this.sel_aerial_zoom = document.getElementById('mapv3_aerial_zoom');
+        this.in_aerial_opacity = document.getElementById('mapv3_aerial_opacity');
+        this.el_aerial_status = document.getElementById('mapv3_aerial_status');
+
+        // MapProxy host: same machine that serves this page, port 8082.
+        this.aerial_host = window.location.hostname + ':8082';
+
+        if (this.chk_aerial) {
+            this.chk_aerial.addEventListener('change', () => {
+                if (this.chk_aerial.checked) {
+                    this.rebuildAerial();
+                } else if (this.aerial_group) {
+                    this.aerial_group.visible = false;
+                }
+            });
+        }
+        [this.sel_aerial_src, this.sel_aerial_zoom].forEach((el) => {
+            if (el) el.addEventListener('change', () => {
+                if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
+            });
+        });
+        if (this.in_aerial_opacity) {
+            this.in_aerial_opacity.addEventListener('input', () => {
+                this._applyAerialOpacity();
+            });
+        }
+    }
+
+    _aerialSources() {
+        // discovered from MapProxy demo/WMTS: gm_layer = Google satellite,
+        // osm_demo = OSM streets. Both EPSG:3857 XYZ (origin ul, y not flipped).
+        return {
+            sat: { layer: 'gm_layer', grid: 'gm_grid', label: 'satellite' },
+            osm: { layer: 'osm_demo', grid: 'webmercator', label: 'OSM' },
+        };
+    }
+
+    _aerialTileUrl(src, z, x, y) {
+        return 'http://' + this.aerial_host + '/wmts/' + src.layer + '/' +
+               src.grid + '/' + z + '/' + x + '/' + y + '.png';
+    }
+
+    _applyAerialOpacity() {
+        if (!this.in_aerial_opacity) return;
+        const op = parseFloat(this.in_aerial_opacity.value);
+        if (!(op >= 0 && op <= 1)) return;
+        this.aerial_meshes.forEach((m) => {
+            try { if (m.material) { m.material.opacity = op; } } catch (e) {}
+        });
+    }
+
+    _ensureAerialGroup() {
+        if (this.aerial_group) { return this.aerial_group; }
+        const T = this._r3d();
+        if (!T || !this.viewer3d || !this.viewer3d.scene) { return null; }
+        this.aerial_group = new T.Object3D();
+        // sit under everything (terrain at 0.005, site_map at 0.015)
+        this.aerial_group.position.z = -0.01;
+        this.viewer3d.scene.add(this.aerial_group);
+        return this.aerial_group;
+    }
+
+    _disposeAerialMeshes() {
+        const group = this.aerial_group;
+        this.aerial_meshes.forEach((m) => {
+            try {
+                if (group) group.remove(m);
+                m.geometry && m.geometry.dispose();
+                if (m.material) {
+                    m.material.map && m.material.map.dispose();
+                    m.material.dispose();
+                }
+            } catch (e) { /* best-effort */ }
+        });
+        this.aerial_meshes = [];
+    }
+
+    // metres-per-degree of latitude / longitude at a given latitude (WGS84).
+    _metersPerDeg(latDeg) {
+        const phi = latDeg * Math.PI / 180.0;
+        const mLat = 111132.92 - 559.82 * Math.cos(2 * phi) +
+                     1.175 * Math.cos(4 * phi) - 0.0023 * Math.cos(6 * phi);
+        const mLon = 111412.84 * Math.cos(phi) - 93.5 * Math.cos(3 * phi) +
+                     0.118 * Math.cos(5 * phi);
+        return { mLat, mLon };
+    }
+
+    // WGS84 lon/lat -> slippy XYZ tile coords (fractional) at zoom z.
+    _lonLatToTile(lon, lat, z) {
+        const n = Math.pow(2, z);
+        const x = (lon + 180) / 360 * n;
+        const latR = lat * Math.PI / 180.0;
+        const y = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
+        return { x, y };
+    }
+
+    // slippy tile (integer x,y at zoom z) -> WGS84 lon/lat of its NW corner.
+    _tileToLonLat(x, y, z) {
+        const n = Math.pow(2, z);
+        const lon = x / n * 360 - 180;
+        const latR = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
+        return { lon, lat: latR * 180 / Math.PI };
+    }
+
+    // Build (or rebuild) the aerial tile planes. Async, cancellable, fully
+    // guarded. Fetches the datum first, then covers a square area around the
+    // map origin with tiles at the selected zoom.
+    async rebuildAerial() {
+        const status = (t, warn) => {
+            if (this.el_aerial_status) {
+                this.el_aerial_status.textContent = t;
+                this.el_aerial_status.style.color = warn ? '#ffd43b' : '';
+            }
+        };
+        const token = ++this.aerial_token;
+        try {
+            // (1) datum — cache once; refetch only if we don't have it.
+            if (!this.aerial_datum) {
+                status('loading datum…');
+                const resp = await fetch('/api/datum', { cache: 'no-store' });
+                if (!resp.ok) {
+                    status('no site datum served — cannot place tiles', true);
+                    return;
+                }
+                this.aerial_datum = await resp.json();
+            }
+            if (token !== this.aerial_token) { return; }
+            const d = this.aerial_datum;
+            if (d.origin_lat == null || d.origin_lon == null) {
+                status('datum missing origin_lat/lon', true);
+                return;
+            }
+
+            const T = this._r3d();
+            const group = this._ensureAerialGroup();
+            if (!T || !group) { status('3D not ready', true); return; }
+
+            // group carries the -yaw rotation: map = R(-yaw)*(UTM offset), so a
+            // plane laid out in UTM-aligned metres inside the group ends up in
+            // the map frame. Rotation about +z.
+            const yaw = d.yaw_rad || 0.0;
+            group.rotation.z = -yaw;
+            group.visible = true;
+
+            const srcKey = this.sel_aerial_src ? this.sel_aerial_src.value : 'sat';
+            const src = this._aerialSources()[srcKey] || this._aerialSources().sat;
+            // MapProxy's gm_grid / webmercator grids only go up to z19; clamp so
+            // an out-of-range request can't produce a wall of TileOutOfRange 400s.
+            let z = this.sel_aerial_zoom ?
+                    parseInt(this.sel_aerial_zoom.value, 10) : 19;
+            if (!(z >= 0)) { z = 19; }
+            z = Math.max(0, Math.min(19, z));
+            const half = this.aerial_area_m / 2.0;
+
+            // (2) area corners in UTM-aligned metres (east=+x, north=+y) around
+            // the datum origin -> lon/lat -> tile range covering the square.
+            const { mLat, mLon } = this._metersPerDeg(d.origin_lat);
+            const cornerLonLat = (e, n) => ({
+                lon: d.origin_lon + e / mLon,
+                lat: d.origin_lat + n / mLat,
+            });
+            let tx0 = Infinity, tx1 = -Infinity, ty0 = Infinity, ty1 = -Infinity;
+            [[-half, -half], [half, -half], [-half, half], [half, half]]
+                .forEach(([e, n]) => {
+                    const ll = cornerLonLat(e, n);
+                    const t = this._lonLatToTile(ll.lon, ll.lat, z);
+                    tx0 = Math.min(tx0, Math.floor(t.x));
+                    tx1 = Math.max(tx1, Math.floor(t.x));
+                    ty0 = Math.min(ty0, Math.floor(t.y));
+                    ty1 = Math.max(ty1, Math.floor(t.y));
+                });
+            const nTiles = (tx1 - tx0 + 1) * (ty1 - ty0 + 1);
+            if (!(nTiles > 0) || nTiles > 400) {
+                status('tile range unreasonable (' + nTiles + ') — check zoom', true);
+                return;
+            }
+
+            // (3) build fresh meshes off-screen, swap in after ready.
+            const newMeshes = [];
+            const opacity = this.in_aerial_opacity ?
+                            parseFloat(this.in_aerial_opacity.value) : 1.0;
+            // convert a lon/lat back to UTM-aligned metres (inverse of above).
+            const lonLatToXY = (lon, lat) => ({
+                x: (lon - d.origin_lon) * mLon,
+                y: (lat - d.origin_lat) * mLat,
+            });
+
+            let built = 0;
+            for (let tx = tx0; tx <= tx1; tx++) {
+                for (let ty = ty0; ty <= ty1; ty++) {
+                    // tile geographic bounds -> map-aligned metres
+                    const nw = this._tileToLonLat(tx, ty, z);
+                    const se = this._tileToLonLat(tx + 1, ty + 1, z);
+                    const pNW = lonLatToXY(nw.lon, nw.lat);
+                    const pSE = lonLatToXY(se.lon, se.lat);
+                    const w = pSE.x - pNW.x;         // +east
+                    const h = pNW.y - pSE.y;         // +north (nw.lat > se.lat)
+                    if (!(w > 0) || !(h > 0)) { continue; }
+                    const cx = (pNW.x + pSE.x) / 2;
+                    const cy = (pNW.y + pSE.y) / 2;
+                    const url = this._aerialTileUrl(src, z, tx, ty);
+                    const mesh = this._buildTileMesh(T, url, cx, cy, w, h,
+                                                     opacity, token);
+                    if (mesh) { newMeshes.push(mesh); group.add(mesh); built++; }
+                }
+            }
+            if (token !== this.aerial_token) {
+                // superseded mid-build: drop what we just added
+                newMeshes.forEach((m) => {
+                    try { group.remove(m); m.geometry && m.geometry.dispose();
+                          if (m.material) { m.material.map && m.material.map.dispose();
+                                            m.material.dispose(); } } catch (e) {}
+                });
+                return;
+            }
+            this._disposeAerialMeshes();
+            this.aerial_meshes = newMeshes;
+            status(built + ' ' + src.label + ' tiles @ z' + z +
+                   ' (' + this.aerial_area_m + ' m area)');
+        } catch (e) {
+            console.error('[mappingv3] rebuildAerial failed:', e);
+            status('aerial build failed (see console)', true);
+        }
+    }
+
+    // Build one textured plane for a tile. The texture loads async: the mesh is
+    // created immediately with an empty texture and the image is painted in on
+    // load, so nothing blocks. Returns the mesh (or null on failure).
+    _buildTileMesh(T, url, cx, cy, w, h, opacity, token) {
+        try {
+            // start with a 1x1 transparent texture; fill on image load.
+            const tex = new T.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
+            tex.needsUpdate = true;
+            const geo = new T.Geometry(w, h);       // PlaneBufferGeometry
+            const mat = new T.Material({
+                map: tex, transparent: true, opacity: opacity, depthWrite: false,
+            });
+            if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
+            const mesh = new T.Mesh(geo, mat);
+            mesh.position.set(cx, cy, 0);
+
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                try {
+                    if (token !== this.aerial_token) { return; }  // stale
+                    const MAX = 256;
+                    const iw = Math.min(MAX, img.naturalWidth || 256);
+                    const ih = Math.min(MAX, img.naturalHeight || 256);
+                    const cv = document.createElement('canvas');
+                    cv.width = iw; cv.height = ih;
+                    const ctx = cv.getContext('2d');
+                    if (!ctx) { return; }
+                    ctx.drawImage(img, 0, 0, iw, ih);
+                    const rgba = new Uint8Array(
+                        ctx.getImageData(0, 0, iw, ih).data.buffer);
+                    const ntex = new T.DataTexture(rgba, iw, ih);
+                    ntex.flipY = true;   // canvas row0=top -> +y (north)
+                    ntex.needsUpdate = true;
+                    const old = mat.map;
+                    mat.map = ntex;
+                    mat.needsUpdate = true;
+                    try { old && old.dispose(); } catch (e) {}
+                } catch (e) {
+                    console.error('[mappingv3] aerial tile paint failed:', e);
+                }
+            };
+            img.onerror = () => { /* missing tile: leave transparent */ };
+            img.src = url;
+            return mesh;
+        } catch (e) {
+            console.error('[mappingv3] _buildTileMesh failed:', e);
+            return null;
+        }
     }
 
     // Harvest ROS3D's PRIVATE THREE constructors from the live scene. ROS3D
