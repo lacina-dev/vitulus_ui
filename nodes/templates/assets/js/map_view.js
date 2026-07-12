@@ -69,13 +69,25 @@ var MapLayerOpacity = {
         if (!client || this._clients.indexOf(client) !== -1) { return; }
         this._clients.push(client);
         var self = this;
-        // capture each incoming message so we can force a texture rebuild later
+        // Capture each incoming message so an Unknown-alpha change can force a
+        // texture rebuild later. NOTE: OccupancyGridClient.subscribe() already
+        // bound the ORIGINAL processMessage as the rosTopic callback at
+        // construction time, so merely reassigning client.processMessage here
+        // would never be invoked. We therefore wrap it AND re-point the live
+        // subscription at the wrapper (unsubscribe the old bound cb, subscribe
+        // the new one) so _lastMsg is actually populated. Falls back silently
+        // if the client's internals differ.
         try {
             var origProc = client.processMessage.bind(client);
-            client.processMessage = function (message) {
+            var wrapped = function (message) {
                 client._lastMsg = message;
                 return origProc(message);
             };
+            client.processMessage = wrapped;
+            if (client.rosTopic && typeof client.rosTopic.subscribe === 'function') {
+                try { client.rosTopic.unsubscribe(); } catch (e) {}
+                client.rosTopic.subscribe(wrapped);
+            }
         } catch (e) { /* best-effort */ }
         // whenever the client (re)creates currentGrid, apply current opacity
         try {
