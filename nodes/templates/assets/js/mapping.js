@@ -23,6 +23,14 @@ class MappingV3 {
         this.el_gate = document.getElementById("mapv3_gate_status");
         this.el_dem = document.getElementById("mapv3_dem_status");
         this.el_proj = document.getElementById("mapv3_proj_status");
+        // obstacle classification (band) controls
+        this.in_band_min = document.getElementById("mapv3_band_min");
+        this.in_band_max = document.getElementById("mapv3_band_max");
+        this.in_min_evidence = document.getElementById("mapv3_min_evidence");
+        this.in_min_cluster = document.getElementById("mapv3_min_cluster");
+        this.btn_apply_band = document.getElementById("mapv3_btn_apply_band");
+        this.el_band_status = document.getElementById("mapv3_band_status");
+        this.band_edited = false;   // don't clobber user typing with live status
         this.el_sites = document.getElementById("mapv3_sites_row");
         this.img_terrain = document.getElementById("mapv3_img_terrain");
         this.img_raster = document.getElementById("mapv3_img_raster");
@@ -121,6 +129,7 @@ class MappingV3 {
         this.pub_show = pub('/mapping_manager/show_site');
         this.pub_clear = pub('/mapping/clear');
         this.pub_serve = pub('/mapping_manager/serve_site');
+        this.pub_set_band = pub('/mapping/set_band');
 
         const sub = (name, type, cb) => {
             const t = new ROSLIB.Topic({ros: ros, name: name, messageType: type});
@@ -212,6 +221,17 @@ class MappingV3 {
             this.pub_compare.publish(new ROSLIB.Message({data: ''}));
         });
 
+        // Obstacle classification (band) — apply live tuning to band_projector.
+        // Mark inputs as user-edited so incoming projector_status doesn't
+        // overwrite half-typed values; they re-sync after Apply.
+        [this.in_band_min, this.in_band_max, this.in_min_evidence,
+         this.in_min_cluster].forEach((el) => {
+            if (el) el.addEventListener('input', () => { this.band_edited = true; });
+        });
+        if (this.btn_apply_band) {
+            this.btn_apply_band.addEventListener('click', () => this.applyBand());
+        }
+
         // Clear 3D — reset the octomap archive after a localization
         // correction shifted older data (created dynamically, like the
         // caption, to avoid an index.html rebuild)
@@ -235,10 +255,36 @@ class MappingV3 {
         this.pub_mode.publish(new ROSLIB.Message({data: mode}));
     }
 
+    applyBand() {
+        const bmin = parseFloat(this.in_band_min.value);
+        const bmax = parseFloat(this.in_band_max.value);
+        const ev = parseInt(this.in_min_evidence.value, 10);
+        const cl = parseInt(this.in_min_cluster.value, 10);
+        if (!(bmin >= 0 && bmax <= 2.0 && bmin < bmax)) {
+            this.el_band_status.textContent =
+                'invalid band: need 0 ≤ min < max ≤ 2.0 m';
+            this.el_band_status.style.color = '#ff6b6b';
+            return;
+        }
+        if (!(ev >= 1 && ev <= 20 && cl >= 1 && cl <= 20)) {
+            this.el_band_status.textContent =
+                'invalid: evidence/cluster must be 1..20';
+            this.el_band_status.style.color = '#ff6b6b';
+            return;
+        }
+        const payload = {band_min: bmin, band_max: bmax,
+                         min_evidence: ev, min_cluster_cells: cl};
+        this.pub_set_band.publish(new ROSLIB.Message({data: JSON.stringify(payload)}));
+        this.band_edited = false;   // let projector_status re-sync the applied values
+        this.el_band_status.textContent = 'applying…';
+        this.el_band_status.style.color = '';
+    }
+
     setActionsEnabled(on) {
         [this.btn_mode_rtk, this.btn_mode_force, this.btn_mode_off,
-         this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear]
-            .forEach((b) => { b.disabled = !on; });
+         this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear,
+         this.btn_apply_band]
+            .forEach((b) => { if (b) b.disabled = !on; });
         this.btn_stop.disabled = !on;
     }
 
@@ -355,6 +401,27 @@ class MappingV3 {
     handleProjector(msg) {
         let p;
         try { p = JSON.parse(msg.data); } catch (e) { return; }
+
+        // obstacle classification: prefill the inputs (unless the user is
+        // mid-edit) and always show the currently-applied values
+        if (p.band_min !== undefined && p.band_max !== undefined) {
+            if (!this.band_edited && this.in_band_min) {
+                this.in_band_min.value = p.band_min;
+                this.in_band_max.value = p.band_max;
+                if (p.min_evidence !== undefined)
+                    this.in_min_evidence.value = p.min_evidence;
+                if (p.min_cluster_cells !== undefined)
+                    this.in_min_cluster.value = p.min_cluster_cells;
+            }
+            if (this.el_band_status) {
+                this.el_band_status.textContent =
+                    'obstacle band ' + p.band_min + '–' + p.band_max +
+                    ' m above ground, evid ≥ ' + p.min_evidence +
+                    ', clust ≥ ' + p.min_cluster_cells;
+                this.el_band_status.style.color = '';
+            }
+        }
+
         let txt = p.state + ', ' + (p.octomap_points || 0).toLocaleString() + ' voxels';
         if (p.cells_obstacle !== undefined) {
             txt += ' | raster: ' + p.cells_obstacle + ' obstacle, ' +

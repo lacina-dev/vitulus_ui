@@ -311,6 +311,22 @@
                                                 <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button><button class="btn btn-primary" id="mapv3_btn_save" type="button" disabled title="Save full snapshot: 3D archive (.ot) + DEM + raster">Snapshot</button><button class="btn btn-primary" id="mapv3_btn_compare" type="button" disabled title="A/B stats vs the current rtabmap grid">Compare</button></div>
                                                 <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 4px;">&mdash;</span>
                                             </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;" title="Obstacle band = height window above the LOCAL ground (DEM) that counts as an obstacle. Evidence = occupied voxels in that window per cell; cluster = drop obstacle blobs smaller than this (speckles).">Obstacle classification</span>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;">
+                                                    <span class="input-group-text" title="Band lower edge: height above local ground (m) where obstacles start">band min m</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_min" step="0.05" min="0" max="2" style="width: 62px;">
+                                                    <span class="input-group-text" title="Band upper edge: height above local ground (m) where obstacles stop">max m</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_max" step="0.05" min="0" max="2" style="width: 62px;">
+                                                </div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;">
+                                                    <span class="input-group-text" title="Min occupied voxels inside the band per cell to call it an obstacle (1..20)">min evid</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_evidence" step="1" min="1" max="20" style="width: 56px;">
+                                                    <span class="input-group-text" title="Drop obstacle clusters smaller than this many cells — speckle filter (1..20)">min clust</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_cluster" step="1" min="1" max="20" style="width: 56px;">
+                                                    <button class="btn btn-primary" id="mapv3_btn_apply_band" type="button" disabled title="Apply the obstacle classification settings live and re-raster (persisted per site)">Apply</button>
+                                                </div>
+                                                <span id="mapv3_band_status" style="font-size: 12px;display: block;margin-top: 4px;opacity:.8;">&mdash;</span>
+                                            </div>
                                             <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Terrain DEM</span>
                                                 <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
