@@ -702,7 +702,8 @@ class Dock {
         // MapLayerOpacity only exists on pages that load map_view.js.
         try {
             if (typeof MapLayerOpacity !== 'undefined') {
-                MapLayerOpacity.registerClient(this.dockMapClient);
+                MapLayerOpacity.registerClient(this.dockMapClient,
+                    (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.DOCK : 30);
             }
         } catch (e) { /* opacity manager optional */ }
 

@@ -71,7 +71,7 @@ class MappingV3 {
             color: {r: 0, g: 100, b: 255},
             opacity: 0.9,
             offsetPose: new ROSLIB.Pose({
-                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.015}),
+                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.01}),  // SITE band
                 orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
             })
         });
@@ -92,7 +92,7 @@ class MappingV3 {
             color: {r: 0, g: 255, b: 0},
             opacity: 0.85,
             offsetPose: new ROSLIB.Pose({
-                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.02}),
+                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.02}),  // LIVE band
                 orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
             })
         });
@@ -104,8 +104,11 @@ class MappingV3 {
         // and aerial tiles keep their own independent opacity sliders.
         try {
             if (typeof MapLayerOpacity !== 'undefined') {
-                MapLayerOpacity.registerClient(this.site_client);
-                MapLayerOpacity.registerClient(this.grid_client);
+                var _ord = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder : null;
+                MapLayerOpacity.registerClient(this.site_client,
+                    _ord ? _ord.SITE : 10);
+                MapLayerOpacity.registerClient(this.grid_client,
+                    _ord ? _ord.LIVE : 20);
             }
         } catch (e) { /* opacity manager optional */ }
 
@@ -432,8 +435,13 @@ class MappingV3 {
         const T = this._r3d();
         if (!T || !this.viewer3d || !this.viewer3d.scene) { return null; }
         this.aerial_group = new T.Object3D();
-        // sit under everything (terrain at 0.005, site_map at 0.015)
-        this.aerial_group.position.z = -0.01;
+        // BOTTOM layer of the whole scene: z + renderOrder from the explicit
+        // layer-ordering contract (MapLayerOrder in map_view.js). Sits under the
+        // terrain (-0.02) and every occupancy grid. renderOrder is what actually
+        // guarantees it paints first now that the grids are transparent — z alone
+        // is a near-tie the transparent sort can't be trusted to resolve.
+        this.aerial_group.position.z =
+            (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.Z_AERIAL : -0.05;
         this.viewer3d.scene.add(this.aerial_group);
         return this.aerial_group;
     }
@@ -652,6 +660,10 @@ class MappingV3 {
             if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
             const mesh = new T.Mesh(geo, mat);
             mesh.position.set(cx, cy, 0);
+            // BOTTOM of the paint order (see MapLayerOrder). depthWrite already
+            // false above; renderOrder pins it under every transparent grid.
+            mesh.renderOrder =
+                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.AERIAL : -100;
 
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -899,7 +911,9 @@ class MappingV3 {
             try { mat.depthTest = false; } catch (e) {}
             const mesh = new T.Mesh(geo, mat);
             mesh.position.set(cx, cy, z);
-            mesh.renderOrder = 999;   // topmost
+            // topmost of the whole scene (layer-ordering contract)
+            mesh.renderOrder =
+                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.RAIN : 999;
 
             if (token !== this.rain_token) {
                 try { geo.dispose(); tex.dispose(); mat.dispose(); } catch (e) {}
@@ -1008,7 +1022,10 @@ class MappingV3 {
         const T = this._r3d();
         if (!T || !this.viewer3d || !this.viewer3d.scene) { return null; }
         this.terrain_group = new T.Object3D();
-        this.terrain_group.position.z = 0.005;   // just below site_map (0.015)
+        // Layer-ordering contract: terrain sits just above the aerial tiles and
+        // below every occupancy grid (z + renderOrder from MapLayerOrder).
+        this.terrain_group.position.z =
+            (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.Z_TERRAIN : -0.02;
         this.viewer3d.scene.add(this.terrain_group);
         this.applyTerrainVisible();
         return this.terrain_group;
@@ -1080,6 +1097,9 @@ class MappingV3 {
             const mesh = new T.Mesh(geo, mat);
             mesh.position.set((b.min_x + b.max_x) / 2,
                               (b.min_y + b.max_y) / 2, 0);
+            // Layer-ordering contract: above aerial, below every grid.
+            mesh.renderOrder =
+                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.TERRAIN : -50;
 
             // swap in the new mesh, dispose the old one only after the new is ready
             this._disposeTerrainMesh();

@@ -8,6 +8,52 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 
 
 // ===========================================================================
+// EXPLICIT 3D LAYER-ORDERING CONTRACT (vitulus_ui)
+// ---------------------------------------------------------------------------
+// All the overlaid ground layers in the map_view 3D scene live in a near-
+// identical z-band (their meshes differ by only a couple of centimetres, and
+// the camera looks straight down from far above). Once the occupancy grids
+// were switched to transparent materials (c95753c/f37cf01) their draw order
+// stopped being decided by depth-write and started being decided by THREE's
+// transparent-object sort — which, with everything at ~z=0, is effectively a
+// tie and let the aerial MapProxy tiles draw ON TOP of the maps. Users then
+// saw only the aerial/costmaps with the served site_map hidden underneath.
+//
+// The robust fix is to stop relying on sub-centimetre z differences and pin an
+// EXPLICIT paint order per layer via mesh.renderOrder, with depthWrite off on
+// every overlapping layer so no layer's depth buffer occludes another. Lower
+// renderOrder paints first (further back); higher paints last (on top).
+//
+//   aerial tiles      z=-0.05  renderOrder=-100   (bottom, under everything)
+//   terrain DEM       z=-0.02  renderOrder=-50
+//   base map          z= 0.00  renderOrder=  0
+//   local costmap     z=-0.01  renderOrder=  5
+//   saved site_map    z=+0.01  renderOrder= 10
+//   live obstacle_map z=+0.02  renderOrder= 20
+//   dock map          z=-0.002 renderOrder= 30
+//   rain radar        (own z)  renderOrder=999    (depthTest off, existing)
+//
+// MapLayerOpacity applies renderOrder+depthWrite (below) to every registered
+// occupancy grid on creation and on every slider update; the aerial/terrain
+// plain-plane groups set theirs directly where they are built (mapping.js).
+// ===========================================================================
+var MapLayerOrder = {
+    AERIAL:  -100,
+    TERRAIN:  -50,
+    BASE:       0,
+    COSTMAP:    5,
+    SITE:      10,
+    LIVE:      20,
+    DOCK:      30,
+    RAIN:     999,
+    // z-offsets used by the plane groups + occupancy offsetPose (documentation
+    // + single source of truth for the group-owned planes below).
+    Z_AERIAL:  -0.05,
+    Z_TERRAIN: -0.02
+};
+
+
+// ===========================================================================
 // GLOBAL OCCUPANCY-MAP OPACITY MANAGER (vitulus_ui)
 // ---------------------------------------------------------------------------
 // One place that owns two user-facing controls that apply to ALL occupancy
@@ -61,35 +107,54 @@ var MapLayerOpacity = {
         } catch (e) { /* localStorage unavailable — keep defaults */ }
     },
 
-    // Register an OccupancyGridClient so it participates in both controls.
-    // Re-applies the current whole-mesh opacity every time the client rebuilds
-    // its mesh (fresh map message), and remembers the last message so an
-    // unknown-alpha change can rebuild its texture.
-    registerClient: function (client) {
+    // Register an OccupancyGridClient so it participates in both controls AND
+    // gets its explicit renderOrder from the layer-ordering contract.
+    // Re-applies opacity + renderOrder + depthWrite every time the client
+    // rebuilds its mesh (fresh map message), and remembers the last message so
+    // an unknown-alpha change can rebuild its texture.
+    //
+    //   renderOrder: one of MapLayerOrder.* (defaults to BASE if omitted so a
+    //   caller that forgets still gets sane paint order rather than a raw 0
+    //   that ties with the aerial planes).
+    registerClient: function (client, renderOrder) {
         if (!client || this._clients.indexOf(client) !== -1) { return; }
         this._clients.push(client);
+        // stash the contract renderOrder on the client so _applyOpacityToClient
+        // (called on every 'change') can re-pin it after each mesh rebuild.
+        client._layerRenderOrder = (typeof renderOrder === 'number')
+            ? renderOrder : MapLayerOrder.BASE;
         var self = this;
         // Capture each incoming message so an Unknown-alpha change can force a
-        // texture rebuild later. NOTE: OccupancyGridClient.subscribe() already
-        // bound the ORIGINAL processMessage as the rosTopic callback at
-        // construction time, so merely reassigning client.processMessage here
-        // would never be invoked. We therefore wrap it AND re-point the live
-        // subscription at the wrapper (unsubscribe the old bound cb, subscribe
-        // the new one) so _lastMsg is actually populated. Falls back silently
-        // if the client's internals differ.
+        // texture rebuild later. OccupancyGridClient.subscribe() bound the
+        // ORIGINAL processMessage as the rosTopic callback at construction time,
+        // so merely reassigning client.processMessage would never be invoked.
+        //
+        // IMPORTANT (latched topics): site_map and /navi_manager/map are LATCHED
+        // — the grid message arrives exactly once, on serve/map-load. The old
+        // code did rosTopic.unsubscribe() + rosTopic.subscribe(wrapped), which
+        // (a) risks dropping the already-delivered latched message and (b) left
+        // the original bound callback registered (unsubscribe() with no arg does
+        // NOT remove a specific listener), so BOTH ran. We now DON'T touch the
+        // subscription at all: roslibjs Topic is an EventEmitter, so we just add
+        // our wrapper as an extra 'message' listener via rosTopic.subscribe().
+        // The original processMessage keeps building the grid; our listener only
+        // records _lastMsg. No unsubscribe => the latched message is never lost,
+        // and processMessage runs exactly once per frame.
         try {
-            var origProc = client.processMessage.bind(client);
-            var wrapped = function (message) {
-                client._lastMsg = message;
-                return origProc(message);
-            };
-            client.processMessage = wrapped;
             if (client.rosTopic && typeof client.rosTopic.subscribe === 'function') {
-                try { client.rosTopic.unsubscribe(); } catch (e) {}
-                client.rosTopic.subscribe(wrapped);
+                client.rosTopic.subscribe(function (message) {
+                    client._lastMsg = message;
+                });
+            } else {
+                // fallback: no live rosTopic — wrap the method (best-effort)
+                var origProc = client.processMessage.bind(client);
+                client.processMessage = function (message) {
+                    client._lastMsg = message;
+                    return origProc(message);
+                };
             }
         } catch (e) { /* best-effort */ }
-        // whenever the client (re)creates currentGrid, apply current opacity
+        // whenever the client (re)creates currentGrid, re-apply the full style
         try {
             client.on('change', function () { self._applyOpacityToClient(client); });
         } catch (e) { /* best-effort */ }
@@ -97,13 +162,23 @@ var MapLayerOpacity = {
         this._applyOpacityToClient(client);
     },
 
+    // Apply the full per-layer style to a client's current mesh: whole-mesh
+    // opacity, transparent=true, depthWrite=false (grids overlap in a near-
+    // identical z-band, so paint order is decided by renderOrder, NOT depth),
+    // and the explicit contract renderOrder captured at registration.
     _applyOpacityToClient: function (client) {
         try {
             var mesh = client && client.currentGrid;
-            if (mesh && mesh.material) {
-                mesh.material.opacity = this.maps_opacity;
-                mesh.material.transparent = true;
-                mesh.material.needsUpdate = true;
+            if (mesh) {
+                if (typeof client._layerRenderOrder === 'number') {
+                    mesh.renderOrder = client._layerRenderOrder;
+                }
+                if (mesh.material) {
+                    mesh.material.opacity = this.maps_opacity;
+                    mesh.material.transparent = true;
+                    mesh.material.depthWrite = false;
+                    mesh.material.needsUpdate = true;
+                }
             }
         } catch (e) { /* best-effort */ }
     },
@@ -1002,9 +1077,11 @@ class TfClient {
 
 class Maps{
     constructor(ros, tf_client, viewer) {
-        this.map_offset =new ROSLIB.Pose({ position : new ROSLIB.Vector3({ x : 0, y : 0, z : -0.03 }),
+        // base /navi_manager/map: z=0, renderOrder BASE (see MapLayerOrder).
+        this.map_offset =new ROSLIB.Pose({ position : new ROSLIB.Vector3({ x : 0, y : 0, z : 0 }),
                     orientation : new ROSLIB.Quaternion({ x : 0.0, y : 0.0, z : 0.0, w : 1.0 }) });
         this.map = null;
+        // local costmap: z=-0.01, renderOrder COSTMAP.
         this.local_costmap_offset = new ROSLIB.Pose({ position : new ROSLIB.Vector3({ x : 0, y : 0, z : -0.01 }),
                     orientation : new ROSLIB.Quaternion({ x : 0.0, y : 0.0, z : 0.0, w : 1.0 }) });
         this.local_costmap = null;
@@ -6069,8 +6146,8 @@ window.initMapView = function () {
         // manager so the "Maps opacity" / "Unknown opacity" sliders drive them
         // (the mapping-v3 site_map + live obstacle_map register themselves in
         // mapping.js). See MapLayerOpacity at the top of this file.
-        MapLayerOpacity.registerClient(maps.local_costmap);
-        MapLayerOpacity.registerClient(maps.map);
+        MapLayerOpacity.registerClient(maps.local_costmap, MapLayerOrder.COSTMAP);
+        MapLayerOpacity.registerClient(maps.map, MapLayerOrder.BASE);
 
         // Reload planner
         programs.reload_planner_data();
