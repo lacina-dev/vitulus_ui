@@ -328,10 +328,12 @@ class MappingV3 {
         this.aerial_meshes = [];       // current tile meshes
         this.aerial_token = 0;         // bumps to cancel stale async builds
         this.aerial_area_m = 100;      // square side around map origin (metres)
+        this.AERIAL_TILE_CAP = 400;    // hard cap on tiles per rebuild
 
         this.chk_aerial = document.getElementById('mapv3_chk_aerial');
         this.sel_aerial_src = document.getElementById('mapv3_aerial_src');
         this.sel_aerial_zoom = document.getElementById('mapv3_aerial_zoom');
+        this.sel_aerial_area = document.getElementById('mapv3_aerial_area');
         this.in_aerial_opacity = document.getElementById('mapv3_aerial_opacity');
         this.el_aerial_status = document.getElementById('mapv3_aerial_status');
 
@@ -347,7 +349,7 @@ class MappingV3 {
                 }
             });
         }
-        [this.sel_aerial_src, this.sel_aerial_zoom].forEach((el) => {
+        [this.sel_aerial_src, this.sel_aerial_zoom, this.sel_aerial_area].forEach((el) => {
             if (el) el.addEventListener('change', () => {
                 if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
             });
@@ -483,32 +485,67 @@ class MappingV3 {
                     parseInt(this.sel_aerial_zoom.value, 10) : 19;
             if (!(z >= 0)) { z = 19; }
             z = Math.max(0, Math.min(19, z));
-            const half = this.aerial_area_m / 2.0;
 
-            // (2) area corners in UTM-aligned metres (east=+x, north=+y) around
+            // (2) coverage area — user-selectable square side (metres) around
+            // the map origin. Falls back to the built-in default if the
+            // control isn't present.
+            let area = this.sel_aerial_area ?
+                       parseInt(this.sel_aerial_area.value, 10) : this.aerial_area_m;
+            if (!(area > 0)) { area = this.aerial_area_m; }
+            this.aerial_area_m = area;
+
+            // area corners in UTM-aligned metres (east=+x, north=+y) around
             // the datum origin -> lon/lat -> tile range covering the square.
             const { mLat, mLon } = this._metersPerDeg(d.origin_lat);
             const cornerLonLat = (e, n) => ({
                 lon: d.origin_lon + e / mLon,
                 lat: d.origin_lat + n / mLat,
             });
-            let tx0 = Infinity, tx1 = -Infinity, ty0 = Infinity, ty1 = -Infinity;
-            [[-half, -half], [half, -half], [-half, half], [half, half]]
-                .forEach(([e, n]) => {
-                    const ll = cornerLonLat(e, n);
-                    const t = this._lonLatToTile(ll.lon, ll.lat, z);
-                    tx0 = Math.min(tx0, Math.floor(t.x));
-                    tx1 = Math.max(tx1, Math.floor(t.x));
-                    ty0 = Math.min(ty0, Math.floor(t.y));
-                    ty1 = Math.max(ty1, Math.floor(t.y));
-                });
-            const nTiles = (tx1 - tx0 + 1) * (ty1 - ty0 + 1);
-            if (!(nTiles > 0) || nTiles > 400) {
-                status('tile range unreasonable (' + nTiles + ') — check zoom', true);
+            // computes the tile range (and count) covering the square area at
+            // a given zoom; used both for the real build and for probing zoom
+            // levels down when guarding against a tile-count explosion.
+            const tileRangeAt = (zoom) => {
+                const half = area / 2.0;
+                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                [[-half, -half], [half, -half], [-half, half], [half, half]]
+                    .forEach(([e, n]) => {
+                        const ll = cornerLonLat(e, n);
+                        const t = this._lonLatToTile(ll.lon, ll.lat, zoom);
+                        x0 = Math.min(x0, Math.floor(t.x));
+                        x1 = Math.max(x1, Math.floor(t.x));
+                        y0 = Math.min(y0, Math.floor(t.y));
+                        y1 = Math.max(y1, Math.floor(t.y));
+                    });
+                const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+                return { tx0: x0, tx1: x1, ty0: y0, ty1: y1, count };
+            };
+
+            // (3) tile-count guard: bigger area + high zoom can explode the
+            // tile count. Auto-clamp zoom DOWN (coarser tiles) until the
+            // rebuild fits under the cap, reflecting the clamp in the UI so
+            // it's never silently a wall of requests.
+            const CAP = this.AERIAL_TILE_CAP;
+            let range = tileRangeAt(z);
+            let clamped = false;
+            while (range.count > CAP && z > 0) {
+                z -= 1;
+                clamped = true;
+                range = tileRangeAt(z);
+            }
+            const { tx0, tx1, ty0, ty1 } = range;
+            const nTiles = range.count;
+            if (!(nTiles > 0) || nTiles > CAP) {
+                status('tile range unreasonable (' + nTiles + ') even at z' + z +
+                       ' — reduce area', true);
                 return;
             }
+            if (clamped && this.sel_aerial_zoom) {
+                // reflect the auto-clamped zoom back into the dropdown so the
+                // UI never silently disagrees with what was actually built.
+                this.sel_aerial_zoom.value = String(z);
+            }
 
-            // (3) build fresh meshes off-screen, swap in after ready.
+            // (4) build fresh meshes off-screen, swap in after ready.
             const newMeshes = [];
             const opacity = this.in_aerial_opacity ?
                             parseFloat(this.in_aerial_opacity.value) : 1.0;
@@ -548,8 +585,9 @@ class MappingV3 {
             }
             this._disposeAerialMeshes();
             this.aerial_meshes = newMeshes;
-            status(built + ' ' + src.label + ' tiles @ z' + z +
-                   ' (' + this.aerial_area_m + ' m area)');
+            const clampNote = clamped ? ' (zoom auto-clamped, cap ' + CAP + ')' : '';
+            status('tiles: ' + built + ' @ z' + z + ' — ' + src.label +
+                   ', ' + this.aerial_area_m + ' m area' + clampNote, clamped);
         } catch (e) {
             console.error('[mappingv3] rebuildAerial failed:', e);
             status('aerial build failed (see console)', true);
