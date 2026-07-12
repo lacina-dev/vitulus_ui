@@ -92,10 +92,22 @@ class MappingV3 {
         //       - live session: trajectory_dem /dem_status .terrain_bounds
         //     The scene fixed frame is /map, so a plane placed at those world
         //     coords lines up with the occupancy grids (map->map is identity).
-        this.terrain_group = new THREE.Object3D();
-        this.terrain_group.position.z = 0.005;   // just below site_map (0.015)
-        viewer3d.scene.add(this.terrain_group);
+        //     IMPORTANT: the terrain plane MUST be built with the SAME THREE
+        //     module instance that owns the renderer/scene (ROS3D bundles its
+        //     own private copy of THREE, distinct from the global window.THREE
+        //     that three.js sets). Feeding a window.THREE Mesh/Geometry/Material
+        //     to ROS3D's WebGLRenderer makes renderer.render() throw inside the
+        //     rAF draw() loop; ROS3D schedules the next frame AFTER render(), so
+        //     one throw kills the loop for good -> the whole 3D view freezes and
+        //     stops responding (the bug this layer originally shipped with).
+        //     We therefore harvest ROS3D's THREE constructors from the live
+        //     scene (see _r3d()) and build the plane with those, never window.THREE.
+        this.viewer3d = viewer3d;
+        this._r3dCache = null;    // lazily-harvested ROS3D THREE constructors
+        this.terrain_group = null;   // ROS3D THREE.Object3D, created lazily
         this.terrain_mesh = null;
+        this.terrain_png = null;      // last-seen data: URI
+        this.terrain_img = null;      // decoded <img> for the current PNG
         this.terrain_bounds = null;   // last-seen {min_x,min_y,max_x,max_y}
 
         // Layer toggles authored in map_view.html (survive index rebuild):
@@ -118,9 +130,14 @@ class MappingV3 {
             });
         }
         if (this.chk_terrain) {
-            this.terrain_group.visible = this.chk_terrain.checked;
+            // The group may not exist yet (built on first terrain data). Just
+            // remember the desired visibility; applyTerrainVisible() syncs it
+            // whenever the group appears. Toggling NEVER builds/blocks anything.
+            this.terrain_visible = this.chk_terrain.checked;
+            this.applyTerrainVisible();
             this.chk_terrain.addEventListener('change', () => {
-                this.terrain_group.visible = this.chk_terrain.checked;
+                this.terrain_visible = this.chk_terrain.checked;
+                this.applyTerrainVisible();
             });
         }
 
@@ -166,8 +183,27 @@ class MappingV3 {
         //   live session : /mapping/terrain_png  +  /mapping/dem_status bounds
         //   saved site   : /mapping_manager/terrain_png + /preview_info bounds
         const setTerrainPng = (m) => {
-            this.terrain_png = 'data:image/png;base64,' + m.data;
-            this.rebuildTerrain();
+            // rosbridge delivers CompressedImage.data as base64. Decode the PNG
+            // to an <img> exactly ONCE per new message (async, off the render
+            // path); rebuildTerrain() then just reuses the cached decoded image.
+            const uri = 'data:image/png;base64,' + m.data;
+            if (uri === this.terrain_png && this.terrain_img) {
+                this.rebuildTerrain();   // same png, only (maybe) bounds changed
+                return;
+            }
+            this.terrain_png = uri;
+            const img = new Image();
+            img.onload = () => {
+                // ignore a stale decode if a newer png arrived meanwhile
+                if (this.terrain_png !== uri) { return; }
+                this.terrain_img = img;
+                this.rebuildTerrain();
+            };
+            img.onerror = () => {
+                if (this.terrain_png === uri) { this.terrain_img = null; }
+                console.error('[mappingv3] terrain PNG decode failed');
+            };
+            img.src = uri;
         };
         sub('/mapping/terrain_png', 'sensor_msgs/CompressedImage', setTerrainPng);
         sub('/mapping_manager/terrain_png', 'sensor_msgs/CompressedImage',
@@ -259,59 +295,135 @@ class MappingV3 {
         this.pub_mode.publish(new ROSLIB.Message({data: mode}));
     }
 
-    // Build / update the terrain elevation plane from the cached PNG + bounds.
-    // No-op until BOTH the texture and the world bounds are known. The plane is
-    // sized to the DEM bbox in map metres and centred on it; the scene fixed
-    // frame is /map so those coords are absolute and line up with the grids.
-    rebuildTerrain() {
-        if (!this.terrain_png || !this.terrain_bounds) return;
-        const b = this.terrain_bounds;
-        const w = b.max_x - b.min_x;
-        const h = b.max_y - b.min_y;
-        if (!(w > 0) || !(h > 0)) return;
+    // Harvest ROS3D's PRIVATE THREE constructors from the live scene. ROS3D
+    // bundles its own copy of THREE (distinct object identity from the global
+    // window.THREE), and its WebGLRenderer only accepts objects built from that
+    // same copy. We reach the classes we need by building one throwaway ROS3D
+    // OccupancyGrid (a THREE.Mesh subclass that internally makes a
+    // PlaneBufferGeometry + DataTexture + MeshBasicMaterial with ROS3D's THREE)
+    // and reading the constructors off the resulting instance. Cached; returns
+    // null if unavailable (e.g. ROS3D missing) so callers can no-op safely.
+    _r3d() {
+        if (this._r3dCache) { return this._r3dCache; }
+        try {
+            const OG = (typeof ROS3D !== 'undefined') && ROS3D.OccupancyGrid;
+            if (!OG) { return null; }
+            const probe = new OG({ message: { info: {
+                width: 1, height: 1, resolution: 1,
+                origin: { position: { x: 0, y: 0, z: 0 },
+                          orientation: { x: 0, y: 0, z: 0, w: 1 } }
+            }, data: [0] } });
+            // walk the prototype chain: probe -> OccupancyGrid.prototype ->
+            // Mesh.prototype -> Object3D.prototype (each .constructor is set).
+            const meshProto = Object.getPrototypeOf(Object.getPrototypeOf(probe));
+            const Mesh = meshProto.constructor;                    // THREE.Mesh
+            const Object3D = Object.getPrototypeOf(meshProto).constructor; // THREE.Object3D
+            const Geometry = probe.geometry.constructor;   // PlaneBufferGeometry
+            const Material = probe.material.constructor;    // MeshBasicMaterial
+            const DataTexture = probe.texture.constructor;  // DataTexture
+            const NearestFilter = probe.texture.minFilter;  // enum value
+            const DoubleSide = probe.material.side;          // ROS3D sets DoubleSide
+            // clean up the GPU-less probe
+            try { probe.dispose && probe.dispose(); } catch (e) {}
+            this._r3dCache = { Mesh, Object3D, Geometry, Material,
+                               DataTexture, NearestFilter, DoubleSide };
+            return this._r3dCache;
+        } catch (e) {
+            console.error('[mappingv3] could not harvest ROS3D THREE:', e);
+            return null;
+        }
+    }
 
-        const loader = new THREE.TextureLoader();
-        loader.load(this.terrain_png, (tex) => {
-            tex.minFilter = THREE.NearestFilter;
-            tex.magFilter = THREE.NearestFilter;
+    _ensureTerrainGroup() {
+        if (this.terrain_group) { return this.terrain_group; }
+        const T = this._r3d();
+        if (!T || !this.viewer3d || !this.viewer3d.scene) { return null; }
+        this.terrain_group = new T.Object3D();
+        this.terrain_group.position.z = 0.005;   // just below site_map (0.015)
+        this.viewer3d.scene.add(this.terrain_group);
+        this.applyTerrainVisible();
+        return this.terrain_group;
+    }
+
+    applyTerrainVisible() {
+        if (this.terrain_group) {
+            this.terrain_group.visible = !!this.terrain_visible;
+        }
+    }
+
+    _disposeTerrainMesh() {
+        if (!this.terrain_mesh) { return; }
+        if (this.terrain_group) { this.terrain_group.remove(this.terrain_mesh); }
+        try {
+            this.terrain_mesh.geometry && this.terrain_mesh.geometry.dispose();
+            const m = this.terrain_mesh.material;
+            if (m) { m.map && m.map.dispose(); m.dispose(); }
+        } catch (e) { /* best-effort */ }
+        this.terrain_mesh = null;
+    }
+
+    // Build / update the terrain elevation plane from the cached decoded PNG +
+    // bounds. No-op (shows nothing, never blocks) until BOTH the decoded image
+    // and the world bounds are known. Fully wrapped in try/catch so a bad frame
+    // can never take down the ROS3D render loop. The plane is sized to the DEM
+    // bbox in map metres and centred on it; the scene fixed frame is /map so
+    // those coords are absolute and line up with the occupancy grids.
+    rebuildTerrain() {
+        try {
+            if (!this.terrain_img || !this.terrain_bounds) { return; }
+            const b = this.terrain_bounds;
+            const w = b.max_x - b.min_x;
+            const h = b.max_y - b.min_y;
+            if (!(w > 0) || !(h > 0)) { return; }
+
+            const T = this._r3d();
+            const group = this._ensureTerrainGroup();
+            if (!T || !group) { return; }
+
+            // Rasterise the decoded PNG to RGBA pixels via a canvas, capping the
+            // canvas at MAX px per side so a pathological image can never spin
+            // up a huge buffer. Terrain PNGs are tiny (~90x190) in practice.
+            const MAX = 1024;
+            const iw = Math.max(1, Math.min(MAX, this.terrain_img.naturalWidth  || 1));
+            const ih = Math.max(1, Math.min(MAX, this.terrain_img.naturalHeight || 1));
+            const cv = document.createElement('canvas');
+            cv.width = iw; cv.height = ih;
+            const ctx = cv.getContext('2d');
+            if (!ctx) { return; }
+            ctx.drawImage(this.terrain_img, 0, 0, iw, ih);
+            const rgba = new Uint8Array(ctx.getImageData(0, 0, iw, ih).data.buffer);
+
+            const tex = new T.DataTexture(rgba, iw, ih);   // RGBA default
+            // dem_to_png(_orient(elev)) => image row 0 = MAX y. Canvas/DataTexture
+            // put row 0 at the TOP of the image; flipY=true maps top -> +y so the
+            // plane's north edge is +y, matching the occupancy grids.
+            tex.flipY = true;
+            tex.minFilter = T.NearestFilter;
+            tex.magFilter = T.NearestFilter;
             tex.generateMipmaps = false;
-            // dem_to_png(_orient(elev)) => image row 0 = MAX y, col 0 = MIN x.
-            // A THREE plane on the XY ground (default UV: v=0 bottom=min y) would
-            // show the image upside down, so flip V to put row 0 at +y.
-            tex.flipY = true;   // default; row0 -> top (v=1) which maps to +y
-            if (this.terrain_mesh) {
-                this.terrain_group.remove(this.terrain_mesh);
-                this.terrain_mesh.geometry.dispose();
-                this.terrain_mesh.material.map &&
-                    this.terrain_mesh.material.map.dispose();
-                this.terrain_mesh.material.dispose();
-            }
-            const geo = new THREE.PlaneGeometry(w, h);
-            const mat = new THREE.MeshBasicMaterial({
-                map: tex, transparent: true, opacity: 0.85,
-                depthWrite: false, side: THREE.DoubleSide
+            tex.needsUpdate = true;
+
+            const geo = new T.Geometry(w, h);             // PlaneBufferGeometry
+            const mat = new T.Material({
+                map: tex, transparent: true, opacity: 0.85, depthWrite: false
             });
-            const mesh = new THREE.Mesh(geo, mat);
-            // PlaneGeometry lies in XY already; centre it on the bbox midpoint.
+            if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
+            const mesh = new T.Mesh(geo, mat);
             mesh.position.set((b.min_x + b.max_x) / 2,
                               (b.min_y + b.max_y) / 2, 0);
+
+            // swap in the new mesh, dispose the old one only after the new is ready
+            this._disposeTerrainMesh();
             this.terrain_mesh = mesh;
-            this.terrain_group.add(mesh);
-        }, undefined, () => {
-            /* texture decode failed — leave any previous plane in place */
-        });
+            group.add(mesh);
+        } catch (e) {
+            console.error('[mappingv3] rebuildTerrain failed:', e);
+        }
     }
 
     clearTerrain() {
         this.terrain_bounds = null;
-        if (this.terrain_mesh) {
-            this.terrain_group.remove(this.terrain_mesh);
-            this.terrain_mesh.geometry.dispose();
-            this.terrain_mesh.material.map &&
-                this.terrain_mesh.material.map.dispose();
-            this.terrain_mesh.material.dispose();
-            this.terrain_mesh = null;
-        }
+        this._disposeTerrainMesh();
     }
 
     applyBand() {
