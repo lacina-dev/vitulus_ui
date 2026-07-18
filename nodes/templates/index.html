@@ -1259,6 +1259,7 @@ html, body {
       <span style="font-size: 13px;">Mowing zones of the active map</span>
       <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button">New zone</button>
     </div>
+    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Zones regenerate automatically after map edits.</div>
     <div id="div_zone_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
       <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
         <div style="width: 100%;"><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
@@ -1282,7 +1283,8 @@ html, body {
 </details>
 
 <!-- Polygons -->
-<details class="mapedit-sec">
+<!-- hidden 2026-07-18: superseded by map edits (free/obstacle) -->
+<details class="mapedit-sec" style="display:none;">
   <summary>Polygons</summary>
   <div class="mapedit-sec-body" id="tab-edit-poly">
     <div class="d-flex align-items-center" style="margin-bottom: 6px;">

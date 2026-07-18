@@ -434,7 +434,7 @@ window.MapEdits = (function () {
             spec.width_m = wi ? (parseFloat(wi.value) || 0.10) : 0.10;
         }
         if (_layer) _layer.saveEdit(spec);
-        _setHint('Saved (' + kind + ', ' + pts.length + ' pts). The map updates after merging.');
+        _setHint('Saved (' + kind + ', ' + pts.length + ' pts). Map + zone paths update in a few seconds.');
         _setTool('off');
     }
 
