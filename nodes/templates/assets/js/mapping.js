@@ -1843,13 +1843,15 @@ class MappingV3 {
 // the `open` attribute); a stored '1' re-opens them. Fully self-contained and
 // independent of the ROS map view.
 (function initMapTabSections() {
-    function wire() {
-        var secs = document.querySelectorAll('#tab-map details.map-sec');
+    // Wire one group of collapsible <details> to localStorage under a key
+    // prefix. `attr` names the data-* attribute carrying the section id.
+    function wireGroup(selector, attr, prefix) {
+        var secs = document.querySelectorAll(selector);
         for (var i = 0; i < secs.length; i++) {
             (function (d) {
-                var name = d.getAttribute('data-mapsec') || '';
+                var name = d.getAttribute(attr) || '';
                 if (!name) { return; }
-                var key = 'vitulus_maptab_' + name;
+                var key = prefix + name;
                 try {
                     var v = localStorage.getItem(key);
                     if (v === '1') { d.open = true; }
@@ -1860,6 +1862,12 @@ class MappingV3 {
                 });
             })(secs[i]);
         }
+    }
+    function wire() {
+        // Map tab (Phase 1)
+        wireGroup('#tab-map details.map-sec', 'data-mapsec', 'vitulus_maptab_');
+        // Phase 2 drawer panels (Path / Point / Dock / Rain / Loc)
+        wireGroup('details.drawer-sec', 'data-drawersec', 'vitulus_drawer_');
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', wire);

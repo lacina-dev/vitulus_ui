@@ -511,12 +511,12 @@ class ProgramListItemTemplate {
         this.area = item.area;
         this.last_duration = item.last_duration_minutes;
         this.element =  `
-            <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
-                <div class="input-group input-group-sm" style="width: 319px;">
+            <div class="col-auto prog-row-fluid" style="overflow: hidden;margin-bottom: 3px;">
+                <div class="input-group input-group-sm">
                     <button onclick="programs.show_program(${this.program})" class="btn btn-primary" type="button" style="width: 42px;">
                         <i class="fa fa-arrow-circle-right text-info"></i>
                     </button>
-                    <span class="text-info input-group-text" style="padding-left: 5px;width: 277.1562px;padding-right: 5px;font-size: 13px;">
+                    <span class="text-info input-group-text prog-name" style="padding-left: 5px;padding-right: 5px;font-size: 13px;">
                         <span class="text-info" style="font-size: 13px;">
                             ${this.name} ${this.area}
                         </span>

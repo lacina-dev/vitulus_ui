@@ -439,6 +439,90 @@ html, body {
 @media (max-width: 575.98px) {
     #ui_drawer, #ui_drawer.wide { width: 100vw; border-radius: 0; }
 }
+
+/* ===== Drawer panels shared redesign (Phase 2) =====
+   Brings Path / Point / Dock / Rain / Loc / Marker to the same design
+   language as #tab-map: compact primary bar + collapsible <details.drawer-sec>
+   sections. Mirrors #tab-map .map-sec / #div_map_detail .mapedit-sec. */
+#tab-path, #tab-point, #tab-dock, #tab-rain, #tab-gloc { font-size: 13px; max-width: 460px; }
+@media (max-width: 575.98px) {
+  #tab-path, #tab-point, #tab-dock, #tab-rain, #tab-gloc { max-width: 100%; }
+}
+/* Primary always-visible bar */
+.drawer-primary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 8px; }
+.drawer-primary .form-label { margin-bottom: 0; }
+.drawer-hint { font-size: 11px; opacity: .7; display: block; }
+/* Collapsible sections (native <details>) */
+details.drawer-sec {
+  border: 1px solid var(--bs-secondary);
+  border-radius: 5px;
+  margin-bottom: 6px;
+  background: rgba(0,0,0,0.15);
+}
+details.drawer-sec > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 6px 10px;
+  font-size: 13px; font-weight: 600;
+  color: var(--bs-info);
+  user-select: none;
+}
+details.drawer-sec > summary::-webkit-details-marker { display: none; }
+details.drawer-sec > summary::before {
+  content: "\25B8"; font-size: 12px; color: var(--bs-gray-500);
+  transition: transform .15s ease; flex: 0 0 auto;
+}
+details.drawer-sec[open] > summary::before { transform: rotate(90deg); }
+details.drawer-sec > .drawer-sec-body { padding: 4px 10px 10px; }
+details.drawer-sec > .drawer-sec-body hr { margin: 8px 0; }
+/* Touch-friendly controls in the redesigned tabs */
+#tab-path .btn, #tab-point .btn, #tab-dock .btn, #tab-rain .btn, #tab-gloc .btn,
+#div_menu_marker .btn { min-height: 34px; }
+#tab-path .form-control, #tab-point .form-control, #tab-dock .form-control,
+#tab-gloc .form-control, #tab-path .form-select, #tab-point .form-select,
+#tab-dock .form-select, #tab-gloc .form-select { min-height: 34px; font-size: 12px; }
+
+/* ===== Compact segmented pill tab strips (map / programs / settings) ===== */
+ul.nav-tabs.drawer-pills {
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: none;
+  padding: 3px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.25);
+}
+ul.nav-tabs.drawer-pills .nav-item { margin: 0; }
+ul.nav-tabs.drawer-pills .nav-link {
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 5px 12px !important;
+  font-size: 13px;
+  line-height: 1.1;
+  color: var(--bs-info);
+  background: transparent;
+  min-height: 32px;
+}
+ul.nav-tabs.drawer-pills .nav-link:hover { border-color: var(--bs-secondary); }
+ul.nav-tabs.drawer-pills .nav-link.active {
+  color: #fff;
+  background: var(--bs-primary);
+  border-color: var(--bs-info);
+}
+
+/* ===== Marker menu tighten ===== */
+#div_menu_marker .form-label { margin-bottom: 4px; }
+
+/* ===== Programs: fluid list/detail rows (no fixed px -> no mobile overflow) ===== */
+#div_menu_map_program .prog-row-fluid { width: 100% !important; max-width: 340px; }
+#div_menu_map_program .prog-row-fluid .input-group { width: 100% !important; }
+#div_menu_map_program .prog-row-fluid .prog-name {
+  flex: 1 1 auto; width: auto !important; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 575.98px) {
+  #div_menu_map_program .prog-row-fluid { max-width: 100%; }
+}
 </style>
 </head>
 
@@ -548,21 +632,26 @@ html, body {
                 <div class="row all-events" id="row_submenu" style="margin-right: 0px;margin-left: 0px;">
                     <div class="col" style="padding-right: 0px;padding-left: 0px;">
                         <div class="bg-primary border-primary" id="div_menu_marker" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 1%, var(--bs-primary)), var(--bs-secondary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;border: 1px solid var(--bs-info);border-top-style: none;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 8px;">
-                            <div class="row g-0">
-                                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="height: auto;margin-top: 8px;"><label class="form-label" style="font-size: 12px;margin-bottom: 4px;display: block;">Marker</label><button class="btn btn-primary btn-sm" id="btn_marker_send_goal" type="button">Send goal</button><button class="btn btn-warning btn-sm" id="btn_marker_cancel_navigation" type="button">Cancel navigation</button></div>
-                                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="display: block;height: auto;margin-top: 8px;"><label class="form-label" style="font-size: 12px;margin-bottom: 4px;display: block;">Marker orientation</label><input class="form-range bg-secondary border rounded-pill border-secondary" type="range" id="range_marker_orientation" min="0" max="6.28" step="0.05" value="0" style="padding: 12px;"></div>
+                            <div class="drawer-primary">
+                                <label class="form-label" style="font-size: 12px;">Marker</label>
+                                <button class="btn btn-primary btn-sm" id="btn_marker_send_goal" type="button">Send goal</button>
+                                <button class="btn btn-warning btn-sm" id="btn_marker_cancel_navigation" type="button">Cancel navigation</button>
+                            </div>
+                            <div style="margin-top: 4px;">
+                                <label class="form-label" style="font-size: 12px;">Marker orientation</label>
+                                <input class="form-range bg-secondary border rounded-pill border-secondary" type="range" id="range_marker_orientation" min="0" max="6.28" step="0.05" value="0" style="padding: 12px;width: 100%;">
                             </div>
                         </div>
                         <div class="border-primary" id="div_menu_map" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;display: none;">
                             <div>
                                 
-<ul class="nav nav-tabs d-flex d-xl-flex justify-content-start justify-content-xl-center" role="tablist" style="font-size: 13px;display: inline-flex;background: var(--bs-secondary-text-emphasis);">
-                                    <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-map" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Map</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-path" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Path</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-point" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Point</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-dock" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Dock</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-rain" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Rain</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-gloc" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Loc</a></li>
+<ul class="nav nav-tabs drawer-pills" role="tablist">
+                                    <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-map">Map</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-path">Path</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-point">Point</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-dock">Dock</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-rain">Rain</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-gloc">Loc</a></li>
                                 </ul>
                                 <div class="tab-content" style="overflow: clip;">
                                     <div class="tab-pane active" role="tabpanel" id="tab-map" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
@@ -714,123 +803,186 @@ html, body {
 <!-- map editor: polygons -->
 
 <div class="tab-pane" role="tabpanel" id="tab-path" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <div class="row g-0">
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Add path, current position as start</span>
-                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-road"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_path_new" style="width: 125px;" placeholder="Path name"><button class="btn btn-primary" id="btn_menu_path_new_save" type="button">New</button><button class="btn btn-primary" id="btn_menu_path_new_auto" type="button">&nbsp;New auto</button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Autopath stop</span><button class="btn btn-warning btn-sm" id="btn_menu_path_stop_auto" type="button">Stop auto</button></div>
-                                            <div class="col-auto" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Clear paths in map</span><button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button">Clear</button></div>
-                                            <div class="col" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Cancel navi</span><button class="btn btn-warning btn-sm" id="btn_menu_path_cancel" type="button">Cancel</button></div>
+                                        <!-- PRIMARY: saved paths list + run/cancel -->
+                                        <div class="drawer-primary">
+                                            <span class="drawer-hint">Saved paths</span>
+                                            <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_path_cancel" type="button" title="Cancel current navigation">Cancel navi</button>
                                         </div>
-                                        <hr>
                                         <div class="row g-0" id="div_menu_path_items_row" style="overflow: auto;">
                                             <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
                                                 <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 143.1562px;padding-right: 5px;font-size: 13px;">Path name</span><button class="btn btn-primary" type="button">Add</button><button class="btn btn-primary" type="button">Show</button><button class="btn btn-primary" type="button" style="width: 40px;"><i class="fa fa-remove text-danger"></i></button></div>
                                             </div>
                                         </div>
+                                        <details class="drawer-sec" data-drawersec="path_create">
+                                            <summary>Create &amp; record paths</summary>
+                                            <div class="drawer-sec-body">
+                                                <span class="drawer-hint" style="margin-bottom: 4px;">Add path, current position as start</span>
+                                                <div class="input-group input-group-sm" style="max-width: 340px;"><span class="input-group-text"><i class="fa fa-road"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_path_new" placeholder="Path name"><button class="btn btn-primary" id="btn_menu_path_new_save" type="button">New</button><button class="btn btn-primary" id="btn_menu_path_new_auto" type="button">New auto</button></div>
+                                                <hr>
+                                                <div class="d-flex align-items-center" style="gap: 8px;flex-wrap: wrap;">
+                                                    <button class="btn btn-warning btn-sm" id="btn_menu_path_stop_auto" type="button" title="Stop autopath recording">Stop auto</button>
+                                                    <button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button" title="Clear all paths in the map">Clear paths</button>
+                                                </div>
+                                            </div>
+                                        </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-point" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <div class="row g-0">
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Add current position as point</span>
-                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-map-marker"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_point_new" style="width: 125px;" placeholder="Point name"><button class="btn btn-primary" id="btn_menu_point_new_save" type="button">Add</button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Clear points in map</span><button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button">Clear</button></div>
-                                            <div class="col" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Cancel navi</span><button class="btn btn-warning btn-sm" id="btn_menu_point_cancel" type="button">Cancel</button></div>
+                                        <!-- PRIMARY: saved points list + cancel -->
+                                        <div class="drawer-primary">
+                                            <span class="drawer-hint">Saved points</span>
+                                            <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_point_cancel" type="button" title="Cancel current navigation">Cancel navi</button>
                                         </div>
-                                        <hr>
                                         <div class="row g-0" id="div_menu_point_items_row" style="overflow: auto;">
                                             <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
                                                 <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-map-marker text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 185.9219px;padding-right: 5px;font-size: 13px;">Point name</span><button class="btn btn-primary" type="button">Show</button><button class="btn btn-primary" type="button" style="width: 40px;"><i class="fa fa-remove text-danger"></i></button></div>
                                             </div>
                                         </div>
+                                        <details class="drawer-sec" data-drawersec="point_create">
+                                            <summary>Add &amp; manage points</summary>
+                                            <div class="drawer-sec-body">
+                                                <span class="drawer-hint" style="margin-bottom: 4px;">Add current position as point</span>
+                                                <div class="input-group input-group-sm" style="max-width: 340px;"><span class="input-group-text"><i class="fa fa-map-marker"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_point_new" placeholder="Point name"><button class="btn btn-primary" id="btn_menu_point_new_save" type="button">Add</button></div>
+                                                <hr>
+                                                <button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button" title="Clear all points in the map">Clear points</button>
+                                            </div>
+                                        </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-dock" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <div class="row g-0">
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Current map</span><label class="form-label" style="display: block;font-size: 14px;">Dock point</label>
-                                                <div class="btn-group" role="group" style="display: block;margin-bottom: 4px;"><button class="btn btn-primary btn-sm" id="map_dock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_dock_btn_update_point" type="button">Update</button></div><label class="form-label" style="display: block;font-size: 14px;">Undock point</label>
-                                                <div class="btn-group" role="group" style="display: block;"><button class="btn btn-primary btn-sm" id="map_undock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_undock_btn_update_point" type="button">Update</button></div>
+                                        <!-- PRIMARY: dock / undock actions + live status -->
+                                        <div style="margin-top: 8px;">
+                                            <div class="d-flex align-items-center" style="gap: 10px;flex-wrap: wrap;margin-bottom: 6px;">
+                                                <span class="drawer-hint" style="display: inline;">Dock by lidar map</span>
+                                                <div class="form-check form-check-inline" style="margin: 0;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="formCheck-1" style="font-size: 13px;">Enable</label></div>
+                                            </div>
+                                            <div class="d-flex align-items-center" style="gap: 4px;flex-wrap: wrap;">
+                                                <button class="btn btn-primary btn-sm" id="predock_btn_by_map" type="button">Predock</button>
+                                                <button class="btn btn-primary btn-sm" id="dock_btn_by_map" type="button">Dock</button>
+                                                <button class="btn btn-primary btn-sm" id="dock_btn_undock_by_map" type="button">Undock</button>
+                                                <button class="btn btn-danger btn-sm" id="dock_btn_by_map-stop" type="button">Stop</button>
+                                            </div>
+                                            <div id="dock_div_map_status" style="margin-top: 4px;"></div>
+                                            <div id="dock_div_map_image"></div>
+                                        </div>
+                                        <hr>
+                                        <div>
+                                            <div class="d-flex align-items-center" style="gap: 10px;flex-wrap: wrap;margin-bottom: 6px;">
+                                                <span class="drawer-hint" style="display: inline;">Dock by intensity</span>
+                                                <div class="form-check form-check-inline" style="margin: 0;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="formCheck-2" style="font-size: 13px;">Enable</label></div>
+                                            </div>
+                                            <div class="d-flex align-items-center" style="gap: 4px;flex-wrap: wrap;">
+                                                <button class="btn btn-primary btn-sm" id="dock_btn_by_intensity" type="button">Dock</button>
+                                                <button class="btn btn-primary btn-sm" id="undock_btn_by_intensity" type="button">Undock</button>
+                                                <button class="btn btn-danger btn-sm" id="dock_btn_by_intensity-stop" type="button">Stop</button>
+                                            </div>
+                                            <div id="dock_div_intensity_status" style="margin-top: 4px;"></div>
+                                            <div id="dock_div_intensity_image"></div>
+                                        </div>
+
+                                        <!-- SECTION: dock / undock points on the current map -->
+                                        <details class="drawer-sec" data-drawersec="dock_points">
+                                            <summary>Dock / undock points (current map)</summary>
+                                            <div class="drawer-sec-body">
+                                                <label class="form-label" style="display: block;font-size: 13px;">Dock point</label>
+                                                <div class="d-flex align-items-center" style="gap: 4px;margin-bottom: 6px;"><button class="btn btn-primary btn-sm" id="map_dock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_dock_btn_update_point" type="button">Update</button></div>
+                                                <label class="form-label" style="display: block;font-size: 13px;">Undock point</label>
+                                                <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="map_undock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_undock_btn_update_point" type="button">Update</button></div>
                                                 <hr>
                                                 <div id="map_dock_point_name"></div>
                                             </div>
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock by lidar map</span>
-                                                <div class="form-check" style="margin-bottom: 7px;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="formCheck-1" style="font-size: 15px;">Enable</label></div><button class="btn btn-primary btn-sm" id="predock_btn_by_map" type="button">Predock</button><button class="btn btn-primary btn-sm" id="dock_btn_by_map" type="button">Dock</button><button class="btn btn-primary btn-sm" id="dock_btn_undock_by_map" type="button">Undock</button><button class="btn btn-danger btn-sm" id="dock_btn_by_map-stop" type="button">Stop</button><span style="display: block;font-size: 12px;margin-bottom: 4px;margin-top: 5px;">Map mangement</span><button class="btn btn-primary btn-sm" id="dock_btn_new_map" type="button">New map</button><button class="btn btn-primary btn-sm" id="dock_btn_edit_map" type="button">Edit map</button><button class="btn btn-warning btn-sm" id="dock_btn_stop_mapping" type="button">Save map</button>
-                                                <hr>
-                                                <div id="dock_div_map_status"></div>
-                                                <div id="dock_div_map_image"></div>
+                                        </details>
+
+                                        <!-- SECTION: dock-detector map management -->
+                                        <details class="drawer-sec" data-drawersec="dock_mapping">
+                                            <summary>Dock detector map (new / edit / save)</summary>
+                                            <div class="drawer-sec-body">
+                                                <div class="d-flex align-items-center" style="gap: 4px;flex-wrap: wrap;"><button class="btn btn-primary btn-sm" id="dock_btn_new_map" type="button">New map</button><button class="btn btn-primary btn-sm" id="dock_btn_edit_map" type="button">Edit map</button><button class="btn btn-warning btn-sm" id="dock_btn_stop_mapping" type="button">Save map</button></div>
                                             </div>
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock by intensity</span>
-                                                <div class="form-check" style="margin-bottom: 5px;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="formCheck-2" style="font-size: 15px;">Enable</label></div><button class="btn btn-primary btn-sm" id="dock_btn_by_intensity" type="button">Dock</button><button class="btn btn-primary btn-sm" id="undock_btn_by_intensity" type="button">Undock</button><button class="btn btn-danger btn-sm" id="dock_btn_by_intensity-stop" type="button">Stop</button>
-                                                <hr>
-                                                <div id="dock_div_intensity_status"></div>
-                                                <div id="dock_div_intensity_image"></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Localization seed</span>
+                                        </details>
+
+                                        <!-- SECTION: localization seed -->
+                                        <details class="drawer-sec" data-drawersec="dock_seed">
+                                            <summary>Localization seed</summary>
+                                            <div class="drawer-sec-body">
                                                 <div id="dock_div_seed_status"></div>
                                             </div>
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock program</span>
+                                        </details>
+
+                                        <!-- SECTION: dock program config -->
+                                        <details class="drawer-sec" data-drawersec="dock_program">
+                                            <summary>Dock program</summary>
+                                            <div class="drawer-sec-body">
                                                 <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_map"><label class="form-check-label" for="formCheck-1" style="font-size: 14px;">Use dock map point</label></div>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_lidar_map"><label class="form-check-label" for="formCheck-3" style="font-size: 14px;">Use lidar map path</label></div><select id="program_dock_select_lidar_path">
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_lidar_map"><label class="form-check-label" for="formCheck-3" style="font-size: 14px;">Use lidar map path</label></div><select class="form-select form-select-sm" id="program_dock_select_lidar_path" style="max-width: 200px;">
                                                     <option value="PREDOCK" selected="">PREDOCK</option>
                                                     <option value="DOCK">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_intensity"><label class="form-check-label" for="formCheck-2" style="font-size: 14px;">Use intensity action</label></div><select id="program_dock_select_intesity_action" style="margin-bottom: 7px;display: block;">
+                                                <div class="form-check" style="margin-top: 5px;"><input class="form-check-input" type="checkbox" id="program_dock_check_intensity"><label class="form-check-label" for="formCheck-2" style="font-size: 14px;">Use intensity action</label></div><select class="form-select form-select-sm" id="program_dock_select_intesity_action" style="margin-bottom: 7px;max-width: 200px;">
                                                     <option value="DOCK" selected="">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="btn-group" role="group"><button class="btn btn-primary btn-sm" id="program_dock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_dock_btn_save" type="button">Save</button></div>
+                                                <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="program_dock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_dock_btn_save" type="button">Save</button></div>
                                                 <hr>
                                                 <div id="program_dock_div_status"></div>
                                             </div>
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Undock program</span>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_intensity"><label class="form-check-label" for="program_dock_check_intensity-1" style="font-size: 14px;">Use intensity action</label></div><select id="program_predock_select_intesity_action" style="margin-bottom: 7px;">
+                                        </details>
+
+                                        <!-- SECTION: undock program config -->
+                                        <details class="drawer-sec" data-drawersec="undock_program">
+                                            <summary>Undock program</summary>
+                                            <div class="drawer-sec-body">
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_intensity"><label class="form-check-label" for="program_dock_check_intensity-1" style="font-size: 14px;">Use intensity action</label></div><select class="form-select form-select-sm" id="program_predock_select_intesity_action" style="margin-bottom: 7px;max-width: 200px;">
                                                     <option value="DOCK" selected="">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_lidar_map"><label class="form-check-label" for="program_dock_check_lidar_map-1" style="font-size: 14px;">Use lidar map path</label></div><select id="program_predock_select_lidar_path">
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_lidar_map"><label class="form-check-label" for="program_dock_check_lidar_map-1" style="font-size: 14px;">Use lidar map path</label></div><select class="form-select form-select-sm" id="program_predock_select_lidar_path" style="max-width: 200px;">
                                                     <option value="PREDOCK" selected="">PREDOCK</option>
                                                     <option value="DOCK">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_map"><label class="form-check-label" for="program_dock_check_map-1" style="font-size: 14px;">Use undock map point</label></div>
-                                                <div class="btn-group" role="group"><button class="btn btn-primary btn-sm" id="program_undock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_undock_btn_save" type="button">Save</button></div>
+                                                <div class="form-check" style="margin-top: 5px;"><input class="form-check-input" type="checkbox" id="program_predock_check_map"><label class="form-check-label" for="program_dock_check_map-1" style="font-size: 14px;">Use undock map point</label></div>
+                                                <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="program_undock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_undock_btn_save" type="button">Save</button></div>
                                                 <hr>
                                                 <div id="program_predock_div_status"></div>
                                             </div>
-                                        </div>
+                                        </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-rain" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <div class="row g-0">
-                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Report</label>
-                                                <div id="rain_div_report"></div>
-                                            </div>
-                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Rain now</label>
-                                                <div id="rain_div_map"></div>
-                                            </div>
-                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Forecast: Now, Now + 10, 20, 30 min.&nbsp;</label>
+                                        <!-- PRIMARY: current rain snapshot -->
+                                        <div style="margin-top: 8px;">
+                                            <span class="drawer-hint" style="margin-bottom: 4px;">Rain now</span>
+                                            <div id="rain_div_map"></div>
+                                        </div>
+                                        <details class="drawer-sec" data-drawersec="rain_forecast">
+                                            <summary>Forecast (now, +10 / 20 / 30 min)</summary>
+                                            <div class="drawer-sec-body">
                                                 <div id="rain_div_forecast"></div>
                                             </div>
-                                        </div>
+                                        </details>
+                                        <details class="drawer-sec" data-drawersec="rain_report">
+                                            <summary>Weather report</summary>
+                                            <div class="drawer-sec-body">
+                                                <div id="rain_div_report"></div>
+                                            </div>
+                                        </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-gloc" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <div class="row g-0" style="align-items: center;">
-                                            <div class="col-auto" style="margin-top: 8px;margin-right: 10px;">
-                                                <span style="display: block;font-size: 12px;margin-bottom: 4px;">Lidar global localization (scan vs. map)</span>
-                                                <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button" style="margin-right: 6px;">Localize</button>
-                                                <div class="form-check form-check-inline" style="margin-left: 4px;">
-                                                    <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
-                                                    <label class="form-check-label" for="gloc_chk_auto" style="font-size: 13px;">auto 5s</label>
-                                                </div>
-                                                <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled style="margin-right: 6px;">Apply&nbsp;&rarr;&nbsp;robot</button>
-                                                <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled>Force</button>
+                                        <!-- PRIMARY: status + main localize action -->
+                                        <span class="drawer-hint" style="margin-top: 8px;">Lidar global localization (scan vs. map)</span>
+                                        <div class="drawer-primary" style="margin-top: 4px;">
+                                            <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button">Localize</button>
+                                            <div class="form-check form-check-inline" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
+                                                <label class="form-check-label" for="gloc_chk_auto" style="font-size: 13px;">auto 5s</label>
                                             </div>
-                                            <div class="col-auto" style="margin-top: 8px;">
-                                                <span style="display: block;font-size: 12px;margin-bottom: 4px;">Status</span>
-                                                <span id="gloc_status" style="font-size: 13px;">waiting for gloc_server...</span>
-                                            </div>
+                                            <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled>Apply&nbsp;&rarr;&nbsp;robot</button>
+                                            <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled>Force</button>
                                         </div>
-                                        <div class="row g-0" style="margin-top: 6px;">
-                                            <div class="col-auto" style="margin-right: 14px;">
+                                        <div style="margin-bottom: 4px;"><span class="drawer-hint" style="display: inline;">Status:&nbsp;</span><span id="gloc_status" style="font-size: 13px;">waiting for gloc_server...</span></div>
+
+                                        <details class="drawer-sec" data-drawersec="gloc_detail">
+                                            <summary>Hypothesis detail &amp; candidates</summary>
+                                            <div class="drawer-sec-body">
                                                 <table style="font-size: 13px;border-spacing: 6px 2px;border-collapse: separate;">
                                                     <tbody>
                                                     <tr><td style="opacity:.7;">Best hypothesis</td><td id="gloc_best">&mdash;</td></tr>
@@ -845,11 +997,14 @@ html, body {
                                                     <tbody id="gloc_top_tbody"></tbody>
                                                 </table>
                                             </div>
-                                            <div class="col-auto">
-                                                <label class="form-label" style="font-size: 13px;margin-bottom: 2px;">Score heatmap (yellow = better match; blue cross = best, red cross = robot)</label>
-                                                <div><img id="gloc_heatmap_img" style="max-width: 420px;max-height: calc(100vh - 260px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
+                                        </details>
+                                        <details class="drawer-sec" data-drawersec="gloc_heatmap">
+                                            <summary>Score heatmap</summary>
+                                            <div class="drawer-sec-body">
+                                                <label class="form-label" style="font-size: 12px;margin-bottom: 2px;opacity: .8;">yellow = better match; blue cross = best, red cross = robot</label>
+                                                <div><img id="gloc_heatmap_img" style="max-width: 100%;max-height: calc(100vh - 260px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
                                             </div>
-                                        </div>
+                                        </details>
                                     </div>
                                 </div>
                             </div>
@@ -857,7 +1012,7 @@ html, body {
                         <div class="border-primary" id="div_menu_map_point" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;"></div>
                         <div class="border-primary" id="div_menu_map_path" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;"></div>
                         <div class="border-primary" id="div_menu_map_program" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;overflow: auto;max-height: calc(100vh - 105px);">
-<ul class="nav nav-tabs justify-content-center" role="tablist" style="font-size: 13px;background: var(--bs-secondary-text-emphasis);margin-bottom: 6px;"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs" style="padding: 5px 14px;">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_calendar" style="padding: 5px 14px;">Calendar</a></li></ul>
+<ul class="nav nav-tabs drawer-pills" role="tablist" style="margin-bottom: 6px;"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_calendar">Calendar</a></li></ul>
 <div class="tab-content">
 <div class="tab-pane active" role="tabpanel" id="tab_programs">
                             <div class="row align-items-end" style="margin-bottom: 3px;">
@@ -865,8 +1020,8 @@ html, body {
                                 <div class="col-auto ms-auto" style="margin-top: 8px;"><button class="btn btn-primary btn-sm text-info" id="btn_program_new_prog" type="button" onclick="programs.newProgram()" style="font-size: 11px;">New program</button></div>
                             </div>
                             <div class="row" id="div_menu_program_items_row" style="overflow: auto;">
-                                <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;width: 343px;">
-                                    <div class="input-group input-group-sm" style="width: 319px;"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 277.1562px;padding-right: 5px;font-size: 13px;"><span class="text-info" style="font-size: 13px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</span><span class="text-info" style="font-size: 13px;padding-left: 3px;">m</span><span class="text-info" style="font-size: 9px;">2</span></span></div>
+                                <div class="col-auto prog-row-fluid" style="overflow: hidden;margin-bottom: 3px;">
+                                    <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text prog-name" style="padding-left: 5px;padding-right: 5px;font-size: 13px;"><span class="text-info" style="font-size: 13px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</span><span class="text-info" style="font-size: 13px;padding-left: 3px;">m</span><span class="text-info" style="font-size: 9px;">2</span></span></div>
                                 </div>
                             </div>
                             <div class="row" id="div_menu_program_detail_row" style="display: block;">
@@ -1115,14 +1270,14 @@ html, body {
                             <div class="row">
                                 <div class="col" style="margin-top: 8px;padding-right: 2px;padding-left: 2px;">
                                     <div>
-                                        <ul class="nav nav-tabs d-flex d-xl-flex justify-content-start justify-content-xl-center" role="tablist" style="font-size: 13px;display: inline-flex;background: var(--bs-secondary-text-emphasis);">
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_motors" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Motors</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_lidar" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Navi</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_power" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Power</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_mower" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Mower</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Diag</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Rosbag</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">IMU</a></li>
+                                        <ul class="nav nav-tabs drawer-pills" role="tablist">
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_motors">Motors</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_lidar">Navi</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_power">Power</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_mower">Mower</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag">Diag</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag">Rosbag</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu">IMU</a></li>
                                         </ul>
                                         <div class="tab-content" style="display: block;position: relative;">
                                             <div class="tab-pane fade" role="tabpanel" id="tab_motors" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
