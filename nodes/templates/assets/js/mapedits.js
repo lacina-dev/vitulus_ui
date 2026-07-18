@@ -642,6 +642,7 @@ window.MapEdits = (function () {
     function _teardownTool() {
         // detach + clear the shared polygon if we were drawing edits
         var P = sharedPolygon();
+        if (P) { P.openLine = false; }   // zones/polygons draw closed again
         if (P && P.attached && _ov) {
             try { _ov.scene.removeChild(P); } catch (e) {}
             _clearPolygon(P);
@@ -670,6 +671,8 @@ window.MapEdits = (function () {
             var P = sharedPolygon();
             if (!P) { _setHint('Editor not ready — open the map editor and try again.'); _setTool('off'); return; }
             _clearPolygon(P);
+            // path + barrier are open polylines - no closing edge, no fill
+            P.openLine = (_tool === 'path' || _tool === 'edit_wall');
             try { _ov.scene.addChild(P); } catch (e) {}   // grabs the mouse via setDrawing(true)
             if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');

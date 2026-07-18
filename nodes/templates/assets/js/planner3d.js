@@ -477,13 +477,15 @@ window.Planner3D = (function () {
                 vm.material = (i === 0) ? this._firstVertMat : this._vertMat;
             }
             this._updateVertexScale();
-            // edges (line loop as segments)
+            // edges (line loop as segments; openLine=true draws an open chain
+            // without the closing segment - used by the path/barrier tools)
             var seg = [];
-            if (n >= 2) for (i = 0; i < n; i++) { var a = this._worldOf(i), b = this._worldOf((i + 1) % n); seg.push(a.x, a.y, 0, b.x, b.y, 0); }
+            var eN = this.openLine ? (n - 1) : n;
+            if (n >= 2) for (i = 0; i < eN; i++) { var a = this._worldOf(i), b = this._worldOf((i + 1) % n); seg.push(a.x, a.y, 0, b.x, b.y, 0); }
             this.edgeLine.geometry.setAttribute('position', new T.Float32BufferAttribute(seg, 3));
             this.edgeLine.geometry.computeBoundingSphere();
             // fill
-            if (n >= 3) {
+            if (n >= 3 && !this.openLine) {
                 var shape = new T.Shape();
                 var w0 = this._worldOf(0); shape.moveTo(w0.x, w0.y);
                 for (i = 1; i < n; i++) { var wi = this._worldOf(i); shape.lineTo(wi.x, wi.y); }
