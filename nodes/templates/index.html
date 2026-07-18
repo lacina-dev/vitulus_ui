@@ -425,7 +425,8 @@ html, body {
                                 <div class="tab-content" style="overflow: clip;">
                                     <div class="tab-pane active" role="tabpanel" id="tab-map" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
                                         <div class="row g-0">
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">New map</span>
+                                            <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
+                                            <div class="col-auto" style="display:none;height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">New map</span>
                                                 <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-baseline" id="btn_menu_map_new_indoor" type="button" style="width: 55px;">&nbsp;<i class="material-icons" style="font-size: 18px;">home</i></button><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-middle" id="btn_menu_map_new_outdoor" type="button" style="width: 55px;">&nbsp;<i class="fa fa-tree"></i></button></div>
                                             </div>
                                             <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Save map as</span>
@@ -437,7 +438,8 @@ html, body {
                                             <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Map</span>
                                                 <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button></div>
                                             </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap</span>
+                                            <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
+                                            <div class="col-auto" style="display:none;height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap</span>
                                                 <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button">Localization</button></div>
                                             </div>
                                             <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Active map</span>
@@ -1214,125 +1216,125 @@ html, body {
 
 <!-- A. Sticky header -->
 <div class="d-flex align-items-center" style="position: sticky;top: 0;z-index: 20;gap: 8px;padding: 8px 10px;background: var(--bs-gray-900);border-bottom: 1px solid var(--bs-secondary);">
-  <span class="text-uppercase fw-bold text-info" style="font-size: 14px;letter-spacing: .5px;white-space: nowrap;">Úprava mapy</span>
-  <span id="map_detail_site" class="text-truncate" style="font-size: 12px;color: var(--bs-gray-400);flex: 1 1 auto;min-width: 0;" title="Právě obsluhovaná mapa">—</span>
-  <button class="btn btn-outline-warning" id="btn_map_detail_close" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 20px;line-height: 1;" title="Zavřít editor">&times;</button>
+  <span class="text-uppercase fw-bold text-info" style="font-size: 14px;letter-spacing: .5px;white-space: nowrap;">Map editor</span>
+  <span id="map_detail_site" class="text-truncate" style="font-size: 12px;color: var(--bs-gray-400);flex: 1 1 auto;min-width: 0;" title="Currently served map">—</span>
+  <button class="btn btn-outline-warning" id="btn_map_detail_close" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 20px;line-height: 1;" title="Close editor">&times;</button>
 </div>
 
 <div style="padding: 8px 10px;">
 
-<!-- B. NÁSTROJE (tool grid) + C. KONTEXT AKTIVNÍHO NÁSTROJE — both built by mapedits.js -->
+<!-- B. TOOLS (tool grid) + C. ACTIVE TOOL CONTEXT — both built by mapedits.js -->
 <div id="mapedit_tools" style="margin-bottom: 8px;"></div>
 <div id="mapedit_context" style="margin-bottom: 10px;"></div>
 
 <!-- D. Collapsible sections (all collapsed by default) -->
 
-<!-- Edity mapy -->
+<!-- Map edits -->
 <details class="mapedit-sec">
-  <summary>Edity mapy</summary>
+  <summary>Map edits</summary>
   <div class="mapedit-sec-body">
-    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Ruční úpravy mapy (překážka / volno / zeď). Klikni na položku pro smazání.</div>
+    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Manual map edits (obstacle / free / wall). Click an item to delete it.</div>
     <div id="mapedit_edit_list"></div>
     <div id="mapedit_editctl" style="margin-top: 6px;"></div>
   </div>
 </details>
 
-<!-- Waypointy -->
+<!-- Waypoints -->
 <details class="mapedit-sec">
-  <summary>Waypointy</summary>
+  <summary>Waypoints</summary>
   <div class="mapedit-sec-body">
-    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Aktivuj nástroj <b>Waypoint</b> a klikni do mapy pro přidání. Zde přesuň / smaž existující.</div>
+    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Activate the <b>Waypoint</b> tool and click the map to add one. Move / delete existing ones here.</div>
     <div id="mapedit_wp_list"></div>
   </div>
 </details>
 
-<!-- Zóny -->
+<!-- Zones -->
 <details class="mapedit-sec">
-  <summary>Zóny</summary>
+  <summary>Zones</summary>
   <div class="mapedit-sec-body" id="tab-edit-zone">
     <div class="d-flex align-items-center" style="margin-bottom: 6px;">
-      <span style="font-size: 13px;">Zóny sečení aktivní mapy</span>
-      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button">Nová zóna</button>
+      <span style="font-size: 13px;">Mowing zones of the active map</span>
+      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button">New zone</button>
     </div>
     <div id="div_zone_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
       <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
-        <div style="width: 100%;"><span style="font-size: 12px;">Název</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
-        <div><span style="font-size: 12px;display: block;">Výška sečení</span>
+        <div style="width: 100%;"><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
+        <div><span style="font-size: 12px;display: block;">Cut height</span>
           <div class="input-group input-group-sm" style="width: 100px;"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
         </div>
-        <div><span style="font-size: 12px;display: block;">Otáčky (rpm)</span><input class="form-control form-control-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300" style="width: 90px;"></div>
-        <div id="header_zone_template_border_path"><span style="font-size: 12px;display: block;">Dráhy kolem překážek</span><input class="form-control form-control-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2" style="width: 80px;"></div>
-        <div id="header_zone_template_coverage_path"><span style="font-size: 12px;display: block;">Úhel pokrytí (°)</span><input class="form-control form-control-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160" style="width: 80px;"></div>
-        <div><span style="font-size: 12px;display: block;">Rozteč drah (m)</span><input class="form-control form-control-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2" style="width: 80px;"></div>
-        <div><span style="font-size: 12px;display: block;">Zjednodušení (m)</span><input class="form-control form-control-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1" style="width: 80px;"></div>
+        <div><span style="font-size: 12px;display: block;">RPM</span><input class="form-control form-control-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300" style="width: 90px;"></div>
+        <div id="header_zone_template_border_path"><span style="font-size: 12px;display: block;">Paths around obstacles</span><input class="form-control form-control-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2" style="width: 80px;"></div>
+        <div id="header_zone_template_coverage_path"><span style="font-size: 12px;display: block;">Coverage angle (°)</span><input class="form-control form-control-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160" style="width: 80px;"></div>
+        <div><span style="font-size: 12px;display: block;">Path spacing (m)</span><input class="form-control form-control-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2" style="width: 80px;"></div>
+        <div><span style="font-size: 12px;display: block;">Simplify (m)</span><input class="form-control form-control-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1" style="width: 80px;"></div>
         <div id="header_zone_template_path_list" style="display: none;"></div>
       </div>
       <div class="d-flex" style="gap: 6px;margin-top: 8px;">
-        <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button">Uložit</button>
-        <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button">Zrušit</button>
+        <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button">Save</button>
+        <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button">Cancel</button>
       </div>
     </div>
     <div id="div_zone_list"></div>
   </div>
 </details>
 
-<!-- Polygony -->
+<!-- Polygons -->
 <details class="mapedit-sec">
-  <summary>Polygony</summary>
+  <summary>Polygons</summary>
   <div class="mapedit-sec-body" id="tab-edit-poly">
     <div class="d-flex align-items-center" style="margin-bottom: 6px;">
-      <span style="font-size: 13px;">Volné / překážkové polygony (planner)</span>
-      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button">Nový polygon</button>
+      <span style="font-size: 13px;">Free / obstacle polygons (planner)</span>
+      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button">New polygon</button>
     </div>
     <div id="div_poly_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;align-items: end;gap: 8px;flex-wrap: wrap;">
-      <div><span style="font-size: 12px;">Název</span><input class="form-control form-control-sm" id="input_poly_template_name" type="text" placeholder="Polygon name" style="width: 160px;"></div>
-      <div><span style="font-size: 12px;">Typ</span><select class="form-select form-select-sm" id="input_poly_template_type" style="width: 120px;">
+      <div><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_poly_template_name" type="text" placeholder="Polygon name" style="width: 160px;"></div>
+      <div><span style="font-size: 12px;">Type</span><select class="form-select form-select-sm" id="input_poly_template_type" style="width: 120px;">
         <option value="obstacle">obstacle</option>
         <option value="free">free</option>
       </select></div>
       <div class="d-flex" style="gap: 6px;">
-        <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button">Uložit</button>
-        <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button">Zrušit</button>
+        <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button">Save</button>
+        <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button">Cancel</button>
       </div>
     </div>
     <div id="div_poly_list"></div>
   </div>
 </details>
 
-<!-- Pokročilé (planner) -->
+<!-- Advanced (planner) -->
 <details class="mapedit-sec">
-  <summary>Pokročilé (planner)</summary>
+  <summary>Advanced (planner)</summary>
   <div class="mapedit-sec-body">
-    <div class="text-uppercase fw-bold" style="font-size: 11px;letter-spacing: .5px;color: var(--bs-gray-400);margin-bottom: 6px;">Aktivní mapa</div>
+    <div class="text-uppercase fw-bold" style="font-size: 11px;letter-spacing: .5px;color: var(--bs-gray-400);margin-bottom: 6px;">Active map</div>
     <div class="d-flex flex-wrap" style="gap: 6px;margin-bottom: 6px;">
-      <button class="btn btn-primary btn-sm" id="btn_save_planner_data" type="button">Uložit data</button>
-      <button class="btn btn-primary btn-sm" id="btn_load_planner_data" type="button">Načíst data</button>
-      <button class="btn btn-primary btn-sm" id="btn_reload_map" type="button">Znovu načíst</button>
+      <button class="btn btn-primary btn-sm" id="btn_save_planner_data" type="button">Save data</button>
+      <button class="btn btn-primary btn-sm" id="btn_load_planner_data" type="button">Load data</button>
+      <button class="btn btn-primary btn-sm" id="btn_reload_map" type="button">Reload</button>
     </div>
     <div id="div_log" style="font-size: 12px;color: var(--bs-info);min-height: 16px;margin-bottom: 8px;padding-left: 2px;"><span id="log-2">Initialized</span></div>
 
     <hr style="margin: 6px 0;border-color: var(--bs-secondary);">
     <div style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 8px;">
       <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
-        <div><span style="font-size: 12px;display: block;">Filtr šumu ve volnu</span>
+        <div><span style="font-size: 12px;display: block;">Free-space noise filter</span>
           <div class="input-group input-group-sm" style="width: 96px;"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
         </div>
-        <div><span style="font-size: 12px;display: block;">Okraj překážky</span>
+        <div><span style="font-size: 12px;display: block;">Obstacle margin</span>
           <div class="input-group input-group-sm" style="width: 96px;"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
         </div>
-        <div><span style="font-size: 12px;display: block;">Tvar výplně</span><select class="form-select form-select-sm" id="input_fill_shape" style="width: 110px;">
+        <div><span style="font-size: 12px;display: block;">Fill shape</span><select class="form-select form-select-sm" id="input_fill_shape" style="width: 110px;">
           <option value="square">square</option>
           <option value="ellipse" selected="">ellipse</option>
         </select></div>
       </div>
       <div class="d-flex flex-wrap" style="gap: 6px;margin-top: 8px;">
-        <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button">Sestavit mapu</button>
-        <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button">Dráha tenká</button>
-        <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button">Dráha footprint</button>
+        <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button">Assemble map</button>
+        <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button">Path thin</button>
+        <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button">Path footprint</button>
       </div>
     </div>
 
-    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Zobrazit vrstvu mapy</span></div>
+    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show map layer</span></div>
     <div class="btn-group btn-group-sm flex-wrap" role="group" style="margin-bottom: 8px;">
       <button class="btn btn-outline-primary" id="btn_show_original" type="button">Original</button>
       <button class="btn btn-outline-primary" id="btn_show_fill" type="button">Free</button>
@@ -1341,7 +1343,7 @@ html, body {
       <button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button">Semi assembled</button>
       <button class="btn btn-outline-primary" id="btn_show_assembled" type="button">Assembled</button>
     </div>
-    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Zobrazit vrstvu zón</span></div>
+    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show zone layer</span></div>
     <div class="btn-group btn-group-sm" role="group">
       <button class="btn btn-outline-info" id="btn_show_zone_map" type="button">Zone</button>
       <button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button">Path</button>
@@ -1354,7 +1356,7 @@ html, body {
 
 <!-- E. Sticky footer -->
 <div style="position: sticky;bottom: 0;z-index: 20;padding: 8px 10px;background: var(--bs-gray-900);border-top: 1px solid var(--bs-secondary);">
-  <button class="btn btn-warning w-100 fw-bold" id="btn_map_detail_close_footer" type="button" style="min-height: 44px;font-size: 14px;">Zavřít editor</button>
+  <button class="btn btn-warning w-100 fw-bold" id="btn_map_detail_close_footer" type="button" style="min-height: 44px;font-size: 14px;">Close editor</button>
 </div>
 </div>
 
