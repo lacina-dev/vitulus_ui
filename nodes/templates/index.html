@@ -297,6 +297,43 @@ html, body {
 #div_map_detail .met-tool.btn { min-height: 52px; }
 #div_map_detail .form-control, #div_map_detail .form-select { min-height: 38px; font-size: 13px; }
 #div_map_detail .input-group-sm > .form-control, #div_map_detail .input-group-sm > .input-group-text { min-height: 34px; }
+
+/* ===== Map tab (#tab-map) compact redesign ===== */
+#tab-map { font-size: 13px; max-width: 460px; }
+@media (max-width: 575.98px) {
+  #tab-map { max-width: 100%; }
+}
+/* Primary always-visible bars */
+#tab-map .map-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 6px; }
+#tab-map .map-layers-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-bottom: 8px; }
+#tab-map .map-layers-row .form-check-inline { margin-right: 0; }
+/* Collapsible sections (native <details>) — mirrors #div_map_detail .mapedit-sec */
+#tab-map details.map-sec {
+  border: 1px solid var(--bs-secondary);
+  border-radius: 5px;
+  margin-bottom: 6px;
+  background: rgba(0,0,0,0.15);
+}
+#tab-map details.map-sec > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 6px 10px;
+  font-size: 13px; font-weight: 600;
+  color: var(--bs-info);
+  user-select: none;
+}
+#tab-map details.map-sec > summary::-webkit-details-marker { display: none; }
+#tab-map details.map-sec > summary::before {
+  content: "\25B8"; font-size: 12px; color: var(--bs-gray-500);
+  transition: transform .15s ease; flex: 0 0 auto;
+}
+#tab-map details.map-sec[open] > summary::before { transform: rotate(90deg); }
+#tab-map details.map-sec > .map-sec-body { padding: 4px 10px 10px; }
+/* Touch-friendly controls */
+#tab-map .btn { min-height: 34px; }
+#tab-map .form-control, #tab-map .form-select { min-height: 34px; font-size: 12px; }
+#tab-map .input-group-sm > .form-control, #tab-map .input-group-sm > .input-group-text { min-height: 32px; }
 </style>
 </head>
 
@@ -424,140 +461,145 @@ html, body {
                                 </ul>
                                 <div class="tab-content" style="overflow: clip;">
                                     <div class="tab-pane active" role="tabpanel" id="tab-map" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <div class="row g-0">
-                                            <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
-                                            <div class="col-auto" style="display:none;height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">New map</span>
-                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-baseline" id="btn_menu_map_new_indoor" type="button" style="width: 55px;">&nbsp;<i class="material-icons" style="font-size: 18px;">home</i></button><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-middle" id="btn_menu_map_new_outdoor" type="button" style="width: 55px;">&nbsp;<i class="fa fa-tree"></i></button></div>
-                                            </div>
-                                            <!-- hidden 2026-07-18: legacy navi-map management, superseded by mapping v3 sites (files still used at runtime until site_native flip) -->
-                                            <div class="col-auto" style="display:none;height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Save map as</span>
-                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -32 576 576" width="1em" height="1em" fill="currentColor">
-                                                            <!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc. -->
-                                                            <path d="M565.6 36.2C572.1 40.7 576 48.1 576 56V392c0 10-6.2 18.9-15.5 22.4l-168 64c-5.2 2-10.9 2.1-16.1 .3L192.5 417.5l-160 61c-7.4 2.8-15.7 1.8-22.2-2.7S0 463.9 0 456V120c0-10 6.1-18.9 15.5-22.4l168-64c5.2-2 10.9-2.1 16.1-.3L383.5 94.5l160-61c7.4-2.8 15.7-1.8 22.2 2.7zM48 136.5V421.2l120-45.7V90.8L48 136.5zM360 422.7V137.3l-144-48V374.7l144 48zm48-1.5l120-45.7V90.8L408 136.5V421.2z"></path>
-                                                        </svg></span><input class="bg-secondary form-control" type="text" id="input_menu_map_new" style="width: 125px;" placeholder="Map name"><button class="btn btn-primary" id="btn_menu_map_new_save" type="button">Save</button></div>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Map</span>
-                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button></div>
-                                            </div>
-                                            <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
-                                            <div class="col-auto" style="display:none;height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap</span>
-                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button">Localization</button></div>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Active map</span>
-                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-info" id="active_map_name" style="font-size: 13px;margin-right: 8px;">Map name</span><button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit map detail (planner data, zones, polygons)"><i class="la la-edit text-info" style="font-size: 16px;"></i><span class="text-info" style="font-size: 12px;margin-left: 6px;">Edit map</span></button></div>
+                                        <!-- PRIMARY BAR (always visible): active map + editor entry + display source -->
+                                        <div class="map-top">
+                                            <span class="text-info" id="active_map_name" style="font-size: 13px;font-weight: 600;">Map name</span>
+                                            <button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit map detail (planner data, zones, polygons)"><i class="la la-edit text-info" style="font-size: 15px;"></i><span class="text-info" style="font-size: 12px;margin-left: 5px;">Edit</span></button>
+                                            <div class="btn-group btn-group-sm ms-auto" role="group" title="Display source of the occupancy map">
+                                                <button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button>
+                                                <button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button>
                                             </div>
                                         </div>
-                                        <hr>
-                                        <div class="row g-0" style="align-items: flex-start;">
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Mapping v3 &mdash; terrain &amp; obstacles (RTK-gated)</span>
-                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-tree"></i></span><input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="Site (garden) name" style="width: 140px;"><datalist id="mapv3_sites"></datalist><button class="btn btn-primary" id="mapv3_btn_start" type="button">Start</button><button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled>Stop</button><button class="btn btn-primary" id="mapv3_btn_serve" type="button" title="Serve this site's saved map for localization (empty = newest)">Serve</button></div>
+                                        <!-- LAYER QUICK-TOGGLES (always visible) -->
+                                        <div class="map-layers-row">
+                                            <span style="font-size: 11px;opacity: .7;">Layers</span>
+                                            <div class="form-check form-check-inline" title="Saved map obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved <span style="color:#ff4d4d;">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="Live mapping obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live <span style="color:#ff7800;">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="Terrain elevation plane (blue = low, red = high)"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label" for="mapv3_chk_terrain" style="font-size: 12px;">Terrain <span style="background:linear-gradient(90deg,#3060ff,#30ff90,#ff3030);color:transparent;">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="Aerial / satellite tiles (MapProxy)"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label" for="mapv3_chk_aerial" style="font-size: 12px;">Aerial <span style="color:#8fd14f;">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="&#268;HM&Uacute; rain radar overlay"><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label" for="mapv3_chk_rain" style="font-size: 12px;">Rain <span style="color:#0000fc;">&#9632;</span></label></div>
+                                        </div>
+
+                                        <!-- SECTION: Mapping session -->
+                                        <details class="map-sec" data-mapsec="session">
+                                            <summary>Mapping session</summary>
+                                            <div class="map-sec-body">
+                                                <div class="input-group input-group-sm" style="max-width: 420px;">
+                                                    <span class="input-group-text"><i class="fa fa-tree"></i></span>
+                                                    <input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="Site (garden) name">
+                                                    <datalist id="mapv3_sites"></datalist>
+                                                    <button class="btn btn-primary" id="mapv3_btn_start" type="button">Start</button>
+                                                    <button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled>Stop</button>
+                                                    <button class="btn btn-primary" id="mapv3_btn_serve" type="button" title="Serve this site's saved map for localization (empty = newest)">Serve</button>
+                                                </div>
                                                 <span id="mapv3_run_status" style="font-size: 12px;display: block;margin-top: 4px;">waiting for mapping_manager&hellip;</span>
                                                 <span id="mapv3_serving_status" style="font-size: 12px;display: block;margin-top: 2px;">serving: &mdash;</span>
+
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="RTK = insert only at RTK FIXED (normal mapping); Force = insert without RTK (garage clean pass); Off = pause insertion">Insertion gate</div>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <button class="btn btn-primary" id="mapv3_btn_mode_rtk" type="button" disabled title="Insert only at RTK FIXED (normal mapping)">RTK</button>
+                                                    <button class="btn btn-primary" id="mapv3_btn_mode_force" type="button" disabled title="Force insertion without RTK (garage clean pass)">Force</button>
+                                                    <button class="btn btn-primary" id="mapv3_btn_mode_off" type="button" disabled title="Pause insertion">Off</button>
+                                                </div>
+                                                <span id="mapv3_gate_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;">Actions</div>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button>
+                                                    <button class="btn btn-primary" id="mapv3_btn_save" type="button" disabled title="Save full snapshot: 3D archive (.ot) + DEM + raster">Snapshot</button>
+                                                    <button class="btn btn-primary" id="mapv3_btn_compare" type="button" disabled title="A/B stats vs the current rtabmap grid">Compare</button>
+                                                </div>
+                                                <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+
+                                                <div class="row g-0" id="mapv3_sites_row" style="margin-top: 8px;"></div>
                                             </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">3D view layers</span>
-                                                <div class="form-check form-check-inline" style="margin-right: 8px;"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved map <span style="color:#ff4d4d;">&#9632;</span> obst</label></div>
-                                                <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live mapping <span style="color:#ff7800;">&#9632;</span> obst</label></div>
-                                                <div class="form-check form-check-inline" title="Terrain elevation draped as a coloured plane under the obstacle layers (blue = low, red = high)"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label" for="mapv3_chk_terrain" style="font-size: 12px;">Terrain <span style="background:linear-gradient(90deg,#3060ff,#30ff90,#ff3030);color:transparent;">&#9632;&#9632;&#9632;</span> elev</label></div>
-                                                <div style="margin-top: 4px;font-size: 12px;" title="Overall opacity of ALL occupancy-map layers (base map, local costmap, saved map, live mapping). Does not affect the rain radar or aerial tiles.">Maps opacity <span id="mapv3_maps_opacity_val" style="opacity:.8;">100%</span> <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" style="vertical-align: middle;width: 120px;"></div>
-                                                <div style="margin-top: 4px;font-size: 12px;" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across those same occupancy layers. Fade it to see the aerial/terrain beneath while free/obstacle cells stay crisp.">Unknown opacity <span id="mapv3_unknown_opacity_val" style="opacity:.8;">100%</span> <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" style="vertical-align: middle;width: 120px;"></div>
-                                                <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 2px;opacity:.8;">saved map: &mdash;</span>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Aerial tiles (MapProxy)</span>
-                                                <div class="form-check form-check-inline" style="margin-right: 8px;" title="Drape MapProxy satellite/OSM tiles georeferenced under the map (loads only when ticked)"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label" for="mapv3_chk_aerial" style="font-size: 12px;">Aerial <span style="color:#8fd14f;">&#9632;</span> tiles</label></div>
-                                                <div class="input-group input-group-sm" style="max-width: 340px;margin-top: 2px;">
+                                        </details>
+
+                                        <!-- SECTION: Map layers -->
+                                        <details class="map-sec" data-mapsec="layers">
+                                            <summary>Map layers</summary>
+                                            <div class="map-sec-body">
+                                                <div style="font-size: 12px;" title="Overall opacity of ALL occupancy-map layers (base map, local costmap, saved map, live mapping). Does not affect rain radar or aerial tiles.">Maps opacity <span id="mapv3_maps_opacity_val" style="opacity: .8;">100%</span></div>
+                                                <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
+                                                <div style="font-size: 12px;margin-top: 4px;" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across the occupancy layers.">Unknown opacity <span id="mapv3_unknown_opacity_val" style="opacity: .8;">100%</span></div>
+                                                <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
+                                                <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">saved map: &mdash;</span>
+
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Drape MapProxy satellite/OSM tiles georeferenced under the map (loads only when the Aerial layer is ticked)">Aerial tiles (MapProxy)</div>
+                                                <div class="input-group input-group-sm" style="max-width: 340px;">
                                                     <select class="form-select" id="mapv3_aerial_src" title="Tile source layer" style="font-size: 12px;"><option value="sat" selected>satellite</option><option value="osm">OSM</option></select>
                                                     <select class="form-select" id="mapv3_aerial_zoom" title="Tile zoom level (MapProxy grids max out at z19)" style="font-size: 12px;"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option></select>
-                                                    <select class="form-select" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Larger areas + high zoom are auto-clamped to keep the tile count sane." style="font-size: 12px;"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
+                                                    <select class="form-select" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Large areas + high zoom are auto-clamped." style="font-size: 12px;"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
                                                 </div>
-                                                <div style="margin-top: 4px;font-size: 12px;">opacity <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" style="vertical-align: middle;width: 120px;"></div>
-                                                <span id="mapv3_aerial_status" style="font-size: 12px;display: block;margin-top: 2px;opacity:.8;">aerial: &mdash;</span>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Rain radar (&#268;HM&Uacute;)</span>
-                                                <div class="form-check form-check-inline" style="margin-right: 8px;" title="&#268;HM&Uacute; radar composite (rain echo) draped as the TOP-most layer, floated above the garden. Live-updates every ~5 min. Loads only when ticked."><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label" for="mapv3_chk_rain" style="font-size: 12px;">Rain radar <span style="color:#3000a8;">&#9632;</span><span style="color:#0000fc;">&#9632;</span></label></div>
-                                                <div class="input-group input-group-sm" style="max-width: 240px;margin-top: 2px;">
-                                                    <select class="form-select" id="mapv3_rain_area" title="Radius around the garden to show. The &#268;HM&Uacute; frame covers ~64 km square; only the central disc of this radius is displayed." style="font-size: 12px;"><option value="2000">2 km</option><option value="5000">5 km</option><option value="10000">10 km</option><option value="30000">30 km disc</option><option value="100000" selected>full frame</option></select>
-                                                    <select class="form-select" id="mapv3_rain_z" title="Height above the map that the radar plane floats at (so it sits over everything)" style="font-size: 12px;"><option value="5" selected>float 5 m</option><option value="20">float 20 m</option><option value="50">float 50 m</option></select>
-                                                    <button class="btn btn-sm btn-outline-primary" id="mapv3_btn_rain_fit" type="button" title="Zoom out to frame the whole rain map (needs the rain layer on)" style="font-size: 12px;padding: 2px 8px;">fit</button>
-                                                </div>
-                                                <div style="margin-top: 4px;font-size: 12px;">opacity <input type="range" id="mapv3_rain_opacity" min="0" max="1" step="0.05" value="0.5" style="vertical-align: middle;width: 120px;"></div>
-                                                <span id="mapv3_rain_status" style="font-size: 12px;display: block;margin-top: 2px;opacity:.8;">rain: &mdash;</span>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Insertion gate mode</span>
-                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="mapv3_btn_mode_rtk" type="button" disabled title="Insert only at RTK FIXED (normal mapping)">RTK</button><button class="btn btn-primary" id="mapv3_btn_mode_force" type="button" disabled title="Force insertion without RTK (garage clean pass)">Force</button><button class="btn btn-primary" id="mapv3_btn_mode_off" type="button" disabled title="Pause insertion">Off</button></div>
-                                                <span id="mapv3_gate_status" style="font-size: 12px;display: block;margin-top: 4px;">&mdash;</span>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Actions</span>
-                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button><button class="btn btn-primary" id="mapv3_btn_save" type="button" disabled title="Save full snapshot: 3D archive (.ot) + DEM + raster">Snapshot</button><button class="btn btn-primary" id="mapv3_btn_compare" type="button" disabled title="A/B stats vs the current rtabmap grid">Compare</button></div>
-                                                <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 4px;">&mdash;</span>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;" title="Obstacle band = height window above the LOCAL ground (DEM) that counts as an obstacle. Evidence = occupied voxels in that window per cell; cluster = drop obstacle blobs smaller than this (speckles).">Obstacle classification</span>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;">
+                                                <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" style="vertical-align: middle;width: 120px;"></div>
+                                                <span id="mapv3_aerial_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">aerial: &mdash;</span>
+
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Obstacle band = height window above the LOCAL ground (DEM) that counts as an obstacle. Evidence = occupied voxels in that window per cell; cluster = drop obstacle blobs smaller than this (speckles).">Obstacle classification</div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
                                                     <span class="input-group-text" title="Band lower edge: height above local ground (m) where obstacles start">band min m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_min" step="0.05" min="0" max="2" style="width: 62px;">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_min" step="0.05" min="0" max="2">
                                                     <span class="input-group-text" title="Band upper edge: height above local ground (m) where obstacles stop">max m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_max" step="0.05" min="0" max="2" style="width: 62px;">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_max" step="0.05" min="0" max="2">
                                                 </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;">
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
                                                     <span class="input-group-text" title="Min occupied voxels inside the band per cell to call it an obstacle (1..20)">min evid</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_evidence" step="1" min="1" max="20" style="width: 56px;">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_evidence" step="1" min="1" max="20">
                                                     <span class="input-group-text" title="Drop obstacle clusters smaller than this many cells — speckle filter (1..20)">min clust</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_cluster" step="1" min="1" max="20" style="width: 56px;">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_cluster" step="1" min="1" max="20">
                                                     <button class="btn btn-primary" id="mapv3_btn_apply_band" type="button" disabled title="Requires a running mapping session — press Start first (the obstacle classifier only exists while mapping runs).">Apply</button>
                                                 </div>
-                                                <span id="mapv3_band_status" style="font-size: 12px;display: block;margin-top: 4px;opacity:.8;">&mdash;</span>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;" title="Per-source sensor range caps for the map. Lidar = filtered rplidar scan (sun-immune hard geometry at ~0.35 m); Depth = D435 point cloud (noisy in sunlight past a few metres). Points beyond the cap are dropped before insertion. Applied live (0.5..20 m) and persisted per site.">Ranges</span>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;">
+                                                <span id="mapv3_band_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Per-source sensor range caps. Lidar = filtered rplidar scan (sun-immune hard geometry); Depth = D435 point cloud (noisy in sunlight past a few metres). Points beyond the cap are dropped before insertion. Applied live (0.5..20 m) and persisted per site.">Sensor ranges</div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
                                                     <span class="input-group-text" title="Lidar max range (m): drop rplidar returns beyond this before mapping (0.5..20)">lidar max m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_lidar_max" step="0.5" min="0.5" max="20" style="width: 62px;">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_lidar_max" step="0.5" min="0.5" max="20">
                                                     <span class="input-group-text" title="Depth max range (m): drop D435 depth points beyond this before mapping (0.5..20)">depth max m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_depth_max" step="0.1" min="0.5" max="20" style="width: 62px;">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_depth_max" step="0.1" min="0.5" max="20">
                                                     <button class="btn btn-primary" id="mapv3_btn_apply_ranges" type="button" disabled title="Requires a running mapping session — press Start first (the insertion gate only exists while mapping runs).">Apply</button>
                                                 </div>
-                                                <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 4px;opacity:.8;">&mdash;</span>
-                                            </div>
-                                            <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Terrain DEM</span>
+                                                <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 2px;">Terrain DEM</div>
                                                 <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
+                                        </details>
+
+                                        <!-- SECTION: Rain radar -->
+                                        <details class="map-sec" data-mapsec="rain">
+                                            <summary>Rain radar (&#268;HM&Uacute;)</summary>
+                                            <div class="map-sec-body">
+                                                <div class="input-group input-group-sm" style="max-width: 300px;">
+                                                    <select class="form-select" id="mapv3_rain_area" title="Radius around the garden to show. The &#268;HM&Uacute; frame covers ~64 km square; only the central disc of this radius is displayed." style="font-size: 12px;"><option value="2000">2 km</option><option value="5000">5 km</option><option value="10000">10 km</option><option value="30000">30 km disc</option><option value="100000" selected>full frame</option></select>
+                                                    <select class="form-select" id="mapv3_rain_z" title="Height above the map that the radar plane floats at (so it sits over everything)" style="font-size: 12px;"><option value="5" selected>float 5 m</option><option value="20">float 20 m</option><option value="50">float 50 m</option></select>
+                                                    <button class="btn btn-outline-primary" id="mapv3_btn_rain_fit" type="button" title="Zoom out to frame the whole rain map (needs the rain layer on)">Fit</button>
+                                                </div>
+                                                <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_rain_opacity" min="0" max="1" step="0.05" value="0.5" style="vertical-align: middle;width: 120px;"></div>
+                                                <span id="mapv3_rain_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">rain: &mdash;</span>
+                                            </div>
+                                        </details>
+
+                                        <!-- ===== Hidden legacy controls (superseded by mapping v3; kept for JS bindings / runtime files until site_native flip) ===== -->
+                                        <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
+                                        <div style="display:none;"><span>New map</span>
+                                            <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_new_indoor" type="button"><i class="material-icons">home</i></button><button class="btn btn-primary" id="btn_menu_map_new_outdoor" type="button"><i class="fa fa-tree"></i></button></div>
                                         </div>
-                                        <div class="row g-0" id="mapv3_sites_row" style="margin-top: 6px;"></div>
                                         <!-- hidden 2026-07-18: legacy navi-map management, superseded by mapping v3 sites (files still used at runtime until site_native flip) -->
-                                        <hr style="display:none;">
+                                        <div style="display:none;"><span>Save map as</span>
+                                            <div class="input-group input-group-sm"><input class="bg-secondary form-control" type="text" id="input_menu_map_new" placeholder="Map name"><button class="btn btn-primary" id="btn_menu_map_new_save" type="button">Save</button></div>
+                                        </div>
+                                        <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
+                                        <div style="display:none;"><span>RtabMap</span>
+                                            <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button">Localization</button></div>
+                                        </div>
                                         <!-- hidden 2026-07-18: legacy navi-map management, superseded by mapping v3 sites (files still used at runtime until site_native flip) -->
                                         <div class="row g-0" id="div_menu_map_items_row" style="display:none;overflow: auto;">
                                             <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 14px;display: inline-block;color: var(--bs-light);">
-                                                                <path d="M0 0h24v24H0z" fill="none"></path>
-                                                                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path>
-                                                            </svg>&nbsp;</span></button><button class="btn btn-primary" id="btn_tst_modal" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 14px;display: inline-block;color: var(--bs-light);">
-                                                                <g>
-                                                                    <rect fill="none" height="24" width="24"></rect>
-                                                                </g>
-                                                                <g>
-                                                                    <polygon points="17,12 19,12 12,2 5.05,12 7,12 3.1,18 10.02,18 10.02,22 13.98,22 13.98,18 21,18"></polygon>
-                                                                </g>
-                                                            </svg>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="fa fa-home" style="font-size: 14px;display: inline-block;color: var(--bs-light);"></i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 4px;width: 19.5px;"><i class="fa fa-tree" style="font-size: 14px;display: inline-block;color: var(--bs-light);"></i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
-                                            </div>
-                                            <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button"><span class="text-info"><i class="fa fa-upload text-info"></i>Garden 2023_09_21 part2</span></button><button class="btn btn-primary" id="btn_tst_modal" type="button"><i class="fa fa-remove text-danger"></i></button></div>
                                             </div>
                                         </div>
 

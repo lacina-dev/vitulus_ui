@@ -1835,3 +1835,35 @@ class MappingV3 {
         this.el_proj.style.color = p.state === 'error' ? '#ff6b6b' : '';
     }
 }
+
+// vitulus_ui 2026-07-18 — Map tab collapsible <details.map-sec> open-state
+// persistence. Each section carries data-mapsec="<name>"; the open/closed
+// state is remembered across reloads under localStorage key
+// 'vitulus_maptab_<name>'. Sections default to COLLAPSED (their markup omits
+// the `open` attribute); a stored '1' re-opens them. Fully self-contained and
+// independent of the ROS map view.
+(function initMapTabSections() {
+    function wire() {
+        var secs = document.querySelectorAll('#tab-map details.map-sec');
+        for (var i = 0; i < secs.length; i++) {
+            (function (d) {
+                var name = d.getAttribute('data-mapsec') || '';
+                if (!name) { return; }
+                var key = 'vitulus_maptab_' + name;
+                try {
+                    var v = localStorage.getItem(key);
+                    if (v === '1') { d.open = true; }
+                    else if (v === '0') { d.open = false; }
+                } catch (e) { /* localStorage unavailable */ }
+                d.addEventListener('toggle', function () {
+                    try { localStorage.setItem(key, d.open ? '1' : '0'); } catch (e) { /* ignore */ }
+                });
+            })(secs[i]);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wire);
+    } else {
+        wire();
+    }
+})();
