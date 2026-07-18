@@ -380,6 +380,15 @@ html, body {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+/* The Power readout column carries a hard-coded <hr style="width:318px"> divider
+   (authored for the old 336px column). The grid/col-auto rules above only size
+   the row and its columns, not inner block elements, so that divider still
+   stops short of the now full-width column. Let any divider inside these columns
+   span the full width like the rest of the content. */
+#tab_power > div > .row > .col-auto > hr,
+#tab_mower > div > .row > .col-auto hr {
+  width: auto !important;
+}
 
 /* ===== Left slide-out drawer (Phase 1) — hosts the relocated menu panels ===== */
 /* The drawer is a fixed box on the LEFT, spanning from just under the top navbar
@@ -784,8 +793,6 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 </div>
                                                 <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
 
-                                                <div class="row g-0" id="mapv3_sites_row" style="margin-top: 8px;"></div>
-
                                                 <!-- vitulus_ui R3 (2026-07-18): obstacle classification + sensor ranges
                                                      configure the mapping pipeline (not display) - moved here from
                                                      the Map layers section. -->
@@ -856,6 +863,17 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
                                         </details>
+
+                                        <!-- vitulus_ui fix3 (2026-07-18): saved-sites / served-map list pulled OUT
+                                             of the "Mapping session" <details> so serving a map (a primary action)
+                                             is ALWAYS visible below the collapsible sections. Single element,
+                                             ID-driven by mapping.js (el_sites = #mapv3_sites_row); the row is
+                                             rebuilt purely via innerHTML on a signature guard, so the move is
+                                             transparent to the JS and it stays live while a mapping session is open. -->
+                                        <div style="margin-top: 6px;">
+                                            <span class="drawer-hint">Maps</span>
+                                            <div class="row g-0" id="mapv3_sites_row" style="margin-top: 4px;"></div>
+                                        </div>
 
                                         <!-- vitulus_ui R4 (2026-07-18): Rain radar section removed - its tuning
                                              cluster now lives inside the Map layers section as a display sub-block.

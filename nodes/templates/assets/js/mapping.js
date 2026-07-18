@@ -10,12 +10,15 @@ class MappingV3 {
         // vitulus_ui INSERTION-ORDER HARDENING (belt + braces alongside the
         // renderer.sortObjects=true fix in map_view.js): create the AERIAL and
         // TERRAIN groups EAGERLY here — empty, and BEFORE the site_map / live
-        // obstacle occupancy groups are added below — so that even if a build
-        // ever reverts to insertion-order transparent rendering (sortObjects
-        // false), these two bottom layers are still inserted FIRST and paint
-        // under the maps instead of the lazily-created aerial group landing last
-        // and covering everything. _r3d() only needs the ROS3D global, and the
-        // _ensure* methods are idempotent, so this is safe this early.
+        // obstacle occupancy groups are added below — chiefly so the lazily-
+        // created AERIAL group (the true bottom layer) can never land last and
+        // cover everything if a build ever reverts to insertion-order transparent
+        // rendering (sortObjects false). In the ACTIVE regime sortObjects is on,
+        // so paint order is decided by mesh.renderOrder from the MapLayerOrder
+        // contract regardless of insertion order — that is what now lifts the
+        // opt-in terrain plane (renderOrder 12) ABOVE the maps. _r3d() only needs
+        // the ROS3D global, and the _ensure* methods are idempotent, so this is
+        // safe this early.
         this.viewer3d = viewer3d;
         this._r3dCache = null;
         this.aerial_group = null;
@@ -1449,8 +1452,11 @@ class MappingV3 {
         const T = this._r3d();
         if (!T || !this.viewer3d || !this.viewer3d.scene) { return null; }
         this.terrain_group = new T.Object3D();
-        // Layer-ordering contract: terrain sits just above the aerial tiles and
-        // below every occupancy grid (z + renderOrder from MapLayerOrder).
+        // Layer-ordering contract: terrain is an OPT-IN elevation plane painted
+        // ABOVE the flat maps/costmaps (renderOrder MapLayerOrder.TERRAIN=12 on
+        // the mesh below). It keeps its tiny z=-0.02 bias only for historical
+        // reasons — paint order is decided purely by renderOrder because the
+        // whole flat stack is transparent + depthWrite=false, so z is inert.
         this.terrain_group.position.z =
             (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.Z_TERRAIN : -0.02;
         this.viewer3d.scene.add(this.terrain_group);
@@ -1517,6 +1523,13 @@ class MappingV3 {
             tex.needsUpdate = true;
 
             const geo = new T.Geometry(w, h);             // PlaneBufferGeometry
+            // FLAT plane (no z-elevation geometry — height is encoded as colour).
+            // transparent + depthWrite=false is REQUIRED by the layer-ordering
+            // contract: the whole flat map stack overlaps in a near-identical
+            // z-band and relies on renderOrder (not depth) to sort. opacity 0.85
+            // is the terrain layer's own fixed setting (it has no separate opacity
+            // slider — the "Maps opacity" control deliberately governs only the
+            // occupancy grids), so the maps below stay faintly visible through it.
             const mat = new T.Material({
                 map: tex, transparent: true, opacity: 0.85, depthWrite: false
             });
@@ -1524,9 +1537,10 @@ class MappingV3 {
             const mesh = new T.Mesh(geo, mat);
             mesh.position.set((b.min_x + b.max_x) / 2,
                               (b.min_y + b.max_y) / 2, 0);
-            // Layer-ordering contract: above aerial, below every grid.
+            // Layer-ordering contract: opt-in terrain painted ABOVE the flat
+            // maps/costmaps (was below); still under EDITS/LIVE. See MapLayerOrder.
             mesh.renderOrder =
-                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.TERRAIN : -50;
+                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.TERRAIN : 12;
 
             // swap in the new mesh, dispose the old one only after the new is ready
             this._disposeTerrainMesh();

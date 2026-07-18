@@ -25,10 +25,24 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 // renderOrder paints first (further back); higher paints last (on top).
 //
 //   aerial tiles      z=-0.05  renderOrder=-100   (bottom, under everything)
-//   terrain DEM       z=-0.02  renderOrder=-50
 //   base map          z= 0.00  renderOrder=  0
 //   local costmap     z=-0.01  renderOrder=  5
 //   saved site_map    z=+0.01  renderOrder= 10
+//   terrain DEM       z=-0.02  renderOrder= 12   (opt-in elevation plane; raised
+//                                                 ABOVE the flat maps/costmaps so
+//                                                 that when the user ticks Terrain
+//                                                 it is actually visible on top of
+//                                                 the occupancy grids rather than
+//                                                 hidden beneath them — it is a
+//                                                 default-off display layer, so
+//                                                 occluding the flat maps while on
+//                                                 is desired. Paint order is by
+//                                                 renderOrder, NOT z: the terrain
+//                                                 plane is FLAT (colour = height),
+//                                                 keeps its tiny z=-0.02 bias, and
+//                                                 like every layer here is
+//                                                 transparent + depthWrite=false so
+//                                                 renderOrder alone decides.)
 //   edits overlay     (overlay) renderOrder= 15   (WP-D2 map editor, mapedits.js)
 //   live obstacle_map z=+0.02  renderOrder= 20
 //   dock map          z=-0.002 renderOrder= 30
@@ -43,10 +57,12 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 // ===========================================================================
 var MapLayerOrder = {
     AERIAL:  -100,
-    TERRAIN:  -50,
     BASE:       0,
     COSTMAP:    5,
     SITE:      10,
+    TERRAIN:   12,   // opt-in elevation plane, raised ABOVE the flat maps/costmaps
+                     // (was -50) so ticking Terrain shows it on top; still below
+                     // EDITS/LIVE. Flat plane, colour=height; renderOrder governs.
     EDITS:     15,   // WP-D2 map-editor edit_list overlay (mapedits.js)
     LIVE:      20,
     DOCK:      30,
