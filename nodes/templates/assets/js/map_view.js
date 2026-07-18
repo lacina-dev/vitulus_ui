@@ -6482,6 +6482,13 @@ window.initMapView = function () {
         MapLayerOpacity.registerClient(maps.local_costmap, MapLayerOrder.COSTMAP);
         MapLayerOpacity.registerClient(maps.map, MapLayerOrder.BASE);
 
+        // Map editor V1/V3: expose the live local-costmap grid client and the
+        // program/zone MarkerArray client so the map editor (mapeditor.js /
+        // mapedits.js) can hide the costmap while editing and toggle the zone
+        // outline geometry from the editor "Show:" chips — without re-rendering.
+        window.__local_costmap_client = maps.local_costmap;
+        try { window.__program_markers_client = paths_visualization.markerArrayClient; } catch (e) {}
+
         // Reload planner
         programs.reload_planner_data();
 

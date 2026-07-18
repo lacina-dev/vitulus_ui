@@ -200,27 +200,163 @@ window.MapEdits = (function () {
     // =====================================================================
     var _ov = null;          // Ros3dEditOverlay
     var _layer = null;       // EditMaskLayer
+    var _mapObjLayer = null; // MapObjectsLayer (V3: waypoint/path overlay groups)
     var _tool = 'off';
     var _built = false;
     var _wpN = 1;            // wp_<n> suggestion counter
+    var _pathN = 1;          // path_<n> suggestion counter
     var _pendingMoveName = null;
     var _clickState = null;  // raw click detector
     var _wpNames = [];       // known waypoint names (from map_point_str_list)
 
     // waypoint topics (navi_manager) — kept next to the tool that uses them.
     var _pub_wp_at = null, _pub_wp_remove = null, _sub_wp_list = null;
+    var _pub_path_at = null;  // V2: manual path draw -> /navi_manager/save_path_at
+
+    // V3: overlay-group visibility toggles, persisted in localStorage (default ON).
+    var SHOW_KEYS = { waypoints: 'vitulus_editor_show_waypoints', paths: 'vitulus_editor_show_paths',
+                      edits: 'vitulus_editor_show_edits', zones: 'vitulus_editor_show_zones' };
+    var _show = { waypoints: true, paths: true, edits: true, zones: true };
+    function _loadShow() {
+        for (var k in SHOW_KEYS) {
+            try { var v = localStorage.getItem(SHOW_KEYS[k]); if (v !== null) _show[k] = (v === '1'); } catch (e) {}
+        }
+    }
+    function _saveShow(k) { try { localStorage.setItem(SHOW_KEYS[k], _show[k] ? '1' : '0'); } catch (e) {} }
 
     function _ensureWpTopics(ros) {
         if (_pub_wp_at) return;
         _pub_wp_at = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/save_waypoint_at', messageType: 'std_msgs/String' });
         _pub_wp_remove = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/remove_point', messageType: 'std_msgs/String' });
+        _pub_path_at = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/save_path_at', messageType: 'std_msgs/String' });
         _pub_wp_at.advertise();
         _pub_wp_remove.advertise();
+        _pub_path_at.advertise();
         _sub_wp_list = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/map_point_str_list', messageType: 'vitulus_msgs/StringList' });
         _sub_wp_list.subscribe(function (msg) {
             _wpNames = (msg && msg.string_list) ? msg.string_list.slice() : [];
             _renderWpList();
         });
+    }
+
+    // =====================================================================
+    // V3: MapObjectsLayer — renders /navi_manager/map_objects (latched JSON of
+    // waypoints + paths in MAP frame) into the overlay scene as two toggleable
+    // groups (waypoint dots+labels, path polylines). Also provides waypoint
+    // hit-testing so the waypoint tool can select an existing dot for move/delete.
+    // =====================================================================
+    class MapObjectsLayer {
+        constructor(ros, overlay) {
+            this.ros = ros;
+            this.overlay = overlay;
+            this.waypoints = [];   // [{name,x,y,yaw}]
+            this.paths = [];       // [{name, points:[[x,y]...]}]
+
+            this.wpGroup = new T.Group();   this.wpGroup.position.z = 0.14;
+            this.pathGroup = new T.Group(); this.pathGroup.position.z = 0.11;
+            overlay.overlayGroup.add(this.wpGroup);
+            overlay.overlayGroup.add(this.pathGroup);
+
+            this.COL_WP = new T.Color('#20c0ff');
+            this.COL_PATH = new T.Color('#00d0a0');
+
+            var self = this;
+            this.sub = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/map_objects', messageType: 'std_msgs/String' });
+            this.sub.subscribe(function (msg) {
+                try {
+                    var d = JSON.parse(msg.data);
+                    self.waypoints = Array.isArray(d.waypoints) ? d.waypoints : [];
+                    self.paths = Array.isArray(d.paths) ? d.paths : [];
+                } catch (e) { self.waypoints = []; self.paths = []; }
+                self._render();
+            });
+        }
+        setWaypointsVisible(v) { this.wpGroup.visible = !!v; if (this.overlay) this.overlay.markDirty(); }
+        setPathsVisible(v) { this.pathGroup.visible = !!v; if (this.overlay) this.overlay.markDirty(); }
+
+        hitTestWaypoint(world, tol) {
+            var best = null, bestD = (tol || 0.4);
+            for (var i = 0; i < this.waypoints.length; i++) {
+                var w = this.waypoints[i];
+                var d = Math.hypot(world.x - w.x, world.y - w.y);
+                if (d <= bestD) { bestD = d; best = w; }
+            }
+            return best;
+        }
+
+        _clearGroup(g) {
+            while (g.children.length) {
+                var c = g.children.pop();
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
+            }
+        }
+        _render() {
+            this._clearGroup(this.wpGroup);
+            this._clearGroup(this.pathGroup);
+            var order = EDITS_ORDER() + 2;
+            // paths — thin polylines
+            for (var p = 0; p < this.paths.length; p++) {
+                var pts = this.paths[p].points || [];
+                if (pts.length < 2) continue;
+                var seg = [];
+                for (var s = 0; s < pts.length - 1; s++) seg.push(pts[s][0], pts[s][1], 0, pts[s + 1][0], pts[s + 1][1], 0);
+                var lg = new T.BufferGeometry();
+                lg.setAttribute('position', new T.Float32BufferAttribute(seg, 3));
+                var line = new T.LineSegments(lg, new T.LineBasicMaterial({ color: this.COL_PATH, depthTest: false }));
+                line.renderOrder = order;
+                this.pathGroup.add(line);
+            }
+            // waypoints — small dot + heading tick + text label
+            for (var i = 0; i < this.waypoints.length; i++) {
+                var w = this.waypoints[i];
+                var r = 0.18;
+                var dot = new T.Mesh(new T.CircleGeometry(r, 16),
+                    new T.MeshBasicMaterial({ color: this.COL_WP, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+                dot.position.set(w.x, w.y, 0);
+                dot.renderOrder = order + 1;
+                this.wpGroup.add(dot);
+                // heading tick
+                if (typeof w.yaw === 'number') {
+                    var hx = w.x + Math.cos(w.yaw) * r * 2.2, hy = w.y + Math.sin(w.yaw) * r * 2.2;
+                    var hg = new T.BufferGeometry();
+                    hg.setAttribute('position', new T.Float32BufferAttribute([w.x, w.y, 0, hx, hy, 0], 3));
+                    var hl = new T.Line(hg, new T.LineBasicMaterial({ color: this.COL_WP, depthTest: false }));
+                    hl.renderOrder = order + 1;
+                    this.wpGroup.add(hl);
+                }
+                var label = this._makeLabel(w.name || '', w.x + r * 1.6, w.y + r * 1.6, order + 2);
+                if (label) this.wpGroup.add(label);
+            }
+            if (this.overlay) this.overlay.markDirty();
+        }
+        _makeLabel(text, x, y, order) {
+            try {
+                var cv = document.createElement('canvas');
+                var ctx = cv.getContext('2d');
+                var fs = 40; ctx.font = fs + 'px sans-serif';
+                var w = Math.max(8, ctx.measureText(text).width);
+                cv.width = w + 12; cv.height = fs + 12;
+                ctx = cv.getContext('2d');
+                ctx.font = fs + 'px sans-serif'; ctx.textBaseline = 'top';
+                ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, cv.width, cv.height);
+                ctx.fillStyle = '#20c0ff'; ctx.fillText(text, 6, 6);
+                var tex = new T.CanvasTexture(cv);
+                tex.needsUpdate = true;
+                var mat = new T.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true });
+                var spr = new T.Sprite(mat);
+                var sc = 0.012;   // metres per pixel
+                spr.scale.set(cv.width * sc, cv.height * sc, 1);
+                spr.position.set(x + cv.width * sc / 2, y, 0);
+                spr.renderOrder = order;
+                return spr;
+            } catch (e) { return null; }
+        }
+        destroy() {
+            try { this.sub.unsubscribe(); } catch (e) {}
+            try { this._clearGroup(this.wpGroup); if (this.wpGroup.parent) this.wpGroup.parent.remove(this.wpGroup); } catch (e) {}
+            try { this._clearGroup(this.pathGroup); if (this.pathGroup.parent) this.pathGroup.parent.remove(this.pathGroup); } catch (e) {}
+        }
     }
 
     // ---- public lifecycle (called from mapeditor.js Controller) ----
@@ -235,17 +371,33 @@ window.MapEdits = (function () {
             // overlay may have been rebuilt — re-attach the render group
             try { if (_layer.group.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_layer.group); } catch (e) {}
         }
+        // V3: map-objects overlay (waypoint dots + path polylines).
+        if (ros && !_mapObjLayer) {
+            _mapObjLayer = new MapObjectsLayer(ros, overlay);
+        } else if (_mapObjLayer) {
+            try {
+                if (_mapObjLayer.wpGroup.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_mapObjLayer.wpGroup);
+                if (_mapObjLayer.pathGroup.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_mapObjLayer.pathGroup);
+            } catch (e) {}
+        }
         if (ros) _ensureWpTopics(ros);
+        _loadShow();
         _buildToolbar();
         _installClickDetector();
         _renderEditList();
         _renderWpList();
+        _applyAllShow();
         _setTool('off');
     }
     function onExit() {
         _teardownTool();
         _setToolButtonsActive('off');
         _hideWpInput();
+        // V3: the Zones chip toggles LIVE-scene program/zone markers; restore them
+        // so closing the editor never leaves the normal map view with zones hidden.
+        // (The waypoint/path overlay groups live under overlayGroup, which the
+        // overlay hides on exitTopDown, so they need no explicit restore.)
+        _applyZonesVisible(true);
     }
 
     // ---- toolbar UI ----
@@ -254,13 +406,18 @@ window.MapEdits = (function () {
     // TOOLS: 4-per-row icon grid. Each entry: state machine tool id + emoji +
     // label + idle bootstrap variant (swapped to solid btn-primary when
     // active). 'off' == pan (pan/zoom passes through to the live map).
+    // V4: UI labels clarified. The backend edit "kind" values stay
+    // obstacle/free/wall (see _finishEditsDraw) for backend compat — only the
+    // visible label/hint text changes here. V2 adds the 'path' tool (manual path
+    // drawing that lands in the same collection as robot-recorded paths).
     var TOOLS = [
-        { tool: 'off',           ico: '🖐️', label: 'Pan',      idle: 'btn-outline-light' },
-        { tool: 'waypoint',      ico: '📍',       label: 'Waypoint', idle: 'btn-outline-info' },
-        { tool: 'edit_obstacle', ico: '⬛',             label: 'Obstacle', idle: 'btn-outline-danger' },
-        { tool: 'edit_free',     ico: '⬜',             label: 'Free',     idle: 'btn-outline-success' },
-        { tool: 'edit_wall',     ico: '〰️',       label: 'Wall',     idle: 'btn-outline-warning' },
-        { tool: 'edit_delete',   ico: '🗑️', label: 'Delete',   idle: 'btn-outline-secondary' },
+        { tool: 'off',           ico: '🖐️', label: 'Pan',            idle: 'btn-outline-light' },
+        { tool: 'waypoint',      ico: '📍',       label: 'Waypoint',       idle: 'btn-outline-info' },
+        { tool: 'path',          ico: '🛤️', label: 'Path',           idle: 'btn-outline-primary' },
+        { tool: 'edit_obstacle', ico: '⬛',             label: 'Obstacle (area)',idle: 'btn-outline-danger' },
+        { tool: 'edit_free',     ico: '⬜',             label: 'Free (clear area)', idle: 'btn-outline-success' },
+        { tool: 'edit_wall',     ico: '〰️',       label: 'Barrier (line)', idle: 'btn-outline-warning' },
+        { tool: 'edit_delete',   ico: '🗑️', label: 'Delete',         idle: 'btn-outline-secondary' },
     ];
 
     function _buildToolbar() {
@@ -277,6 +434,8 @@ window.MapEdits = (function () {
                   '<span class="met-ico">' + t.ico + '</span><span>' + t.label + '</span></button>';
         }
         gh += '</div>';
+        // V3: "Show:" row of toggle chips for the editor overlay groups.
+        gh += _showRowHtml();
         tools.innerHTML = gh;
 
         // C. ACTIVE TOOL CONTEXT — one box showing only what the tool needs.
@@ -285,8 +444,12 @@ window.MapEdits = (function () {
             '<div style="border:1px solid var(--bs-secondary);border-radius:5px;padding:8px;background:rgba(0,0,0,.2);">' +
             '  <div id="mapedit_hint" style="font-size:12.5px;color:var(--bs-info);min-height:18px;"></div>' +
             '  <div id="mapedit_wall_wrap" style="display:none;margin-top:8px;">' +
-            '    <span style="font-size:12px;display:block;margin-bottom:2px;">Wall width</span>' +
+            '    <span style="font-size:12px;display:block;margin-bottom:2px;">Barrier width</span>' +
             '    <div class="input-group input-group-sm" style="width:130px;"><input class="form-control" id="mapedit_wall_w" type="number" min="0.02" max="2" step="0.05" value="0.10"><span class="input-group-text">m</span></div>' +
+            '  </div>' +
+            '  <div id="mapedit_path_wrap" style="display:none;margin-top:8px;">' +
+            '    <span style="font-size:12px;display:block;margin-bottom:2px;">Path name</span>' +
+            '    <input class="form-control form-control-sm" id="mapedit_path_name" type="text" value="" style="width:180px;">' +
             '  </div>' +
             '  <div id="mapedit_wp_form" style="margin-top:8px;"></div>' +
             '  <div id="mapedit_ctx_actions" class="d-flex" style="gap:6px;margin-top:8px;">' +
@@ -303,6 +466,8 @@ window.MapEdits = (function () {
                 if (_tool === m) _setTool('off'); else _setTool(m);
             });
         });
+        // V3: Show chips.
+        _wireShowChips(tools);
         // finish / cancel (edits draw)
         ctx.querySelector('#mapedit_finish').addEventListener('click', _finishEditsDraw);
         ctx.querySelector('#mapedit_cancel').addEventListener('click', function () { _setTool('off'); });
@@ -317,6 +482,59 @@ window.MapEdits = (function () {
 
         _built = true;
         _refreshDisabled();
+    }
+
+    // ---- V3: "Show:" toggle chips ----
+    var SHOW_CHIPS = [
+        { k: 'waypoints', label: 'Waypoints' },
+        { k: 'paths',     label: 'Paths' },
+        { k: 'edits',     label: 'Edits' },
+        { k: 'zones',     label: 'Zones' },
+    ];
+    function _showRowHtml() {
+        var h = '<div id="mapedit_show_row" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;">' +
+                '<span style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--bs-gray-400);">Show:</span>';
+        for (var i = 0; i < SHOW_CHIPS.length; i++) {
+            var c = SHOW_CHIPS[i];
+            var on = _show[c.k] !== false;
+            h += '<button type="button" class="btn btn-sm mapedit-show-chip ' + (on ? 'btn-info' : 'btn-outline-secondary') +
+                 '" data-show="' + c.k + '" style="min-height:28px;padding:2px 10px;font-size:12px;">' + c.label + '</button>';
+        }
+        h += '</div>';
+        return h;
+    }
+    function _wireShowChips(root) {
+        if (!root) return;
+        root.querySelectorAll('.mapedit-show-chip').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var k = b.getAttribute('data-show');
+                _show[k] = !_show[k];
+                _saveShow(k);
+                _applyShow(k);
+                b.className = 'btn btn-sm mapedit-show-chip ' + (_show[k] ? 'btn-info' : 'btn-outline-secondary');
+                b.style.minHeight = '28px'; b.style.padding = '2px 10px'; b.style.fontSize = '12px';
+            });
+        });
+    }
+    function _applyAllShow() { for (var k in SHOW_KEYS) _applyShow(k); }
+    function _applyShow(k) {
+        if (k === 'waypoints') { if (_mapObjLayer) _mapObjLayer.setWaypointsVisible(_show.waypoints); }
+        else if (k === 'paths') { if (_mapObjLayer) _mapObjLayer.setPathsVisible(_show.paths); }
+        else if (k === 'edits') { if (_layer) { _layer.group.visible = !!_show.edits; if (_ov) _ov.markDirty(); } }
+        else if (k === 'zones') { _applyZonesVisible(_show.zones); }
+    }
+    // Zones: toggle the EXISTING program/zone MarkerArray geometry in the live
+    // 3D scene (exposed by map_view.js as window.__program_markers_client) rather
+    // than re-rendering. MarkerArrayClient keeps its rendered markers in .markers.
+    function _applyZonesVisible(vis) {
+        var c = window.__program_markers_client;
+        if (!c || !c.markers) return;
+        try {
+            Object.keys(c.markers).forEach(function (key) {
+                var m = c.markers[key];
+                if (m) m.visible = !!vis;
+            });
+        } catch (e) {}
     }
 
     function _showEditTab(which) {
@@ -367,12 +585,14 @@ window.MapEdits = (function () {
                 ? 'btn met-tool btn-primary active'
                 : 'btn met-tool ' + idle;
         });
-        var isDraw = (mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall');
+        var isDraw = (mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall' || mode === 'path');
         var fin = document.getElementById('mapedit_finish'), can = document.getElementById('mapedit_cancel');
         if (fin) fin.style.display = isDraw ? '' : 'none';
         if (can) can.style.display = isDraw ? '' : 'none';
         var ww = document.getElementById('mapedit_wall_wrap');
         if (ww) ww.style.display = (mode === 'edit_wall') ? '' : 'none';
+        var pw = document.getElementById('mapedit_path_wrap');
+        if (pw) pw.style.display = (mode === 'path') ? '' : 'none';
     }
 
     function _teardownTool() {
@@ -401,14 +621,22 @@ window.MapEdits = (function () {
         if (_ov && _ov.setToolMode) _ov.setToolMode(_tool);
         _setToolButtonsActive(_tool);
 
-        if (_tool === 'edit_obstacle' || _tool === 'edit_free' || _tool === 'edit_wall') {
+        if (_tool === 'edit_obstacle' || _tool === 'edit_free' || _tool === 'edit_wall' || _tool === 'path') {
             var P = sharedPolygon();
             if (!P) { _setHint('Editor not ready — open the map editor and try again.'); _setTool('off'); return; }
             _clearPolygon(P);
             try { _ov.scene.addChild(P); } catch (e) {}   // grabs the mouse via setDrawing(true)
-            _setHint(_tool === 'edit_wall'
-                ? 'Click the map to add wall points; drag a vertex to adjust. Set the width and press Finish.'
-                : 'Click the map to add polygon points; drag a vertex to adjust. Then press Finish.');
+            if (_tool === 'path') {
+                var pn = document.getElementById('mapedit_path_name');
+                if (pn && !pn.value.trim()) pn.value = 'path_' + _pathN;
+                _setHint('Click path points on the map, then Finish. Paths appear in the Path tab and can be navigated.');
+            } else {
+                _setHint(_tool === 'edit_wall'
+                    ? 'Barrier = a virtual line the robot must not cross (fence / keep-out). Click points; set the width; Finish.'
+                    : (_tool === 'edit_obstacle'
+                        ? 'Obstacle = a polygon area of a real object. Click at least 3 points, then Finish.'
+                        : 'Free = clears mapped obstacles / marks the area as drivable. Click at least 3 points, then Finish.'));
+            }
         } else if (_tool === 'waypoint') {
             _renderWpList();
             _setHint('Click the map to place a waypoint. Existing ones are in the Waypoints section (Move / Delete).');
@@ -420,6 +648,7 @@ window.MapEdits = (function () {
     }
 
     function _finishEditsDraw() {
+        if (_tool === 'path') { _finishPathDraw(); return; }
         var P = sharedPolygon();
         if (!P) { _setTool('off'); return; }
         var pts = [];
@@ -435,6 +664,25 @@ window.MapEdits = (function () {
         }
         if (_layer) _layer.saveEdit(spec);
         _setHint('Saved (' + kind + ', ' + pts.length + ' pts). Map + zone paths update in a few seconds.');
+        _setTool('off');
+    }
+
+    // V2: finish the manually drawn path — same vertex extraction as the edit
+    // draw, published to /navi_manager/save_path_at so it lands in the SAME
+    // running_map_data.paths collection as robot-recorded paths (Path tab).
+    function _finishPathDraw() {
+        var P = sharedPolygon();
+        if (!P) { _setTool('off'); return; }
+        var pts = [];
+        var ch = P.pointContainer.children || [];
+        for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]); // ros y -> map y
+        if (pts.length < 2) { _setHint('Need at least 2 points for a path.'); return; }
+        var pn = document.getElementById('mapedit_path_name');
+        var name = (pn && pn.value ? pn.value : '').trim() || ('path_' + _pathN);
+        if (!_pub_path_at) { _setHint('Path publisher not ready.'); return; }
+        _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: name, points: pts }) }));
+        _pathN++;
+        _setHint('Saved path "' + name + '" (' + pts.length + ' points). It appears in the Path tab.');
         _setTool('off');
     }
 
@@ -473,14 +721,58 @@ window.MapEdits = (function () {
     // ---- waypoint placement: floating name + yaw slider (simpler than a drag
     //      gesture; yaw chosen from a 0..359° slider) ----
     function _onWaypointClick(world, clientX, clientY) {
-        var name = _pendingMoveName || ('wp_' + _wpN);
-        _showWpInput(name, !!_pendingMoveName, function (finalName, yawDeg) {
+        // A move is already armed (from the list, or a prior dot-select): this
+        // click sets the NEW pose for that waypoint.
+        if (_pendingMoveName) {
+            var mv = _pendingMoveName;
+            _showWpInput(mv, true, function (finalName, yawDeg) {
+                var yaw = (yawDeg || 0) * Math.PI / 180;
+                _publishWaypointAt(finalName, world.x, world.y, yaw);
+                _pendingMoveName = null;
+                _setHint('Moved waypoint "' + finalName + '".');
+            });
+            return;
+        }
+        // V3: clicking ON an existing waypoint dot selects it for Move / Delete
+        // (we now have real coordinates from /navi_manager/map_objects).
+        if (_mapObjLayer) {
+            var tol = _ov.worldTol ? _ov.worldTol(16) : 0.4;
+            var hit = _mapObjLayer.hitTestWaypoint(world, tol);
+            if (hit) { _selectWaypoint(hit); return; }
+        }
+        // Otherwise place a NEW waypoint at the clicked spot.
+        var name = 'wp_' + _wpN;
+        _showWpInput(name, false, function (finalName, yawDeg) {
             var yaw = (yawDeg || 0) * Math.PI / 180;
             _publishWaypointAt(finalName, world.x, world.y, yaw);
-            if (!_pendingMoveName) _wpN++;
-            _pendingMoveName = null;
+            _wpN++;
             _setHint('Saved waypoint "' + finalName + '".');
         });
+    }
+
+    // V3: a dot-selected waypoint — offer Move (click the map) / Delete, and keep
+    // the Waypoints list flow untouched.
+    function _selectWaypoint(wp) {
+        _pendingMoveName = wp.name;
+        var host = document.getElementById('mapedit_wp_form');
+        if (host) {
+            host.innerHTML =
+                '<div style="border-top:1px dashed var(--bs-secondary);padding-top:8px;">' +
+                '<div style="font-size:12px;margin-bottom:6px;">Selected waypoint: <b class="text-info">' + _escapeHtml(wp.name) + '</b></div>' +
+                '<div class="d-flex" style="gap:6px;">' +
+                '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_wp_sel_del" type="button">Delete</button>' +
+                '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_sel_cancel" type="button">Cancel</button>' +
+                '</div></div>';
+            host.querySelector('#mapedit_wp_sel_del').addEventListener('click', function () {
+                if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: wp.name }));
+                _pendingMoveName = null; _hideWpInput();
+                _setHint('Deleted waypoint "' + wp.name + '".');
+            });
+            host.querySelector('#mapedit_wp_sel_cancel').addEventListener('click', function () {
+                _pendingMoveName = null; _hideWpInput();
+            });
+        }
+        _setHint('Waypoint "' + wp.name + '" selected — click the map to move it, or use Delete.');
     }
 
     function _publishWaypointAt(name, x, y, yaw) {
@@ -566,7 +858,7 @@ window.MapEdits = (function () {
         if (!el) return;
         var edits = (_layer && _layer.edits) ? _layer.edits : [];
         if (!edits.length) { el.innerHTML = '<div style="font-size:12px;color:var(--bs-gray-500);">No edits yet.</div>'; return; }
-        var LBL = { obstacle: 'Obstacle', free: 'Free', wall: 'Wall' };
+        var LBL = { obstacle: 'Obstacle (area)', free: 'Free', wall: 'Barrier' };
         var html = '';
         for (var i = 0; i < edits.length; i++) {
             var e = edits[i];

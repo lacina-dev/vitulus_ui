@@ -293,6 +293,29 @@ window.MapEditor = (function () {
     // #div_menu_mapedit; the actual editing happens on the live 3D map.
     var _ctrl = null;
 
+    // V1: hide the live LOCAL costmap (magenta, /move_base_flex/local_costmap/
+    // costmap_slow) while editing so it doesn't flood the editor view red. The
+    // OccupancyGridClient rebuilds its mesh (currentGrid) on every message
+    // (continuous:true), so a one-shot visible=false is undone by the next
+    // frame — we set a durable flag AND re-apply the hide on each 'change'. The
+    // GLOBAL/base map + site map are left visible (they are the editing surface).
+    var _costmapHidden = false;
+    function _localCostmapClient() { return window.__local_costmap_client || null; }
+    function _hideLocalCostmap() {
+        var c = _localCostmapClient(); if (!c) return;
+        _costmapHidden = true;
+        if (c.currentGrid) c.currentGrid.visible = false;
+        if (!c._editorHideCb) {
+            c._editorHideCb = function () { if (_costmapHidden && c.currentGrid) c.currentGrid.visible = false; };
+            try { c.on('change', c._editorHideCb); } catch (e) {}
+        }
+    }
+    function _showLocalCostmap() {
+        var c = _localCostmapClient(); if (!c) return;
+        _costmapHidden = false;
+        if (c.currentGrid) c.currentGrid.visible = true;
+    }
+
     function Controller() {
         this.overlay = null;
         this.active = false;
@@ -358,6 +381,8 @@ window.MapEditor = (function () {
         if (info) ov.enterTopDown(info.cx, info.cy, info.span);
         else ov.enterTopDown(null, null, 60);
         this.active = true;
+        // V1: hide the flooding local costmap while the editor is open.
+        _hideLocalCostmap();
         // WP-D2: build/refresh the edit toolbar (waypoints + mapping_manager
         // edits) inside the detail panel and start its topic layer.
         try {
@@ -369,6 +394,8 @@ window.MapEditor = (function () {
         // remove floating inputs) so nothing lingers grabbing the mouse.
         try { if (window.MapEdits && window.MapEdits.onExit) window.MapEdits.onExit(); } catch (e) {}
         if (this.overlay) this.overlay.exitTopDown();
+        // V1: restore the local costmap now that editing is done.
+        _showLocalCostmap();
         this.active = false;
     };
 
