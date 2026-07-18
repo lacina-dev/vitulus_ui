@@ -397,10 +397,14 @@ window.MapEditor = (function () {
     }
     function showDetail(opts) {
         var c = controller();
+        // Phase 1: the editor is a drawer panel. Hide the sibling menu panels and
+        // open the drawer with the editor chrome (sizing is owned by the drawer).
+        try {
+            if (window.map_menu && window.map_menu.open_drawer_editor) window.map_menu.open_drawer_editor();
+        } catch (e) {}
         var d = _detailPanel(); if (d) d.style.display = 'block';
         var t = _toggleBtn(); if (t) t.classList.add('active');
         if (!c.active) c.enter(opts);   // top-down camera + base map + overlay
-        setTimeout(_sizeDetail, 0);
     }
     function hideDetail() {
         var c = controller();
@@ -408,7 +412,23 @@ window.MapEditor = (function () {
         var t = _toggleBtn(); if (t) t.classList.remove('active');
         if (c.active) c.exit();
     }
-    function toggleDetail() { if (controller().active) hideDetail(); else showDetail(); }
+    // The Map-menu "Edit map" toggle: leaving the editor returns to the Map panel
+    // it was launched from (keeps the drawer open).
+    function toggleDetail() {
+        if (controller().active) {
+            hideDetail();
+            try {
+                if (window.map_menu && window.map_menu.show_map_panel) window.map_menu.show_map_panel();
+            } catch (e) {}
+        } else {
+            showDetail();
+        }
+    }
+    // The editor's own ✕ (header / footer): close the whole drawer.
+    function closeFromEditor() {
+        if (window.map_menu && window.map_menu.close_drawer) window.map_menu.close_drawer();
+        else hideDetail();
+    }
 
     // Wire the edit icon + close button. Call once after the map view is up.
     function wire() {
@@ -418,9 +438,8 @@ window.MapEditor = (function () {
         var x = document.getElementById('btn_map_detail_close');
         var xf = document.getElementById('btn_map_detail_close_footer');   // sticky footer "Zavřít editor"
         if (t) t.addEventListener('click', function (e) { e.preventDefault(); toggleDetail(); });
-        if (x) x.addEventListener('click', function (e) { e.preventDefault(); hideDetail(); });
-        if (xf) xf.addEventListener('click', function (e) { e.preventDefault(); hideDetail(); });
-        window.addEventListener('resize', function () { _sizeDetail(); });
+        if (x) x.addEventListener('click', function (e) { e.preventDefault(); closeFromEditor(); });
+        if (xf) xf.addEventListener('click', function (e) { e.preventDefault(); closeFromEditor(); });
     }
 
     // Called by map_view's hide_all_submenu_divs() when switching to another menu

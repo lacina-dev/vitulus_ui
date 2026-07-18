@@ -334,6 +334,111 @@ html, body {
 #tab-map .btn { min-height: 34px; }
 #tab-map .form-control, #tab-map .form-select { min-height: 34px; font-size: 12px; }
 #tab-map .input-group-sm > .form-control, #tab-map .input-group-sm > .input-group-text { min-height: 32px; }
+
+/* ===== Left slide-out drawer (Phase 1) — hosts the relocated menu panels ===== */
+/* The drawer is a fixed box on the LEFT, spanning from just under the top navbar
+   to just above the fixed bottom toolbar. The map to its right stays interactive
+   on desktop (the drawer only covers its own width; no backdrop). On mobile the
+   drawer is full-width and a translucent backdrop (tap = close) sits behind it. */
+#ui_drawer {
+    position: fixed;
+    left: 0;
+    top: 42px;                                     /* under the 42px navbar / menu_spacer */
+    bottom: calc(40px + env(safe-area-inset-bottom));  /* above #div_bottom_menu */
+    width: 460px;
+    max-width: 100vw;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);
+    border-right: 1px solid var(--bs-secondary);
+    border-top: 1px solid var(--bs-secondary);
+    border-bottom-right-radius: 8px;
+    border-top-right-radius: 8px;
+    box-shadow: 4px 0 22px rgba(0,0,0,0.55);
+    z-index: 1000;                                  /* above map overlay (z10), below BS modals (1050+) */
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    pointer-events: auto;
+    overflow: hidden;                               /* the body scrolls, not the shell */
+}
+#ui_drawer.open { transform: translateX(0); }
+#ui_drawer.wide { width: 640px; }                   /* Programs view needs more room */
+#ui_drawer_head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px 7px 12px;
+    background: var(--bs-gray-900);
+    border-bottom: 1px solid var(--bs-secondary);
+    border-top-right-radius: 8px;
+}
+#ui_drawer_title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: var(--bs-info);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#btn_ui_drawer_close {
+    flex: 0 0 auto;
+    min-width: 36px;
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--bs-warning);
+    background: transparent;
+    border: 1px solid var(--bs-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+}
+#btn_ui_drawer_close:hover { background: rgba(255,255,255,0.06); }
+#ui_drawer_body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 6px 8px 10px;
+}
+/* The editor panel supplies its own sticky header (Map editor / ✕), so hide the
+   generic drawer chrome while it is the active panel to avoid a doubled header. */
+#ui_drawer.editor #ui_drawer_head { display: none; }
+/* The drawer body owns scrolling: neutralise the panels' own viewport-based
+   max-height / inner scroll so content flows and the drawer scrolls as one. */
+#ui_drawer > #ui_drawer_body > [id^="div_menu_"],
+#ui_drawer > #ui_drawer_body > #div_map_detail {
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin-top: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    background: transparent !important;
+}
+#ui_drawer .tab-pane {
+    max-height: none !important;
+    overflow: visible !important;
+}
+/* Backdrop: mobile only (shown via JS). Sits below the drawer, above the map. */
+#ui_drawer_backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    display: none;
+}
+@media (max-width: 575.98px) {
+    #ui_drawer, #ui_drawer.wide { width: 100vw; border-radius: 0; }
+}
 </style>
 </head>
 
@@ -1512,6 +1617,18 @@ html, body {
         <div id="div_log_content"></div>
     </div>
 
+    <!-- vitulus_ui Phase 1: left slide-out drawer. The menu panels
+         (#div_menu_marker / #div_menu_map / #div_menu_map_program /
+         #div_menu_config) and the map editor (#div_map_detail) are MOVED into
+         #ui_drawer_body at runtime by MapMenu.install_drawer(); IDs are preserved. -->
+    <div id="ui_drawer_backdrop"></div>
+    <div id="ui_drawer" aria-hidden="true">
+        <div id="ui_drawer_head">
+            <span id="ui_drawer_title">Menu</span>
+            <button id="btn_ui_drawer_close" type="button" title="Close" aria-label="Close">&times;</button>
+        </div>
+        <div id="ui_drawer_body"></div>
+    </div>
 </div>
     <script src="assets/js/jquery.min.js"></script>
     <script src="assets/bootstrap/js/bootstrap.min.js"></script>

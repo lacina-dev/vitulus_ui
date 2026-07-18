@@ -2770,6 +2770,116 @@ class MapMenu {
         }
     }
 
+    // ----- Phase 1 left slide-out drawer -----------------------------------
+    // Move the existing menu panels (+ the map editor) into the drawer body ONCE
+    // and wire the drawer's own close affordance. The panels keep their IDs and
+    // all their (ID-scoped) bindings survive the DOM move.
+    install_drawer() {
+        this.ui_drawer = document.getElementById("ui_drawer");
+        this.ui_drawer_body = document.getElementById("ui_drawer_body");
+        this.ui_drawer_title = document.getElementById("ui_drawer_title");
+        this.ui_drawer_backdrop = document.getElementById("ui_drawer_backdrop");
+        this._drawer_titles = {
+            marker: 'Marker', map: 'Map', program: 'Programs',
+            config: 'Settings', editor: 'Map editor',
+        };
+        this._drawer_last = null;
+        if (!this.ui_drawer || !this.ui_drawer_body) return;
+        var self = this;
+        ['div_menu_marker', 'div_menu_map', 'div_menu_map_program',
+         'div_menu_config', 'div_map_detail'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) self.ui_drawer_body.appendChild(el);   // move (not copy)
+        });
+        var xb = document.getElementById("btn_ui_drawer_close");
+        if (xb) xb.onclick = function () { self.close_drawer(); };
+        if (this.ui_drawer_backdrop) this.ui_drawer_backdrop.onclick = function () { self.close_drawer(); };
+    }
+
+    _drawer_backdrop(on) {
+        if (!this.ui_drawer_backdrop) return;
+        var mobile = window.innerWidth < 576;
+        this.ui_drawer_backdrop.style.display = (on && mobile) ? 'block' : 'none';
+    }
+
+    // Slide the drawer IN and show the chrome/title for `key`.
+    open_drawer(key) {
+        this._drawer_last = key;
+        // Anchor the drawer just under the always-visible trigger button row
+        // (#row_menu) so those buttons stay clickable to switch/close panels.
+        try {
+            var rm = document.getElementById('row_menu');
+            if (rm && this.ui_drawer) {
+                var b = rm.getBoundingClientRect().bottom;
+                if (b > 0) this.ui_drawer.style.top = Math.round(b + 2) + 'px';
+            }
+        } catch (e) {}
+        if (this.ui_drawer) {
+            this.ui_drawer.classList.add('open');
+            if (key === 'program') this.ui_drawer.classList.add('wide');
+            else this.ui_drawer.classList.remove('wide');
+            if (key === 'editor') this.ui_drawer.classList.add('editor');
+            else this.ui_drawer.classList.remove('editor');
+            this.ui_drawer.setAttribute('aria-hidden', 'false');
+        }
+        if (this.ui_drawer_title) this.ui_drawer_title.textContent = (this._drawer_titles[key] || '');
+        if (this.ui_drawer_body) this.ui_drawer_body.scrollTop = 0;
+        this._drawer_backdrop(true);
+    }
+
+    // Slide the drawer OUT (used by the per-button toggle-off path; panel already
+    // hidden by the caller).
+    _drawer_slide_out() {
+        if (this.ui_drawer) {
+            this.ui_drawer.classList.remove('open', 'wide', 'editor');
+            this.ui_drawer.setAttribute('aria-hidden', 'true');
+        }
+        this._drawer_backdrop(false);
+    }
+
+    // Full close: hide every panel (also exits the map editor) and slide out.
+    // Used by the drawer chrome ✕, the backdrop tap, and the editor ✕.
+    close_drawer() {
+        this.hide_all_submenu_divs();
+        this._drawer_slide_out();
+        this.current_submenu = 'none';
+        this.row_submenu_visible = false;
+        if (this.btn_marker) this.btn_marker.active = false;
+        if (this.btn_map) this.btn_map.active = false;
+        if (this.btn_settings) this.btn_settings.active = false;
+        if (this.btn_programs) this.btn_programs.active = false;
+    }
+
+    // Force-show the Map panel in the drawer (used when leaving the editor back to
+    // the Map panel it was launched from).
+    show_map_panel() {
+        this.hide_all_submenu_divs();
+        this.current_submenu = 'map';
+        this.div_menu_map.style.display = "block";
+        this.row_submenu_visible = true;
+        this.btn_map.active = true;
+        this.open_drawer('map');
+    }
+
+    // Show the map-editor panel in the drawer (called by MapEditor.showDetail()).
+    // The editor's #div_map_detail is shown by MapEditor itself; here we just hide
+    // the sibling menu panels and drive the drawer chrome/state.
+    open_drawer_editor() {
+        this.div_menu_marker.style.display = "none";
+        this.div_menu_config.style.display = "none";
+        this.div_menu_map.style.display = "none";
+        this.div_menu_map_point.style.display = "none";
+        this.div_menu_map_path.style.display = "none";
+        this.div_menu_map_program.style.display = "none";
+        this.current_submenu = 'editor';
+        this.row_submenu_visible = true;
+        if (this.btn_marker) this.btn_marker.active = false;
+        if (this.btn_map) this.btn_map.active = false;
+        if (this.btn_settings) this.btn_settings.active = false;
+        if (this.btn_programs) this.btn_programs.active = false;
+        this.open_drawer('editor');
+    }
+
     hide_all_submenu_divs() {
         this.div_menu_marker.style.display = "none";
         this.div_menu_config.style.display = "none";
@@ -2847,6 +2957,7 @@ class MapMenu {
             this.row_submenu.style.display = "block";
             this.row_submenu_visible = true;
             this.btn_programs.active = true;
+            this.open_drawer('program');
         }
         else {
             this.current_submenu = 'none';
@@ -2854,6 +2965,7 @@ class MapMenu {
             this.row_submenu.style.display = "none";
             this.row_submenu_visible = false;
             this.btn_programs.active = false;
+            this._drawer_slide_out();
         }
     }
 
@@ -2870,6 +2982,7 @@ class MapMenu {
             this.row_submenu.style.display = "block";
             this.row_submenu_visible = true;
             this.btn_map.active = true;
+            this.open_drawer('map');
         }
         else {
             this.current_submenu = 'none';
@@ -2877,6 +2990,7 @@ class MapMenu {
             this.row_submenu.style.display = "none";
             this.row_submenu_visible = false;
             this.btn_map.active = false;
+            this._drawer_slide_out();
             // NOTE: the map-detail/editor panel is independent of the Map menu —
             // closing the menu leaves it open (so you can edit with more map
             // visible). It is closed via its own ✕ / the edit toggle, or when
@@ -2897,6 +3011,7 @@ class MapMenu {
             this.row_submenu.style.display = "block";
             this.row_submenu_visible = true;
             this.btn_settings.active = true;
+            this.open_drawer('config');
         }
         else {
             this.current_submenu = 'none';
@@ -2904,6 +3019,7 @@ class MapMenu {
             this.row_submenu.style.display = "none";
             this.row_submenu_visible = false;
             this.btn_settings.active = false;
+            this._drawer_slide_out();
         }
         // vitulus_ui: start/stop the IMU ros3d render loop depending on whether
         // the settings menu (which now hosts the IMU tab) is open + IMU tab active.
@@ -2924,6 +3040,7 @@ class MapMenu {
             this.row_submenu_visible = true;
             this.btn_marker.active = true;
             interactive_markers.imClient.rootObject.visible = true;
+            this.open_drawer('marker');
         }
         else {
             this.current_submenu = 'none';
@@ -2932,6 +3049,7 @@ class MapMenu {
             this.row_submenu_visible = false;
             this.btn_marker.active = false;
             interactive_markers.imClient.rootObject.visible = false;
+            this._drawer_slide_out();
         }
     }
     btn_marker_send_goal_onclick(interactive_markers) {
@@ -5595,6 +5713,8 @@ window.initMapView = function () {
     // vitulus_ui: expose so the in-view map editor (mapeditor.js) can switch the
     // map source to the planner and reuse the menu's panel machinery.
     window.map_menu = map_menu;
+    // vitulus_ui Phase 1: relocate the menu panels into the left slide-out drawer.
+    map_menu.install_drawer();
 
     /**
      *  Rtabmap
