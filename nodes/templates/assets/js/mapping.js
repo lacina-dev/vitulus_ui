@@ -1641,6 +1641,10 @@ class MappingV3 {
                 this.el_serving.style.color = '';
             }
         }
+        // vitulus_ui: mirror the served site/raster into the map-edit panel header
+        // (small hook — piggybacks this existing status handler, no new sub).
+        var _mds = document.getElementById('map_detail_site');
+        if (_mds) _mds.textContent = s.serving ? (s.serving.site + ' / ' + s.serving.raster) : '—';
         // WP-D2: enable "Edit map" only while a site is served (editor draws
         // against the served map). Tooltip reflects the current state.
         if (this.btn_edit_map) {

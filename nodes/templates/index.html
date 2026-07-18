@@ -250,6 +250,53 @@ html, body {
    explicit viewport height (set in build) and no longer relies on this. */
 #div_content_imu > .row,
 #div_content_imu > .row > [class*="col-"] { height: 100%; }
+
+/* ===== Map-edit panel (#div_map_detail) redesign ===== */
+#div_map_detail { font-size: 13px; }
+@media (max-width: 575.98px) {
+  #div_map_detail { width: 100% !important; max-width: 100% !important; }
+}
+/* NÁSTROJE tool grid */
+#mapedit_tools .met-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+#mapedit_tools .met-tool {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; min-height: 52px; padding: 4px 2px;
+  font-size: 12px; line-height: 1.1;
+}
+#mapedit_tools .met-tool .met-ico { font-size: 20px; line-height: 1; }
+/* Collapsible sections (native <details>) */
+#div_map_detail details.mapedit-sec {
+  border: 1px solid var(--bs-secondary);
+  border-radius: 5px;
+  margin-bottom: 6px;
+  background: rgba(0,0,0,0.15);
+}
+#div_map_detail details.mapedit-sec > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 6px 10px;
+  font-size: 13px; font-weight: 600;
+  color: var(--bs-info);
+  user-select: none;
+}
+#div_map_detail details.mapedit-sec > summary::-webkit-details-marker { display: none; }
+#div_map_detail details.mapedit-sec > summary::before {
+  content: "\25B8"; font-size: 12px; color: var(--bs-gray-500);
+  transition: transform .15s ease; flex: 0 0 auto;
+}
+#div_map_detail details.mapedit-sec[open] > summary::before { transform: rotate(90deg); }
+#div_map_detail details.mapedit-sec > .mapedit-sec-body { padding: 4px 10px 10px; }
+/* Touch-friendly controls inside the panel */
+#div_map_detail .btn { min-height: 40px; }
+#div_map_detail .btn-group-sm > .btn, #div_map_detail .btn-sm { min-height: 34px; }
+#div_map_detail .met-tool.btn { min-height: 52px; }
+#div_map_detail .form-control, #div_map_detail .form-select { min-height: 38px; font-size: 13px; }
+#div_map_detail .input-group-sm > .form-control, #div_map_detail .input-group-sm > .input-group-text { min-height: 34px; }
 </style>
 </head>
 
@@ -1163,110 +1210,151 @@ html, body {
                         </div>
                     </div>
                 </div>
-<div id="div_map_detail" class="all-events border-primary" style="display: none;width: 452px;margin-top: 4px;padding: 8px 10px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border: 1px solid var(--bs-secondary);border-radius: 5px;pointer-events: auto;max-height: calc(100vh - 110px);overflow: auto;">
-<div class="d-flex align-items-center" style="margin-bottom: 6px;"><span class="text-uppercase fw-bold" style="font-size: 12px;letter-spacing: .5px;">Map detail</span><button class="btn btn-sm btn-outline-warning ms-auto" id="btn_map_detail_close" type="button" style="padding: 0 8px;font-size: 14px;line-height: 1.3;">&times;</button></div>
+<div id="div_map_detail" class="all-events border-primary" style="display: none;width: 452px;margin-top: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border: 1px solid var(--bs-secondary);border-radius: 6px;pointer-events: auto;max-height: calc(100vh - 110px);overflow-y: auto;overflow-x: hidden;">
 
-<div style="margin-bottom: 8px;">
-<div class="d-flex align-items-center" style="margin-bottom: 6px;">
-                                <span class="text-uppercase fw-bold" style="font-size: 12px;letter-spacing: .5px;">Active map</span>
-                                
-                            </div>
-                            <div class="btn-group btn-group-sm" role="group" style="margin-bottom: 6px;">
-                                <button class="btn btn-primary" id="btn_save_planner_data" type="button" style="font-size: 11px;">Save data</button>
-                                <button class="btn btn-primary" id="btn_load_planner_data" type="button" style="font-size: 11px;">Load data</button>
-                                <button class="btn btn-primary" id="btn_reload_map" type="button" style="font-size: 11px;">Reload</button>
-                            </div>
-                            <div id="div_log" style="font-size: 11px;color: var(--bs-info);min-height: 16px;margin-bottom: 6px;padding-left: 2px;"><span id="log-2">Initialized</span></div>
+<!-- A. Sticky header -->
+<div class="d-flex align-items-center" style="position: sticky;top: 0;z-index: 20;gap: 8px;padding: 8px 10px;background: var(--bs-gray-900);border-bottom: 1px solid var(--bs-secondary);">
+  <span class="text-uppercase fw-bold text-info" style="font-size: 14px;letter-spacing: .5px;white-space: nowrap;">Úprava mapy</span>
+  <span id="map_detail_site" class="text-truncate" style="font-size: 12px;color: var(--bs-gray-400);flex: 1 1 auto;min-width: 0;" title="Právě obsluhovaná mapa">—</span>
+  <button class="btn btn-outline-warning" id="btn_map_detail_close" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 20px;line-height: 1;" title="Zavřít editor">&times;</button>
 </div>
 
-                                    
-<hr style="margin:6px 0;border-color:var(--bs-secondary);">
-<div style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
-                                        <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
-                                            <div><span style="font-size: 12px;display: block;">Filter noise in free</span>
-                                                <div class="input-group input-group-sm" style="width: 86px;"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
-                                            </div>
-                                            <div><span style="font-size: 12px;display: block;">Obstacle margin</span>
-                                                <div class="input-group input-group-sm" style="width: 86px;"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
-                                            </div>
-                                            <div><span style="font-size: 12px;display: block;">Fill shape</span><select class="form-select form-select-sm" id="input_fill_shape" style="width: 100px;">
-                                                <option value="square">square</option>
-                                                <option value="ellipse" selected="">ellipse</option>
-                                            </select></div>
-                                        </div>
-                                        <div class="d-flex flex-wrap" style="gap: 4px;margin-top: 8px;">
-                                            <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button" style="font-size: 11px;">Assemble map</button>
-                                            <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button" style="font-size: 11px;">Path thin</button>
-                                            <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button" style="font-size: 11px;">Path footprint</button>
-                                        </div>
-                                    </div>
-                                    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show map layer</span></div>
-                                    <div class="btn-group btn-group-sm flex-wrap" role="group" style="margin-bottom: 8px;">
-                                        <button class="btn btn-outline-primary" id="btn_show_original" type="button" style="font-size: 11px;">Original</button>
-                                        <button class="btn btn-outline-primary" id="btn_show_fill" type="button" style="font-size: 11px;">Free</button>
-                                        <button class="btn btn-outline-primary" id="btn_show_free_poly" type="button" style="font-size: 11px;">Free poly</button>
-                                        <button class="btn btn-outline-primary" id="btn_show_obstacles_poly" type="button" style="font-size: 11px;">Obstacle poly</button>
-                                        <button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button" style="font-size: 11px;">Semi assembled</button>
-                                        <button class="btn btn-outline-primary" id="btn_show_assembled" type="button" style="font-size: 11px;">Assembled</button>
-                                    </div>
-                                    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show zone layer</span></div>
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <button class="btn btn-outline-info" id="btn_show_zone_map" type="button" style="font-size: 11px;">Zone</button>
-                                        <button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button" style="font-size: 11px;">Path</button>
-                                        <button class="btn btn-outline-info" id="btn_show_zone_navi" type="button" style="font-size: 11px;">Navi</button>
-                                    </div>
+<div style="padding: 8px 10px;">
 
-<div style="margin-top: 10px;">
-<div style="font-size: 12px;margin-bottom: 4px;">Edit polygons &amp; zones</div>
-<ul class="nav nav-tabs" role="tablist" style="font-size: 13px;background: var(--bs-secondary-text-emphasis);">
-<li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-edit-zone" style="padding: 5px 14px;">Zones</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-edit-poly" style="padding: 5px 14px;">Polygons</a></li>
-</ul>
-<div class="tab-content" style="padding-top: 8px;">
-<div class="tab-pane active" role="tabpanel" id="tab-edit-zone">
-                                    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
-                                        <span style="font-size: 12px;">Zones for the active map</span>
-                                        <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button" style="font-size: 11px;">New zone</button>
-                                    </div>
-                                    <div id="div_zone_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
-                                        <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
-                                            <div style="width: 100%;"><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
-                                            <div><span style="font-size: 12px;display: block;">Cut height</span>
-                                                <div class="input-group input-group-sm" style="width: 92px;"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
-                                            </div>
-                                            <div><span style="font-size: 12px;display: block;">Cut rpm</span><input class="form-control form-control-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300" style="width: 78px;"></div>
-                                            <div id="header_zone_template_border_path"><span style="font-size: 12px;display: block;">Paths around obst.</span><input class="form-control form-control-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2" style="width: 70px;"></div>
-                                            <div id="header_zone_template_coverage_path"><span style="font-size: 12px;display: block;">Coverage angle (°)</span><input class="form-control form-control-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160" style="width: 70px;"></div>
-                                            <div><span style="font-size: 12px;display: block;">Path dist. (m)</span><input class="form-control form-control-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2" style="width: 70px;"></div>
-                                            <div><span style="font-size: 12px;display: block;">Simplify (m)</span><input class="form-control form-control-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1" style="width: 70px;"></div>
-                                            <div id="header_zone_template_path_list" style="display: none;"></div>
-                                        </div>
-                                        <div class="d-flex" style="gap: 4px;margin-top: 8px;">
-                                            <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button" style="font-size: 11px;">Save</button>
-                                            <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button" style="font-size: 11px;">Cancel</button>
-                                        </div>
-                                    </div>
-                                    <div id="div_zone_list"></div>
-                                </div>
-<div class="tab-pane" role="tabpanel" id="tab-edit-poly">
-                                    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
-                                        <span style="font-size: 12px;">Free / obstacle polygons</span>
-                                        <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button" style="font-size: 11px;">New polygon</button>
-                                    </div>
-                                    <div id="div_poly_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;align-items: end;gap: 8px;flex-wrap: wrap;">
-                                        <div><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_poly_template_name" type="text" placeholder="Polygon name" style="width: 150px;"></div>
-                                        <div><span style="font-size: 12px;">Type</span><select class="form-select form-select-sm" id="input_poly_template_type" style="width: 110px;">
-                                            <option value="obstacle">obstacle</option>
-                                            <option value="free">free</option>
-                                        </select></div>
-                                        <div class="d-flex" style="gap: 4px;">
-                                            <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button" style="font-size: 11px;">Save</button>
-                                            <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button" style="font-size: 11px;">Cancel</button>
-                                        </div>
-                                    </div>
-                                    <div id="div_poly_list"></div>
-                                </div>
+<!-- B. NÁSTROJE (tool grid) + C. KONTEXT AKTIVNÍHO NÁSTROJE — both built by mapedits.js -->
+<div id="mapedit_tools" style="margin-bottom: 8px;"></div>
+<div id="mapedit_context" style="margin-bottom: 10px;"></div>
+
+<!-- D. Collapsible sections (all collapsed by default) -->
+
+<!-- Edity mapy -->
+<details class="mapedit-sec">
+  <summary>Edity mapy</summary>
+  <div class="mapedit-sec-body">
+    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Ruční úpravy mapy (překážka / volno / zeď). Klikni na položku pro smazání.</div>
+    <div id="mapedit_edit_list"></div>
+    <div id="mapedit_editctl" style="margin-top: 6px;"></div>
+  </div>
+</details>
+
+<!-- Waypointy -->
+<details class="mapedit-sec">
+  <summary>Waypointy</summary>
+  <div class="mapedit-sec-body">
+    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Aktivuj nástroj <b>Waypoint</b> a klikni do mapy pro přidání. Zde přesuň / smaž existující.</div>
+    <div id="mapedit_wp_list"></div>
+  </div>
+</details>
+
+<!-- Zóny -->
+<details class="mapedit-sec">
+  <summary>Zóny</summary>
+  <div class="mapedit-sec-body" id="tab-edit-zone">
+    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
+      <span style="font-size: 13px;">Zóny sečení aktivní mapy</span>
+      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button">Nová zóna</button>
+    </div>
+    <div id="div_zone_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
+      <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
+        <div style="width: 100%;"><span style="font-size: 12px;">Název</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
+        <div><span style="font-size: 12px;display: block;">Výška sečení</span>
+          <div class="input-group input-group-sm" style="width: 100px;"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
+        </div>
+        <div><span style="font-size: 12px;display: block;">Otáčky (rpm)</span><input class="form-control form-control-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300" style="width: 90px;"></div>
+        <div id="header_zone_template_border_path"><span style="font-size: 12px;display: block;">Dráhy kolem překážek</span><input class="form-control form-control-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2" style="width: 80px;"></div>
+        <div id="header_zone_template_coverage_path"><span style="font-size: 12px;display: block;">Úhel pokrytí (°)</span><input class="form-control form-control-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160" style="width: 80px;"></div>
+        <div><span style="font-size: 12px;display: block;">Rozteč drah (m)</span><input class="form-control form-control-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2" style="width: 80px;"></div>
+        <div><span style="font-size: 12px;display: block;">Zjednodušení (m)</span><input class="form-control form-control-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1" style="width: 80px;"></div>
+        <div id="header_zone_template_path_list" style="display: none;"></div>
+      </div>
+      <div class="d-flex" style="gap: 6px;margin-top: 8px;">
+        <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button">Uložit</button>
+        <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button">Zrušit</button>
+      </div>
+    </div>
+    <div id="div_zone_list"></div>
+  </div>
+</details>
+
+<!-- Polygony -->
+<details class="mapedit-sec">
+  <summary>Polygony</summary>
+  <div class="mapedit-sec-body" id="tab-edit-poly">
+    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
+      <span style="font-size: 13px;">Volné / překážkové polygony (planner)</span>
+      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button">Nový polygon</button>
+    </div>
+    <div id="div_poly_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;align-items: end;gap: 8px;flex-wrap: wrap;">
+      <div><span style="font-size: 12px;">Název</span><input class="form-control form-control-sm" id="input_poly_template_name" type="text" placeholder="Polygon name" style="width: 160px;"></div>
+      <div><span style="font-size: 12px;">Typ</span><select class="form-select form-select-sm" id="input_poly_template_type" style="width: 120px;">
+        <option value="obstacle">obstacle</option>
+        <option value="free">free</option>
+      </select></div>
+      <div class="d-flex" style="gap: 6px;">
+        <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button">Uložit</button>
+        <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button">Zrušit</button>
+      </div>
+    </div>
+    <div id="div_poly_list"></div>
+  </div>
+</details>
+
+<!-- Pokročilé (planner) -->
+<details class="mapedit-sec">
+  <summary>Pokročilé (planner)</summary>
+  <div class="mapedit-sec-body">
+    <div class="text-uppercase fw-bold" style="font-size: 11px;letter-spacing: .5px;color: var(--bs-gray-400);margin-bottom: 6px;">Aktivní mapa</div>
+    <div class="d-flex flex-wrap" style="gap: 6px;margin-bottom: 6px;">
+      <button class="btn btn-primary btn-sm" id="btn_save_planner_data" type="button">Uložit data</button>
+      <button class="btn btn-primary btn-sm" id="btn_load_planner_data" type="button">Načíst data</button>
+      <button class="btn btn-primary btn-sm" id="btn_reload_map" type="button">Znovu načíst</button>
+    </div>
+    <div id="div_log" style="font-size: 12px;color: var(--bs-info);min-height: 16px;margin-bottom: 8px;padding-left: 2px;"><span id="log-2">Initialized</span></div>
+
+    <hr style="margin: 6px 0;border-color: var(--bs-secondary);">
+    <div style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 8px;">
+      <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
+        <div><span style="font-size: 12px;display: block;">Filtr šumu ve volnu</span>
+          <div class="input-group input-group-sm" style="width: 96px;"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
+        </div>
+        <div><span style="font-size: 12px;display: block;">Okraj překážky</span>
+          <div class="input-group input-group-sm" style="width: 96px;"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
+        </div>
+        <div><span style="font-size: 12px;display: block;">Tvar výplně</span><select class="form-select form-select-sm" id="input_fill_shape" style="width: 110px;">
+          <option value="square">square</option>
+          <option value="ellipse" selected="">ellipse</option>
+        </select></div>
+      </div>
+      <div class="d-flex flex-wrap" style="gap: 6px;margin-top: 8px;">
+        <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button">Sestavit mapu</button>
+        <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button">Dráha tenká</button>
+        <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button">Dráha footprint</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Zobrazit vrstvu mapy</span></div>
+    <div class="btn-group btn-group-sm flex-wrap" role="group" style="margin-bottom: 8px;">
+      <button class="btn btn-outline-primary" id="btn_show_original" type="button">Original</button>
+      <button class="btn btn-outline-primary" id="btn_show_fill" type="button">Free</button>
+      <button class="btn btn-outline-primary" id="btn_show_free_poly" type="button">Free poly</button>
+      <button class="btn btn-outline-primary" id="btn_show_obstacles_poly" type="button">Obstacle poly</button>
+      <button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button">Semi assembled</button>
+      <button class="btn btn-outline-primary" id="btn_show_assembled" type="button">Assembled</button>
+    </div>
+    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Zobrazit vrstvu zón</span></div>
+    <div class="btn-group btn-group-sm" role="group">
+      <button class="btn btn-outline-info" id="btn_show_zone_map" type="button">Zone</button>
+      <button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button">Path</button>
+      <button class="btn btn-outline-info" id="btn_show_zone_navi" type="button">Navi</button>
+    </div>
+  </div>
+</details>
+
 </div>
+
+<!-- E. Sticky footer -->
+<div style="position: sticky;bottom: 0;z-index: 20;padding: 8px 10px;background: var(--bs-gray-900);border-top: 1px solid var(--bs-secondary);">
+  <button class="btn btn-warning w-100 fw-bold" id="btn_map_detail_close_footer" type="button" style="min-height: 44px;font-size: 14px;">Zavřít editor</button>
 </div>
 </div>
 

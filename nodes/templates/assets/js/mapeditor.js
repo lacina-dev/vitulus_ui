@@ -416,8 +416,10 @@ window.MapEditor = (function () {
         c.subscribeMapInfo();
         var t = _toggleBtn();
         var x = document.getElementById('btn_map_detail_close');
+        var xf = document.getElementById('btn_map_detail_close_footer');   // sticky footer "Zavřít editor"
         if (t) t.addEventListener('click', function (e) { e.preventDefault(); toggleDetail(); });
         if (x) x.addEventListener('click', function (e) { e.preventDefault(); hideDetail(); });
+        if (xf) xf.addEventListener('click', function (e) { e.preventDefault(); hideDetail(); });
         window.addEventListener('resize', function () { _sizeDetail(); });
     }
 

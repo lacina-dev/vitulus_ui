@@ -230,7 +230,7 @@ window.MapEdits = (function () {
         if (!ros) { console.warn('[mapedits] no ros connection yet'); }
         if (ros && !_layer) {
             _layer = new EditMaskLayer(ros, overlay);
-            _layer.onListChange = function () { /* re-render handled internally */ };
+            _layer.onListChange = function () { _renderEditList(); };
         } else if (_layer) {
             // overlay may have been rebuilt — re-attach the render group
             try { if (_layer.group.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_layer.group); } catch (e) {}
@@ -238,6 +238,8 @@ window.MapEdits = (function () {
         if (ros) _ensureWpTopics(ros);
         _buildToolbar();
         _installClickDetector();
+        _renderEditList();
+        _renderWpList();
         _setTool('off');
     }
     function onExit() {
@@ -248,60 +250,71 @@ window.MapEdits = (function () {
 
     // ---- toolbar UI ----
     function _panel() { return document.getElementById('div_map_detail'); }
+
+    // NÁSTROJE: 4-per-row icon grid. Each entry: state machine tool id + emoji +
+    // Czech label + idle bootstrap variant (swapped to solid btn-primary when
+    // active). 'off' == posun (pan/zoom passes through to the live map).
+    var TOOLS = [
+        { tool: 'off',           ico: '🖐️', label: 'Posun',    idle: 'btn-outline-light' },
+        { tool: 'waypoint',      ico: '📍',       label: 'Waypoint', idle: 'btn-outline-info' },
+        { tool: 'edit_obstacle', ico: '⬛',             label: 'Překážka', idle: 'btn-outline-danger' },
+        { tool: 'edit_free',     ico: '⬜',             label: 'Volno',    idle: 'btn-outline-success' },
+        { tool: 'edit_wall',     ico: '〰️',       label: 'Zeď',      idle: 'btn-outline-warning' },
+        { tool: 'edit_delete',   ico: '🗑️', label: 'Smazat',   idle: 'btn-outline-secondary' },
+    ];
+
     function _buildToolbar() {
         if (_built) { _refreshDisabled(); return; }
-        var panel = _panel();
-        if (!panel) return;
-        var bar = document.createElement('div');
-        bar.id = 'mapedit_toolbar';
-        bar.style.cssText = 'margin-bottom:8px;padding:6px;background:var(--bs-primary);border-radius:4px;';
-        bar.innerHTML =
-            '<div class="text-uppercase fw-bold" style="font-size:11px;letter-spacing:.5px;margin-bottom:5px;">Map tools</div>' +
-            '<div class="d-flex flex-wrap" style="gap:4px;margin-bottom:5px;">' +
-            '  <button class="btn btn-sm btn-outline-info" data-tool="waypoint" type="button" style="font-size:11px;">Waypoint</button>' +
-            '  <button class="btn btn-sm btn-outline-danger" data-tool="edit_obstacle" type="button" style="font-size:11px;">Obstacle</button>' +
-            '  <button class="btn btn-sm btn-outline-success" data-tool="edit_free" type="button" style="font-size:11px;">Free</button>' +
-            '  <button class="btn btn-sm btn-outline-warning" data-tool="edit_wall" type="button" style="font-size:11px;">Wall</button>' +
-            '  <div class="input-group input-group-sm" style="width:86px;"><input class="form-control" id="mapedit_wall_w" type="number" min="0.02" max="2" step="0.05" value="0.10" title="Wall width (m)"><span class="input-group-text">m</span></div>' +
-            '  <button class="btn btn-sm btn-outline-secondary" data-tool="edit_delete" type="button" style="font-size:11px;">Delete edit</button>' +
-            '  <button class="btn btn-sm btn-outline-danger" id="mapedit_clear_all" type="button" style="font-size:11px;">Clear all</button>' +
-            '</div>' +
-            '<div class="d-flex flex-wrap align-items-center" style="gap:4px;">' +
-            '  <button class="btn btn-sm btn-primary" data-tab="zone" type="button" style="font-size:11px;">Zones</button>' +
-            '  <button class="btn btn-sm btn-primary" data-tab="poly" type="button" style="font-size:11px;">Polygons</button>' +
-            '  <button class="btn btn-sm btn-success" id="mapedit_finish" type="button" style="font-size:11px;display:none;">Finish edit</button>' +
-            '  <button class="btn btn-sm btn-warning" id="mapedit_cancel" type="button" style="font-size:11px;display:none;">Cancel</button>' +
-            '  <button class="btn btn-sm btn-outline-light ms-auto" id="mapedit_exit" type="button" style="font-size:11px;">Exit editor</button>' +
-            '</div>' +
-            '<div id="mapedit_hint" style="font-size:11px;color:var(--bs-info);min-height:15px;margin-top:5px;"></div>' +
-            '<div id="mapedit_wp_list" style="margin-top:4px;"></div>';
-        // insert right under the "Map detail" header row (first child)
-        var header = panel.firstElementChild;
-        if (header && header.nextSibling) panel.insertBefore(bar, header.nextSibling);
-        else panel.insertBefore(bar, panel.firstChild);
+        var tools = document.getElementById('mapedit_tools');
+        var ctx = document.getElementById('mapedit_context');
+        if (!tools || !ctx) { _built = false; return; }   // panel not (yet) redesigned
+
+        // B. NÁSTROJE — icon grid.
+        var gh = '<div class="text-uppercase fw-bold" style="font-size:11px;letter-spacing:.5px;color:var(--bs-gray-400);margin-bottom:6px;">Nástroje</div><div class="met-grid">';
+        for (var i = 0; i < TOOLS.length; i++) {
+            var t = TOOLS[i];
+            gh += '<button type="button" class="btn met-tool ' + t.idle + '" data-tool="' + t.tool + '" data-idle="' + t.idle + '">' +
+                  '<span class="met-ico">' + t.ico + '</span><span>' + t.label + '</span></button>';
+        }
+        gh += '</div>';
+        tools.innerHTML = gh;
+
+        // C. KONTEXT AKTIVNÍHO NÁSTROJE — one box showing only what the tool needs.
+        ctx.innerHTML =
+            '<div class="text-uppercase fw-bold" style="font-size:11px;letter-spacing:.5px;color:var(--bs-gray-400);margin-bottom:4px;">Kontext nástroje</div>' +
+            '<div style="border:1px solid var(--bs-secondary);border-radius:5px;padding:8px;background:rgba(0,0,0,.2);">' +
+            '  <div id="mapedit_hint" style="font-size:12.5px;color:var(--bs-info);min-height:18px;"></div>' +
+            '  <div id="mapedit_wall_wrap" style="display:none;margin-top:8px;">' +
+            '    <span style="font-size:12px;display:block;margin-bottom:2px;">Šířka zdi</span>' +
+            '    <div class="input-group input-group-sm" style="width:130px;"><input class="form-control" id="mapedit_wall_w" type="number" min="0.02" max="2" step="0.05" value="0.10"><span class="input-group-text">m</span></div>' +
+            '  </div>' +
+            '  <div id="mapedit_wp_form" style="margin-top:8px;"></div>' +
+            '  <div id="mapedit_ctx_actions" class="d-flex" style="gap:6px;margin-top:8px;">' +
+            '    <button class="btn btn-success btn-sm flex-fill" id="mapedit_finish" type="button" style="display:none;">Dokončit</button>' +
+            '    <button class="btn btn-warning btn-sm flex-fill" id="mapedit_cancel" type="button" style="display:none;">Zrušit</button>' +
+            '  </div>' +
+            '</div>';
 
         // tool buttons
-        var btns = bar.querySelectorAll('[data-tool]');
-        btns.forEach(function (b) {
+        tools.querySelectorAll('[data-tool]').forEach(function (b) {
             b.addEventListener('click', function () {
                 var m = b.getAttribute('data-tool');
+                if (m === 'off') { _setTool('off'); return; }
                 if (_tool === m) _setTool('off'); else _setTool(m);
             });
         });
-        // zone/poly tab delegates (existing map_edit.js UI)
-        bar.querySelectorAll('[data-tab]').forEach(function (b) {
-            b.addEventListener('click', function () {
-                _setTool('off');
-                _showEditTab(b.getAttribute('data-tab'));
-            });
-        });
         // finish / cancel (edits draw)
-        bar.querySelector('#mapedit_finish').addEventListener('click', _finishEditsDraw);
-        bar.querySelector('#mapedit_cancel').addEventListener('click', function () { _setTool('off'); });
-        bar.querySelector('#mapedit_exit').addEventListener('click', function () {
-            if (window.MapEditor && window.MapEditor.hideDetail) window.MapEditor.hideDetail();
-        });
-        _wireClearAll(bar.querySelector('#mapedit_clear_all'));
+        ctx.querySelector('#mapedit_finish').addEventListener('click', _finishEditsDraw);
+        ctx.querySelector('#mapedit_cancel').addEventListener('click', function () { _setTool('off'); });
+
+        // Edity mapy section: Clear-all (double-click confirm) lives here, not in
+        // the tool grid.
+        var editctl = document.getElementById('mapedit_editctl');
+        if (editctl) {
+            editctl.innerHTML = '<button class="btn btn-outline-danger btn-sm" id="mapedit_clear_all" type="button">Smazat vše</button>';
+            _wireClearAll(editctl.querySelector('#mapedit_clear_all'));
+        }
+
         _built = true;
         _refreshDisabled();
     }
@@ -328,12 +341,12 @@ window.MapEdits = (function () {
         function disarm() { armed = false; btn.textContent = orig; btn.classList.remove('btn-danger'); btn.classList.add('btn-outline-danger'); if (timer) { clearTimeout(timer); timer = null; } }
         btn.addEventListener('click', function () {
             if (!armed) {
-                armed = true; btn.textContent = 'Confirm clear'; btn.classList.remove('btn-outline-danger'); btn.classList.add('btn-danger');
+                armed = true; btn.textContent = 'Potvrdit smazání'; btn.classList.remove('btn-outline-danger'); btn.classList.add('btn-danger');
                 timer = setTimeout(disarm, 2500);
             } else {
                 disarm();
                 if (_layer) _layer.clearAll();
-                _setHint('Cleared all edits.');
+                _setHint('Všechny edity smazány.');
             }
         });
     }
@@ -347,15 +360,19 @@ window.MapEdits = (function () {
 
     // ---- tool state machine ----
     function _setToolButtonsActive(mode) {
-        var bar = document.getElementById('mapedit_toolbar'); if (!bar) return;
-        bar.querySelectorAll('[data-tool]').forEach(function (b) {
-            if (b.getAttribute('data-tool') === mode) b.classList.add('active');
-            else b.classList.remove('active');
+        var tools = document.getElementById('mapedit_tools'); if (!tools) return;
+        tools.querySelectorAll('[data-tool]').forEach(function (b) {
+            var idle = b.getAttribute('data-idle') || 'btn-outline-secondary';
+            b.className = (b.getAttribute('data-tool') === mode)
+                ? 'btn met-tool btn-primary active'
+                : 'btn met-tool ' + idle;
         });
-        var fin = document.getElementById('mapedit_finish'), can = document.getElementById('mapedit_cancel');
         var isDraw = (mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall');
+        var fin = document.getElementById('mapedit_finish'), can = document.getElementById('mapedit_cancel');
         if (fin) fin.style.display = isDraw ? '' : 'none';
         if (can) can.style.display = isDraw ? '' : 'none';
+        var ww = document.getElementById('mapedit_wall_wrap');
+        if (ww) ww.style.display = (mode === 'edit_wall') ? '' : 'none';
     }
 
     function _teardownTool() {
@@ -367,7 +384,6 @@ window.MapEdits = (function () {
         }
         _pendingMoveName = null;
         _hideWpInput();
-        var wl = document.getElementById('mapedit_wp_list'); if (wl) wl.style.display = 'none';
     }
 
     function _clearPolygon(P) {
@@ -387,20 +403,19 @@ window.MapEdits = (function () {
 
         if (_tool === 'edit_obstacle' || _tool === 'edit_free' || _tool === 'edit_wall') {
             var P = sharedPolygon();
-            if (!P) { _setHint('Editor not ready — open the map editor once, then retry.'); _setTool('off'); return; }
+            if (!P) { _setHint('Editor není připraven — otevři editor mapy a zkus znovu.'); _setTool('off'); return; }
             _clearPolygon(P);
             try { _ov.scene.addChild(P); } catch (e) {}   // grabs the mouse via setDrawing(true)
             _setHint(_tool === 'edit_wall'
-                ? 'Click to add wall points; drag a vertex to adjust. Press "Finish edit" to save the wall.'
-                : 'Click to add polygon points; drag a vertex to adjust. Press "Finish edit" to save.');
+                ? 'Klikej do mapy body zdi; táhni vrchol pro úpravu. Nastav šířku a stiskni Dokončit.'
+                : 'Klikej do mapy body polygonu; táhni vrchol pro úpravu. Pak stiskni Dokončit.');
         } else if (_tool === 'waypoint') {
-            var wl = document.getElementById('mapedit_wp_list'); if (wl) wl.style.display = '';
             _renderWpList();
-            _setHint('Click the map to place a waypoint. Existing waypoints are listed below (Move / Delete).');
+            _setHint('Klikni do mapy pro umístění waypointu. Existující najdeš v sekci Waypointy (Přesun / Smazat).');
         } else if (_tool === 'edit_delete') {
-            _setHint('Click on an edit (obstacle / free / wall) to remove it.');
+            _setHint('Klikni na edit (překážka / volno / zeď) pro jeho smazání.');
         } else {
-            _setHint('');
+            _setHint('Vyber nástroj nahoře. 🖐️ Posun = mapu lze posouvat a zoomovat.');
         }
     }
 
@@ -412,14 +427,14 @@ window.MapEdits = (function () {
         for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]); // store y=-rosY -> map y
         var kind = (_tool === 'edit_obstacle') ? 'obstacle' : (_tool === 'edit_free') ? 'free' : 'wall';
         var minPts = (kind === 'wall') ? 2 : 3;
-        if (pts.length < minPts) { _setHint('Need at least ' + minPts + ' points for a ' + kind + '.'); return; }
+        if (pts.length < minPts) { _setHint('Potřebuji aspoň ' + minPts + ' body pro: ' + kind + '.'); return; }
         var spec = { kind: kind, points: pts };
         if (kind === 'wall') {
             var wi = document.getElementById('mapedit_wall_w');
             spec.width_m = wi ? (parseFloat(wi.value) || 0.10) : 0.10;
         }
         if (_layer) _layer.saveEdit(spec);
-        _setHint('Saved ' + kind + ' (' + pts.length + ' pts). The served map updates once composited.');
+        _setHint('Uloženo (' + kind + ', ' + pts.length + ' b.). Mapa se aktualizuje po sloučení.');
         _setTool('off');
     }
 
@@ -451,20 +466,20 @@ window.MapEdits = (function () {
         if (!_layer) return;
         var tol = _ov.worldTol ? _ov.worldTol(10) : 0.3;
         var name = _layer.hitTest(world, tol);
-        if (name) { _layer.removeEdit(name); _setHint('Removed edit "' + name + '".'); }
-        else _setHint('No edit under the cursor.');
+        if (name) { _layer.removeEdit(name); _setHint('Smazán edit "' + name + '".'); }
+        else _setHint('Pod kurzorem není žádný edit.');
     }
 
     // ---- waypoint placement: floating name + yaw slider (simpler than a drag
     //      gesture; yaw chosen from a 0..359° slider) ----
     function _onWaypointClick(world, clientX, clientY) {
         var name = _pendingMoveName || ('wp_' + _wpN);
-        _showWpInput(clientX, clientY, name, !!_pendingMoveName, function (finalName, yawDeg) {
+        _showWpInput(name, !!_pendingMoveName, function (finalName, yawDeg) {
             var yaw = (yawDeg || 0) * Math.PI / 180;
             _publishWaypointAt(finalName, world.x, world.y, yaw);
             if (!_pendingMoveName) _wpN++;
             _pendingMoveName = null;
-            _setHint('Saved waypoint "' + finalName + '".');
+            _setHint('Uložen waypoint "' + finalName + '".');
         });
     }
 
@@ -474,69 +489,102 @@ window.MapEdits = (function () {
     }
 
     var _wpInput = null;
-    function _showWpInput(clientX, clientY, name, lockName, onSave) {
+    // Waypoint name + heading form. Renders INTO the KONTEXT box (#mapedit_wp_form)
+    // instead of a floating popup, so all controls stay inside the panel.
+    function _showWpInput(name, lockName, onSave) {
         _hideWpInput();
-        var d = document.createElement('div');
-        d.id = 'mapedit_wp_input';
-        d.style.cssText = 'position:fixed;z-index:3000;background:var(--bs-gray-900);border:1px solid var(--bs-info);' +
-            'border-radius:5px;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,.5);width:210px;';
-        var left = Math.min(clientX + 8, window.innerWidth - 220);
-        var top = Math.min(clientY + 8, window.innerHeight - 140);
-        d.style.left = Math.max(4, left) + 'px';
-        d.style.top = Math.max(4, top) + 'px';
-        d.innerHTML =
-            '<div style="font-size:11px;margin-bottom:4px;">Waypoint name</div>' +
+        var host = document.getElementById('mapedit_wp_form');
+        if (!host) return;
+        host.innerHTML =
+            '<div style="border-top:1px dashed var(--bs-secondary);padding-top:8px;">' +
+            '<div style="font-size:12px;margin-bottom:2px;">Název waypointu</div>' +
             '<input class="form-control form-control-sm" id="mapedit_wp_name" type="text" value="' + _escapeAttr(name) + '"' + (lockName ? ' readonly' : '') + '>' +
-            '<div style="font-size:11px;margin:6px 0 2px;">Heading: <span id="mapedit_wp_yawv">0</span>°</div>' +
+            '<div style="font-size:12px;margin:8px 0 2px;">Směr: <span id="mapedit_wp_yawv">0</span>°</div>' +
             '<input id="mapedit_wp_yaw" type="range" min="0" max="359" step="1" value="0" style="width:100%;">' +
-            '<div class="d-flex" style="gap:4px;margin-top:6px;">' +
-            '  <button class="btn btn-success btn-sm" id="mapedit_wp_save" type="button" style="font-size:11px;">Save</button>' +
-            '  <button class="btn btn-warning btn-sm" id="mapedit_wp_cancel" type="button" style="font-size:11px;">Cancel</button>' +
-            '</div>';
-        document.body.appendChild(d);
-        _wpInput = d;
-        var yaw = d.querySelector('#mapedit_wp_yaw'), yawv = d.querySelector('#mapedit_wp_yawv');
+            '<div class="d-flex" style="gap:6px;margin-top:8px;">' +
+            '  <button class="btn btn-success btn-sm flex-fill" id="mapedit_wp_save" type="button">Uložit</button>' +
+            '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_cancel" type="button">Zrušit</button>' +
+            '</div></div>';
+        _wpInput = host;
+        var yaw = host.querySelector('#mapedit_wp_yaw'), yawv = host.querySelector('#mapedit_wp_yawv');
         yaw.addEventListener('input', function () { yawv.textContent = yaw.value; });
-        d.querySelector('#mapedit_wp_save').addEventListener('click', function () {
-            var nm = (d.querySelector('#mapedit_wp_name').value || '').trim();
-            if (!nm) { d.querySelector('#mapedit_wp_name').focus(); return; }
+        host.querySelector('#mapedit_wp_save').addEventListener('click', function () {
+            var nm = (host.querySelector('#mapedit_wp_name').value || '').trim();
+            if (!nm) { host.querySelector('#mapedit_wp_name').focus(); return; }
             _hideWpInput();
             onSave(nm, parseFloat(yaw.value) || 0);
         });
-        d.querySelector('#mapedit_wp_cancel').addEventListener('click', function () { _hideWpInput(); _pendingMoveName = null; });
-        var nmEl = d.querySelector('#mapedit_wp_name');
+        host.querySelector('#mapedit_wp_cancel').addEventListener('click', function () { _hideWpInput(); _pendingMoveName = null; });
+        var nmEl = host.querySelector('#mapedit_wp_name');
         if (!lockName) { nmEl.focus(); nmEl.select(); }
     }
-    function _hideWpInput() { if (_wpInput && _wpInput.parentNode) _wpInput.parentNode.removeChild(_wpInput); _wpInput = null; }
+    function _hideWpInput() {
+        var host = document.getElementById('mapedit_wp_form');
+        if (host) host.innerHTML = '';
+        _wpInput = null;
+    }
 
+    // Waypoint list lives in the collapsible "Waypointy" section — always
+    // rendered (not gated on the active tool) so it can be browsed/managed any
+    // time. "Přesun" activates the waypoint tool then arms a move.
     function _renderWpList() {
         var wl = document.getElementById('mapedit_wp_list');
         if (!wl) return;
-        if (_tool !== 'waypoint') { wl.style.display = 'none'; return; }
-        wl.style.display = '';
-        if (!_wpNames.length) { wl.innerHTML = '<div style="font-size:11px;color:var(--bs-gray-500);">No waypoints yet.</div>'; return; }
-        var html = '<div style="font-size:11px;color:var(--bs-gray-500);margin-bottom:2px;">Existing waypoints</div>';
+        if (!_wpNames.length) { wl.innerHTML = '<div style="font-size:12px;color:var(--bs-gray-500);">Zatím žádné waypointy.</div>'; return; }
+        var html = '';
         for (var i = 0; i < _wpNames.length; i++) {
             var n = _wpNames[i];
-            html += '<div class="d-flex align-items-center" style="border-bottom:1px solid #3a3f44;padding:2px;font-size:11px;">' +
+            html += '<div class="d-flex align-items-center" style="border-bottom:1px solid #3a3f44;padding:4px 2px;font-size:12px;">' +
                 '<span class="text-info text-truncate" style="flex:1 1 auto;min-width:0;" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>' +
-                '<div class="btn-group btn-group-sm" style="margin-left:4px;">' +
-                '<button class="btn btn-outline-info mapedit-wp-move" data-n="' + _escapeAttr(n) + '" type="button" style="font-size:10px;padding:0 6px;">Move</button>' +
-                '<button class="btn btn-outline-danger mapedit-wp-del" data-n="' + _escapeAttr(n) + '" type="button" style="font-size:10px;padding:0 6px;">Del</button>' +
+                '<div class="btn-group btn-group-sm" style="margin-left:6px;">' +
+                '<button class="btn btn-outline-info mapedit-wp-move" data-n="' + _escapeAttr(n) + '" type="button">Přesun</button>' +
+                '<button class="btn btn-outline-danger mapedit-wp-del" data-n="' + _escapeAttr(n) + '" type="button">Smazat</button>' +
                 '</div></div>';
         }
         wl.innerHTML = html;
         wl.querySelectorAll('.mapedit-wp-move').forEach(function (b) {
             b.addEventListener('click', function () {
+                if (_tool !== 'waypoint') _setTool('waypoint');
                 _pendingMoveName = b.getAttribute('data-n');
-                _setHint('Click the map to move "' + _pendingMoveName + '" to a new location.');
+                _setHint('Klikni do mapy pro přesun "' + _pendingMoveName + '" na nové místo.');
             });
         });
         wl.querySelectorAll('.mapedit-wp-del').forEach(function (b) {
             b.addEventListener('click', function () {
                 var n = b.getAttribute('data-n');
                 if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: n }));
-                _setHint('Removed waypoint "' + n + '".');
+                _setHint('Smazán waypoint "' + n + '".');
+            });
+        });
+    }
+
+    // Edits list lives in the collapsible "Edity mapy" section — per-item delete
+    // (publishes remove_edit); Clear-all is the double-click button in the same
+    // section. Refreshed whenever the latched edit_list changes (onListChange).
+    function _renderEditList() {
+        var el = document.getElementById('mapedit_edit_list');
+        if (!el) return;
+        var edits = (_layer && _layer.edits) ? _layer.edits : [];
+        if (!edits.length) { el.innerHTML = '<div style="font-size:12px;color:var(--bs-gray-500);">Zatím žádné edity.</div>'; return; }
+        var LBL = { obstacle: 'Překážka', free: 'Volno', wall: 'Zeď' };
+        var html = '';
+        for (var i = 0; i < edits.length; i++) {
+            var e = edits[i];
+            var kind = LBL[e.kind] || e.kind || '';
+            var np = (e.points || []).length;
+            html += '<div class="d-flex align-items-center" style="border-bottom:1px solid #3a3f44;padding:4px 2px;font-size:12px;">' +
+                '<span class="text-truncate" style="flex:1 1 auto;min-width:0;" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || '(bez názvu)') + '</span>' +
+                '<span class="text-light" style="width:70px;">' + _escapeHtml(kind) + '</span>' +
+                '<span style="width:44px;text-align:right;color:var(--bs-gray-500);">' + np + ' b.</span>' +
+                '<button class="btn btn-outline-danger btn-sm mapedit-edit-del" data-n="' + _escapeAttr(e.name || '') + '" type="button" style="margin-left:6px;">Smazat</button>' +
+                '</div>';
+        }
+        el.innerHTML = html;
+        el.querySelectorAll('.mapedit-edit-del').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var n = b.getAttribute('data-n');
+                if (_layer) _layer.removeEdit(n);
+                _setHint('Smazán edit "' + n + '".');
             });
         });
     }
