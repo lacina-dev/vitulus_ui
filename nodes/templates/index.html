@@ -335,6 +335,52 @@ html, body {
 #tab-map .form-control, #tab-map .form-select { min-height: 34px; font-size: 12px; }
 #tab-map .input-group-sm > .form-control, #tab-map .input-group-sm > .input-group-text { min-height: 32px; }
 
+/* ===== Settings panel (#div_menu_config) tabs: fluid width in the drawer =====
+   Motors / Power / Mower / Rosbag were authored back when #div_menu_config was
+   a wide dropdown menu; their top-level rows use fixed pixel column widths
+   (col-auto width:336px/337px) or narrow min-widths (150px) that don't fit
+   the 460px drawer body, which forced an inner horizontal scrollbar on the
+   row (overflow:auto). Turn those rows into a fluid auto-fit grid so columns
+   share the full drawer width and reflow with no media query needed: they
+   mostly stack to one full-width column in the normal 460px drawer and pack
+   more columns automatically if the drawer is widened (.wide/.full). The
+   minmax(min(Npx,100%), 1fr) form caps the minimum track size at the
+   container width so a track can never force horizontal overflow on a very
+   narrow screen. Numeric inputs/buttons inside are untouched — only the
+   outer column sizing changes; Bootstrap's .input-group already stretches to
+   100% of its column and wraps internally if it runs out of room.
+   Navi (#tab_lidar) and Diag (#tab_diag) already use unconstrained col-auto /
+   plain divs that reflow correctly on their own — left alone. IMU (#tab_imu /
+   #3d_view) is out of scope and not touched here. */
+#tab_motors > div > .row {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 6px 12px;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+#tab_power > div > .row,
+#tab_mower > div > .row,
+#tab_rosbag > .row {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 6px 12px;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+#tab_motors > div > .row > .col-auto,
+#tab_power > div > .row > .col-auto,
+#tab_mower > div > .row > .col-auto,
+#tab_rosbag > .row > .col-auto {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 /* ===== Left slide-out drawer (Phase 1) — hosts the relocated menu panels ===== */
 /* The drawer is a fixed box on the LEFT, spanning from just under the top navbar
    to just above the fixed bottom toolbar. The map to its right stays interactive
@@ -357,12 +403,13 @@ html, body {
     box-shadow: 4px 0 22px rgba(0,0,0,0.55);
     z-index: 1000;                                  /* above map overlay (z10), below BS modals (1050+) */
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, width 0.2s ease;
     pointer-events: auto;
     overflow: hidden;                               /* the body scrolls, not the shell */
 }
 #ui_drawer.open { transform: translateX(0); }
 #ui_drawer.wide { width: 640px; }                   /* Programs view needs more room */
+#ui_drawer.full { width: 100vw !important; border-radius: 0 !important; }  /* fullscreen-expand toggle; wins over .wide */
 #ui_drawer_head {
     flex: 0 0 auto;
     display: flex;
@@ -399,6 +446,24 @@ html, body {
     cursor: pointer;
 }
 #btn_ui_drawer_close:hover { background: rgba(255,255,255,0.06); }
+#btn_ui_drawer_full {
+    flex: 0 0 auto;
+    min-width: 36px;
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--bs-info);
+    background: transparent;
+    border: 1px solid var(--bs-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+}
+#btn_ui_drawer_full:hover { background: rgba(255,255,255,0.06); }
+/* Fullscreen-expand toggle is a no-op below 576px (drawer is already 100vw). */
+@media (max-width: 575.98px) {
+    #btn_ui_drawer_full, #btn_map_detail_full { display: none !important; }
+}
 #ui_drawer_body {
     flex: 1 1 auto;
     overflow-y: auto;
@@ -482,6 +547,20 @@ details.drawer-sec > .drawer-sec-body hr { margin: 8px 0; }
 #tab-path .form-control, #tab-point .form-control, #tab-dock .form-control,
 #tab-gloc .form-control, #tab-path .form-select, #tab-point .form-select,
 #tab-dock .form-select, #tab-gloc .form-select { min-height: 34px; font-size: 12px; }
+/* vitulus_ui: layout-jitter fix (2026-07-18) — dock.js pushes innerHTML into
+   these containers on every incoming ROS status message (continuous
+   subscriptions, active regardless of whether the detector is enabled).
+   Some of that HTML is conditional (e.g. handleDockMapStatus appends an
+   extra <span> only when message.nav_error is set; handleDockSeedStatus
+   appends 1-3 <div> lines depending on live seed state) so the rendered
+   height can differ by a wrapped line between two consecutive messages.
+   With no reserved size that shifted every #tab-dock section below it a
+   few px on each update. min-height reserves worst-case content so the
+   box doesn't reflow once populated; while a container is display:none
+   (detector disabled / no seed data yet) it still takes zero space. */
+#tab-dock #dock_div_intensity_status { min-height: 84px; }
+#tab-dock #dock_div_map_status { min-height: 150px; }
+#tab-dock #dock_div_seed_status { min-height: 64px; }
 
 /* ===== Compact segmented pill tab strips (map / programs / settings) ===== */
 ul.nav-tabs.drawer-pills {
@@ -706,29 +785,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
 
                                                 <div class="row g-0" id="mapv3_sites_row" style="margin-top: 8px;"></div>
-                                            </div>
-                                        </details>
 
-                                        <!-- SECTION: Map layers -->
-                                        <details class="map-sec" data-mapsec="layers">
-                                            <summary>Map layers</summary>
-                                            <div class="map-sec-body">
-                                                <div style="font-size: 12px;" title="Overall opacity of ALL occupancy-map layers (base map, local costmap, saved map, live mapping). Does not affect rain radar or aerial tiles.">Maps opacity <span id="mapv3_maps_opacity_val" style="opacity: .8;">100%</span></div>
-                                                <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
-                                                <div style="font-size: 12px;margin-top: 4px;" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across the occupancy layers.">Unknown opacity <span id="mapv3_unknown_opacity_val" style="opacity: .8;">100%</span></div>
-                                                <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
-                                                <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">saved map: &mdash;</span>
-
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Drape MapProxy satellite/OSM tiles georeferenced under the map (loads only when the Aerial layer is ticked)">Aerial tiles (MapProxy)</div>
-                                                <div class="input-group input-group-sm" style="max-width: 340px;">
-                                                    <select class="form-select" id="mapv3_aerial_src" title="Tile source layer" style="font-size: 12px;"><option value="sat" selected>satellite</option><option value="osm">OSM</option></select>
-                                                    <select class="form-select" id="mapv3_aerial_zoom" title="Tile zoom level (MapProxy grids max out at z19)" style="font-size: 12px;"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option></select>
-                                                    <select class="form-select" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Large areas + high zoom are auto-clamped." style="font-size: 12px;"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
-                                                </div>
-                                                <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" style="vertical-align: middle;width: 120px;"></div>
-                                                <span id="mapv3_aerial_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">aerial: &mdash;</span>
-
+                                                <!-- vitulus_ui R3 (2026-07-18): obstacle classification + sensor ranges
+                                                     configure the mapping pipeline (not display) - moved here from
+                                                     the Map layers section. -->
                                                 <hr style="margin: 8px 0;">
                                                 <div style="font-size: 12px;margin-bottom: 3px;" title="Obstacle band = height window above the LOCAL ground (DEM) that counts as an obstacle. Evidence = occupied voxels in that window per cell; cluster = drop obstacle blobs smaller than this (speckles).">Obstacle classification</div>
                                                 <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
@@ -756,17 +816,33 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <button class="btn btn-primary" id="mapv3_btn_apply_ranges" type="button" disabled title="Requires a running mapping session — press Start first (the insertion gate only exists while mapping runs).">Apply</button>
                                                 </div>
                                                 <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
-
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 2px;">Terrain DEM</div>
-                                                <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
                                         </details>
 
-                                        <!-- SECTION: Rain radar -->
-                                        <details class="map-sec" data-mapsec="rain">
-                                            <summary>Rain radar (&#268;HM&Uacute;)</summary>
+                                        <!-- SECTION: Map layers -->
+                                        <details class="map-sec" data-mapsec="layers">
+                                            <summary>Map layers</summary>
                                             <div class="map-sec-body">
+                                                <div style="font-size: 12px;" title="Overall opacity of ALL occupancy-map layers (base map, local costmap, saved map, live mapping). Does not affect rain radar or aerial tiles.">Maps opacity <span id="mapv3_maps_opacity_val" style="opacity: .8;">100%</span></div>
+                                                <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
+                                                <div style="font-size: 12px;margin-top: 4px;" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across the occupancy layers.">Unknown opacity <span id="mapv3_unknown_opacity_val" style="opacity: .8;">100%</span></div>
+                                                <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
+                                                <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">saved map: &mdash;</span>
+
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Drape MapProxy satellite/OSM tiles georeferenced under the map (loads only when the Aerial layer is ticked)">Aerial tiles (MapProxy)</div>
+                                                <div class="input-group input-group-sm" style="max-width: 340px;">
+                                                    <select class="form-select" id="mapv3_aerial_src" title="Tile source layer" style="font-size: 12px;"><option value="sat" selected>satellite</option><option value="osm">OSM</option></select>
+                                                    <select class="form-select" id="mapv3_aerial_zoom" title="Tile zoom level (MapProxy grids max out at z19)" style="font-size: 12px;"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option></select>
+                                                    <select class="form-select" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Large areas + high zoom are auto-clamped." style="font-size: 12px;"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
+                                                </div>
+                                                <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" style="vertical-align: middle;width: 120px;"></div>
+                                                <span id="mapv3_aerial_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">aerial: &mdash;</span>
+
+                                                <!-- vitulus_ui R4 (2026-07-18): Rain radar is a display layer - moved here
+                                                     from its own section (thin rule + small label sub-block). -->
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="&#268;HM&Uacute; rain radar composite draped over the map (loads only when the Rain layer is ticked)">Rain radar (&#268;HM&Uacute;)</div>
                                                 <div class="input-group input-group-sm" style="max-width: 300px;">
                                                     <select class="form-select" id="mapv3_rain_area" title="Radius around the garden to show. The &#268;HM&Uacute; frame covers ~64 km square; only the central disc of this radius is displayed." style="font-size: 12px;"><option value="2000">2 km</option><option value="5000">5 km</option><option value="10000">10 km</option><option value="30000">30 km disc</option><option value="100000" selected>full frame</option></select>
                                                     <select class="form-select" id="mapv3_rain_z" title="Height above the map that the radar plane floats at (so it sits over everything)" style="font-size: 12px;"><option value="5" selected>float 5 m</option><option value="20">float 20 m</option><option value="50">float 50 m</option></select>
@@ -774,8 +850,16 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 </div>
                                                 <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_rain_opacity" min="0" max="1" step="0.05" value="0.5" style="vertical-align: middle;width: 120px;"></div>
                                                 <span id="mapv3_rain_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">rain: &mdash;</span>
+
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 2px;">Terrain DEM</div>
+                                                <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
                                         </details>
+
+                                        <!-- vitulus_ui R4 (2026-07-18): Rain radar section removed - its tuning
+                                             cluster now lives inside the Map layers section as a display sub-block.
+                                             The Rain on/off toggle stays in the top layer strip. -->
 
                                         <!-- ===== Hidden legacy controls (superseded by mapping v3; kept for JS bindings / runtime files until site_native flip) ===== -->
                                         <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
@@ -948,6 +1032,15 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-rain" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
+                                        <!-- vitulus_ui R1 (2026-07-18): (1) Weather report collapsed first, with its
+                                             live status right-aligned in the summary; (2) Rain now imagery expanded;
+                                             (3) Forecast collapsed last. -->
+                                        <details class="drawer-sec" data-drawersec="rain_report">
+                                            <summary><span>Weather report</span><span id="rain_report_status" style="margin-left: auto;min-width: 0;overflow: hidden;text-overflow: ellipsis;white-space: nowrap;text-align: right;font-size: 12px;font-weight: 400;">&mdash;</span></summary>
+                                            <div class="drawer-sec-body">
+                                                <div id="rain_div_report"></div>
+                                            </div>
+                                        </details>
                                         <!-- PRIMARY: current rain snapshot -->
                                         <div style="margin-top: 8px;">
                                             <span class="drawer-hint" style="margin-bottom: 4px;">Rain now</span>
@@ -957,12 +1050,6 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <summary>Forecast (now, +10 / 20 / 30 min)</summary>
                                             <div class="drawer-sec-body">
                                                 <div id="rain_div_forecast"></div>
-                                            </div>
-                                        </details>
-                                        <details class="drawer-sec" data-drawersec="rain_report">
-                                            <summary>Weather report</summary>
-                                            <div class="drawer-sec-body">
-                                                <div id="rain_div_report"></div>
                                             </div>
                                         </details>
                                     </div>
@@ -1489,7 +1576,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                             <span id="span_bag_total" style="font-size:11px;color:#9aa0a6;"></span>
                                                             <button id="btn_bag_refresh" type="button" class="btn btn-sm btn-outline-secondary" style="margin-left:auto;padding:2px 8px;font-size:11px;" title="Refresh list">↻</button>
                                                         </div>
-                                                        <div id="div_bag_list" class="bag-list" style="max-height: calc(100vh - 380px);min-height: 120px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:5px;background:rgba(0,0,0,0.2);padding:2px;">
+                                                        <div id="div_bag_list" class="bag-list" style="min-height: 120px;overflow: visible;border:1px solid rgba(255,255,255,0.08);border-radius:5px;background:rgba(0,0,0,0.2);padding:2px;">
                                                             <div class="bag-empty" style="padding:12px;font-size:12px;color:#9aa0a6;text-align:center;">Loading…</div>
                                                         </div>
                                                     </div>
@@ -1523,6 +1610,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <div class="d-flex align-items-center" style="position: sticky;top: 0;z-index: 20;gap: 8px;padding: 8px 10px;background: var(--bs-gray-900);border-bottom: 1px solid var(--bs-secondary);">
   <span class="text-uppercase fw-bold text-info" style="font-size: 14px;letter-spacing: .5px;white-space: nowrap;">Map editor</span>
   <span id="map_detail_site" class="text-truncate" style="font-size: 12px;color: var(--bs-gray-400);flex: 1 1 auto;min-width: 0;" title="Currently served map">—</span>
+  <button class="btn btn-outline-info" id="btn_map_detail_full" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 16px;line-height: 1;" title="Expand"><i class="la la-expand"></i></button>
   <button class="btn btn-outline-warning" id="btn_map_detail_close" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 20px;line-height: 1;" title="Close editor">&times;</button>
 </div>
 
@@ -1780,6 +1868,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <div id="ui_drawer" aria-hidden="true">
         <div id="ui_drawer_head">
             <span id="ui_drawer_title">Menu</span>
+            <button id="btn_ui_drawer_full" type="button" title="Expand" aria-label="Expand"><i class="la la-expand"></i></button>
             <button id="btn_ui_drawer_close" type="button" title="Close" aria-label="Close">&times;</button>
         </div>
         <div id="ui_drawer_body"></div>

@@ -2794,6 +2794,42 @@ class MapMenu {
         var xb = document.getElementById("btn_ui_drawer_close");
         if (xb) xb.onclick = function () { self.close_drawer(); };
         if (this.ui_drawer_backdrop) this.ui_drawer_backdrop.onclick = function () { self.close_drawer(); };
+        var fb = document.getElementById("btn_ui_drawer_full");
+        if (fb) fb.onclick = function () { self.toggle_drawer_full(); };
+    }
+
+    // ----- Fullscreen-expand toggle (per-panel persisted) ------------------
+    // Adds/removes .full on #ui_drawer (wins over .wide, width:100vw). State is
+    // remembered per panel key in localStorage so e.g. Programs can stay expanded
+    // while Marker stays normal-width.
+    set_drawer_full(on) {
+        if (this.ui_drawer) {
+            if (on) this.ui_drawer.classList.add('full');
+            else this.ui_drawer.classList.remove('full');
+        }
+        var key = this._drawer_last;
+        if (key) {
+            try { localStorage.setItem('vitulus_drawer_full_' + key, on ? '1' : '0'); } catch (e) {}
+        }
+        this._update_drawer_full_buttons(on);
+    }
+
+    toggle_drawer_full() {
+        var on = !(this.ui_drawer && this.ui_drawer.classList.contains('full'));
+        this.set_drawer_full(on);
+    }
+
+    _update_drawer_full_buttons(on) {
+        var icon = on ? 'la-compress' : 'la-expand';
+        var title = on ? 'Restore' : 'Expand';
+        ['btn_ui_drawer_full', 'btn_map_detail_full'].forEach(function (id) {
+            var b = document.getElementById(id);
+            if (!b) return;
+            b.title = title;
+            b.setAttribute('aria-label', title);
+            var i = b.querySelector('i');
+            if (i) { i.classList.remove('la-expand', 'la-compress'); i.classList.add(icon); }
+        });
     }
 
     _drawer_backdrop(on) {
@@ -2825,13 +2861,17 @@ class MapMenu {
         if (this.ui_drawer_title) this.ui_drawer_title.textContent = (this._drawer_titles[key] || '');
         if (this.ui_drawer_body) this.ui_drawer_body.scrollTop = 0;
         this._drawer_backdrop(true);
+        // Restore this panel's remembered fullscreen-expand state.
+        var remembered_full = false;
+        try { remembered_full = localStorage.getItem('vitulus_drawer_full_' + key) === '1'; } catch (e) {}
+        this.set_drawer_full(remembered_full);
     }
 
     // Slide the drawer OUT (used by the per-button toggle-off path; panel already
     // hidden by the caller).
     _drawer_slide_out() {
         if (this.ui_drawer) {
-            this.ui_drawer.classList.remove('open', 'wide', 'editor');
+            this.ui_drawer.classList.remove('open', 'wide', 'editor', 'full');
             this.ui_drawer.setAttribute('aria-hidden', 'true');
         }
         this._drawer_backdrop(false);
@@ -5486,6 +5526,23 @@ class Programs {
 // }
 
 
+// vitulus_ui R2 (2026-07-18): the Map-tab header (#active_map_name) now shows the
+// mapping-v3 SERVED SITE identity ("site (raster)") whenever a site is being
+// served - because that raster IS the displayed base map - relegating the legacy
+// navi map name (GARDEN_...***env*OUTDOOR) to the tooltip. With no site served it
+// falls back to the legacy name (old behaviour). Two independent, order-agnostic
+// writers feed the element: the /navi_manager/active_map subscription stamps
+// data-legacy; mapping.js's /mapping_manager/status handler stamps data-site.
+// This shared renderer recomputes visible text + title from both attributes.
+window.renderActiveMapName = function () {
+    var el = document.getElementById('active_map_name');
+    if (!el) return;
+    var site = el.getAttribute('data-site') || '';
+    var legacy = el.getAttribute('data-legacy') || '';
+    if (site) { el.textContent = site; el.title = legacy; }
+    else { el.textContent = legacy; el.title = ''; }
+};
+
 // vitulus_ui: was `window.onload`; converted to a named initialiser so the
 // merged single page can lazily start each view. Called by app.js on window load.
 window.initMapView = function () {
@@ -5680,8 +5737,14 @@ window.initMapView = function () {
             var parts = (message.data || '').split('***env*');
             var name = parts[0] || '';
             var env = parts[1] || '';
+            // vitulus_ui R2: stamp the legacy navi map name as data-legacy; the
+            // shared renderer decides whether it shows in the header or falls to
+            // the tooltip (when a mapping-v3 site is being served).
             var lbl = document.getElementById('active_map_name');
-            if (lbl) lbl.textContent = env ? (name + ' (' + env + ')') : name;
+            if (lbl) {
+                lbl.setAttribute('data-legacy', env ? (name + ' (' + env + ')') : name);
+                if (window.renderActiveMapName) window.renderActiveMapName();
+            }
             // Populate the "Save map as" input ONLY when the current map actually
             // changes (freshly loaded / newly created) — NOT on every status
             // update — otherwise it overwrites whatever the user is typing.

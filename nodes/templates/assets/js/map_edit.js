@@ -969,7 +969,11 @@ window.initPlanner = function(opts) {
     });
 
     active_map_Topic.subscribe(function(message) {
-        active_map_name.textContent = message.data.split("***env*")[0] + ' (' + message.data.split("***env*")[1] + ')';
+        // vitulus_ui R2 (2026-07-18): stamp the legacy name as data-legacy and let
+        // the shared renderer decide header vs tooltip (so opening the Planner does
+        // not clobber the mapping-v3 served-site identity in the Map-tab header).
+        active_map_name.setAttribute('data-legacy', message.data.split("***env*")[0] + ' (' + message.data.split("***env*")[1] + ')');
+        if (window.renderActiveMapName) window.renderActiveMapName();
         if (message.data !== active_map_file_name){
             console.log("Map changed");
             let msg = new ROSLIB.Message({

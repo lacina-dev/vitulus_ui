@@ -343,7 +343,13 @@ class Dock {
             `;
         }
 
-        this.dock_seed_status_div.innerHTML = seedHtml;
+        // vitulus_ui: layout-jitter fix — /dock_localization_seed/status is a
+        // continuous subscription (fires regardless of whether a detector is
+        // enabled); skip the DOM write when the rendered content hasn't
+        // actually changed so an unchanged status doesn't force a reflow.
+        if (this.dock_seed_status_div.innerHTML !== seedHtml) {
+            this.dock_seed_status_div.innerHTML = seedHtml;
+        }
     }
 
     setupImageViewers() {
@@ -523,7 +529,11 @@ class Dock {
 
 
         if (this.dock_status_div) {
-            this.dock_status_div.innerHTML = statusHtml;
+            // vitulus_ui: layout-jitter fix — /dock_detector/intensity/status
+            // is a continuous subscription; skip identical writes.
+            if (this.dock_status_div.innerHTML !== statusHtml) {
+                this.dock_status_div.innerHTML = statusHtml;
+            }
             // Add image container below status
             if (this.dock_intensity_image_div) {
                 this.dock_intensity_image_div.style.display = 'block';
@@ -564,7 +574,15 @@ class Dock {
         `;
 
         if (this.dock_map_status_div) {
-            this.dock_map_status_div.innerHTML = mapStatusHtml;
+            // vitulus_ui: layout-jitter fix — /dock_detector/status is a
+            // continuous subscription and message.nav_error toggling on/off
+            // adds/removes a <span>, which can change the wrapped line count
+            // between two messages; skip the write when content is unchanged
+            // so an unrelated field (e.g. Est. time counting down) doesn't
+            // force a needless reflow either.
+            if (this.dock_map_status_div.innerHTML !== mapStatusHtml) {
+                this.dock_map_status_div.innerHTML = mapStatusHtml;
+            }
             // Add image container below status
             if (this.dock_map_image_div) {
                 this.dock_map_image_div.style.display = 'block';

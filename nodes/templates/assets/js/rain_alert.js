@@ -6,7 +6,11 @@ class RainAlert {
         this.rain_map_div = document.getElementById("rain_div_map");
         this.rain_forecast_div = document.getElementById("rain_div_forecast");
         this.rain_div_report = document.getElementById("rain_div_report");
-        
+        // vitulus_ui R1 (2026-07-18): compact status shown right-aligned in the
+        // "Weather report" <details> summary (so it reads while collapsed). Filled
+        // by the same updateReportDiv() handler that builds the full report table.
+        this.rain_report_status = document.getElementById("rain_report_status");
+
         this.hostname = location.hostname;
         
         // Setup placeholder text
@@ -197,6 +201,13 @@ class RainAlert {
         
         // Update the div with formatted content
         this.rain_div_report.innerHTML = reportHTML;
+
+        // vitulus_ui R1: mirror the status line into the collapsed-summary badge.
+        if (this.rain_report_status) {
+            this.rain_report_status.textContent = statusMessage;
+            this.rain_report_status.className =
+                (rainAlert ? (rainNow > 0 ? 'text-danger' : 'text-warning') : 'text-success');
+        }
     }
     
     createTimelineVisualization(message) {

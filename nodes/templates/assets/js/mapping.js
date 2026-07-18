@@ -1645,6 +1645,17 @@ class MappingV3 {
         // (small hook — piggybacks this existing status handler, no new sub).
         var _mds = document.getElementById('map_detail_site');
         if (_mds) _mds.textContent = s.serving ? (s.serving.site + ' / ' + s.serving.raster) : '—';
+        // vitulus_ui R2 (2026-07-18): the served site raster IS the displayed base
+        // map, so the Map-tab header shows "site (raster)"; the legacy navi map name
+        // (stamped as data-legacy by map_view.js) is relegated to the tooltip. When
+        // nothing is served, data-site is cleared and the header falls back to the
+        // legacy name. The shared renderer reconciles both, order-independently.
+        var _amn = document.getElementById('active_map_name');
+        if (_amn) {
+            _amn.setAttribute('data-site',
+                s.serving ? (s.serving.site + ' (' + s.serving.raster + ')') : '');
+            if (window.renderActiveMapName) window.renderActiveMapName();
+        }
         // WP-D2: enable "Edit map" only while a site is served (editor draws
         // against the served map). Tooltip reflects the current state.
         if (this.btn_edit_map) {
@@ -1675,6 +1686,19 @@ class MappingV3 {
             this.el_gate.style.color = '';
         }
         // sites list: datalist for the input + chips with stats
+        // vitulus_ui: layout-jitter fix (sibling of the dock.js dock-tab fix,
+        // 2026-07-18) — /mapping_manager/status is a continuous subscription
+        // that previously rebuilt this chip row from scratch on every single
+        // message even when the site list hadn't changed, which is wasted
+        // work and a needless reflow source. Skip the rebuild when the data
+        // driving it is unchanged.
+        const sitesSig = JSON.stringify(s.sites || []) + '|' +
+            (s.serving ? s.serving.site + '/' + s.serving.raster : '') + '|' +
+            (s.running ? s.site : '');
+        if (this._lastSitesSig === sitesSig) {
+            return;
+        }
+        this._lastSitesSig = sitesSig;
         this.datalist.innerHTML = '';
         this.el_sites.innerHTML = '';
         (s.sites || []).forEach((site) => {

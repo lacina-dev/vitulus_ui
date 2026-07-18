@@ -437,9 +437,14 @@ window.MapEditor = (function () {
         var t = _toggleBtn();
         var x = document.getElementById('btn_map_detail_close');
         var xf = document.getElementById('btn_map_detail_close_footer');   // sticky footer "Zavřít editor"
+        var f = document.getElementById('btn_map_detail_full');            // sticky header fullscreen-expand toggle
         if (t) t.addEventListener('click', function (e) { e.preventDefault(); toggleDetail(); });
         if (x) x.addEventListener('click', function (e) { e.preventDefault(); closeFromEditor(); });
         if (xf) xf.addEventListener('click', function (e) { e.preventDefault(); closeFromEditor(); });
+        if (f) f.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (window.map_menu && window.map_menu.toggle_drawer_full) window.map_menu.toggle_drawer_full();
+        });
     }
 
     // Called by map_view's hide_all_submenu_divs() when switching to another menu
