@@ -33,6 +33,9 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 //   live obstacle_map z=+0.02  renderOrder= 20
 //   dock map          z=-0.002 renderOrder= 30
 //   rain radar        (own z)  renderOrder=999    (depthTest off, existing)
+//   location beacon   (origin) renderOrder=1000   (far-zoom "you are here" pin,
+//                                                   depthTest off, ALWAYS on top
+//                                                   — above the rain overlay too)
 //
 // MapLayerOpacity applies renderOrder+depthWrite (below) to every registered
 // occupancy grid on creation and on every slider update; the aerial/terrain
@@ -48,6 +51,8 @@ var MapLayerOrder = {
     LIVE:      20,
     DOCK:      30,
     RAIN:     999,
+    BEACON:   1000,  // far-zoom location "you are here" pin (mapping.js) — sits
+                     // above the rain overlay so it is never occluded.
     // z-offsets used by the plane groups + occupancy offsetPose (documentation
     // + single source of truth for the group-owned planes below).
     Z_AERIAL:  -0.05,
@@ -5392,6 +5397,33 @@ window.initMapView = function () {
     viewer.changeViewerSize();
     viewer.updateCam();
     viewer.viewer.addObject(new THREE.AmbientLight(0x696969));
+
+    // vitulus_ui TASK1 — DEFAULT MAP ORIENTATION: NORTH UP.
+    // Guarantee a conventional top-down map view on a fresh load: camera looks
+    // straight DOWN (-Z) from above the /map origin, with the world +Y axis
+    // pointing UP on screen and +X pointing RIGHT. That is geometrically
+    // north-up / east-right because the /map frame is UTM-grid aligned (within
+    // ~0.1°): the aerial + rain layers place UTM north -> +Y and UTM east -> +X
+    // (see mapping.js georef — group carries -yaw, N->y, E->x). There is NO
+    // persisted camera state (nothing in localStorage restores azimuth/zoom), so
+    // this simply pins the startup pose; the user can still orbit freely after,
+    // and this runs BEFORE TfClient so its captured map_cam_* (used by the
+    // map-follow reinit) inherit the same north-up pose. No-op on the WebGL-less
+    // stub viewer (nothing is rendered there anyway).
+    try {
+        var _cam0 = viewer.viewer.camera;
+        var _ctrl0 = viewer.viewer.cameraControls;
+        if (_cam0 && _ctrl0 && _ctrl0.center && _cam0.up && _cam0.position) {
+            _cam0.up.set(0, 1, 0);                 // world +Y is screen-up (north)
+            _ctrl0.center.set(0, 0, 0);            // look at the /map origin
+            _cam0.position.set(0, 0, 1000);        // straight above -> top-down
+            _ctrl0.thetaDelta = 0;                 // clear any azimuth/elev/zoom
+            _ctrl0.phiDelta = 0;                   //   deltas so update() derives
+            _ctrl0.scale = 1;                      //   a clean top-down pose
+            if (_cam0.lookAt) { _cam0.lookAt(_ctrl0.center); }
+            if (_cam0.updateProjectionMatrix) { _cam0.updateProjectionMatrix(); }
+        }
+    } catch (e) { /* stub viewer / no controls — nothing to orient */ }
 
     tf_client = new TfClient(ros, viewer.viewer);
     tf_client.tfClientMap.subscribe('base_link', function(tf) {

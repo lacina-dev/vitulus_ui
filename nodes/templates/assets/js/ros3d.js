@@ -59546,6 +59546,14 @@ var ROS3D = (function (exports, ROSLIB) {
 	exports.intersectPlane = intersectPlane;
 	exports.makeColorMaterial = makeColorMaterial;
 
+	// vitulus_ui: expose the BUNDLED THREE namespace so app code can build
+	// render objects (e.g. the far-zoom location beacon Sprite in mapping.js)
+	// with the SAME THREE instance that owns this renderer/scene. Adding a mesh
+	// built from the separate global window.THREE (three.js) to the ROS3D scene
+	// makes renderer.render() throw inside the rAF loop and kills it permanently
+	// (see the _r3d() harvesting note in mapping.js). ROS3D.THREE is that copy.
+	exports.THREE = THREE;
+
 	Object.defineProperty(exports, '__esModule', { value: true });
 
 	return exports;

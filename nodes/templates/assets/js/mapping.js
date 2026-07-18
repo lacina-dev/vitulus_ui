@@ -410,6 +410,21 @@ class MappingV3 {
     //
     // Every step is try/catch-wrapped and images load async with crossOrigin;
     // a bad tile skips itself and NEVER touches the ROS3D render loop.
+    // vitulus_ui TASK3 — per-layer checkbox persistence. Aerial basemap and rain
+    // radar now DEFAULT ON, but a user's explicit toggle is remembered across
+    // reloads. '1'/'0' stored per key; absent => use the supplied default (ON).
+    _layerPref(key, dflt) {
+        try {
+            var v = localStorage.getItem(key);
+            if (v === '1') { return true; }
+            if (v === '0') { return false; }
+        } catch (e) { /* localStorage unavailable — fall through to default */ }
+        return dflt;
+    }
+    _saveLayerPref(key, on) {
+        try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { /* ignore */ }
+    }
+
     _initAerial() {
         // NB: aerial_group is created EAGERLY in the constructor (insertion-order
         // hardening); do NOT null it here or we'd orphan that group and a fresh
@@ -433,12 +448,20 @@ class MappingV3 {
 
         if (this.chk_aerial) {
             this.chk_aerial.addEventListener('change', () => {
+                this._saveLayerPref('vitulus_layer_aerial', this.chk_aerial.checked);
                 if (this.chk_aerial.checked) {
                     this.rebuildAerial();
                 } else if (this.aerial_group) {
                     this.aerial_group.visible = false;
                 }
             });
+            // TASK3: DEFAULT ON (respect a stored preference if the user has
+            // toggled before). Applying it here takes the SAME path as a manual
+            // early tick — rebuildAerial() fetches /api/datum itself and is
+            // token-guarded, so a boot-time call before the datum has arrived
+            // behaves exactly like ticking the box the moment the page loads.
+            this.chk_aerial.checked = this._layerPref('vitulus_layer_aerial', true);
+            if (this.chk_aerial.checked) { this.rebuildAerial(); }
         }
         [this.sel_aerial_src, this.sel_aerial_zoom, this.sel_aerial_area].forEach((el) => {
             if (el) el.addEventListener('change', () => {
@@ -876,6 +899,7 @@ class MappingV3 {
 
         if (this.chk_rain) {
             this.chk_rain.addEventListener('change', () => {
+                this._saveLayerPref('vitulus_layer_rain', this.chk_rain.checked);
                 if (this.chk_rain.checked) {
                     this._ensureRainSub();
                     this.rebuildRain();
@@ -899,6 +923,7 @@ class MappingV3 {
                 this.viewer3d.cameraControls.addEventListener('change', () => {
                     this._onCamChange();          // grow far-plane (rain on)
                     this._scheduleAerialFollow();  // refit basemap to viewport
+                    this._updateBeacon();          // far-zoom "you are here" pin
                 });
             }
         } catch (e) { /* stub viewer / no controls */ }
@@ -911,6 +936,23 @@ class MappingV3 {
             this.in_rain_opacity.addEventListener('input', () => {
                 this._applyRainOpacity();
             });
+        }
+
+        // TASK3: rain radar DEFAULT ON (respect a stored preference). Take the
+        // SAME path as a manual tick — subscribe, (re)build, open the wide
+        // zoom-out limit and extend the aerial coverage to the frame. rebuildRain
+        // no-ops until the first /weather_alert/rain_img arrives (its subscription
+        // callback rebuilds then), so an early boot-time call is safe. Area/float/
+        // opacity keep their configured defaults; the camera stays at the normal
+        // garden zoom (the beacon only appears once the user dollies right out).
+        if (this.chk_rain) {
+            this.chk_rain.checked = this._layerPref('vitulus_layer_rain', true);
+            if (this.chk_rain.checked) {
+                this._ensureRainSub();
+                this.rebuildRain();
+                this._applyZoomLimit();
+                if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
+            }
         }
     }
 
@@ -1103,6 +1145,111 @@ class MappingV3 {
         this._onCamChange();
         if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
         this._scheduleAerialFollow();
+        this._updateBeacon();
+    }
+
+    // vitulus_ui TASK2 — FAR-ZOOM LOCATION BEACON ("you are here").
+    // When the camera dollies right out (district / whole-rain-frame ~64 km scale)
+    // the garden shrinks to a few pixels and its position on the aerial / rain
+    // overlay becomes ambiguous. This drops a bright, screen-size-CONSTANT map
+    // pin at the /map origin (0,0) = the datum / garden centre = the rain-frame
+    // centre — the single most meaningful "here" point — so the place is always
+    // unmistakable at wide zoom, and invisible during normal garden-scale work.
+    //
+    // It is a camera-facing THREE.Sprite built with ROS3D's BUNDLED THREE
+    // (ROS3D.THREE — NOT window.THREE; a foreign THREE instance in the ROS3D
+    // scene kills the render loop). This bundled THREE is an older build whose
+    // SpriteMaterial has NO sizeAttenuation, so we keep the pin a constant pixel
+    // size by rescaling it from the live view each camera change (see below).
+    // renderOrder = MapLayerOrder.BEACON (1000) + depthTest off => always drawn
+    // on top, even over the rain overlay (renderOrder 999).
+    _beaconTexture(RT) {
+        // Draw the pin once onto a canvas: a saturated RED disc with a white
+        // ring + centre dot and a dark outline — high-contrast over both the
+        // green/brown aerial imagery AND the blue/cyan/magenta rain radar (red is
+        // absent from the radar palette), reading unambiguously as a location
+        // marker. Built with ROS3D's THREE.Texture so it belongs to the scene's
+        // GL context.
+        var S = 128;
+        var cv = document.createElement('canvas');
+        cv.width = S; cv.height = S;
+        var g = cv.getContext('2d');
+        var cx = S / 2, cy = S / 2;
+        g.clearRect(0, 0, S, S);
+        // dark outline halo
+        g.beginPath(); g.arc(cx, cy, 60, 0, Math.PI * 2);
+        g.fillStyle = 'rgba(0,0,0,0.55)'; g.fill();
+        // red disc
+        g.beginPath(); g.arc(cx, cy, 54, 0, Math.PI * 2);
+        g.fillStyle = '#ff2b2b'; g.fill();
+        // white ring
+        g.beginPath(); g.arc(cx, cy, 38, 0, Math.PI * 2);
+        g.lineWidth = 9; g.strokeStyle = '#ffffff'; g.stroke();
+        // white centre dot ("you are here")
+        g.beginPath(); g.arc(cx, cy, 12, 0, Math.PI * 2);
+        g.fillStyle = '#ffffff'; g.fill();
+        var tex = new RT.Texture(cv);
+        tex.needsUpdate = true;
+        return tex;
+    }
+
+    _ensureBeacon() {
+        if (this.beacon) { return this.beacon; }
+        // Must use the SAME THREE that owns the renderer/scene.
+        var RT = (typeof ROS3D !== 'undefined' && ROS3D.THREE) ? ROS3D.THREE : null;
+        if (!RT || !RT.Sprite || !RT.SpriteMaterial || !RT.Texture) { return null; }
+        if (!this.viewer3d || !this.viewer3d.scene) { return null; }
+        try {
+            var mat = new RT.SpriteMaterial({ map: this._beaconTexture(RT) });
+            mat.transparent = true;
+            mat.depthTest = false;
+            mat.depthWrite = false;
+            mat.opacity = 0.0;                 // faded out until zoomed far
+            var spr = new RT.Sprite(mat);
+            spr.position.set(0, 0, 0);          // /map origin = garden/datum
+            spr.renderOrder = (typeof MapLayerOrder !== 'undefined' &&
+                               typeof MapLayerOrder.BEACON === 'number')
+                              ? MapLayerOrder.BEACON : 1000;
+            spr.visible = false;
+            this.viewer3d.scene.add(spr);
+            this.beacon = spr;
+            return spr;
+        } catch (e) {
+            console.error('[mappingv3] beacon build failed:', e);
+            return null;
+        }
+    }
+
+    // Update beacon visibility + screen-constant size from the current view.
+    // Threshold is expressed in VISIBLE ground extent (metres), not raw camera
+    // distance, because the map-view uses a very narrow fov (updateCam) so the
+    // default top-down camera already sits ~1000 m up while framing only the
+    // garden. We show the pin once the visible half-height exceeds ~400 m (i.e.
+    // full frame > ~800 m, several times the garden's ~150-200 m extent) — well
+    // clear of normal work, always on at district/rain (~64 km) scale — and fade
+    // it in over a band so it never pops. Called from the camera-change hook
+    // (no new timer/interval).
+    _updateBeacon() {
+        var vp = this._aerialViewParams();     // {cx,cy,halfW,halfH,heightPx}
+        if (!vp) { return; }
+        var spr = this._ensureBeacon();
+        if (!spr) { return; }
+        var SHOW = 400.0;                      // metres (visible half-height)
+        var lo = SHOW * 0.8, hi = SHOW * 1.2;  // fade band 320..480 m
+        var op = (vp.halfH - lo) / (hi - lo);
+        op = Math.max(0.0, Math.min(1.0, op));
+        spr.visible = op > 0.02;
+        if (spr.material) { spr.material.opacity = op; }
+        if (!spr.visible) { return; }
+        // Screen-CONSTANT size: 2*halfH metres of ground map to heightPx pixels,
+        // so metres-per-pixel = 2*halfH/heightPx. Size the sprite (world units)
+        // to a fixed on-screen diameter regardless of zoom.
+        var PIN_PX = 34.0;                      // on-screen pin diameter (px)
+        var hpx = vp.heightPx > 0 ? vp.heightPx : 800;
+        var worldSize = PIN_PX * (2.0 * vp.halfH / hpx);
+        if (worldSize > 0 && isFinite(worldSize)) {
+            spr.scale.set(worldSize, worldSize, 1);
+        }
     }
 
     // Build / update the rain plane from the cached Image message + datum.
