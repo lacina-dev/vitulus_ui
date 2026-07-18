@@ -58796,6 +58796,19 @@ var ROS3D = (function (exports, ROSLIB) {
 	    this.phiDelta = 0;
 	    this.thetaDelta = 0;
 	    this.scale = 1;
+	    // vitulus_ui: optional zoom-out / zoom-in clamps on the camera-to-center
+	    // distance. Default = no limit (original behaviour). mapping.js raises
+	    // maxDistance while the rain overview is on so the whole ~64 km ČHMÚ
+	    // frame can be framed, and drops it back to Infinity when rain is off.
+	    this.maxDistance = Infinity;
+	    this.minDistance = 0;
+	    // vitulus_ui: distance-adaptive wheel zoom. Below this camera-to-center
+	    // distance the wheel step is exactly the normal userZoomSpeed (standard
+	    // zoom feel unchanged); beyond it the step grows with each decade so a
+	    // very large zoom-out range (the rain overview) is reachable in a sane
+	    // number of notches without making close-up control coarse. Matches the
+	    // default far-plane (6000) so it only kicks in past the normal limit.
+	    this._zoomAdaptFrom = 6000;
 	    this.lastPosition = new THREE.Vector3();
 	    // internal states
 	    var STATE = {
@@ -58965,10 +58978,22 @@ var ROS3D = (function (exports, ROSLIB) {
 	      } else {
 	        delta = -event.detail;
 	      }
+	      // vitulus_ui: distance-adaptive step (see _zoomAdaptFrom). Near the scene
+	      // the step is the normal userZoomSpeed; it grows ~linearly per decade of
+	      // extra distance (capped) so the rain overview is reachable quickly.
+	      var speed = that.userZoomSpeed;
+	      try {
+	        var dist = that.camera.position.distanceTo(that.center);
+	        if (dist > that._zoomAdaptFrom && that._zoomAdaptFrom > 0) {
+	          var decades = Math.log(dist / that._zoomAdaptFrom) / Math.LN10;
+	          speed = that.userZoomSpeed * (1 + 3.0 * Math.min(4, decades));
+	        }
+	      } catch (e) { /* keep base speed */ }
+	      var zoomScale = Math.pow(0.95, speed);
 	      if (delta > 0) {
-	        that.zoomIn();
+	        that.zoomIn(zoomScale);
 	      } else {
-	        that.zoomOut();
+	        that.zoomOut(zoomScale);
 	      }
 
 	      this.showAxes();
@@ -59230,6 +59255,16 @@ var ROS3D = (function (exports, ROSLIB) {
 	      radius * Math.cos(phi)
 	    );
 	    offset.multiplyScalar(this.scale);
+
+	    // vitulus_ui: clamp the camera-to-center distance to [minDistance,
+	    // maxDistance]. offset.length() is the post-zoom radius; scaling it back
+	    // caps how far the wheel/pinch can dolly out (or in) this frame.
+	    var _radius = offset.length();
+	    if (_radius > this.maxDistance && this.maxDistance > 0) {
+	      offset.multiplyScalar(this.maxDistance / _radius);
+	    } else if (_radius < this.minDistance && _radius > 0) {
+	      offset.multiplyScalar(this.minDistance / _radius);
+	    }
 
 	    position.copy(this.center).add(offset);
 

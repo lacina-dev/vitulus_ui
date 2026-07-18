@@ -510,9 +510,56 @@ class MappingV3 {
         return { lon, lat: latR * 180 / Math.PI };
     }
 
+    // Current 3D view expressed in MAP metres: the look-at centre and the
+    // half-width/half-height the camera frames on the ground plane, plus the
+    // canvas pixel height (for the screen-resolution zoom match). Returns null
+    // if the camera can't be read (stub viewer) so callers fall back to the
+    // legacy fixed-area coverage. Near-ortho top-down: visible half-height =
+    // distance*tan(fov/2), half-width = that*aspect.
+    _aerialViewParams() {
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        if (!cam || !ctrl || !ctrl.center || !cam.position) { return null; }
+        let dist;
+        try { dist = cam.position.distanceTo(ctrl.center); }
+        catch (e) { return null; }
+        if (!(dist > 0)) { return null; }
+        const fovDeg = cam.fov > 0 ? cam.fov : 40;
+        const t = Math.tan((fovDeg * Math.PI / 180.0) / 2.0);
+        const aspect = cam.aspect > 0 ? cam.aspect : 1.0;
+        if (!(t > 0)) { return null; }
+        const halfH = dist * t;
+        const halfW = halfH * aspect;
+        let heightPx = 0;
+        try {
+            const dom = this.viewer3d.renderer && this.viewer3d.renderer.domElement;
+            heightPx = (dom && (dom.clientHeight || dom.height)) || 0;
+        } catch (e) { /* stub */ }
+        if (!(heightPx > 0)) {
+            const mv = document.getElementById('map_view');
+            heightPx = (mv && mv.clientHeight) || 800;
+        }
+        return { cx: ctrl.center.x, cy: ctrl.center.y, halfW, halfH, heightPx };
+    }
+
+    // Debounced camera-follow: after the view stops moving, refit the aerial
+    // basemap to the current viewport (and adaptive zoom). rebuildAerial()
+    // itself skips the work if the covering tile set is unchanged, so panning
+    // within the same tiles is free.
+    _scheduleAerialFollow() {
+        if (!(this.chk_aerial && this.chk_aerial.checked)) { return; }
+        if (this._aerialFollowTimer) { clearTimeout(this._aerialFollowTimer); }
+        this._aerialFollowTimer = setTimeout(() => {
+            this._aerialFollowTimer = null;
+            if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
+        }, 220);
+    }
+
     // Build (or rebuild) the aerial tile planes. Async, cancellable, fully
-    // guarded. Fetches the datum first, then covers a square area around the
-    // map origin with tiles at the selected zoom.
+    // guarded. Fetches the datum first, then covers the CURRENT viewport with
+    // tiles at a zoom matched to the on-screen resolution (never finer than the
+    // configured detail cap) — so standard zoom stays crisp and only dolling
+    // out past the default limit steps down to coarser world-scale tiles.
     async rebuildAerial() {
         const status = (t, warn) => {
             if (this.el_aerial_status) {
@@ -552,71 +599,100 @@ class MappingV3 {
 
             const srcKey = this.sel_aerial_src ? this.sel_aerial_src.value : 'sat';
             const src = this._aerialSources()[srcKey] || this._aerialSources().sat;
-            // MapProxy's gm_grid / webmercator grids only go up to z19; clamp so
-            // an out-of-range request can't produce a wall of TileOutOfRange 400s.
-            let z = this.sel_aerial_zoom ?
+            // The configured zoom is the DETAIL CAP: the most detailed level we
+            // ever use. MapProxy's gm_grid / webmercator grids only go up to z19.
+            let zCap = this.sel_aerial_zoom ?
                     parseInt(this.sel_aerial_zoom.value, 10) : 19;
-            if (!(z >= 0)) { z = 19; }
-            z = Math.max(0, Math.min(19, z));
+            if (!(zCap >= 0)) { zCap = 19; }
+            zCap = Math.max(0, Math.min(19, zCap));
 
-            // (2) coverage area — user-selectable square side (metres) around
-            // the map origin. Falls back to the built-in default if the
-            // control isn't present.
-            let area = this.sel_aerial_area ?
-                       parseInt(this.sel_aerial_area.value, 10) : this.aerial_area_m;
-            if (!(area > 0)) { area = this.aerial_area_m; }
-            this.aerial_area_m = area;
-
-            // area corners in UTM-aligned metres (east=+x, north=+y) around
-            // the datum origin -> lon/lat -> tile range covering the square.
             const { mLat, mLon } = this._metersPerDeg(d.origin_lat);
             const cornerLonLat = (e, n) => ({
                 lon: d.origin_lon + e / mLon,
                 lat: d.origin_lat + n / mLat,
             });
-            // computes the tile range (and count) covering the square area at
-            // a given zoom; used both for the real build and for probing zoom
-            // levels down when guarding against a tile-count explosion.
-            const tileRangeAt = (zoom) => {
-                const half = area / 2.0;
-                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-                [[-half, -half], [half, -half], [-half, half], [half, half]]
-                    .forEach(([e, n]) => {
-                        const ll = cornerLonLat(e, n);
-                        const t = this._lonLatToTile(ll.lon, ll.lat, zoom);
-                        x0 = Math.min(x0, Math.floor(t.x));
-                        x1 = Math.max(x1, Math.floor(t.x));
-                        y0 = Math.min(y0, Math.floor(t.y));
-                        y1 = Math.max(y1, Math.floor(t.y));
+
+            // (2) COVERAGE — follow the current viewport. Take the 4 view corners
+            // (map metres, +margin), rotate map->UTM-aligned east/north (R(+yaw)),
+            // and cover their bounding box. Fall back to a square of the manual
+            // area around the origin if the camera can't be read (stub viewer).
+            const yaw2 = yaw;
+            const cyaw = Math.cos(yaw2), syaw = Math.sin(yaw2);
+            const vp = this._aerialViewParams();
+            let enCorners;
+            if (vp) {
+                const M = 1.25;   // reach a little past the frame edges
+                const hw = vp.halfW * M, hh = vp.halfH * M;
+                enCorners = [[-hw, -hh], [hw, -hh], [-hw, hh], [hw, hh]].map(
+                    ([dx, dy]) => {
+                        const mx = vp.cx + dx, my = vp.cy + dy;
+                        return [cyaw * mx - syaw * my, syaw * mx + cyaw * my];
                     });
+            } else {
+                let area = this.sel_aerial_area ?
+                    parseInt(this.sel_aerial_area.value, 10) : this.aerial_area_m;
+                if (!(area > 0)) { area = this.aerial_area_m; }
+                this.aerial_area_m = area;
+                const h = area / 2.0;
+                enCorners = [[-h, -h], [h, -h], [-h, h], [h, h]];
+            }
+
+            const tileRangeAt = (zoom) => {
+                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                enCorners.forEach(([e, n]) => {
+                    const ll = cornerLonLat(e, n);
+                    const t = this._lonLatToTile(ll.lon, ll.lat, zoom);
+                    x0 = Math.min(x0, Math.floor(t.x));
+                    x1 = Math.max(x1, Math.floor(t.x));
+                    y0 = Math.min(y0, Math.floor(t.y));
+                    y1 = Math.max(y1, Math.floor(t.y));
+                });
                 const count = (x1 - x0 + 1) * (y1 - y0 + 1);
                 return { tx0: x0, tx1: x1, ty0: y0, ty1: y1, count };
             };
 
-            // (3) tile-count guard: bigger area + high zoom can explode the
-            // tile count. Auto-clamp zoom DOWN (coarser tiles) until the
-            // rebuild fits under the cap, reflecting the clamp in the UI so
-            // it's never silently a wall of requests.
+            // (3) ADAPTIVE ZOOM — pick the finest level whose tile resolution is
+            // still no coarser than the on-screen resolution, but never exceed
+            // the configured detail cap. At the default/standard zoom this lands
+            // on the cap (crisp detail); only when dollying out past the default
+            // limit does it step DOWN to coarser world-scale tiles.
+            let z = zCap;
+            if (vp && vp.heightPx > 0) {
+                const screenRes = (2.0 * vp.halfH) / vp.heightPx;   // map m / px
+                const phi = d.origin_lat * Math.PI / 180.0;
+                const mercZ0 = 156543.03392 * Math.max(0.05, Math.cos(phi));
+                let zAdaptive = Math.ceil(
+                    Math.log2(mercZ0 / Math.max(1e-6, screenRes)));
+                if (!isFinite(zAdaptive)) { zAdaptive = zCap; }
+                z = Math.max(0, Math.min(zCap, zAdaptive));
+            }
+
+            // (4) tile-count guard: auto-clamp zoom DOWN until it fits the cap.
             const CAP = this.AERIAL_TILE_CAP;
             let range = tileRangeAt(z);
-            let clamped = false;
             while (range.count > CAP && z > 0) {
                 z -= 1;
-                clamped = true;
                 range = tileRangeAt(z);
             }
             const { tx0, tx1, ty0, ty1 } = range;
             const nTiles = range.count;
             if (!(nTiles > 0) || nTiles > CAP) {
                 status('tile range unreasonable (' + nTiles + ') even at z' + z +
-                       ' — reduce area', true);
+                       ' — zoom in', true);
                 return;
             }
-            if (clamped && this.sel_aerial_zoom) {
-                // reflect the auto-clamped zoom back into the dropdown so the
-                // UI never silently disagrees with what was actually built.
-                this.sel_aerial_zoom.value = String(z);
+
+            // (4b) skip the (re)build entirely if the covering tile set is
+            // unchanged — makes panning within the same tiles and re-enabling
+            // the layer free. Source or zoom change invalidates the signature.
+            const sig = srcKey + '@' + z + ':' + tx0 + ',' + tx1 + ',' +
+                        ty0 + ',' + ty1;
+            if (sig === this._aerialSig && this.aerial_meshes.length > 0) {
+                status('tiles: ' + this.aerial_meshes.length + ' @ z' + z +
+                       ' — ' + src.label + ' (view unchanged)');
+                return;
             }
+            this._aerialSig = sig;
 
             // (4) build fresh meshes off-screen, swap in after ready.
             const newMeshes = [];
@@ -658,9 +734,10 @@ class MappingV3 {
             }
             this._disposeAerialMeshes();
             this.aerial_meshes = newMeshes;
-            const clampNote = clamped ? ' (zoom auto-clamped, cap ' + CAP + ')' : '';
+            const detailNote = (z < zCap) ? ' (zoomed out — z' + z + ' < cap z' +
+                               zCap + ')' : '';
             status('tiles: ' + built + ' @ z' + z + ' — ' + src.label +
-                   ', ' + this.aerial_area_m + ' m area' + clampNote, clamped);
+                   detailNote);
         } catch (e) {
             console.error('[mappingv3] rebuildAerial failed:', e);
             status('aerial build failed (see console)', true);
@@ -768,6 +845,11 @@ class MappingV3 {
         this.sel_rain_z = document.getElementById('mapv3_rain_z');
         this.in_rain_opacity = document.getElementById('mapv3_rain_opacity');
         this.el_rain_status = document.getElementById('mapv3_rain_status');
+        this.btn_rain_fit = document.getElementById('mapv3_btn_rain_fit');
+
+        if (this.btn_rain_fit) {
+            this.btn_rain_fit.addEventListener('click', () => this.fitRainFrame());
+        }
 
         if (this.chk_rain) {
             this.chk_rain.addEventListener('change', () => {
@@ -777,8 +859,26 @@ class MappingV3 {
                 } else if (this.rain_group) {
                     this.rain_group.visible = false;
                 }
+                // Rain overview toggles the wide zoom-out limit AND the aerial
+                // coverage extent (so the MapProxy basemap covers the whole rain
+                // frame). Re-apply both whenever rain is switched on/off.
+                this._applyZoomLimit();
+                if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
             });
         }
+        // Grow the camera far-plane as the user dollies out while the rain
+        // overview is on (keeps the whole frame un-clipped without hurting
+        // depth precision when zoomed in). No-op / removed when rain is off.
+        this._defaultFar = null;
+        try {
+            if (this.viewer3d && this.viewer3d.cameraControls &&
+                this.viewer3d.cameraControls.addEventListener) {
+                this.viewer3d.cameraControls.addEventListener('change', () => {
+                    this._onCamChange();          // grow far-plane (rain on)
+                    this._scheduleAerialFollow();  // refit basemap to viewport
+                });
+            }
+        } catch (e) { /* stub viewer / no controls */ }
         [this.sel_rain_area, this.sel_rain_z].forEach((el) => {
             if (el) el.addEventListener('change', () => {
                 if (this.chk_rain && this.chk_rain.checked) this.rebuildRain();
@@ -813,10 +913,19 @@ class MappingV3 {
                 messageType: 'std_msgs/String',
             });
             this.rain_meta_sub.subscribe((m) => {
+                const prevHalfKm = this._rainHalfKm();
                 try { this.rain_meta = JSON.parse(m.data); }
                 catch (e) { return; }
                 if (this.chk_rain && this.chk_rain.checked && this.rain_msg) {
                     this.rebuildRain();
+                }
+                // A changed frame extent moves both the zoom-out limit and the
+                // aerial coverage; re-apply them if the authoritative half_km
+                // differs from what we had (first meta, or a config change).
+                if (this.chk_rain && this.chk_rain.checked &&
+                    Math.abs(this._rainHalfKm() - prevHalfKm) > 1e-6) {
+                    this._applyZoomLimit();
+                    if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
                 }
             });
         } catch (e) {
@@ -860,6 +969,117 @@ class MappingV3 {
             return this.rain_meta.half_km;
         }
         return this.RAIN_FALLBACK_HALF_KM;
+    }
+
+    // Full side length (metres) of the ČHMÚ rain frame = 2*half_km. This is the
+    // extent both the zoom-out limit and the aerial basemap must cover so the
+    // whole rain map is framable with a basemap under it.
+    _rainFrameSideM() {
+        return 2.0 * this._rainHalfKm() * 1000.0;
+    }
+
+    // Camera-to-center distance (top-down, near-ortho perspective cam) needed to
+    // fit a square of side `sideM` in BOTH viewport axes, with a small margin.
+    // Uses the live fov/aspect so it stays correct across resizes and the
+    // narrow map-view fov set in map_view.js (updateCam).
+    _distanceToFrame(sideM) {
+        const cam = this.viewer3d && this.viewer3d.camera;
+        if (!cam) { return sideM; }
+        const fovDeg = cam.fov > 0 ? cam.fov : 40;
+        const t = Math.tan((fovDeg * Math.PI / 180.0) / 2.0);
+        const aspect = cam.aspect > 0 ? cam.aspect : 1.0;
+        if (!(t > 0)) { return sideM; }
+        // visible full-height = 2*d*t ; full-width = that*aspect. Fit the tighter
+        // axis: portrait (aspect<1) is width-limited, landscape height-limited.
+        const d = (sideM / (2.0 * t)) * Math.max(1.0, 1.0 / aspect);
+        return d * 1.1;   // 10 % margin so the frame isn't flush to the edges
+    }
+
+    // Apply (rain on) or clear (rain off) the wide zoom-out limit. When rain is
+    // ON the camera may dolly out far enough to frame the whole ČHMÚ rain map;
+    // when OFF we restore the original far-plane (6000) and drop the distance
+    // clamp, so the maximum zoom-out is exactly what it was before this feature.
+    _applyZoomLimit() {
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        if (!cam) { return; }
+        if (this._defaultFar == null) { this._defaultFar = cam.far; }   // 6000
+        const rainOn = !!(this.chk_rain && this.chk_rain.checked);
+        if (!rainOn) {
+            // Restore original limits — behaviour unchanged from before.
+            if (ctrl) { ctrl.maxDistance = Infinity; }
+            // If we're still parked at a rain-scale zoom-out, the restored
+            // 6000 far-plane would clip everything to black. Pull the camera
+            // back inside it so turning rain off never leaves a blank view.
+            if (ctrl && ctrl.center && cam.position) {
+                try {
+                    const off = cam.position.clone().sub(ctrl.center);
+                    const d = off.length();
+                    const maxSane = this._defaultFar * 0.7;
+                    if (d > maxSane && d > 0) {
+                        off.multiplyScalar(maxSane / d);
+                        cam.position.copy(ctrl.center).add(off);
+                    }
+                } catch (e) { /* stub cam */ }
+            }
+            if (cam.far !== this._defaultFar) {
+                cam.far = this._defaultFar;
+                if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
+            }
+            return;
+        }
+        // Rain on: allow zooming out until the full frame fits, and grow the
+        // far-plane to match the current camera height (see _onCamChange).
+        if (ctrl) { ctrl.maxDistance = this._distanceToFrame(this._rainFrameSideM()); }
+        this._onCamChange();
+    }
+
+    // Keep the far-plane just beyond the current camera distance WHILE the rain
+    // overview is on, so the (very distant) ground/basemap/rain planes stay
+    // un-clipped when fully zoomed out — yet far stays near the 6000 default
+    // when zoomed in, preserving depth precision for the garden-scale layers.
+    _onCamChange() {
+        if (!(this.chk_rain && this.chk_rain.checked)) { return; }
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        if (!cam || !ctrl || !ctrl.center) { return; }
+        if (this._defaultFar == null) { this._defaultFar = cam.far; }
+        let dist;
+        try { dist = cam.position.distanceTo(ctrl.center); }
+        catch (e) { return; }
+        if (!(dist > 0)) { return; }
+        const want = Math.max(this._defaultFar, dist * 1.4 + 1000.0);
+        // Only re-upload the projection matrix on a meaningful change.
+        if (Math.abs(want - cam.far) > Math.max(50.0, cam.far * 0.02)) {
+            cam.far = want;
+            if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
+        }
+    }
+
+    // One-shot "fit the whole rain map": centre on the rain frame (= datum
+    // origin) and set the camera distance so the entire ČHMÚ frame is in view.
+    // Bound to the 'fit' button next to the rain controls so the wide overview
+    // is one click away instead of ~200 wheel notches. No-op unless rain is on
+    // (the zoom-out limit only opens up then).
+    fitRainFrame() {
+        if (!(this.chk_rain && this.chk_rain.checked)) { return; }
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        if (!cam || !ctrl || !ctrl.center || !cam.position) { return; }
+        // make sure the limit/far are opened for the frame before we move there.
+        this._applyZoomLimit();
+        const dist = this._distanceToFrame(this._rainFrameSideM());
+        // keep the current view direction, just recentre on the frame and set
+        // the distance. update() re-derives orientation from position/center.
+        const off = cam.position.clone().sub(ctrl.center);
+        ctrl.center.x = 0.0; ctrl.center.y = 0.0;
+        let d0 = off.length();
+        if (!(d0 > 0)) { off.set(0, 0, 1); d0 = 1; }
+        off.multiplyScalar(dist / d0);
+        cam.position.copy(ctrl.center).add(off);
+        this._onCamChange();
+        if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
+        this._scheduleAerialFollow();
     }
 
     // Build / update the rain plane from the cached Image message + datum.
@@ -945,10 +1165,12 @@ class MappingV3 {
             this.rain_mesh = mesh;
             group.add(mesh);
 
-            const rkm = this.sel_rain_area ?
-                (parseInt(this.sel_rain_area.value, 10) / 1000) : (halfKm);
-            status('radar: ' + (2 * halfKm).toFixed(0) + ' km frame, showing r≈' +
-                   rkm + ' km, float ' + z + ' m — updates ~5 min');
+            const areaM = this.sel_rain_area ?
+                parseInt(this.sel_rain_area.value, 10) : 32000;
+            const shown = (areaM >= halfKm * 1000.0 * 0.9) ?
+                'full frame' : ('r≈' + (areaM / 1000) + ' km');
+            status('radar: ' + (2 * halfKm).toFixed(0) + ' km frame, showing ' +
+                   shown + ', float ' + z + ' m — updates ~5 min');
         } catch (e) {
             console.error('[mappingv3] rebuildRain failed:', e);
             status('rain build failed (see console)', true);
@@ -974,9 +1196,22 @@ class MappingV3 {
             // radius clip: keep only pixels within the selected radius of the
             // centre. km-per-px of the frame = (2*halfKm)/W.
             const halfKm = this._rainHalfKm();
+            const frameHalfM = halfKm * 1000.0;
             const kmPerPx = (2.0 * halfKm) / W;
             const areaM = this.sel_rain_area ?
                 parseInt(this.sel_rain_area.value, 10) : 32000;
+
+            // FULL-FRAME mode: when the selected radius reaches (near) the frame
+            // half-extent, show the ENTIRE ČHMÚ square — every rain pixel,
+            // corners included. This is what "show the whole rain map" needs; the
+            // disc clip below is only for the smaller declutter radii. The 0.9
+            // factor means the top dropdown option counts as full even before the
+            // HTML relabel (old "full ~32 km" = 30 km ≈ 0.94·halfKm) is live.
+            if (areaM >= frameHalfM * 0.9) {
+                out.set(src.subarray(0, W * H * 4));
+                return out;
+            }
+
             const rPx = (areaM / 1000.0) / kmPerPx;   // radius in px
             const rPx2 = rPx * rPx;
             const ccx = W / 2, ccy = H / 2;
