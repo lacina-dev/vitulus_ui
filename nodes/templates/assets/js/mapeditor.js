@@ -66,6 +66,25 @@ window.MapEditor = (function () {
             this.onZoom = null;
             this.editing = false;                   // when true, overlay grabs the mouse + drives the camera
 
+            // WP-D2 tool-mode framework. Generalises the old setDrawing(bool)
+            // grab-gate into a named tool mode so the toolbar (mapedits.js) can
+            // route clicks to the right handler. Modes:
+            //   'off'          — idle: pointer events pass through to the live map
+            //   'zone'         — zone polygon draw (map_edit.js, shared PolygonEditor)
+            //   'polygon'      — free/obstacle polygon draw (map_edit.js)
+            //   'edit_obstacle'|'edit_free'|'edit_wall' — mapping_manager edits draw
+            //   'waypoint'     — place/move waypoints (navi_manager)
+            //   'edit_delete'  — click-to-remove an edit
+            // Pointer capture (canvas.pointerEvents='auto') is ON whenever a tool
+            // other than 'off' is active OR the shared PolygonEditor is attached
+            // (legacy setDrawing path), so both the polygon flows and the raw-click
+            // tools work. onMapClick(worldX, worldY) is the raw-click hook used by
+            // the waypoint / edit_delete tools (mapedits.js installs its own
+            // click detector on this.canvas; this hook is provided for symmetry).
+            this.toolMode = 'off';
+            this._drawing = false;
+            this.onMapClick = null;
+
             this._resize();
             var self = this;
             // Render the overlay scene with the ros3d camera ITSELF — a camera is
@@ -210,14 +229,32 @@ window.MapEditor = (function () {
             this.pathGroup.visible = true;
             // Idle: pointer events pass through to the map, so the robot stays
             // drivable / orbit-zoomable. The overlay only grabs the mouse while a
-            // polygon/zone is actually open for editing (setDrawing).
-            this.canvas.style.pointerEvents = 'none';
+            // tool is active (setToolMode) or a polygon/zone is open (setDrawing).
+            this.toolMode = 'off';
+            this._drawing = false;
+            this._applyPointerEvents();
             this._startLoop();
         }
 
-        // Capture the mouse only while a shape is open for editing.
+        // Capture the mouse only while a shape is open for editing. Kept for
+        // PolygonEditor compatibility (it calls setDrawing(true/false) on
+        // attach/detach); pointer capture is now the OR of this flag and the
+        // active tool mode, computed in _applyPointerEvents().
         setDrawing(on) {
-            this.canvas.style.pointerEvents = (this.editing && on) ? 'auto' : 'none';
+            this._drawing = !!on;
+            this._applyPointerEvents();
+        }
+
+        // WP-D2: select the active tool mode (see the toolMode doc above).
+        setToolMode(mode) {
+            this.toolMode = mode || 'off';
+            this._applyPointerEvents();
+        }
+        getToolMode() { return this.toolMode || 'off'; }
+
+        _applyPointerEvents() {
+            var active = this._drawing || (this.toolMode && this.toolMode !== 'off');
+            this.canvas.style.pointerEvents = (this.editing && active) ? 'auto' : 'none';
         }
         exitTopDown() {
             var cam = this.r3d.camera, cc = this.r3d.cameraControls;
@@ -237,6 +274,8 @@ window.MapEditor = (function () {
                 cam.updateMatrixWorld(true);
             }
             this.editing = false;
+            this.toolMode = 'off';
+            this._drawing = false;
             this.canvas.style.pointerEvents = 'none';
             // Hide the editor geometry and stop the loop so nothing is drawn over
             // the live map view while not editing.
@@ -298,7 +337,8 @@ window.MapEditor = (function () {
             }
         });
     };
-    Controller.prototype.enter = function () {
+    Controller.prototype.enter = function (opts) {
+        opts = opts || {};
         var ov = this.ensureOverlay(); if (!ov) return;
         if (!this.plannerInited && typeof window.initPlanner === 'function') {
             try {
@@ -307,13 +347,27 @@ window.MapEditor = (function () {
             } catch (e) { console.error('[mapeditor] initPlanner failed', e); }
         }
         // Show the planner map underneath (switch the occupancy-grid source).
-        try { if (window.map_menu && window.map_menu.show_planner_map) window.map_menu.show_planner_map(); } catch (e) {}
+        // WP-D2: the mapping-tab "Edit map" entry passes {keepBase:true} so the
+        // SERVED site_map (drawn by mapping.js) stays as the base instead of the
+        // planner map — the edits/waypoint tools work in map-frame metres either
+        // way, but keeping the served map avoids a jarring base swap.
+        if (!opts.keepBase) {
+            try { if (window.map_menu && window.map_menu.show_planner_map) window.map_menu.show_planner_map(); } catch (e) {}
+        }
         var info = this._mapInfo;
         if (info) ov.enterTopDown(info.cx, info.cy, info.span);
         else ov.enterTopDown(null, null, 60);
         this.active = true;
+        // WP-D2: build/refresh the edit toolbar (waypoints + mapping_manager
+        // edits) inside the detail panel and start its topic layer.
+        try {
+            if (window.MapEdits && window.MapEdits.onEnter) window.MapEdits.onEnter(ov);
+        } catch (e) { console.error('[mapeditor] MapEdits.onEnter failed', e); }
     };
     Controller.prototype.exit = function () {
+        // WP-D2: tear down any active edit tool first (detach the shared polygon,
+        // remove floating inputs) so nothing lingers grabbing the mouse.
+        try { if (window.MapEdits && window.MapEdits.onExit) window.MapEdits.onExit(); } catch (e) {}
         if (this.overlay) this.overlay.exitTopDown();
         this.active = false;
     };
@@ -341,11 +395,11 @@ window.MapEditor = (function () {
         p.style.maxHeight = Math.max(140, avail) + 'px';
         p.style.overflowY = 'auto';
     }
-    function showDetail() {
+    function showDetail(opts) {
         var c = controller();
         var d = _detailPanel(); if (d) d.style.display = 'block';
         var t = _toggleBtn(); if (t) t.classList.add('active');
-        if (!c.active) c.enter();   // top-down camera + planner map + overlay
+        if (!c.active) c.enter(opts);   // top-down camera + base map + overlay
         setTimeout(_sizeDetail, 0);
     }
     function hideDetail() {
@@ -377,5 +431,9 @@ window.MapEditor = (function () {
         wire: wire,
         controller: controller,
         exitIfActive: exitIfActive,
+        // WP-D2: entry used by the mapping-tab "Edit map" button — opens the
+        // detail panel keeping the served site_map as the base.
+        showDetail: showDetail,
+        hideDetail: hideDetail,
     };
 })();

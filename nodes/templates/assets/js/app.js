@@ -156,6 +156,24 @@
         addRestartButton();
         wireImuTab();
         lockAppShell();
+        registerServiceWorker();
+    }
+
+    // ---- Service worker registration (installable PWA) ---------------------
+    // Minimal network-only SW (nodes/templates/sw.js) — no caching, since the
+    // app is live robot telemetry and a cached response would show stale robot
+    // state. It only exists so browsers consider the PWA installable per the
+    // manifest.json display modes. Must be served from the root scope (SW scope
+    // rules require the script itself be at/above the paths it controls), see
+    // the /sw.js route in nodes/webnode. Registration over plain HTTP on a
+    // non-localhost host is rejected by the browser (secure-context requirement)
+    // — that is expected until the robot serves HTTPS, so failures are logged
+    // quietly rather than surfaced as an error.
+    function registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.register('/sw.js').catch(function (err) {
+            console.debug('[vitulus_ui] service worker registration skipped:', err && err.message);
+        });
     }
 
     // ---- Fullscreen (in-browser) toggle button -----------------------------

@@ -26,8 +26,12 @@
     <link rel="icon" type="image/png" sizes="512x512" href="assets/img/VitulusOnGrassBlended512x512.png">
     <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
     <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:400,700">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700">
+    <!-- vitulus_ui: self-hosted (was https://fonts.googleapis.com/css?family=Bitter:400,700
+         + Roboto:300,400,700) — the robot UI must work with no internet. The woff2 files
+         and @font-face rules already existed locally under assets/fonts + assets/css but
+         were unused; these two <link>s just needed pointing at them. -->
+    <link rel="stylesheet" href="assets/css/Bitter.css">
+    <link rel="stylesheet" href="assets/css/Roboto.css">
     <link rel="stylesheet" href="assets/fonts/font-awesome.min.css">
     <link rel="stylesheet" href="assets/fonts/line-awesome.min.css">
     <link rel="stylesheet" href="assets/fonts/material-icons.min.css">
@@ -61,6 +65,7 @@
 <script src="/assets/js/planner3d.js"></script>
 <script src="/assets/js/map_edit.js"></script>
 <script src="/assets/js/mapeditor.js"></script>
+<script src="/assets/js/mapedits.js"></script>
 <script src="/assets/js/imu_calibration.js"></script>
 <script src="/assets/js/app.js"></script>
 <style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>

@@ -302,6 +302,29 @@ class MappingV3 {
                 if (this.el_serving) this.el_serving.textContent = 'serving: requesting…';
             });
         }
+
+        // WP-D2: "Edit map" entry — opens the in-view map editor (mapeditor.js
+        // detail panel) keeping the SERVED site_map as the base. Created
+        // dynamically (like Clear 3D) to avoid an index.html rebuild, and
+        // appended next to Serve. Disabled until a site is being served (the
+        // editor needs a served map to draw edits/waypoints against); enabled in
+        // handleManager() when s.serving is set.
+        if (this.btn_serve) {
+            this.btn_edit_map = document.createElement('button');
+            this.btn_edit_map.className = 'btn btn-info';
+            this.btn_edit_map.type = 'button';
+            this.btn_edit_map.textContent = 'Edit map';
+            this.btn_edit_map.disabled = true;
+            this.btn_edit_map.title = 'Serve a site first — the editor draws edits/waypoints on the served map';
+            this.btn_serve.parentNode.appendChild(this.btn_edit_map);
+            this.btn_edit_map.addEventListener('click', () => {
+                try {
+                    if (window.MapEditor && window.MapEditor.showDetail) {
+                        window.MapEditor.showDetail({keepBase: true});
+                    }
+                } catch (e) { console.error('[mappingv3] open editor failed', e); }
+            });
+        }
         // the middle mode button is 'Fused' now (relabel here to avoid an
         // index.html rebuild; fused = map from the fused pose, the default)
         this.btn_mode_force.textContent = 'Fused';
@@ -1470,6 +1493,15 @@ class MappingV3 {
                 this.el_serving.textContent = 'serving: —';
                 this.el_serving.style.color = '';
             }
+        }
+        // WP-D2: enable "Edit map" only while a site is served (editor draws
+        // against the served map). Tooltip reflects the current state.
+        if (this.btn_edit_map) {
+            const serving = !!s.serving;
+            this.btn_edit_map.disabled = !serving;
+            this.btn_edit_map.title = serving
+                ? ('Edit the served map: ' + s.serving.site + '/' + s.serving.raster)
+                : 'Serve a site first — the editor draws edits/waypoints on the served map';
         }
         // saved-map layer status (the latched site_map rendered in the 3D view)
         if (this.el_site_status) {

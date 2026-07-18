@@ -664,48 +664,53 @@ class Dock {
     }
 
     showDockMapAndMarkers() {
-        // Remove previous dock map client if it exists
-        if (this.dockMapClient && this.dockMapClient.rootObject) {
-            this.viewer.scene.remove(this.dockMapClient.rootObject);
+        // vitulus_ui: idempotency guard (mirrors markerArrayClientMapDock /
+        // markerArrayClientNavigation below). Previously this unconditionally
+        // created a new ROS3D.OccupancyGridClient (== a new /dock_detector/map
+        // subscription) on every call; hideDockMapAndMarkers only removed the
+        // old client's scene node without disposing its GPU geometry/material/
+        // texture, so repeated show/hide cycles leaked. Now a client is created
+        // once and reused; hideDockMapAndMarkers disposes + nulls it so the
+        // next show() here recreates cleanly.
+        if (!this.dockMapClient) {
+            // Create new dock map client with standard configuration.
+            // NOTE: opacity must be < 1.0. The ROS3D.OccupancyGrid constructor sets
+            // material.transparent = (opacity < 1.0); with opacity 1.0 the material
+            // is OPAQUE, so THREE ignores the per-pixel texture alpha entirely and
+            // this 800x800 grid — which is ~67 % UNKNOWN (-1) cells — renders as a
+            // solid dark-grey rectangle covering the whole dock-map extent. Because
+            // this client shares the map_view 3D scene, that rectangle sat on top of
+            // the real maps and could not be faded by the global opacity sliders.
+            // Using 0.99 keeps it visually full-strength while making the material
+            // transparent so both (a) the per-pixel unknown alpha from getColor()
+            // and (b) the global "Maps opacity" slider (below) actually apply.
+            this.dockMapClient = new ROS3D.OccupancyGridClient({
+                ros: this.ros, // Use this.ros instead of ros
+                rootObject: this.viewer.scene,
+                topic: '/dock_detector/map',
+                continuous: true,
+                tfClient: this.tf_client, // Use this.tf_client instead of tf_client
+                color: {r:0,g:255,b:255},  // {0,255,255} => base-map palette in getColor()
+                opacity: 0.99,
+                compression: "cbor",
+                offsetPose: new ROSLIB.Pose({
+                    position: new ROSLIB.Vector3({ x: 0, y: 0, z: -0.002 }),
+                    orientation: new ROSLIB.Quaternion({ x: 0, y: 0, z: 0, w: 1.0 })
+                })
+            });
+
+            // vitulus_ui: register the dock map with the global occupancy-opacity
+            // manager (defined in map_view.js) so the "Maps opacity" / "Unknown
+            // opacity" sliders drive it alongside the base map, costmap and the
+            // mapping-v3 layers — it shares the same 3D scene. Guarded because
+            // MapLayerOpacity only exists on pages that load map_view.js.
+            try {
+                if (typeof MapLayerOpacity !== 'undefined') {
+                    MapLayerOpacity.registerClient(this.dockMapClient,
+                        (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.DOCK : 30);
+                }
+            } catch (e) { /* opacity manager optional */ }
         }
-
-        // Create new dock map client with standard configuration.
-        // NOTE: opacity must be < 1.0. The ROS3D.OccupancyGrid constructor sets
-        // material.transparent = (opacity < 1.0); with opacity 1.0 the material
-        // is OPAQUE, so THREE ignores the per-pixel texture alpha entirely and
-        // this 800x800 grid — which is ~67 % UNKNOWN (-1) cells — renders as a
-        // solid dark-grey rectangle covering the whole dock-map extent. Because
-        // this client shares the map_view 3D scene, that rectangle sat on top of
-        // the real maps and could not be faded by the global opacity sliders.
-        // Using 0.99 keeps it visually full-strength while making the material
-        // transparent so both (a) the per-pixel unknown alpha from getColor()
-        // and (b) the global "Maps opacity" slider (below) actually apply.
-        this.dockMapClient = new ROS3D.OccupancyGridClient({
-            ros: this.ros, // Use this.ros instead of ros
-            rootObject: this.viewer.scene,
-            topic: '/dock_detector/map',
-            continuous: true,
-            tfClient: this.tf_client, // Use this.tf_client instead of tf_client
-            color: {r:0,g:255,b:255},  // {0,255,255} => base-map palette in getColor()
-            opacity: 0.99,
-            compression: "cbor",
-            offsetPose: new ROSLIB.Pose({
-                position: new ROSLIB.Vector3({ x: 0, y: 0, z: -0.002 }),
-                orientation: new ROSLIB.Quaternion({ x: 0, y: 0, z: 0, w: 1.0 })
-            })
-        });
-
-        // vitulus_ui: register the dock map with the global occupancy-opacity
-        // manager (defined in map_view.js) so the "Maps opacity" / "Unknown
-        // opacity" sliders drive it alongside the base map, costmap and the
-        // mapping-v3 layers — it shares the same 3D scene. Guarded because
-        // MapLayerOpacity only exists on pages that load map_view.js.
-        try {
-            if (typeof MapLayerOpacity !== 'undefined') {
-                MapLayerOpacity.registerClient(this.dockMapClient,
-                    (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.DOCK : 30);
-            }
-        } catch (e) { /* opacity manager optional */ }
 
         // Create or show marker array clients
         if (!this.markerArrayClientMapDock) {
@@ -745,13 +750,20 @@ class Dock {
             
             // Remove the currentGrid and its parent if they exist
             if (this.dockMapClient.currentGrid) {
-                
+
                 if (this.dockMapClient.currentGrid.parent) {
                     this.viewer.scene.remove(this.dockMapClient.currentGrid.parent);
                     // console.log("Removed currentGrid parent");
                 }
                 // Remove the grid itself
                 this.viewer.scene.remove(this.dockMapClient.currentGrid);
+
+                // vitulus_ui: free GPU resources (material + texture — see
+                // ROS3D.OccupancyGrid.dispose() in ros3d.js). Removing from the
+                // scene alone does not release them.
+                if (typeof this.dockMapClient.currentGrid.dispose === 'function') {
+                    this.dockMapClient.currentGrid.dispose();
+                }
             }
             
             // Explicitly remove the rootObject

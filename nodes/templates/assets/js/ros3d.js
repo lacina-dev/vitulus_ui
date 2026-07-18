@@ -55486,7 +55486,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      messageType : 'visualization_msgs/MarkerArray',
 	      compression : 'png'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(arrayMessage){
@@ -55535,7 +55535,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -55597,7 +55597,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -55623,7 +55623,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      messageType : 'visualization_msgs/Marker',
 	      compression : 'png'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -56072,7 +56072,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -56088,7 +56088,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      compression : this.compression
 	    });
 	    this.sceneNode = null;
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -56134,7 +56134,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	    // check if we should unsubscribe
 	    if (!this.continuous) {
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 	}
@@ -56912,7 +56912,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe() {
 	    if (this.rosTopic) {
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -56926,7 +56926,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      queue_length: 1,
 	      compression: this.compression
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message) {
@@ -56940,7 +56940,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	    this._processMessagePrivate(message);
 
 	    if (!this.continuous) {
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 
 	  };
@@ -57067,7 +57067,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57081,7 +57081,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      queue_length : 1,
 	      messageType : 'nav_msgs/Odometry'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57149,7 +57149,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57163,7 +57163,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	        queue_length : 1,
 	        messageType : 'nav_msgs/Path'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57232,7 +57232,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57246,7 +57246,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	        queue_length : 1,
 	        messageType : 'geometry_msgs/PointStamped'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57314,7 +57314,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57328,7 +57328,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	        queue_length : 1,
 	        messageType : 'geometry_msgs/PolygonStamped'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57447,7 +57447,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57461,7 +57461,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	        queue_length : 1,
 	        messageType : 'geometry_msgs/PoseStamped'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57529,7 +57529,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57543,7 +57543,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	       queue_length : 1,
 	       messageType : 'geometry_msgs/PoseArray'
 	   });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57631,7 +57631,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57645,7 +57645,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	        queue_length : 1,
 	        messageType : 'geometry_msgs/PoseWithCovarianceStamped'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57833,7 +57833,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57848,7 +57848,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      queue_length : 1,
 	      messageType : 'sensor_msgs/LaserScan'
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -57926,7 +57926,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -57941,7 +57941,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	        messageType : 'sensor_msgs/NavSatFix'
 	    });
 
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(message){
@@ -58048,7 +58048,7 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	  unsubscribe(){
 	    if(this.rosTopic){
-	      this.rosTopic.unsubscribe(this.processMessage);
+	      this.rosTopic.unsubscribe(this._boundProcessMessage); /* vitulus_ui: was this.processMessage (unbound) which never matched the bound subscriber */
 	    }
 	  };
 
@@ -58064,7 +58064,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      queue_length : 1,
 	      compression: this.compression
 	    });
-	    this.rosTopic.subscribe(this.processMessage.bind(this));
+	    this._boundProcessMessage = this.processMessage.bind(this); /* vitulus_ui: store the bound callback so unsubscribe() actually removes THIS listener (unbound this.processMessage never matched the bound one subscribed here, so the rosbridge subscription was never torn down). */ this.rosTopic.subscribe(this._boundProcessMessage);
 	  };
 
 	  processMessage(msg){
@@ -58839,8 +58839,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	     * @param event3D - the 3D event to handle
 	     */
 	    function onMouseDown(event3D) {
-            console.log("this");
-            console.log(this);
+	      // vitulus_ui: removed leftover debug console.log("this")/console.log(this) spam
 	      var event = event3D.domEvent;
 	      event.preventDefault();
 

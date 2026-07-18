@@ -29,6 +29,7 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 //   base map          z= 0.00  renderOrder=  0
 //   local costmap     z=-0.01  renderOrder=  5
 //   saved site_map    z=+0.01  renderOrder= 10
+//   edits overlay     (overlay) renderOrder= 15   (WP-D2 map editor, mapedits.js)
 //   live obstacle_map z=+0.02  renderOrder= 20
 //   dock map          z=-0.002 renderOrder= 30
 //   rain radar        (own z)  renderOrder=999    (depthTest off, existing)
@@ -43,6 +44,7 @@ var MapLayerOrder = {
     BASE:       0,
     COSTMAP:    5,
     SITE:      10,
+    EDITS:     15,   // WP-D2 map-editor edit_list overlay (mapedits.js)
     LIVE:      20,
     DOCK:      30,
     RAIN:     999,
@@ -1237,8 +1239,21 @@ class InteractiveMarkers{
 
     new_marker(event3d){
         // console.log(event3d.mouseRay);
-        var map_x = event3d.mouseRay.origin.x + (event3d.mouseRay.direction.x * event3d.mouseRay.origin.z);
-        var map_y = event3d.mouseRay.origin.y + (event3d.mouseRay.direction.y * event3d.mouseRay.origin.z);
+        // vitulus_ui: proper ray/z=0-plane intersection (was: origin + direction *
+        // origin.z, which assumes direction.z === -1 and is wrong for off-center
+        // clicks / a tilted camera). Same math as Ros3dEditOverlay.screenToWorld()
+        // in mapeditor.js.
+        var ray_origin = event3d.mouseRay.origin;
+        var ray_direction = event3d.mouseRay.direction;
+        var map_x = 0, map_y = 0;
+        if (Math.abs(ray_direction.z) > 1e-9) {
+            var t = -ray_origin.z / ray_direction.z;
+            map_x = ray_origin.x + t * ray_direction.x;
+            map_y = ray_origin.y + t * ray_direction.y;
+        } else {
+            // ray parallel to z=0 plane: no intersection, bail (keep prior click point)
+            return;
+        }
         var newInteractiveMarkerMsg = new ROSLIB.Message({
             position : {
                       x : map_x,
@@ -3960,7 +3975,7 @@ class Odom{
 
     process_bridge(s) {
         if (!s) return;
-        var g = /gps_good=(\d)/.exec(s), act = /active=(\w+)/.exec(s), dv = /div_from_live=([\d.]+)/.exec(s);
+        var g = /gps_good=(\d)/.exec(s), act = /active=(\w+)/.exec(s), dv = /shadow_div_m=([\d.]+)/.exec(s);
         var fu = /fix_usable=(\d)/.exec(s);
         var a = act ? act[1] : "";
         // remembered for the DR badge: which odom source carries dead-reckoning
@@ -5932,8 +5947,17 @@ window.initMapView = function () {
 
 
     function resize() {
-        document.getElementById("div_container").style.width = window.innerWidth + 'px';
-        document.getElementById("div_container").style.height = window.innerHeight + 'px';
+        // vitulus_ui: no longer force div_container to window.innerWidth/innerHeight
+        // in px here — that froze the container's box and defeated the CSS
+        // `height: 100dvh` system on html/body (index.html) + the --app-vh
+        // fallback (app.js), which is the dynamic-viewport-height mechanism meant
+        // to track mobile address-bar collapse / on-screen keyboard. div_container
+        // has no explicit CSS size of its own; it now sizes from its children
+        // (menu_spacer + #div_content, which use vh-based CSS), same as before
+        // this override existed. LayoutManager.set_layout() only reads
+        // div_container.offsetWidth/offsetHeight (map_view.js ~3832) and writes
+        // sizes to OTHER elements — it does not itself write inline px to
+        // div_container, so nothing else needed changing here.
         // console.log("resize w :", window.innerWidth, " h :", window.innerHeight);
         layout_man.set_layout();
     }

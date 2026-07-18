@@ -96,6 +96,13 @@ if __name__ == '__main__':
         def manifest():
             return send_from_directory(WEB_ROOT, 'manifest.json')
 
+        # Service worker must be served from the root scope (/sw.js), not
+        # /assets/sw.js — a SW's default scope is the directory it's served
+        # from, so it needs to sit at/above every path it should control.
+        @app.route('/sw.js')
+        def service_worker():
+            return send_from_directory(WEB_ROOT, 'sw.js', mimetype='application/javascript')
+
         @app.route("/")
         def nav():
             return render_template('index.html', ros_ip=host)
