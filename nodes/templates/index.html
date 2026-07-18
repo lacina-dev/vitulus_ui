@@ -602,7 +602,14 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 #div_menu_marker .form-label { margin-bottom: 4px; }
 
 /* ===== Programs: fluid list/detail rows (no fixed px -> no mobile overflow) ===== */
-#div_menu_map_program .prog-row-fluid { width: 100% !important; max-width: 340px; }
+/* Program list: 2-up grid when the drawer is wide enough (640px Programs
+   panel fits two ~300px columns), single column on narrow/mobile. */
+#div_menu_map_program #div_menu_program_items_row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
+  gap: 2px 8px;
+}
+#div_menu_map_program .prog-row-fluid { width: 100% !important; max-width: none; }
 #div_menu_map_program .prog-row-fluid .input-group { width: 100% !important; }
 #div_menu_map_program .prog-row-fluid .prog-name {
   flex: 1 1 auto; width: auto !important; min-width: 0;
