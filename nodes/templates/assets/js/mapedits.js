@@ -211,7 +211,8 @@ window.MapEdits = (function () {
 
     // waypoint topics (navi_manager) — kept next to the tool that uses them.
     var _pub_wp_at = null, _pub_wp_remove = null, _sub_wp_list = null;
-    var _pub_path_at = null;  // V2: manual path draw -> /navi_manager/save_path_at
+    var _pub_path_at = null;      // V2: manual path draw -> /navi_manager/save_path_at
+    var _pub_path_remove = null;  // PATH MGMT: delete path -> /navi_manager/remove_path
 
     // V3: overlay-group visibility toggles, persisted in localStorage (default ON).
     var SHOW_KEYS = { waypoints: 'vitulus_editor_show_waypoints', paths: 'vitulus_editor_show_paths',
@@ -224,14 +225,29 @@ window.MapEdits = (function () {
     }
     function _saveShow(k) { try { localStorage.setItem(SHOW_KEYS[k], _show[k] ? '1' : '0'); } catch (e) {} }
 
+    // PATH MGMT: per-path hidden-set persistence (JSON array of names).
+    var HIDDEN_PATHS_KEY = 'vitulus_editor_hidden_paths';
+    function _loadHiddenPaths() {
+        try {
+            var v = localStorage.getItem(HIDDEN_PATHS_KEY);
+            var arr = v ? JSON.parse(v) : [];
+            return new Set(Array.isArray(arr) ? arr : []);
+        } catch (e) { return new Set(); }
+    }
+    function _saveHiddenPaths(set) {
+        try { localStorage.setItem(HIDDEN_PATHS_KEY, JSON.stringify(Array.from(set))); } catch (e) {}
+    }
+
     function _ensureWpTopics(ros) {
         if (_pub_wp_at) return;
         _pub_wp_at = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/save_waypoint_at', messageType: 'std_msgs/String' });
         _pub_wp_remove = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/remove_point', messageType: 'std_msgs/String' });
         _pub_path_at = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/save_path_at', messageType: 'std_msgs/String' });
+        _pub_path_remove = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/remove_path', messageType: 'std_msgs/String' });
         _pub_wp_at.advertise();
         _pub_wp_remove.advertise();
         _pub_path_at.advertise();
+        _pub_path_remove.advertise();
         _sub_wp_list = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/map_point_str_list', messageType: 'vitulus_msgs/StringList' });
         _sub_wp_list.subscribe(function (msg) {
             _wpNames = (msg && msg.string_list) ? msg.string_list.slice() : [];
@@ -260,6 +276,11 @@ window.MapEdits = (function () {
             this.COL_WP = new T.Color('#20c0ff');
             this.COL_PATH = new T.Color('#00d0a0');
 
+            // PATH MGMT: per-path visibility hidden-set (names), persisted as a JSON
+            // array in localStorage. Independent of the global "Paths" chip, which
+            // toggles pathGroup.visible for the whole group.
+            this.hiddenPaths = _loadHiddenPaths();
+
             var self = this;
             this.sub = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/map_objects', messageType: 'std_msgs/String' });
             this.sub.subscribe(function (msg) {
@@ -269,10 +290,29 @@ window.MapEdits = (function () {
                     self.paths = Array.isArray(d.paths) ? d.paths : [];
                 } catch (e) { self.waypoints = []; self.paths = []; }
                 self._render();
+                if (self.onChange) self.onChange();
             });
         }
         setWaypointsVisible(v) { this.wpGroup.visible = !!v; if (this.overlay) this.overlay.markDirty(); }
         setPathsVisible(v) { this.pathGroup.visible = !!v; if (this.overlay) this.overlay.markDirty(); }
+
+        // PATH MGMT: per-path visibility.
+        isPathHidden(name) { return this.hiddenPaths.has(name); }
+        setPathHidden(name, hidden) {
+            if (hidden) this.hiddenPaths.add(name); else this.hiddenPaths.delete(name);
+            _saveHiddenPaths(this.hiddenPaths);
+            this._render();
+        }
+        // PATH MGMT: hit test against path polylines (map/ros coords) -> path or null.
+        hitTestPath(world, tol) {
+            for (var i = this.paths.length - 1; i >= 0; i--) {
+                var pth = this.paths[i], pts = pth.points || [];
+                for (var s = 0; s < pts.length - 1; s++) {
+                    if (_distToSeg(world, pts[s], pts[s + 1]) <= (tol || 0.3)) return pth;
+                }
+            }
+            return null;
+        }
 
         hitTestWaypoint(world, tol) {
             var best = null, bestD = (tol || 0.4);
@@ -295,8 +335,9 @@ window.MapEdits = (function () {
             this._clearGroup(this.wpGroup);
             this._clearGroup(this.pathGroup);
             var order = EDITS_ORDER() + 2;
-            // paths — thin polylines
+            // paths — thin polylines (skip per-path hidden names)
             for (var p = 0; p < this.paths.length; p++) {
+                if (this.hiddenPaths.has(this.paths[p].name)) continue;
                 var pts = this.paths[p].points || [];
                 if (pts.length < 2) continue;
                 var seg = [];
@@ -374,6 +415,7 @@ window.MapEdits = (function () {
         // V3: map-objects overlay (waypoint dots + path polylines).
         if (ros && !_mapObjLayer) {
             _mapObjLayer = new MapObjectsLayer(ros, overlay);
+            _mapObjLayer.onChange = function () { _renderPathList(); };
         } else if (_mapObjLayer) {
             try {
                 if (_mapObjLayer.wpGroup.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_mapObjLayer.wpGroup);
@@ -386,6 +428,7 @@ window.MapEdits = (function () {
         _installClickDetector();
         _renderEditList();
         _renderWpList();
+        _renderPathList();
         _applyAllShow();
         _setTool('off');
     }
@@ -452,6 +495,7 @@ window.MapEdits = (function () {
             '    <input class="form-control form-control-sm" id="mapedit_path_name" type="text" value="" style="width:180px;">' +
             '  </div>' +
             '  <div id="mapedit_wp_form" style="margin-top:8px;"></div>' +
+            '  <div id="mapedit_path_sel" style="margin-top:8px;"></div>' +
             '  <div id="mapedit_ctx_actions" class="d-flex" style="gap:6px;margin-top:8px;">' +
             '    <button class="btn btn-success btn-sm flex-fill" id="mapedit_finish" type="button" style="display:none;">Finish</button>' +
             '    <button class="btn btn-warning btn-sm flex-fill" id="mapedit_cancel" type="button" style="display:none;">Cancel</button>' +
@@ -604,6 +648,7 @@ window.MapEdits = (function () {
         }
         _pendingMoveName = null;
         _hideWpInput();
+        _hidePathSel();
     }
 
     function _clearPolygon(P) {
@@ -629,7 +674,7 @@ window.MapEdits = (function () {
             if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');
                 if (pn && !pn.value.trim()) pn.value = 'path_' + _pathN;
-                _setHint('Click path points on the map, then Finish. Paths appear in the Path tab and can be navigated.');
+                _setHint('Click path points on the map, then Finish. Or click an existing path to edit/delete it. Paths appear in the Paths section.');
             } else {
                 _setHint(_tool === 'edit_wall'
                     ? 'Barrier = a virtual line the robot must not cross (fence / keep-out). Click points; set the width; Finish.'
@@ -694,6 +739,11 @@ window.MapEdits = (function () {
         cv.addEventListener('mousedown', function (ev) {
             st.down = true; st.moved = false; st.x = ev.clientX; st.y = ev.clientY;
             st.mod = ev.ctrlKey || ev.altKey || ev.shiftKey || ev.button !== 0;
+            // PATH MGMT: snapshot the shared-polygon vertex count BEFORE this click
+            // so the path-tool mouseup can tell a fresh first click (0 pts -> select
+            // an existing path) from a mid-draw click (leave the added point).
+            var P = sharedPolygon();
+            st.pathPre = (P && P.pointContainer) ? (P.pointContainer.children || []).length : 0;
         });
         window.addEventListener('mousemove', function (ev) {
             if (!st.down) return;
@@ -703,10 +753,11 @@ window.MapEdits = (function () {
             if (!st.down) return; st.down = false;
             if (st.moved || st.mod) return;
             var m = _ov.getToolMode ? _ov.getToolMode() : 'off';
-            if (m !== 'waypoint' && m !== 'edit_delete') return;
+            if (m !== 'waypoint' && m !== 'edit_delete' && m !== 'path') return;
             var w = _ov.screenToWorld(ev.clientX, ev.clientY);
             if (m === 'waypoint') _onWaypointClick(w, ev.clientX, ev.clientY);
-            else _onDeleteClick(w);
+            else if (m === 'edit_delete') _onDeleteClick(w);
+            else _onPathToolClick(w, st.pathPre);   // path tool select-on-map
         });
     }
 
@@ -716,6 +767,158 @@ window.MapEdits = (function () {
         var name = _layer.hitTest(world, tol);
         if (name) { _layer.removeEdit(name); _setHint('Deleted edit "' + name + '".'); }
         else _setHint('No edit under the cursor.');
+    }
+
+    // =====================================================================
+    // PATH MGMT — select-on-map, per-path list, edit (pre-seed), delete.
+    // =====================================================================
+
+    // Path tool click. attachInteraction has (on this same click) already added a
+    // vertex to the shared polygon; we run AFTER it. On the FIRST click of a fresh
+    // draw (preCount === 0) we hit-test existing paths: a hit selects that path
+    // (undoing the stray vertex); empty space starts a normal new draw. Mid-draw
+    // clicks (preCount > 0) are left untouched so drawing works as before.
+    function _onPathToolClick(world, preCount) {
+        if (preCount !== 0) return;             // mid-draw: keep adding points
+        if (!_mapObjLayer) { _hidePathSel(); return; }
+        var hit = _mapObjLayer.hitTestPath(world, 0.3);   // ~0.3 m world threshold
+        if (hit) {
+            var P = sharedPolygon();
+            if (P) _clearPolygon(P);            // remove the vertex we just placed
+            _selectPath(hit);
+        } else {
+            _hidePathSel();                     // starting a new path: clear stale box
+        }
+    }
+
+    // A map-selected path — offer Edit (pre-seed the draw) / Delete / Cancel in the
+    // tool context box (same interaction language as waypoint selection).
+    function _selectPath(path) {
+        var host = document.getElementById('mapedit_path_sel');
+        if (!host) return;
+        var np = (path.points || []).length;
+        host.innerHTML =
+            '<div style="border-top:1px dashed var(--bs-secondary);padding-top:8px;">' +
+            '<div style="font-size:12px;margin-bottom:6px;">Selected path: <b class="text-info">' + _escapeHtml(path.name || '') + '</b> <span style="color:var(--bs-gray-500);">(' + np + ' pts)</span></div>' +
+            '<div class="d-flex" style="gap:6px;">' +
+            '  <button class="btn btn-outline-info btn-sm flex-fill" id="mapedit_path_sel_edit" type="button">Edit</button>' +
+            '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_path_sel_del" type="button">Delete</button>' +
+            '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_path_sel_cancel" type="button">Cancel</button>' +
+            '</div></div>';
+        host.querySelector('#mapedit_path_sel_edit').addEventListener('click', function () {
+            _hidePathSel();
+            _editPath(path);
+        });
+        _wireRowDelete(host.querySelector('#mapedit_path_sel_del'), path.name, function () {
+            _removePath(path.name);
+            _hidePathSel();
+            _setHint('Deleted path "' + path.name + '".');
+        });
+        host.querySelector('#mapedit_path_sel_cancel').addEventListener('click', function () {
+            _hidePathSel();
+            _setHint('Click path points on the map, then Finish. Or click an existing path to edit/delete it.');
+        });
+        _setHint('Path "' + (path.name || '') + '" selected — Edit to modify its points, or Delete.');
+    }
+    function _hidePathSel() {
+        var host = document.getElementById('mapedit_path_sel');
+        if (host) host.innerHTML = '';
+    }
+
+    // Edit a path: enter the 'path' tool pre-seeded with the path's existing
+    // vertices, name input prefilled with the SAME name so Finish -> save_path_at
+    // REPLACES it. PolygonEditor stores vertices as {x: rosX, y: -rosY}; assigning
+    // pointContainer.children triggers its _redraw (draggable verts, click adds).
+    function _editPath(path) {
+        _setTool('path');                       // attaches + clears the shared polygon
+        var P = sharedPolygon();
+        if (!P) { _setHint('Editor not ready — open the map editor and try again.'); return; }
+        var pts = path.points || [];
+        var seed = [];
+        for (var i = 0; i < pts.length; i++) seed.push({ x: pts[i][0], y: -pts[i][1] });
+        P.pointContainer.children = seed;       // setter -> _redraw()
+        var pn = document.getElementById('mapedit_path_name');
+        if (pn) pn.value = path.name || '';
+        _setHint('Editing path "' + (path.name || '') + '" (' + seed.length + ' pts). Drag vertices, click to add points, then Finish to replace. Cancel leaves it unchanged.');
+    }
+
+    function _removePath(name) {
+        if (_pub_path_remove) _pub_path_remove.publish(new ROSLIB.Message({ data: name }));
+    }
+
+    // Double-click-to-confirm delete wiring for a single button (NEVER
+    // window.confirm). onConfirm fires on the second click within the window.
+    function _wireRowDelete(btn, name, onConfirm) {
+        if (!btn) return;
+        var armed = false, timer = null;
+        var orig = btn.textContent;
+        var solid = 'btn-danger', outline = 'btn-outline-danger';
+        function disarm() { armed = false; btn.textContent = orig; btn.classList.remove(solid); btn.classList.add(outline); if (timer) { clearTimeout(timer); timer = null; } }
+        btn.addEventListener('click', function () {
+            if (!armed) {
+                armed = true; btn.textContent = 'Confirm'; btn.classList.remove(outline); btn.classList.add(solid);
+                timer = setTimeout(disarm, 2500);
+            } else {
+                disarm();
+                onConfirm();
+            }
+        });
+    }
+
+    // Paths list lives in the collapsible "Paths" section — rendered from the
+    // latest map_objects.paths. Per row: name (ellipsis), point count, 👁
+    // visibility toggle (per-path), Edit, Delete (double-click confirm).
+    function _renderPathList() {
+        var pl = document.getElementById('mapedit_path_list');
+        if (!pl) return;
+        var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
+        if (!paths.length) { pl.innerHTML = '<div style="font-size:12px;color:var(--bs-gray-500);">No paths yet.</div>'; return; }
+        var html = '';
+        for (var i = 0; i < paths.length; i++) {
+            var pth = paths[i];
+            var name = pth.name || '';
+            var np = (pth.points || []).length;
+            var hidden = _mapObjLayer.isPathHidden(name);
+            html += '<div class="d-flex align-items-center" style="border-bottom:1px solid #3a3f44;padding:4px 2px;font-size:12px;">' +
+                '<span class="text-truncate" style="flex:1 1 auto;min-width:0;color:' + (hidden ? 'var(--bs-gray-500)' : '#00d0a0') + ';" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || '(unnamed)') + '</span>' +
+                '<span style="width:44px;text-align:right;color:var(--bs-gray-500);">' + np + ' pts</span>' +
+                '<div class="btn-group btn-group-sm" style="margin-left:6px;">' +
+                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="Show / hide this path" style="opacity:' + (hidden ? '0.5' : '1') + ';">' + (hidden ? '🚫' : '👁') + '</button>' +
+                '<button class="btn btn-outline-info mapedit-path-edit" data-n="' + _escapeAttr(name) + '" type="button">Edit</button>' +
+                '<button class="btn btn-outline-danger mapedit-path-del" data-n="' + _escapeAttr(name) + '" type="button">Delete</button>' +
+                '</div></div>';
+        }
+        pl.innerHTML = html;
+        // visibility toggle
+        pl.querySelectorAll('.mapedit-path-vis').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var n = b.getAttribute('data-n');
+                if (!_mapObjLayer) return;
+                _mapObjLayer.setPathHidden(n, !_mapObjLayer.isPathHidden(n));
+                _renderPathList();   // refresh icon/dimmed state
+            });
+        });
+        // edit -> pre-seed the path tool
+        pl.querySelectorAll('.mapedit-path-edit').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var n = b.getAttribute('data-n');
+                var pth = _findPath(n);
+                if (pth) _editPath(pth);
+            });
+        });
+        // delete -> double-click confirm
+        pl.querySelectorAll('.mapedit-path-del').forEach(function (b) {
+            var n = b.getAttribute('data-n');
+            _wireRowDelete(b, n, function () {
+                _removePath(n);
+                _setHint('Deleted path "' + n + '".');
+            });
+        });
+    }
+    function _findPath(name) {
+        var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
+        for (var i = 0; i < paths.length; i++) if ((paths[i].name || '') === name) return paths[i];
+        return null;
     }
 
     // ---- waypoint placement: floating name + yaw slider (simpler than a drag
