@@ -1,3 +1,24 @@
+<!--
+  ============================================================================
+  STALE BUILD-INPUT — NOT THE CANONICAL SOURCE. DO NOT "RESYNC" index.html
+  FROM THIS FILE.
+  ============================================================================
+  The single-page UI is now hand-maintained directly in this same directory as
+  index.html, which is the file actually served (nodes/webnode renders it at
+  "/", "/map_edit" and "/imu_calibration"). Since ~2026-07-17 index.html has
+  received ~20 hand-edited commits (map-editor panel redesign, left drawer UI,
+  tool grids, fluid Settings tabs, Map-tab consolidation, rain-tab reorder,
+  hidden legacy blocks, ...). Those edits were NEVER back-ported here, so this
+  file is ~8 KB behind index.html and no longer represents the live UI.
+
+  The old generator, tools/build_index.py, which assembled index.html from this
+  file, has been DISABLED (it now refuses to run). This file is retained only
+  for history/reference. Nothing reads it at runtime.
+
+  To change the UI: edit nodes/templates/index.html, then restart the vitulus_ui
+  node (Flask caches the template in memory).
+  ============================================================================
+-->
 <!DOCTYPE html>
 <html data-bs-theme="light">
 

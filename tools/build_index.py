@@ -1,16 +1,35 @@
 #!/usr/bin/env python3
-"""Assemble the unified single-page UI (templates/index.html) for vitulus_ui.
+"""RETIRED build helper for the unified single-page UI (templates/index.html).
 
-The three original WebUI pages (map view, planner, IMU calibration) are merged
+!!!  SAFETY INTERLOCK — THIS SCRIPT IS DISABLED ON PURPOSE.  !!!
+!!!  index.html is now HAND-MAINTAINED and is the canonical source.  !!!
+
+Running this script is DESTRUCTIVE and would REVERT the live UI. It regenerates
+index.html from the stale source templates (map_view.html + imu_calibration.html),
+but since ~2026-07-17 index.html has been hand-edited directly in-tree across
+~20 commits (map-editor panel redesign + tool grids, left drawer UI, fluid
+Settings tabs, Map-tab consolidation, rain-tab reorder, hidden legacy blocks,
+...). Those edits were NEVER back-ported into map_view.html, so a rebuild today
+would silently throw ~8 KB of live UI (1000+ diff lines, spread across the whole
+document) on the floor.
+
+The pipeline has therefore been INVERTED:
+  * index.html  ....... canonical, hand-edited, served by nodes/webnode at "/",
+                        "/map_edit" and "/imu_calibration" (all render index.html).
+  * map_view.html ..... STALE build-input, no longer authoritative. Kept for
+                        history only (see the banner comment at its top). NOT
+                        served at runtime — nothing reads it except this script.
+  * this script ....... a hard no-op that refuses to run (see main() below).
+
+If you truly need the old assembly logic (e.g. to bootstrap a fresh single-page
+UI from scratch), read the legacy body of main() below and run it deliberately
+by hand — but understand it will overwrite index.html with the stale layout.
+
+The three original WebUI pages (map view, planner, IMU calibration) were merged
 into ONE document so the browser loads a single responsive page. The map view
-keeps its exact markup/design and becomes the default section; the planner and
-IMU pages become hidden sections that are shown via the top navbar and lazily
-initialised by app.js.
-
-This is a build-time helper: it reads the three source templates (frozen copies
-in this package) and writes templates/index.html. Re-run it only if you edit one
-of the source templates. The generated index.html is committed so the UI works
-without running this script.
+kept its exact markup/design and became the default section; the planner and
+IMU pages became hidden sections shown via the navbar and lazily initialised by
+app.js. That merge is done; index.html is the artifact and is edited directly.
 
 Design notes / why each transform exists:
   * map_view.js / map_edit.js / imu_calibration.js were changed from
@@ -24,6 +43,7 @@ Design notes / why each transform exists:
 """
 
 import os
+import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 TPL = os.path.normpath(os.path.join(HERE, '..', 'nodes', 'templates'))
@@ -83,7 +103,13 @@ def extract_planner_column(me):
     return me[start:end]
 
 
-def main():
+def _legacy_build():
+    """Original (now RETIRED) assembly. Kept for reference/bootstrap only.
+
+    DO NOT call this from main(). It overwrites templates/index.html with the
+    STALE layout assembled from map_view.html + imu_calibration.html, reverting
+    every hand edit made to index.html since ~2026-07-17. See module docstring.
+    """
     mv = read(MAP_VIEW)
     me = read(MAP_EDIT)
     imu = read(IMU)
@@ -234,6 +260,34 @@ def main():
     print('  nav          : %d bytes' % len(nav))
     print('  section_map  : %d bytes (incl. IMU tab)' % len(mv_content))
     print('  imu (in tab) : %d bytes' % len(imu_content))
+
+
+def main():
+    """Safety interlock: refuse to run and explain why. Never touches index.html."""
+    msg = (
+        "\n"
+        "==================================================================\n"
+        " build_index.py is DISABLED (safety interlock).\n"
+        "==================================================================\n"
+        " index.html is now HAND-MAINTAINED and is the canonical source.\n"
+        " Running this generator would REVERT the live UI: it rebuilds\n"
+        " index.html from the STALE templates (map_view.html + imu_calibration\n"
+        " .html), discarding ~8 KB of hand edits made directly to index.html\n"
+        " since 2026-07-17 (map-editor panel, drawer UI, tool grids, fluid\n"
+        " Settings tabs, Map-tab consolidation, rain-tab reorder, ...).\n"
+        "\n"
+        " Nothing to do:\n"
+        "   * Edit the UI by editing nodes/templates/index.html directly,\n"
+        "     then restart the vitulus_ui node (Flask caches the template).\n"
+        "   * map_view.html / map_edit.html / imu_calibration.html are stale\n"
+        "     build-inputs, kept for history only, served by nobody.\n"
+        "\n"
+        " If you REALLY intend to regenerate from the stale templates (this\n"
+        " throws away the live UI), call _legacy_build() by hand, deliberately.\n"
+        "==================================================================\n"
+    )
+    sys.stderr.write(msg)
+    sys.exit(2)
 
 
 if __name__ == '__main__':

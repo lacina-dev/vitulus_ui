@@ -126,23 +126,25 @@ and reloads the page automatically once the UI is back up.
 the existing trust model — rosbridge on :9090 already exposes full ROS control on
 the same network.
 
-## Regenerating index.html
+## Editing index.html (canonical, hand-maintained)
 
-`index.html` is generated from the source templates by:
+`index.html` is now the **canonical source** and is **edited directly**. Edit
+`nodes/templates/index.html`, then **restart the vitulus_ui node** (Flask caches
+the template in memory) to pick up the change.
 
-```
-python3 tools/build_index.py
-```
+> **The old generator `tools/build_index.py` is RETIRED / disabled.** It used to
+> assemble `index.html` from `map_view.html` + `imu_calibration.html`, but since
+> ~2026-07-17 `index.html` has been hand-edited across ~20 commits (map-editor
+> panel redesign, left drawer UI, tool grids, fluid Settings tabs, Map-tab
+> consolidation, rain-tab reorder, …). Those edits were never back-ported into
+> the source templates, so the templates are ~8 KB stale and rebuilding would
+> **revert the live UI**. The script now refuses to run (safety interlock).
 
-It uses `map_view.html` (the base/default section — this also contains the map
-editor sidebar and the program-editing controls now) and `imu_calibration.html`
-(the IMU section). `map_edit.html` is no longer used for layout (the editor markup
-was reauthored in `map_view.html`); only its `map_edit.js` logic is loaded. Re-run
-the script only after editing `map_view.html` or `imu_calibration.html`. The
-generated `index.html` is committed, so the UI works without running the script.
+The former source templates — `map_view.html`, `map_edit.html`,
+`imu_calibration.html` — are **stale build-inputs, kept for history only**. None
+of them is served at runtime (all of `/`, `/map_edit`, `/imu_calibration` render
+`index.html`). Do **not** try to "resync" `index.html` from them.
 
 Note: editing the linked **JS/CSS assets** (`mapeditor.js`, `map_view.js`,
-`map_edit.js`, …) needs **no** regeneration — they are served as static files
-and picked up on the next browser reload. Only changes to the HTML *templates*
-require re-running the script, and because the Flask node caches the template in
-memory you must **restart the node after regenerating** to pick up those.
+`map_edit.js`, …) is unaffected — they are served as static files and picked up
+on the next browser reload; only editing `index.html` requires a node restart.
