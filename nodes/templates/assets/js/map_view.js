@@ -322,9 +322,11 @@ var MapPalette = {
     // SITE (red) and PREVIEW (blue). Unknown fully transparent (nothing
     // observed there yet).
     DIRECT: {
-        obstacle:      [0, 180, 180, 255],
-        obstacleProb:  [0, 180, 180, 150],
-        free:          [0, 150, 150, 90]
+        // user 19.7.: obstacles BLACK (classic map look), free a soft white
+        // wash so driven/observed area reads over the aerial imagery.
+        obstacle:      [0, 0, 0, 255],
+        obstacleProb:  [40, 40, 40, 170],
+        free:          [255, 255, 255, 110]
     },
     // local costmap (magenta identifier {255,0,255}) — deliberately near-
     // invisible free space (it's a fast-changing overlay on top of BASE/SITE,
