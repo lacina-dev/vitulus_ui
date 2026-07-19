@@ -97,6 +97,32 @@ class MappingV3 {
             })
         });
 
+        // (1b) RASTER PREVIEW — per-raster management. A RAW raster (no human
+        //      edits composited) latched on /mapping_manager/raster_preview by
+        //      mapping_manager when a raster row's Preview button is toggled, so
+        //      a stored raster version can be compared side-by-side against the
+        //      currently-served site_map. Same OccupancyGridClient pipeline; the
+        //      distinct BLUE identifier {40,140,255} selects the blue-tinted
+        //      PREVIEW branch in map_view.js getColor() so it reads clearly apart
+        //      from the served map's red obstacles. An empty grid clears it.
+        //      renderOrder PREVIEW (11) sits between SITE (10) and TERRAIN (12).
+        this.preview_group = new THREE.Object3D();
+        viewer3d.scene.add(this.preview_group);
+        this.preview_client = new ROS3D.OccupancyGridClient({
+            ros: ros,
+            tfClient: tfClient,
+            rootObject: this.preview_group,
+            continuous: true,
+            compression: 'cbor',
+            topic: '/mapping_manager/raster_preview',
+            color: {r: 40, g: 140, b: 255},
+            opacity: 0.85,
+            offsetPose: new ROSLIB.Pose({
+                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.011}),  // PREVIEW
+                orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
+            })
+        });
+
         // (2) LIVE obstacle_map — the ground-relative band raster
         //     (auto-regenerated every ~10 s by band_projector while a session
         //     runs). Green identifier {0,255,0} => orange = obstacle ABOVE
@@ -128,6 +154,8 @@ class MappingV3 {
                 var _ord = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder : null;
                 MapLayerOpacity.registerClient(this.site_client,
                     _ord ? _ord.SITE : 10);
+                MapLayerOpacity.registerClient(this.preview_client,
+                    _ord ? _ord.PREVIEW : 11);
                 MapLayerOpacity.registerClient(this.grid_client,
                     _ord ? _ord.LIVE : 20);
             }
@@ -170,10 +198,22 @@ class MappingV3 {
         this.chk_site = document.getElementById("mapv3_chk_site");
         this.chk_live = document.getElementById("mapv3_chk_live");
         this.chk_terrain = document.getElementById("mapv3_chk_terrain");
+        // per-raster mgmt: the raw-raster preview visibility toggle in the top
+        // layer strip (default ON — the per-row Preview button drives WHAT is
+        // shown; this only hides/shows the layer as a whole). The layer stays
+        // empty until a row's Preview is toggled, so having it visible by
+        // default is harmless.
+        this.chk_preview = document.getElementById("mapv3_chk_preview");
         if (this.chk_site) {
             this.site_group.visible = this.chk_site.checked;
             this.chk_site.addEventListener('change', () => {
                 this.site_group.visible = this.chk_site.checked;
+            });
+        }
+        if (this.chk_preview) {
+            this.preview_group.visible = this.chk_preview.checked;
+            this.chk_preview.addEventListener('change', () => {
+                this.preview_group.visible = this.chk_preview.checked;
             });
         }
         if (this.chk_live) {
@@ -224,6 +264,9 @@ class MappingV3 {
         this.pub_show = pub('/mapping_manager/show_site');
         this.pub_clear = pub('/mapping/clear');
         this.pub_serve = pub('/mapping_manager/serve_site');
+        // per-raster mgmt: preview a raw raster / delete a raster
+        this.pub_preview_raster = pub('/mapping_manager/preview_raster');
+        this.pub_remove_raster = pub('/mapping_manager/remove_raster');
         this.pub_set_band = pub('/mapping/set_band');
         this.pub_set_ranges = pub('/mapping/set_ranges');
 
@@ -1709,13 +1752,42 @@ class MappingV3 {
         // message even when the site list hadn't changed, which is wasted
         // work and a needless reflow source. Skip the rebuild when the data
         // driving it is unchanged.
+        // per-raster mgmt: the signature now also folds in `previewing` (so the
+        // active-preview row highlight / ✓ badge updates) — raster_list itself is
+        // already inside JSON.stringify(s.sites), so a new/removed raster or a
+        // changed cell count re-renders the expanded panel without rebuilding
+        // every tick. Client-side expand/collapse state is NOT in the signature:
+        // it is preserved across rebuilds (this._expandedSites) and drives a
+        // direct re-render on toggle.
         const sitesSig = JSON.stringify(s.sites || []) + '|' +
             (s.serving ? s.serving.site + '/' + s.serving.raster : '') + '|' +
+            (s.previewing ? s.previewing.site + '/' + s.previewing.raster : '') + '|' +
             (s.running ? s.site : '');
         if (this._lastSitesSig === sitesSig) {
             return;
         }
         this._lastSitesSig = sitesSig;
+        this._lastStatus = s;
+        this.renderSitesRow(s);
+    }
+
+    // per-raster mgmt: unix-seconds -> "MM-DD HH:MM" for raster rows.
+    _fmtRasterDate(mtime) {
+        try {
+            const d = new Date(mtime * 1000);
+            const p = (n) => (n < 10 ? '0' + n : '' + n);
+            return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
+                   p(d.getHours()) + ':' + p(d.getMinutes());
+        } catch (e) { return '—'; }
+    }
+
+    // Render the Maps chip row + (per-raster mgmt) the expandable per-site raster
+    // panel. Called from handleManager (on a real data change) and directly on an
+    // expand/collapse toggle. Rebuilds via createElement so per-raster listeners
+    // attach cleanly; expanded/collapsed state lives in this._expandedSites and
+    // survives rebuilds.
+    renderSitesRow(s) {
+        if (!this._expandedSites) { this._expandedSites = new Set(); }
         this.datalist.innerHTML = '';
         this.el_sites.innerHTML = '';
         (s.sites || []).forEach((site) => {
@@ -1731,17 +1803,17 @@ class MappingV3 {
                           site.dem_kb + ' kB') +
                          ', ' + site.rasters + ' rasters' +
                          (site.has_ot ? ', 3D' : '');
-            // REPORT 2(c): the chip body previews (show_site) as before, and a
-            // dedicated Serve button actually publishes serve_site for that site
-            // (the previous handler only ever called show_site, so a chip could
-            // never switch the served map). Serve is only offered when the site
-            // has a raster; without one the manager would reject it (and now
-            // reports why), so we grey it out and hint Snapshot/Stop instead.
             const servable = site.rasters > 0;
             const served = s.serving && s.serving.site === site.name;
+            const expanded = this._expandedSites.has(site.name);
+            const caret = expanded ? '▾' : '▸';
+            // REPORT 2(c): the chip body previews (show_site) as before, and a
+            // dedicated Serve button publishes serve_site for that site. Per-raster
+            // mgmt: the chip ALSO toggles the expandable raster panel below.
             col.innerHTML =
                 '<div class="input-group input-group-sm">' +
-                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;">' +
+                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;" title="Show this site\'s saved map + expand its rasters">' +
+                '<span style="color:var(--bs-gray-500);margin-right:3px;">' + caret + '</span>' +
                 '<span class="text-info"><i class="fa fa-tree text-info" style="margin-right:3px;"></i>' +
                 site.name + (active ? ' ●' : '') + (served ? ' ✓' : '') + '</span>' +
                 '<span style="font-size:11px;color:var(--bs-gray-500);margin-left:6px;">' +
@@ -1751,12 +1823,18 @@ class MappingV3 {
                 (servable ? 'Serve this site\'s newest raster (localization + costmaps)' :
                  'No raster yet — press Snapshot while mapping, or it is saved on Stop') +
                 '"' + (servable ? '' : ' disabled') + '>Serve</button>' +
-                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;">' +
+                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;" title="Remove the whole site (DEM, 3D archive, all rasters)">' +
                 '<i class="fa fa-remove text-danger"></i></button></div>';
             col.querySelector('.mapv3-show').addEventListener('click', () => {
                 this.input_site.value = site.name;
-                // show this site's saved map in the previews
+                // preview this site's saved map AND toggle the raster panel
                 this.pub_show.publish(new ROSLIB.Message({data: site.name}));
+                if (this._expandedSites.has(site.name)) {
+                    this._expandedSites.delete(site.name);
+                } else {
+                    this._expandedSites.add(site.name);
+                }
+                if (this._lastStatus) { this.renderSitesRow(this._lastStatus); }
             });
             const serveBtn = col.querySelector('.mapv3-serve');
             if (serveBtn && servable) {
@@ -1770,14 +1848,143 @@ class MappingV3 {
                     }
                 });
             }
-            col.querySelector('.mapv3-del').addEventListener('click', () => {
-                if (confirm('Remove mapping site "' + site.name +
-                            '" (DEM, 3D archive, rasters)?')) {
-                    this.pub_remove.publish(new ROSLIB.Message({data: site.name}));
-                }
-            });
+            // whole-site delete keeps the double-click-confirm pattern used for
+            // rasters below (no window.confirm — that pattern is being retired).
+            this._wireDoubleClickDelete(col.querySelector('.mapv3-del'),
+                () => this.pub_remove.publish(new ROSLIB.Message({data: site.name})),
+                '<i class="fa fa-remove text-danger"></i>');
             this.el_sites.appendChild(col);
+
+            // per-raster mgmt: expandable raster panel (full-width, wraps below
+            // the chip). Rendered only when expanded and the site has rasters.
+            if (expanded) {
+                this.el_sites.appendChild(
+                    this._buildRasterPanel(s, site));
+            }
         });
+    }
+
+    // Double-click-confirm on a delete button (never window.confirm): first
+    // click arms + relabels "Confirm?" for 3 s; a second click within the window
+    // fires onConfirm. `restoreHtml` is the button's normal inner HTML.
+    _wireDoubleClickDelete(btn, onConfirm, restoreHtml) {
+        if (!btn) { return; }
+        let armed = false, timer = null;
+        btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (!armed) {
+                armed = true;
+                btn.classList.add('btn-danger');
+                btn.innerHTML = '<span style="font-size:11px;">Confirm?</span>';
+                timer = setTimeout(() => {
+                    armed = false;
+                    btn.classList.remove('btn-danger');
+                    btn.innerHTML = restoreHtml;
+                }, 3000);
+                return;
+            }
+            if (timer) { clearTimeout(timer); }
+            armed = false;
+            onConfirm();
+        });
+    }
+
+    // Build the per-site raster panel DOM (per-raster mgmt): one row per raster
+    // in site.raster_list — [name | date | free/obst cells | Preview | Serve |
+    // Delete], the served raster flagged ✓, the active-preview row highlighted.
+    _buildRasterPanel(s, site) {
+        const panel = document.createElement('div');
+        panel.className = 'col-12';
+        panel.style.cssText = 'margin:0 0 6px 14px;padding:4px 6px;border-left:2px solid var(--bs-gray-700);';
+        const list = site.raster_list || [];
+        if (!list.length) {
+            panel.innerHTML =
+                '<span style="font-size:11px;color:var(--bs-gray-500);">' +
+                'no rasters yet — Snapshot while mapping, or one is saved on Stop</span>';
+            return panel;
+        }
+        const servingR = (s.serving && s.serving.site === site.name)
+            ? s.serving.raster : null;
+        const previewR = (s.previewing && s.previewing.site === site.name)
+            ? s.previewing.raster : null;
+        list.forEach((r) => {
+            const isServed = (r.name === servingR);
+            const isPreview = (r.name === previewR);
+            const row = document.createElement('div');
+            row.className = 'input-group input-group-sm';
+            row.style.cssText = 'margin-bottom:3px;' +
+                (isPreview ? 'outline:1px solid #2a8cff;border-radius:3px;' : '');
+            const cells = (r.cells_free != null && r.cells_obstacle != null)
+                ? (r.cells_free + '/' + r.cells_obstacle + ' cells')
+                : '—';
+            const label = document.createElement('span');
+            label.className = 'input-group-text';
+            label.style.cssText = 'flex:1;justify-content:flex-start;font-size:11px;' +
+                'padding:2px 6px;text-align:left;overflow:hidden;';
+            label.innerHTML =
+                '<span class="text-info">' + r.name + (isServed ? ' ✓' : '') + '</span>' +
+                '<span style="color:var(--bs-gray-500);margin-left:6px;">' +
+                this._fmtRasterDate(r.mtime) + '</span>' +
+                '<span style="color:var(--bs-gray-500);margin-left:6px;">' +
+                cells + '</span>';
+            row.appendChild(label);
+
+            // Preview (toggle) — publishes preview_raster "site/raster" to show,
+            // or "" to clear when this row is already the active preview.
+            const prevBtn = document.createElement('button');
+            prevBtn.type = 'button';
+            prevBtn.className = 'btn ' + (isPreview ? 'btn-info' : 'btn-outline-info');
+            prevBtn.textContent = isPreview ? 'Previewing' : 'Preview';
+            prevBtn.title = 'Show this RAW raster (blue) in the 3D view for A/B ' +
+                'comparison vs the served map (no human edits). Click again to clear.';
+            prevBtn.addEventListener('click', () => {
+                const data = isPreview ? '' : (site.name + '/' + r.name);
+                this.pub_preview_raster.publish(new ROSLIB.Message({data: data}));
+            });
+            row.appendChild(prevBtn);
+
+            // Serve — serve_site "site/raster": THIS sets the default.
+            const serveBtn = document.createElement('button');
+            serveBtn.type = 'button';
+            serveBtn.className = 'btn ' + (isServed ? 'btn-secondary' : 'btn-success');
+            serveBtn.textContent = isServed ? 'Served' : 'Serve';
+            serveBtn.disabled = isServed;
+            serveBtn.title = 'Serve = use for navigation + persists as default';
+            if (!isServed) {
+                serveBtn.addEventListener('click', () => {
+                    this.input_site.value = site.name;
+                    this.pub_serve.publish(new ROSLIB.Message(
+                        {data: site.name + '/' + r.name}));
+                    if (this.el_serving) {
+                        this.el_serving.textContent =
+                            'serving: requesting ' + site.name + '/' + r.name + '…';
+                        this.el_serving.style.color = '';
+                    }
+                });
+            }
+            row.appendChild(serveBtn);
+
+            // Delete — double-click-confirm -> remove_raster "site/raster".
+            // The served raster cannot be deleted (manager refuses); disable it.
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-outline-danger';
+            delBtn.innerHTML = '<i class="fa fa-remove"></i>';
+            if (isServed) {
+                delBtn.disabled = true;
+                delBtn.title = 'Cannot delete the served raster — serve another first';
+            } else {
+                delBtn.title = 'Delete this raster (double-click to confirm)';
+                this._wireDoubleClickDelete(delBtn,
+                    () => this.pub_remove_raster.publish(new ROSLIB.Message(
+                        {data: site.name + '/' + r.name})),
+                    '<i class="fa fa-remove"></i>');
+            }
+            row.appendChild(delBtn);
+
+            panel.appendChild(row);
+        });
+        return panel;
     }
 
     handleGate(msg) {

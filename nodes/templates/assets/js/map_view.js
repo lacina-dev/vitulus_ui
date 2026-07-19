@@ -28,6 +28,10 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 //   base map          z= 0.00  renderOrder=  0
 //   local costmap     z=-0.01  renderOrder=  5
 //   saved site_map    z=+0.01  renderOrder= 10
+//   raster preview    z=+0.011 renderOrder= 11   (per-raster mgmt: RAW raster
+//                                                 shown for side-by-side compare
+//                                                 vs the served site_map; blue
+//                                                 tint, between SITE and TERRAIN)
 //   terrain DEM       z=-0.02  renderOrder= 12   (opt-in elevation plane; raised
 //                                                 ABOVE the flat maps/costmaps so
 //                                                 that when the user ticks Terrain
@@ -60,6 +64,9 @@ var MapLayerOrder = {
     BASE:       0,
     COSTMAP:    5,
     SITE:      10,
+    PREVIEW:   11,   // per-raster mgmt RAW-raster preview (mapping.js), between
+                     // SITE 10 and TERRAIN 12. Blue-tinted so it reads distinct
+                     // from the served site_map when shown for A/B comparison.
     TERRAIN:   12,   // opt-in elevation plane, raised ABOVE the flat maps/costmaps
                      // (was -50) so ticking Terrain shows it on top; still below
                      // EDITS/LIVE. Flat plane, colour=height; renderOrder governs.
@@ -287,6 +294,15 @@ var MapPalette = {
         obstacleProb:  [230, 40, 40, 150],
         free:          [170, 205, 150, 180]    // was 160 -> 180
     },
+    // Per-raster mgmt RAW-raster PREVIEW (identifier {40,140,255}): shown for
+    // side-by-side comparison against the served site_map, so it is deliberately
+    // BLUE-tinted (obstacles blue, free pale blue) to read as visually distinct
+    // from the served map's red obstacles / grey-green free. Unknown transparent.
+    PREVIEW: {
+        obstacle:      [40, 110, 255, 255],
+        obstacleProb:  [40, 110, 255, 150],
+        free:          [120, 175, 255, 170]
+    },
     // local costmap (magenta identifier {255,0,255}) — deliberately near-
     // invisible free space (it's a fast-changing overlay on top of BASE/SITE,
     // not a ground layer); left as-is.
@@ -354,6 +370,23 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
     // unknown = fully transparent (nothing mapped there yet).
     if (this.color.r === 0 && this.color.g === 100 && this.color.b === 255){
         var P = MapPalette.SITE;
+        if (value === 100){   // obstacle
+            return P.obstacle;
+        };
+        if (value >= 1 && value <= 99){  // probably obstacle
+            return P.obstacleProb;
+        };
+        if (value === 0){    // mapped free space
+            return P.free;
+        };
+        return [0,0,0,MapLayerOpacity.unknownAlpha(0)];    // unknown: invisible
+    };
+
+    // If map is the per-raster mgmt RAW-raster PREVIEW (blue identifier
+    // {40,140,255}): a temporary overlay for A/B comparison against the served
+    // site_map, so unknown stays fully transparent (nothing to compare there).
+    if (this.color.r === 40 && this.color.g === 140 && this.color.b === 255){
+        var P = MapPalette.PREVIEW;
         if (value === 100){   // obstacle
             return P.obstacle;
         };
