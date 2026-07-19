@@ -1746,6 +1746,18 @@ class MappingV3 {
         this.pub_set_direct.publish(
             new ROSLIB.Message({data: JSON.stringify(payload)}));
         this.el_direct_status.textContent = 'applying…';
+        // honest feedback: the settings are applied by the SESSION node — with
+        // no mapping session running there is nobody to hear the publish.
+        this._direct_apply_pending = Date.now();
+        setTimeout(() => {
+            if (this._direct_apply_pending) {
+                this._direct_apply_pending = null;
+                this.el_direct_status.textContent =
+                    'no reply — start a mapping session first '
+                    + '(settings apply to the running session)';
+                this.el_direct_status.style.color = '#ffd43b';
+            }
+        }, 3000);
         this.el_direct_status.style.color = '';
     }
 
@@ -2204,6 +2216,13 @@ class MappingV3 {
         let s;
         try { s = JSON.parse(msg.data); } catch (e) { return; }
 
+        // a status arriving while an Apply is pending = the session node
+        // received + echoed the settings -> show a clear applied tick
+        if (this._direct_apply_pending) {
+            this._direct_apply_pending = null;
+            this._direct_applied_until = Date.now() + 4000;
+        }
+
         // Prefill the Apply controls exactly ONCE, from the first status that
         // carries settings — deliberately NOT the band/ranges edit-guard
         // (re-sync-unless-mid-edit): this stream arrives continuously at
@@ -2246,9 +2265,12 @@ class MappingV3 {
         if (s.reasons && s.reasons.length) {
             txt += ' — ' + s.reasons.join(', ');
         }
-        this.el_direct_status.textContent = txt;
-        this.el_direct_status.style.color =
-            (s.reasons && s.reasons.length) ? '#ffd43b' : '';
+        const applied = this._direct_applied_until &&
+            Date.now() < this._direct_applied_until;
+        this.el_direct_status.textContent =
+            (applied ? '\u2713 applied \u00b7 ' : '') + txt;
+        this.el_direct_status.style.color = applied ? '#51cf66'
+            : ((s.reasons && s.reasons.length) ? '#ffd43b' : '');
     }
 }
 
