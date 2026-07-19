@@ -1832,7 +1832,11 @@ class MappingV3 {
         var _siteVal = s.serving ? (s.serving.site + ' (' + s.serving.raster + ')') : '';
         (window.ACTIVE_MAP_NAME_ELS || ['active_map_name']).forEach(function (id) {
             var _el = document.getElementById(id);
-            if (_el) _el.setAttribute('data-site', _siteVal);
+            if (_el) {
+                _el.setAttribute('data-site', _siteVal);
+                _el.setAttribute('data-mapping',
+                                 (s.running && s.site) ? s.site : '');
+            }
         });
         if (window.renderActiveMapName) window.renderActiveMapName();
         // WP-D2: enable "Edit map" only while a site is served (editor draws
