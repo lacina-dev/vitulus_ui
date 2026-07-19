@@ -49,6 +49,15 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 //                                                 renderOrder alone decides.)
 //   edits overlay     (overlay) renderOrder= 15   (WP-D2 map editor, mapedits.js)
 //   live obstacle_map z=+0.02  renderOrder= 20
+//   direct raster map z=+0.021 renderOrder= 21   (direct 2D raster mapper,
+//                                                 mapping.js — built straight
+//                                                 from sensor rays (lidar +
+//                                                 camera obstacle/free),
+//                                                 independent of the octomap+
+//                                                 DEM live/obstacle_map above;
+//                                                 teal-tinted so it reads
+//                                                 distinct from LIVE (orange),
+//                                                 SITE (red) and PREVIEW (blue))
 //   dock map          z=-0.002 renderOrder= 30
 //   rain radar        (own z)  renderOrder=999    (depthTest off, existing)
 //   location beacon   (origin) renderOrder=1000   (far-zoom "you are here" pin,
@@ -72,6 +81,9 @@ var MapLayerOrder = {
                      // EDITS/LIVE. Flat plane, colour=height; renderOrder governs.
     EDITS:     15,   // WP-D2 map-editor edit_list overlay (mapedits.js)
     LIVE:      20,
+    DIRECT:    21,   // direct 2D raster mapper overlay (mapping.js) — teal,
+                     // sits just above LIVE so it reads on top when both
+                     // layers are shown at once.
     DOCK:      30,
     RAIN:     999,
     BEACON:   1000,  // far-zoom location "you are here" pin (mapping.js) — sits
@@ -303,6 +315,17 @@ var MapPalette = {
         obstacleProb:  [40, 110, 255, 150],
         free:          [120, 175, 255, 170]
     },
+    // Direct 2D raster mapper (teal identifier {0,180,180}): the live raster
+    // built straight from sensor rays (lidar hits/no-hit-free + camera
+    // obstacle/free), independent of the octomap+DEM LIVE pipeline. Kept
+    // deliberately teal so it reads as its own layer next to LIVE (orange),
+    // SITE (red) and PREVIEW (blue). Unknown fully transparent (nothing
+    // observed there yet).
+    DIRECT: {
+        obstacle:      [0, 180, 180, 255],
+        obstacleProb:  [0, 180, 180, 150],
+        free:          [0, 150, 150, 90]
+    },
     // local costmap (magenta identifier {255,0,255}) — deliberately near-
     // invisible free space (it's a fast-changing overlay on top of BASE/SITE,
     // not a ground layer); left as-is.
@@ -394,6 +417,23 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
             return P.obstacleProb;
         };
         if (value === 0){    // mapped free space
+            return P.free;
+        };
+        return [0,0,0,MapLayerOpacity.unknownAlpha(0)];    // unknown: invisible
+    };
+
+    // If map is the DIRECT 2D raster mapper (teal identifier {0,180,180}):
+    // overlays like LIVE, so unknown stays fully transparent (nothing
+    // observed there yet).
+    if (this.color.r === 0 && this.color.g === 180 && this.color.b === 180){
+        var P = MapPalette.DIRECT;
+        if (value === 100){   // obstacle
+            return P.obstacle;
+        };
+        if (value >= 1 && value <= 99){  // probably obstacle
+            return P.obstacleProb;
+        };
+        if (value === 0){    // observed free space
             return P.free;
         };
         return [0,0,0,MapLayerOpacity.unknownAlpha(0)];    // unknown: invisible

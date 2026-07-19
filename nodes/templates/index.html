@@ -764,6 +764,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <span style="font-size: 11px;opacity: .7;">Layers</span>
                                             <div class="form-check form-check-inline" title="Saved map obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved <span style="color:#ff4d4d;">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Live mapping obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live <span style="color:#ff7800;">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="Direct 2D raster mapper — live raster built straight from sensor rays (lidar + camera), independent of the octomap/DEM pipeline"><input class="form-check-input" type="checkbox" id="mapv3_chk_direct" checked><label class="form-check-label" for="mapv3_chk_direct" style="font-size: 12px;">Direct <span style="color:#00b4b4;">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Raw-raster preview overlay (per-raster management A/B compare; blue)"><input class="form-check-input" type="checkbox" id="mapv3_chk_preview" checked><label class="form-check-label" for="mapv3_chk_preview" style="font-size: 12px;">Preview <span style="color:#2a8cff;">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Terrain elevation plane (blue = low, red = high)"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label" for="mapv3_chk_terrain" style="font-size: 12px;">Terrain <span style="background:linear-gradient(90deg,#3060ff,#30ff90,#ff3030);color:transparent;">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Aerial / satellite tiles (MapProxy)"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label" for="mapv3_chk_aerial" style="font-size: 12px;">Aerial <span style="color:#8fd14f;">&#9632;</span></label></div>
@@ -831,6 +832,35 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <button class="btn btn-primary" id="mapv3_btn_apply_ranges" type="button" disabled title="Requires a running mapping session — press Start first (the insertion gate only exists while mapping runs).">Apply</button>
                                                 </div>
                                                 <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+
+                                                <!-- vitulus_ui 2026-07-19: Direct 2D raster mapper - the new sensor-ray
+                                                     raster (/mapping/direct_map), independent of the octomap+DEM
+                                                     pipeline above. Same Apply-flow style as Obstacle classification /
+                                                     Sensor ranges: prefilled from /mapping/direct_status.settings on
+                                                     first arrival, applied as ONE /mapping/set_direct JSON. -->
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Direct 2D raster mapper (/mapping/direct_map): builds the teal raster straight from sensor rays (lidar hits/no-hit-free + camera obstacle/free), independent of the octomap+DEM pipeline above. Each source can be enabled and range-capped separately.">Direct mapper</div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
+                                                    <span class="input-group-text" title="Use the lidar scan as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_lidar" style="margin:0 4px 0 0;" checked>Lidar</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_lidar_range" step="0.5" min="0.5" max="20" value="8" title="Lidar max range (m) for the direct mapper (0.5..20)">
+                                                </div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
+                                                    <span class="input-group-text" title="Use camera-detected obstacles as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_obstacle" style="margin:0 4px 0 0;" checked>Cam obst.</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_obstacle_range" step="0.5" min="0.5" max="20" value="6" title="Camera obstacle max range (m) for the direct mapper (0.5..20)">
+                                                </div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
+                                                    <span class="input-group-text" title="Use camera free-space (no obstacle detected) as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_free" style="margin:0 4px 0 0;">Cam free</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_free_range" step="0.5" min="0.5" max="20" value="10" title="Camera free-space max range (m) for the direct mapper (0.5..20)">
+                                                </div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
+                                                    <span class="input-group-text" title="Minimum agreeing hits before a cell is marked occupied/free (1..50, higher = more speckle-resistant but slower to converge)">min hits</span>
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_min_hits" step="1" min="1" max="50" value="3">
+                                                </div>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
+                                                    <span class="input-group-text" title="Treat a lidar ray with no return (max range / no obstacle hit) as evidence of FREE space along its length, not just unknown"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_free_no_hit" style="margin:0 4px 0 0;">No-hit ray free</span>
+                                                    <button class="btn btn-primary" id="mapv3_btn_apply_direct" type="button" title="Apply the direct-mapper settings live (partial updates OK on the backend; this form always sends the full set).">Apply</button>
+                                                </div>
+                                                <span id="mapv3_direct_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
                                             </div>
                                         </details>
 

@@ -68,6 +68,27 @@ class MappingV3 {
             + 'persisted per site).';
         this.el_ranges_status = document.getElementById("mapv3_ranges_status");
         this.ranges_edited = false;
+
+        // Direct 2D raster mapper — new node, fed by /mapping/direct_status,
+        // configured via /mapping/set_direct (partial dicts OK). Three source
+        // rows (enable checkbox + range cap) plus min-hits and the no-hit-free
+        // toggle, applied together as ONE set_direct JSON. Values are
+        // populated from direct_status.settings only ONCE, on first arrival
+        // (see handleDirectStatus) — unlike the band/ranges edit-guard above,
+        // this stream arrives at ~1.5 Hz so a live re-sync would fight with
+        // in-progress typing; there is no ongoing risk once populated once.
+        this.chk_direct_use_lidar = document.getElementById("mapv3_direct_use_lidar");
+        this.in_direct_lidar_range = document.getElementById("mapv3_direct_lidar_range");
+        this.chk_direct_free_no_hit = document.getElementById("mapv3_direct_free_no_hit");
+        this.chk_direct_use_cam_obstacle = document.getElementById("mapv3_direct_use_cam_obstacle");
+        this.in_direct_obstacle_range = document.getElementById("mapv3_direct_obstacle_range");
+        this.chk_direct_use_cam_free = document.getElementById("mapv3_direct_use_cam_free");
+        this.in_direct_free_range = document.getElementById("mapv3_direct_free_range");
+        this.in_direct_min_hits = document.getElementById("mapv3_direct_min_hits");
+        this.btn_apply_direct = document.getElementById("mapv3_btn_apply_direct");
+        this.el_direct_status = document.getElementById("mapv3_direct_status");
+        this._directSettingsSeen = false;   // guards the one-time prefill
+
         this.el_sites = document.getElementById("mapv3_sites_row");
 
         // Saved / live mapping-v3 occupancy grids in the MAIN 3D view — the
@@ -144,11 +165,36 @@ class MappingV3 {
             })
         });
 
-        // vitulus_ui: register both occupancy grids with the global opacity
-        // manager (defined in map_view.js) so the "Maps opacity" / "Unknown
-        // opacity" sliders in the "3D view layers" group drive them alongside
-        // the base /navi_manager/map grid and the local costmap. The rain radar
-        // and aerial tiles keep their own independent opacity sliders.
+        // (2b) DIRECT raster mapper — the new direct 2D raster mapper's live
+        //      grid, built straight from sensor rays (lidar hits/no-hit-free +
+        //      camera obstacle/free) — independent of the octomap+DEM pipeline
+        //      that feeds (2) above. Teal identifier {0,180,180} selects the
+        //      DIRECT branch in map_view.js getColor(), distinct from LIVE
+        //      (orange), SITE (red) and PREVIEW (blue). renderOrder DIRECT
+        //      (21) sits just above LIVE (20).
+        this.direct_group = new THREE.Object3D();
+        viewer3d.scene.add(this.direct_group);
+        this.direct_client = new ROS3D.OccupancyGridClient({
+            ros: ros,
+            tfClient: tfClient,
+            rootObject: this.direct_group,
+            continuous: true,
+            compression: 'cbor',
+            topic: '/mapping/direct_map',
+            color: {r: 0, g: 180, b: 180},
+            opacity: 0.85,
+            offsetPose: new ROSLIB.Pose({
+                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.021}),  // DIRECT band
+                orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
+            })
+        });
+
+        // vitulus_ui: register all three occupancy grids with the global
+        // opacity manager (defined in map_view.js) so the "Maps opacity" /
+        // "Unknown opacity" sliders in the "3D view layers" group drive them
+        // alongside the base /navi_manager/map grid and the local costmap.
+        // The rain radar and aerial tiles keep their own independent opacity
+        // sliders.
         try {
             if (typeof MapLayerOpacity !== 'undefined') {
                 var _ord = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder : null;
@@ -158,6 +204,8 @@ class MappingV3 {
                     _ord ? _ord.PREVIEW : 11);
                 MapLayerOpacity.registerClient(this.grid_client,
                     _ord ? _ord.LIVE : 20);
+                MapLayerOpacity.registerClient(this.direct_client,
+                    _ord ? _ord.DIRECT : 21);
             }
         } catch (e) { /* opacity manager optional */ }
 
@@ -204,6 +252,10 @@ class MappingV3 {
         // empty until a row's Preview is toggled, so having it visible by
         // default is harmless.
         this.chk_preview = document.getElementById("mapv3_chk_preview");
+        // Direct raster mapper layer toggle — persisted like aerial/rain
+        // (_layerPref/_saveLayerPref below), unlike the plain session-scoped
+        // site/live/preview/terrain toggles above which don't survive reload.
+        this.chk_direct = document.getElementById("mapv3_chk_direct");
         if (this.chk_site) {
             this.site_group.visible = this.chk_site.checked;
             this.chk_site.addEventListener('change', () => {
@@ -231,6 +283,16 @@ class MappingV3 {
             this.chk_terrain.addEventListener('change', () => {
                 this.terrain_visible = this.chk_terrain.checked;
                 this.applyTerrainVisible();
+            });
+        }
+        if (this.chk_direct) {
+            // TASK-style persistence (like aerial/rain): default ON, but
+            // respect a stored preference across reloads.
+            this.chk_direct.checked = this._layerPref('vitulus_layer_direct', true);
+            this.direct_group.visible = this.chk_direct.checked;
+            this.chk_direct.addEventListener('change', () => {
+                this._saveLayerPref('vitulus_layer_direct', this.chk_direct.checked);
+                this.direct_group.visible = this.chk_direct.checked;
             });
         }
 
@@ -269,6 +331,7 @@ class MappingV3 {
         this.pub_remove_raster = pub('/mapping_manager/remove_raster');
         this.pub_set_band = pub('/mapping/set_band');
         this.pub_set_ranges = pub('/mapping/set_ranges');
+        this.pub_set_direct = pub('/mapping/set_direct');
 
         const sub = (name, type, cb) => {
             const t = new ROSLIB.Topic({ros: ros, name: name, messageType: type});
@@ -283,6 +346,8 @@ class MappingV3 {
             (m) => this.handleDem(m));
         sub('/mapping/projector_status', 'std_msgs/String',
             (m) => this.handleProjector(m));
+        sub('/mapping/direct_status', 'std_msgs/String',
+            (m) => this.handleDirectStatus(m));
 
         // Terrain elevation as a 3D plane (see terrain_group above). rosbridge
         // delivers CompressedImage.data as base64. The PNG and the world bounds
@@ -409,6 +474,14 @@ class MappingV3 {
         });
         if (this.btn_apply_ranges) {
             this.btn_apply_ranges.addEventListener('click', () => this.applyRanges());
+        }
+
+        // Direct mapper — no edit-guard flag needed (settings are only ever
+        // prefilled once, on the first direct_status arrival), but the
+        // control set is independent of session Start/Stop so it stays
+        // enabled regardless of setActionsEnabled().
+        if (this.btn_apply_direct) {
+            this.btn_apply_direct.addEventListener('click', () => this.applyDirect());
         }
 
         // Clear 3D — reset the octomap archive after a localization
@@ -1642,6 +1715,44 @@ class MappingV3 {
         this.el_ranges_status.style.color = '';
     }
 
+    // Direct 2D raster mapper — publish ONE /mapping/set_direct JSON with all
+    // current control values (the backend accepts partial dicts too, but we
+    // always send the full set here since the form always has a full set of
+    // values once direct_status has arrived at least once).
+    applyDirect() {
+        const lidarR = parseFloat(this.in_direct_lidar_range.value);
+        const obsR = parseFloat(this.in_direct_obstacle_range.value);
+        const freeR = parseFloat(this.in_direct_free_range.value);
+        const minHits = parseInt(this.in_direct_min_hits.value, 10);
+        const ok = (v) => (v >= 0.5 && v <= 20.0);
+        if (!ok(lidarR) || !ok(obsR) || !ok(freeR)) {
+            this.el_direct_status.textContent =
+                'invalid: each range must be 0.5..20 m';
+            this.el_direct_status.style.color = '#ff6b6b';
+            return;
+        }
+        if (!(minHits >= 1 && minHits <= 50)) {
+            this.el_direct_status.textContent =
+                'invalid: min hits must be 1..50';
+            this.el_direct_status.style.color = '#ff6b6b';
+            return;
+        }
+        const payload = {
+            use_lidar: !!(this.chk_direct_use_lidar && this.chk_direct_use_lidar.checked),
+            lidar_max_range_m: lidarR,
+            lidar_free_no_hit: !!(this.chk_direct_free_no_hit && this.chk_direct_free_no_hit.checked),
+            use_cam_obstacle: !!(this.chk_direct_use_cam_obstacle && this.chk_direct_use_cam_obstacle.checked),
+            obstacle_max_range_m: obsR,
+            use_cam_free: !!(this.chk_direct_use_cam_free && this.chk_direct_use_cam_free.checked),
+            free_max_range_m: freeR,
+            min_hits: minHits
+        };
+        this.pub_set_direct.publish(
+            new ROSLIB.Message({data: JSON.stringify(payload)}));
+        this.el_direct_status.textContent = 'applying…';
+        this.el_direct_status.style.color = '';
+    }
+
     setActionsEnabled(on) {
         [this.btn_mode_rtk, this.btn_mode_force, this.btn_mode_off,
          this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear,
@@ -2081,6 +2192,62 @@ class MappingV3 {
         if (p.error) txt += ' | ' + p.error;
         this.el_proj.textContent = txt;
         this.el_proj.style.color = p.state === 'error' ? '#ff6b6b' : '';
+    }
+
+    // Direct 2D raster mapper status — /mapping/direct_status, latched,
+    // ~1.5 Hz: {enabled, pass, reasons[], counters{lidar,cam_obstacle,
+    // cam_free:{in,throttled,gate_closed,passed}}, settings{...},
+    // grid{occ_cells,free_cells,observed_cells,shape,res,obstacle_frames,
+    // free_frames}}.
+    handleDirectStatus(msg) {
+        let s;
+        try { s = JSON.parse(msg.data); } catch (e) { return; }
+
+        // Prefill the Apply controls exactly ONCE, from the first status that
+        // carries settings — deliberately NOT the band/ranges edit-guard
+        // (re-sync-unless-mid-edit): this stream arrives continuously at
+        // ~1.5 Hz, so re-applying it every message would fight with the user
+        // mid-edit far more aggressively than the slower gate/projector
+        // status streams. After the one-time prefill, only Apply changes
+        // what the backend sees; incoming settings are ignored.
+        if (s.settings && !this._directSettingsSeen) {
+            this._directSettingsSeen = true;
+            const st = s.settings;
+            if (this.chk_direct_use_lidar && st.use_lidar !== undefined)
+                this.chk_direct_use_lidar.checked = !!st.use_lidar;
+            if (this.in_direct_lidar_range && st.lidar_max_range_m !== undefined)
+                this.in_direct_lidar_range.value = st.lidar_max_range_m;
+            if (this.chk_direct_free_no_hit && st.lidar_free_no_hit !== undefined)
+                this.chk_direct_free_no_hit.checked = !!st.lidar_free_no_hit;
+            if (this.chk_direct_use_cam_obstacle && st.use_cam_obstacle !== undefined)
+                this.chk_direct_use_cam_obstacle.checked = !!st.use_cam_obstacle;
+            if (this.in_direct_obstacle_range && st.obstacle_max_range_m !== undefined)
+                this.in_direct_obstacle_range.value = st.obstacle_max_range_m;
+            if (this.chk_direct_use_cam_free && st.use_cam_free !== undefined)
+                this.chk_direct_use_cam_free.checked = !!st.use_cam_free;
+            if (this.in_direct_free_range && st.free_max_range_m !== undefined)
+                this.in_direct_free_range.value = st.free_max_range_m;
+            if (this.in_direct_min_hits && st.min_hits !== undefined)
+                this.in_direct_min_hits.value = st.min_hits;
+        }
+
+        if (!this.el_direct_status) return;
+        const g = s.grid || {};
+        const c = s.counters || {};
+        const passed = (k) => (c[k] && c[k].passed !== undefined) ? c[k].passed : '—';
+        let txt = (s.enabled ? 'enabled' : 'disabled') +
+            (s.pass === false ? ' | gate CLOSED' : '') +
+            ' | occ ' + (g.occ_cells !== undefined ? g.occ_cells : '—') +
+            ', free ' + (g.free_cells !== undefined ? g.free_cells : '—') +
+            ' cells | lidar ' + passed('lidar') +
+            ', cam obst ' + passed('cam_obstacle') +
+            ', cam free ' + passed('cam_free') + ' passed';
+        if (s.reasons && s.reasons.length) {
+            txt += ' — ' + s.reasons.join(', ');
+        }
+        this.el_direct_status.textContent = txt;
+        this.el_direct_status.style.color =
+            (s.reasons && s.reasons.length) ? '#ffd43b' : '';
     }
 }
 
