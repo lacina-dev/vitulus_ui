@@ -5647,9 +5647,15 @@ window.renderActiveMapName = function () {
         var el = document.getElementById(id);
         if (!el) return;
         var site = el.getAttribute('data-site') || '';
+        var mapping = el.getAttribute('data-mapping') || '';
         var legacy = el.getAttribute('data-legacy') || '';
+        // The legacy rtabmap-era navi map name is NEVER shown as the headline
+        // any more (octomap/rtabmap mapping retired 2026-07-19) — it survives
+        // only as the hover tooltip. Priority: served site > running mapping
+        // session > explicit 'no map served'.
         if (site) { el.textContent = site; el.title = legacy; }
-        else { el.textContent = legacy; el.title = ''; }
+        else if (mapping) { el.textContent = 'mapping: ' + mapping + '\u2026'; el.title = legacy; }
+        else { el.textContent = 'no map served'; el.title = legacy; }
     });
 };
 
