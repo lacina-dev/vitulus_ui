@@ -603,7 +603,7 @@ window.MapEdits = (function () {
         function disarm() { armed = false; btn.textContent = orig; btn.classList.remove('btn-danger'); btn.classList.add('btn-outline-danger'); if (timer) { clearTimeout(timer); timer = null; } }
         btn.addEventListener('click', function () {
             if (!armed) {
-                armed = true; btn.textContent = 'Confirm delete'; btn.classList.remove('btn-outline-danger'); btn.classList.add('btn-danger');
+                armed = true; btn.textContent = 'Sure?'; btn.classList.remove('btn-outline-danger'); btn.classList.add('btn-danger');
                 timer = setTimeout(disarm, 2500);
             } else {
                 disarm();

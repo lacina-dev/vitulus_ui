@@ -1982,11 +1982,16 @@ class MappingV3 {
             if (!armed) {
                 armed = true;
                 btn.classList.add('btn-danger');
-                btn.innerHTML = '<span style="font-size:11px;">Confirm?</span>';
+                // compact label + let the button grow past its normal fixed
+                // width so the armed state never clips (field report 19.7.)
+                btn.dataset.prevWidth = btn.style.width || '';
+                btn.style.width = 'auto';
+                btn.style.whiteSpace = 'nowrap';
+                btn.innerHTML = '<span style="font-size:11px;">Sure?</span>';
                 timer = setTimeout(() => {
                     armed = false;
                     btn.classList.remove('btn-danger');
-                    btn.innerHTML = restoreHtml;
+                    btn.innerHTML = restoreHtml; btn.style.width = btn.dataset.prevWidth || '';
                 }, 3000);
                 return;
             }
