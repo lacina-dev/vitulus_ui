@@ -1659,17 +1659,20 @@ class MappingV3 {
         // (small hook — piggybacks this existing status handler, no new sub).
         var _mds = document.getElementById('map_detail_site');
         if (_mds) _mds.textContent = s.serving ? (s.serving.site + ' / ' + s.serving.raster) : '—';
-        // vitulus_ui R2 (2026-07-18): the served site raster IS the displayed base
-        // map, so the Map-tab header shows "site (raster)"; the legacy navi map name
-        // (stamped as data-legacy by map_view.js) is relegated to the tooltip. When
-        // nothing is served, data-site is cleared and the header falls back to the
-        // legacy name. The shared renderer reconciles both, order-independently.
-        var _amn = document.getElementById('active_map_name');
-        if (_amn) {
-            _amn.setAttribute('data-site',
-                s.serving ? (s.serving.site + ' (' + s.serving.raster + ')') : '');
-            if (window.renderActiveMapName) window.renderActiveMapName();
-        }
+        // vitulus_ui R2 (2026-07-18) + R3 (2026-07-19): the served site raster IS
+        // the displayed base map, so every registered active-map display (Map-tab
+        // header + the mini status-bar panel over the 3D view) shows
+        // "site (raster)"; the legacy navi map name (stamped as data-legacy by
+        // map_view.js / map_edit.js) is relegated to the tooltip. When nothing is
+        // served, data-site is cleared and each display falls back to the legacy
+        // name. The shared renderer reconciles both, order-independently, for
+        // every id in window.ACTIVE_MAP_NAME_ELS.
+        var _siteVal = s.serving ? (s.serving.site + ' (' + s.serving.raster + ')') : '';
+        (window.ACTIVE_MAP_NAME_ELS || ['active_map_name']).forEach(function (id) {
+            var _el = document.getElementById(id);
+            if (_el) _el.setAttribute('data-site', _siteVal);
+        });
+        if (window.renderActiveMapName) window.renderActiveMapName();
         // WP-D2: enable "Edit map" only while a site is served (editor draws
         // against the served map). Tooltip reflects the current state.
         if (this.btn_edit_map) {

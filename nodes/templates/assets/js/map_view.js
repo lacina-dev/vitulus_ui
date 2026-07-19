@@ -3949,7 +3949,15 @@ class StatusBar {
         this.div_status_map_name.style.display = "inline-flex";
         this.div_status_map_ico.style.display = "inline-flex";
         this.span_status_map_name.style.display = "inline";
-        this.span_status_map_name.innerText = message.data.split('***env*')[0];
+        // vitulus_ui R3 (2026-07-19): was a direct innerText write of the legacy
+        // navi map name — bypassed the site/legacy reconciliation added in R2, so
+        // this mini status-bar panel kept showing the legacy map name even once a
+        // mapping-v3 site was served. Stamp data-legacy and let the shared
+        // renderer (window.renderActiveMapName, registered via
+        // ACTIVE_MAP_NAME_ELS) decide whether it shows here or falls back to the
+        // tooltip, same as the Map-tab header (#active_map_name).
+        this.span_status_map_name.setAttribute('data-legacy', message.data.split('***env*')[0]);
+        if (window.renderActiveMapName) window.renderActiveMapName();
     }
     set_indoor(message) {
         if (message.data === true) {
@@ -5542,21 +5550,32 @@ class Programs {
 // }
 
 
-// vitulus_ui R2 (2026-07-18): the Map-tab header (#active_map_name) now shows the
-// mapping-v3 SERVED SITE identity ("site (raster)") whenever a site is being
-// served - because that raster IS the displayed base map - relegating the legacy
-// navi map name (GARDEN_...***env*OUTDOOR) to the tooltip. With no site served it
-// falls back to the legacy name (old behaviour). Two independent, order-agnostic
-// writers feed the element: the /navi_manager/active_map subscription stamps
-// data-legacy; mapping.js's /mapping_manager/status handler stamps data-site.
-// This shared renderer recomputes visible text + title from both attributes.
+// vitulus_ui R2 (2026-07-18) + R3 (2026-07-19): every user-visible "active map"
+// display shows the mapping-v3 SERVED SITE identity ("site (raster)") whenever a
+// site is being served - because that raster IS the displayed base map -
+// relegating the legacy navi map name (GARDEN_...***env*OUTDOOR) to the tooltip.
+// With no site served it falls back to the legacy name (old behaviour). Two
+// independent, order-agnostic writers feed each registered element:
+//   - /navi_manager/active_map subscribers stamp data-legacy
+//     (map_view.js StatusBar.set_map_name + the active_map_Topic handler below;
+//      map_edit.js)
+//   - mapping.js's /mapping_manager/status handler stamps data-site
+// This shared renderer recomputes visible text + title from both attributes,
+// for every element registered in ACTIVE_MAP_NAME_ELS:
+//   - #active_map_name       — the Map-tab drawer header
+//   - #span_status_map_name  — the mini status-bar panel over the 3D map view
+// Add new ids here (not a duplicated renderer) when another display shows the
+// active map name.
+window.ACTIVE_MAP_NAME_ELS = ['active_map_name', 'span_status_map_name'];
 window.renderActiveMapName = function () {
-    var el = document.getElementById('active_map_name');
-    if (!el) return;
-    var site = el.getAttribute('data-site') || '';
-    var legacy = el.getAttribute('data-legacy') || '';
-    if (site) { el.textContent = site; el.title = legacy; }
-    else { el.textContent = legacy; el.title = ''; }
+    window.ACTIVE_MAP_NAME_ELS.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var site = el.getAttribute('data-site') || '';
+        var legacy = el.getAttribute('data-legacy') || '';
+        if (site) { el.textContent = site; el.title = legacy; }
+        else { el.textContent = legacy; el.title = ''; }
+    });
 };
 
 // vitulus_ui: was `window.onload`; converted to a named initialiser so the
