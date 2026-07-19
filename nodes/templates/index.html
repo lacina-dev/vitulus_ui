@@ -754,7 +754,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <div class="map-top">
                                             <span class="text-info" id="active_map_name" style="font-size: 13px;font-weight: 600;">Map name</span>
                                             <button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit map detail (planner data, zones, polygons)"><i class="la la-edit text-info" style="font-size: 15px;"></i><span class="text-info" style="font-size: 12px;margin-left: 5px;">Edit</span></button>
-                                            <div class="btn-group btn-group-sm ms-auto" role="group" title="Display source of the occupancy map">
+                                            <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — legacy Planner/Rtabmap display source toggle (drives /navi_manager/show_map); site-native serves the site raster as the base map so the toggle is obsolete. IDs kept present for map_view.js bindings. -->
+                                            <div class="btn-group btn-group-sm ms-auto" role="group" title="Display source of the occupancy map" style="display:none;">
                                                 <button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button>
                                                 <button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button>
                                             </div>
@@ -763,7 +764,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <div class="map-layers-row">
                                             <span style="font-size: 11px;opacity: .7;">Layers</span>
                                             <div class="form-check form-check-inline" title="Saved map obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved <span style="color:#ff4d4d;">&#9632;</span></label></div>
-                                            <div class="form-check form-check-inline" title="Live mapping obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live <span style="color:#ff7800;">&#9632;</span></label></div>
+                                            <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — the band /mapping/obstacle_map "Live" (orange) layer is gone; the Direct (black) layer is the live map now. ID kept present for mapping.js. -->
+                                            <div class="form-check form-check-inline" title="Live mapping obstacles" style="display:none;"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live <span style="color:#ff7800;">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Direct 2D raster mapper — live raster built straight from sensor rays (lidar + camera), independent of the octomap/DEM pipeline"><input class="form-check-input" type="checkbox" id="mapv3_chk_direct" checked><label class="form-check-label" for="mapv3_chk_direct" style="font-size: 12px;">Direct <span style="color:#000000;">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Raw-raster preview overlay (per-raster management A/B compare; blue)"><input class="form-check-input" type="checkbox" id="mapv3_chk_preview" checked><label class="form-check-label" for="mapv3_chk_preview" style="font-size: 12px;">Preview <span style="color:#2a8cff;">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Terrain elevation plane (blue = low, red = high)"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label" for="mapv3_chk_terrain" style="font-size: 12px;">Terrain <span style="background:linear-gradient(90deg,#3060ff,#30ff90,#ff3030);color:transparent;">&#9632;</span></label></div>
@@ -786,14 +788,18 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <span id="mapv3_run_status" style="font-size: 12px;display: block;margin-top: 4px;">waiting for mapping_manager&hellip;</span>
                                                 <span id="mapv3_serving_status" style="font-size: 12px;display: block;margin-top: 2px;">serving: &mdash;</span>
 
-                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="RTK = insert only at RTK FIXED (normal mapping); Force = insert without RTK (garage clean pass); Off = pause insertion">Insertion gate</div>
-                                                <div class="btn-group btn-group-sm" role="group">
+                                                <!-- 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — the RTK/Force/Off mode buttons drove /mapping/gate_mode (octomap insertion gate) and are hidden below. The read-only gate status line is KEPT: while a session runs it still reports live localization quality (pose source / RTK fix / hAcc / heading) which is useful during any mapping; it reads "—" when there is no session. -->
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="Live localization / insertion-gate status during a mapping session (pose source, RTK fix, hAcc, heading).">Localization / gate status</div>
+                                                <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — insertion-gate mode buttons (/mapping/gate_mode). IDs kept present for mapping.js. -->
+                                                <div class="btn-group btn-group-sm" role="group" style="display:none;">
                                                     <button class="btn btn-primary" id="mapv3_btn_mode_rtk" type="button" disabled title="Insert only at RTK FIXED (normal mapping)">RTK</button>
                                                     <button class="btn btn-primary" id="mapv3_btn_mode_force" type="button" disabled title="Force insertion without RTK (garage clean pass)">Force</button>
                                                     <button class="btn btn-primary" id="mapv3_btn_mode_off" type="button" disabled title="Pause insertion">Off</button>
                                                 </div>
                                                 <span id="mapv3_gate_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
 
+                                                <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — octomap Actions (Raster regen from octomap+DEM / full Snapshot / Compare-vs-rtabmap) and the band projector_status line. IDs kept present for mapping.js (btn_raster.parentNode also hosts the dynamically-appended "Clear 3D" octomap-archive button, which inherits this hidden state). -->
+                                                <div style="display:none;">
                                                 <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;">Actions</div>
                                                 <div class="btn-group btn-group-sm" role="group">
                                                     <button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button>
@@ -801,7 +807,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <button class="btn btn-primary" id="mapv3_btn_compare" type="button" disabled title="A/B stats vs the current rtabmap grid">Compare</button>
                                                 </div>
                                                 <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+                                                </div>
 
+                                                <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — Obstacle classification (band min/max, evidence, cluster → /mapping/set_band) and Sensor ranges (lidar/depth octomap insertion caps → /mapping/set_ranges) both configured the retired octomap+band pipeline. The DIRECT mapper has its OWN ranges/source block below, which STAYS. IDs kept present for mapping.js. -->
+                                                <div style="display:none;">
                                                 <!-- vitulus_ui R3 (2026-07-18): obstacle classification + sensor ranges
                                                      configure the mapping pipeline (not display) - moved here from
                                                      the Map layers section. -->
@@ -832,6 +841,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <button class="btn btn-primary" id="mapv3_btn_apply_ranges" type="button" disabled title="Requires a running mapping session — press Start first (the insertion gate only exists while mapping runs).">Apply</button>
                                                 </div>
                                                 <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+                                                </div>
+                                                <!-- end hidden octomap classification/ranges block -->
 
                                                 <!-- vitulus_ui 2026-07-19: Direct 2D raster mapper - the new sensor-ray
                                                      raster (/mapping/direct_map), independent of the octomap+DEM
