@@ -6575,7 +6575,8 @@ window.initMapView = function () {
             continuous: true,
             compression: 'cbor',
             // topic: 'navi_manager/local_costmap',
-            topic: '/move_base_flex/local_costmap/costmap_slow',
+            // 2026-08-03: odom-framed costmapa se kresli pres map-framed relay
+            topic: '/local_costmap_map_framed',
             color: {r:255,g:0,b:255},  // {r:0,g:255,b:255} gridmap, {r:255,g:0,b:255} loc costmap, {r:255,g:255,b:0} glob costmap
             opacity: 0.3,
             offsetPose: maps.local_costmap_offset,

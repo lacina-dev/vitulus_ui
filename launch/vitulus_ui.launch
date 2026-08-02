@@ -1,5 +1,8 @@
 <launch>
   <node pkg="vitulus_ui" type="webnode" name="webnode" output="screen" respawn="true" respawn_delay="5"/>
+  <!-- 2026-08-03: local costmapa je v odom frame (audit A19); stary ros3d ji
+       neumi TF-umistit — relay ji prerammuje do map pro UI. -->
+  <node pkg="vitulus_ui" type="costmap_reframe" name="costmap_reframe" respawn="true" respawn_delay="2" output="log"/>
 
   <!-- Caches the transient /nextion/log_info status strip into a persistent,
        size-rotated JSONL log and republishes recent history over ROS (latched)

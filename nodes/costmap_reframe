@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""costmap_reframe — republish the local costmap re-framed odom -> map for the UI.
+
+2026-08-03: the local costmap moved to global_frame=odom (audit A19). The web
+UI renders grids via an old bundled ros3d whose TF path silently placed the
+odom-framed grid at the map origin (shifted by exactly map->odom). Rather than
+patching ros3d, this relay transforms the grid ORIGIN into the map frame using
+live TF and republishes; the UI subscribes to the re-framed topic. Data is
+untouched — only header.frame_id and info.origin change.
+"""
+import rospy
+import tf2_ros
+from nav_msgs.msg import OccupancyGrid
+from tf.transformations import (euler_from_quaternion, quaternion_from_euler)
+import math
+
+
+class Reframe(object):
+    def __init__(self):
+        self.buf = tf2_ros.Buffer(rospy.Duration(10.0))
+        self.lis = tf2_ros.TransformListener(self.buf)
+        self.pub = rospy.Publisher('/local_costmap_map_framed', OccupancyGrid,
+                                   queue_size=1)
+        rospy.Subscriber('/move_base_flex/local_costmap/costmap_slow',
+                         OccupancyGrid, self.cb, queue_size=1)
+
+    def cb(self, g):
+        if g.header.frame_id.lstrip('/') == 'map':
+            self.pub.publish(g)   # already map-framed (rollback case) — pass through
+            return
+        try:
+            tr = self.buf.lookup_transform('map', g.header.frame_id.lstrip('/'),
+                                           rospy.Time(0), rospy.Duration(0.2))
+        except Exception as e:
+            rospy.logwarn_throttle(30.0, '[costmap_reframe] no TF map->%s: %s',
+                                   g.header.frame_id, e)
+            return
+        t, q = tr.transform.translation, tr.transform.rotation
+        yaw_t = euler_from_quaternion([q.x, q.y, q.z, q.w])[2]
+        o = g.info.origin
+        yaw_o = euler_from_quaternion([o.orientation.x, o.orientation.y,
+                                       o.orientation.z, o.orientation.w])[2]
+        c, s = math.cos(yaw_t), math.sin(yaw_t)
+        nx = t.x + c * o.position.x - s * o.position.y
+        ny = t.y + s * o.position.x + c * o.position.y
+        nq = quaternion_from_euler(0.0, 0.0, yaw_t + yaw_o)
+        out = g
+        out.header.frame_id = 'map'
+        out.info.origin.position.x = nx
+        out.info.origin.position.y = ny
+        (out.info.origin.orientation.x, out.info.origin.orientation.y,
+         out.info.origin.orientation.z, out.info.origin.orientation.w) = nq
+        self.pub.publish(out)
+
+
+if __name__ == '__main__':
+    rospy.init_node('costmap_reframe')
+    Reframe()
+    rospy.spin()
