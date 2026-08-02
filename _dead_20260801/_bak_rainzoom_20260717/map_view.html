@@ -26,12 +26,8 @@
     <link rel="icon" type="image/png" sizes="512x512" href="assets/img/VitulusOnGrassBlended512x512.png">
     <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
     <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
-    <!-- vitulus_ui: self-hosted (was https://fonts.googleapis.com/css?family=Bitter:400,700
-         + Roboto:300,400,700) — the robot UI must work with no internet. The woff2 files
-         and @font-face rules already existed locally under assets/fonts + assets/css but
-         were unused; these two <link>s just needed pointing at them. -->
-    <link rel="stylesheet" href="assets/css/Bitter.css">
-    <link rel="stylesheet" href="assets/css/Roboto.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:400,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,700">
     <link rel="stylesheet" href="assets/fonts/font-awesome.min.css">
     <link rel="stylesheet" href="assets/fonts/line-awesome.min.css">
     <link rel="stylesheet" href="assets/fonts/material-icons.min.css">
@@ -62,12 +58,6 @@
 <script src="/assets/js/map_view.js"></script>
 <script src="/assets/js/calendar_manager.js"></script>
 <script src="/assets/js/keyboardteleop.js"></script>
-<script src="/assets/js/planner3d.js"></script>
-<script src="/assets/js/map_edit.js"></script>
-<script src="/assets/js/mapeditor.js"></script>
-<script src="/assets/js/mapedits.js"></script>
-<script src="/assets/js/imu_calibration.js"></script>
-<script src="/assets/js/app.js"></script>
 <style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
 <style>
 /* ROS log viewer (compact + expanded) */
@@ -240,389 +230,9 @@ html, body {
     margin-top: 0 !important;
 }
 </style>
-<style id="vitulus-ui-responsive">
-#div_menu_mapedit > div { width: 100% !important; max-width: 494px; }
-@media (max-width: 540px) {
-  #div_menu_mapedit > div { width: 100% !important; }
-}
-/* IMU tab: propagate the bounded outer height down the row + columns so
-   the left controls column fills the block; #3d_view gets its own
-   explicit viewport height (set in build) and no longer relies on this. */
-#div_content_imu > .row,
-#div_content_imu > .row > [class*="col-"] { height: 100%; }
-
-/* ===== Map-edit panel (#div_map_detail) redesign ===== */
-#div_map_detail { font-size: 13px; }
-@media (max-width: 575.98px) {
-  #div_map_detail { width: 100% !important; max-width: 100% !important; }
-}
-/* NÁSTROJE tool grid */
-#mapedit_tools .met-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-#mapedit_tools .met-tool {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; min-height: 52px; padding: 4px 2px;
-  font-size: 12px; line-height: 1.1;
-}
-#mapedit_tools .met-tool .met-ico { font-size: 20px; line-height: 1; }
-/* Collapsible sections (native <details>) */
-#div_map_detail details.mapedit-sec {
-  border: 1px solid var(--bs-secondary);
-  border-radius: 5px;
-  margin-bottom: 6px;
-  background: rgba(0,0,0,0.15);
-}
-#div_map_detail details.mapedit-sec > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  min-height: 40px; padding: 6px 10px;
-  font-size: 13px; font-weight: 600;
-  color: var(--bs-info);
-  user-select: none;
-}
-#div_map_detail details.mapedit-sec > summary::-webkit-details-marker { display: none; }
-#div_map_detail details.mapedit-sec > summary::before {
-  content: "\25B8"; font-size: 12px; color: var(--bs-gray-500);
-  transition: transform .15s ease; flex: 0 0 auto;
-}
-#div_map_detail details.mapedit-sec[open] > summary::before { transform: rotate(90deg); }
-#div_map_detail details.mapedit-sec > .mapedit-sec-body { padding: 4px 10px 10px; }
-/* Touch-friendly controls inside the panel */
-#div_map_detail .btn { min-height: 40px; }
-#div_map_detail .btn-group-sm > .btn, #div_map_detail .btn-sm { min-height: 34px; }
-#div_map_detail .met-tool.btn { min-height: 52px; }
-#div_map_detail .form-control, #div_map_detail .form-select { min-height: 38px; font-size: 13px; }
-#div_map_detail .input-group-sm > .form-control, #div_map_detail .input-group-sm > .input-group-text { min-height: 34px; }
-
-/* ===== Map tab (#tab-map) compact redesign ===== */
-#tab-map { font-size: 13px; max-width: 460px; }
-@media (max-width: 575.98px) {
-  #tab-map { max-width: 100%; }
-}
-/* Primary always-visible bars */
-#tab-map .map-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 6px; }
-#tab-map .map-layers-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-bottom: 8px; }
-#tab-map .map-layers-row .form-check-inline { margin-right: 0; }
-/* Collapsible sections (native <details>) — mirrors #div_map_detail .mapedit-sec */
-#tab-map details.map-sec {
-  border: 1px solid var(--bs-secondary);
-  border-radius: 5px;
-  margin-bottom: 6px;
-  background: rgba(0,0,0,0.15);
-}
-#tab-map details.map-sec > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  min-height: 40px; padding: 6px 10px;
-  font-size: 13px; font-weight: 600;
-  color: var(--bs-info);
-  user-select: none;
-}
-#tab-map details.map-sec > summary::-webkit-details-marker { display: none; }
-#tab-map details.map-sec > summary::before {
-  content: "\25B8"; font-size: 12px; color: var(--bs-gray-500);
-  transition: transform .15s ease; flex: 0 0 auto;
-}
-#tab-map details.map-sec[open] > summary::before { transform: rotate(90deg); }
-#tab-map details.map-sec > .map-sec-body { padding: 4px 10px 10px; }
-/* Touch-friendly controls */
-#tab-map .btn { min-height: 34px; }
-#tab-map .form-control, #tab-map .form-select { min-height: 34px; font-size: 12px; }
-#tab-map .input-group-sm > .form-control, #tab-map .input-group-sm > .input-group-text { min-height: 32px; }
-
-/* ===== Settings panel (#div_menu_config) tabs: fluid width in the drawer =====
-   Motors / Power / Mower / Rosbag were authored back when #div_menu_config was
-   a wide dropdown menu; their top-level rows use fixed pixel column widths
-   (col-auto width:336px/337px) or narrow min-widths (150px) that don't fit
-   the 460px drawer body, which forced an inner horizontal scrollbar on the
-   row (overflow:auto). Turn those rows into a fluid auto-fit grid so columns
-   share the full drawer width and reflow with no media query needed: they
-   mostly stack to one full-width column in the normal 460px drawer and pack
-   more columns automatically if the drawer is widened (.wide/.full). The
-   minmax(min(Npx,100%), 1fr) form caps the minimum track size at the
-   container width so a track can never force horizontal overflow on a very
-   narrow screen. Numeric inputs/buttons inside are untouched — only the
-   outer column sizing changes; Bootstrap's .input-group already stretches to
-   100% of its column and wraps internally if it runs out of room.
-   Navi (#tab_lidar) and Diag (#tab_diag) already use unconstrained col-auto /
-   plain divs that reflow correctly on their own — left alone. IMU (#tab_imu /
-   #3d_view) is out of scope and not touched here. */
-#tab_motors > div > .row {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
-  gap: 6px 12px;
-  width: 100% !important;
-  max-width: 100% !important;
-  overflow: visible !important;
-}
-#tab_power > div > .row,
-#tab_mower > div > .row,
-#tab_rosbag > .row {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-  gap: 6px 12px;
-  width: 100% !important;
-  max-width: 100% !important;
-  overflow: visible !important;
-}
-#tab_motors > div > .row > .col-auto,
-#tab_power > div > .row > .col-auto,
-#tab_mower > div > .row > .col-auto,
-#tab_rosbag > .row > .col-auto {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-/* The Power readout column carries a hard-coded <hr style="width:318px"> divider
-   (authored for the old 336px column). The grid/col-auto rules above only size
-   the row and its columns, not inner block elements, so that divider still
-   stops short of the now full-width column. Let any divider inside these columns
-   span the full width like the rest of the content. */
-#tab_power > div > .row > .col-auto > hr,
-#tab_mower > div > .row > .col-auto hr {
-  width: auto !important;
-}
-
-/* ===== Left slide-out drawer (Phase 1) — hosts the relocated menu panels ===== */
-/* The drawer is a fixed box on the LEFT, spanning from just under the top navbar
-   to just above the fixed bottom toolbar. The map to its right stays interactive
-   on desktop (the drawer only covers its own width; no backdrop). On mobile the
-   drawer is full-width and a translucent backdrop (tap = close) sits behind it. */
-#ui_drawer {
-    position: fixed;
-    left: 0;
-    top: 42px;                                     /* under the 42px navbar / menu_spacer */
-    bottom: calc(40px + env(safe-area-inset-bottom));  /* above #div_bottom_menu */
-    width: 460px;
-    max-width: 100vw;
-    display: flex;
-    flex-direction: column;
-    background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);
-    border-right: 1px solid var(--bs-secondary);
-    border-top: 1px solid var(--bs-secondary);
-    border-bottom-right-radius: 8px;
-    border-top-right-radius: 8px;
-    box-shadow: 4px 0 22px rgba(0,0,0,0.55);
-    z-index: 1000;                                  /* above map overlay (z10), below BS modals (1050+) */
-    transform: translateX(-100%);
-    transition: transform 0.2s ease, width 0.2s ease;
-    pointer-events: auto;
-    overflow: hidden;                               /* the body scrolls, not the shell */
-}
-#ui_drawer.open { transform: translateX(0); }
-#ui_drawer.wide { width: 640px; }                   /* Programs view needs more room */
-#ui_drawer.full { width: 100vw !important; border-radius: 0 !important; }  /* fullscreen-expand toggle; wins over .wide */
-#ui_drawer_head {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 8px 7px 12px;
-    background: var(--bs-gray-900);
-    border-bottom: 1px solid var(--bs-secondary);
-    border-top-right-radius: 8px;
-}
-#ui_drawer_title {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: .4px;
-    text-transform: uppercase;
-    color: var(--bs-info);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-#btn_ui_drawer_close {
-    flex: 0 0 auto;
-    min-width: 36px;
-    min-height: 34px;
-    padding: 0 10px;
-    font-size: 22px;
-    line-height: 1;
-    color: var(--bs-warning);
-    background: transparent;
-    border: 1px solid var(--bs-secondary);
-    border-radius: 6px;
-    cursor: pointer;
-}
-#btn_ui_drawer_close:hover { background: rgba(255,255,255,0.06); }
-#btn_ui_drawer_full {
-    flex: 0 0 auto;
-    min-width: 36px;
-    min-height: 34px;
-    padding: 0 10px;
-    font-size: 16px;
-    line-height: 1;
-    color: var(--bs-info);
-    background: transparent;
-    border: 1px solid var(--bs-secondary);
-    border-radius: 6px;
-    cursor: pointer;
-}
-#btn_ui_drawer_full:hover { background: rgba(255,255,255,0.06); }
-/* Fullscreen-expand toggle is a no-op below 576px (drawer is already 100vw). */
-@media (max-width: 575.98px) {
-    #btn_ui_drawer_full, #btn_map_detail_full { display: none !important; }
-}
-#ui_drawer_body {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    padding: 6px 8px 10px;
-}
-/* The editor panel supplies its own sticky header (Map editor / ✕), so hide the
-   generic drawer chrome while it is the active panel to avoid a doubled header. */
-#ui_drawer.editor #ui_drawer_head { display: none; }
-/* The drawer body owns scrolling: neutralise the panels' own viewport-based
-   max-height / inner scroll so content flows and the drawer scrolls as one. */
-#ui_drawer > #ui_drawer_body > [id^="div_menu_"],
-#ui_drawer > #ui_drawer_body > #div_map_detail {
-    width: 100% !important;
-    max-height: none !important;
-    overflow: visible !important;
-    margin-top: 0 !important;
-    border: none !important;
-    border-radius: 0 !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
-    background: transparent !important;
-}
-#ui_drawer .tab-pane {
-    max-height: none !important;
-    overflow: visible !important;
-}
-/* Backdrop: mobile only (shown via JS). Sits below the drawer, above the map. */
-#ui_drawer_backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 999;
-    display: none;
-}
-@media (max-width: 575.98px) {
-    #ui_drawer, #ui_drawer.wide { width: 100vw; border-radius: 0; }
-}
-
-/* ===== Drawer panels shared redesign (Phase 2) =====
-   Brings Path / Point / Dock / Rain / Loc / Marker to the same design
-   language as #tab-map: compact primary bar + collapsible <details.drawer-sec>
-   sections. Mirrors #tab-map .map-sec / #div_map_detail .mapedit-sec. */
-#tab-path, #tab-point, #tab-dock, #tab-rain, #tab-gloc { font-size: 13px; max-width: 460px; }
-@media (max-width: 575.98px) {
-  #tab-path, #tab-point, #tab-dock, #tab-rain, #tab-gloc { max-width: 100%; }
-}
-/* Primary always-visible bar */
-.drawer-primary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 8px; }
-.drawer-primary .form-label { margin-bottom: 0; }
-.drawer-hint { font-size: 11px; opacity: .7; display: block; }
-/* Collapsible sections (native <details>) */
-details.drawer-sec {
-  border: 1px solid var(--bs-secondary);
-  border-radius: 5px;
-  margin-bottom: 6px;
-  background: rgba(0,0,0,0.15);
-}
-details.drawer-sec > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  min-height: 40px; padding: 6px 10px;
-  font-size: 13px; font-weight: 600;
-  color: var(--bs-info);
-  user-select: none;
-}
-details.drawer-sec > summary::-webkit-details-marker { display: none; }
-details.drawer-sec > summary::before {
-  content: "\25B8"; font-size: 12px; color: var(--bs-gray-500);
-  transition: transform .15s ease; flex: 0 0 auto;
-}
-details.drawer-sec[open] > summary::before { transform: rotate(90deg); }
-details.drawer-sec > .drawer-sec-body { padding: 4px 10px 10px; }
-details.drawer-sec > .drawer-sec-body hr { margin: 8px 0; }
-/* Touch-friendly controls in the redesigned tabs */
-#tab-path .btn, #tab-point .btn, #tab-dock .btn, #tab-rain .btn, #tab-gloc .btn,
-#div_menu_marker .btn { min-height: 34px; }
-#tab-path .form-control, #tab-point .form-control, #tab-dock .form-control,
-#tab-gloc .form-control, #tab-path .form-select, #tab-point .form-select,
-#tab-dock .form-select, #tab-gloc .form-select { min-height: 34px; font-size: 12px; }
-/* vitulus_ui: layout-jitter fix (2026-07-18) — dock.js pushes innerHTML into
-   these containers on every incoming ROS status message (continuous
-   subscriptions, active regardless of whether the detector is enabled).
-   Some of that HTML is conditional (e.g. handleDockMapStatus appends an
-   extra <span> only when message.nav_error is set; handleDockSeedStatus
-   appends 1-3 <div> lines depending on live seed state) so the rendered
-   height can differ by a wrapped line between two consecutive messages.
-   With no reserved size that shifted every #tab-dock section below it a
-   few px on each update. min-height reserves worst-case content so the
-   box doesn't reflow once populated; while a container is display:none
-   (detector disabled / no seed data yet) it still takes zero space. */
-#tab-dock #dock_div_intensity_status { min-height: 84px; }
-#tab-dock #dock_div_map_status { min-height: 150px; }
-#tab-dock #dock_div_seed_status { min-height: 64px; }
-
-/* ===== Compact segmented pill tab strips (map / programs / settings) ===== */
-ul.nav-tabs.drawer-pills {
-  flex-wrap: wrap;
-  gap: 4px;
-  border-bottom: none;
-  padding: 3px;
-  border-radius: 6px;
-  background: rgba(0,0,0,0.25);
-}
-ul.nav-tabs.drawer-pills .nav-item { margin: 0; }
-ul.nav-tabs.drawer-pills .nav-link {
-  border: 1px solid transparent;
-  border-radius: 5px;
-  padding: 5px 12px !important;
-  font-size: 13px;
-  line-height: 1.1;
-  color: var(--bs-info);
-  background: transparent;
-  min-height: 32px;
-}
-ul.nav-tabs.drawer-pills .nav-link:hover { border-color: var(--bs-secondary); }
-ul.nav-tabs.drawer-pills .nav-link.active {
-  color: #fff;
-  background: var(--bs-primary);
-  border-color: var(--bs-info);
-}
-
-/* ===== Marker menu tighten ===== */
-#div_menu_marker .form-label { margin-bottom: 4px; }
-
-/* ===== Programs: fluid list/detail rows (no fixed px -> no mobile overflow) ===== */
-/* Program list: 2-up grid when the drawer is wide enough (640px Programs
-   panel fits two ~300px columns), single column on narrow/mobile. */
-#div_menu_map_program #div_menu_program_items_row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
-  gap: 2px 8px;
-}
-#div_menu_map_program .prog-row-fluid { width: 100% !important; max-width: none; }
-#div_menu_map_program .prog-row-fluid .input-group { width: 100% !important; }
-#div_menu_map_program .prog-row-fluid .prog-name {
-  flex: 1 1 auto; width: auto !important; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-@media (max-width: 575.98px) {
-  #div_menu_map_program .prog-row-fluid { max-width: 100%; }
-}
-</style>
 </head>
 
 <body>
-
     <div class="modal fade" role="dialog" tabindex="-1" id="modal_remove_bag">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -687,15 +297,13 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                 </svg></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1" id="btn_navbar_toggler" style="height: 36px;border-width: 0px;"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
             <div class="collapse navbar-collapse d-lg-flex justify-content-lg-end" id="navcol-1">
                 <ul class="navbar-nav" style="color: rgba(40,43,48,0.99);">
-                    
-                    
-                    
+                    <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/"><span><i class="fa fa-map" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i></span>Map view</a></li>
+                    <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/map_edit"><span><i class="fa fa-random" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i></span>Planner</a></li>
+                    <li class="nav-item d-inline-flex align-items-center" style="display: inline-flex;"><a class="nav-link" href="/imu_calibration"><i class="fa fa-compass" style="margin-right: 8px;font-size: 18px;color: rgb(241,125,34);"></i>Imu calibration</a></li>
                 </ul>
             </div>
         </div>
     </nav>
-<div id="section_map">
-
     <div id="div_bottom_menu" style="display: block;width: 100%;z-index: 1;">
         <div class="btn-group btn-group-sm bg-dark border rounded border-1 border-primary" role="group" style="width: 100%;background: rgba(0,0,0,0.6);"><button class="btn btn-outline-danger active d-flex justify-content-center align-items-center" id="btn_stop_all" type="button" style="border-top-left-radius: 6px;border-bottom-left-radius: 6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16" class="bi bi-sign-stop-fill" style="font-size: 17px;font-weight: bold;">
                     <path d="M10.371 8.277v-.553c0-.827-.422-1.234-.987-1.234-.572 0-.99.407-.99 1.234v.553c0 .83.418 1.237.99 1.237.565 0 .987-.408.987-1.237m2.586-.24c.463 0 .735-.272.735-.744s-.272-.741-.735-.741h-.774v1.485h.774"></path>
@@ -727,224 +335,152 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                 <div class="row all-events" id="row_submenu" style="margin-right: 0px;margin-left: 0px;">
                     <div class="col" style="padding-right: 0px;padding-left: 0px;">
                         <div class="bg-primary border-primary" id="div_menu_marker" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 1%, var(--bs-primary)), var(--bs-secondary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;border: 1px solid var(--bs-info);border-top-style: none;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 8px;">
-                            <div class="drawer-primary">
-                                <label class="form-label" style="font-size: 12px;">Marker</label>
-                                <button class="btn btn-primary btn-sm" id="btn_marker_send_goal" type="button">Send goal</button>
-                                <button class="btn btn-warning btn-sm" id="btn_marker_cancel_navigation" type="button">Cancel navigation</button>
-                            </div>
-                            <div style="margin-top: 4px;">
-                                <label class="form-label" style="font-size: 12px;">Marker orientation</label>
-                                <input class="form-range bg-secondary border rounded-pill border-secondary" type="range" id="range_marker_orientation" min="0" max="6.28" step="0.05" value="0" style="padding: 12px;width: 100%;">
+                            <div class="row g-0">
+                                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="height: auto;margin-top: 8px;"><label class="form-label" style="font-size: 12px;margin-bottom: 4px;display: block;">Marker</label><button class="btn btn-primary btn-sm" id="btn_marker_send_goal" type="button">Send goal</button><button class="btn btn-warning btn-sm" id="btn_marker_cancel_navigation" type="button">Cancel navigation</button></div>
+                                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="display: block;height: auto;margin-top: 8px;"><label class="form-label" style="font-size: 12px;margin-bottom: 4px;display: block;">Marker orientation</label><input class="form-range bg-secondary border rounded-pill border-secondary" type="range" id="range_marker_orientation" min="0" max="6.28" step="0.05" value="0" style="padding: 12px;"></div>
                             </div>
                         </div>
                         <div class="border-primary" id="div_menu_map" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;display: none;">
                             <div>
                                 
-<ul class="nav nav-tabs drawer-pills" role="tablist">
-                                    <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-map">Map</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-path">Path</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-point">Point</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-dock">Dock</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-rain">Rain</a></li>
-                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-gloc">Loc</a></li>
+<ul class="nav nav-tabs d-flex d-xl-flex justify-content-start justify-content-xl-center" role="tablist" style="font-size: 13px;display: inline-flex;background: var(--bs-secondary-text-emphasis);">
+                                    <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-map" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Map</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-path" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Path</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-point" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Point</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-dock" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Dock</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-rain" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Rain</a></li>
+                                    <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-gloc" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Loc</a></li>
                                 </ul>
                                 <div class="tab-content" style="overflow: clip;">
                                     <div class="tab-pane active" role="tabpanel" id="tab-map" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <!-- PRIMARY BAR (always visible): active map + editor entry + display source -->
-                                        <div class="map-top">
-                                            <span class="text-info" id="active_map_name" style="font-size: 13px;font-weight: 600;">Map name</span>
-                                            <button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit map detail (planner data, zones, polygons)"><i class="la la-edit text-info" style="font-size: 15px;"></i><span class="text-info" style="font-size: 12px;margin-left: 5px;">Edit</span></button>
-                                            <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — legacy Planner/Rtabmap display source toggle (drives /navi_manager/show_map); site-native serves the site raster as the base map so the toggle is obsolete. IDs kept present for map_view.js bindings. -->
-                                            <div class="btn-group btn-group-sm ms-auto" role="group" title="Display source of the occupancy map" style="display:none;">
-                                                <button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button>
-                                                <button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button>
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">New map</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-baseline" id="btn_menu_map_new_indoor" type="button" style="width: 55px;">&nbsp;<i class="material-icons" style="font-size: 18px;">home</i></button><button class="btn btn-primary d-flex justify-content-center align-items-center align-items-center align-middle" id="btn_menu_map_new_outdoor" type="button" style="width: 55px;">&nbsp;<i class="fa fa-tree"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Save map as</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -32 576 576" width="1em" height="1em" fill="currentColor">
+                                                            <!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc. -->
+                                                            <path d="M565.6 36.2C572.1 40.7 576 48.1 576 56V392c0 10-6.2 18.9-15.5 22.4l-168 64c-5.2 2-10.9 2.1-16.1 .3L192.5 417.5l-160 61c-7.4 2.8-15.7 1.8-22.2-2.7S0 463.9 0 456V120c0-10 6.1-18.9 15.5-22.4l168-64c5.2-2 10.9-2.1 16.1-.3L383.5 94.5l160-61c7.4-2.8 15.7-1.8 22.2 2.7zM48 136.5V421.2l120-45.7V90.8L48 136.5zM360 422.7V137.3l-144-48V374.7l144 48zm48-1.5l120-45.7V90.8L408 136.5V421.2z"></path>
+                                                        </svg></span><input class="bg-secondary form-control" type="text" id="input_menu_map_new" style="width: 125px;" placeholder="Map name"><button class="btn btn-primary" id="btn_menu_map_new_save" type="button">Save</button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Map</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button">Localization</button></div>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Active map</span>
+                                                <div class="d-flex align-items-center" style="height: 31px;"><span class="text-info" id="active_map_name" style="font-size: 13px;margin-right: 8px;">Map name</span><button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit map detail (planner data, zones, polygons)"><i class="la la-edit text-info" style="font-size: 16px;"></i><span class="text-info" style="font-size: 12px;margin-left: 6px;">Edit map</span></button></div>
                                             </div>
                                         </div>
-                                        <!-- LAYER QUICK-TOGGLES (always visible) -->
-                                        <div class="map-layers-row">
-                                            <span style="font-size: 11px;opacity: .7;">Layers</span>
-                                            <div class="form-check form-check-inline" title="Saved map obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved <span style="color:#ff4d4d;">&#9632;</span></label></div>
-                                            <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — the band /mapping/obstacle_map "Live" (orange) layer is gone; the Direct (black) layer is the live map now. ID kept present for mapping.js. -->
-                                            <div class="form-check form-check-inline" title="Live mapping obstacles" style="display:none;"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live <span style="color:#ff7800;">&#9632;</span></label></div>
-                                            <div class="form-check form-check-inline" title="Direct 2D raster mapper — live raster built straight from sensor rays (lidar + camera), independent of the octomap/DEM pipeline"><input class="form-check-input" type="checkbox" id="mapv3_chk_direct" checked><label class="form-check-label" for="mapv3_chk_direct" style="font-size: 12px;">Direct <span style="color:#000000;">&#9632;</span></label></div>
-                                            <div class="form-check form-check-inline" title="Raw-raster preview overlay (per-raster management A/B compare; blue)"><input class="form-check-input" type="checkbox" id="mapv3_chk_preview" checked><label class="form-check-label" for="mapv3_chk_preview" style="font-size: 12px;">Preview <span style="color:#2a8cff;">&#9632;</span></label></div>
-                                            <div class="form-check form-check-inline" title="Terrain elevation plane (blue = low, red = high)"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label" for="mapv3_chk_terrain" style="font-size: 12px;">Terrain <span style="background:linear-gradient(90deg,#3060ff,#30ff90,#ff3030);color:transparent;">&#9632;</span></label></div>
-                                            <div class="form-check form-check-inline" title="Aerial / satellite tiles (MapProxy)"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label" for="mapv3_chk_aerial" style="font-size: 12px;">Aerial <span style="color:#8fd14f;">&#9632;</span></label></div>
-                                            <div class="form-check form-check-inline" title="&#268;HM&Uacute; rain radar overlay"><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label" for="mapv3_chk_rain" style="font-size: 12px;">Rain <span style="color:#0000fc;">&#9632;</span></label></div>
-                                        </div>
-
-                                        <!-- SECTION: Mapping session -->
-                                        <details class="map-sec" data-mapsec="session">
-                                            <summary>Mapping session</summary>
-                                            <div class="map-sec-body">
-                                                <div class="input-group input-group-sm" style="max-width: 420px;">
-                                                    <span class="input-group-text"><i class="fa fa-tree"></i></span>
-                                                    <input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="Site (garden) name">
-                                                    <datalist id="mapv3_sites"></datalist>
-                                                    <button class="btn btn-primary" id="mapv3_btn_start" type="button">Start</button>
-                                                    <button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled>Stop</button>
-                                                    <button class="btn btn-primary" id="mapv3_btn_serve" type="button" title="Serve this site's saved map for localization (empty = newest)">Serve</button>
-                                                </div>
+                                        <hr>
+                                        <div class="row g-0" style="align-items: flex-start;">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Mapping v3 &mdash; terrain &amp; obstacles (RTK-gated)</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-tree"></i></span><input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="Site (garden) name" style="width: 140px;"><datalist id="mapv3_sites"></datalist><button class="btn btn-primary" id="mapv3_btn_start" type="button">Start</button><button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled>Stop</button><button class="btn btn-primary" id="mapv3_btn_serve" type="button" title="Serve this site's saved map for localization (empty = newest)">Serve</button></div>
                                                 <span id="mapv3_run_status" style="font-size: 12px;display: block;margin-top: 4px;">waiting for mapping_manager&hellip;</span>
                                                 <span id="mapv3_serving_status" style="font-size: 12px;display: block;margin-top: 2px;">serving: &mdash;</span>
-
-                                                <!-- 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — the RTK/Force/Off mode buttons drove /mapping/gate_mode (octomap insertion gate) and are hidden below. The read-only gate status line is KEPT: while a session runs it still reports live localization quality (pose source / RTK fix / hAcc / heading) which is useful during any mapping; it reads "—" when there is no session. -->
-                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="Live localization / insertion-gate status during a mapping session (pose source, RTK fix, hAcc, heading).">Localization / gate status</div>
-                                                <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — insertion-gate mode buttons (/mapping/gate_mode). IDs kept present for mapping.js. -->
-                                                <div class="btn-group btn-group-sm" role="group" style="display:none;">
-                                                    <button class="btn btn-primary" id="mapv3_btn_mode_rtk" type="button" disabled title="Insert only at RTK FIXED (normal mapping)">RTK</button>
-                                                    <button class="btn btn-primary" id="mapv3_btn_mode_force" type="button" disabled title="Force insertion without RTK (garage clean pass)">Force</button>
-                                                    <button class="btn btn-primary" id="mapv3_btn_mode_off" type="button" disabled title="Pause insertion">Off</button>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">3D view layers</span>
+                                                <div class="form-check form-check-inline" style="margin-right: 8px;"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved map <span style="color:#ff4d4d;">&#9632;</span> obst</label></div>
+                                                <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live mapping <span style="color:#ff7800;">&#9632;</span> obst</label></div>
+                                                <div class="form-check form-check-inline" title="Terrain elevation draped as a coloured plane under the obstacle layers (blue = low, red = high)"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label" for="mapv3_chk_terrain" style="font-size: 12px;">Terrain <span style="background:linear-gradient(90deg,#3060ff,#30ff90,#ff3030);color:transparent;">&#9632;&#9632;&#9632;</span> elev</label></div>
+                                                <div style="margin-top: 4px;font-size: 12px;" title="Overall opacity of ALL occupancy-map layers (base map, local costmap, saved map, live mapping). Does not affect the rain radar or aerial tiles.">Maps opacity <span id="mapv3_maps_opacity_val" style="opacity:.8;">100%</span> <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" style="vertical-align: middle;width: 120px;"></div>
+                                                <div style="margin-top: 4px;font-size: 12px;" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across those same occupancy layers. Fade it to see the aerial/terrain beneath while free/obstacle cells stay crisp.">Unknown opacity <span id="mapv3_unknown_opacity_val" style="opacity:.8;">100%</span> <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" style="vertical-align: middle;width: 120px;"></div>
+                                                <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 2px;opacity:.8;">saved map: &mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Aerial tiles (MapProxy)</span>
+                                                <div class="form-check form-check-inline" style="margin-right: 8px;" title="Drape MapProxy satellite/OSM tiles georeferenced under the map (loads only when ticked)"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label" for="mapv3_chk_aerial" style="font-size: 12px;">Aerial <span style="color:#8fd14f;">&#9632;</span> tiles</label></div>
+                                                <div class="input-group input-group-sm" style="max-width: 340px;margin-top: 2px;">
+                                                    <select class="form-select" id="mapv3_aerial_src" title="Tile source layer" style="font-size: 12px;"><option value="sat" selected>satellite</option><option value="osm">OSM</option></select>
+                                                    <select class="form-select" id="mapv3_aerial_zoom" title="Tile zoom level (MapProxy grids max out at z19)" style="font-size: 12px;"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option></select>
+                                                    <select class="form-select" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Larger areas + high zoom are auto-clamped to keep the tile count sane." style="font-size: 12px;"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
                                                 </div>
-                                                <span id="mapv3_gate_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
-
-                                                <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — octomap Actions (Raster regen from octomap+DEM / full Snapshot / Compare-vs-rtabmap) and the band projector_status line. IDs kept present for mapping.js (btn_raster.parentNode also hosts the dynamically-appended "Clear 3D" octomap-archive button, which inherits this hidden state). -->
-                                                <div style="display:none;">
-                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;">Actions</div>
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button>
-                                                    <button class="btn btn-primary" id="mapv3_btn_save" type="button" disabled title="Save full snapshot: 3D archive (.ot) + DEM + raster">Snapshot</button>
-                                                    <button class="btn btn-primary" id="mapv3_btn_compare" type="button" disabled title="A/B stats vs the current rtabmap grid">Compare</button>
+                                                <div style="margin-top: 4px;font-size: 12px;">opacity <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" style="vertical-align: middle;width: 120px;"></div>
+                                                <span id="mapv3_aerial_status" style="font-size: 12px;display: block;margin-top: 2px;opacity:.8;">aerial: &mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Rain radar (&#268;HM&Uacute;)</span>
+                                                <div class="form-check form-check-inline" style="margin-right: 8px;" title="&#268;HM&Uacute; radar composite (rain echo) draped as the TOP-most layer, floated above the garden. Live-updates every ~5 min. Loads only when ticked."><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label" for="mapv3_chk_rain" style="font-size: 12px;">Rain radar <span style="color:#3000a8;">&#9632;</span><span style="color:#0000fc;">&#9632;</span></label></div>
+                                                <div class="input-group input-group-sm" style="max-width: 240px;margin-top: 2px;">
+                                                    <select class="form-select" id="mapv3_rain_area" title="Radius around the garden to show. The &#268;HM&Uacute; frame covers ~64 km square; only the central disc of this radius is displayed." style="font-size: 12px;"><option value="2000">2 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="30000">full ~32 km</option></select>
+                                                    <select class="form-select" id="mapv3_rain_z" title="Height above the map that the radar plane floats at (so it sits over everything)" style="font-size: 12px;"><option value="5" selected>float 5 m</option><option value="20">float 20 m</option><option value="50">float 50 m</option></select>
                                                 </div>
-                                                <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
-                                                </div>
-
-                                                <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — Obstacle classification (band min/max, evidence, cluster → /mapping/set_band) and Sensor ranges (lidar/depth octomap insertion caps → /mapping/set_ranges) both configured the retired octomap+band pipeline. The DIRECT mapper has its OWN ranges/source block below, which STAYS. IDs kept present for mapping.js. -->
-                                                <div style="display:none;">
-                                                <!-- vitulus_ui R3 (2026-07-18): obstacle classification + sensor ranges
-                                                     configure the mapping pipeline (not display) - moved here from
-                                                     the Map layers section. -->
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Obstacle band = height window above the LOCAL ground (DEM) that counts as an obstacle. Evidence = occupied voxels in that window per cell; cluster = drop obstacle blobs smaller than this (speckles).">Obstacle classification</div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
+                                                <div style="margin-top: 4px;font-size: 12px;">opacity <input type="range" id="mapv3_rain_opacity" min="0" max="1" step="0.05" value="0.5" style="vertical-align: middle;width: 120px;"></div>
+                                                <span id="mapv3_rain_status" style="font-size: 12px;display: block;margin-top: 2px;opacity:.8;">rain: &mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Insertion gate mode</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="mapv3_btn_mode_rtk" type="button" disabled title="Insert only at RTK FIXED (normal mapping)">RTK</button><button class="btn btn-primary" id="mapv3_btn_mode_force" type="button" disabled title="Force insertion without RTK (garage clean pass)">Force</button><button class="btn btn-primary" id="mapv3_btn_mode_off" type="button" disabled title="Pause insertion">Off</button></div>
+                                                <span id="mapv3_gate_status" style="font-size: 12px;display: block;margin-top: 4px;">&mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Actions</span>
+                                                <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button><button class="btn btn-primary" id="mapv3_btn_save" type="button" disabled title="Save full snapshot: 3D archive (.ot) + DEM + raster">Snapshot</button><button class="btn btn-primary" id="mapv3_btn_compare" type="button" disabled title="A/B stats vs the current rtabmap grid">Compare</button></div>
+                                                <span id="mapv3_proj_status" style="font-size: 12px;display: block;margin-top: 4px;">&mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;" title="Obstacle band = height window above the LOCAL ground (DEM) that counts as an obstacle. Evidence = occupied voxels in that window per cell; cluster = drop obstacle blobs smaller than this (speckles).">Obstacle classification</span>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;">
                                                     <span class="input-group-text" title="Band lower edge: height above local ground (m) where obstacles start">band min m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_min" step="0.05" min="0" max="2">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_min" step="0.05" min="0" max="2" style="width: 62px;">
                                                     <span class="input-group-text" title="Band upper edge: height above local ground (m) where obstacles stop">max m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_max" step="0.05" min="0" max="2">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_band_max" step="0.05" min="0" max="2" style="width: 62px;">
                                                 </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;">
                                                     <span class="input-group-text" title="Min occupied voxels inside the band per cell to call it an obstacle (1..20)">min evid</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_evidence" step="1" min="1" max="20">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_evidence" step="1" min="1" max="20" style="width: 56px;">
                                                     <span class="input-group-text" title="Drop obstacle clusters smaller than this many cells — speckle filter (1..20)">min clust</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_cluster" step="1" min="1" max="20">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_min_cluster" step="1" min="1" max="20" style="width: 56px;">
                                                     <button class="btn btn-primary" id="mapv3_btn_apply_band" type="button" disabled title="Requires a running mapping session — press Start first (the obstacle classifier only exists while mapping runs).">Apply</button>
                                                 </div>
-                                                <span id="mapv3_band_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
-
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Per-source sensor range caps. Lidar = filtered rplidar scan (sun-immune hard geometry); Depth = D435 point cloud (noisy in sunlight past a few metres). Points beyond the cap are dropped before insertion. Applied live (0.5..20 m) and persisted per site.">Sensor ranges</div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
+                                                <span id="mapv3_band_status" style="font-size: 12px;display: block;margin-top: 4px;opacity:.8;">&mdash;</span>
+                                            </div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 10px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;" title="Per-source sensor range caps for the map. Lidar = filtered rplidar scan (sun-immune hard geometry at ~0.35 m); Depth = D435 point cloud (noisy in sunlight past a few metres). Points beyond the cap are dropped before insertion. Applied live (0.5..20 m) and persisted per site.">Ranges</span>
+                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;">
                                                     <span class="input-group-text" title="Lidar max range (m): drop rplidar returns beyond this before mapping (0.5..20)">lidar max m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_lidar_max" step="0.5" min="0.5" max="20">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_lidar_max" step="0.5" min="0.5" max="20" style="width: 62px;">
                                                     <span class="input-group-text" title="Depth max range (m): drop D435 depth points beyond this before mapping (0.5..20)">depth max m</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_depth_max" step="0.1" min="0.5" max="20">
+                                                    <input class="bg-secondary form-control" type="number" id="mapv3_depth_max" step="0.1" min="0.5" max="20" style="width: 62px;">
                                                     <button class="btn btn-primary" id="mapv3_btn_apply_ranges" type="button" disabled title="Requires a running mapping session — press Start first (the insertion gate only exists while mapping runs).">Apply</button>
                                                 </div>
-                                                <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
-                                                </div>
-                                                <!-- end hidden octomap classification/ranges block -->
-
-                                                <!-- vitulus_ui 2026-07-19: Direct 2D raster mapper - the new sensor-ray
-                                                     raster (/mapping/direct_map), independent of the octomap+DEM
-                                                     pipeline above. Same Apply-flow style as Obstacle classification /
-                                                     Sensor ranges: prefilled from /mapping/direct_status.settings on
-                                                     first arrival, applied as ONE /mapping/set_direct JSON. -->
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Direct 2D raster mapper (/mapping/direct_map): builds the teal raster straight from sensor rays (lidar hits/no-hit-free + camera obstacle/free), independent of the octomap+DEM pipeline above. Each source can be enabled and range-capped separately.">Direct mapper</div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
-                                                    <span class="input-group-text" title="Use the lidar scan as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_lidar" style="margin:0 4px 0 0;" checked>Lidar</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_lidar_range" step="0.5" min="0.5" max="20" value="8" title="Lidar max range (m) for the direct mapper (0.5..20)">
-                                                </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Use camera-detected obstacles as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_obstacle" style="margin:0 4px 0 0;" checked>Cam obst.</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_obstacle_range" step="0.5" min="0.5" max="20" value="6" title="Camera obstacle max range (m) for the direct mapper (0.5..20)">
-                                                </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Use camera free-space (no obstacle detected) as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_free" style="margin:0 4px 0 0;">Cam free</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_free_range" step="0.5" min="0.5" max="20" value="10" title="Camera free-space max range (m) for the direct mapper (0.5..20)">
-                                                </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Minimum agreeing hits before a cell is marked occupied/free (1..50, higher = more speckle-resistant but slower to converge)">min hits</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_min_hits" step="1" min="1" max="50" value="3">
-                                                </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Treat a lidar ray with no return (max range / no obstacle hit) as evidence of FREE space along its length, not just unknown"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_free_no_hit" style="margin:0 4px 0 0;">No-hit ray free</span>
-                                                    <button class="btn btn-primary" id="mapv3_btn_apply_direct" type="button" title="Apply the direct-mapper settings live (partial updates OK on the backend; this form always sends the full set).">Apply</button>
-                                                </div>
-                                                <span id="mapv3_direct_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
+                                                <span id="mapv3_ranges_status" style="font-size: 12px;display: block;margin-top: 4px;opacity:.8;">&mdash;</span>
                                             </div>
-                                        </details>
-
-                                        <!-- SECTION: Map layers -->
-                                        <details class="map-sec" data-mapsec="layers">
-                                            <summary>Map layers</summary>
-                                            <div class="map-sec-body">
-                                                <div style="font-size: 12px;" title="Overall opacity of ALL occupancy-map layers (base map, local costmap, saved map, live mapping). Does not affect rain radar or aerial tiles.">Maps opacity <span id="mapv3_maps_opacity_val" style="opacity: .8;">100%</span></div>
-                                                <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
-                                                <div style="font-size: 12px;margin-top: 4px;" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across the occupancy layers.">Unknown opacity <span id="mapv3_unknown_opacity_val" style="opacity: .8;">100%</span></div>
-                                                <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
-                                                <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">saved map: &mdash;</span>
-
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Drape MapProxy satellite/OSM tiles georeferenced under the map (loads only when the Aerial layer is ticked)">Aerial tiles (MapProxy)</div>
-                                                <div class="input-group input-group-sm" style="max-width: 340px;">
-                                                    <select class="form-select" id="mapv3_aerial_src" title="Tile source layer" style="font-size: 12px;"><option value="sat" selected>satellite</option><option value="cuzk">ČÚZK orto</option><option value="osm">OSM</option></select>
-                                                    <select class="form-select" id="mapv3_aerial_zoom" title="Tile zoom level (gm_grid max z21; OSM capped at z19)" style="font-size: 12px;"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option><option value="20">z20</option><option value="21">z21</option></select>
-                                                    <select class="form-select" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Large areas + high zoom are auto-clamped." style="font-size: 12px;"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
-                                                </div>
-                                                <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" style="vertical-align: middle;width: 120px;"></div>
-                                                <span id="mapv3_aerial_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">aerial: &mdash;</span>
-
-                                                <!-- vitulus_ui R4 (2026-07-18): Rain radar is a display layer - moved here
-                                                     from its own section (thin rule + small label sub-block). -->
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 3px;" title="&#268;HM&Uacute; rain radar composite draped over the map (loads only when the Rain layer is ticked)">Rain radar (&#268;HM&Uacute;)</div>
-                                                <div class="input-group input-group-sm" style="max-width: 300px;">
-                                                    <select class="form-select" id="mapv3_rain_area" title="Radius around the garden to show. The &#268;HM&Uacute; frame covers ~64 km square; only the central disc of this radius is displayed." style="font-size: 12px;"><option value="2000">2 km</option><option value="5000">5 km</option><option value="10000">10 km</option><option value="30000">30 km disc</option><option value="100000" selected>full frame</option></select>
-                                                    <select class="form-select" id="mapv3_rain_z" title="Height above the map that the radar plane floats at (so it sits over everything)" style="font-size: 12px;"><option value="5" selected>float 5 m</option><option value="20">float 20 m</option><option value="50">float 50 m</option></select>
-                                                    <button class="btn btn-outline-primary" id="mapv3_btn_rain_fit" type="button" title="Zoom out to frame the whole rain map (needs the rain layer on)">Fit</button>
-                                                </div>
-                                                <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_rain_opacity" min="0" max="1" step="0.05" value="0.5" style="vertical-align: middle;width: 120px;"></div>
-                                                <span id="mapv3_rain_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">rain: &mdash;</span>
-
-                                                <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 2px;">Terrain DEM</div>
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Terrain DEM</span>
                                                 <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
-                                        </details>
-
-                                        <!-- vitulus_ui fix3 (2026-07-18): saved-sites / served-map list pulled OUT
-                                             of the "Mapping session" <details> so serving a map (a primary action)
-                                             is ALWAYS visible below the collapsible sections. Single element,
-                                             ID-driven by mapping.js (el_sites = #mapv3_sites_row); the row is
-                                             rebuilt purely via innerHTML on a signature guard, so the move is
-                                             transparent to the JS and it stays live while a mapping session is open. -->
-                                        <div style="margin-top: 6px;">
-                                            <span class="drawer-hint">Maps</span>
-                                            <div class="row g-0" id="mapv3_sites_row" style="margin-top: 4px;"></div>
                                         </div>
-
-                                        <!-- vitulus_ui R4 (2026-07-18): Rain radar section removed - its tuning
-                                             cluster now lives inside the Map layers section as a display sub-block.
-                                             The Rain on/off toggle stays in the top layer strip. -->
-
-                                        <!-- ===== Hidden legacy controls (superseded by mapping v3; kept for JS bindings / runtime files until site_native flip) ===== -->
-                                        <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
-                                        <div style="display:none;"><span>New map</span>
-                                            <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_new_indoor" type="button"><i class="material-icons">home</i></button><button class="btn btn-primary" id="btn_menu_map_new_outdoor" type="button"><i class="fa fa-tree"></i></button></div>
-                                        </div>
-                                        <!-- hidden 2026-07-18: legacy navi-map management, superseded by mapping v3 sites (files still used at runtime until site_native flip) -->
-                                        <div style="display:none;"><span>Save map as</span>
-                                            <div class="input-group input-group-sm"><input class="bg-secondary form-control" type="text" id="input_menu_map_new" placeholder="Map name"><button class="btn btn-primary" id="btn_menu_map_new_save" type="button">Save</button></div>
-                                        </div>
-                                        <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
-                                        <div style="display:none;"><span>RtabMap</span>
-                                            <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button">Localization</button></div>
-                                        </div>
-                                        <!-- hidden 2026-07-18: legacy navi-map management, superseded by mapping v3 sites (files still used at runtime until site_native flip) -->
-                                        <div class="row g-0" id="div_menu_map_items_row" style="display:none;overflow: auto;">
+                                        <div class="row g-0" id="mapv3_sites_row" style="margin-top: 6px;"></div>
+                                        <hr>
+                                        <div class="row g-0" id="div_menu_map_items_row" style="overflow: auto;">
                                             <div class="col-auto" style="margin-bottom: 6px;">
-                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button"><span class="text-info"><i class="fa fa-upload text-info"></i>Garden 2023_09_21 part2</span></button><button class="btn btn-primary" id="btn_tst_modal" type="button"><i class="fa fa-remove text-danger"></i></button></div>
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 14px;display: inline-block;color: var(--bs-light);">
+                                                                <path d="M0 0h24v24H0z" fill="none"></path>
+                                                                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path>
+                                                            </svg>&nbsp;</span></button><button class="btn btn-primary" id="btn_tst_modal" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="1em" viewBox="0 0 24 24" width="1em" fill="currentColor" style="font-size: 14px;display: inline-block;color: var(--bs-light);">
+                                                                <g>
+                                                                    <rect fill="none" height="24" width="24"></rect>
+                                                                </g>
+                                                                <g>
+                                                                    <polygon points="17,12 19,12 12,2 5.05,12 7,12 3.1,18 10.02,18 10.02,22 13.98,22 13.98,18 21,18"></polygon>
+                                                                </g>
+                                                            </svg>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="fa fa-home" style="font-size: 14px;display: inline-block;color: var(--bs-light);"></i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 4px;width: 19.5px;"><i class="fa fa-tree" style="font-size: 14px;display: inline-block;color: var(--bs-light);"></i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-bottom: 6px;">
+                                                <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="padding-right: 4px;padding-left: 4px;text-align: left;"><span class="text-info" style="padding-right: 0px;display: inline-block;overflow: clip;width: 188px;"><i class="fa fa-upload text-info" style="margin-right: 3px;"></i>Garden 2023_09_21 part2&nbsp;</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 12px;color: var(--bs-gray-500);margin-left: 2px;">88.8</span><span style="padding-right: 0px;padding-left: 0px;border-right-style: none;border-left-style: none;font-size: 9px;color: var(--bs-gray-500);">&nbsp;GB</span><span class="text-info d-inline-flex align-items-center align-bottom" style="padding-left: 2px;"><i class="material-icons" style="font-size: 14px;display: inline-block;color: var(--bs-light);">home</i>&nbsp;</span></button><button class="btn btn-primary" type="button" style="width: 46px;"><i class="fa fa-remove text-danger"></i></button></div>
                                             </div>
                                         </div>
 
@@ -954,189 +490,123 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <!-- map editor: polygons -->
 
 <div class="tab-pane" role="tabpanel" id="tab-path" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <!-- PRIMARY: saved paths list + run/cancel -->
-                                        <div class="drawer-primary">
-                                            <span class="drawer-hint">Saved paths</span>
-                                            <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_path_cancel" type="button" title="Cancel current navigation">Cancel navi</button>
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Add path, current position as start</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-road"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_path_new" style="width: 125px;" placeholder="Path name"><button class="btn btn-primary" id="btn_menu_path_new_save" type="button">New</button><button class="btn btn-primary" id="btn_menu_path_new_auto" type="button">&nbsp;New auto</button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Autopath stop</span><button class="btn btn-warning btn-sm" id="btn_menu_path_stop_auto" type="button">Stop auto</button></div>
+                                            <div class="col-auto" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Clear paths in map</span><button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button">Clear</button></div>
+                                            <div class="col" style="margin-top: 8px;padding: 3px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Cancel navi</span><button class="btn btn-warning btn-sm" id="btn_menu_path_cancel" type="button">Cancel</button></div>
                                         </div>
+                                        <hr>
                                         <div class="row g-0" id="div_menu_path_items_row" style="overflow: auto;">
                                             <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
                                                 <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 143.1562px;padding-right: 5px;font-size: 13px;">Path name</span><button class="btn btn-primary" type="button">Add</button><button class="btn btn-primary" type="button">Show</button><button class="btn btn-primary" type="button" style="width: 40px;"><i class="fa fa-remove text-danger"></i></button></div>
                                             </div>
                                         </div>
-                                        <details class="drawer-sec" data-drawersec="path_create">
-                                            <summary>Create &amp; record paths</summary>
-                                            <div class="drawer-sec-body">
-                                                <span class="drawer-hint" style="margin-bottom: 4px;">Add path, current position as start</span>
-                                                <div class="input-group input-group-sm" style="max-width: 340px;"><span class="input-group-text"><i class="fa fa-road"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_path_new" placeholder="Path name"><button class="btn btn-primary" id="btn_menu_path_new_save" type="button">New</button><button class="btn btn-primary" id="btn_menu_path_new_auto" type="button">New auto</button></div>
-                                                <hr>
-                                                <div class="d-flex align-items-center" style="gap: 8px;flex-wrap: wrap;">
-                                                    <button class="btn btn-warning btn-sm" id="btn_menu_path_stop_auto" type="button" title="Stop autopath recording">Stop auto</button>
-                                                    <button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button" title="Clear all paths in the map">Clear paths</button>
-                                                </div>
-                                            </div>
-                                        </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-point" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <!-- PRIMARY: saved points list + cancel -->
-                                        <div class="drawer-primary">
-                                            <span class="drawer-hint">Saved points</span>
-                                            <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_point_cancel" type="button" title="Cancel current navigation">Cancel navi</button>
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="height: auto;margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Add current position as point</span>
+                                                <div class="input-group input-group-sm" style="display: flex;"><span class="input-group-text"><i class="fa fa-map-marker"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_point_new" style="width: 125px;" placeholder="Point name"><button class="btn btn-primary" id="btn_menu_point_new_save" type="button">Add</button></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Clear points in map</span><button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button">Clear</button></div>
+                                            <div class="col" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Cancel navi</span><button class="btn btn-warning btn-sm" id="btn_menu_point_cancel" type="button">Cancel</button></div>
                                         </div>
+                                        <hr>
                                         <div class="row g-0" id="div_menu_point_items_row" style="overflow: auto;">
                                             <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
                                                 <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-map-marker text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 185.9219px;padding-right: 5px;font-size: 13px;">Point name</span><button class="btn btn-primary" type="button">Show</button><button class="btn btn-primary" type="button" style="width: 40px;"><i class="fa fa-remove text-danger"></i></button></div>
                                             </div>
                                         </div>
-                                        <details class="drawer-sec" data-drawersec="point_create">
-                                            <summary>Add &amp; manage points</summary>
-                                            <div class="drawer-sec-body">
-                                                <span class="drawer-hint" style="margin-bottom: 4px;">Add current position as point</span>
-                                                <div class="input-group input-group-sm" style="max-width: 340px;"><span class="input-group-text"><i class="fa fa-map-marker"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_point_new" placeholder="Point name"><button class="btn btn-primary" id="btn_menu_point_new_save" type="button">Add</button></div>
-                                                <hr>
-                                                <button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button" title="Clear all points in the map">Clear points</button>
-                                            </div>
-                                        </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-dock" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <!-- PRIMARY: dock / undock actions + live status -->
-                                        <div style="margin-top: 8px;">
-                                            <div class="d-flex align-items-center" style="gap: 10px;flex-wrap: wrap;margin-bottom: 6px;">
-                                                <span class="drawer-hint" style="display: inline;">Dock by lidar map</span>
-                                                <div class="form-check form-check-inline" style="margin: 0;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="formCheck-1" style="font-size: 13px;">Enable</label></div>
-                                            </div>
-                                            <div class="d-flex align-items-center" style="gap: 4px;flex-wrap: wrap;">
-                                                <button class="btn btn-primary btn-sm" id="predock_btn_by_map" type="button">Predock</button>
-                                                <button class="btn btn-primary btn-sm" id="dock_btn_by_map" type="button">Dock</button>
-                                                <button class="btn btn-primary btn-sm" id="dock_btn_undock_by_map" type="button">Undock</button>
-                                                <button class="btn btn-danger btn-sm" id="dock_btn_by_map-stop" type="button">Stop</button>
-                                            </div>
-                                            <div id="dock_div_map_status" style="margin-top: 4px;"></div>
-                                            <div id="dock_div_map_image"></div>
-                                        </div>
-                                        <hr>
-                                        <div>
-                                            <div class="d-flex align-items-center" style="gap: 10px;flex-wrap: wrap;margin-bottom: 6px;">
-                                                <span class="drawer-hint" style="display: inline;">Dock by intensity</span>
-                                                <div class="form-check form-check-inline" style="margin: 0;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="formCheck-2" style="font-size: 13px;">Enable</label></div>
-                                            </div>
-                                            <div class="d-flex align-items-center" style="gap: 4px;flex-wrap: wrap;">
-                                                <button class="btn btn-primary btn-sm" id="dock_btn_by_intensity" type="button">Dock</button>
-                                                <button class="btn btn-primary btn-sm" id="undock_btn_by_intensity" type="button">Undock</button>
-                                                <button class="btn btn-danger btn-sm" id="dock_btn_by_intensity-stop" type="button">Stop</button>
-                                            </div>
-                                            <div id="dock_div_intensity_status" style="margin-top: 4px;"></div>
-                                            <div id="dock_div_intensity_image"></div>
-                                        </div>
-
-                                        <!-- SECTION: dock / undock points on the current map -->
-                                        <details class="drawer-sec" data-drawersec="dock_points">
-                                            <summary>Dock / undock points (current map)</summary>
-                                            <div class="drawer-sec-body">
-                                                <label class="form-label" style="display: block;font-size: 13px;">Dock point</label>
-                                                <div class="d-flex align-items-center" style="gap: 4px;margin-bottom: 6px;"><button class="btn btn-primary btn-sm" id="map_dock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_dock_btn_update_point" type="button">Update</button></div>
-                                                <label class="form-label" style="display: block;font-size: 13px;">Undock point</label>
-                                                <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="map_undock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_undock_btn_update_point" type="button">Update</button></div>
+                                        <div class="row g-0">
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Current map</span><label class="form-label" style="display: block;font-size: 14px;">Dock point</label>
+                                                <div class="btn-group" role="group" style="display: block;margin-bottom: 4px;"><button class="btn btn-primary btn-sm" id="map_dock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_dock_btn_update_point" type="button">Update</button></div><label class="form-label" style="display: block;font-size: 14px;">Undock point</label>
+                                                <div class="btn-group" role="group" style="display: block;"><button class="btn btn-primary btn-sm" id="map_undock_btn_navi_point" type="button">Navi</button><button class="btn btn-warning btn-sm" id="map_undock_btn_update_point" type="button">Update</button></div>
                                                 <hr>
                                                 <div id="map_dock_point_name"></div>
                                             </div>
-                                        </details>
-
-                                        <!-- SECTION: dock-detector map management -->
-                                        <details class="drawer-sec" data-drawersec="dock_mapping">
-                                            <summary>Dock detector map (new / edit / save)</summary>
-                                            <div class="drawer-sec-body">
-                                                <div class="d-flex align-items-center" style="gap: 4px;flex-wrap: wrap;"><button class="btn btn-primary btn-sm" id="dock_btn_new_map" type="button">New map</button><button class="btn btn-primary btn-sm" id="dock_btn_edit_map" type="button">Edit map</button><button class="btn btn-warning btn-sm" id="dock_btn_stop_mapping" type="button">Save map</button></div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock by lidar map</span>
+                                                <div class="form-check" style="margin-bottom: 7px;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="formCheck-1" style="font-size: 15px;">Enable</label></div><button class="btn btn-primary btn-sm" id="predock_btn_by_map" type="button">Predock</button><button class="btn btn-primary btn-sm" id="dock_btn_by_map" type="button">Dock</button><button class="btn btn-primary btn-sm" id="dock_btn_undock_by_map" type="button">Undock</button><button class="btn btn-danger btn-sm" id="dock_btn_by_map-stop" type="button">Stop</button><span style="display: block;font-size: 12px;margin-bottom: 4px;margin-top: 5px;">Map mangement</span><button class="btn btn-primary btn-sm" id="dock_btn_new_map" type="button">New map</button><button class="btn btn-primary btn-sm" id="dock_btn_edit_map" type="button">Edit map</button><button class="btn btn-warning btn-sm" id="dock_btn_stop_mapping" type="button">Save map</button>
+                                                <hr>
+                                                <div id="dock_div_map_status"></div>
+                                                <div id="dock_div_map_image"></div>
                                             </div>
-                                        </details>
-
-                                        <!-- SECTION: localization seed -->
-                                        <details class="drawer-sec" data-drawersec="dock_seed">
-                                            <summary>Localization seed</summary>
-                                            <div class="drawer-sec-body">
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock by intensity</span>
+                                                <div class="form-check" style="margin-bottom: 5px;"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="formCheck-2" style="font-size: 15px;">Enable</label></div><button class="btn btn-primary btn-sm" id="dock_btn_by_intensity" type="button">Dock</button><button class="btn btn-primary btn-sm" id="undock_btn_by_intensity" type="button">Undock</button><button class="btn btn-danger btn-sm" id="dock_btn_by_intensity-stop" type="button">Stop</button>
+                                                <hr>
+                                                <div id="dock_div_intensity_status"></div>
+                                                <div id="dock_div_intensity_image"></div>
+                                            </div>
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Localization seed</span>
                                                 <div id="dock_div_seed_status"></div>
                                             </div>
-                                        </details>
-
-                                        <!-- SECTION: dock program config -->
-                                        <details class="drawer-sec" data-drawersec="dock_program">
-                                            <summary>Dock program</summary>
-                                            <div class="drawer-sec-body">
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Dock program</span>
                                                 <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_map"><label class="form-check-label" for="formCheck-1" style="font-size: 14px;">Use dock map point</label></div>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_lidar_map"><label class="form-check-label" for="formCheck-3" style="font-size: 14px;">Use lidar map path</label></div><select class="form-select form-select-sm" id="program_dock_select_lidar_path" style="max-width: 200px;">
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_lidar_map"><label class="form-check-label" for="formCheck-3" style="font-size: 14px;">Use lidar map path</label></div><select id="program_dock_select_lidar_path">
                                                     <option value="PREDOCK" selected="">PREDOCK</option>
                                                     <option value="DOCK">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="form-check" style="margin-top: 5px;"><input class="form-check-input" type="checkbox" id="program_dock_check_intensity"><label class="form-check-label" for="formCheck-2" style="font-size: 14px;">Use intensity action</label></div><select class="form-select form-select-sm" id="program_dock_select_intesity_action" style="margin-bottom: 7px;max-width: 200px;">
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_intensity"><label class="form-check-label" for="formCheck-2" style="font-size: 14px;">Use intensity action</label></div><select id="program_dock_select_intesity_action" style="margin-bottom: 7px;display: block;">
                                                     <option value="DOCK" selected="">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="program_dock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_dock_btn_save" type="button">Save</button></div>
+                                                <div class="btn-group" role="group"><button class="btn btn-primary btn-sm" id="program_dock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_dock_btn_save" type="button">Save</button></div>
                                                 <hr>
                                                 <div id="program_dock_div_status"></div>
                                             </div>
-                                        </details>
-
-                                        <!-- SECTION: undock program config -->
-                                        <details class="drawer-sec" data-drawersec="undock_program">
-                                            <summary>Undock program</summary>
-                                            <div class="drawer-sec-body">
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_intensity"><label class="form-check-label" for="program_dock_check_intensity-1" style="font-size: 14px;">Use intensity action</label></div><select class="form-select form-select-sm" id="program_predock_select_intesity_action" style="margin-bottom: 7px;max-width: 200px;">
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 5px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Undock program</span>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_intensity"><label class="form-check-label" for="program_dock_check_intensity-1" style="font-size: 14px;">Use intensity action</label></div><select id="program_predock_select_intesity_action" style="margin-bottom: 7px;">
                                                     <option value="DOCK" selected="">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_lidar_map"><label class="form-check-label" for="program_dock_check_lidar_map-1" style="font-size: 14px;">Use lidar map path</label></div><select class="form-select form-select-sm" id="program_predock_select_lidar_path" style="max-width: 200px;">
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_lidar_map"><label class="form-check-label" for="program_dock_check_lidar_map-1" style="font-size: 14px;">Use lidar map path</label></div><select id="program_predock_select_lidar_path">
                                                     <option value="PREDOCK" selected="">PREDOCK</option>
                                                     <option value="DOCK">DOCK</option>
                                                     <option value="UNDOCK">UNDOCK</option>
                                                 </select>
-                                                <div class="form-check" style="margin-top: 5px;"><input class="form-check-input" type="checkbox" id="program_predock_check_map"><label class="form-check-label" for="program_dock_check_map-1" style="font-size: 14px;">Use undock map point</label></div>
-                                                <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="program_undock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_undock_btn_save" type="button">Save</button></div>
+                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_map"><label class="form-check-label" for="program_dock_check_map-1" style="font-size: 14px;">Use undock map point</label></div>
+                                                <div class="btn-group" role="group"><button class="btn btn-primary btn-sm" id="program_undock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_undock_btn_save" type="button">Save</button></div>
                                                 <hr>
                                                 <div id="program_predock_div_status"></div>
                                             </div>
-                                        </details>
+                                        </div>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-rain" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <!-- vitulus_ui R1 (2026-07-18): (1) Weather report collapsed first, with its
-                                             live status right-aligned in the summary; (2) Rain now imagery expanded;
-                                             (3) Forecast collapsed last. -->
-                                        <details class="drawer-sec" data-drawersec="rain_report">
-                                            <summary><span>Weather report</span><span id="rain_report_status" style="margin-left: auto;min-width: 0;overflow: hidden;text-overflow: ellipsis;white-space: nowrap;text-align: right;font-size: 12px;font-weight: 400;">&mdash;</span></summary>
-                                            <div class="drawer-sec-body">
+                                        <div class="row g-0">
+                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Report</label>
                                                 <div id="rain_div_report"></div>
                                             </div>
-                                        </details>
-                                        <!-- PRIMARY: current rain snapshot -->
-                                        <div style="margin-top: 8px;">
-                                            <span class="drawer-hint" style="margin-bottom: 4px;">Rain now</span>
-                                            <div id="rain_div_map"></div>
-                                        </div>
-                                        <details class="drawer-sec" data-drawersec="rain_forecast">
-                                            <summary>Forecast (now, +10 / 20 / 30 min)</summary>
-                                            <div class="drawer-sec-body">
+                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Rain now</label>
+                                                <div id="rain_div_map"></div>
+                                            </div>
+                                            <div class="col-auto"><label class="form-label" style="font-size: 14px;">Forecast: Now, Now + 10, 20, 30 min.&nbsp;</label>
                                                 <div id="rain_div_forecast"></div>
                                             </div>
-                                        </details>
+                                        </div>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-gloc" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <!-- PRIMARY: status + main localize action -->
-                                        <span class="drawer-hint" style="margin-top: 8px;">Lidar global localization (scan vs. map)</span>
-                                        <div class="drawer-primary" style="margin-top: 4px;">
-                                            <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button">Localize</button>
-                                            <div class="form-check form-check-inline" style="margin: 0;">
-                                                <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
-                                                <label class="form-check-label" for="gloc_chk_auto" style="font-size: 13px;">auto 5s</label>
+                                        <div class="row g-0" style="align-items: center;">
+                                            <div class="col-auto" style="margin-top: 8px;margin-right: 10px;">
+                                                <span style="display: block;font-size: 12px;margin-bottom: 4px;">Lidar global localization (scan vs. map)</span>
+                                                <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button" style="margin-right: 6px;">Localize</button>
+                                                <div class="form-check form-check-inline" style="margin-left: 4px;">
+                                                    <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
+                                                    <label class="form-check-label" for="gloc_chk_auto" style="font-size: 13px;">auto 5s</label>
+                                                </div>
+                                                <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled style="margin-right: 6px;">Apply&nbsp;&rarr;&nbsp;robot</button>
+                                                <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled>Force</button>
                                             </div>
-                                            <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled>Apply&nbsp;&rarr;&nbsp;robot</button>
-                                            <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled>Force</button>
+                                            <div class="col-auto" style="margin-top: 8px;">
+                                                <span style="display: block;font-size: 12px;margin-bottom: 4px;">Status</span>
+                                                <span id="gloc_status" style="font-size: 13px;">waiting for gloc_server...</span>
+                                            </div>
                                         </div>
-                                        <div style="margin-bottom: 4px;"><span class="drawer-hint" style="display: inline;">Status:&nbsp;</span><span id="gloc_status" style="font-size: 13px;">waiting for gloc_server...</span></div>
-
-                                        <details class="drawer-sec" data-drawersec="gloc_detail">
-                                            <summary>Hypothesis detail &amp; candidates</summary>
-                                            <div class="drawer-sec-body">
+                                        <div class="row g-0" style="margin-top: 6px;">
+                                            <div class="col-auto" style="margin-right: 14px;">
                                                 <table style="font-size: 13px;border-spacing: 6px 2px;border-collapse: separate;">
                                                     <tbody>
                                                     <tr><td style="opacity:.7;">Best hypothesis</td><td id="gloc_best">&mdash;</td></tr>
@@ -1151,14 +621,11 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <tbody id="gloc_top_tbody"></tbody>
                                                 </table>
                                             </div>
-                                        </details>
-                                        <details class="drawer-sec" data-drawersec="gloc_heatmap">
-                                            <summary>Score heatmap</summary>
-                                            <div class="drawer-sec-body">
-                                                <label class="form-label" style="font-size: 12px;margin-bottom: 2px;opacity: .8;">yellow = better match; blue cross = best, red cross = robot</label>
-                                                <div><img id="gloc_heatmap_img" style="max-width: 100%;max-height: calc(100vh - 260px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
+                                            <div class="col-auto">
+                                                <label class="form-label" style="font-size: 13px;margin-bottom: 2px;">Score heatmap (yellow = better match; blue cross = best, red cross = robot)</label>
+                                                <div><img id="gloc_heatmap_img" style="max-width: 420px;max-height: calc(100vh - 260px);border: 1px solid var(--bs-secondary);border-radius: 4px;display: none;"></div>
                                             </div>
-                                        </details>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1166,7 +633,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                         <div class="border-primary" id="div_menu_map_point" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;"></div>
                         <div class="border-primary" id="div_menu_map_path" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;"></div>
                         <div class="border-primary" id="div_menu_map_program" style="width: 100%;padding: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border-bottom-right-radius: 5px;border-bottom-left-radius: 5px;padding-right: 12px;padding-left: 12px;display: none;padding-bottom: 15px;border: 1px solid var(--bs-secondary);border-top-style: none;overflow: auto;max-height: calc(100vh - 105px);">
-<ul class="nav nav-tabs drawer-pills" role="tablist" style="margin-bottom: 6px;"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_calendar">Calendar</a></li></ul>
+<ul class="nav nav-tabs justify-content-center" role="tablist" style="font-size: 13px;background: var(--bs-secondary-text-emphasis);margin-bottom: 6px;"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs" style="padding: 5px 14px;">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_calendar" style="padding: 5px 14px;">Calendar</a></li></ul>
 <div class="tab-content">
 <div class="tab-pane active" role="tabpanel" id="tab_programs">
                             <div class="row align-items-end" style="margin-bottom: 3px;">
@@ -1174,8 +641,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                 <div class="col-auto ms-auto" style="margin-top: 8px;"><button class="btn btn-primary btn-sm text-info" id="btn_program_new_prog" type="button" onclick="programs.newProgram()" style="font-size: 11px;">New program</button></div>
                             </div>
                             <div class="row" id="div_menu_program_items_row" style="overflow: auto;">
-                                <div class="col-auto prog-row-fluid" style="overflow: hidden;margin-bottom: 3px;">
-                                    <div class="input-group input-group-sm"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text prog-name" style="padding-left: 5px;padding-right: 5px;font-size: 13px;"><span class="text-info" style="font-size: 13px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</span><span class="text-info" style="font-size: 13px;padding-left: 3px;">m</span><span class="text-info" style="font-size: 9px;">2</span></span></div>
+                                <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;width: 343px;">
+                                    <div class="input-group input-group-sm" style="width: 319px;"><button class="btn btn-primary" type="button" style="width: 42px;"><i class="fa fa-arrow-circle-right text-info"></i></button><span class="text-info input-group-text" style="padding-left: 5px;width: 277.1562px;padding-right: 5px;font-size: 13px;"><span class="text-info" style="font-size: 13px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</span><span class="text-info" style="font-size: 13px;padding-left: 3px;">m</span><span class="text-info" style="font-size: 9px;">2</span></span></div>
                                 </div>
                             </div>
                             <div class="row" id="div_menu_program_detail_row" style="display: block;">
@@ -1424,14 +891,14 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                             <div class="row">
                                 <div class="col" style="margin-top: 8px;padding-right: 2px;padding-left: 2px;">
                                     <div>
-                                        <ul class="nav nav-tabs drawer-pills" role="tablist">
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_motors">Motors</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_lidar">Navi</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_power">Power</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_mower">Mower</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag">Diag</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag">Rosbag</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu">IMU</a></li>
+                                        <ul class="nav nav-tabs d-flex d-xl-flex justify-content-start justify-content-xl-center" role="tablist" style="font-size: 13px;display: inline-flex;background: var(--bs-secondary-text-emphasis);">
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_motors" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Motors</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_lidar" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Navi</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_power" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Power</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_mower" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Mower</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Diag</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">Rosbag</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu" style="padding-top: 5px;padding-bottom: 5px;padding-right: 14px;padding-left: 14px;">IMU</a></li>
                                         </ul>
                                         <div class="tab-content" style="display: block;position: relative;">
                                             <div class="tab-pane fade" role="tabpanel" id="tab_motors" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
@@ -1514,36 +981,36 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <div class="justify-content-xl-center">
                                                     <div class="row d-xl-flex justify-content-xl-center" style="margin-left: 0px;margin-right: 0px;">
                                                         <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: hidden;padding-top: 5px;width: 336px;">
-                                                            <div class="d-flex align-items-center"><img id="ico_supply_conf" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 5px;margin-right: 13px;">Input</span><span class="text-info" id="span_supply_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_supply_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_supply_status" style="margin-left: auto;padding-left: 10px;text-align: right;">&nbsp;</span></div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 4px;"><span style="text-align: center;width: 36px;padding-right: 5px;"><img id="ico_batt_conf" src="assets/img/robot_icons/Nextion_ico_battCHARGE_disabled.png" style="transform: scale(0.75);height: 26px;"></span><span style="margin-left: -8px;">Battery</span><span class="text-info" id="span_batt_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_batt_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_batt_status" style="margin-left: auto;padding-left: 10px;text-align: right;">DISCHARGING&nbsp;</span></div>
+                                                            <div class="d-flex align-items-center"><img id="ico_supply_conf" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 5px;margin-right: 13px;">Input</span><span class="text-info" id="span_supply_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_supply_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_supply_status" style="margin-left: 4px;width: 109px;text-align: right;">&nbsp;</span></div>
+                                                            <div class="d-inline-flex align-items-center" style="margin-top: 4px;"><span style="text-align: center;width: 36px;padding-right: 5px;"><img id="ico_batt_conf" src="assets/img/robot_icons/Nextion_ico_battCHARGE_disabled.png" style="transform: scale(0.75);height: 26px;"></span><span style="margin-left: -8px;">Battery</span><span class="text-info" id="span_batt_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_batt_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_batt_status" style="margin-left: 4px;width: 109px;text-align: right;">DISCHARGING&nbsp;</span></div>
                                                             <div style="margin-top: -1px;margin-bottom: 4px;display: block;">
                                                                 <div style="display: block;">
-                                                                    <div style="padding-left: 4px;padding-right: 4px;">
+                                                                    <div style="padding-left: 25px;padding-right: 21px;">
                                                                         <div class="progress" style="height: 7px;padding: 3px;border-style: none;">
                                                                             <div class="progress-bar progress-bar-animated" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress_batt_capacity" style="width: 0%;"><span class="visually-hidden">0%</span></div>
                                                                         </div>
                                                                     </div>
-                                                                    <div style="text-align: center;padding-left: 4px;padding-right: 4px;"><span style="margin-right: 5px;">Capacity</span><span id="span_batt_capacity" style="margin-left: 2px;margin-right: 1px;width: 28px;text-align: right;">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span><span>%</span></div>
+                                                                    <div style="text-align: center;padding-left: 25px;padding-right: 21px;"><span style="margin-right: 5px;">Capacity</span><span id="span_batt_capacity" style="margin-left: 2px;margin-right: 1px;width: 28px;text-align: right;">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span><span>%</span></div>
                                                                 </div>
                                                             </div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 3px;"><img id="ico_nuc_conf" src="assets/img/robot_icons/ico_nuc_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 0px;">NUC output</span><span class="text-info" id="span_nuc_volts" style="margin-left: 7px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_nuc_amps" style="margin-left: 8px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span></div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 3px;"><img id="ico_motor_conf" src="assets/img/robot_icons/ico_motor_grey.png" style="margin-left: 8px;transform: scale(0.75);height: 26px;"><span style="margin-left: 4px;">Motors output</span>
-                                                                <div class="d-flex justify-content-end align-items-center" style="margin-left: auto;text-align: right;"><img id="ico_mower_conf" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" style="margin-left: 13px;transform: scale(0.75);height: 26px;"><span style="margin-left: 2px;">Mower output</span></div>
+                                                            <div class="d-flex align-items-center" style="margin-top: 3px;display: inline-block;"><img id="ico_nuc_conf" src="assets/img/robot_icons/ico_nuc_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 0px;">NUC output</span><span class="text-info" id="span_nuc_volts" style="margin-left: 7px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_nuc_amps" style="margin-left: 8px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span></div>
+                                                            <div class="d-flex align-items-center" style="margin-top: 3px;display: inline-block;"><img id="ico_motor_conf" src="assets/img/robot_icons/ico_motor_grey.png" style="margin-left: 8px;transform: scale(0.75);height: 26px;"><span style="margin-left: 4px;">Motors output</span>
+                                                                <div class="d-flex justify-content-end align-items-center" style="width: 182.172px;text-align: right;"><img id="ico_mower_conf" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" style="margin-left: 13px;transform: scale(0.75);height: 26px;"><span style="margin-left: 2px;">Mower output</span></div>
                                                             </div>
                                                             <hr style="width: 318px;">
-                                                            <div class="d-flex align-items-center" style="margin-top: 0px;"><img id="ico_temp_pcb_conf" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_pcb_temp" style="margin-left: 2px;text-align: right;width: 45px;">&nbsp;&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_pcb_conf" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_pcb_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 0px;"><img id="ico_temp_conf" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_ext_temp" style="margin-left: 2px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_conf" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_ext_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
+                                                            <div class="d-flex justify-content-center align-items-center" style="margin-top: 0px;padding-right: 19px;"><img id="ico_temp_pcb_conf" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_pcb_temp" style="margin-left: 2px;text-align: right;width: 45px;">&nbsp;&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_pcb_conf" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_pcb_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
+                                                            <div class="d-flex justify-content-center align-items-center" style="margin-top: 0px;padding-right: 19px;"><img id="ico_temp_conf" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_ext_temp" style="margin-left: 2px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_conf" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_ext_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
                                                             <div class="d-flex align-items-center" style="display: inline-block;"></div>
                                                         </div>
                                                         <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: auto;padding-top: 5px;width: 336px;">
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button" style="flex: 1;">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button" style="flex: 1;">OFF</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button" style="flex: 1;">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button" style="flex: 1;">OFF</button></div>
-                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 109px;">Run charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_run_charge" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Run cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_run_cutoff" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Stanby charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_standby_charge" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Standby cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_standby_cutoff" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">PCB temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_pcb_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_pcb_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_pcb_temp" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">External temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_ext_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_ext_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_ext_temp" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button" style="width: 73px;">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button" style="width: 73px;">OFF</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button" style="width: 73px;">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button" style="width: 73px;">OFF</button></div>
+                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 109px;">Run charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_run_charge" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Run cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_run_cutoff" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Stanby charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_standby_charge" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Standby cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_standby_cutoff" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">PCB temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_pcb_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_pcb_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_pcb_temp" type="button">Save</button></div>
+                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">External temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_ext_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_ext_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);max-width: 75px;"><button class="btn btn-primary" id="btn_ext_temp" type="button">Save</button></div>
                                                         </div>
                                                         <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: auto;padding-top: 5px;width: 336px;">
                                                             <div style="font-size: 12px;color: var(--bs-secondary-color);margin-bottom: 3px;">Sleep control</div>
@@ -1643,27 +1110,13 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                             <span id="span_bag_total" style="font-size:11px;color:#9aa0a6;"></span>
                                                             <button id="btn_bag_refresh" type="button" class="btn btn-sm btn-outline-secondary" style="margin-left:auto;padding:2px 8px;font-size:11px;" title="Refresh list">↻</button>
                                                         </div>
-                                                        <div id="div_bag_list" class="bag-list" style="min-height: 120px;overflow: visible;border:1px solid rgba(255,255,255,0.08);border-radius:5px;background:rgba(0,0,0,0.2);padding:2px;">
+                                                        <div id="div_bag_list" class="bag-list" style="max-height: calc(100vh - 380px);min-height: 120px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:5px;background:rgba(0,0,0,0.2);padding:2px;">
                                                             <div class="bag-empty" style="padding:12px;font-size:12px;color:#9aa0a6;text-align:center;">Loading…</div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="tab-pane" role="tabpanel" id="tab_imu" style="max-height: calc(100vh - 150px);overflow: auto;"><div id="div_content_imu" style="height: calc(100vh - 165px);">
-            <div class="row" style="margin-left: 0px;margin-right: 0px;">
-                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="padding-right: 0px;padding-left: 0px;overflow: hidden;padding-top: 3px;padding-bottom: 8px;">
-                    <div id="div_btns" style="font-size: 13px;padding: 5px;background: rgba(58,63,68,0);border-radius: 8px;border: 1px none var(--bs-gray-800) ;">
-                        <div class="btn-group btn-group-sm d-flex ms-auto flo" role="group" id="btngroup_imu_tools-1"><button class="btn btn-outline-danger" id="btn_remove_dcd" type="button">Remove DCD</button><button class="btn btn-outline-info" id="btn_reset_imu" type="button">Reset IMU</button><button class="btn btn-outline-info" id="btn_run_calibration" type="button">Run</button><button class="btn btn-outline-info" id="btn_save_dcd" type="button">Save</button></div>
-                    </div>
-                    <div id="div_diag" style="font-size: 13px;padding: 6px;height: 200px;"></div>
-                    <div class="text-start text-center d-flex img float-end" id="joy_view_imu" style="width: 100%;background: url(&quot;assets/img/joystick_icon_45px.svg&quot;) center / auto no-repeat, rgba(2,60,85,0.22);/*resize: vertical;*/overflow: hidden;position: relative;height: 50px;"></div>
-                </div>
-                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="padding-right: 0px;padding-left: 0px;overflow: hidden;">
-                    <div style="position: absolute;display: grid;"><span id="span_imu_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #1eb53a;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Imu:&nbsp;</span><span id="span_nav_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #017bd5;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Nav:&nbsp;</span><span id="span_mag_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #b70002;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Mag:&nbsp;</span><span id="span_rtk_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #9200b7;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">RTK:&nbsp;</span><span id="span_fuse_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #ffffff;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Fuse:&nbsp;</span></div>
-                    <div class="text-start" id="3d_view" style="width: 100%;background: rgba(2,60,85,0.22);/*resize: vertical;*/overflow: hidden;height: calc(100vh - 175px);min-height: 0;max-height: none;padding: 2px;"></div>
-                </div>
-            </div>
-        </div></div>
+                                            <div class="tab-pane" role="tabpanel" id="tab_imu" style="max-height: calc(100vh - 150px);overflow: auto;"><!-- vitulus_ui: IMU calibration content injected here by build_index.py --></div>
                                         </div>
                                     </div>
                                 </div>
@@ -1671,163 +1124,110 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                         </div>
                     </div>
                 </div>
-<div id="div_map_detail" class="all-events border-primary" style="display: none;width: 452px;margin-top: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border: 1px solid var(--bs-secondary);border-radius: 6px;pointer-events: auto;max-height: calc(100vh - 110px);overflow-y: auto;overflow-x: hidden;">
+<div id="div_map_detail" class="all-events border-primary" style="display: none;width: 452px;margin-top: 4px;padding: 8px 10px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border: 1px solid var(--bs-secondary);border-radius: 5px;pointer-events: auto;max-height: calc(100vh - 110px);overflow: auto;">
+<div class="d-flex align-items-center" style="margin-bottom: 6px;"><span class="text-uppercase fw-bold" style="font-size: 12px;letter-spacing: .5px;">Map detail</span><button class="btn btn-sm btn-outline-warning ms-auto" id="btn_map_detail_close" type="button" style="padding: 0 8px;font-size: 14px;line-height: 1.3;">&times;</button></div>
 
-<!-- A. Sticky header -->
-<div class="d-flex align-items-center" style="position: sticky;top: 0;z-index: 20;gap: 8px;padding: 8px 10px;background: var(--bs-gray-900);border-bottom: 1px solid var(--bs-secondary);">
-  <span class="text-uppercase fw-bold text-info" style="font-size: 14px;letter-spacing: .5px;white-space: nowrap;">Map editor</span>
-  <span id="map_detail_site" class="text-truncate" style="font-size: 12px;color: var(--bs-gray-400);flex: 1 1 auto;min-width: 0;" title="Currently served map">—</span>
-  <button class="btn btn-outline-info" id="btn_map_detail_full" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 16px;line-height: 1;" title="Expand"><i class="la la-expand"></i></button>
-  <button class="btn btn-outline-warning" id="btn_map_detail_close" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 20px;line-height: 1;" title="Close editor">&times;</button>
+<div style="margin-bottom: 8px;">
+<div class="d-flex align-items-center" style="margin-bottom: 6px;">
+                                <span class="text-uppercase fw-bold" style="font-size: 12px;letter-spacing: .5px;">Active map</span>
+                                
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group" style="margin-bottom: 6px;">
+                                <button class="btn btn-primary" id="btn_save_planner_data" type="button" style="font-size: 11px;">Save data</button>
+                                <button class="btn btn-primary" id="btn_load_planner_data" type="button" style="font-size: 11px;">Load data</button>
+                                <button class="btn btn-primary" id="btn_reload_map" type="button" style="font-size: 11px;">Reload</button>
+                            </div>
+                            <div id="div_log" style="font-size: 11px;color: var(--bs-info);min-height: 16px;margin-bottom: 6px;padding-left: 2px;"><span id="log-2">Initialized</span></div>
 </div>
 
-<div style="padding: 8px 10px;">
+                                    
+<hr style="margin:6px 0;border-color:var(--bs-secondary);">
+<div style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
+                                        <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
+                                            <div><span style="font-size: 12px;display: block;">Filter noise in free</span>
+                                                <div class="input-group input-group-sm" style="width: 86px;"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
+                                            </div>
+                                            <div><span style="font-size: 12px;display: block;">Obstacle margin</span>
+                                                <div class="input-group input-group-sm" style="width: 86px;"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
+                                            </div>
+                                            <div><span style="font-size: 12px;display: block;">Fill shape</span><select class="form-select form-select-sm" id="input_fill_shape" style="width: 100px;">
+                                                <option value="square">square</option>
+                                                <option value="ellipse" selected="">ellipse</option>
+                                            </select></div>
+                                        </div>
+                                        <div class="d-flex flex-wrap" style="gap: 4px;margin-top: 8px;">
+                                            <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button" style="font-size: 11px;">Assemble map</button>
+                                            <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button" style="font-size: 11px;">Path thin</button>
+                                            <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button" style="font-size: 11px;">Path footprint</button>
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show map layer</span></div>
+                                    <div class="btn-group btn-group-sm flex-wrap" role="group" style="margin-bottom: 8px;">
+                                        <button class="btn btn-outline-primary" id="btn_show_original" type="button" style="font-size: 11px;">Original</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_fill" type="button" style="font-size: 11px;">Free</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_free_poly" type="button" style="font-size: 11px;">Free poly</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_obstacles_poly" type="button" style="font-size: 11px;">Obstacle poly</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button" style="font-size: 11px;">Semi assembled</button>
+                                        <button class="btn btn-outline-primary" id="btn_show_assembled" type="button" style="font-size: 11px;">Assembled</button>
+                                    </div>
+                                    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show zone layer</span></div>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-outline-info" id="btn_show_zone_map" type="button" style="font-size: 11px;">Zone</button>
+                                        <button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button" style="font-size: 11px;">Path</button>
+                                        <button class="btn btn-outline-info" id="btn_show_zone_navi" type="button" style="font-size: 11px;">Navi</button>
+                                    </div>
 
-<!-- B. TOOLS (tool grid) + C. ACTIVE TOOL CONTEXT — both built by mapedits.js -->
-<div id="mapedit_tools" style="margin-bottom: 8px;"></div>
-<div id="mapedit_context" style="margin-bottom: 10px;"></div>
-
-<!-- D. Collapsible sections (all collapsed by default) -->
-
-<!-- Map edits -->
-<details class="mapedit-sec">
-  <summary>Map edits</summary>
-  <div class="mapedit-sec-body">
-    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Manual map edits: Obstacle (area) / Free (clear area) / Barrier (line). Click an item to delete it.</div>
-    <div id="mapedit_edit_list"></div>
-    <div id="mapedit_editctl" style="margin-top: 6px;"></div>
-  </div>
-</details>
-
-<!-- Waypoints -->
-<details class="mapedit-sec">
-  <summary>Waypoints</summary>
-  <div class="mapedit-sec-body">
-    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Activate the <b>Waypoint</b> tool and click the map to add one. Move / delete existing ones here.</div>
-    <div id="mapedit_wp_list"></div>
-  </div>
-</details>
-
-<!-- Paths -->
-<details class="mapedit-sec">
-  <summary>Paths</summary>
-  <div class="mapedit-sec-body">
-    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Activate the <b>Path</b> tool and click the map to draw one, or click an existing path to edit / delete it. Toggle per-path visibility with 👁.</div>
-    <div id="mapedit_path_list"></div>
-  </div>
-</details>
-
-<!-- Zones -->
-<details class="mapedit-sec">
-  <summary>Zones</summary>
-  <div class="mapedit-sec-body" id="tab-edit-zone">
-    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
-      <span style="font-size: 13px;">Mowing zones of the active map</span>
-      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button">New zone</button>
-    </div>
-    <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Zones regenerate automatically after map edits.</div>
-    <div id="div_zone_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
-      <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
-        <div style="width: 100%;"><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
-        <div><span style="font-size: 12px;display: block;">Cut height</span>
-          <div class="input-group input-group-sm" style="width: 100px;"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
-        </div>
-        <div><span style="font-size: 12px;display: block;">RPM</span><input class="form-control form-control-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300" style="width: 90px;"></div>
-        <div id="header_zone_template_border_path"><span style="font-size: 12px;display: block;">Paths around obstacles</span><input class="form-control form-control-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2" style="width: 80px;"></div>
-        <div id="header_zone_template_coverage_path"><span style="font-size: 12px;display: block;">Coverage angle (°)</span><input class="form-control form-control-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160" style="width: 80px;"></div>
-        <div><span style="font-size: 12px;display: block;">Path spacing (m)</span><input class="form-control form-control-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2" style="width: 80px;"></div>
-        <div><span style="font-size: 12px;display: block;">Simplify (m)</span><input class="form-control form-control-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1" style="width: 80px;"></div>
-        <div id="header_zone_template_path_list" style="display: none;"></div>
-      </div>
-      <div class="d-flex" style="gap: 6px;margin-top: 8px;">
-        <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button">Save</button>
-        <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button">Cancel</button>
-      </div>
-    </div>
-    <div id="div_zone_list"></div>
-  </div>
-</details>
-
-<!-- Polygons -->
-<!-- hidden 2026-07-18: superseded by map edits (free/obstacle) -->
-<details class="mapedit-sec" style="display:none;">
-  <summary>Polygons</summary>
-  <div class="mapedit-sec-body" id="tab-edit-poly">
-    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
-      <span style="font-size: 13px;">Free / obstacle polygons (planner)</span>
-      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button">New polygon</button>
-    </div>
-    <div id="div_poly_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;align-items: end;gap: 8px;flex-wrap: wrap;">
-      <div><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_poly_template_name" type="text" placeholder="Polygon name" style="width: 160px;"></div>
-      <div><span style="font-size: 12px;">Type</span><select class="form-select form-select-sm" id="input_poly_template_type" style="width: 120px;">
-        <option value="obstacle">obstacle</option>
-        <option value="free">free</option>
-      </select></div>
-      <div class="d-flex" style="gap: 6px;">
-        <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button">Save</button>
-        <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button">Cancel</button>
-      </div>
-    </div>
-    <div id="div_poly_list"></div>
-  </div>
-</details>
-
-<!-- Advanced (planner) -->
-<details class="mapedit-sec">
-  <summary>Advanced (planner)</summary>
-  <div class="mapedit-sec-body">
-    <div class="text-uppercase fw-bold" style="font-size: 11px;letter-spacing: .5px;color: var(--bs-gray-400);margin-bottom: 6px;">Active map</div>
-    <div class="d-flex flex-wrap" style="gap: 6px;margin-bottom: 6px;">
-      <button class="btn btn-primary btn-sm" id="btn_save_planner_data" type="button">Save data</button>
-      <button class="btn btn-primary btn-sm" id="btn_load_planner_data" type="button">Load data</button>
-      <button class="btn btn-primary btn-sm" id="btn_reload_map" type="button">Reload</button>
-    </div>
-    <div id="div_log" style="font-size: 12px;color: var(--bs-info);min-height: 16px;margin-bottom: 8px;padding-left: 2px;"><span id="log-2">Initialized</span></div>
-
-    <hr style="margin: 6px 0;border-color: var(--bs-secondary);">
-    <div style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 8px;">
-      <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
-        <div><span style="font-size: 12px;display: block;">Free-space noise filter</span>
-          <div class="input-group input-group-sm" style="width: 96px;"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
-        </div>
-        <div><span style="font-size: 12px;display: block;">Obstacle margin</span>
-          <div class="input-group input-group-sm" style="width: 96px;"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
-        </div>
-        <div><span style="font-size: 12px;display: block;">Fill shape</span><select class="form-select form-select-sm" id="input_fill_shape" style="width: 110px;">
-          <option value="square">square</option>
-          <option value="ellipse" selected="">ellipse</option>
-        </select></div>
-      </div>
-      <div class="d-flex flex-wrap" style="gap: 6px;margin-top: 8px;">
-        <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button">Assemble map</button>
-        <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button">Path thin</button>
-        <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button">Path footprint</button>
-      </div>
-    </div>
-
-    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show map layer</span></div>
-    <div class="btn-group btn-group-sm flex-wrap" role="group" style="margin-bottom: 8px;">
-      <button class="btn btn-outline-primary" id="btn_show_original" type="button">Original</button>
-      <button class="btn btn-outline-primary" id="btn_show_fill" type="button">Free</button>
-      <button class="btn btn-outline-primary" id="btn_show_free_poly" type="button">Free poly</button>
-      <button class="btn btn-outline-primary" id="btn_show_obstacles_poly" type="button">Obstacle poly</button>
-      <button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button">Semi assembled</button>
-      <button class="btn btn-outline-primary" id="btn_show_assembled" type="button">Assembled</button>
-    </div>
-    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show zone layer</span></div>
-    <div class="btn-group btn-group-sm" role="group">
-      <button class="btn btn-outline-info" id="btn_show_zone_map" type="button">Zone</button>
-      <button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button">Path</button>
-      <button class="btn btn-outline-info" id="btn_show_zone_navi" type="button">Navi</button>
-    </div>
-  </div>
-</details>
-
+<div style="margin-top: 10px;">
+<div style="font-size: 12px;margin-bottom: 4px;">Edit polygons &amp; zones</div>
+<ul class="nav nav-tabs" role="tablist" style="font-size: 13px;background: var(--bs-secondary-text-emphasis);">
+<li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab-edit-zone" style="padding: 5px 14px;">Zones</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab-edit-poly" style="padding: 5px 14px;">Polygons</a></li>
+</ul>
+<div class="tab-content" style="padding-top: 8px;">
+<div class="tab-pane active" role="tabpanel" id="tab-edit-zone">
+                                    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
+                                        <span style="font-size: 12px;">Zones for the active map</span>
+                                        <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button" style="font-size: 11px;">New zone</button>
+                                    </div>
+                                    <div id="div_zone_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;">
+                                        <div class="d-flex flex-wrap align-items-end" style="gap: 6px 10px;">
+                                            <div style="width: 100%;"><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name"></div>
+                                            <div><span style="font-size: 12px;display: block;">Cut height</span>
+                                                <div class="input-group input-group-sm" style="width: 92px;"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
+                                            </div>
+                                            <div><span style="font-size: 12px;display: block;">Cut rpm</span><input class="form-control form-control-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300" style="width: 78px;"></div>
+                                            <div id="header_zone_template_border_path"><span style="font-size: 12px;display: block;">Paths around obst.</span><input class="form-control form-control-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2" style="width: 70px;"></div>
+                                            <div id="header_zone_template_coverage_path"><span style="font-size: 12px;display: block;">Coverage angle (°)</span><input class="form-control form-control-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160" style="width: 70px;"></div>
+                                            <div><span style="font-size: 12px;display: block;">Path dist. (m)</span><input class="form-control form-control-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2" style="width: 70px;"></div>
+                                            <div><span style="font-size: 12px;display: block;">Simplify (m)</span><input class="form-control form-control-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1" style="width: 70px;"></div>
+                                            <div id="header_zone_template_path_list" style="display: none;"></div>
+                                        </div>
+                                        <div class="d-flex" style="gap: 4px;margin-top: 8px;">
+                                            <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button" style="font-size: 11px;">Save</button>
+                                            <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button" style="font-size: 11px;">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <div id="div_zone_list"></div>
+                                </div>
+<div class="tab-pane" role="tabpanel" id="tab-edit-poly">
+                                    <div class="d-flex align-items-center" style="margin-bottom: 6px;">
+                                        <span style="font-size: 12px;">Free / obstacle polygons</span>
+                                        <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button" style="font-size: 11px;">New polygon</button>
+                                    </div>
+                                    <div id="div_poly_template" style="background: var(--bs-primary);border-radius: 4px;padding: 8px;margin-bottom: 6px;align-items: end;gap: 8px;flex-wrap: wrap;">
+                                        <div><span style="font-size: 12px;">Name</span><input class="form-control form-control-sm" id="input_poly_template_name" type="text" placeholder="Polygon name" style="width: 150px;"></div>
+                                        <div><span style="font-size: 12px;">Type</span><select class="form-select form-select-sm" id="input_poly_template_type" style="width: 110px;">
+                                            <option value="obstacle">obstacle</option>
+                                            <option value="free">free</option>
+                                        </select></div>
+                                        <div class="d-flex" style="gap: 4px;">
+                                            <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button" style="font-size: 11px;">Save</button>
+                                            <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button" style="font-size: 11px;">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <div id="div_poly_list"></div>
+                                </div>
 </div>
-
-<!-- E. Sticky footer -->
-<div style="position: sticky;bottom: 0;z-index: 20;padding: 8px 10px;background: var(--bs-gray-900);border-top: 1px solid var(--bs-secondary);">
-  <button class="btn btn-warning w-100 fw-bold" id="btn_map_detail_close_footer" type="button" style="min-height: 44px;font-size: 14px;">Close editor</button>
 </div>
 </div>
 
@@ -1935,26 +1335,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <button id="btn_log_expand" type="button" class="btn btn-sm" title="Expand log to full screen" aria-label="Expand log">▲</button>
         <div id="div_log_content"></div>
     </div>
-
-    <!-- vitulus_ui Phase 1: left slide-out drawer. The menu panels
-         (#div_menu_marker / #div_menu_map / #div_menu_map_program /
-         #div_menu_config) and the map editor (#div_map_detail) are MOVED into
-         #ui_drawer_body at runtime by MapMenu.install_drawer(); IDs are preserved. -->
-    <div id="ui_drawer_backdrop"></div>
-    <div id="ui_drawer" aria-hidden="true">
-        <div id="ui_drawer_head">
-            <span id="ui_drawer_title">Menu</span>
-            <button id="btn_ui_drawer_full" type="button" title="Expand" aria-label="Expand"><i class="la la-expand"></i></button>
-            <button id="btn_ui_drawer_close" type="button" title="Close" aria-label="Close">&times;</button>
-        </div>
-        <div id="ui_drawer_body"></div>
-    </div>
-</div>
     <script src="assets/js/jquery.min.js"></script>
     <script src="assets/bootstrap/js/bootstrap.min.js"></script>
     <script src="assets/js/bs-init.js"></script>
     <script src="assets/js/webui.js"></script>
-
 </body>
 
 </html>

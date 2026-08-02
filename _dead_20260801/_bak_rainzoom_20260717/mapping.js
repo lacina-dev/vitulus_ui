@@ -10,15 +10,12 @@ class MappingV3 {
         // vitulus_ui INSERTION-ORDER HARDENING (belt + braces alongside the
         // renderer.sortObjects=true fix in map_view.js): create the AERIAL and
         // TERRAIN groups EAGERLY here — empty, and BEFORE the site_map / live
-        // obstacle occupancy groups are added below — chiefly so the lazily-
-        // created AERIAL group (the true bottom layer) can never land last and
-        // cover everything if a build ever reverts to insertion-order transparent
-        // rendering (sortObjects false). In the ACTIVE regime sortObjects is on,
-        // so paint order is decided by mesh.renderOrder from the MapLayerOrder
-        // contract regardless of insertion order — that is what now lifts the
-        // opt-in terrain plane (renderOrder 12) ABOVE the maps. _r3d() only needs
-        // the ROS3D global, and the _ensure* methods are idempotent, so this is
-        // safe this early.
+        // obstacle occupancy groups are added below — so that even if a build
+        // ever reverts to insertion-order transparent rendering (sortObjects
+        // false), these two bottom layers are still inserted FIRST and paint
+        // under the maps instead of the lazily-created aerial group landing last
+        // and covering everything. _r3d() only needs the ROS3D global, and the
+        // _ensure* methods are idempotent, so this is safe this early.
         this.viewer3d = viewer3d;
         this._r3dCache = null;
         this.aerial_group = null;
@@ -68,27 +65,6 @@ class MappingV3 {
             + 'persisted per site).';
         this.el_ranges_status = document.getElementById("mapv3_ranges_status");
         this.ranges_edited = false;
-
-        // Direct 2D raster mapper — new node, fed by /mapping/direct_status,
-        // configured via /mapping/set_direct (partial dicts OK). Three source
-        // rows (enable checkbox + range cap) plus min-hits and the no-hit-free
-        // toggle, applied together as ONE set_direct JSON. Values are
-        // populated from direct_status.settings only ONCE, on first arrival
-        // (see handleDirectStatus) — unlike the band/ranges edit-guard above,
-        // this stream arrives at ~1.5 Hz so a live re-sync would fight with
-        // in-progress typing; there is no ongoing risk once populated once.
-        this.chk_direct_use_lidar = document.getElementById("mapv3_direct_use_lidar");
-        this.in_direct_lidar_range = document.getElementById("mapv3_direct_lidar_range");
-        this.chk_direct_free_no_hit = document.getElementById("mapv3_direct_free_no_hit");
-        this.chk_direct_use_cam_obstacle = document.getElementById("mapv3_direct_use_cam_obstacle");
-        this.in_direct_obstacle_range = document.getElementById("mapv3_direct_obstacle_range");
-        this.chk_direct_use_cam_free = document.getElementById("mapv3_direct_use_cam_free");
-        this.in_direct_free_range = document.getElementById("mapv3_direct_free_range");
-        this.in_direct_min_hits = document.getElementById("mapv3_direct_min_hits");
-        this.btn_apply_direct = document.getElementById("mapv3_btn_apply_direct");
-        this.el_direct_status = document.getElementById("mapv3_direct_status");
-        this._directSettingsSeen = false;   // guards the one-time prefill
-
         this.el_sites = document.getElementById("mapv3_sites_row");
 
         // Saved / live mapping-v3 occupancy grids in the MAIN 3D view — the
@@ -118,84 +94,39 @@ class MappingV3 {
             })
         });
 
-        // (1b) RASTER PREVIEW — per-raster management. A RAW raster (no human
-        //      edits composited) latched on /mapping_manager/raster_preview by
-        //      mapping_manager when a raster row's Preview button is toggled, so
-        //      a stored raster version can be compared side-by-side against the
-        //      currently-served site_map. Same OccupancyGridClient pipeline; the
-        //      distinct BLUE identifier {40,140,255} selects the blue-tinted
-        //      PREVIEW branch in map_view.js getColor() so it reads clearly apart
-        //      from the served map's red obstacles. An empty grid clears it.
-        //      renderOrder PREVIEW (11) sits between SITE (10) and TERRAIN (12).
-        this.preview_group = new THREE.Object3D();
-        viewer3d.scene.add(this.preview_group);
-        this.preview_client = new ROS3D.OccupancyGridClient({
+        // (2) LIVE obstacle_map — the ground-relative band raster
+        //     (auto-regenerated every ~10 s by band_projector while a session
+        //     runs). Green identifier {0,255,0} => orange = obstacle ABOVE
+        //     ground, green = mapped ground, unknown transparent.
+        this.grid_group = new THREE.Object3D();
+        viewer3d.scene.add(this.grid_group);
+        this.grid_client = new ROS3D.OccupancyGridClient({
             ros: ros,
             tfClient: tfClient,
-            rootObject: this.preview_group,
+            rootObject: this.grid_group,
             continuous: true,
             compression: 'cbor',
-            topic: '/mapping_manager/raster_preview',
-            color: {r: 40, g: 140, b: 255},
+            topic: '/mapping/obstacle_map',
+            color: {r: 0, g: 255, b: 0},
             opacity: 0.85,
             offsetPose: new ROSLIB.Pose({
-                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.011}),  // PREVIEW
+                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.02}),  // LIVE band
                 orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
             })
         });
 
-        // (2) LIVE obstacle_map — RETIRED 2026-07-19: octomap/band mapping
-        //     retired, the direct mapper is the mapper. The band raster
-        //     /mapping/obstacle_map (orange LIVE layer, auto-regenerated by
-        //     band_projector) is gone; the DIRECT teal→black layer (2b) is the
-        //     live map now. We deliberately DO NOT create the OccupancyGridClient
-        //     (no dead /mapping/obstacle_map subscription) nor the scene group.
-        //     grid_group/grid_client are nulled so the (now hidden) Live
-        //     checkbox wiring and the opacity registration below skip cleanly.
-        this.grid_group = null;
-        this.grid_client = null;
-
-        // (2b) DIRECT raster mapper — the new direct 2D raster mapper's live
-        //      grid, built straight from sensor rays (lidar hits/no-hit-free +
-        //      camera obstacle/free) — independent of the octomap+DEM pipeline
-        //      that feeds (2) above. Teal identifier {0,180,180} selects the
-        //      DIRECT branch in map_view.js getColor(), distinct from LIVE
-        //      (orange), SITE (red) and PREVIEW (blue). renderOrder DIRECT
-        //      (21) sits just above LIVE (20).
-        this.direct_group = new THREE.Object3D();
-        viewer3d.scene.add(this.direct_group);
-        this.direct_client = new ROS3D.OccupancyGridClient({
-            ros: ros,
-            tfClient: tfClient,
-            rootObject: this.direct_group,
-            continuous: true,
-            compression: 'cbor',
-            topic: '/mapping/direct_map',
-            color: {r: 0, g: 180, b: 180},
-            opacity: 0.85,
-            offsetPose: new ROSLIB.Pose({
-                position: new ROSLIB.Vector3({x: 0, y: 0, z: 0.021}),  // DIRECT band
-                orientation: new ROSLIB.Quaternion({x: 0, y: 0, z: 0, w: 1})
-            })
-        });
-
-        // vitulus_ui: register all three occupancy grids with the global
-        // opacity manager (defined in map_view.js) so the "Maps opacity" /
-        // "Unknown opacity" sliders in the "3D view layers" group drive them
-        // alongside the base /navi_manager/map grid and the local costmap.
-        // The rain radar and aerial tiles keep their own independent opacity
-        // sliders.
+        // vitulus_ui: register both occupancy grids with the global opacity
+        // manager (defined in map_view.js) so the "Maps opacity" / "Unknown
+        // opacity" sliders in the "3D view layers" group drive them alongside
+        // the base /navi_manager/map grid and the local costmap. The rain radar
+        // and aerial tiles keep their own independent opacity sliders.
         try {
             if (typeof MapLayerOpacity !== 'undefined') {
                 var _ord = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder : null;
                 MapLayerOpacity.registerClient(this.site_client,
                     _ord ? _ord.SITE : 10);
-                MapLayerOpacity.registerClient(this.preview_client,
-                    _ord ? _ord.PREVIEW : 11);
-                // LIVE obstacle_map retired 2026-07-19 (grid_client is null) —
-                // nothing to register; the DIRECT layer carries the live map.
-                MapLayerOpacity.registerClient(this.direct_client,
-                    _ord ? _ord.DIRECT : 21);
+                MapLayerOpacity.registerClient(this.grid_client,
+                    _ord ? _ord.LIVE : 20);
             }
         } catch (e) { /* opacity manager optional */ }
 
@@ -236,32 +167,13 @@ class MappingV3 {
         this.chk_site = document.getElementById("mapv3_chk_site");
         this.chk_live = document.getElementById("mapv3_chk_live");
         this.chk_terrain = document.getElementById("mapv3_chk_terrain");
-        // per-raster mgmt: the raw-raster preview visibility toggle in the top
-        // layer strip (default ON — the per-row Preview button drives WHAT is
-        // shown; this only hides/shows the layer as a whole). The layer stays
-        // empty until a row's Preview is toggled, so having it visible by
-        // default is harmless.
-        this.chk_preview = document.getElementById("mapv3_chk_preview");
-        // Direct raster mapper layer toggle — persisted like aerial/rain
-        // (_layerPref/_saveLayerPref below), unlike the plain session-scoped
-        // site/live/preview/terrain toggles above which don't survive reload.
-        this.chk_direct = document.getElementById("mapv3_chk_direct");
         if (this.chk_site) {
             this.site_group.visible = this.chk_site.checked;
             this.chk_site.addEventListener('change', () => {
                 this.site_group.visible = this.chk_site.checked;
             });
         }
-        if (this.chk_preview) {
-            this.preview_group.visible = this.chk_preview.checked;
-            this.chk_preview.addEventListener('change', () => {
-                this.preview_group.visible = this.chk_preview.checked;
-            });
-        }
-        // LIVE obstacle_map layer retired 2026-07-19 — the checkbox is hidden in
-        // the UI and grid_group is null, so there is nothing to wire. Guard so
-        // this is inert whether or not the (hidden) element is present.
-        if (this.chk_live && this.grid_group) {
+        if (this.chk_live) {
             this.grid_group.visible = this.chk_live.checked;
             this.chk_live.addEventListener('change', () => {
                 this.grid_group.visible = this.chk_live.checked;
@@ -276,16 +188,6 @@ class MappingV3 {
             this.chk_terrain.addEventListener('change', () => {
                 this.terrain_visible = this.chk_terrain.checked;
                 this.applyTerrainVisible();
-            });
-        }
-        if (this.chk_direct) {
-            // TASK-style persistence (like aerial/rain): default ON, but
-            // respect a stored preference across reloads.
-            this.chk_direct.checked = this._layerPref('vitulus_layer_direct', true);
-            this.direct_group.visible = this.chk_direct.checked;
-            this.chk_direct.addEventListener('change', () => {
-                this._saveLayerPref('vitulus_layer_direct', this.chk_direct.checked);
-                this.direct_group.visible = this.chk_direct.checked;
             });
         }
 
@@ -319,12 +221,8 @@ class MappingV3 {
         this.pub_show = pub('/mapping_manager/show_site');
         this.pub_clear = pub('/mapping/clear');
         this.pub_serve = pub('/mapping_manager/serve_site');
-        // per-raster mgmt: preview a raw raster / delete a raster
-        this.pub_preview_raster = pub('/mapping_manager/preview_raster');
-        this.pub_remove_raster = pub('/mapping_manager/remove_raster');
         this.pub_set_band = pub('/mapping/set_band');
         this.pub_set_ranges = pub('/mapping/set_ranges');
-        this.pub_set_direct = pub('/mapping/set_direct');
 
         const sub = (name, type, cb) => {
             const t = new ROSLIB.Topic({ros: ros, name: name, messageType: type});
@@ -337,13 +235,8 @@ class MappingV3 {
             (m) => this.handleGate(m));
         sub('/mapping/dem_status', 'std_msgs/String',
             (m) => this.handleDem(m));
-        // projector_status RETIRED 2026-07-19: octomap/band mapping retired,
-        // the direct mapper is the mapper. /mapping/projector_status was the
-        // band regen/raster status (drove the hidden band + Actions status
-        // lines); no longer subscribed. handleProjector() is left defined but
-        // dead. The direct mapper reports its own status via direct_status.
-        sub('/mapping/direct_status', 'std_msgs/String',
-            (m) => this.handleDirectStatus(m));
+        sub('/mapping/projector_status', 'std_msgs/String',
+            (m) => this.handleProjector(m));
 
         // Terrain elevation as a 3D plane (see terrain_group above). rosbridge
         // delivers CompressedImage.data as base64. The PNG and the world bounds
@@ -409,29 +302,6 @@ class MappingV3 {
                 if (this.el_serving) this.el_serving.textContent = 'serving: requesting…';
             });
         }
-
-        // WP-D2: "Edit map" entry — opens the in-view map editor (mapeditor.js
-        // detail panel) keeping the SERVED site_map as the base. Created
-        // dynamically (like Clear 3D) to avoid an index.html rebuild, and
-        // appended next to Serve. Disabled until a site is being served (the
-        // editor needs a served map to draw edits/waypoints against); enabled in
-        // handleManager() when s.serving is set.
-        if (this.btn_serve) {
-            this.btn_edit_map = document.createElement('button');
-            this.btn_edit_map.className = 'btn btn-info';
-            this.btn_edit_map.type = 'button';
-            this.btn_edit_map.textContent = 'Edit map';
-            this.btn_edit_map.disabled = true;
-            this.btn_edit_map.title = 'Serve a site first — the editor draws edits/waypoints on the served map';
-            this.btn_serve.parentNode.appendChild(this.btn_edit_map);
-            this.btn_edit_map.addEventListener('click', () => {
-                try {
-                    if (window.MapEditor && window.MapEditor.showDetail) {
-                        window.MapEditor.showDetail({keepBase: true});
-                    }
-                } catch (e) { console.error('[mappingv3] open editor failed', e); }
-            });
-        }
         // the middle mode button is 'Fused' now (relabel here to avoid an
         // index.html rebuild; fused = map from the fused pose, the default)
         this.btn_mode_force.textContent = 'Fused';
@@ -470,14 +340,6 @@ class MappingV3 {
         });
         if (this.btn_apply_ranges) {
             this.btn_apply_ranges.addEventListener('click', () => this.applyRanges());
-        }
-
-        // Direct mapper — no edit-guard flag needed (settings are only ever
-        // prefilled once, on the first direct_status arrival), but the
-        // control set is independent of session Start/Stop so it stays
-        // enabled regardless of setActionsEnabled().
-        if (this.btn_apply_direct) {
-            this.btn_apply_direct.addEventListener('click', () => this.applyDirect());
         }
 
         // Clear 3D — reset the octomap archive after a localization
@@ -525,21 +387,6 @@ class MappingV3 {
     //
     // Every step is try/catch-wrapped and images load async with crossOrigin;
     // a bad tile skips itself and NEVER touches the ROS3D render loop.
-    // vitulus_ui TASK3 — per-layer checkbox persistence. Aerial basemap and rain
-    // radar now DEFAULT ON, but a user's explicit toggle is remembered across
-    // reloads. '1'/'0' stored per key; absent => use the supplied default (ON).
-    _layerPref(key, dflt) {
-        try {
-            var v = localStorage.getItem(key);
-            if (v === '1') { return true; }
-            if (v === '0') { return false; }
-        } catch (e) { /* localStorage unavailable — fall through to default */ }
-        return dflt;
-    }
-    _saveLayerPref(key, on) {
-        try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { /* ignore */ }
-    }
-
     _initAerial() {
         // NB: aerial_group is created EAGERLY in the constructor (insertion-order
         // hardening); do NOT null it here or we'd orphan that group and a fresh
@@ -563,20 +410,12 @@ class MappingV3 {
 
         if (this.chk_aerial) {
             this.chk_aerial.addEventListener('change', () => {
-                this._saveLayerPref('vitulus_layer_aerial', this.chk_aerial.checked);
                 if (this.chk_aerial.checked) {
                     this.rebuildAerial();
                 } else if (this.aerial_group) {
                     this.aerial_group.visible = false;
                 }
             });
-            // TASK3: DEFAULT ON (respect a stored preference if the user has
-            // toggled before). Applying it here takes the SAME path as a manual
-            // early tick — rebuildAerial() fetches /api/datum itself and is
-            // token-guarded, so a boot-time call before the datum has arrived
-            // behaves exactly like ticking the box the moment the page loads.
-            this.chk_aerial.checked = this._layerPref('vitulus_layer_aerial', true);
-            if (this.chk_aerial.checked) { this.rebuildAerial(); }
         }
         [this.sel_aerial_src, this.sel_aerial_zoom, this.sel_aerial_area].forEach((el) => {
             if (el) el.addEventListener('change', () => {
@@ -595,7 +434,6 @@ class MappingV3 {
         // osm_demo = OSM streets. Both EPSG:3857 XYZ (origin ul, y not flipped).
         return {
             sat: { layer: 'gm_layer', grid: 'gm_grid', label: 'satellite' },
-            cuzk: { layer: 'cuzk_layer', grid: 'gm_grid', label: 'ČÚZK orto' },
             osm: { layer: 'osm_demo', grid: 'webmercator', label: 'OSM' },
         };
     }
@@ -672,56 +510,9 @@ class MappingV3 {
         return { lon, lat: latR * 180 / Math.PI };
     }
 
-    // Current 3D view expressed in MAP metres: the look-at centre and the
-    // half-width/half-height the camera frames on the ground plane, plus the
-    // canvas pixel height (for the screen-resolution zoom match). Returns null
-    // if the camera can't be read (stub viewer) so callers fall back to the
-    // legacy fixed-area coverage. Near-ortho top-down: visible half-height =
-    // distance*tan(fov/2), half-width = that*aspect.
-    _aerialViewParams() {
-        const cam = this.viewer3d && this.viewer3d.camera;
-        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
-        if (!cam || !ctrl || !ctrl.center || !cam.position) { return null; }
-        let dist;
-        try { dist = cam.position.distanceTo(ctrl.center); }
-        catch (e) { return null; }
-        if (!(dist > 0)) { return null; }
-        const fovDeg = cam.fov > 0 ? cam.fov : 40;
-        const t = Math.tan((fovDeg * Math.PI / 180.0) / 2.0);
-        const aspect = cam.aspect > 0 ? cam.aspect : 1.0;
-        if (!(t > 0)) { return null; }
-        const halfH = dist * t;
-        const halfW = halfH * aspect;
-        let heightPx = 0;
-        try {
-            const dom = this.viewer3d.renderer && this.viewer3d.renderer.domElement;
-            heightPx = (dom && (dom.clientHeight || dom.height)) || 0;
-        } catch (e) { /* stub */ }
-        if (!(heightPx > 0)) {
-            const mv = document.getElementById('map_view');
-            heightPx = (mv && mv.clientHeight) || 800;
-        }
-        return { cx: ctrl.center.x, cy: ctrl.center.y, halfW, halfH, heightPx };
-    }
-
-    // Debounced camera-follow: after the view stops moving, refit the aerial
-    // basemap to the current viewport (and adaptive zoom). rebuildAerial()
-    // itself skips the work if the covering tile set is unchanged, so panning
-    // within the same tiles is free.
-    _scheduleAerialFollow() {
-        if (!(this.chk_aerial && this.chk_aerial.checked)) { return; }
-        if (this._aerialFollowTimer) { clearTimeout(this._aerialFollowTimer); }
-        this._aerialFollowTimer = setTimeout(() => {
-            this._aerialFollowTimer = null;
-            if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
-        }, 220);
-    }
-
     // Build (or rebuild) the aerial tile planes. Async, cancellable, fully
-    // guarded. Fetches the datum first, then covers the CURRENT viewport with
-    // tiles at a zoom matched to the on-screen resolution (never finer than the
-    // configured detail cap) — so standard zoom stays crisp and only dolling
-    // out past the default limit steps down to coarser world-scale tiles.
+    // guarded. Fetches the datum first, then covers a square area around the
+    // map origin with tiles at the selected zoom.
     async rebuildAerial() {
         const status = (t, warn) => {
             if (this.el_aerial_status) {
@@ -761,103 +552,71 @@ class MappingV3 {
 
             const srcKey = this.sel_aerial_src ? this.sel_aerial_src.value : 'sat';
             const src = this._aerialSources()[srcKey] || this._aerialSources().sat;
-            // The configured zoom is the DETAIL CAP: the most detailed level we
-            // ever use. gm_grid now has 22 levels (max z21 — Google z20, CUZK
-            // 12.5cm ortofoto); the OSM webmercator grid still tops out at z19,
-            // so the cap is clamped per-source (src.maxz), not globally.
-            const srcMaxZ = (src.grid === 'gm_grid') ? 21 : 19;
-            let zCap = this.sel_aerial_zoom ?
+            // MapProxy's gm_grid / webmercator grids only go up to z19; clamp so
+            // an out-of-range request can't produce a wall of TileOutOfRange 400s.
+            let z = this.sel_aerial_zoom ?
                     parseInt(this.sel_aerial_zoom.value, 10) : 19;
-            if (!(zCap >= 0)) { zCap = 19; }
-            zCap = Math.max(0, Math.min(srcMaxZ, zCap));
+            if (!(z >= 0)) { z = 19; }
+            z = Math.max(0, Math.min(19, z));
 
+            // (2) coverage area — user-selectable square side (metres) around
+            // the map origin. Falls back to the built-in default if the
+            // control isn't present.
+            let area = this.sel_aerial_area ?
+                       parseInt(this.sel_aerial_area.value, 10) : this.aerial_area_m;
+            if (!(area > 0)) { area = this.aerial_area_m; }
+            this.aerial_area_m = area;
+
+            // area corners in UTM-aligned metres (east=+x, north=+y) around
+            // the datum origin -> lon/lat -> tile range covering the square.
             const { mLat, mLon } = this._metersPerDeg(d.origin_lat);
             const cornerLonLat = (e, n) => ({
                 lon: d.origin_lon + e / mLon,
                 lat: d.origin_lat + n / mLat,
             });
-
-            // (2) COVERAGE — follow the current viewport. Take the 4 view corners
-            // (map metres, +margin), rotate map->UTM-aligned east/north (R(+yaw)),
-            // and cover their bounding box. Fall back to a square of the manual
-            // area around the origin if the camera can't be read (stub viewer).
-            const yaw2 = yaw;
-            const cyaw = Math.cos(yaw2), syaw = Math.sin(yaw2);
-            const vp = this._aerialViewParams();
-            let enCorners;
-            if (vp) {
-                const M = 1.25;   // reach a little past the frame edges
-                const hw = vp.halfW * M, hh = vp.halfH * M;
-                enCorners = [[-hw, -hh], [hw, -hh], [-hw, hh], [hw, hh]].map(
-                    ([dx, dy]) => {
-                        const mx = vp.cx + dx, my = vp.cy + dy;
-                        return [cyaw * mx - syaw * my, syaw * mx + cyaw * my];
-                    });
-            } else {
-                let area = this.sel_aerial_area ?
-                    parseInt(this.sel_aerial_area.value, 10) : this.aerial_area_m;
-                if (!(area > 0)) { area = this.aerial_area_m; }
-                this.aerial_area_m = area;
-                const h = area / 2.0;
-                enCorners = [[-h, -h], [h, -h], [-h, h], [h, h]];
-            }
-
+            // computes the tile range (and count) covering the square area at
+            // a given zoom; used both for the real build and for probing zoom
+            // levels down when guarding against a tile-count explosion.
             const tileRangeAt = (zoom) => {
+                const half = area / 2.0;
                 let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-                enCorners.forEach(([e, n]) => {
-                    const ll = cornerLonLat(e, n);
-                    const t = this._lonLatToTile(ll.lon, ll.lat, zoom);
-                    x0 = Math.min(x0, Math.floor(t.x));
-                    x1 = Math.max(x1, Math.floor(t.x));
-                    y0 = Math.min(y0, Math.floor(t.y));
-                    y1 = Math.max(y1, Math.floor(t.y));
-                });
+                [[-half, -half], [half, -half], [-half, half], [half, half]]
+                    .forEach(([e, n]) => {
+                        const ll = cornerLonLat(e, n);
+                        const t = this._lonLatToTile(ll.lon, ll.lat, zoom);
+                        x0 = Math.min(x0, Math.floor(t.x));
+                        x1 = Math.max(x1, Math.floor(t.x));
+                        y0 = Math.min(y0, Math.floor(t.y));
+                        y1 = Math.max(y1, Math.floor(t.y));
+                    });
                 const count = (x1 - x0 + 1) * (y1 - y0 + 1);
                 return { tx0: x0, tx1: x1, ty0: y0, ty1: y1, count };
             };
 
-            // (3) ADAPTIVE ZOOM — pick the finest level whose tile resolution is
-            // still no coarser than the on-screen resolution, but never exceed
-            // the configured detail cap. At the default/standard zoom this lands
-            // on the cap (crisp detail); only when dollying out past the default
-            // limit does it step DOWN to coarser world-scale tiles.
-            let z = zCap;
-            if (vp && vp.heightPx > 0) {
-                const screenRes = (2.0 * vp.halfH) / vp.heightPx;   // map m / px
-                const phi = d.origin_lat * Math.PI / 180.0;
-                const mercZ0 = 156543.03392 * Math.max(0.05, Math.cos(phi));
-                let zAdaptive = Math.ceil(
-                    Math.log2(mercZ0 / Math.max(1e-6, screenRes)));
-                if (!isFinite(zAdaptive)) { zAdaptive = zCap; }
-                z = Math.max(0, Math.min(zCap, zAdaptive));
-            }
-
-            // (4) tile-count guard: auto-clamp zoom DOWN until it fits the cap.
+            // (3) tile-count guard: bigger area + high zoom can explode the
+            // tile count. Auto-clamp zoom DOWN (coarser tiles) until the
+            // rebuild fits under the cap, reflecting the clamp in the UI so
+            // it's never silently a wall of requests.
             const CAP = this.AERIAL_TILE_CAP;
             let range = tileRangeAt(z);
+            let clamped = false;
             while (range.count > CAP && z > 0) {
                 z -= 1;
+                clamped = true;
                 range = tileRangeAt(z);
             }
             const { tx0, tx1, ty0, ty1 } = range;
             const nTiles = range.count;
             if (!(nTiles > 0) || nTiles > CAP) {
                 status('tile range unreasonable (' + nTiles + ') even at z' + z +
-                       ' — zoom in', true);
+                       ' — reduce area', true);
                 return;
             }
-
-            // (4b) skip the (re)build entirely if the covering tile set is
-            // unchanged — makes panning within the same tiles and re-enabling
-            // the layer free. Source or zoom change invalidates the signature.
-            const sig = srcKey + '@' + z + ':' + tx0 + ',' + tx1 + ',' +
-                        ty0 + ',' + ty1;
-            if (sig === this._aerialSig && this.aerial_meshes.length > 0) {
-                status('tiles: ' + this.aerial_meshes.length + ' @ z' + z +
-                       ' — ' + src.label + ' (view unchanged)');
-                return;
+            if (clamped && this.sel_aerial_zoom) {
+                // reflect the auto-clamped zoom back into the dropdown so the
+                // UI never silently disagrees with what was actually built.
+                this.sel_aerial_zoom.value = String(z);
             }
-            this._aerialSig = sig;
 
             // (4) build fresh meshes off-screen, swap in after ready.
             const newMeshes = [];
@@ -899,10 +658,9 @@ class MappingV3 {
             }
             this._disposeAerialMeshes();
             this.aerial_meshes = newMeshes;
-            const detailNote = (z < zCap) ? ' (zoomed out — z' + z + ' < cap z' +
-                               zCap + ')' : '';
+            const clampNote = clamped ? ' (zoom auto-clamped, cap ' + CAP + ')' : '';
             status('tiles: ' + built + ' @ z' + z + ' — ' + src.label +
-                   detailNote);
+                   ', ' + this.aerial_area_m + ' m area' + clampNote, clamped);
         } catch (e) {
             console.error('[mappingv3] rebuildAerial failed:', e);
             status('aerial build failed (see console)', true);
@@ -1010,42 +768,17 @@ class MappingV3 {
         this.sel_rain_z = document.getElementById('mapv3_rain_z');
         this.in_rain_opacity = document.getElementById('mapv3_rain_opacity');
         this.el_rain_status = document.getElementById('mapv3_rain_status');
-        this.btn_rain_fit = document.getElementById('mapv3_btn_rain_fit');
-
-        if (this.btn_rain_fit) {
-            this.btn_rain_fit.addEventListener('click', () => this.fitRainFrame());
-        }
 
         if (this.chk_rain) {
             this.chk_rain.addEventListener('change', () => {
-                this._saveLayerPref('vitulus_layer_rain', this.chk_rain.checked);
                 if (this.chk_rain.checked) {
                     this._ensureRainSub();
                     this.rebuildRain();
                 } else if (this.rain_group) {
                     this.rain_group.visible = false;
                 }
-                // Rain overview toggles the wide zoom-out limit AND the aerial
-                // coverage extent (so the MapProxy basemap covers the whole rain
-                // frame). Re-apply both whenever rain is switched on/off.
-                this._applyZoomLimit();
-                if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
             });
         }
-        // Grow the camera far-plane as the user dollies out while the rain
-        // overview is on (keeps the whole frame un-clipped without hurting
-        // depth precision when zoomed in). No-op / removed when rain is off.
-        this._defaultFar = null;
-        try {
-            if (this.viewer3d && this.viewer3d.cameraControls &&
-                this.viewer3d.cameraControls.addEventListener) {
-                this.viewer3d.cameraControls.addEventListener('change', () => {
-                    this._onCamChange();          // grow far-plane (rain on)
-                    this._scheduleAerialFollow();  // refit basemap to viewport
-                    this._updateBeacon();          // far-zoom "you are here" pin
-                });
-            }
-        } catch (e) { /* stub viewer / no controls */ }
         [this.sel_rain_area, this.sel_rain_z].forEach((el) => {
             if (el) el.addEventListener('change', () => {
                 if (this.chk_rain && this.chk_rain.checked) this.rebuildRain();
@@ -1055,23 +788,6 @@ class MappingV3 {
             this.in_rain_opacity.addEventListener('input', () => {
                 this._applyRainOpacity();
             });
-        }
-
-        // TASK3: rain radar DEFAULT ON (respect a stored preference). Take the
-        // SAME path as a manual tick — subscribe, (re)build, open the wide
-        // zoom-out limit and extend the aerial coverage to the frame. rebuildRain
-        // no-ops until the first /weather_alert/rain_img arrives (its subscription
-        // callback rebuilds then), so an early boot-time call is safe. Area/float/
-        // opacity keep their configured defaults; the camera stays at the normal
-        // garden zoom (the beacon only appears once the user dollies right out).
-        if (this.chk_rain) {
-            this.chk_rain.checked = this._layerPref('vitulus_layer_rain', true);
-            if (this.chk_rain.checked) {
-                this._ensureRainSub();
-                this.rebuildRain();
-                this._applyZoomLimit();
-                if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
-            }
         }
     }
 
@@ -1097,19 +813,10 @@ class MappingV3 {
                 messageType: 'std_msgs/String',
             });
             this.rain_meta_sub.subscribe((m) => {
-                const prevHalfKm = this._rainHalfKm();
                 try { this.rain_meta = JSON.parse(m.data); }
                 catch (e) { return; }
                 if (this.chk_rain && this.chk_rain.checked && this.rain_msg) {
                     this.rebuildRain();
-                }
-                // A changed frame extent moves both the zoom-out limit and the
-                // aerial coverage; re-apply them if the authoritative half_km
-                // differs from what we had (first meta, or a config change).
-                if (this.chk_rain && this.chk_rain.checked &&
-                    Math.abs(this._rainHalfKm() - prevHalfKm) > 1e-6) {
-                    this._applyZoomLimit();
-                    if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
                 }
             });
         } catch (e) {
@@ -1153,222 +860,6 @@ class MappingV3 {
             return this.rain_meta.half_km;
         }
         return this.RAIN_FALLBACK_HALF_KM;
-    }
-
-    // Full side length (metres) of the ČHMÚ rain frame = 2*half_km. This is the
-    // extent both the zoom-out limit and the aerial basemap must cover so the
-    // whole rain map is framable with a basemap under it.
-    _rainFrameSideM() {
-        return 2.0 * this._rainHalfKm() * 1000.0;
-    }
-
-    // Camera-to-center distance (top-down, near-ortho perspective cam) needed to
-    // fit a square of side `sideM` in BOTH viewport axes, with a small margin.
-    // Uses the live fov/aspect so it stays correct across resizes and the
-    // narrow map-view fov set in map_view.js (updateCam).
-    _distanceToFrame(sideM) {
-        const cam = this.viewer3d && this.viewer3d.camera;
-        if (!cam) { return sideM; }
-        const fovDeg = cam.fov > 0 ? cam.fov : 40;
-        const t = Math.tan((fovDeg * Math.PI / 180.0) / 2.0);
-        const aspect = cam.aspect > 0 ? cam.aspect : 1.0;
-        if (!(t > 0)) { return sideM; }
-        // visible full-height = 2*d*t ; full-width = that*aspect. Fit the tighter
-        // axis: portrait (aspect<1) is width-limited, landscape height-limited.
-        const d = (sideM / (2.0 * t)) * Math.max(1.0, 1.0 / aspect);
-        return d * 1.1;   // 10 % margin so the frame isn't flush to the edges
-    }
-
-    // Apply (rain on) or clear (rain off) the wide zoom-out limit. When rain is
-    // ON the camera may dolly out far enough to frame the whole ČHMÚ rain map;
-    // when OFF we restore the original far-plane (6000) and drop the distance
-    // clamp, so the maximum zoom-out is exactly what it was before this feature.
-    _applyZoomLimit() {
-        const cam = this.viewer3d && this.viewer3d.camera;
-        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
-        if (!cam) { return; }
-        if (this._defaultFar == null) { this._defaultFar = cam.far; }   // 6000
-        const rainOn = !!(this.chk_rain && this.chk_rain.checked);
-        if (!rainOn) {
-            // Restore original limits — behaviour unchanged from before.
-            if (ctrl) { ctrl.maxDistance = Infinity; }
-            // If we're still parked at a rain-scale zoom-out, the restored
-            // 6000 far-plane would clip everything to black. Pull the camera
-            // back inside it so turning rain off never leaves a blank view.
-            if (ctrl && ctrl.center && cam.position) {
-                try {
-                    const off = cam.position.clone().sub(ctrl.center);
-                    const d = off.length();
-                    const maxSane = this._defaultFar * 0.7;
-                    if (d > maxSane && d > 0) {
-                        off.multiplyScalar(maxSane / d);
-                        cam.position.copy(ctrl.center).add(off);
-                    }
-                } catch (e) { /* stub cam */ }
-            }
-            if (cam.far !== this._defaultFar) {
-                cam.far = this._defaultFar;
-                if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
-            }
-            return;
-        }
-        // Rain on: allow zooming out until the full frame fits, and grow the
-        // far-plane to match the current camera height (see _onCamChange).
-        if (ctrl) { ctrl.maxDistance = this._distanceToFrame(this._rainFrameSideM()); }
-        this._onCamChange();
-    }
-
-    // Keep the far-plane just beyond the current camera distance WHILE the rain
-    // overview is on, so the (very distant) ground/basemap/rain planes stay
-    // un-clipped when fully zoomed out — yet far stays near the 6000 default
-    // when zoomed in, preserving depth precision for the garden-scale layers.
-    _onCamChange() {
-        if (!(this.chk_rain && this.chk_rain.checked)) { return; }
-        const cam = this.viewer3d && this.viewer3d.camera;
-        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
-        if (!cam || !ctrl || !ctrl.center) { return; }
-        if (this._defaultFar == null) { this._defaultFar = cam.far; }
-        let dist;
-        try { dist = cam.position.distanceTo(ctrl.center); }
-        catch (e) { return; }
-        if (!(dist > 0)) { return; }
-        const want = Math.max(this._defaultFar, dist * 1.4 + 1000.0);
-        // Only re-upload the projection matrix on a meaningful change.
-        if (Math.abs(want - cam.far) > Math.max(50.0, cam.far * 0.02)) {
-            cam.far = want;
-            if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
-        }
-    }
-
-    // One-shot "fit the whole rain map": centre on the rain frame (= datum
-    // origin) and set the camera distance so the entire ČHMÚ frame is in view.
-    // Bound to the 'fit' button next to the rain controls so the wide overview
-    // is one click away instead of ~200 wheel notches. No-op unless rain is on
-    // (the zoom-out limit only opens up then).
-    fitRainFrame() {
-        if (!(this.chk_rain && this.chk_rain.checked)) { return; }
-        const cam = this.viewer3d && this.viewer3d.camera;
-        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
-        if (!cam || !ctrl || !ctrl.center || !cam.position) { return; }
-        // make sure the limit/far are opened for the frame before we move there.
-        this._applyZoomLimit();
-        const dist = this._distanceToFrame(this._rainFrameSideM());
-        // keep the current view direction, just recentre on the frame and set
-        // the distance. update() re-derives orientation from position/center.
-        const off = cam.position.clone().sub(ctrl.center);
-        ctrl.center.x = 0.0; ctrl.center.y = 0.0;
-        let d0 = off.length();
-        if (!(d0 > 0)) { off.set(0, 0, 1); d0 = 1; }
-        off.multiplyScalar(dist / d0);
-        cam.position.copy(ctrl.center).add(off);
-        this._onCamChange();
-        if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
-        this._scheduleAerialFollow();
-        this._updateBeacon();
-    }
-
-    // vitulus_ui TASK2 — FAR-ZOOM LOCATION BEACON ("you are here").
-    // When the camera dollies right out (district / whole-rain-frame ~64 km scale)
-    // the garden shrinks to a few pixels and its position on the aerial / rain
-    // overlay becomes ambiguous. This drops a bright, screen-size-CONSTANT map
-    // pin at the /map origin (0,0) = the datum / garden centre = the rain-frame
-    // centre — the single most meaningful "here" point — so the place is always
-    // unmistakable at wide zoom, and invisible during normal garden-scale work.
-    //
-    // It is a camera-facing THREE.Sprite built with ROS3D's BUNDLED THREE
-    // (ROS3D.THREE — NOT window.THREE; a foreign THREE instance in the ROS3D
-    // scene kills the render loop). This bundled THREE is an older build whose
-    // SpriteMaterial has NO sizeAttenuation, so we keep the pin a constant pixel
-    // size by rescaling it from the live view each camera change (see below).
-    // renderOrder = MapLayerOrder.BEACON (1000) + depthTest off => always drawn
-    // on top, even over the rain overlay (renderOrder 999).
-    _beaconTexture(RT) {
-        // Draw the pin once onto a canvas: a saturated RED disc with a white
-        // ring + centre dot and a dark outline — high-contrast over both the
-        // green/brown aerial imagery AND the blue/cyan/magenta rain radar (red is
-        // absent from the radar palette), reading unambiguously as a location
-        // marker. Built with ROS3D's THREE.Texture so it belongs to the scene's
-        // GL context.
-        var S = 128;
-        var cv = document.createElement('canvas');
-        cv.width = S; cv.height = S;
-        var g = cv.getContext('2d');
-        var cx = S / 2, cy = S / 2;
-        g.clearRect(0, 0, S, S);
-        // dark outline halo
-        g.beginPath(); g.arc(cx, cy, 60, 0, Math.PI * 2);
-        g.fillStyle = 'rgba(0,0,0,0.55)'; g.fill();
-        // red disc
-        g.beginPath(); g.arc(cx, cy, 54, 0, Math.PI * 2);
-        g.fillStyle = '#ff2b2b'; g.fill();
-        // white ring
-        g.beginPath(); g.arc(cx, cy, 38, 0, Math.PI * 2);
-        g.lineWidth = 9; g.strokeStyle = '#ffffff'; g.stroke();
-        // white centre dot ("you are here")
-        g.beginPath(); g.arc(cx, cy, 12, 0, Math.PI * 2);
-        g.fillStyle = '#ffffff'; g.fill();
-        var tex = new RT.Texture(cv);
-        tex.needsUpdate = true;
-        return tex;
-    }
-
-    _ensureBeacon() {
-        if (this.beacon) { return this.beacon; }
-        // Must use the SAME THREE that owns the renderer/scene.
-        var RT = (typeof ROS3D !== 'undefined' && ROS3D.THREE) ? ROS3D.THREE : null;
-        if (!RT || !RT.Sprite || !RT.SpriteMaterial || !RT.Texture) { return null; }
-        if (!this.viewer3d || !this.viewer3d.scene) { return null; }
-        try {
-            var mat = new RT.SpriteMaterial({ map: this._beaconTexture(RT) });
-            mat.transparent = true;
-            mat.depthTest = false;
-            mat.depthWrite = false;
-            mat.opacity = 0.0;                 // faded out until zoomed far
-            var spr = new RT.Sprite(mat);
-            spr.position.set(0, 0, 0);          // /map origin = garden/datum
-            spr.renderOrder = (typeof MapLayerOrder !== 'undefined' &&
-                               typeof MapLayerOrder.BEACON === 'number')
-                              ? MapLayerOrder.BEACON : 1000;
-            spr.visible = false;
-            this.viewer3d.scene.add(spr);
-            this.beacon = spr;
-            return spr;
-        } catch (e) {
-            console.error('[mappingv3] beacon build failed:', e);
-            return null;
-        }
-    }
-
-    // Update beacon visibility + screen-constant size from the current view.
-    // Threshold is expressed in VISIBLE ground extent (metres), not raw camera
-    // distance, because the map-view uses a very narrow fov (updateCam) so the
-    // default top-down camera already sits ~1000 m up while framing only the
-    // garden. We show the pin once the visible half-height exceeds ~400 m (i.e.
-    // full frame > ~800 m, several times the garden's ~150-200 m extent) — well
-    // clear of normal work, always on at district/rain (~64 km) scale — and fade
-    // it in over a band so it never pops. Called from the camera-change hook
-    // (no new timer/interval).
-    _updateBeacon() {
-        var vp = this._aerialViewParams();     // {cx,cy,halfW,halfH,heightPx}
-        if (!vp) { return; }
-        var spr = this._ensureBeacon();
-        if (!spr) { return; }
-        var SHOW = 400.0;                      // metres (visible half-height)
-        var lo = SHOW * 0.8, hi = SHOW * 1.2;  // fade band 320..480 m
-        var op = (vp.halfH - lo) / (hi - lo);
-        op = Math.max(0.0, Math.min(1.0, op));
-        spr.visible = op > 0.02;
-        if (spr.material) { spr.material.opacity = op; }
-        if (!spr.visible) { return; }
-        // Screen-CONSTANT size: 2*halfH metres of ground map to heightPx pixels,
-        // so metres-per-pixel = 2*halfH/heightPx. Size the sprite (world units)
-        // to a fixed on-screen diameter regardless of zoom.
-        var PIN_PX = 34.0;                      // on-screen pin diameter (px)
-        var hpx = vp.heightPx > 0 ? vp.heightPx : 800;
-        var worldSize = PIN_PX * (2.0 * vp.halfH / hpx);
-        if (worldSize > 0 && isFinite(worldSize)) {
-            spr.scale.set(worldSize, worldSize, 1);
-        }
     }
 
     // Build / update the rain plane from the cached Image message + datum.
@@ -1454,12 +945,10 @@ class MappingV3 {
             this.rain_mesh = mesh;
             group.add(mesh);
 
-            const areaM = this.sel_rain_area ?
-                parseInt(this.sel_rain_area.value, 10) : 32000;
-            const shown = (areaM >= halfKm * 1000.0 * 0.9) ?
-                'full frame' : ('r≈' + (areaM / 1000) + ' km');
-            status('radar: ' + (2 * halfKm).toFixed(0) + ' km frame, showing ' +
-                   shown + ', float ' + z + ' m — updates ~5 min');
+            const rkm = this.sel_rain_area ?
+                (parseInt(this.sel_rain_area.value, 10) / 1000) : (halfKm);
+            status('radar: ' + (2 * halfKm).toFixed(0) + ' km frame, showing r≈' +
+                   rkm + ' km, float ' + z + ' m — updates ~5 min');
         } catch (e) {
             console.error('[mappingv3] rebuildRain failed:', e);
             status('rain build failed (see console)', true);
@@ -1485,22 +974,9 @@ class MappingV3 {
             // radius clip: keep only pixels within the selected radius of the
             // centre. km-per-px of the frame = (2*halfKm)/W.
             const halfKm = this._rainHalfKm();
-            const frameHalfM = halfKm * 1000.0;
             const kmPerPx = (2.0 * halfKm) / W;
             const areaM = this.sel_rain_area ?
                 parseInt(this.sel_rain_area.value, 10) : 32000;
-
-            // FULL-FRAME mode: when the selected radius reaches (near) the frame
-            // half-extent, show the ENTIRE ČHMÚ square — every rain pixel,
-            // corners included. This is what "show the whole rain map" needs; the
-            // disc clip below is only for the smaller declutter radii. The 0.9
-            // factor means the top dropdown option counts as full even before the
-            // HTML relabel (old "full ~32 km" = 30 km ≈ 0.94·halfKm) is live.
-            if (areaM >= frameHalfM * 0.9) {
-                out.set(src.subarray(0, W * H * 4));
-                return out;
-            }
-
             const rPx = (areaM / 1000.0) / kmPerPx;   // radius in px
             const rPx2 = rPx * rPx;
             const ccx = W / 2, ccy = H / 2;
@@ -1568,11 +1044,8 @@ class MappingV3 {
         const T = this._r3d();
         if (!T || !this.viewer3d || !this.viewer3d.scene) { return null; }
         this.terrain_group = new T.Object3D();
-        // Layer-ordering contract: terrain is an OPT-IN elevation plane painted
-        // ABOVE the flat maps/costmaps (renderOrder MapLayerOrder.TERRAIN=12 on
-        // the mesh below). It keeps its tiny z=-0.02 bias only for historical
-        // reasons — paint order is decided purely by renderOrder because the
-        // whole flat stack is transparent + depthWrite=false, so z is inert.
+        // Layer-ordering contract: terrain sits just above the aerial tiles and
+        // below every occupancy grid (z + renderOrder from MapLayerOrder).
         this.terrain_group.position.z =
             (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.Z_TERRAIN : -0.02;
         this.viewer3d.scene.add(this.terrain_group);
@@ -1639,13 +1112,6 @@ class MappingV3 {
             tex.needsUpdate = true;
 
             const geo = new T.Geometry(w, h);             // PlaneBufferGeometry
-            // FLAT plane (no z-elevation geometry — height is encoded as colour).
-            // transparent + depthWrite=false is REQUIRED by the layer-ordering
-            // contract: the whole flat map stack overlaps in a near-identical
-            // z-band and relies on renderOrder (not depth) to sort. opacity 0.85
-            // is the terrain layer's own fixed setting (it has no separate opacity
-            // slider — the "Maps opacity" control deliberately governs only the
-            // occupancy grids), so the maps below stay faintly visible through it.
             const mat = new T.Material({
                 map: tex, transparent: true, opacity: 0.85, depthWrite: false
             });
@@ -1653,10 +1119,9 @@ class MappingV3 {
             const mesh = new T.Mesh(geo, mat);
             mesh.position.set((b.min_x + b.max_x) / 2,
                               (b.min_y + b.max_y) / 2, 0);
-            // Layer-ordering contract: opt-in terrain painted ABOVE the flat
-            // maps/costmaps (was below); still under EDITS/LIVE. See MapLayerOrder.
+            // Layer-ordering contract: above aerial, below every grid.
             mesh.renderOrder =
-                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.TERRAIN : 12;
+                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.TERRAIN : -50;
 
             // swap in the new mesh, dispose the old one only after the new is ready
             this._disposeTerrainMesh();
@@ -1715,56 +1180,6 @@ class MappingV3 {
         this.el_ranges_status.style.color = '';
     }
 
-    // Direct 2D raster mapper — publish ONE /mapping/set_direct JSON with all
-    // current control values (the backend accepts partial dicts too, but we
-    // always send the full set here since the form always has a full set of
-    // values once direct_status has arrived at least once).
-    applyDirect() {
-        const lidarR = parseFloat(this.in_direct_lidar_range.value);
-        const obsR = parseFloat(this.in_direct_obstacle_range.value);
-        const freeR = parseFloat(this.in_direct_free_range.value);
-        const minHits = parseInt(this.in_direct_min_hits.value, 10);
-        const ok = (v) => (v >= 0.5 && v <= 20.0);
-        if (!ok(lidarR) || !ok(obsR) || !ok(freeR)) {
-            this.el_direct_status.textContent =
-                'invalid: each range must be 0.5..20 m';
-            this.el_direct_status.style.color = '#ff6b6b';
-            return;
-        }
-        if (!(minHits >= 1 && minHits <= 50)) {
-            this.el_direct_status.textContent =
-                'invalid: min hits must be 1..50';
-            this.el_direct_status.style.color = '#ff6b6b';
-            return;
-        }
-        const payload = {
-            use_lidar: !!(this.chk_direct_use_lidar && this.chk_direct_use_lidar.checked),
-            lidar_max_range_m: lidarR,
-            lidar_free_no_hit: !!(this.chk_direct_free_no_hit && this.chk_direct_free_no_hit.checked),
-            use_cam_obstacle: !!(this.chk_direct_use_cam_obstacle && this.chk_direct_use_cam_obstacle.checked),
-            obstacle_max_range_m: obsR,
-            use_cam_free: !!(this.chk_direct_use_cam_free && this.chk_direct_use_cam_free.checked),
-            free_max_range_m: freeR,
-            min_hits: minHits
-        };
-        this.pub_set_direct.publish(
-            new ROSLIB.Message({data: JSON.stringify(payload)}));
-        this.el_direct_status.textContent = 'applying…';
-        // honest feedback: the settings are applied by the SESSION node — with
-        // no mapping session running there is nobody to hear the publish.
-        this._direct_apply_pending = Date.now();
-        setTimeout(() => {
-            if (this._direct_apply_pending) {
-                this._direct_apply_pending = null;
-                this.el_direct_status.textContent =
-                    'no reply — start a mapping session first '
-                    + '(settings apply to the running session)';
-                this.el_direct_status.style.color = '#ffd43b';
-            }
-        }, 3000);
-        this.el_direct_status.style.color = '';
-    }
-
     setActionsEnabled(on) {
         [this.btn_mode_rtk, this.btn_mode_force, this.btn_mode_off,
          this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear,
@@ -1821,37 +1236,6 @@ class MappingV3 {
                 this.el_serving.style.color = '';
             }
         }
-        // vitulus_ui: mirror the served site/raster into the map-edit panel header
-        // (small hook — piggybacks this existing status handler, no new sub).
-        var _mds = document.getElementById('map_detail_site');
-        if (_mds) _mds.textContent = s.serving ? (s.serving.site + ' / ' + s.serving.raster) : '—';
-        // vitulus_ui R2 (2026-07-18) + R3 (2026-07-19): the served site raster IS
-        // the displayed base map, so every registered active-map display (Map-tab
-        // header + the mini status-bar panel over the 3D view) shows
-        // "site (raster)"; the legacy navi map name (stamped as data-legacy by
-        // map_view.js / map_edit.js) is relegated to the tooltip. When nothing is
-        // served, data-site is cleared and each display falls back to the legacy
-        // name. The shared renderer reconciles both, order-independently, for
-        // every id in window.ACTIVE_MAP_NAME_ELS.
-        var _siteVal = s.serving ? (s.serving.site + ' (' + s.serving.raster + ')') : '';
-        (window.ACTIVE_MAP_NAME_ELS || ['active_map_name']).forEach(function (id) {
-            var _el = document.getElementById(id);
-            if (_el) {
-                _el.setAttribute('data-site', _siteVal);
-                _el.setAttribute('data-mapping',
-                                 (s.running && s.site) ? s.site : '');
-            }
-        });
-        if (window.renderActiveMapName) window.renderActiveMapName();
-        // WP-D2: enable "Edit map" only while a site is served (editor draws
-        // against the served map). Tooltip reflects the current state.
-        if (this.btn_edit_map) {
-            const serving = !!s.serving;
-            this.btn_edit_map.disabled = !serving;
-            this.btn_edit_map.title = serving
-                ? ('Edit the served map: ' + s.serving.site + '/' + s.serving.raster)
-                : 'Serve a site first — the editor draws edits/waypoints on the served map';
-        }
         // saved-map layer status (the latched site_map rendered in the 3D view)
         if (this.el_site_status) {
             if (s.serving) {
@@ -1873,48 +1257,6 @@ class MappingV3 {
             this.el_gate.style.color = '';
         }
         // sites list: datalist for the input + chips with stats
-        // vitulus_ui: layout-jitter fix (sibling of the dock.js dock-tab fix,
-        // 2026-07-18) — /mapping_manager/status is a continuous subscription
-        // that previously rebuilt this chip row from scratch on every single
-        // message even when the site list hadn't changed, which is wasted
-        // work and a needless reflow source. Skip the rebuild when the data
-        // driving it is unchanged.
-        // per-raster mgmt: the signature now also folds in `previewing` (so the
-        // active-preview row highlight / ✓ badge updates) — raster_list itself is
-        // already inside JSON.stringify(s.sites), so a new/removed raster or a
-        // changed cell count re-renders the expanded panel without rebuilding
-        // every tick. Client-side expand/collapse state is NOT in the signature:
-        // it is preserved across rebuilds (this._expandedSites) and drives a
-        // direct re-render on toggle.
-        const sitesSig = JSON.stringify(s.sites || []) + '|' +
-            (s.serving ? s.serving.site + '/' + s.serving.raster : '') + '|' +
-            (s.previewing ? s.previewing.site + '/' + s.previewing.raster : '') + '|' +
-            (s.running ? s.site : '');
-        if (this._lastSitesSig === sitesSig) {
-            return;
-        }
-        this._lastSitesSig = sitesSig;
-        this._lastStatus = s;
-        this.renderSitesRow(s);
-    }
-
-    // per-raster mgmt: unix-seconds -> "MM-DD HH:MM" for raster rows.
-    _fmtRasterDate(mtime) {
-        try {
-            const d = new Date(mtime * 1000);
-            const p = (n) => (n < 10 ? '0' + n : '' + n);
-            return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
-                   p(d.getHours()) + ':' + p(d.getMinutes());
-        } catch (e) { return '—'; }
-    }
-
-    // Render the Maps chip row + (per-raster mgmt) the expandable per-site raster
-    // panel. Called from handleManager (on a real data change) and directly on an
-    // expand/collapse toggle. Rebuilds via createElement so per-raster listeners
-    // attach cleanly; expanded/collapsed state lives in this._expandedSites and
-    // survives rebuilds.
-    renderSitesRow(s) {
-        if (!this._expandedSites) { this._expandedSites = new Set(); }
         this.datalist.innerHTML = '';
         this.el_sites.innerHTML = '';
         (s.sites || []).forEach((site) => {
@@ -1930,17 +1272,17 @@ class MappingV3 {
                           site.dem_kb + ' kB') +
                          ', ' + site.rasters + ' rasters' +
                          (site.has_ot ? ', 3D' : '');
+            // REPORT 2(c): the chip body previews (show_site) as before, and a
+            // dedicated Serve button actually publishes serve_site for that site
+            // (the previous handler only ever called show_site, so a chip could
+            // never switch the served map). Serve is only offered when the site
+            // has a raster; without one the manager would reject it (and now
+            // reports why), so we grey it out and hint Snapshot/Stop instead.
             const servable = site.rasters > 0;
             const served = s.serving && s.serving.site === site.name;
-            const expanded = this._expandedSites.has(site.name);
-            const caret = expanded ? '▾' : '▸';
-            // REPORT 2(c): the chip body previews (show_site) as before, and a
-            // dedicated Serve button publishes serve_site for that site. Per-raster
-            // mgmt: the chip ALSO toggles the expandable raster panel below.
             col.innerHTML =
                 '<div class="input-group input-group-sm">' +
-                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;" title="Show this site\'s saved map + expand its rasters">' +
-                '<span style="color:var(--bs-gray-500);margin-right:3px;">' + caret + '</span>' +
+                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;">' +
                 '<span class="text-info"><i class="fa fa-tree text-info" style="margin-right:3px;"></i>' +
                 site.name + (active ? ' ●' : '') + (served ? ' ✓' : '') + '</span>' +
                 '<span style="font-size:11px;color:var(--bs-gray-500);margin-left:6px;">' +
@@ -1948,20 +1290,14 @@ class MappingV3 {
                 '<button class="btn ' + (servable ? 'btn-success' : 'btn-secondary') +
                 ' mapv3-serve" type="button" title="' +
                 (servable ? 'Serve this site\'s newest raster (localization + costmaps)' :
-                 'No raster yet — one is saved automatically on Stop') +
+                 'No raster yet — press Snapshot while mapping, or it is saved on Stop') +
                 '"' + (servable ? '' : ' disabled') + '>Serve</button>' +
-                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;" title="Remove the whole site (DEM, 3D archive, all rasters)">' +
+                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;">' +
                 '<i class="fa fa-remove text-danger"></i></button></div>';
             col.querySelector('.mapv3-show').addEventListener('click', () => {
                 this.input_site.value = site.name;
-                // preview this site's saved map AND toggle the raster panel
+                // show this site's saved map in the previews
                 this.pub_show.publish(new ROSLIB.Message({data: site.name}));
-                if (this._expandedSites.has(site.name)) {
-                    this._expandedSites.delete(site.name);
-                } else {
-                    this._expandedSites.add(site.name);
-                }
-                if (this._lastStatus) { this.renderSitesRow(this._lastStatus); }
             });
             const serveBtn = col.querySelector('.mapv3-serve');
             if (serveBtn && servable) {
@@ -1975,148 +1311,14 @@ class MappingV3 {
                     }
                 });
             }
-            // whole-site delete keeps the double-click-confirm pattern used for
-            // rasters below (no window.confirm — that pattern is being retired).
-            this._wireDoubleClickDelete(col.querySelector('.mapv3-del'),
-                () => this.pub_remove.publish(new ROSLIB.Message({data: site.name})),
-                '<i class="fa fa-remove text-danger"></i>');
-            this.el_sites.appendChild(col);
-
-            // per-raster mgmt: expandable raster panel (full-width, wraps below
-            // the chip). Rendered only when expanded and the site has rasters.
-            if (expanded) {
-                this.el_sites.appendChild(
-                    this._buildRasterPanel(s, site));
-            }
-        });
-    }
-
-    // Double-click-confirm on a delete button (never window.confirm): first
-    // click arms + relabels "Confirm?" for 3 s; a second click within the window
-    // fires onConfirm. `restoreHtml` is the button's normal inner HTML.
-    _wireDoubleClickDelete(btn, onConfirm, restoreHtml) {
-        if (!btn) { return; }
-        let armed = false, timer = null;
-        btn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            if (!armed) {
-                armed = true;
-                btn.classList.add('btn-danger');
-                // compact label + let the button grow past its normal fixed
-                // width so the armed state never clips (field report 19.7.)
-                btn.dataset.prevWidth = btn.style.width || '';
-                btn.style.width = 'auto';
-                btn.style.whiteSpace = 'nowrap';
-                btn.innerHTML = '<span style="font-size:11px;">Sure?</span>';
-                timer = setTimeout(() => {
-                    armed = false;
-                    btn.classList.remove('btn-danger');
-                    btn.innerHTML = restoreHtml; btn.style.width = btn.dataset.prevWidth || '';
-                }, 3000);
-                return;
-            }
-            if (timer) { clearTimeout(timer); }
-            armed = false;
-            onConfirm();
-        });
-    }
-
-    // Build the per-site raster panel DOM (per-raster mgmt): one row per raster
-    // in site.raster_list — [name | date | free/obst cells | Preview | Serve |
-    // Delete], the served raster flagged ✓, the active-preview row highlighted.
-    _buildRasterPanel(s, site) {
-        const panel = document.createElement('div');
-        panel.className = 'col-12';
-        panel.style.cssText = 'margin:0 0 6px 14px;padding:4px 6px;border-left:2px solid var(--bs-gray-700);';
-        const list = site.raster_list || [];
-        if (!list.length) {
-            panel.innerHTML =
-                '<span style="font-size:11px;color:var(--bs-gray-500);">' +
-                'no rasters yet — one is saved automatically on Stop</span>';
-            return panel;
-        }
-        const servingR = (s.serving && s.serving.site === site.name)
-            ? s.serving.raster : null;
-        const previewR = (s.previewing && s.previewing.site === site.name)
-            ? s.previewing.raster : null;
-        list.forEach((r) => {
-            const isServed = (r.name === servingR);
-            const isPreview = (r.name === previewR);
-            const row = document.createElement('div');
-            row.className = 'input-group input-group-sm';
-            row.style.cssText = 'margin-bottom:3px;' +
-                (isPreview ? 'outline:1px solid #2a8cff;border-radius:3px;' : '');
-            const cells = (r.cells_free != null && r.cells_obstacle != null)
-                ? (r.cells_free + '/' + r.cells_obstacle + ' cells')
-                : '—';
-            const label = document.createElement('span');
-            label.className = 'input-group-text';
-            label.style.cssText = 'flex:1;justify-content:flex-start;font-size:11px;' +
-                'padding:2px 6px;text-align:left;overflow:hidden;';
-            label.innerHTML =
-                '<span class="text-info">' + r.name + (isServed ? ' ✓' : '') + '</span>' +
-                '<span style="color:var(--bs-gray-500);margin-left:6px;">' +
-                this._fmtRasterDate(r.mtime) + '</span>' +
-                '<span style="color:var(--bs-gray-500);margin-left:6px;">' +
-                cells + '</span>';
-            row.appendChild(label);
-
-            // Preview (toggle) — publishes preview_raster "site/raster" to show,
-            // or "" to clear when this row is already the active preview.
-            const prevBtn = document.createElement('button');
-            prevBtn.type = 'button';
-            prevBtn.className = 'btn ' + (isPreview ? 'btn-info' : 'btn-outline-info');
-            prevBtn.textContent = isPreview ? 'Previewing' : 'Preview';
-            prevBtn.title = 'Show this RAW raster (blue) in the 3D view for A/B ' +
-                'comparison vs the served map (no human edits). Click again to clear.';
-            prevBtn.addEventListener('click', () => {
-                const data = isPreview ? '' : (site.name + '/' + r.name);
-                this.pub_preview_raster.publish(new ROSLIB.Message({data: data}));
+            col.querySelector('.mapv3-del').addEventListener('click', () => {
+                if (confirm('Remove mapping site "' + site.name +
+                            '" (DEM, 3D archive, rasters)?')) {
+                    this.pub_remove.publish(new ROSLIB.Message({data: site.name}));
+                }
             });
-            row.appendChild(prevBtn);
-
-            // Serve — serve_site "site/raster": THIS sets the default.
-            const serveBtn = document.createElement('button');
-            serveBtn.type = 'button';
-            serveBtn.className = 'btn ' + (isServed ? 'btn-secondary' : 'btn-success');
-            serveBtn.textContent = isServed ? 'Served' : 'Serve';
-            serveBtn.disabled = isServed;
-            serveBtn.title = 'Serve = use for navigation + persists as default';
-            if (!isServed) {
-                serveBtn.addEventListener('click', () => {
-                    this.input_site.value = site.name;
-                    this.pub_serve.publish(new ROSLIB.Message(
-                        {data: site.name + '/' + r.name}));
-                    if (this.el_serving) {
-                        this.el_serving.textContent =
-                            'serving: requesting ' + site.name + '/' + r.name + '…';
-                        this.el_serving.style.color = '';
-                    }
-                });
-            }
-            row.appendChild(serveBtn);
-
-            // Delete — double-click-confirm -> remove_raster "site/raster".
-            // The served raster cannot be deleted (manager refuses); disable it.
-            const delBtn = document.createElement('button');
-            delBtn.type = 'button';
-            delBtn.className = 'btn btn-outline-danger';
-            delBtn.innerHTML = '<i class="fa fa-remove"></i>';
-            if (isServed) {
-                delBtn.disabled = true;
-                delBtn.title = 'Cannot delete the served raster — serve another first';
-            } else {
-                delBtn.title = 'Delete this raster (double-click to confirm)';
-                this._wireDoubleClickDelete(delBtn,
-                    () => this.pub_remove_raster.publish(new ROSLIB.Message(
-                        {data: site.name + '/' + r.name})),
-                    '<i class="fa fa-remove"></i>');
-            }
-            row.appendChild(delBtn);
-
-            panel.appendChild(row);
+            this.el_sites.appendChild(col);
         });
-        return panel;
     }
 
     handleGate(msg) {
@@ -2214,110 +1416,4 @@ class MappingV3 {
         this.el_proj.textContent = txt;
         this.el_proj.style.color = p.state === 'error' ? '#ff6b6b' : '';
     }
-
-    // Direct 2D raster mapper status — /mapping/direct_status, latched,
-    // ~1.5 Hz: {enabled, pass, reasons[], counters{lidar,cam_obstacle,
-    // cam_free:{in,throttled,gate_closed,passed}}, settings{...},
-    // grid{occ_cells,free_cells,observed_cells,shape,res,obstacle_frames,
-    // free_frames}}.
-    handleDirectStatus(msg) {
-        let s;
-        try { s = JSON.parse(msg.data); } catch (e) { return; }
-
-        // a status arriving while an Apply is pending = the session node
-        // received + echoed the settings -> show a clear applied tick
-        if (this._direct_apply_pending) {
-            this._direct_apply_pending = null;
-            this._direct_applied_until = Date.now() + 4000;
-        }
-
-        // Prefill the Apply controls exactly ONCE, from the first status that
-        // carries settings — deliberately NOT the band/ranges edit-guard
-        // (re-sync-unless-mid-edit): this stream arrives continuously at
-        // ~1.5 Hz, so re-applying it every message would fight with the user
-        // mid-edit far more aggressively than the slower gate/projector
-        // status streams. After the one-time prefill, only Apply changes
-        // what the backend sees; incoming settings are ignored.
-        if (s.settings && !this._directSettingsSeen) {
-            this._directSettingsSeen = true;
-            const st = s.settings;
-            if (this.chk_direct_use_lidar && st.use_lidar !== undefined)
-                this.chk_direct_use_lidar.checked = !!st.use_lidar;
-            if (this.in_direct_lidar_range && st.lidar_max_range_m !== undefined)
-                this.in_direct_lidar_range.value = st.lidar_max_range_m;
-            if (this.chk_direct_free_no_hit && st.lidar_free_no_hit !== undefined)
-                this.chk_direct_free_no_hit.checked = !!st.lidar_free_no_hit;
-            if (this.chk_direct_use_cam_obstacle && st.use_cam_obstacle !== undefined)
-                this.chk_direct_use_cam_obstacle.checked = !!st.use_cam_obstacle;
-            if (this.in_direct_obstacle_range && st.obstacle_max_range_m !== undefined)
-                this.in_direct_obstacle_range.value = st.obstacle_max_range_m;
-            if (this.chk_direct_use_cam_free && st.use_cam_free !== undefined)
-                this.chk_direct_use_cam_free.checked = !!st.use_cam_free;
-            if (this.in_direct_free_range && st.free_max_range_m !== undefined)
-                this.in_direct_free_range.value = st.free_max_range_m;
-            if (this.in_direct_min_hits && st.min_hits !== undefined)
-                this.in_direct_min_hits.value = st.min_hits;
-        }
-
-        if (!this.el_direct_status) return;
-        const g = s.grid || {};
-        const c = s.counters || {};
-        const passed = (k) => (c[k] && c[k].passed !== undefined) ? c[k].passed : '—';
-        let txt = (s.enabled ? 'enabled' : 'disabled') +
-            (s.pass === false ? ' | gate CLOSED' : '') +
-            ' | occ ' + (g.occ_cells !== undefined ? g.occ_cells : '—') +
-            ', free ' + (g.free_cells !== undefined ? g.free_cells : '—') +
-            ' cells | lidar ' + passed('lidar') +
-            ', cam obst ' + passed('cam_obstacle') +
-            ', cam free ' + passed('cam_free') + ' passed';
-        if (s.reasons && s.reasons.length) {
-            txt += ' — ' + s.reasons.join(', ');
-        }
-        const applied = this._direct_applied_until &&
-            Date.now() < this._direct_applied_until;
-        this.el_direct_status.textContent =
-            (applied ? '\u2713 applied \u00b7 ' : '') + txt;
-        this.el_direct_status.style.color = applied ? '#51cf66'
-            : ((s.reasons && s.reasons.length) ? '#ffd43b' : '');
-    }
 }
-
-// vitulus_ui 2026-07-18 — Map tab collapsible <details.map-sec> open-state
-// persistence. Each section carries data-mapsec="<name>"; the open/closed
-// state is remembered across reloads under localStorage key
-// 'vitulus_maptab_<name>'. Sections default to COLLAPSED (their markup omits
-// the `open` attribute); a stored '1' re-opens them. Fully self-contained and
-// independent of the ROS map view.
-(function initMapTabSections() {
-    // Wire one group of collapsible <details> to localStorage under a key
-    // prefix. `attr` names the data-* attribute carrying the section id.
-    function wireGroup(selector, attr, prefix) {
-        var secs = document.querySelectorAll(selector);
-        for (var i = 0; i < secs.length; i++) {
-            (function (d) {
-                var name = d.getAttribute(attr) || '';
-                if (!name) { return; }
-                var key = prefix + name;
-                try {
-                    var v = localStorage.getItem(key);
-                    if (v === '1') { d.open = true; }
-                    else if (v === '0') { d.open = false; }
-                } catch (e) { /* localStorage unavailable */ }
-                d.addEventListener('toggle', function () {
-                    try { localStorage.setItem(key, d.open ? '1' : '0'); } catch (e) { /* ignore */ }
-                });
-            })(secs[i]);
-        }
-    }
-    function wire() {
-        // Map tab (Phase 1)
-        wireGroup('#tab-map details.map-sec', 'data-mapsec', 'vitulus_maptab_');
-        // Phase 2 drawer panels (Path / Point / Dock / Rain / Loc)
-        wireGroup('details.drawer-sec', 'data-drawersec', 'vitulus_drawer_');
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', wire);
-    } else {
-        wire();
-    }
-})();
