@@ -534,8 +534,15 @@ class Dock {
             if (this.dock_status_div.innerHTML !== statusHtml) {
                 this.dock_status_div.innerHTML = statusHtml;
             }
-            // Add image container below status
-            if (this.dock_intensity_image_div) {
+            // layout-jitter fix 2026-08-08: visibility of the 480px image div
+            // is OWNED by handleIntensityEnabledStatus. This per-message
+            // unconditional 'block' fought the enabled=false 'none' — the div
+            // flapped block/none at status rate and everything below the
+            // intensity buttons bounced up/down by the canvas height. Only
+            // reveal here when intensity docking is enabled, and only touch
+            // style when it actually changes (no needless reflow).
+            if (this.dock_intensity_image_div && this.dockIntensityEnabled
+                    && this.dock_intensity_image_div.style.display !== 'block') {
                 this.dock_intensity_image_div.style.display = 'block';
                 this.dock_intensity_image_div.style.marginTop = '10px';
             }
@@ -583,8 +590,12 @@ class Dock {
             if (this.dock_map_status_div.innerHTML !== mapStatusHtml) {
                 this.dock_map_status_div.innerHTML = mapStatusHtml;
             }
-            // Add image container below status
-            if (this.dock_map_image_div) {
+            // layout-jitter fix 2026-08-08: same block/none flap as the
+            // intensity image div — visibility is OWNED by
+            // handleMapEnabledStatus; reveal here only when map docking is
+            // enabled and the style actually changes.
+            if (this.dock_map_image_div && this.dockMapEnabled
+                    && this.dock_map_image_div.style.display !== 'block') {
                 this.dock_map_image_div.style.display = 'block';
                 this.dock_map_image_div.style.marginTop = '10px';
             }
