@@ -2151,8 +2151,10 @@ class MappingV3 {
             this.datalist.appendChild(o);
 
             const col = document.createElement('div');
-            col.className = 'col-auto';
-            col.style.cssText = 'margin-right:6px;margin-bottom:4px;';
+            // 2026-08-16 UI redo v3 (screenshot): the Bootstrap flex .row
+            // stretched wrapped lines into huge voids between maps — the list
+            // is a plain vertical block column now (flex has no business here).
+            col.style.cssText = 'margin-bottom:4px;';
             const active = s.running && s.site === site.name;
             const info = (site.dem_m2 !== undefined ? site.dem_m2 + ' m²' :
                           site.dem_kb + ' kB') +
@@ -2264,7 +2266,6 @@ class MappingV3 {
     // Delete], the served raster flagged ✓, the active-preview row highlighted.
     _buildRasterPanel(s, site) {
         const panel = document.createElement('div');
-        panel.className = 'col-12';
         // 2026-08-16 UI redo v2: hug the content (max-width) instead of
         // stretching version rows across the whole drawer, and say what the
         // list IS — the field feedback was 'what is this and why the void'.
