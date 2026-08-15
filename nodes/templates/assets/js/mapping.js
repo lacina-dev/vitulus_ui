@@ -2279,10 +2279,17 @@ class MappingV3 {
     _buildRasterPanel(s, site) {
         const panel = document.createElement('div');
         panel.className = 'col-12';
-        panel.style.cssText = 'margin:0 0 6px 14px;padding:4px 6px;border-left:2px solid var(--bs-gray-700);';
+        // 2026-08-16 UI redo v2: hug the content (max-width) instead of
+        // stretching version rows across the whole drawer, and say what the
+        // list IS — the field feedback was 'what is this and why the void'.
+        panel.style.cssText = 'margin:0 0 6px 14px;padding:4px 6px;' +
+            'border-left:2px solid var(--bs-gray-700);max-width:430px;';
         const list = site.raster_list || [];
+        panel.innerHTML = '<div style="font-size:11px;color:var(--bs-gray-500);' +
+            'margin-bottom:3px;">Saved versions of this map (one per ' +
+            '&quot;Save &amp; finish&quot;, newest first)</div>';
         if (!list.length) {
-            panel.innerHTML =
+            panel.innerHTML +=
                 '<span style="font-size:11px;color:var(--bs-gray-500);">' +
                 'no saved versions yet — one is created by Save & finish</span>';
             return panel;

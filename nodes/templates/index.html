@@ -766,6 +766,16 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         </div>
                                         <!-- second overview line: recording state (filled by mapping.js) -->
                                         <div id="mapv3_hdr_session" style="font-size: 12px;margin: 2px 0 4px 0;opacity: .85;">&mdash;</div>
+                                        <!-- 2026-08-16 UI redo v2 (field feedback): Saved maps moved UP right
+                                             under the status header — first WHAT EXISTS and what is active,
+                                             then recording a new one. IDs unchanged (mapping.js innerHTML). -->
+                                        <div style="margin: 2px 0 6px 0;">
+                                            <div id="mapv3_maps_header" style="display: flex;align-items: center;gap: 8px;flex-wrap: wrap;">
+                                                <span class="drawer-hint">Saved maps</span>
+                                                <span id="mapv3_serving_status" style="font-size: 12px;opacity: .9;">active: &mdash;</span>
+                                            </div>
+                                            <div class="row g-0" id="mapv3_sites_row" style="margin-top: 4px;"></div>
+                                        </div>
                                         <!-- LAYER QUICK-TOGGLES (always visible) -->
                                         <div class="map-layers-row">
                                             <span style="font-size: 11px;opacity: .7;">Layers</span>
@@ -965,23 +975,6 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <span id="mapv3_dem_status" style="font-size: 12px;display: block;">&mdash;</span>
                                             </div>
                                         </details>
-
-                                        <!-- vitulus_ui fix3 (2026-07-18): saved-sites / served-map list pulled OUT
-                                             of the "Mapping session" <details> so serving a map (a primary action)
-                                             is ALWAYS visible below the collapsible sections. Single element,
-                                             ID-driven by mapping.js (el_sites = #mapv3_sites_row); the row is
-                                             rebuilt purely via innerHTML on a signature guard, so the move is
-                                             transparent to the JS and it stays live while a mapping session is open. -->
-                                        <div style="margin-top: 6px;">
-                                            <!-- 2026-08-09 session-controls redo: the serving status line and the
-                                                 (JS-appended) Edit map button moved HERE from the Mapping session
-                                                 block — serving is a property of the Maps list, not of the session. -->
-                                            <div id="mapv3_maps_header" style="display: flex;align-items: center;gap: 8px;flex-wrap: wrap;">
-                                                <span class="drawer-hint">Saved maps</span>
-                                                <span id="mapv3_serving_status" style="font-size: 12px;opacity: .9;">active: &mdash;</span>
-                                            </div>
-                                            <div class="row g-0" id="mapv3_sites_row" style="margin-top: 4px;"></div>
-                                        </div>
 
                                         <!-- vitulus_ui R4 (2026-07-18): Rain radar section removed - its tuning
                                              cluster now lives inside the Map layers section as a display sub-block.
