@@ -765,6 +765,11 @@ class MappingV3 {
             this.chk_aerial.addEventListener('change', () => {
                 this._saveLayerPref('vitulus_layer_aerial', this.chk_aerial.checked);
                 if (this.chk_aerial.checked) {
+                    // 2026-08-16 field fix: re-ticking the layer must RE-FETCH
+                    // the datum — the cache made a toggle useless after a new
+                    // site's datum was captured mid-session (only a full page
+                    // reload realigned the tiles).
+                    this.aerial_datum = null;
                     this.rebuildAerial();
                 } else if (this.aerial_group) {
                     this.aerial_group.visible = false;
@@ -2356,6 +2361,18 @@ class MappingV3 {
         let g;
         try { g = JSON.parse(msg.data); } catch (e) { return; }
 
+        // 2026-08-16 field fix: when a FRESH site's datum gets captured
+        // mid-session (start without RTK, fix arrives outside), the aerial
+        // tiles were placed from the stale/dangling datum until a full page
+        // reload. Auto-refresh the tiles on the capture edge.
+        if (g.datum_captured && !this._aerialDatumCaptured) {
+            this._aerialDatumCaptured = true;
+            this.aerial_datum = null;
+            if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
+        } else if (!g.datum_captured) {
+            this._aerialDatumCaptured = false;
+        }
+
         // range caps: prefill inputs (unless user is mid-edit) and show applied
         if (g.lidar_max_m !== undefined && g.depth_max_m !== undefined) {
             if (!this.ranges_edited && this.in_lidar_max) {
@@ -2501,6 +2518,21 @@ class MappingV3 {
                 });
                 if (cur && s.presets.some((p) => p.name === cur)) {
                     this.sel_direct_preset.value = cur;
+                } else {
+                    // settings-persistence: first fill (or vanished selection)
+                    // -> re-select the preset remembered from the last session.
+                    // Selection only — nothing is applied/published here.
+                    const remembered = this._strPref('vitulus_direct_preset_sel', '');
+                    if (remembered && s.presets.some((p) => p.name === remembered)) {
+                        this.sel_direct_preset.value = remembered;
+                    }
+                }
+                if (!this._directPresetSelWired) {
+                    this._directPresetSelWired = true;
+                    this.sel_direct_preset.addEventListener('change', () => {
+                        this._saveStrPref('vitulus_direct_preset_sel',
+                            this.sel_direct_preset.value);
+                    });
                 }
             }
         }
