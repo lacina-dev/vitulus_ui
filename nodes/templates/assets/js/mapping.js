@@ -460,22 +460,22 @@ class MappingV3 {
             const site = this.input_site.value.trim();
             if (!site) { this.input_site.focus(); return; }
             this.pub_start.publish(new ROSLIB.Message({data: site}));
-            this.el_run.textContent = 'spouštím nahrávání „' + site + '"…';
+            this.el_run.textContent = 'starting recording "' + site + '"…';
         });
         this.btn_stop.addEventListener('click', () => {
             this.pub_stop.publish(new ROSLIB.Message({data: ''}));
-            this.el_run.textContent = 'ukládám mapu a ukončuji…';
+            this.el_run.textContent = 'saving map & finishing…';
         });
         // 2026-08-09 session controls: Reset map + Discard, both behind the
         // same double-click-confirm pattern the delete buttons use.
         this._wireDoubleClickDelete(this.btn_reset_map, () => {
             this.pub_reset_direct.publish(new ROSLIB.Message({data: ''}));
-            this.el_run.textContent = 'rozpracovaná mapa vymazána — nahrává se dál…';
-        }, 'Vymazat a nahrávat dál');
+            this.el_run.textContent = 'in-progress map erased — still recording…';
+        }, 'Erase & keep recording');
         this._wireDoubleClickDelete(this.btn_discard, () => {
             this.pub_stop.publish(new ROSLIB.Message({data: 'discard'}));
-            this.el_run.textContent = 'zahazuji bez uložení…';
-        }, 'Zahodit bez uložení');
+            this.el_run.textContent = 'discarding (no save)…';
+        }, 'Discard (no save)');
 
         // WP-D2: "Edit map" entry — opens the in-view map editor (mapeditor.js
         // detail panel) keeping the SERVED site_map as the base. Created
@@ -489,9 +489,9 @@ class MappingV3 {
             this.btn_edit_map = document.createElement('button');
             this.btn_edit_map.className = 'btn btn-info btn-sm';
             this.btn_edit_map.type = 'button';
-            this.btn_edit_map.textContent = 'Upravit mapu';
+            this.btn_edit_map.textContent = 'Edit map';
             this.btn_edit_map.disabled = true;
-            this.btn_edit_map.title = 'Nejdřív aktivuj mapu — editor kreslí úpravy a waypointy do aktivní mapy';
+            this.btn_edit_map.title = 'Activate a map first — the editor draws edits/waypoints into the ACTIVE map';
             mapsHeader.appendChild(this.btn_edit_map);
             this.btn_edit_map.addEventListener('click', () => {
                 try {
@@ -2040,11 +2040,11 @@ class MappingV3 {
         const hdr = document.getElementById('mapv3_hdr_session');
         if (hdr) {
             if (s.running) {
-                hdr.innerHTML = '● Nahrává se mapa: <b>' + s.site + '</b> ('
+                hdr.innerHTML = '● Recording map: <b>' + s.site + '</b> ('
                     + Math.floor((s.uptime_s || 0) / 60) + ' min)';
                 hdr.style.color = '#51cf66';
             } else {
-                hdr.textContent = 'Nenahrává se žádná mapa';
+                hdr.textContent = 'No map recording';
                 hdr.style.color = '';
             }
         }
@@ -2052,14 +2052,14 @@ class MappingV3 {
             if (s.serve_error) {
                 // REPORT 2(b): show WHY a serve was rejected instead of the UI
                 // silently staying on the old map. Cleared on the next success.
-                this.el_serving.textContent = 'aktivace selhala: ' + s.serve_error;
+                this.el_serving.textContent = 'activation failed: ' + s.serve_error;
                 this.el_serving.style.color = '#ff6b6b';
             } else if (s.serving) {
-                this.el_serving.textContent = 'aktivní: ' + s.serving.site +
+                this.el_serving.textContent = 'active: ' + s.serving.site +
                     ' (' + s.serving.raster + ')';
                 this.el_serving.style.color = '';
             } else {
-                this.el_serving.textContent = 'aktivní: —';
+                this.el_serving.textContent = 'active: —';
                 this.el_serving.style.color = '';
             }
         }
@@ -2091,25 +2091,25 @@ class MappingV3 {
             const serving = !!s.serving;
             this.btn_edit_map.disabled = !serving;
             this.btn_edit_map.title = serving
-                ? ('Upravit aktivní mapu: ' + s.serving.site + '/' + s.serving.raster)
-                : 'Nejdřív aktivuj mapu — editor kreslí úpravy a waypointy do aktivní mapy';
+                ? ('Edit the ACTIVE map: ' + s.serving.site + '/' + s.serving.raster)
+                : 'Activate a map first — the editor draws edits/waypoints into the ACTIVE map';
         }
         // saved-map layer status (the latched site_map rendered in the 3D view)
         if (this.el_site_status) {
             if (s.serving) {
-                this.el_site_status.textContent = 'aktivní mapa ve 3D: ' +
+                this.el_site_status.textContent = 'active map in 3D: ' +
                     s.serving.site + '/' + s.serving.raster;
             } else {
                 this.el_site_status.textContent =
-                    'aktivní mapa: — (aktivuj mapu v seznamu Uložené mapy)';
+                    'active map: — (activate one in the Saved maps list)';
             }
         }
         if (s.running) {
             const up = Math.floor(s.uptime_s / 60);
-            this.el_run.textContent = '● nahrávám „' + s.site + '" (' + up + ' min)';
+            this.el_run.textContent = '● recording "' + s.site + '" (' + up + ' min)';
             this.el_run.style.color = '#51cf66';
         } else {
-            this.el_run.textContent = 'nenahrává se';
+            this.el_run.textContent = 'not recording';
             this.el_run.style.color = '';
             this.el_gate.textContent = '—';
             this.el_gate.style.color = '';
@@ -2170,7 +2170,7 @@ class MappingV3 {
             const active = s.running && s.site === site.name;
             const info = (site.dem_m2 !== undefined ? site.dem_m2 + ' m²' :
                           site.dem_kb + ' kB') +
-                         ', verzí: ' + site.rasters +
+                         ', versions: ' + site.rasters +
                          (site.has_ot ? ', 3D' : '');
             const servable = site.rasters > 0;
             const served = s.serving && s.serving.site === site.name;
@@ -2180,11 +2180,11 @@ class MappingV3 {
             // (lokalizace/navigace podle ní) vs ● nahrává se; „Serve" verb
             // přejmenován na „Aktivovat".
             const badges =
-                (served ? ' <span style="font-size:10px;background:#2b8a3e;color:#fff;border-radius:3px;padding:0 4px;">AKTIVNÍ</span>' : '') +
-                (active ? ' <span style="font-size:10px;background:#e8590c;color:#fff;border-radius:3px;padding:0 4px;">● nahrává se</span>' : '');
+                (served ? ' <span style="font-size:10px;background:#2b8a3e;color:#fff;border-radius:3px;padding:0 4px;">ACTIVE</span>' : '') +
+                (active ? ' <span style="font-size:10px;background:#e8590c;color:#fff;border-radius:3px;padding:0 4px;">● recording</span>' : '');
             col.innerHTML =
                 '<div class="input-group input-group-sm">' +
-                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;" title="Zobrazit náhled této mapy + rozbalit její uložené verze">' +
+                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;" title="Preview this map + expand its saved versions">' +
                 '<span style="color:var(--bs-gray-500);margin-right:3px;">' + caret + '</span>' +
                 '<span class="text-info"><i class="fa fa-tree text-info" style="margin-right:3px;"></i>' +
                 site.name + badges + '</span>' +
@@ -2192,10 +2192,10 @@ class MappingV3 {
                 info + '</span></button>' +
                 '<button class="btn ' + (servable ? 'btn-success' : 'btn-secondary') +
                 ' mapv3-serve" type="button" title="' +
-                (servable ? 'Nastaví tuto mapu jako AKTIVNÍ (nejnovější verzi) — robot se podle ní bude lokalizovat a navigovat' :
-                 'Zatím nemá žádnou uloženou verzi — vznikne při „Uložit a ukončit"') +
-                '"' + (servable ? '' : ' disabled') + '>Aktivovat</button>' +
-                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;" title="Smazat celou mapu (DEM i všechny verze). Potvrzení druhým klikem.">' +
+                (servable ? 'Make this map ACTIVE (newest version) — the robot will localize + navigate on it' :
+                 'No saved version yet — one is created by Save & finish') +
+                '"' + (servable ? '' : ' disabled') + '>Activate</button>' +
+                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;" title="Delete the whole map (DEM + all versions). Click twice to confirm.">' +
                 '<i class="fa fa-remove text-danger"></i></button></div>';
             col.querySelector('.mapv3-show').addEventListener('click', () => {
                 this.input_site.value = site.name;
@@ -2215,7 +2215,7 @@ class MappingV3 {
                     this.pub_serve.publish(new ROSLIB.Message({data: site.name}));
                     if (this.el_serving) {
                         this.el_serving.textContent =
-                            'aktivuji ' + site.name + '…';
+                            'activating ' + site.name + '…';
                         this.el_serving.style.color = '';
                     }
                 });
@@ -2252,7 +2252,7 @@ class MappingV3 {
                 btn.dataset.prevWidth = btn.style.width || '';
                 btn.style.width = 'auto';
                 btn.style.whiteSpace = 'nowrap';
-                btn.innerHTML = '<span style="font-size:11px;">Opravdu?</span>';
+                btn.innerHTML = '<span style="font-size:11px;">Sure?</span>';
                 timer = setTimeout(() => {
                     armed = false;
                     btn.classList.remove('btn-danger');
@@ -2284,7 +2284,7 @@ class MappingV3 {
         if (!list.length) {
             panel.innerHTML =
                 '<span style="font-size:11px;color:var(--bs-gray-500);">' +
-                'zatím žádné uložené verze — verze vznikne při „Uložit a ukončit"</span>';
+                'no saved versions yet — one is created by Save & finish</span>';
             return panel;
         }
         const servingR = (s.serving && s.serving.site === site.name)
@@ -2318,9 +2318,9 @@ class MappingV3 {
             const prevBtn = document.createElement('button');
             prevBtn.type = 'button';
             prevBtn.className = 'btn ' + (isPreview ? 'btn-info' : 'btn-outline-info');
-            prevBtn.textContent = isPreview ? 'Zobrazen' : 'Náhled';
-            prevBtn.title = 'Zobrazí tuto verzi modře ve 3D pohledu pro porovnání ' +
-                's aktivní mapou (nic nemění). Druhým klikem se náhled schová.';
+            prevBtn.textContent = isPreview ? 'Previewing' : 'Preview';
+            prevBtn.title = 'Show this version in blue in the 3D view for comparison ' +
+                'with the active map (changes nothing). Click again to hide.';
             prevBtn.addEventListener('click', () => {
                 const data = isPreview ? '' : (site.name + '/' + r.name);
                 this.pub_preview_raster.publish(new ROSLIB.Message({data: data}));
@@ -2331,9 +2331,9 @@ class MappingV3 {
             const serveBtn = document.createElement('button');
             serveBtn.type = 'button';
             serveBtn.className = 'btn ' + (isServed ? 'btn-secondary' : 'btn-success');
-            serveBtn.textContent = isServed ? 'Aktivní' : 'Aktivovat';
+            serveBtn.textContent = isServed ? 'Active' : 'Activate';
             serveBtn.disabled = isServed;
-            serveBtn.title = 'Nastaví TUTO verzi jako aktivní mapu (lokalizace + navigace)';
+            serveBtn.title = 'Make THIS version the active map (localization + navigation)';
             if (!isServed) {
                 serveBtn.addEventListener('click', () => {
                     this.input_site.value = site.name;
@@ -2341,7 +2341,7 @@ class MappingV3 {
                         {data: site.name + '/' + r.name}));
                     if (this.el_serving) {
                         this.el_serving.textContent =
-                            'aktivuji ' + site.name + '/' + r.name + '…';
+                            'activating ' + site.name + '/' + r.name + '…';
                         this.el_serving.style.color = '';
                     }
                 });
@@ -2356,9 +2356,9 @@ class MappingV3 {
             delBtn.innerHTML = '<i class="fa fa-remove"></i>';
             if (isServed) {
                 delBtn.disabled = true;
-                delBtn.title = 'Aktivní verzi nelze smazat — nejdřív aktivuj jinou';
+                delBtn.title = 'The active version cannot be deleted — activate another first';
             } else {
-                delBtn.title = 'Smazat tuto verzi (potvrzení druhým klikem)';
+                delBtn.title = 'Delete this version (click twice to confirm)';
                 this._wireDoubleClickDelete(delBtn,
                     () => this.pub_remove_raster.publish(new ROSLIB.Message(
                         {data: site.name + '/' + r.name})),

@@ -750,25 +750,25 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                 </ul>
                                 <div class="tab-content" style="overflow: clip;">
                                     <div class="tab-pane active" role="tabpanel" id="tab-map" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                        <!-- STAVOVÝ PŘEHLED (2026-08-16 UI redo): vždy viditelný — na první
-                                             pohled JAKÁ mapa je aktivní (servírovaná = lokalizace+navigace)
-                                             a JESTLI/JAKÁ se právě nahrává. Řeší hlavní zmatek „s jakou
-                                             mapou co pracuje". -->
+                                        <!-- STATUS OVERVIEW (2026-08-16 UI redo): always visible — at a glance
+                                             WHICH map is active (served = localization+navigation) and
+                                             WHETHER/WHICH one is being recorded. Fixes the main
+                                             which-map-does-what confusion. -->
                                         <div class="map-top">
-                                            <span style="font-size: 12px;opacity: .7;">Aktivní mapa:</span>
+                                            <span style="font-size: 12px;opacity: .7;">Active map:</span>
                                             <span class="text-info" id="active_map_name" style="font-size: 13px;font-weight: 600;">&mdash;</span>
-                                            <button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Upravit detail aktivní mapy (plánovací data, zóny, polygony)"><i class="la la-edit text-info" style="font-size: 15px;"></i><span class="text-info" style="font-size: 12px;margin-left: 5px;">Edit</span></button>
+                                            <button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit the ACTIVE map detail (planner data, zones, polygons)"><i class="la la-edit text-info" style="font-size: 15px;"></i><span class="text-info" style="font-size: 12px;margin-left: 5px;">Edit</span></button>
                                             <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — legacy Planner/Rtabmap display source toggle (drives /navi_manager/show_map); site-native serves the site raster as the base map so the toggle is obsolete. IDs kept present for map_view.js bindings. -->
                                             <div class="btn-group btn-group-sm ms-auto" role="group" title="Display source of the occupancy map" style="display:none;">
                                                 <button class="btn btn-primary" id="btn_menu_map_planner_show" type="button">Planner</button>
                                                 <button class="btn btn-primary" id="btn_menu_map_rtabmap_show" type="button">Rtabmap</button>
                                             </div>
                                         </div>
-                                        <!-- druhý řádek přehledu: stav nahrávání (plní mapping.js) -->
+                                        <!-- second overview line: recording state (filled by mapping.js) -->
                                         <div id="mapv3_hdr_session" style="font-size: 12px;margin: 2px 0 4px 0;opacity: .85;">&mdash;</div>
                                         <!-- LAYER QUICK-TOGGLES (always visible) -->
                                         <div class="map-layers-row">
-                                            <span style="font-size: 11px;opacity: .7;">Vrstvy</span>
+                                            <span style="font-size: 11px;opacity: .7;">Layers</span>
                                             <div class="form-check form-check-inline" title="Saved map obstacles"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label" for="mapv3_chk_site" style="font-size: 12px;">Saved <span style="color:#ff4d4d;">&#9632;</span></label></div>
                                             <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — the band /mapping/obstacle_map "Live" (orange) layer is gone; the Direct (black) layer is the live map now. ID kept present for mapping.js. -->
                                             <div class="form-check form-check-inline" title="Live mapping obstacles" style="display:none;"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label" for="mapv3_chk_live" style="font-size: 12px;">Live <span style="color:#ff7800;">&#9632;</span></label></div>
@@ -779,26 +779,26 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <div class="form-check form-check-inline" title="&#268;HM&Uacute; rain radar overlay"><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label" for="mapv3_chk_rain" style="font-size: 12px;">Rain <span style="color:#0000fc;">&#9632;</span></label></div>
                                         </div>
 
-                                        <!-- SECTION: Nahrávání mapy (2026-08-16 UI redo: každé tlačítko říká,
-                                             s KTEROU mapou co udělá — hlavní zpětná vazba z pole) -->
+                                        <!-- SECTION: Map recording (2026-08-16 UI redo: every button says what
+                                             it does to WHICH map — the main field feedback) -->
                                         <details class="map-sec" data-mapsec="session">
-                                            <summary>Nahrávání mapy</summary>
+                                            <summary>Map recording</summary>
                                             <div class="map-sec-body">
                                                 <div class="input-group input-group-sm" style="max-width: 420px;">
                                                     <span class="input-group-text"><i class="fa fa-tree"></i></span>
-                                                    <input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="Název nové mapy">
+                                                    <input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="New map name">
                                                     <datalist id="mapv3_sites"></datalist>
-                                                    <button class="btn btn-primary" id="mapv3_btn_start" type="button" title="Začne nahrávat mapu s tímto názvem. Existující název = pokračování/přemapování té mapy, nový název = úplně nová mapa.">Začít nahrávat</button>
-                                                    <button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled title="Ukončí nahrávání a nahranou mapu ULOŽÍ — a rovnou ji nastaví jako aktivní (bude se podle ní lokalizovat a navigovat).">Uložit a ukončit</button>
+                                                    <button class="btn btn-primary" id="mapv3_btn_start" type="button" title="Starts recording a map under this name. Existing name = continue/remap that map, new name = brand new map.">Start recording</button>
+                                                    <button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled title="Finishes recording and SAVES the recorded map — and immediately makes it the ACTIVE map (localization + navigation will use it).">Save &amp; finish</button>
                                                 </div>
                                                 <div class="btn-group btn-group-sm" role="group" style="margin-top: 4px;">
-                                                    <button class="btn btn-outline-warning" id="mapv3_btn_reset_map" type="button" disabled title="Smaže VŠECHNO dosud nahrané v TÉTO rozpracované mapě a nahrává se dál od nuly (nastavení i session zůstávají). Aktivní mapy se nedotkne. Potvrzení druhým klikem.">Vymazat a nahrávat dál</button>
-                                                    <button class="btn btn-outline-danger" id="mapv3_btn_discard" type="button" disabled title="Ukončí nahrávání a rozpracovanou mapu ZAHODÍ (neuloží se nic). Aktivní mapa zůstává ta dosavadní. Potvrzení druhým klikem.">Zahodit bez uložení</button>
+                                                    <button class="btn btn-outline-warning" id="mapv3_btn_reset_map" type="button" disabled title="Erases EVERYTHING recorded so far in THIS in-progress map and keeps recording from zero (settings + session stay). Does not touch the active map. Click twice to confirm.">Erase &amp; keep recording</button>
+                                                    <button class="btn btn-outline-danger" id="mapv3_btn_discard" type="button" disabled title="Ends recording and THROWS AWAY the in-progress map (nothing is saved). The active map stays as it is. Click twice to confirm.">Discard (no save)</button>
                                                 </div>
-                                                <span id="mapv3_run_status" style="font-size: 12px;display: block;margin-top: 4px;">čekám na mapping_manager&hellip;</span>
+                                                <span id="mapv3_run_status" style="font-size: 12px;display: block;margin-top: 4px;">waiting for mapping_manager&hellip;</span>
 
                                                 <!-- 2026-07-19: octomap/band mapping retired — RTK/Force/Off mode buttons hidden below; read-only localization line KEPT. -->
-                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="Živá kvalita lokalizace během nahrávání (zdroj pózy, RTK fix, hAcc, heading).">Lokalizace při nahrávání</div>
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="Live localization quality while recording (pose source, RTK fix, hAcc, heading).">Localization while recording</div>
                                                 <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — insertion-gate mode buttons (/mapping/gate_mode). IDs kept present for mapping.js. -->
                                                 <div class="btn-group btn-group-sm" role="group" style="display:none;">
                                                     <button class="btn btn-primary" id="mapv3_btn_mode_rtk" type="button" disabled title="Insert only at RTK FIXED (normal mapping)">RTK</button>
@@ -807,18 +807,18 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 </div>
                                                 <span id="mapv3_gate_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
 
-                                                <!-- 2026-08-16 UI redo: preset prostředí je HLAVNÍ ladicí ovladač —
-                                                     vytažen před sbalené pokročilé slidery. IDs beze změny. -->
+                                                <!-- 2026-08-16 UI redo: the environment preset is the PRIMARY tuning
+                                                     control — promoted above the collapsed advanced sliders. Same IDs. -->
                                                 <hr style="margin: 8px 0;">
-                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Pojmenované sady parametrů snímání podle prostředí (nízká/vysoká tráva, dvůr, křoví…). Načíst = aplikuje se hned do běžícího nahrávání.">Preset prostředí</div>
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="Named sensing-parameter sets per environment (short/tall grass, paved yard, bushes…). Load applies instantly to the running recording.">Environment preset</div>
                                                 <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
                                                     <select class="form-select" id="mapv3_direct_preset" style="font-size: 12px;"></select>
-                                                    <button class="btn btn-primary" id="mapv3_direct_preset_load" type="button" title="Aplikuje vybraný preset živě do běžícího nahrávání">Načíst</button>
+                                                    <button class="btn btn-primary" id="mapv3_direct_preset_load" type="button" title="Apply the selected preset live to the running recording">Load</button>
                                                 </div>
                                                 <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <input class="bg-secondary form-control" type="text" id="mapv3_direct_preset_name" placeholder="název presetu" style="font-size: 12px;">
-                                                    <button class="btn btn-outline-primary" id="mapv3_direct_preset_save" type="button" title="Uloží AKTUÁLNÍ hodnoty sliderů jako pojmenovaný preset (stejný název = přepsání)">Uložit</button>
-                                                    <button class="btn btn-outline-danger" id="mapv3_direct_preset_del" type="button" title="Smaže vybraný VLASTNÍ preset (vestavěné smazat nejdou)">Smazat</button>
+                                                    <input class="bg-secondary form-control" type="text" id="mapv3_direct_preset_name" placeholder="preset name" style="font-size: 12px;">
+                                                    <button class="btn btn-outline-primary" id="mapv3_direct_preset_save" type="button" title="Save the CURRENT slider values as a named preset (same name = overwrite)">Save</button>
+                                                    <button class="btn btn-outline-danger" id="mapv3_direct_preset_del" type="button" title="Delete the selected CUSTOM preset (builtins cannot be deleted)">Delete</button>
                                                 </div>
 
                                                 <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — octomap Actions (Raster regen from octomap+DEM / full Snapshot / Compare-vs-rtabmap) and the band projector_status line. IDs kept present for mapping.js (btn_raster.parentNode also hosts the dynamically-appended "Clear 3D" octomap-archive button, which inherits this hidden state). -->
@@ -867,11 +867,11 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 </div>
                                                 <!-- end hidden octomap classification/ranges block -->
 
-                                                <!-- 2026-08-16 UI redo: všechny živé slidery direct mapperu sbalené
-                                                     do „Pokročilé ladění" — preset nahoře je hlavní ovladač; slidery
-                                                     jsou pro doladění v terénu. IDs a wiring beze změny. -->
+                                                <!-- 2026-08-16 UI redo: all live direct-mapper sliders folded into
+                                                     "Advanced sensing tuning" — the preset above is the primary control;
+                                                     sliders are for field fine-tuning. Same IDs and wiring. -->
                                                 <details class="map-adv" style="margin-top: 8px;">
-                                                <summary style="font-size: 12px;cursor: pointer;" title="Živé slidery snímání (zdroje, kamerový filtr, evidenční model) — aplikují se okamžitě do běžícího nahrávání.">Pokročilé ladění snímání</summary>
+                                                <summary style="font-size: 12px;cursor: pointer;" title="Live sensing sliders (sources, camera filter, evidence model) — applied instantly to the running recording.">Advanced sensing tuning</summary>
                                                 <div style="margin-top: 3px;max-width: 340px;">
                                                     <span title="Use the lidar scan as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_lidar" style="margin:0 4px 0 0;" checked><span style="font-size: 12px;">Lidar range</span></span>
                                                     <span id="mapv3_direct_lidar_range_val" style="font-size: 12px;opacity: .8;float: right;">&mdash;</span>
@@ -891,7 +891,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <input class="form-check-input" type="checkbox" id="mapv3_direct_free_no_hit"><label class="form-check-label" for="mapv3_direct_free_no_hit" style="font-size: 12px;">No-hit ray free</label>
                                                 </div>
 
-                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 0;" title="Co se počítá jako kamerová překážka. Výšky jsou metry nad base_link. Aplikuje se živě.">Filtr kamerových překážek</div>
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 0;" title="What counts as a camera obstacle. Heights are metres above base_link. Applied live.">Camera obstacle filter</div>
                                                 <div style="max-width: 340px;">
                                                     <div style="font-size: 12px;margin-top: 4px;" title="Obstacle floor: points BELOW this height are ignored (raise above grass-tip height in tall grass)">Height min <span id="mapv3_direct_obs_hmin_val" style="opacity: .8;">&mdash;</span></div>
                                                     <input type="range" id="mapv3_direct_obs_hmin" min="0" max="1" step="0.01" value="0.15" style="width: 100%;">
@@ -905,7 +905,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <input type="range" id="mapv3_direct_lidar_min_int" min="0" max="60" step="1" value="0" style="width: 100%;">
                                                 </div>
 
-                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 0;" title="Jak rychle se hromadí důkazy o překážce/volnu a kdy se buňka ukáže jako obsazená.">Evidenční model</div>
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 0;" title="How fast obstacle/free evidence accumulates and when a cell renders occupied.">Evidence model</div>
                                                 <div style="max-width: 340px;">
                                                     <div style="font-size: 12px;margin-top: 4px;" title="Distinct frames of obstacle evidence before a cell can show occupied (higher = more speckle-resistant, slower to appear)">Min hits <span id="mapv3_direct_min_hits_val" style="opacity: .8;">&mdash;</span></div>
                                                     <input type="range" id="mapv3_direct_min_hits" min="1" max="15" step="1" value="3" style="width: 100%;">
@@ -922,15 +922,15 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <div style="font-size: 12px;margin-top: 4px;" title="Log-odds level at/below which a cell renders FREE">Free threshold <span id="mapv3_direct_free_thresh_val" style="opacity: .8;">&mdash;</span></div>
                                                     <input type="range" id="mapv3_direct_free_thresh" min="-2" max="-0.05" step="0.05" value="-0.4" style="width: 100%;">
                                                 </div>
-                                                <button class="btn btn-primary btn-sm" id="mapv3_btn_apply_direct" type="button" style="margin-top: 6px;" title="Znovu pošle VŠECHNY aktuální hodnoty najednou (běžně netřeba — slidery se aplikují živě; hodí se po restartu nahrávání).">Poslat vše</button>
+                                                <button class="btn btn-primary btn-sm" id="mapv3_btn_apply_direct" type="button" style="margin-top: 6px;" title="Re-send ALL current values at once (normally not needed — sliders apply live; useful after a recording restart).">Send all</button>
                                                 </details>
                                                 <span id="mapv3_direct_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
                                             </div>
                                         </details>
 
-                                        <!-- SECTION: Zobrazení -->
+                                        <!-- SECTION: Display (layers) -->
                                         <details class="map-sec" data-mapsec="layers">
-                                            <summary>Zobrazení (vrstvy)</summary>
+                                            <summary>Display (layers)</summary>
                                             <div class="map-sec-body">
                                                 <div style="font-size: 12px;" title="Overall opacity of ALL occupancy-map layers (base map, local costmap, saved map, live mapping). Does not affect rain radar or aerial tiles.">Maps opacity <span id="mapv3_maps_opacity_val" style="opacity: .8;">100%</span></div>
                                                 <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
@@ -977,8 +977,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                  (JS-appended) Edit map button moved HERE from the Mapping session
                                                  block — serving is a property of the Maps list, not of the session. -->
                                             <div id="mapv3_maps_header" style="display: flex;align-items: center;gap: 8px;flex-wrap: wrap;">
-                                                <span class="drawer-hint">Uložené mapy</span>
-                                                <span id="mapv3_serving_status" style="font-size: 12px;opacity: .9;">aktivní: &mdash;</span>
+                                                <span class="drawer-hint">Saved maps</span>
+                                                <span id="mapv3_serving_status" style="font-size: 12px;opacity: .9;">active: &mdash;</span>
                                             </div>
                                             <div class="row g-0" id="mapv3_sites_row" style="margin-top: 4px;"></div>
                                         </div>
