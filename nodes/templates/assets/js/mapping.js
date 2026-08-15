@@ -484,23 +484,9 @@ class MappingV3 {
         // session-row Serve button. Disabled until a site is being served (the
         // editor needs a served map to draw edits/waypoints against); enabled
         // in handleManager() when s.serving is set.
-        const mapsHeader = document.getElementById('mapv3_maps_header');
-        if (mapsHeader) {
-            this.btn_edit_map = document.createElement('button');
-            this.btn_edit_map.className = 'btn btn-info btn-sm';
-            this.btn_edit_map.type = 'button';
-            this.btn_edit_map.textContent = 'Edit map';
-            this.btn_edit_map.disabled = true;
-            this.btn_edit_map.title = 'Activate a map first — the editor draws edits/waypoints into the ACTIVE map';
-            mapsHeader.appendChild(this.btn_edit_map);
-            this.btn_edit_map.addEventListener('click', () => {
-                try {
-                    if (window.MapEditor && window.MapEditor.showDetail) {
-                        window.MapEditor.showDetail({keepBase: true});
-                    }
-                } catch (e) { console.error('[mappingv3] open editor failed', e); }
-            });
-        }
+        // 2026-08-16: the JS-created "Edit map" button in the Saved maps header
+        // is GONE — it duplicated the header Edit button (both open the same
+        // editor; the header toggle now passes keepBase:true itself).
         // the middle mode button is 'Fused' now (relabel here to avoid an
         // index.html rebuild; fused = map from the fused pose, the default)
         this.btn_mode_force.textContent = 'Fused';

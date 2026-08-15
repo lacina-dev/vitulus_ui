@@ -448,7 +448,9 @@ window.MapEditor = (function () {
                 if (window.map_menu && window.map_menu.show_map_panel) window.map_menu.show_map_panel();
             } catch (e) {}
         } else {
-            showDetail();
+            // 2026-08-16: keepBase — site-native serving IS the base map now;
+            // swapping to the legacy planner map was jarring and is retired.
+            showDetail({keepBase: true});
         }
     }
     // The editor's own ✕ (header / footer): close the whole drawer.
