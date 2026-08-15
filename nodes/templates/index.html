@@ -777,16 +777,25 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <details class="map-sec" data-mapsec="session">
                                             <summary>Mapping session</summary>
                                             <div class="map-sec-body">
+<!-- vitulus_ui 2026-08-09 session controls redo: ONE place per verb.
+                                                     Start/Stop own the session here; Reset map (wipe the in-progress
+                                                     raster, keep mapping) and Discard (end WITHOUT saving) are the new
+                                                     explicit session verbs, both double-click-confirmed. The redundant
+                                                     session-row Serve button is GONE — serving lives solely in the
+                                                     Maps list below (site chip = newest raster, expanded row =
+                                                     specific raster), where the serving status line also moved. -->
                                                 <div class="input-group input-group-sm" style="max-width: 420px;">
                                                     <span class="input-group-text"><i class="fa fa-tree"></i></span>
                                                     <input class="bg-secondary form-control" type="text" id="mapv3_input_site" list="mapv3_sites" placeholder="Site (garden) name">
                                                     <datalist id="mapv3_sites"></datalist>
-                                                    <button class="btn btn-primary" id="mapv3_btn_start" type="button">Start</button>
-                                                    <button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled>Stop</button>
-                                                    <button class="btn btn-primary" id="mapv3_btn_serve" type="button" title="Serve this site's saved map for localization (empty = newest)">Serve</button>
+                                                    <button class="btn btn-primary" id="mapv3_btn_start" type="button" title="Start a mapping session for this site (existing site = continue/remap it, new name = fresh site)">Start</button>
+                                                    <button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled title="End the session AND SAVE: snapshots the mapped raster and serves it as the active map">Stop &amp; save</button>
+                                                </div>
+                                                <div class="btn-group btn-group-sm" role="group" style="margin-top: 4px;">
+                                                    <button class="btn btn-outline-warning" id="mapv3_btn_reset_map" type="button" disabled title="Wipe the in-progress obstacle raster and keep mapping (terrain DEM and settings stay) — use after a botched pass or a big tuning change. Double-click to confirm.">Reset map</button>
+                                                    <button class="btn btn-outline-danger" id="mapv3_btn_discard" type="button" disabled title="End the session WITHOUT saving a raster — the previously served map stays active. Double-click to confirm.">Discard</button>
                                                 </div>
                                                 <span id="mapv3_run_status" style="font-size: 12px;display: block;margin-top: 4px;">waiting for mapping_manager&hellip;</span>
-                                                <span id="mapv3_serving_status" style="font-size: 12px;display: block;margin-top: 2px;">serving: &mdash;</span>
 
                                                 <!-- 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — the RTK/Force/Off mode buttons drove /mapping/gate_mode (octomap insertion gate) and are hidden below. The read-only gate status line is KEPT: while a session runs it still reports live localization quality (pose source / RTK fix / hAcc / heading) which is useful during any mapping; it reads "—" when there is no session. -->
                                                 <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="Live localization / insertion-gate status during a mapping session (pose source, RTK fix, hAcc, heading).">Localization / gate status</div>
@@ -851,26 +860,73 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                      first arrival, applied as ONE /mapping/set_direct JSON. -->
                                                 <hr style="margin: 8px 0;">
                                                 <div style="font-size: 12px;margin-bottom: 3px;" title="Direct 2D raster mapper (/mapping/direct_map): builds the teal raster straight from sensor rays (lidar hits/no-hit-free + camera obstacle/free), independent of the octomap+DEM pipeline above. Each source can be enabled and range-capped separately.">Direct mapper</div>
+<!-- vitulus_ui 2026-08-09: Direct mapper controls rebuilt as LIVE sliders
+                                                     (debounced partial /mapping/set_direct on input — no Apply needed)
+                                                     + environment presets (/mapping/direct_preset, served/persisted by
+                                                     direct_raster). All pre-existing element IDs are KEPT; range inputs
+                                                     changed type number->range with a value echo span (id + "_val"). -->
+                                                <div style="margin-top: 3px;max-width: 340px;">
+                                                    <span title="Use the lidar scan as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_lidar" style="margin:0 4px 0 0;" checked><span style="font-size: 12px;">Lidar range</span></span>
+                                                    <span id="mapv3_direct_lidar_range_val" style="font-size: 12px;opacity: .8;float: right;">&mdash;</span>
+                                                    <input type="range" id="mapv3_direct_lidar_range" min="0.5" max="16" step="0.5" value="8" style="width: 100%;" title="Lidar max range (m) for the direct mapper — applied live">
+                                                </div>
+                                                <div style="margin-top: 3px;max-width: 340px;">
+                                                    <span title="Use camera-detected obstacles as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_obstacle" style="margin:0 4px 0 0;" checked><span style="font-size: 12px;">Cam obstacle range</span></span>
+                                                    <span id="mapv3_direct_obstacle_range_val" style="font-size: 12px;opacity: .8;float: right;">&mdash;</span>
+                                                    <input type="range" id="mapv3_direct_obstacle_range" min="0.5" max="4" step="0.1" value="2.8" style="width: 100%;" title="Camera obstacle max range (m) — the wide segmentation chain caps at 4.0 m; applied live">
+                                                </div>
+                                                <div style="margin-top: 3px;max-width: 340px;">
+                                                    <span title="Use camera free-space (ground seen = free evidence) as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_free" style="margin:0 4px 0 0;"><span style="font-size: 12px;">Cam free range</span></span>
+                                                    <span id="mapv3_direct_free_range_val" style="font-size: 12px;opacity: .8;float: right;">&mdash;</span>
+                                                    <input type="range" id="mapv3_direct_free_range" min="0.5" max="4" step="0.1" value="2.8" style="width: 100%;" title="Camera free-space max range (m) — applied live">
+                                                </div>
+                                                <div class="form-check" style="margin-top: 3px;" title="Treat a lidar ray with no return (max range / no obstacle hit) as evidence of FREE space along its length, not just unknown">
+                                                    <input class="form-check-input" type="checkbox" id="mapv3_direct_free_no_hit"><label class="form-check-label" for="mapv3_direct_free_no_hit" style="font-size: 12px;">No-hit ray free</label>
+                                                </div>
+
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 3px;" title="Named parameter sets modelling the sensing environment (grass height, pavement, bushes...). Load applies live to the running session; Save stores the current sliders under the typed name (global, shared by all sites).">Environment preset</div>
                                                 <div class="input-group input-group-sm" style="flex-wrap: nowrap;max-width: 340px;">
-                                                    <span class="input-group-text" title="Use the lidar scan as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_lidar" style="margin:0 4px 0 0;" checked>Lidar</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_lidar_range" step="0.5" min="0.5" max="20" value="8" title="Lidar max range (m) for the direct mapper (0.5..20)">
+                                                    <select class="form-select" id="mapv3_direct_preset" style="font-size: 12px;"></select>
+                                                    <button class="btn btn-primary" id="mapv3_direct_preset_load" type="button" title="Apply the selected preset live to the running mapping session">Load</button>
                                                 </div>
                                                 <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Use camera-detected obstacles as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_obstacle" style="margin:0 4px 0 0;" checked>Cam obst.</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_obstacle_range" step="0.5" min="0.5" max="20" value="6" title="Camera obstacle max range (m) for the direct mapper (0.5..20)">
+                                                    <input class="bg-secondary form-control" type="text" id="mapv3_direct_preset_name" placeholder="preset name" style="font-size: 12px;">
+                                                    <button class="btn btn-outline-primary" id="mapv3_direct_preset_save" type="button" title="Save the CURRENT slider values as a named preset (overwrites an existing custom preset of the same name)">Save</button>
+                                                    <button class="btn btn-outline-danger" id="mapv3_direct_preset_del" type="button" title="Delete the selected CUSTOM preset (builtins cannot be deleted)">Del</button>
                                                 </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Use camera free-space (no obstacle detected) as a direct-mapper source"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_use_cam_free" style="margin:0 4px 0 0;">Cam free</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_free_range" step="0.5" min="0.5" max="20" value="10" title="Camera free-space max range (m) for the direct mapper (0.5..20)">
+
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 0;" title="What counts as a camera obstacle. Heights are metres above base_link (robot ground plane) — the same frame the segmentation runs in. Applied live to points already segmented as not-ground.">Camera obstacle filter</div>
+                                                <div style="max-width: 340px;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Obstacle floor: points BELOW this height are ignored (raise above grass-tip height in tall grass)">Height min <span id="mapv3_direct_obs_hmin_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_obs_hmin" min="0" max="1" step="0.01" value="0.15" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Obstacle ceiling: points ABOVE this height are ignored (raise to catch walls/fences, lower to ignore overhanging branches)">Height max <span id="mapv3_direct_obs_hmax_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_obs_hmax" min="0.1" max="2.5" step="0.05" value="0.5" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Speckle/blob filter: drop obstacle blobs with fewer points than this (1 = off). Blobs are connected components at the cluster radius.">Min blob size <span id="mapv3_direct_min_cluster_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_min_cluster" min="1" max="20" step="1" value="1" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Connect radius for the blob filter — points closer than this belong to the same blob">Blob radius <span id="mapv3_direct_cluster_radius_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_cluster_radius" min="0.05" max="0.5" step="0.05" value="0.15" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Lidar weak-return gate: a return weaker than this counts as neither obstacle nor free (unknown). Raise in tall grass to ignore weak grass echoes; 0 = off.">Lidar min intensity <span id="mapv3_direct_lidar_min_int_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_lidar_min_int" min="0" max="60" step="1" value="0" style="width: 100%;">
                                                 </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Minimum agreeing hits before a cell is marked occupied/free (1..50, higher = more speckle-resistant but slower to converge)">min hits</span>
-                                                    <input class="bg-secondary form-control" type="number" id="mapv3_direct_min_hits" step="1" min="1" max="50" value="3">
+
+                                                <div style="font-size: 12px;margin-top: 8px;margin-bottom: 0;" title="Evidence accumulation model: how fast obstacle/free evidence builds up and when a cell shows as occupied. Tune per environment: fast+trusting on pavement, slow+sceptical in moving vegetation.">Evidence model</div>
+                                                <div style="max-width: 340px;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Distinct frames of obstacle evidence before a cell can show occupied (higher = more speckle-resistant, slower to appear)">Min hits <span id="mapv3_direct_min_hits_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_min_hits" min="1" max="15" step="1" value="3" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Log-odds added per obstacle frame (higher = obstacles burn in faster)">Hit gain <span id="mapv3_direct_hit_inc_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_hit_inc" min="0.05" max="2" step="0.05" value="0.5" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Log-odds removed per CAMERA-ground free frame (higher = stale obstacles erode faster under freshly seen ground)">Miss decay (camera) <span id="mapv3_direct_miss_dec_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_miss_dec" min="0.05" max="2" step="0.05" value="0.4" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Log-odds removed per LIDAR free-ray frame (ray to a hit + no-return rays). Keep LOW: a lidar beam only vouches for 'empty at the ~0.35 m scan plane' and says nothing about lower obstacles the camera maps. 0 = lidar rays never erode.">Lidar free decay <span id="mapv3_direct_lidar_free_dec_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_lidar_free_dec" min="0" max="1" step="0.02" value="0.12" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Hysteresis: cells already CONFIRMED occupied (min hits + threshold met) erode at this fraction of the normal decay. 0.3 = a confirmed obstacle needs ~3x more contradicting frames to clear; 1 = no protection.">Occupied erode &times; <span id="mapv3_direct_occ_erode_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_occ_erode" min="0" max="1" step="0.05" value="0.5" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Log-odds level at/above which a cell renders OCCUPIED">Occupied threshold <span id="mapv3_direct_occ_thresh_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_occ_thresh" min="0.1" max="3" step="0.05" value="0.85" style="width: 100%;">
+                                                    <div style="font-size: 12px;margin-top: 4px;" title="Log-odds level at/below which a cell renders FREE">Free threshold <span id="mapv3_direct_free_thresh_val" style="opacity: .8;">&mdash;</span></div>
+                                                    <input type="range" id="mapv3_direct_free_thresh" min="-2" max="-0.05" step="0.05" value="-0.4" style="width: 100%;">
                                                 </div>
-                                                <div class="input-group input-group-sm" style="flex-wrap: nowrap;margin-top: 3px;max-width: 340px;">
-                                                    <span class="input-group-text" title="Treat a lidar ray with no return (max range / no obstacle hit) as evidence of FREE space along its length, not just unknown"><input class="form-check-input mt-0" type="checkbox" id="mapv3_direct_free_no_hit" style="margin:0 4px 0 0;">No-hit ray free</span>
-                                                    <button class="btn btn-primary" id="mapv3_btn_apply_direct" type="button" title="Apply the direct-mapper settings live (partial updates OK on the backend; this form always sends the full set).">Apply</button>
-                                                </div>
+                                                <button class="btn btn-primary btn-sm" id="mapv3_btn_apply_direct" type="button" style="margin-top: 6px;" title="Re-send ALL current values as one set_direct (normally not needed — sliders apply live; useful after a session restart to force-sync).">Send all</button>
                                                 <span id="mapv3_direct_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">&mdash;</span>
                                             </div>
                                         </details>
@@ -920,7 +976,13 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                              rebuilt purely via innerHTML on a signature guard, so the move is
                                              transparent to the JS and it stays live while a mapping session is open. -->
                                         <div style="margin-top: 6px;">
-                                            <span class="drawer-hint">Maps</span>
+                                            <!-- 2026-08-09 session-controls redo: the serving status line and the
+                                                 (JS-appended) Edit map button moved HERE from the Mapping session
+                                                 block — serving is a property of the Maps list, not of the session. -->
+                                            <div id="mapv3_maps_header" style="display: flex;align-items: center;gap: 8px;flex-wrap: wrap;">
+                                                <span class="drawer-hint">Maps</span>
+                                                <span id="mapv3_serving_status" style="font-size: 12px;opacity: .9;">serving: &mdash;</span>
+                                            </div>
                                             <div class="row g-0" id="mapv3_sites_row" style="margin-top: 4px;"></div>
                                         </div>
 
@@ -1690,7 +1752,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <!-- D. Collapsible sections (all collapsed by default) -->
 
 <!-- Map edits -->
-<details class="mapedit-sec">
+<details class="mapedit-sec" data-editsec="edits">
   <summary>Map edits</summary>
   <div class="mapedit-sec-body">
     <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Manual map edits: Obstacle (area) / Free (clear area) / Barrier (line). Click an item to delete it.</div>
@@ -1700,7 +1762,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 </details>
 
 <!-- Waypoints -->
-<details class="mapedit-sec">
+<details class="mapedit-sec" data-editsec="waypoints">
   <summary>Waypoints</summary>
   <div class="mapedit-sec-body">
     <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Activate the <b>Waypoint</b> tool and click the map to add one. Move / delete existing ones here.</div>
@@ -1709,7 +1771,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 </details>
 
 <!-- Paths -->
-<details class="mapedit-sec">
+<details class="mapedit-sec" data-editsec="paths">
   <summary>Paths</summary>
   <div class="mapedit-sec-body">
     <div style="font-size: 12px;color: var(--bs-gray-400);margin-bottom: 6px;">Activate the <b>Path</b> tool and click the map to draw one, or click an existing path to edit / delete it. Toggle per-path visibility with 👁.</div>
@@ -1718,7 +1780,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 </details>
 
 <!-- Zones -->
-<details class="mapedit-sec">
+<details class="mapedit-sec" data-editsec="zones">
   <summary>Zones</summary>
   <div class="mapedit-sec-body" id="tab-edit-zone">
     <div class="d-flex align-items-center" style="margin-bottom: 6px;">
@@ -1750,7 +1812,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 
 <!-- Polygons -->
 <!-- hidden 2026-07-18: superseded by map edits (free/obstacle) -->
-<details class="mapedit-sec" style="display:none;">
+<details class="mapedit-sec" data-editsec="polygons" style="display:none;">
   <summary>Polygons</summary>
   <div class="mapedit-sec-body" id="tab-edit-poly">
     <div class="d-flex align-items-center" style="margin-bottom: 6px;">
@@ -1773,7 +1835,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 </details>
 
 <!-- Advanced (planner) -->
-<details class="mapedit-sec">
+<details class="mapedit-sec" data-editsec="advanced">
   <summary>Advanced (planner)</summary>
   <div class="mapedit-sec-body">
     <div class="text-uppercase fw-bold" style="font-size: 11px;letter-spacing: .5px;color: var(--bs-gray-400);margin-bottom: 6px;">Active map</div>

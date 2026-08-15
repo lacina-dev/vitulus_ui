@@ -32,8 +32,12 @@ class MappingV3 {
         this.datalist = document.getElementById("mapv3_sites");
         this.btn_start = document.getElementById("mapv3_btn_start");
         this.btn_stop = document.getElementById("mapv3_btn_stop");
-        this.btn_serve = document.getElementById("mapv3_btn_serve");
+        this.btn_serve = document.getElementById("mapv3_btn_serve");   // removed 2026-08-09 (serve lives in the Maps list) — kept null-safe
         this.el_serving = document.getElementById("mapv3_serving_status");
+        // 2026-08-09 session controls: Reset map (wipe in-progress raster,
+        // keep mapping) + Discard (end session WITHOUT saving)
+        this.btn_reset_map = document.getElementById("mapv3_btn_reset_map");
+        this.btn_discard = document.getElementById("mapv3_btn_discard");
         this.btn_mode_rtk = document.getElementById("mapv3_btn_mode_rtk");
         this.btn_mode_force = document.getElementById("mapv3_btn_mode_force");
         this.btn_mode_off = document.getElementById("mapv3_btn_mode_off");
@@ -87,7 +91,57 @@ class MappingV3 {
         this.in_direct_min_hits = document.getElementById("mapv3_direct_min_hits");
         this.btn_apply_direct = document.getElementById("mapv3_btn_apply_direct");
         this.el_direct_status = document.getElementById("mapv3_direct_status");
-        this._directSettingsSeen = false;   // guards the one-time prefill
+        // 2026-08-09 live-tuning rebuild: sliders publish debounced PARTIAL
+        // set_direct dicts on input; controls re-sync from direct_status
+        // whenever the user has not touched them for a few seconds (replaces
+        // the old one-time prefill — keeps multiple browsers consistent and
+        // reflects preset loads immediately).
+        this.in_direct_obs_hmin = document.getElementById("mapv3_direct_obs_hmin");
+        this.in_direct_obs_hmax = document.getElementById("mapv3_direct_obs_hmax");
+        this.in_direct_min_cluster = document.getElementById("mapv3_direct_min_cluster");
+        this.in_direct_cluster_radius = document.getElementById("mapv3_direct_cluster_radius");
+        this.in_direct_lidar_min_int = document.getElementById("mapv3_direct_lidar_min_int");
+        this.in_direct_hit_inc = document.getElementById("mapv3_direct_hit_inc");
+        this.in_direct_miss_dec = document.getElementById("mapv3_direct_miss_dec");
+        this.in_direct_lidar_free_dec = document.getElementById("mapv3_direct_lidar_free_dec");
+        this.in_direct_occ_erode = document.getElementById("mapv3_direct_occ_erode");
+        this.in_direct_occ_thresh = document.getElementById("mapv3_direct_occ_thresh");
+        this.in_direct_free_thresh = document.getElementById("mapv3_direct_free_thresh");
+        this.sel_direct_preset = document.getElementById("mapv3_direct_preset");
+        this.btn_direct_preset_load = document.getElementById("mapv3_direct_preset_load");
+        this.in_direct_preset_name = document.getElementById("mapv3_direct_preset_name");
+        this.btn_direct_preset_save = document.getElementById("mapv3_direct_preset_save");
+        this.btn_direct_preset_del = document.getElementById("mapv3_direct_preset_del");
+        this._directSettingsSeen = false;   // first-status sync happened
+        this._directLastTouch = 0;          // last user interaction (ms epoch)
+        this._directPending = null;         // accumulated partial for debounce
+        this._directDebounce = null;        // debounce timer
+        this._directPresetSig = '';         // preset <select> rebuild guard
+        // slider spec: [input, key, decimals, unit] — value echo span is
+        // the input id + "_val"; shared by wiring, sync and applyDirect.
+        this._directSliders = [
+            [this.in_direct_lidar_range, 'lidar_max_range_m', 1, ' m'],
+            [this.in_direct_obstacle_range, 'obstacle_max_range_m', 1, ' m'],
+            [this.in_direct_free_range, 'free_max_range_m', 1, ' m'],
+            [this.in_direct_obs_hmin, 'cam_obstacle_min_h', 2, ' m'],
+            [this.in_direct_obs_hmax, 'cam_obstacle_max_h', 2, ' m'],
+            [this.in_direct_min_cluster, 'cam_min_cluster_pts', 0, ' pts'],
+            [this.in_direct_cluster_radius, 'cam_cluster_radius_m', 2, ' m'],
+            [this.in_direct_lidar_min_int, 'lidar_min_intensity', 0, ''],
+            [this.in_direct_min_hits, 'min_hits', 0, ''],
+            [this.in_direct_hit_inc, 'hit_inc', 2, ''],
+            [this.in_direct_miss_dec, 'miss_dec', 2, ''],
+            [this.in_direct_lidar_free_dec, 'lidar_free_dec', 2, ''],
+            [this.in_direct_occ_erode, 'occ_erode_factor', 2, ''],
+            [this.in_direct_occ_thresh, 'occ_thresh', 2, ''],
+            [this.in_direct_free_thresh, 'free_thresh', 2, ''],
+        ];
+        this._directChecks = [
+            [this.chk_direct_use_lidar, 'use_lidar'],
+            [this.chk_direct_use_cam_obstacle, 'use_cam_obstacle'],
+            [this.chk_direct_use_cam_free, 'use_cam_free'],
+            [this.chk_direct_free_no_hit, 'lidar_free_no_hit'],
+        ];
 
         this.el_sites = document.getElementById("mapv3_sites_row");
 
@@ -247,14 +301,20 @@ class MappingV3 {
         // site/live/preview/terrain toggles above which don't survive reload.
         this.chk_direct = document.getElementById("mapv3_chk_direct");
         if (this.chk_site) {
+            // persisted like direct/aerial/rain (settings-persistence pass);
+            // default = the markup default (checked)
+            this.chk_site.checked = this._layerPref('vitulus_layer_site', this.chk_site.checked);
             this.site_group.visible = this.chk_site.checked;
             this.chk_site.addEventListener('change', () => {
+                this._saveLayerPref('vitulus_layer_site', this.chk_site.checked);
                 this.site_group.visible = this.chk_site.checked;
             });
         }
         if (this.chk_preview) {
+            this.chk_preview.checked = this._layerPref('vitulus_layer_preview', this.chk_preview.checked);
             this.preview_group.visible = this.chk_preview.checked;
             this.chk_preview.addEventListener('change', () => {
+                this._saveLayerPref('vitulus_layer_preview', this.chk_preview.checked);
                 this.preview_group.visible = this.chk_preview.checked;
             });
         }
@@ -271,9 +331,11 @@ class MappingV3 {
             // The group may not exist yet (built on first terrain data). Just
             // remember the desired visibility; applyTerrainVisible() syncs it
             // whenever the group appears. Toggling NEVER builds/blocks anything.
+            this.chk_terrain.checked = this._layerPref('vitulus_layer_terrain', this.chk_terrain.checked);
             this.terrain_visible = this.chk_terrain.checked;
             this.applyTerrainVisible();
             this.chk_terrain.addEventListener('change', () => {
+                this._saveLayerPref('vitulus_layer_terrain', this.chk_terrain.checked);
                 this.terrain_visible = this.chk_terrain.checked;
                 this.applyTerrainVisible();
             });
@@ -325,6 +387,8 @@ class MappingV3 {
         this.pub_set_band = pub('/mapping/set_band');
         this.pub_set_ranges = pub('/mapping/set_ranges');
         this.pub_set_direct = pub('/mapping/set_direct');
+        this.pub_direct_preset = pub('/mapping/direct_preset');
+        this.pub_reset_direct = pub('/mapping/reset_direct');
 
         const sub = (name, type, cb) => {
             const t = new ROSLIB.Topic({ros: ros, name: name, messageType: type});
@@ -400,30 +464,35 @@ class MappingV3 {
         });
         this.btn_stop.addEventListener('click', () => {
             this.pub_stop.publish(new ROSLIB.Message({data: ''}));
-            this.el_run.textContent = 'stopping…';
+            this.el_run.textContent = 'stopping (saving raster)…';
         });
-        if (this.btn_serve) {
-            this.btn_serve.addEventListener('click', () => {
-                const site = this.input_site.value.trim();
-                this.pub_serve.publish(new ROSLIB.Message({data: site}));
-                if (this.el_serving) this.el_serving.textContent = 'serving: requesting…';
-            });
-        }
+        // 2026-08-09 session controls: Reset map + Discard, both behind the
+        // same double-click-confirm pattern the delete buttons use.
+        this._wireDoubleClickDelete(this.btn_reset_map, () => {
+            this.pub_reset_direct.publish(new ROSLIB.Message({data: ''}));
+            this.el_run.textContent = 'raster reset — mapping continues…';
+        }, 'Reset map');
+        this._wireDoubleClickDelete(this.btn_discard, () => {
+            this.pub_stop.publish(new ROSLIB.Message({data: 'discard'}));
+            this.el_run.textContent = 'discarding session (no save)…';
+        }, 'Discard');
 
         // WP-D2: "Edit map" entry — opens the in-view map editor (mapeditor.js
         // detail panel) keeping the SERVED site_map as the base. Created
-        // dynamically (like Clear 3D) to avoid an index.html rebuild, and
-        // appended next to Serve. Disabled until a site is being served (the
-        // editor needs a served map to draw edits/waypoints against); enabled in
-        // handleManager() when s.serving is set.
-        if (this.btn_serve) {
+        // dynamically to avoid an index.html rebuild; 2026-08-09: anchored in
+        // the Maps header (next to the serving status) instead of the removed
+        // session-row Serve button. Disabled until a site is being served (the
+        // editor needs a served map to draw edits/waypoints against); enabled
+        // in handleManager() when s.serving is set.
+        const mapsHeader = document.getElementById('mapv3_maps_header');
+        if (mapsHeader) {
             this.btn_edit_map = document.createElement('button');
-            this.btn_edit_map.className = 'btn btn-info';
+            this.btn_edit_map.className = 'btn btn-info btn-sm';
             this.btn_edit_map.type = 'button';
             this.btn_edit_map.textContent = 'Edit map';
             this.btn_edit_map.disabled = true;
             this.btn_edit_map.title = 'Serve a site first — the editor draws edits/waypoints on the served map';
-            this.btn_serve.parentNode.appendChild(this.btn_edit_map);
+            mapsHeader.appendChild(this.btn_edit_map);
             this.btn_edit_map.addEventListener('click', () => {
                 try {
                     if (window.MapEditor && window.MapEditor.showDetail) {
@@ -472,12 +541,98 @@ class MappingV3 {
             this.btn_apply_ranges.addEventListener('click', () => this.applyRanges());
         }
 
-        // Direct mapper — no edit-guard flag needed (settings are only ever
-        // prefilled once, on the first direct_status arrival), but the
-        // control set is independent of session Start/Stop so it stays
-        // enabled regardless of setActionsEnabled().
+        // Direct mapper — LIVE controls (2026-08-09). Sliders publish a
+        // debounced partial set_direct on input; checkboxes publish
+        // immediately on change. The control set is independent of session
+        // Start/Stop so it stays enabled regardless of setActionsEnabled()
+        // (with no session there is just nobody listening — the pending
+        // timeout in _liveDirectSend reports that honestly).
+        this._directSliders.forEach(([el, key, dec, unit]) => {
+            if (!el) return;
+            el.addEventListener('input', () => {
+                this._directLastTouch = Date.now();
+                this._setDirectValLabel(el, dec, unit);
+                let v = parseFloat(el.value);
+                const partial = {};
+                partial[key] = (dec === 0) ? Math.round(v) : v;
+                // keep the height window valid while dragging: backend
+                // rejects min >= max as one atomic dict, so drag the other
+                // edge along instead of publishing a doomed pair
+                if (key === 'cam_obstacle_min_h' && this.in_direct_obs_hmax) {
+                    const hmax = parseFloat(this.in_direct_obs_hmax.value);
+                    if (v >= hmax) {
+                        const nv = Math.min(v + 0.05, 2.5);
+                        this.in_direct_obs_hmax.value = nv;
+                        this._setDirectValLabel(this.in_direct_obs_hmax, 2, ' m');
+                        partial['cam_obstacle_max_h'] = nv;
+                    }
+                }
+                if (key === 'cam_obstacle_max_h' && this.in_direct_obs_hmin) {
+                    const hmin = parseFloat(this.in_direct_obs_hmin.value);
+                    if (v <= hmin) {
+                        const nv = Math.max(v - 0.05, 0);
+                        this.in_direct_obs_hmin.value = nv;
+                        this._setDirectValLabel(this.in_direct_obs_hmin, 2, ' m');
+                        partial['cam_obstacle_min_h'] = nv;
+                    }
+                }
+                this._liveDirectSend(partial);
+            });
+        });
+        this._directChecks.forEach(([el, key]) => {
+            if (!el) return;
+            el.addEventListener('change', () => {
+                this._directLastTouch = Date.now();
+                const partial = {};
+                partial[key] = !!el.checked;
+                this._liveDirectSend(partial);
+            });
+        });
         if (this.btn_apply_direct) {
             this.btn_apply_direct.addEventListener('click', () => this.applyDirect());
+        }
+        // environment presets: applied/saved/deleted SERVER-side by
+        // direct_raster (topic /mapping/direct_preset); the select is
+        // populated from direct_status.presets in handleDirectStatus.
+        if (this.btn_direct_preset_load) {
+            this.btn_direct_preset_load.addEventListener('click', () => {
+                const name = this.sel_direct_preset && this.sel_direct_preset.value;
+                if (!name) return;
+                this.pub_direct_preset.publish(new ROSLIB.Message(
+                    {data: JSON.stringify({action: 'apply', name: name})}));
+                // let the echoed settings re-sync the sliders right away
+                this._directLastTouch = 0;
+                this._markDirectPending();
+            });
+        }
+        if (this.btn_direct_preset_save) {
+            this.btn_direct_preset_save.addEventListener('click', () => {
+                let name = this.in_direct_preset_name
+                    ? this.in_direct_preset_name.value.trim() : '';
+                if (!name && this.sel_direct_preset) {
+                    name = this.sel_direct_preset.value;   // overwrite selected
+                }
+                if (!name) {
+                    if (this.el_direct_status) {
+                        this.el_direct_status.textContent =
+                            'type a preset name first';
+                        this.el_direct_status.style.color = '#ffd43b';
+                    }
+                    return;
+                }
+                this.pub_direct_preset.publish(new ROSLIB.Message(
+                    {data: JSON.stringify({action: 'save', name: name})}));
+                this._markDirectPending();
+            });
+        }
+        if (this.btn_direct_preset_del) {
+            this.btn_direct_preset_del.addEventListener('click', () => {
+                const name = this.sel_direct_preset && this.sel_direct_preset.value;
+                if (!name) return;
+                this.pub_direct_preset.publish(new ROSLIB.Message(
+                    {data: JSON.stringify({action: 'delete', name: name})}));
+                this._markDirectPending();
+            });
         }
 
         // Clear 3D — reset the octomap archive after a localization
@@ -539,6 +694,44 @@ class MappingV3 {
     _saveLayerPref(key, on) {
         try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { /* ignore */ }
     }
+    // Settings-persistence pass 2026-08-15 — generic string prefs + control
+    // restore/wire helpers, same storage convention as _layerPref (absent key
+    // => keep the markup default). Purely client-side view settings only.
+    _strPref(key, dflt) {
+        try {
+            var v = localStorage.getItem(key);
+            if (v !== null) { return v; }
+        } catch (e) { /* localStorage unavailable */ }
+        return dflt;
+    }
+    _saveStrPref(key, val) {
+        try { localStorage.setItem(key, String(val)); } catch (e) { /* ignore */ }
+    }
+    // Restore a <select> from storage (only if the stored value is a real
+    // option) and save every later change.
+    _persistSelect(el, key) {
+        if (!el) return;
+        var v = this._strPref(key, null);
+        if (v !== null) {
+            for (var i = 0; i < el.options.length; i++) {
+                if (el.options[i].value === v) { el.value = v; break; }
+            }
+        }
+        el.addEventListener('change', () => { this._saveStrPref(key, el.value); });
+    }
+    // Restore a range/number input from storage (clamped to min/max) and save
+    // every later input.
+    _persistRange(el, key) {
+        if (!el) return;
+        var v = parseFloat(this._strPref(key, ''));
+        if (isFinite(v)) {
+            var mn = parseFloat(el.min), mx = parseFloat(el.max);
+            if (isFinite(mn)) v = Math.max(mn, v);
+            if (isFinite(mx)) v = Math.min(mx, v);
+            el.value = String(v);
+        }
+        el.addEventListener('input', () => { this._saveStrPref(key, el.value); });
+    }
 
     _initAerial() {
         // NB: aerial_group is created EAGERLY in the constructor (insertion-order
@@ -560,6 +753,13 @@ class MappingV3 {
 
         // MapProxy host: same machine that serves this page, port 8082.
         this.aerial_host = window.location.hostname + ':8082';
+
+        // Persist source/zoom/area/opacity across reloads (restore BEFORE the
+        // boot-time rebuildAerial below so the first build uses them).
+        this._persistSelect(this.sel_aerial_src, 'vitulus_aerial_src');
+        this._persistSelect(this.sel_aerial_zoom, 'vitulus_aerial_zoom');
+        this._persistSelect(this.sel_aerial_area, 'vitulus_aerial_area');
+        this._persistRange(this.in_aerial_opacity, 'vitulus_aerial_opacity');
 
         if (this.chk_aerial) {
             this.chk_aerial.addEventListener('change', () => {
@@ -1015,6 +1215,12 @@ class MappingV3 {
         if (this.btn_rain_fit) {
             this.btn_rain_fit.addEventListener('click', () => this.fitRainFrame());
         }
+
+        // Persist area/float-height/opacity across reloads (restore BEFORE the
+        // boot-time rebuildRain below so the first build uses them).
+        this._persistSelect(this.sel_rain_area, 'vitulus_rain_area');
+        this._persistSelect(this.sel_rain_z, 'vitulus_rain_z');
+        this._persistRange(this.in_rain_opacity, 'vitulus_rain_opacity');
 
         if (this.chk_rain) {
             this.chk_rain.addEventListener('change', () => {
@@ -1715,62 +1921,81 @@ class MappingV3 {
         this.el_ranges_status.style.color = '';
     }
 
-    // Direct 2D raster mapper — publish ONE /mapping/set_direct JSON with all
-    // current control values (the backend accepts partial dicts too, but we
-    // always send the full set here since the form always has a full set of
-    // values once direct_status has arrived at least once).
-    applyDirect() {
-        const lidarR = parseFloat(this.in_direct_lidar_range.value);
-        const obsR = parseFloat(this.in_direct_obstacle_range.value);
-        const freeR = parseFloat(this.in_direct_free_range.value);
-        const minHits = parseInt(this.in_direct_min_hits.value, 10);
-        const ok = (v) => (v >= 0.5 && v <= 20.0);
-        if (!ok(lidarR) || !ok(obsR) || !ok(freeR)) {
-            this.el_direct_status.textContent =
-                'invalid: each range must be 0.5..20 m';
-            this.el_direct_status.style.color = '#ff6b6b';
-            return;
+    // ---- Direct mapper LIVE control helpers (2026-08-09) -------------------
+    _setDirectValLabel(el, dec, unit) {
+        const span = document.getElementById(el.id + '_val');
+        if (!span) return;
+        const v = parseFloat(el.value);
+        span.textContent = (dec === 0 ? String(Math.round(v)) : v.toFixed(dec))
+            + (unit || '');
+    }
+
+    // honest feedback shared by every publish path: the settings are applied
+    // by the SESSION node — with no mapping session running there is nobody
+    // to hear the publish, so a pending mark with a timeout reports that.
+    _markDirectPending() {
+        if (this.el_direct_status) {
+            this.el_direct_status.textContent = 'applying…';
+            this.el_direct_status.style.color = '';
         }
-        if (!(minHits >= 1 && minHits <= 50)) {
-            this.el_direct_status.textContent =
-                'invalid: min hits must be 1..50';
-            this.el_direct_status.style.color = '#ff6b6b';
-            return;
-        }
-        const payload = {
-            use_lidar: !!(this.chk_direct_use_lidar && this.chk_direct_use_lidar.checked),
-            lidar_max_range_m: lidarR,
-            lidar_free_no_hit: !!(this.chk_direct_free_no_hit && this.chk_direct_free_no_hit.checked),
-            use_cam_obstacle: !!(this.chk_direct_use_cam_obstacle && this.chk_direct_use_cam_obstacle.checked),
-            obstacle_max_range_m: obsR,
-            use_cam_free: !!(this.chk_direct_use_cam_free && this.chk_direct_use_cam_free.checked),
-            free_max_range_m: freeR,
-            min_hits: minHits
-        };
-        this.pub_set_direct.publish(
-            new ROSLIB.Message({data: JSON.stringify(payload)}));
-        this.el_direct_status.textContent = 'applying…';
-        // honest feedback: the settings are applied by the SESSION node — with
-        // no mapping session running there is nobody to hear the publish.
         this._direct_apply_pending = Date.now();
         setTimeout(() => {
             if (this._direct_apply_pending) {
                 this._direct_apply_pending = null;
-                this.el_direct_status.textContent =
-                    'no reply — start a mapping session first '
-                    + '(settings apply to the running session)';
-                this.el_direct_status.style.color = '#ffd43b';
+                if (this.el_direct_status) {
+                    this.el_direct_status.textContent =
+                        'no reply — start a mapping session first '
+                        + '(settings apply to the running session)';
+                    this.el_direct_status.style.color = '#ffd43b';
+                }
             }
         }, 3000);
-        this.el_direct_status.style.color = '';
+    }
+
+    // accumulate partial dicts and publish ONE set_direct after 300 ms of
+    // slider silence (a drag emits dozens of input events)
+    _liveDirectSend(partial) {
+        this._directPending = Object.assign(this._directPending || {}, partial);
+        if (this._directDebounce) clearTimeout(this._directDebounce);
+        this._directDebounce = setTimeout(() => {
+            const payload = this._directPending;
+            this._directPending = null;
+            this._directDebounce = null;
+            if (!payload) return;
+            this.pub_set_direct.publish(
+                new ROSLIB.Message({data: JSON.stringify(payload)}));
+            this._markDirectPending();
+        }, 300);
+    }
+
+    // "Send all" — one full-set set_direct; normally redundant (sliders apply
+    // live) but useful to force-sync a fresh session to what the UI shows.
+    applyDirect() {
+        const payload = {};
+        this._directChecks.forEach(([el, key]) => {
+            if (el) payload[key] = !!el.checked;
+        });
+        this._directSliders.forEach(([el, key, dec]) => {
+            if (!el) return;
+            const v = parseFloat(el.value);
+            if (!isNaN(v)) payload[key] = (dec === 0) ? Math.round(v) : v;
+        });
+        this.pub_set_direct.publish(
+            new ROSLIB.Message({data: JSON.stringify(payload)}));
+        this._markDirectPending();
     }
 
     setActionsEnabled(on) {
         [this.btn_mode_rtk, this.btn_mode_force, this.btn_mode_off,
          this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear,
-         this.btn_apply_band, this.btn_apply_ranges]
+         this.btn_apply_band, this.btn_apply_ranges,
+         this.btn_reset_map, this.btn_discard]
             .forEach((b) => { if (b) b.disabled = !on; });
         this.btn_stop.disabled = !on;
+        // 2026-08-09: while a session runs, Start is OFF — end the session
+        // first (Stop & save / Discard); switching sites mid-run by Start was
+        // an implicit stop+save, too much magic for one button.
+        this.btn_start.disabled = on;
         // Obstacle-classification Apply requires the mapping pipeline running:
         // /mapping/set_band is subscribed by band_projector, which only exists
         // during a session. Say so instead of leaving a dead greyed button —
@@ -2017,6 +2242,13 @@ class MappingV3 {
             }
             if (timer) { clearTimeout(timer); }
             armed = false;
+            // 2026-08-10 fix: restore the button after CONFIRM too — the
+            // delete buttons masked this because renderSitesRow rebuilds
+            // their DOM, but the static session buttons (Reset map /
+            // Discard) stayed stuck on a red "Sure?" forever.
+            btn.classList.remove('btn-danger');
+            btn.innerHTML = restoreHtml;
+            btn.style.width = btn.dataset.prevWidth || '';
             onConfirm();
         });
     }
@@ -2231,32 +2463,46 @@ class MappingV3 {
             this._direct_applied_until = Date.now() + 4000;
         }
 
-        // Prefill the Apply controls exactly ONCE, from the first status that
-        // carries settings — deliberately NOT the band/ranges edit-guard
-        // (re-sync-unless-mid-edit): this stream arrives continuously at
-        // ~1.5 Hz, so re-applying it every message would fight with the user
-        // mid-edit far more aggressively than the slower gate/projector
-        // status streams. After the one-time prefill, only Apply changes
-        // what the backend sees; incoming settings are ignored.
-        if (s.settings && !this._directSettingsSeen) {
+        // Re-sync the live controls from the backend's echoed settings —
+        // immediately on the first status, then continuously WHENEVER the
+        // user has not touched the controls for 3 s (keeps multiple open
+        // browsers consistent and reflects preset loads / other clients
+        // without fighting an in-progress drag; a rejected value visibly
+        // snaps back to the backend truth).
+        const touchedRecently = (Date.now() - this._directLastTouch) < 3000;
+        if (s.settings && (!this._directSettingsSeen || !touchedRecently)) {
             this._directSettingsSeen = true;
             const st = s.settings;
-            if (this.chk_direct_use_lidar && st.use_lidar !== undefined)
-                this.chk_direct_use_lidar.checked = !!st.use_lidar;
-            if (this.in_direct_lidar_range && st.lidar_max_range_m !== undefined)
-                this.in_direct_lidar_range.value = st.lidar_max_range_m;
-            if (this.chk_direct_free_no_hit && st.lidar_free_no_hit !== undefined)
-                this.chk_direct_free_no_hit.checked = !!st.lidar_free_no_hit;
-            if (this.chk_direct_use_cam_obstacle && st.use_cam_obstacle !== undefined)
-                this.chk_direct_use_cam_obstacle.checked = !!st.use_cam_obstacle;
-            if (this.in_direct_obstacle_range && st.obstacle_max_range_m !== undefined)
-                this.in_direct_obstacle_range.value = st.obstacle_max_range_m;
-            if (this.chk_direct_use_cam_free && st.use_cam_free !== undefined)
-                this.chk_direct_use_cam_free.checked = !!st.use_cam_free;
-            if (this.in_direct_free_range && st.free_max_range_m !== undefined)
-                this.in_direct_free_range.value = st.free_max_range_m;
-            if (this.in_direct_min_hits && st.min_hits !== undefined)
-                this.in_direct_min_hits.value = st.min_hits;
+            this._directChecks.forEach(([el, key]) => {
+                if (el && st[key] !== undefined) el.checked = !!st[key];
+            });
+            this._directSliders.forEach(([el, key, dec, unit]) => {
+                if (el && st[key] !== undefined) {
+                    el.value = st[key];
+                    this._setDirectValLabel(el, dec, unit);
+                }
+            });
+        }
+
+        // environment preset <select>: rebuild only when the name list
+        // changes (signature guard), keeping the current selection
+        if (this.sel_direct_preset && Array.isArray(s.presets)) {
+            const sig = s.presets.map(
+                (p) => p.name + (p.builtin ? '*' : '')).join('|');
+            if (sig !== this._directPresetSig) {
+                this._directPresetSig = sig;
+                const cur = this.sel_direct_preset.value;
+                this.sel_direct_preset.innerHTML = '';
+                s.presets.forEach((p) => {
+                    const o = document.createElement('option');
+                    o.value = p.name;
+                    o.textContent = p.name + (p.builtin ? '' : ' (custom)');
+                    this.sel_direct_preset.appendChild(o);
+                });
+                if (cur && s.presets.some((p) => p.name === cur)) {
+                    this.sel_direct_preset.value = cur;
+                }
+            }
         }
 
         if (!this.el_direct_status) return;
@@ -2314,6 +2560,8 @@ class MappingV3 {
         wireGroup('#tab-map details.map-sec', 'data-mapsec', 'vitulus_maptab_');
         // Phase 2 drawer panels (Path / Point / Dock / Rain / Loc)
         wireGroup('details.drawer-sec', 'data-drawersec', 'vitulus_drawer_');
+        // Map-editor panel sections (2026-08-15 settings-persistence pass)
+        wireGroup('#div_map_detail details.mapedit-sec', 'data-editsec', 'vitulus_editsec_');
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', wire);
