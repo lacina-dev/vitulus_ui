@@ -460,22 +460,22 @@ class MappingV3 {
             const site = this.input_site.value.trim();
             if (!site) { this.input_site.focus(); return; }
             this.pub_start.publish(new ROSLIB.Message({data: site}));
-            this.el_run.textContent = 'starting ' + site + '…';
+            this.el_run.textContent = 'spouštím nahrávání „' + site + '"…';
         });
         this.btn_stop.addEventListener('click', () => {
             this.pub_stop.publish(new ROSLIB.Message({data: ''}));
-            this.el_run.textContent = 'stopping (saving raster)…';
+            this.el_run.textContent = 'ukládám mapu a ukončuji…';
         });
         // 2026-08-09 session controls: Reset map + Discard, both behind the
         // same double-click-confirm pattern the delete buttons use.
         this._wireDoubleClickDelete(this.btn_reset_map, () => {
             this.pub_reset_direct.publish(new ROSLIB.Message({data: ''}));
-            this.el_run.textContent = 'raster reset — mapping continues…';
-        }, 'Reset map');
+            this.el_run.textContent = 'rozpracovaná mapa vymazána — nahrává se dál…';
+        }, 'Vymazat a nahrávat dál');
         this._wireDoubleClickDelete(this.btn_discard, () => {
             this.pub_stop.publish(new ROSLIB.Message({data: 'discard'}));
-            this.el_run.textContent = 'discarding session (no save)…';
-        }, 'Discard');
+            this.el_run.textContent = 'zahazuji bez uložení…';
+        }, 'Zahodit bez uložení');
 
         // WP-D2: "Edit map" entry — opens the in-view map editor (mapeditor.js
         // detail panel) keeping the SERVED site_map as the base. Created
@@ -489,9 +489,9 @@ class MappingV3 {
             this.btn_edit_map = document.createElement('button');
             this.btn_edit_map.className = 'btn btn-info btn-sm';
             this.btn_edit_map.type = 'button';
-            this.btn_edit_map.textContent = 'Edit map';
+            this.btn_edit_map.textContent = 'Upravit mapu';
             this.btn_edit_map.disabled = true;
-            this.btn_edit_map.title = 'Serve a site first — the editor draws edits/waypoints on the served map';
+            this.btn_edit_map.title = 'Nejdřív aktivuj mapu — editor kreslí úpravy a waypointy do aktivní mapy';
             mapsHeader.appendChild(this.btn_edit_map);
             this.btn_edit_map.addEventListener('click', () => {
                 try {
@@ -2036,18 +2036,30 @@ class MappingV3 {
         try { s = JSON.parse(msg.data); } catch (e) { return; }
         this.running = s.running;
         this.setActionsEnabled(s.running);
+        // 2026-08-16 UI redo: stavový přehled nahoře — JAKÁ mapa se nahrává
+        const hdr = document.getElementById('mapv3_hdr_session');
+        if (hdr) {
+            if (s.running) {
+                hdr.innerHTML = '● Nahrává se mapa: <b>' + s.site + '</b> ('
+                    + Math.floor((s.uptime_s || 0) / 60) + ' min)';
+                hdr.style.color = '#51cf66';
+            } else {
+                hdr.textContent = 'Nenahrává se žádná mapa';
+                hdr.style.color = '';
+            }
+        }
         if (this.el_serving) {
             if (s.serve_error) {
                 // REPORT 2(b): show WHY a serve was rejected instead of the UI
                 // silently staying on the old map. Cleared on the next success.
-                this.el_serving.textContent = 'serve failed: ' + s.serve_error;
+                this.el_serving.textContent = 'aktivace selhala: ' + s.serve_error;
                 this.el_serving.style.color = '#ff6b6b';
             } else if (s.serving) {
-                this.el_serving.textContent = 'serving: ' + s.serving.site +
-                    '/' + s.serving.raster;
+                this.el_serving.textContent = 'aktivní: ' + s.serving.site +
+                    ' (' + s.serving.raster + ')';
                 this.el_serving.style.color = '';
             } else {
-                this.el_serving.textContent = 'serving: —';
+                this.el_serving.textContent = 'aktivní: —';
                 this.el_serving.style.color = '';
             }
         }
@@ -2079,25 +2091,25 @@ class MappingV3 {
             const serving = !!s.serving;
             this.btn_edit_map.disabled = !serving;
             this.btn_edit_map.title = serving
-                ? ('Edit the served map: ' + s.serving.site + '/' + s.serving.raster)
-                : 'Serve a site first — the editor draws edits/waypoints on the served map';
+                ? ('Upravit aktivní mapu: ' + s.serving.site + '/' + s.serving.raster)
+                : 'Nejdřív aktivuj mapu — editor kreslí úpravy a waypointy do aktivní mapy';
         }
         // saved-map layer status (the latched site_map rendered in the 3D view)
         if (this.el_site_status) {
             if (s.serving) {
-                this.el_site_status.textContent = 'saved map: ' +
-                    s.serving.site + '/' + s.serving.raster + ' (in 3D view)';
+                this.el_site_status.textContent = 'aktivní mapa ve 3D: ' +
+                    s.serving.site + '/' + s.serving.raster;
             } else {
                 this.el_site_status.textContent =
-                    'saved map: — (press Serve to load a site into the 3D view)';
+                    'aktivní mapa: — (aktivuj mapu v seznamu Uložené mapy)';
             }
         }
         if (s.running) {
             const up = Math.floor(s.uptime_s / 60);
-            this.el_run.textContent = '● mapping "' + s.site + '" (' + up + ' min)';
+            this.el_run.textContent = '● nahrávám „' + s.site + '" (' + up + ' min)';
             this.el_run.style.color = '#51cf66';
         } else {
-            this.el_run.textContent = 'stopped';
+            this.el_run.textContent = 'nenahrává se';
             this.el_run.style.color = '';
             this.el_gate.textContent = '—';
             this.el_gate.style.color = '';
@@ -2158,29 +2170,32 @@ class MappingV3 {
             const active = s.running && s.site === site.name;
             const info = (site.dem_m2 !== undefined ? site.dem_m2 + ' m²' :
                           site.dem_kb + ' kB') +
-                         ', ' + site.rasters + ' rasters' +
+                         ', verzí: ' + site.rasters +
                          (site.has_ot ? ', 3D' : '');
             const servable = site.rasters > 0;
             const served = s.serving && s.serving.site === site.name;
             const expanded = this._expandedSites.has(site.name);
             const caret = expanded ? '▾' : '▸';
-            // REPORT 2(c): the chip body previews (show_site) as before, and a
-            // dedicated Serve button publishes serve_site for that site. Per-raster
-            // mgmt: the chip ALSO toggles the expandable raster panel below.
+            // 2026-08-16 UI redo: jasné badge říkají roli mapy — AKTIVNÍ
+            // (lokalizace/navigace podle ní) vs ● nahrává se; „Serve" verb
+            // přejmenován na „Aktivovat".
+            const badges =
+                (served ? ' <span style="font-size:10px;background:#2b8a3e;color:#fff;border-radius:3px;padding:0 4px;">AKTIVNÍ</span>' : '') +
+                (active ? ' <span style="font-size:10px;background:#e8590c;color:#fff;border-radius:3px;padding:0 4px;">● nahrává se</span>' : '');
             col.innerHTML =
                 '<div class="input-group input-group-sm">' +
-                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;" title="Show this site\'s saved map + expand its rasters">' +
+                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;" title="Zobrazit náhled této mapy + rozbalit její uložené verze">' +
                 '<span style="color:var(--bs-gray-500);margin-right:3px;">' + caret + '</span>' +
                 '<span class="text-info"><i class="fa fa-tree text-info" style="margin-right:3px;"></i>' +
-                site.name + (active ? ' ●' : '') + (served ? ' ✓' : '') + '</span>' +
+                site.name + badges + '</span>' +
                 '<span style="font-size:11px;color:var(--bs-gray-500);margin-left:6px;">' +
                 info + '</span></button>' +
                 '<button class="btn ' + (servable ? 'btn-success' : 'btn-secondary') +
                 ' mapv3-serve" type="button" title="' +
-                (servable ? 'Serve this site\'s newest raster (localization + costmaps)' :
-                 'No raster yet — one is saved automatically on Stop') +
-                '"' + (servable ? '' : ' disabled') + '>Serve</button>' +
-                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;" title="Remove the whole site (DEM, 3D archive, all rasters)">' +
+                (servable ? 'Nastaví tuto mapu jako AKTIVNÍ (nejnovější verzi) — robot se podle ní bude lokalizovat a navigovat' :
+                 'Zatím nemá žádnou uloženou verzi — vznikne při „Uložit a ukončit"') +
+                '"' + (servable ? '' : ' disabled') + '>Aktivovat</button>' +
+                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;" title="Smazat celou mapu (DEM i všechny verze). Potvrzení druhým klikem.">' +
                 '<i class="fa fa-remove text-danger"></i></button></div>';
             col.querySelector('.mapv3-show').addEventListener('click', () => {
                 this.input_site.value = site.name;
@@ -2200,7 +2215,7 @@ class MappingV3 {
                     this.pub_serve.publish(new ROSLIB.Message({data: site.name}));
                     if (this.el_serving) {
                         this.el_serving.textContent =
-                            'serving: requesting ' + site.name + '…';
+                            'aktivuji ' + site.name + '…';
                         this.el_serving.style.color = '';
                     }
                 });
@@ -2237,7 +2252,7 @@ class MappingV3 {
                 btn.dataset.prevWidth = btn.style.width || '';
                 btn.style.width = 'auto';
                 btn.style.whiteSpace = 'nowrap';
-                btn.innerHTML = '<span style="font-size:11px;">Sure?</span>';
+                btn.innerHTML = '<span style="font-size:11px;">Opravdu?</span>';
                 timer = setTimeout(() => {
                     armed = false;
                     btn.classList.remove('btn-danger');
@@ -2269,7 +2284,7 @@ class MappingV3 {
         if (!list.length) {
             panel.innerHTML =
                 '<span style="font-size:11px;color:var(--bs-gray-500);">' +
-                'no rasters yet — one is saved automatically on Stop</span>';
+                'zatím žádné uložené verze — verze vznikne při „Uložit a ukončit"</span>';
             return panel;
         }
         const servingR = (s.serving && s.serving.site === site.name)
@@ -2303,9 +2318,9 @@ class MappingV3 {
             const prevBtn = document.createElement('button');
             prevBtn.type = 'button';
             prevBtn.className = 'btn ' + (isPreview ? 'btn-info' : 'btn-outline-info');
-            prevBtn.textContent = isPreview ? 'Previewing' : 'Preview';
-            prevBtn.title = 'Show this RAW raster (blue) in the 3D view for A/B ' +
-                'comparison vs the served map (no human edits). Click again to clear.';
+            prevBtn.textContent = isPreview ? 'Zobrazen' : 'Náhled';
+            prevBtn.title = 'Zobrazí tuto verzi modře ve 3D pohledu pro porovnání ' +
+                's aktivní mapou (nic nemění). Druhým klikem se náhled schová.';
             prevBtn.addEventListener('click', () => {
                 const data = isPreview ? '' : (site.name + '/' + r.name);
                 this.pub_preview_raster.publish(new ROSLIB.Message({data: data}));
@@ -2316,9 +2331,9 @@ class MappingV3 {
             const serveBtn = document.createElement('button');
             serveBtn.type = 'button';
             serveBtn.className = 'btn ' + (isServed ? 'btn-secondary' : 'btn-success');
-            serveBtn.textContent = isServed ? 'Served' : 'Serve';
+            serveBtn.textContent = isServed ? 'Aktivní' : 'Aktivovat';
             serveBtn.disabled = isServed;
-            serveBtn.title = 'Serve = use for navigation + persists as default';
+            serveBtn.title = 'Nastaví TUTO verzi jako aktivní mapu (lokalizace + navigace)';
             if (!isServed) {
                 serveBtn.addEventListener('click', () => {
                     this.input_site.value = site.name;
@@ -2326,7 +2341,7 @@ class MappingV3 {
                         {data: site.name + '/' + r.name}));
                     if (this.el_serving) {
                         this.el_serving.textContent =
-                            'serving: requesting ' + site.name + '/' + r.name + '…';
+                            'aktivuji ' + site.name + '/' + r.name + '…';
                         this.el_serving.style.color = '';
                     }
                 });
@@ -2341,9 +2356,9 @@ class MappingV3 {
             delBtn.innerHTML = '<i class="fa fa-remove"></i>';
             if (isServed) {
                 delBtn.disabled = true;
-                delBtn.title = 'Cannot delete the served raster — serve another first';
+                delBtn.title = 'Aktivní verzi nelze smazat — nejdřív aktivuj jinou';
             } else {
-                delBtn.title = 'Delete this raster (double-click to confirm)';
+                delBtn.title = 'Smazat tuto verzi (potvrzení druhým klikem)';
                 this._wireDoubleClickDelete(delBtn,
                     () => this.pub_remove_raster.publish(new ROSLIB.Message(
                         {data: site.name + '/' + r.name})),
