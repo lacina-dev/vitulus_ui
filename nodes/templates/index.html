@@ -330,6 +330,11 @@ html, body {
 }
 #tab-map details.map-sec[open] > summary::before { transform: rotate(90deg); }
 #tab-map details.map-sec > .map-sec-body { padding: 4px 10px 10px; }
+/* 2026-08-16 field fix: a vertical scroll gesture STARTING on a range slider
+   silently dragged its value on mobile (lidar_free_dec 0.08 -> 0.44 mid-mow =
+   the eraser came back). pan-y = vertical swipes scroll the page; deliberate
+   horizontal drags still adjust the slider. */
+#tab-map input[type="range"] { touch-action: pan-y; }
 /* Touch-friendly controls */
 #tab-map .btn { min-height: 34px; }
 #tab-map .form-control, #tab-map .form-select { min-height: 34px; font-size: 12px; }
