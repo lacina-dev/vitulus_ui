@@ -2022,6 +2022,17 @@ class MappingV3 {
         try { s = JSON.parse(msg.data); } catch (e) { return; }
         this.running = s.running;
         this.setActionsEnabled(s.running);
+        // 2026-08-16: ACTIVATING a different map switches the datum — the
+        // aerial tiles must re-georeference (third refresh trigger, next to
+        // the layer-toggle and the mid-session datum-capture edge).
+        const servSite = s.serving ? s.serving.site : null;
+        if (this._aerialServSite === undefined) {
+            this._aerialServSite = servSite;
+        } else if (servSite !== this._aerialServSite) {
+            this._aerialServSite = servSite;
+            this.aerial_datum = null;
+            if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
+        }
         // 2026-08-16 UI redo: stavový přehled nahoře — JAKÁ mapa se nahrává
         const hdr = document.getElementById('mapv3_hdr_session');
         if (hdr) {
