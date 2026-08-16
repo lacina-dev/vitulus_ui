@@ -484,6 +484,24 @@ class MappingV3 {
         // session-row Serve button. Disabled until a site is being served (the
         // editor needs a served map to draw edits/waypoints against); enabled
         // in handleManager() when s.serving is set.
+        // 2026-08-16: Clear costmaps — the live obstacle memory accumulates
+        // while driving and confused the user as an 'undeletable map'.
+        const btnCc = document.getElementById('mapv3_btn_clear_costmaps');
+        if (btnCc) {
+            const svcClear = new ROSLIB.Service({
+                ros: ros, name: '/move_base_flex/clear_costmaps',
+                serviceType: 'std_srvs/Empty'
+            });
+            btnCc.addEventListener('click', () => {
+                btnCc.disabled = true;
+                svcClear.callService(new ROSLIB.ServiceRequest({}), () => {
+                    btnCc.disabled = false;
+                    if (this.el_site_status) {
+                        this.el_site_status.textContent = 'costmaps cleared';
+                    }
+                }, () => { btnCc.disabled = false; });
+            });
+        }
         // 2026-08-16: Deactivate — factory-fresh test state (serve 'none')
         const btnDeact = document.getElementById('mapv3_btn_deactivate');
         this._wireDoubleClickDelete(btnDeact, () => {
