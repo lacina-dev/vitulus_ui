@@ -768,6 +768,20 @@ class MappingV3 {
             // behaves exactly like ticking the box the moment the page loads.
             this.chk_aerial.checked = this._layerPref('vitulus_layer_aerial', true);
             if (this.chk_aerial.checked) { this.rebuildAerial(); }
+            // 2026-08-16 boot-retry (field): the boot-time build can bail while
+            // the 3D viewer / datum are still coming up and was never retried —
+            // after a page reload the tiles only appeared once something (a
+            // zoom change) forced a rebuild. Retry until one build lands.
+            let _bootTries = 0;
+            const _bootTimer = setInterval(() => {
+                if (this._aerialBuiltOnce || !this.chk_aerial.checked
+                        || ++_bootTries > 5) {
+                    clearInterval(_bootTimer);
+                    return;
+                }
+                this.aerial_datum = null;
+                this.rebuildAerial();
+            }, 3000);
         }
         [this.sel_aerial_src, this.sel_aerial_zoom, this.sel_aerial_area].forEach((el) => {
             if (el) el.addEventListener('change', () => {
@@ -949,6 +963,7 @@ class MappingV3 {
             const yaw = d.yaw_rad || 0.0;
             group.rotation.z = -yaw;
             group.visible = true;
+            this._aerialBuiltOnce = true;   // boot-retry: a build got this far
 
             const srcKey = this.sel_aerial_src ? this.sel_aerial_src.value : 'sat';
             const src = this._aerialSources()[srcKey] || this._aerialSources().sat;
