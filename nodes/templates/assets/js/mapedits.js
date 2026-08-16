@@ -359,10 +359,17 @@ window.MapEdits = (function () {
                 this.wpGroup.add(dot);
                 // heading tick
                 if (typeof w.yaw === 'number') {
-                    var hx = w.x + Math.cos(w.yaw) * r * 2.2, hy = w.y + Math.sin(w.yaw) * r * 2.2;
+                    // 2026-08-16: tick -> ARROW (with a head) so the stored
+                    // heading is actually readable on the map
+                    var hL = r * 2.6, hA = r * 0.9;
+                    var hx = w.x + Math.cos(w.yaw) * hL, hy = w.y + Math.sin(w.yaw) * hL;
+                    var b1 = w.yaw + Math.PI * 0.82, b2 = w.yaw - Math.PI * 0.82;
                     var hg = new T.BufferGeometry();
-                    hg.setAttribute('position', new T.Float32BufferAttribute([w.x, w.y, 0, hx, hy, 0], 3));
-                    var hl = new T.Line(hg, new T.LineBasicMaterial({ color: this.COL_WP, depthTest: false }));
+                    hg.setAttribute('position', new T.Float32BufferAttribute([
+                        w.x, w.y, 0, hx, hy, 0,
+                        hx, hy, 0, hx + Math.cos(b1) * hA, hy + Math.sin(b1) * hA, 0,
+                        hx, hy, 0, hx + Math.cos(b2) * hA, hy + Math.sin(b2) * hA, 0], 3));
+                    var hl = new T.LineSegments(hg, new T.LineBasicMaterial({ color: this.COL_WP, depthTest: false }));
                     hl.renderOrder = order + 1;
                     this.wpGroup.add(hl);
                 }
@@ -936,7 +943,7 @@ window.MapEdits = (function () {
                 _publishWaypointAt(finalName, world.x, world.y, yaw);
                 _pendingMoveName = null;
                 _setHint('Moved waypoint "' + finalName + '".');
-            });
+            }, world, _wpYawDeg(mv));
             return;
         }
         // V3: clicking ON an existing waypoint dot selects it for Move / Delete
@@ -953,7 +960,7 @@ window.MapEdits = (function () {
             _publishWaypointAt(finalName, world.x, world.y, yaw);
             _wpN++;
             _setHint('Saved waypoint "' + finalName + '".');
-        });
+        }, world, 0);
     }
 
     // V3: a dot-selected waypoint — offer Move (click the map) / Delete, and keep
@@ -989,34 +996,96 @@ window.MapEdits = (function () {
     var _wpInput = null;
     // Waypoint name + heading form. Renders INTO the KONTEXT box (#mapedit_wp_form)
     // instead of a floating popup, so all controls stay inside the panel.
-    function _showWpInput(name, lockName, onSave) {
+    // ---- yaw preview arrow (2026-08-16, user request): a live orange arrow
+    // at the waypoint position that rotates with the Heading controls, so the
+    // rotation is VISIBLE on the map and can be set precisely. ----
+    var _yawPreview = null;
+    function _showYawPreview(x, y, yawRad) {
+        _hideYawPreview();
+        if (!_mapObjLayer || !_mapObjLayer.wpGroup) return;
+        var L = 0.9, ah = 0.26;
+        var hx = Math.cos(yawRad), hy = Math.sin(yawRad);
+        var tipx = x + hx * L, tipy = y + hy * L;
+        var a1 = yawRad + Math.PI * 0.82, a2 = yawRad - Math.PI * 0.82;
+        var g = new T.Group();
+        var mat = new T.LineBasicMaterial({ color: 0xffb400, depthTest: false });
+        var sg = new T.BufferGeometry();
+        sg.setAttribute('position', new T.Float32BufferAttribute(
+            [x, y, 0, tipx, tipy, 0,
+             tipx, tipy, 0, tipx + Math.cos(a1) * ah, tipy + Math.sin(a1) * ah, 0,
+             tipx, tipy, 0, tipx + Math.cos(a2) * ah, tipy + Math.sin(a2) * ah, 0], 3));
+        var seg = new T.LineSegments(sg, mat);
+        seg.renderOrder = 60;
+        g.add(seg);
+        g.position.z = 0.16;
+        _mapObjLayer.wpGroup.add(g);
+        _yawPreview = g;
+        if (_mapObjLayer.overlay) _mapObjLayer.overlay.markDirty();
+    }
+    function _hideYawPreview() {
+        if (_yawPreview && _yawPreview.parent) _yawPreview.parent.remove(_yawPreview);
+        _yawPreview = null;
+        if (_mapObjLayer && _mapObjLayer.overlay) _mapObjLayer.overlay.markDirty();
+    }
+    // current yaw (deg) of a known waypoint — so Move PREFILLS the existing
+    // heading instead of silently resetting it to 0 (old behaviour).
+    function _wpYawDeg(name) {
+        if (_mapObjLayer) {
+            for (var i = 0; i < _mapObjLayer.waypoints.length; i++) {
+                var w = _mapObjLayer.waypoints[i];
+                if (w.name === name && typeof w.yaw === 'number') {
+                    var d = w.yaw * 180 / Math.PI;
+                    return ((d % 360) + 360) % 360;
+                }
+            }
+        }
+        return 0;
+    }
+
+    function _showWpInput(name, lockName, onSave, pos, initYawDeg) {
         _hideWpInput();
         var host = document.getElementById('mapedit_wp_form');
         if (!host) return;
+        var y0 = (typeof initYawDeg === 'number' && isFinite(initYawDeg))
+            ? Math.round(initYawDeg * 2) / 2 : 0;
         host.innerHTML =
             '<div style="border-top:1px dashed var(--bs-secondary);padding-top:8px;">' +
             '<div style="font-size:12px;margin-bottom:2px;">Waypoint name</div>' +
             '<input class="form-control form-control-sm" id="mapedit_wp_name" type="text" value="' + _escapeAttr(name) + '"' + (lockName ? ' readonly' : '') + '>' +
-            '<div style="font-size:12px;margin:8px 0 2px;">Heading: <span id="mapedit_wp_yawv">0</span>°</div>' +
-            '<input id="mapedit_wp_yaw" type="range" min="0" max="359" step="1" value="0" style="width:100%;">' +
+            '<div style="font-size:12px;margin:8px 0 2px;display:flex;align-items:center;gap:6px;">Heading' +
+            ' <input id="mapedit_wp_yawn" class="form-control form-control-sm" type="number" min="0" max="359.5" step="0.5" value="' + y0 + '" style="width:78px;padding:1px 6px;">°' +
+            ' <span style="opacity:.65;font-size:11px;">(arrow on the map)</span></div>' +
+            '<input id="mapedit_wp_yaw" type="range" min="0" max="359.5" step="0.5" value="' + y0 + '" style="width:100%;">' +
             '<div class="d-flex" style="gap:6px;margin-top:8px;">' +
             '  <button class="btn btn-success btn-sm flex-fill" id="mapedit_wp_save" type="button">Save</button>' +
             '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_cancel" type="button">Cancel</button>' +
             '</div></div>';
         _wpInput = host;
-        var yaw = host.querySelector('#mapedit_wp_yaw'), yawv = host.querySelector('#mapedit_wp_yawv');
-        yaw.addEventListener('input', function () { yawv.textContent = yaw.value; });
+        var yaw = host.querySelector('#mapedit_wp_yaw');
+        var yawn = host.querySelector('#mapedit_wp_yawn');
+        function refresh(fromNumber) {
+            var v = parseFloat(fromNumber ? yawn.value : yaw.value);
+            if (!isFinite(v)) v = 0;
+            v = ((v % 360) + 360) % 360;
+            if (fromNumber) yaw.value = v; else yawn.value = v;
+            if (pos) _showYawPreview(pos.x, pos.y, v * Math.PI / 180);
+        }
+        yaw.addEventListener('input', function () { refresh(false); });
+        yawn.addEventListener('input', function () { refresh(true); });
+        if (pos) _showYawPreview(pos.x, pos.y, y0 * Math.PI / 180);
         host.querySelector('#mapedit_wp_save').addEventListener('click', function () {
             var nm = (host.querySelector('#mapedit_wp_name').value || '').trim();
             if (!nm) { host.querySelector('#mapedit_wp_name').focus(); return; }
+            var v = parseFloat(yawn.value);
             _hideWpInput();
-            onSave(nm, parseFloat(yaw.value) || 0);
+            onSave(nm, isFinite(v) ? ((v % 360) + 360) % 360 : 0);
         });
         host.querySelector('#mapedit_wp_cancel').addEventListener('click', function () { _hideWpInput(); _pendingMoveName = null; });
         var nmEl = host.querySelector('#mapedit_wp_name');
         if (!lockName) { nmEl.focus(); nmEl.select(); }
     }
     function _hideWpInput() {
+        _hideYawPreview();
         var host = document.getElementById('mapedit_wp_form');
         if (host) host.innerHTML = '';
         _wpInput = null;
