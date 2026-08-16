@@ -13,7 +13,10 @@ var ros, imu_diag, viewer, viewer_grid, imu_markers, imu_yaws, imu_buttons, joy_
 
 class ROS {
     constructor() {
-        this.ros = new ROSLIB.Ros({url: "ws://" + location.hostname + ":9090"});
+        // groovyCompatibility:false → TFClient uses the auto-cleaning
+        // /republish_tfs service instead of leak-prone actionlib goals
+        // (see map_view.js ROS ctor for the full story).
+        this.ros = new ROSLIB.Ros({url: "ws://" + location.hostname + ":9090", groovyCompatibility: false});
         console.log("Connected to ROS.");
     }
 }

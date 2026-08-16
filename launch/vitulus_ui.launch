@@ -16,7 +16,7 @@
 
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find vitulus_ui)/launch/rosconsole.conf"/>
   <node pkg="web_video_server" type="web_video_server" name="web_video_server" output="screen"/>
-  <node pkg="tf2_web_republisher" type="tf2_web_republisher" name="tf2_web_republisher" output="screen"/>
+  <node pkg="tf2_web_republisher" type="tf2_web_republisher" name="tf2_web_republisher" output="screen" respawn="true" respawn_delay="2"/>
   <!-- <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"></include> -->
   <include file="$(find vitulus_ui)/launch/rosbridge_websocket.launch"></include>
 
