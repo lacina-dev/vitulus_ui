@@ -2082,9 +2082,22 @@ class MappingV3 {
                 hdr.innerHTML = '● Recording map: <b>' + s.site + '</b> ('
                     + Math.floor((s.uptime_s || 0) / 60) + ' min)';
                 hdr.style.color = '#51cf66';
+                // 2026-08-16 field fix: the Direct layer is THE live view of
+                // the map being recorded — with the toggle persisted in
+                // localStorage a long-forgotten uncheck made a healthy
+                // recording look like 'I have no map'. Force it on while a
+                // session runs (the user can still uncheck it afterwards —
+                // this fires only on the not-running -> running edge).
+                if (!this._directLayerForced && this.chk_direct
+                        && !this.chk_direct.checked) {
+                    this.chk_direct.checked = true;
+                    this.chk_direct.dispatchEvent(new Event('change'));
+                }
+                this._directLayerForced = true;
             } else {
                 hdr.textContent = 'No map recording';
                 hdr.style.color = '';
+                this._directLayerForced = false;
             }
         }
         if (this.el_serving) {
