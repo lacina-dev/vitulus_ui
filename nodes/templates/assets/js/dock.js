@@ -209,12 +209,25 @@ class Dock {
         this.dockVizGroup = new THREE.Object3D();
         viewer.scene.add(this.dockVizGroup);
         var _dvg = this.dockVizGroup;
-        setInterval(function () {
+        // 2026-08-16 v2 (flicker fix): the interval-only sweep left freshly
+        // republished markers unstyled for up to 700 ms — visible blinking on
+        // every marker update. Style IMMEDIATELY on each client's 'change'
+        // event; materials are touched once (flag) so nothing churns per
+        // sweep. A slow interval stays as a safety net only.
+        function _styleDockViz() {
             _dvg.traverse(function (o) {
                 o.renderOrder = 35;   // DOCK_VIZ: above DIRECT 21, below ROBOT 55
-                if (o.material) { o.material.depthTest = false; o.material.transparent = true; }
+                var m = o.material;
+                if (m && !m._dockStyled) {
+                    m.depthTest = false;
+                    m.depthWrite = false;
+                    m.transparent = true;
+                    m._dockStyled = true;
+                }
             });
-        }, 700);
+        }
+        this._styleDockViz = _styleDockViz;
+        setInterval(_styleDockViz, 3000);
         this.markerArrayClientIntensityDock = new ROS3D.MarkerArrayClient({
             ros: ros,
             rootObject: this.dockVizGroup,
@@ -223,6 +236,7 @@ class Dock {
             path: '/',
             messageType: 'visualization_msgs/MarkerArray'
         });
+        this.markerArrayClientIntensityDock.on('change', _styleDockViz);
         
         // Add new marker array client for navigation visualization
         this.markerArrayClientNavigation = null;
@@ -763,6 +777,7 @@ class Dock {
                 path: '/',
                 messageType: 'visualization_msgs/MarkerArray'
             });
+            this.markerArrayClientMapDock.on('change', this._styleDockViz);
         }
 
         if (!this.markerArrayClientNavigation) {
@@ -774,6 +789,7 @@ class Dock {
                 path: '/',
                 messageType: 'visualization_msgs/MarkerArray'
             });
+            this.markerArrayClientNavigation.on('change', this._styleDockViz);
         }
 
         // console.log("Dock map client and marker arrays created/shown with standard configuration");
