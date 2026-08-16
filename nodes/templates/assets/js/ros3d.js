@@ -59239,12 +59239,23 @@ var ROS3D = (function (exports, ROSLIB) {
 	    // angle from y-axis
 	    var phi = Math.atan2(Math.sqrt(offset.y * offset.y + offset.x * offset.x), offset.z);
 
+	    // vitulus_ui 2026-08-16: Z-rotation was INVISIBLE in the default
+	    // top-down view — at the zenith the camera position sits ON the Z axis
+	    // (nowhere to orbit) and atan2(0,0) forgets the azimuth. Remember the
+	    // last theta across the singularity; camera.up below rotates WITH it,
+	    // so the map spins on screen even when looking straight down.
+	    if (this._lastTheta === undefined) { this._lastTheta = -Math.PI / 2; }  // north-up start
+	    var _sinPhiRaw = Math.sqrt(offset.y * offset.y + offset.x * offset.x) /
+	        Math.max(offset.length(), 1e-9);
+	    if (_sinPhiRaw < 0.02) { theta = this._lastTheta; }
+
 	    if (this.autoRotate) {
 	      this.rotateLeft(2 * Math.PI / 60 / 60 * this.autoRotateSpeed);
 	    }
 
 	    theta += this.thetaDelta;
 	    phi += this.phiDelta;
+	    this._lastTheta = theta;
 
 	    // restrict phi to be between EPS and PI-EPS
 	    var eps = 0.000001;
@@ -59269,6 +59280,13 @@ var ROS3D = (function (exports, ROSLIB) {
 	    }
 
 	    position.copy(this.center).add(offset);
+
+	    // vitulus_ui 2026-08-16: screen-up = spherical tangent toward the
+	    // zenith. Rotates with theta (top-down map rotation works), degrades to
+	    // plain Z-up at the horizon; theta=-PI/2 at boot = north-up.
+	    this.camera.up.set(-Math.cos(phi) * Math.cos(theta),
+	                       -Math.cos(phi) * Math.sin(theta),
+	                       Math.sin(phi));
 
 	    this.camera.lookAt(this.center);
 
