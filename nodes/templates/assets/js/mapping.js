@@ -484,6 +484,15 @@ class MappingV3 {
         // session-row Serve button. Disabled until a site is being served (the
         // editor needs a served map to draw edits/waypoints against); enabled
         // in handleManager() when s.serving is set.
+        // 2026-08-16: Deactivate — factory-fresh test state (serve 'none')
+        const btnDeact = document.getElementById('mapv3_btn_deactivate');
+        this._wireDoubleClickDelete(btnDeact, () => {
+            this.pub_serve.publish(new ROSLIB.Message({data: 'none'}));
+            if (this.el_serving) {
+                this.el_serving.textContent = 'deactivating…';
+                this.el_serving.style.color = '';
+            }
+        }, 'Deactivate');
         // 2026-08-16: the JS-created "Edit map" button in the Saved maps header
         // is GONE — it duplicated the header Edit button (both open the same
         // editor; the header toggle now passes keepBase:true itself).
