@@ -209,6 +209,20 @@ class Dock {
         this.dockVizGroup = new THREE.Object3D();
         viewer.scene.add(this.dockVizGroup);
         var _dvg = this.dockVizGroup;
+        // 2026-08-16 v3 (field report): the always-on-top change SURFACED the
+        // stale latched dock markers in the middle of the garden (giant green
+        // intensity cells + a rotated plane) — before, they were silently
+        // buried under the map layers. The group is now visible ONLY while a
+        // dock context is active: docked(0) / undocking(1) / docking(2).
+        _dvg.visible = false;
+        var _dvgStatus = new ROSLIB.Topic({
+            ros: ros, name: '/dock_smach/dock_status',
+            messageType: 'std_msgs/Int8'
+        });
+        _dvgStatus.subscribe(function (m) {
+            var v = Number(m.data);
+            _dvg.visible = (v === 0 || v === 1 || v === 2);
+        });
         // 2026-08-16 v2 (flicker fix): the interval-only sweep left freshly
         // republished markers unstyled for up to 700 ms — visible blinking on
         // every marker update. Style IMMEDIATELY on each client's 'change'
