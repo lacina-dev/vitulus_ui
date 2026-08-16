@@ -58862,8 +58862,9 @@ var ROS3D = (function (exports, ROSLIB) {
 	                                                     moveStartNormal);
 	          break;
 	        case 2:
-	          state = STATE.ZOOM;
-	          zoomStart.set(event.clientX, event.clientY);
+	          // vitulus_ui 2026-08-16 (user request): zoom is WHEEL-ONLY — the
+	          // right-drag zoom kept surprising in the field; right button now
+	          // does nothing.
 	          break;
 	      }
 
@@ -58989,10 +58990,12 @@ var ROS3D = (function (exports, ROSLIB) {
 	        }
 	      } catch (e) { /* keep base speed */ }
 	      var zoomScale = Math.pow(0.95, speed);
+	      // vitulus_ui 2026-08-16 (user request): INVERTED wheel — wheel up
+	      // zooms OUT, wheel down zooms IN.
 	      if (delta > 0) {
-	        that.zoomIn(zoomScale);
-	      } else {
 	        that.zoomOut(zoomScale);
+	      } else {
+	        that.zoomIn(zoomScale);
 	      }
 
 	      this.showAxes();

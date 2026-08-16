@@ -954,6 +954,14 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <div style="font-size: 12px;margin-top: 4px;" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across the occupancy layers.">Unknown opacity <span id="mapv3_unknown_opacity_val" style="opacity: .8;">100%</span></div>
                                                 <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" style="width: 100%;max-width: 260px;vertical-align: middle;">
                                                 <span id="mapv3_site_status" style="font-size: 12px;display: block;margin-top: 3px;opacity: .8;">saved map: &mdash;</span>
+                                                <hr style="margin: 8px 0;">
+                                                <div style="font-size: 12px;margin-bottom: 3px;" title="The robot footprint outline drawn on top of every layer.">Robot marker</div>
+                                                <div style="font-size: 12px;display: flex;align-items: center;gap: 8px;flex-wrap: wrap;">
+                                                    Frame <input type="color" id="mapv3_robot_frame" value="#ffffff" style="width: 36px;height: 22px;padding: 1px;background: none;border: 1px solid var(--bs-secondary);">
+                                                    Fill <input type="color" id="mapv3_robot_fill" value="#ffffff" style="width: 36px;height: 22px;padding: 1px;background: none;border: 1px solid var(--bs-secondary);">
+                                                    Fill opacity <span id="mapv3_robot_fill_op_val" style="opacity: .8;">35%</span>
+                                                </div>
+                                                <input type="range" id="mapv3_robot_fill_op" min="0" max="1" step="0.05" value="0.35" style="width: 100%;max-width: 260px;">
                                                 <button class="btn btn-outline-warning btn-sm" id="mapv3_btn_clear_costmaps" type="button" style="margin-top: 6px;font-size: 11px;padding: 1px 8px;" title="Clear the navigation costmaps — the live obstacle memory that accumulates while driving (the 'map that builds as you drive'). It is NOT a saved map; it instantly re-marks whatever the sensors currently see.">Clear costmaps</button>
 
                                                 <hr style="margin: 8px 0;">

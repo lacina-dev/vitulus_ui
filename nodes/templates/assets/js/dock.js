@@ -203,9 +203,21 @@ class Dock {
 
         this.markerArrayClientMapDock = null;
 
+        // 2026-08-16 (user request): dock graphics ALWAYS above the mapping
+        // layers — dedicated group + periodic renderOrder/depthTest sweep
+        // (markers are created dynamically by the MarkerArrayClients).
+        this.dockVizGroup = new THREE.Object3D();
+        viewer.scene.add(this.dockVizGroup);
+        var _dvg = this.dockVizGroup;
+        setInterval(function () {
+            _dvg.traverse(function (o) {
+                o.renderOrder = 35;   // DOCK_VIZ: above DIRECT 21, below ROBOT 55
+                if (o.material) { o.material.depthTest = false; o.material.transparent = true; }
+            });
+        }, 700);
         this.markerArrayClientIntensityDock = new ROS3D.MarkerArrayClient({
             ros: ros,
-            rootObject: viewer.scene,
+            rootObject: this.dockVizGroup,
             tfClient: tf_client,
             topic: "/dock_detector/intensity/visualization",
             path: '/',
@@ -745,7 +757,7 @@ class Dock {
         if (!this.markerArrayClientMapDock) {
             this.markerArrayClientMapDock = new ROS3D.MarkerArrayClient({
                 ros: this.ros,
-                rootObject: this.viewer.scene,
+                rootObject: this.dockVizGroup,
                 tfClient: this.tf_client,
                 topic: "/dock_detector/basic_visualization_markers",
                 path: '/',
@@ -756,7 +768,7 @@ class Dock {
         if (!this.markerArrayClientNavigation) {
             this.markerArrayClientNavigation = new ROS3D.MarkerArrayClient({
                 ros: this.ros,
-                rootObject: this.viewer.scene,
+                rootObject: this.dockVizGroup,
                 tfClient: this.tf_client,
                 topic: "/dock_detector/navigation_visualization_markers",
                 path: '/',

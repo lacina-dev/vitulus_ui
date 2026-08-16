@@ -484,6 +484,36 @@ class MappingV3 {
         // session-row Serve button. Disabled until a site is being served (the
         // editor needs a served map to draw edits/waypoints against); enabled
         // in handleManager() when s.serving is set.
+        // 2026-08-16: Robot marker appearance (frame/fill colour + fill
+        // opacity) — persisted to localStorage; map_view.js RobotVisualization
+        // applies the stored values in its periodic sweep.
+        (function () {
+            var frame = document.getElementById('mapv3_robot_frame');
+            var fill = document.getElementById('mapv3_robot_fill');
+            var fop = document.getElementById('mapv3_robot_fill_op');
+            var fopv = document.getElementById('mapv3_robot_fill_op_val');
+            function ls(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
+            if (frame) {
+                frame.value = ls('vitulus_robot_frame_color', '#ffffff');
+                frame.addEventListener('input', function () {
+                    try { localStorage.setItem('vitulus_robot_frame_color', frame.value); } catch (e) {}
+                });
+            }
+            if (fill) {
+                fill.value = ls('vitulus_robot_fill_color', '#ffffff');
+                fill.addEventListener('input', function () {
+                    try { localStorage.setItem('vitulus_robot_fill_color', fill.value); } catch (e) {}
+                });
+            }
+            if (fop) {
+                fop.value = ls('vitulus_robot_fill_opacity', '0.35');
+                if (fopv) fopv.textContent = Math.round(parseFloat(fop.value) * 100) + '%';
+                fop.addEventListener('input', function () {
+                    if (fopv) fopv.textContent = Math.round(parseFloat(fop.value) * 100) + '%';
+                    try { localStorage.setItem('vitulus_robot_fill_opacity', fop.value); } catch (e) {}
+                });
+            }
+        })();
         // 2026-08-16: Clear costmaps — the live obstacle memory accumulates
         // while driving and confused the user as an 'undeletable map'.
         const btnCc = document.getElementById('mapv3_btn_clear_costmaps');
