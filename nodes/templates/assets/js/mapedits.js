@@ -273,7 +273,7 @@ window.MapEdits = (function () {
             overlay.overlayGroup.add(this.wpGroup);
             overlay.overlayGroup.add(this.pathGroup);
 
-            this.COL_WP = new T.Color('#20c0ff');
+            this.COL_WP = new T.Color('#1030d8');   // 2026-08-16: dark blue (user request)
             this.COL_PATH = new T.Color('#00d0a0');
 
             // PATH MGMT: per-path visibility hidden-set (names), persisted as a JSON
@@ -351,12 +351,19 @@ window.MapEdits = (function () {
             // waypoints — small dot + heading tick + text label
             for (var i = 0; i < this.waypoints.length; i++) {
                 var w = this.waypoints[i];
-                var r = 0.18;
-                var dot = new T.Mesh(new T.CircleGeometry(r, 16),
-                    new T.MeshBasicMaterial({ color: this.COL_WP, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
+                var r = 0.22;
+                // 2026-08-16 prominence: dark-blue dot + thin white halo ring
+                // so it pops on aerial imagery AND on the dark background
+                var dot = new T.Mesh(new T.CircleGeometry(r, 20),
+                    new T.MeshBasicMaterial({ color: this.COL_WP, depthTest: false, depthWrite: false }));
                 dot.position.set(w.x, w.y, 0);
                 dot.renderOrder = order + 1;
                 this.wpGroup.add(dot);
+                var halo = new T.Mesh(new T.RingGeometry(r, r * 1.28, 24),
+                    new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthTest: false, depthWrite: false }));
+                halo.position.set(w.x, w.y, 0);
+                halo.renderOrder = order + 1;
+                this.wpGroup.add(halo);
                 // heading tick
                 if (typeof w.yaw === 'number') {
                     // 2026-08-16: tick -> ARROW (with a head) so the stored
@@ -388,7 +395,7 @@ window.MapEdits = (function () {
                 ctx = cv.getContext('2d');
                 ctx.font = fs + 'px sans-serif'; ctx.textBaseline = 'top';
                 ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, cv.width, cv.height);
-                ctx.fillStyle = '#20c0ff'; ctx.fillText(text, 6, 6);
+                ctx.fillStyle = '#7f9dff'; ctx.fillText(text, 6, 6);   // lighter blue: readable on the dark label bg
                 var tex = new T.CanvasTexture(cv);
                 tex.needsUpdate = true;
                 var mat = new T.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true });
