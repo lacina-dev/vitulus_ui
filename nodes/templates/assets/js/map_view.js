@@ -124,6 +124,27 @@ var MapLayerOrder = {
 // back by getColor() (unknown alpha) / applied to every registered mesh (whole
 // opacity) as soon as the manager is constructed.
 // ===========================================================================
+// ---------------------------------------------------------------------------
+// Settings-persistence helpers (2026-08-15 pass) — tiny localStorage wrappers
+// shared by the view-state persistence below (HUD toggles, follow mode, log
+// panel filters, drawer panel, camera pose, selected program). Absent key =>
+// the supplied default; storage failures (private mode) silently keep defaults.
+// Robot-side state is NEVER persisted here — the robot stays the source of
+// truth for anything mirrored over ROS topics.
+function uiPrefGet(key, dflt) {
+    try {
+        var v = localStorage.getItem(key);
+        if (v !== null) { return v; }
+    } catch (e) { /* localStorage unavailable */ }
+    return dflt;
+}
+function uiPrefSet(key, val) {
+    try { localStorage.setItem(key, String(val)); } catch (e) { /* ignore */ }
+}
+function uiPrefDel(key) {
+    try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+}
+
 var MapLayerOpacity = {
     LS_MAPS: 'vitulus_maps_opacity',       // 0..1
     LS_UNKNOWN: 'vitulus_unknown_opacity', // 0..1 (fraction of each layer's
@@ -836,7 +857,17 @@ class ROS {
         this._hb_svc = null;                // heartbeat service, recreated on each connect
         this._last_msg_at = 0;              // timestamp of last WebSocket data frame received
         this._hb_active = false;            // active service check in flight
-        this.ros = new ROSLIB.Ros({url: this._url});
+        // groovyCompatibility:false → TFClient uses the /republish_tfs SERVICE
+        // interface instead of actionlib goals. Action goals are NEVER reaped
+        // when a browser tab dies (no cancel on unload), so a day of page
+        // reloads piled up 61 live goals × 20 Hz = ~1200 feedback msgs/s:
+        // rosbridge at 68% CPU and every browser drowning in parsing → lidar
+        // scan / point clouds rendered with a growing replay-delay while the
+        // tiny footprint polygon stayed live. The service interface gives each
+        // client a dedicated topic the C++ republisher auto-unadvertises once
+        // it has had no subscribers for `topicTimeout` — dead tabs clean
+        // themselves up.
+        this.ros = new ROSLIB.Ros({url: this._url, groovyCompatibility: false});
         var self = this;
 
         var emit = function(name, detail) {
@@ -1198,6 +1229,9 @@ class TfClient {
           angularThres : 0.00001,
           transThres : 0.00001,
           rate : 20.0,
+          // service-mode only: republisher drops this client's topic after
+          // 10 s with no subscribers (tab closed/crashed) — no goal leaks.
+          topicTimeout : 10.0,
           fixedFrame : '/map'
         });
 
@@ -1254,13 +1288,15 @@ class TfClient {
             viewer.cameraControls.center.x = tf.translation.x;
             viewer.cameraControls.center.y = tf.translation.y;
             viewer.cameraControls.center.z = tf.translation.z;
-            viewer.cameraControls.rotateLeft(Math.PI);
             viewer.camera.position.x = tf.translation.x;
             viewer.camera.position.y = tf.translation.y;
-            let euler = new THREE.Euler(0,0,0, 'XYZ');
-            let quat = new THREE.Quaternion(tf.rotation.x, tf.rotation.y, tf.rotation.z, tf.rotation.w);
-            euler.setFromQuaternion(quat);
-            viewer.cameraControls.thetaDelta = euler.z + Math.PI;
+            // 2026-08-16 v2: robot-follow keeps the CURRENT map orientation
+            // (historically it was effectively north-up: the old thetaDelta
+            // assignment was visually inert from the top-down pose — the
+            // stateful-theta rotation fix suddenly made it SPIN the whole
+            // scene with the robot yaw, which read as 'lidar/point clouds
+            // rotate and fly around'). The camera now just FOLLOWS position;
+            // the user's manual rotation stays untouched.
         };
         // vitulus_ui: the 'camera' ("Robot front" / chase) follow mode was removed.
     }
@@ -1399,16 +1435,40 @@ class Clouds {
 
 class RobotVisualization {
     constructor(ros, tf_client, viewer) {
+        // 2026-08-16 (user request): the robot footprint sits ABOVE everything
+        // (incl. dock graphics) and its colours are UI-configurable (Display
+        // section -> Robot marker; persisted in localStorage, applied by the
+        // periodic sweep below because ROS3D.Polygon rebuilds its meshes on
+        // every footprint message).
+        this.group = new THREE.Object3D();
+        viewer.scene.add(this.group);
         this.robotPolygon = new ROS3D.Polygon({
             ros : ros,
             tfClient: tf_client,
-            rootObject : viewer.scene,
+            rootObject : this.group,
             topic: '/move_base_flex/local_costmap/footprint',
-            color: 0xffffff,        // outline
-            fillColor: 0xffffff,    // filled interior (not just an outline)
+            color: 0xffffff,        // outline (live value applied by the sweep)
+            fillColor: 0xffffff,    // filled interior
             fillOpacity: 0.35
         });
-        
+        var self = this;
+        setInterval(function () {
+            var frame = uiPrefGet('vitulus_robot_frame_color', '#ffffff');
+            var fill = uiPrefGet('vitulus_robot_fill_color', '#ffffff');
+            var fop = parseFloat(uiPrefGet('vitulus_robot_fill_opacity', '0.35'));
+            self.group.traverse(function (o) {
+                o.renderOrder = 55;   // ROBOT: above DOCK_VIZ 35 and every map layer
+                if (!o.material) { return; }
+                o.material.depthTest = false;
+                if (o.isMesh) {
+                    o.material.color.set(fill);
+                    o.material.transparent = true;
+                    o.material.opacity = isFinite(fop) ? fop : 0.35;
+                } else if (o.isLine || o.isLineSegments) {
+                    o.material.color.set(frame);
+                }
+            });
+        }, 700);
     }
 }
 
@@ -1954,20 +2014,63 @@ class CameraView {
         });
         var self = this;
         this._ros_was_disconnected = false; // true only after a real disconnect
+        // CAMERA REWORK (2026-08-16, user request):
+        //  * stream ONLY while the HUD camera view is shown (start()/stop());
+        //    the page no longer opens the MJPEG connection at load
+        //  * a loader overlay replaces the mjpegcanvas error icon while frames
+        //    are not flowing yet
+        //  * auto-resume after web_video_server / stack restarts (watchdog +
+        //    rosconnected), and pause in a background tab
+        this._active = false;
+        this._buildLoader();
         this._attachImageHandlers();
-        // Watchdog: MJPEG is a continuous HTTP multipart stream — onload does
-        // NOT fire repeatedly. Only check whether naturalWidth is 0 (= server
-        // unreachable / stream not started yet). First check after 3s, then
-        // every 8s so we catch failures quickly without hammering the server.
-        setTimeout(function() {
-            setInterval(function() {
-                if (!self.camViewer || !self.camViewer.image) return;
-                if (document.hidden) return;
-                if (self.camViewer.image.naturalWidth === 0) {
-                    self.reloadStream('watchdog');
-                }
-            }, 8000);
+        this.stop();                     // no streaming until the view is shown
+        // 2026-08-16: click the view to ENLARGE / shrink (persisted). The
+        // stream is restarted at the new size so the big view is sharp.
+        this._big = false;   // the view ALWAYS opens small-at-the-bottom
+        var _host0 = document.getElementById('div_camera_view');
+        if (_host0) {
+            _host0.style.cursor = 'zoom-in';
+            _host0.title = 'Click to enlarge / shrink the camera view';
+            _host0.addEventListener('click', function () { self.toggleSize(); });
+        }
+        // Watchdog (only while ACTIVE + tab visible): no frames -> loader +
+        // reload. 3 s cadence reacts to a restarted web_video_server quickly
+        // without hammering it.
+        setInterval(function() {
+            if (!self._active || document.hidden) return;
+            if (!self.camViewer || !self.camViewer.image) return;
+            if (self.camViewer.image.naturalWidth === 0) {
+                self._showLoader();
+                // forced: the cooldown must not starve recovery retries —
+                // reloadStream now aborts the previous attempt's connection,
+                // so a 3 s retry cadence is safe (no connection pile-up).
+                self.reloadStream('watchdog', true);
+            }
         }, 3000);
+        // Fast first-frame poll: hide the loader the moment frames arrive.
+        // Also self-heal a boot race: if the loader is up but the image src
+        // never got the stream URL (early changeStream landed before the
+        // canvas was ready), force a restart.
+        setInterval(function() {
+            if (!self._active || !self._loader || self._loader.style.display === 'none') return;
+            var img = self.camViewer && self.camViewer.image;
+            if (!img) return;
+            if (img.naturalWidth > 0) { self._hideLoader(); return; }
+            if ((img.src || '').indexOf(':' + self.port) < 0) {
+                self.reloadStream('start-retry', true);
+            }
+        }, 300);
+        // Background tab: closing the stream saves robot CPU/bandwidth; it
+        // resumes automatically when the tab becomes visible again.
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                if (self._active) { try { self.camViewer.image.src = ''; } catch (e) {} }
+            } else if (self._active) {
+                self._showLoader();
+                self.reloadStream('tab-visible', true);
+            }
+        });
         // Reload on reconnect ONLY when there was a real prior disconnect
         // (avoids the spurious reload on every fresh page load).
         document.addEventListener('rosdisconnected', function() {
@@ -1976,29 +2079,156 @@ class CameraView {
         document.addEventListener('rosconnected', function() {
             if (self._ros_was_disconnected) {
                 self._ros_was_disconnected = false;
-                setTimeout(function() { self.reloadStream('rosconnected'); }, 2500);
+                if (self._active) {
+                    self._showLoader();
+                    setTimeout(function() { self.reloadStream('rosconnected', true); }, 2500);
+                }
             }
         });
+    }
+
+    // ---- loader overlay (replaces the canvas error icon) -------------------
+    _buildLoader() {
+        var host = document.getElementById('div_camera_view');
+        if (!host) return;
+        // NOTE: the div is position:absolute (anchored bottom-left by inline
+        // style) — do NOT touch its position; absolute children (the loader)
+        // anchor to any positioned ancestor, absolute included.
+        if (!document.getElementById('cam_loader_css')) {
+            var st = document.createElement('style');
+            st.id = 'cam_loader_css';
+            st.textContent = '@keyframes camspin{to{transform:rotate(360deg)}}' +
+                '.cam-loader{position:absolute;inset:0;display:flex;flex-direction:column;' +
+                'align-items:center;justify-content:center;gap:6px;background:rgba(10,14,18,.85);' +
+                'z-index:5;font-size:11px;color:#9fc9ff;}' +
+                '.cam-loader .spin{width:22px;height:22px;border:3px solid rgba(159,201,255,.25);' +
+                'border-top-color:#9fc9ff;border-radius:50%;animation:camspin .9s linear infinite;}';
+            document.head.appendChild(st);
+        }
+        this._loader = document.createElement('div');
+        this._loader.className = 'cam-loader';
+        this._loader.style.display = 'none';
+        this._loader.innerHTML = '<div class="spin"></div><div>camera…</div>';
+        host.appendChild(this._loader);
+    }
+    _showLoader() { if (this._loader) this._loader.style.display = 'flex'; }
+    _hideLoader() { if (this._loader) this._loader.style.display = 'none'; }
+
+    // ---- lifecycle ---------------------------------------------------------
+    start() {
+        this._active = true;
+        this._showLoader();
+        this.reloadStream('start', true);
+    }
+    stop() {
+        this._active = false;
+        this._hideLoader();
+        try { this.camViewer.image.src = ''; } catch (e) { /* not built yet */ }
     }
 
     _attachImageHandlers() {
         var self = this;
         if (!this.camViewer || !this.camViewer.image) return;
         this.camViewer.image.onerror = function() {
+            if (!self._active) return;
             console.warn('[CameraView] stream error, retrying in 3s');
+            self._showLoader();
             setTimeout(function() { self.reloadStream('onerror'); }, 3000);
         };
     }
 
-    reloadStream(reason) {
+    reloadStream(reason, force) {
         if (!this.camViewer || typeof this.camViewer.changeStream !== 'function') return;
+        if (!this._active) return;               // stream only while shown
         if (document.hidden) return;
-        if (this._reload_cooldown) return; // already reloading, skip
+        if (this._reload_cooldown && !force) return; // already reloading, skip
         this._reload_cooldown = true;
         var self = this;
         setTimeout(function() { self._reload_cooldown = false; }, 6000);
-        try { this.camViewer.changeStream(this.topic); } catch (e) {}
+        try {
+            // changeStream() creates a brand-new Image each call and simply
+            // ABANDONS the previous one — its open (or hanging) /stream
+            // connection was never closed. During robot boot the stream
+            // request hangs while web_video_server waits for the not-yet-
+            // published camera topic, so every retry leaked one hung
+            // connection; after ~6 the browser's per-host connection pool
+            // was exhausted and the camera could never connect again, even
+            // once the camera came up ("startuje dlouho a pak to nenaváže").
+            // Abort the old stream FIRST (src='' cancels the fetch), then
+            // open the fresh one, cache-busted so no URL-level cache can
+            // serve it. onerror is detached before the abort so the ''
+            // assignment can't schedule a spurious retry.
+            var old = this.camViewer.image;
+            if (old) { old.onerror = null; old.src = ''; }
+            this.camViewer.changeStream(this.topic);
+            var img = this.camViewer.image;   // the NEW Image made by changeStream
+            if (img && (img.src || '').indexOf(':' + this.port) >= 0) {
+                img.src = img.src + '&killcache=' + Date.now();
+            }
+            console.log('[CameraView] stream reload (' + reason + ')');
+        } catch (e) {}
         this._attachImageHandlers();
+    }
+
+    toggleSize() {
+        this._big = !this._big;   // runtime only — every SHOW resets to small
+        this._applySize();
+    }
+
+    // Apply the small/large geometry + restart the stream at the matching
+    // resolution (the MJPEG URL carries width/height, so the big view gets a
+    // sharp stream instead of an upscaled 180px one).
+    _applySize() {
+        var host = document.getElementById('div_camera_view');
+        if (!host) return;
+        // small = 141x106: matches the log strip height (106 px) exactly —
+        // the size the original layout settled on and the user expects.
+        var w = 141, h = 106;
+        if (this._big) {
+            w = Math.min(Math.round(window.innerWidth * 0.6), 640);
+            h = Math.round(w * 0.75);
+        }
+        this.camViewer.width = w;
+        this.camViewer.height = h;
+        // big view: full JPEG quality tier (the small HUD view stays at the
+        // bandwidth-friendly 20) — this is what makes the enlarged stream
+        // actually sharp, on top of the width/height URL params.
+        this.camViewer.quality = this._big ? 60 : 20;
+        if (this._big) {
+            // BIG view (user request v2): LEFT side, sitting right ABOVE the
+            // log strip (log top edge = 35 + 106 px -> bottom 149 with a
+            // small gap). Grows upward from there.
+            host.style.position = 'fixed';
+            host.style.left = '4px';
+            host.style.transform = '';
+            host.style.top = 'auto';
+            host.style.bottom = '149px';
+            host.style.marginTop = '0px';
+            host.style.marginLeft = '0px';
+        } else if (!this._smallAnchor) {
+            // Field-verified bottom-left corner next to the log view. Measuring
+            // the legacy flow position proved unreliable (it collapses after a
+            // big-mode round-trip and reads zero while hidden) — the designed
+            // spot is a constant, so pin it as one.
+            this._smallAnchor = { left: 4, bottom: 35 };
+        }
+        if (!this._big && this._smallAnchor) {
+            host.style.position = 'fixed';
+            host.style.left = this._smallAnchor.left + 'px';
+            host.style.bottom = this._smallAnchor.bottom + 'px';
+            host.style.top = 'auto';
+            host.style.transform = '';
+            host.style.marginTop = '0px';
+            host.style.marginLeft = '0px';
+        }
+        host.style.width = w + 'px';
+        host.style.height = h + 'px';
+        host.style.cursor = this._big ? 'zoom-out' : 'zoom-in';
+        try { this.changeViewerSize_cam_view(); } catch (e) { /* hidden */ }
+        if (this._active) {
+            this._showLoader();
+            this.reloadStream('resize', true);
+        }
     }
 
     calculateAspectRatioFit(srcWidth, srcHeight, maxWidth, maxHeight) {
@@ -2843,22 +3073,22 @@ class MapMenu {
             this.joy_view.style.display = "none";
             this.btn_joy.active = false;
         }
+        uiPrefSet('vitulus_hud_joy', this.btn_joy.active ? '1' : '0');
     }
 
     camera_show(camera_view){
         if (this.div_camera_view.style.display === "none"){
             this.div_camera_view.style.display = "block";
             this.btn_camera_show.active = true;
-            camera_view.camViewer.width = 180;
-            camera_view.camViewer.height = 120;
-            this.div_camera_view.style.width = '180px';
-            this.div_camera_view.style.height = '120px';
-
-            camera_view.changeViewerSize_cam_view();
+            camera_view._big = false;    // showing ALWAYS starts small+bottom
+            camera_view._applySize();
+            camera_view.start();     // 2026-08-16: stream starts only now
         } else {
             this.div_camera_view.style.display = "none";
             this.btn_camera_show.active = false;
+            camera_view.stop();      // hidden -> stop streaming entirely
         }
+        uiPrefSet('vitulus_hud_camera', this.btn_camera_show.active ? '1' : '0');
     }
 
     // ----- Phase 1 left slide-out drawer -----------------------------------
@@ -2932,6 +3162,9 @@ class MapMenu {
     // Slide the drawer IN and show the chrome/title for `key`.
     open_drawer(key) {
         this._drawer_last = key;
+        // Remember which panel is open so a reload restores it ('editor' is
+        // deliberately NOT restored at boot — see the restore block in init).
+        uiPrefSet('vitulus_open_panel', key);
         // Anchor the drawer just under the always-visible trigger button row
         // (#row_menu) so those buttons stay clickable to switch/close panels.
         try {
@@ -2966,6 +3199,7 @@ class MapMenu {
             this.ui_drawer.setAttribute('aria-hidden', 'true');
         }
         this._drawer_backdrop(false);
+        uiPrefDel('vitulus_open_panel');   // closed -> nothing to restore
     }
 
     // Full close: hide every panel (also exits the map editor) and slide out.
@@ -3211,6 +3445,18 @@ class RosLog{
             sources: new Set(),
             search: ''
         };
+        // settings-persistence: restore level / node-source / search filters.
+        try {
+            var lv = uiPrefGet('vitulus_log_levels', null);
+            if (lv !== null) {
+                this.filters.levels = new Set(
+                    lv.split(',').map(function (s) { return parseInt(s, 10); })
+                      .filter(function (n) { return [1, 2, 4, 8, 16].indexOf(n) !== -1; }));
+            }
+            var src = JSON.parse(uiPrefGet('vitulus_log_sources', '[]'));
+            if (Array.isArray(src)) { this.filters.sources = new Set(src); }
+            this.filters.search = uiPrefGet('vitulus_log_search', '').toLowerCase();
+        } catch (e) { /* malformed stored value — keep defaults */ }
         this.expanded = false;
         this.active = true;          // whether this view currently owns the shared DOM
         this.autoscroll = true;
@@ -3265,6 +3511,7 @@ class RosLog{
                     this.filters.levels.add(lvl);
                     btn.classList.add('active');
                 }
+                uiPrefSet('vitulus_log_levels', Array.from(this.filters.levels).join(','));
                 if (this.expanded) this.render_full();
             });
         });
@@ -3277,6 +3524,7 @@ class RosLog{
         srcAllBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.filters.sources.clear();
+            uiPrefSet('vitulus_log_sources', '[]');
             this._source_cb_map.forEach(cb => { cb.checked = false; });
             this._update_source_label();
             if (this.expanded) this.render_full();
@@ -3290,11 +3538,17 @@ class RosLog{
             }
         }, { passive: true });
 
+        // settings-persistence: reflect the restored search text + node-filter
+        // label into the controls.
+        if (this.filters.search) { this.searchInput.value = this.filters.search; }
+        this._update_source_label();
+
         let searchTimer = null;
         this.searchInput.addEventListener('input', () => {
             clearTimeout(searchTimer);
             searchTimer = setTimeout(() => {
                 this.filters.search = this.searchInput.value.trim().toLowerCase();
+                uiPrefSet('vitulus_log_search', this.filters.search);
                 if (this.expanded) this.render_full();
             }, 150);
         });
@@ -3483,6 +3737,8 @@ class RosLog{
             cb.addEventListener('change', () => {
                 if (cb.checked) this.filters.sources.add(n);
                 else this.filters.sources.delete(n);
+                uiPrefSet('vitulus_log_sources',
+                    JSON.stringify(Array.from(this.filters.sources)));
                 this._update_source_label();
                 if (this.expanded) this.render_full();
             });
@@ -3522,17 +3778,51 @@ class RosLog{
 }
 
 
-// Cached status-message view: shows the persistent log produced by the
-// `status_logger` ROS node (the /nextion/log_info strip). History + live
-// updates arrive over a single latched topic carrying a JSON array; entries
-// are de-duplicated by their monotonically increasing `seq`. Shares the same
-// DOM (#div_log_content) as RosLog — only one of them is `active` at a time.
+// Main robot event feed.  The former "Status" tab was only another log: every
+// /nextion/log_info line, no meaning, no priority.  This feed turns the same
+// durable history into CHANGES and adds the agent's own reports plus browser ↔
+// ROS connection changes.  Raw /rosout remains one click away for diagnosis.
+function robotEventText(value) {
+    var text = String(value == null ? '' : value)
+        .replace(/\*\*/g, '').replace(/`/g, '').replace(/\s+/g, ' ').trim();
+    if (text.length > 220) text = text.slice(0, 219) + '…';   // 219 + ellipsis = 220
+    return text;
+}
+
+function robotEventClassify(value, hintedSource) {
+    var msg = robotEventText(value);
+    var n = msg.toLowerCase();
+    var severity = 'info';
+    if (/(fault|fatal|chyba|error|ztratil.{0,20}sign[aá]l|lost.{0,20}signal|fix lost|bez spojení|odpojen|disconnected|timeout|nouz)/i.test(n)) {
+        severity = 'critical';
+    } else if (/(warning|varov|slab|degrad|nedostup|unavailable|blocked|čeká na schválení|ztrác)/i.test(n)) {
+        severity = 'warning';
+    } else if (/(obnoven|recovered|connected|připojen|dokončen|hotovo|docked|v doku|nabito|charged|fix získán|fix acquired)/i.test(n)) {
+        severity = 'good';
+    }
+    var source = hintedSource || 'Robot';
+    if (!hintedSource) {
+        if (/(rtk|gnss|gps|fix|satelit)/i.test(n)) source = 'Poloha';
+        else if (/(lidar|laser|scan)/i.test(n)) source = 'Lidar';
+        else if (/(motor|moteus|pohon)/i.test(n)) source = 'Pohon';
+        else if (/(dock|dok|nabíj|charger)/i.test(n)) source = 'Dok';
+        else if (/(navig|trasa|waypoint|cíl|goal)/i.test(n)) source = 'Navigace';
+        else if (/(kamera|camera|realsense)/i.test(n)) source = 'Kamera';
+        else if (/(bater|battery|napájen|power)/i.test(n)) source = 'Napájení';
+        else if (/(signal|spojení|connection|wifi|síť)/i.test(n)) source = 'Spojení';
+    }
+    return {msg: msg, source: source, severity: severity,
+            signature: source + '|' + msg.toLowerCase()};
+}
+
 class StatusLog {
     constructor(ros) {
-        this.LOG_COMPACT = 60;
+        this.LOG_COMPACT = 30;
         this.LOG_BUFFER  = 1500;
         this.buffer = [];
         this.lastSeq = -1;
+        this.agentCursor = 0;
+        this.lastBySource = new Map();
         this.active = false;
         this.expanded = false;
         this.autoscroll = true;
@@ -3549,6 +3839,7 @@ class StatusLog {
             name: '/status_logger/history',
             messageType: 'std_msgs/String'
         });
+        this.ros = ros && ros.ros;
     }
 
     attach(viewEl) {
@@ -3560,6 +3851,36 @@ class StatusLog {
 
     subscribe() {
         this.history_topic.subscribe((message) => this.process_history(message));
+        if (this.ros && this.ros.on) {
+            this.ros.on('connection', () => this.ingest({
+                t: Date.now() / 1000, msg: 'Spojení s robotem obnoveno', source: 'Spojení'}));
+            this.ros.on('close', () => this.ingest({
+                t: Date.now() / 1000, msg: 'Ztratil se signál z robota', source: 'Spojení'}));
+            this.ros.on('error', () => this.ingest({
+                t: Date.now() / 1000, msg: 'Chyba spojení s robotem', source: 'Spojení'}));
+        }
+        this.poll_agent();
+    }
+
+    poll_agent() {
+        var url = 'http://' + location.hostname + ':8088/api/tasks?since_id=' + this.agentCursor;
+        fetch(url, {cache: 'no-store'}).then((response) => {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        }).then((payload) => {
+            var tasks = (payload && payload.tasks) || [];
+            tasks.forEach((task) => {
+                if (task.id > this.agentCursor) this.agentCursor = task.id;
+                if (task.source !== 'agent' && task.state !== 'failed') return;
+                var text = task.reply || task.text || '';
+                if (!text) return;
+                this.ingest({seq: 'agent:' + task.id,
+                             t: task.reply_ts || task.ts || Date.now() / 1000,
+                             msg: text, source: 'Agent'});
+            });
+        }).catch(() => {}).finally(() => {
+            window.setTimeout(() => this.poll_agent(), 5000);
+        });
     }
 
     process_history(message) {
@@ -3575,6 +3896,7 @@ class StatusLog {
             this.lastSeq = -1;
             this.shownCount = 0;
             this.pendingAppend.length = 0;
+            this.lastBySource.clear();
             if (this.active && this.contentEl) this.contentEl.innerHTML = '';
         }
 
@@ -3582,15 +3904,8 @@ class StatusLog {
         for (const e of arr) {
             const seq = (typeof e.seq === 'number') ? e.seq : null;
             if (seq !== null && seq <= this.lastSeq) continue;
-            const entry = { seq: seq, t: e.t, msg: (e.msg != null ? e.msg : '') };
-            this.buffer.push(entry);
-            if (this.buffer.length > this.LOG_BUFFER) this.buffer.shift();
             if (seq !== null) this.lastSeq = Math.max(this.lastSeq, seq);
-            if (this.active) {
-                if (this.expanded) this.pendingAppend.push(entry);
-                else if (this.viewEl && this.viewEl.style.display === 'block') this.append_compact(entry);
-            }
-            added++;
+            if (this.ingest({seq: seq, t: e.t, msg: e.msg})) added++;
         }
         if (added && this.active) {
             if (this.expanded) this.schedule_append();
@@ -3598,9 +3913,57 @@ class StatusLog {
         }
     }
 
+    ingest(raw) {
+        var classified = robotEventClassify(raw.msg, raw.source);
+        if (!classified.msg) return false;
+        var t = Number(raw.t) || Date.now() / 1000;
+        var previous = this.lastBySource.get(classified.source);
+        // A status publisher often repeats the same state every tick.  The feed
+        // describes changes, so repeats are noise — but lost→recovered→lost is
+        // three real transitions and must not be hidden by an old signature.
+        if (previous && previous.signature === classified.signature &&
+                Math.abs(t - previous.t) < 60) return false;
+        var entry = {seq: raw.seq, t: t, msg: classified.msg,
+                     source: classified.source, severity: classified.severity,
+                     signature: classified.signature};
+
+        // Flapping inputs (notably GNSS acquired/lost at 2 Hz) used to consume
+        // the whole visible strip.  Keep one changing row per source during a
+        // five-second burst; once stable for longer, the next change is a new
+        // event with its own timestamp.
+        var replace = previous && Math.abs(entry.t - previous.t) < 5;
+        if (replace && previous.index >= 0 && previous.index < this.buffer.length) {
+            this.buffer[previous.index] = entry;
+            this.lastBySource.set(entry.source, {t: entry.t, index: previous.index,
+                                                  signature: entry.signature});
+            if (this.active && this.contentEl) {
+                this.pendingAppend.length = 0;
+                if (this.expanded) this.render_full(); else this.render_compact();
+            }
+            return true;
+        }
+        this.buffer.push(entry);
+        if (this.buffer.length > this.LOG_BUFFER) {
+            this.buffer.shift();
+            this.lastBySource.forEach((value, key) => {
+                if (value.index <= 0) this.lastBySource.delete(key);
+                else value.index -= 1;
+            });
+        }
+        this.lastBySource.set(entry.source,
+                              {t: entry.t, index: this.buffer.length - 1,
+                               signature: entry.signature});
+        if (this.active) {
+            if (this.expanded) this.pendingAppend.push(entry);
+            else if (this.viewEl && this.viewEl.style.display === 'block') this.append_compact(entry);
+            this.update_counter();
+        }
+        return true;
+    }
+
     format_line(entry) {
         const span = document.createElement('span');
-        span.className = 'log-line status';
+        span.className = 'log-line status event-' + (entry.severity || 'info');
         const t = entry.t ? new Date(entry.t * 1000) : new Date();
         const p = (n) => String(n).padStart(2, '0');
         if (this.expanded) {
@@ -3613,6 +3976,14 @@ class StatusLog {
         meta.className = 'log-meta';
         meta.textContent = p(t.getHours()) + ':' + p(t.getMinutes()) + ':' + p(t.getSeconds()) + ' ';
         span.appendChild(meta);
+        const dot = document.createElement('span');
+        dot.className = 'event-dot';
+        dot.textContent = '●';
+        span.appendChild(dot);
+        const source = document.createElement('span');
+        source.className = 'event-source';
+        source.textContent = (entry.source || 'Robot') + ' · ';
+        span.appendChild(source);
         span.appendChild(document.createTextNode(entry.msg));
         span.title = t.toLocaleString();
         return span;
@@ -3688,6 +4059,7 @@ class StatusLog {
     clear() {
         this.buffer.length = 0;
         this.lastSeq = -1;
+        this.lastBySource.clear();
         if (this.contentEl) this.contentEl.innerHTML = '';
         this.shownCount = 0;
         this.update_counter();
@@ -3743,7 +4115,16 @@ class LogPanel {
     constructor(ros) {
         this.rosLog = new RosLog(ros);
         this.statusLog = new StatusLog(ros);
-        this.mode = 'rosout';
+        // The most visible strip is for useful robot changes. Raw ROS is a
+        // diagnostic opt-in, not the default thing an owner has to decipher.
+        var firstEventFeed = uiPrefGet('vitulus_event_feed_v1', '0') !== '1';
+        this.mode = firstEventFeed ? 'status'
+            : (uiPrefGet('vitulus_log_mode', 'status') === 'rosout'
+               ? 'rosout' : 'status');
+        if (firstEventFeed) {
+            uiPrefSet('vitulus_event_feed_v1', '1');
+            uiPrefSet('vitulus_log_mode', 'status');
+        }
         this.expanded = false;
         this.viewEl = null;
         this.contentEl = null;
@@ -3757,8 +4138,8 @@ class LogPanel {
         this.viewEl = viewEl;
         this.rosLog.attach(viewEl);
         this.statusLog.attach(viewEl);
-        this.rosLog.active = true;
-        this.statusLog.active = false;
+        this.rosLog.active = this.mode === 'rosout';
+        this.statusLog.active = this.mode === 'status';
 
         this.contentEl   = viewEl.querySelector('#div_log_content');
         const pauseBtn    = viewEl.querySelector('#btn_log_pause');
@@ -3781,8 +4162,21 @@ class LogPanel {
             if (a.autoscroll) a.scroll_to_bottom();
         });
         clearBtn.addEventListener('click', () => { this.active.clear(); });
-        expandBtn.addEventListener('click', (e) => { e.stopPropagation(); this.set_expanded(true); });
-        collapseBtn.addEventListener('click', (e) => { e.stopPropagation(); this.set_expanded(false); });
+        // settings-persistence: expanded is saved only on these explicit
+        // clicks (NOT inside set_expanded), so the hide-log path collapsing
+        // the view doesn't overwrite the remembered preference.
+        expandBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); this.set_expanded(true);
+            uiPrefSet('vitulus_log_expanded', '1');
+        });
+        collapseBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); this.set_expanded(false);
+            uiPrefSet('vitulus_log_expanded', '0');
+        });
+
+        // settings-persistence: constructor restored the remembered mode;
+        // apply its controls even though set_mode would short-circuit.
+        this._apply_mode_visibility();
 
         this.contentEl.addEventListener('scroll', () => {
             const a = this.active;
@@ -3803,6 +4197,7 @@ class LogPanel {
     set_mode(mode) {
         if (mode !== 'rosout' && mode !== 'status') return;
         if (mode === this.mode) return;
+        uiPrefSet('vitulus_log_mode', mode);
         const prev = this.active;
         prev.active = false;
         prev.pendingAppend.length = 0;
@@ -5465,6 +5860,25 @@ class Programs {
         this.program_list_msg = message;
         // console.log(message);
         this.draw_program_list();
+        // settings-persistence: on the FIRST list after load, re-select the
+        // remembered program (exact name match; silently skipped if it no
+        // longer exists). _zoneRequested is parked around the call so the
+        // restore never auto-publishes /web_plan/republish at boot — a later
+        // manual click can still request the zone list normally.
+        if (!this._selRestored) {
+            this._selRestored = true;
+            const remembered = uiPrefGet('vitulus_sel_program', '');
+            if (remembered) {
+                const idx = message.program_list.findIndex((p) => p.name === remembered);
+                if (idx !== -1) {
+                    const hadReq = this._zoneRequested;
+                    this._zoneRequested = true;
+                    try { this.show_program(idx); }
+                    catch (e) { console.warn('[programs] restore selection failed:', e); }
+                    this._zoneRequested = hadReq;
+                }
+            }
+        }
     }
     draw_program_list() {
         let prog_list = [];
@@ -5484,6 +5898,9 @@ class Programs {
     show_program(id){
         // console.log(id);
         const program = this.program_list_msg.program_list[id];
+        // settings-persistence: remember the selection (by raw name) so a
+        // reload re-selects the same program once the list arrives again.
+        uiPrefSet('vitulus_sel_program', program.name);
         this.map_menu.btn_menu_program_show.innerText = 'Show';
         this.map_menu.span_menu_program_name.innerText = program.name.split(' (')[0];
         this.map_menu.span_menu_program_length.innerText = program.length;
@@ -5716,10 +6133,64 @@ window.initMapView = function () {
         }
     } catch (e) { /* stub viewer / no controls — nothing to orient */ }
 
+    // settings-persistence: restore the last map-view camera pose (position +
+    // orbit center; camera.up stays the north-up (0,1,0) set above, so the
+    // stored position offset reproduces azimuth/elevation/zoom exactly). Runs
+    // BEFORE TfClient so the captured map_cam_* inherit the restored pose (the
+    // map-follow reinit then returns here too). Malformed/absent -> north-up.
+    try {
+        var _camSaved = JSON.parse(uiPrefGet('vitulus_cam_map', 'null'));
+        // 2026-08-16 fix: a NEAR-TOP-DOWN saved pose (e.g. captured around the
+        // editor's top-down mode) restores into the orbit-control gimbal
+        // singularity — Z-rotation stops working and tilt goes erratic (field
+        // report). Reject degenerate poses; keep the default view instead.
+        var _camOk = _camSaved && Array.isArray(_camSaved.p) && _camSaved.p.length === 3 &&
+            Array.isArray(_camSaved.c) && _camSaved.c.length === 3 &&
+            _camSaved.p.every(isFinite) && _camSaved.c.every(isFinite);
+        if (_camOk) {
+            var _hdx = _camSaved.p[0] - _camSaved.c[0];
+            var _hdy = _camSaved.p[1] - _camSaved.c[1];
+            var _hdz = Math.abs(_camSaved.p[2] - _camSaved.c[2]);
+            if (Math.hypot(_hdx, _hdy) < 0.05 * Math.max(_hdz, 1e-6)) { _camOk = false; }
+        }
+        if (_camOk) {
+            var _cam1 = viewer.viewer.camera;
+            var _ctrl1 = viewer.viewer.cameraControls;
+            _cam1.position.set(_camSaved.p[0], _camSaved.p[1], _camSaved.p[2]);
+            _ctrl1.center.set(_camSaved.c[0], _camSaved.c[1], _camSaved.c[2]);
+            if (_cam1.lookAt) { _cam1.lookAt(_ctrl1.center); }
+            if (_cam1.updateProjectionMatrix) { _cam1.updateProjectionMatrix(); }
+        }
+    } catch (e) { /* malformed stored pose — keep the north-up default */ }
+
     tf_client = new TfClient(ros, viewer.viewer);
     tf_client.tfClientMap.subscribe('base_link', function(tf) {
         tf_client.follow_robot_set(viewer.viewer, tf);
     });
+
+    // settings-persistence: remember the map-view camera pose (debounced) so a
+    // reload restores the same pan/zoom/azimuth. Only user-driven map-mode
+    // orbiting is saved — robot-follow camera motion tracks the robot and is
+    // not a user viewpoint choice.
+    try {
+        var _camSaveTimer = null;
+        viewer.viewer.cameraControls.addEventListener('change', function () {
+            if (tf_client.follow_target !== 'map') { return; }
+            // 2026-08-16: never capture the editor's top-down camera as the
+            // user's map viewpoint (restoring it broke orbit rotation)
+            var _dp = document.getElementById('div_map_detail');
+            if (_dp && getComputedStyle(_dp).display !== 'none') { return; }
+            clearTimeout(_camSaveTimer);
+            _camSaveTimer = setTimeout(function () {
+                var c = viewer.viewer.camera;
+                var ct = viewer.viewer.cameraControls.center;
+                uiPrefSet('vitulus_cam_map', JSON.stringify({
+                    p: [c.position.x, c.position.y, c.position.z],
+                    c: [ct.x, ct.y, ct.z],
+                }));
+            }, 500);
+        });
+    } catch (e) { /* stub viewer / no controls */ }
     // tf_client_dock = new TfClient(ros, viewer.viewer);
 
     laser_scan = new LaserScan(ros, tf_client.tfClientMap, viewer.viewer);
@@ -6149,6 +6620,7 @@ window.initMapView = function () {
                 status_bar.set_follow_text("Map");
                 break;
         }
+        uiPrefSet('vitulus_follow', tf_client.follow_target);
     };
 
 
@@ -6314,10 +6786,12 @@ window.initMapView = function () {
             // hide entirely (also collapses if expanded)
             if (log_panel.expanded) log_panel.set_expanded(false);
             map_menu.div_log_view.style.display = "none";
+            uiPrefSet('vitulus_hud_log', '0');
             layout_man.set_layout();
         }
         else {
             map_menu.div_log_view.style.display = "block";
+            uiPrefSet('vitulus_hud_log', '1');
             log_panel.render_open();
             layout_man.set_layout();
         }
@@ -6599,6 +7073,27 @@ window.initMapView = function () {
         MapLayerOpacity.registerClient(maps.local_costmap, MapLayerOrder.COSTMAP);
         MapLayerOpacity.registerClient(maps.map, MapLayerOrder.BASE);
 
+        // 2026-08-16 (user request): Base-map layer toggle — mainly to hide
+        // the factory-fresh BOOTSTRAP scan (with no active map the base grid
+        // IS the bootstrap). Persisted per browser; re-applied on every grid
+        // rebuild via the client's 'change' event.
+        (function () {
+            var chk = document.getElementById('mapv3_chk_base');
+            if (!chk) return;
+            var KEY = 'vitulus_layer_base';
+            try { chk.checked = localStorage.getItem(KEY) !== '0'; } catch (e) {}
+            function applyBaseVis() {
+                if (maps.map.sceneNode) maps.map.sceneNode.visible = chk.checked;
+                else if (maps.map.currentGrid) maps.map.currentGrid.visible = chk.checked;
+            }
+            chk.addEventListener('change', function () {
+                try { localStorage.setItem(KEY, chk.checked ? '1' : '0'); } catch (e) {}
+                applyBaseVis();
+            });
+            maps.map.on('change', applyBaseVis);
+            applyBaseVis();
+        })();
+
         // Map editor V1/V3: expose the live local-costmap grid client and the
         // program/zone MarkerArray client so the map editor (mapeditor.js /
         // mapedits.js) can hide the costmap while editing and toggle the zone
@@ -6614,4 +7109,30 @@ window.initMapView = function () {
 
     window.setTimeout(function(){post_load();}, 1000);
 
+    // ---- settings-persistence: restore remembered view state (2026-08-15) ----
+    // Runs LAST, after every control is wired. Everything here is pure client
+    // view state — none of these restores publishes a ROS message.
+    try {
+        // HUD: on-screen joystick / camera preview / log panel visibility.
+        if (uiPrefGet('vitulus_hud_joy', '0') === '1') { map_menu.joy_show(); }
+        if (uiPrefGet('vitulus_hud_camera', '0') === '1') { map_menu.camera_show(camera_view); }
+        if (uiPrefGet('vitulus_hud_log', '0') === '1') {
+            map_menu.div_log_view.style.display = "block";
+            log_panel.render_open();
+            if (uiPrefGet('vitulus_log_expanded', '0') === '1') { log_panel.set_expanded(true); }
+        }
+        layout_man.set_layout();
+        // Follow mode: default is 'map'; a remembered 'robot' replays the
+        // toggle (identical side effects to a manual tap).
+        if (uiPrefGet('vitulus_follow', 'map') === 'robot') { map_menu.btn_follow.onclick(); }
+        // Drawer panel: replay the trigger-button click so all side effects
+        // (interactive markers, drawer chrome, IMU render gating) stay
+        // consistent. 'editor' is deliberately NOT restored — the map editor
+        // has its own enter flow with robot-side interactions.
+        var _openPanel = uiPrefGet('vitulus_open_panel', '');
+        if (_openPanel === 'marker') { map_menu.btn_marker.onclick(); }
+        else if (_openPanel === 'map') { map_menu.btn_map.onclick(); }
+        else if (_openPanel === 'program') { map_menu.btn_programs.onclick(); }
+        else if (_openPanel === 'config') { map_menu.btn_settings.onclick(); }
+    } catch (e) { console.warn('[vitulus_ui] view-state restore failed:', e); }
 }

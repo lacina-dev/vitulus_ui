@@ -1,0 +1,1260 @@
+/* agent_panel.css — the Vitulus Agent panel inside #ui_drawer.
+ * Bootstrap variables only; the panel is a flex column filling the drawer:
+ * bar / status strip / tabs / active pane.  2026-08-23 redesign: tabs instead
+ * of seven stacked sections. */
+
+#ui_drawer_body.vagent-host { padding: 0; overflow: hidden; display: flex; }
+
+#vagent_panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    font-size: 12.5px;
+    color: var(--bs-body-color, #dee2e6);
+}
+
+/* ------------------------------------------------------------- header bar */
+#vagent_bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+#vagent_bar .sp { margin-left: auto; }
+#vagent_dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+#vagent_dot.ok { background: var(--bs-success, #198754); }
+#vagent_dot.slow { background: var(--bs-warning, #ffc107); }
+#vagent_dot.bad { background: var(--bs-danger, #dc3545); }
+#vagent_age { color: var(--bs-secondary-color, #adb5bd); font-size: 11px; }
+#vagent_bar button {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 12px;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+#vagent_bar button:hover { color: var(--bs-light, #f8f9fa); background: rgba(255, 255, 255, 0.06); }
+#vagent_stop {
+    background: var(--bs-danger, #dc3545) !important;
+    border-color: var(--bs-danger, #dc3545) !important;
+    color: #fff !important;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+#vagent_stop:hover { filter: brightness(1.15); }
+
+/* ----------------------------------------------------------- status strip */
+#vagent_status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    padding: 5px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+.vagent-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 11px;
+    line-height: 17px;
+    color: var(--bs-body-color, #dee2e6);
+}
+.vagent-chip .lbl { color: var(--bs-secondary-color, #adb5bd); font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+.vagent-chip.good { background: rgba(25, 135, 84, 0.22); }
+.vagent-chip.warn { background: rgba(255, 193, 7, 0.20); }
+.vagent-chip.bad { background: rgba(220, 53, 69, 0.25); }
+
+/* ------------------------------------------------------------------- tabs */
+#vagent_tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    flex: 0 0 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+#vagent_tabs::-webkit-scrollbar { display: none; }
+.vagent-tab {
+    position: relative;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 12.5px;
+    padding: 7px 10px 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.vagent-tab:hover { color: var(--bs-light, #f8f9fa); }
+.vagent-tab.active {
+    color: var(--bs-light, #f8f9fa);
+    border-bottom-color: var(--bs-primary, #0d6efd);
+    font-weight: 600;
+}
+.vagent-tab.attention::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--bs-warning, #ffc107);
+    animation: vagent-pulse 1.2s ease-in-out infinite;
+}
+@keyframes vagent-pulse {
+    50% { opacity: 0.25; }
+}
+.vagent-tab .vagent-badge,
+.vagent-tab .badge,
+.vagent-tab span {
+    display: inline-block;
+    min-width: 15px;
+    margin-left: 4px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--bs-primary, #0d6efd);
+    color: #fff;
+    font-size: 10px;
+    line-height: 15px;
+    text-align: center;
+}
+.vagent-tab span:empty { display: none; }
+
+/* ------------------------------------------------------------------ panes */
+#vagent_blocks {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    position: relative;
+}
+.vagent-pane { display: none; flex: 1; min-height: 0; }
+.vagent-pane.active { display: flex; flex-direction: column; }
+.vagent-pane[data-pane="vice"].active,
+.vagent-pane[data-pane="jobs"].active,
+.vagent-pane[data-pane="tasks"].active,
+.vagent-pane[data-pane="gate"].active,
+.vagent-pane[data-pane="robot"].active,
+.vagent-pane[data-pane="incidents"].active {
+    display: block;
+    overflow-y: auto;
+    padding: 8px;
+}
+/* ONE scroll container per tab: the active pane (inside chat, only
+   #vagent_msgs).  The panel and the block host never scroll themselves —
+   two nested scrollers swallow touch gestures on the phone. */
+#vagent_panel, #vagent_blocks { overflow: hidden !important; min-height: 0; }
+.vagent-pane {
+    min-height: 0;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+.vagent-pane-body { display: block; }
+.vagent-pane[data-pane="chat"] .vagent-pane-body {
+    display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;
+}
+
+/* ------------------------------------------------------------------ cards */
+.vagent-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 0 0 8px;
+}
+.vagent-card h4 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vagent-pill {
+    display: inline-block;
+    padding: 0 7px;
+    border-radius: 8px;
+    font-size: 10.5px;
+    line-height: 17px;
+    font-weight: 600;
+}
+.vagent-pill.running { background: rgba(13, 202, 240, 0.25); color: var(--bs-info, #0dcaf0); }
+.vagent-pill.queued { background: rgba(255, 255, 255, 0.10); color: var(--bs-secondary-color, #adb5bd); }
+.vagent-pill.done { background: rgba(25, 135, 84, 0.25); color: #6fd39a; }
+.vagent-pill.failed, .vagent-pill.cancelled { background: rgba(220, 53, 69, 0.25); color: #f1868f; }
+
+/* --------------------------------------------------------------- chat pane */
+#vagent_chips {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px 4px;
+    flex: 0 0 auto;
+}
+#vagent_chips .sp { margin-left: auto; }
+#vagent_chips button {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 11px;
+    padding: 1px 9px;
+    cursor: pointer;
+}
+#vagent_chips button.on {
+    background: var(--bs-primary, #0d6efd);
+    border-color: var(--bs-primary, #0d6efd);
+    color: #fff;
+}
+#vagent_msgs {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4px 8px;
+    scrollbar-width: thin;
+}
+#vagent_msgs::-webkit-scrollbar { width: 7px; }
+#vagent_msgs::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+
+#vagent_msgs[data-filter="chat"] .vagent-turn[data-kind="report"],
+#vagent_msgs[data-filter="chat"] .vagent-turn[data-kind="work"],
+#vagent_msgs[data-filter="report"] .vagent-turn:not([data-kind="report"]),
+#vagent_msgs[data-filter="work"] .vagent-turn:not([data-kind="work"]) { display: none; }
+
+.vagent-turn { margin: 7px 2px; max-width: 94%; }
+.vagent-turn.vagent-me { margin-left: auto; text-align: right; }
+.vagent-msg {
+    display: inline-block;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 6px 9px;
+    line-height: 1.45;
+    word-break: break-word;
+    max-width: 100%;
+}
+.vagent-me .vagent-msg {
+    background: rgba(13, 110, 253, 0.20);
+    border-color: rgba(13, 110, 253, 0.55);
+}
+.vagent-user .vagent-msg { background: rgba(13, 110, 253, 0.08); }
+.vagent-err .vagent-msg { border-color: var(--bs-danger, #dc3545); }
+.vagent-report .vagent-msg { border-left: 3px solid var(--bs-warning, #ffc107); cursor: pointer; }
+.vagent-work .vagent-msg { border-left: 3px solid var(--bs-info, #0dcaf0); cursor: pointer; }
+.vagent-msg pre {
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 4px 0;
+    font-size: 11px;
+    overflow-x: auto;
+}
+.vagent-msg code { background: rgba(0, 0, 0, 0.45); padding: 0 4px; border-radius: 3px; font-size: 11px; }
+.vagent-msg ul { margin: 2px 0 2px 18px; padding: 0; }
+.vagent-msg a { color: var(--bs-info, #0dcaf0); }
+.vagent-msg img.snap {
+    display: block;
+    max-width: 100%;
+    border-radius: 4px;
+    margin-top: 5px;
+    cursor: zoom-in;
+}
+.vagent-meta {
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vagent-meta span { margin-right: 6px; }
+.vagent-meta .klass {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 0 5px;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    letter-spacing: 0.4px;
+}
+.vagent-empty {
+    color: var(--bs-secondary-color, #adb5bd);
+    text-align: center;
+    padding: 18px 10px;
+    font-size: 12px;
+}
+
+#vagent_form {
+    display: flex;
+    gap: 6px;
+    padding: 6px 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    flex: 0 0 auto;
+    position: relative;
+}
+#vagent_input {
+    flex: 1;
+    height: 38px;
+    max-height: 120px;
+    resize: none;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    color: var(--bs-body-color, #dee2e6);
+    font-size: 12.5px;
+    padding: 8px 10px;
+}
+#vagent_input:focus { outline: none; border-color: var(--bs-primary, #0d6efd); }
+#vagent_send {
+    align-self: flex-end;
+    height: 38px;
+    min-width: 44px;
+    background: var(--bs-primary, #0d6efd);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+#vagent_send:hover { filter: brightness(1.15); }
+#vagent_quick {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 0 8px 7px;
+    flex: 0 0 auto;
+}
+#vagent_quick button {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 11px;
+    padding: 1px 8px;
+    cursor: pointer;
+}
+#vagent_quick button:hover { color: var(--bs-light, #f8f9fa); }
+
+/* slash-command autocomplete */
+#vagent_cmds {
+    position: absolute;
+    bottom: 100%;
+    left: 8px;
+    right: 8px;
+    background: var(--bs-dark, #212529);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    display: none;
+    z-index: 40;
+}
+#vagent_cmds .row { padding: 5px 9px; cursor: pointer; font-size: 12px; }
+#vagent_cmds .row.sel, #vagent_cmds .row:hover { background: rgba(13, 110, 253, 0.25); }
+#vagent_cmds .row code { background: none; padding: 0; color: var(--bs-info, #0dcaf0); }
+
+/* --------------------------------------------------------------- density */
+.vagent-compact { font-size: 11.5px; }
+.vagent-compact .vagent-turn { margin: 3px 2px; }
+.vagent-compact .vagent-msg { padding: 3px 7px; line-height: 1.3; }
+.vagent-compact .vagent-meta { display: none; }
+.vagent-compact .vagent-card { padding: 5px 8px; margin-bottom: 5px; }
+
+/* --------------------------------------------------------------- toolbar */
+#btn_agent { position: relative; }
+#btn_agent.active { color: var(--bs-primary, #0d6efd) !important; }
+#vagent_badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    min-width: 15px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--bs-danger, #dc3545);
+    color: #fff;
+    font-size: 10px;
+    line-height: 15px;
+    text-align: center;
+}
+
+/* --------------------------------------------------------------- mobile */
+@media (max-width: 575px) {
+    #vagent_panel { font-size: 13px; }
+    #vagent_input { font-size: 16px; }   /* no iOS zoom-on-focus */
+}
+
+/* ------------------------------------------- jobs / approvals (card look) */
+.vagent-cnt {
+    display: inline-block;
+    min-width: 15px;
+    margin-left: 4px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--bs-primary, #0d6efd);
+    color: #fff;
+    font-size: 10px;
+    line-height: 15px;
+    text-align: center;
+}
+.vagent-cnt:empty { display: none; }
+.vagent-cnt.warn { background: var(--bs-warning, #ffc107); color: #212529; }
+
+.vagent-job {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 7px 9px;
+    margin: 0 0 7px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 7px;
+}
+.vagent-job.running { border-left-color: var(--bs-info, #0dcaf0); }
+.vagent-job.done { border-left-color: var(--bs-success, #198754); }
+.vagent-job.failed, .vagent-job.cancelled { border-left-color: var(--bs-danger, #dc3545); }
+.vagent-job.blocked, .vagent-job.queued { border-left-color: var(--bs-warning, #ffc107); }
+.vagent-job .jt { flex: 1 1 100%; font-weight: 600; line-height: 1.35; }
+.vagent-job .jl {
+    flex: 1 1 100%;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.vagent-job .jn { color: var(--bs-secondary-color, #adb5bd); font-size: 11px; white-space: nowrap; }
+.vagent-job.failed .jn, .vagent-job.cancelled .jn { color: var(--bs-danger, #dc3545); }
+.vagent-job.done .jn { color: var(--bs-success, #198754); }
+.vagent-job.blocked .jn { color: var(--bs-warning, #ffc107); }
+.vagent-spin { display: inline-block; animation: vagent-rot 1.6s linear infinite; color: var(--bs-info, #0dcaf0); }
+@keyframes vagent-rot { to { transform: rotate(360deg); } }
+.vagent-job button.ja {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 11px;
+    padding: 1px 8px;
+    cursor: pointer;
+}
+.vagent-job button.ja:hover { color: var(--bs-light, #f8f9fa); }
+.vagent-job button.jx {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--bs-secondary-color, #adb5bd);
+    cursor: pointer;
+    font-size: 13px;
+}
+.vagent-job button.jx:hover { color: var(--bs-danger, #dc3545); }
+
+.vagent-ask {
+    background: rgba(255, 193, 7, 0.07);
+    border: 1px solid rgba(255, 193, 7, 0.45);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 0 0 8px;
+}
+.vagent-ask.done { border-color: var(--bs-success, #198754); background: rgba(25, 135, 84, 0.08); }
+.vagent-ask.bad { border-color: var(--bs-danger, #dc3545); background: rgba(220, 53, 69, 0.08); }
+.vagent-ask .ar { display: flex; align-items: center; gap: 7px; margin: 2px 0; }
+.vagent-ask .ac {
+    flex: 1 1 auto;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 4px;
+    padding: 3px 7px;
+    font-family: monospace;
+    font-size: 11px;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
+}
+.vagent-ask .at { color: var(--bs-secondary-color, #adb5bd); font-size: 11px; white-space: nowrap; }
+.vagent-ask .ap { color: var(--bs-body-color, #dee2e6); font-size: 12px; }
+.vagent-ask .aw { flex: 1 1 auto; color: var(--bs-secondary-color, #adb5bd); font-size: 11px; }
+.vagent-ask button {
+    border: none;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 5px 14px;
+    cursor: pointer;
+}
+.vagent-ask button.ay { background: var(--bs-success, #198754); color: #fff; }
+.vagent-ask button.an { background: none; border: 1px solid var(--bs-danger, #dc3545); color: var(--bs-danger, #dc3545); }
+.vagent-ask button:hover { filter: brightness(1.15); }
+
+.vagent-wait { color: var(--bs-secondary-color, #adb5bd); font-size: 12px; padding: 4px 2px; }
+.vagent-dots { letter-spacing: 2px; animation: vagent-pulse 1.2s infinite; }
+
+.vagent-cmd { display: flex; gap: 8px; padding: 4px 9px; cursor: pointer; font-size: 12px; }
+.vagent-cmd.sel, .vagent-cmd:hover { background: rgba(13, 110, 253, 0.25); }
+.vagent-cmd .cn { color: var(--bs-info, #0dcaf0); white-space: nowrap; font-family: monospace; }
+.vagent-cmd .ch {
+    color: var(--bs-secondary-color, #adb5bd);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ context bar */
+#vagent_ctx {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+#vagent_ctx:empty { display: none; }
+.vagent-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11.5px;
+    color: var(--bs-body-color, #dee2e6);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+.vagent-ctx-item:hover { background: rgba(255, 255, 255, 0.08); }
+.vagent-ctx-item.ask { border-color: rgba(255, 193, 7, 0.45); }
+.vagent-ctx-item .ct {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.vagent-ctx-item .ce { color: var(--bs-secondary-color, #adb5bd); font-size: 10.5px; white-space: nowrap; }
+
+/* ----------------------------------------------- FULL view: multi-column */
+/* Drawer .full = 100vw.  Chat left (55 %), everything else as cards in a
+   right column, each with its own sub-scroll.  Tabs and the context bar
+   disappear — it is all on screen. */
+#ui_drawer.full #vagent_tabs,
+#ui_drawer.full #vagent_ctx { display: none; }
+#ui_drawer.full #vagent_blocks {
+    display: grid;
+    grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+    grid-auto-rows: min-content;
+    gap: 8px;
+    padding: 8px;
+    overflow-y: auto;
+}
+#ui_drawer.full .vagent-pane {
+    display: flex !important;
+    flex-direction: column;
+    grid-column: 2;
+    min-height: 0;
+    max-height: 38vh;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 6px;
+    padding: 6px 8px;
+    scrollbar-width: thin;
+}
+#ui_drawer.full .vagent-pane::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--bs-secondary-color, #adb5bd);
+    margin-bottom: 4px;
+}
+#ui_drawer.full .vagent-pane[data-pane="chat"] {
+    grid-column: 1;
+    grid-row: 1 / span 8;
+    max-height: none;
+    height: calc(100vh - 190px);
+    background: none;
+    border: none;
+    padding: 0;
+}
+#ui_drawer.full .vagent-pane[data-pane="chat"]::before { content: none; }
+@media (max-width: 900px) {
+    /* full on a narrow screen degrades back to the tabbed single column */
+    #ui_drawer.full #vagent_blocks { display: flex; }
+    #ui_drawer.full .vagent-pane { display: none !important; }
+    #ui_drawer.full .vagent-pane.active { display: flex !important; }
+    #ui_drawer.full #vagent_tabs, #ui_drawer.full #vagent_ctx { display: flex; }
+    #ui_drawer.full .vagent-pane::before { content: none; }
+}
+
+/* ------------------------------------------- darker chat surface (Robert) */
+#vagent_msgs {
+    background: rgba(0, 0, 0, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    margin: 0 6px 4px;
+    box-shadow: inset 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+#vagent_form { border-top: none; padding-top: 0; margin-top: 2px; }
+#vagent_input { background: rgba(0, 0, 0, 0.32); }
+#ui_drawer.full .vagent-pane[data-pane="chat"] #vagent_msgs { margin: 0 0 4px; }
+
+/* ------------------------------------------- merged single header row */
+#vagent_panel.vagent-merged #vagent_bar { display: none; }
+#vagent_head_left {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 10px;
+    min-width: 0;
+}
+#vagent_head_right {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    margin-right: 8px;
+}
+#vagent_head_right button {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 12px;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+#vagent_head_right button:hover { color: var(--bs-light, #f8f9fa); background: rgba(255, 255, 255, 0.06); }
+@media (max-width: 575px) {
+    #vagent_age { display: none; }          /* dot + STOP survive, age yields */
+    #vagent_head_right { margin-right: 4px; gap: 4px; }
+}
+
+/* ================================================= mobile pass (Robert) */
+@media (max-width: 575px) {
+    #vagent_panel { font-size: 13.5px; }
+    .vagent-msg { font-size: 13.5px; line-height: 1.5; }
+    /* one-line, thumb-scrollable strips — never a second row, never h-scroll
+       on the page */
+    #vagent_status {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    #vagent_status::-webkit-scrollbar { display: none; }
+    .vagent-chip { flex: 0 0 auto; }
+    #vagent_quick {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    #vagent_quick::-webkit-scrollbar { display: none; }
+    #vagent_quick button { flex: 0 0 auto; min-height: 32px; }
+    #vagent_chips {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    #vagent_chips::-webkit-scrollbar { display: none; }
+    #vagent_chips button { flex: 0 0 auto; min-height: 30px; }
+    /* touch targets */
+    .vagent-tab { min-height: 42px; padding: 10px 12px 8px; font-size: 13.5px; }
+    #vagent_head_right button, #vagent_bar button {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 6px 10px;
+    }
+    #vagent_stop { min-height: 44px !important; padding: 6px 14px !important; }
+    .vagent-job button.ja, .vagent-ask button { min-height: 40px; padding: 7px 14px; }
+    .vagent-job button.jx { min-width: 40px; min-height: 40px; }
+    .vagent-ctx-item { padding: 6px 8px; min-height: 36px; }
+    #vagent_send { min-width: 52px; min-height: 44px; height: auto; }
+    #vagent_input { min-height: 44px; }
+    /* no horizontal page scroll, ever */
+    #vagent_panel, .vagent-pane, #vagent_msgs { max-width: 100%; overflow-x: hidden; }
+    .vagent-msg pre, .vagent-ask .ac { max-width: 100%; }
+}
+
+/* short landscape phones: same touch sizes, tighter vertical chrome */
+@media (max-height: 480px) {
+    #vagent_status { padding: 3px 8px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .vagent-tab { min-height: 36px; padding: 7px 10px 5px; }
+    #vagent_ctx { padding: 2px 8px; }
+    .vagent-ctx-item { padding: 2px 8px; min-height: 28px; }
+    #vagent_quick { display: none; }        /* keyboard row wins over chips */
+    #vagent_input { height: 34px; min-height: 34px; }
+    #vagent_send { height: 34px; min-height: 34px; }
+}
+
+/* Mobile height: the drawer spans top:42px → bottom:40px, which on phones is
+   the LAYOUT viewport — it does not shrink when the URL bar shows or the
+   keyboard opens.  dvh tracks the visible viewport; watchKeyboard() then
+   clamps precisely while the soft keyboard is up.  Scoped to the agent panel
+   so the shared drawer is untouched for other panels. */
+@supports (height: 100dvh) {
+    @media (max-width: 575px) {
+        #ui_drawer:has(#vagent_panel.vagent-merged) {
+            height: calc(100dvh - 42px - 40px - env(safe-area-inset-bottom));
+            bottom: auto;
+        }
+    }
+}
+/* landscape phones: chrome is thin, the chat column must still fit */
+@media (max-height: 480px) {
+    #vagent_panel { min-height: 0; }
+    .vagent-pane[data-pane="chat"].active { min-height: 0; }
+    #vagent_msgs { margin-bottom: 2px; }
+    #vagent_form { padding: 4px 8px 6px; }
+}
+
+/* ============================================ touch targets by INPUT, not width
+ * A phone in landscape is 844 px wide and still operated with a thumb, so the
+ * width-keyed rules above missed it entirely (STOP came out 26 px).  These are
+ * keyed on the pointer instead and, being later in the file, win over both the
+ * desktop defaults and the short-landscape block. */
+@media (pointer: coarse) {
+    #vagent_stop { min-height: 44px !important; padding: 6px 14px !important; }
+    #vagent_head_right button, #vagent_bar button {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 6px 10px;
+    }
+    .vagent-tab { min-height: 42px; padding: 10px 12px 8px; }
+    .vagent-job button.ja, .vagent-ask button { min-height: 40px; padding: 7px 14px; }
+    .vagent-job button.jx { min-width: 40px; min-height: 40px; }
+    #vagent_send { min-width: 52px; min-height: 44px; height: auto; }
+    #vagent_input { min-height: 44px; }
+    #vagent_quick button { min-height: 34px; flex: 0 0 auto; }
+    #vagent_chips button { min-height: 32px; flex: 0 0 auto; }
+    .vagent-ctx-item { min-height: 36px; }
+    /* thumb-scrollable strips belong to touch too, not to narrow screens */
+    #vagent_status, #vagent_quick, #vagent_chips {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    #vagent_status::-webkit-scrollbar,
+    #vagent_quick::-webkit-scrollbar,
+    #vagent_chips::-webkit-scrollbar { display: none; }
+}
+
+/* Touch device on a short screen (phone held sideways, 390 px of height):
+ * the targets stay big; the height is bought back from padding, the status
+ * strip and the quick row — never from the buttons. */
+@media (pointer: coarse) and (max-height: 480px) {
+    #vagent_bar { padding: 2px 10px; }
+    #vagent_status { padding: 2px 8px; }
+    .vagent-chip { line-height: 15px; font-size: 10.5px; padding: 0 6px; }
+    .vagent-tab { min-height: 38px; padding: 8px 12px 5px; }
+    #vagent_ctx { padding: 2px 8px; }
+    .vagent-ctx-item { min-height: 30px; padding: 3px 8px; }
+    #vagent_chips { padding: 3px 8px 2px; }
+    #vagent_msgs { margin-bottom: 2px; }
+    #vagent_form { padding: 3px 8px 5px; }
+    #vagent_input { min-height: 40px; height: 40px; }
+    #vagent_send { min-height: 40px; }
+    #vagent_quick { display: none; }
+}
+
+/* ===================================================================== */
+/* Tasks tab, incident actions, clickable commands, „More" redesign     */
+/* ===================================================================== */
+
+/* -- clickable /commands and #job refs inside chat text ---------------- */
+.vagent-cmdbtn, .vagent-ref {
+    display: inline-block;
+    font: inherit;
+    font-size: 12px;
+    line-height: 18px;
+    padding: 0 7px;
+    margin: 0 1px;
+    border-radius: 9px;
+    border: 1px solid rgba(13, 202, 240, 0.55);
+    background: rgba(13, 202, 240, 0.12);
+    color: var(--bs-info, #0dcaf0);
+    cursor: pointer;
+    vertical-align: baseline;
+    white-space: nowrap;
+}
+.vagent-cmdbtn:hover, .vagent-ref:hover { background: rgba(13, 202, 240, 0.28); }
+.vagent-ref {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--bs-body-color, #dee2e6);
+}
+.vagent-me .vagent-cmdbtn, .vagent-me .vagent-ref { pointer-events: none; opacity: 0.8; }
+
+/* -- inline confirm („Really? Yes / No") --------------------------------- */
+.vagent-confirm {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(255, 193, 7, 0.14);
+    border: 1px solid rgba(255, 193, 7, 0.6);
+    color: var(--bs-warning, #ffc107);
+    font-size: 12px;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.vagent-confirm button {
+    font: inherit;
+    font-size: 12px;
+    line-height: 18px;
+    padding: 0 8px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+.vagent-confirm button.cy { background: var(--bs-danger, #dc3545); color: #fff; }
+.vagent-confirm button.cn { background: none; border-color: rgba(255, 255, 255, 0.35); color: var(--bs-body-color, #dee2e6); }
+
+/* -- action buttons under bubbles / findings / mission cards ----------- */
+.vagent-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+}
+.vagent-actbtn {
+    font: inherit;
+    font-size: 12px;
+    line-height: 20px;
+    padding: 1px 9px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--bs-body-color, #dee2e6);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.vagent-actbtn:hover { background: rgba(255, 255, 255, 0.14); }
+.vagent-actbtn.primary { border-color: var(--bs-primary, #0d6efd); color: #9ec5fe; background: rgba(13, 110, 253, 0.16); }
+.vagent-actbtn.danger { border-color: var(--bs-danger, #dc3545); color: #f1868f; background: rgba(220, 53, 69, 0.14); }
+.vagent-actbtn.done { border-style: dashed; opacity: 0.75; }
+.vagent-actbtn:disabled { opacity: 0.5; cursor: default; }
+.vagent-assigned { font-size: 11px; color: var(--bs-success, #198754); }
+.vagent-turn.vagent-me .vagent-actions { display: none; }
+
+/* -- job cards: stalled + highlight ------------------------------------ */
+.vagent-pill.stalled {
+    background: rgba(220, 53, 69, 0.3);
+    color: #f1868f;
+    animation: vagent-pulse 1.2s ease-in-out infinite;
+}
+@keyframes vagent-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.vagent-job.stalled { border-left-color: var(--bs-danger, #dc3545); }
+.vagent-job.hl {
+    box-shadow: 0 0 0 2px var(--bs-info, #0dcaf0) inset;
+    background: rgba(13, 202, 240, 0.10);
+    transition: box-shadow 0.3s, background 0.3s;
+}
+.vagent-job.compact { flex-direction: column; align-items: stretch; }
+.vagent-job.compact .jt, .vagent-job.compact .jl { flex: 0 0 auto; max-width: 100%; }
+.vagent-job.compact .jl { white-space: normal; overflow: visible; text-overflow: clip; }
+.vagent-job .jf { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0 2px; }
+.vagent-job button.ja.primary { border-color: var(--bs-primary, #0d6efd); color: #9ec5fe; }
+.vagent-job button.ja.danger { border-color: var(--bs-danger, #dc3545); color: #f1868f; }
+
+/* -- Tasks tab ---------------------------------------------------------- */
+.vagent-h {
+    margin: 8px 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vagent-h:first-child { margin-top: 2px; }
+.vagent-schedlist, .vagent-runlist { display: flex; flex-direction: column; gap: 6px; }
+.vagent-sched {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 3px solid var(--bs-info, #0dcaf0);
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+.vagent-sched.paused { border-left-color: var(--bs-secondary, #6c757d); opacity: 0.85; }
+.vagent-sched .st { display: flex; align-items: center; gap: 6px; }
+.vagent-sched .sn {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.vagent-sched .sm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vagent-sched .sx, .vagent-job .sx { font-size: 11px; color: var(--bs-secondary-color, #adb5bd); }
+.vagent-sched .sa, .vagent-job .sa { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.vagent-sched button.ja, .vagent-job.compact button.ja {
+    font: inherit;
+    font-size: 12px;
+    line-height: 20px;
+    padding: 1px 9px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--bs-body-color, #dee2e6);
+    cursor: pointer;
+}
+.vagent-sched button.ja:hover { background: rgba(255, 255, 255, 0.14); }
+.vagent-sched button.ja.danger { border-color: var(--bs-danger, #dc3545); color: #f1868f; }
+.vagent-sched button.ja:disabled { opacity: 0.5; }
+.vagent-schedform { margin: 0 0 6px; }
+.vagent-schedform > button.ja {
+    font: inherit; font-size: 12px; line-height: 20px; padding: 1px 9px;
+    border-radius: 6px; border: 1px dashed rgba(255, 255, 255, 0.35);
+    background: none; color: var(--bs-body-color, #dee2e6); cursor: pointer;
+}
+.vagent-schedform .sf {
+    margin-top: 6px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(0, 0, 0, 0.22);
+}
+.vagent-schedform textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    font: inherit;
+    font-size: 12.5px;
+    padding: 5px 7px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--bs-body-color, #dee2e6);
+}
+.vagent-schedform .si { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.vagent-ivl {
+    font: inherit; font-size: 11.5px; line-height: 18px; padding: 0 8px;
+    border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.25);
+    background: none; color: var(--bs-body-color, #dee2e6); cursor: pointer;
+}
+.vagent-ivl.on { background: var(--bs-primary, #0d6efd); border-color: var(--bs-primary, #0d6efd); color: #fff; }
+.vagent-schedform input[type="text"] {
+    font: inherit; font-size: 12px; width: 120px; padding: 1px 6px;
+    border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3); color: var(--bs-body-color, #dee2e6);
+}
+.vagent-schedform .sb { display: flex; align-items: center; gap: 8px; }
+.vagent-schedform button.ja.primary {
+    font: inherit; font-size: 12px; line-height: 20px; padding: 1px 12px;
+    border-radius: 6px; border: 1px solid var(--bs-primary, #0d6efd);
+    background: rgba(13, 110, 253, 0.25); color: #fff; cursor: pointer;
+}
+
+/* -- filter chips (health, tools) --------------------------------------- */
+.vz-chips, .vt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 4px; }
+.vagent-fchip {
+    font: inherit; font-size: 11.5px; line-height: 18px; padding: 0 8px;
+    border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.25);
+    background: none; color: var(--bs-secondary-color, #adb5bd); cursor: pointer;
+    white-space: nowrap;
+}
+.vagent-fchip.on { background: rgba(255, 255, 255, 0.14); color: var(--bs-body-color, #dee2e6); border-color: rgba(255, 255, 255, 0.45); }
+
+/* -- „More" cards: collapsible details ---------------------------------- */
+details.vagent-card > summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+details.vagent-card > summary::-webkit-details-marker { display: none; }
+details.vagent-card > summary::before { content: '▾'; width: 10px; display: inline-block; }
+details.vagent-card:not([open]) > summary::before { content: '▸'; }
+details.vagent-card > summary .ct { flex: 1 1 auto; }
+details.vagent-card:not([open]) > summary { margin-bottom: 0; }
+
+/* seven tabs must fit a 460–500 px panel without scrolling */
+#vagent_tabs .vagent-tab { padding-left: 9px; padding-right: 9px; }
+#vagent_tabs .vagent-tab .vagent-cnt { margin-left: 4px; }
+@media (max-width: 575px) {
+    #vagent_tabs .vagent-tab { padding-left: 5px; padding-right: 5px; font-size: 12.5px; }
+    #vagent_tabs .vagent-tab .vagent-cnt { margin-left: 2px; }
+}
+
+/* -- Health / visit ------------------------------------------------------ */
+.vz { padding-right: 4px; }
+.vz-status { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.vz-status .vagent-actbtn { margin-left: auto; }
+.vz-facts { margin-top: 5px; display: flex; flex-direction: column; gap: 2px; }
+.vz-fact { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.vz-fact > span:last-child { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vm-lbl { color: var(--bs-secondary-color, #adb5bd); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.vz-group {
+    display: flex; align-items: center; gap: 6px;
+    margin: 8px 0 3px; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vz-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 3px solid var(--bs-warning, #ffc107);
+    border-radius: 6px;
+    padding: 5px 8px 6px;
+    margin: 4px 0;
+    background: rgba(255, 255, 255, 0.03);
+}
+.vz-card.selfcare { border-left-color: var(--bs-info, #0dcaf0); }
+.vz-card.log { border-left-color: var(--bs-secondary, #6c757d); }
+.vz-card.other { border-left-color: rgba(255, 255, 255, 0.3); }
+.vz-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vz-ico { flex: 0 0 auto; width: 16px; text-align: center; }
+.vz-title { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-kind {
+    flex: 0 0 auto; font-size: 10.5px; padding: 0 6px; border-radius: 8px;
+    background: rgba(255, 255, 255, 0.10); color: var(--bs-secondary-color, #adb5bd);
+    max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vz-when { flex: 0 0 auto; font-size: 11px; color: var(--bs-secondary-color, #adb5bd); white-space: nowrap; }
+.vz-body {
+    margin-top: 3px; font-size: 12px; line-height: 1.4;
+    color: var(--bs-body-color, #dee2e6); white-space: pre-wrap; word-break: break-word;
+}
+.vz-body.clip { max-height: 3.3em; overflow: hidden; position: relative; }
+.vz-body.clip::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.4em;
+    background: linear-gradient(transparent, var(--bs-body-bg, #1d2429));
+}
+.vz-more {
+    font: inherit; font-size: 11px; padding: 0; margin-top: 2px;
+    border: 0; background: none; color: var(--bs-info, #0dcaf0); cursor: pointer;
+}
+
+/* -- Incident card: severity, summary/problem, evidence, state ----------- */
+.vz-card.sev-critical { border-left-color: #ff4d5e; }
+.vz-card.sev-high { border-left-color: var(--bs-danger, #dc3545); }
+.vz-card.sev-medium { border-left-color: var(--bs-warning, #ffc107); }
+.vz-card.sev-low { border-left-color: var(--bs-info, #0dcaf0); }
+.vz-card.resolved { opacity: 0.6; }
+.vz-sev {
+    flex: 0 0 auto; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; padding: 0 6px; border-radius: 8px; line-height: 16px; color: #fff;
+}
+.vz-sev.critical { background: #ff4d5e; }
+.vz-sev.high { background: var(--bs-danger, #dc3545); }
+.vz-sev.medium { background: var(--bs-warning, #ffc107); color: #212529; }
+.vz-sev.low { background: var(--bs-info, #0dcaf0); color: #212529; }
+.vz-count { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--bs-warning, #ffc107); }
+.vz-summary { margin-top: 4px; font-size: 12.5px; line-height: 1.4; color: var(--bs-body-color, #dee2e6); }
+.vz-problem, .vz-suggest {
+    margin-top: 4px; font-size: 12px; line-height: 1.4;
+    display: flex; gap: 6px; align-items: baseline;
+}
+.vz-problem { color: #ffd0d4; }
+.vz-suggest { color: #cfe8ff; }
+.vz-problem > span:last-child, .vz-suggest > span:last-child {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.vz-problem > span:last-child:hover, .vz-suggest > span:last-child:hover { -webkit-line-clamp: unset; }
+.vz-plabel {
+    flex: 0 0 auto; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--bs-secondary-color, #adb5bd);
+}
+.vz-sec { margin-top: 4px; }
+.vz-sec > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vz-sec > summary::-webkit-details-marker { display: none; }
+.vz-sec > summary::before { content: '▸'; width: 10px; display: inline-block; }
+.vz-sec[open] > summary::before { content: '▾'; }
+.vz-secbody { margin: 3px 0 0 10px; }
+.vz-ev { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 1px 0; font-size: 11.5px; }
+.vz-evsrc { flex: 0 0 auto; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
+.vz-evtext { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.vz-evtext.log { background: rgba(0, 0, 0, 0.45); padding: 0 4px; border-radius: 3px; font-size: 11px; }
+.vz-evtext.full { white-space: pre-wrap; word-break: break-word; }
+.vz-evts { flex: 0 0 auto; font-size: 10.5px; color: var(--bs-secondary-color, #adb5bd); }
+.vz-foot { display: flex; align-items: center; gap: 6px; margin-top: 5px; min-width: 0; font-size: 11px; }
+.vz-state {
+    flex: 0 0 auto; padding: 0 7px; border-radius: 8px; line-height: 17px; font-size: 10.5px;
+    background: rgba(255, 255, 255, 0.10); color: var(--bs-secondary-color, #adb5bd);
+}
+.vz-state.open { background: rgba(220, 53, 69, 0.22); color: #f1868f; }
+.vz-state.acknowledged { background: rgba(255, 193, 7, 0.22); color: var(--bs-warning, #ffc107); }
+.vz-state.resolved, .vz-state.auto_repaired { background: rgba(25, 135, 84, 0.25); color: #6fd39a; }
+.vz-resolution { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--bs-secondary-color, #adb5bd); }
+.vz-resolved-toggle { margin-left: auto; }
+
+/* -- Mission ------------------------------------------------------------- */
+.vm-none { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.vm-tok { font-size: 11px; color: var(--bs-secondary-color, #adb5bd); margin-top: 4px; }
+.vm-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 3px solid var(--bs-primary, #0d6efd);
+    border-radius: 6px; padding: 6px 8px; margin: 4px 0;
+    background: rgba(255, 255, 255, 0.03);
+}
+.vm-card.done { border-left-color: var(--bs-success, #198754); }
+.vm-card.failed { border-left-color: var(--bs-danger, #dc3545); }
+.vm-card.queued { border-left-color: var(--bs-warning, #ffc107); }
+.vm-head { display: flex; align-items: center; gap: 6px; }
+.vm-when { margin-left: auto; font-size: 11px; color: var(--bs-secondary-color, #adb5bd); white-space: nowrap; }
+.vm-goal { margin: 3px 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vm-prog { display: flex; gap: 3px; margin: 4px 0 2px; }
+.vm-seg { flex: 1 1 0; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); }
+.vm-seg.done { background: var(--bs-success, #198754); }
+.vm-seg.cur { background: var(--bs-info, #0dcaf0); box-shadow: 0 0 0 1px rgba(13, 202, 240, 0.5); }
+.vm-plab { font-size: 11.5px; color: var(--bs-body-color, #dee2e6); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vm-verdict { display: flex; align-items: center; gap: 6px; margin-top: 4px; min-width: 0; }
+.vm-reason { flex: 1 1 auto; min-width: 0; font-size: 11px; color: var(--bs-secondary-color, #adb5bd); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* -- Tools & skills ------------------------------------------------------ */
+.vt-bar .vt-q {
+    flex: 1 1 90px; min-width: 70px;
+    font: inherit; font-size: 12px; padding: 1px 7px;
+    border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3); color: var(--bs-body-color, #dee2e6);
+}
+.vt-list { max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+.vt-item, .vt-g {
+    display: flex; align-items: center; gap: 6px;
+    padding: 2px 0; font-size: 12px; min-width: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.vt-name, .vt-gs { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-age { flex: 0 0 auto; font-size: 11px; color: var(--bs-secondary-color, #adb5bd); white-space: nowrap; }
+
+/* -- touch targets ------------------------------------------------------- */
+@media (pointer: coarse) {
+    .vagent-cmdbtn, .vagent-ref { line-height: 30px; padding: 0 10px; font-size: 13px; }
+    .vagent-actbtn, .vagent-sched button.ja, .vagent-job.compact button.ja,
+    .vagent-schedform > button.ja, .vagent-schedform button.ja.primary,
+    .vagent-confirm button, .vagent-ivl, .vagent-fchip, .vz-more {
+        min-height: 40px; line-height: 38px; padding: 0 12px; font-size: 13px;
+    }
+    .vagent-confirm { padding: 2px 8px; }
+    .vagent-schedform textarea, .vagent-schedform input[type="text"], .vt-bar .vt-q { min-height: 40px; font-size: 14px; }
+    .vt-list { max-height: 40vh; }
+    details.vagent-card > summary { min-height: 40px; }
+}
+
+/* ---- Script tasks (Tasks tab): kinds, states, output, sections, viewer ---- */
+.vagent-sh {
+    display: flex; align-items: center; gap: 6px;
+    margin: 8px 0 4px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vagent-sh:first-child { margin-top: 2px; }
+.vagent-sh .vagent-cnt { font-size: 10px; }
+.vagent-sched.script { border-left-color: var(--bs-warning, #ffc107); }
+.vagent-sched.script.st-active { border-left-color: var(--bs-success, #198754); }
+.vagent-sched.script.st-failed { border-left-color: var(--bs-danger, #dc3545); }
+.vagent-sched.script.st-draft { border-left-color: var(--bs-warning, #ffc107); border-left-style: dashed; }
+.vagent-sched.highlight { box-shadow: 0 0 0 2px var(--bs-primary, #0d6efd); transition: box-shadow 0.3s; }
+.vagent-pill.kind-script { background: rgba(255, 193, 7, 0.22); color: #ffd866; }
+.vagent-pill.kind-agent { background: rgba(13, 110, 253, 0.22); color: #8fb8ff; }
+.vagent-pill.ivl { background: rgba(255, 255, 255, 0.08); color: var(--bs-body-color, #dee2e6); white-space: nowrap; }
+.vagent-pill.state-active { background: rgba(25, 135, 84, 0.25); color: #6fd39a; }
+.vagent-pill.state-paused { background: rgba(255, 255, 255, 0.10); color: var(--bs-secondary-color, #adb5bd); }
+.vagent-pill.state-failed { background: rgba(220, 53, 69, 0.25); color: #f1868f; }
+.vagent-pill.state-draft {
+    background: rgba(255, 193, 7, 0.22); color: #ffd866;
+    animation: vagent-pulse 1.6s ease-in-out infinite;
+}
+.vagent-sched .se {
+    margin-top: 4px; font-size: 11px; color: #f1868f;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vagent-sched .so {
+    margin: 5px 0 0; padding: 5px 7px;
+    max-height: 6.6em; overflow: hidden;
+    background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;
+    font-size: 11px; line-height: 1.35; white-space: pre; overflow-x: auto;
+    color: var(--bs-body-color, #dee2e6);
+}
+.vagent-sched .so.full { max-height: 40vh; overflow-y: auto; }
+.vagent-sched .sr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; }
+.vagent-sched .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.vagent-sel {
+    font: inherit; font-size: 11px; line-height: 20px;
+    padding: 0 4px; border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(0, 0, 0, 0.3); color: var(--bs-body-color, #dee2e6);
+}
+.vagent-secd { margin-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.vagent-secd > summary {
+    cursor: pointer; list-style: none; user-select: none;
+    padding: 4px 0; font-size: 11px; font-weight: 600;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vagent-secd > summary::-webkit-details-marker { display: none; }
+.vagent-secd > summary::before { content: '▸ '; }
+.vagent-secd[open] > summary::before { content: '▾ '; }
+.vagent-secd .sd { padding: 2px 0 4px; }
+.vagent-secd textarea {
+    width: 100%; box-sizing: border-box; resize: vertical;
+    font: inherit; font-size: 12px; padding: 5px 7px; border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.3);
+    color: var(--bs-body-color, #dee2e6);
+}
+.vagent-secd .sb { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.pv-tabs { display: flex; gap: 4px; margin-bottom: 4px; }
+.pv-pane {
+    margin: 0; padding: 6px 7px; max-height: 40vh; overflow: auto;
+    background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;
+    font-size: 11px; line-height: 1.35; white-space: pre; color: var(--bs-body-color, #dee2e6);
+}
+.vagent-runs { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+.vagent-runs th { text-align: left; font-weight: 600; color: var(--bs-secondary-color, #adb5bd); padding: 2px 4px; }
+.vagent-runs td { padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.vagent-runs th:nth-child(1), .vagent-runs td:nth-child(1) { width: 52px; }
+.vagent-runs th:nth-child(2), .vagent-runs td:nth-child(2) { width: 34px; }
+.vagent-runs th:nth-child(3), .vagent-runs td:nth-child(3) { width: 54px; }
+.vagent-runs tr.fail td:nth-child(2) { color: #f1868f; font-weight: 600; }
+.vagent-runs tr.ok td:nth-child(2) { color: #6fd39a; }
+.vagent-kind { display: flex; gap: 4px; margin-bottom: 6px; }
+.vagent-kind .vagent-ivl { flex: 1 1 0; text-align: center; }
+.vagent-schedform .sx { display: block; margin: 2px 0 4px; }
+
+/* Script output in chat: compact bubble with a link to the task card */
+.vagent-turn.vagent-script .vagent-msg { border-left: 3px solid var(--bs-warning, #ffc107); font-size: 12px; }
+.vagent-scripthead { display: flex; align-items: center; gap: 6px; margin: 0 0 3px 2px; }
+.vagent-scripthead .vagent-ref { font-size: 11px; }
+
+@media (pointer: coarse) {
+    .vagent-sel, .vagent-secd > summary, .pv-tabs .vagent-fchip { min-height: 40px; line-height: 40px; padding-top: 0; padding-bottom: 0; }
+    .vagent-secd textarea { min-height: 44px; font-size: 14px; }
+    .vagent-kind .vagent-ivl { min-height: 40px; }
+    .vagent-runs td, .vagent-runs th { padding: 6px 4px; }
+}

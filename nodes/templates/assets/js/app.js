@@ -83,6 +83,41 @@
         });
     }
 
+    // ---- Settings-persistence (2026-08-15): remember active bootstrap sub-tab.
+    // One key per tab group; the stored value is the tab link's href. Restoring
+    // only flips the active tab classes — it never publishes anything, and the
+    // IMU tab stays render-gated by syncImuRender (menu hidden at boot).
+    function persistTabGroup(navSelector, key) {
+        var links = document.querySelectorAll(
+            navSelector + ' a[data-bs-toggle="tab"]');
+        if (!links.length) return;
+        links.forEach(function (a) {
+            a.addEventListener('shown.bs.tab', function () {
+                try { localStorage.setItem(key, a.getAttribute('href')); } catch (e) {}
+            });
+        });
+        var stored = null;
+        try { stored = localStorage.getItem(key); } catch (e) {}
+        if (!stored) return;
+        var target = null;
+        links.forEach(function (a) {
+            if (a.getAttribute('href') === stored) target = a;
+        });
+        if (!target || target.classList.contains('active')) return;
+        try {
+            if (window.bootstrap && bootstrap.Tab) {
+                bootstrap.Tab.getOrCreateInstance(target).show();
+            } else {
+                target.click();
+            }
+        } catch (e) { /* tab restore is best-effort */ }
+    }
+
+    function wireTabPersistence() {
+        persistTabGroup('#div_menu_config .nav-tabs', 'vitulus_tab_settings');
+        persistTabGroup('#div_menu_map_program .nav-tabs', 'vitulus_tab_programs');
+    }
+
     function showSection(id) {
         if (SECTIONS.indexOf(id) === -1) id = 'section_map';
         SECTIONS.forEach(function (sid) {
@@ -155,6 +190,7 @@
         addFullscreenButton();
         addRestartButton();
         wireImuTab();
+        wireTabPersistence();
         lockAppShell();
         registerServiceWorker();
     }

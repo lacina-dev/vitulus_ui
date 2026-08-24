@@ -1,0 +1,266 @@
+/* right_dock.css — JEDEN pravý panel mapového pohledu (2026-08-23).
+   Vizuálně sladěný s agentním panelem: --bs-* proměnné, 6px rádius, tenké
+   scrollbary, jednotná typografie. Logika a pozice: assets/js/right_dock.js */
+
+#right_panel {
+    position: fixed;
+    right: 0;
+    top: 90px;
+    width: 196px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    background: rgba(24, 32, 40, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-right: 0;
+    border-radius: 6px 0 0 6px;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.45);
+    transition: right 0.22s ease;
+    overflow: hidden;          /* tělo scrolluje uvnitř, panel sám ne */
+    min-height: 0;
+}
+/* Skrytí: posun za pravou hranu. Hodnotu nastavuje JS inline (right_dock.js),
+   protože musí odpovídat skutečné šířce panelu (mobil / úzký režim). */
+
+/* úchyt u pravé hrany (šipka) — jediné, co zbyde po skrytí panelu.
+   Je to sourozenec panelu (fixed), protože skrytí je display:none. */
+.rp-handle {
+    position: fixed;
+    right: 196px;
+    top: 100px;
+    z-index: 6;
+    width: 18px;
+    height: 46px;
+    padding: 0;
+    font-size: 11px;
+    line-height: 46px;
+    color: var(--bs-light);
+    background: rgba(24, 32, 40, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-right: 0;
+    border-radius: 6px 0 0 6px;
+    cursor: pointer;
+}
+.rp-handle:hover { background: rgba(255, 255, 255, 0.10); }
+
+/* Tělo panelu VŽDY scrolluje, když se obsah nevejde do dostupné výšky —
+   nikdy tiše neořezávat (nízké okno + log ukrojí místo). `min-height: 0`
+   je nutné, jinak flex položka odmítne zmenšit pod obsah a scroll se nezapne. */
+.rp-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+.rp-body::-webkit-scrollbar { width: 6px; }
+.rp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
+
+.rp-sec + .rp-sec { border-top: 1px solid rgba(255, 255, 255, 0.09); padding-top: 3px; }
+.rp-sec > h5 {
+    display: flex;
+    align-items: center;
+    margin: 0 0 2px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color, #9aa4ad);
+}
+.rp-state { margin-left: auto; text-transform: none; letter-spacing: 0; opacity: 0.85; }
+
+.rp-sec-body { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.rp-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    width: 100%;
+    margin-top: 2px;
+    padding-top: 2px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+/* přesunuté panýlky: bez vlastního rámu, ať nejsou rámy v rámu */
+.rp-sec-body .status-panels {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+}
+
+/* indoor/outdoor ikona (dům/stromeček) — zrušena: dělení už neexistuje */
+#div_status_map_ico { display: none !important; }
+
+/* název mapy: jeden řádek, pevná výška, dlouhý se zkrátí (plný v tooltipu) */
+#div_status_map_name { max-width: 100%; height: 20px; align-items: center; overflow: hidden; }
+#span_status_map_name {
+    display: block !important;      /* map_view.js nastavuje inline */
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 18px;
+}
+
+/* horní řádek: ikonka sledování + název aktivní mapy (jeden řádek za obojí) */
+.rp-top {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 2px 3px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    min-width: 0;
+}
+.rp-top .status-panels {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+}
+.rp-top #div_status_follow_txt { display: none !important; }   /* text nahrazuje ikonka */
+.rp-click { cursor: pointer; }
+.rp-click:hover { filter: brightness(1.35); }
+
+/* prvky ve STAVU vyplní šířku panelu (mají inline width: 128px) */
+#right_panel #div_odom,
+#right_panel #div_gnss,
+#right_panel #div_rtabmap,
+#right_panel #div_status_speed,
+#right_panel #div_status_speed-2 { width: 100% !important; }
+#right_panel #div_odom > div,
+#right_panel #div_gnss > div,
+#right_panel #div_rtabmap > div { width: 100% !important; }
+
+/* rychlost + teleop na jednom řádku */
+.rp-line { display: flex; align-items: center; gap: 3px; width: 100%; }
+.rp-line #div_status_speed { flex: 1 1 auto; }
+.rp-line #div_status_speed-1 { flex: 0 0 auto; margin-top: 0 !important; }
+
+/* kompaktnější tlačítka (inline šířky z index.html, proto !important) */
+#right_panel .btn-group .btn {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+}
+#right_panel .btn-group { display: flex !important; width: 100%; }
+
+/* sbalitelná sekce */
+.rp-caret { margin-left: 6px; font-size: 9px; opacity: 0.7; }
+.rp-sec.folded > .rp-sec-body { display: none !important; }
+
+/* dotykové cíle */
+@media (pointer: coarse) {
+    #right_panel .btn-group .btn { height: 30px !important; }
+    #right_panel .rp-sec > h5 { min-height: 22px; }
+    .rp-handle { width: 26px; height: 60px; line-height: 60px; }
+}
+
+/* ---- kamera ---------------------------------------------------------- */
+.rp-cam-slot { width: 216px; height: 162px; display: none; }  /* JS dopočítá */
+/* rezervované, ale prázdné místo (stream vypnutý / pozastavený scrollem) */
+.rp-cam-slot.idle {
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    border-radius: 4px;
+}
+.rp-cam-off {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 4px;
+    font-size: 11px;
+    color: var(--bs-secondary-color, #9aa4ad);
+}
+
+/* Náhled se přisazuje na slot: souřadnice v proměnných, !important proto,
+   že CameraView průběžně přepisuje inline styly elementu. */
+body.rp-cam-dock #div_camera_view {
+    position: fixed !important;
+    left: var(--rp-cam-left, auto) !important;
+    top: var(--rp-cam-top, auto) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: var(--rp-cam-w, 216px) !important;
+    height: var(--rp-cam-h, 162px) !important;
+    margin: 0 !important;
+    border-radius: 4px !important;
+    z-index: 6 !important;
+}
+body.rp-cam-dock #div_camera_view > canvas {
+    width: var(--rp-cam-w, 216px) !important;
+    height: var(--rp-cam-h, 162px) !important;
+    display: block;
+}
+/* slot odrolovaný mimo viditelnou část panelu — náhled schovat, ať se
+   nevznáší nad mapou */
+body.rp-cam-dock.rp-cam-clip #div_camera_view { visibility: hidden !important; }
+
+/* Log (spodní pruh) končí před panelem, ať pod ním nic nemizí. Inline šířku
+   od map_view.js přebíjíme !important; hodnotu dopočítá right_dock.js. */
+/* jen když log leží VEDLE panelu; na mobilu (rp-log-top) je log nad panelem
+   a musí zůstat přes celou šířku */
+body.rp-panel-open:not(.rp-log-top) #div_log_view:not(.log-expanded) {
+    width: calc(100vw - var(--rp-log-right, 250px)) !important;
+}
+
+/* Joystick vedle otevřeného panelu (jinak by mu ukrojil výšku). Element má
+   od map_view.js inline margin-top/left, proto !important. */
+body.rp-joy-side #joy_view {
+    position: fixed !important;
+    right: var(--rp-joy-right, 250px) !important;
+    left: auto !important;
+    bottom: 84px !important;
+    top: auto !important;
+    margin: 0 !important;
+}
+
+/* ---- úzký režim: otevřený agentní drawer ukrojil šířku ---------------- */
+#right_panel.narrow .rp-cam-slot,
+#right_panel.narrow .rp-cam-off { display: none !important; }
+#right_panel.narrow .rp-sec-body { gap: 2px; }
+/* v úzkém režimu zkomprimovat tlačítkové skupiny (mají inline šířky, proto
+   !important), ať se Dock/Undock/Stop vejde celý */
+#right_panel.narrow .btn-group .btn {
+    width: 44px !important;
+    font-size: 10px !important;
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+}
+#right_panel.narrow #span_batt_pct { margin-right: 2px !important; min-width: 22px !important; }
+
+/* ---- malý displej ----------------------------------------------------- */
+/* Pořadí shora: ikonky → log (celá šířka) → panel. Log má od map_view.js
+   inline margin-top: calc(100vh - …) — přebíjíme ho, offset počítá JS. */
+/* Nízké okno: log si nesmí vzít 106 px, jinak na panel nezbude nic
+   použitelného. Na krátkých viewportech dostane ~3 řádky. */
+@media (max-height: 700px) {
+    #div_log_view:not(.log-expanded) { height: 62px !important; }
+}
+
+body.rp-log-top #div_log_view {
+    position: fixed !important;
+    top: var(--rp-log-top, 76px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    z-index: 4 !important;
+}
+
+@media (max-width: 575.98px) {
+    #right_panel { width: 190px; }
+    .rp-handle { width: 22px; height: 54px; line-height: 54px; }
+}

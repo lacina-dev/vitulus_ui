@@ -475,7 +475,146 @@ window.MapEdits = (function () {
         { tool: 'edit_free',     ico: '⬜',             label: 'Free (clear area)', idle: 'btn-outline-success' },
         { tool: 'edit_wall',     ico: '〰️',       label: 'Barrier (line)', idle: 'btn-outline-warning' },
         { tool: 'edit_delete',   ico: '🗑️', label: 'Delete',         idle: 'btn-outline-secondary' },
+        { tool: 'geofence',      ico: '🚧',             label: 'Geofence',       idle: 'btn-outline-warning' },
     ];
+
+    // =====================================================================
+    // GEOFENCE tool — click the test perimeter instead of driving it.
+    //
+    // Everything else in this file writes straight to the robot (save_edit,
+    // save_waypoint_at, save_path_at). This one deliberately does NOT: the
+    // geofence is the boundary the test supervisor stops the robot at, and it
+    // may only change with the owner's signature (vitulus_claude AGENT.md
+    // §11.1). So Finish POSTs the clicked ring to the AGENT (port 8088), which
+    // converts map metres -> UTM33 via the site datum, refuses any ring whose
+    // vertices or EDGES cross unmapped cells, and writes a *proposal* file.
+    // Turning that proposal into the live fence is a separate, human-only step
+    // (`tools/geofence_propose sign`, or `/geofence podepsat <digest>` in the
+    // agent chat) — nothing this page can do arms a fence.
+    //
+    // The prose below is Czech because every refusal reason arrives from that
+    // Czech API verbatim; an English frame around Czech errors would read worse
+    // than one language throughout this box.
+    var _gfTimer = null;
+    var _gfLast = null;         // last submitted ring (for the JSON export)
+    function _agentBase() { return 'http://' + location.hostname + ':8088'; }
+
+    // Served site name, taken from the header the mapping status handler already
+    // fills ("site / raster") — no new subscription for one string.
+    function _servedSite() {
+        var el = document.getElementById('map_detail_site');
+        var text = (el && el.textContent || '').trim();
+        if (!text || text === '—') return '';
+        return text.split('/')[0].trim();
+    }
+
+    // Shared-polygon vertices as ROS/map metres. PolygonEditor stores y negated
+    // (easeljs screen convention), same as _finishEditsDraw does.
+    function _gfPoints() {
+        var P = sharedPolygon();
+        if (!P || !P.pointContainer) return [];
+        var ch = P.pointContainer.children || [], pts = [];
+        for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]);
+        return pts;
+    }
+    function _gfArea(pts) {
+        if (pts.length < 3) return 0;
+        var total = 0;
+        for (var i = 0; i < pts.length; i++) {
+            var a = pts[i], b = pts[(i + 1) % pts.length];
+            total += a[0] * b[1] - b[0] * a[1];
+        }
+        return Math.abs(total / 2);
+    }
+    function _gfPerimeter(pts) {
+        if (pts.length < 2) return 0;
+        var total = 0;
+        for (var i = 0; i < pts.length; i++) {
+            var a = pts[i], b = pts[(i + 1) % pts.length];
+            total += Math.hypot(b[0] - a[0], b[1] - a[1]);
+        }
+        return total;
+    }
+
+    // Live readout while clicking. The preview polygon itself is drawn by the
+    // shared PolygonEditor (same as zones/obstacles); this only reports it, on a
+    // slow poll rather than a hook, because vertices arrive from three different
+    // gestures (click, drag, delete) and one timer covers all of them.
+    function _gfTick() {
+        var out = document.getElementById('mapedit_gf_live');
+        if (!out) return;
+        var pts = _gfPoints();
+        var area = _gfArea(pts);
+        out.innerHTML = pts.length < 3
+            ? '<span style="color:var(--bs-gray-500);">' + pts.length + ' bodů — plot potřebuje aspoň 3</span>'
+            : ('<b class="text-info">' + pts.length + ' vrcholů</b> · <b class="text-info">' +
+               area.toFixed(1) + ' m²</b> · obvod ' + _gfPerimeter(pts).toFixed(1) + ' m' +
+               (area < 4 ? ' <span class="text-danger">· pod minimem 4 m²</span>' : ''));
+    }
+    function _gfStartTicker() { if (!_gfTimer) _gfTimer = setInterval(_gfTick, 250); }
+    function _gfStopTicker() { if (_gfTimer) { clearInterval(_gfTimer); _gfTimer = null; } }
+
+    function _gfSay(html, cls) {
+        var box = document.getElementById('mapedit_gf_out');
+        if (box) box.innerHTML = '<div class="' + (cls || '') + '" style="font-size:12px;white-space:pre-wrap;">' + html + '</div>';
+    }
+
+    function _finishGeofenceDraw() {
+        var pts = _gfPoints();
+        if (pts.length < 3) { _setHint('Plot potřebuje aspoň 3 vrcholy.'); return; }
+        var site = (document.getElementById('mapedit_gf_site') || {}).value || '';
+        site = site.trim();
+        if (!site) { _gfSay('Chybí jméno site — vyplň ho nad tlačítkem.', 'text-danger'); return; }
+        var by = ((document.getElementById('mapedit_gf_by') || {}).value || '').trim();
+        _gfLast = { site: site, points: pts, clicked_by: by || null };
+        _gfSay('Posílám agentovi ' + pts.length + ' bodů…');
+        fetch(_agentBase() + '/api/geofence/propose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(_gfLast),
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || d.ok !== true) {
+                _gfSay('<b class="text-danger">Návrh odmítnut</b>\n' +
+                       _escapeHtml((d && (d.error || d.detail)) || 'neznámá chyba') +
+                       '\n\nPlot musí celý ležet ve zmapovaném prostoru — vrcholy i hrany. ' +
+                       'Uprav body a zkus Finish znovu.');
+                return;
+            }
+            _gfSay('<b class="text-success">Návrh uložen</b> (zatím NEaktivní)\n' +
+                   _escapeHtml(d.summary) + '\notisk: <b>' + _escapeHtml(d.digest) + '</b>\n' +
+                   _escapeHtml(d.path) + '\n\n' +
+                   'Aktivovat ho může jen člověk podpisem:\n' +
+                   '<code>/geofence podepsat ' + _escapeHtml(d.digest) + '</code>\n' +
+                   'nebo <code>' + _escapeHtml(d.sign_hint) + '</code>');
+        }).catch(function (err) {
+            _gfSay('<b class="text-danger">Agent neodpověděl</b>\n' + _escapeHtml(String(err)) +
+                   '\nBěží agent na portu 8088? Body si můžeš stáhnout tlačítkem ' +
+                   '„Stáhnout JSON" a nahrát je přes tools/geofence_propose.');
+        });
+    }
+
+    // Offline cesta: stáhni naklikané body jako JSON. Existuje schválně —
+    // návrh plotu nesmí záviset na tom, že zrovna běží agent.
+    function _gfExport() {
+        var pts = _gfPoints();
+        if (pts.length < 3) { _gfSay('Nejdřív naklikej aspoň 3 body.', 'text-danger'); return; }
+        var site = ((document.getElementById('mapedit_gf_site') || {}).value || '').trim();
+        var by = ((document.getElementById('mapedit_gf_by') || {}).value || '').trim();
+        var blob = new Blob([JSON.stringify({
+            site: site, frame: 'map', clicked_by: by || null, points: pts,
+        }, null, 1)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'geofence_points' + (site ? '_' + site : '') + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        _gfSay('Staženo ' + pts.length + ' bodů (rámec map).\n' +
+               'Dál:  tools/geofence_propose propose --site ' +
+               _escapeHtml(site || '<site>') + ' --points <soubor>');
+    }
 
     function _buildToolbar() {
         if (_built) { _refreshDisabled(); return; }
@@ -508,6 +647,17 @@ window.MapEdits = (function () {
             '    <span style="font-size:12px;display:block;margin-bottom:2px;">Path name</span>' +
             '    <input class="form-control form-control-sm" id="mapedit_path_name" type="text" value="" style="width:180px;">' +
             '  </div>' +
+            '  <div id="mapedit_gf_wrap" style="display:none;margin-top:8px;">' +
+            '    <div id="mapedit_gf_live" style="font-size:12.5px;margin-bottom:6px;"></div>' +
+            '    <div class="d-flex" style="gap:6px;margin-bottom:6px;">' +
+            '      <div style="flex:1 1 0;min-width:0;"><span style="font-size:12px;display:block;margin-bottom:2px;">Site</span>' +
+            '        <input class="form-control form-control-sm" id="mapedit_gf_site" type="text" placeholder="site"></div>' +
+            '      <div style="flex:1 1 0;min-width:0;"><span style="font-size:12px;display:block;margin-bottom:2px;">Klikal(a)</span>' +
+            '        <input class="form-control form-control-sm" id="mapedit_gf_by" type="text" placeholder="jméno"></div>' +
+            '    </div>' +
+            '    <button class="btn btn-outline-info btn-sm" id="mapedit_gf_export" type="button" style="width:100%;">Stáhnout JSON</button>' +
+            '    <div id="mapedit_gf_out" style="margin-top:8px;"></div>' +
+            '  </div>' +
             '  <div id="mapedit_wp_form" style="margin-top:8px;"></div>' +
             '  <div id="mapedit_path_sel" style="margin-top:8px;"></div>' +
             '  <div id="mapedit_ctx_actions" class="d-flex" style="gap:6px;margin-top:8px;">' +
@@ -529,6 +679,9 @@ window.MapEdits = (function () {
         // finish / cancel (edits draw)
         ctx.querySelector('#mapedit_finish').addEventListener('click', _finishEditsDraw);
         ctx.querySelector('#mapedit_cancel').addEventListener('click', function () { _setTool('off'); });
+        // geofence: offline export of the clicked ring
+        var gfx = ctx.querySelector('#mapedit_gf_export');
+        if (gfx) gfx.addEventListener('click', _gfExport);
 
         // Edity mapy section: Clear-all (double-click confirm) lives here, not in
         // the tool grid.
@@ -643,10 +796,17 @@ window.MapEdits = (function () {
                 ? 'btn met-tool btn-primary active'
                 : 'btn met-tool ' + idle;
         });
-        var isDraw = (mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall' || mode === 'path');
+        var isDraw = (mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall'
+                      || mode === 'path' || mode === 'geofence');
         var fin = document.getElementById('mapedit_finish'), can = document.getElementById('mapedit_cancel');
         if (fin) fin.style.display = isDraw ? '' : 'none';
         if (can) can.style.display = isDraw ? '' : 'none';
+        // Finish means "save an edit" everywhere except the geofence, where it
+        // means "send this ring to the agent as a PROPOSAL". Say so on the button,
+        // so nobody reads it as "apply the fence".
+        if (fin) fin.textContent = (mode === 'geofence') ? 'Odeslat návrh' : 'Finish';
+        var gw = document.getElementById('mapedit_gf_wrap');
+        if (gw) gw.style.display = (mode === 'geofence') ? '' : 'none';
         var ww = document.getElementById('mapedit_wall_wrap');
         if (ww) ww.style.display = (mode === 'edit_wall') ? '' : 'none';
         var pw = document.getElementById('mapedit_path_wrap');
@@ -664,6 +824,7 @@ window.MapEdits = (function () {
         _pendingMoveName = null;
         _hideWpInput();
         _hidePathSel();
+        _gfStopTicker();
     }
 
     function _clearPolygon(P) {
@@ -681,14 +842,28 @@ window.MapEdits = (function () {
         if (_ov && _ov.setToolMode) _ov.setToolMode(_tool);
         _setToolButtonsActive(_tool);
 
-        if (_tool === 'edit_obstacle' || _tool === 'edit_free' || _tool === 'edit_wall' || _tool === 'path') {
+        if (_tool === 'edit_obstacle' || _tool === 'edit_free' || _tool === 'edit_wall'
+                || _tool === 'path' || _tool === 'geofence') {
             var P = sharedPolygon();
             if (!P) { _setHint('Editor not ready — open the map editor and try again.'); _setTool('off'); return; }
             _clearPolygon(P);
             // path + barrier are open polylines - no closing edge, no fill
             P.openLine = (_tool === 'path' || _tool === 'edit_wall');
             try { _ov.scene.addChild(P); } catch (e) {}   // grabs the mouse via setDrawing(true)
-            if (_tool === 'path') {
+            if (_tool === 'geofence') {
+                // The geofence reuses the shared closed polygon for the preview,
+                // so the ring the owner sees is drawn by the same code as every
+                // other polygon in this editor — one drawing surface, no second
+                // renderer to fall out of sync with the map.
+                var gs = document.getElementById('mapedit_gf_site');
+                if (gs && !gs.value.trim()) gs.value = _servedSite();
+                _gfSay('');
+                _gfTick();
+                _gfStartTicker();
+                _setHint('Naklikej obvod plotu (aspoň 3 body), pak „Odeslat návrh". ' +
+                         'Agent body převede do UTM a odmítne prstenec, který vede přes ' +
+                         'nezmapovaný prostor. Aktivní plot z toho udělá teprve tvůj podpis.');
+            } else if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');
                 if (pn && !pn.value.trim()) pn.value = 'path_' + _pathN;
                 _setHint('Click path points on the map, then Finish. Or click an existing path to edit/delete it. Paths appear in the Paths section.');
@@ -711,6 +886,7 @@ window.MapEdits = (function () {
 
     function _finishEditsDraw() {
         if (_tool === 'path') { _finishPathDraw(); return; }
+        if (_tool === 'geofence') { _finishGeofenceDraw(); return; }
         var P = sharedPolygon();
         if (!P) { _setTool('off'); return; }
         var pts = [];

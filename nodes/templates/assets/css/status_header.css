@@ -1,0 +1,81 @@
+/* The robot status icon strip (#status_div): compact, grouped, and — on a
+   wide viewport — living in the page header instead of over the map.
+   Grouping is built by status_header.js; this file only sizes and spaces it.
+   The inline `transform: scale(.75)` and negative margins on each <img> come
+   from the original markup and have to be overridden here. */
+
+/* ---- the strip itself, wherever it sits ------------------------------- */
+#status_div.sh-strip {
+    /* flex, not inline-flex: an inline box sits on the text baseline and its
+       descender space made the icon row 2 px taller when the strip wrapped */
+    display: flex;
+    flex-wrap: wrap;                 /* two short rows beat one long one */
+    align-items: center;
+    justify-content: center;
+    column-gap: 9px;                 /* between groups */
+    row-gap: 1px;
+    /* the markup carries inline `padding:4px; box-shadow:...` — inline wins
+       over a stylesheet, so these two need !important to be overridable */
+    padding: 2px 4px !important;
+    box-shadow: none !important;
+    line-height: 1;
+}
+
+#status_div.sh-strip .sh-group {
+    display: inline-flex;
+    flex-wrap: nowrap;               /* a group never splits across rows */
+    align-items: center;
+    gap: 1px;                        /* inside a group: icons nearly touch */
+    padding: 0 1px;
+}
+
+#status_div.sh-strip img {
+    transform: none !important;      /* kill the inline scale(.75) */
+    margin: 0 !important;
+    height: 15px;
+    width: auto;
+    display: block;
+}
+
+/* ---- over the map (below the header breakpoint) ----------------------- */
+/* #row_icons is 32 px tall; two rows of 15 px + 1 px gap fit inside it, so
+   wrapping never pushes the map down — the height does not jump. */
+#status_div.sh-strip:not(.in-header) {
+    max-width: 100%;
+    /* Fixed box: one row or two, the row is always 32 px, so rotating a phone
+       or crossing a wrap point never shifts the map by a few pixels.  Two rows
+       of 15 px icons + the 2 px row gap are exactly 32 px, so nothing clips. */
+    height: 32px;
+    max-height: 32px;
+    padding: 0 4px !important;
+    row-gap: 2px;
+    align-content: center;
+    overflow: hidden;
+}
+
+/* Phones: smaller icons, and a deliberate two-row shape (the strip is
+   centred in a ~320-420 px column, so the groups wrap on their own). */
+@media (max-width: 575.98px) {
+    #status_div.sh-strip { column-gap: 7px; padding: 0 2px !important; }
+    #status_div.sh-strip img { height: 13px; }
+}
+
+/* ---- in the page header (>=992px) ------------------------------------- */
+#status_div.in-header {
+    flex-wrap: nowrap;               /* the header stays one line */
+    align-self: center;
+    padding: 0 2px !important;       /* the map-view chip look is off here */
+    margin-right: 6px;
+    white-space: nowrap;
+    column-gap: 10px;
+    max-height: none;
+    overflow: visible;
+}
+
+#status_div.in-header img { height: 14px; }
+
+/* A tight header (992-1199px): shrink icons and gaps before anything wraps. */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+    #status_div.in-header img { height: 12px; }
+    #status_div.in-header { column-gap: 7px; }
+}
