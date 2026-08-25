@@ -425,7 +425,8 @@
     function cardFp(f) {
       return fp([incidentId(f), stateOf(f), f.severity, f.count, f.last_seen || f.ts,
                  f.resolution, f.title, f.summary, f.problem, f.suggested,
-                 f.related_job_id, (f.evidence || []).length, f.text, f.kind, f.source]);
+                 f.related_job_id, (f.evidence || []).length, f.text, f.kind, f.source,
+                 f.investigation, localInvestigation[incidentId(f)]]);
     }
     var docRendered = {};          // id → fp of the card currently in the DOM
     var docListSig = null, docHeadSig = null;
@@ -604,12 +605,30 @@
        severity, suggested, related_job_id); what is missing is skipped. */
     var SEV_RANK = {critical: 4, high: 3, medium: 2, low: 1};
     var STATE_LABEL = {open: 'open', acknowledged: 'acknowledged',
+                       investigated: 'investigated',
                        resolved: 'resolved', auto_repaired: 'auto-repaired'};
     var localState = {};      // optimistic ack/resolve until the next poll agrees
+    /* „Investigate" = a deeper look, not a repair: the core opens a job that
+       reads the evidence and comes back with a verdict (fix now / fix later /
+       monitor / ignore), the cause and the effort.  Until the poll carries
+       that back, the button's own answer („investigating → #job") is kept
+       here so a redraw does not lose it. */
+    var localInvestigation = {};
+    var VERDICT_LABEL = {fix_now: 'fix now', fix_later: 'fix later',
+                         monitor: 'monitor', ignore: 'ignore'};
 
     function stateOf(f) {
       var id = incidentId(f);
-      return localState[id] || f.state || 'open';
+      var s = localState[id] || f.state || 'open';
+      // A finding that carries a verdict has been looked at, whatever the
+      // older core still calls it.
+      if (s === 'open' && investigationOf(f)) { return 'investigated'; }
+      return s;
+    }
+    function investigationOf(f) {
+      var loc = localInvestigation[incidentId(f)];
+      if (f.investigation && typeof f.investigation === 'object') { return f.investigation; }
+      return loc && loc.verdict ? loc : null;
     }
     function incidentId(f) {
       return f.id || (String(f.source || '') + ':' + String(f.ts || ''));
@@ -746,6 +765,53 @@
         card.appendChild(sg);
       }
 
+      // ---- investigation: verdict · cause · effort (when the core has one)
+      var inv = investigationOf(f);
+      var pend = localInvestigation[id];
+      if (inv) {
+        var ib = el('div', 'vz-inv verdict-' + String(inv.verdict || '').toLowerCase());
+        var ih = el('div', 'vz-invhead');
+        ih.appendChild(el('span', 'vz-plabel', 'Investigation'));
+        ih.appendChild(el('span', 'vz-verdict ' + String(inv.verdict || '').toLowerCase(),
+          VERDICT_LABEL[inv.verdict] || inv.verdict || '?'));
+        if (inv.effort) {
+          var ef = el('span', 'vz-effort', 'effort: ' + inv.effort);
+          ef.title = 'estimated effort';
+          ih.appendChild(ef);
+        }
+        if (inv.job_id) {
+          var jb = el('button', 'vagent-ref', '→ #' + inv.job_id);
+          jb.type = 'button';
+          jb.title = 'Show the investigating job';
+          jb.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(inv.job_id); });
+          ih.appendChild(jb);
+        }
+        if (inv.ts) {
+          var iw = el('span', 'vz-when', fmtAgo(inv.ts) + ' ago');
+          iw.title = fmtAbs(inv.ts);
+          ih.appendChild(iw);
+        }
+        ib.appendChild(ih);
+        if (inv.cause) {
+          var ic = el('div', 'vz-cause', String(inv.cause));
+          ic.title = String(inv.cause);
+          ib.appendChild(ic);
+        }
+        card.appendChild(ib);
+      } else if (pend && pend.pending) {
+        var pb = el('div', 'vz-inv pending');
+        pb.appendChild(el('span', 'vz-plabel', 'Investigation'));
+        var pt = el('span', null, 'investigating');
+        pb.appendChild(pt);
+        if (pend.job_ref) {
+          var pj = el('button', 'vagent-ref', '→ #' + String(pend.job_ref).replace(/^[js]:/, ''));
+          pj.type = 'button';
+          pj.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(pend.job_ref); });
+          pb.appendChild(pj);
+        }
+        card.appendChild(pb);
+      }
+
       // ---- footer: state pill · related job · resolution
       var foot = el('div', 'vz-foot');
       var stp = el('span', 'vz-state ' + state, STATE_LABEL[state] || state);
@@ -786,6 +852,54 @@
         card.appendChild(bar);
       }
       if (!isResolved(f)) {
+        // Investigate — a deeper look before anyone decides what to do.
+        var pending = localInvestigation[id];
+        var invBtn = el('button', 'vagent-actbtn', inv ? 'Investigate again' : 'Investigate');
+        invBtn.type = 'button';
+        invBtn.title = 'Open a job that digs into this incident and comes back with a verdict';
+        if (pending && pending.pending) {
+          invBtn.disabled = true;
+          invBtn.textContent = 'investigating…';
+        }
+        invBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          invBtn.disabled = true;
+          invBtn.textContent = 'investigating…';
+          localInvestigation[id] = {pending: true};
+          VA.api('/api/incidents/' + encodeURIComponent(id) + '/investigate',
+                 {method: 'POST', body: {author: VA.authorId || 'ui'}})
+            .then(function (r) {
+              if (!r || r.ok === false) {
+                delete localInvestigation[id];
+                invBtn.disabled = false;
+                invBtn.textContent = 'Investigate';
+                invBtn.title = 'investigate failed: ' + ((r && r.error) || '?');
+                drawDoctor(VA, true);
+                return;
+              }
+              localInvestigation[id] = {pending: true, job_ref: r.job_ref || r.job_id || null};
+              VA.notify && VA.notify('ok', 'investigating');
+              drawDoctor(VA, true);
+            })
+            .catch(function (err) {
+              delete localInvestigation[id];
+              invBtn.disabled = false;
+              invBtn.textContent = 'Investigate';
+              if (/HTTP 404/.test(String(err))) {
+                // Contract not live yet — ask for the same thing in chat.
+                invBtn.title = 'API not available yet — sent to chat';
+                VA.submitText('prozkoumej hlouběji incident #' + id + ': ' +
+                  String(f.title || summary || f.text || '').slice(0, 160) +
+                  ' — vrať verdikt (fix now / fix later / monitor / ignore), příčinu a odhad práce',
+                  {incident_id: id, action: 'investigate'});
+                if (VA.activateTab) VA.activateTab('chat');
+              } else {
+                invBtn.title = 'investigate failed: ' + err;
+              }
+              drawDoctor(VA, true);
+            });
+        });
+        bar.appendChild(invBtn);
         if (state !== 'acknowledged') {
           var ack = el('button', 'vagent-actbtn', 'Acknowledge');
           ack.type = 'button';

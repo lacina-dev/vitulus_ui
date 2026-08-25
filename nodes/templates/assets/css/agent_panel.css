@@ -143,7 +143,6 @@
 .vagent-pane.active { display: flex; flex-direction: column; }
 .vagent-pane[data-pane="vice"].active,
 .vagent-pane[data-pane="jobs"].active,
-.vagent-pane[data-pane="tasks"].active,
 .vagent-pane[data-pane="gate"].active,
 .vagent-pane[data-pane="robot"].active,
 .vagent-pane[data-pane="incidents"].active {
@@ -1258,3 +1257,149 @@ details.vagent-card:not([open]) > summary { margin-bottom: 0; }
     .vagent-kind .vagent-ivl { min-height: 40px; }
     .vagent-runs td, .vagent-runs th { padding: 6px 4px; }
 }
+
+/* ===================================================================== */
+/* Unified JOB model (2026-08-24): Jobs + Tasks merged into one tab.      */
+/* One card shape for a prompt job and a script job, grouped by           */
+/* lifecycle — Running / Scheduled / Needs attention / Recent.            */
+/* ===================================================================== */
+.vagent-joblist { display: flex; flex-direction: column; }
+.vagent-group-body { display: flex; flex-direction: column; gap: 6px; }
+details.vagent-group > summary {
+    list-style: none; cursor: pointer; user-select: none;
+}
+details.vagent-group > summary::-webkit-details-marker { display: none; }
+details.vagent-group > summary .vagent-sh { margin-bottom: 2px; }
+details.vagent-group > summary .vagent-sh::before { content: '▸ '; }
+details.vagent-group[open] > summary .vagent-sh::before { content: '▾ '; }
+details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
+.vagent-sh.g-attention { color: var(--bs-warning, #ffc107); }
+
+.vagent-ujob {
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left: 3px solid var(--bs-secondary, #6c757d);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.03);
+    min-width: 0;
+}
+.vagent-ujob.st-running { border-left-color: var(--bs-info, #0dcaf0); }
+.vagent-ujob.st-queued, .vagent-ujob.st-blocked { border-left-color: var(--bs-warning, #ffc107); }
+.vagent-ujob.st-scheduled { border-left-color: var(--bs-success, #198754); }
+.vagent-ujob.st-paused { border-left-color: var(--bs-secondary, #6c757d); opacity: 0.85; }
+.vagent-ujob.st-failed { border-left-color: var(--bs-danger, #dc3545); }
+.vagent-ujob.st-done { border-left-color: rgba(25, 135, 84, 0.6); }
+.vagent-ujob.st-draft { border-left-color: var(--bs-warning, #ffc107); border-left-style: dashed; }
+.vagent-ujob.stalled {
+    border-left-color: var(--bs-danger, #dc3545);
+    animation: vagent-pulse 1.6s ease-in-out infinite;
+}
+.vagent-ujob.highlight { box-shadow: 0 0 0 2px var(--bs-primary, #0d6efd); transition: box-shadow 0.3s; }
+.vagent-ujob .st { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.vagent-ujob .sn {
+    flex: 1 1 120px; min-width: 0; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vagent-ujob .sm {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+    margin-top: 4px; min-width: 0;
+}
+.vagent-ujob .sx { font-size: 11px; color: var(--bs-secondary-color, #adb5bd); }
+.vagent-ujob .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.vagent-ujob .jl {
+    margin-top: 4px; font-size: 11.5px; line-height: 1.35;
+    color: var(--bs-secondary-color, #adb5bd);
+    overflow-wrap: anywhere;
+}
+.vagent-ujob .se {
+    margin-top: 4px; font-size: 11.5px; color: #f1868f;
+    line-height: 1.35; overflow-wrap: anywhere;
+    max-height: 4.5em; overflow: hidden;
+}
+.vagent-ujob .so {
+    margin: 5px 0 0; padding: 5px 7px;
+    max-height: 6.6em; overflow: hidden;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;
+    font-size: 11px; line-height: 1.35; white-space: pre; overflow-x: auto;
+    color: var(--bs-body-color, #dee2e6);
+}
+.vagent-ujob .so.full { max-height: 40vh; overflow-y: auto; }
+.vagent-ujob .sa { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 6px; }
+.vagent-ujob button.ja {
+    font: inherit; font-size: 11.5px; line-height: 22px;
+    padding: 0 9px; border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--bs-body-color, #dee2e6); cursor: pointer;
+}
+.vagent-ujob button.ja:hover { background: rgba(255, 255, 255, 0.14); }
+.vagent-ujob button.ja.primary { border-color: var(--bs-primary, #0d6efd); color: #9ec5fe; }
+.vagent-ujob button.ja.danger { border-color: var(--bs-danger, #dc3545); color: #f1868f; }
+.vagent-ujob button.ja:disabled { opacity: 0.5; cursor: default; }
+.vagent-policy { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.vagent-ujob .vagent-secd textarea { width: 100%; }
+.vagent-ujob .vagent-secd.rerun > summary { color: #ffd0d4; }
+
+/* status + kind pills of the unified card */
+.vagent-pill.state-scheduled { background: rgba(25, 135, 84, 0.25); color: #6fd39a; }
+.vagent-pill.state-running { background: rgba(13, 202, 240, 0.25); color: var(--bs-info, #0dcaf0); }
+.vagent-pill.state-queued { background: rgba(255, 255, 255, 0.10); color: var(--bs-secondary-color, #adb5bd); }
+.vagent-pill.state-blocked { background: rgba(255, 193, 7, 0.22); color: var(--bs-warning, #ffc107); }
+.vagent-pill.state-done { background: rgba(25, 135, 84, 0.18); color: #6fd39a; }
+.vagent-pill.state-stalled { background: rgba(220, 53, 69, 0.25); color: #f1868f; }
+.vagent-pill.kind-prompt, .vagent-pill.kind-agent { background: rgba(13, 110, 253, 0.22); color: #8fb8ff; }
+.vagent-pill.muted {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--bs-secondary-color, #adb5bd);
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+}
+
+/* creation form: same chrome as the old „+ new", one extra row for time */
+.vagent-jobform input[type="time"] {
+    font: inherit; font-size: 12px; padding: 2px 6px; border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3); color: var(--bs-body-color, #dee2e6);
+}
+
+/* ---- incident investigation ------------------------------------------ */
+.vz-inv {
+    margin-top: 5px; padding: 4px 6px;
+    border-left: 2px solid rgba(255, 255, 255, 0.25);
+    border-radius: 0 6px 6px 0;
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 12px;
+}
+.vz-inv.verdict-fix_now { border-left-color: var(--bs-danger, #dc3545); }
+.vz-inv.verdict-fix_later { border-left-color: var(--bs-warning, #ffc107); }
+.vz-inv.verdict-monitor { border-left-color: var(--bs-info, #0dcaf0); }
+.vz-inv.verdict-ignore { border-left-color: var(--bs-secondary, #6c757d); }
+.vz-inv.pending { display: flex; align-items: center; gap: 6px; opacity: 0.85; }
+.vz-invhead { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.vz-verdict {
+    display: inline-block; padding: 0 7px; border-radius: 9px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em;
+    text-transform: uppercase; color: #fff;
+    background: var(--bs-secondary, #6c757d);
+}
+.vz-verdict.fix_now { background: var(--bs-danger, #dc3545); }
+.vz-verdict.fix_later { background: var(--bs-warning, #ffc107); color: #212529; }
+.vz-verdict.monitor { background: var(--bs-info, #0dcaf0); color: #212529; }
+.vz-verdict.ignore { background: var(--bs-secondary, #6c757d); }
+.vz-effort { font-size: 11px; color: var(--bs-secondary-color, #adb5bd); }
+.vz-cause { margin-top: 3px; line-height: 1.4; overflow-wrap: anywhere; }
+.vz-state.investigated { background: rgba(13, 202, 240, 0.22); color: var(--bs-info, #0dcaf0); }
+
+/* ---- touch targets (≥40 px, keyed on the pointer, not the width) ------ */
+@media (pointer: coarse) {
+    .vagent-ujob button.ja, .vagent-jobform input[type="time"] {
+        min-height: 40px; line-height: 38px; padding: 0 12px; font-size: 13px;
+    }
+    .vagent-ujob .vagent-sel { min-height: 40px; line-height: 40px; }
+    .vagent-ujob .vagent-secd > summary { min-height: 40px; line-height: 40px; }
+    details.vagent-group > summary { min-height: 40px; display: flex; align-items: center; }
+    .vagent-policy { margin-left: 0; }
+}
+/* no horizontal scroll, whatever the card carries */
+.vagent-ujob, .vagent-joblist { max-width: 100%; }
+.vagent-ujob .sn, .vagent-ujob .jl, .vagent-ujob .se { overflow-wrap: anywhere; }
