@@ -482,22 +482,23 @@ window.MapEdits = (function () {
     // GEOFENCE tool — click the test perimeter instead of driving it.
     //
     // Everything else in this file writes straight to the robot (save_edit,
-    // save_waypoint_at, save_path_at). This one deliberately does NOT: the
-    // geofence is the boundary the test supervisor stops the robot at, and it
-    // may only change with the owner's signature (vitulus_claude AGENT.md
-    // §11.1). So Finish POSTs the clicked ring to the AGENT (port 8088), which
-    // converts map metres -> UTM33 via the site datum, refuses any ring whose
-    // vertices or EDGES cross unmapped cells, and writes a *proposal* file.
-    // Turning that proposal into the live fence is a separate, human-only step
-    // (`tools/geofence_propose sign`, or `/geofence podepsat <digest>` in the
-    // agent chat) — nothing this page can do arms a fence.
+    // save_waypoint_at, save_path_at). This one deliberately does NOT arm a
+    // fence: the geofence is the boundary the test supervisor stops the robot
+    // at, and it may only become ACTIVE with the owner's signature
+    // (vitulus_claude AGENT.md §11.1). So Finish POSTs the clicked ring to the
+    // robot's OWN web node, same-origin (`/api/geofence/propose` on :7779 — no
+    // agent needed), which converts map metres -> UTM33 via the site datum,
+    // refuses any ring whose vertices or EDGES cross unmapped cells, and writes
+    // an UNSIGNED *proposal* file. Turning that proposal into the live fence is
+    // a separate, human-only CLI step (`tools/geofence_propose sign
+    // --digest <digest>`, or `/geofence podepsat <digest>` in the agent chat) —
+    // nothing this page can do arms a fence.
     //
     // The prose below is Czech because every refusal reason arrives from that
     // Czech API verbatim; an English frame around Czech errors would read worse
     // than one language throughout this box.
     var _gfTimer = null;
     var _gfLast = null;         // last submitted ring (for the JSON export)
-    function _agentBase() { return 'http://' + location.hostname + ':8088'; }
 
     // Served site name, taken from the header the mapping status handler already
     // fills ("site / raster") — no new subscription for one string.
@@ -567,8 +568,9 @@ window.MapEdits = (function () {
         if (!site) { _gfSay('Chybí jméno site — vyplň ho nad tlačítkem.', 'text-danger'); return; }
         var by = ((document.getElementById('mapedit_gf_by') || {}).value || '').trim();
         _gfLast = { site: site, points: pts, clicked_by: by || null };
-        _gfSay('Posílám agentovi ' + pts.length + ' bodů…');
-        fetch(_agentBase() + '/api/geofence/propose', {
+        _gfSay('Posílám robotu ' + pts.length + ' bodů…');
+        // Same-origin: the robot's own web node (:7779) serves this. No agent.
+        fetch('/api/geofence/propose', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(_gfLast),
@@ -583,12 +585,13 @@ window.MapEdits = (function () {
             _gfSay('<b class="text-success">Návrh uložen</b> (zatím NEaktivní)\n' +
                    _escapeHtml(d.summary) + '\notisk: <b>' + _escapeHtml(d.digest) + '</b>\n' +
                    _escapeHtml(d.path) + '\n\n' +
-                   'Aktivovat ho může jen člověk podpisem:\n' +
-                   '<code>/geofence podepsat ' + _escapeHtml(d.digest) + '</code>\n' +
-                   'nebo <code>' + _escapeHtml(d.sign_hint) + '</code>');
+                   'Aktivovat ho může jen člověk podpisem v příkazové řádce:\n' +
+                   '<code>' + _escapeHtml(d.sign_hint) + '</code>\n' +
+                   '(nebo <code>/geofence podepsat ' + _escapeHtml(d.digest) +
+                   '</code> v chatu agenta, když běží.)');
         }).catch(function (err) {
-            _gfSay('<b class="text-danger">Agent neodpověděl</b>\n' + _escapeHtml(String(err)) +
-                   '\nBěží agent na portu 8088? Body si můžeš stáhnout tlačítkem ' +
+            _gfSay('<b class="text-danger">Robot neodpověděl</b>\n' + _escapeHtml(String(err)) +
+                   '\nBěží web node robota (:7779)? Body si můžeš stáhnout tlačítkem ' +
                    '„Stáhnout JSON" a nahrát je přes tools/geofence_propose.');
         });
     }

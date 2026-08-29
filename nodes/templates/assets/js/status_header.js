@@ -92,7 +92,7 @@
     }
 
     /* Host telemetry belongs with the header controls, not buried in a
-       diagnostic page.  The agent bridge exposes a read-only /api/system
+       diagnostic page.  This robot's own webnode exposes a read-only /api/system
        sample; this widget only reads it and remains visibly stale/offline when
        the bridge cannot answer. */
     var monitor = null;
@@ -204,7 +204,9 @@
 
     function pollSystem() {
         ensureSystemMonitor();
-        var url = location.protocol + '//' + location.hostname + ':8088/api/system';
+        // Same-origin: served by the robot's own webnode (:7779), so the
+        // monitor works from the shipped UI without the agent bridge (:8088).
+        var url = '/api/system';
         fetch(url, {cache: 'no-store'}).then(function (response) {
             if (!response.ok) { throw new Error('HTTP ' + response.status); }
             return response.json();

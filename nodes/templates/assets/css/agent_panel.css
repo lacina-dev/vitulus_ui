@@ -1706,3 +1706,38 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
     }
     .vagent-ask .aexec { margin-left: 0; }
 }
+
+/* Job goal amendments (owner 2026-08-29): later edits/notes shown under Goal */
+.jd-amends { margin: 4px 0 6px; border-left: 2px solid var(--bs-warning, #ffc107); padding-left: 8px; }
+.jd-amends-h { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-warning, #ffc107); margin-bottom: 3px; }
+.jd-amend { display: block; font-size: 12px; margin: 2px 0; }
+.jd-amend-m { color: var(--bs-secondary-color, #9aa0a6); margin-right: 6px; white-space: nowrap; }
+.jd-amend-t { overflow-wrap: anywhere; }
+.jd-amend-rev { font-size: 11px; color: var(--bs-secondary-color, #9aa0a6); opacity: .7; margin-top: 3px; }
+@media (pointer: coarse) { .jd-amend { min-height: 32px; } }
+
+/* Agent-bridge availability (robot-vs-agent doctrine): the panel is an AGENT
+   feature; on a robot without the vitulus_agent service (:8088) it degrades
+   quietly instead of showing broken blocks. */
+#btn_agent.agent-down { opacity: .45; }
+#btn_agent.agent-down:hover { opacity: .7; }
+.vagent-hidden { display: none !important; }
+.vagent-down {
+    padding: 18px 16px;
+    color: var(--bs-secondary-color, #9aa0a6);
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+}
+.vagent-down p { margin: 0 0 12px; }
+.vagent-retry {
+    border: 1px solid var(--bs-border-color, #444);
+    background: transparent;
+    color: var(--bs-body-color, #ddd);
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.vagent-retry:hover { background: rgba(255,255,255,0.06); }
+@media (pointer: coarse) { .vagent-retry { min-height: 40px; } }

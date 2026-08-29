@@ -10,6 +10,30 @@ import signal
 import subprocess
 from werkzeug.serving import make_server
 
+# Read-only host metrics for the header monitor. Lives beside this node so the
+# widget's /api/system is served by the robot's own webnode, not any external
+# service. Import by absolute directory to work whether launched from source
+# or install space.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from system_metrics import load_system_metrics
+
+# Robot-native geofence proposal writer (propose-only, NO signing). It lives in
+# vitulus_navi so this PUBLIC web node can serve /api/geofence/propose without
+# importing anything from the private agent (vitulus_claude). We import it from
+# the source tree directly — the catkin devel space is a snapshot that predates
+# this subpackage — mirroring how WEB_ROOT below points at the source tree.
+# The module has no sign function, so no request to this server can ever arm a
+# fence; that stays a human-only CLI step (tools/geofence_propose sign).
+_NAVI_SRC = "/home/vitulus/catkin_ws/src/vitulus/vitulus_navi/src"
+if _NAVI_SRC not in sys.path:
+    sys.path.insert(0, _NAVI_SRC)
+try:
+    from vitulus_navi.geofence import propose as geofence_propose
+    _geofence_import_error = None
+except Exception as _gf_exc:  # degrade to a clear 503 rather than crash the node
+    geofence_propose = None
+    _geofence_import_error = str(_gf_exc)
+
 port = 7779
 
 # systemd service that runs the whole robot. Restarting it from the web requires
@@ -196,6 +220,12 @@ if __name__ == '__main__':
             }
             return jsonify(out)
 
+        @app.route('/api/system')
+        def api_system():
+            # Read-only host metrics (CPU/MEM/DISK/NET) for the header monitor.
+            # Never 500s: load_system_metrics() degrades each field to None.
+            return jsonify(load_system_metrics())
+
         # -----------------------------------------------------------------
         # Rosbag management API
         # -----------------------------------------------------------------
@@ -259,6 +289,81 @@ if __name__ == '__main__':
             except OSError as exc:
                 return jsonify({'ok': False, 'error': str(exc)}), 500
             return jsonify({'ok': True})
+
+        # -----------------------------------------------------------------
+        # Geofence: the UI PROPOSES, only a human SIGNS.
+        # -----------------------------------------------------------------
+        # POST /api/geofence/propose turns a clicked map ring into an UNSIGNED
+        # proposal file next to the site bundle (geofence.proposed.geojson) via
+        # vitulus_navi's propose-only writer. It converts map metres -> UTM33 by
+        # the site datum, refuses any ring whose vertices or EDGES cross unmapped
+        # cells, runs the SAME Fence geometry checks the supervisor uses, and can
+        # NEVER write the active geofence.geojson. Arming a fence takes a human
+        # running  tools/geofence_propose sign --site <site> --digest <digest>
+        # (or /geofence podepsat <digest> in the agent chat) — nothing this
+        # server does can arm one. Robot-native: needs no agent runtime (:8088).
+        GEOFENCE_MAX_POINTS = 2000
+
+        def _geofence_unavailable():
+            return jsonify({'ok': False, 'error':
+                            'geofence module unavailable: '
+                            + (_geofence_import_error or 'unknown')}), 503
+
+        @app.route('/api/geofence', methods=['GET'])
+        def api_geofence():
+            # Report what lies on disk for a site (proposal / active / nothing).
+            if geofence_propose is None:
+                return _geofence_unavailable()
+            site = (request.args.get('site') or '').strip()
+            if not site:
+                return jsonify({'ok': False, 'error': 'missing site'}), 400
+            try:
+                return jsonify(geofence_propose.summarize(site))
+            except Exception as exc:  # a bad site is a 400, not a 500
+                return jsonify({'ok': False, 'error': str(exc)}), 400
+
+        @app.route('/api/geofence/propose', methods=['POST'])
+        def api_geofence_propose():
+            if geofence_propose is None:
+                return _geofence_unavailable()
+            payload = request.get_json(silent=True)
+            if not isinstance(payload, dict):
+                return jsonify({'ok': False, 'error': 'body must be a JSON object'}), 400
+            site = str(payload.get('site') or '').strip()
+            if not site:
+                return jsonify({'ok': False, 'error': 'missing site'}), 400
+            points = payload.get('points')
+            if not isinstance(points, list) or len(points) > GEOFENCE_MAX_POINTS:
+                return jsonify({'ok': False, 'error':
+                                'points must be a list [[x, y], ...] up to %d points'
+                                % GEOFENCE_MAX_POINTS}), 400
+            try:
+                ring = [(float(p[0]), float(p[1])) for p in points]
+            except (TypeError, ValueError, IndexError):
+                return jsonify({'ok': False,
+                                'error': 'points must be pairs of numbers in the map frame'}), 400
+            clicked_by = str(payload.get('clicked_by') or '').strip()[:60] or None
+            note = str(payload.get('note') or '').strip()[:400] or None
+            try:
+                fence, document = geofence_propose.build_proposal(
+                    ring, site, clicked_by=clicked_by, note=note)
+                path = geofence_propose.write_proposal(document, site)
+            except Exception as exc:  # a refusal (unmapped/geometry) is the normal answer
+                return jsonify({'ok': False, 'error': str(exc)})
+            props = document['features'][0]['properties']
+            return jsonify({
+                'ok': True,
+                'digest': fence.digest,
+                'area_m2': round(fence.area, 2),
+                'vertices': len(fence.ring),
+                'summary': fence.summary(),
+                'path': path,
+                'status': props['status'],
+                'source': props['source'],
+                'provenance': props['provenance'],
+                'sign_hint': ('tools/geofence_propose sign --site %s --digest %s '
+                              '--by "<your name>"' % (site, fence.digest)),
+            })
 
         server = ServerThread(app, host, port)
         server.start()

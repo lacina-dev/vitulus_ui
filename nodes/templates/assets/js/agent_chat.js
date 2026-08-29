@@ -229,8 +229,92 @@
     // -------------------------------------------------- connection + fetch
     var conn = {okTs: 0, failTs: 0};
 
+    /* The agent panel is an AGENT feature. On a robot that does not run the
+       vitulus_agent service (:8088) — e.g. a public vitulus_ui checkout — the
+       panel must be quietly absent, not a broken box hammering a dead port.
+       `agentUp` gates every poller: null = not yet probed, true/false = last
+       /api/health result. A slow standalone probe flips it and re-applies the
+       UI; nothing else touches :8088 until it reads true. */
+    var agentUp = null;
+    var probeInFlight = false;
+
+    function probeAgent() {
+        if (probeInFlight) { return; }
+        probeInFlight = true;
+        var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = ctl ? setTimeout(function () { ctl.abort(); }, 4000) : null;
+        fetch(AGENT_HTTP + '/api/health', {cache: 'no-store',
+                signal: ctl ? ctl.signal : undefined})
+            .then(function (r) { return r.ok; })
+            .catch(function () { return false; })
+            .then(function (up) {
+                if (timer) { clearTimeout(timer); }
+                probeInFlight = false;
+                var was = agentUp;
+                agentUp = !!up;
+                if (agentUp) { conn.okTs = Date.now(); }
+                applyAgentState();
+                if (agentUp && was !== true && typeof schedule === 'function') {
+                    schedule();     // seamlessly start pollers on down->up
+                }
+            });
+    }
+
+    /* Reflect availability without ever removing the button (no layout shift):
+       up = normal; down/unknown = dimmed + honest tooltip, and an open panel
+       shows one calm placeholder instead of empty broken blocks. */
+    function applyAgentState() {
+        var btn = document.getElementById('btn_agent');
+        if (btn) {
+            var down = agentUp === false;
+            btn.classList.toggle('agent-down', down);
+            btn.title = down
+                ? 'Vitulus agent not running on this robot'
+                : 'Agent — chat, jobs, approvals (Alt+A)';
+        }
+        renderAgentPlaceholder();
+    }
+
+    function renderAgentPlaceholder() {
+        var blocks = panel.querySelector('#vagent_blocks');
+        if (!blocks) { return; }
+        var ph = panel.querySelector('#vagent_down');
+        if (agentUp === false) {
+            blocks.classList.add('vagent-hidden');
+            if (!ph) {
+                ph = document.createElement('div');
+                ph.id = 'vagent_down';
+                ph.className = 'vagent-down';
+                var msg = document.createElement('p');
+                msg.textContent = 'The agent is not running on this robot. ' +
+                    'Chat, jobs, approvals and incidents need the vitulus_agent service.';
+                ph.appendChild(msg);
+                var retry = document.createElement('button');
+                retry.type = 'button';
+                retry.className = 'vagent-retry';
+                retry.textContent = 'Retry';
+                retry.addEventListener('click', function () { probeAgent(); });
+                ph.appendChild(retry);
+                blocks.parentNode.insertBefore(ph, blocks);
+            }
+            ph.style.display = '';
+        } else {
+            blocks.classList.remove('vagent-hidden');
+            if (ph) { ph.style.display = 'none'; }
+        }
+    }
+
     function api(path, opts) {
         opts = opts || {};
+        // Single chokepoint: while the agent is known down, no caller (chat
+        // pollers, agent_blocks refreshers, user actions) touches :8088 — no
+        // network, no console error spam. A benign empty resolve (not a
+        // reject) keeps the several no-.catch callers in agent_blocks quiet;
+        // they just render empty. /api/health is the exception, and the probe
+        // uses fetch directly, not api().
+        if (agentUp === false && path !== '/api/health') {
+            return Promise.resolve({ ok: false, agent_down: true });
+        }
         var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var timer = ctl ? setTimeout(function () { ctl.abort(); }, opts.timeout_ms || 8000) : null;
         var init = {cache: 'no-store', signal: ctl ? ctl.signal : undefined};
@@ -571,9 +655,11 @@
                 try { blk.onOpen(blk.body || blk.el); } catch (e) {}
             }
         });
-        schedule();   // pollers wake up
+        renderAgentPlaceholder();   // show the "agent not running" note if down
+        if (agentUp !== true) { probeAgent(); }   // re-check on open
+        schedule();   // pollers wake up (no-op while the agent is down)
         var input = document.getElementById('vagent_input');
-        if (input && window.innerWidth >= 576) { input.focus(); }
+        if (input && agentUp === true && window.innerWidth >= 576) { input.focus(); }
         mergeHead();
         scrollChatBottom();
         document.dispatchEvent(new Event('vagent:activechange'));
@@ -1414,10 +1500,18 @@
         var bar = panel.querySelector('#vagent_ctx');
         if (!bar) { return; }
         bar.textContent = '';
-        var running = null;
-        ctxJobs.forEach(function (j) {
-            if (!running && (j.state === 'running' || j.state === 'queued')) { running = j; }
+        // Every active job counts; show the newest RUNNING one (matches the
+        // top of the Jobs tab) plus the total, so the bar never contradicts
+        // the tab (owner saw "one, and a different one" — 4 were running).
+        var active = ctxJobs.filter(function (j) {
+            return j.state === 'running' || j.state === 'queued';
         });
+        active.sort(function (a, b) {
+            var ra = a.state === 'running' ? 0 : 1;
+            var rb = b.state === 'running' ? 0 : 1;
+            return ra !== rb ? ra - rb : (b.id || 0) - (a.id || 0);
+        });
+        var running = active[0] || null;
         var pending = ctxAsks.length;
         if (!running && !pending) { bar.style.display = 'none'; return; }
         bar.style.display = '';
@@ -1427,11 +1521,13 @@
             jb.className = 'vagent-ctx-item job';
             var pl = document.createElement('span');
             pl.className = 'vagent-pill ' + running.state;
-            pl.textContent = running.state === 'running' ? 'running' : 'waiting';
+            pl.textContent = (running.state === 'running' ? 'running' : 'waiting')
+                + (active.length > 1 ? ' ' + active.length : '');
             jb.appendChild(pl);
             var t = document.createElement('span');
             t.className = 'ct';
-            t.textContent = '#' + running.id + ' ' + String(running.text || '').slice(0, 60);
+            t.textContent = '#' + running.id + ' ' + String(running.text || '').slice(0, 60)
+                + (active.length > 1 ? '  (+' + (active.length - 1) + ' more)' : '');
             jb.appendChild(t);
             var e2 = document.createElement('span');
             e2.className = 'ce';
@@ -1607,6 +1703,9 @@
             legs: j.legs, slot: j.slot,
             job_id: j.job_id || null,
             auto: !!j.auto_approve,
+            // Only a RUN row is "from" a schedule; a definition row carries
+            // its own id in schedule_id and must not pill itself.
+            from_sched: (ref.indexOf('j:') === 0 ? (j.schedule_id || null) : null),
             src: 'unified'
         };
     }
@@ -1716,7 +1815,8 @@
     function jobFp(j) {
         return JSON.stringify([j.ref, j.kind, j.title, j.text, j.status, j.schedule,
             j.policy, j.last, j.runs, j.stalled, j.note, j.legs, j.slot, j.program,
-            j.incident, j.live, j.job_id, j.auto, j.archived, groupOf(j)]);
+            j.incident, j.live, j.job_id, j.auto, j.archived, j.amendments,
+            groupOf(j)]);
     }
 
     // --------------------------------------------------------------- actions
@@ -2085,6 +2185,47 @@
         jdHeading(body, 'Goal');
         var goal = jdRow(body, 'jd-txt', d.goal || j.text || '(none)');
         goal.title = '';
+        // Amendments: later „pokračuj na N: …" / rerun notes / script edits
+        // change what the job should do — the original goal alone is then
+        // out of date (owner 2026-08-29). Show them right under the goal.
+        var ams = (d.amendments || []).filter(function (a) {
+            return a && (a.kind === 'note' || a.kind === 'edit');
+        });
+        if (ams.length) {
+            var box = document.createElement('div');
+            box.className = 'jd-amends';
+            var h = document.createElement('div');
+            h.className = 'jd-amends-h';
+            h.textContent = 'Amendments (' + ams.length + ')';
+            box.appendChild(h);
+            ams.forEach(function (a, i) {
+                var row = document.createElement('div');
+                row.className = 'jd-amend';
+                var meta = document.createElement('span');
+                meta.className = 'jd-amend-m';
+                var when = a.ts ? new Date(a.ts * 1000).toLocaleString() : '';
+                meta.textContent = (i + 1) + '. ' + (a.by || 'owner')
+                    + (when ? ' · ' + when : '');
+                var txt = document.createElement('span');
+                txt.className = 'jd-amend-t';
+                txt.textContent = a.text || a.raw || '';
+                row.appendChild(meta);
+                row.appendChild(txt);
+                box.appendChild(row);
+            });
+            // Dimmed revival lines, collapsed, so the timeline is complete
+            // without pretending the doctor changed the goal.
+            var revs = (d.amendments || []).filter(function (a) {
+                return a && a.kind === 'revival';
+            });
+            if (revs.length) {
+                var rd = document.createElement('div');
+                rd.className = 'jd-amend-rev';
+                rd.textContent = '+ ' + revs.length + ' doctor revival(s)';
+                box.appendChild(rd);
+            }
+            body.appendChild(box);
+        }
 
         if (d.final_reply) {
             jdHeading(body, 'Result');
@@ -2273,7 +2414,14 @@
             mid.appendChild(pill('slot ' + j.slot, '', 'parallel slot'));
         }
         if (j.subagents) { mid.appendChild(pill('subagents ' + j.subagents, '', 'running subagents')); }
-        if (j.from_sched) { mid.appendChild(pill('task #' + j.from_sched, '', 'started by a recurring job')); }
+        if (j.from_sched) {
+            var fs = pill('from s:' + j.from_sched, '', 'started by recurring job s:' + j.from_sched + ' — click to highlight it');
+            fs.style.cursor = 'pointer';
+            fs.addEventListener('click', function () {
+                if (window.VAgent && VAgent.highlightSched) { VAgent.highlightSched(j.from_sched); }
+            });
+            mid.appendChild(fs);
+        }
         if (j.last && j.last.ts) {
             var lastLbl = document.createElement('span');
             lastLbl.className = 'sx';
@@ -3599,10 +3747,11 @@
     var timers = [];
 
     function every(ms, fn) { timers.push(setInterval(function () {
-        if (isVisible()) { fn(); }
+        if (agentUp === true && isVisible()) { fn(); }
     }, ms)); }
 
     function schedule() {
+        if (agentUp !== true) { return; }   // nothing polls a down/unknown agent
         if (timers.length) {         // already scheduled; just kick once
             if (isVisible()) {
                 pollTasks(); pollJobs(); pollUnified(); pollApprovals(); pollState(); pollHealth();
@@ -3617,7 +3766,7 @@
             if (blk.poll && blk.poll.fn) { every(blk.poll.every_ms || 5000, blk.poll.fn); }
         });
         setInterval(function () {    // the closed-panel badge poll
-            if (isVisible()) { return; }
+            if (agentUp !== true || isVisible()) { return; }
             var seenId = parseInt(lsGet(LS_SEEN) || '0', 10) || 0;
             api('/api/tasks?since_id=' + seenId).then(function (d) {
                 var fresh = ((d && d.tasks) || []).filter(function (t) {
@@ -3720,6 +3869,8 @@
             }
         });
 
+        probeAgent();                         // decide availability once, now
+        setInterval(probeAgent, 30000);       // and keep watching for it to appear
         schedule();
         paintBadge();
         paintConn();
@@ -3728,6 +3879,7 @@
         // panel (it runs later in the load and would win the drawer anyway).
         if (lsGet(LS_OPEN) === '1') {
             setTimeout(function () {
+                if (agentUp === false) { return; }   // don't auto-open a down agent
                 var d = drawerEls();
                 var takenByOther = d.drawer && d.drawer.classList.contains('open') &&
                     d.title && d.title.textContent !== 'Agent';
