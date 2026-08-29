@@ -423,10 +423,13 @@
     /* What one card renders from — a change here is the only reason to
        touch that card's DOM. */
     function cardFp(f) {
+      var act = Array.isArray(f.activity) ? f.activity : [];
       return fp([incidentId(f), stateOf(f), f.severity, f.count, f.last_seen || f.ts,
                  f.resolution, f.title, f.summary, f.problem, f.suggested,
                  f.related_job_id, (f.evidence || []).length, f.text, f.kind, f.source,
-                 f.investigation, localInvestigation[incidentId(f)]]);
+                 f.investigation, localInvestigation[incidentId(f)],
+                 act.length, act[0] && (act[0].ts_done || act[0].ts),
+                 f.plan && f.plan.state, f.plan && f.plan.approval_id]);
     }
     var docRendered = {};          // id → fp of the card currently in the DOM
     var docListSig = null, docHeadSig = null;
@@ -616,6 +619,12 @@
     var localInvestigation = {};
     var VERDICT_LABEL = {fix_now: 'fix now', fix_later: 'fix later',
                          monitor: 'monitor', ignore: 'ignore'};
+    var PLAN_STATE_LABEL = {waiting: 'waiting approval', approved: 'approved',
+                            denied: 'denied', executed: 'executed'};
+    var ACT_ICON = {assigned: '🛠', planned: '🗺', plan_approved: '✅',
+                    plan_denied: '⛔', executed: '⚙', investigated: '🔎',
+                    acknowledged: '👁', resolved: '✔', reopened: '↩',
+                    comment: '💬', noted: '·'};
 
     function stateOf(f) {
       var id = incidentId(f);
@@ -810,6 +819,119 @@
           pb.appendChild(pj);
         }
         card.appendChild(pb);
+      }
+
+      // ---- plan: visible at the incident, waiting for the owner
+      var plan = (f.plan && typeof f.plan === 'object') ? f.plan : null;
+      if (plan && plan.text) {
+        var pstate = String(plan.state || 'waiting');
+        var pl = el('div', 'vz-plan plan-' + pstate);
+        var ph = el('div', 'vz-invhead');
+        ph.appendChild(el('span', 'vz-plabel', 'Plan'));
+        ph.appendChild(el('span', 'vz-planstate ' + pstate,
+          PLAN_STATE_LABEL[pstate] || pstate));
+        if (plan.job_id) {
+          var pj = el('button', 'vagent-ref', '→ #' + plan.job_id);
+          pj.type = 'button';
+          pj.title = 'Show the planning job';
+          pj.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(plan.job_id); });
+          ph.appendChild(pj);
+        }
+        if (plan.ts) {
+          var pw = el('span', 'vz-when', fmtAgo(plan.ts) + ' ago');
+          pw.title = fmtAbs(plan.ts);
+          ph.appendChild(pw);
+        }
+        pl.appendChild(ph);
+        var ptxt = String(plan.text || '');
+        var pkey = id + ':plan';
+        var pbody = el('pre', 'vz-plantext' + (isOpen(pkey, false) ? '' : ' clip'));
+        pbody.textContent = ptxt;
+        pl.appendChild(pbody);
+        if (ptxt.length > 160 || ptxt.split('\n').length > 3) {
+          var pmore = el('button', 'vz-more', isOpen(pkey, false) ? 'less' : 'more');
+          pmore.type = 'button';
+          pmore.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var nowOpen = !isOpen(pkey, false);
+            setOpen(pkey, nowOpen);
+            pbody.classList.toggle('clip', !nowOpen);
+            pmore.textContent = nowOpen ? 'less' : 'more';
+          });
+          pl.appendChild(pmore);
+        }
+        if (pstate === 'waiting' && plan.approval_id) {
+          var prow = el('div', 'vz-planbtns');
+          var okb = el('button', 'vagent-actbtn approve', 'Approve plan');
+          okb.type = 'button';
+          okb.title = 'Approving runs the plan (approval #' + plan.approval_id + ')';
+          var nob = el('button', 'vagent-actbtn deny', 'Deny');
+          nob.type = 'button';
+          var decidePlan = function (decision, btn) {
+            btn.disabled = true;
+            VA.api('/api/approvals/decide',
+              { method: 'POST', body: { id: plan.approval_id, decision: decision,
+                                        by: VA.authorId || 'ui' } })
+              .then(function (r) {
+                if (r && (r.ok || r.state)) {
+                  prow.textContent = decision === 'allow'
+                    ? 'approved — executing' : 'denied';
+                } else {
+                  btn.disabled = false;
+                  prow.appendChild(el('span', 'vz-err',
+                    (r && r.error) || 'failed'));
+                }
+              })
+              .catch(function () { btn.disabled = false; });
+          };
+          okb.addEventListener('click', function () { decidePlan('allow', okb); });
+          nob.addEventListener('click', function () { decidePlan('deny', nob); });
+          prow.appendChild(okb);
+          prow.appendChild(nob);
+          pl.appendChild(prow);
+        }
+        card.appendChild(pl);
+      }
+
+      // ---- activity: everything that happened around this incident
+      var acts = Array.isArray(f.activity) ? f.activity : [];
+      if (acts.length) {
+        toggleSection(card, 'Activity', acts.length, true, function (box) {
+          acts.forEach(function (a) {
+            if (!a) return;
+            var line = el('div', 'vz-act');
+            var ic = el('span', 'vz-actic', ACT_ICON[a.kind] || '·');
+            ic.title = a.kind || '';
+            line.appendChild(ic);
+            var tsEl = el('span', 'vz-evts', a.ts ? fmtClock(a.ts) : '');
+            tsEl.title = a.ts ? fmtAbs(a.ts) : '';
+            line.appendChild(tsEl);
+            line.appendChild(el('span', 'vz-actsum', String(a.summary || a.kind || '')));
+            if (a.job_id) {
+              var ab = el('button', 'vagent-ref', '#' + a.job_id);
+              ab.type = 'button';
+              ab.title = 'Show job #' + a.job_id;
+              ab.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(a.job_id); });
+              line.appendChild(ab);
+            }
+            if (a.state) {
+              line.appendChild(el('span', 'vz-actstate ' + a.state, a.state));
+            }
+            box.appendChild(line);
+            if (a.result) {
+              var rkey = id + ':act:' + (a.job_id || a.ts);
+              var res = el('div', 'vz-actres' + (isOpen(rkey, false) ? '' : ' clip'));
+              res.textContent = String(a.result);
+              res.title = 'click to expand';
+              res.addEventListener('click', function () {
+                var nowOpen = !isOpen(rkey, false);
+                setOpen(rkey, nowOpen);
+                res.classList.toggle('clip', !nowOpen);
+              });
+              box.appendChild(res);
+            }
+          });
+        });
       }
 
       // ---- footer: state pill · related job · resolution

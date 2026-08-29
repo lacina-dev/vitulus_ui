@@ -114,15 +114,21 @@
         return box;
     }
 
-    /* The widget lives in #div_menu .navbar-nav — the list app.js fills with
-       the Fullscreen and Restart buttons.  That list is right-aligned in the
-       header on lg+ and sits inside the #navcol-1 collapse below lg, so the
-       widget follows those buttons into the hamburger menu for free.  app.js
-       adds its buttons at its own pace (insertBefore firstChild / append), so
-       the widget re-asserts the LAST slot instead of assuming insertion order. */
+    /* The widget lives in ONE place: first item of the header controls list
+       (#div_menu .navbar-nav), BEFORE the Fullscreen/Restart buttons — the
+       owner's decision (2026-08-29).  Bootstrap then does the responsive work
+       for free: on lg+ that list is the right-aligned header group, below lg
+       it sits inside the #navcol-1 collapse, so the monitor folds under the
+       hamburger together with the buttons instead of crowding the phone bar.
+       app.js prepends its own buttons at its own pace, so first place is
+       re-asserted on every ensure (each 2 s poll tick + resize). */
+    function monitorHome() {
+        return document.querySelector('#div_menu .navbar-nav');
+    }
+
     function ensureSystemMonitor() {
-        var ul = document.querySelector('#div_menu .navbar-nav');
-        if (!ul) { return null; }
+        var home = monitorHome();
+        if (!home) { return null; }
         if (!monitor) {
             monitor = document.createElement('li');
             monitor.id = 'system_monitor_header';
@@ -140,8 +146,9 @@
             net.innerHTML = '<small>NET</small><b class="rx">↓ –</b><b class="tx">↑ –</b>';
             monitor.appendChild(net);
         }
-        if (monitor.parentNode !== ul || ul.lastElementChild !== monitor) {
-            ul.appendChild(monitor);   // move, never recreate — same node, same id
+        monitor.classList.remove('sh-system-inline');   // legacy mode, gone
+        if (monitor.parentNode !== home || home.firstElementChild !== monitor) {
+            home.insertBefore(monitor, home.firstElementChild);  // move, never recreate
         }
         return monitor;
     }

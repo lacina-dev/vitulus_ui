@@ -1337,6 +1337,41 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
 .vagent-ujob button.ja.primary { border-color: var(--bs-primary, #0d6efd); color: #9ec5fe; }
 .vagent-ujob button.ja.danger { border-color: var(--bs-danger, #dc3545); color: #f1868f; }
 .vagent-ujob button.ja:disabled { opacity: 0.5; cursor: default; }
+/* auto-approve: an OFF toggle is quiet, an ON toggle (and the head pill) is
+ * unmistakably green — this is a granted permission, it must read as one */
+.vagent-ujob button.ja.autoap { color: var(--bs-secondary-color, #adb5bd); }
+.vagent-ujob button.ja.autoap.on {
+    border-color: var(--bs-success, #198754);
+    background: rgba(25, 135, 84, 0.22);
+    color: #6fd39a;
+}
+.vagent-pill.autoap { background: rgba(25, 135, 84, 0.25); color: #6fd39a; }
+
+/* The archive shelf (2026-08-27): a collapsed group at the bottom; its cards
+   are read-only and visually stepped back — dimmed, thin dashed edge. */
+.vagent-sh.g-archive { color: var(--bs-secondary-color, #adb5bd); }
+.vagent-pill.arch {
+    background: rgba(173, 181, 189, 0.18);
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vagent-ujob.archived {
+    opacity: 0.75;
+    border-left: 2px dashed var(--bs-border-color, #495057);
+}
+.vagent-ujob.archived .sa button { min-height: 30px; }
+@media (pointer: coarse) {
+    .vagent-ujob.archived .sa button { min-height: 40px; }
+}
+.vagent-autoappr {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--bs-body-color, #dee2e6);
+    cursor: pointer; min-height: 28px;
+}
+.vagent-autoappr input[type="checkbox"] { width: 15px; height: 15px; margin: 0; }
+@media (pointer: coarse) {
+    .vagent-autoappr { min-height: 40px; }
+    .vagent-autoappr input[type="checkbox"] { width: 20px; height: 20px; }
+}
 .vagent-policy { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
 .vagent-ujob .vagent-secd textarea { width: 100%; }
 .vagent-ujob .vagent-secd.rerun > summary { color: #ffd0d4; }
@@ -1403,3 +1438,271 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
 /* no horizontal scroll, whatever the card carries */
 .vagent-ujob, .vagent-joblist { max-width: 100%; }
 .vagent-ujob .sn, .vagent-ujob .jl, .vagent-ujob .se { overflow-wrap: anywhere; }
+
+/* ---- lazy chat history (2026-08-26) ---- */
+.vagent-edge {
+    text-align: center;
+    font-size: 11px;
+    color: var(--bs-secondary);
+    padding: 4px 0;
+    user-select: none;
+}
+.vagent-edge.begin { opacity: 0.8; }
+.vagent-pane[data-pane="chat"] { position: relative; }
+#vagent_jump {
+    position: absolute;
+    right: 14px;
+    bottom: 74px;
+    z-index: 4;
+    border: 1px solid var(--bs-info);
+    background: var(--bs-dark, #1c2226);
+    color: var(--bs-info);
+    border-radius: 12px;
+    font-size: 12px;
+    padding: 3px 10px;
+    opacity: 0.92;
+}
+#vagent_jump:hover { opacity: 1; }
+@media (pointer: coarse) {
+    #vagent_jump { min-height: 40px; padding: 6px 14px; }
+}
+
+/* ---- incident activity + plan (2026-08-26) ------------------------------ */
+.vz-plan { margin: 6px 0 2px; padding: 6px 8px; border-radius: 6px;
+  background: rgba(13,110,253,0.07); border-left: 3px solid var(--bs-info); }
+.vz-plan.plan-waiting { border-left-color: var(--bs-warning); }
+.vz-plan.plan-denied { border-left-color: var(--bs-secondary); opacity: 0.85; }
+.vz-plan.plan-executed { border-left-color: var(--bs-success); }
+.vz-planstate { font-size: 10.5px; padding: 1px 7px; border-radius: 8px;
+  background: rgba(255,255,255,0.08); color: var(--bs-light); }
+.vz-planstate.waiting { background: rgba(255,193,7,0.22); color: var(--bs-warning);
+  animation: vagent-pulse 1.6s infinite; }
+.vz-planstate.approved { background: rgba(25,135,84,0.25); color: var(--bs-success); }
+.vz-planstate.denied { background: rgba(108,117,125,0.3); }
+.vz-planstate.executed { background: rgba(25,135,84,0.35); color: var(--bs-success); }
+.vz-plantext { margin: 4px 0 2px; padding: 5px 7px; border-radius: 4px;
+  background: rgba(0,0,0,0.35); font-size: 11.5px; line-height: 1.45;
+  white-space: pre-wrap; overflow-x: auto; max-height: 40vh; overflow-y: auto; }
+.vz-plantext.clip { max-height: 4.4em; overflow: hidden; }
+.vz-planbtns { display: flex; gap: 8px; margin-top: 5px; align-items: center; }
+.vz-planbtns .approve { border-color: var(--bs-success); color: var(--bs-success); }
+.vz-planbtns .deny { border-color: var(--bs-danger); color: var(--bs-danger); }
+.vz-act { display: flex; gap: 6px; align-items: baseline; padding: 2px 0;
+  font-size: 12px; }
+.vz-actic { width: 16px; text-align: center; flex: 0 0 auto; }
+.vz-actsum { flex: 1 1 auto; min-width: 0; }
+.vz-actstate { font-size: 10px; padding: 0 6px; border-radius: 7px;
+  background: rgba(255,255,255,0.08); }
+.vz-actstate.done { color: var(--bs-success); }
+.vz-actstate.failed, .vz-actstate.cancelled { color: var(--bs-danger); }
+.vz-actres { margin: 0 0 4px 22px; padding: 3px 6px; border-radius: 4px;
+  background: rgba(0,0,0,0.3); font-size: 11px; line-height: 1.4;
+  white-space: pre-wrap; cursor: pointer; }
+.vz-actres.clip { max-height: 2.9em; overflow: hidden; }
+.vz-err { color: var(--bs-danger); font-size: 11px; }
+@media (pointer: coarse) {
+  .vz-planbtns .vagent-actbtn { min-height: 40px; }
+  .vz-act { min-height: 28px; }
+}
+
+/* ---- job detail (☰ Details) — what the job did and created -------------- */
+.vagent-ujob .vagent-secd.detail .sd { display: flex; flex-direction: column; gap: 3px; }
+.jd-h { font-weight: 700; font-size: 11px; color: var(--bs-secondary-color, #9ab); text-transform: uppercase; letter-spacing: .4px; margin-top: 5px; }
+.jd-txt { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow-y: auto; background: rgba(0,0,0,0.22); border-radius: 6px; padding: 5px 7px; font-size: 12.5px; }
+.jd-md ul { margin: 2px 0 2px 16px; }
+.jd-file { display: flex; align-items: center; gap: 6px; min-height: 24px; }
+.jd-op { font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 5px; text-transform: uppercase; }
+.jd-op.op-write, .jd-op.op-create { background: rgba(25,135,84,0.25); color: var(--bs-success, #35b06f); }
+.jd-op.op-patch, .jd-op.op-edit { background: rgba(13,110,253,0.22); color: var(--bs-info, #59aef7); }
+.jd-path { font-family: var(--bs-font-monospace, monospace); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: copy; flex: 1 1 auto; min-width: 0; }
+.jd-path:hover { text-decoration: underline; }
+.jd-leg { border-left: 2px solid rgba(255,255,255,0.14); padding: 2px 0 2px 8px; margin: 2px 0; }
+.jd-leg-h { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.jd-leg-t { font-size: 11.5px; color: var(--bs-secondary-color, #9ab); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jd-drv { font-size: 11px; color: var(--bs-warning, #e3ad39); }
+.vagent-pill[class*="v-done"] { background: rgba(25,135,84,0.25); }
+.vagent-pill[class*="v-error"], .vagent-pill[class*="v-blocked"] { background: rgba(220,53,69,0.25); }
+@media (pointer: coarse) {
+  .jd-file { min-height: 40px; }
+  .vagent-ujob .vagent-secd.detail summary { min-height: 40px; }
+}
+
+/* ---- structured approval cards v2 (2026-08-28) ---- */
+/* Layout: header strip → one-sentence ask → decision row → collapsed detail
+   chips.  Nothing above the buttons scrolls; identity is the left border. */
+.vagent-ask {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(255, 255, 255, 0.10);
+    border-left-width: 4px;
+    padding: 8px 10px;
+    overflow: hidden;
+}
+.vagent-ask.k-plan   { border-left-color: var(--bs-info, #6ec6ff); }
+.vagent-ask.k-cmd    { border-left-color: var(--bs-warning, #ffc44d); }
+.vagent-ask.k-resume { border-left-color: #b48cff; }
+
+/* ---- 1. header strip ---- */
+.vagent-ask .ah {
+    display: flex; align-items: center; gap: 6px;
+    min-width: 0; overflow: hidden; line-height: 1.25;
+}
+.vagent-ask .akind {
+    flex: 0 0 auto; font-size: 11px; font-weight: 700;
+    padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--bs-body-color, #dee2e6);
+}
+.vagent-ask.k-plan   .akind { background: rgba(110, 198, 255, 0.16); color: var(--bs-info, #6ec6ff); }
+.vagent-ask.k-cmd    .akind { background: rgba(255, 196, 77, 0.16); color: var(--bs-warning, #ffc44d); }
+.vagent-ask.k-resume .akind { background: rgba(180, 140, 255, 0.16); color: #c4a8ff; }
+.vagent-ask .ahp {
+    margin-left: auto; display: flex; gap: 4px;
+    min-width: 0; overflow: hidden;
+}
+.vagent-ask .apill {
+    font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--bs-secondary-color, #8a969e);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vagent-ask .apill.warn {
+    background: rgba(255, 196, 77, 0.10); color: var(--bs-warning, #ffc44d);
+}
+.vagent-ask .ah.asrc { margin-top: 3px; }
+.vagent-ask .asrc .aref {
+    flex: 0 1 auto; min-width: 0; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.14); background: transparent;
+    color: var(--bs-body-color, #d9e3e8); margin-top: 0;
+}
+.vagent-ask .asrc .aref:hover { background: rgba(255, 255, 255, 0.07); }
+.vagent-ask .asrct, .vagent-ask .aby {
+    flex: 0 1 auto; min-width: 0;
+    font-size: 10.5px; color: var(--bs-secondary-color, #8a969e);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ---- 2. the ask, in one plain sentence ---- */
+.vagent-ask .asay {
+    margin: 7px 0; font-size: 13.5px; line-height: 1.3; font-weight: 600;
+    color: var(--bs-emphasis-color, #f1f5f8); overflow-wrap: anywhere;
+}
+/* fallback line for an ask with no structured detail: what the command does */
+.vagent-ask .asay.aplain {
+    margin-top: -3px; font-size: 12px; font-weight: 500;
+    color: var(--bs-secondary-color, #9fb0ba);
+}
+.vagent-ask .acode {
+    font-family: var(--bs-font-monospace, monospace);
+    font-size: 12px; font-weight: 500; padding: 1px 5px; border-radius: 4px;
+    background: rgba(0, 0, 0, 0.38); overflow-wrap: anywhere;
+}
+
+/* ---- 3. decision row ---- */
+.vagent-ask .ar.aact {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    margin: 0;
+}
+.vagent-ask button.ay { padding: 7px 22px; font-size: 13px; min-height: 34px; }
+.vagent-ask button.an { padding: 7px 14px; min-height: 34px; }
+.vagent-ask button.an.armed {
+    background: var(--bs-danger, #dc3545); color: #fff;
+    border-color: var(--bs-danger, #dc3545);
+}
+.vagent-ask .aexec {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+    margin-left: auto; min-width: 0;
+}
+.vagent-ask .aexec .al { min-width: 0; flex: 0 0 auto; }
+.vagent-ask .aeb {
+    font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.14); background: transparent;
+    color: var(--bs-secondary-color, #9fb0bb); white-space: nowrap;
+}
+.vagent-ask .aeb.sel {
+    border-color: var(--bs-primary, #4a9eff);
+    background: rgba(74, 158, 255, 0.16);
+    color: var(--bs-body-color, #e6eef4);
+}
+
+/* ---- 4. detail sections — chips when closed, full width when open ---- */
+.vagent-ask .adet { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.vagent-ask .adet > details.askd {
+    flex: 0 0 auto; max-width: 100%; margin: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+}
+.vagent-ask .adet > details.askd[open] {
+    flex: 1 1 100%; width: 100%; padding-bottom: 6px;
+}
+.vagent-ask details.askd > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    padding: 2px 8px; font-size: 10.5px; white-space: nowrap;
+    color: var(--bs-secondary-color, #9fb0bb); min-height: 21px;
+}
+.vagent-ask details.askd > summary::-webkit-details-marker { display: none; }
+.vagent-ask details.askd[open] > summary {
+    color: var(--bs-info, #6ec6ff);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.vagent-ask .ashow { color: var(--bs-info, #6ec6ff); }
+.vagent-ask details.askd[open] > summary .ashow { display: none; }
+.vagent-ask details.askd > *:not(summary) { margin-left: 9px; margin-right: 9px; }
+.vagent-ask .al {
+    color: var(--bs-secondary-color, #8a969e); font-size: 11px;
+    min-width: 74px; flex: 0 0 auto;
+}
+.vagent-ask .av { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.vagent-ask .ar.ayes .av { color: var(--bs-success, #42c879); }
+.vagent-ask .ar.ano .av { color: var(--bs-secondary-color, #8a969e); }
+.vagent-ask .ar.awhat .av { color: var(--bs-body-color, #dee2e6); }
+.vagent-ask .apre {
+    margin: 6px 9px; padding: 6px 8px; max-height: 40vh;
+    overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+    background: rgba(0, 0, 0, 0.32); border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px; font-size: 12px; line-height: 1.45;
+}
+.vagent-ask .apre.mono { font-family: var(--bs-font-monospace, monospace); }
+.vagent-ask .amore { font-size: 11px; padding: 2px 8px; border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.14); background: transparent;
+    color: var(--bs-info, #6ec6ff); }
+.vagent-ask .actx {
+    font-size: 11.5px; margin-top: 3px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vagent-ask .actx.goal, .vagent-ask .actx.err {
+    white-space: normal; overflow-wrap: anywhere;
+}
+.vagent-ask .actx.dim, .vagent-ask .actx.post {
+    color: var(--bs-secondary-color, #8a969e);
+}
+.vagent-ask .actx.err { color: var(--bs-warning, #ffc44d); }
+.vagent-ask .ar.arisk { flex-wrap: wrap; gap: 4px; margin: 4px 0 0; }
+.vagent-pill.risk {
+    background: rgba(255, 196, 77, 0.14); color: var(--bs-warning, #ffc44d);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.vagent-ask.focus {
+    outline: 2px solid var(--bs-info, #6ec6ff); outline-offset: 1px;
+    transition: outline 0.3s;
+}
+/* phone width: the countdown is what matters, the age pill would only be
+   squeezed to „waiting …" — drop it and let the sentence have the room */
+@media (max-width: 420px) {
+    .vagent-ask .ahp .apill:not(.warn) { display: none; }
+    .vagent-ask .asay { font-size: 13px; }
+}
+@media (pointer: coarse) {
+    /* the two decisions get real thumbs; the rest stays compact so several
+       asks still fit on one phone screen */
+    .vagent-ask button.ay, .vagent-ask button.an {
+        min-height: 44px; padding: 10px 20px; font-size: 14px;
+    }
+    .vagent-ask .aeb, .vagent-ask .amore { min-height: 36px; }
+    .vagent-ask .asrc .aref { min-height: 32px; padding: 4px 8px; }
+    .vagent-ask details.askd > summary {
+        min-height: 34px; display: flex; align-items: center;
+    }
+    .vagent-ask .aexec { margin-left: 0; }
+}

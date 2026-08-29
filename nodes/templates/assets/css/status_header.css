@@ -79,3 +79,109 @@
     #status_div.in-header img { height: 12px; }
     #status_div.in-header { column-gap: 7px; }
 }
+
+/* ==== host telemetry widget (#system_monitor_header) ==================== */
+/* Built by status_header.js as one <li class="nav-item"> inside
+   #div_menu .navbar-nav — the same list app.js fills with the Fullscreen and
+   Restart buttons.  On lg+ that list is the right-aligned header group; below
+   lg it sits inside the #navcol-1 collapse, so the widget only appears once
+   the hamburger menu opens, next to those buttons. */
+#system_monitor_header.sh-system {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 10px 0 0;
+    padding: 0 6px;
+    border: none;
+    border-radius: 0;
+    background: transparent;      /* integrated: the header is the background */
+    color: var(--bs-light, #dce8ee);
+    font: 600 9px/1 system-ui, sans-serif;
+    white-space: nowrap;
+    list-style: none;
+    opacity: .95;
+}
+.sh-system.is-offline { opacity: .55; }
+
+.sh-system-state {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #43d58b;
+    box-shadow: 0 0 6px #43d58b;
+}
+.sh-system.is-offline .sh-system-state { background: #ff5263; box-shadow: 0 0 6px #ff5263; }
+
+.sh-system-metric {
+    display: grid;
+    grid-template-columns: 25px auto;
+    align-items: center;
+    gap: 3px;
+}
+.sh-system-ring {
+    display: grid;
+    place-items: center;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .14);   /* quiet track until data paints it */
+}
+.sh-system-ring b {
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: #282b30;          /* the header colour: the ring floats on it */
+    color: #f2f7f9;
+    font-size: 7px;
+}
+.sh-system-metric small,
+.sh-system-net small { color: #91a4af; letter-spacing: .35px; }
+
+.sh-system-net {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 2px 4px;
+}
+.sh-system-net small { grid-row: 1 / 3; align-self: center; }
+.sh-system-net b { font-size: 8px; font-variant-numeric: tabular-nums; }
+.sh-system-net .rx { color: #62b9ff; }
+.sh-system-net .tx { color: #b28cff; }
+
+/* Desktop (lg+): a fixed-height item matching the 36px header controls,
+   sitting FIRST in the controls group, before Fullscreen/Restart. */
+@media (min-width: 992px) {
+    #system_monitor_header.sh-system {
+        height: 34px;
+        align-self: center;
+        margin: 0 6px 0 0;
+    }
+}
+
+/* Below lg the whole controls list lives in the #navcol-1 collapse, so the
+   monitor folds under the hamburger with the buttons (owner's decision,
+   2026-08-29).  In the opened menu it is a full-width row: labels stay, the
+   rings grow a touch, and the row keeps a finger-friendly height. */
+@media (max-width: 991.98px) {
+    #system_monitor_header.sh-system {
+        min-height: 44px;
+        width: 100%;
+        margin: 0;
+        padding: 6px 10px;
+        gap: 10px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+    #system_monitor_header.sh-system .sh-system-ring { width: 28px; height: 28px; }
+    #system_monitor_header.sh-system .sh-system-ring b {
+        width: 21px;
+        height: 21px;
+        font-size: 8px;
+    }
+
+    /* The brand is `flex-grow-1`; min-width 0 keeps it from shoving the
+       toggler off the single 42px header line on a phone. */
+    #div_menu .navbar-brand { min-width: 0; overflow: hidden; }
+}

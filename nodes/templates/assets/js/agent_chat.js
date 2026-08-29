@@ -679,6 +679,16 @@
     // ============================================================ CHAT block
     var seen = {};                    // task ids already rendered
     var lastTaskId = 0;               // feed cursor
+    /* Lazy history: only the last page lives in the DOM; older pages are
+       fetched when the user scrolls to the top, newest-heavy windows are
+       pruned so the chat never holds the whole log (Robert, 2026-08-26). */
+    var oldestTaskId = 0;             // smallest task id currently rendered
+    var hasMore = false;              // older history exists on the server
+    var loadingOlder = false;         // one back-page in flight at a time
+    var truncatedBottom = false;      // deep back-scroll dropped newest rows
+    var insertRef = null;             // when set, turn() prepends before this
+    var MAX_NODES = 300;              // message-node window
+    var PAGE = 50;                    // history page size
     var pendingByText = [];           // sent, awaiting the row from the feed
     var msgsEl = null, inputEl = null;
     var scope = lsGet(LS_SCOPE) || 'all';
@@ -690,6 +700,13 @@
 
     function atBottom() {
         return msgsEl && (msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight < 40);
+    }
+
+    var jumpBtn = null;
+    function paintJump() {
+        if (!jumpBtn) { return; }
+        var want = truncatedBottom || !atBottom();
+        jumpBtn.style.display = want ? '' : 'none';
     }
 
     function taskKind(task) {
@@ -729,8 +746,12 @@
             });
             wrap.appendChild(line);
         }
-        msgsEl.appendChild(wrap);
-        if (stick) { msgsEl.scrollTop = msgsEl.scrollHeight; }
+        if (insertRef && insertRef.parentNode === msgsEl) {
+            msgsEl.insertBefore(wrap, insertRef);   // history prepend
+        } else {
+            msgsEl.appendChild(wrap);
+            if (stick) { msgsEl.scrollTop = msgsEl.scrollHeight; }
+        }
         return wrap;
     }
 
@@ -786,6 +807,7 @@
         if (mineOnly && !isMine && !fromAgent) { return false; }
         seen[task.id] = true;
         if (task.id > lastTaskId) { lastTaskId = task.id; }
+        if (!oldestTaskId || task.id < oldestTaskId) { oldestTaskId = task.id; }
         var kind = taskKind(task);
 
         // The question half (skip if this tab just rendered it optimistically).
@@ -984,40 +1006,167 @@
         var q = '/api/tasks?since_id=' + lastTaskId +
             (scope === 'mine' ? '&author=' + encodeURIComponent(author) : '');
         return api(q).then(function (d) {
-            ((d && d.tasks) || []).forEach(function (t) { renderTask(t, false); });
+            var rows = (d && d.tasks) || [];
+            if (truncatedBottom) {
+                // A deep back-scroll dropped the newest rows; appending live
+                // ones under stale history would render a gap.  Track the
+                // cursor and the unread badge only — „Latest" reloads clean.
+                rows.forEach(function (t) {
+                    if (t.id > lastTaskId) { lastTaskId = t.id; }
+                    if (t.source === 'agent'
+                            && (t.state === 'done' || t.state === 'failed')) {
+                        notify(taskKind(t), t.reply || t.text || '');
+                    }
+                });
+                return;
+            }
+            rows.forEach(function (t) { renderTask(t, false); });
+            if (rows.length) { pruneWindow(false); }
             if (isVisible()) { markSeenNow(); }
         }).catch(function () {});
+    }
+
+    function authorQ() {
+        return scope === 'mine' ? '&author=' + encodeURIComponent(author) : '';
+    }
+
+    function edgeRow(text, cls) {
+        var e = document.createElement('div');
+        e.className = 'vagent-edge' + (cls ? ' ' + cls : '');
+        e.textContent = text;
+        return e;
+    }
+
+    function turnNodes() {
+        return msgsEl ? msgsEl.querySelectorAll('.vagent-turn') : [];
+    }
+
+    /* Keep the DOM window at MAX_NODES.  After an append the oldest rows go
+       (they are one back-scroll away on the server); after a prepend the
+       NEWEST go and „Latest" becomes a clean reload. */
+    function pruneWindow(afterPrepend) {
+        var nodes = turnNodes();
+        var extra = nodes.length - MAX_NODES;
+        if (extra <= 0) { return; }
+        var i, node, id;
+        if (afterPrepend) {
+            for (i = 0; i < extra; i++) {
+                node = nodes[nodes.length - 1 - i];
+                id = parseInt(node.getAttribute('data-task') || '0', 10);
+                if (id) { delete seen[id]; }
+                node.remove();
+            }
+            truncatedBottom = true;
+            paintJump();
+        } else {
+            for (i = 0; i < extra; i++) {
+                node = nodes[i];
+                id = parseInt(node.getAttribute('data-task') || '0', 10);
+                if (id) { delete seen[id]; }
+                node.remove();
+            }
+            // The pruned rows still exist server-side: the top edge reopens.
+            hasMore = true;
+            var edge = msgsEl.querySelector('.vagent-edge.begin');
+            if (edge) { edge.remove(); }
+            var first = turnNodes()[0];
+            oldestTaskId = first
+                ? parseInt(first.getAttribute('data-task') || '0', 10) || 0 : 0;
+        }
+    }
+
+    function loadOlder() {
+        if (!hasMore || loadingOlder || !oldestTaskId || !msgsEl) { return; }
+        loadingOlder = true;
+        var loader = edgeRow('Loading older…');
+        msgsEl.insertBefore(loader, msgsEl.firstChild);
+        api('/api/tasks?before_id=' + oldestTaskId + '&limit=' + PAGE + authorQ())
+            .then(function (d) {
+                loader.remove();
+                var rows = (d && d.tasks) || [];
+                var prevH = msgsEl.scrollHeight;
+                var prevTop = msgsEl.scrollTop;
+                insertRef = msgsEl.firstChild;
+                try {
+                    rows.forEach(function (t) { renderTask(t, true); });
+                } finally { insertRef = null; }
+                msgsEl.scrollTop = prevTop + (msgsEl.scrollHeight - prevH);
+                hasMore = !!(d && d.has_more);
+                if (!hasMore && !msgsEl.querySelector('.vagent-edge.begin')) {
+                    msgsEl.insertBefore(edgeRow('Beginning of history', 'begin'),
+                                        msgsEl.firstChild);
+                }
+                loadingOlder = false;
+                pruneWindow(true);
+            })
+            .catch(function () {
+                loader.textContent = 'Older messages could not be loaded.';
+                setTimeout(function () { loader.remove(); }, 4000);
+                loadingOlder = false;
+            });
     }
 
     function loadHistory() {
         msgsEl.textContent = '';
         seen = {};
         lastTaskId = 0;
+        oldestTaskId = 0;
+        hasMore = false;
+        loadingOlder = false;
+        truncatedBottom = false;
+        paintJump();
         var loading = document.createElement('div');
         loading.className = 'vagent-empty';
         loading.textContent = 'Loading conversation history…';
         msgsEl.appendChild(loading);
-        var found = false;
-        function page(since) {
-            var q = '/api/tasks?since_id=' + since +
-                (scope === 'mine' ? '&author=' + encodeURIComponent(author) : '');
-            return api(q).then(function (data) {
-                if (loading.parentNode) { loading.remove(); }
-                var rows = (data && data.tasks) || [];
-                rows.forEach(function (t) { if (renderTask(t, true)) { found = true; } });
-                if (rows.length === 100) { return page(rows[rows.length - 1].id); }
-                if (!found) {
-                    var e = document.createElement('div');
-                    e.className = 'vagent-empty';
-                    e.textContent = 'Hi, I am Vitulus. Ask about status, the map or jobs.';
-                    msgsEl.appendChild(e);
-                }
-                scrollChatBottom();
-                markSeenNow();
-                return null;
-            });
+
+        function finish(found) {
+            if (loading.parentNode) { loading.remove(); }
+            if (!found) {
+                var e = document.createElement('div');
+                e.className = 'vagent-empty';
+                e.textContent = 'Hi, I am Vitulus. Ask about status, the map or jobs.';
+                msgsEl.appendChild(e);
+            }
+            scrollChatBottom();
+            markSeenNow();
         }
-        page(0).catch(function () {
+
+        // One bounded call: the LAST page only.  Older pages load when the
+        // user scrolls to the top (loadOlder).
+        api('/api/tasks?limit=' + PAGE + authorQ()).then(function (data) {
+            if (data && Object.prototype.hasOwnProperty.call(data, 'has_more')) {
+                var found = false;
+                ((data && data.tasks) || []).forEach(function (t) {
+                    if (renderTask(t, true)) { found = true; }
+                });
+                hasMore = !!data.has_more;
+                if (!hasMore && found
+                        && !msgsEl.querySelector('.vagent-edge.begin')) {
+                    msgsEl.insertBefore(edgeRow('Beginning of history', 'begin'),
+                                        msgsEl.firstChild);
+                }
+                finish(found);
+                return null;
+            }
+            // Old backend without paging: fall back to the full forward walk.
+            var found = false;
+            function page(since) {
+                var q = '/api/tasks?since_id=' + since + authorQ();
+                return api(q).then(function (d) {
+                    var rows = (d && d.tasks) || [];
+                    rows.forEach(function (t) {
+                        if (renderTask(t, true)) { found = true; }
+                    });
+                    if (rows.length === 100) {
+                        return page(rows[rows.length - 1].id);
+                    }
+                    finish(found);
+                    return null;
+                });
+            }
+            return page(0);
+        }).catch(function () {
             if (loading.parentNode) {
                 loading.textContent = 'History could not be loaded. You can still write.';
             }
@@ -1067,6 +1216,24 @@
         msgsEl = el.querySelector('#vagent_msgs');
         inputEl = el.querySelector('#vagent_input');
         var send = el.querySelector('#vagent_send');
+
+        // Lazy history: near the top -> fetch the previous page; the floating
+        // „Latest" chip returns to (or reloads) the newest messages.
+        jumpBtn = document.createElement('button');
+        jumpBtn.type = 'button';
+        jumpBtn.id = 'vagent_jump';
+        jumpBtn.textContent = '↓ Latest';
+        jumpBtn.title = 'Jump to the latest messages';
+        jumpBtn.style.display = 'none';
+        jumpBtn.addEventListener('click', function () {
+            if (truncatedBottom) { loadHistory(); }
+            else { scrollChatBottom(); paintJump(); }
+        });
+        el.appendChild(jumpBtn);
+        msgsEl.addEventListener('scroll', function () {
+            if (msgsEl.scrollTop < 80) { loadOlder(); }
+            paintJump();
+        }, {passive: true});
 
         Array.prototype.forEach.call(el.querySelectorAll('#vagent_chips [data-f]'), function (b) {
             b.addEventListener('click', function () {
@@ -1288,7 +1455,10 @@
                 String((ctxAsks[0] && ctxAsks[0].command) || '').slice(0, 48);
             ab.appendChild(c);
             ab.title = 'Switch to Approvals';
-            ab.addEventListener('click', function () { activateTab('gate'); });
+            ab.addEventListener('click', function () {
+                activateTab('gate');
+                highlightAsk(ctxAsks[0] && ctxAsks[0].id);
+            });
             bar.appendChild(ab);
         }
     }
@@ -1422,6 +1592,7 @@
         var ref = String(j.ref || ((kind === 'script' ? 's:' : 'j:') + j.id));
         return {
             ref: ref, kind: kind,
+            archived: !!j.archived, archived_ts: j.archived_ts || null,
             title: j.title || j.text || j.spec || '',
             text: j.text || j.spec || j.description || '',
             status: String(j.status || 'done'),
@@ -1435,6 +1606,7 @@
             program: j.program_rel || null,
             legs: j.legs, slot: j.slot,
             job_id: j.job_id || null,
+            auto: !!j.auto_approve,
             src: 'unified'
         };
     }
@@ -1493,18 +1665,46 @@
     }
 
     function composeJobs() {
-        if (unifiedOk === true) { return lastUnifiedRaw.map(normUnified); }
-        var out = legacySched.map(normLegacySched);
-        legacyJobs.forEach(function (j) {
-            if (dismissed[j.id] && j.state !== 'running' && j.state !== 'queued' &&
-                j.state !== 'blocked') { return; }
-            out.push(normLegacyJob(j));
-        });
+        var out;
+        if (unifiedOk === true) { out = lastUnifiedRaw.map(normUnified); }
+        else {
+            out = legacySched.map(normLegacySched);
+            legacyJobs.forEach(function (j) {
+                if (dismissed[j.id] && j.state !== 'running' && j.state !== 'queued' &&
+                    j.state !== 'blocked') { return; }
+                out.push(normLegacyJob(j));
+            });
+        }
+        // The archive shelf rides along only while its fold is open — it is
+        // fetched lazily (?archived=1) and never mixes into the live groups.
+        if (archFetched && jobIsOpen('group:archive', false)) {
+            var have = {};
+            out.forEach(function (j) { have[j.ref] = true; });
+            lastArchivedRaw.forEach(function (j) {
+                var n = normUnified(j);
+                if (!have[n.ref]) { n.archived = true; out.push(n); }
+            });
+        }
         return out;
     }
     var lastUnifiedRaw = [];
+    var lastArchivedRaw = [], archFetched = false, archFetching = false;
+
+    function pollArchived() {
+        if (archFetching || unifiedOk !== true) { return Promise.resolve(); }
+        archFetching = true;
+        return api('/api/unified/jobs?archived=1').then(function (d) {
+            archFetching = false;
+            if (d && d.ok !== false) {
+                lastArchivedRaw = d.jobs || [];
+                archFetched = true;
+                renderJobsPane(composeJobs());
+            }
+        }).catch(function () { archFetching = false; });
+    }
 
     function groupOf(j) {
+        if (j.archived) { return 'archive'; }
         var st = j.status;
         if (st === 'running' || st === 'queued' || st === 'blocked') { return 'running'; }
         if (st === 'failed' || st === 'draft' || st === 'stalled' || j.stalled) { return 'attention'; }
@@ -1516,7 +1716,7 @@
     function jobFp(j) {
         return JSON.stringify([j.ref, j.kind, j.title, j.text, j.status, j.schedule,
             j.policy, j.last, j.runs, j.stalled, j.note, j.legs, j.slot, j.program,
-            j.incident, j.live, j.job_id, groupOf(j)]);
+            j.incident, j.live, j.job_id, j.auto, j.archived, groupOf(j)]);
     }
 
     // --------------------------------------------------------------- actions
@@ -1725,6 +1925,43 @@
         return wrap;
     }
 
+    /* Auto-approve toggle — the owner's standing yes for this one job.  The
+       flag pre-approves ONLY what the Approve button could grant; the safety
+       layer and the mower are refused inside the backend shortcut whatever
+       the flag says (shellgate.maybe_auto_approve, §11.1/§11.4). */
+    var AUTOAPPR_TIP = 'Pre-approve this job’s requests — they pass as if ' +
+        'you pressed Approve. Safety layer and mower are never auto-approved.';
+
+    function autoApproveLabel(on) {
+        return on ? '🛡✓ auto-approve on' : '🛡 auto-approve';
+    }
+
+    function autoApproveToggle(j) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ja autoap' + (j.auto ? ' on' : '');
+        b.textContent = autoApproveLabel(j.auto);
+        b.title = AUTOAPPR_TIP;
+        b.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            var want = !j.auto;
+            b.disabled = true;
+            jobPost(j.ref, 'autoapprove', {on: want}).then(function (d) {
+                b.disabled = false;
+                if (!d || d.ok === false) { b.title = 'failed: ' + ((d && d.error) || '?'); return; }
+                j.auto = want;
+                b.classList.toggle('on', want);
+                b.textContent = autoApproveLabel(want);
+                b.title = AUTOAPPR_TIP;
+                afterAction();
+            }).catch(function (e) {
+                b.disabled = false;
+                b.title = /HTTP 404/.test(String(e)) ? 'API not available yet' : 'failed: ' + e;
+            });
+        });
+        return b;
+    }
+
     function deleteBtn(j) {
         return actBtn('🗑', 'danger', 'Delete job', function (b) {
             inlineConfirm(b, function () {
@@ -1780,6 +2017,205 @@
     }
 
     // ------------------------------------------------------------- the card
+    /* ---- the expandable detail: what the job did and created ------------
+       Robert: „chci vidět u každého jobu, co udělal, co vytvořil".  Lazy —
+       GET /api/unified/jobs/<ref>/detail on first open, cached until the
+       card's fingerprint changes (a finished leg, a new state).  When the
+       endpoint is missing the section still renders from what the card row
+       already carries, with an inline note. */
+    var detailCache = {};
+
+    function detailFetch(j) {
+        var cached = detailCache[j.ref];
+        var fp = jobFp(j);
+        if (cached && cached.fp === fp) { return cached.promise; }
+        var promise = api('/api/unified/jobs/' + encodeURIComponent(j.ref) + '/detail')
+            .then(function (d) {
+                if (!d || d.ok === false) { throw new Error((d && d.error) || 'no detail'); }
+                return d;
+            });
+        detailCache[j.ref] = {fp: fp, promise: promise};
+        promise.catch(function () { delete detailCache[j.ref]; });
+        return promise;
+    }
+
+    function jdRow(body, cls, text, tip) {
+        var el = document.createElement('div');
+        el.className = cls;
+        el.textContent = text;
+        if (tip) { el.title = tip; }
+        body.appendChild(el);
+        return el;
+    }
+
+    function jdHeading(body, text) {
+        var h = document.createElement('div');
+        h.className = 'jd-h';
+        h.textContent = text;
+        body.appendChild(h);
+    }
+
+    function copyPath(el, path) {
+        function done() {
+            var old = el.textContent;
+            el.textContent = 'copied';
+            setTimeout(function () { el.textContent = old; }, 900);
+        }
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(path).then(done, function () {});
+                return;
+            }
+        } catch (e) {}
+        try {                                   // http:// fallback
+            var ta = document.createElement('textarea');
+            ta.value = path;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            done();
+        } catch (e2) {}
+    }
+
+    function renderDetail(body, d, j) {
+        body.textContent = '';
+        if (d.note) { jdRow(body, 'sx', d.note); }
+
+        jdHeading(body, 'Goal');
+        var goal = jdRow(body, 'jd-txt', d.goal || j.text || '(none)');
+        goal.title = '';
+
+        if (d.final_reply) {
+            jdHeading(body, 'Result');
+            var res = document.createElement('div');
+            res.className = 'jd-txt jd-md';
+            try { renderMarkdown(res, d.final_reply); }
+            catch (e) { res.textContent = d.final_reply; }
+            body.appendChild(res);
+        }
+
+        var arts = d.artifacts || [];
+        if (arts.length) {
+            jdHeading(body, 'Files (' + arts.length + ')');
+            arts.forEach(function (a) {
+                var row = document.createElement('div');
+                row.className = 'jd-file';
+                var op = document.createElement('span');
+                op.className = 'jd-op op-' + (a.op || 'write');
+                op.textContent = a.op || '';
+                row.appendChild(op);
+                var pa = document.createElement('span');
+                pa.className = 'jd-path';
+                pa.textContent = a.path;
+                pa.title = a.path + ' — click copies the path';
+                pa.addEventListener('click', function () { copyPath(pa, a.path); });
+                row.appendChild(pa);
+                if ((a.count || 1) > 1) {
+                    var c = document.createElement('span');
+                    c.className = 'sx';
+                    c.textContent = '×' + a.count;
+                    row.appendChild(c);
+                }
+                body.appendChild(row);
+            });
+        }
+
+        var legsLog = d.legs && d.legs.length ? d.legs : null;
+        if (legsLog) {
+            jdHeading(body, 'Timeline (' + legsLog.length + ' legs)');
+            legsLog.forEach(function (leg) {
+                var row = document.createElement('div');
+                row.className = 'jd-leg';
+                var head = document.createElement('div');
+                head.className = 'jd-leg-h';
+                var n = document.createElement('span');
+                n.className = 'sx';
+                n.textContent = '#' + (leg.n || '?');
+                head.appendChild(n);
+                head.appendChild(pill(leg.verdict || '?', 'v-' +
+                    String(leg.verdict || '').toLowerCase().replace(/[^a-z]/g, ''),
+                    ''));
+                if (leg.duration_s) {
+                    var du = document.createElement('span');
+                    du.className = 'sx';
+                    du.textContent = humanSpan(leg.duration_s);
+                    head.appendChild(du);
+                }
+                row.appendChild(head);
+                if (leg.reply_head) {
+                    var rh = document.createElement('div');
+                    rh.className = 'jd-leg-t';
+                    rh.textContent = leg.reply_head;
+                    rh.title = leg.reply_head;
+                    row.appendChild(rh);
+                }
+                if (leg.driver_action) {
+                    jdRow(row, 'jd-drv', 'driver — ' + leg.driver_action);
+                }
+                body.appendChild(row);
+            });
+        }
+
+        var runs = d.runs || [];
+        if (runs.length) {                       // script definitions
+            jdHeading(body, 'Recent runs (' + runs.length + ')');
+            runs.slice(-8).reverse().forEach(function (r) {
+                jdRow(body, 'jd-leg-t mono',
+                      relTime(r.ts) + ' · exit ' + (r.exit === null ? '?' : r.exit) +
+                      ' · ' + String(r.stdout || r.error || '').split('\n')[0].slice(0, 80),
+                      String(r.stdout || r.error || ''));
+            });
+        }
+
+        var posts = d.posts || [];
+        if (posts.length) {
+            jdHeading(body, 'Chat posts (' + posts.length + ')');
+            posts.forEach(function (p) {
+                jdRow(body, 'jd-leg-t', relTime(p.ts) + ' · ' + (p.head || ''),
+                      p.head || '');
+            });
+        }
+
+        var asks = d.approvals || [];
+        if (asks.length) {
+            jdHeading(body, 'Approvals');
+            asks.forEach(function (a) {
+                var row = document.createElement('div');
+                row.className = 'jd-leg-h';
+                /* auto-approved requests are never a pending row — they show
+                   as their outcome, marked auto, with the deciding actor */
+                var stTxt = a.auto ? 'auto-approved' : (a.state || '');
+                row.appendChild(pill('#' + a.id + ' ' + stTxt,
+                    a.state === 'pending' ? 'state-blocked' : (a.auto ? 'autoap' : ''),
+                    a.by || ''));
+                var tx = document.createElement('span');
+                tx.className = 'jd-leg-t';
+                tx.textContent = a.plain_head || '';
+                tx.title = a.plain_head || '';
+                row.appendChild(tx);
+                body.appendChild(row);
+            });
+        }
+    }
+
+    function detailSection(card, j) {
+        jobSection(card, j.ref, 'detail', '☰ Details', function (body) {
+            jdRow(body, 'sx', 'loading…');
+            detailFetch(j).then(function (d) {
+                renderDetail(body, d, j);
+            }).catch(function () {
+                // Endpoint not there (yet): show what the row itself knows.
+                renderDetail(body, {
+                    note: 'detail API not available yet — showing the card data',
+                    goal: j.text,
+                    final_reply: j.last && j.last.output,
+                    artifacts: [], legs: [], posts: [], approvals: [],
+                }, j);
+            });
+        }, {always: true});
+    }
+
     function buildJobCard(j, group) {
         var p = parseRef(j.ref);
         var card = document.createElement('div');
@@ -1808,6 +2244,15 @@
         }
         if (j.policy === 'silent') {
             top.appendChild(pill('muted', 'muted', 'Silent — this job does not post to chat'));
+        }
+        if (j.auto) {
+            top.appendChild(pill('🛡✓ auto-approve on', 'autoap', AUTOAPPR_TIP));
+        }
+        if (j.archived) {
+            card.classList.add('archived');
+            top.appendChild(pill('archived', 'arch',
+                j.archived_ts ? 'Archived ' +
+                    new Date(j.archived_ts * 1000).toLocaleString('cs-CZ') : ''));
         }
         card.appendChild(top);
 
@@ -1939,14 +2384,41 @@
                 }));
             }
             acts.appendChild(followUpBtn(j));
+        } else if (group === 'archive') {
+            // read-only shelf: Unarchive + Details, nothing else
+            acts.appendChild(actBtn('Unarchive', 'primary',
+                'Take this job off the shelf', function (b) {
+                b.disabled = true;
+                jobPost(j.ref, 'unarchive', null).then(function () {
+                    archFetched = false;    // shelf changed: refetch on open
+                    pollArchived();
+                    afterAction();
+                }).catch(function (e) { b.disabled = false; b.title = 'unarchive failed: ' + e; });
+            }));
+            card.appendChild(acts);
+            detailSection(card, j);
+            return card;
         } else {   // recent
             acts.appendChild(followUpBtn(j));
         }
+        if (unifiedOk === true && group !== 'running' &&
+            (group !== 'scheduled' || j.status === 'paused' || j.status === 'draft')) {
+            acts.appendChild(actBtn('🗄', '', 'Archive — put this job away '
+                + '(inert, kept, reversible)', function (b) {
+                b.disabled = true;
+                jobPost(j.ref, 'archive', null).then(function () {
+                    archFetched = false;    // shelf changed: refetch on open
+                    afterAction();
+                }).catch(function (e) { b.disabled = false; b.title = 'archive failed: ' + e; });
+            }));
+        }
         acts.appendChild(policySelect(j));
+        acts.appendChild(autoApproveToggle(j));
         acts.appendChild(deleteBtn(j));
         card.appendChild(acts);
 
         // ---- sections
+        detailSection(card, j);
         if (group === 'attention' || group === 'recent') { rerunSection(card, j); }
         editSection(card, j);
         return card;
@@ -1962,7 +2434,9 @@
          empty: 'No scheduled job. Create one above — every N, or daily at a time.'},
         {id: 'attention', label: 'Needs attention',
          empty: 'Nothing failed or waiting to be written.'},
-        {id: 'recent', label: 'Recent', empty: 'No finished job yet.'}
+        {id: 'recent', label: 'Recent', empty: 'No finished job yet.'},
+        {id: 'archive', label: 'Archive',
+         empty: 'Nothing archived. Old finished jobs move here on their own.'}
     ];
 
     function sortJobs(group, items) {
@@ -1993,7 +2467,8 @@
             return;
         }
         jobsFp = sig;
-        var buckets = {running: [], scheduled: [], attention: [], recent: []};
+        var buckets = {running: [], scheduled: [], attention: [], recent: [],
+                       archive: []};
         list.forEach(function (j) { buckets[groupOf(j)].push(j); });
         var keep = {};
         var pane = jobsBody ? jobsBody.closest('.vagent-pane') : null;
@@ -2008,6 +2483,7 @@
         }
 
         GROUPS.forEach(function (g) {
+            if (g.id === 'archive' && unifiedOk !== true) { return; }
             var items = sortJobs(g.id, buckets[g.id]);
             var total = items.length;
             if (g.id === 'recent') { items = items.slice(0, 10); }
@@ -2016,19 +2492,24 @@
             head.appendChild(document.createTextNode(g.label));
             var c = document.createElement('span');
             c.className = 'vagent-cnt' + (g.id === 'attention' && total ? ' warn' : '');
-            c.textContent = String(total);
+            c.textContent = (g.id === 'archive' && !archFetched) ? '…' : String(total);
             head.appendChild(c);
 
             var host;
-            if (g.id === 'recent') {
-                // collapsed by default; the fold survives every poll
+            if (g.id === 'recent' || g.id === 'archive') {
+                // collapsed by default; the fold survives every poll — and
+                // the archive shelf is only ever FETCHED once it is opened
+                var gkey = 'group:' + g.id;
                 var det = document.createElement('details');
                 det.className = 'vagent-group';
-                det.open = jobIsOpen('group:recent', false);
+                det.open = jobIsOpen(gkey, false);
                 var sum = document.createElement('summary');
                 sum.appendChild(head);
                 det.appendChild(sum);
-                det.addEventListener('toggle', function () { jobOpenSet('group:recent', det.open); });
+                det.addEventListener('toggle', function () {
+                    jobOpenSet(gkey, det.open);
+                    if (g.id === 'archive' && det.open && !archFetched) { pollArchived(); }
+                });
                 host = document.createElement('div');
                 det.appendChild(host);
                 frag.appendChild(det);
@@ -2039,6 +2520,13 @@
                 frag.appendChild(host);
             }
 
+            if (g.id === 'archive' && !archFetched) {
+                var loading = document.createElement('div');
+                loading.className = 'vagent-empty';
+                loading.textContent = 'Open to load the archive…';
+                host.appendChild(loading);
+                return;
+            }
             if (!items.length) {
                 var e = document.createElement('div');
                 e.className = 'vagent-empty';
@@ -2298,6 +2786,20 @@
         });
         body.appendChild(polRow);
 
+        // auto-approve: the owner's standing yes for this job's requests
+        var autoRow = document.createElement('div');
+        autoRow.className = 'si';
+        var autoLab = document.createElement('label');
+        autoLab.className = 'vagent-autoappr';
+        autoLab.title = 'Safety layer and mower are never auto-approved.';
+        var autoCb = document.createElement('input');
+        autoCb.type = 'checkbox';
+        autoLab.appendChild(autoCb);
+        autoLab.appendChild(document.createTextNode(
+            ' Auto-approve (pre-approve this job’s requests)'));
+        autoRow.appendChild(autoLab);
+        body.appendChild(autoRow);
+
         function setPolicy(p) {
             policy = p;
             Object.keys(pb).forEach(function (x) { pb[x].classList.toggle('on', x === p); });
@@ -2363,6 +2865,7 @@
             var whenPayload = when === 'now' ? 'now'
                 : when === 'every' ? {every_s: every} : {at_hhmm: at};
             var payload = {kind: kind, when: whenPayload, report_policy: policy, author: author};
+            if (autoCb.checked) { payload.auto_approve = true; }
             if (kind === 'script') { payload.description = text; } else { payload.text = text; }
             ok.disabled = true;
             msg.textContent = 'creating…';
@@ -2376,7 +2879,8 @@
                         : {type: when === 'daily' ? 'daily' : 'interval',
                            every_s: every || 86400, at: at, next_run: null},
                     policy: policy, last: null, runs: 0, stalled: false, note: '',
-                    incident: null, program: null, legs: null, slot: null, src: 'new'
+                    incident: null, program: null, legs: null, slot: null,
+                    auto: autoCb.checked, src: 'new'
                 };
                 renderJobsPane(lastJobs.concat([draft]), true);
             }
@@ -2451,20 +2955,12 @@
     var gateBadge = document.createElement('span');
     gateBadge.className = 'vagent-cnt warn';
 
-    function waitedText(seconds) {
-        var s = Math.max(0, Math.round(seconds || 0));
-        if (s < 60) { return 'waiting ' + s + ' s'; }
-        if (s < 5400) { return 'waiting ' + Math.round(s / 60) + ' min'; }
-        var h = Math.floor(s / 3600);
-        var m = Math.round((s - h * 3600) / 60);
-        return 'waiting ' + h + ' h' + (m ? ' ' + m + ' min' : '');
-    }
-
-    function decideAsk(item, allow, row) {
+    function decideAsk(item, allow, row, execChoice) {
         Array.prototype.forEach.call(row.querySelectorAll('button'),
             function (b) { b.disabled = true; });
-        api('/api/approvals/decide', {body: {id: item.id,
-            decision: allow ? 'allow' : 'deny', by: author}})
+        var body = {id: item.id, decision: allow ? 'allow' : 'deny', by: author};
+        if (allow && execChoice) { body.executor = execChoice; }
+        api('/api/approvals/decide', {body: body})
             .then(function (d) {
                 var good = !!(d && d.ok);
                 if (good) { decidedAsks[item.id] = 1; }
@@ -2485,81 +2981,538 @@
             });
     }
 
+    /* Structured approval card, v2 (owner, 2026-08-28): „První potřebuju
+       vědět, CO to je, KDO a nějaká základní data — a pak krátkou, stručnou,
+       ale výstižnou žádost tak, aby ji pochopil i dement.  Za ní teprve
+       následují kompletní detaily."  So the card has four layers, in this
+       order, and nothing above the buttons ever scrolls:
+         1. header strip — type chip (Plan approval / Held command / Resume
+                           job), source (job ref + goal head), who asked, age
+                           and the auto-deny countdown;
+         2. the ask      — ONE plain Czech sentence composed client-side from
+                           the detail fields (askSentence), detail.what as the
+                           fallback;
+         3. decision row — Approve / Deny (two-tap confirm) plus the compact
+                           „via:" executor segment, recommended preselected;
+         4. details      — every section collapsed: Plan/Command/Brief,
+                           Context, What happens, Risk.
+       Open sections survive the poll redraw (askOpen), so does the executor
+       pick (askExec); a fingerprint skips the redraw entirely when nothing
+       rendered has changed. */
+    var askOpen = {};        // '<id>:<section>' -> true/false
+    var askExec = {};        // id -> chosen executor (survives the redraw)
+    var askRowsMap = {};     // id -> rendered row (for focus from the ctx bar)
+    var askFocus = {id: null, until: 0};
+    var lastAskFp = null;
+
+    var ASK_KIND = {
+        plan:    {chip: 'Plan approval', icon: '▤', cls: 'k-plan',   sec: 'Plan'},
+        command: {chip: 'Held command',  icon: '❯', cls: 'k-cmd',    sec: 'Command'},
+        resume:  {chip: 'Resume job',    icon: '▶', cls: 'k-resume', sec: 'Brief'}
+    };
+    /* waiting work (a plan, a parked job) outranks a held one-off command */
+    var ASK_RANK = {plan: 0, resume: 1, command: 2};
+
+    function askKind(item) {
+        var p = ((item.detail || {}).payload) || {};
+        if (p.kind && ASK_KIND[p.kind]) { return p.kind; }
+        if (item.tool === 'job' || /^job:/.test(String(item.rule || ''))) {
+            return 'resume';
+        }
+        return 'command';
+    }
+
+    function headCut(s, n) {
+        s = String(s === null || s === undefined ? '' : s)
+            .replace(/\s+/g, ' ').trim();
+        if (s.length <= n) { return s; }
+        return s.slice(0, n - 1).replace(/[\s,;:.–-]+$/, '') + '…';
+    }
+
+    /* Header pill: coarser than the old waitedText, so two pills always fit one phone
+       line (and so the fingerprint does not churn every minute). */
+    function askAge(seconds) {
+        var s = Math.max(0, Math.round(seconds || 0));
+        if (s < 60) { return 'waiting ' + s + ' s'; }
+        if (s < 3600) { return 'waiting ' + Math.round(s / 60) + ' min'; }
+        return 'waiting ' + Math.floor(s / 3600) + ' h';
+    }
+
+    /* „práce #147 (…)" is the job itself asking — say so short, the source
+       line already carries the goal. */
+    function askWho(item) {
+        var m = /^prác[ei]\s*#(\d+)/i.exec(String(item.asker || ''));
+        if (m) { return 'job #' + m[1]; }
+        return headCut(item.asker || 'Hermes', 26);
+    }
+
+    function askJobNum(item, ctx) {
+        if (item.job_id) { return item.job_id; }
+        var m = /(\d+)/.exec(String((ctx && ctx.job_ref) || ''));
+        return m ? Number(m[1]) : null;
+    }
+
+    /* Who is asking, as a name we can put in a sentence.  „Hermes (chat)" →
+       Hermes; „práce #11 (…)" → the agent itself, i.e. Hermes. */
+    function askAgent(item) {
+        var m = /^([A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][^\s(,]*)/.exec(String(item.asker || ''));
+        return m ? m[1] : 'Hermes';
+    }
+
+    /* Title of a plan, for the one-sentence ask.  The bodies come from job
+       posts, so they are one long line: „[SCOPE] … Návrh: <title> Problém: …".
+       Cut at the next „Heading:" and keep it short. */
+    function planTitle(text) {
+        var t = String(text || '');
+        var m = /(?:N[áa]vrh|Pl[áa]n|Plan|Z[áa]m[ěe]r|Cíl|Goal)\s*:\s*([^\n:;.]{4,80})/i
+            .exec(t);
+        if (m) {
+            var got = m[1];
+            var after = t.charAt(m.index + m[0].length);
+            if (after === ':') { got = got.replace(/\s*\S+$/, ''); }
+            got = got.trim();
+            if (got.length >= 4) { return headCut(got, 58); }
+        }
+        var first = t.replace(/^\s*\[[A-Z]+\][^\n]*?(?=[A-ZÁ-Ž])/, '')
+            .split('\n')[0];
+        first = String(first || '').split(/[.:]\s/)[0];
+        return first && first.length >= 4 ? headCut(first, 58) : '';
+    }
+
+    /* The whole point of the card: one sentence a tired owner understands.
+       Returns {text, code} — `code` is the monospace tail for held commands. */
+    function askSentence(item, kind) {
+        var d = item.detail || {};
+        var ctx = d.context || {};
+        var payload = d.payload || {};
+        var n = askJobNum(item, ctx);
+        var state = ctx.job_state || item.job_state || '';
+        var out = null;
+        if (kind === 'plan') {
+            var title = planTitle(payload.text || '');
+            out = {text: askAgent(item) + ' připravil plán ' +
+                (title ? '„' + title + '“ ' : '') +
+                (n ? 'pro práci #' + n + ' ' : '') +
+                'a čeká na tvoje ANO, aby ho začal stavět.'};
+        } else if (kind === 'resume') {
+            if (n) {
+                out = {text: 'Práce #' + n +
+                    (state === 'blocked' ? ' se zasekla' : ' stojí') +
+                    ' a čeká na tvoje ANO, aby mohla pokračovat dál.'};
+            }
+        } else {
+            var cmd = payload.text || item.command || '';
+            if (cmd) {
+                out = {text: 'Robot chce jednou spustit tento příkaz: ',
+                       code: headCut(cmd, 78)};
+            }
+        }
+        if (!out || !out.text) {
+            out = {text: d.what || item.plain || item.command || 'Čeká se na tvoje rozhodnutí.'};
+        }
+        return out;
+    }
+
+    function askPill(box, text, cls) {
+        if (!text) { return; }
+        var p = document.createElement('span');
+        p.className = 'apill' + (cls ? ' ' + cls : '');
+        p.textContent = text;
+        p.title = text;
+        box.appendChild(p);
+    }
+
+    function askSection(item, key, label, open) {
+        var d = document.createElement('details');
+        d.className = 'askd';
+        var stored = askOpen[item.id + ':' + key];
+        d.open = stored === undefined ? !!open : !!stored;
+        var s = document.createElement('summary');
+        s.textContent = label + ' ';
+        var hint = document.createElement('span');
+        hint.className = 'ashow';
+        hint.textContent = 'show';
+        s.appendChild(hint);
+        d.appendChild(s);
+        d.addEventListener('toggle', function () {
+            askOpen[item.id + ':' + key] = !!d.open;
+        });
+        return d;
+    }
+
+    function askLine(row, cls, label, text) {
+        if (!text) { return; }
+        var line = document.createElement('div');
+        line.className = 'ar ' + cls;
+        var l = document.createElement('span');
+        l.className = 'al';
+        l.textContent = label;
+        line.appendChild(l);
+        var v = document.createElement('span');
+        v.className = 'av';
+        v.textContent = text;
+        v.title = text;
+        line.appendChild(v);
+        row.appendChild(line);
+    }
+
+    function highlightAsk(id) {
+        if (!id) { return; }
+        askFocus = {id: id, until: Date.now() + 6000};
+        var row = askRowsMap[id];
+        if (row) { row.classList.add('focus'); }
+    }
+
     function askRow(item) {
+        var d = item.detail || null;
+        var payload = (d && d.payload) || null;
+        var ctx = (d && d.context) || {};
+        var kind = askKind(item);
+        var K = ASK_KIND[kind];
         var row = document.createElement('div');
-        row.className = 'vagent-ask';
-        var top = document.createElement('div');
-        top.className = 'ar';
-        var cmd = document.createElement('span');
-        cmd.className = 'ac';
-        cmd.textContent = item.command || '';
-        cmd.title = item.command || '';
-        top.appendChild(cmd);
-        var when = document.createElement('span');
-        when.className = 'at';
-        when.textContent = waitedText(item.waiting_s) +
-            (item.left_text ? ' · ' + item.left_text + ' left' : '');
-        top.appendChild(when);
-        row.appendChild(top);
-        var mid = document.createElement('div');
-        mid.className = 'ar';
-        var plain = document.createElement('span');
-        plain.className = 'ap';
-        plain.textContent = item.plain || item.reason || '';
-        plain.title = plain.textContent;
-        mid.appendChild(plain);
-        row.appendChild(mid);
-        var bottom = document.createElement('div');
-        bottom.className = 'ar';
-        var who = document.createElement('span');
-        who.className = 'aw';
-        who.textContent = 'asked by ' + (item.asker || 'Hermes') +
-            (item.job_state === 'blocked' ? ' · job parked, waiting' : '');
-        bottom.appendChild(who);
+        row.className = 'vagent-ask ' + K.cls;
+        if (askFocus.id === item.id && askFocus.until > Date.now()) {
+            row.classList.add('focus');
+        }
+        row._askId = item.id;
+        askRowsMap[item.id] = row;
+
+        // ---- 1. header strip: WHAT it is, WHO asks, basic data -----------
+        var head = document.createElement('div');
+        head.className = 'ah';
+        var chip = document.createElement('span');
+        chip.className = 'akind';
+        chip.textContent = K.icon + ' ' + K.chip;
+        head.appendChild(chip);
+        var pills = document.createElement('span');
+        pills.className = 'ahp';
+        askPill(pills, askAge(item.waiting_s));
+        if (item.left_text) {
+            askPill(pills, 'auto-deny in ' + item.left_text, 'warn');
+        }
+        head.appendChild(pills);
+        row.appendChild(head);
+
+        var src = document.createElement('div');
+        src.className = 'ah asrc';
+        var jobRef = ctx.job_ref ||
+            (item.job_id ? 'j:' + item.job_id : '');
+        var goal = ctx.job_goal || item.job_title || '';
+        if (jobRef) {
+            var jb = document.createElement('button');
+            jb.type = 'button';
+            jb.className = 'aref';
+            jb.textContent = jobRef + (goal ? ' · ' + headCut(goal, 50) : '');
+            jb.title = 'Open ' + jobRef + (goal ? ' — ' + goal : '');
+            jb.addEventListener('click', function () { highlightJob(jobRef); });
+            src.appendChild(jb);
+        } else if (ctx.incident_id || item.incident_id) {
+            var inc = document.createElement('span');
+            inc.className = 'asrct';
+            inc.textContent = 'incident ' + (ctx.incident_id || item.incident_id);
+            src.appendChild(inc);
+        }
+        var by = document.createElement('span');
+        by.className = 'aby';
+        by.textContent = 'by ' + askWho(item) +
+            ((ctx.job_state || item.job_state) === 'blocked' ? ' · parked' : '');
+        by.title = item.asker || 'Hermes';
+        src.appendChild(by);
+        row.appendChild(src);
+
+        // ---- 2. the ask, in one plain sentence ---------------------------
+        var say = document.createElement('div');
+        say.className = 'asay';
+        var sentence = askSentence(item, kind);
+        say.textContent = sentence.text;
+        if (sentence.code) {
+            var code = document.createElement('code');
+            code.className = 'acode';
+            code.textContent = sentence.code;
+            say.appendChild(code);
+        }
+        say.title = (d && d.what) || item.plain || '';
+        row.appendChild(say);
+
+        /* Without structured detail (an older ask, or detail_for having
+           failed — the server sends `detail: null` and says so) there is no
+           „What happens" section, and the sentence above is only the command
+           itself.  The plain Czech line is then the ONLY thing on the card
+           saying what that command does, so it goes right under the ask. */
+        if (!d && (item.plain || item.reason)) {
+            var plain = document.createElement('div');
+            plain.className = 'asay aplain';
+            plain.textContent = item.plain || item.reason;
+            plain.title = plain.textContent;
+            row.appendChild(plain);
+        }
+
+        // ---- 3. decision row — reachable without scrolling ---------------
+        var execChoice = askExec[item.id] || (d && d.recommended) || null;
+        var act = document.createElement('div');
+        act.className = 'ar aact';
         var yes = document.createElement('button');
         yes.className = 'ay';
         yes.type = 'button';
         yes.textContent = 'Approve';
-        yes.title = 'The command will run (same as /allow ' + item.id + ')';
-        yes.addEventListener('click', function () { decideAsk(item, true, row); });
-        bottom.appendChild(yes);
+        yes.title = 'Runs it (same as /allow ' + item.id + ')';
+        yes.addEventListener('click', function () {
+            decideAsk(item, true, row, execChoice);
+        });
+        act.appendChild(yes);
         var no = document.createElement('button');
         no.className = 'an';
         no.type = 'button';
         no.textContent = 'Deny';
-        no.title = 'The command will not run (same as /deny ' + item.id + ')';
-        no.addEventListener('click', function () { decideAsk(item, false, row); });
-        bottom.appendChild(no);
-        row.appendChild(bottom);
+        no.title = 'Does not run it (same as /deny ' + item.id + ')';
+        var armed = false, armTimer = null;
+        no.addEventListener('click', function () {
+            if (!armed) {                       // inline confirm, one tap more
+                armed = true;
+                no.textContent = 'Deny — really?';
+                no.classList.add('armed');
+                armTimer = setTimeout(function () {
+                    armed = false;
+                    no.textContent = 'Deny';
+                    no.classList.remove('armed');
+                }, 6000);
+                return;
+            }
+            if (armTimer) { clearTimeout(armTimer); }
+            decideAsk(item, false, row);
+        });
+        act.appendChild(no);
+        if (d && d.executors && d.executors.length) {
+            var erow = document.createElement('span');
+            erow.className = 'aexec';
+            var el = document.createElement('span');
+            el.className = 'al';
+            el.textContent = 'via:';
+            erow.appendChild(el);
+            d.executors.forEach(function (ex) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'aeb';
+                if (ex.id === execChoice) { b.classList.add('sel'); }
+                // just the name („Claude Opus 5 (single long run)" → Claude);
+                // the full label and its description live in the tooltip
+                b.textContent = String(ex.label || ex.id).split(/[\s(]/)[0] +
+                    (ex.id === d.recommended ? ' ★' : '');
+                b.title = (ex.label || ex.id) + ' — ' + (ex.desc || '') +
+                    (ex.id === d.recommended ? ' (recommended)' : '');
+                b.addEventListener('click', function () {
+                    execChoice = ex.id;
+                    askExec[item.id] = ex.id;
+                    Array.prototype.forEach.call(
+                        erow.querySelectorAll('button'), function (o) {
+                            o.classList.remove('sel');
+                        });
+                    b.classList.add('sel');
+                });
+                erow.appendChild(b);
+            });
+            act.appendChild(erow);
+        }
+        row.appendChild(act);
+
+        // ---- 4. everything else, collapsed -------------------------------
+        if (d) {
+            var det = document.createElement('div');
+            det.className = 'adet';
+            var any = false;
+
+            if (payload && payload.text) {
+                var words = String(payload.text).trim().split(/\s+/)
+                    .filter(Boolean).length;
+                var sec = askSection(item, 'payload',
+                    K.sec + ' · ' + words + ' words', false);
+                var pre = document.createElement('pre');
+                pre.className = 'apre' +
+                    (payload.kind === 'command' ? ' mono' : '');
+                pre.textContent = payload.text;
+                sec.appendChild(pre);
+                if (payload.truncated) {
+                    var more = document.createElement('button');
+                    more.type = 'button';
+                    more.className = 'amore';
+                    more.textContent = 'show full';
+                    more.addEventListener('click', function () {
+                        more.disabled = true;
+                        api('/api/approvals/' + item.id + '/detail')
+                            .then(function (full) {
+                                var t = full && full.detail &&
+                                    full.detail.payload &&
+                                    full.detail.payload.text;
+                                if (t) { pre.textContent = t; more.textContent = ''; }
+                                else { more.disabled = false; }
+                            }).catch(function () { more.disabled = false; });
+                    });
+                    sec.appendChild(more);
+                }
+                det.appendChild(sec);
+                any = true;
+            }
+
+            if (ctx.job_ref || ctx.incident_id || ctx.job_goal) {
+                var csec = askSection(item, 'ctx', 'Context', false);
+                if (ctx.job_goal) {
+                    var g = document.createElement('div');
+                    g.className = 'actx goal';
+                    g.textContent = ctx.job_goal;
+                    g.title = ctx.job_goal;
+                    csec.appendChild(g);
+                }
+                var facts = document.createElement('div');
+                facts.className = 'actx dim';
+                facts.textContent = [
+                    ctx.job_ref ? ctx.job_ref : '',
+                    ctx.job_state ? 'state ' + ctx.job_state : '',
+                    ctx.legs ? 'legs ' + ctx.legs : ''
+                ].filter(Boolean).join(' · ');
+                if (facts.textContent) { csec.appendChild(facts); }
+                if (ctx.last_error) {
+                    var er = document.createElement('div');
+                    er.className = 'actx err';
+                    er.textContent = 'last error: ' + ctx.last_error;
+                    er.title = ctx.last_error;
+                    csec.appendChild(er);
+                }
+                (ctx.recent_posts || []).forEach(function (p) {
+                    var line = document.createElement('div');
+                    line.className = 'actx post';
+                    line.textContent = '· ' + p.head;
+                    line.title = p.head;
+                    csec.appendChild(line);
+                });
+                det.appendChild(csec);
+                any = true;
+            }
+
+            if (d.what || d.why || d.action_on_approve || d.action_on_deny) {
+                var wsec = askSection(item, 'what', 'What happens', false);
+                askLine(wsec, 'awhat', 'Request', d.what);
+                askLine(wsec, 'awhy', 'Why', d.why);
+                askLine(wsec, 'ayes', 'On approve', d.action_on_approve);
+                askLine(wsec, 'ano', 'On deny', d.action_on_deny);
+                det.appendChild(wsec);
+                any = true;
+            }
+
+            if (d.risk && d.risk.length) {
+                var rsec = askSection(item, 'risk',
+                    'Risk · ' + d.risk.length, false);
+                var rrow = document.createElement('div');
+                rrow.className = 'ar arisk';
+                d.risk.forEach(function (r) {
+                    var pill = document.createElement('span');
+                    pill.className = 'vagent-pill risk';
+                    pill.textContent = r;
+                    pill.title = r;
+                    rrow.appendChild(pill);
+                });
+                rsec.appendChild(rrow);
+                det.appendChild(rsec);
+                any = true;
+            }
+            if (any) { row.appendChild(det); }
+        } else if (item.command) {
+            // legacy ask (no structured detail): keep the raw command visible
+            var lsec = askSection(item, 'payload', 'Command', false);
+            var lpre = document.createElement('pre');
+            lpre.className = 'apre mono';
+            lpre.textContent = item.command;
+            lsec.appendChild(lpre);
+            var ldet = document.createElement('div');
+            ldet.className = 'adet';
+            ldet.appendChild(lsec);
+            row.appendChild(ldet);
+        }
         return row;
+    }
+
+    /* Everything the card renders — so the poll can skip the redraw (and keep
+       the open sections, the executor pick and any inline confirm) when
+       nothing visible changed. */
+    function asksFingerprint(list, outcomeKeys) {
+        var parts = (list || []).map(function (a) {
+            var d = a.detail || {};
+            var p = d.payload || {};
+            var c = d.context || {};
+            return [a.id, askKind(a), askAge(a.waiting_s), a.left_text || '',
+                a.asker || '', a.job_id || '', a.job_state || '',
+                d.what || '', a.plain || '', a.command || '',
+                p.kind || '', String(p.text || '').length, p.truncated ? 1 : 0,
+                c.job_ref || '', c.job_goal || '', c.job_state || '',
+                c.legs || 0, c.last_error || '',
+                (c.recent_posts || []).map(function (x) { return x.head; }).join('~'),
+                (d.risk || []).join('|'),
+                (d.executors || []).map(function (e) { return e.id; }).join(','),
+                d.recommended || '', askExec[a.id] || '',
+                decidedAsks[a.id] ? 1 : 0].join('');
+        });
+        return parts.join('') + '' + outcomeKeys.join(',');
     }
 
     function renderApprovals(list) {
         if (!gateBody) { return; }
-        ctxAsks = list || [];
+        var sorted = (list || []).slice().sort(function (a, b) {
+            var ra = ASK_RANK[askKind(a)];
+            var rb = ASK_RANK[askKind(b)];
+            if (ra !== rb) { return ra - rb; }
+            return (b.asked || b.id || 0) - (a.asked || a.id || 0);
+        });
+        ctxAsks = sorted;
         paintCtx();
         lastAsks = list;
         var live = {};
-        list.forEach(function (a) { live[a.id] = 1; });
+        sorted.forEach(function (a) { live[a.id] = 1; });
         Object.keys(decidedAsks).forEach(function (id) {
             if (!live[id]) { delete decidedAsks[id]; }
         });
-        gateBody.textContent = '';
-        var shown = 0, fresh = false;
-        list.forEach(function (item) {
-            if (decidedAsks[item.id]) { return; }
+        Object.keys(askRowsMap).forEach(function (id) {
+            if (!live[id]) { delete askRowsMap[id]; }
+        });
+        Object.keys(askExec).forEach(function (id) {
+            if (!live[id]) { delete askExec[id]; }
+        });
+        Object.keys(askOpen).forEach(function (key) {
+            if (!live[String(key).split(':')[0]]) { delete askOpen[key]; }
+        });
+        var now = Date.now();
+        var outKeys = [];
+        Object.keys(askOutcomes).forEach(function (id) {
+            if (askOutcomes[id].until < now) { delete askOutcomes[id]; return; }
+            outKeys.push(id + ':' + (askOutcomes[id].ok ? 1 : 0) + ':' +
+                         askOutcomes[id].text);
+        });
+        var fresh = false;
+        sorted.forEach(function (item) {
             if (!askSeen[item.id]) { askSeen[item.id] = 1; fresh = true; }
+        });
+        gateBadge.textContent = sorted.length ? String(sorted.length) : '';
+        if (sorted.length) { flagTab('gate'); }  // a question outranks the fold
+        if (fresh) { notify('approval', ''); }
+
+        var fp = asksFingerprint(sorted, outKeys);
+        if (fp === lastAskFp && gateBody.children && gateBody.children.length) {
+            return;                              // nothing rendered changed
+        }
+        lastAskFp = fp;
+
+        gateBody.textContent = '';
+        var shown = 0;
+        sorted.forEach(function (item) {
+            if (decidedAsks[item.id]) { return; }
             gateBody.appendChild(askRow(item));
             shown += 1;
         });
-        var now = Date.now();
         Object.keys(askOutcomes).forEach(function (id) {
-            if (askOutcomes[id].until < now) { delete askOutcomes[id]; return; }
             var row = document.createElement('div');
             row.className = 'vagent-ask ' + (askOutcomes[id].ok ? 'done' : 'bad');
             var line = document.createElement('div');
             line.className = 'am';
-            line.textContent = (askOutcomes[id].ok ? '✓ ' : '✕ ') + askOutcomes[id].text;
+            line.textContent = (askOutcomes[id].ok ? '✓ ' : '✕ ') +
+                askOutcomes[id].text;
             row.appendChild(line);
             gateBody.appendChild(row);
             shown += 1;
@@ -2570,9 +3523,6 @@
             e.textContent = 'Nothing waiting for approval.';
             gateBody.appendChild(e);
         }
-        gateBadge.textContent = list.length ? String(list.length) : '';
-        if (list.length) { flagTab('gate'); }   // a question outranks the fold
-        if (fresh) { notify('approval', ''); }
     }
 
     function pollApprovals() {
