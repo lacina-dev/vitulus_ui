@@ -1,150 +1,130 @@
 # vitulus_ui
 
-Unified single-page web user interface for Vitulus.
+Single-page web user interface for the [Vitulus](https://github.com/lacina-dev/vitulus)
+autonomous mower robot. A small Flask node serves one responsive HTML page that
+talks to the robot live over rosbridge: a 3D map view with the robot, costmaps,
+programs and a built-in map editor, plus status, camera, teleop, mapping
+controls and an agent chat panel — all usable from a phone in the garden.
 
-This package merges the three separate pages of the original `vitulus_webui`
-(map view, planner, IMU calibration) into **one responsive page**, while keeping
-the look, feel and responsiveness of the original map view. The original
-`vitulus_webui` package is left completely untouched and can still be run.
+> **Status:** personal robot project. Interfaces, topics and layout change
+> without notice; this package is tailored to the Vitulus robot stack and is
+> published as a reference, not as a reusable component.
 
-## How it works
+## Features
 
-There is a single HTML document (`nodes/templates/index.html`) with two
-sections that are switched from the top navbar:
+* **Main 3D map view** (three.js / ros3d): occupancy grid, costmap, robot
+  marker, planned paths, live camera projection, aerial-imagery tiles under
+  the map (georeferenced via the site datum), top-down or orbit camera.
+* **Integrated map editor** — zones, polygons and mowing programs are edited
+  directly on the live map (transparent three.js overlay aligned with the
+  ros3d camera); the robot stays drivable while editing.
+* **Right panel** — motion & dock controls (speed presets, keyboard teleop,
+  battery, Dock/Undock/Stop), localization status (Pose/VO/lidar/wheel/RTK
+  FIX), active map, small live camera view. Collapsible, state persisted in
+  `localStorage`.
+* **Status header** — the robot status icon strip (WiFi/GPS/IMU/lidar/camera/
+  mower/motors/temps/supply/battery) plus a read-only system monitor fed by
+  the agent bridge.
+* **Left drawer** — Marker, Map (incl. Mapping v3 session controls from
+  `vitulus_mapping`), Programs, Settings, and the **agent panel**: a chat UI
+  for the robot's on-board assistant with jobs, approvals and incidents
+  (plain HTTP to the agent web bridge; the red STOP is answered by
+  deterministic code, never by a model).
+* **Rosbag manager** — list, download and delete recordings over HTTP.
+* **PWA** — web manifest + service worker, installable on a phone
+  ("add to home screen"); mobile layout is a first-class target.
+* **Robot restart button** — restarts the whole `vitulus.service` from the
+  browser (guarded by an explicit sudoers rule, see below).
 
-| Section          | Source page (original)   | Renderer | Init function    |
-|------------------|--------------------------|----------|------------------|
-| Map view (default) | `map_view.html`        | ros3d / three.js | `window.initMapView` |
-| Imu calibration  | `imu_calibration.html`   | ros3d / three.js | `window.initImu`     |
-
-### Map editor (integrated into the map view)
-
-The old separate "Planner" page is **merged into the map view**: you edit zones,
-polygons and programs directly on the same live 3D map that shows the robot.
-There is no separate Planner section any more. The editing is decomposed into the
-map view's own menus, in the native menu style:
-
-* **Map editor** — a pencil button (`#btn_mapedit`) in the map menu opens
-  `#div_menu_mapedit`, a left **sidebar** (the map stays visible to the right)
-  with the active map's editable detail in three sub-tabs:
-  * **Zones** — mowing zones (cut height / rpm / coverage params); new / edit /
-    remove. Editing draws the zone polygon on the live map.
-  * **Polygons** — free / obstacle polygons; new / edit / remove.
-  * **Map** — assemble, filters, and the show-layer buttons; plus Save / Load /
-    Reload planner data at the top.
-  Opening the editor flips the camera **top-down** and switches the map source to
-  the planner map. The robot **stays drivable while editing**: the overlay only
-  grabs the mouse while a shape is actually open for editing (see
-  `setDrawing` / pointer-events gating); otherwise clicks pass through to the map.
-* **Programs** — the existing **Programs** menu (`▶` button) gained editing:
-  *New program*, an editable name, an *Add zone* dropdown and removable zone
-  chips (`×`). Saving publishes `/web_plan/program_new` like the planner did.
-  Programs are NOT in the map-editor sidebar — they live in their own menu.
-
-How the drawing works: `mapeditor.js` puts a **transparent three.js overlay**
-over the ros3d canvas, rendered with the ros3d camera itself, so editor geometry
-is pixel-aligned with the map without mixing the two THREE instances (ros3d
-bundles its own copy). `MapEditor.Ros3dEditOverlay` implements the same interface
-`Planner3D.Viewer` does, so `map_edit.js`'s zone/polygon/map logic runs unchanged
-against it. `map_edit.js`'s initialiser is `window.initPlanner(opts)`: with
-`opts = { ros, overlay }` it runs **integrated** (shared rosbridge connection +
-overlay, no own canvas, and its own program UI suppressed — the map view owns
-programs); with no args it would still run standalone. The Zones/Polygons/Map
-control markup is authored directly in `map_view.html` (native menu style); the
-list rows are rendered by `map_edit.js` in the same style.
-
-`planner3d.js` (the standalone top-down viewer the planner page used) is still
-present and loaded — `PolygonEditor` / `PathLayer` / `attachInteraction` from it
-are reused by the overlay. The whole UI shares one renderer family (three.js);
-ros2d is no longer loaded.
-
-The rosbridge port is `9090` by default; set `window.__ROSBRIDGE_PORT` before the
-map view initialises to point at a different rosbridge (useful for testing against
-an isolated backend without touching the live robot).
-
-* The map view is initialised on load; the IMU section is initialised lazily the
-  first time it is shown (so its canvas is sized correctly). See `assets/js/app.js`.
-* The integrated map editor reuses the **map view's** rosbridge connection
-  (`window.ros`); the IMU section keeps its own. Sharing a single connection
-  everywhere is a possible future optimisation.
-* `imu_calibration.js` is wrapped in an IIFE because it declares classes
-  (`ROS`, `Viewer3D`, `ViewerGrid`, `JoyTeleop`) whose names also exist in
-  `map_view.js`; the IIFE prevents a "class already declared" collision.
-
-## Running
+## Architecture
 
 ```
+browser (index.html, one page)
+  ├── rosbridge websocket :9090   topics/services/TF (roslib, tf2_web_republisher)
+  ├── Flask webnode       :7779   page + assets, /api/datum, /rosbag/*, /system/*
+  ├── web_video_server    :8080   MJPEG camera streams & snapshots
+  ├── MapProxy tiles      :8082   aerial XYZ tiles for the 3D aerial layer (optional)
+  └── agent web bridge    :8088   agent chat/jobs + read-only /api/system (optional)
+```
+
+Everything is addressed via `location.hostname`, so the UI works from any
+address the robot is reachable at. There is **no authentication** — anyone who
+can reach the ports can control the robot. This matches the trust model of a
+robot on a private network; do not expose these ports to the internet.
+
+### Nodes
+
+| Node | Purpose |
+|---|---|
+| `webnode` | Flask server on `:7779`. Routes: `/` (the single page; `/map_edit`, `/imu_calibration` are legacy aliases), `/manifest.json`, `/sw.js`, `/api/datum` (site georef anchor: UTM origin + yaw of the map frame, read from `~/.vitulus/saves/site_datum.yaml`), `/rosbag/list|download|delete`, `/system/restart`, `/system/restart_check`. |
+| `costmap_reframe` | Republishes the odom-framed local costmap with its origin transformed into the `map` frame, because the bundled ros3d cannot TF-place grids itself. |
+| `status_logger` | Caches the transient `/nextion/log_info` status strip into a size-rotated JSONL log and republishes recent history as a latched topic, independent of any browser. |
+
+`launch/vitulus_ui.launch` also starts `rosbridge_server`, `web_video_server`,
+`tf2_web_republisher` and the `mapping_manager` node from
+[`vitulus_mapping`](https://github.com/lacina-dev/vitulus_mapping).
+
+### Frontend layout
+
+`nodes/templates/index.html` is the **canonical, hand-maintained** page.
+The behaviour lives in `nodes/templates/assets/js/`: `map_view.js` (3D view),
+`mapeditor.js` + `map_edit.js` (editor overlay), `mapping.js` (Mapping v3 tab,
+aerial layer), `right_dock.js`, `status_header.js`, `agent_chat.js` +
+`agent_blocks.js` (agent panel), `dashboard.js`, `dock.js`, `rain_alert.js`,
+`app.js` (section switching). Vendored libraries (three.js, ros3d, roslib,
+jquery, Bootstrap, …) are committed under `assets/` so the robot serves the UI
+with no internet access.
+
+> `tools/build_index.py` (the old generator that assembled `index.html` from
+> `map_view.html` + `imu_calibration.html`) is **retired** and refuses to run:
+> `index.html` has since been edited directly and rebuilding would revert the
+> live UI. The old source templates are kept for history only.
+
+## Requirements
+
+* ROS Noetic on Ubuntu 20.04, Python 3
+* `rosbridge_server`, `rosapi`, `web_video_server`, `tf2_web_republisher`
+* Python: Flask, PyYAML
+* The rest of the Vitulus stack for anything beyond a blank page (the UI is a
+  thin client — all data comes from the robot's topics and services)
+
+## Build & run
+
+```bash
+cd ~/catkin_ws/src && git clone https://github.com/lacina-dev/vitulus_ui.git
+cd ~/catkin_ws && catkin_make && source devel/setup.bash
 roslaunch vitulus_ui vitulus_ui.launch
 ```
 
-Serves the UI on **http://<robot>:7779/** (the original `vitulus_webui` uses
-7777, so both can coexist on the same machine; they share rosbridge on 9090, so
-run only one rosbridge at a time). Old deep links `/imu_calibration` redirect to
-that section; `/map_edit` (the former planner page) redirects to the map view,
-which now hosts the editor.
+Then open `http://<robot>:7779/`. On the real robot the node is started by the
+main launch (`vitulus_start.launch`) as part of `vitulus.service`.
 
-### On the robot (started with everything else)
+Note: `webnode` serves templates/assets from an absolute source-tree path
+(`/home/vitulus/catkin_ws/src/vitulus/vitulus_ui/nodes/templates`) — adjust
+`WEB_ROOT` in `nodes/webnode` if your checkout lives elsewhere. Editing
+`index.html` requires a node restart (Flask caches the template); JS/CSS assets
+are picked up on browser reload.
 
-`vitulus_ui` is started by the robot's main launch — `vitulus/launch/vitulus_start.launch`
-contains:
+### Restart-robot button (optional)
 
-```xml
-<node pkg="vitulus_ui" type="webnode" name="webnode_ui" output="screen"/>
-```
-
-It reuses the rosbridge / web_video_server / tf2_web_republisher / status_logger
-that `vitulus_webui` already starts (unique node name, so no clash). So after a
-normal `vitulus.service` start the UI is available on :7779 alongside the old one
-on :7777.
-
-## Restart the robot from the web (optional)
-
-The navbar has a **⏻ Restart** button that restarts the whole robot service
-(`vitulus.service`). For it to work, the `vitulus` user must be allowed to run
-the relevant `systemctl` commands without a password. Install the bundled
-sudoers rule **once** (as root):
+`POST /system/restart` restarts `vitulus.service` via passwordless sudo. Install
+the bundled, narrowly-scoped sudoers rule once (it allows the `vitulus` user to
+run exactly `systemctl restart|start|stop|is-enabled vitulus.service`):
 
 ```bash
 sudo install -o root -g root -m 0440 \
-  /home/vitulus/catkin_ws/src/vitulus/vitulus_ui/setup/vitulus-ui-sudoers \
-  /etc/sudoers.d/vitulus-ui
-sudo visudo -cf /etc/sudoers.d/vitulus-ui     # must print "... parsed OK"
+  setup/vitulus-ui-sudoers /etc/sudoers.d/vitulus-ui
+sudo visudo -cf /etc/sudoers.d/vitulus-ui   # must print "parsed OK"
 ```
 
-That file grants only:
+Without it the endpoint returns HTTP 403 instead of hanging on a password
+prompt.
 
-```
-vitulus ALL=(root) NOPASSWD: /usr/bin/systemctl {restart,start,stop,is-enabled} vitulus.service
-```
+## Screenshots
 
-Without it the button (and the `POST /system/restart` endpoint) returns HTTP 403
-with a message pointing back here — it never hangs on a password prompt. After
-installing, the button asks for confirmation, restarts the service, then polls
-and reloads the page automatically once the UI is back up.
+<!-- TODO: add screenshots (map view, map editor, agent panel, mobile layout)
+     once captures without private garden/aerial imagery are prepared. -->
 
-**Security:** anyone who can reach :7779 can then restart the robot. This matches
-the existing trust model — rosbridge on :9090 already exposes full ROS control on
-the same network.
+## License
 
-## Editing index.html (canonical, hand-maintained)
-
-`index.html` is now the **canonical source** and is **edited directly**. Edit
-`nodes/templates/index.html`, then **restart the vitulus_ui node** (Flask caches
-the template in memory) to pick up the change.
-
-> **The old generator `tools/build_index.py` is RETIRED / disabled.** It used to
-> assemble `index.html` from `map_view.html` + `imu_calibration.html`, but since
-> ~2026-07-17 `index.html` has been hand-edited across ~20 commits (map-editor
-> panel redesign, left drawer UI, tool grids, fluid Settings tabs, Map-tab
-> consolidation, rain-tab reorder, …). Those edits were never back-ported into
-> the source templates, so the templates are ~8 KB stale and rebuilding would
-> **revert the live UI**. The script now refuses to run (safety interlock).
-
-The former source templates — `map_view.html`, `map_edit.html`,
-`imu_calibration.html` — are **stale build-inputs, kept for history only**. None
-of them is served at runtime (all of `/`, `/map_edit`, `/imu_calibration` render
-`index.html`). Do **not** try to "resync" `index.html` from them.
-
-Note: editing the linked **JS/CSS assets** (`mapeditor.js`, `map_view.js`,
-`map_edit.js`, …) is unaffected — they are served as static files and picked up
-on the next browser reload; only editing `index.html` requires a node restart.
+MIT — see [LICENSE](LICENSE).
