@@ -3,6 +3,86 @@
 // roslaunch), watch the insertion gate (RTK-gated), and pull terrain DEM /
 // obstacle raster previews. All robot topics live under /mapping/*; the
 // manager under /mapping_manager/*.
+// =========================================================================
+// AERIAL TILE OFFSET — pure helpers (unit-tested by
+// tools/test_tile_offsets.node.js; kept OUTSIDE the class so the harness can
+// slice them out of this file verbatim, the same seam the other harnesses use).
+// -------------------------------------------------------------------------
+// WHY: ortho/satellite imagery is never perfectly georeferenced — it usually
+// sits a little off the real world. The user nudges the AERIAL TILE LAYER in
+// the UI until it lines up optically with the obstacles on the occupancy map.
+// The nudge is stored ON THE ROBOT (webnode /api/tile_offsets ->
+// ~/.vitulus/ui/tile_offsets.json) so it is shared across browsers, and it is
+// keyed by (map name, tile layer id) — every map and every MapProxy layer
+// carries its own correction.
+//
+// SHAPE : {"<map>": {"<layer>": {dx, dy}}} — mirrors the robot store 1:1.
+// UNITS : METRES in the /map frame; dx = +map x, dy = +map y.
+// SAFETY: an unknown map, an unknown layer, a NaN or an out-of-range value all
+//         resolve to a ZERO offset. The aerial layer therefore degrades to
+//         "no offset" and can never be broken by a bad/garbled entry.
+const TILE_OFFSET_MAX_M = 50.0;
+
+// Resolve the stored offset for (map, layer). ALWAYS returns {dx, dy} numbers.
+function tileOffsetGet(offsets, mapName, layer) {
+    const zero = {dx: 0, dy: 0};
+    if (!offsets || typeof offsets !== 'object') { return zero; }
+    if (!mapName || !layer) { return zero; }
+    const layers = offsets[mapName];
+    if (!layers || typeof layers !== 'object') { return zero; }
+    const off = layers[layer];
+    if (!off || typeof off !== 'object') { return zero; }
+    const dx = Number(off.dx), dy = Number(off.dy);
+    if (!isFinite(dx) || !isFinite(dy)) { return zero; }
+    if (Math.abs(dx) > TILE_OFFSET_MAX_M || Math.abs(dy) > TILE_OFFSET_MAX_M) {
+        return zero;
+    }
+    return {dx: dx, dy: dy};
+}
+
+// Clamp one axis to the stored range and round to mm (0.1 mm, really).
+function tileOffsetClamp(v) {
+    const n = Number(v);
+    if (!isFinite(n)) { return 0; }
+    const c = Math.max(-TILE_OFFSET_MAX_M, Math.min(TILE_OFFSET_MAX_M, n));
+    return Math.round(c * 10000) / 10000;
+}
+
+// Add a nudge (metres) to an existing offset, clamped. Bad input reads as 0.
+function tileOffsetNudge(cur, dxStep, dyStep) {
+    const c = tileOffsetGet({m: {l: cur}}, 'm', 'l');
+    const sx = Number(dxStep), sy = Number(dyStep);
+    return {
+        dx: tileOffsetClamp(c.dx + (isFinite(sx) ? sx : 0)),
+        dy: tileOffsetClamp(c.dy + (isFinite(sy) ? sy : 0)),
+    };
+}
+
+// Store an offset in the mirror. A zero offset REMOVES the entry (and the map
+// key once it holds no layers), matching what the robot store does.
+function tileOffsetPut(offsets, mapName, layer, off) {
+    const out = (offsets && typeof offsets === 'object') ? offsets : {};
+    if (!mapName || !layer) { return out; }
+    const dx = tileOffsetClamp(off && off.dx);
+    const dy = tileOffsetClamp(off && off.dy);
+    if (dx === 0 && dy === 0) {
+        if (out[mapName]) {
+            delete out[mapName][layer];
+            if (!Object.keys(out[mapName]).length) { delete out[mapName]; }
+        }
+        return out;
+    }
+    if (!out[mapName] || typeof out[mapName] !== 'object') { out[mapName] = {}; }
+    out[mapName][layer] = {dx: dx, dy: dy};
+    return out;
+}
+
+// Human-readable readout for the UI (English, metres, 2 decimals).
+function tileOffsetFormat(off) {
+    const o = tileOffsetGet({m: {l: off}}, 'm', 'l');
+    return 'dx ' + o.dx.toFixed(2) + ' m / dy ' + o.dy.toFixed(2) + ' m';
+}
+
 class MappingV3 {
     constructor(ros, tfClient, viewer3d) {
         this.ros = ros;
@@ -850,6 +930,233 @@ class MappingV3 {
                 this._applyAerialOpacity();
             });
         }
+
+        // --- per-map / per-layer tile OFFSET (persisted ON THE ROBOT) -------
+        this.tile_offsets = {};       // mirror of the robot store
+        this.tile_offset_map = '';    // active map name, resolved by the robot
+        this._tileOffsetPost = null;  // debounce timer for the POST
+        this._initTileOffsetControl();
+        this._loadTileOffsets();
+        // Switching the tile SOURCE switches the offset key too: show and apply
+        // that layer's own correction immediately (the rebuild is already wired
+        // above; this only refreshes the offset side).
+        if (this.sel_aerial_src) {
+            this.sel_aerial_src.addEventListener('change', () => {
+                this._updateTileOffsetReadout();
+                this._applyAerialOffset();
+            });
+        }
+    }
+
+    // =====================================================================
+    // AERIAL TILE OFFSET — state, rendering and the drawer control.
+    // ---------------------------------------------------------------------
+    // Applied as a pure TRANSLATION of `aerial_group` (the MapProxy tile
+    // planes) in the /map frame. Nothing else moves: the occupancy grids, the
+    // costmaps, the robot model and the lidar overlays keep their own poses.
+    // Every step is guarded — a failure degrades to "no offset", never to a
+    // broken map view.
+    // =====================================================================
+
+    // Tile layer id the offset is keyed on ('sat' | 'cuzk' | 'osm').
+    _aerialLayerId() {
+        return (this.sel_aerial_src && this.sel_aerial_src.value) || 'sat';
+    }
+
+    _currentTileOffset() {
+        return tileOffsetGet(this.tile_offsets, this.tile_offset_map,
+                             this._aerialLayerId());
+    }
+
+    // THE render hook: translate the aerial tile group. `position` sits outside
+    // the group's own -yaw rotation, so it is a plain /map-frame shift.
+    _applyAerialOffset() {
+        try {
+            const g = this.aerial_group;
+            if (!g || !g.position) { return; }
+            const o = this._currentTileOffset();
+            g.position.x = o.dx;
+            g.position.y = o.dy;
+        } catch (e) { /* an offset must never break the 3D view */ }
+    }
+
+    _tileOffsetStatus(text, warn) {
+        if (!this.el_tile_off_status) { return; }
+        this.el_tile_off_status.textContent = text || '';
+        this.el_tile_off_status.style.color = warn ? '#ffd43b' : '';
+    }
+
+    _updateTileOffsetReadout() {
+        const o = this._currentTileOffset();
+        if (this.el_tile_off_val) {
+            this.el_tile_off_val.textContent = tileOffsetFormat(o);
+        }
+        if (this.el_tile_off_scope) {
+            this.el_tile_off_scope.textContent =
+                (this.tile_offset_map || '—') + ' / ' + this._aerialLayerId();
+        }
+        const zero = (o.dx === 0 && o.dy === 0);
+        if (this.btn_tile_off_reset) { this.btn_tile_off_reset.disabled = zero; }
+        if (this.btn_tile_off_reset_all) {
+            const layers = this.tile_offsets && this.tile_offset_map
+                ? this.tile_offsets[this.tile_offset_map] : null;
+            this.btn_tile_off_reset_all.disabled =
+                !(layers && Object.keys(layers).length);
+        }
+    }
+
+    // Fetch the robot-side store. Called on init and whenever the served map
+    // changes; a failure leaves the layer unshifted.
+    async _loadTileOffsets() {
+        try {
+            const r = await fetch('/api/tile_offsets', { cache: 'no-store' });
+            if (!r.ok) { throw new Error('HTTP ' + r.status); }
+            const j = await r.json();
+            this.tile_offsets = (j && j.offsets && typeof j.offsets === 'object')
+                                ? j.offsets : {};
+            this.tile_offset_map = (j && typeof j.active_map === 'string')
+                                   ? j.active_map : '';
+            this._tileOffsetStatus('');
+        } catch (e) {
+            console.warn('[mappingv3] tile offsets unavailable:', e);
+            if (!this.tile_offsets) { this.tile_offsets = {}; }
+            this._tileOffsetStatus('offsets unavailable — layer unshifted', true);
+        }
+        this._updateTileOffsetReadout();
+        this._applyAerialOffset();
+    }
+
+    // One nudge click / keypress: optimistic move now, debounced POST after.
+    _nudgeTileOffset(dxStep, dyStep) {
+        if (!this.tile_offset_map) {
+            this._tileOffsetStatus('no active map — nothing to align', true);
+            return;
+        }
+        const layer = this._aerialLayerId();
+        const next = tileOffsetNudge(this._currentTileOffset(), dxStep, dyStep);
+        this.tile_offsets = tileOffsetPut(this.tile_offsets,
+                                          this.tile_offset_map, layer, next);
+        this._applyAerialOffset();
+        this._updateTileOffsetReadout();
+        this._queueTileOffsetPost(layer, next);
+    }
+
+    _queueTileOffsetPost(layer, off) {
+        if (this._tileOffsetPost) { clearTimeout(this._tileOffsetPost); }
+        const map = this.tile_offset_map;
+        this._tileOffsetStatus('saving…');
+        this._tileOffsetPost = setTimeout(() => {
+            this._tileOffsetPost = null;
+            fetch('/api/tile_offsets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ map: map, layer: layer,
+                                       dx: off.dx, dy: off.dy }),
+            }).then((r) => r.json()).then((j) => {
+                if (!j || j.ok !== true) {
+                    this._tileOffsetStatus(
+                        'save failed: ' + ((j && j.error) || 'unknown'), true);
+                } else {
+                    this._tileOffsetStatus('saved on robot (all browsers)');
+                }
+            }).catch(() => {
+                this._tileOffsetStatus('save failed — robot unreachable', true);
+            });
+        }, 400);
+    }
+
+    // allLayers=false -> reset the current tile layer; true -> the whole map.
+    _resetTileOffset(allLayers) {
+        const map = this.tile_offset_map;
+        if (!map) { return; }
+        if (this._tileOffsetPost) {
+            clearTimeout(this._tileOffsetPost);
+            this._tileOffsetPost = null;
+        }
+        const layer = this._aerialLayerId();
+        if (allLayers) {
+            if (this.tile_offsets) { delete this.tile_offsets[map]; }
+        } else {
+            this.tile_offsets = tileOffsetPut(this.tile_offsets, map, layer,
+                                              { dx: 0, dy: 0 });
+        }
+        this._applyAerialOffset();
+        this._updateTileOffsetReadout();
+        this._tileOffsetStatus('resetting…');
+        const body = allLayers ? { map: map } : { map: map, layer: layer };
+        fetch('/api/tile_offsets/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        }).then((r) => r.json()).then((j) => {
+            if (!j || j.ok !== true) {
+                this._tileOffsetStatus(
+                    'reset failed: ' + ((j && j.error) || 'unknown'), true);
+            } else {
+                this._tileOffsetStatus(allLayers
+                    ? 'all layers reset for this map' : 'layer offset reset');
+            }
+        }).catch(() => {
+            this._tileOffsetStatus('reset failed — robot unreachable', true);
+        });
+    }
+
+    _initTileOffsetControl() {
+        this.el_tile_off_box = document.getElementById('mapv3_aerial_offset');
+        this.el_tile_off_val = document.getElementById('mapv3_aerial_offset_val');
+        this.el_tile_off_scope = document.getElementById('mapv3_aerial_offset_scope');
+        this.el_tile_off_status = document.getElementById('mapv3_aerial_offset_status');
+        this.sel_tile_off_step = document.getElementById('mapv3_aerial_offset_step');
+        this.btn_tile_off_reset = document.getElementById('mapv3_aerial_offset_reset');
+        this.btn_tile_off_reset_all = document.getElementById('mapv3_aerial_offset_reset_all');
+        if (!this.el_tile_off_box) { return; }   // markup absent: state-only
+
+        // step selector persists client-side like the other aerial selects
+        this._persistSelect(this.sel_tile_off_step, 'vitulus_aerial_offset_step');
+
+        const step = (coarse) => {
+            let s = this.sel_tile_off_step
+                ? parseFloat(this.sel_tile_off_step.value) : 0.1;
+            if (!(s > 0)) { s = 0.1; }
+            return coarse ? s * 5 : s;      // shift = coarse
+        };
+        // Buttons are labelled by the direction the IMAGERY moves on screen:
+        // North/South = +/- map y, East/West = +/- map x.
+        const DIRS = {
+            mapv3_aerial_offset_up:    [0, 1],
+            mapv3_aerial_offset_down:  [0, -1],
+            mapv3_aerial_offset_left:  [-1, 0],
+            mapv3_aerial_offset_right: [1, 0],
+        };
+        Object.keys(DIRS).forEach((id) => {
+            const b = document.getElementById(id);
+            if (!b) { return; }
+            const [ux, uy] = DIRS[id];
+            b.addEventListener('click', (ev) => {
+                const s = step(ev && ev.shiftKey);
+                this._nudgeTileOffset(ux * s, uy * s);
+            });
+        });
+        if (this.btn_tile_off_reset) {
+            this.btn_tile_off_reset.addEventListener('click',
+                () => this._resetTileOffset(false));
+        }
+        if (this.btn_tile_off_reset_all) {
+            this.btn_tile_off_reset_all.addEventListener('click',
+                () => this._resetTileOffset(true));
+        }
+        // Keyboard nudge while the control has focus (arrow keys, shift=coarse).
+        this.el_tile_off_box.addEventListener('keydown', (ev) => {
+            const K = {
+                ArrowUp: [0, 1], ArrowDown: [0, -1],
+                ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+            };
+            const d = K[ev.key];
+            if (!d) { return; }
+            ev.preventDefault();
+            const s = step(ev.shiftKey);
+            this._nudgeTileOffset(d[0] * s, d[1] * s);
+        });
     }
 
     _aerialSources() {
@@ -889,6 +1196,9 @@ class MappingV3 {
         this.aerial_group.position.z =
             (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.Z_AERIAL : -0.05;
         this.viewer3d.scene.add(this.aerial_group);
+        // Per-map/per-layer alignment nudge (robot-persisted). Applied as a
+        // translation of THIS group only — see _applyAerialOffset.
+        this._applyAerialOffset();
         return this.aerial_group;
     }
 
@@ -1020,6 +1330,9 @@ class MappingV3 {
             const yaw = d.yaw_rad || 0.0;
             group.rotation.z = -yaw;
             group.visible = true;
+            // re-assert the alignment offset on every rebuild (the group is
+            // reused, but a source/map switch changes which offset applies).
+            this._applyAerialOffset();
             this._aerialBuiltOnce = true;   // boot-retry: a build got this far
 
             const srcKey = this.sel_aerial_src ? this.sel_aerial_src.value : 'sat';
@@ -2103,6 +2416,9 @@ class MappingV3 {
         } else if (servSite !== this._aerialServSite) {
             this._aerialServSite = servSite;
             this.aerial_datum = null;
+            // a different map = a different offset key: re-read the robot store
+            // (it also re-applies the offset to the group).
+            if (this.tile_offsets !== undefined) { this._loadTileOffsets(); }
             if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
         }
         // 2026-08-16 UI redo: stavový přehled nahoře — JAKÁ mapa se nahrává

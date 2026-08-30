@@ -987,6 +987,36 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <div style="font-size: 12px;margin-top: 4px;">Opacity <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" style="vertical-align: middle;width: 120px;"></div>
                                                 <span id="mapv3_aerial_status" style="font-size: 12px;display: block;margin-top: 2px;opacity: .8;">aerial: &mdash;</span>
 
+                                                <!-- Aerial ALIGNMENT OFFSET (2026-08-30). Ortho imagery is never
+                                                     perfectly georeferenced; nudge the tile layer until it lines up
+                                                     with the obstacles on the map. Metres in the map frame, stored ON
+                                                     THE ROBOT per map AND per tile layer (webnode /api/tile_offsets ->
+                                                     ~/.vitulus/ui/tile_offsets.json), so every browser sees the same
+                                                     alignment. Touch targets are 40px for mobile. -->
+                                                <div id="mapv3_aerial_offset" tabindex="0" style="margin-top: 6px;padding: 6px;border: 1px solid rgba(128,128,128,.35);border-radius: 6px;outline: none;max-width: 340px;" title="Nudge the aerial imagery so it lines up with the map. Metres in the map frame; saved on the robot for this map and this tile layer, so it is the same in every browser. Arrow keys work while this box is focused; hold Shift for a 5x coarse step.">
+                                                    <div style="font-size: 12px;margin-bottom: 4px;display: flex;justify-content: space-between;gap: 6px;flex-wrap: wrap;">
+                                                        <span>Alignment offset</span>
+                                                        <span id="mapv3_aerial_offset_scope" style="opacity: .7;" title="map / tile layer this offset belongs to">&mdash; / sat</span>
+                                                    </div>
+                                                    <div style="display: flex;align-items: center;gap: 10px;flex-wrap: wrap;">
+                                                        <div style="display: grid;grid-template-columns: repeat(3, 40px);grid-template-rows: repeat(3, 40px);gap: 2px;">
+                                                            <button class="btn btn-outline-secondary btn-sm" type="button" id="mapv3_aerial_offset_up" style="grid-column: 2;grid-row: 1;padding: 0;font-size: 15px;line-height: 1;" title="Shift imagery +map y (north on an unrotated view)">&#9650;</button>
+                                                            <button class="btn btn-outline-secondary btn-sm" type="button" id="mapv3_aerial_offset_left" style="grid-column: 1;grid-row: 2;padding: 0;font-size: 15px;line-height: 1;" title="Shift imagery &minus;map x (west on an unrotated view)">&#9664;</button>
+                                                            <button class="btn btn-outline-secondary btn-sm" type="button" id="mapv3_aerial_offset_right" style="grid-column: 3;grid-row: 2;padding: 0;font-size: 15px;line-height: 1;" title="Shift imagery +map x (east on an unrotated view)">&#9654;</button>
+                                                            <button class="btn btn-outline-secondary btn-sm" type="button" id="mapv3_aerial_offset_down" style="grid-column: 2;grid-row: 3;padding: 0;font-size: 15px;line-height: 1;" title="Shift imagery &minus;map y (south on an unrotated view)">&#9660;</button>
+                                                        </div>
+                                                        <div style="display: flex;flex-direction: column;gap: 4px;font-size: 12px;min-width: 150px;flex: 1;">
+                                                            <div>Step <select class="form-select form-select-sm" id="mapv3_aerial_offset_step" title="Metres per click (hold Shift for 5x)" style="display: inline-block;width: auto;font-size: 12px;"><option value="0.05">0.05 m</option><option value="0.1" selected>0.10 m</option><option value="0.5">0.50 m</option><option value="1">1.00 m</option></select></div>
+                                                            <div id="mapv3_aerial_offset_val" style="font-variant-numeric: tabular-nums;">dx 0.00 m / dy 0.00 m</div>
+                                                            <div style="display: flex;gap: 4px;flex-wrap: wrap;">
+                                                                <button class="btn btn-outline-warning btn-sm" type="button" id="mapv3_aerial_offset_reset" style="font-size: 11px;min-height: 40px;" title="Clear the offset of the tile layer shown above" disabled>Reset layer</button>
+                                                                <button class="btn btn-outline-warning btn-sm" type="button" id="mapv3_aerial_offset_reset_all" style="font-size: 11px;min-height: 40px;" title="Clear the offsets of every tile layer of this map" disabled>Reset all for this map</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <span id="mapv3_aerial_offset_status" style="font-size: 11px;display: block;margin-top: 3px;opacity: .8;"></span>
+                                                </div>
+
                                                 <!-- vitulus_ui R4 (2026-07-18): Rain radar is a display layer - moved here
                                                      from its own section (thin rule + small label sub-block). -->
                                                 <hr style="margin: 8px 0;">

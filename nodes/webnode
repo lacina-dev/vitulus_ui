@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import os
+import json
+import time
 import rospy
 import yaml
 from flask import Flask, render_template, send_from_directory, jsonify, request, send_file, abort
@@ -219,6 +221,216 @@ if __name__ == '__main__':
                 'origin_lon': d.get('origin_lon'),
             }
             return jsonify(out)
+
+        # -----------------------------------------------------------------
+        # Aerial (MapProxy) tile-layer OFFSET — per map, per tile layer.
+        # -----------------------------------------------------------------
+        # The ortho/satellite imagery is never perfectly georeferenced: it sits
+        # a little off the real world. The user nudges the aerial layer in the
+        # UI until it lines up optically with the obstacles on the occupancy
+        # map. That nudge is stored HERE, on the robot, so it is shared across
+        # browsers/devices (localStorage would not be).
+        #
+        # KEY   : (map name, tile layer id) — e.g. ("Nmap", "sat").
+        # UNITS : METRES in the /map frame. dx = +map x, dy = +map y. Applied
+        #         by the client as a pure translation of the aerial tile group
+        #         (nothing else in the scene moves).
+        # STORE : ~/.vitulus/ui/tile_offsets.json (outside the repo, survives
+        #         restarts). Written atomically (tmp + os.replace).
+        # Robot-native: no dependency on the agent runtime (:8088).
+        TILE_OFFSETS_DIR = os.path.expanduser('~/.vitulus/ui')
+        TILE_OFFSETS_PATH = os.path.join(TILE_OFFSETS_DIR, 'tile_offsets.json')
+        TILE_OFFSET_MAX_M = 50.0        # sane bound per axis
+        TILE_OFFSETS_MAX_MAPS = 200     # keep the file from growing unbounded
+        _tile_offsets_lock = threading.Lock()
+        _tile_offsets_warned = [False]  # log a corrupt file ONCE, not per request
+
+        def _tile_offsets_load():
+            """Read the store. A missing/corrupt file degrades to {} (logged once)."""
+            try:
+                with open(TILE_OFFSETS_PATH, 'r') as fh:
+                    doc = json.load(fh)
+            except FileNotFoundError:
+                return {}
+            except Exception as exc:
+                if not _tile_offsets_warned[0]:
+                    _tile_offsets_warned[0] = True
+                    rospy.logwarn("[webnode] tile_offsets.json unreadable (%s) "
+                                  "- starting with no offsets", exc)
+                return {}
+            if not isinstance(doc, dict):
+                return {}
+            offsets = doc.get('offsets')
+            if not isinstance(offsets, dict):
+                return {}
+            # sanitise: drop anything that is not {map: {layer: {dx, dy}}}
+            clean = {}
+            for map_name, layers in offsets.items():
+                if not isinstance(map_name, str) or not isinstance(layers, dict):
+                    continue
+                cl = {}
+                for layer, off in layers.items():
+                    if not isinstance(layer, str) or not isinstance(off, dict):
+                        continue
+                    try:
+                        dx = float(off.get('dx', 0.0))
+                        dy = float(off.get('dy', 0.0))
+                    except (TypeError, ValueError):
+                        continue
+                    if not (abs(dx) <= TILE_OFFSET_MAX_M
+                            and abs(dy) <= TILE_OFFSET_MAX_M):
+                        continue
+                    if dx == 0.0 and dy == 0.0:
+                        continue
+                    cl[layer] = {'dx': dx, 'dy': dy}
+                if cl:
+                    clean[map_name] = cl
+            return clean
+
+        def _tile_offsets_save(offsets):
+            """Atomic write. Returns None on success or an error string."""
+            try:
+                os.makedirs(TILE_OFFSETS_DIR, exist_ok=True)
+                doc = {'version': 1, 'ts': int(time.time()), 'offsets': offsets}
+                tmp = TILE_OFFSETS_PATH + '.tmp'
+                with open(tmp, 'w') as fh:
+                    json.dump(doc, fh, indent=1, sort_keys=True)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                os.replace(tmp, TILE_OFFSETS_PATH)
+                return None
+            except Exception as exc:
+                return str(exc)
+
+        def _tile_offsets_active_map():
+            """Name of the map the offsets should key on ('' if unknown).
+
+            Primary source is the mapping_v3 .last_served marker (the site whose
+            raster is currently served); the site_datum symlink is the fallback
+            since the aerial layer is georeferenced by exactly that datum.
+            """
+            try:
+                with open(os.path.expanduser(
+                        '~/.vitulus/mapping_v3/.last_served'), 'r') as fh:
+                    site = (json.load(fh) or {}).get('site')
+                if isinstance(site, str) and site.strip():
+                    return site.strip()
+            except Exception:
+                pass
+            try:
+                target = os.path.realpath(SITE_DATUM_PATH)
+                if os.path.isfile(target):
+                    name = os.path.basename(os.path.dirname(target))
+                    if name and name not in ('.', '/', 'saves'):
+                        return name
+            except Exception:
+                pass
+            return ''
+
+        def _tile_offsets_payload(extra=None):
+            out = {
+                'ok': True,
+                'offsets': _tile_offsets_load(),
+                'active_map': _tile_offsets_active_map(),
+                'max_m': TILE_OFFSET_MAX_M,
+                'units': 'metres in the /map frame (dx=+map x, dy=+map y)',
+                'ts': int(time.time()),
+            }
+            if extra:
+                out.update(extra)
+            return out
+
+        def _tile_offsets_args(payload, need_layer=True):
+            """Validate {map, layer, dx, dy}. Returns (map, layer, dx, dy) or raises ValueError."""
+            if not isinstance(payload, dict):
+                raise ValueError('body must be a JSON object')
+            map_name = str(payload.get('map') or '').strip()
+            if not map_name or len(map_name) > 200:
+                raise ValueError('missing or oversized "map"')
+            layer = payload.get('layer')
+            layer = str(layer or '').strip()
+            if need_layer and (not layer or len(layer) > 100):
+                raise ValueError('missing or oversized "layer"')
+            if len(layer) > 100:
+                raise ValueError('oversized "layer"')
+            try:
+                dx = float(payload.get('dx', 0.0))
+                dy = float(payload.get('dy', 0.0))
+            except (TypeError, ValueError):
+                raise ValueError('dx/dy must be numbers (metres)')
+            if not (dx == dx and dy == dy):          # NaN
+                raise ValueError('dx/dy must be finite numbers (metres)')
+            if abs(dx) > TILE_OFFSET_MAX_M or abs(dy) > TILE_OFFSET_MAX_M:
+                raise ValueError('offset out of range: |dx|,|dy| must be <= %g m'
+                                 % TILE_OFFSET_MAX_M)
+            return map_name, layer, round(dx, 4), round(dy, 4)
+
+        @app.route('/api/tile_offsets', methods=['GET'])
+        def api_tile_offsets_get():
+            try:
+                return jsonify(_tile_offsets_payload())
+            except Exception as exc:   # never 500: the map view must not break
+                rospy.logwarn("[webnode] tile_offsets GET failed: %s", exc)
+                return jsonify({'ok': False, 'error': str(exc), 'offsets': {},
+                                'active_map': '', 'ts': int(time.time())})
+
+        @app.route('/api/tile_offsets', methods=['POST'])
+        def api_tile_offsets_set():
+            try:
+                map_name, layer, dx, dy = _tile_offsets_args(
+                    request.get_json(silent=True))
+            except ValueError as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 400
+            try:
+                with _tile_offsets_lock:
+                    offsets = _tile_offsets_load()
+                    layers = offsets.setdefault(map_name, {})
+                    if dx == 0.0 and dy == 0.0:
+                        layers.pop(layer, None)
+                    else:
+                        layers[layer] = {'dx': dx, 'dy': dy}
+                    if not layers:
+                        offsets.pop(map_name, None)
+                    if len(offsets) > TILE_OFFSETS_MAX_MAPS:
+                        return jsonify({'ok': False, 'error':
+                                        'too many maps stored'}), 400
+                    err = _tile_offsets_save(offsets)
+                if err:
+                    return jsonify({'ok': False, 'error': err}), 400
+                return jsonify(_tile_offsets_payload(
+                    {'map': map_name, 'layer': layer, 'dx': dx, 'dy': dy}))
+            except Exception as exc:
+                rospy.logwarn("[webnode] tile_offsets POST failed: %s", exc)
+                return jsonify({'ok': False, 'error': str(exc)}), 400
+
+        @app.route('/api/tile_offsets/reset', methods=['POST'])
+        def api_tile_offsets_reset():
+            # {map, layer} resets one layer; {map} alone resets every layer of
+            # that map.
+            payload = request.get_json(silent=True)
+            try:
+                map_name, layer, _dx, _dy = _tile_offsets_args(
+                    payload, need_layer=False)
+            except ValueError as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 400
+            try:
+                with _tile_offsets_lock:
+                    offsets = _tile_offsets_load()
+                    if layer:
+                        if map_name in offsets:
+                            offsets[map_name].pop(layer, None)
+                            if not offsets[map_name]:
+                                offsets.pop(map_name, None)
+                    else:
+                        offsets.pop(map_name, None)
+                    err = _tile_offsets_save(offsets)
+                if err:
+                    return jsonify({'ok': False, 'error': err}), 400
+                return jsonify(_tile_offsets_payload(
+                    {'map': map_name, 'layer': layer, 'reset': True}))
+            except Exception as exc:
+                rospy.logwarn("[webnode] tile_offsets reset failed: %s", exc)
+                return jsonify({'ok': False, 'error': str(exc)}), 400
 
         @app.route('/api/system')
         def api_system():
