@@ -55944,15 +55944,31 @@ var ROS3D = (function (exports, ROSLIB) {
 	    // assign options to this for subclasses
 	    Object.assign(this, options);
 
-	    this.quaternion.copy(new THREE.Quaternion(
+	    var _origQ = new THREE.Quaternion(
 	        origin.orientation.x,
 	        origin.orientation.y,
 	        origin.orientation.z,
 	        origin.orientation.w
-	    ));
-	    this.position.x = (width * info.resolution) / 2 + origin.position.x;
-	    this.position.y = (height * info.resolution) / 2 + origin.position.y;
-	    this.position.z = origin.position.z;
+	    );
+	    this.quaternion.copy(_origQ);
+	    /* vitulus_ui costmapfix 2026-08-30: the plane mesh is CENTRED on its own
+	     * local origin, so to land the grid's CORNER on info.origin its centre must
+	     * sit at  origin.position + R(origin.orientation) * (w/2, h/2).
+	     * Upstream ros3d added that half-extent in the PARENT frame, unrotated.
+	     * THREE applies .position in the parent frame and .quaternion about the
+	     * mesh centre, so any grid with a non-identity origin orientation was drawn
+	     * translated by  (I - R) * (w/2, h/2)  — the mesh was rotated about the
+	     * wrong pivot. Identity orientation (every plain map/costmap) gives a zero
+	     * error, which is why this stayed dormant until /local_costmap_map_framed
+	     * began publishing an origin carrying the map->odom rotation: at
+	     * map->odom yaw -15.7 deg on the 7x7 m local costmap that is a 1.35 m
+	     * displacement against the lidar scan. */
+	    var _half = new THREE.Vector3((width * info.resolution) / 2,
+	                                  (height * info.resolution) / 2, 0);
+	    _half.applyQuaternion(_origQ);
+	    this.position.x = origin.position.x + _half.x;
+	    this.position.y = origin.position.y + _half.y;
+	    this.position.z = origin.position.z + _half.z;
 	    this.scale.x = info.resolution;
 	    this.scale.y = info.resolution;
 
