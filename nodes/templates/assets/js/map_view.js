@@ -4703,23 +4703,46 @@ class Odom{
         }
     }
 
+    /* sensor_msgs/NavSatStatus, and the numbers are NOT a quality ladder:
+     *   -1 STATUS_NO_FIX      0 STATUS_FIX (unaugmented)
+     *    1 STATUS_SBAS_FIX    2 STATUS_GBAS_FIX
+     * This read `st === 2 ? FIX : NO FIX`, so the ordinary, perfectly good
+     * fix — status 0, which is what /gnss/fix publishes here all day — was
+     * shown to the owner as a red NO FIX in the main bar, while the agent
+     * panel one line below reported a valid float fix with sigma 6.4 cm from
+     * the same receiver.  A missing status is now `fix —` in grey: not
+     * knowing is not the same as having none, and it must not be able to
+     * look like a fix either (the old default of 0 would now read as one). */
     process_gnss_fix(m) {
-        var st = (m.status && typeof m.status.status === "number") ? m.status.status : 0;
+        var st = (m.status && typeof m.status.status === "number")
+            ? m.status.status : null;
         if (this.span_gnss_fix) {
-            var fix = st === 2 ? "FIX" : (st === 1 ? "SBAS" : "NO FIX");
+            var fix = st === null ? "fix —"
+                : (st < 0 ? "NO FIX"
+                   : (st === 2 ? "GBAS" : (st === 1 ? "SBAS" : "FIX")));
             this.span_gnss_fix.textContent = fix;
-            this.span_gnss_fix.style.background = st === 2 ? "#5cb85c" : (st === 1 ? "#f0ad4e" : "#d9534f");
+            this.span_gnss_fix.style.background =
+                st === null ? "#555555" : (st < 0 ? "#d9534f" : "#5cb85c");
+            this.span_gnss_fix.title = st === null
+                ? "The receiver has not said — unknown, not absent."
+                : "NavSatStatus " + st + " (-1 none, 0 fix, 1 SBAS, 2 GBAS)";
         }
         if (this.span_gnss_pos) {
-            // Only trust the position covariance when there is a real fix — the
-            // receiver keeps reporting a tiny ~1.5cm covariance even at status=0
-            // (no fix), which is why we must gate on the fix status.
-            if (st === 0 || !m.position_covariance) {
+            // Only trust the position covariance when there IS a fix.  The old
+            // gate was `st === 0`, i.e. it threw away the covariance of every
+            // ordinary fix; no fix is st < 0.
+            if (st === null || st < 0 || !m.position_covariance) {
                 this.span_gnss_pos.textContent = "pos —";
                 this.span_gnss_pos.style.color = "#d9534f";
             } else {
                 var cm = Math.sqrt(m.position_covariance[0]) * 100.0;
                 this.span_gnss_pos.textContent = "pos ±" + (cm < 10 ? cm.toFixed(1) : cm.toFixed(0)) + "cm";
+                // whose number this is: the RECEIVER's own covariance on
+                // /gnss/fix, not the fused pose accuracy the RTK chip quotes
+                this.span_gnss_pos.title =
+                    "Standard deviation the GNSS receiver itself reports on " +
+                    "/gnss/fix. The RTK figure elsewhere is the fused pose " +
+                    "and is a different measurement.";
                 this.span_gnss_pos.style.color = cm <= 5 ? "#5cb85c" : (cm <= 50 ? "#f0ad4e" : "#d9534f");
             }
         }

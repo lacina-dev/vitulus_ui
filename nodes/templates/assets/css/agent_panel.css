@@ -2313,3 +2313,113 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
     border-left: 2px solid var(--bs-border-color, #444);
 }
 @media (pointer: coarse) { .md-btn, .md-sel { min-height: 40px; } .md-mini { min-height: 34px; width: 34px; } .md-mini.wide { width: auto; } }
+
+/* Collapsed repeat in the chat (U33): the same message from the robot,
+   several times in a row, shown once with a count — the same badge the
+   Findings tab has always used for a repeated finding. */
+.vagent-repeat {
+    display: inline-block;
+    padding: 0 6px;
+    margin-right: 6px;
+    border-radius: 8px;
+    font-size: 10.5px;
+    line-height: 16px;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--bs-body-color, #dee2e6);
+}
+/* How many findings there really are, next to how many are grouped below
+   (U33).  `unknown` is deliberately not styled like a zero: a number the
+   core could not reach is not a number equal to nothing. */
+.vz-counts {
+    display: flex; flex-wrap: wrap; gap: 4px 10px;
+    margin: 2px 0 4px; font-size: 10.5px;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vz-counts .vz-unknown { color: var(--bs-warning, #ffc107); }
+
+/* The same rule, everywhere in the panel: a value that could not be read is
+   drawn as UNREAD, never as a zero and never as a missing line (U46).  It is
+   dimmer and lighter than a real reading, so it cannot be mistaken for one. */
+.vagent-unknown {
+    color: var(--bs-warning, #ffc107) !important;
+    font-weight: 400 !important;
+    opacity: .85;
+}
+
+/* ------------------------------------------------- robot tools (tl-*)
+ * One card per tool, DERIVED from its manifest (/api/v2/tools): the form
+ * from `vstupy`, the result from `vystup`.  Nothing here is written per
+ * tool, so a tool that lands tomorrow is styled already. */
+.tl-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 6px;
+    margin: 0 0 6px;
+    padding: 5px 8px;
+}
+.tl-card > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+}
+.tl-card > summary::-webkit-details-marker { display: none; }
+.tl-card > summary::before { content: '▸'; width: 10px; flex: 0 0 auto; }
+.tl-card[open] > summary::before { content: '▾'; }
+.tl-name { font-weight: 600; font-size: 12px; flex: 1 1 auto; min-width: 0; }
+.tl-acc { font-size: 10.5px; color: var(--bs-secondary-color, #adb5bd); }
+.tl-acc.cold { opacity: 0.75; }
+.tl-acc.bad { color: #f1868f; }
+.tl-body { padding: 4px 0 2px 10px; }
+.tl-desc { font-size: 11.5px; margin: 2px 0 4px; }
+.tl-meta, .tl-bar, .tl-age { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.tl-meta { margin-bottom: 4px; }
+.tl-bar { margin-top: 6px; }
+.tl-s { font-size: 10.5px; color: var(--bs-secondary-color, #adb5bd); }
+.tl-s.cold { color: var(--bs-warning, #ffc107); }
+.tl-form { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0; }
+.tl-in { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* U45: this used to be `text-transform: uppercase`, which turned the
+   manifest's key `span_m` into `SPAN_M` — a variable name shouted at the
+   owner.  The label is now a human phrase, so it is set like one. */
+.tl-inl { font-size: 10.5px; letter-spacing: 0.2px;
+          color: var(--bs-secondary-color, #adb5bd); }
+.tl-inf { background: rgba(0, 0, 0, 0.32); color: var(--bs-body-color, #dee2e6);
+          border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 4px;
+          padding: 3px 6px; font-size: 11.5px; max-width: 100%; }
+input.tl-inf[type="checkbox"] { width: 18px; height: 18px; padding: 0; }
+.tl-chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; }
+.tl-run { font-weight: 600; }
+.tl-res { margin-top: 6px; }
+.tl-img { display: block; max-width: 100%; height: auto; border-radius: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.12); cursor: zoom-in; }
+.tl-age { margin-top: 4px; }
+.tl-sum { font-size: 11px; margin-top: 4px; white-space: pre-wrap;
+          word-break: break-word; color: var(--bs-body-color, #dee2e6); }
+.tl-text { font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
+.tl-num { font-size: 22px; font-weight: 600; }
+.tl-pre { font-size: 10.5px; white-space: pre-wrap; word-break: break-all; margin: 4px 0 0; }
+/* a wide table scrolls INSIDE its own box — the panel never scrolls sideways */
+.tl-tablewrap { overflow-x: auto; max-width: 100%; }
+.tl-table { border-collapse: collapse; font-size: 10.5px; }
+.tl-table th, .tl-table td {
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    padding: 2px 5px; text-align: left; vertical-align: top;
+    max-width: 260px; overflow-wrap: anywhere;
+}
+.tl-table th { color: var(--bs-secondary-color, #adb5bd); font-weight: 600;
+               text-transform: uppercase; letter-spacing: 0.3px; }
+.tl-err { color: #f1868f; font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
+.tl-problem { color: var(--bs-warning, #ffc107); font-size: 11px;
+              white-space: pre-wrap; word-break: break-word; margin-bottom: 4px; }
+@media (pointer: coarse) {
+    .tl-card > summary { min-height: 40px; }
+    .tl-inf { min-height: 34px; }
+    .tl-run { min-height: 36px; padding: 6px 14px; }
+}
+
+/* Whose sentences these are (U36): the frame is English and says so; the
+   quoted rules keep the core's own Czech wording, because a warning that
+   gets paraphrased on the way is a warning on its way to being lost. */
+.md-rulehead {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--bs-secondary-color, #adb5bd); margin-bottom: 2px;
+}

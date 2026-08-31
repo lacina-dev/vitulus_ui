@@ -377,12 +377,199 @@
                 }
                 throw new Error('HTTP ' + r.status);
             }
-            return r.json();
+            return r.json().then(function (body) {
+                /* U40: the core answers with LENGTHS („this is 131 s old"),
+                   never with the moment of capture.  A length is only worth
+                   anything next to the instant it was measured at, and that
+                   instant is NOW — the moment the answer arrived here.  Every
+                   answer therefore carries `__at` (ms, this browser's clock),
+                   so a caller can turn a length into a moment
+                   (`captured = __at/1000 - age_s`) and let it age honestly.
+                   Without it the panel re-derived „taken 0 s ago" from a
+                   two-minute-old picture on every redraw. */
+                if (body && typeof body === 'object') {
+                    try {
+                        Object.defineProperty(body, '__at',
+                            {value: Date.now(), enumerable: false,
+                             writable: true, configurable: true});
+                    } catch (e) { body.__at = Date.now(); }
+                }
+                return body;
+            });
         }).catch(function (err) {
             if (timer) { clearTimeout(timer); }
             conn.failTs = Date.now();
             paintConn();
             throw err;
+        });
+    }
+
+    /* ============================================================ numbers
+       „Součet a stáří jsou dvě místa, kde panel přestává citovat a začíná
+       tvrdit — a obě dnes v noci lhaly."  (tester, round 3)
+
+       U35 was a sum the panel made without knowing one card was a duplicate.
+       U40 was an age the panel computed from a length it had been handed
+       finished.  Both were the panel ASSERTING where it should have been
+       QUOTING, and neither was catchable by looking at the screen.
+
+       So: every number that says something about the world is drawn by
+       num(), and num() writes down WHERE IT CAME FROM, into the DOM, next to
+       the number.  Then the panel can be asked to check itself.
+
+       `src` is a pointer the audit can follow:
+         "/api/doctor#counts.open"                — a field of an answer
+         "sum:/api/models#roles[*].usd_7d"        — a sum over an array
+         "/api/models#roles[role=chat].calls_7d"  — a row picked by a key
+         "derived: … "                            — the panel worked it out;
+                                                    not machine-checkable, but
+                                                    it has to SAY so
+       A null value is never a zero: it prints as unreadable, which is the one
+       thing the Findings tab already got right and everything else did not. */
+    var NUM_UNREADABLE = 'could not be read — this is not a zero';
+
+    function num(value, src, opts) {
+        opts = opts || {};
+        var s = document.createElement('span');
+        if (src) { s.setAttribute('data-src', String(src)); }
+        var bad = (value === null || value === undefined || value === '' ||
+                   (typeof value === 'number' && isNaN(value)));
+        if (bad) {
+            s.className = 'vagent-unknown' + (opts.cls ? ' ' + opts.cls : '');
+            s.textContent = opts.unknown || NUM_UNREADABLE;
+            return s;
+        }
+        if (opts.cls) { s.className = opts.cls; }
+        s.setAttribute('data-num', String(value));
+        s.textContent = (opts.format ? opts.format(value) : String(value)) +
+                        (opts.unit ? opts.unit : '');
+        if (opts.title) { s.title = opts.title; }
+        return s;
+    }
+
+    /* obj + "a.b[2].c" | "roles[role=chat].usd_7d" | "roles[*].usd_7d" */
+    function digPath(obj, path) {
+        var cur = obj, miss = {__missing: true};
+        var parts = String(path || '').split('.');
+        for (var i = 0; i < parts.length; i++) {
+            var seg = parts[i];
+            var m = /^([^\[]*)((\[[^\]]*\])*)$/.exec(seg);
+            if (!m) { return miss; }
+            if (m[1]) {
+                if (cur == null || typeof cur !== 'object') { return miss; }
+                if (Array.isArray(cur)) {
+                    // fan out a field over a list
+                    cur = cur.map(function (x) { return x == null ? null : x[m[1]]; });
+                } else {
+                    if (!(m[1] in cur)) { return miss; }
+                    cur = cur[m[1]];
+                }
+            }
+            var idx = (m[2] || '').match(/\[[^\]]*\]/g) || [];
+            for (var k = 0; k < idx.length; k++) {
+                var inner = idx[k].slice(1, -1);
+                if (!Array.isArray(cur)) { return miss; }
+                if (inner === '*') { continue; }            // stay a list
+                var kv = /^([A-Za-z_][\w]*)=(.*)$/.exec(inner);
+                if (kv) {
+                    var hit = null;
+                    for (var j = 0; j < cur.length; j++) {
+                        if (cur[j] && String(cur[j][kv[1]]) === kv[2]) { hit = cur[j]; break; }
+                    }
+                    if (hit === null) { return miss; }
+                    cur = hit;
+                } else {
+                    cur = cur[Number(inner)];
+                    if (cur === undefined) { return miss; }
+                }
+            }
+        }
+        return cur;
+    }
+
+    /* VAgent.auditNumbers() — run it from the console, or from the Robot tab.
+       It re-asks the core for every endpoint the panel is quoting and says
+       which drawn numbers no longer match.  This is the hour the tester spent
+       by hand in round 3, done in ten seconds and repeatable by the owner. */
+    function auditNumbers(opts) {
+        opts = opts || {};
+        var nodes = document.querySelectorAll('[data-src]');
+        var byEp = {}, items = [], derived = [];
+        for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            var src = n.getAttribute('data-src') || '';
+            var shown = n.getAttribute('data-num');
+            if (/^derived:/i.test(src)) {
+                derived.push({src: src, shown: n.textContent, node: n});
+                continue;
+            }
+            var agg = null, rest = src;
+            var am = /^(sum|count|max|min):(.*)$/.exec(src);
+            if (am) { agg = am[1]; rest = am[2]; }
+            var hash = rest.indexOf('#');
+            if (hash < 0) { derived.push({src: src, shown: n.textContent, node: n}); continue; }
+            var ep = rest.slice(0, hash), path = rest.slice(hash + 1);
+            byEp[ep] = true;
+            items.push({node: n, ep: ep, path: path, agg: agg, src: src,
+                        shown: shown, text: n.textContent});
+        }
+        var eps = Object.keys(byEp);
+        return Promise.all(eps.map(function (ep) {
+            return api(ep).then(function (d) { return {ep: ep, d: d}; })
+                          .catch(function (e) { return {ep: ep, err: String(e)}; });
+        })).then(function (answers) {
+            var live = {};
+            answers.forEach(function (a) { live[a.ep] = a; });
+            var rows = [], bad = [], unreadable = [];
+            items.forEach(function (it) {
+                var a = live[it.ep];
+                if (!a || a.err) {
+                    unreadable.push({src: it.src, shown: it.text, why: (a && a.err) || 'no answer'});
+                    return;
+                }
+                var v = digPath(a.d, it.path);
+                if (v && v.__missing) {
+                    unreadable.push({src: it.src, shown: it.text, why: 'field not in the answer'});
+                    return;
+                }
+                if (it.agg && Array.isArray(v)) {
+                    var nums = v.filter(function (x) { return x != null && !isNaN(Number(x)); })
+                                .map(Number);
+                    v = it.agg === 'count' ? v.length
+                      : it.agg === 'max' ? Math.max.apply(null, nums)
+                      : it.agg === 'min' ? Math.min.apply(null, nums)
+                      : nums.reduce(function (s2, x) { return s2 + x; }, 0);
+                }
+                var drawn = it.shown === null || it.shown === '' ? null : Number(it.shown);
+                var real = (v === null || v === undefined) ? null : Number(v);
+                var same = (drawn === null && real === null) ||
+                    (drawn !== null && real !== null && !isNaN(drawn) && !isNaN(real) &&
+                     Math.abs(drawn - real) <= (opts.tol || 1e-6) * Math.max(1, Math.abs(real)));
+                var rec = {src: it.src, shown: it.text, drawn: drawn, core: real, ok: same};
+                rows.push(rec);
+                if (!same) { bad.push(rec); }
+            });
+            var report = {checked: rows.length, mismatches: bad,
+                          unreadable: unreadable, derived: derived, rows: rows};
+            try {
+                if (console.table) { console.table(rows); }
+                console.log('[VAgent.auditNumbers] ' + rows.length + ' checked, ' +
+                            bad.length + ' MISMATCH, ' + unreadable.length +
+                            ' unreadable, ' + derived.length + ' derived (declared, not checkable)');
+                if (bad.length) {
+                    console.log('[VAgent.auditNumbers] a mismatch means the panel ' +
+                        'and the core disagree RIGHT NOW. That is either a wrong ' +
+                        'number or a stale one — read it together with the age ' +
+                        'the panel shows next to it.');
+                }
+                if (bad.length && console.table) { console.table(bad); }
+                if (derived.length && console.table) {
+                    console.table(derived.map(function (d2) {
+                        return {src: d2.src, shown: d2.shown};
+                    }));
+                }
+            } catch (e) {}
+            return report;
         });
     }
 
@@ -471,6 +658,7 @@
     var TAB_OF = {chat: 'chat', jobs: 'work', gate: 'work', mise: 'work',
                   incidents: 'findings', zdravi: 'findings',
                   robot: 'robot', nastroje: 'robot', dock: 'robot',
+                  tools: 'robot',
                   models: 'models'};
     var TAB_PRIMARY = {chat: 'chat', work: 'jobs', findings: 'incidents',
                        robot: 'robot', models: 'models'};
@@ -540,7 +728,19 @@
                 try { blk.onOpen(blk.body); } catch (e) {}
             }
         });
-        if (tabId === 'chat') { scrollChatBottom(); }
+        if (tabId === 'chat') {
+            scrollChatBottom();
+            /* U41: the chat input only HAS a width once its pane is on
+               screen.  Becoming visible is not a resize, so nothing used to
+               tell the placeholder to look again — and a panel restored on
+               another tab kept the desktop sentence on a phone for ever. */
+            if (syncPlaceholder) {
+                syncPlaceholder();
+                if (window.requestAnimationFrame) {
+                    requestAnimationFrame(syncPlaceholder);
+                }
+            }
+        }
     }
 
     /* The chat opens LOOKING AT THE LAST MESSAGE, always: initial history
@@ -572,6 +772,15 @@
            owner's own „models nejde scrolovat".
        Three sites, one mistake, none of them noisy.  So: nobody outside
        this file names a tab any more.  Ask here, and tabFor() answers. */
+    /* A width of 0 is what a hidden element reports, and it is not a width.
+       Every place in this file that decides something FROM a size asks this,
+       so that „not measured" can never again be mistaken for „small" (U41)
+       or for „large" (which is what it was mistaken for). */
+    function measuredWidth(node) {
+        var w = node && node.clientWidth;
+        return (w && w > 0) ? w : null;
+    }
+
     function blockTabActive(blockId) {
         var btn = tabBtns[tabFor(blockId)];
         return !!(btn && btn.classList.contains('active'));
@@ -649,6 +858,7 @@
         '<div id="vagent_ctx"></div>' +
         '<div id="vagent_blocks"></div>';
     var panelActive = false;
+    var syncPlaceholder = null;   // U32, set when the chat block is built
 
     function isVisible() {
         return panelActive && !document.hidden;
@@ -757,6 +967,9 @@
         } catch (e) {}
         d.drawer.classList.add('open');
         settleDrawer(d.drawer);
+        // U32: the input has no width while the panel is hidden, so the
+        // placeholder cannot be chosen before it is on screen.
+        if (syncPlaceholder) { syncPlaceholder(); }
         d.drawer.classList.remove('wide', 'editor');
         d.drawer.setAttribute('aria-hidden', 'false');
         if (d.title) { d.title.textContent = 'Agent'; }
@@ -945,8 +1158,13 @@
        the twin.  Only the robot's own lines, never the owner's, and never
        across a gap: two identical answers ten minutes apart are two events
        and stay two bubbles. */
+    var MINE_KINDS = {me: 1, user: 1};
     function repeatKey(kind, cls, text) {
-        if (kind !== 'bot') { return null; }
+        // everything the ROBOT says can repeat itself — a reply (`bot`), a
+        // report from the doctor (`report`) or a note from a job (`work`).
+        // The owner's own lines never collapse: if he typed it twice he
+        // meant it twice.
+        if (MINE_KINDS[kind]) { return null; }
         var t = String(text == null ? '' : text);
         if (t.length < 24) { return null; }     // "ok" twice is not a repeat
         return kind + ' ' + cls + ' ' + t;
@@ -957,6 +1175,14 @@
         if (taskId) {
             var m = node.getAttribute('data-merged');
             node.setAttribute('data-merged', (m ? m + ',' : '') + taskId);
+            /* `data-task` on a collapsed group is the OLDEST id in it, so
+               oldestTaskId (read off the first node) still names a row that
+               really is the oldest one on screen.  Get that wrong and
+               loadOlder() asks for a page it already has — and if a whole
+               page collapsed into one bubble, forever. */
+            var cur = parseInt(node.getAttribute('data-task') || '0', 10) || 0;
+            var nid = parseInt(taskId, 10) || 0;
+            if (nid && (!cur || nid < cur)) { node.setAttribute('data-task', String(nid)); }
         }
         var host = node.querySelector('.vagent-meta');
         if (!host) {
@@ -978,17 +1204,28 @@
     function turn(kind, cls, text, meta, taskId) {
         var stick = atBottom();
         var prepend = !!(insertRef && insertRef.parentNode === msgsEl);
-        // merge only forwards (live + first history page).  On a scroll-up
-        // page the surviving node's data-task is the NEWEST of the group and
-        // oldestTaskId is read from it, so merging backwards would make the
-        // panel ask for a page it already has.
-        var rkey = prepend ? null : repeatKey(kind, cls, text);
+        // The neighbour on the side this bubble is going in: the last row
+        // when appending, the row it would sit in front of when a scroll-up
+        // page is prepended.  Both directions merge; bumpRepeat() keeps
+        // data-task pointing at the oldest id of the group so the back-scroll
+        // cursor stays honest.
+        var rkey = repeatKey(kind, cls, text);
         if (rkey && msgsEl) {
-            var nb = msgsEl.lastElementChild;
+            // NOT `insertRef` itself: loadOlder() sets it once and inserts
+            // the whole page in order in front of it, so the row this one
+            // follows is the one inserted just before — the node sitting
+            // immediately above insertRef right now.
+            // At the top of a freshly prepended page there is nothing above
+            // insertRef yet, and then the row this one is adjacent to is
+            // insertRef itself — otherwise a repeat that straddles a page
+            // boundary would be the one pair that stayed doubled.
+            var nb = prepend
+                ? (insertRef.previousElementSibling || insertRef)
+                : msgsEl.lastElementChild;
             if (nb && nb.classList && nb.classList.contains('vagent-turn') &&
                     nb.getAttribute('data-dedup') === rkey) {
                 bumpRepeat(nb, taskId);
-                if (stick) { msgsEl.scrollTop = msgsEl.scrollHeight; }
+                if (!prepend && stick) { msgsEl.scrollTop = msgsEl.scrollHeight; }
                 return nb;
             }
         }
@@ -1524,6 +1761,12 @@
                 node = nodes[nodes.length - 1 - i];
                 id = parseInt(node.getAttribute('data-task') || '0', 10);
                 if (id) { delete seen[id]; delete answered[id]; }
+                // a collapsed repeat (U33) stands for several task ids
+                String(node.getAttribute('data-merged') || '').split(',')
+                    .forEach(function (m) {
+                        var mid = parseInt(m, 10);
+                        if (mid) { delete seen[mid]; delete answered[mid]; }
+                    });
                 node.remove();
             }
             truncatedBottom = true;
@@ -1533,6 +1776,12 @@
                 node = nodes[i];
                 id = parseInt(node.getAttribute('data-task') || '0', 10);
                 if (id) { delete seen[id]; delete answered[id]; }
+                // a collapsed repeat (U33) stands for several task ids
+                String(node.getAttribute('data-merged') || '').split(',')
+                    .forEach(function (m) {
+                        var mid = parseInt(m, 10);
+                        if (mid) { delete seen[mid]; delete answered[mid]; }
+                    });
                 node.remove();
             }
             // The pruned rows still exist server-side: the top edge reopens.
@@ -1770,12 +2019,27 @@
            height: where the column is narrow, a shorter sentence that fits
            on one line.  Re-checked on resize, because the drawer changes
            width without the page reloading (Expand ↗). */
-        function syncPlaceholder() {
-            var w = inputEl.clientWidth || 0;
-            inputEl.placeholder = (w && w < 340)
+        /* U41, and it is the same mistake this whole night was about:
+           A WIDTH OF ZERO IS NOT A WIDTH.  When the panel is restored on
+           Work / Robot / Models, the chat pane is hidden, so `clientWidth`
+           is 0 — and `(w && w < 340)` read that zero as „wide", picked the
+           long sentence, and the phone got the top half of „commands)" back.
+           U26 made it worse by remembering the tab honestly: an owner who
+           last looked at Work now hit it every time.
+           So: 0 means UNMEASURED, and an unmeasured field asks the things
+           that do have a width — the drawer, then the window — instead of
+           guessing.  And the answer is recomputed when the Chat tab is
+           actually shown, not only on `resize`, because becoming visible
+           changes the width without the window changing size. */
+        syncPlaceholder = function () {
+            var w = measuredWidth(inputEl);
+            // no width of its own -> ask the window, which always has one;
+            // 576 px is the panel's own phone breakpoint (see openPanel)
+            var narrow = (w != null) ? (w < 340) : (window.innerWidth < 576);
+            inputEl.placeholder = narrow
                 ? 'Task or question…  / = commands'
                 : 'Type a task or question… (/ for commands)';
-        }
+        };
         syncPlaceholder();
         if (window.requestAnimationFrame) { requestAnimationFrame(syncPlaceholder); }
         window.addEventListener('resize', syncPlaceholder);
@@ -1980,7 +2244,7 @@
         // Every active job counts; show the newest RUNNING one (matches the
         // top of the Jobs tab) plus the total, so the bar never contradicts
         // the tab (owner saw "one, and a different one" — 4 were running).
-        var active = ctxJobs.filter(function (j) {
+        var active = barJobs().filter(function (j) {
             return j.state === 'running' || j.state === 'queued';
         });
         active.sort(function (a, b) {
@@ -2208,6 +2472,13 @@
             incident: j.incident_id || null,
             program: j.program_rel || null,
             legs: j.legs, slot: j.slot,
+            /* The progress bar used to be fed ONLY by the rich v1 row
+               (legacyById).  v1 is frozen, so the same numbers are taken
+               from the unified row, which the core still writes. */
+            steps: j.steps, live_last: j.last || null,
+            phase: j.phase_title || j.phase || '',
+            verdict: j.verdict || '',
+            elapsed_s: (j.active_elapsed_s != null ? j.active_elapsed_s : j.waited_s),
             job_id: j.job_id || null,
             auto: !!j.auto_approve,
             // Only a RUN row is "from" a schedule; a definition row carries
@@ -2899,8 +3170,10 @@
     var LEG_MAX = 14;           // segments drawn; beyond that they merge
 
     function progressFor(j, p) {
-        var live = legacyById[p && p.id];
-        if (!live && j.src !== 'legacy') { return null; }
+        // a frozen v1 row is 30 h old; the unified row on `j` is current
+        var live = legacyFrozen ? null : legacyById[p && p.id];
+        // with v1 frozen, a unified row is a first-class source of progress
+        if (!live && j.src !== 'legacy' && !j.legs && !j.steps) { return null; }
         var src = live || j;
         var legs = Number(src.legs || 0);
         var leg = Number(src.leg || legs || 0);
@@ -2912,7 +3185,9 @@
             verdict: src.verdict || '',
             stalled: !!(src.stalled || j.stalled),
             state: src.state || j.status || '',
-            last: src.last || (j.last && j.last.output) || '',
+            last: (typeof src.last === 'string' ? src.last : '') ||
+                  (typeof j.live_last === 'string' ? j.live_last : '') ||
+                  (j.last && j.last.output) || '',
             elapsed_s: src.elapsed_s
         };
     }
@@ -3201,34 +3476,51 @@
     var unifiedIdle = 0;        // U34: beats skipped while Work is off screen
     var jobCards = {};          // ref → {node, fp}
     var jobsFp = null, deferredJobs = null;
+    /* `saysState` is the whole point of U42.  A group heading is either a
+       claim about the STATE of what is under it („Running", „Scheduled",
+       „Needs attention") or a claim about a SHELF („Recent", „Archive").
+       Only the first kind can be contradicted by its contents, and only the
+       first kind therefore gets renamed to match them.  Each group declares
+       which it is, here, once — nobody outside this table decides it. */
     var GROUPS = [
-        {id: 'running', label: 'Running',
+        {id: 'running', label: 'Running', saysState: true, mixed: 'Active',
          empty: 'Nothing is running right now.'},
-        {id: 'scheduled', label: 'Scheduled',
+        {id: 'scheduled', label: 'Scheduled', saysState: true,
          empty: 'No scheduled job. Create one above — every N, or daily at a time.'},
-        {id: 'attention', label: 'Needs attention',
+        {id: 'attention', label: 'Needs attention', saysState: true,
          empty: 'Nothing failed or waiting to be written.'},
         {id: 'recent', label: 'Recent', empty: 'No finished job yet.'},
         {id: 'archive', label: 'Archive',
          empty: 'Nothing archived. Old finished jobs move here on their own.'}
     ];
 
-    /* U25, second half: the heading of a group must say what is IN it.
-       `running` is a bucket of everything alive (running · queued · blocked ·
-       stalled), so it was headed „RUNNING 1" over a single queued, blocked
-       job — the only line on that screen that said something untrue.  When
-       the bucket holds one kind of thing it is named after that thing;
-       when it holds several it is „Active", which is the honest word for a
-       mixture.  Other groups keep their fixed label. */
+    /* U25, second half — and U42, which was the same fault one group over.
+       The heading of a group must say what is IN it.  `running` is a bucket
+       of everything alive (running · queued · blocked · stalled), so it was
+       headed „RUNNING 1" over a single queued, blocked job.  `scheduled` is a
+       bucket of everything with a timetable, so it was headed „SCHEDULED 3"
+       over three jobs that were all `paused` — i.e. over the whole of the
+       robot's regular work, saying it would run.
+
+       The rule is now one rule for every group that claims a state:
+         · one state word under the heading  -> the heading IS that word
+         · several                           -> they are listed („scheduled ·
+           paused"), because a mixture named after one of its halves is the
+           lie we keep finding; `running` keeps „Active", the word U25 chose
+           for its mixture
+         · too many to list, or a shelf group -> the fixed label */
     function groupHeading(g, items) {
-        if (g.id !== 'running' || !items || !items.length) { return g.label; }
+        if (!g.saysState || !items || !items.length) { return g.label; }
         var seen = {}, order = [];
         items.forEach(function (j) {
             var w = stateWord(j.status, j.stalled);
             if (!seen[w]) { seen[w] = 1; order.push(w); }
         });
-        if (order.length !== 1) { return 'Active'; }
-        return order[0].charAt(0).toUpperCase() + order[0].slice(1);
+        function cap(w) { return w.charAt(0).toUpperCase() + w.slice(1); }
+        if (order.length === 1) { return cap(order[0]); }
+        if (g.mixed) { return g.mixed; }
+        if (order.length <= 3) { return cap(order.join(' · ')); }
+        return g.label;
     }
 
     function sortJobs(group, items) {
@@ -3355,9 +3647,22 @@
     }
 
     // --------------------------------------------------------------- polling
+    /* The v1 job list is FROZEN.  The core stopped writing to it on
+       2026-08-30 19:14 and now says so in the answer itself: `frozen: <ts>`,
+       one leftover row (#185, „queued" for thirty hours and never going to
+       start) and `counts.open: 29` with `source: v2:work` — i.e. „ask v2".
+       The panel used to read that single stale row as WHAT THE ROBOT IS
+       DOING NOW: the context bar and the shell strip both claimed a job that
+       nobody will run, while 29 open ones were invisible to them.
+       A list the core has declared frozen is history, not state. */
+    var legacyFrozen = 0, legacyOpenCount = null;
+
     function pollJobs() {
         return api('/api/jobs').then(function (d) {
             legacyJobs = (d && d.jobs) || [];
+            legacyFrozen = (d && Number(d.frozen)) || 0;
+            legacyOpenCount = (d && d.counts && d.counts.open != null)
+                ? Number(d.counts.open) : null;
             legacyById = {};
             legacyJobs.forEach(function (row) { legacyById[row.id] = row; });
             ctxJobs = legacyJobs;
@@ -3365,6 +3670,29 @@
             paintStrip();
             if (unifiedOk !== true) { renderJobsPane(composeJobs()); }
         }).catch(function () {});
+    }
+
+    /* The one list both bars are allowed to speak about.  It is the SAME
+       list the Work tab draws, which is the whole point — the owner saw
+       „one, and a different one" often enough tonight. */
+    function barJobs() {
+        if (unifiedOk === true) {
+            return lastUnifiedRaw.filter(function (j) {
+                return !j.archived && !j.schedule;     // definitions are not runs
+            }).map(function (j) {
+                return {id: j.id, state: String(j.status || ''),
+                        stalled: !!j.stalled,
+                        text: j.title || j.text || '',
+                        last: j.last || null,
+                        error: (j.last_run && j.last_run.error) || null,
+                        blocked: j.driver_note || null,
+                        elapsed_s: j.active_elapsed_s != null
+                            ? j.active_elapsed_s : j.waited_s,
+                        legs: j.legs, steps: j.steps};
+            });
+        }
+        if (legacyFrozen) { return []; }   // frozen history says nothing about now
+        return legacyJobs || [];
     }
 
     function pollLegacySchedules() {
@@ -4391,12 +4719,48 @@
         }
     }
 
+    /* U44: `/api/approvals` had TWO owners — this one, for the strip, and a
+       second fetch inside the closed-panel badge poll that asked the same
+       question 1 ms later just to count the answers.  Two answers about one
+       thing means the bar and the button can disagree, and they were only
+       ever going to disagree at the worst moment.  There is now exactly one
+       fetch, and everything that needs approvals (the strip, the Work pane,
+       the unread badge) reads THAT answer.
+
+       The cadence is the core's to set: it sends `poll_after_s`, and the
+       panel obeys that one number instead of keeping a clock of its own.
+       The panel only ever makes it SLOWER — a shut panel and a background
+       tab are not worth the robot's CPU. */
+    var approvalsAfterMs = 3000;     // until the core says otherwise
+    var approvalsTimer = null;
+
     function pollApprovals() {
         return api('/api/approvals').then(function (d) {
             stripAsks = (d && d.approvals) || [];
+            var after = d && Number(d.poll_after_s);
+            if (after && !isNaN(after)) {
+                approvalsAfterMs = Math.min(120000, Math.max(2000, after * 1000));
+            }
             renderApprovals(stripAsks);
             paintStrip();
+            // the badge counts the SAME list the strip drew — U44
+            if (!panelActive && stripAsks.length && !unread) {
+                unread = stripAsks.length;
+                paintBadge();
+            }
         }).catch(function () {});
+    }
+
+    function scheduleApprovals() {
+        if (approvalsTimer) { clearTimeout(approvalsTimer); approvalsTimer = null; }
+        var wait = approvalsAfterMs;
+        if (!panelActive) { wait = Math.max(wait, 30000); }
+        else if (document.hidden) { wait = Math.max(wait, BG_MS); }
+        approvalsTimer = setTimeout(function () {
+            approvalsTimer = null;
+            if (agentUp !== true) { scheduleApprovals(); return; }
+            pollApprovals().then(scheduleApprovals, scheduleApprovals);
+        }, wait);
     }
 
     // ==================================================== shared state poll
@@ -4686,7 +5050,7 @@
                     text: cut(what, 44),
                     age: shortAge(a.waiting_s)};
         }
-        var jobs = legacyJobs || [];
+        var jobs = barJobs();
         var blocked = null, running = null;
         for (var i = 0; i < jobs.length; i++) {
             var j = jobs[i];
@@ -4851,7 +5215,10 @@
     function pollStrip() {
         if (agentUp !== true) { return; }
         stripTick += 1;
-        if (!panelActive) { pollApprovals(); pollJobs(); }
+        // approvals are NOT fetched here any more: they have one owner and
+        // one cadence (scheduleApprovals), which keeps running with the
+        // panel shut. U44.
+        if (!panelActive) { pollJobs(); }
         pollPanic();
         pollDock();            // the dock bar must be right with the panel shut
         if (stripTick % 4 === 1) {
@@ -4898,11 +5265,13 @@
     function schedule() {
         if (agentUp !== true) { return; }   // nothing polls a down/unknown agent
         if (timers.length) {         // already scheduled; just kick once
-            if (panelActive) { kickAll(); }
+            if (panelActive) { kickAll(); scheduleApprovals(); }
             return;
         }
         every(2000, pollTasks);
-        every(3000, function () { pollJobs(); pollApprovals(); });
+        every(3000, pollJobs);
+        scheduleApprovals();        // U44: approvals have their own, single,
+                                    // core-paced loop — open panel or shut
         /* NOTE: the unified job list is polled in exactly ONE place — the
            `jobs` block's own poll, below (see U34).  There used to be a
            second, unconditional `every(10000, pollUnified)` here; while the
@@ -4932,10 +5301,10 @@
                     paintBadge();
                 }
             }).catch(function () {});
-            api('/api/approvals').then(function (d) {
-                var n = ((d && d.approvals) || []).length;
-                if (n && !unread) { unread = n; paintBadge(); }
-            }).catch(function () {});
+            /* U44: there used to be a second `/api/approvals` right here,
+               1 ms after the strip's, only to count what the strip had
+               already been told.  The badge now reads that same answer in
+               pollApprovals(). One question, one answer. */
         }, 30000);
         setInterval(paintConn, 2000);
         if (panelActive) { kickAll(); }
@@ -5077,6 +5446,9 @@
     window.VAgent = {
         registerBlock: registerBlock,
         api: api,
+        num: num,                     // every number says where it came from
+        auditNumbers: auditNumbers,   // …and the panel can be asked to prove it
+        measuredWidth: measuredWidth,
         isVisible: isVisible,
         notify: notify,
         open: openPanel,

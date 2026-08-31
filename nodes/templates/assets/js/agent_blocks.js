@@ -84,6 +84,95 @@
     var s = Math.max(0, (Date.now() / 1000) - startTs);
     return s < 90 ? Math.round(s) + ' s' : Math.round(s / 60) + ' min';
   }
+  /* ---- age: a LENGTH is not a MOMENT (U40) --------------------------------
+     The core reports how old a thing was WHEN IT ANSWERED (`age_s`,
+     a length in seconds).  Turning that into what the owner reads needs the
+     moment the answer arrived — `__at`, stamped on every response by the
+     shared api() in agent_chat.js — because the picture keeps ageing after
+     the answer stops changing.
+
+     The bug this closes: the panel built the capture moment as
+     `Date.now()/1000 - age_s`, i.e. it pretended the answer had JUST come in,
+     every single time it redrew.  fmtAgo() then handed back exactly `age_s`
+     for ever: „taken 0 s ago" over a picture two minutes old, and the red
+     „older than two minutes" branch could never fire from the passing of
+     time — only from a number the core happened to send.
+
+     capturedAt(res, ageS) is the only way this file turns a length into a
+     moment; nothing computes an age from `Date.now()` and a length any more.
+     A chip made by ageChip() also re-reads its own clock once a second, so
+     the number on screen is a measurement and not a memory. */
+  function capturedAt(res, ageS) {
+    if (ageS == null || isNaN(Number(ageS))) { return null; }
+    // no __at (a hand-made object, an old response) -> assume it is fresh,
+    // which is the same guess the code used to make, but only ONCE and only
+    // at the moment the object appears
+    var atMs = (res && res.__at) ? Number(res.__at) : Date.now();
+    return atMs / 1000 - Number(ageS);
+  }
+
+  var ageTicker = null;
+  function paintAge(n) {
+    var at = Number(n.getAttribute('data-age-at'));
+    if (!at) { return; }
+    n.textContent = (n.getAttribute('data-age-pre') || '') + fmtAgo(at) +
+                    (n.getAttribute('data-age-post') || '');
+    var warn = Number(n.getAttribute('data-age-warn') || 0);
+    if (warn) {
+      var stale = (Date.now() / 1000 - at) > warn;
+      n.classList.toggle('failed', stale);
+      n.classList.toggle('done', !stale);
+    }
+  }
+  function tickAges() {
+    var nodes = document.querySelectorAll('[data-age-at]');
+    for (var i = 0; i < nodes.length; i++) { paintAge(nodes[i]); }
+  }
+  function startAgeTicker() {
+    if (ageTicker) { return; }
+    /* Clock only: no network, no /api call — U2 stays closed.  There is no
+       `document.hidden` gate on purpose: an age that stops while you are
+       looking somewhere else is exactly the fault this fixes, and a
+       querySelectorAll over a panel once a second costs nothing (browsers
+       throttle background timers to 1 Hz anyway). */
+    ageTicker = setInterval(function () { try { tickAges(); } catch (e) {} }, 1000);
+    /* A browser throttles timers in a tab nobody is looking at — down to
+       once a minute — so the second the tab (or the panel) comes back into
+       view, every age is re-read from its own timestamp rather than waiting
+       for the next tick.  The number on screen is a measurement taken now;
+       the timer is only how often it is refreshed. */
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { try { tickAges(); } catch (e) {} }
+    });
+  }
+
+  /* A chip that keeps ageing on screen.  `warnS` is the age at which it turns
+     red — and it now turns red because TIME PASSED, not only because the core
+     said so. */
+  function ageChip(capturedAtSec, opts) {
+    opts = opts || {};
+    var c = el('span', 'vagent-pill');
+    if (capturedAtSec == null) {
+      c.className += ' queued';
+      c.textContent = opts.unknown || 'age unknown';
+      c.title = opts.unknownTitle ||
+        'The core did not say when this was taken — treat it as unknown, ' +
+        'not as fresh.';
+      return c;
+    }
+    c.setAttribute('data-age-at', String(Math.round(capturedAtSec * 1000) / 1000));
+    c.setAttribute('data-age-pre', opts.pre || '');
+    c.setAttribute('data-age-post', opts.post || '');
+    if (opts.warnS) { c.setAttribute('data-age-warn', String(opts.warnS)); }
+    c.className += ' done';
+    if (opts.title) { c.title = opts.title; }
+    // paint it NOW, on the node itself: it is not in the document yet, so a
+    // querySelectorAll sweep would not find it and the chip would be born blank
+    paintAge(c);
+    startAgeTicker();
+    return c;
+  }
+
   function pill(text, color) {
     var p = el('span', null, text);
     p.style.cssText = 'display:inline-block;padding:0 .45em;border-radius:.6em;' +
@@ -103,7 +192,11 @@
       'padding:.1em 0;font-size:.9em';
     var l = el('span', null, label);
     l.style.color = 'var(--bs-gray-500, #888)';
-    var v = el('span', null, value == null ? '—' : String(value));
+    // a value may arrive as a NODE (VAgent.num(), an age chip) so that it can
+    // carry its own provenance in `data-src`; a plain string still works
+    var v;
+    if (value && value.nodeType === 1) { v = value; }
+    else { v = el('span', null, value == null ? '—' : String(value)); }
     v.style.fontWeight = '500';
     r.appendChild(l); r.appendChild(v);
     return r;
@@ -370,17 +463,35 @@
         mdSaved = 0;
 
     /* Anglický rám nad českými jmény roli z jádra. */
+    /* U36, and the line this panel keeps: ENGLISH IS THE FRAME — every word
+       the panel writes itself (labels, buttons, statuses, headings).  What
+       the CORE wrote for the owner (rules, `problems`, refusals, role notes)
+       is shown in the core's own words, verbatim, and is never paraphrased
+       away — a warning that gets translated by whoever is passing it on is
+       a warning that eventually stops arriving.  The tab drifted the other
+       way tonight: `operator` split into `chat` + `robot`, the frame did not
+       know the two new names, so it fell through to the core's Czech labels
+       and put them in an English column. */
     var MD_ROLE_EN = {
       coder: 'Working with code',
-      operator: 'Answering in chat and driving the robot',
+      chat: 'Answering in chat',
+      robot: 'Driving the robot',
+      operator: 'Chat and robot together (old, replaced by the two above)',
       checker: 'Judging finished work',
       reflector: 'Lessons from finished work',
       grower: 'Looking for gaps in its own skills',
       triage: 'Sorting (one word, cheapest model)'
     };
     var MD_NOTE_EN = {
-      operator: 'Touches the robot — when this one fails, nothing stands ' +
-                'in for it.',
+      chat: 'Talking to the owner. Safe to switch any time — it wants ' +
+            'personality, continuity, speed and a low price, and there is ' +
+            'a lot of it.',
+      robot: 'DRIVES A MACHINE THAT MOVES. Change it deliberately and ' +
+             'rarely. When it fails nothing stands in for it — the work ' +
+             'waits instead.',
+      operator: 'The old shared name for chat and robot. While it is still ' +
+                'set it applies to both of the new roles — set those two ' +
+                'instead.',
       checker: 'Must be a different vendor than the code work, or the agent ' +
                'marks its own homework.',
       reflector: 'Must be a different vendor than the code work.',
@@ -452,8 +563,34 @@
       return !!(p && p.provider_choices && p.provider_choices.length);
     }
 
+    /* U36 was closed by adding three names to MD_ROLE_EN.  That is a patch,
+       not a fix: the MECHANISM was `MD_ROLE_EN[r.role] || r.label`, and the
+       fallback silently prints the core's Czech sentence in an English
+       column as if the frame had written it.  The ninth role brings the bug
+       straight back — verified by feeding one in.
+
+       The rule, the same one `blockTabActive()` established for tab names:
+       NOBODY OUTSIDE THIS FUNCTION NAMES A ROLE, and the frame never passes
+       off the core's words as its own.  A role the frame has no English name
+       for is SAID to be one.  The core's own label is still shown — beside
+       the name, quoted and attributed (mdRoleLabel), never in its place.
+       `label_en` is honoured the day the core starts sending it, and then
+       this stops being a list at all. */
     function mdRoleName(r) {
-      return MD_ROLE_EN[r.role] || r.label || r.role;
+      if (MD_ROLE_EN[r.role]) { return MD_ROLE_EN[r.role]; }
+      if (r.label_en) { return String(r.label_en); }
+      return String(r.role) + ' — no English name yet';
+    }
+
+    /* The core's own label for a role, when the frame is showing a name of
+       its own next to it.  Returns '' when there is nothing to quote. */
+    function mdRoleLabel(r) {
+      var lab = r.label ? String(r.label) : '';
+      if (!lab || lab === mdRoleName(r)) { return ''; }
+      return lab;
+    }
+    function mdRoleKnown(r) {
+      return !!(MD_ROLE_EN[r.role] || r.label_en);
     }
 
     /* Co by platilo, kdybych teď uložil.  Jedno místo pro celý tab. */
@@ -581,6 +718,27 @@
        jen odhadnutá, řekne se to a jede se dál. */
     function mdStat(r, days) {
       var box = el('div', 'md-stats');
+      /* U35: `operator` split into `chat` + `robot` tonight, and the spend
+         from before the split stayed on the old name — so the core reports
+         the SAME $9.40 / 502 calls on `chat` and on `operator`.  Both are
+         right; adding them up is not.  The panel showed both as peer rows
+         and the owner read double what the night had cost him.  A role the
+         core marks `legacy: true` (with `replaced_by`) therefore states
+         WHERE its money is counted instead of counting it again — one
+         number, one place. */
+      if (r.legacy) {
+        var whom = (r.replaced_by || []).map(function (x) {
+          return MD_ROLE_EN[x] || x;
+        });
+        var lg = el('span', 'md-s',
+          whom.length
+            ? 'spend before the split is counted under “' + whom[0] + '” — ' +
+              'not added again here'
+            : 'replaced — its spend is counted under the role that took over');
+        lg.title = r.note || '';
+        box.appendChild(lg);
+        return box;
+      }
       var calls = Number(r.calls_7d || 0);
       if (!calls && !Number(r.usd_7d || 0)) {
         var none = el('span', 'md-s', 'no runs in the last ' + days + ' d');
@@ -598,9 +756,17 @@
           'length of the prompt. An estimate does not stop you from saving.'
         : (est > 0 ? mdMoney(est) + ' of that is the core’s own estimate.'
                    : 'Billed from what the provider reported.');
+      /* Both numbers say where they come from, so VAgent.auditNumbers() can
+         re-ask the core and prove them.  U35 was two cards quoting one
+         ledger row; a number that carries its own pointer cannot be added to
+         itself unnoticed again. */
+      money.setAttribute('data-src', '/api/models#roles[role=' + r.role + '].usd_7d');
+      money.setAttribute('data-num', String(Number(r.usd_7d || 0)));
       box.appendChild(money);
       var c = el('span', 'md-s', calls + ' call' + (calls === 1 ? '' : 's'));
       c.title = 'How many times this kind of work asked a model.';
+      c.setAttribute('data-src', '/api/models#roles[role=' + r.role + '].calls_7d');
+      c.setAttribute('data-num', String(calls));
       box.appendChild(c);
       var t = el('span', 'md-s', mdTokens(r.tokens_in_7d) + ' in · ' +
                                 mdTokens(r.tokens_out_7d) + ' out');
@@ -649,14 +815,36 @@
 
       // ---- co na čem běží
       mdBox.appendChild(el('div', 'md-h', 'What runs on what'));
-      (mdData.roles || []).forEach(function (r) {
+      // U35: a replaced role goes last — it is still live while it is set,
+      // so it cannot be hidden, but it must not sit among the roles the
+      // owner is meant to be choosing between.
+      var mdRoles = (mdData.roles || []).slice().sort(function (a, b) {
+        return (a.legacy ? 1 : 0) - (b.legacy ? 1 : 0);
+      });
+      mdRoles.forEach(function (r) {
         var cur = plan.roles[r.role];
         var p = mdBackendRow(cur.backend);
         var row = el('div', 'md-row');
         var head = el('div', 'md-rh');
         var nm = el('span', 'md-name', mdRoleName(r));
-        if (r.label && r.label !== mdRoleName(r)) { nm.title = r.label; }
+        var coreLab = mdRoleLabel(r);
+        if (coreLab) { nm.title = 'The core calls this role: ' + coreLab; }
         head.appendChild(nm);
+        if (!mdRoleKnown(r)) {
+          /* U43: an unknown role used to borrow the core's Czech sentence and
+             wear it as an English name.  Now the frame admits it has no name
+             for it, and the core's words are shown AS the core's words. */
+          var unk = el('span', 'md-lock', 'unknown role');
+          unk.title = 'This panel has no English name for `' + r.role + '`. ' +
+            'The core’s own label is printed next to it, word for word, ' +
+            'instead of being passed off as this panel’s.';
+          head.appendChild(unk);
+          if (coreLab) {
+            var q = el('span', 'md-ven', '„' + coreLab + '” (core)');
+            q.title = 'The core’s own label for this role, quoted.';
+            head.appendChild(q);
+          }
+        }
         var ven = mdVendorOf(cur.backend, plan);
         var vch = el('span', 'md-ven', ven || 'vendor unknown');
         vch.title = ven
@@ -676,6 +864,12 @@
           var jd = el('span', 'md-badge', 'judge');
           jd.title = 'Must not share a vendor with the code work.';
           head.appendChild(jd);
+        }
+        if (r.legacy) {
+          var lgb = el('span', 'md-lock', 'replaced');
+          lgb.title = r.note ||
+            'Superseded by newer roles; still applies while it is set.';
+          head.appendChild(lgb);
         }
         row.appendChild(head);
         var note = MD_NOTE_EN[r.role] || '';
@@ -883,19 +1077,39 @@
       });
 
       // ---- pravidla, lidsky
+      /* U35, and the half that matters more than the number: the core sends
+         its rules HERE TO BE SHOWN TO THE OWNER, and the panel was pushing
+         them into a `title=` tooltip and printing three sentences of its own
+         instead.  So when the core added a fourth rule tonight — „chat and
+         driving the robot are TWO independent settings" — the owner could
+         not see it, and a panel that silently drops a sentence the server
+         asked it to show is worse than a panel with no rules at all,
+         because it looks like there are none.  Every rule the core sends is
+         printed, in the core's own words (they are written for a person,
+         and a paraphrased warning is a warning on its way to being lost).
+         The panel's own three sentences stay only as a fallback for a core
+         that sends none. */
       var rules = el('div', 'md-rules');
-      if (mdData.rules && mdData.rules.length) {
-        rules.title = 'The core’s own wording:\n• ' +
-          mdData.rules.map(function (x) {
-            return typeof x === 'string' ? x : (x && x.text) || '';
-          }).join('\n• ');
+      var coreRules = (mdData.rules || []).map(function (x) {
+        return typeof x === 'string' ? x : (x && (x.text || x.rule)) || '';
+      }).filter(function (t) { return !!t; });
+      if (coreRules.length) {
+        // U36: the frame stays English and says whose words follow, so the
+        // core's Czech sentences read as a quotation, not as a tab that
+        // could not make up its mind which language it is in.
+        var rh = el('div', 'md-rulehead', 'Rules the core enforces, in its own words');
+        rules.appendChild(rh);
+        coreRules.forEach(function (t) {
+          rules.appendChild(el('div', 'md-rule', t));
+        });
+      } else {
+        [ 'The judge may not come from the same vendor as the code work — ' +
+          'otherwise the agent marks its own homework.',
+          'Work that touches the robot gets no stand-in model, from here or ' +
+          'from a config file.',
+          'A model is picked from a list; free text is refused.'
+        ].forEach(function (t) { rules.appendChild(el('div', 'md-rule', t)); });
       }
-      [ 'The judge may not come from the same vendor as the code work — ' +
-        'otherwise the agent marks its own homework.',
-        'Work that touches the robot gets no stand-in model, from here or ' +
-        'from a config file.',
-        'A model is picked from a list; free text is refused.'
-      ].forEach(function (t) { rules.appendChild(el('div', 'md-rule', t)); });
       mdBox.appendChild(rules);
 
       // ---- uložení
@@ -1034,6 +1248,7 @@
 
     // ---- blok: Robot ------------------------------------------------------
     var robotBox, robotImg, robotImgStamp = 0, robotImgNote, mapRefreshBtn;
+    var robotSeen = {};     // U46: fields this panel has EVER been told
     VA.registerBlock({
       id: 'robot', title: 'Robot', order: 30,
       render: function (root) {
@@ -1062,6 +1277,47 @@
 
         wrap.appendChild(robotImg); wrap.appendChild(robotImgNote);
         wrap.appendChild(mapRefreshBtn);
+
+        /* „Součet a stáří jsou dvě místa, kde panel přestává citovat a
+           začíná tvrdit — a obě dnes v noci lhaly." (tester, round 3)
+           Every number in this panel now carries `data-src`, so the panel
+           can be asked to check itself against the core: it re-asks each
+           endpoint it is quoting and reports every number that no longer
+           matches.  Same thing as `VAgent.auditNumbers()` in the console —
+           this button is here so the OWNER can run it too. */
+        var auditBtn = el('button', null, 'Check numbers');
+        auditBtn.type = 'button';
+        auditBtn.className = 'btn btn-sm btn-outline-secondary';
+        auditBtn.style.cssText = 'margin:.35em 0 0 .35em;font-size:.75em;min-height:2em';
+        auditBtn.title = 'Re-ask the core for every number this panel is ' +
+          'showing and say which no longer match. Reads only.';
+        var auditOut = el('div', null, '');
+        auditOut.style.cssText = 'font-size:.75em;margin-top:.3em;white-space:pre-wrap';
+        auditBtn.addEventListener('click', function () {
+          auditBtn.disabled = true;
+          auditOut.textContent = 'checking…';
+          auditOut.className = '';
+          VA.auditNumbers().then(function (rep) {
+            auditBtn.disabled = false;
+            var bad = rep.mismatches.length;
+            auditOut.className = bad ? 'vagent-unknown' : '';
+            auditOut.textContent = rep.checked + ' numbers checked against the ' +
+              'core · ' + bad + ' mismatch' + (bad === 1 ? '' : 'es') +
+              (rep.unreadable.length ? ' · ' + rep.unreadable.length + ' could not be read' : '') +
+              (rep.derived.length ? ' · ' + rep.derived.length + ' computed here (listed in the console)' : '') +
+              (bad ? '\n' + rep.mismatches.map(function (m) {
+                return m.src + ': panel ' + m.drawn + ', core ' + m.core;
+              }).join('\n') +
+              '\nA mismatch is either a wrong number or a stale one — read it ' +
+              'with the age shown next to it.' : '');
+          }, function (e) {
+            auditBtn.disabled = false;
+            auditOut.className = 'vagent-unknown';
+            auditOut.textContent = 'the audit itself could not run: ' + e;
+          });
+        });
+        wrap.appendChild(auditBtn);
+        wrap.appendChild(auditOut);
         root.appendChild(wrap);
         showLastMapview();
         askCachedMapview(VA);
@@ -1071,6 +1327,7 @@
     });
 
     function drawRobot(VA) {
+      tickAges();          // ages are re-read on every draw, not remembered
       var st = (VA.state && (VA.state.robot || VA.state.state)) || null;
       if (!robotBox) return;
       if (!st) {
@@ -1082,19 +1339,55 @@
       }
       robotBox.textContent = '';
       var age = VA.state.age_s != null ? VA.state.age_s : null;
-      robotBox.appendChild(row('Battery', st.battery_pct != null ? st.battery_pct + ' %' : null));
+      robotBox.appendChild(row('Battery',
+        VA.num(st.battery_pct, '/api/state#state.battery_pct', {unit: ' %'})));
       robotBox.appendChild(row('In dock', st.in_dock === true ? 'yes' : st.in_dock === false ? 'no' : null));
       var rtk = st.rtk && typeof st.rtk === 'object'
         ? (st.rtk.fix || '?') + (st.rtk.sats != null ? ' (' + st.rtk.sats + ' sat)' : '')
         : st.rtk;
       robotBox.appendChild(row('RTK', rtk || null));
       robotBox.appendChild(row('Motors', st.motor_power === true ? 'on' : st.motor_power === false ? 'off' : null));
-      if (st.mower && st.mower.moto_rpm != null) robotBox.appendChild(row('Mower (RPM)', st.mower.moto_rpm));
-      if (st.battery_pct != null && st.charger) robotBox.appendChild(row('Charging', st.charger));
-      if (st.map || st.active_map) robotBox.appendChild(row('Map', st.map || st.active_map));
+      optRow('mower', 'Mower (RPM)', (st.mower && st.mower.moto_rpm != null) ? st.mower.moto_rpm : null);
+      optRow('charging', 'Charging', (st.battery_pct != null && st.charger) ? st.charger : null);
+      optRow('map', 'Map', st.map || st.active_map || null);
       var rain = st.rain != null ? st.rain : (st.rain_alert ? st.rain_alert.alert : null);
-      if (rain != null) robotBox.appendChild(row('Rain', rain ? 'reported' : 'no'));
-      if (age != null) robotBox.appendChild(row('Measured', Math.round(age) + ' s ago'));
+      optRow('rain', 'Rain', rain == null ? null : (rain ? 'reported' : 'no'));
+
+      /* U40, second place: `age_s` is the age AT THE MOMENT THE CORE
+         ANSWERED.  Printed straight, it stood still — measured „Measured 2 s
+         ago" 45 s after the last answer.  The moment is
+         `VA.state.ts - age_s`, and the row ticks with everything else. */
+      var at = (age != null && VA.state.ts)
+        ? (VA.state.ts / 1000 - Number(age)) : null;
+      if (at != null) {
+        var mv = ageChip(at, {post: ' ago', title:
+          'The core said this reading was ' + Number(age).toFixed(1) + ' s ' +
+          'old when it answered; the rest is time that has passed since.'});
+        mv.setAttribute('data-src', 'derived: /api/state#age_s + time since the answer arrived');
+        robotBox.appendChild(row('Measured', mv));
+      }
+
+      /* U46: a row that vanishes is worse than a row that admits it did not
+         read.  `/api/state` flaps — `active_map` came back as `SITE` once in
+         twelve calls and `null` the other eleven — and the table jumped every
+         five seconds because the Map row appeared and disappeared with it.
+         A field the panel has EVER seen keeps its row from then on; when this
+         answer did not carry it, the row says so.  Same rule the Findings tab
+         already holds: „could not be read" is not „none". */
+      function optRow(key, label, value) {
+        if (value != null && value !== '') { robotSeen[key] = true; }
+        if (value == null || value === '') {
+          if (!robotSeen[key]) { return; }
+          var r = row(label, '—');
+          r.lastChild.className = 'vagent-unknown';
+          r.title = 'This answer from the core did not carry ' + label.toLowerCase() +
+                    '. It was there before, so the row stays — an empty line ' +
+                    'is not the same as „no map".';
+          robotBox.appendChild(r);
+          return;
+        }
+        robotBox.appendChild(row(label, value));
+      }
     }
 
     /* Pohled do mapy je NÁSTROJ AGENTA, ne widget na stopkách.
@@ -1109,10 +1402,14 @@
     var mapviewBusy = false;
     var LS_MAPVIEW = 'vitulus_agent_mapview_last';   // {url, ts, layers}
 
+    /* U37: `Math.round(s/3600)` turned 159 minutes into „3 h old" — the
+       age of a picture is exactly the thing that must not be rounded away
+       from what it is.  Below ten hours it keeps a decimal. */
     function mapAge(ts) {
       var s = Math.max(0, Math.round((Date.now() - ts) / 1000));
       if (s < 90) return s + ' s old';
       if (s < 5400) return Math.round(s / 60) + ' min old';
+      if (s < 36000) return (s / 3600).toFixed(1) + ' h old';
       return Math.round(s / 3600) + ' h old';
     }
 
@@ -1125,15 +1422,41 @@
        „levný dotaz" byl tichý návrat k tomu, co jsme v kole 1 vypnuli. */
     var LS_MAPCACHE = 'vitulus_agent_mapview_cacheable';
 
+    /* U37: the „this core cannot do ?cached=1" flag was a LATCH WITH NO WAY
+       BACK — written once, read forever, never cleared.  One answer from an
+       older core (or one that happened to answer oddly) and that browser
+       never asked for the cheap cached render again: the panel sat on a
+       159-minute-old picture while a 107-minute-old one lay finished on the
+       robot, and nothing short of clearing localStorage by hand could undo
+       it.  A conclusion drawn from one reply is allowed to be wrong, so it
+       expires; the plain '0' written by the old code is dropped on sight. */
+    var MAPCACHE_RETRY_S = 600;          // ask again after ten minutes
+
+    function mapCacheBlocked() {
+      var raw = null;
+      try { raw = localStorage.getItem(LS_MAPCACHE); } catch (e) {}
+      if (!raw || raw === '1') { return false; }
+      if (raw === '0') {                 // the old permanent latch — let it go
+        try { localStorage.removeItem(LS_MAPCACHE); } catch (e) {}
+        return false;
+      }
+      var o = null;
+      try { o = JSON.parse(raw); } catch (e) {}
+      if (!o || !o.no) { return false; }
+      return (Date.now() / 1000 - (o.ts || 0)) < MAPCACHE_RETRY_S;
+    }
+
     function askCachedMapview(VA) {
       if (!robotImg) return;
-      var known = null;
-      try { known = localStorage.getItem(LS_MAPCACHE); } catch (e) {}
-      if (known === '0') return;
+      if (mapCacheBlocked()) return;
       VA.api('/api/mapview?cached=1', {timeout_ms: 2000}).then(function (data) {
         if (!data || data.cached === undefined) {
-          // an older core rendered instead of answering from cache
-          try { localStorage.setItem(LS_MAPCACHE, '0'); } catch (e) {}
+          // an older core rendered instead of answering from cache.  Time
+          // stamped, not permanent: the core gets restarted and learns.
+          try {
+            localStorage.setItem(LS_MAPCACHE,
+              JSON.stringify({no: true, ts: Date.now() / 1000}));
+          } catch (e) {}
           return;
         }
         try { localStorage.setItem(LS_MAPCACHE, '1'); } catch (e) {}
@@ -1417,7 +1740,8 @@
       var findings = data.findings || [];
       var senses = data.senses || {}, selfcare = data.selfcare || {};
       var headSig = fp([senses.muted, selfcare.repairs_enabled, data.next_visit,
-                        selfcare.last_repair, doctorFilter, showResolved]);
+                        selfcare.last_repair, doctorFilter, showResolved,
+                        data.counts]);   // U33: the count line lives up here
       var visible = findings.filter(function (f) {
         return (showResolved || !isResolved(f)) && (doctorFilter === 'all' || groupOf(f) === doctorFilter);
       });
@@ -1522,8 +1846,16 @@
       var chips = el('div', 'vz-chips');
       ['all', 'senses', 'selfcare', 'log'].forEach(function (g) {
         if (g !== 'all' && !counts[g]) return;
+        /* U47: this chip said „all 12" one line above „114 open".  Both
+           numbers were true and the second one was the honest correction
+           added by U33 — but „all" means all, and all is 114.  The chip
+           filters the LIST, so it says what the list is: what is shown. */
         var c = el('button', 'vagent-fchip' + (doctorFilter === g ? ' on' : ''),
-          (g === 'all' ? 'all' : GROUP[g].label) + ' ' + counts[g]);
+          (g === 'all' ? 'shown' : GROUP[g].label) + ' ' + counts[g]);
+        if (g === 'all') {
+          c.title = 'Everything this grouped view holds — not every finding ' +
+                    'the agent has. The real totals are on the line below.';
+        }
         c.type = 'button';
         c.addEventListener('click', function () {
           doctorFilter = g; lsSet('vitulus_agent_zdravi_filter', g); drawDoctor(VA);
@@ -1541,6 +1873,45 @@
         chips.appendChild(rc);
       }
       doctorBox.appendChild(chips);
+
+      /* U33: „all 12" was the number of ROWS this endpoint grouped, and the
+         panel had no other number, so it read as „twelve findings exist".
+         At that moment the agent's own ledger held 113 open — and the chat,
+         a tab away, was saying „0 otevřených nálezů".  One word, three
+         numbers.  The core now states the authoritative figure in `counts`
+         (`source: v2:work.kind=finding`); every number the panel prints
+         ABOUT HOW MANY findings there are comes from there, and the list
+         below stays what it honestly is: a grouped view of some of them.
+         When the core cannot reach v2 it sends `open: null` — and a number
+         that could not be read is printed as unreadable, never as 0.  „Not
+         available" and „none" are opposite facts and must not look alike. */
+      var cnt = data.counts;
+      if (cnt) {
+        var cl = el('div', 'vz-counts');
+        var gb = el('span');
+        gb.appendChild(VA.num(base.length,
+          'derived: /api/doctor#findings, grouped and filtered by this panel'));
+        gb.appendChild(document.createTextNode(' grouped below'));
+        cl.appendChild(gb);
+        if (cnt.open === null || cnt.open === undefined) {
+          cl.appendChild(el('span', 'vz-unknown',
+            'open: could not be read — this is not a zero'));
+        } else {
+          var ob = el('span');
+          ob.appendChild(VA.num(cnt.open, '/api/doctor#counts.open'));
+          ob.appendChild(document.createTextNode(' open'));
+          if (cnt.total) {
+            ob.appendChild(document.createTextNode(' · '));
+            ob.appendChild(VA.num(cnt.total, '/api/doctor#counts.total'));
+            ob.appendChild(document.createTextNode(' ever'));
+          }
+          cl.appendChild(ob);
+        }
+        cl.title = 'Counted by the agent itself' +
+          (cnt.source ? ' (' + cnt.source + ')' : '') +
+          '. The list below groups repeats, so it is shorter than the count.';
+        doctorBox.appendChild(cl);
+      }
 
       // list: severity first (critical on top), then most recent; Today / Earlier
       var shown = base.filter(function (f) {
@@ -2253,6 +2624,378 @@
         w.title = fmtAbs(entry.ts);
         line.appendChild(w);
         growthBox.appendChild(line);
+      });
+    }
+
+    // ---- blok: Nástroje robota (karty z manifestu) ------------------------
+    /* Majitel: „Vsechny tyhle nastroje jsou v tabu Robot a jsou tam
+       prezentovany jejich vysledky, nebo tam jsou ovladat.  Jsou to custom
+       panely pro kazdy tool dle toho jak je udelan."
+       Custom panel per tool — but NOT a panel written per tool.  The card is
+       DERIVED from the manifest the core serves at /api/v2/tools: the form
+       comes from `vstupy` (five input types -> five widgets), the result
+       from `vystup` (five output kinds -> five renderers).  A tool that
+       lands tomorrow gets its card without anyone opening this file; a tool
+       that needs something genuinely its own may bring its own renderer, but
+       that is the exception, not the rule.  Data shape: reports/kachna/
+       oprava_videni.md §4.
+
+       Two things this card must not do:
+       · It must not become a way around the dock lock.  `druh: pohled` and
+         `cidlo` are reading and are free; anything that touches the machine
+         (`touches != read`) gets NO Run button here at all, and the core
+         refuses it with 403 even if one appeared.  Movement is unlocked by
+         the owner clicking in the dock card, and nowhere else.
+       · It must not hide how old a picture is.  Tonight the agent called a
+         five-hour-old view „about ten minutes old".  The age is printed next
+         to the image as a chip, from `age_s`, and the core's own sentence
+         („POŘÍZENO před 42 s", which also separates EMPTY from UNREADABLE)
+         is printed under it verbatim.
+       And no polling: these run on a click.  U2 was born of a panel that
+       re-rendered the map every 15 s for 4.9 s of the robot's CPU. */
+    var toolsBox = null, toolsData = null, toolsState = null,
+        toolsArgs = {}, toolsResult = {}, toolsBusy = {};
+
+    var TOOL_KIND_EN = {pohled: 'view', cidlo: 'sensor', ovladani: 'control'};
+    var TOOL_TOUCH_EN = {read: 'reads only', code: 'writes code',
+                         robot: 'touches the machine'};
+    var TOOL_AUTHOR_EN = {dodano: 'shipped', agent: 'built by the agent',
+                          majitel: 'asked for by the owner'};
+
+    VA.registerBlock({
+      id: 'tools', title: 'Robot tools', order: 55,
+      render: function (root) { toolsBox = root; drawTools(VA); loadTools(VA); },
+      onOpen: function () { if (toolsState !== 'ok') { loadTools(VA); } }
+    });
+
+    function loadTools(VA) {
+      VA.api('/api/v2/tools', {timeout_ms: 12000}).then(function (d) {
+        if (!d || d.agent_down) { return; }
+        if (d.ok === false || !d.tools) { toolsState = 'unsupported'; }
+        else { toolsState = 'ok'; toolsData = d; }
+        drawTools(VA);
+      }).catch(function (e) {
+        toolsState = /HTTP 404/.test(String(e)) ? 'unsupported' : 'down';
+        drawTools(VA);
+      });
+    }
+
+    function toolArg(id, name, dflt) {
+      var a = toolsArgs[id] || (toolsArgs[id] = {});
+      if (!(name in a)) { a[name] = dflt; }
+      return a[name];
+    }
+
+    /* U45: the form showed the owner VARIABLE NAMES — `LAYERS`, `SPAN_M`,
+       `FRESH` — because the manifest carries only `jmeno`, `typ` and
+       `vychozi` for an input, and the panel printed the key (in capitals, at
+       that).  `SPAN_M` does not tell anyone it is a size in metres.
+       The manifest is the right place for a human label and the core has
+       been asked for one (`popis` on an input; see the report).  Until it
+       arrives the panel derives a readable phrase by RULE, not per tool:
+       underscores become spaces and a trailing unit becomes a real unit in
+       brackets.  The key itself stays reachable in the tooltip, because the
+       owner sometimes needs to know exactly which argument this is. */
+    var INPUT_UNIT = {m: 'm', cm: 'cm', mm: 'mm', km: 'km', s: 's', ms: 'ms',
+                      min: 'min', h: 'h', hz: 'Hz', px: 'px', deg: '°',
+                      pct: '%', kb: 'kB', mb: 'MB'};
+    function toolInputLabel(v) {
+      // a label the core wrote always wins, in the core's own words
+      if (v.popis) { return String(v.popis); }
+      if (v.nazev) { return String(v.nazev); }
+      if (v.label) { return String(v.label); }
+      var parts = String(v.jmeno == null ? '' : v.jmeno).split('_');
+      var unit = parts.length > 1
+        ? INPUT_UNIT[parts[parts.length - 1].toLowerCase()] : null;
+      if (unit) { parts.pop(); }
+      var words = parts.join(' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+      return (words || String(v.jmeno || '?')) + (unit ? ' (' + unit + ')' : '');
+    }
+
+    /* vstupy -> widget.  Five types, five widgets, nothing per tool. */
+    function toolInput(t, v) {
+      var wrap = el('label', 'tl-in');
+      var lab = el('span', 'tl-inl', toolInputLabel(v));
+      lab.title = 'argument `' + String(v.jmeno) + '`' +
+        (v.popis || v.nazev || v.label ? ' — named by the core'
+                                       : ' — the manifest carries no label ' +
+                                         'for it yet, so this name is derived ' +
+                                         'from the key');
+      wrap.appendChild(lab);
+      var typ = String(v.typ || 'text');
+      var node;
+      if (typ === 'ano_ne') {
+        node = el('input'); node.type = 'checkbox';
+        node.checked = !!toolArg(t.id, v.jmeno, !!v.vychozi);
+        node.addEventListener('change', function () {
+          toolsArgs[t.id][v.jmeno] = node.checked;
+        });
+      } else if (typ === 'cislo') {
+        node = el('input'); node.type = 'number';
+        node.value = toolArg(t.id, v.jmeno, v.vychozi == null ? '' : v.vychozi);
+        node.addEventListener('input', function () {
+          toolsArgs[t.id][v.jmeno] = node.value === '' ? null : Number(node.value);
+        });
+      } else if (typ === 'vyber') {
+        node = el('select');
+        (v.z || []).forEach(function (o) {
+          var op = el('option', null, String(o)); op.value = String(o);
+          node.appendChild(op);
+        });
+        node.value = String(toolArg(t.id, v.jmeno, v.vychozi));
+        node.addEventListener('change', function () {
+          toolsArgs[t.id][v.jmeno] = node.value;
+        });
+      } else if (typ === 'vyber_vice') {
+        // chips: a multi-select box on a phone is a trap, chips are not
+        node = el('div', 'tl-chips');
+        var chosen = toolArg(t.id, v.jmeno,
+          Array.isArray(v.vychozi) ? v.vychozi.slice() : []);
+        (v.z || []).forEach(function (o) {
+          var on = chosen.indexOf(o) >= 0;
+          var c = el('button', 'vagent-fchip' + (on ? ' on' : ''), String(o));
+          c.type = 'button';
+          c.addEventListener('click', function () {
+            var cur = toolsArgs[t.id][v.jmeno];
+            var i = cur.indexOf(o);
+            if (i >= 0) { cur.splice(i, 1); c.classList.remove('on'); }
+            else { cur.push(o); c.classList.add('on'); }
+          });
+          node.appendChild(c);
+        });
+      } else {
+        node = el('input'); node.type = 'text';
+        node.value = toolArg(t.id, v.jmeno, v.vychozi == null ? '' : v.vychozi);
+        node.addEventListener('input', function () {
+          toolsArgs[t.id][v.jmeno] = node.value;
+        });
+      }
+      node.className = (node.className ? node.className + ' ' : '') + 'tl-inf';
+      wrap.appendChild(node);
+      return wrap;
+    }
+
+    /* vystup -> renderer.  Five kinds, five renderers. */
+    function toolResult(t, res) {
+      var box = el('div', 'tl-res');
+      if (!res) { return box; }
+      if (res.ok === false || res.error) {
+        // the core writes its refusals as finished Czech sentences, for the
+        // owner to read — printed word for word, never summarised
+        var er = el('div', 'tl-err', String(res.error || 'the tool failed'));
+        box.appendChild(er);
+        return box;
+      }
+      var kind = String(res.kind || t.vystup || 'text');
+      if (kind === 'obrazek') {
+        if (res.data_uri) {
+          var img = el('img', 'tl-img');
+          img.src = res.data_uri;
+          img.alt = t.nazev || t.id;
+          img.addEventListener('click', function () {
+            var w = window.open('', '_blank', 'noopener');
+            if (w) { w.document.write('<img src="' + res.data_uri + '">'); }
+          });
+          box.appendChild(img);
+        } else {
+          box.appendChild(el('div', 'vagent-empty',
+            'the picture is too big to send inline — the core kept it on disk'));
+        }
+        // HOW OLD IT IS, always, next to the picture — and it has to TICK.
+        // U40: this chip used to rebuild the capture moment out of the length
+        // the core sent, as if the answer had arrived this instant, so it
+        // froze on „taken 0 s ago" over a picture two minutes old.  The
+        // moment now comes from when the answer really landed (`__at`) and
+        // the chip re-reads the clock every second.
+        var age = el('div', 'tl-age');
+        var ageS = (res.age_s == null) ? null : Number(res.age_s);
+        var at = capturedAt(res, ageS);
+        var chip = ageChip(at, {
+          pre: 'taken ', post: ' ago', warnS: 120,
+          title: 'Taken ' + (fmtAbs(at) || '?') + '. The core measured ' +
+                 ageS + ' s between the capture and its answer; the rest of ' +
+                 'this number is time that has passed since.'
+        });
+        chip.setAttribute('data-src', 'derived: /api/v2/tools/*/run#age_s + time since __at');
+        age.appendChild(chip);
+        if (res.cache) {
+          var ch = el('span', 'tl-s', res.cache === 'hit'
+            ? 'not redrawn — nothing had changed' : 'drawn now');
+          ch.title = 'cache: ' + res.cache;
+          age.appendChild(ch);
+        }
+        if (res.render_s) {
+          age.appendChild(el('span', 'tl-s',
+            'took ' + Number(res.render_s).toFixed(1) + ' s of the robot'));
+        }
+        box.appendChild(age);
+      } else if (kind === 'tabulka') {
+        var cols = res.sloupce || [], rows = res.radky || [];
+        var scroll = el('div', 'tl-tablewrap');
+        var tb = el('table', 'tl-table');
+        if (cols.length) {
+          var tr = el('tr');
+          cols.forEach(function (c) { tr.appendChild(el('th', null, String(c))); });
+          tb.appendChild(tr);
+        }
+        rows.forEach(function (r) {
+          var tr2 = el('tr');
+          (r || []).forEach(function (c) {
+            tr2.appendChild(el('td', null, c == null ? '—' : String(c)));
+          });
+          tb.appendChild(tr2);
+        });
+        scroll.appendChild(tb);
+        box.appendChild(scroll);
+      } else if (kind === 'cislo') {
+        var val = (res.value == null) ? res.cislo : res.value;
+        box.appendChild(el('div', 'tl-num', val == null ? '—' : String(val)));
+      } else if (kind === 'vrstva_do_mapy') {
+        box.appendChild(el('div', 'vagent-empty',
+          'this tool draws into the map, and the panel cannot put it there ' +
+          'yet — the numbers it returned are below'));
+        box.appendChild(el('pre', 'tl-pre', fp(res)));
+      } else {
+        box.appendChild(el('div', 'tl-text', String(res.text || res.value || '')));
+      }
+      // the core's own sentence about the result — carries the age and the
+      // difference between EMPTY (read, nothing there) and UNREADABLE
+      var caption = res.summary ||
+        (kind !== 'text' && res.text ? res.text : '');
+      if (caption) { box.appendChild(el('div', 'tl-sum', String(caption))); }
+      return box;
+    }
+
+    function runTool(VA, t) {
+      if (toolsBusy[t.id]) { return; }
+      toolsBusy[t.id] = true;
+      /* `force`, and it matters: drawTools() otherwise defers while the box
+         is under the cursor (interacting() counts :hover), and after a click
+         on Run the cursor IS on the card — so the answer to the owner's own
+         click would never be drawn.  The deferral exists to protect what he
+         is doing; this IS what he is doing. */
+      drawTools(VA, true);
+      VA.api('/api/v2/tools/' + encodeURIComponent(t.id) + '/run',
+             {body: {args: toolsArgs[t.id] || {}}, timeout_ms: 60000,
+              keep_error_body: true})
+        .then(function (d) { toolsResult[t.id] = d || {ok: false, error: 'no answer'}; })
+        .catch(function (e) {
+          var body = e && e.body;
+          toolsResult[t.id] = {ok: false,
+            error: (body && (body.error || body.problems)) || String(e)};
+        })
+        .then(function () { toolsBusy[t.id] = false; drawTools(VA, true); });
+    }
+
+    function drawTools(VA, force) {
+      if (!toolsBox) { return; }
+      tickAges();
+      if (!force && interacting(toolsBox)) {
+        whenIdle('tools', toolsBox, function () { drawTools(VA); });
+        return;
+      }
+      toolsBox.textContent = '';
+      if (toolsState === 'unsupported') {
+        toolsBox.appendChild(el('div', 'vagent-empty',
+          'This robot’s agent does not serve the tool manifests yet ' +
+          '(GET /api/v2/tools). The tools exist and the core knows how to ' +
+          'run them; the process that is running was started before they ' +
+          'landed, so there is nothing to draw here until it is restarted.'));
+        return;
+      }
+      if (toolsState === 'down') {
+        apiUnavailable(toolsBox, 'tools', 'down');
+        return;
+      }
+      if (!toolsData) {
+        toolsBox.appendChild(el('div', 'vagent-empty', 'Reading the tools…'));
+        return;
+      }
+      // a broken manifest must not take the others down with it
+      (toolsData.problems || []).forEach(function (p) {
+        var w = el('div', 'tl-problem', String(p));
+        toolsBox.appendChild(w);
+      });
+      var list = toolsData.tools || [];
+      if (!list.length) {
+        toolsBox.appendChild(el('div', 'vagent-empty', 'No tool has a manifest yet.'));
+        return;
+      }
+      list.forEach(function (t) {
+        var card = el('details', 'tl-card');
+        card.open = lsGet('vitulus_agent_tool_' + t.id) === '1';
+        card.addEventListener('toggle', function () {
+          lsSet('vitulus_agent_tool_' + t.id, card.open ? '1' : '0');
+        });
+        var sum = el('summary');
+        sum.appendChild(el('span', 'tl-name', t.nazev || t.id));
+        sum.appendChild(el('span', 'vagent-pill queued',
+          TOOL_KIND_EN[t.druh] || t.druh || '?'));
+        var tp = el('span', 'vagent-pill ' + (t.touches === 'read' ? 'done' : 'failed'),
+                    TOOL_TOUCH_EN[t.touches] || t.touches || '?');
+        tp.title = t.touches === 'read'
+          ? 'Reading only — it cannot move anything, so it needs no permission.'
+          : 'This one touches the machine. It is not run from here: it goes ' +
+            'through the gate and the dock lock, which only the owner opens.';
+        sum.appendChild(tp);
+        // the account is what tells a live tool from a dead one
+        var acc = t.ucet || null;
+        var ab = el('span', 'tl-acc');
+        if (!acc || !acc.runs) {
+          ab.textContent = 'never run';
+          ab.title = 'No run recorded — nobody knows whether it still works.';
+          ab.className += ' cold';
+        } else {
+          ab.textContent = acc.runs + ' run' + (acc.runs === 1 ? '' : 's') +
+            (acc.failed ? ' · ' + acc.failed + ' failed' : '');
+          if (acc.failed) { ab.className += ' bad'; }
+          ab.title = 'last success ' + (acc.last_ok ? fmtAgo(acc.last_ok) + ' ago' : 'never') +
+            (acc.last_fail ? ' · last failure ' + fmtAgo(acc.last_fail) + ' ago' : '');
+        }
+        sum.appendChild(ab);
+        card.appendChild(sum);
+
+        var body = el('div', 'tl-body');
+        if (t.popis) { body.appendChild(el('div', 'tl-desc', String(t.popis))); }
+
+        var meta = el('div', 'tl-meta');
+        meta.appendChild(el('span', 'tl-s', TOOL_AUTHOR_EN[t.autor] || t.autor || ''));
+        if (t.test) {
+          var te = el('span', 'tl-s', 'has a test');
+          te.title = t.test;
+          meta.appendChild(te);
+        } else {
+          var nt = el('span', 'tl-s cold', 'no test');
+          nt.title = 'The manifest names no test — nothing would notice if it broke.';
+          meta.appendChild(nt);
+        }
+        body.appendChild(meta);
+
+        if ((t.vstupy || []).length) {
+          var form = el('div', 'tl-form');
+          t.vstupy.forEach(function (v) { form.appendChild(toolInput(t, v)); });
+          body.appendChild(form);
+        }
+
+        var bar = el('div', 'tl-bar');
+        if (t.runnable) {
+          var run = el('button', 'vagent-fchip tl-run',
+                       toolsBusy[t.id] ? 'Running…' : 'Run');
+          run.type = 'button';
+          run.disabled = !!toolsBusy[t.id];
+          run.addEventListener('click', function () { runTool(VA, t); });
+          bar.appendChild(run);
+          bar.appendChild(el('span', 'tl-s', 'runs on a click — never on its own'));
+        } else {
+          var no = el('span', 'tl-s cold',
+            'not run from here — it touches the machine, so it goes through ' +
+            'the gate and the dock lock');
+          bar.appendChild(no);
+        }
+        body.appendChild(bar);
+        if (toolsResult[t.id]) { body.appendChild(toolResult(t, toolsResult[t.id])); }
+        card.appendChild(body);
+        toolsBox.appendChild(card);
       });
     }
   }
