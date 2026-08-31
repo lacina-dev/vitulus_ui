@@ -20,7 +20,16 @@
 (function () {
   'use strict';
 
-  var AGENT_HTTP = 'http://' + location.hostname + ':8088';
+  /* The base is resolved by agent_chat.js (the same-origin /agent proxy under
+     webnode), so ask it every time instead of guessing here. */
+  var AGENT_HTTP = '/agent';                     // used only before VAgent loads
+  function agentBase(VA) {
+    if (VA && typeof VA.httpBase === 'function') { return VA.httpBase(); }
+    if (window.VAgent && typeof window.VAgent.httpBase === 'function') {
+      return window.VAgent.httpBase();
+    }
+    return AGENT_HTTP;
+  }
 
   // ---- registrace ---------------------------------------------------------
   var registered = false;
@@ -156,15 +165,875 @@
   }
   function apiUnavailable(box, what, err) {
     var e = el('div', 'vagent-empty',
-      what + ': ' + (/HTTP 404/.test(String(err)) ? 'API not available yet' : 'agent (:8088) not responding'));
+      what + ': ' + (/HTTP 404/.test(String(err)) ? 'API not available yet' : 'the agent (/agent) is not responding'));
     box.textContent = '';
     box.appendChild(e);
   }
 
   function register(VA) {
 
+    // ---- blok: Dokový zámek ----------------------------------------------
+    /* Rozhodnutí majitele (30. 8.): „Dokovy zamek muzu odemknout jen ja
+       kliknutim v ui."  Tahle karta je to kliknutí — a proto ukazuje ROZSAH,
+       ne sloveso: kterou akci, jak dlouho, kolikrát, kdo to podepisuje.
+       Jednorázové svolení, druhé klepnutí na potvrzení, po použití zaniká.
+       Vynucuje to jádro (v2/ros_wire), tohle je jen lidská půlka. */
+    var dockBox = null, dockTick = null, dockGrantOpen = false;
+
+    VA.registerBlock({
+      id: 'dock', title: 'Dock lock', order: 5,
+      render: function (root) { dockBox = root; drawDock(VA); },
+      onOpen: function () { if (VA.dock) { VA.dock.poll(true); } drawDock(VA); }
+    });
+
+    document.addEventListener('vagent:dock', function () { drawDock(VA); });
+
+    function dockRow(label, value) {
+      var r = el('div', 'dk-r');
+      r.appendChild(el('span', 'dk-l', label));
+      r.appendChild(el('span', 'dk-v', value));
+      return r;
+    }
+
+    function drawDock(VA) {
+      if (!dockBox || !VA.dock) return;
+      var st = VA.dock.state();
+      var rel = st.release;
+      var live = rel && VA.dock.left(rel) > 0 && VA.dock.usesLeft(rel) > 0;
+      /* While the owner is reading WHAT he is about to allow, a 5 s poll must
+         not pull the card out from under him — caught in the browser doing
+         exactly that.  The scope panel stays until he decides or cancels;
+         a release appearing (or the endpoint going away) still wins. */
+      if (dockGrantOpen && !live && st.supported === true) { return; }
+      if (dockTick) { clearInterval(dockTick); dockTick = null; }
+      dockBox.textContent = '';
+
+      var head = el('div', 'dk-h');
+      var pill = el('span', 'dk-pill ' + (live ? 'open' : 'shut'),
+                    live ? 'UNLOCKED' : 'LOCKED');
+      head.appendChild(pill);
+      dockBox.appendChild(head);
+
+      if (st.supported === false) {
+        dockBox.appendChild(el('div', 'dk-note',
+          'The robot stays in the dock. This robot\u2019s agent does not serve ' +
+          'the unlock endpoint yet, so there is nothing to click — and nothing ' +
+          'can move without it.'));
+        return;
+      }
+      if (st.supported === null) {
+        dockBox.appendChild(el('div', 'dk-note', 'Reading the lock\u2026'));
+        return;
+      }
+
+      if (live) {
+        dockBox.appendChild(dockRow('Allowed', (rel.actions || []).join(', ')));
+        dockBox.appendChild(dockRow('Uses left',
+          VA.dock.usesLeft(rel) + ' of ' + (rel.max_runs || 1)));
+        var leftRow = dockRow('Expires in', VA.dock.mmss(VA.dock.left(rel)));
+        dockBox.appendChild(leftRow);
+        dockBox.appendChild(dockRow('Signed by', rel.by || '?'));
+        if (rel.used) {
+          dockBox.appendChild(el('div', 'dk-note',
+            'Already used ' + rel.used + '\u00d7.'));
+        }
+        var back = el('button', 'dk-btn dk-back', 'Lock again');
+        back.type = 'button';
+        back.title = 'Take the permission back now';
+        back.addEventListener('click', function () {
+          back.disabled = true;
+          VA.dock.relock().catch(function () { back.disabled = false; });
+        });
+        dockBox.appendChild(back);
+        // the countdown is display only; the core decides when it is over
+        dockTick = setInterval(function () {
+          var l = VA.dock.left(rel);
+          leftRow.querySelector('.dk-v').textContent = VA.dock.mmss(l);
+          if (l <= 0) { clearInterval(dockTick); dockTick = null; drawDock(VA); }
+        }, 1000);
+        return;
+      }
+
+      dockBox.appendChild(el('div', 'dk-note',
+        'The robot cannot leave the dock. Only you can allow it, only here, ' +
+        'and only for the named moves below \u2014 one go at a time.'));
+      VA.dock.grants().forEach(function (g) {
+        var open = el('button', 'dk-btn', g.button);
+        open.type = 'button';
+        open.title = g.actions.join(' + ');
+        open.addEventListener('click', function () { drawGrant(VA, g); });
+        dockBox.appendChild(open);
+      });
+    }
+
+    /* The scope, written out.  The owner should see WHAT he is allowing,
+       not just a verb — so every field of the grant is on the card before
+       the button that gives it. */
+    function drawGrant(VA, g) {
+      dockGrantOpen = true;
+      dockBox.textContent = '';
+      var head = el('div', 'dk-h');
+      head.appendChild(el('span', 'dk-pill shut', 'LOCKED'));
+      dockBox.appendChild(head);
+      dockBox.appendChild(el('div', 'dk-title', g.title));
+      g.lines.forEach(function (pair) {
+        dockBox.appendChild(dockRow(pair[0], pair[1]));
+      });
+      var until = new Date(Date.now() + g.ttl_s * 1000);
+      dockBox.appendChild(dockRow('Until',
+        ('0' + until.getHours()).slice(-2) + ':' +
+        ('0' + until.getMinutes()).slice(-2)));
+
+      var row = el('div', 'dk-acts');
+      var yes = el('button', 'dk-btn dk-yes', 'Unlock \u2014 tap again to confirm');
+      yes.type = 'button';
+      var armed = false, timer = null;
+      yes.addEventListener('click', function () {
+        if (!armed) {
+          armed = true;
+          yes.textContent = 'Yes \u2014 unlock the dock';
+          yes.classList.add('armed');
+          timer = setTimeout(function () {
+            armed = false;
+            yes.classList.remove('armed');
+            yes.textContent = 'Unlock \u2014 tap again to confirm';
+          }, 6000);
+          return;
+        }
+        if (timer) { clearTimeout(timer); }
+        yes.disabled = true;
+        yes.textContent = 'Unlocking\u2026';
+        VA.dock.unlock(g).then(function (d) {
+          if (!d || d.ok === false) {
+            // stay on the card: the refusal has to stay readable, and a
+            // poll must not wipe it away
+            yes.disabled = false;
+            armed = false;
+            yes.textContent = 'Unlock \u2014 tap again to confirm';
+            dockBox.appendChild(el('div', 'dk-err',
+              'Not unlocked: ' + ((d && d.error) || 'the core refused it')));
+            return;
+          }
+          dockGrantOpen = false;
+          drawDock(VA);
+        }).catch(function (e) {
+          yes.disabled = false;
+          armed = false;
+          yes.textContent = 'Unlock \u2014 tap again to confirm';
+          dockBox.appendChild(el('div', 'dk-err',
+            /HTTP 404/.test(String(e))
+              ? 'Not unlocked: this agent does not serve the unlock endpoint yet.'
+              : 'Not unlocked: ' + e));
+        });
+      });
+      row.appendChild(yes);
+      var no = el('button', 'dk-btn', 'Cancel');
+      no.type = 'button';
+      no.addEventListener('click', function () { dockGrantOpen = false; drawDock(VA); });
+      row.appendChild(no);
+      dockBox.appendChild(row);
+    }
+
+    // ---- blok: Modely a poskytovatelé -------------------------------------
+    /* Majitel (31. 8.): „Jinak ja potrebuju prepinat ty modely. […] potrrebuju
+       mit moznost menit modely", „ne ja chci poradne reseni, zadna
+       provizoria", „chci menit modely a poskytovatele i hermesovi."
+
+       Tenhle tab je ta obrazovka.  Schválně to NENÍ editor YAMLu: jméno modelu
+       i jméno poskytovatele se vybírá ze seznamu od jádra (překlep dnes
+       znamená tiše zhasnutý backend), u každého druhu práce je vidět, co stojí,
+       a zábrany jsou napsané lidsky — ne jako záhadná chyba po uložení.
+
+       DVĚ VĚCI, KTERÉ SE TU NESMÍ ZTRATIT:
+
+       1. `vendor` (dodavatel) NEODVOZUJEME Z NÁZVU.  Bere se výhradně ten,
+          který v tu chvíli poslal server — a u backendu, který nese
+          `provider_choices` (dnes Hermes), jde dodavatel S POSKYTOVATELEM.
+          Přesunout Hermese na DeepSeek tedy změní i jeho dodavatele, takže
+          dvojice soudce/vykonavatel, která byla před vteřinou zakázaná, může
+          být povolená — a naopak.  Proto se všechno počítá z `mdPlan()`
+          (co by platilo, kdybych teď uložil), ne z toho, co server poslal.
+          Bez toho by zábrana chránila stav, který už neplatí.
+
+       2. Účtování NENÍ podmínka.  Chybějící nebo odhadnutá cena se ukáže jako
+          odhad a Save se kvůli ní nezamyká — sloupec s cenou je na tabu to
+          nejcennější, ale brzdou být nesmí.
+
+       Lidská jména druhů prací, seznamy modelů, ceny i stav zdrojů dodává
+       jádro (`GET /api/models` -> `model.assignment_view()`).  Anglické názvy
+       rolí jsou překlad TÉHOŽ, co jádro pošle česky (rám anglicky, směrnice
+       z 24. 8.); původní česká věta zůstává v tooltipu, takže se nic neztrácí,
+       a neznámou roli vypíšeme tak, jak ji jádro pojmenovalo. */
+
+    var mdBox = null, mdData = null, mdDraft = null, mdState = null,
+        mdProblems = [], mdErr = null, mdSaving = false, mdShowLocked = false,
+        mdSaved = 0;
+
+    /* Anglický rám nad českými jmény roli z jádra. */
+    var MD_ROLE_EN = {
+      coder: 'Working with code',
+      operator: 'Answering in chat and driving the robot',
+      checker: 'Judging finished work',
+      reflector: 'Lessons from finished work',
+      grower: 'Looking for gaps in its own skills',
+      triage: 'Sorting (one word, cheapest model)'
+    };
+    var MD_NOTE_EN = {
+      operator: 'Touches the robot — when this one fails, nothing stands ' +
+                'in for it.',
+      checker: 'Must be a different vendor than the code work, or the agent ' +
+               'marks its own homework.',
+      reflector: 'Must be a different vendor than the code work.',
+      grower: 'Must be a different vendor than the code work.'
+    };
+    var MD_BACKEND_EN = {
+      claude: 'Claude', codex: 'Codex', deepseek: 'DeepSeek',
+      hermes: 'Hermes — the robot’s own agent'
+    };
+    var MD_STATUS_EN = {
+      ok: 'available', limited: 'rate limited', rate_limited: 'rate limited',
+      quota_exhausted: 'quota used up', exhausted: 'quota used up',
+      no_key: 'no key', down: 'not answering', unknown: 'unknown'
+    };
+    var MD_SOURCE_EN = {
+      provider: 'list came from the provider itself',
+      cache: 'list came from the provider’s own cache file',
+      fixed: 'fixed aliases of the command-line tool',
+      config: 'only what the config file happens to name',
+      unknown: 'nobody here knows this provider’s models — pick the ' +
+               'default and let it say what it runs'
+    };
+
+    VA.registerBlock({
+      id: 'models', title: 'Models', order: 70,
+      render: function (root) { mdBox = root; drawModels(VA); pollModels(VA); },
+      // Opening the tab always asks again: „not served yet" is a statement
+      // about a moment, not a verdict, and the endpoint may land while the
+      // page is open.
+      onOpen: function () { pollModels(VA, true); },
+      poll: { every_ms: 30000, fn: function () {
+        if (!mdDirty()) { pollModels(VA); }   // never clobber an unsaved edit
+      } }
+    });
+
+    function mdDirty() {
+      return !!(mdDraft && Object.keys(mdDraft).length);
+    }
+
+    function pollModels(VA, force) {
+      if (mdState === 'unsupported' && !force) { return; }
+      VA.api('/api/models', {timeout_ms: 12000}).then(function (d) {
+        if (!d || d.agent_down) { return; }
+        // Roles are the one thing the tab cannot be drawn without.
+        if (d.ok === false || !d.roles || !d.roles.length) {
+          mdState = 'unsupported';
+          mdErr = (d && d.error) || null;
+          drawModels(VA);
+          return;
+        }
+        mdState = 'ok';
+        mdData = d;
+        drawModels(VA);
+      }).catch(function (e) {
+        if (/HTTP 404/.test(String(e))) { mdState = 'unsupported'; drawModels(VA); }
+      });
+    }
+
+    function mdBackendRow(id) {
+      return ((mdData && mdData.providers) || []).filter(function (p) {
+        return p.backend === id;
+      })[0] || null;
+    }
+
+    /* Backend, který si vybírá i POSKYTOVATELE, ne jen model.  Poznáváme ho
+       podle toho, že nese `provider_choices` — ne podle jména „hermes",
+       aby druhý takový backend fungoval bez zásahu do UI. */
+    function mdTwoStep(p) {
+      return !!(p && p.provider_choices && p.provider_choices.length);
+    }
+
+    function mdRoleName(r) {
+      return MD_ROLE_EN[r.role] || r.label || r.role;
+    }
+
+    /* Co by platilo, kdybych teď uložil.  Jedno místo pro celý tab. */
+    function mdPlan() {
+      var plan = {roles: {}, providers: {}};
+      ((mdData && mdData.providers) || []).forEach(function (p) {
+        if (!mdTwoStep(p)) { return; }
+        var key = '__prov_' + p.backend;
+        plan.providers[p.backend] =
+          (mdDraft && mdDraft[key] != null) ? mdDraft[key] : (p.provider || null);
+      });
+      ((mdData && mdData.roles) || []).forEach(function (r) {
+        var d = mdDraft && mdDraft[r.role];
+        plan.roles[r.role] = d
+          ? {backend: d.backend, model: d.model}
+          : {backend: r.backend, model: r.model == null ? '' : r.model};
+      });
+      return plan;
+    }
+
+    /* DODAVATEL VŽDY OD SERVERU, NIKDY Z NÁZVU.  U dvoustupňového backendu
+       cestuje dodavatel s poskytovatelem, takže se to přepočítá i tehdy, když
+       majitel Hermese přesune jinam. */
+    function mdVendorOf(backendId, plan) {
+      var p = mdBackendRow(backendId);
+      if (!p) { return null; }
+      if (mdTwoStep(p)) {
+        var want = plan.providers[p.backend];
+        if (want == null) { want = p.provider; }
+        var c = p.provider_choices.filter(function (x) {
+          return x.provider === want;
+        })[0];
+        if (c && c.vendor) { return c.vendor; }
+        if (c) { return null; }        // known choice, vendor withheld: say nothing
+      }
+      return p.vendor || null;
+    }
+
+    /* Zábrany, přepočítané z plánu.  `hard` = server to odmítne vždy, takže
+       Save zamykáme; `soft` = server odmítne jen NOVOU kolizi, poslední slovo
+       má on. */
+    function mdViolations(plan) {
+      var out = [];
+      var roles = (mdData && mdData.roles) || [];
+      var coder = plan.roles.coder;
+      var coderVendor = coder ? mdVendorOf(coder.backend, plan)
+                              : ((mdData && mdData.coder_vendor) || null);
+      if (coder && mdTwoStep(mdBackendRow(coder.backend))) {
+        out.push({hard: true, text:
+          'The code work cannot run on ' + (MD_BACKEND_EN[coder.backend] ||
+          coder.backend) + ' — that one is the robot’s voice and ' +
+          'hands, not a builder. The core refuses it.'});
+      }
+      var op = plan.roles.operator;
+      var opVendor = op ? mdVendorOf(op.backend, plan) : null;
+      var shareOp = [];
+      roles.forEach(function (r) {
+        if (!r.must_differ_from_coder) { return; }
+        var jv = mdVendorOf(plan.roles[r.role].backend, plan);
+        if (jv && coderVendor && jv === coderVendor) {
+          out.push({hard: true, text:
+            mdRoleName(r) + ' and the code work would both come from ' + jv +
+            ' — then the agent marks its own homework. Move one of them ' +
+            'to a different vendor.'});
+        } else if (jv && opVendor && jv === opVendor) {
+          shareOp.push(mdRoleName(r));
+        }
+      });
+      // Jedna věta na dodavatele, ne jedna na roli: tři skoro stejné
+      // odstavce pod sebou se přestanou číst, a přesně tohle je věta, kterou
+      // majitel číst má — v noci 31. 8. mu kvůli tomuhle oněměl chat.
+      if (shareOp.length) {
+        out.push({hard: false, text:
+          shareOp.join(', ') + ' and the chat/robot work all run on ' +
+          opVendor + ' — one outage takes out ' +
+          (shareOp.length > 1 ? 'all of them' : 'both') + ' at once, and the ' +
+          'judge is grading its own vendor’s work. The core refuses this only ' +
+          'if you make it worse, so Save still tries.'});
+      }
+      return out;
+    }
+
+    function mdSelect(options, value, onChange, disabled) {
+      var sel = el('select', 'md-sel');
+      (options || []).forEach(function (o) {
+        var opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.label || o.id;
+        if (o.locked) { opt.disabled = true; }
+        if (o.title) { opt.title = o.title; }
+        if (o.id === value) { opt.selected = true; }
+        sel.appendChild(opt);
+      });
+      if (disabled) { sel.disabled = true; }
+      sel.addEventListener('change', function () { onChange(sel.value); });
+      return sel;
+    }
+
+    function mdField(label, control, hint, hintTitle, cls) {
+      var w = el('label', 'md-f' + (cls ? ' ' + cls : ''));
+      w.appendChild(el('span', 'md-fl', label));
+      w.appendChild(control);
+      if (hint) {
+        var h = el('span', 'md-fh', hint);
+        if (hintTitle) { h.title = hintTitle; }
+        w.appendChild(h);
+      }
+      return w;
+    }
+
+    function mdMoney(usd) {
+      var n = Number(usd || 0);
+      if (!n) { return '$0'; }
+      return '$' + (n < 0.01 ? n.toFixed(4) : n.toFixed(2));
+    }
+
+    function mdTokens(n) {
+      n = Number(n || 0);
+      if (n >= 1e6) { return (n / 1e6).toFixed(1) + ' M'; }
+      if (n >= 1e3) { return Math.round(n / 1e3) + ' k'; }
+      return String(n);
+    }
+
+    /* Cena a provoz role.  NIKDY nebrzdí uložení: když čísla chybí nebo jsou
+       jen odhadnutá, řekne se to a jede se dál. */
+    function mdStat(r, days) {
+      var box = el('div', 'md-stats');
+      var calls = Number(r.calls_7d || 0);
+      if (!calls && !Number(r.usd_7d || 0)) {
+        var none = el('span', 'md-s', 'no runs in the last ' + days + ' d');
+        none.title = 'Nothing recorded — not a reason to leave it as it is.';
+        box.appendChild(none);
+        return box;
+      }
+      var est = Number(r.usd_estimated_7d || 0);
+      var whole = est > 0 && est >= Number(r.usd_7d || 0) - 1e-9;
+      var money = el('span', 'md-s money' + (whole ? ' est' : ''),
+                     mdMoney(r.usd_7d) + ' / ' + days + ' d' +
+                     (whole ? ' (estimate)' : ''));
+      money.title = whole
+        ? 'The provider did not report usage, so the core priced it from the ' +
+          'length of the prompt. An estimate does not stop you from saving.'
+        : (est > 0 ? mdMoney(est) + ' of that is the core’s own estimate.'
+                   : 'Billed from what the provider reported.');
+      box.appendChild(money);
+      var c = el('span', 'md-s', calls + ' call' + (calls === 1 ? '' : 's'));
+      c.title = 'How many times this kind of work asked a model.';
+      box.appendChild(c);
+      var t = el('span', 'md-s', mdTokens(r.tokens_in_7d) + ' in · ' +
+                                mdTokens(r.tokens_out_7d) + ' out');
+      t.title = 'Tokens read and written in the last ' + days + ' days.';
+      box.appendChild(t);
+      return box;
+    }
+
+    function mdApplyProvider(VA, p, value) {
+      mdDraft = mdDraft || {};
+      var key = '__prov_' + p.backend;
+      if (value === (p.provider || '')) { delete mdDraft[key]; }
+      else { mdDraft[key] = value; }
+      // Model patřil STARÉMU poskytovateli — nechat ho tam by znamenalo
+      // uložit jméno, které nový poskytovatel nezná.
+      ((mdData && mdData.roles) || []).forEach(function (r) {
+        if (r.backend !== p.backend) { return; }
+        var cur = (mdDraft[r.role] || {backend: r.backend});
+        mdDraft[r.role] = {backend: cur.backend || r.backend, model: ''};
+        if (mdDraft[r.role].backend === r.backend && r.model == null &&
+            !mdDraft[key]) {
+          delete mdDraft[r.role];
+        }
+      });
+      drawModels(VA);
+    }
+
+    function drawModels(VA) {
+      if (!mdBox) return;
+      mdBox.textContent = '';
+      if (mdState === 'unsupported') {
+        mdBox.appendChild(el('div', 'md-note',
+          'This robot’s agent does not serve the model settings yet ' +
+          '(GET /api/models). Nothing here can be changed from the panel ' +
+          'until it does — the wiring still lives in the core’s ' +
+          'config files.'));
+        if (mdErr) { mdBox.appendChild(el('div', 'md-err', String(mdErr))); }
+        return;
+      }
+      if (!mdData) {
+        mdBox.appendChild(el('div', 'md-note', 'Reading the model wiring…'));
+        return;
+      }
+      var days = mdData.days || 7;
+      var plan = mdPlan();
+
+      // ---- co na čem běží
+      mdBox.appendChild(el('div', 'md-h', 'What runs on what'));
+      (mdData.roles || []).forEach(function (r) {
+        var cur = plan.roles[r.role];
+        var p = mdBackendRow(cur.backend);
+        var row = el('div', 'md-row');
+        var head = el('div', 'md-rh');
+        var nm = el('span', 'md-name', mdRoleName(r));
+        if (r.label && r.label !== mdRoleName(r)) { nm.title = r.label; }
+        head.appendChild(nm);
+        var ven = mdVendorOf(cur.backend, plan);
+        var vch = el('span', 'md-ven', ven || 'vendor unknown');
+        vch.title = ven
+          ? 'The vendor the core reports for this choice. The judge rule is ' +
+            'checked against this, never against the provider’s name.'
+          : 'The core did not name a vendor for this choice, so the judge ' +
+            'rule cannot be checked here — the server still checks it.';
+        head.appendChild(vch);
+        if (r.no_fallback) {
+          var nf = el('span', 'md-lock', 'no stand-in');
+          nf.title = 'Work that touches the robot never switches to another ' +
+                     'model — a different model has a different opinion ' +
+                     'about a machine that moves.';
+          head.appendChild(nf);
+        }
+        if (r.must_differ_from_coder) {
+          var jd = el('span', 'md-badge', 'judge');
+          jd.title = 'Must not share a vendor with the code work.';
+          head.appendChild(jd);
+        }
+        row.appendChild(head);
+        var note = MD_NOTE_EN[r.role] || '';
+        if (note) {
+          var nd = el('div', 'md-desc', note);
+          if (r.note) { nd.title = r.note; }
+          row.appendChild(nd);
+        }
+
+        var picks = el('div', 'md-picks');
+
+        // 1) backend
+        var backOpts = (mdData.providers || []).map(function (b) {
+          return {id: b.backend, label: MD_BACKEND_EN[b.backend] || b.backend};
+        });
+        var backSel = mdSelect(backOpts, cur.backend, function (v) {
+          mdDraft = mdDraft || {};
+          if (v === r.backend && (r.model == null || r.model === '')) {
+            delete mdDraft[r.role];
+          } else {
+            mdDraft[r.role] = {backend: v, model: ''};
+          }
+          drawModels(VA);
+        });
+        /* U dvoustupňového backendu dostane „Runs on" vlastní řádek, aby
+           poskytovatel a model zůstali VEDLE SEBE — to je ta dvojice, kterou
+           majitel mění spolu. */
+        picks.appendChild(mdField('Runs on', backSel, null, null,
+                                  mdTwoStep(p) ? 'wide' : null));
+
+        // 2) poskytovatel — jen u dvoustupňového backendu (Hermes)
+        var provMoved = false;
+        if (mdTwoStep(p)) {
+          var want = plan.providers[p.backend];
+          var choices = p.provider_choices.slice().sort(function (a, b) {
+            if (!!a.ready !== !!b.ready) { return a.ready ? -1 : 1; }
+            return String(a.provider).localeCompare(String(b.provider));
+          });
+          var ready = choices.filter(function (c) { return c.ready; }).length;
+          var provOpts = choices.map(function (c) {
+            return {id: c.provider,
+                    label: (c.display || c.provider) +
+                           (c.ready ? '' : ' — locked, no key'),
+                    locked: !c.ready && c.provider !== want,
+                    title: c.ready ? (c.description || '')
+                                   : (c.locked_why || 'no key on this machine')};
+          });
+          var provSel = mdSelect(provOpts, want, function (v) {
+            mdApplyProvider(VA, p, v);
+          });
+          picks.appendChild(mdField('Provider', provSel,
+            ready + ' of ' + choices.length + ' ready',
+            'The rest are listed but locked — they have no key on this ' +
+            'machine. Nothing is hidden from you.'));
+          provMoved = (want || '') !== (p.provider || '');
+        }
+
+        // 3) model
+        var modelOpts = [];
+        // Po přesunu poskytovatele NESMÍ u „Default" stát model toho starého —
+        // je to jméno, které nový poskytovatel nezná.
+        var deflt = provMoved ? null : (p ? (p.selected || p.accounting_fallback) : null);
+        modelOpts.push({id: '',
+                        label: deflt ? 'Default (' + deflt + ')'
+                             : provMoved ? 'Default of the new provider'
+                                         : 'Default of this backend',
+                        title: 'Leave the choice to the backend itself.'});
+        if (!provMoved) {
+          ((p && p.models) || []).forEach(function (m) {
+            modelOpts.push({id: m.id, label: m.label || m.id});
+          });
+        }
+        var modSel = mdSelect(modelOpts, provMoved ? '' : (cur.model || ''),
+          function (v) {
+            mdDraft = mdDraft || {};
+            var base = mdDraft[r.role] || {backend: cur.backend};
+            mdDraft[r.role] = {backend: base.backend || cur.backend, model: v};
+            if (mdDraft[r.role].backend === r.backend &&
+                (v || '') === (r.model == null ? '' : r.model)) {
+              delete mdDraft[r.role];
+            }
+            drawModels(VA);
+          });
+        var srcTxt, srcTitle;
+        if (provMoved) {
+          srcTxt = 'save the provider first';
+          srcTitle = 'The list below still belongs to the provider that is ' +
+            'running now. Save this change and the models of the new one ' +
+            'arrive with the next read — the panel will not guess them.';
+        } else {
+          srcTxt = MD_SOURCE_EN[(p && p.models_source) || 'unknown'] ||
+                   String((p && p.models_source) || '');
+          srcTitle = 'Where this list comes from. A list on paper and a list ' +
+                     'from the provider are not the same thing.';
+        }
+        picks.appendChild(mdField('Model', modSel, srcTxt, srcTitle));
+        row.appendChild(picks);
+        row.appendChild(mdStat(r, days));
+        mdBox.appendChild(row);
+      });
+
+      // ---- zamčení poskytovatelé, vypsaní jménem
+      (mdData.providers || []).forEach(function (p) {
+        if (!mdTwoStep(p)) { return; }
+        var locked = p.provider_choices.filter(function (c) { return !c.ready; });
+        if (!locked.length) { return; }
+        var head = el('div', 'md-more');
+        var btn = el('button', 'md-mini wide',
+          (mdShowLocked ? '▾ hide ' : '▸ show ') + locked.length +
+          ' locked provider' + (locked.length === 1 ? '' : 's'));
+        btn.type = 'button';
+        btn.title = 'They exist and they are not hidden from you — each ' +
+                    'one says what it would take to switch to it.';
+        btn.addEventListener('click', function () {
+          mdShowLocked = !mdShowLocked; drawModels(VA);
+        });
+        head.appendChild(btn);
+        mdBox.appendChild(head);
+        if (!mdShowLocked) { return; }
+        locked.forEach(function (c) {
+          var row = el('div', 'md-locked');
+          row.appendChild(el('span', 'md-name', c.display || c.provider));
+          var need = (c.env_vars || []).join(' or ');
+          var why = el('span', 'md-s',
+            need ? 'needs ' + need + ' in the agent’s secrets file'
+                 : 'needs a sign-in of its own');
+          why.title = c.locked_why || '';
+          row.appendChild(why);
+          if (c.signup_url) {
+            var a = el('a', 'md-s link', 'where to get one');
+            a.href = c.signup_url; a.target = '_blank'; a.rel = 'noopener';
+            row.appendChild(a);
+          }
+          mdBox.appendChild(row);
+        });
+      });
+
+      // ---- pořadí náhradníků
+      if (mdData.fallback_order) {
+        var oh = el('div', 'md-h', 'Stand-in order');
+        oh.title = 'Who gets asked when the first choice says it cannot. ' +
+                   'Work that touches the robot never uses this list.';
+        mdBox.appendChild(oh);
+        var order = (mdDraft && mdDraft.__order) || mdData.fallback_order.slice();
+        order.forEach(function (id, i) {
+          var row = el('div', 'md-ord');
+          row.appendChild(el('span', 'md-num', (i + 1) + '.'));
+          row.appendChild(el('span', 'md-name', MD_BACKEND_EN[id] || id));
+          var up = el('button', 'md-mini', '↑');
+          up.type = 'button'; up.title = 'Move up';
+          up.disabled = i === 0;
+          up.addEventListener('click', function () {
+            var o = order.slice();
+            o[i - 1] = order[i]; o[i] = order[i - 1];
+            mdDraft = mdDraft || {}; mdDraft.__order = o; drawModels(VA);
+          });
+          var dn = el('button', 'md-mini', '↓');
+          dn.type = 'button'; dn.title = 'Move down';
+          dn.disabled = i === order.length - 1;
+          dn.addEventListener('click', function () {
+            var o = order.slice();
+            o[i + 1] = order[i]; o[i] = order[i + 1];
+            mdDraft = mdDraft || {}; mdDraft.__order = o; drawModels(VA);
+          });
+          row.appendChild(up); row.appendChild(dn);
+          mdBox.appendChild(row);
+        });
+      }
+
+      // ---- stav zdrojů
+      mdBox.appendChild(el('div', 'md-h', 'Providers right now'));
+      ((mdData.backends && mdData.backends.length)
+          ? mdData.backends
+          : (mdData.providers || []).map(function (p) {
+              return {backend: p.backend, vendor: p.vendor, status: 'unknown'};
+            })
+      ).forEach(function (b) {
+        var row = el('div', 'md-prov');
+        row.appendChild(el('span', 'md-name',
+                           MD_BACKEND_EN[b.backend] || b.backend));
+        var v = el('span', 'md-ven', b.vendor || '?');
+        v.title = 'Who is behind it.';
+        row.appendChild(v);
+        var st = String(b.status || 'unknown');
+        var cls = st === 'ok' ? 'good'
+          : (st === 'limited' || st === 'rate_limited') ? 'warn'
+          : (st === 'quota_exhausted' || st === 'exhausted') ? 'bad'
+          : st === 'no_key' ? 'off' : '';
+        var pill = el('span', 'md-pill ' + cls, MD_STATUS_EN[st] || st);
+        if (b.why) { pill.title = String(b.why).slice(0, 400); }
+        row.appendChild(pill);
+        if (b.until) {
+          var u = new Date(b.until * 1000);
+          var us = el('span', 'md-s', 'until ~' +
+            ('0' + u.getHours()).slice(-2) + ':' +
+            ('0' + u.getMinutes()).slice(-2) +
+            (b.estimated ? ' (estimate)' : ''));
+          us.title = b.estimated
+            ? 'The provider does not say when; this is the core’s estimate.'
+            : 'Reported by the provider.';
+          row.appendChild(us);
+        }
+        if (b.model) { row.appendChild(el('span', 'md-s', b.model)); }
+        mdBox.appendChild(row);
+      });
+
+      // ---- pravidla, lidsky
+      var rules = el('div', 'md-rules');
+      if (mdData.rules && mdData.rules.length) {
+        rules.title = 'The core’s own wording:\n• ' +
+          mdData.rules.map(function (x) {
+            return typeof x === 'string' ? x : (x && x.text) || '';
+          }).join('\n• ');
+      }
+      [ 'The judge may not come from the same vendor as the code work — ' +
+        'otherwise the agent marks its own homework.',
+        'Work that touches the robot gets no stand-in model, from here or ' +
+        'from a config file.',
+        'A model is picked from a list; free text is refused.'
+      ].forEach(function (t) { rules.appendChild(el('div', 'md-rule', t)); });
+      mdBox.appendChild(rules);
+
+      // ---- uložení
+      var dirty = mdDirty();
+      var bad = mdViolations(plan);
+      var hard = bad.filter(function (b) { return b.hard; });
+      mdProblems.forEach(function (t) {
+        // Hotové věty od jádra. Vypisují se doslova a nepřekládají se.
+        mdBox.appendChild(el('div', 'md-err', t));
+      });
+      if (mdErr) { mdBox.appendChild(el('div', 'md-err', mdErr)); }
+      bad.forEach(function (b) {
+        mdBox.appendChild(el('div', b.hard ? 'md-err' : 'md-warn', b.text));
+      });
+      var when = el('div', 'md-note small',
+        mdData.applies === 'runtime'
+          ? 'A change here takes effect straight away — no restart.'
+          : 'A change here takes effect after the agent restarts.');
+      if (mdData.overlay) {
+        when.title = 'Written to ' + mdData.overlay + ', which sits on top of ' +
+          'the hand-written config — that file keeps its comments.';
+      }
+      mdBox.appendChild(when);
+      if (mdSaved) {
+        mdBox.appendChild(el('div', 'md-ok', mdSaved === 'revert'
+          ? 'Back to the last working wiring. This is what is running now.'
+          : 'Saved. This is what is running now.'));
+      }
+
+      var acts = el('div', 'md-acts');
+      var save = el('button', 'md-btn primary', mdSaving ? 'Saving…' : 'Save');
+      save.type = 'button';
+      save.disabled = !dirty || hard.length > 0 || mdSaving;
+      if (hard.length) { save.title = 'A rule the core enforces is broken above.'; }
+      save.addEventListener('click', function () { mdSave(VA, plan); });
+      acts.appendChild(save);
+
+      var cancel = el('button', 'md-btn', 'Discard changes');
+      cancel.type = 'button';
+      cancel.disabled = !dirty || mdSaving;
+      cancel.addEventListener('click', function () {
+        mdDraft = null; mdErr = null; mdProblems = []; mdSaved = 0;
+        drawModels(VA);
+      });
+      acts.appendChild(cancel);
+
+      var back = el('button', 'md-btn', 'Back to last working');
+      back.type = 'button';
+      back.disabled = mdSaving;
+      back.title = 'Undo the last save in one step — the core keeps the ' +
+                   'previous wiring beside the current one.';
+      back.addEventListener('click', function () {
+        if (back.dataset.armed !== '1') {
+          back.dataset.armed = '1';
+          back.textContent = 'Yes — go back';
+          setTimeout(function () {
+            if (back.dataset) { back.dataset.armed = '0'; }
+            if (back.textContent === 'Yes — go back') {
+              back.textContent = 'Back to last working';
+            }
+          }, 6000);
+          return;
+        }
+        mdSaving = true; mdProblems = []; mdErr = null; drawModels(VA);
+        VA.api('/api/models/revert', {body: {}, timeout_ms: 20000,
+                                      keep_error_body: true})
+          .then(function (d) {
+            mdSaving = false; mdDraft = null; mdSaved = 'revert';
+            if (d && d.roles) { mdData = d; }
+            drawModels(VA);
+            pollModels(VA, true);
+          }).catch(function (e) { mdFail(VA, e, 'Not reverted'); });
+      });
+      acts.appendChild(back);
+      mdBox.appendChild(acts);
+    }
+
+    function mdFail(VA, e, lead) {
+      mdSaving = false;
+      var body = e && e.body;
+      if (body && body.problems && body.problems.length) {
+        mdProblems = body.problems.map(String);
+        mdErr = null;
+      } else {
+        mdProblems = [];
+        mdErr = /HTTP 404/.test(String(e))
+          ? lead + ': this agent does not serve model settings yet.'
+          : lead + ': ' + e;
+      }
+      drawModels(VA);
+    }
+
+    function mdSave(VA, plan) {
+      /* Posílají se JEN klíče, které jádro zná (`roles`, `backends`,
+         `fallback_order`) a JEN to, co se změnilo — cokoli navíc jádro
+         odmítne jako neznámý klíč, a to je správně: „uložilo se a nezměnilo
+         se nic" je horší výsledek než odmítnutí. */
+      var body = {};
+      var roles = {};
+      ((mdData && mdData.roles) || []).forEach(function (r) {
+        var want = plan.roles[r.role];
+        var was = {backend: r.backend, model: r.model == null ? '' : r.model};
+        if (want.backend === was.backend && (want.model || '') === was.model) {
+          return;
+        }
+        roles[r.role] = {backend: want.backend,
+                         model: want.model ? want.model : null};
+      });
+      if (Object.keys(roles).length) { body.roles = roles; }
+      ((mdData && mdData.providers) || []).forEach(function (p) {
+        if (!mdTwoStep(p)) { return; }
+        var want = plan.providers[p.backend];
+        if ((want || '') !== (p.provider || '')) {
+          body.backends = body.backends || {};
+          body.backends[p.backend] = {provider: want};
+        }
+      });
+      if (mdDraft && mdDraft.__order) { body.fallback_order = mdDraft.__order; }
+      if (!Object.keys(body).length) { return; }
+      mdSaving = true; mdProblems = []; mdErr = null; mdSaved = 0;
+      drawModels(VA);
+      VA.api('/api/models', {body: body, timeout_ms: 25000,
+                             keep_error_body: true}).then(function (d) {
+        mdSaving = false;
+        if (!d || d.ok === false) {
+          mdProblems = (d && d.problems) ? d.problems.map(String)
+                                         : ['jádro to odmítlo a neřeklo proč'];
+          drawModels(VA);
+          return;
+        }
+        mdDraft = null; mdSaved = 'save';
+        if (d.roles) { mdData = d; }        // POST answers with the new view
+        drawModels(VA);
+      }).catch(function (e) { mdFail(VA, e, 'Not saved'); });
+    }
+
     // ---- blok: Robot ------------------------------------------------------
-    var robotBox, robotImg, robotImgStamp = 0, robotImgNote;
+    var robotBox, robotImg, robotImgStamp = 0, robotImgNote, mapRefreshBtn;
     VA.registerBlock({
       id: 'robot', title: 'Robot', order: 30,
       render: function (root) {
@@ -181,17 +1050,36 @@
         });
         robotImgNote = el('div', null, '');
         robotImgNote.style.cssText = 'font-size:.75em;color:var(--bs-gray-500,#888)';
+
+        /* Vykreslení mapy stojí robota skoro pět sekund procesoru, takže si
+           o ně říká člověk, ne stopky. */
+        mapRefreshBtn = el('button', null, 'Refresh map');
+        mapRefreshBtn.type = 'button';
+        mapRefreshBtn.className = 'btn btn-sm btn-outline-secondary';
+        mapRefreshBtn.style.cssText = 'margin-top:.35em;font-size:.75em;min-height:2em';
+        mapRefreshBtn.title = 'Redraw the map on the robot (takes a few seconds)';
+        mapRefreshBtn.addEventListener('click', function () { pollMapview(VA, true); });
+
         wrap.appendChild(robotImg); wrap.appendChild(robotImgNote);
+        wrap.appendChild(mapRefreshBtn);
         root.appendChild(wrap);
+        showLastMapview();
+        askCachedMapview(VA);
       },
-      poll: { every_ms: 5000, fn: function () { drawRobot(VA); pollMapview(VA); } },
-      onOpen: function () { drawRobot(VA); robotImgStamp = 0; pollMapview(VA); }
+      poll: { every_ms: 5000, fn: function () { drawRobot(VA); } },
+      onOpen: function () { drawRobot(VA); showLastMapview(); askCachedMapview(VA); }
     });
 
     function drawRobot(VA) {
       var st = (VA.state && (VA.state.robot || VA.state.state)) || null;
       if (!robotBox) return;
-      if (!st) { errLine(robotBox, 'robot state unavailable'); return; }
+      if (!st) {
+        // Before the first /api/state answer there is nothing to show yet —
+        // saying "unavailable" there was the whole U1 complaint.
+        errLine(robotBox, (VA.state && VA.state.ts)
+          ? 'robot state unavailable' : 'robot state — loading…');
+        return;
+      }
       robotBox.textContent = '';
       var age = VA.state.age_s != null ? VA.state.age_s : null;
       robotBox.appendChild(row('Battery', st.battery_pct != null ? st.battery_pct + ' %' : null));
@@ -209,23 +1097,102 @@
       if (age != null) robotBox.appendChild(row('Measured', Math.round(age) + ' s ago'));
     }
 
-    var mapviewBusy = false, mapviewLast = 0;
-    function pollMapview(VA) {
-      if (mapviewBusy || !robotImg) return;
-      var now = Date.now();
-      if (now - mapviewLast < 15000) return;   // 15 s, nezávisle na 5 s tiku
-      mapviewLast = now; mapviewBusy = true;
-      VA.api('/api/mapview').then(function (data) {
-        mapviewBusy = false;
-        if (!data || !data.ok || !data.url) {
-          robotImg.style.display = 'none';
-          robotImgNote.textContent = (data && data.error) ? 'map: ' + data.error : '';
+    /* Pohled do mapy je NÁSTROJ AGENTA, ne widget na stopkách.
+       Obrázek vzniká tak, že ho robot pokaždé znovu vykreslí — naměřeno
+       `GET /api/mapview 200 4901ms`, tedy skoro pět sekund procesoru na
+       jedno vyžádání. Dokud se to volalo každých 15 s, pálil robot třetinu
+       jádra na obrázek, který má člověk vedle sebe v three.js mapě lepší
+       (posouvatelný, přibližitelný, živý), zatímco agent — pro kterého ten
+       pohled vznikl — si o něj nikdy neřekl.
+       Nově se kreslí jen na vyžádání: při otevření panelu jednou, pak už
+       jen po stisku Refresh. */
+    var mapviewBusy = false;
+    var LS_MAPVIEW = 'vitulus_agent_mapview_last';   // {url, ts, layers}
+
+    function mapAge(ts) {
+      var s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+      if (s < 90) return s + ' s old';
+      if (s < 5400) return Math.round(s / 60) + ' min old';
+      return Math.round(s / 3600) + ' h old';
+    }
+
+    /* Otevření panelu NIC nekreslí. Nově se ale smí ZEPTAT: jádro dostalo
+       `?cached=1`, které vrací poslední hotový render bez překreslení
+       (naměřeno 3 ms proti 6,4 s u plného renderu), takže i cizí prohlížeč,
+       který nemá nic v localStorage, uvidí poslední obrázek zadarmo.
+       Pojistka pro jádro, které ten parametr neumí: dotaz má 2s strop a po
+       prvním neúspěchu se na téhle stanici už nikdy neopakuje — jinak by
+       „levný dotaz" byl tichý návrat k tomu, co jsme v kole 1 vypnuli. */
+    var LS_MAPCACHE = 'vitulus_agent_mapview_cacheable';
+
+    function askCachedMapview(VA) {
+      if (!robotImg) return;
+      var known = null;
+      try { known = localStorage.getItem(LS_MAPCACHE); } catch (e) {}
+      if (known === '0') return;
+      VA.api('/api/mapview?cached=1', {timeout_ms: 2000}).then(function (data) {
+        if (!data || data.cached === undefined) {
+          // an older core rendered instead of answering from cache
+          try { localStorage.setItem(LS_MAPCACHE, '0'); } catch (e) {}
           return;
         }
-        robotImg.src = AGENT_HTTP + data.url;
+        try { localStorage.setItem(LS_MAPCACHE, '1'); } catch (e) {}
+        if (!data.ok || !data.url) return;
+        try {
+          localStorage.setItem(LS_MAPVIEW, JSON.stringify(
+            {url: data.url, ts: (data.ts || Date.now() / 1000) * 1000,
+             layers: data.layers || []}));
+        } catch (e) {}
+        showLastMapview();
+      }).catch(function () {
+        /* A timeout is NOT proof that the core ignores `cached=1` — it may
+           just have been busy.  Only an answer without the `cached` key
+           proves that, so a failure leaves the flag unknown and we simply
+           skip the cheap ask this once. */
+      });
+    }
+
+    function showLastMapview() {
+      if (!robotImg || !robotImgNote) return;
+      var raw = null;
+      try { raw = JSON.parse(localStorage.getItem(LS_MAPVIEW) || 'null'); } catch (e) {}
+      if (!raw || !raw.url) {
+        robotImg.style.display = 'none';
+        robotImgNote.textContent = 'No map render yet — press Refresh (takes a few seconds on the robot).';
+        return;
+      }
+      robotImg.src = agentBase() + raw.url;
+      robotImg.style.display = '';
+      robotImgNote.textContent = mapAge(raw.ts || 0) +
+        (raw.layers && raw.layers.length ? ' · layers: ' + raw.layers.join(', ') : '');
+    }
+
+    function pollMapview(VA, force) {
+      if (mapviewBusy || !robotImg || !force) return;
+      mapviewBusy = true;
+      if (mapRefreshBtn) { mapRefreshBtn.disabled = true; }
+      robotImgNote.textContent = 'drawing on the robot…';
+      VA.api('/api/mapview', {timeout_ms: 20000}).then(function (data) {
+        mapviewBusy = false;
+        if (mapRefreshBtn) { mapRefreshBtn.disabled = false; }
+        if (!data || !data.ok || !data.url) {
+          robotImgNote.textContent = (data && data.error) ? 'map: ' + data.error
+            : 'map render failed';
+          return;
+        }
+        try {
+          localStorage.setItem(LS_MAPVIEW, JSON.stringify(
+            {url: data.url, ts: Date.now(), layers: data.layers || []}));
+        } catch (e) {}
+        robotImg.src = agentBase(VA) + data.url;
         robotImg.style.display = '';
-        robotImgNote.textContent = 'layers: ' + (data.layers || []).join(', ');
-      }).catch(function () { mapviewBusy = false; });
+        robotImgNote.textContent = 'just now' +
+          ((data.layers || []).length ? ' · layers: ' + data.layers.join(', ') : '');
+      }).catch(function () {
+        mapviewBusy = false;
+        if (mapRefreshBtn) { mapRefreshBtn.disabled = false; }
+        robotImgNote.textContent = 'map render failed';
+      });
     }
 
     // ---- blok: Mise / řízení ---------------------------------------------
@@ -373,9 +1340,15 @@
     var incSeenTs = parseFloat(lsGet(LS_INC_SEEN) || '0') || 0;
     /* The shell fires every block's onOpen when the PANEL opens, so "is the
        Incidents tab the active one" is read from the tab bar, not remembered. */
+    /* U19: this used to be `querySelector('.vagent-tab[data-tab="incidents"]')`,
+       which has returned null ever since the tab was renamed to `findings`.
+       The function was therefore ALWAYS false: markIncidentsSeen() was never
+       reached from onOpen, the "seen" timestamp never moved, and the badge
+       stayed lit however long you sat on the tab.  The shell owns the block
+       -> tab mapping, so ask it instead of naming the tab here. */
     function incidentsTabActive() {
-      var t = document.querySelector('.vagent-tab[data-tab="incidents"]');
-      return !!(t && t.classList.contains('active') && VA.isVisible && VA.isVisible());
+      if (!VA.blockTabActive) return false;
+      return !!(VA.blockTabActive('incidents') && VA.isVisible && VA.isVisible());
     }
     function markIncidentsSeen() {
       var max = incSeenTs;
@@ -754,8 +1727,28 @@
             var isLog = /\[(ERROR|WARN|INFO|rosout)\]|Traceback|\.log\b/.test(t) || /log/.test(String(e.source || ''));
             var tx = el(isLog ? 'code' : 'span', 'vz-evtext' + (isLog ? ' log' : ''), t);
             tx.title = t;
-            tx.addEventListener('click', function () { tx.classList.toggle('full'); });
+            tx.addEventListener('click', function () { toggleEv(); });
             line.appendChild(tx);
+            /* U31: the click-to-expand already existed but nothing said so —
+               no marker, no cursor hint a finger can see — so on a phone the
+               evidence simply ended in „…".  A visible button, and only when
+               there is something behind the fold: three lines are roughly
+               3×45 characters in this column, so anything shorter is already
+               whole and an extra control would be noise. */
+            var more = null;
+            function toggleEv() {
+              var open = tx.classList.toggle('full');
+              if (more) { more.textContent = open ? 'less' : 'more'; }
+            }
+            if (t.length > 120) {
+              more = el('button', 'vz-evmore', 'more');
+              more.type = 'button';
+              more.title = 'Show the whole line';
+              more.addEventListener('click', function (ev) {
+                ev.stopPropagation(); toggleEv();
+              });
+              line.appendChild(more);
+            }
             if (e.ts) {
               var w = el('span', 'vz-evts', fmtClock(e.ts));
               w.title = fmtAbs(e.ts);
@@ -1094,6 +2087,46 @@
       }).catch(function (e) { apiUnavailable(growthBox, 'tools', e); });
     }
 
+    /* U27: „97 tools & skills" was a raw directory listing.  Among the 37
+       „tools" were `__pycache__`, `INDEX.md` and `doctor_round_bak_setu_
+       20260830.sh` — a BACKUP of the tool sitting next to it; among the 60
+       „skills" five internal files of the skill hub (`.hub/lock.json` &c).
+       The owner was being offered a lock file as something the agent knows
+       how to do.  Rules, not a list of names — a new backup or cache must
+       fall in the same hole:
+         · any path segment starting with `.`   → store internals (.hub/*)
+         · any path segment starting with `__`  → language caches (__pycache__)
+         · `_bak_` / `.bak` / trailing `~`      → a backup of a real tool
+         · `.md` / `.txt` among the TOOLS       → documentation, not a tool
+           (a skill may legitimately be prose, a tool is something you run)
+       What is filtered is SAID, not swallowed: the count line below the
+       switch names how many were hidden and why, and shows them on click.
+       One kind of junk survives this and cannot be fixed from here: a plain
+       DIRECTORY with no extension (`tools/tasks`) is byte-for-byte the same
+       as an extensionless tool script in what /api/growth sends.  The fix
+       for that one belongs to the endpoint (see the report: `kind` and
+       `exec` per entry) — guessing it from the name would be a lie that
+       happens to be right today. */
+    function junkReason(e, view) {
+      var name = String((e && e.name) || '');
+      var segs = name.split('/');
+      for (var i = 0; i < segs.length; i++) {
+        if (segs[i].indexOf('__') === 0) return 'cache';
+        if (segs[i].indexOf('.') === 0 && segs[i] !== '.') return 'internal';
+      }
+      if (/_bak_|\.bak$|~$/.test(name)) return 'backup';
+      if (view === 'tools' && /\.(md|txt|rst)$/i.test(name)) return 'doc';
+      return null;
+    }
+    function siftGrowth(list, view) {
+      var keep = [], drop = [];
+      (list || []).forEach(function (e) {
+        var why = junkReason(e, view);
+        if (why) { e = e || {}; drop.push({e: e, why: why}); } else { keep.push(e); }
+      });
+      return {keep: keep, drop: drop};
+    }
+
     function itemRow(e) {
       var r = el('div', 'vt-item');
       var n = el('span', 'vt-name', e.name || '?');
@@ -1109,7 +2142,11 @@
       var data = growthData;
       if (!growthBox || !data) return;
       growthBox.textContent = '';
-      var tools = data.tools || [], skills = data.skills || [], growth = data.growth || [];
+      var siftedTools = siftGrowth(data.tools, 'tools');
+      var siftedSkills = siftGrowth(data.skills, 'skills');
+      var tools = siftedTools.keep, skills = siftedSkills.keep;
+      var hidden = siftedTools.drop.concat(siftedSkills.drop);
+      var growth = data.growth || [];
       growthBadge.textContent = String(tools.length + skills.length);
 
       // přepínač + hledání
@@ -1165,6 +2202,32 @@
         });
       }
       drawList();
+
+      // What the two counts above do NOT include, and why — said out loud,
+      // because a backup quietly appearing in the tools directory is itself
+      // worth seeing (registry finding S4).
+      if (hidden.length) {
+        var WHY = {backup: 'backup copies', cache: 'language caches',
+                   internal: 'store internals', doc: 'documentation'};
+        var order = ['backup', 'cache', 'internal', 'doc'];
+        var counts = {};
+        hidden.forEach(function (h) { counts[h.why] = (counts[h.why] || 0) + 1; });
+        var parts = order.filter(function (k) { return counts[k]; })
+          .map(function (k) { return counts[k] + ' ' + WHY[k]; });
+        var det = el('details', 'vt-hidden');
+        var sm = el('summary', null,
+                    hidden.length + ' not counted — ' + parts.join(', '));
+        det.appendChild(sm);
+        hidden.slice().sort(function (a, b) {
+          return (b.e.mtime || 0) - (a.e.mtime || 0);
+        }).forEach(function (h) {
+          var row = itemRow(h.e);
+          row.insertBefore(el('span', 'vagent-pill queued', WHY[h.why] || h.why),
+                           row.firstChild);
+          det.appendChild(row);
+        });
+        growthBox.appendChild(det);
+      }
 
       // timeline růstu
       var gh = el('div', 'vz-group');

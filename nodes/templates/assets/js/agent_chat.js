@@ -20,7 +20,19 @@
 (function () {
     'use strict';
 
-    var AGENT_HTTP = 'http://' + location.hostname + ':8088';
+    /* E8/1: the panel talks to the agent through ONE same-origin door,
+       `/agent/*`, proxied by webnode to 127.0.0.1:8088.  No CORS, no second
+       port in the browser, and :8088 can be bound to loopback.  A webnode
+       that predates the proxy has no /agent route — the health probe notices
+       and falls back to the open port, so a half-updated robot still works. */
+    /* 2026-08-31: the fallback to http://<host>:8088 is GONE, deliberately.
+       The proxy is served by the very webnode that served this page, so if
+       the page loaded, the door exists; and :8088 is being bound to loopback
+       precisely so that nothing on the LAN can approve things in the owner's
+       name.  Keeping a fallback would have meant the panel quietly using the
+       hole we are closing.  An old webnode without the proxy therefore reads
+       as "agent not running" — which is honest, and one restart away. */
+    var AGENT_HTTP = '/agent';
     var LS_AUTHOR = 'vitulus_agent_author';
     var LS_OPEN = 'vitulus_agent_open';
     var LS_DENSITY = 'vitulus_agent_density';   // '' | 'compact'
@@ -47,11 +59,26 @@
         return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
     }
 
+    /* U21: this stopped at minutes, so a job running since yesterday was
+       pinned at the top of Work as „1704 min 26 s" — and two lines below,
+       its own card said „28.2 h".  Two spellings of one number, side by
+       side, and the readable one was not the one in the owner's eye line.
+       Above an hour it reads „28 h 24 min", above a day „1 d 4 h"; the
+       seconds are dropped there because nobody reads the seconds of a
+       28-hour job. */
     function humanDuration(seconds) {
         if (!seconds || seconds < 0.5) { return ''; }
         if (seconds < 60) { return Math.round(seconds) + ' s'; }
-        var m = Math.floor(seconds / 60);
-        return m + ' min ' + Math.round(seconds - m * 60) + ' s';
+        if (seconds < 3600) {
+            var m = Math.floor(seconds / 60);
+            return m + ' min ' + Math.round(seconds - m * 60) + ' s';
+        }
+        if (seconds < 86400) {
+            var h = Math.floor(seconds / 3600);
+            return h + ' h ' + Math.round((seconds - h * 3600) / 60) + ' min';
+        }
+        var d = Math.floor(seconds / 86400);
+        return d + ' d ' + Math.round((seconds - d * 86400) / 3600) + ' h';
     }
 
     var SNAP_RE = /\/api\/(?:snapshot|mapview)\/[0-9A-Za-z_.-]+\.(?:jpg|png)/;
@@ -238,23 +265,27 @@
     var agentUp = null;
     var probeInFlight = false;
 
+    function healthOnce(base) {
+        var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = ctl ? setTimeout(function () { ctl.abort(); }, 4000) : null;
+        return fetch(base + '/api/health', {cache: 'no-store',
+                signal: ctl ? ctl.signal : undefined})
+            .then(function (r) { if (timer) { clearTimeout(timer); } return r.ok; })
+            .catch(function () { if (timer) { clearTimeout(timer); } return false; });
+    }
+
     function probeAgent() {
         if (probeInFlight) { return; }
         probeInFlight = true;
-        var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-        var timer = ctl ? setTimeout(function () { ctl.abort(); }, 4000) : null;
-        fetch(AGENT_HTTP + '/api/health', {cache: 'no-store',
-                signal: ctl ? ctl.signal : undefined})
-            .then(function (r) { return r.ok; })
-            .catch(function () { return false; })
+        healthOnce(AGENT_HTTP)
             .then(function (up) {
-                if (timer) { clearTimeout(timer); }
                 probeInFlight = false;
                 var was = agentUp;
                 agentUp = !!up;
                 if (agentUp) { conn.okTs = Date.now(); }
                 applyAgentState();
-                if (agentUp && was !== true && typeof schedule === 'function') {
+                if (agentUp && typeof schedule === 'function' &&
+                        (was !== true || !timers.length)) {
                     schedule();     // seamlessly start pollers on down->up
                 }
             });
@@ -286,8 +317,9 @@
                 ph.id = 'vagent_down';
                 ph.className = 'vagent-down';
                 var msg = document.createElement('p');
-                msg.textContent = 'The agent is not running on this robot. ' +
-                    'Chat, jobs, approvals and incidents need the vitulus_agent service.';
+                msg.textContent = 'The agent is not answering through /agent ' +
+                    'on this robot. Chat, jobs, approvals and findings need the ' +
+                    'vitulus_agent service and the webnode proxy in front of it.';
                 ph.appendChild(msg);
                 var retry = document.createElement('button');
                 retry.type = 'button';
@@ -328,7 +360,23 @@
             if (timer) { clearTimeout(timer); }
             conn.okTs = Date.now();
             paintConn();
-            if (!r.ok) { throw new Error('HTTP ' + r.status); }
+            if (!r.ok) {
+                // Some endpoints put the ONLY useful text in the body of a
+                // refusal — /api/models answers 400 with ready-made sentences
+                // in `problems`. Throwing on the status code alone would drop
+                // exactly the part the reader needs, so callers that know how
+                // to show it ask for the body to survive the throw.
+                if (opts.keep_error_body) {
+                    return r.json().catch(function () { return null; })
+                        .then(function (body) {
+                            var err = new Error('HTTP ' + r.status);
+                            err.status = r.status;
+                            err.body = body;
+                            throw err;
+                        });
+                }
+                throw new Error('HTTP ' + r.status);
+            }
             return r.json();
         }).catch(function (err) {
             if (timer) { clearTimeout(timer); }
@@ -348,7 +396,7 @@
             age.textContent = conn.okTs
                 ? (since < 8 ? '' : Math.round(since) + ' s ago')
                 : 'no connection';
-            age.title = 'Age of the last successful connection to the agent (:8088)';
+            age.title = 'Age of the last successful connection to the agent (/agent)';
         }
     }
 
@@ -405,13 +453,37 @@
        slower blocks (mise, zdraví, nástroje) live as cards under „Více". */
     /* 2026-08-24: Jobs and Tasks were two views of one thing (a job that runs
        once vs. a job that runs on a schedule), so they are ONE tab now. */
-    var TAB_LABEL = {chat: 'Chat', jobs: 'Jobs', gate: 'Approvals',
-                     robot: 'Robot', incidents: 'Incidents', vice: 'More'};
-    var TAB_ORDER = ['chat', 'jobs', 'gate', 'robot', 'incidents', 'vice'];
+    /* 2026-08-30 (E8/4): six tabs down to four — Chat · Work · Findings ·
+       Robot.  Approvals stop being a tab: a tab you have to remember to open
+       is not a notification, so they are pinned cards at the TOP of Work
+       (block order 10 puts them above the job list) and the shell strip
+       shouts about them without the panel being open at all.  "More" is gone
+       too — its cards moved to the tab they belong to. */
+    /* 2026-08-31: a fifth tab, on the owner's explicit ask — „chtel bych
+       v agentovi tab kde tohle pujde nastavit. Na jake veci bude pouzivan
+       jaky model jakeho providera."  It is the one screen that is neither
+       chat, work, a finding nor the robot: it is how the agent is wired. */
+    var TAB_LABEL = {chat: 'Chat', work: 'Work', findings: 'Findings',
+                     robot: 'Robot', models: 'Models'};
+    var TAB_ORDER = ['chat', 'work', 'findings', 'robot', 'models'];
+    // block id -> tab.  The tab's PRIMARY block renders plain, the rest as
+    // collapsible cards; `gate` is pinned (plain) although it is not primary.
+    var TAB_OF = {chat: 'chat', jobs: 'work', gate: 'work', mise: 'work',
+                  incidents: 'findings', zdravi: 'findings',
+                  robot: 'robot', nastroje: 'robot', dock: 'robot',
+                  models: 'models'};
+    var TAB_PRIMARY = {chat: 'chat', work: 'jobs', findings: 'incidents',
+                       robot: 'robot', models: 'models'};
+    var TAB_PINNED = {gate: 1, dock: 1};
+    // old tab ids still used by callers (and by localStorage) -> new ones
+    var TAB_ALIAS = {jobs: 'work', gate: 'work', incidents: 'findings',
+                     vice: 'robot'};
     var LS_TAB = 'vitulus_agent_tab';
     var panes = {}, tabBtns = {};
 
-    function tabFor(blockId) { return TAB_LABEL[blockId] ? blockId : 'vice'; }
+    function tabFor(blockId) {
+        return TAB_OF[blockId] || (TAB_LABEL[blockId] ? blockId : 'work');
+    }
 
     function ensureTab(tabId) {
         var tabs = panel.querySelector('#vagent_tabs');
@@ -440,15 +512,29 @@
         return panes[tabId];
     }
 
-    function activateTab(tabId) {
-        if (!panes[tabId]) { tabId = 'chat'; }
+    /* `restore` = "this is the panel putting itself back where the owner
+       left it", not a choice anybody made.  U26: mountBlocks() runs again
+       on EVERY block registration, so this ran while half the panes did not
+       exist yet; the blind fallback below then landed on some other tab AND
+       WROTE IT BACK, destroying the remembered choice before the pane that
+       would have satisfied it was even created.  The owner's tab was not
+       forgotten, it was overwritten.  So: a fallback is never remembered,
+       and a restore never writes at all — only a tab somebody actually
+       asked for does. */
+    function activateTab(tabId, restore) {
+        // callers still say 'jobs' / 'gate' / 'incidents' — and so does a
+        // localStorage value written before the tabs were merged
+        if (!panes[tabId] && TAB_ALIAS[tabId]) { tabId = TAB_ALIAS[tabId]; }
+        if (!panes[tabId] && TAB_OF[tabId]) { tabId = TAB_OF[tabId]; }
+        var fellBack = false;
+        if (!panes[tabId]) { tabId = 'chat'; fellBack = true; }
         if (!panes[tabId]) { return; }
         Object.keys(panes).forEach(function (id) {
             panes[id].classList.toggle('active', id === tabId);
             tabBtns[id].classList.toggle('active', id === tabId);
         });
         tabBtns[tabId].classList.remove('attention');
-        lsSet(LS_TAB, tabId);
+        if (!restore && !fellBack) { lsSet(LS_TAB, tabId); }
         blocks.forEach(function (blk) {
             if (tabFor(blk.id) === tabId && blk.onOpen && blk.body) {
                 try { blk.onOpen(blk.body); } catch (e) {}
@@ -473,6 +559,24 @@
         if (btn && !btn.classList.contains('active')) { btn.classList.add('attention'); }
     }
 
+    /* Is the tab that HOSTS this block the one on screen?
+       A block knows its own id; which tab it lives in is the shell's
+       business and has already changed once (six tabs merged into five).
+       Every caller that resolved a tab by its DOM NAME went silently false
+       the day that happened, and stayed false:
+         · `.vagent-tab[data-tab="incidents"]` -> null  (U19: the Findings
+           badge never cleared, because "am I looking at it" was never true)
+         · `tabBtns.jobs` -> undefined          (U20: the Work list's 8 s
+           poll never fired once — 45 s open, 0 requests)
+         · the CSS scroller list (`vice`/`jobs`/`gate`/`incidents`)  — the
+           owner's own „models nejde scrolovat".
+       Three sites, one mistake, none of them noisy.  So: nobody outside
+       this file names a tab any more.  Ask here, and tabFor() answers. */
+    function blockTabActive(blockId) {
+        var btn = tabBtns[tabFor(blockId)];
+        return !!(btn && btn.classList.contains('active'));
+    }
+
     function mountBlocks() {
         var body = panel.querySelector('#vagent_blocks');
         if (!body) { return; }
@@ -481,8 +585,10 @@
             var tabId = tabFor(blk.id);
             var pane = ensureTab(tabId);
             var host, inner;
-            if (tabId === 'vice') {
-                // „More": collapsible cards with memory, count badge in the heading.
+            var asCard = !(TAB_PRIMARY[tabId] === blk.id || TAB_PINNED[blk.id]);
+            if (asCard) {
+                // secondary block: collapsible card with memory, count badge
+                // in the heading.
                 host = document.createElement('details');
                 host.className = 'vagent-card';
                 host.open = true;
@@ -497,6 +603,22 @@
                 inner.className = 'vagent-sec-body';
                 host.appendChild(inner);
                 wireDetails(host, 'agent_more_' + blk.id);
+            } else if (TAB_PINNED[blk.id]) {
+                // pinned at the top of its tab, with a heading of its own —
+                // it is a guest in someone else's pane, so it has to say
+                // what it is.  Hidden altogether while it has nothing.
+                host = document.createElement('div');
+                host.className = 'vagent-sec-body vagent-pinned';
+                var ph = document.createElement('div');
+                ph.className = 'vagent-pinhead';
+                var pt = document.createElement('span');
+                pt.className = 'ct';
+                pt.textContent = blk.title || blk.id;
+                ph.appendChild(pt);
+                if (blk.summaryExtra) { ph.appendChild(blk.summaryExtra); }
+                host.appendChild(ph);
+                inner = document.createElement('div');
+                host.appendChild(inner);
             } else {
                 host = document.createElement('div');
                 host.className = 'vagent-sec-body vagent-pane-body';
@@ -508,7 +630,7 @@
             blk.body = inner;
             try { blk.render(inner); } catch (e) { inner.textContent = 'block failed: ' + e; }
         });
-        activateTab(lsGet(LS_TAB) || 'chat');
+        activateTab(lsGet(LS_TAB) || 'chat', true);   // restore, never write
     }
 
     // ------------------------------------------------------------ the panel
@@ -763,7 +885,9 @@
     }
 
     // ============================================================ CHAT block
-    var seen = {};                    // task ids already rendered
+    var seen = {};                    // task ids whose QUESTION half is rendered
+    var answered = {};                // task ids whose ANSWER half is rendered
+    var openIds = {};                 // rendered but still unanswered (watch_ids)
     var lastTaskId = 0;               // feed cursor
     /* Lazy history: only the last page lives in the DOM; older pages are
        fetched when the user scrolls to the top, newest-heavy windows are
@@ -795,8 +919,16 @@
         jumpBtn.style.display = want ? '' : 'none';
     }
 
+    var V2_KIND = {work: 'work', action: 'work', recur: 'work',
+                  finding: 'report', tick: 'report', ask: 'report'};
+
     function taskKind(task) {
         if (task.source === 'agent') {
+            // v2 says what a row IS (ask|work|action|finding|recur|tick);
+            // until it does, the v1 heuristic below stands.
+            var k2 = task.meta && typeof task.meta.kind === 'string'
+                ? V2_KIND[task.meta.kind] : null;
+            if (k2) { return k2; }
             var ev = (task.meta && task.meta.event) || '';
             if (ev || /hlášení z práce|z mise/.test(task.text || '')) { return 'work'; }
             return 'report';          // senses / selfcare / growth
@@ -804,9 +936,64 @@
         return task.author === author ? 'me' : 'user';
     }
 
+    /* U33, second half: the doctor's 24 h summary arrives as its own task,
+       and NINE byte-identical copies of it were stacked in the chat (four
+       pairs shared a second).  The Findings tab has collapsed repeats since
+       forever — „×828" instead of eight hundred cards — and the chat, fed
+       from the same place, had none of it.  Same idea, same badge: an
+       identical bubble arriving straight after its twin becomes a count on
+       the twin.  Only the robot's own lines, never the owner's, and never
+       across a gap: two identical answers ten minutes apart are two events
+       and stay two bubbles. */
+    function repeatKey(kind, cls, text) {
+        if (kind !== 'bot') { return null; }
+        var t = String(text == null ? '' : text);
+        if (t.length < 24) { return null; }     // "ok" twice is not a repeat
+        return kind + ' ' + cls + ' ' + t;
+    }
+    function bumpRepeat(node, taskId) {
+        var n = (parseInt(node.getAttribute('data-repeat') || '1', 10) || 1) + 1;
+        node.setAttribute('data-repeat', String(n));
+        if (taskId) {
+            var m = node.getAttribute('data-merged');
+            node.setAttribute('data-merged', (m ? m + ',' : '') + taskId);
+        }
+        var host = node.querySelector('.vagent-meta');
+        if (!host) {
+            host = document.createElement('div');
+            host.className = 'vagent-meta';
+            node.appendChild(host);
+        }
+        var b = node.querySelector('.vagent-repeat');
+        if (!b) {
+            b = document.createElement('span');
+            b.className = 'vagent-repeat';
+            host.insertBefore(b, host.firstChild);
+        }
+        b.textContent = '×' + n;
+        b.title = 'The robot sent this same message ' + n +
+                  ' times in a row — shown once.';
+    }
+
     function turn(kind, cls, text, meta, taskId) {
         var stick = atBottom();
+        var prepend = !!(insertRef && insertRef.parentNode === msgsEl);
+        // merge only forwards (live + first history page).  On a scroll-up
+        // page the surviving node's data-task is the NEWEST of the group and
+        // oldestTaskId is read from it, so merging backwards would make the
+        // panel ask for a page it already has.
+        var rkey = prepend ? null : repeatKey(kind, cls, text);
+        if (rkey && msgsEl) {
+            var nb = msgsEl.lastElementChild;
+            if (nb && nb.classList && nb.classList.contains('vagent-turn') &&
+                    nb.getAttribute('data-dedup') === rkey) {
+                bumpRepeat(nb, taskId);
+                if (stick) { msgsEl.scrollTop = msgsEl.scrollHeight; }
+                return nb;
+            }
+        }
         var wrap = document.createElement('div');
+        if (rkey) { wrap.setAttribute('data-dedup', rkey); }
         wrap.className = 'vagent-turn ' + cls;
         wrap.setAttribute('data-kind', kind);
         if (taskId) { wrap.setAttribute('data-task', taskId); }
@@ -855,6 +1042,13 @@
         target.appendChild(img);
     }
 
+    /* The waiting bubble used to INVENT what the core was doing: at 10 s it
+       claimed „using tools", at 25 s „thinking longer, probably verifying
+       something".  It knew none of that — it was reading a clock (E8/6).
+       Now it says only what it can stand behind: how long it has waited, and
+       the task's own state once the feed reports one (queued / working).
+       When the core serves /api/jobs/<id>/trace this is where the real trace
+       goes; until then, nothing beats a made-up story. */
     function waiting() {
         var d = document.createElement('div');
         d.className = 'vagent-wait';
@@ -866,13 +1060,20 @@
         msgsEl.appendChild(d);
         msgsEl.scrollTop = msgsEl.scrollHeight;
         var began = Date.now();
+        var stateWord = '';
         function paint() {
             var s = Math.round((Date.now() - began) / 1000);
-            var note = s >= 60 ? ' — long task, let it finish'
-                : s >= 25 ? ' — thinking longer, probably verifying something'
-                : s >= 10 ? ' — using tools' : '';
-            label.textContent = ' Vitulus is working… ' + s + ' s' + note;
+            label.textContent = ' Sent ' + s + ' s ago' +
+                (stateWord ? ' · ' + stateWord : '') +
+                (s >= 60 ? ' · still running, no answer yet' : '');
         }
+        d.setState = function (word) {
+            word = String(word || '').trim();
+            if (word && word !== stateWord) { stateWord = word; paint(); }
+        };
+        // …and while it waits, the owner can read the core's real trace
+        // instead of a story about clocks.
+        d.setTrace = function (id) { if (id) { attachTrace(d, id); } };
         paint();
         d.dataset.timer = setInterval(paint, 1000);
         return d;
@@ -885,19 +1086,151 @@
         if (node) { node.remove(); }
     }
 
+    /* ------------------------------------------------- reasoning drawer
+       E8/6.  The waiting bubble used to invent what the core was doing; the
+       core has kept a real trace all along and it went nowhere.  Every chat
+       row carries the v2 work id in `meta.v2`, which is the id
+       /api/jobs/<id>/trace speaks, so the drawer hangs off the bubble it
+       belongs to: [time] · [what I did] · [what I waited for] · [what I
+       found], and a line the core marked `false_claim` is red — the whole
+       point is that a claim the core caught itself making is visible to the
+       owner, not buried. */
+    var traceOpen = {};        // v2 id -> already fetched node
+
+    function traceId(task) {
+        var v = task && task.meta && task.meta.v2;
+        return (typeof v === 'number' && v > 0) ? v : null;
+    }
+
+    function traceRowText(row) {
+        var bits = [];
+        // `did` repeats `kind` on most rows („created created"); the column
+        // already carries it, so only a DIFFERENT verb is worth the width
+        if (row.did && String(row.did) !== String(row.kind)) {
+            bits.push(String(row.did));
+        }
+        if (row.found) { bits.push(String(row.found)); }
+        if (row.error) { bits.push('chyba: ' + String(row.error)); }
+        return bits.join(' · ');
+    }
+
+    function renderTrace(box, data) {
+        box.textContent = '';
+        var rows = (data && data.trace) || [];
+        if (!rows.length) {
+            box.appendChild(edgeRow('No trace recorded for this one.'));
+            return;
+        }
+        var t0 = rows[0].ts || 0;
+        rows.forEach(function (row) {
+            var line = document.createElement('div');
+            line.className = 'vtrace-row' +
+                (row.false_claim ? ' false' : '') +
+                (row.error ? ' err' : '');
+            var t = document.createElement('span');
+            t.className = 'vt-t';
+            t.textContent = '+' + Math.max(0, Math.round((row.ts || 0) - t0)) + ' s';
+            t.title = new Date((row.ts || 0) * 1000).toLocaleTimeString('cs-CZ');
+            line.appendChild(t);
+            var k = document.createElement('span');
+            k.className = 'vt-k';
+            k.textContent = row.kind || '';
+            line.appendChild(k);
+            var w = document.createElement('span');
+            w.className = 'vt-w';
+            w.textContent = row.waited != null ? 'waited ' + Math.round(row.waited) + ' s' : '';
+            line.appendChild(w);
+            var d = document.createElement('span');
+            d.className = 'vt-d';
+            d.textContent = traceRowText(row);
+            d.title = d.textContent;
+            line.appendChild(d);
+            if (row.false_claim) {
+                var f = document.createElement('span');
+                f.className = 'vt-f';
+                f.textContent = 'false claim';
+                f.title = 'The core caught this claim as unsupported';
+                line.appendChild(f);
+            }
+            box.appendChild(line);
+        });
+        var tail = document.createElement('div');
+        tail.className = 'vt-tail';
+        var usd = rows.reduce(function (a, r) { return a + (r.usd || 0); }, 0);
+        tail.textContent = rows.length + ' steps' +
+            (usd ? ' · $' + usd.toFixed(3) : '') +
+            (data.state ? ' · ' + data.state : '');
+        box.appendChild(tail);
+    }
+
+    /* One toggle under a bubble: closed by default, fetched on demand — the
+       trace of a long job is not something to pull on every poll. */
+    function attachTrace(row, id) {
+        if (!id || row.querySelector('.vtrace-btn')) { return; }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'vtrace-btn';
+        btn.textContent = 'what happened';
+        btn.title = 'The core\u2019s own record of this: what it did, what it ' +
+            'waited for, what it found';
+        var box = document.createElement('div');
+        box.className = 'vtrace';
+        box.style.display = 'none';
+        btn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            var open = box.style.display === 'none';
+            box.style.display = open ? '' : 'none';
+            btn.classList.toggle('on', open);
+            if (!open || traceOpen[id]) { return; }
+            box.textContent = '';
+            box.appendChild(edgeRow('Loading the trace\u2026'));
+            api('/api/jobs/' + id + '/trace').then(function (d) {
+                if (!d || d.ok === false) {
+                    box.textContent = '';
+                    box.appendChild(edgeRow('No trace: ' +
+                        ((d && d.error) || 'the core did not answer')));
+                    return;
+                }
+                traceOpen[id] = true;
+                renderTrace(box, d);
+            }).catch(function (e) {
+                box.textContent = '';
+                box.appendChild(edgeRow(/HTTP 404/.test(String(e))
+                    ? 'No trace for this one (older row).'
+                    : 'Trace failed: ' + e));
+            });
+        });
+        row.appendChild(btn);
+        row.appendChild(box);
+    }
+
     function renderTask(task, fromHistory) {
-        if (!task || !task.id || seen[task.id]) { return false; }
+        if (!task || !task.id) { return false; }
+        /* A row is seen TWICE by design: first while the core is still
+           working on it (state new/working, no reply), then again when it
+           finishes.  `seen` must therefore only suppress a second QUESTION,
+           never the answer — a task whose answer half is still missing is
+           allowed straight back in.  Before this, the first sighting also
+           moved the feed cursor past the id, so the done-transition was
+           never fetched at all and the chat kept spinning forever with the
+           reply already sitting in the store (measured: task 3244 done on
+           the robot, bubble still "working… 78 s"). */
+        var finished = task.state === 'done' || task.state === 'failed';
+        var known = !!seen[task.id];
+        if (known && (!finished || answered[task.id])) { return false; }
         var mineOnly = scope === 'mine';
         var isMine = task.author === author;
         var fromAgent = task.source === 'agent';
         if (mineOnly && !isMine && !fromAgent) { return false; }
         seen[task.id] = true;
+        if (finished) { delete openIds[task.id]; }
+        else { openIds[task.id] = 1; }
         if (task.id > lastTaskId) { lastTaskId = task.id; }
         if (!oldestTaskId || task.id < oldestTaskId) { oldestTaskId = task.id; }
         var kind = taskKind(task);
 
         // The question half (skip if this tab just rendered it optimistically).
-        if (!fromAgent && task.text) {
+        if (!known && !fromAgent && task.text) {
             var matched = false;
             if (!fromHistory && isMine) {
                 for (var i = 0; i < pendingByText.length; i++) {
@@ -913,7 +1246,25 @@
             }
         }
 
-        if (task.state !== 'done' && task.state !== 'failed') { return true; }
+        if (!finished) {
+            // the bubble stops guessing and repeats the feed's own word
+            if (isMine) {
+                for (var w = 0; w < pendingByText.length; w++) {
+                    if (pendingByText[w].text === task.text &&
+                            pendingByText[w].node &&
+                            pendingByText[w].node.setState) {
+                        pendingByText[w].node.setState(
+                            task.state === 'new' ? 'queued' : task.state);
+                        if (pendingByText[w].node.setTrace) {
+                            pendingByText[w].node.setTrace(traceId(task));
+                        }
+                        break;
+                    }
+                }
+            }
+            return true;
+        }
+        answered[task.id] = true;
 
         // The answer half; release this tab's waiting bubble if it was ours.
         if (isMine) {
@@ -945,6 +1296,7 @@
         arts.forEach(function (a) {
             if (a && a.url) { attachImage(row.querySelector('.vagent-msg'), a.url); }
         });
+        attachTrace(row, traceId(task));
         if (fromAgent && task.meta && task.meta.event === 'script_output') {
             // Output of a script task: compact bubble with a link to its card.
             row.classList.add('vagent-script');
@@ -1088,11 +1440,43 @@
         msgsEl.setAttribute('data-filter', filter);
     }
 
+    /* Ids the panel currently renders as unanswered, newest 50.  The feed is
+       a forward cursor (`id > since_id`), so a row whose reply lands after
+       the cursor moved past it would never come back — `watch_ids` is the
+       server's answer to exactly that (webchat.py `_api_tasks`), and
+       `watch_open=1` additionally carries tasks that were already running
+       before this tab loaded. */
+    function watchQ() {
+        var ids = Object.keys(openIds).map(Number).sort(function (a, b) {
+            return a - b;
+        }).slice(-50);
+        return '&watch_open=1' + (ids.length ? '&watch_ids=' + ids.join(',') : '');
+    }
+
+    /* The log panel in map_view.js used to poll the agent itself (a second
+       5 s hit on :8088, from a file that is not allowed to talk to the agent
+       at all).  It listens for this instead — the panel is the single reader
+       of the feed and forwards what it sees. */
+    var emitted = {};
+    function emitTasks(rows) {
+        (rows || []).forEach(function (t) {
+            if (!t || !t.id || emitted[t.id]) { return; }
+            emitted[t.id] = 1;
+            document.dispatchEvent(new CustomEvent('vagent:task', {detail: t}));
+        });
+        var keys = Object.keys(emitted);
+        if (keys.length > 600) {          // bounded, like the DOM window
+            keys.sort(function (x, y) { return x - y; })
+                .slice(0, 300).forEach(function (k) { delete emitted[k]; });
+        }
+    }
+
     function pollTasks() {
-        var q = '/api/tasks?since_id=' + lastTaskId +
+        var q = '/api/tasks?since_id=' + lastTaskId + watchQ() +
             (scope === 'mine' ? '&author=' + encodeURIComponent(author) : '');
         return api(q).then(function (d) {
             var rows = (d && d.tasks) || [];
+            emitTasks(rows);
             if (truncatedBottom) {
                 // A deep back-scroll dropped the newest rows; appending live
                 // ones under stale history would render a gap.  Track the
@@ -1139,7 +1523,7 @@
             for (i = 0; i < extra; i++) {
                 node = nodes[nodes.length - 1 - i];
                 id = parseInt(node.getAttribute('data-task') || '0', 10);
-                if (id) { delete seen[id]; }
+                if (id) { delete seen[id]; delete answered[id]; }
                 node.remove();
             }
             truncatedBottom = true;
@@ -1148,7 +1532,7 @@
             for (i = 0; i < extra; i++) {
                 node = nodes[i];
                 id = parseInt(node.getAttribute('data-task') || '0', 10);
-                if (id) { delete seen[id]; }
+                if (id) { delete seen[id]; delete answered[id]; }
                 node.remove();
             }
             // The pruned rows still exist server-side: the top edge reopens.
@@ -1195,6 +1579,8 @@
     function loadHistory() {
         msgsEl.textContent = '';
         seen = {};
+        answered = {};
+        openIds = {};
         lastTaskId = 0;
         oldestTaskId = 0;
         hasMore = false;
@@ -1220,7 +1606,10 @@
 
         // One bounded call: the LAST page only.  Older pages load when the
         // user scrolls to the top (loadOlder).
-        api('/api/tasks?limit=' + PAGE + authorQ()).then(function (data) {
+        // Vrací se řetěz (nikdo ze stávajících volajících ho nečte), aby se
+        // na dokončení dalo počkat — `submitText()` po něm kreslí bublinu,
+        // jinak by ji přepsala dolétající historie.
+        return api('/api/tasks?limit=' + PAGE + authorQ()).then(function (data) {
             if (data && Object.prototype.hasOwnProperty.call(data, 'has_more')) {
                 var found = false;
                 ((data && data.tasks) || []).forEach(function (t) {
@@ -1261,22 +1650,90 @@
 
     function submitText(text, meta) {
         if (!text) { return; }
-        turn('me', 'vagent-me', text, [
-            {text: clock(Date.now() / 1000)},
-            {text: displayName || 'ty'}
-        ]);
-        var node = waiting();
-        pendingByText.push({text: text, node: node});
+        /* KDYŽ ČLOVĚK NĚCO NAPÍŠE, VYHRÁVÁ TO NAD PROCHÁZENÍM HISTORIE.
+           Po hlubokém odrolování nahoru zahodí `pruneWindow(true)` nejnovější
+           řádky a nastaví `truncatedBottom`; od té chvíle `pollTasks()`
+           **záměrně nevykresluje nové zprávy**, aby nevznikla díra. To je
+           správně pro cizí zprávy — ale ne pro moji vlastní: naměřeno, že
+           odeslané `/status` (jádro ho přijalo jako úkol 3352) se objevilo
+           jako bublina „Sent 6 s ago" a při nejbližším pollu **zmizelo**,
+           odpověď nedorazila nikdy a nic to nevysvětlilo. Únikovka („↓ Latest")
+           existovala, ale hledat ji po vlastní odeslané větě nikdo nebude.
+           Vrátíme se proto k živému konci dřív, než bublinu nakreslíme. */
         var body = {text: text, author: author, name: displayName || undefined};
         if (meta && typeof meta === 'object') { body.meta = meta; }
-        api('/api/task', {body: body})
-            .catch(function () {
+
+        function draw() {
+            turn('me', 'vagent-me', text, [
+                {text: clock(Date.now() / 1000)},
+                {text: displayName || 'ty'}
+            ]);
+            var node = waiting();
+            pendingByText.push({text: text, node: node});
+            return node;
+        }
+
+        /* Odeslání jde ven HNED — návrat k živému konci ho nesmí zdržet.
+           `.catch` se připojuje rovnou, ne až ve `wire()`: mezi odesláním a
+           dokreslením bublinky je v truncated větvi celý reload, a kdyby
+           požadavek selhal v té mezeře, byla by z toho neošetřená rejekce a
+           hláška „Could not send" by nedorazila nikdy. */
+        var sendFailed = false, onFail = null;
+        var sending = api('/api/task', {body: body});
+        sending.catch(function () {
+            sendFailed = true;
+            if (onFail) { onFail(); }
+        });
+
+        function wire(node) {
+            onFail = function () {
                 stopWaiting(node);
                 for (var i = 0; i < pendingByText.length; i++) {
-                    if (pendingByText[i].node === node) { pendingByText.splice(i, 1); break; }
+                    if (pendingByText[i].node === node) {
+                        pendingByText.splice(i, 1);
+                        break;
+                    }
                 }
-                turn('bot', 'vagent-err', 'Could not send — agent (:8088) is unreachable.', []);
-            });
+                turn('bot', 'vagent-err',
+                     'Could not send — the agent (/agent) is unreachable.', []);
+            };
+            if (sendFailed) { onFail(); }
+        }
+
+        if (truncatedBottom) {
+            // Bublina se kreslí AŽ po reloadu: `loadHistory()` maže
+            // `#vagent_msgs` a dosypává stránku, takže bublina nakreslená
+            // dřív by skončila nad historií, nebo by ji reload smazal.
+            var back = loadHistory();
+            if (back && typeof back.then === 'function') {
+                back.then(function () {
+                    // Odeslání proběhlo DŘÍV než reload, takže dolétlá
+                    // stránka už moji větu obsahuje — naměřeno: bez téhle
+                    // kontroly se `/status` vykreslil dvakrát. Optimistickou
+                    // bublinu proto kreslíme jen tehdy, když tam ještě není.
+                    if (!lastTurnIsMine(text)) { wire(draw()); }
+                    scrollChatBottom();
+                });
+                return;
+            }
+        }
+        wire(draw());
+    }
+
+    /* Je poslední moje bublina právě tahle věta? Porovnává se text, protože
+       id serverového řádku v tu chvíli ještě neznáme. */
+    function lastTurnIsMine(text) {
+        var nodes = turnNodes();
+        var want = String(text).trim();
+        for (var i = nodes.length - 1; i >= 0 && i >= nodes.length - 4; i--) {
+            var n = nodes[i];
+            if (!n.classList.contains('vagent-me')) { continue; }
+            var body = n.querySelector('.vagent-body') || n;
+            if (String(body.textContent || '').trim().indexOf(want) === 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function renderChat(el) {
@@ -1302,6 +1759,26 @@
         msgsEl = el.querySelector('#vagent_msgs');
         inputEl = el.querySelector('#vagent_input');
         var send = el.querySelector('#vagent_send');
+
+        /* U32: at rest the field is 44 px — one touch target — but its own
+           placeholder needed 64 px at 390 px wide, so the phone showed
+           „Type a task or question… (/ for" and the TOP HALF of „commands)",
+           with a scrollbar drawn inside an empty field.  It is the first
+           thing the owner sees in the panel on a phone.  The field grows
+           correctly the moment you type (5 lines -> 112 px), so this is a
+           resting-state fault and it belongs to the placeholder, not to the
+           height: where the column is narrow, a shorter sentence that fits
+           on one line.  Re-checked on resize, because the drawer changes
+           width without the page reloading (Expand ↗). */
+        function syncPlaceholder() {
+            var w = inputEl.clientWidth || 0;
+            inputEl.placeholder = (w && w < 340)
+                ? 'Task or question…  / = commands'
+                : 'Type a task or question… (/ for commands)';
+        }
+        syncPlaceholder();
+        if (window.requestAnimationFrame) { requestAnimationFrame(syncPlaceholder); }
+        window.addEventListener('resize', syncPlaceholder);
 
         // Lazy history: near the top -> fetch the previous page; the floating
         // „Latest" chip returns to (or reloads) the newest messages.
@@ -1520,9 +1997,12 @@
             jb.type = 'button';
             jb.className = 'vagent-ctx-item job';
             var pl = document.createElement('span');
-            pl.className = 'vagent-pill ' + running.state;
-            pl.textContent = (running.state === 'running' ? 'running' : 'waiting')
-                + (active.length > 1 ? ' ' + active.length : '');
+            // U25: this used to print `waiting` for anything that was not
+            // `running`, so a queued job was called two different things two
+            // lines apart.  Same word as its own card, always.
+            var pw = stateWord(running.state, running.stalled);
+            pl.className = 'vagent-pill ' + (STATUS_CLS[pw] || pw);
+            pl.textContent = pw + (active.length > 1 ? ' ' + active.length : '');
             jb.appendChild(pl);
             var t = document.createElement('span');
             t.className = 'ct';
@@ -1659,10 +2139,37 @@
     // ------------------------------------------------------ the unified shape
     var POLICY_LABEL = {silent: 'Silent', result: 'Result', progress: 'Progress'};
     var POLICY_TIP = 'Whether this job may post to chat';
+    /* v1 and v2 state names side by side.  The v2 core's vocabulary is
+       queued|running|waiting|done|failed|cancelled|armed|paused (plan §7);
+       'waiting' is v1's 'blocked' (it wants a human), 'armed' is a recurring
+       job standing ready, i.e. v1's 'scheduled'.  Keeping both means the
+       panel does not need a flag day when :8088 starts speaking v2. */
     var STATUS_CLS = {running: 'running', queued: 'queued', blocked: 'blocked',
                       scheduled: 'scheduled', paused: 'paused', draft: 'draft',
                       failed: 'failed', cancelled: 'failed', done: 'done',
-                      stalled: 'stalled'};
+                      stalled: 'stalled',
+                      waiting: 'blocked', armed: 'scheduled'};
+
+    /* U25: ONE word for the state of a job, spelled in ONE place.
+       Job #185 wore four different ones on a single screen — `waiting` in
+       the pinned bar, `RUNNING` as the heading of the group it sat in,
+       `queued` on its own badge and `BLOCKED` in its progress bar.  Three of
+       them meant „nothing is happening" and the heading claimed the
+       opposite, so the one question the tab exists to answer — is it working
+       or not? — had no answer.  Every place that shows a job's state now
+       asks stateWord(); nobody spells one itself. */
+    var STATE_WORD = {running: 'running', queued: 'queued', blocked: 'blocked',
+                      waiting: 'blocked', scheduled: 'scheduled',
+                      armed: 'scheduled', paused: 'paused', draft: 'draft',
+                      failed: 'failed', cancelled: 'cancelled', done: 'done'};
+    function stateWord(status, stalled) {
+        var s = String(status == null ? '' : status).toLowerCase();
+        var w = STATE_WORD[s] || s;
+        // stalled is a fact ABOUT a running job, not a fifth state — except
+        // when the job already says it is blocked, which says more.
+        if (stalled && w !== 'blocked') { return 'stalled'; }
+        return w || 'unknown';
+    }
 
     function toPolicy(v, kind) {
         var s = String(v == null ? '' : v).toLowerCase();
@@ -1805,18 +2312,20 @@
     function groupOf(j) {
         if (j.archived) { return 'archive'; }
         var st = j.status;
-        if (st === 'running' || st === 'queued' || st === 'blocked') { return 'running'; }
+        if (st === 'running' || st === 'queued' || st === 'blocked' ||
+                st === 'waiting') { return 'running'; }
         if (st === 'failed' || st === 'draft' || st === 'stalled' || j.stalled) { return 'attention'; }
-        if (j.schedule && (st === 'scheduled' || st === 'paused')) { return 'scheduled'; }
+        if (j.schedule && (st === 'scheduled' || st === 'paused' || st === 'armed')) { return 'scheduled'; }
         if (st === 'done' || st === 'cancelled') { return 'recent'; }
         return j.schedule ? 'scheduled' : 'recent';
     }
 
     function jobFp(j) {
+        var pr = progressFor(j, parseRef(j.ref));
         return JSON.stringify([j.ref, j.kind, j.title, j.text, j.status, j.schedule,
             j.policy, j.last, j.runs, j.stalled, j.note, j.legs, j.slot, j.program,
             j.incident, j.live, j.job_id, j.auto, j.archived, j.amendments,
-            groupOf(j)]);
+            groupOf(j), pr]);
     }
 
     // --------------------------------------------------------------- actions
@@ -2029,8 +2538,16 @@
        flag pre-approves ONLY what the Approve button could grant; the safety
        layer and the mower are refused inside the backend shortcut whatever
        the flag says (shellgate.maybe_auto_approve, §11.1/§11.4). */
-    var AUTOAPPR_TIP = 'Pre-approve this job’s requests — they pass as if ' +
-        'you pressed Approve. Safety layer and mower are never auto-approved.';
+    /* NOTE (2026-08-30): the core refuses to auto-decide only mower/blade and
+       safety-layer requests (`shellgate.never_asks` + `mentions_mower`).
+       DRIVING IS NOT ON THAT LIST, so this flag can still pass a request that
+       moves the machine — which is exactly what the owner reserved for
+       himself.  Until the core excludes movement too (see the report), the
+       tooltip says so out loud and turning the flag ON costs a second tap. */
+    var AUTOAPPR_TIP = 'Pre-approves this job’s requests — they pass as if you ' +
+        'pressed Approve. Mower and safety layer are never auto-approved; ' +
+        'MOVEMENT IS NOT EXCLUDED YET, so leave this off for anything that ' +
+        'can drive the robot.';
 
     function autoApproveLabel(on) {
         return on ? '🛡✓ auto-approve on' : '🛡 auto-approve';
@@ -2042,9 +2559,24 @@
         b.className = 'ja autoap' + (j.auto ? ' on' : '');
         b.textContent = autoApproveLabel(j.auto);
         b.title = AUTOAPPR_TIP;
+        var arm = false, armT = null;
         b.addEventListener('click', function (ev) {
             ev.stopPropagation();
             var want = !j.auto;
+            if (want && !arm) {          // switching it ON is a decision
+                arm = true;
+                b.textContent = '⚠ pre-approve? tap again';
+                b.classList.add('armed');
+                armT = setTimeout(function () {
+                    arm = false;
+                    b.classList.remove('armed');
+                    b.textContent = autoApproveLabel(j.auto);
+                }, 6000);
+                return;
+            }
+            if (armT) { clearTimeout(armT); }
+            arm = false;
+            b.classList.remove('armed');
             b.disabled = true;
             jobPost(j.ref, 'autoapprove', {on: want}).then(function (d) {
                 b.disabled = false;
@@ -2357,6 +2889,95 @@
         }, {always: true});
     }
 
+    /* ------------------------------------------------------- JobProgress
+       E8/3.  A running job used to be a wall of text; the numbers that say
+       where it actually is (leg, legs, phase, steps, last, verdict, stalled)
+       were fetched every 3 s in /api/jobs and drawn nowhere.  This is a
+       segmented bar — one segment per leg, the current one live — plus one
+       line of facts and one truncated line of what it last did. */
+    var legacyById = {};        // job id -> the rich live row from /api/jobs
+    var LEG_MAX = 14;           // segments drawn; beyond that they merge
+
+    function progressFor(j, p) {
+        var live = legacyById[p && p.id];
+        if (!live && j.src !== 'legacy') { return null; }
+        var src = live || j;
+        var legs = Number(src.legs || 0);
+        var leg = Number(src.leg || legs || 0);
+        if (!legs && !leg && !src.steps) { return null; }
+        return {
+            leg: leg, legs: Math.max(legs, leg),
+            steps: src.steps || 0,
+            phase: src.phase_title || src.phase || '',
+            verdict: src.verdict || '',
+            stalled: !!(src.stalled || j.stalled),
+            state: src.state || j.status || '',
+            last: src.last || (j.last && j.last.output) || '',
+            elapsed_s: src.elapsed_s
+        };
+    }
+
+    function jobProgress(card, j, group) {
+        var pr = progressFor(j, parseRef(j.ref));
+        if (!pr) { return; }
+        var running = group === 'running';
+        if (!running && !pr.legs) { return; }
+
+        var box = document.createElement('div');
+        box.className = 'jp' + (pr.stalled ? ' stalled' : '');
+
+        var bar = document.createElement('div');
+        bar.className = 'jp-bar';
+        var total = Math.max(1, Math.min(pr.legs || 1, LEG_MAX));
+        var merged = (pr.legs || 0) > LEG_MAX;
+        for (var i = 1; i <= total; i++) {
+            var seg = document.createElement('span');
+            var isNow = running && !pr.stalled &&
+                (merged ? i === total : i === pr.leg);
+            seg.className = 'jp-seg' + (i <= pr.leg ? ' done' : '') +
+                (isNow ? ' now' : '');
+            seg.title = 'leg ' + (merged && i === total ? pr.leg : i) +
+                (pr.phase && isNow ? ' · ' + pr.phase : '');
+            bar.appendChild(seg);
+        }
+        box.appendChild(bar);
+
+        var facts = document.createElement('div');
+        facts.className = 'jp-facts';
+        function fact(text, title, cls) {
+            if (!text) { return; }
+            var s = document.createElement('span');
+            s.className = 'jp-f' + (cls ? ' ' + cls : '');
+            s.textContent = text;
+            if (title) { s.title = title; }
+            facts.appendChild(s);
+        }
+        fact(pr.legs ? 'leg ' + (pr.leg || pr.legs) + '/' + pr.legs : '',
+             'Legs finished out of the legs this job has taken so far');
+        fact(pr.steps ? pr.steps + ' steps' : '', 'Tool steps in this job');
+        fact(pr.phase, 'Phase');
+        fact(pr.elapsed_s ? shortAge(pr.elapsed_s) : '', 'Elapsed');
+        if (pr.verdict) {
+            // U25: printed bare, `BLOCKED` read as a fourth state of the job
+            // itself.  It is the verdict of ONE LEG — say so on the chip, not
+            // only in a tooltip nobody hovers on a phone.
+            fact('verdict ' + pr.verdict, 'Verdict of the last leg',
+                 /BLOCK|FAIL/i.test(pr.verdict) ? 'bad'
+                 : /OK|DONE/i.test(pr.verdict) ? 'good' : '');
+        }
+        if (pr.stalled) { fact('stalled', 'No visible progress', 'bad'); }
+        if (facts.childNodes.length) { box.appendChild(facts); }
+
+        if (pr.last) {
+            var lastLine = document.createElement('div');
+            lastLine.className = 'jp-last';
+            lastLine.textContent = String(pr.last);
+            lastLine.title = String(pr.last);
+            box.appendChild(lastLine);
+        }
+        card.appendChild(box);
+    }
+
     function buildJobCard(j, group) {
         var p = parseRef(j.ref);
         var card = document.createElement('div');
@@ -2377,7 +2998,8 @@
         name.textContent = '#' + p.id + ' ' + (j.title || j.text || '');
         name.title = j.text || j.title || '';
         top.appendChild(name);
-        var stLabel = j.status === 'draft' ? 'writing program…' : j.status;
+        // stalled has its own pill right below, so it is not folded in here
+        var stLabel = j.status === 'draft' ? 'writing program…' : stateWord(j.status);
         top.appendChild(pill(stLabel, 'state-' + (STATUS_CLS[j.status] || 'queued'),
             j.status === 'failed' ? ((j.last && j.last.error) || '') : ''));
         if (j.stalled) {
@@ -2455,6 +3077,9 @@
             mid.appendChild(ib);
         }
         if (mid.childNodes.length) { card.appendChild(mid); }
+
+        // ---- where the job actually is (segmented, E8/3)
+        jobProgress(card, j, group);
 
         // ---- what it is doing / why it failed
         var live = j.note ? 'driver: ' + j.note : (j.live || '');
@@ -2573,6 +3198,7 @@
     }
 
     // ------------------------------------------------------------- the pane
+    var unifiedIdle = 0;        // U34: beats skipped while Work is off screen
     var jobCards = {};          // ref → {node, fp}
     var jobsFp = null, deferredJobs = null;
     var GROUPS = [
@@ -2586,6 +3212,24 @@
         {id: 'archive', label: 'Archive',
          empty: 'Nothing archived. Old finished jobs move here on their own.'}
     ];
+
+    /* U25, second half: the heading of a group must say what is IN it.
+       `running` is a bucket of everything alive (running · queued · blocked ·
+       stalled), so it was headed „RUNNING 1" over a single queued, blocked
+       job — the only line on that screen that said something untrue.  When
+       the bucket holds one kind of thing it is named after that thing;
+       when it holds several it is „Active", which is the honest word for a
+       mixture.  Other groups keep their fixed label. */
+    function groupHeading(g, items) {
+        if (g.id !== 'running' || !items || !items.length) { return g.label; }
+        var seen = {}, order = [];
+        items.forEach(function (j) {
+            var w = stateWord(j.status, j.stalled);
+            if (!seen[w]) { seen[w] = 1; order.push(w); }
+        });
+        if (order.length !== 1) { return 'Active'; }
+        return order[0].charAt(0).toUpperCase() + order[0].slice(1);
+    }
 
     function sortJobs(group, items) {
         items.sort(function (a, b) {
@@ -2637,7 +3281,7 @@
             if (g.id === 'recent') { items = items.slice(0, 10); }
             var head = document.createElement('div');
             head.className = 'vagent-sh g-' + g.id;
-            head.appendChild(document.createTextNode(g.label));
+            head.appendChild(document.createTextNode(groupHeading(g, items)));
             var c = document.createElement('span');
             c.className = 'vagent-cnt' + (g.id === 'attention' && total ? ' warn' : '');
             c.textContent = (g.id === 'archive' && !archFetched) ? '…' : String(total);
@@ -2714,8 +3358,11 @@
     function pollJobs() {
         return api('/api/jobs').then(function (d) {
             legacyJobs = (d && d.jobs) || [];
+            legacyById = {};
+            legacyJobs.forEach(function (row) { legacyById[row.id] = row; });
             ctxJobs = legacyJobs;
             paintCtx();
+            paintStrip();
             if (unifiedOk !== true) { renderJobsPane(composeJobs()); }
         }).catch(function () {});
     }
@@ -2758,7 +3405,7 @@
                 jobsErr = '';
                 return pollLegacySchedules().then(function () { renderJobsPane(composeJobs()); });
             }
-            jobsErr = 'Jobs: agent (:8088) not responding.';
+            jobsErr = 'Jobs: the agent (/agent) is not responding.';
             renderJobsPane(lastJobs, true);
             return null;
         });
@@ -2939,12 +3586,12 @@
         autoRow.className = 'si';
         var autoLab = document.createElement('label');
         autoLab.className = 'vagent-autoappr';
-        autoLab.title = 'Safety layer and mower are never auto-approved.';
+        autoLab.title = AUTOAPPR_TIP;
         var autoCb = document.createElement('input');
         autoCb.type = 'checkbox';
         autoLab.appendChild(autoCb);
         autoLab.appendChild(document.createTextNode(
-            ' Auto-approve (pre-approve this job’s requests)'));
+            ' Auto-approve this job’s requests (not for anything that drives)'));
         autoRow.appendChild(autoLab);
         body.appendChild(autoRow);
 
@@ -3227,6 +3874,32 @@
         return first && first.length >= 4 ? headCut(first, 58) : '';
     }
 
+    /* Would granting this ask make the robot MOVE?
+       Robert, 2026-08-30: „robot by nemel vyjizdet pokud mu to nepovolim ja.
+       Ja osobne" — so a request that can move the machine must never look
+       like the routine ones.  This is a UI guard, deliberately generous
+       (a false positive costs one extra tap, a false negative costs a robot
+       leaving the dock): it reads the ask's own words, in both languages.
+       It does NOT replace the core's refusal list — see the report: today
+       `shellgate.never_asks` covers the mower and the safety layer, but NOT
+       driving, so auto-approve can still pass a movement request. */
+    var MOVE_RE = new RegExp(
+        'undock|\\bdock\\b|vyjed|vyjeď|vyjet|vyjizd|vyjížd|zajed|zajeď|' +
+        'jed\\b|jeď|jezd|pojed|pojeď|projed|projeď|rozjed|rozjeď|' +
+        'drive|driving|move_base|movebase|cmd_vel|navigate|navigac|' +
+        'goal|waypoint|trasa|trasu|objed|objeď|zahrad|garden|patrol|' +
+        'motor_power|motor power|pohon|undocking|mow|sekac|sekač|sekat|' +
+        'program\\s*#?\\d', 'i');
+
+    function askMoves(item) {
+        var d = item.detail || {};
+        var p = d.payload || {};
+        var blob = [item.command, item.plain, item.reason, d.what,
+                    d.action_on_approve, p.text, item.job_title,
+                    (d.context || {}).job_goal].join(' ');
+        return MOVE_RE.test(String(blob));
+    }
+
     /* The whole point of the card: one sentence a tired owner understands.
        Returns {text, code} — `code` is the monospace tail for held commands. */
     function askSentence(item, kind) {
@@ -3238,25 +3911,26 @@
         var out = null;
         if (kind === 'plan') {
             var title = planTitle(payload.text || '');
-            out = {text: askAgent(item) + ' připravil plán ' +
-                (title ? '„' + title + '“ ' : '') +
-                (n ? 'pro práci #' + n + ' ' : '') +
-                'a čeká na tvoje ANO, aby ho začal stavět.'};
+            out = {text: askAgent(item) + ' has a plan ' +
+                (title ? '\u201c' + title + '\u201d ' : '') +
+                (n ? 'for job #' + n + ' ' : '') +
+                'and needs your yes before building it.'};
         } else if (kind === 'resume') {
             if (n) {
-                out = {text: 'Práce #' + n +
-                    (state === 'blocked' ? ' se zasekla' : ' stojí') +
-                    ' a čeká na tvoje ANO, aby mohla pokračovat dál.'};
+                out = {text: 'Job #' + n +
+                    (state === 'blocked' ? ' is stuck' : ' is standing still') +
+                    ' and needs your yes to carry on.'};
             }
         } else {
             var cmd = payload.text || item.command || '';
             if (cmd) {
-                out = {text: 'Robot chce jednou spustit tento příkaz: ',
+                out = {text: 'The robot wants to run this command once: ',
                        code: headCut(cmd, 78)};
             }
         }
         if (!out || !out.text) {
-            out = {text: d.what || item.plain || item.command || 'Čeká se na tvoje rozhodnutí.'};
+            out = {text: d.what || item.plain || item.command
+                   || 'Waiting for your decision.'};
         }
         return out;
     }
@@ -3369,6 +4043,16 @@
         row.appendChild(src);
 
         // ---- 2. the ask, in one plain sentence ---------------------------
+        var moves = askMoves(item);
+        if (moves) {
+            row.classList.add('moves');
+            var mv = document.createElement('div');
+            mv.className = 'amove';
+            mv.textContent = 'THE ROBOT WOULD MOVE — only you may allow this';
+            mv.title = 'This request can make the machine drive. ' +
+                'It never happens without your explicit yes.';
+            row.appendChild(mv);
+        }
         var say = document.createElement('div');
         say.className = 'asay';
         var sentence = askSentence(item, kind);
@@ -3400,13 +4084,37 @@
         var act = document.createElement('div');
         act.className = 'ar aact';
         var yes = document.createElement('button');
-        yes.className = 'ay';
+        yes.className = 'ay' + (moves ? ' moves' : '');
         yes.type = 'button';
-        yes.textContent = 'Approve';
-        yes.title = 'Runs it (same as /allow ' + item.id + ')';
-        yes.addEventListener('click', function () {
-            decideAsk(item, true, row, execChoice);
-        });
+        yes.textContent = moves ? 'Allow the robot to move' : 'Approve';
+        yes.title = moves
+            ? 'Lets the machine drive. One more tap confirms — nothing moves '
+              + 'before that (same as /allow ' + item.id + ')'
+            : 'Runs it (same as /allow ' + item.id + ')';
+        if (moves) {
+            // The irreversible half of the card is the one that gets the
+            // second tap; Deny has had one all along.
+            var yArmed = false, yTimer = null;
+            yes.addEventListener('click', function () {
+                if (!yArmed) {
+                    yArmed = true;
+                    yes.textContent = 'Yes — let it move';
+                    yes.classList.add('armed');
+                    yTimer = setTimeout(function () {
+                        yArmed = false;
+                        yes.textContent = 'Allow the robot to move';
+                        yes.classList.remove('armed');
+                    }, 6000);
+                    return;
+                }
+                if (yTimer) { clearTimeout(yTimer); }
+                decideAsk(item, true, row, execChoice);
+            });
+        } else {
+            yes.addEventListener('click', function () {
+                decideAsk(item, true, row, execChoice);
+            });
+        }
         act.appendChild(yes);
         var no = document.createElement('button');
         no.className = 'an';
@@ -3604,6 +4312,11 @@
     function renderApprovals(list) {
         if (!gateBody) { return; }
         var sorted = (list || []).slice().sort(function (a, b) {
+            // anything that can move the machine sits at the very top of the
+            // pinned cards — that decision is the owner's alone
+            var ma = askMoves(a) ? 0 : 1;
+            var mb = askMoves(b) ? 0 : 1;
+            if (ma !== mb) { return ma - mb; }
             var ra = ASK_RANK[askKind(a)];
             var rb = ASK_RANK[askKind(b)];
             if (ra !== rb) { return ra - rb; }
@@ -3671,11 +4384,18 @@
             e.textContent = 'Nothing waiting for approval.';
             gateBody.appendChild(e);
         }
+        // Pinned at the top of Work: it must take no room when it is empty.
+        var pin = gateBody.parentNode;
+        if (pin && pin.classList && pin.classList.contains('vagent-pinned')) {
+            pin.style.display = shown ? '' : 'none';
+        }
     }
 
     function pollApprovals() {
         return api('/api/approvals').then(function (d) {
-            renderApprovals((d && d.approvals) || []);
+            stripAsks = (d && d.approvals) || [];
+            renderApprovals(stripAsks);
+            paintStrip();
         }).catch(function () {});
     }
 
@@ -3739,36 +4459,470 @@
         }).catch(function () {});
     }
 
+    // ==================================================== the dock lock
+    /* Robert, 2026-08-30: „Dokovy zamek muzu odemknout jen ja kliknutim v ui.
+       jestli to agent obejde? At ma jasne stanovene, ze takova narizeni nesmi
+       obchazet."
+
+       So this panel is the ONLY place the lock opens, and what it grants is a
+       single named action for a few minutes, not a mode.  The core enforces
+       it (`v2/ros_wire.check()` refuses every moving action without a live
+       row in `dock_release`); everything here is the human half: say exactly
+       what is being allowed, take a second tap for it, show it while it lasts,
+       and give one click to take it back.  The countdown below is DISPLAY
+       ONLY — expiry, the use count and the signature are decided in the core,
+       which is the half the agent cannot reach. */
+    var dockState = {supported: null, locked: true, release: null, ts: 0};
+    var dockEl = null;
+
+    /* Two grants, both NAMED — the release is a list of action ids and the
+       core refuses `*`, `all` and `any` (ros_wire `_release_from_row`), so the
+       card lists the actions themselves rather than saying "allow movement".
+       Two, not one, because one departure alone strands the robot outside:
+       coming home is `dock.start`, and that is movement too. */
+    var DOCK_GRANTS = [{
+        key: 'out',
+        actions: ['dock.undock'],
+        ttl_s: 900,
+        max_runs: 1,
+        button: 'Let it leave the dock, once\u2026',
+        title: 'You are about to allow:',
+        lines: [
+            ['Actions', 'dock.undock — release the dock and drive away'],
+            ['Not allowed', 'driving a saved route, the mower, docking back'],
+            ['Valid for', '15 minutes from now'],
+            ['Uses', '1 — the permission is gone the moment it is used'],
+            ['Signed by', 'you, from this browser']
+        ]
+    }, {
+        key: 'round',
+        actions: ['dock.undock', 'dock.start'],
+        ttl_s: 1800,
+        max_runs: 2,
+        button: 'Let it leave and come back\u2026',
+        title: 'You are about to allow:',
+        lines: [
+            ['Actions', 'dock.undock (leave) + dock.start (drive back in)'],
+            ['Not allowed', 'driving a saved route, the mower, anything else'],
+            ['Valid for', '30 minutes from now'],
+            ['Uses', '2 — one departure and one return, then it is gone'],
+            ['Signed by', 'you, from this browser']
+        ]
+    }];
+
+    function dockRelease() { return dockState.release || null; }
+
+    function dockLeft(rel) {
+        if (!rel || !rel.until) { return 0; }
+        return Math.max(0, rel.until - Date.now() / 1000);
+    }
+
+    function mmss(sec) {
+        sec = Math.max(0, Math.round(sec));
+        var m = Math.floor(sec / 60);
+        return m + ':' + ('0' + (sec - m * 60)).slice(-2);
+    }
+
+    function dockUsesLeft(rel) {
+        if (!rel) { return 0; }
+        return Math.max(0, (rel.max_runs || 1) - (rel.used || 0));
+    }
+
+    function announceDock() {
+        document.dispatchEvent(new CustomEvent('vagent:dock', {detail: dockState}));
+        paintUnlocked();
+    }
+
+    function pollDock(force) {
+        // „not served yet" is a statement about a moment, not a verdict: the
+        // endpoint can land while the page is open, so opening the tab asks
+        // again even after a 404.
+        if (dockState.supported === false && !force) { return Promise.resolve(); }
+        return api('/api/dock/lock').then(function (d) {
+            if (!d || d.agent_down) { return; }
+            if (d.ok === false && /nenalezeno|not found|404/i.test(String(d.error || ''))) {
+                dockState.supported = false; announceDock(); return;
+            }
+            dockState.supported = true;
+            dockState.locked = d.locked !== false;
+            dockState.release = d.release || null;
+            dockState.ts = Date.now();
+            announceDock();
+        }).catch(function (e) {
+            if (/HTTP 404/.test(String(e))) {
+                dockState.supported = false;      // core does not serve it yet
+                announceDock();
+            }
+        });
+    }
+
+    /* The grant itself.  Never called without a second tap in the card. */
+    function dockUnlock(grant, note) {
+        grant = grant || DOCK_GRANTS[0];
+        return api('/api/dock/unlock', {body: {
+            actions: grant.actions,
+            ttl_s: grant.ttl_s,
+            max_runs: grant.max_runs,
+            by: displayName || '',
+            author: author,
+            note: note || ('granted in the panel: ' + grant.actions.join(', '))
+        }, timeout_ms: 12000}).then(function (d) {
+            if (d && d.release) {
+                dockState.supported = true;
+                dockState.locked = false;
+                dockState.release = d.release;
+                dockState.ts = Date.now();
+                announceDock();
+            }
+            return d;
+        });
+    }
+
+    function dockRelock() {
+        var rel = dockRelease();
+        return api('/api/dock/lock', {body: {
+            row_id: rel && rel.row_id, by: displayName || '', author: author
+        }, timeout_ms: 12000}).then(function (d) {
+            dockState.locked = true;
+            dockState.release = null;
+            announceDock();
+            return d;
+        });
+    }
+
+    /* Always visible while anything is unlocked — the owner must never have
+       to open a tab to find out that the dock is open, and taking it back is
+       one click from wherever he is. */
+    var unlockedEl = null;
+    function paintUnlocked() {
+        if (!unlockedEl) { return; }
+        var rel = dockRelease();
+        var live = rel && dockLeft(rel) > 0 && dockUsesLeft(rel) > 0;
+        if (!live) {
+            unlockedEl.style.display = 'none';
+            unlockedEl.textContent = '';
+            layoutBars();
+            return;
+        }
+        unlockedEl.textContent = '';
+        var lab = document.createElement('span');
+        lab.className = 'vs-lab';
+        lab.textContent = 'UNLOCKED';
+        unlockedEl.appendChild(lab);
+        var txt = document.createElement('span');
+        txt.className = 'vs-txt';
+        var n = dockUsesLeft(rel);
+        txt.textContent = (rel.actions || []).join(', ') + ' · ' +
+            n + (n === 1 ? ' use' : ' uses') + ' left · ' +
+            mmss(dockLeft(rel)) + ' left';
+        unlockedEl.appendChild(txt);
+        var back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'vs-btn';
+        back.textContent = 'Lock again';
+        back.title = 'Take the permission back now';
+        back.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            back.disabled = true;
+            dockRelock().catch(function () { back.disabled = false; });
+        });
+        unlockedEl.appendChild(back);
+        unlockedEl.style.display = '';
+        layoutBars();
+    }
+
+    // ================================================ shell strip + now bar
+    /* E8/2.  One row of chrome outside the panel, so the owner sees the one
+       thing that needs him without opening anything.  It shows AT MOST ONE
+       item, in this order:
+           1. an approval is waiting        2. work is blocked
+           3. a serious finding is open     4. what the agent is doing NOW
+       and when there is none of those it has ZERO height (display:none), so
+       nothing on the page moves.  The "now bar" (4) is the quiet one: verb +
+       object + leg n/m + time, hard-cut to 60 characters. */
+    var stripEl = null, stripText = null, stripFindings = [], stripAsks = [];
+    var stripFp = '';
+    var STRIP_CUT = 60;
+
+    function cut(s, n) {
+        s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+        n = n || STRIP_CUT;
+        return s.length > n ? s.slice(0, n - 1) + '…' : s;
+    }
+
+    function shortAge(sec) {
+        if (sec == null || !isFinite(sec)) { return ''; }
+        if (sec < 90) { return Math.round(sec) + ' s'; }
+        if (sec < 5400) { return Math.round(sec / 60) + ' min'; }
+        if (sec < 172800) { return Math.round(sec / 3600) + ' h'; }
+        return Math.round(sec / 86400) + ' d';
+    }
+
+    function legOf(job) {
+        var leg = job.leg || 0;
+        var legs = job.legs || 0;
+        if (!leg && !legs) { return ''; }
+        return 'leg ' + (leg || legs) + (legs && legs >= (leg || 0) ? '/' + legs : '');
+    }
+
+    /* The one thing worth a row of screen, or null. */
+    function stripPick() {
+        if (stripAsks.length) {
+            var a = stripAsks[0];
+            for (var q = 0; q < stripAsks.length; q++) {
+                if (askMoves(stripAsks[q])) { a = stripAsks[q]; break; }
+            }
+            var what = (a.detail && a.detail.what) || a.plain || a.command || '';
+            if (askMoves(a)) {
+                return {kind: 'move', tab: 'work',
+                        label: 'MOVEMENT NEEDS YOUR YES',
+                        text: cut(what, 40),
+                        age: shortAge(a.waiting_s)};
+            }
+            return {kind: 'ask', tab: 'work',
+                    label: stripAsks.length > 1
+                        ? stripAsks.length + ' approvals waiting'
+                        : 'Approval waiting',
+                    text: cut(what, 44),
+                    age: shortAge(a.waiting_s)};
+        }
+        var jobs = legacyJobs || [];
+        var blocked = null, running = null;
+        for (var i = 0; i < jobs.length; i++) {
+            var j = jobs[i];
+            if (!blocked && (j.state === 'blocked' || j.state === 'waiting' ||
+                    j.stalled)) { blocked = j; }
+            if (!running && j.state === 'running') { running = j; }
+        }
+        if (blocked) {
+            return {kind: 'blocked', tab: 'work', jobId: blocked.id,
+                    label: 'Work #' + blocked.id + (blocked.stalled && blocked.state !== 'blocked'
+                        ? ' stalled' : ' blocked'),
+                    text: cut(blocked.blocked || blocked.error || blocked.last ||
+                              blocked.text, 44),
+                    age: shortAge(blocked.elapsed_s)};
+        }
+        var hot = null;
+        for (var k = 0; k < stripFindings.length; k++) {
+            var f = stripFindings[k];
+            if (f.state === 'open' && f.severity === 'high') { hot = f; break; }
+        }
+        if (hot) {
+            return {kind: 'finding', tab: 'findings',
+                    label: 'Finding: ' + cut(hot.title, 30),
+                    text: hot.count ? hot.count + '×' : '',
+                    age: shortAge(hot.last_seen ? (Date.now() / 1000 - hot.last_seen) : null)};
+        }
+        if (running) {
+            // now bar: verb + object + leg n/m + time
+            return {kind: 'now', tab: 'work', jobId: running.id,
+                    label: '',
+                    text: cut((running.phase_title || running.last || running.text ||
+                               'working') + '', STRIP_CUT - 18),
+                    meta: [legOf(running), shortAge(running.elapsed_s)]
+                        .filter(Boolean).join(' · ')};
+        }
+        return null;
+    }
+
+    function installStrip() {
+        if (document.getElementById('vagent_bars')) { return; }
+        barsEl = document.createElement('div');
+        barsEl.id = 'vagent_bars';
+        panicEl = document.createElement('div');
+        panicEl.id = 'vagent_panic';
+        panicEl.setAttribute('role', 'alert');
+        panicEl.style.display = 'none';
+        barsEl.appendChild(panicEl);
+        unlockedEl = document.createElement('div');
+        unlockedEl.id = 'vagent_unlocked';
+        unlockedEl.setAttribute('role', 'status');
+        unlockedEl.style.display = 'none';
+        barsEl.appendChild(unlockedEl);
+        stripEl = document.createElement('div');
+        stripEl.id = 'vagent_strip';
+        stripEl.setAttribute('role', 'status');
+        stripEl.style.display = 'none';
+        stripEl.addEventListener('click', function () {
+            var pick = stripPick();
+            openPanel();
+            if (pick) {
+                activateTab(pick.tab);
+                if (pick.jobId) { highlightJob(pick.jobId); }
+            }
+        });
+        barsEl.appendChild(stripEl);
+        document.body.appendChild(barsEl);
+        window.addEventListener('resize', layoutBars);
+    }
+
+    /* The bars float over the map, so nothing in the page reflows; the one
+       thing they must not do is cover the floating map menu, so it steps
+       down by exactly the height they take (zero when they are empty). */
+    function layoutBars() {
+        var rm = document.getElementById('row_menu');
+        if (!rm || !barsEl) { return; }
+        var h = barsEl.offsetHeight || 0;
+        rm.style.marginTop = h ? h + 'px' : '';
+    }
+
+    /* E8/7 — the stuck-STOP banner.  `execute.panic_active()` is a latch: it
+       holds until a human clears it, and while it holds the robot refuses to
+       act.  Nothing in the UI said so.  The core does not serve it yet (see
+       the report's "POŽADAVKY NA JÁDRO"), so this reads whatever exists —
+       state.panic first, then /api/panic — and stays silent otherwise. */
+    var panicEl = null, barsEl = null, panicSeen = null, panicProbe = true;
+
+    function paintPanic() {
+        if (!panicEl) { return; }
+        var on = !!(panicSeen && panicSeen.active);
+        if (!on) {
+            panicEl.style.display = 'none';
+            panicEl.textContent = '';
+            layoutBars();
+            return;
+        }
+        var by = panicSeen.by ? ' by ' + panicSeen.by : '';
+        var when = panicSeen.at ? ' · ' + shortAge(Date.now() / 1000 - panicSeen.at) + ' ago' : '';
+        var txt = 'STOP IS LATCHED' + by + when +
+            ' — the agent will not act until it is released.';
+        if (panicEl.textContent !== txt) { panicEl.textContent = txt; }
+        panicEl.style.display = '';
+        layoutBars();
+    }
+
+    function pollPanic() {
+        var st = sharedState.robot;
+        if (st && st.panic && typeof st.panic === 'object') {
+            panicSeen = {active: !!st.panic.active, at: st.panic.at, by: st.panic.by};
+            paintPanic();
+            return;
+        }
+        if (!panicProbe) { return; }
+        api('/api/panic').then(function (d) {
+            if (!d || d.ok === false || d.agent_down) { return; }
+            panicSeen = {active: !!(d.active || d.panic),
+                         at: d.at || null, by: d.by || null};
+            paintPanic();
+        }).catch(function (e) {
+            if (/HTTP 404/.test(String(e))) { panicProbe = false; }  // ask once
+        });
+    }
+
+    function paintStrip() {
+        if (!stripEl) { return; }
+        var pick = stripPick();
+        var fp = pick ? [pick.kind, pick.label, pick.text, pick.age, pick.meta].join('|') : '';
+        if (fp === stripFp) { return; }
+        stripFp = fp;
+        stripEl.textContent = '';
+        if (!pick) {
+            stripEl.style.display = 'none';
+            document.body.classList.remove('vagent-strip-on');
+            layoutBars();
+            return;
+        }
+        stripEl.className = 'va-' + pick.kind;
+        var lab = document.createElement('span');
+        lab.className = 'vs-lab';
+        lab.textContent = pick.label || 'Now';
+        stripEl.appendChild(lab);
+        var txt = document.createElement('span');
+        txt.className = 'vs-txt';
+        txt.textContent = cut(pick.text, STRIP_CUT);
+        stripEl.appendChild(txt);
+        var right = pick.meta || pick.age;
+        if (right) {
+            var m = document.createElement('span');
+            m.className = 'vs-meta';
+            m.textContent = right;
+            stripEl.appendChild(m);
+        }
+        stripEl.title = (pick.label ? pick.label + ' — ' : '') + pick.text +
+            (right ? ' (' + right + ')' : '') + ' · click to open the agent panel';
+        stripEl.style.display = '';
+        document.body.classList.add('vagent-strip-on');
+        layoutBars();
+    }
+
+    /* The strip must be right even with the panel shut, so it has a poller of
+       its own — slow, two calls per minute, plus findings every 4th tick. */
+    var stripTick = 0;
+    function pollStrip() {
+        if (agentUp !== true) { return; }
+        stripTick += 1;
+        if (!panelActive) { pollApprovals(); pollJobs(); }
+        pollPanic();
+        pollDock();            // the dock bar must be right with the panel shut
+        if (stripTick % 4 === 1) {
+            api('/api/doctor').then(function (d) {
+                stripFindings = (d && d.findings) || [];
+                paintStrip();
+            }).catch(function () {});
+        }
+        paintStrip();
+    }
+
     // ---------------------------------------------------------- scheduling
     /* One scheduler. While the panel is visible: tasks 2 s, jobs+approvals
        3 s, state 5 s, plus each registered block's own poll. While hidden:
        one light badge poll every 30 s (approval count + unseen reports), so a
        closed panel costs the robot's CPU nearly nothing. */
     var timers = [];
+    var BG_MS = 15000;      // slow rate for an OPEN panel in a background tab
 
-    function every(ms, fn) { timers.push(setInterval(function () {
-        if (agentUp === true && isVisible()) { fn(); }
-    }, ms)); }
+    /* An open panel keeps polling even when its tab is in the background —
+       just slowly.  The old gate was `isVisible()`, i.e. panel open AND tab
+       in front; a panel opened in a tab that is not the front one therefore
+       polled nothing at all, which is exactly what "robot state unavailable
+       while /api/state returns 97 %" was: the blocks' onOpen (map render)
+       runs ungated, the pollers do not, so the map loaded and the state
+       never did.  Cost of the background rate: one /api/state + /api/tasks
+       per 15 s, which is what the closed-panel badge poll already spends. */
+    function every(ms, fn) {
+        var last = 0;
+        timers.push(setInterval(function () {
+            if (agentUp !== true || !panelActive) { return; }
+            var now = Date.now();
+            if (document.hidden && (now - last) < BG_MS) { return; }
+            last = now;
+            fn();
+        }, ms));
+    }
+
+    function kickAll() {
+        pollTasks(); pollJobs(); pollUnified(); pollApprovals();
+        pollState(); pollHealth(); pollDock();
+    }
 
     function schedule() {
         if (agentUp !== true) { return; }   // nothing polls a down/unknown agent
         if (timers.length) {         // already scheduled; just kick once
-            if (isVisible()) {
-                pollTasks(); pollJobs(); pollUnified(); pollApprovals(); pollState(); pollHealth();
-            }
+            if (panelActive) { kickAll(); }
             return;
         }
         every(2000, pollTasks);
         every(3000, function () { pollJobs(); pollApprovals(); });
-        every(10000, pollUnified);      // schedules + the unified view
+        /* NOTE: the unified job list is polled in exactly ONE place — the
+           `jobs` block's own poll, below (see U34).  There used to be a
+           second, unconditional `every(10000, pollUnified)` here; while the
+           block's poll was dead (U23, it hung on the pre-merge tab name)
+           that one was carrying the list alone and nobody noticed the
+           duplication.  Fixing U23 woke the second poller and the panel
+           started asking the robot for the same list every ~4 s, measured.
+           A machine at load 13 does not need the panel's help. */
         every(5000, function () { pollState(); pollHealth(); });
+        every(5000, pollDock);
+        // the countdown in the bar has to tick even between polls
+        setInterval(function () { if (dockRelease()) { paintUnlocked(); } }, 1000);
         blocks.forEach(function (blk) {
             if (blk.poll && blk.poll.fn) { every(blk.poll.every_ms || 5000, blk.poll.fn); }
         });
         setInterval(function () {    // the closed-panel badge poll
-            if (agentUp !== true || isVisible()) { return; }
+            if (agentUp !== true || panelActive) { return; }
             var seenId = parseInt(lsGet(LS_SEEN) || '0', 10) || 0;
             api('/api/tasks?since_id=' + seenId).then(function (d) {
+                emitTasks((d && d.tasks) || []);
                 var fresh = ((d && d.tasks) || []).filter(function (t) {
                     return t.source === 'agent' &&
                         (t.state === 'done' || t.state === 'failed');
@@ -3784,9 +4938,7 @@
             }).catch(function () {});
         }, 30000);
         setInterval(paintConn, 2000);
-        if (isVisible()) {
-            pollTasks(); pollJobs(); pollUnified(); pollApprovals(); pollState(); pollHealth();
-        }
+        if (panelActive) { kickAll(); }
     }
 
     // ---------------------------------------------------------------- init
@@ -3808,14 +4960,33 @@
             lsSet(LS_DENSITY, on ? 'compact' : '');
         });
 
+        /* U29: this emptied the chat and left no way back.  Measured: waiting
+           through a poll, switching tabs, scrolling to the top — none of them
+           brought a single bubble back; only a full page reload did.  The
+           button's own tooltip promises the history is still on the robot,
+           and it is — so the panel now offers to go and fetch it, one click,
+           right where the history used to be.  (Its red neighbour STOP has a
+           two-step confirm; this one earns an undo instead, because undoing
+           it costs nothing but a request.) */
         panel.querySelector('#vagent_clear').addEventListener('click', function () {
-            if (msgsEl) {
-                msgsEl.textContent = '';
-                var e = document.createElement('div');
-                e.className = 'vagent-empty';
-                e.textContent = 'View cleared — history stays on the robot (/clear deletes it for real).';
-                msgsEl.appendChild(e);
-            }
+            if (!msgsEl) { return; }
+            msgsEl.textContent = '';
+            var e = document.createElement('div');
+            e.className = 'vagent-empty';
+            e.appendChild(document.createTextNode(
+                'View cleared — history stays on the robot (/clear deletes it for real). '));
+            var undo = document.createElement('button');
+            undo.type = 'button';
+            undo.className = 'vagent-ref';
+            undo.textContent = 'Bring it back';
+            undo.title = 'Load the history again from the robot';
+            undo.addEventListener('click', function () {
+                undo.disabled = true;
+                undo.textContent = 'Loading…';
+                loadHistory();
+            });
+            e.appendChild(undo);
+            msgsEl.appendChild(e);
         });
 
         panel.querySelector('#vagent_stop').addEventListener('click', function () {
@@ -3832,7 +5003,7 @@
                 }).catch(function () {
                     if (msgsEl) {
                         turn('bot', 'vagent-err',
-                             'STOP was not delivered — agent web (:8088) not responding!', []);
+                             'STOP was not delivered — the agent (/agent) is not responding!', []);
                     }
                 });
         }
@@ -3848,7 +5019,18 @@
                        summaryExtra: jobsBadge,
                        render: renderJobsTab,
                        poll: {every_ms: 8000, fn: function () {
-                           if (tabBtns.jobs && tabBtns.jobs.classList.contains('active')) { pollUnified(); }
+                           // U23: this said `tabBtns.jobs`, and the key has
+                           // been `work` since the tabs merged — so the poll
+                           // never ran and the Work tab only ever refreshed
+                           // when you switched away and back.
+                           // U34: and it is now the ONLY poller of this
+                           // list.  Full rate while the owner is looking at
+                           // it, half rate when he is not — the tab badge
+                           // and the shell strip still have to be right when
+                           // he is reading the chat, they just do not have
+                           // to be right to the second.
+                           if (blockTabActive('jobs')) { unifiedIdle = 0; pollUnified(); return; }
+                           if ((++unifiedIdle % 2) === 0) { pollUnified(); }
                        }},
                        onOpen: function () { pollUnified(); }});
         registerBlock({id: 'chat', title: 'Chat', order: 30, render: renderChat});
@@ -3869,8 +5051,11 @@
             }
         });
 
+        installStrip();
         probeAgent();                         // decide availability once, now
         setInterval(probeAgent, 30000);       // and keep watching for it to appear
+        setInterval(pollStrip, 30000);        // shell strip: right even when shut
+        setTimeout(pollStrip, 1500);
         schedule();
         paintBadge();
         paintConn();
@@ -3900,6 +5085,7 @@
         submitText: submitText,
         activateTab: activateTab,
         flagTab: flagTab,
+        blockTabActive: blockTabActive,
         highlightJob: highlightJob,
         highlightSched: highlightSched,
         inlineConfirm: inlineConfirm,
@@ -3909,7 +5095,19 @@
         state: sharedState,
         authorId: author,
         displayName: function () { return displayName; },
-        http: AGENT_HTTP
+        http: AGENT_HTTP,                 // resolved at load; see httpBase()
+        httpBase: function () { return AGENT_HTTP; },
+        // the dock lock: state, the one-shot grant, and taking it back
+        dock: {
+            state: function () { return dockState; },
+            grants: function () { return DOCK_GRANTS; },
+            unlock: dockUnlock,
+            relock: dockRelock,
+            poll: pollDock,
+            left: dockLeft,
+            usesLeft: dockUsesLeft,
+            mmss: mmss
+        }
     };
 
     if (document.readyState === 'loading') {

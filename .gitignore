@@ -3,3 +3,7 @@
 # python
 __pycache__/
 *.pyc
+
+# Zalohy: od zalohovani je git (AGENT_V2_PLAN.md E0)
+*_bak_*
+*_bak[0-9]*

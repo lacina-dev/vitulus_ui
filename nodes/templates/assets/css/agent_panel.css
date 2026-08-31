@@ -141,19 +141,45 @@
 }
 .vagent-pane { display: none; flex: 1; min-height: 0; }
 .vagent-pane.active { display: flex; flex-direction: column; }
-.vagent-pane[data-pane="vice"].active,
-.vagent-pane[data-pane="jobs"].active,
-.vagent-pane[data-pane="gate"].active,
-.vagent-pane[data-pane="robot"].active,
-.vagent-pane[data-pane="incidents"].active {
+/* KTERÝ TAB SE DÁ ROLOVAT: každý kromě chatu.
+   Tady stál JMENNÝ SEZNAM panelů (`vice`, `jobs`, `gate`, `robot`,
+   `incidents`).  Když se taby sloučily na `chat · work · findings · robot ·
+   models`, čtyři z těch jmen přestaly existovat a tři nové se nedopsaly —
+   takže `work`, `findings` i `models` tiše přišly o svůj jediný scroller.
+   Obsah se dál vykresloval, jen se k němu nedalo dostat: naměřeno
+   findings 3424/712 px (**2712 px nedosažitelných**), models 1410/712,
+   work 1300/712.  `robot` fungoval jen proto, že se jeho jméno náhodou
+   nezměnilo.  Majitel to nahlásil jako „models nejde scrolovat".
+
+   Proto se tu teď panely NEVYJMENOVÁVAJÍ.  Pravidlo zní „všechno kromě
+   chatu", takže šestý tab bude rolovat od první vteřiny a tahle vada se
+   nemůže vrátit přejmenováním.  Chat má vlastní scroller uvnitř
+   (`#vagent_msgs`) a musí zůstat flexový, jinak se rozbije lepení na
+   spodek. */
+.vagent-pane.active:not([data-pane="chat"]) {
     display: block;
     overflow-y: auto;
     padding: 8px;
 }
-/* ONE scroll container per tab: the active pane (inside chat, only
-   #vagent_msgs).  The panel and the block host never scroll themselves —
-   two nested scrollers swallow touch gestures on the phone. */
-#vagent_panel, #vagent_blocks { overflow: hidden !important; min-height: 0; }
+/* ONE scroll container per SHAPE of the panel — and the panel has two.
+   Tabbed (the default) the scroller is the active pane; expanded (`.full`,
+   the Expand ↗ button) the panes are all on screen at once as cards and the
+   scroller is the column that holds them, #vagent_blocks (see :~570).
+   Two nested scrollers swallow touch gestures on the phone, so there is
+   never more than one — plus the chat's own #vagent_msgs, which is a
+   separate column, not a nested one.
+
+   This line used to say `overflow: hidden !important` for BOTH boxes.  The
+   `!important` was written for the tabbed shape and then silently beat the
+   `overflow-y: auto` that the expanded shape gives #vagent_blocks: the right
+   column stood still, 767 px of it unreachable, and MODELS (the last card,
+   top 1286 px in a 926 px tall host) had no way to be reached at all.  That
+   is the SAME bug the owner reported as „models nejde scrolovat", in the
+   panel's other shape.  So: no `!important`, and the value is decided by the
+   shape — one property, declared where the shape is declared, never a list
+   of names. */
+#vagent_panel { overflow: hidden; min-height: 0; }
+#vagent_blocks { overflow: hidden; min-height: 0; }
 .vagent-pane {
     min-height: 0;
     touch-action: pan-y;
@@ -556,13 +582,20 @@
     padding: 8px;
     overflow-y: auto;
 }
+/* The cards do NOT scroll themselves.  They used to (`max-height: 38vh;
+   overflow-y: auto`), which made four nested scrollers inside a column that
+   could not scroll at all: the wheel over the right column moved the job
+   list inside WORK and nothing else, so the column looked alive while it
+   stood still — and MODELS, the last card, was simply off the bottom with no
+   way down.  One scroller (the column) and cards as tall as their content:
+   the wheel always moves the thing under the cursor. */
 #ui_drawer.full .vagent-pane {
     display: flex !important;
     flex-direction: column;
     grid-column: 2;
     min-height: 0;
-    max-height: 38vh;
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 6px;
@@ -578,21 +611,31 @@
     color: var(--bs-secondary-color, #adb5bd);
     margin-bottom: 4px;
 }
+/* Chat is the other column and it STAYS: the right column is now one long
+   scroller, so without this the chat would slide off the top as soon as you
+   went looking for MODELS.  Sticky inside the scrollport keeps it where the
+   owner left it. */
 #ui_drawer.full .vagent-pane[data-pane="chat"] {
     grid-column: 1;
     grid-row: 1 / span 8;
     max-height: none;
     height: calc(100vh - 190px);
+    position: sticky;
+    top: 0;
+    align-self: start;
     background: none;
     border: none;
     padding: 0;
 }
 #ui_drawer.full .vagent-pane[data-pane="chat"]::before { content: none; }
 @media (max-width: 900px) {
-    /* full on a narrow screen degrades back to the tabbed single column */
-    #ui_drawer.full #vagent_blocks { display: flex; }
+    /* full on a narrow screen degrades back to the tabbed single column —
+       and with it the scroller goes back to the active pane, so the column
+       must give its own scroller up again (one per shape, never two). */
+    #ui_drawer.full #vagent_blocks { display: flex; overflow: hidden; }
     #ui_drawer.full .vagent-pane { display: none !important; }
     #ui_drawer.full .vagent-pane.active { display: flex !important; }
+    #ui_drawer.full .vagent-pane.active:not([data-pane="chat"]) { overflow-y: auto; }
     #ui_drawer.full #vagent_tabs, #ui_drawer.full #vagent_ctx { display: flex; }
     #ui_drawer.full .vagent-pane::before { content: none; }
 }
@@ -1099,9 +1142,39 @@ details.vagent-card:not([open]) > summary { margin-bottom: 0; }
 .vz-secbody { margin: 3px 0 0 10px; }
 .vz-ev { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 1px 0; font-size: 11.5px; }
 .vz-evsrc { flex: 0 0 auto; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
-.vz-evtext { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+/* U31: the evidence under a finding was ONE nowrap line with an ellipsis and
+   the rest only in `title` — i.e. on a phone, nowhere at all.  Measured at
+   390 px: the five worst rows showed 10–14 % of their own text, and what got
+   cut was the half the finding exists for („…je můj alarm na nepovolené
+   sekání SLEPÝ").  We spend the night making the agent prove what it claims;
+   the panel must not be where the proof goes to hide.  Three wrapped lines
+   by default, the whole thing on a tap — the `more` button beside it is the
+   part a finger can find, since hover is a mouse-only affordance. */
+.vz-evtext {
+    flex: 1 1 auto; min-width: 0; cursor: pointer;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+    overflow: hidden; white-space: pre-wrap; word-break: break-word;
+}
 .vz-evtext.log { background: rgba(0, 0, 0, 0.45); padding: 0 4px; border-radius: 3px; font-size: 11px; }
-.vz-evtext.full { white-space: pre-wrap; word-break: break-word; }
+.vz-evtext.full { -webkit-line-clamp: 40; }
+.vz-evmore {
+    flex: 0 0 auto; align-self: flex-start;
+    background: none; border: 0; padding: 0 2px; cursor: pointer;
+    font-size: 10.5px; line-height: 15px; text-decoration: underline;
+    color: var(--bs-secondary-color, #adb5bd);
+}
+.vz-evmore:hover { color: var(--bs-body-color, #dee2e6); }
+@media (pointer: coarse) { .vz-evmore { min-height: 28px; padding: 0 6px; } }
+/* the junk that /api/growth lists but is not a tool or a skill (U27) */
+.vt-hidden > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    font-size: 10.5px; color: var(--bs-secondary-color, #adb5bd);
+    padding: 3px 0 2px;
+}
+.vt-hidden > summary::-webkit-details-marker { display: none; }
+.vt-hidden > summary::before { content: '▸ '; }
+.vt-hidden[open] > summary::before { content: '▾ '; }
+.vt-hidden .vt-item { opacity: 0.65; }
 .vz-evts { flex: 0 0 auto; font-size: 10.5px; color: var(--bs-secondary-color, #adb5bd); }
 .vz-foot { display: flex; align-items: center; gap: 6px; margin-top: 5px; min-width: 0; font-size: 11px; }
 .vz-state {
@@ -1741,3 +1814,502 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
 }
 .vagent-retry:hover { background: rgba(255,255,255,0.06); }
 @media (pointer: coarse) { .vagent-retry { min-height: 40px; } }
+
+/* ===================================================== shell strip (E8/2)
+   One row of chrome outside the panel: at most one thing (approval waiting >
+   work blocked > serious finding > what the agent is doing now), and ZERO
+   height when there is nothing — the row is display:none then, so nothing on
+   the page moves.  It is fixed under the 42 px navbar; while it is up the
+   floating map menu is pushed down by exactly its height, so it never covers
+   a button. */
+#vagent_bars {
+    position: fixed;
+    top: 42px;
+    left: 0;
+    right: 0;
+    z-index: 1031;
+}
+/* E8/7: a latched STOP is not a notification you can dismiss — it stays up
+   until the latch is released. */
+#vagent_panic {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 26px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: #fff;
+    background: var(--bs-danger, #dc3545);
+    border-bottom: 1px solid rgba(0, 0, 0, .35);
+    text-align: center;
+}
+@media (pointer: coarse) { #vagent_panic { min-height: 32px; font-size: 13px; } }
+#vagent_strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    line-height: 1;
+    color: #eaeaea;
+    background: rgba(20, 22, 26, .94);
+    border-bottom: 1px solid rgba(255, 255, 255, .12);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+}
+#vagent_strip:hover { background: rgba(32, 36, 42, .97); }
+#vagent_strip .vs-lab {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .1);
+    flex: 0 0 auto;
+}
+#vagent_strip .vs-txt {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#vagent_strip .vs-meta {
+    flex: 0 0 auto;
+    opacity: .7;
+    font-variant-numeric: tabular-nums;
+}
+#vagent_strip.va-ask { background: rgba(120, 70, 0, .95); }
+#vagent_strip.va-ask .vs-lab { background: var(--bs-warning, #ffc107); color: #201a00; }
+#vagent_strip.va-blocked { background: rgba(110, 20, 20, .95); }
+#vagent_strip.va-blocked .vs-lab { background: var(--bs-danger, #dc3545); color: #fff; }
+#vagent_strip.va-finding { background: rgba(90, 40, 60, .95); }
+#vagent_strip.va-finding .vs-lab { background: #b0446a; color: #fff; }
+#vagent_strip.va-now { background: rgba(20, 22, 26, .9); color: #c9d1d9; }
+#vagent_strip.va-now .vs-lab { opacity: .75; }
+/* the floating map menu steps aside for exactly the strip's height */
+/* row_menu is nudged in JS (layoutBars) — the bars can be one or two rows */
+@media (pointer: coarse) {
+    #vagent_strip { height: 32px; font-size: 13px; }
+}
+
+/* Approvals are no longer a tab (E8/4): they are pinned above the job list
+   in Work.  A guest section needs a heading of its own. */
+.vagent-pinned {
+    border-bottom: 1px solid var(--bs-border-color, #333);
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+}
+.vagent-pinhead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--bs-warning, #ffc107);
+    padding: 4px 0 6px;
+}
+
+/* ============================================== JobProgress (E8/3)
+   Where the job is, as a shape instead of a paragraph: one segment per leg,
+   the live one breathing, then one line of facts and one clipped line of the
+   last thing it did (the full text is in the tooltip and in Details). */
+.jp { margin: 4px 0 2px; }
+.jp-bar {
+    display: flex;
+    gap: 2px;
+    height: 6px;
+    margin-bottom: 4px;
+}
+.jp-seg {
+    flex: 1 1 0;
+    border-radius: 2px;
+    background: var(--bs-gray-700, #444);
+    opacity: .55;
+}
+.jp-seg.done { background: var(--bs-info, #0dcaf0); opacity: .85; }
+.jp-seg.now {
+    background: var(--bs-info, #0dcaf0);
+    opacity: 1;
+    animation: vagent-jp 1.6s ease-in-out infinite;
+}
+.jp.stalled .jp-seg.done { background: var(--bs-warning, #ffc107); }
+@keyframes vagent-jp { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .jp-seg.now { animation: none; } }
+.jp-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    font-size: 11px;
+    color: var(--bs-secondary-color, #9aa0a6);
+    font-variant-numeric: tabular-nums;
+}
+.jp-f.bad { color: var(--bs-danger, #dc3545); font-weight: 600; }
+.jp-f.good { color: var(--bs-success, #198754); }
+.jp-last {
+    font-size: 11px;
+    color: var(--bs-body-color, #ddd);
+    opacity: .85;
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ============================ movement approvals (owner's hard rule)
+   „Robot by nemel vyjizdet pokud mu to nepovolim ja. Ja osobne" (30. 8.).
+   A request that can drive the machine must not look like the routine ones:
+   red frame, a banner that says what it is, and the YES needs a second tap
+   (Deny has had one all along). */
+.vagent-ask.moves {
+    border-color: var(--bs-danger, #dc3545);
+    box-shadow: inset 3px 0 0 var(--bs-danger, #dc3545);
+}
+.amove {
+    margin: 4px 0;
+    padding: 5px 8px;
+    border-radius: 5px;
+    background: rgba(220, 53, 69, .18);
+    color: #ff9aa4;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.vagent-ask .ay.moves {
+    background: var(--bs-danger, #dc3545);
+    border-color: var(--bs-danger, #dc3545);
+    color: #fff;
+}
+.vagent-ask .ay.armed { animation: vagent-armed 1s ease-in-out infinite; }
+@keyframes vagent-armed { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .vagent-ask .ay.armed { animation: none; } }
+.ja.autoap.armed { color: var(--bs-warning, #ffc107); border-color: var(--bs-warning, #ffc107); }
+#vagent_strip.va-move { background: var(--bs-danger, #dc3545); color: #fff; }
+#vagent_strip.va-move .vs-lab { background: #fff; color: var(--bs-danger, #dc3545); }
+@media (pointer: coarse) {
+    .vagent-ask .ay, .vagent-ask .an { min-height: 40px; }
+}
+
+/* ===================================================== the dock lock (E-dock)
+   „Dokovy zamek muzu odemknout jen ja kliknutim v ui." — so the card shows the
+   SCOPE of what is being allowed, the yes takes a second tap, and while
+   anything is unlocked a bar says so above everything else, with one click to
+   take it back. */
+#vagent_unlocked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 26px;
+    padding: 3px 10px;
+    font-size: 12px;
+    color: #201a00;
+    background: var(--bs-warning, #ffc107);
+    border-bottom: 1px solid rgba(0, 0, 0, .3);
+    white-space: nowrap;
+    overflow: hidden;
+}
+#vagent_unlocked .vs-lab {
+    font-weight: 700;
+    letter-spacing: .04em;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #201a00;
+    color: var(--bs-warning, #ffc107);
+    flex: 0 0 auto;
+}
+#vagent_unlocked .vs-txt {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+}
+#vagent_unlocked .vs-btn {
+    flex: 0 0 auto;
+    border: 1px solid #201a00;
+    background: transparent;
+    color: #201a00;
+    border-radius: 5px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+#vagent_unlocked .vs-btn:hover { background: rgba(0, 0, 0, .12); }
+@media (pointer: coarse) {
+    #vagent_unlocked { min-height: 34px; font-size: 13px; }
+    #vagent_unlocked .vs-btn { min-height: 28px; }
+}
+
+.dk-h { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.dk-pill {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+.dk-pill.shut { background: rgba(25, 135, 84, .22); color: #6fd39a; }
+.dk-pill.open { background: var(--bs-warning, #ffc107); color: #201a00; }
+.dk-note {
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--bs-secondary-color, #9aa0a6);
+    margin: 2px 0 6px;
+}
+.dk-title { font-size: 12px; font-weight: 600; margin: 4px 0 4px; }
+.dk-r {
+    display: flex;
+    gap: 10px;
+    font-size: 11.5px;
+    padding: 2px 0;
+    border-bottom: 1px dotted var(--bs-border-color, #333);
+}
+.dk-l { flex: 0 0 84px; color: var(--bs-secondary-color, #9aa0a6); }
+.dk-v { flex: 1 1 auto; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.dk-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.dk-btn {
+    border: 1px solid var(--bs-border-color, #444);
+    background: transparent;
+    color: var(--bs-body-color, #ddd);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 6px;
+}
+.dk-btn:hover { background: rgba(255, 255, 255, .07); }
+.dk-btn.dk-yes {
+    border-color: var(--bs-warning, #ffc107);
+    color: var(--bs-warning, #ffc107);
+    font-weight: 600;
+}
+.dk-btn.dk-yes.armed {
+    background: var(--bs-warning, #ffc107);
+    color: #201a00;
+    animation: vagent-armed 1s ease-in-out infinite;
+}
+.dk-btn.dk-back { border-color: var(--bs-warning, #ffc107); color: var(--bs-warning, #ffc107); }
+.dk-err { font-size: 11.5px; color: var(--bs-danger, #dc3545); margin-top: 6px; }
+@media (pointer: coarse) { .dk-btn { min-height: 40px; } }
+
+/* ============================== reasoning drawer (E8/6)
+   The core's own record under the bubble it belongs to.  A line the core
+   marked `false_claim` is red — that is the line this whole drawer exists
+   for; burying it would be worse than not having the drawer. */
+.vtrace-btn {
+    margin-top: 4px;
+    border: 1px solid var(--bs-border-color, #444);
+    background: transparent;
+    color: var(--bs-secondary-color, #9aa0a6);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-size: 10.5px;
+    cursor: pointer;
+}
+.vtrace-btn:hover { color: var(--bs-body-color, #ddd); }
+.vtrace-btn.on { color: var(--bs-info, #0dcaf0); border-color: var(--bs-info, #0dcaf0); }
+.vtrace {
+    margin-top: 4px;
+    border-left: 2px solid var(--bs-border-color, #444);
+    padding-left: 8px;
+    max-height: 300px;
+    overflow: auto;
+}
+.vtrace-row {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 1px 0;
+}
+.vtrace-row.err .vt-d { color: #f1868f; }
+.vtrace-row.false { background: rgba(220, 53, 69, .12); }
+.vtrace-row.false .vt-d { color: #ff9aa4; font-weight: 600; }
+.vt-t {
+    flex: 0 0 46px;
+    text-align: right;
+    color: var(--bs-secondary-color, #9aa0a6);
+    font-variant-numeric: tabular-nums;
+}
+.vt-k { flex: 0 0 84px; color: var(--bs-info, #0dcaf0); overflow: hidden; text-overflow: ellipsis; }
+.vt-w { flex: 0 0 auto; color: var(--bs-secondary-color, #9aa0a6); }
+.vt-d { flex: 1 1 auto; overflow-wrap: anywhere; }
+.vt-f {
+    flex: 0 0 auto;
+    background: var(--bs-danger, #dc3545);
+    color: #fff;
+    border-radius: 3px;
+    padding: 0 5px;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.vt-tail {
+    font-size: 10.5px;
+    color: var(--bs-secondary-color, #9aa0a6);
+    padding-top: 3px;
+}
+@media (max-width: 575px) {
+    .vt-k { flex: 0 0 66px; }
+    .vt-t { flex: 0 0 38px; }
+}
+
+/* ============================================ models & providers tab
+   One screen for „what runs on what": a row per kind of work, provider and
+   model picked from lists the core supplies (never a free text field — a typo
+   in a model name means a backend that silently goes dark), the cost and the
+   success rate right beside the choice, and the two rules the server enforces
+   written out instead of arriving as a mystery error after saving. */
+.md-h {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--bs-secondary-color, #9aa0a6);
+    margin: 10px 0 4px;
+}
+.md-note { font-size: 11.5px; line-height: 1.5; color: var(--bs-secondary-color, #9aa0a6); }
+.md-row {
+    border: 1px solid var(--bs-border-color, #333);
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+}
+.md-row.locked { opacity: .75; }
+.md-rh { display: flex; align-items: center; gap: 6px; }
+.md-name { font-size: 12.5px; font-weight: 600; }
+.md-desc { font-size: 11px; color: var(--bs-secondary-color, #9aa0a6); margin: 2px 0 4px; }
+.md-lock { font-size: 10.5px; color: var(--bs-warning, #ffc107); }
+.md-picks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.md-sel {
+    flex: 1 1 130px;
+    min-width: 120px;
+    background: var(--bs-dark, #212529);
+    color: var(--bs-body-color, #ddd);
+    border: 1px solid var(--bs-border-color, #444);
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-size: 12px;
+}
+.md-sel:disabled { opacity: .5; }
+.md-stats { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; }
+.md-s { color: var(--bs-secondary-color, #9aa0a6); font-variant-numeric: tabular-nums; }
+.md-s.good { color: #6fd39a; }
+.md-s.warn { color: var(--bs-warning, #ffc107); }
+.md-s.bad { color: #f1868f; }
+.md-ord, .md-prov {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px dotted var(--bs-border-color, #333);
+    font-size: 12px;
+}
+.md-num { color: var(--bs-secondary-color, #9aa0a6); width: 18px; }
+.md-mini {
+    border: 1px solid var(--bs-border-color, #444);
+    background: transparent;
+    color: var(--bs-body-color, #ddd);
+    border-radius: 4px;
+    width: 26px;
+    height: 24px;
+    cursor: pointer;
+}
+.md-mini:disabled { opacity: .35; cursor: default; }
+.md-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .1);
+}
+.md-pill.good { background: rgba(25, 135, 84, .25); color: #6fd39a; }
+.md-pill.warn { background: rgba(255, 193, 7, .22); color: var(--bs-warning, #ffc107); }
+.md-pill.bad { background: rgba(220, 53, 69, .25); color: #f1868f; }
+.md-pill.off { background: rgba(255, 255, 255, .08); color: var(--bs-secondary-color, #9aa0a6); }
+.md-rules { margin-top: 8px; }
+.md-rule {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--bs-secondary-color, #9aa0a6);
+    padding-left: 12px;
+    position: relative;
+    margin-top: 3px;
+}
+.md-rule::before { content: '\00a7'; position: absolute; left: 0; opacity: .6; }
+.md-err { font-size: 11.5px; color: var(--bs-danger, #dc3545); margin-top: 6px; }
+.md-warn { font-size: 11.5px; color: var(--bs-warning, #ffc107); margin-top: 6px; }
+.md-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.md-btn {
+    border: 1px solid var(--bs-border-color, #444);
+    background: transparent;
+    color: var(--bs-body-color, #ddd);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.md-btn.primary { border-color: var(--bs-info, #0dcaf0); color: var(--bs-info, #0dcaf0); }
+.md-btn:disabled { opacity: .4; cursor: default; }
+/* Labelled picker. Two or three selects sit side by side on a wide panel and
+   stack on a phone; each one keeps its own caption, because "Hermes /
+   openai-codex / GPT-5.6-Sol" is three different questions and an unlabelled
+   row of dropdowns makes the reader guess which is which. */
+.md-f { display: flex; flex-direction: column; gap: 2px; flex: 1 1 150px; min-width: 138px; }
+.md-f .md-sel { flex: 0 0 auto; width: 100%; }
+.md-f.wide { flex: 1 1 100%; }
+.md-fl {
+    font-size: 10px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color, #9aa0a6);
+}
+.md-fh { font-size: 10.5px; color: var(--bs-secondary-color, #9aa0a6); opacity: .85; }
+/* The vendor chip. The judge rule is decided by THIS value, so it is on the
+   row and not buried in a tooltip — it changes when Hermes moves. */
+.md-ven {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .07);
+    color: var(--bs-secondary-color, #9aa0a6);
+}
+.md-badge {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 8px;
+    border: 1px solid var(--bs-border-color, #444);
+    color: var(--bs-secondary-color, #9aa0a6);
+}
+.md-s.money { color: var(--bs-body-color, #ddd); }
+.md-s.est { color: var(--bs-warning, #ffc107); }
+.md-s.link { color: var(--bs-info, #0dcaf0); text-decoration: underline; }
+.md-note.small { font-size: 11px; margin-top: 6px; }
+.md-ok { font-size: 11.5px; color: #6fd39a; margin-top: 6px; }
+.md-more { margin-top: 6px; }
+.md-mini.wide {
+    width: auto;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--bs-secondary-color, #9aa0a6);
+}
+.md-locked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    padding: 3px 0 3px 10px;
+    font-size: 11px;
+    border-left: 2px solid var(--bs-border-color, #444);
+}
+@media (pointer: coarse) { .md-btn, .md-sel { min-height: 40px; } .md-mini { min-height: 34px; width: 34px; } .md-mini.wide { width: auto; } }

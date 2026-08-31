@@ -3862,24 +3862,22 @@ class StatusLog {
         this.poll_agent();
     }
 
+    /* Agent messages arrive as an EVENT from agent_chat.js, which is the one
+       file allowed to talk to the agent (E8: nothing outside agent_*.js may
+       touch /agent/).  This used to be a second 5 s poll of :8088 straight
+       from here — a rule violation and a duplicate of the panel's own feed.
+       Now the panel forwards every agent row it sees and this only listens,
+       so the log costs the robot nothing extra. */
     poll_agent() {
-        var url = 'http://' + location.hostname + ':8088/api/tasks?since_id=' + this.agentCursor;
-        fetch(url, {cache: 'no-store'}).then((response) => {
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            return response.json();
-        }).then((payload) => {
-            var tasks = (payload && payload.tasks) || [];
-            tasks.forEach((task) => {
-                if (task.id > this.agentCursor) this.agentCursor = task.id;
-                if (task.source !== 'agent' && task.state !== 'failed') return;
-                var text = task.reply || task.text || '';
-                if (!text) return;
-                this.ingest({seq: 'agent:' + task.id,
-                             t: task.reply_ts || task.ts || Date.now() / 1000,
-                             msg: text, source: 'Agent'});
-            });
-        }).catch(() => {}).finally(() => {
-            window.setTimeout(() => this.poll_agent(), 5000);
+        document.addEventListener('vagent:task', (ev) => {
+            var task = ev && ev.detail;
+            if (!task || !task.id) return;
+            if (task.source !== 'agent' && task.state !== 'failed') return;
+            var text = task.reply || task.text || '';
+            if (!text) return;
+            this.ingest({seq: 'agent:' + task.id,
+                         t: task.reply_ts || task.ts || Date.now() / 1000,
+                         msg: text, source: 'Agent'});
         });
     }
 
@@ -4441,11 +4439,16 @@ class StatusBar {
                 this.is_indoor = false;
             }
     }
+    /* Na telefonu (390 px) ten span v DOMu není a obě metody padaly na
+       `undefined.style` — vždycky, ne jen jednou. Chybějící cedulka se stavem
+       je maličkost; výjimka, která z konzole udělá nečitelný sloupec, ne. */
     set_status_info_text(text) {
+        if (!this.span_status_info) { return; }
         this.span_status_info.innerText = text;
         this.span_status_info.style.display = "inline";
     }
     hide_status_info() {
+        if (!this.span_status_info) { return; }
         this.span_status_info.style.display = "none";
         this.span_status_info.innerText = " ";
     }
@@ -5532,7 +5535,13 @@ class PowerModule {
         }else{
             this.ico_mower_conf.src = "/assets/img/robot_icons/Nextion_ico_mower_grey.png";
         }
-        span_batt_capacity.textContent = message.battery_capacity;
+        // `this.` chybělo: bez něj je to nedeklarovaná globální proměnná a
+        // KAŽDÁ zpráva o baterii skončila ReferenceError (a s ní i zbytek téhle
+        // funkce). V konzoli to dělalo desítky výjimek za minutu, ve kterých
+        // se ztratí každý skutečný nález.
+        if (this.span_batt_capacity) {
+            this.span_batt_capacity.textContent = message.battery_capacity;
+        }
 
         this.progress_batt_capacity.style.width = message.battery_capacity + '%';
         this.progress_batt_capacity.ariaValueNow = message.battery_capacity;

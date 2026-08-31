@@ -577,6 +577,75 @@ if __name__ == '__main__':
                               '--by "<your name>"' % (site, fence.digest)),
             })
 
+        # -----------------------------------------------------------------
+        # Agent proxy: ONE same-origin door to the agent bridge (:8088).
+        # -----------------------------------------------------------------
+        # E8/1 of AGENT_V2_PLAN. The agent panel used to talk to
+        # http://<host>:8088 straight from the browser, which meant CORS,
+        # a second open port on the LAN, and a page whose behaviour depended
+        # on a host name the browser happened to be typed with. Everything
+        # under /agent/<path> is handed to 127.0.0.1:8088/<path> and back,
+        # verbatim; nothing else about this node changes.
+        #
+        # Deliberate properties:
+        #  * the upstream is HARDCODED to loopback :8088 — this is not a
+        #    general proxy, no request can steer it anywhere else;
+        #  * only GET and POST, the two verbs the panel uses;
+        #  * bodies and answers pass through as bytes (the agent serves PNG
+        #    map renders and snapshots as well as JSON);
+        #  * when the agent is not running the answer is a clean 503 with
+        #    {"ok": false}, which is exactly what the panel's health probe
+        #    reads as "agent down" — no stack trace, no hang;
+        #  * this node gains NO import from the agent: it is HTTP only, so a
+        #    robot without vitulus_agent serves 503 here and nothing else
+        #    breaks (robot-vs-agent doctrine).
+        # Once the panel uses this door, :8088 can be bound to loopback.
+        AGENT_UPSTREAM = "http://127.0.0.1:8088"
+        AGENT_TIMEOUT_S = 30.0          # /api/mapview really does take ~5 s
+        AGENT_MAX_BODY = 1024 * 1024    # 1 MiB is far above any panel POST
+
+        def _agent_proxy(subpath):
+            import urllib.request
+            import urllib.error
+            query = request.query_string.decode("utf-8", "replace")
+            url = AGENT_UPSTREAM + "/" + subpath.lstrip("/")
+            if query:
+                url += "?" + query
+            data = None
+            headers = {"Accept": request.headers.get("Accept", "*/*")}
+            if request.method == "POST":
+                data = request.get_data(cache=False)[:AGENT_MAX_BODY]
+                headers["Content-Type"] = request.headers.get(
+                    "Content-Type", "application/json")
+            req = urllib.request.Request(url, data=data, headers=headers,
+                                         method=request.method)
+            try:
+                with urllib.request.urlopen(req, timeout=AGENT_TIMEOUT_S) as up:
+                    body = up.read()
+                    ctype = up.headers.get("Content-Type", "application/json")
+                    status = up.status
+            except urllib.error.HTTPError as exc:      # the agent's own 4xx/5xx
+                body = exc.read()
+                ctype = exc.headers.get("Content-Type", "application/json") \
+                    if exc.headers else "application/json"
+                status = exc.code
+            except Exception as exc:                   # not running / timed out
+                return jsonify({"ok": False,
+                                "error": "agent bridge unreachable: %s" % exc}), 503
+            resp = app.response_class(body, status=status, mimetype=None)
+            resp.headers["Content-Type"] = ctype
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+
+        @app.route("/agent/health")
+        def agent_health():
+            # The panel's one cheap "is it there" call.
+            return _agent_proxy("api/health")
+
+        @app.route("/agent/<path:subpath>", methods=["GET", "POST"])
+        def agent_any(subpath):
+            return _agent_proxy(subpath)
+
         server = ServerThread(app, host, port)
         server.start()
         rospy.loginfo("Initialising webnode node...")
