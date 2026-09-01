@@ -613,6 +613,16 @@ if __name__ == '__main__':
                 url += "?" + query
             data = None
             headers = {"Accept": request.headers.get("Accept", "*/*")}
+            # Hlavička se schvalovacím tajemstvím projde, když ji požadavek
+            # nese. Bez tohohle řádku nemohl panel povolit příkaz na robota
+            # ANI když majitel soubor s tajemstvím založí — proxy ji zahodila
+            # a agent viděl požadavek bez podpisu (2026-09-02, mrtvá tlačítka
+            # Approve/Deny). Cizí stránka ji sem stejně nedostane: /agent/*
+            # neposílá žádnou Access-Control-Allow-Origin, takže cross-origin
+            # POST prohlížeč zablokuje ještě před odesláním.
+            approval = request.headers.get("X-Vitulus-Approval")
+            if approval:
+                headers["X-Vitulus-Approval"] = approval
             if request.method == "POST":
                 data = request.get_data(cache=False)[:AGENT_MAX_BODY]
                 headers["Content-Type"] = request.headers.get(

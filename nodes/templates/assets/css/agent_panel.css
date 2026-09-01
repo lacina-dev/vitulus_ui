@@ -2423,3 +2423,25 @@ input.tl-inf[type="checkbox"] { width: 18px; height: 18px; padding: 0; }
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px;
     color: var(--bs-secondary-color, #adb5bd); margin-bottom: 2px;
 }
+
+/* --- Needs you: work parked on the owner (v2) -------------------------
+   Karty jsou schválně stejně široké jako zbytek panelu a text se láme —
+   `awaiting.why` je celá věta soudce a na telefonu se nesmí useknout,
+   protože právě podle ní se majitel rozhoduje. */
+.vpk-none { opacity: .6; padding: 6px 2px; }
+.vpk-card { border: 1px solid rgba(255,255,255,.12); border-radius: 6px;
+            padding: 8px; margin: 6px 0; background: rgba(255,255,255,.03); }
+.vpk-card.w-blocked { border-left: 3px solid #e0a800; }
+.vpk-card.w-budget, .vpk-card.w-deadline { border-left: 3px solid #6f9ede; }
+.vpk-card.w-tests { border-left: 3px solid #d9534f; }
+.vpk-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.vpk-id { font-weight: 600; }
+.vpk-what { opacity: .85; }
+.vpk-age { margin-left: auto; opacity: .55; font-size: .85em; }
+.vpk-title { margin: 4px 0; }
+.vpk-why { font-size: .9em; opacity: .9; margin: 4px 0;
+           overflow-wrap: anywhere; }
+.vpk-cost { font-size: .85em; opacity: .6; }
+.vpk-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.vpk-out { margin-top: 6px; font-size: .9em; overflow-wrap: anywhere; }
+.vpk-out.bad { color: #ea868f; }

@@ -4083,7 +4083,14 @@
             function (b) { b.disabled = true; });
         var body = {id: item.id, decision: allow ? 'allow' : 'deny', by: author};
         if (allow && execChoice) { body.executor = execChoice; }
-        api('/api/approvals/decide', {body: body})
+        /* `keep_error_body` matters more here than anywhere else in the panel.
+           A refused decision answers 403 and puts the WHOLE reason in the
+           body; without this flag api() throws on the status code alone and
+           the reason is gone. That is how Approve/Deny looked "dead" for
+           three days (2026-09-02): the agent was answering "chybí
+           /etc/vitulus/approval_tokens" and the panel was printing "agent
+           unreachable", which sent the owner looking at the wrong thing. */
+        api('/api/approvals/decide', {body: body, keep_error_body: true})
             .then(function (d) {
                 var good = !!(d && d.ok);
                 if (good) { decidedAsks[item.id] = 1; }
@@ -4094,14 +4101,26 @@
                     until: Date.now() + 12000
                 };
                 pollApprovals();
-            }).catch(function () {
+            }).catch(function (err) {
                 askOutcomes[item.id] = {
                     ok: false,
-                    text: 'Decision was not sent — agent unreachable. Try again.',
-                    until: Date.now() + 12000
+                    text: decideError(err),
+                    until: Date.now() + 20000
                 };
                 renderApprovals(lastAsks);
             });
+    }
+
+    /* One sentence for a decision that did not go through — the agent's own
+       words whenever it said any, our guess only when it said nothing. */
+    function decideError(err) {
+        var body = err && err.body;
+        if (body && body.error) { return String(body.error); }
+        if (err && err.status) {
+            return 'Decision was refused (HTTP ' + err.status + ') and the '
+                + 'agent gave no reason.';
+        }
+        return 'Decision was not sent — agent unreachable. Try again.';
     }
 
     /* Structured approval card, v2 (owner, 2026-08-28): „První potřebuju
@@ -4702,6 +4721,11 @@
             line.className = 'am';
             line.textContent = (askOutcomes[id].ok ? '✓ ' : '✕ ') +
                 askOutcomes[id].text;
+            /* A refusal arrives as two lines („Rozhodnutí odmítnuto" +
+               „Důvod: …") and the second one is the whole message. Without
+               this the browser folds them into one run and the reason ends up
+               far off the right edge on a phone. */
+            line.style.whiteSpace = 'pre-wrap';
             row.appendChild(line);
             gateBody.appendChild(row);
             shown += 1;

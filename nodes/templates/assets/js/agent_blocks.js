@@ -1319,12 +1319,164 @@
         wrap.appendChild(auditBtn);
         wrap.appendChild(auditOut);
         root.appendChild(wrap);
+        root.appendChild(buildLidarObjects());
         showLastMapview();
         askCachedMapview(VA);
       },
-      poll: { every_ms: 5000, fn: function () { drawRobot(VA); } },
-      onOpen: function () { drawRobot(VA); showLastMapview(); askCachedMapview(VA); }
+      poll: { every_ms: 5000, fn: function () { drawRobot(VA); drawLidar(); } },
+      onOpen: function () {
+        drawRobot(VA); showLastMapview(); askCachedMapview(VA);
+        startLidarObjects();
+      }
     });
+
+    /* ---- Lidar objects -------------------------------------------------
+       Robot sám (uzel vitulus_safety/lidar_objects) drží 60s statické pozadí
+       a hlásí jen potvrzené shluky velikosti 0,15–1,2 m — kočka, pes, člověk.
+       Panel je jen okno do toho, NIC nepočítá: čte /safety/lidar_objects
+       (std_msgs/String s JSON) přes rosbridge.
+
+       Vlastní spojení, ne `window.ros`: to je připojení mapy a app.js ho
+       zavírá (`suspend()`), kdykoli uživatel není v sekci Map — agentní panel
+       je vidět i jinde. Odběr je škrcený na 1 Hz (topic jede 5 Hz), takže
+       rosbridge nepřidá měřitelnou zátěž. */
+    var loRos = null, loTopic = null, loData = null, loAt = 0, loErr = null;
+    var loBox = null, loHead = null, loBody = null;
+
+    function buildLidarObjects() {
+      var wrap = el('div');
+      wrap.style.cssText = 'margin-top:.6em;border-top:1px solid var(--bs-gray-700,#444);padding-top:.4em';
+      loHead = el('div');
+      loHead.style.cssText = 'display:flex;align-items:center;gap:.4em;flex-wrap:wrap;font-size:.9em';
+      var t = el('span', null, 'Lidar objects');
+      t.style.color = 'var(--bs-gray-500, #888)';
+      t.title = 'People, dogs and cats seen by the lidar. The robot confirms ' +
+        'an object over three consecutive scans and ignores anything that ' +
+        'has been standing still long enough to become background.';
+      loHead.appendChild(t);
+      loBody = el('div');
+      loBody.style.cssText = 'font-size:.85em;margin-top:.25em';
+      wrap.appendChild(loHead); wrap.appendChild(loBody);
+      loBox = wrap;
+      drawLidar();
+      return wrap;
+    }
+
+    function startLidarObjects() {
+      if (loRos || typeof ROSLIB === 'undefined') { return; }
+      try {
+        loRos = new ROSLIB.Ros({
+          url: 'ws://' + location.hostname + ':9090', groovyCompatibility: false
+        });
+        loRos.on('error', function () { loErr = 'rosbridge unreachable'; drawLidar(); });
+        loRos.on('close', function () { loErr = 'rosbridge disconnected'; drawLidar(); });
+        loRos.on('connection', function () { loErr = null; drawLidar(); });
+        loTopic = new ROSLIB.Topic({
+          ros: loRos, name: '/safety/lidar_objects',
+          messageType: 'std_msgs/String',
+          throttle_rate: 1000, queue_length: 1, queue_size: 1
+        });
+        loTopic.subscribe(function (msg) {
+          try { loData = JSON.parse(msg.data); loAt = Date.now(); loErr = null; }
+          catch (e) { loErr = 'bad payload'; }
+          drawLidar();
+        });
+      } catch (e) { loErr = String(e); drawLidar(); }
+    }
+
+    function loDir(deg) {
+      // směr slovem — na telefonu je „front-left" čitelnější než „-137°"
+      var d = Number(deg) || 0;
+      if (d > 180) d -= 360; if (d < -180) d += 360;
+      var a = Math.abs(d), side = d >= 0 ? 'left' : 'right';
+      if (a <= 22.5) return 'front';
+      if (a >= 157.5) return 'rear';
+      if (a < 67.5) return 'front-' + side;
+      if (a <= 112.5) return side;
+      return 'rear-' + side;
+    }
+
+    function drawLidar() {
+      if (!loBox || !loBody) { return; }
+      while (loHead.childNodes.length > 1) { loHead.removeChild(loHead.lastChild); }
+      loBody.textContent = '';
+
+      var stale = !loAt || (Date.now() - loAt) > 8000;
+      if (loErr || !loData || stale) {
+        loHead.appendChild(pill('no data', 'var(--bs-gray-600,#666)'));
+        var m = el('div', null, loErr ? loErr
+          : (loData ? 'the detector stopped publishing'
+                    : 'lidar_objects is not running on the robot'));
+        m.style.cssText = 'color:var(--bs-gray-500,#888)';
+        m.title = 'Start it with: roslaunch vitulus_safety safety.launch lidar_objects:=true';
+        loBody.appendChild(m);
+        return;
+      }
+      if (loData.moving) {
+        loHead.appendChild(pill('robot moving', 'var(--bs-gray-600,#666)'));
+        var mv = el('div', null, 'not watching while the robot drives');
+        mv.style.color = 'var(--bs-gray-500,#888)';
+        loBody.appendChild(mv);
+        return;
+      }
+      if (!loData.background_ready) {
+        loHead.appendChild(pill('learning', 'var(--bs-gray-600,#666)'));
+        var lr = el('div', null, 'building the static background…');
+        lr.style.color = 'var(--bs-gray-500,#888)';
+        loBody.appendChild(lr);
+        return;
+      }
+      var objs = loData.objects || [];
+      if (!objs.length) {
+        loHead.appendChild(pill('clear', 'var(--bs-success,#198754)'));
+        var c = el('div', null, 'nothing bigger than a cat around');
+        c.style.color = 'var(--bs-gray-500,#888)';
+        loBody.appendChild(c);
+        return;
+      }
+      loHead.appendChild(pill(objs.length + (objs.length === 1 ? ' object' : ' objects'),
+                              'var(--bs-danger,#dc3545)'));
+      /* Tabulka, ne mřížka: na telefonu se čtyři sloupce vejdou jen když
+         mají pevná procenta a nezalamují se uprostřed čísla. */
+      var tbl = el('table');
+      tbl.style.cssText = 'width:100%;table-layout:fixed;border-collapse:collapse';
+      var head = el('tr');
+      ['Class', 'Dist', 'Dir', 'Seen'].forEach(function (h, i) {
+        var th = el('th', null, h);
+        th.style.cssText = 'text-align:' + (i ? 'right' : 'left') +
+          ';color:var(--bs-gray-500,#888);font-weight:400;padding:.1em .2em;' +
+          'width:' + [34, 20, 26, 20][i] + '%';
+        head.appendChild(th);
+      });
+      tbl.appendChild(head);
+      var CLS = {small: 'cat-sized', medium: 'dog-sized', large: 'person-sized',
+                 unknown: 'unknown'};
+      objs.forEach(function (o) {
+        var tr = el('tr');
+        var cells = [
+          CLS[o.cls] || o.cls,
+          (Number(o.range_m) || 0).toFixed(1) + ' m',
+          loDir(o.bearing_deg),
+          (Number(o.age_s) || 0).toFixed(0) + ' s'
+        ];
+        cells.forEach(function (v, i) {
+          var td = el('td', null, v);
+          td.style.cssText = 'text-align:' + (i ? 'right' : 'left') +
+            ';padding:.1em .2em;overflow:hidden;text-overflow:ellipsis';
+          tr.appendChild(td);
+        });
+        tr.title = 'id ' + o.id + ' · ' + (Number(o.size) || 0).toFixed(2) +
+          ' m wide · ' + (Number(o.speed) || 0).toFixed(1) + ' m/s · ' +
+          (Number(o.bearing_deg) || 0).toFixed(0) + '°';
+        tbl.appendChild(tr);
+      });
+      loBody.appendChild(tbl);
+      var note = el('div', null,
+        'class is a rough guess from size and speed — the lidar does not ' +
+        'recognise identity');
+      note.style.cssText = 'color:var(--bs-gray-500,#888);font-size:.9em;margin-top:.2em';
+      loBody.appendChild(note);
+    }
 
     function drawRobot(VA) {
       tickAges();          // ages are re-read on every draw, not remembered
@@ -2233,9 +2385,14 @@
           nob.type = 'button';
           var decidePlan = function (decision, btn) {
             btn.disabled = true;
+            /* keep_error_body: a refused decision is a 403 whose body holds
+               the only explanation. Until 2026-09-02 this catch swallowed it
+               and re-enabled the button, so pressing Approve looked like
+               pressing nothing at all — the failure the owner reported. */
             VA.api('/api/approvals/decide',
-              { method: 'POST', body: { id: plan.approval_id, decision: decision,
-                                        by: VA.authorId || 'ui' } })
+              { method: 'POST', keep_error_body: true,
+                body: { id: plan.approval_id, decision: decision,
+                        by: VA.authorId || 'ui' } })
               .then(function (r) {
                 if (r && (r.ok || r.state)) {
                   prow.textContent = decision === 'allow'
@@ -2246,7 +2403,15 @@
                     (r && r.error) || 'failed'));
                 }
               })
-              .catch(function () { btn.disabled = false; });
+              .catch(function (err) {
+                btn.disabled = false;
+                var msg = (err && err.body && err.body.error)
+                  || (err && err.status ? 'refused (HTTP ' + err.status + ')' : '')
+                  || 'agent unreachable';
+                var e = el('span', 'vz-err', String(msg));
+                e.style.whiteSpace = 'pre-wrap';
+                prow.appendChild(e);
+              });
           };
           okb.addEventListener('click', function () { decidePlan('allow', okb); });
           nob.addEventListener('click', function () { decidePlan('deny', nob); });
@@ -2996,6 +3161,134 @@
         if (toolsResult[t.id]) { body.appendChild(toolResult(t, toolsResult[t.id])); }
         card.appendChild(body);
         toolsBox.appendChild(card);
+      });
+    }
+
+    /* ======================================================= parked work
+       „Práce stojí na tobě" was a sentence with no next step in the panel.
+       The core parks work in `waiting` with a reason (`awaiting.why`) and
+       the ONLY ways out were `agent_v2 resume|cancel|budget` in a terminal —
+       which the owner does not have on a phone. #14822 and #14826 sat
+       BLOCKED overnight on 2026-09-01 and were cancelled wholesale in the
+       morning; that is what a missing button looks like.
+
+       The card does not decide anything itself. Which ways out make sense
+       for a given row is computed by the core and shipped as `ways[]`
+       (webapi._ways_for), so the rule lives in one place; this block draws
+       the buttons it was handed and prints whatever the core answers. */
+    var parkedBox = null, parkedData = null, parkedFp = '', parkedBusy = {};
+
+    function parkedBadge() {
+      var n = (parkedData && parkedData.approvals || []).length;
+      return n ? String(n) : '';
+    }
+
+    VA.registerBlock({
+      id: 'parked', title: 'Needs you', order: 15, summaryExtra: parkedBadge,
+      render: function (root) { parkedBox = el('div', 'vpk'); root.appendChild(parkedBox); },
+      poll: { every_ms: 15000, fn: function () { pollParked(VA); } },
+      onOpen: function () { pollParked(VA); }
+    });
+
+    function pollParked(VA) {
+      if (!parkedBox) return;
+      VA.api('/api/v2/approvals', {timeout_ms: 12000}).then(function (d) {
+        if (!d || d.ok === false) {
+          if (d && d.agent_down) return;
+          errLine(parkedBox, 'parked work: ' + ((d && d.error) || 'unavailable'));
+          return;
+        }
+        var sig = fp(d);
+        if (sig === parkedFp) return;
+        if (interacting(parkedBox)) { whenIdle('parked', parkedBox, function () { pollParked(VA); }); return; }
+        parkedFp = sig; parkedData = d;
+        drawParked(VA);
+      }).catch(function (e) { apiUnavailable(parkedBox, 'parked work', e); });
+    }
+
+    /* English in the UI (owner, 2026-08-24) — but `why` is the core's own
+       Czech sentence and is QUOTED, never translated: it is evidence. */
+    var PARKED_WHAT = {
+      blocked: 'blocked — needs your decision',
+      budget: 'out of budget',
+      deadline: 'out of time',
+      tests: 'acceptance tests failed',
+      verdict: 'the judge could not decide',
+      no_judge: 'no judge available',
+      approval: 'waiting for your approval'
+    };
+
+    function parkedAct(VA, item, way, card) {
+      var key = item.id + ':' + way.action;
+      if (parkedBusy[key]) return;
+      parkedBusy[key] = 1;
+      var body = {author: 'panel'};
+      if (way.action === 'budget') { body.usd = way.suggest_usd; }
+      if (way.action === 'touches') { body.touches = way.touches || 'code'; }
+      var out = el('div', 'vpk-out', '…');
+      card.appendChild(out);
+      VA.api('/api/v2/jobs/' + item.id + '/' + way.action,
+             {method: 'POST', body: body, keep_error_body: true, timeout_ms: 15000})
+        .then(function (r) {
+          delete parkedBusy[key];
+          out.textContent = (r && r.message) || (r && r.error) || 'done';
+          parkedFp = '';                       // force a redraw from the core
+          pollParked(VA);
+        })
+        .catch(function (err) {
+          delete parkedBusy[key];
+          out.className = 'vpk-out bad';
+          out.textContent = (err && err.body && err.body.error)
+            || (err && err.status ? 'refused (HTTP ' + err.status + ')' : 'agent unreachable');
+        });
+    }
+
+    function drawParked(VA) {
+      if (!parkedBox) return;
+      parkedBox.textContent = '';
+      var list = (parkedData && parkedData.approvals) || [];
+      if (!list.length) {
+        parkedBox.appendChild(el('div', 'vpk-none', 'Nothing is waiting on you.'));
+        return;
+      }
+      list.forEach(function (item) {
+        var card = el('div', 'vpk-card w-' + (item.what || 'other'));
+        var head = el('div', 'vpk-head');
+        head.appendChild(el('span', 'vpk-id', '#' + item.id));
+        head.appendChild(el('span', 'vpk-what',
+          PARKED_WHAT[item.what] || String(item.what || 'parked')));
+        if (item.since) {
+          var since = el('span', 'vpk-age', fmtAgo(item.since));
+          since.title = fmtAbs(item.since);
+          head.appendChild(since);
+        }
+        card.appendChild(head);
+        card.appendChild(el('div', 'vpk-title', String(item.title || '')));
+        /* The reason is the whole point of the card: without it the owner is
+           asked to decide something they cannot see. */
+        if (item.why) {
+          var why = el('div', 'vpk-why');
+          why.textContent = String(item.why);
+          why.style.whiteSpace = 'pre-wrap';
+          card.appendChild(why);
+        }
+        if (item.cost_usd) {
+          card.appendChild(el('div', 'vpk-cost',
+            'spent ' + Number(item.cost_usd).toFixed(2) + ' USD'
+            + (item.budget_usd ? ' of ' + Number(item.budget_usd).toFixed(2) : '')
+            + ' — cancelling does not get it back'));
+        }
+        var bar = el('div', 'vpk-btns');
+        (item.ways || []).forEach(function (way) {
+          var b = el('button', 'vagent-actbtn ' + (way.action === 'cancel' ? 'deny' : 'approve'),
+                     way.label || way.action);
+          b.type = 'button';
+          b.title = way.hint || '';
+          b.addEventListener('click', function () { parkedAct(VA, item, way, card); });
+          bar.appendChild(b);
+        });
+        card.appendChild(bar);
+        parkedBox.appendChild(card);
       });
     }
   }
