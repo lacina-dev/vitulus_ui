@@ -1341,6 +1341,7 @@
        je vidět i jinde. Odběr je škrcený na 1 Hz (topic jede 5 Hz), takže
        rosbridge nepřidá měřitelnou zátěž. */
     var loRos = null, loTopic = null, loData = null, loAt = 0, loErr = null;
+    var loLog = [];   // recent appeared/left events (newest first)
     var loBox = null, loHead = null, loBody = null;
 
     function buildLidarObjects() {
@@ -1377,7 +1378,16 @@
           throttle_rate: 1000, queue_length: 1, queue_size: 1
         });
         loTopic.subscribe(function (msg) {
-          try { loData = JSON.parse(msg.data); loAt = Date.now(); loErr = null; }
+          try {
+            loData = JSON.parse(msg.data); loAt = Date.now(); loErr = null;
+            /* Recent comings and goings: the node reports appeared/left once
+               per object; keep the last few so "who was here" is answerable
+               without a log. */
+            (loData.events || []).forEach(function (e) {
+              loLog.unshift(e);
+            });
+            if (loLog.length > 8) { loLog.length = 8; }
+          }
           catch (e) { loErr = 'bad payload'; }
           drawLidar();
         });
@@ -1394,6 +1404,24 @@
       if (a < 67.5) return 'front-' + side;
       if (a <= 112.5) return side;
       return 'rear-' + side;
+    }
+
+    function drawLidarLog() {
+      if (!loLog.length || !loBody) { return; }
+      var CLS2 = {small: 'cat-sized', medium: 'dog-sized', large: 'person-sized'};
+      var lg = el('div', 'lo-log');
+      lg.style.cssText = 'margin-top:.4em;font-size:.85em;opacity:.75';
+      lg.appendChild(el('div', null, 'Recent:'));
+      loLog.forEach(function (e) {
+        var d = new Date((Number(e.stamp) || 0) * 1000);
+        var hh = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+        var txt = hh + ' ' + (CLS2[e.cls] || e.cls || 'object') + ' ' +
+          (e.type === 'left' ? ('left after ' + (Number(e.seen_s) || 0).toFixed(0) + ' s')
+                             : 'appeared') +
+          ' at ' + Math.hypot(Number(e.x) || 0, Number(e.y) || 0).toFixed(1) + ' m';
+        lg.appendChild(el('div', null, txt));
+      });
+      loBody.appendChild(lg);
     }
 
     function drawLidar() {
@@ -1432,6 +1460,7 @@
         var c = el('div', null, 'nothing bigger than a cat around');
         c.style.color = 'var(--bs-gray-500,#888)';
         loBody.appendChild(c);
+        drawLidarLog();
         return;
       }
       loHead.appendChild(pill(objs.length + (objs.length === 1 ? ' object' : ' objects'),
@@ -1441,11 +1470,11 @@
       var tbl = el('table');
       tbl.style.cssText = 'width:100%;table-layout:fixed;border-collapse:collapse';
       var head = el('tr');
-      ['Class', 'Dist', 'Dir', 'Seen'].forEach(function (h, i) {
+      ['Class', 'Dist', 'Dir', 'Motion', 'Seen'].forEach(function (h, i) {
         var th = el('th', null, h);
         th.style.cssText = 'text-align:' + (i ? 'right' : 'left') +
           ';color:var(--bs-gray-500,#888);font-weight:400;padding:.1em .2em;' +
-          'width:' + [34, 20, 26, 20][i] + '%';
+          'width:' + [26, 16, 20, 22, 16][i] + '%';
         head.appendChild(th);
       });
       tbl.appendChild(head);
@@ -1453,10 +1482,20 @@
                  unknown: 'unknown'};
       objs.forEach(function (o) {
         var tr = el('tr');
+        /* Motion comes from the node (radial speed vs. speed): approaching /
+           leaving / passing / still. Arrow + speed keep it readable on a
+           phone; the tooltip has the numbers. */
+        var MOT = {approaching: '\u2192 closer', leaving: '\u2190 away',
+                   passing: '\u2195 passing', still: 'still'};
+        var mot = MOT[o.motion] || (o.motion || '');
+        if (o.motion && o.motion !== 'still') {
+          mot += ' ' + (Number(o.speed) || 0).toFixed(1) + ' m/s';
+        }
         var cells = [
           CLS[o.cls] || o.cls,
           (Number(o.range_m) || 0).toFixed(1) + ' m',
           loDir(o.bearing_deg),
+          mot,
           (Number(o.age_s) || 0).toFixed(0) + ' s'
         ];
         cells.forEach(function (v, i) {
@@ -1467,10 +1506,13 @@
         });
         tr.title = 'id ' + o.id + ' · ' + (Number(o.size) || 0).toFixed(2) +
           ' m wide · ' + (Number(o.speed) || 0).toFixed(1) + ' m/s · ' +
-          (Number(o.bearing_deg) || 0).toFixed(0) + '°';
+          (Number(o.bearing_deg) || 0).toFixed(0) + '°' +
+          (o.heading_deg != null ? ' · heading ' + Number(o.heading_deg).toFixed(0) + '°' : '') +
+          ' · radial ' + (Number(o.radial_mps) || 0).toFixed(2) + ' m/s';
         tbl.appendChild(tr);
       });
       loBody.appendChild(tbl);
+      drawLidarLog();
       var note = el('div', null,
         'class is a rough guess from size and speed — the lidar does not ' +
         'recognise identity');
