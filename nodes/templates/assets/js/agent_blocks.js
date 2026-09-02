@@ -3177,14 +3177,20 @@
        (webapi._ways_for), so the rule lives in one place; this block draws
        the buttons it was handed and prints whatever the core answers. */
     var parkedBox = null, parkedData = null, parkedFp = '', parkedBusy = {};
+    /* `summaryExtra` is a DOM node (see `badge()` and the mission/incidents
+       blocks), NOT a function. A function here made `appendChild` throw at
+       agent_chat.js:809 and took the WHOLE panel down — chat included
+       (2026-09-02 13:25, „z panelu zmizelo skoro vše"). The count is written
+       into the node after each poll. */
+    var parkedBadgeEl = badge();
 
     function parkedBadge() {
       var n = (parkedData && parkedData.approvals || []).length;
-      return n ? String(n) : '';
+      parkedBadgeEl.textContent = n ? String(n) : '';
     }
 
     VA.registerBlock({
-      id: 'parked', title: 'Needs you', order: 15, summaryExtra: parkedBadge,
+      id: 'parked', title: 'Needs you', order: 15, summaryExtra: parkedBadgeEl,
       render: function (root) { parkedBox = el('div', 'vpk'); root.appendChild(parkedBox); },
       poll: { every_ms: 15000, fn: function () { pollParked(VA); } },
       onOpen: function () { pollParked(VA); }
@@ -3201,7 +3207,7 @@
         var sig = fp(d);
         if (sig === parkedFp) return;
         if (interacting(parkedBox)) { whenIdle('parked', parkedBox, function () { pollParked(VA); }); return; }
-        parkedFp = sig; parkedData = d;
+        parkedFp = sig; parkedData = d; parkedBadge();
         drawParked(VA);
       }).catch(function (e) { apiUnavailable(parkedBox, 'parked work', e); });
     }
