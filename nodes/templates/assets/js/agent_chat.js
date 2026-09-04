@@ -82,6 +82,7 @@
     }
 
     var SNAP_RE = /\/api\/(?:snapshot|mapview|lidar)\/[0-9A-Za-z_.-]+\.(?:jpg|png)/;
+    var SNAP_RE_ALL = new RegExp(SNAP_RE.source, 'g');
 
     /* Minimal markdown, rendered by BUILDING DOM NODES — never innerHTML with
        reply text (arbitrary model output on the robot's own dashboard). */
@@ -1241,8 +1242,12 @@
         else { renderMarkdown(body, text); }
         wrap.appendChild(body);
 
-        var hit = SNAP_RE.exec(text || '');
-        if (hit) { attachImage(body, hit[0]); }
+        /* All images in the message, not just the first: a lidar event
+           carries the scan AND the photo (and depth at night). */
+        var seen = {};
+        (String(text || '').match(SNAP_RE_ALL) || []).forEach(function (u) {
+            if (!seen[u]) { seen[u] = 1; attachImage(body, u); }
+        });
 
         if (meta && meta.length) {
             var line = document.createElement('div');
