@@ -81,7 +81,7 @@
         return d + ' d ' + Math.round((seconds - d * 86400) / 3600) + ' h';
     }
 
-    var SNAP_RE = /\/api\/(?:snapshot|mapview)\/[0-9A-Za-z_.-]+\.(?:jpg|png)/;
+    var SNAP_RE = /\/api\/(?:snapshot|mapview|lidar)\/[0-9A-Za-z_.-]+\.(?:jpg|png)/;
 
     /* Minimal markdown, rendered by BUILDING DOM NODES — never innerHTML with
        reply text (arbitrary model output on the robot's own dashboard). */
