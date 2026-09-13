@@ -464,6 +464,9 @@ class MappingV3 {
         // per-raster mgmt: preview a raw raster / delete a raster
         this.pub_preview_raster = pub('/mapping_manager/preview_raster');
         this.pub_remove_raster = pub('/mapping_manager/remove_raster');
+        // COMBINED (2026-09-13): layer include/exclude + manual rebuild
+        this.pub_layer_enable = pub('/mapping_manager/layer_enable');
+        this.pub_rebuild_combined = pub('/mapping_manager/rebuild_combined');
         this.pub_set_band = pub('/mapping/set_band');
         this.pub_set_ranges = pub('/mapping/set_ranges');
         this.pub_set_direct = pub('/mapping/set_direct');
@@ -2561,79 +2564,247 @@ class MappingV3 {
             const o = document.createElement('option');
             o.value = site.name;
             this.datalist.appendChild(o);
-
-            const col = document.createElement('div');
-            // 2026-08-16 UI redo v3 (screenshot): the Bootstrap flex .row
-            // stretched wrapped lines into huge voids between maps — the list
-            // is a plain vertical block column now (flex has no business here).
-            col.style.cssText = 'margin-bottom:4px;';
-            const active = s.running && s.site === site.name;
-            const info = (site.dem_m2 !== undefined ? site.dem_m2 + ' m²' :
-                          site.dem_kb + ' kB') +
-                         ', versions: ' + site.rasters +
-                         (site.has_ot ? ', 3D' : '');
-            const servable = site.rasters > 0;
-            const served = s.serving && s.serving.site === site.name;
-            const expanded = this._expandedSites.has(site.name);
-            const caret = expanded ? '▾' : '▸';
-            // 2026-08-16 UI redo: jasné badge říkají roli mapy — AKTIVNÍ
-            // (lokalizace/navigace podle ní) vs ● nahrává se; „Serve" verb
-            // přejmenován na „Aktivovat".
-            const badges =
-                (served ? ' <span style="font-size:10px;background:#2b8a3e;color:#fff;border-radius:3px;padding:0 4px;">ACTIVE</span>' : '') +
-                (active ? ' <span style="font-size:10px;background:#e8590c;color:#fff;border-radius:3px;padding:0 4px;">● recording</span>' : '');
-            col.innerHTML =
-                '<div class="input-group input-group-sm">' +
-                '<button class="btn btn-primary mapv3-show" type="button" style="text-align:left;" title="Preview this map + expand its saved versions">' +
-                '<span style="color:var(--bs-gray-500);margin-right:3px;">' + caret + '</span>' +
-                '<span class="text-info"><i class="fa fa-tree text-info" style="margin-right:3px;"></i>' +
-                site.name + badges + '</span>' +
-                '<span style="font-size:11px;color:var(--bs-gray-500);margin-left:6px;">' +
-                info + '</span></button>' +
-                '<button class="btn ' + (servable ? 'btn-success' : 'btn-secondary') +
-                ' mapv3-serve" type="button" title="' +
-                (servable ? 'Make this map ACTIVE (newest version) — the robot will localize + navigate on it' :
-                 'No saved version yet — one is created by Save & finish') +
-                '"' + (servable ? '' : ' disabled') + '>Activate</button>' +
-                '<button class="btn btn-primary mapv3-del" type="button" style="width:40px;" title="Delete the whole map (DEM + all versions). Click twice to confirm.">' +
-                '<i class="fa fa-remove text-danger"></i></button></div>';
-            col.querySelector('.mapv3-show').addEventListener('click', () => {
-                this.input_site.value = site.name;
-                // preview this site's saved map AND toggle the raster panel
-                this.pub_show.publish(new ROSLIB.Message({data: site.name}));
-                if (this._expandedSites.has(site.name)) {
-                    this._expandedSites.delete(site.name);
-                } else {
-                    this._expandedSites.add(site.name);
-                }
-                if (this._lastStatus) { this.renderSitesRow(this._lastStatus); }
-            });
-            const serveBtn = col.querySelector('.mapv3-serve');
-            if (serveBtn && servable) {
-                serveBtn.addEventListener('click', () => {
-                    this.input_site.value = site.name;
-                    this.pub_serve.publish(new ROSLIB.Message({data: site.name}));
-                    if (this.el_serving) {
-                        this.el_serving.textContent =
-                            'activating ' + site.name + '…';
-                        this.el_serving.style.color = '';
-                    }
-                });
-            }
-            // whole-site delete keeps the double-click-confirm pattern used for
-            // rasters below (no window.confirm — that pattern is being retired).
-            this._wireDoubleClickDelete(col.querySelector('.mapv3-del'),
-                () => this.pub_remove.publish(new ROSLIB.Message({data: site.name})),
-                '<i class="fa fa-remove text-danger"></i>');
-            this.el_sites.appendChild(col);
-
-            // per-raster mgmt: expandable raster panel (full-width, wraps below
-            // the chip). Rendered only when expanded and the site has rasters.
-            if (expanded) {
-                this.el_sites.appendChild(
-                    this._buildRasterPanel(s, site));
-            }
+            this.el_sites.appendChild(this._buildMapCard(s, site));
         });
+    }
+
+    // ---- map library helpers (2026-09-13 redesign, map_library.css) -------
+    _mlEl(tag, cls, html) {
+        const e = document.createElement(tag);
+        if (cls) { e.className = cls; }
+        if (html !== undefined) { e.innerHTML = html; }
+        return e;
+    }
+    _mlChip(kind, text, blink) {
+        return this._mlEl('span', 'ml-chip ' + kind,
+            (blink ? '<span class="ml-blink"></span>' : '') + text);
+    }
+    _mlBtn(cls, html, title, onClick) {
+        const b = this._mlEl('button', 'ml-btn ' + cls, html);
+        b.type = 'button';
+        b.title = title || '';
+        if (onClick) {
+            b.addEventListener('click', (ev) => { ev.stopPropagation(); onClick(ev); });
+        }
+        return b;
+    }
+    _mlNum(n) { return (n === null || n === undefined) ? '—' : Number(n).toLocaleString('en-US'); }
+    _mlDate(mtime) {
+        try {
+            const d = new Date(mtime * 1000);
+            const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+            const p = (n) => (n < 10 ? '0' + n : '' + n);
+            return d.getDate() + ' ' + mon + ' ' + d.getFullYear() + ' · ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        } catch (e) { return '—'; }
+    }
+    _mlEsc(t) {
+        return String(t).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    }
+    _mlActivate(ref) {
+        this.input_site.value = ref.split('/')[0];
+        this.pub_serve.publish(new ROSLIB.Message({data: ref}));
+        if (this.el_serving) {
+            this.el_serving.textContent = 'activating ' + ref + '…';
+            this.el_serving.style.color = '';
+        }
+    }
+
+    // One card per map: header (name, state chips, Activate, delete) and, when
+    // expanded, the COMBINED map row + the mapping sessions as LAYERS.
+    // State language: green left edge/chip = active (served), orange =
+    // recording, dimmed = no session yet.
+    _buildMapCard(s, site) {
+        const recording = !!(s.running && s.site === site.name);
+        const served = !!(s.serving && s.serving.site === site.name);
+        const servable = site.rasters > 0;
+        const expanded = this._expandedSites.has(site.name);
+        const card = this._mlEl('div', 'ml-card' + (served ? ' is-active' : '') +
+            (recording ? ' is-rec' : '') + (!servable && !recording ? ' is-empty' : ''));
+
+        const head = this._mlEl('div', 'ml-head');
+        head.title = expanded ? 'Collapse' : 'Show the combined map and the session layers';
+        head.appendChild(this._mlEl('span', 'ml-caret', expanded ? '▾' : '▸'));
+        head.appendChild(this._mlEl('i', 'fa fa-tree ml-ico'));
+        const name = this._mlEl('span', 'ml-name', this._mlEsc(site.name));
+        name.title = site.name;
+        head.appendChild(name);
+        if (served) { head.appendChild(this._mlChip('ok', 'active')); }
+        if (recording) { head.appendChild(this._mlChip('rec', 'recording', true)); }
+        if (!servable && !recording) { head.appendChild(this._mlChip('muted', 'no session')); }
+        const n = site.rasters || 0;
+        const area = (site.dem_m2 !== undefined) ? site.dem_m2 + ' m²' : (site.dem_kb ? site.dem_kb + ' kB' : '');
+        head.appendChild(this._mlEl('span', 'ml-meta',
+            (area ? area + ' · ' : '') + n + ' session' + (n === 1 ? '' : 's')));
+
+        const actions = this._mlEl('div', 'ml-actions');
+        const servingCombined = served && site.combined && s.serving.raster === site.combined.name;
+        const act = this._mlBtn('go' + (servingCombined ? ' is-on' : ''),
+            servingCombined ? '<i class="fa fa-check"></i> Active' : 'Activate',
+            servable
+                ? (servingCombined ? 'This map (combined) is the active map'
+                   : 'Make this map ACTIVE — the robot localizes + navigates on its combined map')
+                : 'No saved session yet — one is created by Save & finish',
+            () => this._mlActivate(site.name));
+        act.disabled = !servable || servingCombined;
+        actions.appendChild(act);
+        const del = this._mlBtn('del icon', '<i class="fa fa-trash"></i>', '');
+        if (recording || served) {
+            del.disabled = true;
+            del.title = recording ? 'Cannot delete while recording' : 'The active map cannot be deleted — activate another first';
+        } else {
+            del.title = 'Delete the whole map (terrain + all sessions). Click twice to confirm.';
+            this._wireDoubleClickDelete(del,
+                () => this.pub_remove.publish(new ROSLIB.Message({data: site.name})),
+                '<i class="fa fa-trash"></i>');
+        }
+        actions.appendChild(del);
+        head.appendChild(actions);
+        head.addEventListener('click', () => {
+            this.input_site.value = site.name;
+            this.pub_show.publish(new ROSLIB.Message({data: site.name}));
+            if (this._expandedSites.has(site.name)) {
+                this._expandedSites.delete(site.name);
+            } else {
+                this._expandedSites.add(site.name);
+            }
+            if (this._lastStatus) { this.renderSitesRow(this._lastStatus); }
+        });
+        card.appendChild(head);
+        if (expanded) { card.appendChild(this._buildLayersBody(s, site)); }
+        return card;
+    }
+
+    // Card body: the COMBINED map (primary, cyan) first, then LAYERS = the
+    // mapping sessions (newest first) with an include switch, Preview,
+    // Activate and Delete. Active = green dot + chip; excluded = dimmed +
+    // struck through; previewed = blue outline (matches the 3D overlay).
+    _buildLayersBody(s, site) {
+        const body = this._mlEl('div', 'ml-body');
+        const list = site.raster_list || [];
+        const c = site.combined || null;
+        const servingR = (s.serving && s.serving.site === site.name) ? s.serving.raster : null;
+        const previewR = (s.previewing && s.previewing.site === site.name) ? s.previewing.raster : null;
+        const ref = (r) => site.name + '/' + r;
+
+        const mkRow = (opts) => {
+            const row = this._mlEl('div', 'ml-row' + (opts.primary ? ' primary' : '') +
+                (opts.active ? ' is-active' : '') + (opts.preview ? ' is-preview' : '') +
+                (opts.off ? ' is-off' : ''));
+            // line 1: state dot + title + chips; line 2: id/counts + actions.
+            // Two fixed lines instead of one wrapping line: the narrow Map
+            // panel (~330 px) never squeezes the title into "16 Au…".
+            const line1 = this._mlEl('div', 'ml-line1');
+            line1.appendChild(this._mlEl('span', 'ml-dot'));
+            line1.appendChild(this._mlEl('span', 'ml-title', opts.title));
+            (opts.chips || []).forEach((ch) => line1.appendChild(ch));
+            if (opts.tip) { line1.title = opts.tip; }
+            row.appendChild(line1);
+            const foot = this._mlEl('div', 'ml-foot');
+            foot.appendChild(this._mlEl('div', 'ml-sub', opts.sub));
+            const acts = this._mlEl('div', 'ml-actions');
+            (opts.actions || []).forEach((a) => acts.appendChild(a));
+            foot.appendChild(acts);
+            row.appendChild(foot);
+            return row;
+        };
+        const eyeBtn = (r, isPreview, what) => this._mlBtn('eye icon' + (isPreview ? ' is-on' : ''),
+            '<i class="fa fa-' + (isPreview ? 'eye' : 'eye-slash') + '"></i>',
+            isPreview ? 'Hide the preview' : 'Preview ' + what + ' in blue in the 3D view (changes nothing)',
+            () => this.pub_preview_raster.publish(new ROSLIB.Message({data: isPreview ? '' : ref(r)})));
+        const goBtn = (r, isServed, what) => {
+            const b = this._mlBtn('go' + (isServed ? ' is-on' : ''),
+                isServed ? '<i class="fa fa-check"></i> Active' : 'Activate',
+                isServed ? what + ' is the active map' : 'Make ' + what + ' the active map (localization + navigation)',
+                () => this._mlActivate(ref(r)));
+            b.disabled = isServed;
+            return b;
+        };
+
+        if (c) {
+            const isServed = (c.name === servingR);
+            const nSrc = (c.sources || []).length;
+            const nEx = (c.excluded || []).length;
+            const chips = [];
+            if (isServed) { chips.push(this._mlChip('ok', 'active')); }
+            else if (servingR) { chips.push(this._mlChip('warn', 'not active')); }
+            if (nEx) { chips.push(this._mlChip('warn', nEx + ' excluded')); }
+            const rebuild = this._mlBtn('icon', '<i class="fa fa-refresh"></i>',
+                'Rebuild the combined map from the included layers' + (c.built ? ' (built ' + c.built + ')' : ''),
+                () => this.pub_rebuild_combined.publish(new ROSLIB.Message({data: site.name})));
+            body.appendChild(mkRow({
+                primary: true, active: isServed, preview: c.name === previewR,
+                title: '<i class="fa fa-clone" style="margin-right:4px;color:#0dcaf0;"></i>Combined map',
+                chips: chips,
+                sub: nSrc + ' session' + (nSrc === 1 ? '' : 's') + ' · <b>' +
+                     this._mlNum(c.cells_obstacle) + '</b> obst · <b>' + this._mlNum(c.cells_free) + '</b> free',
+                tip: 'All sessions merged through their GPS datums; where they overlap the NEWER session wins. ' +
+                     'Rebuilt automatically after Save & finish, layer delete or layer toggle.' +
+                     (c.built ? ' Built ' + c.built + '.' : ''),
+                actions: [eyeBtn(c.name, c.name === previewR, 'the combined map'),
+                          goBtn(c.name, isServed, 'the combined map'), rebuild],
+            }));
+        }
+
+        const sec = this._mlEl('div', 'ml-sec', '<i class="fa fa-bars" style="opacity:.7;"></i> Layers');
+        const nOn = list.filter((r) => r.enabled !== false).length;
+        sec.appendChild(this._mlEl('span', 'ml-sec-state',
+            list.length ? (c ? nOn + ' of ' + list.length + ' included · newest first' : 'sessions, newest first') : ''));
+        body.appendChild(sec);
+        if (!list.length) {
+            body.appendChild(this._mlEl('div', 'ml-empty', 'No saved session yet — Save & finish creates one.'));
+            return body;
+        }
+        list.forEach((r) => {
+            const enabled = (r.enabled !== false);
+            const isServed = (r.name === servingR);
+            const chips = [];
+            if (isServed) { chips.push(this._mlChip('ok', 'active')); }
+            if (isServed && c) { chips.push(this._mlChip('warn', 'single session')); }
+            if (!enabled) { chips.push(this._mlChip('muted', 'excluded')); }
+            const actions = [];
+            if (c) {
+                const sw = this._mlEl('label', 'ml-switch');
+                sw.title = enabled ? 'Included in the combined map — click to exclude this session'
+                                   : 'Excluded from the combined map — click to include this session';
+                const inp = document.createElement('input');
+                inp.type = 'checkbox';
+                inp.checked = enabled;
+                inp.addEventListener('change', () => {
+                    this.pub_layer_enable.publish(new ROSLIB.Message(
+                        {data: ref(r.name) + ':' + (inp.checked ? 'on' : 'off')}));
+                });
+                sw.appendChild(inp);
+                sw.appendChild(this._mlEl('span', 'ml-track'));
+                sw.addEventListener('click', (ev) => ev.stopPropagation());
+                actions.push(sw);
+            }
+            actions.push(eyeBtn(r.name, r.name === previewR, 'this session'));
+            actions.push(goBtn(r.name, isServed, 'this session alone'));
+            const del = this._mlBtn('del icon', '<i class="fa fa-trash"></i>', '');
+            if (isServed) {
+                del.disabled = true;
+                del.title = 'The active session cannot be deleted — activate another map first';
+            } else {
+                del.title = 'Delete this session (click twice to confirm)';
+                this._wireDoubleClickDelete(del,
+                    () => this.pub_remove_raster.publish(new ROSLIB.Message({data: ref(r.name)})),
+                    '<i class="fa fa-trash"></i>');
+            }
+            actions.push(del);
+            body.appendChild(mkRow({
+                active: isServed, preview: r.name === previewR, off: !enabled,
+                title: this._mlDate(r.mtime), chips: chips,
+                sub: '<b>' + this._mlNum(r.cells_obstacle) + '</b> obst · <b>' +
+                     this._mlNum(r.cells_free) + '</b> free',
+                tip: 'Session ' + r.name + (enabled ? '' : ' (excluded from the combined map)'),
+                actions: actions,
+            }));
+        });
+        if (c && servingR && servingR !== c.name) {
+            body.appendChild(this._mlEl('div', 'ml-hint',
+                '<i class="fa fa-exclamation-triangle"></i> A single session is active — the combined map is not used. Activate the combined map to navigate on all sessions.'));
+        }
+        return body;
     }
 
     // Double-click-confirm on a delete button (never window.confirm): first
@@ -2671,110 +2842,6 @@ class MappingV3 {
             btn.style.width = btn.dataset.prevWidth || '';
             onConfirm();
         });
-    }
-
-    // Build the per-site raster panel DOM (per-raster mgmt): one row per raster
-    // in site.raster_list — [name | date | free/obst cells | Preview | Serve |
-    // Delete], the served raster flagged ✓, the active-preview row highlighted.
-    _buildRasterPanel(s, site) {
-        const panel = document.createElement('div');
-        // 2026-08-16 UI redo v2: hug the content (max-width) instead of
-        // stretching version rows across the whole drawer, and say what the
-        // list IS — the field feedback was 'what is this and why the void'.
-        panel.style.cssText = 'margin:0 0 6px 14px;padding:4px 6px;' +
-            'border-left:2px solid var(--bs-gray-700);max-width:430px;';
-        const list = site.raster_list || [];
-        panel.innerHTML = '<div style="font-size:11px;color:var(--bs-gray-500);' +
-            'margin-bottom:3px;">Saved versions of this map (one per ' +
-            '&quot;Save &amp; finish&quot;, newest first)</div>';
-        if (!list.length) {
-            panel.innerHTML +=
-                '<span style="font-size:11px;color:var(--bs-gray-500);">' +
-                'no saved versions yet — one is created by Save & finish</span>';
-            return panel;
-        }
-        const servingR = (s.serving && s.serving.site === site.name)
-            ? s.serving.raster : null;
-        const previewR = (s.previewing && s.previewing.site === site.name)
-            ? s.previewing.raster : null;
-        list.forEach((r) => {
-            const isServed = (r.name === servingR);
-            const isPreview = (r.name === previewR);
-            const row = document.createElement('div');
-            row.className = 'input-group input-group-sm';
-            row.style.cssText = 'margin-bottom:3px;' +
-                (isPreview ? 'outline:1px solid #2a8cff;border-radius:3px;' : '');
-            const cells = (r.cells_free != null && r.cells_obstacle != null)
-                ? (r.cells_free + '/' + r.cells_obstacle + ' cells')
-                : '—';
-            const label = document.createElement('span');
-            label.className = 'input-group-text';
-            label.style.cssText = 'flex:1;justify-content:flex-start;font-size:11px;' +
-                'padding:2px 6px;text-align:left;overflow:hidden;';
-            label.innerHTML =
-                '<span class="text-info">' + r.name + (isServed ? ' ✓' : '') + '</span>' +
-                '<span style="color:var(--bs-gray-500);margin-left:6px;">' +
-                this._fmtRasterDate(r.mtime) + '</span>' +
-                '<span style="color:var(--bs-gray-500);margin-left:6px;">' +
-                cells + '</span>';
-            row.appendChild(label);
-
-            // Preview (toggle) — publishes preview_raster "site/raster" to show,
-            // or "" to clear when this row is already the active preview.
-            const prevBtn = document.createElement('button');
-            prevBtn.type = 'button';
-            prevBtn.className = 'btn ' + (isPreview ? 'btn-info' : 'btn-outline-info');
-            prevBtn.textContent = isPreview ? 'Previewing' : 'Preview';
-            prevBtn.title = 'Show this version in blue in the 3D view for comparison ' +
-                'with the active map (changes nothing). Click again to hide.';
-            prevBtn.addEventListener('click', () => {
-                const data = isPreview ? '' : (site.name + '/' + r.name);
-                this.pub_preview_raster.publish(new ROSLIB.Message({data: data}));
-            });
-            row.appendChild(prevBtn);
-
-            // Serve — serve_site "site/raster": THIS sets the default.
-            const serveBtn = document.createElement('button');
-            serveBtn.type = 'button';
-            serveBtn.className = 'btn ' + (isServed ? 'btn-secondary' : 'btn-success');
-            serveBtn.textContent = isServed ? 'Active' : 'Activate';
-            serveBtn.disabled = isServed;
-            serveBtn.title = 'Make THIS version the active map (localization + navigation)';
-            if (!isServed) {
-                serveBtn.addEventListener('click', () => {
-                    this.input_site.value = site.name;
-                    this.pub_serve.publish(new ROSLIB.Message(
-                        {data: site.name + '/' + r.name}));
-                    if (this.el_serving) {
-                        this.el_serving.textContent =
-                            'activating ' + site.name + '/' + r.name + '…';
-                        this.el_serving.style.color = '';
-                    }
-                });
-            }
-            row.appendChild(serveBtn);
-
-            // Delete — double-click-confirm -> remove_raster "site/raster".
-            // The served raster cannot be deleted (manager refuses); disable it.
-            const delBtn = document.createElement('button');
-            delBtn.type = 'button';
-            delBtn.className = 'btn btn-outline-danger';
-            delBtn.innerHTML = '<i class="fa fa-remove"></i>';
-            if (isServed) {
-                delBtn.disabled = true;
-                delBtn.title = 'The active version cannot be deleted — activate another first';
-            } else {
-                delBtn.title = 'Delete this version (click twice to confirm)';
-                this._wireDoubleClickDelete(delBtn,
-                    () => this.pub_remove_raster.publish(new ROSLIB.Message(
-                        {data: site.name + '/' + r.name})),
-                    '<i class="fa fa-remove"></i>');
-            }
-            row.appendChild(delBtn);
-
-            panel.appendChild(row);
-        });
-        return panel;
     }
 
     handleGate(msg) {

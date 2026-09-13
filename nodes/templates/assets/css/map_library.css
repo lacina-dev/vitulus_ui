@@ -1,0 +1,138 @@
+/* map_library.css — Map tab "Saved maps": one card per map, inside it the
+   COMBINED map (primary) and the mapping sessions as LAYERS.
+   Design language = right_dock / status_header: dark cards, 10 % white
+   borders, uppercase 10 px section labels, cyan #0dcaf0 accent, green
+   #43d58b glow = live/active, orange = recording, yellow = attention.
+   Mobile first: rows are flex-wrap, actions drop under the title instead of
+   overflowing; every button is a >= 28 px tap target. (2026-09-13) */
+
+#mapv3_sites_row { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+
+/* ---- map card ---------------------------------------------------------- */
+.ml-card {
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left: 3px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.025);
+    min-width: 0;
+}
+.ml-card.is-active { border-left-color: #43d58b; }
+.ml-card.is-rec    { border-left-color: #ff9f43; box-shadow: inset 4px 0 10px -8px #ff9f43; }
+.ml-card.is-empty  { opacity: 0.75; }
+
+.ml-head {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 4px 6px; padding: 5px 6px 5px 4px; min-width: 0; cursor: pointer;
+    user-select: none;
+}
+.ml-head:hover { background: rgba(255, 255, 255, 0.03); }
+.ml-caret { width: 14px; text-align: center; color: #9aa4ad; font-size: 11px; flex: 0 0 auto; }
+.ml-ico   { color: #0dcaf0; font-size: 13px; flex: 0 0 auto; }
+.ml-name  {
+    flex: 1 1 90px; min-width: 0;
+    font-size: 13px; font-weight: 600; color: #dee2e6;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ml-meta  { font-size: 11px; color: #9aa4ad; white-space: nowrap; }
+.ml-head .ml-actions { margin-left: auto; }
+
+/* ---- chips (state) ----------------------------------------------------- */
+.ml-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    line-height: 1; padding: 3px 5px; border-radius: 3px; white-space: nowrap;
+    border: 1px solid transparent; flex: 0 0 auto;
+}
+.ml-chip.ok    { color: #6fd39a; background: rgba(67, 213, 139, 0.14); border-color: rgba(67, 213, 139, 0.35); }
+.ml-chip.rec   { color: #ffb15c; background: rgba(255, 159, 67, 0.16); border-color: rgba(255, 159, 67, 0.45); }
+.ml-chip.warn  { color: #ffd166; background: rgba(255, 193, 7, 0.12); border-color: rgba(255, 193, 7, 0.4); }
+.ml-chip.info  { color: #6ee2f5; background: rgba(13, 202, 240, 0.12); border-color: rgba(13, 202, 240, 0.4); }
+.ml-chip.muted { color: #9aa4ad; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.12); }
+.ml-chip .ml-blink { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 5px currentColor; animation: ml-pulse 1.2s ease-in-out infinite; }
+@keyframes ml-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ---- actions ----------------------------------------------------------- */
+.ml-actions { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+.ml-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    min-width: 30px; height: 28px; padding: 0 8px;
+    font-size: 11.5px; font-weight: 500; line-height: 1; border-radius: 4px;
+    color: #dee2e6; background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14); cursor: pointer;
+    white-space: nowrap;
+}
+.ml-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.ml-btn:disabled { cursor: default; opacity: 0.55; }
+.ml-btn.go   { color: #0b1a10; background: #43d58b; border-color: #43d58b; font-weight: 600; }
+.ml-btn.go:hover { background: #5ee6a1; }
+.ml-btn.go.is-on { color: #6fd39a; background: rgba(67, 213, 139, 0.14); border-color: rgba(67, 213, 139, 0.45); cursor: default; opacity: 1; }
+.ml-btn.eye.is-on { color: #6ee2f5; background: rgba(13, 202, 240, 0.16); border-color: rgba(13, 202, 240, 0.5); }
+.ml-btn.del  { color: #f1868f; background: transparent; border-color: rgba(241, 134, 143, 0.35); padding: 0 7px; }
+.ml-btn.del:hover { background: rgba(220, 53, 69, 0.18); }
+.ml-btn.del.btn-danger { color: #fff; background: #dc3545; border-color: #dc3545; }
+.ml-btn.icon { padding: 0 7px; }
+.ml-btn .fa { font-size: 12px; }
+
+/* include switch (layer in/out of the combined map) */
+.ml-switch { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; flex: 0 0 auto; height: 28px; margin: 0; }
+.ml-switch input { display: none; }
+.ml-switch .ml-track {
+    width: 30px; height: 16px; border-radius: 8px; position: relative;
+    background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: background 0.15s;
+}
+.ml-switch .ml-track::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px;
+    border-radius: 50%; background: #9aa4ad; transition: left 0.15s, background 0.15s;
+}
+.ml-switch input:checked + .ml-track { background: rgba(13, 202, 240, 0.35); border-color: rgba(13, 202, 240, 0.7); }
+.ml-switch input:checked + .ml-track::after { left: 16px; background: #0dcaf0; box-shadow: 0 0 5px #0dcaf0; }
+.ml-switch .ml-lbl { font-size: 10px; color: #9aa4ad; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ---- card body: combined + layers ----------------------------------- */
+.ml-body { padding: 4px 6px 6px 6px; border-top: 1px dashed rgba(255, 255, 255, 0.09); display: flex; flex-direction: column; gap: 4px; }
+.ml-sec {
+    display: flex; align-items: center; gap: 6px; margin: 4px 0 0;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #9aa4ad;
+}
+.ml-sec .ml-sec-state { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; opacity: 0.85; }
+
+.ml-row {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 5px 6px; border-radius: 5px; min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02);
+}
+.ml-row.primary { border-color: rgba(13, 202, 240, 0.3); background: rgba(13, 202, 240, 0.06); }
+.ml-row.is-active { border-color: rgba(67, 213, 139, 0.45); background: rgba(67, 213, 139, 0.07); }
+.ml-row.is-preview { outline: 1px solid #2a8cff; outline-offset: -1px; }
+.ml-row.is-off { opacity: 0.5; }
+.ml-row.is-off .ml-title { text-decoration: line-through; }
+
+.ml-line1 { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ml-foot  { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ml-foot .ml-actions { margin-left: auto; }
+
+.ml-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); flex: 0 0 auto; }
+.ml-row.is-active .ml-dot { background: #43d58b; box-shadow: 0 0 6px #43d58b; }
+.ml-row.primary .ml-dot { background: #0dcaf0; box-shadow: 0 0 5px rgba(13, 202, 240, 0.6); }
+.ml-row.primary.is-active .ml-dot { background: #43d58b; box-shadow: 0 0 6px #43d58b; }
+
+.ml-title {
+    flex: 1 1 auto; min-width: 0; font-size: 12.5px; color: #dee2e6;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ml-row.primary .ml-title { font-weight: 600; color: #e6fbff; }
+.ml-sub {
+    flex: 1 1 auto; min-width: 0;
+    font-size: 10.5px; color: #9aa4ad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: "Roboto Mono", SFMono-Regular, Menlo, monospace; letter-spacing: -0.01em;
+}
+.ml-sub b { color: #adb5bd; font-weight: 500; }
+.ml-empty { font-size: 11px; color: #9aa4ad; padding: 2px 6px; }
+.ml-hint { font-size: 10.5px; color: #ffd166; padding: 0 6px; }
+
+/* small phones: the card header's actions drop under the name */
+@media (max-width: 400px) {
+    .ml-head .ml-actions { flex-basis: 100%; margin-left: 0; justify-content: flex-end; }
+}
