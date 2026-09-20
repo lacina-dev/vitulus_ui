@@ -77,6 +77,9 @@
 <script src="/assets/js/imu_calibration.js"></script>
 <script src="/assets/js/app.js"></script>
 <style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
+<style>/* attention pulse: Programs > Reset while the mission SM is Stopped / TERMINAL ERROR */
+@keyframes vitulus-attn { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,193,7,0.9); } 50% { box-shadow: 0 0 0 5px rgba(255,193,7,0); } }
+.vitulus-attn { outline: 2px solid var(--bs-warning); outline-offset: 1px; position: relative; z-index: 2; animation: vitulus-attn 1.2s ease-in-out infinite; }</style>
 <style>
 /* ROS log viewer (compact + expanded) */
 #div_log_view { padding: 0 !important; overflow: visible !important; }
@@ -111,7 +114,7 @@
     display: flex !important; flex-direction: column;
     position: fixed !important;
     overflow: hidden !important;
-    top: 46px !important; right: 6px !important; bottom: 6px !important; left: 6px !important;
+    top: calc(46px + env(safe-area-inset-top, 0px)) !important; right: 6px !important; bottom: calc(6px + env(safe-area-inset-bottom, 0px)) !important; left: 6px !important;
     width: auto !important; height: auto !important;
     margin: 0 !important; max-width: none !important;
     z-index: 1080 !important;
@@ -157,7 +160,7 @@
 @media (max-width: 600px) {
     .log-toolbar .log-source-select, .log-toolbar .log-search { flex-basis: 100%; max-width: none; }
     .log-toolbar .log-counter { flex-basis: 100%; text-align: right; margin-left: 0; }
-    #div_log_view.log-expanded { top: 46px !important; right: 4px !important; bottom: 4px !important; left: 4px !important; }
+    #div_log_view.log-expanded { top: calc(46px + env(safe-area-inset-top, 0px)) !important; right: 4px !important; bottom: calc(4px + env(safe-area-inset-bottom, 0px)) !important; left: 4px !important; }
     .log-line { font-size: 12px; }
 }
 
@@ -189,6 +192,17 @@
    and forbid scrolling/overscroll on them; #div_content (and other explicit
    scrollers) keep their own overflow.
    --------------------------------------------------------------------------- */
+/* Safe-area / navbar metrics, defined ONCE and reused by every rule that used
+   to hard-code "42px" or a bare env(): iOS home-screen (standalone) mode with
+   black-translucent + viewport-fit=cover reports a non-zero top inset, and
+   the navbar (#div_menu, in-flow of the padded <body>) then sits BELOW it.
+   Everywhere else (desktop, Android, Safari tab) both insets are 0px, so
+   calc(var(--navbar-h) + var(--safe-top)) is exactly the old 42px. */
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --navbar-h: 42px;
+}
 html, body {
     /* Height: fixed-viewport with graceful fallbacks. 100% -> 100vh -> 100dvh.
        Browsers that grok dvh use the last one (tracks address-bar collapse). */
@@ -215,7 +229,15 @@ html, body {
     html.js-vh, body.js-vh { height: calc(var(--app-vh, 1vh) * 100); }
 }
 /* The map container fills the shell; its inner #div_content owns scrolling. */
-#div_container { touch-action: manipulation; }
+#div_container {
+    touch-action: manipulation;
+    /* styles.css pins it to top:0 of the VIEWPORT (position:fixed ignores the
+       body padding), while the navbar honours the padding — start the
+       container under the top inset too, so #menu_spacer / #row_menu line up
+       with the navbar again. inset 0 -> top:0; height:100% (unchanged). */
+    top: var(--safe-top);
+    height: calc(100% - var(--safe-top));
+}
 /* Panels that are meant to scroll must keep momentum + contain their overscroll
    so a scroll that reaches the end doesn't bubble up to move the shell. */
 #div_content,
@@ -252,6 +274,33 @@ html, body {
     right: 0;
     bottom: env(safe-area-inset-bottom) !important;
     margin-top: 0 !important;
+}
+/* Same "static 100vh" problem for the COMPACT log strip: its inline
+   "margin-top: calc(100vh - 141px)" is measured from the top of the padded
+   body on a static-vh page, so on iPadOS (standalone: +top inset; Safari tab:
+   100vh = large viewport) the strip slid down over the toolbar. Anchor it
+   from the bottom instead: 35px = toolbar (29px) + 6px gap, i.e. exactly where
+   the old margin put a 106px strip on desktop. Horizontal placement is left
+   to the inline margin-left / width (static position), as before.
+   Not in the phone mode (right_dock.css body.rp-log-top pins the log to the
+   TOP) and not when expanded (.log-expanded positions all four edges). */
+body:not(.rp-log-top) #div_log_view:not(.log-expanded) {
+    position: fixed !important;
+    top: auto !important;
+    bottom: calc(35px + var(--safe-bottom)) !important;
+    margin-top: 0 !important;
+}
+/* On-screen joystick, free-standing (right panel closed; with the panel open
+   right_dock.css body.rp-joy-side places it). Was inline
+   margin-top: calc(100vh - 269px); margin-left: calc(100vw - 170px) on a
+   120px box = 149px from the bottom, 50px from the right. */
+body:not(.rp-joy-side) #joy_view {
+    position: fixed !important;
+    top: auto !important;
+    left: auto !important;
+    right: 50px !important;
+    bottom: calc(149px + var(--safe-bottom)) !important;
+    margin: 0 !important;
 }
 </style>
 <style id="vitulus-ui-responsive">
@@ -417,8 +466,10 @@ html, body {
 #ui_drawer {
     position: fixed;
     left: 0;
-    top: 42px;                                     /* under the 42px navbar / menu_spacer */
-    bottom: calc(40px + env(safe-area-inset-bottom));  /* above #div_bottom_menu */
+    top: calc(var(--navbar-h) + var(--safe-top));  /* under the 42px navbar / menu_spacer (+ iOS standalone top inset) */
+    /* above #div_bottom_menu; --drawer-log-clear (LayoutManager, map_view.js)
+       is the height of the compact log strip while it is shown, else 0px */
+    bottom: calc(40px + env(safe-area-inset-bottom) + var(--drawer-log-clear, 0px));
     width: 460px;
     max-width: 100vw;
     display: flex;
@@ -735,7 +786,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                 </svg></button></div>
     </div>
     <div id="div_container">
-        <div id="menu_spacer" style="height: 42px;"></div>
+        <div id="menu_spacer" style="height: var(--navbar-h, 42px);"></div>
         <div id="div_content" style="height: calc(100vh - 42px);">
             <div class="no-event" style="position: absolute;width: 100%;z-index: 10;">
                 <div class="row g-0 all-events" id="row_menu">
@@ -1178,11 +1229,9 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <div class="form-check"><input class="form-check-input" type="checkbox" id="program_dock_check_lidar_map"><label class="form-check-label" for="formCheck-3" style="font-size: 14px;">Use lidar map path</label></div><select class="form-select form-select-sm" id="program_dock_select_lidar_path" style="max-width: 200px;">
                                                     <option value="PREDOCK" selected="">PREDOCK</option>
                                                     <option value="DOCK">DOCK</option>
-                                                    <option value="UNDOCK">UNDOCK</option>
                                                 </select>
                                                 <div class="form-check" style="margin-top: 5px;"><input class="form-check-input" type="checkbox" id="program_dock_check_intensity"><label class="form-check-label" for="formCheck-2" style="font-size: 14px;">Use intensity action</label></div><select class="form-select form-select-sm" id="program_dock_select_intesity_action" style="margin-bottom: 7px;max-width: 200px;">
                                                     <option value="DOCK" selected="">DOCK</option>
-                                                    <option value="UNDOCK">UNDOCK</option>
                                                 </select>
                                                 <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="program_dock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_dock_btn_save" type="button">Save</button></div>
                                                 <hr>
@@ -1195,13 +1244,11 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <summary>Undock program</summary>
                                             <div class="drawer-sec-body">
                                                 <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_intensity"><label class="form-check-label" for="program_dock_check_intensity-1" style="font-size: 14px;">Use intensity action</label></div><select class="form-select form-select-sm" id="program_predock_select_intesity_action" style="margin-bottom: 7px;max-width: 200px;">
-                                                    <option value="DOCK" selected="">DOCK</option>
-                                                    <option value="UNDOCK">UNDOCK</option>
+                                                    <option value="UNDOCK" selected="">UNDOCK</option>
                                                 </select>
                                                 <div class="form-check"><input class="form-check-input" type="checkbox" id="program_predock_check_lidar_map"><label class="form-check-label" for="program_dock_check_lidar_map-1" style="font-size: 14px;">Use lidar map path</label></div><select class="form-select form-select-sm" id="program_predock_select_lidar_path" style="max-width: 200px;">
-                                                    <option value="PREDOCK" selected="">PREDOCK</option>
-                                                    <option value="DOCK">DOCK</option>
-                                                    <option value="UNDOCK">UNDOCK</option>
+                                                    <option value="UNDOCK" selected="">UNDOCK</option>
+                                                    <option value="PREDOCK">PREDOCK</option>
                                                 </select>
                                                 <div class="form-check" style="margin-top: 5px;"><input class="form-check-input" type="checkbox" id="program_predock_check_map"><label class="form-check-label" for="program_dock_check_map-1" style="font-size: 14px;">Use undock map point</label></div>
                                                 <div class="d-flex align-items-center" style="gap: 4px;"><button class="btn btn-primary btn-sm" id="program_undock_btn_execute" type="button">Execute</button><button class="btn btn-warning btn-sm" id="program_undock_btn_save" type="button">Save</button></div>
@@ -1314,6 +1361,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             </div>
                                             <div class="col-auto"><span style="font-size: 12px;">Action</span>
                                                 <div class="btn-group btn-group-sm" role="group" style="display: block;"><button class="btn btn-primary" id="btn_menu_program_run" type="button" style="width: 86px;">Run</button><button class="btn btn-primary" id="btn_menu_program_resume" type="button" style="width: 86px;">Resume</button><button class="btn btn-primary" id="btn_menu_program_show" type="button" style="width: 86px;">Show</button><button class="btn btn-warning" id="btn_menu_program_stop" type="button" style="width: 86px;">Stop</button><button class="btn btn-danger" id="btn_menu_program_reset" type="button" style="width: 86px;">Reset</button></div>
+                                                <div class="text-warning fw-bold" id="div_menu_program_run_msg" style="font-size: 12px;max-width: 100%;overflow-wrap: anywhere;"></div>
                                             </div>
                                             <div class="col-auto"><span style="font-size: 12px;">Status</span>
                                                 <div class="d-flex align-items-center" style="height: 31px;"><span class="text-light" id="span_menu_program_status" style="display: inline-flex;margin-right: 2px;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span></div>
@@ -1855,6 +1903,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button">Save</button>
         <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button">Cancel</button>
       </div>
+      <div id="zone_template_status" style="font-size: 12px;min-height: 16px;margin-top: 6px;overflow-wrap: anywhere;"></div>
     </div>
     <div id="div_zone_list"></div>
   </div>
@@ -1917,21 +1966,6 @@ ul.nav-tabs.drawer-pills .nav-link.active {
       </div>
     </div>
 
-    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show map layer</span></div>
-    <div class="btn-group btn-group-sm flex-wrap" role="group" style="margin-bottom: 8px;">
-      <button class="btn btn-outline-primary" id="btn_show_original" type="button">Original</button>
-      <button class="btn btn-outline-primary" id="btn_show_fill" type="button">Free</button>
-      <button class="btn btn-outline-primary" id="btn_show_free_poly" type="button">Free poly</button>
-      <button class="btn btn-outline-primary" id="btn_show_obstacles_poly" type="button">Obstacle poly</button>
-      <button class="btn btn-outline-primary" id="btn_show_assembled_lite" type="button">Semi assembled</button>
-      <button class="btn btn-outline-primary" id="btn_show_assembled" type="button">Assembled</button>
-    </div>
-    <div style="margin-bottom: 4px;"><span style="font-size: 12px;">Show zone layer</span></div>
-    <div class="btn-group btn-group-sm" role="group">
-      <button class="btn btn-outline-info" id="btn_show_zone_map" type="button">Zone</button>
-      <button class="btn btn-outline-info" id="btn_show_zone_border_path" type="button">Path</button>
-      <button class="btn btn-outline-info" id="btn_show_zone_navi" type="button">Navi</button>
-    </div>
   </div>
 </details>
 

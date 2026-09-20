@@ -749,7 +749,7 @@
 @supports (height: 100dvh) {
     @media (max-width: 575px) {
         #ui_drawer:has(#vagent_panel.vagent-merged) {
-            height: calc(100dvh - 42px - 40px - env(safe-area-inset-bottom));
+            height: calc(100dvh - 42px - 40px - env(safe-area-inset-bottom) - var(--safe-top, 0px));
             bottom: auto;
         }
     }
@@ -1824,7 +1824,9 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
    a button. */
 #vagent_bars {
     position: fixed;
-    top: 42px;
+    /* --navbar-h / --safe-top: index.html :root (iOS standalone top inset);
+       the fallbacks keep the old 42px on any page that does not define them */
+    top: calc(var(--navbar-h, 42px) + var(--safe-top, 0px));
     left: 0;
     right: 0;
     z-index: 1031;

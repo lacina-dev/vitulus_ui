@@ -181,6 +181,7 @@ window.initPlanner = function(opts) {
     logTopic.subscribe(function (message) {
         // console.log("MapEdit log:" + message.data);
         div_log.textContent = message.data;
+        if (typeof _zoneSaveOnLog === 'function') _zoneSaveOnLog(message.data);
     });
 
     input_obstacle_margin = document.getElementById("input_obstacle_margin");
@@ -228,99 +229,11 @@ window.initPlanner = function(opts) {
     assemble_map();
 
 
-    // Map show ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    function show_map() {
-        var topic_show_fill_map = new ROSLIB.Topic({
-            ros: ros,
-            name: '/web_plan/show_map_layer',
-            messageType: 'std_msgs/String'
-        });
-        topic_show_fill_map.advertise();
-
-        // show free fill
-        btn_show_fill = document.getElementById("btn_show_fill");
-        btn_show_fill.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "filled",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show free poly
-        btn_show_free_poly = document.getElementById("btn_show_free_poly");
-        btn_show_free_poly.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "free_poly",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show obstacle poly
-        btn_show_obstacles_poly = document.getElementById("btn_show_obstacles_poly");
-        btn_show_obstacles_poly.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "obstacles_poly",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show assembled_lite
-        btn_show_assembled_lite = document.getElementById("btn_show_assembled_lite");
-        btn_show_assembled_lite.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "assembled_lite",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show original
-        btn_show_original = document.getElementById("btn_show_original");
-        btn_show_original.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "original",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show assembled
-        btn_show_assembled = document.getElementById("btn_show_assembled");
-        btn_show_assembled.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "assembled",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show zone map
-        btn_show_zone_map = document.getElementById("btn_show_zone_map");
-        btn_show_zone_map.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "zone_map",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show zone_border_path map
-        btn_show_zone_border_path = document.getElementById("btn_show_zone_border_path");
-        btn_show_zone_border_path.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "zone_border_path",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-        // show zone_navi map
-        btn_show_zone_navi = document.getElementById("btn_show_zone_navi");
-        btn_show_zone_navi.onclick = function () {
-            var msg = new ROSLIB.Message({
-                data: "zone_navi",
-            });
-            topic_show_fill_map.publish(msg);
-        }
-
-    }
-    show_map();
+    // Map show: the "Show map layer" / "Show zone layer" buttons were removed
+    // 2026-09-20 — they only switched what node_planner publishes on
+    // /web_plan/map_show, which nothing renders since the legacy /map_edit page
+    // (Planner3D.MapLayer) was retired. The zone's mowing paths are previewed
+    // by mapeditor.js from /web_plan/zone_preview_marker instead.
 
 
     // Polygons  ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -512,6 +425,7 @@ window.initPlanner = function(opts) {
 
     // New zone
     btn_new_zone.onclick = function () {
+        _zoneSaveClear(); _zoneSaveStatus('', '');
         div_zone_template.setAttribute('style', zone_template_style_attr);
         input_zone_template_name.value = "Zone";
         input_zone_template_rpm.value = 3300;
@@ -537,6 +451,7 @@ window.initPlanner = function(opts) {
 
     // Cancel zone
     btn_zone_template_cancel.onclick = function () {
+        _zoneSaveClear(); _zoneSaveStatus('', '');
         div_zone_template.setAttribute('style', 'display:none !important');
         viewer.scene.removeChild(polygon);
         polygon.pointContainer.children = [];
@@ -597,17 +512,109 @@ window.initPlanner = function(opts) {
             topic_save_zone.publish(msg);
             // console.log(msg);
 
-            // clean up
-            div_zone_template.setAttribute('style', 'display:none !important');
-            viewer.scene.removeChild(polygon);
-            polygon.pointContainer.children = [];
-            polygon.lineContainer.children = [];
-            polygon.fillShape.graphics._instructions = [];
-            polygon.fillShape.graphics._oldInstructions = [];
+            // 2026-09-20: do NOT close the form yet — a planner-side failure
+            // used to look exactly like success. Wait for the confirmation
+            // (see _zoneSave* below); the drawn polygon stays until then.
+            _zoneSaveBegin(msg.name);
         } else {
             div_log.textContent = "Draw the polygon on the map!";
         }
     }
+
+    // Zone save confirmation ------------------------------------------------
+    // Primary signal: the planner's structured result on /web_plan/zone_result
+    //   (std_msgs/String JSON {"op":"save"|"remove","name","ok","message"}),
+    //   published for every attempt, failures included, after the zone_list
+    //   update and the persistence.
+    // Fallback (older planner without zone_result): the /web_plan/log text
+    //   "Zone <name> saved." = success, "Zone '<name>' NOT saved…" = failure.
+    //   The same text also precedes a zone_result, so a log match is only
+    //   acted on when no zone_result follows within ZONE_SAVE_LOG_GRACE_MS.
+    //   (A zone_list containing the name is NOT a criterion: it is re-published
+    //   on many occasions and, for a re-saved zone, already holds the name.)
+    // No answer: "Still waiting…" after ZONE_SAVE_WAIT_MS (Save stays disabled —
+    //   a lazy workspace build + path generation can take a while, a second
+    //   Save would only queue a second regeneration), error after
+    //   ZONE_SAVE_TIMEOUT_MS.
+    var ZONE_SAVE_WAIT_MS = 6000;
+    var ZONE_SAVE_TIMEOUT_MS = 25000;
+    var ZONE_SAVE_LOG_GRACE_MS = 1000;
+    var zone_template_status = document.getElementById("zone_template_status");
+    var _zoneSavePending = null;          // {name, waitTimer, timer, logTimer} while waiting
+
+    function _zoneSaveStatus(text, cls) {
+        if (!zone_template_status) return;
+        zone_template_status.textContent = text || '';
+        zone_template_status.className = cls || '';
+    }
+    function _zoneSaveClear() {
+        if (_zoneSavePending) {
+            clearTimeout(_zoneSavePending.waitTimer);
+            clearTimeout(_zoneSavePending.timer);
+            clearTimeout(_zoneSavePending.logTimer);
+        }
+        _zoneSavePending = null;
+        btn_zone_template_save.disabled = false;
+        btn_zone_template_save.textContent = 'Save';
+    }
+    function _zoneSaveBegin(name) {
+        _zoneSaveClear();
+        btn_zone_template_save.disabled = true;
+        btn_zone_template_save.textContent = 'Saving…';
+        _zoneSaveStatus('Saving zone "' + name + '"…', 'text-info');
+        var pending = { name: name, waitTimer: null, timer: null, logTimer: null };
+        pending.waitTimer = setTimeout(function () {
+            if (_zoneSavePending !== pending) return;
+            _zoneSaveStatus('Still waiting for the planner…', 'text-warning');
+        }, ZONE_SAVE_WAIT_MS);
+        pending.timer = setTimeout(function () {
+            if (_zoneSavePending !== pending) return;
+            _zoneSaveFailed('Zone not saved — no response from planner');
+        }, ZONE_SAVE_TIMEOUT_MS);
+        _zoneSavePending = pending;
+    }
+    function _zoneSaveSucceeded(text) {
+        var name = _zoneSavePending ? _zoneSavePending.name : '';
+        _zoneSaveClear();
+        _zoneSaveStatus('', '');
+        div_zone_template.setAttribute('style', 'display:none !important');
+        viewer.scene.removeChild(polygon);
+        polygon.pointContainer.children = [];
+        polygon.lineContainer.children = [];
+        polygon.fillShape.graphics._instructions = [];
+        polygon.fillShape.graphics._oldInstructions = [];
+        div_log.textContent = text || ('Zone ' + name + ' saved.');
+    }
+    function _zoneSaveFailed(text) {
+        _zoneSaveClear();
+        _zoneSaveStatus(text, 'text-danger fw-bold');
+    }
+    // Fallback only — see above.
+    function _zoneSaveOnLog(text) {
+        var pending = _zoneSavePending;
+        if (!pending || pending.logTimer || typeof text !== 'string') return;
+        var t = text.trim();
+        var ok = (t === 'Zone ' + pending.name + ' saved.');
+        var failed = !ok && t.indexOf("Zone '" + pending.name + "' NOT saved") === 0;
+        if (!ok && !failed) return;
+        pending.logTimer = setTimeout(function () {
+            if (_zoneSavePending !== pending) return;   // a zone_result decided meanwhile
+            if (ok) _zoneSaveSucceeded(t); else _zoneSaveFailed(t);
+        }, ZONE_SAVE_LOG_GRACE_MS);
+    }
+    var zoneResultTopic = new ROSLIB.Topic({
+        ros: ros,
+        name: '/web_plan/zone_result',
+        messageType: 'std_msgs/String'
+    });
+    zoneResultTopic.subscribe(function (message) {
+        if (!_zoneSavePending) return;
+        var r;
+        try { r = JSON.parse(message.data); } catch (e) { return; }
+        if (!r || r.op !== 'save' || r.name !== _zoneSavePending.name) return;
+        if (r.ok) _zoneSaveSucceeded(r.message);
+        else _zoneSaveFailed(r.message || 'Zone not saved');
+    });
 
     // Get zone list
     var zoneListTopic = new ROSLIB.Topic({
@@ -655,6 +662,7 @@ window.initPlanner = function(opts) {
             if (current_zone_list[i].name === zone_name) {
                 let zone = current_zone_list[i];
                 // console.log(zone);
+                _zoneSaveClear(); _zoneSaveStatus('', '');
                 div_zone_template.setAttribute('style', zone_template_style_attr);
                 viewer.scene.removeChild(polygon);
                 polygon.pointContainer.children = [];
@@ -939,17 +947,9 @@ window.initPlanner = function(opts) {
 
     // Paths  //////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    var pathCoverageTopic = new ROSLIB.Topic({
-        ros : ros,
-        name : '/web_plan/path_show',
-        messageType : 'nav_msgs/Path'
-    });
-
-
-    pathCoverageTopic.subscribe(function(message) {
-        // console.log("Path:");
-        coveragePath.setPath(message);
-    });
+    // (the /web_plan/path_show subscriber was removed 2026-09-20: the topic has
+    // had no publisher since the planner's ros2d-era cleanup; coveragePath is
+    // still fed by /navi_manager/map_path below.)
 
 
     // Active map ///////////////////////////////////////////////////////////////////////////////////////////////////////////

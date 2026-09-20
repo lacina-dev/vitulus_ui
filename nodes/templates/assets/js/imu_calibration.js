@@ -169,6 +169,13 @@ class Imu_Markers {
           rate : 10.0,
           fixedFrame : '/bno_imu_link'
         });
+        // 2026-09-20: threshold 0 = the republisher sends every subscribed
+        // frame on every tick, so a constant transform can no longer be lost
+        // with the first message (see TfClient in map_view.js). Must be set
+        // after construction — the ROSLIB constructor turns a 0 option into
+        // its default.
+        this.tfClient.angularThres = 0;
+        this.tfClient.transThres = 0;
         this.markerArrayClient = new ROS3D.MarkerArrayClient({
           ros: ros.ros,
           rootObject: viewer.viewer.scene,

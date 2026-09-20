@@ -26,7 +26,53 @@ from system_metrics import load_system_metrics
 # this subpackage — mirroring how WEB_ROOT below points at the source tree.
 # The module has no sign function, so no request to this server can ever arm a
 # fence; that stays a human-only CLI step (tools/geofence_propose sign).
-_NAVI_SRC = "/home/vitulus/catkin_ws/src/vitulus/vitulus_navi/src"
+#
+# Path discovery (2026-09-20): nothing below may depend on the workspace being
+# /home/vitulus/catkin_ws or on this repo sitting in src/vitulus/. Order: rospkg
+# (authoritative for whatever workspace is sourced), then locations relative to
+# THIS file, then the historical absolute path as a last resort. catkin runs
+# this node through a small devel-space relay stub that exec()s the source file
+# with __file__ set to the SOURCE path, so realpath(__file__) is reliable here
+# (sys.argv[0] would be the stub — do not use it).
+_HERE = os.path.dirname(os.path.realpath(__file__))
+_LEGACY_SRC = "/home/vitulus/catkin_ws/src/vitulus"
+_rospack = None
+
+
+def _pkg_dir(pkg):
+    """Source/share directory of a ROS package, or None if unknown."""
+    global _rospack
+    try:
+        import rospkg
+        if _rospack is None:
+            _rospack = rospkg.RosPack()
+        return _rospack.get_path(pkg)
+    except Exception:
+        return None
+
+
+def _first_existing(candidates, fallback):
+    for c in candidates:
+        if c and os.path.exists(c):
+            return os.path.normpath(c)
+    return fallback
+
+
+def _pkg_candidates(pkg, *rel):
+    """Candidate paths for <pkg>/<rel...>: rospkg, then a sibling of this repo
+    (src/vitulus/<pkg>), then src/vitulus/<pkg> next to a top-level clone
+    (src/vitulus_ui), then the historical absolute location."""
+    repo = os.path.dirname(_HERE)                 # .../vitulus_ui
+    parent = os.path.dirname(repo)                # .../src/vitulus  or  .../src
+    roots = [_pkg_dir(pkg),
+             os.path.join(parent, pkg),
+             os.path.join(parent, 'vitulus', pkg),
+             os.path.join(_LEGACY_SRC, pkg)]
+    return [os.path.join(r, *rel) for r in roots if r]
+
+
+_NAVI_SRC = _first_existing(_pkg_candidates('vitulus_navi', 'src'),
+                            os.path.join(_LEGACY_SRC, 'vitulus_navi', 'src'))
 if _NAVI_SRC not in sys.path:
     sys.path.insert(0, _NAVI_SRC)
 try:
@@ -47,12 +93,18 @@ host = "0.0.0.0"
 # Absolute path to this package's web root (templates + assets). Mirrors the
 # original vitulus_webui approach of pointing at the source tree, since the
 # template/asset files are not copied into the install space.
-WEB_ROOT = "/home/vitulus/catkin_ws/src/vitulus/vitulus_ui/nodes/templates"
+# Resolved next to this file first (works for any clone location, also through
+# the catkin relay stub), then via rospkg (install space: the node is copied to
+# lib/ but the templates are not), then the historical absolute path.
+WEB_ROOT = next(
+    (os.path.normpath(c) for c in
+     [os.path.join(_HERE, 'templates')] + _pkg_candidates('vitulus_ui', 'nodes', 'templates')
+     if os.path.isfile(os.path.join(c, 'index.html'))),
+    os.path.join(_LEGACY_SRC, 'vitulus_ui', 'nodes', 'templates'))
 
 # Default falls back to the rosbag config default; overridden by YAML at runtime.
-ROSBAG_BASE_DIR = "/home/vitulus/rosbags"
-ROSBAG_CONFIG_PATHS = [
-    "/home/vitulus/catkin_ws/src/vitulus/vitulus_rosbag/config/recorders.yaml",
+ROSBAG_BASE_DIR = os.path.expanduser("~/rosbags")
+ROSBAG_CONFIG_PATHS = _pkg_candidates('vitulus_rosbag', 'config', 'recorders.yaml') + [
     "/home/vitulus/catkin_ws/install/share/vitulus_rosbag/config/recorders.yaml",
 ]
 
@@ -117,6 +169,26 @@ if __name__ == '__main__':
                     static_url_path='/assets',
                     static_folder=os.path.join(WEB_ROOT, 'assets'),
                     template_folder=WEB_ROOT)
+
+        # Deploys change index.html and the JS/CSS under /assets together; a
+        # browser (notably an iOS home-screen app) that paired a NEW index.html
+        # with a stale cached script broke whole panels until a hard reload.
+        # "no-cache" = always revalidate (ETag / Last-Modified -> cheap 304s),
+        # NOT "no-store". Flask >= 2.0 already does this for static files, 1.x
+        # sent max-age=12h — set it explicitly so the behaviour does not depend
+        # on the installed Flask. Limited to the page routes and /assets (the
+        # API / proxy routes keep their own policy).
+        _REVALIDATE_PATHS = ('/', '/map_edit', '/imu_calibration', '/sw.js', '/manifest.json')
+
+        @app.after_request
+        def _revalidate_ui_files(resp):
+            try:
+                path = request.path
+                if (path.startswith('/assets/') or path in _REVALIDATE_PATHS):
+                    resp.headers['Cache-Control'] = 'no-cache'
+            except Exception:
+                pass
+            return resp
 
         @app.route('/manifest.json')
         def manifest():

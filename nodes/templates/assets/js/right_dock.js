@@ -338,9 +338,13 @@
     }
 
     function frames() {
+        /* One shared liveness test — CameraView.framesOk (map_view.js).
+           naturalWidth alone stays 0 for an MJPEG stream on iOS/iPadOS
+           WebKit, so the state read "waiting for signal" forever there. */
         var cv = window.camera_view;
-        return !!(cv && cv.camViewer && cv.camViewer.image &&
-                  cv.camViewer.image.naturalWidth > 0);
+        var img = cv && cv.camViewer && cv.camViewer.image;
+        return !!(img && typeof CameraView !== 'undefined' &&
+                  CameraView.framesOk(img));
     }
 
     function applyCamSize(w, h) {

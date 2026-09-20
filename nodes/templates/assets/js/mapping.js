@@ -2405,15 +2405,50 @@ class MappingV3 {
         }
     }
 
+    // Remove the Direct layer's current mesh (same teardown the client does
+    // itself before building the next grid); the next session's first
+    // /mapping/direct_map message re-adds one into the kept sceneNode.
+    _clearDirectGrid() {
+        const c = this.direct_client;
+        if (!c || !c.currentGrid) return;
+        try {
+            if (c.sceneNode) c.sceneNode.remove(c.currentGrid);
+            c.currentGrid.dispose();
+        } catch (e) { /* best effort */ }
+        c.currentGrid = null;
+        c._lastMsg = null;   // MapLayerOpacity must not rebuild it from cache
+    }
+
     handleManager(msg) {
         let s;
         try { s = JSON.parse(msg.data); } catch (e) { return; }
+        // 2026-09-20: the direct_raster node dies with the session and never
+        // publishes a clearing grid, so a tab open during recording kept the
+        // last live Direct grid forever — drawn ABOVE the Saved layer (black
+        // obstacles + white wash) it hid the served map and made the layer
+        // toggles look dead. Drop it on the running -> not-running edge.
+        if (this.running && !s.running) this._clearDirectGrid();
         this.running = s.running;
         this.setActionsEnabled(s.running);
         // 2026-08-16: ACTIVATING a different map switches the datum — the
         // aerial tiles must re-georeference (third refresh trigger, next to
         // the layer-toggle and the mid-session datum-capture edge).
         const servSite = s.serving ? s.serving.site : null;
+        // 2026-09-20: tell the rest of the UI when a DIFFERENT site gets served
+        // (Programs panel: drop the shown program's markers — they belong to
+        // the previous site). Compared against the last NON-NULL site: serving
+        // nothing for a while (serve stop/start, manager restart) and then the
+        // same site again must not clear anything, possibly mid-mission.
+        if (servSite) {
+            const prevSite = this._lastServedSite;
+            this._lastServedSite = servSite;
+            if (prevSite && prevSite !== servSite) {
+                try {
+                    document.dispatchEvent(new CustomEvent('vitulus:served-site-changed',
+                        {detail: {site: servSite, prev: prevSite}}));
+                } catch (e) { /* CustomEvent unavailable */ }
+            }
+        }
         if (this._aerialServSite === undefined) {
             this._aerialServSite = servSite;
         } else if (servSite !== this._aerialServSite) {

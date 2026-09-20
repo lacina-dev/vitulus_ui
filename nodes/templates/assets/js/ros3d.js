@@ -55412,11 +55412,60 @@ var ROS3D = (function (exports, ROSLIB) {
 
 	      // update the world
 	      that.updatePose(poseTransformed);
-	      that.visible = true;
+	      /* vitulus_ui 2026-09-20: reveal the node on its FIRST transform only.
+	         The UI's TF client now receives every frame on every tick, and
+	         upstream's unconditional `visible = true` here would undo any later
+	         `visible = false` by the application (layer toggles, Clear
+	         buttons, editor chips) within one tick. */
+	      if (!that._tfShown) {
+	        that._tfShown = true;
+	        that.visible = true;
+	      }
 	    };
 
 	    // listen for TF updates
+	    this._tfShown = false;
+	    this._tfSubscribed = false;
+	    this._tfAttach();
+	  };
+
+	  /* vitulus_ui 2026-09-20: a node whose frame IS the TF client's fixed frame
+	     has an identity transform that never changes. tf2_web_republisher sends
+	     such a constant frame once per request and the browser subscribes to the
+	     per-request topic only after the service response, so that single
+	     message was routinely lost and every `map` layer stayed invisible
+	     forever. Such a node needs no TF at all: show it right away at
+	     options.pose and do not subscribe. Any other frame subscribes as
+	     upstream did. */
+	  _tfIsFixedFrame() {
+	    var norm = function(f) {
+	      f = (typeof f === 'string') ? f : '';
+	      return (f[0] === '/') ? f.substring(1) : f;
+	    };
+	    var f = norm(this.frameID);
+	    return f !== '' && !!this.tfClient && f === norm(this.tfClient.fixedFrame);
+	  };
+
+	  _tfAttach() {
+	    if (this._tfIsFixedFrame()) {
+	      this.updatePose(this.pose);
+	      if (!this._tfShown) {
+	        this._tfShown = true;
+	        this.visible = true;
+	      }
+	      return;
+	    }
+	    this._tfSubscribed = true;
 	    this.tfClient.subscribe(this.frameID, this.tfUpdate);
+	  };
+
+	  /* vitulus_ui: move a re-used node to another frame (OccupancyGridClient
+	     when a grid's header.frame_id changes), to/from the fixed frame too. */
+	  setFrame(frameID) {
+	    if (frameID === this.frameID) { return; }
+	    this.unsubscribeTf();
+	    this.frameID = frameID;
+	    this._tfAttach();
 	  };
 
 	  /**
@@ -55432,6 +55481,11 @@ var ROS3D = (function (exports, ROSLIB) {
 	  };
 
 	  unsubscribeTf() {
+	    /* vitulus_ui: fixed-frame nodes never subscribed (see _tfAttach); an
+	       unsubscribe for them would also drop OTHER nodes' frame entry when
+	       its callback list is empty. */
+	    if (!this._tfSubscribed) { return; }
+	    this._tfSubscribed = false;
 	    this.tfClient.unsubscribe(this.frameID, this.tfUpdate);
 	  };
 	}
@@ -56113,7 +56167,13 @@ var ROS3D = (function (exports, ROSLIB) {
 	      // check if it there is a tf client
 	      if (this.tfClient) {
 	        // grid is of type ROS3D.SceneNode
-	        this.sceneNode.unsubscribeTf();
+	        /* vitulus_ui 2026-09-20: upstream called this.sceneNode.unsubscribeTf()
+	           here and then RE-USED the node below without ever resubscribing, so
+	           from the 2nd message on the grid stopped following TF (grids in a
+	           non-fixed frame, e.g. /dock_detector/map in `dock`) and the frame's
+	           cached transform was dropped. Keep the subscription of a node that
+	           is about to be reused; only re-target it when the frame changes. */
+	        this.sceneNode.setFrame(message.header.frame_id);
 	        this.sceneNode.remove(this.currentGrid);
 	      } else {
 	        this.rootObject.remove(this.currentGrid);

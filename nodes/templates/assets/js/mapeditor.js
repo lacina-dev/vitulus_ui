@@ -316,6 +316,46 @@ window.MapEditor = (function () {
         if (c.currentGrid) c.currentGrid.visible = true;
     }
 
+    // Zone preview (2026-09-20): node_planner publishes the mowing paths of the
+    // zone just saved / selected as a latched MarkerArray on
+    // /web_plan/zone_preview_marker (frame map; DELETEALL on cancel / remove /
+    // site change). Rendered into the live 3D scene exactly like the program
+    // markers (/web_plan/program_marker), but only while the editor is open.
+    // A planner that does not publish the topic (yet) simply shows nothing.
+    var _zonePreview = null;
+    function _startZonePreview() {
+        if (_zonePreview) return;
+        var r3d = window.__ros3d_map, tf = window.__tf_client_map;
+        if (!r3d || !tf || !window.ros || !window.ros.ros || !window.ROS3D) return;
+        try {
+            _zonePreview = new ROS3D.MarkerArrayClient({
+                ros: window.ros.ros,
+                rootObject: r3d.scene,
+                tfClient: tf,
+                topic: '/web_plan/zone_preview_marker',
+            });
+        } catch (e) { console.warn('[mapeditor] zone preview unavailable:', e); _zonePreview = null; }
+    }
+    var _zoneSelectTopic = null;
+    function _stopZonePreview() {
+        var c = _zonePreview; if (!c) return;
+        _zonePreview = null;
+        // The preview topic is latched: without this the last saved / selected
+        // zone would reappear the next time the editor opens. Same message the
+        // zone form's Cancel sends (map_edit.js) -> planner publishes DELETEALL.
+        try {
+            if (!_zoneSelectTopic) {
+                _zoneSelectTopic = new ROSLIB.Topic({
+                    ros: window.ros.ros, name: '/web_plan/selected_zone',
+                    messageType: 'std_msgs/String',
+                });
+            }
+            _zoneSelectTopic.publish(new ROSLIB.Message({ data: 'cancel**cancel**' }));
+        } catch (e) {}
+        try { c.unsubscribe(); } catch (e) {}
+        try { Object.keys(c.markers).forEach(function (k) { c.removeMarker(k); }); } catch (e) {}
+    }
+
     function Controller() {
         this.overlay = null;
         this.active = false;
@@ -383,6 +423,7 @@ window.MapEditor = (function () {
         this.active = true;
         // V1: hide the flooding local costmap while the editor is open.
         _hideLocalCostmap();
+        _startZonePreview();
         // WP-D2: build/refresh the edit toolbar (waypoints + mapping_manager
         // edits) inside the detail panel and start its topic layer.
         try {
@@ -394,6 +435,7 @@ window.MapEditor = (function () {
         // remove floating inputs) so nothing lingers grabbing the mouse.
         try { if (window.MapEdits && window.MapEdits.onExit) window.MapEdits.onExit(); } catch (e) {}
         if (this.overlay) this.overlay.exitTopDown();
+        _stopZonePreview();
         // V1: restore the local costmap now that editing is done.
         _showLocalCostmap();
         this.active = false;

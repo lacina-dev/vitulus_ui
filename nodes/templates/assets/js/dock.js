@@ -1132,6 +1132,8 @@ class Dock {
         if (programDockBtn) {
             programDockBtn.addEventListener('click', () => {
                 // console.log('Dock program execute button pressed');
+                const formErr = this._programFormError('dock');
+                if (formErr) { this._showProgramFormError('dock', formErr); return; }
                 const useMap = document.getElementById('program_dock_check_map').checked;
                 const useDockMap = document.getElementById('program_dock_check_lidar_map').checked;
                 const dockPath = document.getElementById('program_dock_select_lidar_path').value;
@@ -1172,6 +1174,8 @@ class Dock {
         if (programDockSaveBtn) {
             programDockSaveBtn.addEventListener('click', () => {
                 // console.log('Dock program save button pressed');
+                const formErr = this._programFormError('dock');
+                if (formErr) { this._showProgramFormError('dock', formErr); return; }
                 const useMap = document.getElementById('program_dock_check_map').checked;
                 const useDockMap = document.getElementById('program_dock_check_lidar_map').checked;
                 const dockPath = document.getElementById('program_dock_select_lidar_path').value;
@@ -1198,6 +1202,7 @@ class Dock {
 
                 // Publish the message to save dock program
                 this.saveDockProgramPublisher.publish(dockProgramMsg);
+                this._requestProgramsSoon('dock');
                 
                 // Update status
                 const statusDiv = document.getElementById('program_dock_div_status');
@@ -1211,6 +1216,8 @@ class Dock {
         if (programUndockBtn) {
             programUndockBtn.addEventListener('click', () => {
                 // console.log('Undock program execute button pressed');
+                const formErr = this._programFormError('undock');
+                if (formErr) { this._showProgramFormError('undock', formErr); return; }
                 const useMap = document.getElementById('program_predock_check_map').checked;
                 const useDockMap = document.getElementById('program_predock_check_lidar_map').checked;
                 const dockPath = document.getElementById('program_predock_select_lidar_path').value;
@@ -1251,6 +1258,8 @@ class Dock {
         if (programUndockSaveBtn) {
             programUndockSaveBtn.addEventListener('click', () => {
                 // console.log('Undock program save button pressed');
+                const formErr = this._programFormError('undock');
+                if (formErr) { this._showProgramFormError('undock', formErr); return; }
                 const useMap = document.getElementById('program_predock_check_map').checked;
                 const useDockMap = document.getElementById('program_predock_check_lidar_map').checked;
                 const dockPath = document.getElementById('program_predock_select_lidar_path').value;
@@ -1277,6 +1286,7 @@ class Dock {
 
                 // Publish the message to save undock program
                 this.saveUndockProgramPublisher.publish(undockProgramMsg);
+                this._requestProgramsSoon('undock');
                 
                 // Update status
                 const statusDiv = document.getElementById('program_predock_div_status');
@@ -1290,6 +1300,8 @@ class Dock {
         if (this.dock_btn_menu_dock) {
             this.dock_btn_menu_dock.addEventListener('click', () => {
                 // console.log('Menu Dock button pressed');
+                const formErr = this._programFormError('dock');
+                if (formErr) { this._showProgramFormError('dock', formErr, this.dock_btn_menu_dock); return; }
                 const useMap = document.getElementById('program_dock_check_map').checked;
                 const useDockMap = document.getElementById('program_dock_check_lidar_map').checked;
                 const dockPath = document.getElementById('program_dock_select_lidar_path').value;
@@ -1323,6 +1335,8 @@ class Dock {
         if (this.dock_btn_menu_undock) {
             this.dock_btn_menu_undock.addEventListener('click', () => {
                 // console.log('Menu Undock button pressed');
+                const formErr = this._programFormError('undock');
+                if (formErr) { this._showProgramFormError('undock', formErr, this.dock_btn_menu_undock); return; }
                 const useMap = document.getElementById('program_predock_check_map').checked;
                 const useDockMap = document.getElementById('program_predock_check_lidar_map').checked;
                 const dockPath = document.getElementById('program_predock_select_lidar_path').value;
@@ -1433,6 +1447,7 @@ class Dock {
     // Add a method to handle dock program settings
     handleDockProgramSettings(message) {
         // console.log("Received dock program settings:", message);
+        if (this._skipProgramRefresh('dock')) { return; }
 
         // Update form fields based on the received message
         const useMapCheckbox = document.getElementById('program_dock_check_map');
@@ -1447,15 +1462,10 @@ class Dock {
         if (useDockMapCheckbox) {
             useDockMapCheckbox.checked = message.use_dock_map;
         }
-        if (dockPathSelect) {
-            dockPathSelect.value = message.path;
-        }
         if (useIntensityCheckbox) {
             useIntensityCheckbox.checked = message.use_intensity;
         }
-        if (intensityActionSelect) {
-            intensityActionSelect.value = message.action;
-        }
+        this._applySavedProgramSelects('dock', message, dockPathSelect, intensityActionSelect);
 
         // console.log("Dock program form fields updated");
     }
@@ -1463,6 +1473,7 @@ class Dock {
     // Add a method to handle undock program settings
     handleUndockProgramSettings(message) {
         // console.log("Received undock program settings:", message);
+        if (this._skipProgramRefresh('undock')) { return; }
 
         // Update form fields based on the received message
         const useMapCheckbox = document.getElementById('program_predock_check_map');
@@ -1477,16 +1488,128 @@ class Dock {
         if (useDockMapCheckbox) {
             useDockMapCheckbox.checked = message.use_dock_map;
         }
-        if (dockPathSelect) {
-            dockPathSelect.value = message.path;
-        }
         if (useIntensityCheckbox) {
             useIntensityCheckbox.checked = message.use_intensity;
         }
-        if (intensityActionSelect) {
-            intensityActionSelect.value = message.action;
-        }
+        this._applySavedProgramSelects('undock', message, dockPathSelect, intensityActionSelect);
 
         // console.log("Undock program form fields updated");
+    }
+
+    // ---- dock / undock program form rules (2026-09-20) -----------------------
+    // dock_smach runs the UNDOCK branch (the only one that powers the motors)
+    // only when the program holds a real undock step: intensity action UNDOCK,
+    // or lidar map path UNDOCK. The Undock form used to default to action=DOCK /
+    // path=PREDOCK with no validation, so a saved "undock" program could be a
+    // docking program (robot sat in the dock, motors off, until a timeout).
+    // The selects now offer only what makes sense per form, and Save / Execute
+    // (and the bottom-bar Dock / Undock buttons) validate first.
+    _programFormIds(kind) {
+        const p = (kind === 'undock') ? 'program_predock_' : 'program_dock_';
+        return {
+            useMap: p + 'check_map',
+            useDockMap: p + 'check_lidar_map',
+            path: p + 'select_lidar_path',
+            useIntensity: p + 'check_intensity',
+            action: p + 'select_intesity_action',
+            status: p + 'div_status'
+        };
+    }
+
+    // '' when the form holds a valid program of its kind, else an English
+    // message for the user.
+    _programFormError(kind) {
+        const ids = this._programFormIds(kind);
+        const el = (id) => document.getElementById(id);
+        const useMap = !!(el(ids.useMap) && el(ids.useMap).checked);
+        const useDockMap = !!(el(ids.useDockMap) && el(ids.useDockMap).checked);
+        const useIntensity = !!(el(ids.useIntensity) && el(ids.useIntensity).checked);
+        const path = el(ids.path) ? el(ids.path).value : '';
+        const action = el(ids.action) ? el(ids.action).value : '';
+        if (!useMap && !useDockMap && !useIntensity) {
+            return 'Enable at least one step (intensity action, lidar map path or map point).';
+        }
+        if (kind === 'undock') {
+            if (useIntensity && action !== 'UNDOCK') return 'Undock program: intensity action must be UNDOCK.';
+            if (useDockMap && path !== 'UNDOCK' && path !== 'PREDOCK') return 'Undock program: lidar map path must be UNDOCK or PREDOCK.';
+            if (!((useIntensity && action === 'UNDOCK') || (useDockMap && path === 'UNDOCK'))) {
+                return 'Not an undock program: enable intensity action UNDOCK and/or lidar map path UNDOCK.';
+            }
+        } else {
+            if (useIntensity && action !== 'DOCK') return 'Dock program: intensity action must be DOCK.';
+            if (useDockMap && path !== 'PREDOCK' && path !== 'DOCK') return 'Dock program: lidar map path must be PREDOCK or DOCK.';
+        }
+        return '';
+    }
+
+    _showProgramFormError(kind, text, flashBtn) {
+        const statusDiv = document.getElementById(this._programFormIds(kind).status);
+        if (statusDiv) {
+            statusDiv.innerHTML = '';
+            const span = document.createElement('span');
+            span.style.color = '#d9534f';
+            span.textContent = text;
+            statusDiv.appendChild(span);
+        }
+        console.warn('[dock] ' + kind + ' program not sent: ' + text);
+        // Bottom-bar buttons: the Dock tab (with the message above) may be
+        // closed, so also flash the button itself.
+        if (flashBtn) {
+            // ...and say why in the bottom status line (the same line that shows
+            // the robot's /nextion/log_info messages; ~200 px wide on a phone,
+            // hence the short text — the full reason is in the Dock tab).
+            try {
+                const sb = window.status_bar;
+                if (sb && sb.set_status_info_text) {
+                    sb.set_status_info_text((kind === 'undock' ? 'Undock' : 'Dock') + ' program invalid');
+                    clearTimeout(sb.info_timeout);
+                    sb.info_timeout = setTimeout(() => sb.hide_status_info(), sb.timeout);
+                }
+            } catch (e) { /* status bar not up yet */ }
+            flashBtn.title = text + ' (see the Dock tab)';
+            flashBtn.classList.remove('btn-primary'); flashBtn.classList.add('btn-danger');
+            setTimeout(() => { flashBtn.classList.remove('btn-danger'); flashBtn.classList.add('btn-primary'); }, 2500);
+        }
+    }
+
+    // A saved program may hold a value the restricted select no longer offers
+    // (e.g. an old undock program with action=DOCK). Keep the form default then
+    // and tell the user instead of leaving a blank select.
+    _applySavedProgramSelects(kind, message, pathSelect, actionSelect) {
+        const has = (sel, v) => !!sel && Array.prototype.some.call(sel.options, (o) => o.value === v);
+        const bad = [];
+        if (pathSelect) {
+            if (has(pathSelect, message.path)) pathSelect.value = message.path;
+            else if (message.use_dock_map) bad.push('lidar map path ' + (message.path || '(empty)'));
+        }
+        if (actionSelect) {
+            if (has(actionSelect, message.action)) actionSelect.value = message.action;
+            else if (message.use_intensity) bad.push('intensity action ' + (message.action || '(empty)'));
+        }
+        const err = bad.length ? ('uses ' + bad.join(' and ')) : this._programFormError(kind);
+        // An empty program (nothing saved yet on a new robot) is not worth a warning.
+        const empty = !message.use_map && !message.use_dock_map && !message.use_intensity;
+        if (err && !empty) {
+            this._showProgramFormError(kind, 'Saved ' + kind + ' program is not valid (' + err +
+                ') — review the form and Save it again.');
+        }
+    }
+
+    _skipProgramRefresh(kind) {
+        const r = this._programRefreshOnly;
+        return !!r && Date.now() < r.until && r.kind !== kind;
+    }
+
+    // After Save: ask dock_manager to re-publish its latched program topics
+    // (older dock_manager versions saved without republishing, so the mission
+    // kept reading the previous program).
+    // send_programs re-publishes BOTH programs; unsaved edits in the OTHER form
+    // of the tab must survive that, so for a short window only the saved kind
+    // is applied to its form (see _skipProgramRefresh).
+    _requestProgramsSoon(kind) {
+        this._programRefreshOnly = { kind: kind, until: Date.now() + 3000 };
+        setTimeout(() => {
+            this.send_programs_publisher.publish(new ROSLIB.Message({ data: true }));
+        }, 500);
     }
 }

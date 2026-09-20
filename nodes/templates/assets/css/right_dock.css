@@ -211,8 +211,19 @@ body.rp-cam-dock.rp-cam-clip #div_camera_view { visibility: hidden !important; }
    od map_view.js přebíjíme !important; hodnotu dopočítá right_dock.js. */
 /* jen když log leží VEDLE panelu; na mobilu (rp-log-top) je log nad panelem
    a musí zůstat přes celou šířku */
+/* --log-left = the log's current margin-left (LayoutManager, map_view.js:
+   4px, or cam_w + 8 next to a bottom-left camera preview). The right edge
+   must stay put whatever the left offset is; with the default 4px this is
+   the old calc(100vw - var(--rp-log-right)). */
 body.rp-panel-open:not(.rp-log-top) #div_log_view:not(.log-expanded) {
-    width: calc(100vw - var(--rp-log-right, 250px)) !important;
+    width: calc(100vw - var(--rp-log-right, 250px) - var(--log-left, 4px) + 4px) !important;
+}
+/* Camera docked in the panel: nothing sits bottom-left, so the log starts at
+   the left edge (map_view.js may still hold a stale camera offset inline
+   until its next layout pass — rp-cam-dock is toggled after it ran). */
+body.rp-cam-dock:not(.rp-log-top) #div_log_view:not(.log-expanded) {
+    margin-left: 4px !important;
+    --log-left: 4px !important;
 }
 
 /* Joystick vedle otevřeného panelu (jinak by mu ukrojil výšku). Element má
@@ -221,7 +232,7 @@ body.rp-joy-side #joy_view {
     position: fixed !important;
     right: var(--rp-joy-right, 250px) !important;
     left: auto !important;
-    bottom: 84px !important;
+    bottom: calc(84px + var(--safe-bottom, 0px)) !important;
     top: auto !important;
     margin: 0 !important;
 }

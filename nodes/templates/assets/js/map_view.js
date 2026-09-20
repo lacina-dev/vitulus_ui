@@ -774,12 +774,16 @@ class MapList {
                 }
             });
             if (add_new){
+                // Entries without the '***env*' marker are not maps (e.g. a
+                // 'BACKUP_LAST (1.32 GB)' directory in the legacy map folder):
+                // skip them instead of throwing on items[1].
+                const items = (typeof map === 'string') ? map.split('***env*') : [];
+                if (items.length < 2) { return; }
                 change_list = true;
-                const items = map.split('***env*');
                 const map_name = items[0];
                 const items2 = items[1].split(' (');
                 const map_type = items2[0];
-                const map_size = items2[1].replace(' GB)', '');
+                const map_size = (items2[1] || '').replace(' GB)', '');
                 this.map_list.push(new MapListItemTemplate(map_name, map_type, map_size, map));
             }
         });
@@ -1234,8 +1238,39 @@ class TfClient {
           topicTimeout : 10.0,
           fixedFrame : '/map'
         });
+        // 2026-09-20 (fresh boot in the dock: map layers + footprint never
+        // appeared): in service mode every updateGoal() makes the republisher
+        // open a NEW tf_repub_N topic whose timer starts at once, while the
+        // browser can subscribe only after the service response — so the first
+        // (full) TFArray is missed, and afterwards tf_pair.h re-sends a frame
+        // only when it moves beyond the thresholds. Constant transforms (map->map
+        // identity, map->odom while docked) were lost for good. A threshold of
+        // exactly 0 makes the republisher send EVERY subscribed frame on every
+        // tick. It must be set here, after construction: the ROSLIB constructor
+        // does `options.angularThres || 2.0`, which turns a 0 option into 2.0.
+        // updateGoal() reads these fields when it builds the request.
+        this.tfClientMap.angularThres = 0;
+        this.tfClientMap.transThres = 0;
 
         var self = this;
+        // Safety net (bounded): if some subscribed frame still has no transform
+        // a while after a connect, re-issue the request — at most
+        // _tfWatchDelays.length times, then give up with a console.warn. A frame
+        // that does not exist in TF must never make us create republisher
+        // topics endlessly.
+        this._tfWatchDelays = [2000, 4000, 8000, 16000, 32000];
+        this._tfWatchTimer = null;
+        this._tfWatchAttempt = 0;
+        // Time of the last received TFArray. After a reconnect frameInfos still
+        // hold the (stale) cached transforms, so "no transform yet" alone would
+        // never fire again — a silent stream is the second trigger.
+        this._tfLastRx = 0;
+        var _origProcessTFArray = this.tfClientMap.processTFArray;
+        this.tfClientMap.processTFArray = function(tf) {
+            self._tfLastRx = Date.now();
+            return _origProcessTFArray.call(this, tf);
+        };
+        this._armTfWatchdog();
         // After a real reconnect (e.g. robot reboot — `rvi`), tf2_web_republisher
         // has restarted and the previously-issued action goal / service request is
         // dead. Without this the visualizers keep drawing with the last-cached TFs
@@ -1263,8 +1298,69 @@ class TfClient {
                     self.tfClientMap.updateGoal();
                     console.log('[TfClient] re-issued TF goal after reconnect');
                 } catch (e) { console.warn('[TfClient] updateGoal failed:', e); }
+                self._armTfWatchdog();       // fresh bounded run per (re)connect
             }, 500);
         });
+    }
+
+    // Subscribed frames that have not received any transform yet.
+    _tfMissingFrames() {
+        var infos = this.tfClientMap.frameInfos || {};
+        return Object.keys(infos).filter(function(f) { return !infos[f].transform; });
+    }
+
+    // true when no TFArray arrived during the last 2 s (thresholds are 0, so a
+    // healthy stream ticks at `rate` Hz whenever any subscribed frame resolves).
+    _tfSilent() {
+        return (Date.now() - this._tfLastRx) > 2000;
+    }
+
+    // (Re)start the bounded missing-transform watchdog (see constructor).
+    _armTfWatchdog() {
+        if (this._tfWatchTimer) { clearTimeout(this._tfWatchTimer); this._tfWatchTimer = null; }
+        this._tfWatchAttempt = 0;
+        this._tfLastRx = 0;                  // silence is measured per (re)connect
+        this._tfWatchStep();
+    }
+
+    _tfWatchStep() {
+        var self = this;
+        var delays = this._tfWatchDelays;
+        if (this._tfWatchAttempt >= delays.length) {
+            // Out of attempts: one last look (no further request), then stop.
+            this._tfWatchTimer = setTimeout(function() {
+                self._tfWatchTimer = null;
+                var left = self._tfMissingFrames();
+                if (left.length || self._tfSilent()) {
+                    console.warn('[TfClient] giving up after ' + delays.length +
+                        ' TF re-requests; ' + (left.length
+                            ? 'still no transform for: ' + left.join(', ')
+                            : 'the TF stream is silent'));
+                }
+            }, 5000);
+            return;
+        }
+        this._tfWatchTimer = setTimeout(function() {
+            self._tfWatchTimer = null;
+            var missing = self._tfMissingFrames();
+            // Nothing subscribed yet (page still loading) or not connected: this
+            // slot is simply used up — the run stays bounded either way.
+            var connected = !!(self.tfClientMap.ros && self.tfClientMap.ros.isConnected);
+            var subscribed = Object.keys(self.tfClientMap.frameInfos || {}).length > 0;
+            var silent = subscribed && self._tfSilent();
+            self._tfWatchAttempt++;
+            if (connected && (missing.length || silent)) {
+                console.warn('[TfClient] ' + (missing.length
+                        ? 'no transform yet for: ' + missing.join(', ')
+                        : 'TF stream silent for > 2 s') +
+                    ' — re-requesting TF (attempt ' + self._tfWatchAttempt + '/' + delays.length + ')');
+                try { self.tfClientMap.updateGoal(); }
+                catch (e) { console.warn('[TfClient] updateGoal failed:', e); }
+            } else if (connected && subscribed) {
+                return;                      // all frames have a transform and the stream is live — done
+            }
+            self._tfWatchStep();
+        }, delays[this._tfWatchAttempt]);
     }
 
     follow_robot_set(viewer, tf){
@@ -1466,6 +1562,16 @@ class RobotVisualization {
                     o.material.opacity = isFinite(fop) ? fop : 0.35;
                 } else if (o.isLine || o.isLineSegments) {
                     o.material.color.set(frame);
+                    // 2026-09-20: THREE draws every opaque object BEFORE the
+                    // transparent pass regardless of renderOrder, so the
+                    // (transparent) fill painted over the opaque outline and a
+                    // high fill opacity hid the frame. Put the outline in the
+                    // transparent pass too, one step above the fill.
+                    if (!o.material.transparent) {
+                        o.material.transparent = true;
+                        o.material.needsUpdate = true;
+                    }
+                    o.renderOrder = 56;
                 }
             });
         }, 700);
@@ -1993,6 +2099,19 @@ class JoyTeleop {
 
 class CameraView {
 
+    // Are frames flowing on this <img>? The ONE liveness test for the MJPEG
+    // stream (watchdog, first-frame poll, right_dock.js). WebKit (iOS/iPadOS
+    // Safari) keeps naturalWidth at 0 for a multipart/x-mixed-replace stream
+    // even while frames arrive, so naturalWidth alone restarted a healthy
+    // stream every 3 s and the loader never went away. width*height is the
+    // very test the upstream viewer's draw() uses (mjpegcanvas.js), and that
+    // viewer renders fine on those devices. No pixel sampling: the stream is
+    // cross-origin (:8080) and would taint the canvas.
+    static framesOk(img) {
+        if (!img) return false;
+        return img.naturalWidth > 0 || (img.width * img.height > 0);
+    }
+
     constructor(ros) {
         this.width = 160;
         this.height = 120;
@@ -2040,7 +2159,7 @@ class CameraView {
         setInterval(function() {
             if (!self._active || document.hidden) return;
             if (!self.camViewer || !self.camViewer.image) return;
-            if (self.camViewer.image.naturalWidth === 0) {
+            if (!CameraView.framesOk(self.camViewer.image)) {
                 self._showLoader();
                 // forced: the cooldown must not starve recovery retries —
                 // reloadStream now aborts the previous attempt's connection,
@@ -2056,7 +2175,7 @@ class CameraView {
             if (!self._active || !self._loader || self._loader.style.display === 'none') return;
             var img = self.camViewer && self.camViewer.image;
             if (!img) return;
-            if (img.naturalWidth > 0) { self._hideLoader(); return; }
+            if (CameraView.framesOk(img)) { self._hideLoader(); return; }
             if ((img.src || '').indexOf(':' + self.port) < 0) {
                 self.reloadStream('start-retry', true);
             }
@@ -2202,7 +2321,9 @@ class CameraView {
             host.style.left = '4px';
             host.style.transform = '';
             host.style.top = 'auto';
-            host.style.bottom = '149px';
+            // --safe-bottom (index.html :root) = iOS home-indicator inset,
+            // 0px elsewhere — same offset the bottom toolbar and the log use.
+            host.style.bottom = 'calc(149px + var(--safe-bottom, 0px))';
             host.style.marginTop = '0px';
             host.style.marginLeft = '0px';
         } else if (!this._smallAnchor) {
@@ -2215,7 +2336,7 @@ class CameraView {
         if (!this._big && this._smallAnchor) {
             host.style.position = 'fixed';
             host.style.left = this._smallAnchor.left + 'px';
-            host.style.bottom = this._smallAnchor.bottom + 'px';
+            host.style.bottom = 'calc(' + this._smallAnchor.bottom + 'px + var(--safe-bottom, 0px))';
             host.style.top = 'auto';
             host.style.transform = '';
             host.style.marginTop = '0px';
@@ -3042,11 +3163,13 @@ class MapMenu {
     process_map_list(message){
         let map_elements = "";
         message.string_list.forEach(async (map) => {
-            const items = map.split('***env*');
+            // skip non-map entries (no '***env*' marker), see MapList above
+            const items = (typeof map === 'string') ? map.split('***env*') : [];
+            if (items.length < 2) { return; }
             const map_name = items[0];
             const items2 = items[1].split(' (');
             const map_type = items2[0];
-            const map_size = items2[1].replace(' GB)', '');
+            const map_size = (items2[1] || '').replace(' GB)', '');
             const tmpl = new MapListItemTemplate(map_name, map_type, map_size);
             map_elements += tmpl.element;
         });
@@ -3185,6 +3308,9 @@ class MapMenu {
         if (this.ui_drawer_title) this.ui_drawer_title.textContent = (this._drawer_titles[key] || '');
         if (this.ui_drawer_body) this.ui_drawer_body.scrollTop = 0;
         this._drawer_backdrop(true);
+        // The inline top above changed the drawer's height -> re-check whether
+        // it can still end above the compact log strip.
+        if (typeof layout_man !== 'undefined' && layout_man) layout_man.update_drawer_log_clear();
         // Restore this panel's remembered fullscreen-expand state.
         var remembered_full = false;
         try { remembered_full = localStorage.getItem('vitulus_drawer_full_' + key) === '1'; } catch (e) {}
@@ -4472,7 +4598,43 @@ class LayoutManager {
         this.tab_motors = document.getElementById("tab_motors");
         this.tab_diag = document.getElementById("tab_diag");
 
+        // Keep the left drawer clear of the compact log strip. The inputs
+        // change outside set_layout() too (log expand, right_dock.js toggling
+        // body.rp-log-top on resize), hence the observers.
+        var self = this;
+        if (window.MutationObserver) {
+            var mo = new MutationObserver(function () { self.update_drawer_log_clear(); });
+            if (this.div_log_view) mo.observe(this.div_log_view, {attributes: true, attributeFilter: ['style', 'class']});
+            mo.observe(document.body, {attributes: true, attributeFilter: ['class']});
+        }
+        window.addEventListener('resize', function () { self.update_drawer_log_clear(); });
     }
+
+    // #ui_drawer (z-index 1000) used to run down to the bottom toolbar and so
+    // always covered the left part of the compact log (z-index 1). Publish the
+    // strip's height as --drawer-log-clear (consumed by the #ui_drawer rule in
+    // index.html) so the drawer ends above it. 0px when the log is hidden,
+    // expanded (it overlays everything anyway), pinned to the top (phones,
+    // body.rp-log-top) or when the drawer would be left with < 160 px.
+    update_drawer_log_clear() {
+        var clear = 0;
+        var log = this.div_log_view;
+        var drawer = document.getElementById('ui_drawer');
+        if (log && drawer && log.style.display === 'block'
+                && !log.classList.contains('log-expanded')
+                && !document.body.classList.contains('rp-log-top')) {
+            // log bottom edge = 35 px, drawer bottom edge = 40 px above the
+            // toolbar line; + 18 px expand tab (#btn_log_expand) + 3 px gap.
+            var want = log.offsetHeight + 16;
+            var r = drawer.getBoundingClientRect();
+            var full_h = r.height + (this._drawer_log_clear || 0);
+            if (full_h - want >= 160) clear = want;
+        }
+        if (clear === this._drawer_log_clear) return;
+        this._drawer_log_clear = clear;
+        document.documentElement.style.setProperty('--drawer-log-clear', clear + 'px');
+    }
+
     set_layout() {
         // vitulus_ui: in the merged single page the map view is one of several
         // sections. When it is not the active section its container collapses to
@@ -4487,6 +4649,7 @@ class LayoutManager {
         else {
             this.set_landscape_layout();
         }
+        this.update_drawer_log_clear();
     }
 
     set_portrait_layout() {
@@ -4509,6 +4672,7 @@ class LayoutManager {
         }
         if (!this.div_log_view.classList.contains('log-expanded')) {
             this.div_log_view.style.marginLeft = '4px';
+            this.div_log_view.style.setProperty('--log-left', '4px');
             this.div_log_view.style.setProperty('width', 'calc(100vw - 8px)');
         }
         this.tab_power.style.maxHeight = height - 145 + 'px';
@@ -4535,18 +4699,33 @@ class LayoutManager {
         }
 
         this.div_bottom_menu.style.setProperty('margin-top', 'calc(100vh - 29px)');
+        // Legacy 100vh margins: inert since the toolbar, the compact log
+        // (index.html, bottom-anchored with !important) and the camera view
+        // (CameraView._applySize: position:fixed + bottom) are all anchored
+        // from the BOTTOM — a top margin does not move a bottom-anchored box.
         this.div_camera_view.style.setProperty('margin-top', 'calc(100vh - 141px)');
         this.div_camera_view.style.height = '106px';
         this.camera_view.changeViewerSize_cam_view();
 
         let cam_w = parseInt(this.div_camera_view.style.width.replace('px', ''));
         if (!this.div_log_view.classList.contains('log-expanded')) {
-            if (this.div_camera_view.style.display === "block"){
+            // Make room for the camera preview ONLY when the small preview
+            // really sits bottom-left next to the log — not when right_dock.js
+            // docked it into the right panel (body.rp-cam-dock) and not for the
+            // enlarged view (it floats ABOVE the log strip).
+            // --log-left mirrors margin-left for right_dock.css, which
+            // overrides the width and must keep the right edge off the panel.
+            var cam_beside_log = this.div_camera_view.style.display === "block"
+                && !(this.camera_view && this.camera_view._big)
+                && !document.body.classList.contains('rp-cam-dock');
+            if (cam_beside_log){
                 this.div_log_view.style.setProperty('margin-left', (cam_w + 8) + 'px');
+                this.div_log_view.style.setProperty('--log-left', (cam_w + 8) + 'px');
                 this.div_log_view.style.setProperty('width', 'calc(100vw - ' + (cam_w + 12) +  'px)');
             }
             else {
                 this.div_log_view.style.marginLeft = '4px';
+                this.div_log_view.style.setProperty('--log-left', '4px');
                 this.div_log_view.style.setProperty('width', 'calc(100vw - 8px)');
             }
         }
@@ -5722,6 +5901,13 @@ class Programs {
         });
         this.smach_status_Topic.subscribe((message) => {
             this.map_menu.span_menu_program_status.innerText = message.data;
+            this._setSmachBlocked(message.data);
+        });
+        // 2026-09-20: the served site changed -> the program shown in the map
+        // belongs to the previous site (event dispatched by mapping.js).
+        document.addEventListener('vitulus:served-site-changed', () => {
+            try { this.clearShownProgram(); }
+            catch (e) { console.warn('[programs] clear on site change failed:', e); }
         });
         this.program_list_msg = new ROSLIB.Message({
             program_list: []
@@ -6007,7 +6193,47 @@ class Programs {
             this.map_menu.btn_menu_program_show.innerText = 'Show';
         }
     }
+    // Served site changed: remove every program marker from the 3D scene, make
+    // the planner stop re-publishing the old program (same message the manual
+    // Hide sends) and close the detail of the now-foreign program.
+    clearShownProgram() {
+        const mac = this.paths_visualization.markerArrayClient;
+        Object.keys(mac.markers).forEach((key) => { mac.removeMarker(key); });
+        this.program_to_show_marker_Topic.publish(new ROSLIB.Message({
+            name: 'none'
+        }));
+        this.map_menu.btn_menu_program_show.innerText = 'Show';
+        this.selected_program = null;
+        this.map_menu.div_menu_program_detail_row.style.display = "none";
+    }
+
+    // mower_smach STOPPED / TERMINAL_ERROR wait ONLY for /mower_smach/reset; a
+    // Run / Resume published in those states is silently ignored by the state
+    // machine. Status strings: "Stopped", "TERMINAL ERROR" (top_level.py).
+    _setSmachBlocked(status) {
+        const blocked = /^\s*(stopped|terminal[ _]error)/i.test(status || '');
+        this.smach_blocked = blocked;
+        this.smach_blocked_text = blocked
+            ? (/^\s*stopped/i.test(status) ? 'Mission is stopped' : 'Mission is in TERMINAL ERROR')
+              + ' — press Reset first'
+            : '';
+        const btn = this.map_menu.btn_menu_program_reset;
+        if (btn) btn.classList.toggle('vitulus-attn', blocked);
+        if (!blocked) this._setRunMsg('');
+    }
+    _setRunMsg(text) {
+        const el = document.getElementById('div_menu_program_run_msg');
+        if (el) el.textContent = text || '';
+    }
+    // true = Run/Resume must not be published now (message shown instead).
+    _runBlocked() {
+        if (!this.smach_blocked) { this._setRunMsg(''); return false; }
+        this._setRunMsg(this.smach_blocked_text);
+        return true;
+    }
+
     runProgram(program_name) {
+        if (this._runBlocked()) return;
         const msg = new ROSLIB.Message({
             data: program_name,
         });
@@ -6016,6 +6242,7 @@ class Programs {
     }
 
     resumeProgram(program_name) {
+        if (this._runBlocked()) return;
         const msg = new ROSLIB.Message({
             data: program_name,
         });
@@ -6196,6 +6423,9 @@ window.initMapView = function () {
     } catch (e) { /* malformed stored pose — keep the north-up default */ }
 
     tf_client = new TfClient(ros, viewer.viewer);
+    // Shared TF client for late-created scene clients outside this file (the
+    // map editor's zone preview, mapeditor.js).
+    window.__tf_client_map = tf_client.tfClientMap;
     tf_client.tfClientMap.subscribe('base_link', function(tf) {
         tf_client.follow_robot_set(viewer.viewer, tf);
     });

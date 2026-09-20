@@ -130,7 +130,8 @@ with no internet access.
 ## Build & run
 
 ```bash
-cd ~/catkin_ws/src && git clone https://github.com/lacina-dev/vitulus_ui.git
+mkdir -p ~/catkin_ws/src/vitulus && cd ~/catkin_ws/src/vitulus
+git clone https://github.com/lacina-dev/vitulus_ui.git
 cd ~/catkin_ws && catkin_make && source devel/setup.bash
 roslaunch vitulus_ui vitulus_ui.launch
 ```
@@ -138,11 +139,12 @@ roslaunch vitulus_ui vitulus_ui.launch
 Then open `http://<robot>:7779/`. On the real robot the node is started by the
 main launch (`vitulus_start.launch`) as part of `vitulus.service`.
 
-Note: `webnode` serves templates/assets from an absolute source-tree path
-(`/home/vitulus/catkin_ws/src/vitulus/vitulus_ui/nodes/templates`) — adjust
-`WEB_ROOT` in `nodes/webnode` if your checkout lives elsewhere. Editing
-`index.html` requires a node restart (Flask caches the template); JS/CSS assets
-are picked up on browser reload.
+Note: `webnode` serves templates/assets straight from the source tree
+(`nodes/templates`). The path (`WEB_ROOT` in `nodes/webnode`) is auto-detected —
+next to the node file first, then via `rospkg` — so the checkout may live in any
+workspace. Editing `index.html` requires a node restart (Flask caches the
+template); JS/CSS assets are revalidated by the browser on every reload
+(`Cache-Control: no-cache`).
 
 ### Restart-robot button (optional)
 
