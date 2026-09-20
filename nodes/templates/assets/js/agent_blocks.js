@@ -1855,6 +1855,17 @@
     var expanded = {};
     var LS_INC_SEEN = 'vitulus_agent_incidents_seen_ts';
     var incSeenTs = parseFloat(lsGet(LS_INC_SEEN) || '0') || 0;
+    /* Stav tabu Incidents ve v2 („records", viz níž).  Deklarace stojí PŘED
+       `registerBlock`, protože `render` do nich zapisuje: kdyby je shell
+       zavolal ještě během registrace, `var … = null` pod ním by je vynulovalo. */
+    var recBox = null;          // kam se kreslí záznamy
+    var recMode = null;         // null = neví se, true = v2, false = starý tab
+    var recData = null, recFp = '';
+    var recDetail = {};         // id → rozkliknutý detail (lazy, drží se)
+    var recBusy = {};           // id → probíhá POST
+    var recAsk = {};            // id → „opravdu vzít ignorování zpátky?"
+    var recAskWay = {};         // id → cesta čekající na potvrzení (Confirm)
+    var recOut = {};            // id → {text, bad} odpověď jádra, přežije redraw
     /* The shell fires every block's onOpen when the PANEL opens, so "is the
        Incidents tab the active one" is read from the tab bar, not remembered. */
     /* U19: this used to be `querySelector('.vagent-tab[data-tab="incidents"]')`,
@@ -1877,10 +1888,566 @@
     }
     VA.registerBlock({
       id: 'incidents', title: 'Incidents', order: 45, summaryExtra: doctorBadge,
-      render: function (root) { doctorBox = el('div', 'vz'); root.appendChild(doctorBox); },
-      poll: { every_ms: 10000, fn: function () { pollDoctor(VA); } },
-      onOpen: function () { pollDoctor(VA); if (incidentsTabActive()) markIncidentsSeen(); }
+      render: function (root) {
+        recBox = el('div', 'vrec'); root.appendChild(recBox);
+        doctorBox = el('div', 'vz'); root.appendChild(doctorBox);
+      },
+      poll: { every_ms: 10000, fn: function () { pollIncidents(VA); } },
+      onOpen: function () {
+        pollIncidents(VA);
+        if (recMode === false && incidentsTabActive()) markIncidentsSeen();
+      }
     });
+
+    /* ==================================================== records (v2) ====
+       Robert, 20. 9.: „chci mít záznam o každém incidentu, vidět, že je
+       vyřešený nebo že si to mám přečíst, velmi krátkou poznámku jak se to
+       vyřešilo, a možnost rozbalit detail... Musí to šetřit čas, i při
+       kontrole a čtení.  To co tam je teď takové informace nemá."
+
+       Co se tím mění: tenhle tab ukazoval SYROVÝ ŘÁDEK LOGU jako nadpis,
+       k němu kolečko stavů (open/investigated/acknowledged) a sedm tlačítek,
+       která práci vracela majiteli („Assign task", „Plan", „Deeper look").
+       Záznam je obrácený: jádro už rozhodlo, a panel říká jednou větou CO se
+       stalo a JAK to dopadlo — rozkliknout se dá proč.
+
+       Fallback je schválně celý: dokud `/api/v2/records` neexistuje (starší
+       jádro odpoví 404), kreslí se beze změny to, co tu bylo dosud.  Panel
+       a jádro se nasazují každý zvlášť a majitel nesmí mezi tím přijít o tab.
+    */
+    function recIs404(err) {
+      if (!err) return false;
+      if (err.status === 404) return true;
+      return /\b404\b/.test(String((err && err.message) || err));
+    }
+
+    function pollIncidents(VA) {
+      if (recMode === false) { pollDoctor(VA); return; }
+      pollRecords(VA);
+    }
+
+    /* Starší jádro → zpátky na v1 kreslení, jednou a natrvalo (do reloadu). */
+    function recFallback(VA) {
+      recMode = false;
+      if (recBox) { recBox.textContent = ''; recBox.style.display = 'none'; }
+      if (doctorBox) doctorBox.style.display = '';
+      pollDoctor(VA);
+    }
+
+    function pollRecords(VA) {
+      if (!recBox) return;
+      VA.api('/api/v2/records', {timeout_ms: 12000}).then(function (d) {
+        if (!d || !d.counts || !Array.isArray(d.records)) {
+          if (d && d.agent_down) return;
+          errLine(recBox, 'records: ' + ((d && d.error) || 'unavailable'));
+          return;
+        }
+        recMode = true;
+        if (doctorBox) doctorBox.style.display = 'none';
+        recBox.style.display = '';
+        recBadge(VA, d);
+        /* Otisk je to, co je na řádcích vidět — detail se dotahuje zvlášť a
+           nesmí seznam překreslovat (Robert: „nějaký update mi to zase vrátí
+           do nerozkliknutého stavu"). */
+        var sig = fp([d.counts, d.records.map(function (r) {
+          return [r.id, r.status, r.outcome, r.title, r.resolution, r.count,
+                  r.last_ts, r.severity, r.question, recJobRef(r),
+                  (r.ways || []).map(function (w) {
+                    return [w.way, w.kind, w.label];
+                  })];
+        })]);
+        if (sig === recFp) return;
+        /* Rozepsané rozhodnutí se nesmí smazat pod rukama: dokud visí
+           potvrzení nebo běží POST, seznam se nepřekresluje.  Otisk se
+           schválně NEULOŽÍ, takže to další poll dožene. */
+        if (recDecidePending()) return;
+        if (interacting(recBox)) {
+          whenIdle('records', recBox, function () { recFp = ''; pollRecords(VA); });
+          return;
+        }
+        recFp = sig; recData = d;
+        drawRecords(VA);
+      }).catch(function (e) {
+        if (recIs404(e)) { recFallback(VA); return; }
+        if (!recData) apiUnavailable(recBox, 'records', e);
+      });
+    }
+
+    /* Odznak = jen „přečti si tohle".  Hotové ani nové věci po majiteli nic
+       nechtějí, a číslo, které se nedá vynulovat přečtením, je za týden šum. */
+    function recBadge(VA, d) {
+      var n = (d && d.counts && d.counts.read) || 0;
+      doctorBadge.textContent = n ? String(n) : '';
+      if (n && VA.flagTab && !incidentsTabActive()) VA.flagTab('incidents');
+    }
+
+    var REC_GROUPS = [
+      {key: 'read', label: 'READ THIS', open: true},
+      {key: 'working', label: 'Working', open: true},
+      {key: 'new', label: 'New', open: true},
+      {key: 'resolved', label: 'Handled', open: false}
+    ];
+    var REC_OUTCOME = {ignored: 'ignored', fixed: 'fixed', told: 'answered',
+                       fixing: 'in repair', pending: 'open'};
+
+    function recChip(r) {
+      if (r.status === 'read') return 'READ THIS';
+      if (r.status === 'working') return 'Fixing';
+      if (r.status === 'new') return 'New';
+      return 'Handled · ' + (REC_OUTCOME[r.outcome] || r.outcome || 'done');
+    }
+
+    function drawRecords(VA) {
+      if (!recBox || !recData) return;
+      recBox.textContent = '';
+      var list = recData.records || [];
+      if (!list.length) {
+        recBox.appendChild(el('div', 'vagent-empty',
+          'Nothing recorded — robot and agent are fine.'));
+        return;
+      }
+      REC_GROUPS.forEach(function (g) {
+        var items = list.filter(function (r) { return r.status === g.key; });
+        var total = (recData.counts && recData.counts[g.key]) || items.length;
+        if (!items.length) return;
+        if (g.key === 'resolved') {
+          /* Hotové věci se sbalí: jsou to ty, kvůli kterým se sem chodit
+             nemusí — ale musí jít doložit, že se staly. */
+          var det = el('details', 'vrec-group-h');
+          det.open = isOpen('rec:handled', false);
+          det.addEventListener('toggle', function () { setOpen('rec:handled', det.open); });
+          var sum = el('summary');
+          sum.appendChild(el('span', null, g.label));
+          sum.appendChild(el('span', 'vagent-cnt', String(total)));
+          det.appendChild(sum);
+          var body = el('div', 'vrec-group-b');
+          items.forEach(function (r) { body.appendChild(recRow(VA, r)); });
+          recMore(body, items.length, total);
+          det.appendChild(body);
+          recBox.appendChild(det);
+          return;
+        }
+        var h = el('div', 'vrec-group g-' + g.key);
+        h.appendChild(el('span', null, g.label));
+        h.appendChild(el('span', 'vagent-cnt', String(total)));
+        recBox.appendChild(h);
+        items.forEach(function (r) { recBox.appendChild(recRow(VA, r)); });
+        recMore(recBox, items.length, total);
+      });
+    }
+
+    /* Číslo v hlavičce je PRAVDA JÁDRA (kolik jich je), seznam je jen to, co
+       se vešlo do odpovědi.  Když se ta dvě čísla liší, musí to být napsané —
+       „New 400" nad šedesáti řádky by jinak vypadalo jako chyba (U33). */
+    function recMore(box, shown, total) {
+      if (!total || shown >= total) return;
+      box.appendChild(el('div', 'vrec-more',
+        'showing ' + shown + ' of ' + total));
+    }
+
+    /* ---- rozhodnutí majitele (Robert, 20. 9.: „ty READ THIS musí nabízet
+       nějaká řešení.  Já se musím rozhodnout a ta možná řešení tam musí být
+       na výběr.  Ideálně jeden klik v UI.") ---------------------------------
+       Cesty posílá jádro (`ways`), panel si je nevymýšlí ani nepřehazuje:
+       `task` = udělej to (primární), `ignore` = nech to být (neutrální),
+       `ack` = beru na vědomí (tiché).  Tatáž tlačítka a tentýž handler visí
+       pod sbaleným řádkem (rozhodnout se musí dát BEZ rozklikávání) i
+       v detailu, kde se u každé cesty píše, co udělá. */
+    var REC_WAY_CLS = {task: 'primary', ignore: '', ack: 'ghost'};
+
+    function recDecidePending() {
+      for (var a in recAskWay) { if (recAskWay[a]) return true; }
+      for (var b in recBusy) { if (recBusy[b]) return true; }
+      return false;
+    }
+
+    function recJobRef(r) {
+      var j = (r && (r.job || r.job_ref || r.job_id || r.related_job_id)) || '';
+      if (j && typeof j === 'object') j = j.ref || j.id || j.job || '';
+      return j ? String(j) : '';
+    }
+
+    /* Otázka je v detailu; když ji nese i řádek, ukáže se rovnou ve sbaleném
+       stavu — a když už je detail jednou stažený, vezme se odtamtud. */
+    function recQuestion(r) {
+      if (r.question) return String(r.question);
+      if (r.decision && r.decision.question) return String(r.decision.question);
+      var d = recDetail[r.id];
+      if (d && d.decision && d.decision.question) return String(d.decision.question);
+      return '';
+    }
+
+    /* Věta „co se stane" — v seznamu ji cesty nenesou, tak se dohledá
+       v staženém detailu; když není, potvrzení zopakuje aspoň popisek. */
+    function recDoes(r, way) {
+      if (way && way.does) return String(way.does);
+      var d = recDetail[r.id], dw = (d && d.decision && d.decision.ways) || [];
+      for (var i = 0; i < dw.length; i++) {
+        if (dw[i] && dw[i].way === (way && way.way) && dw[i].does) return String(dw[i].does);
+      }
+      return '';
+    }
+
+    /* Řádek i detail ukazují tytéž cesty, takže se překreslují spolu —
+       jinak by Cancel zhasl potvrzení jen na jednom místě. */
+    function recWaysRedraw(VA, r) {
+      if (!recBox) return;
+      var hosts = recBox.querySelectorAll(
+        '.vrec-row[data-rec="' + cssEsc(r.id) + '"] .vrec-ways');
+      Array.prototype.forEach.call(hosts, function (h) {
+        var fresh = recWays(VA, r, h.__ways || [], h.classList.contains('d'));
+        if (h.parentNode) h.parentNode.replaceChild(fresh, h);
+      });
+    }
+
+    function recWayBtn(VA, r, w, busy) {
+      var kind = String(w.kind || 'task');
+      var cls = REC_WAY_CLS[kind];
+      var b = el('button', 'vagent-actbtn vrec-way w-' + kind + (cls ? ' ' + cls : ''),
+                 String(w.label || kind));
+      b.type = 'button';
+      b.disabled = !!busy;
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (recBusy[r.id]) return;          // dvojklik nesmí poslat dvakrát
+        if (kind === 'ack') { recDecide(VA, r, w); return; }
+        recAskWay[r.id] = w;                // jedno potvrzení, ve stránce
+        recWaysRedraw(VA, r);
+      });
+      return b;
+    }
+
+    function recWays(VA, r, ways, detail) {
+      var host = el('div', 'vrec-ways' + (detail ? ' d' : ''));
+      host.__ways = ways;
+      var busy = !!recBusy[r.id];
+      var ask = recAskWay[r.id];
+      if (ask) {
+        /* V potvrzení se opakuje PRÁVĚ TO, co se stane, ne „Are you sure?". */
+        var q = el('div', 'vrec-askq', recDoes(r, ask) || String(ask.label || ''));
+        host.appendChild(q);
+        var arow = el('div', 'vrec-btnrow');
+        var yes = el('button', 'vagent-actbtn primary', 'Confirm');
+        yes.type = 'button'; yes.disabled = busy;
+        yes.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          recDecide(VA, r, ask);
+        });
+        var no = el('button', 'vagent-actbtn', 'Cancel');
+        no.type = 'button'; no.disabled = busy;
+        no.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          delete recAskWay[r.id];
+          recWaysRedraw(VA, r);
+        });
+        arow.appendChild(yes); arow.appendChild(no);
+        host.appendChild(arow);
+      } else if (detail) {
+        ways.forEach(function (w) {
+          var line = el('div', 'vrec-optrow');
+          line.appendChild(recWayBtn(VA, r, w, busy));
+          var does = recDoes(r, w);
+          if (does) line.appendChild(el('div', 'vrec-does', does));
+          host.appendChild(line);
+        });
+      } else {
+        var row = el('div', 'vrec-btnrow');
+        ways.forEach(function (w) { row.appendChild(recWayBtn(VA, r, w, busy)); });
+        host.appendChild(row);
+      }
+      if (busy) host.appendChild(el('div', 'vrec-prog', 'working…'));
+      else if (recOut[r.id]) {
+        host.appendChild(el('div', 'vrec-out' + (recOut[r.id].bad ? ' bad' : ''),
+                            recOut[r.id].text));
+      }
+      return host;
+    }
+
+    /* Odpověď jádra se ukazuje NA MÍSTĚ a teprve pak se seznam přerovná —
+       kliknutí, po kterém karta zmizí a nic neřekne, je horší než žádné. */
+    function recDecide(VA, r, way) {
+      if (recBusy[r.id]) return;
+      recBusy[r.id] = 1;
+      delete recOut[r.id];
+      recWaysRedraw(VA, r);                 // tlačítka zhasnou, běží „working…"
+      VA.api('/api/v2/records/' + r.id + '/decide',
+             {method: 'POST', body: {way: way.way, by: VA.authorId || 'ui'},
+              keep_error_body: true, timeout_ms: 15000})
+        .then(function (res) {
+          delete recBusy[r.id];
+          delete recAskWay[r.id];
+          var bad = !!(res && res.ok === false);
+          recOut[r.id] = {text: String((res && (bad ? res.error : res.message)) ||
+                                       (bad ? 'refused' : 'done')), bad: bad};
+          delete recDetail[r.id];
+          recWaysRedraw(VA, r);
+          recRefreshLater(VA);
+        })
+        .catch(function (err) {
+          delete recBusy[r.id];
+          var st = err && err.status;
+          var msg = (err && err.body && (err.body.error || err.body.message)) ||
+            (st ? 'refused (HTTP ' + st + ')' : 'agent unreachable');
+          recOut[r.id] = {text: String(msg), bad: true};
+          if (st === 409) {                 // rozhodl někdo dřív → říct a načíst znovu
+            delete recAskWay[r.id];
+            delete recDetail[r.id];
+            recWaysRedraw(VA, r);
+            recRefreshLater(VA);
+            return;
+          }
+          recWaysRedraw(VA, r);             // tlačítka zpátky, ať to jde zkusit znovu
+        });
+    }
+
+    /* Zprávu jádra musí být chvíli vidět; teprve pak se seznam natáhne znovu
+       a záznam se přesune do Working/Handled. */
+    function recRefreshLater(VA) {
+      setTimeout(function () { recFp = ''; pollRecords(VA); }, 1400);
+    }
+
+    /* Řádek = dvě řádky textu a nic víc: stav, kolikrát, jak staré — a pod
+       tím věta, o co jde, a věta, jak to dopadlo.  Žádný syrový log, žádné
+       vnitřní id kromě tichého #čísla, aby se o tom dalo mluvit. */
+    function recRow(VA, r) {
+      var row = el('div', 'vrec-row s-' + r.status +
+        (r.severity ? ' sev-' + r.severity : ''));
+      row.setAttribute('data-rec', String(r.id));
+      var head = el('div', 'vrec-head');
+      head.setAttribute('role', 'button');
+      head.tabIndex = 0;
+      var l1 = el('div', 'vrec-l1');
+      l1.appendChild(el('span', 'vrec-chip c-' + r.status +
+        (r.status === 'resolved' ? ' o-' + (r.outcome || '') : ''), recChip(r)));
+      if (r.count && r.count > 1) {
+        var x = el('span', 'vrec-x', '×' + r.count);
+        x.title = r.count + ' occurrences';
+        l1.appendChild(x);
+      }
+      var idl = el('span', 'vrec-id', '#' + r.id);
+      idl.title = 'the agent\'s own number for this incident';
+      l1.appendChild(idl);
+      var age = el('span', 'vrec-age', r.last_ts ? fmtAgo(r.last_ts) : '');
+      if (r.last_ts) {
+        age.title = (r.first_ts ? 'first: ' + fmtAbs(r.first_ts) + '\n' : '') +
+          'last: ' + fmtAbs(r.last_ts);
+      }
+      l1.appendChild(age);
+      head.appendChild(l1);
+      var l2 = el('div', 'vrec-l2');
+      var t = el('div', 'vrec-title', String(r.title || ''));
+      l2.appendChild(t);
+      var res = el('div', 'vrec-res');
+      res.textContent = String(r.resolution || '');
+      l2.appendChild(res);
+      head.appendChild(l2);
+      row.appendChild(head);
+
+      /* Rozhodnutí patří NAD detail: „ideálně jeden klik" znamená, že se
+         nesmí muset nic rozklikávat.  Co která cesta udělá, se dočte
+         v detailu — tam jsou tatáž tlačítka i s větou. */
+      if (r.status === 'read' && Array.isArray(r.ways) && r.ways.length) {
+        var q = recQuestion(r);
+        if (q) row.appendChild(el('div', 'vrec-rowq', q));
+        row.appendChild(recWays(VA, r, r.ways, false));
+      } else if (r.status === 'working') {
+        /* Běžící úkol nic nechce — jen řekne, co dělá (`resolution` výš)
+           a pod jakým číslem se to dá najít. */
+        var jref = recJobRef(r);
+        if (jref) row.appendChild(el('div', 'vrec-job', 'job ' + jref));
+      }
+
+      var det = el('div', 'vrec-det');
+      row.appendChild(det);
+      var key = 'rec:' + r.id;
+      function apply(open) {
+        row.classList.toggle('open', !!open);
+        if (!open) { det.textContent = ''; det.style.display = 'none'; return; }
+        det.style.display = '';
+        if (recDetail[r.id]) { recDetailDraw(VA, r, det, recDetail[r.id]); return; }
+        det.textContent = '';
+        det.appendChild(el('div', 'vrec-load', 'loading…'));
+        VA.api('/api/v2/records/' + r.id, {timeout_ms: 12000}).then(function (d) {
+          if (!d || d.ok === false) {
+            det.textContent = '';
+            det.appendChild(el('div', 'vrec-out bad', (d && d.error) || 'unavailable'));
+            return;
+          }
+          recDetail[r.id] = d;
+          if (isOpen(key, false)) recDetailDraw(VA, r, det, d);
+        }).catch(function (e) {
+          det.textContent = '';
+          det.appendChild(el('div', 'vrec-out bad', 'detail: ' + e));
+        });
+      }
+      function toggle(ev) {
+        if (ev) ev.stopPropagation();
+        var open = !isOpen(key, false);
+        setOpen(key, open);
+        apply(open);
+      }
+      head.addEventListener('click', toggle);
+      head.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(ev); }
+      });
+      apply(isOpen(key, false));
+      return row;
+    }
+
+    /* Sekce detailu.  Prázdná se vynechá — nadpis nad prázdnem je přesně ta
+       informace bez hodnoty, kvůli které se tenhle tab předělával. */
+    var REC_SECTIONS = [['what', 'What happened'], ['did', 'What I did'],
+                        ['why', 'Why'], ['about', 'About']];
+
+    function recDetailDraw(VA, r, det, d) {
+      det.textContent = '';
+      var detail = d.detail || {};
+      REC_SECTIONS.forEach(function (p) {
+        var txt = detail[p[0]];
+        if (!txt) return;
+        var sec = el('div', 'vrec-sec');
+        sec.appendChild(el('div', 'vrec-seclbl', p[1]));
+        var body = el('div', 'vrec-sectxt');
+        body.textContent = String(txt);      // agentova vlastní věta, doslova
+        sec.appendChild(body);
+        det.appendChild(sec);
+      });
+      var ev = d.evidence || {};
+      var sample = ev.sample || [];
+      if (sample.length || ev.count) {
+        var dd = el('details', 'vrec-ev');
+        var ek = 'rec:' + r.id + ':ev';
+        dd.open = isOpen(ek, false);
+        dd.addEventListener('toggle', function () { setOpen(ek, dd.open); });
+        var sum = el('summary');
+        sum.appendChild(el('span', null, 'Evidence'));
+        if (ev.count) sum.appendChild(el('span', 'vagent-cnt', String(ev.count)));
+        dd.appendChild(sum);
+        var body = el('div', 'vrec-evbody');
+        var meta = [];
+        if (ev.when) meta.push(ev.when);
+        if (ev.source) meta.push(ev.source);
+        if (ev.rate_h) meta.push(ev.rate_h + '/h');
+        if (meta.length) body.appendChild(el('div', 'vrec-evmeta', meta.join(' · ')));
+        sample.forEach(function (s) {
+          var line = el('div', 'vrec-evline');
+          if (s.ts) {
+            var ts = el('span', 'vrec-evts', fmtClock(s.ts));
+            ts.title = fmtAbs(s.ts);
+            line.appendChild(ts);
+          }
+          var tx = el('span', 'vrec-evtxt');
+          tx.textContent = String(s.text || '');
+          line.appendChild(tx);
+          body.appendChild(line);
+        });
+        (d.timeline || []).forEach(function (t) {
+          var line = el('div', 'vrec-tl');
+          line.appendChild(el('span', 'vrec-evts', t.ts ? fmtClock(t.ts) : ''));
+          line.appendChild(el('span', null, String(t.label || '')));
+          body.appendChild(line);
+        });
+        dd.appendChild(body);
+        det.appendChild(dd);
+      }
+      /* Tady si majitel PŘEČTE, co která cesta udělá, a rovnou ji zvolí.
+         Cesty posílá jádro (`decision.ways`), panel si je nevymýšlí. */
+      var optsShown = false;
+      var dways = (d.decision && d.decision.ways) || [];
+      if (r.status === 'read' && dways.length) {
+        if (d.decision.question) {
+          det.appendChild(el('div', 'vrec-q', String(d.decision.question)));
+        }
+        if (dways[0].way == null && dways[0].path) {
+          /* Starší jádro posílalo jednu cestu s vlastní URL — beze změny. */
+          var way = dways[0];
+          var bar = el('div', 'vrec-btns');
+          var b = el('button', 'vagent-actbtn primary', way.label || 'Do it');
+          b.type = 'button';
+          b.disabled = !!recBusy[r.id];
+          b.addEventListener('click', function (e2) {
+            e2.stopPropagation();
+            recPost(VA, r, det, way.path, way.body || {}, b);
+          });
+          bar.appendChild(b);
+          det.appendChild(bar);
+        } else {
+          var sec = el('div', 'vrec-sec');
+          sec.appendChild(el('div', 'vrec-seclbl', 'Your options'));
+          sec.appendChild(recWays(VA, r, dways, true));
+          det.appendChild(sec);
+          optsShown = true;              // hlášku jádra už ukazuje ta sekce
+        }
+      }
+      if (d.undo) {
+        var wrap = el('div', 'vrec-undo');
+        if (recAsk[r.id]) {
+          wrap.appendChild(el('span', 'vrec-undoq',
+            'Undo the ignore? It will be looked at again.'));
+          var yes = el('button', 'vagent-actbtn primary', d.undo.label || 'Undo ignore');
+          yes.type = 'button';
+          yes.addEventListener('click', function (e3) {
+            e3.stopPropagation();
+            delete recAsk[r.id];
+            recPost(VA, r, det, d.undo.path, {by: VA.authorId || 'ui'}, yes);
+          });
+          var no = el('button', 'vagent-actbtn', 'Keep ignoring');
+          no.type = 'button';
+          no.addEventListener('click', function (e4) {
+            e4.stopPropagation();
+            delete recAsk[r.id];
+            recDetailDraw(VA, r, det, d);
+          });
+          wrap.appendChild(yes); wrap.appendChild(no);
+        } else {
+          var lnk = el('button', 'vrec-link', d.undo.label || 'Undo ignore');
+          lnk.type = 'button';
+          lnk.addEventListener('click', function (e5) {
+            e5.stopPropagation();
+            recAsk[r.id] = 1;
+            recDetailDraw(VA, r, det, d);
+          });
+          wrap.appendChild(lnk);
+        }
+        det.appendChild(wrap);
+      }
+      if (recOut[r.id] && !optsShown) {
+        det.appendChild(el('div', 'vrec-out' + (recOut[r.id].bad ? ' bad' : ''),
+          recOut[r.id].text));
+      }
+    }
+
+    /* Odpověď jádra se ukazuje NA MÍSTĚ a teprve pak se seznam obnoví —
+       kliknutí, po kterém karta zmizí a nic neřekne, je horší než žádné. */
+    function recPost(VA, r, det, path, body, btn) {
+      if (recBusy[r.id]) return;
+      recBusy[r.id] = 1;
+      if (btn) btn.disabled = true;
+      var out = el('div', 'vrec-out', '…');
+      det.appendChild(out);
+      var payload = {};
+      Object.keys(body || {}).forEach(function (k) { payload[k] = body[k]; });
+      if (payload.author === undefined) payload.author = VA.authorId || 'ui';
+      VA.api(path, {method: 'POST', body: payload, keep_error_body: true,
+                    timeout_ms: 15000})
+        .then(function (res) {
+          delete recBusy[r.id];
+          recOut[r.id] = {text: (res && res.message) || (res && res.error) || 'done',
+                          bad: !!(res && res.error)};
+          out.textContent = recOut[r.id].text;
+          delete recDetail[r.id];
+          recFp = ''; pollRecords(VA);
+        })
+        .catch(function (err) {
+          delete recBusy[r.id];
+          var msg = (err && err.body && err.body.error)
+            || (err && err.status ? 'refused (HTTP ' + err.status + ')' : 'agent unreachable');
+          recOut[r.id] = {text: msg, bad: true};
+          out.className = 'vrec-out bad';
+          out.textContent = msg;
+          if (btn) btn.disabled = false;
+        });
+    }
 
     var GROUP = {
       senses: {label: 'senses', icon: '⚠', cls: 'senses'},
@@ -3225,6 +3792,14 @@
        (2026-09-02 13:25, „z panelu zmizelo skoro vše"). The count is written
        into the node after each poll. */
     var parkedBadgeEl = badge();
+    /* One DOM node for the summary (see the warning above): the auto-approve
+       chip sits next to the count so it shows even when the block is
+       collapsed — on a phone that is the only part of the block on screen. */
+    var parkedSummaryEl = el('span', 'vpk-sum');
+    var autoChipEl = el('span', 'vpk-autochip');
+    autoChipEl.style.display = 'none';
+    parkedSummaryEl.appendChild(autoChipEl);
+    parkedSummaryEl.appendChild(parkedBadgeEl);
 
     function parkedBadge() {
       var n = (parkedData && parkedData.approvals || []).length;
@@ -3232,11 +3807,141 @@
     }
 
     VA.registerBlock({
-      id: 'parked', title: 'Needs you', order: 15, summaryExtra: parkedBadgeEl,
-      render: function (root) { parkedBox = el('div', 'vpk'); root.appendChild(parkedBox); },
-      poll: { every_ms: 15000, fn: function () { pollParked(VA); } },
-      onOpen: function () { pollParked(VA); }
+      id: 'parked', title: 'Needs you', order: 15, summaryExtra: parkedSummaryEl,
+      render: function (root) {
+        autoBox = el('div', 'vpk-auto'); root.appendChild(autoBox);
+        parkedBox = el('div', 'vpk'); root.appendChild(parkedBox);
+      },
+      poll: { every_ms: 15000, fn: function () { pollAuto(VA); pollParked(VA); } },
+      onOpen: function () { pollAuto(VA); pollParked(VA); }
     });
+
+    /* ================================================== global auto-approve
+       The owner's standing yes (2026-09-20): while ON, the agent approves its
+       own held requests. The state lives in the core
+       (`~/.vitulus/agent/auto_approve.yaml`) and survives restarts; this
+       draws server truth only — nothing is assumed after a click. */
+    var autoBox = null, autoData = null, autoFp = '', autoBusy = false,
+        autoAsk = null, autoErr = '';
+    var AUTO_SCOPES = [
+      ['motion', 'Driving'],
+      ['mower', 'Mower blade'],
+      ['escalation', 'sudo / docker']
+    ];
+    var AUTO_CONFIRM = {
+      on: 'The agent will approve its own requests, including driving, ' +
+          'without asking you.',
+      mower: 'The agent will approve requests that involve the mower blade ' +
+             'without asking you.',
+      escalation: 'The agent will approve sudo / docker commands without ' +
+                  'asking you. These can lift every other limit.'
+    };
+
+    function autoScopeNames(d) {
+      return AUTO_SCOPES.filter(function (s) { return d.scope && d.scope[s[0]]; })
+                        .map(function (s) { return s[1].toLowerCase(); });
+    }
+
+    function autoChip() {
+      var on = !!(autoData && autoData.enabled);
+      autoChipEl.style.display = on ? '' : 'none';
+      if (!on) return;
+      var names = autoScopeNames(autoData);
+      autoChipEl.textContent = 'AUTO-APPROVE ON' + (names.length ? ' · ' + names.join(', ') : '');
+      autoChipEl.title = 'Turned on by ' + (autoData.by || '?') +
+        (autoData.since ? ' · ' + fmtAbs(autoData.since) : '');
+    }
+
+    function pollAuto(VA) {
+      if (!autoBox || autoBusy) return;
+      VA.api('/api/approvals/auto', {timeout_ms: 12000}).then(function (d) {
+        if (!d || d.ok === false) { return; }
+        var sig = fp(d);
+        if (sig === autoFp && !autoErr) return;
+        if (interacting(autoBox) || autoAsk) return;
+        autoFp = sig; autoData = d; autoChip(); drawAuto(VA);
+      }).catch(function (e) {
+        /* An older core has no such route: no control, no noise. */
+        if (e && e.status === 404) { autoData = null; autoBox.textContent = ''; autoChip(); }
+      });
+    }
+
+    function postAuto(VA, body) {
+      if (autoBusy) return;
+      autoBusy = true; autoErr = ''; autoAsk = null;
+      body.by = VA.authorId || 'ui';
+      VA.api('/api/approvals/auto',
+             {method: 'POST', body: body, keep_error_body: true, timeout_ms: 15000})
+        .then(function (d) {
+          autoBusy = false;
+          if (d && d.ok !== false) { autoData = d; autoFp = fp(d); }
+          else { autoErr = (d && d.error) || 'refused'; }
+          autoChip(); drawAuto(VA);
+          parkedFp = ''; pollParked(VA);      // swept asks leave the list
+        })
+        .catch(function (err) {
+          autoBusy = false;
+          autoErr = (err && err.body && err.body.error)
+            || (err && err.status ? 'refused (HTTP ' + err.status + ')' : 'agent unreachable');
+          autoFp = ''; drawAuto(VA); pollAuto(VA);
+        });
+    }
+
+    function autoCheck(label, checked, onChange) {
+      var lab = el('label', 'vpk-auto-opt');
+      var box = document.createElement('input');
+      box.type = 'checkbox'; box.checked = !!checked; box.disabled = autoBusy;
+      box.addEventListener('change', function () { onChange(box.checked); });
+      lab.appendChild(box);
+      lab.appendChild(el('span', '', label));
+      return lab;
+    }
+
+    function drawAuto(VA) {
+      if (!autoBox) return;
+      autoBox.textContent = '';
+      if (!autoData) return;
+      var on = !!autoData.enabled;
+      autoBox.className = 'vpk-auto' + (on ? ' on' : '');
+      var row = autoCheck('Auto-approve', on, function (want) {
+        if (!want) { postAuto(VA, {enabled: false}); return; }
+        autoAsk = {text: AUTO_CONFIRM.on, body: {enabled: true}}; drawAuto(VA);
+      });
+      row.className += ' main';
+      autoBox.appendChild(row);
+      if (on) {
+        var opts = el('div', 'vpk-auto-scope');
+        AUTO_SCOPES.forEach(function (sc) {
+          opts.appendChild(autoCheck(sc[1], autoData.scope && autoData.scope[sc[0]], function (want) {
+            var scope = {motion: !!autoData.scope.motion, mower: !!autoData.scope.mower,
+                         escalation: !!autoData.scope.escalation};
+            scope[sc[0]] = want;
+            var body = {enabled: true, scope: scope};
+            if (want && AUTO_CONFIRM[sc[0]]) {
+              autoAsk = {text: AUTO_CONFIRM[sc[0]], body: body}; drawAuto(VA);
+            } else { postAuto(VA, body); }
+          }));
+        });
+        autoBox.appendChild(opts);
+        autoBox.appendChild(el('div', 'vpk-auto-note',
+          'The safety layer, the dock lock and dry-run stay locked regardless.'));
+      }
+      if (autoAsk) {
+        var ask = el('div', 'vpk-auto-ask');
+        ask.appendChild(el('div', '', autoAsk.text));
+        var bar = el('div', 'vpk-btns');
+        var yes = el('button', 'vagent-actbtn approve', 'Turn on');
+        yes.type = 'button';
+        yes.addEventListener('click', function () { postAuto(VA, autoAsk.body); });
+        var no = el('button', 'vagent-actbtn deny', 'Cancel');
+        no.type = 'button';
+        no.addEventListener('click', function () { autoAsk = null; autoFp = ''; drawAuto(VA); });
+        bar.appendChild(yes); bar.appendChild(no);
+        ask.appendChild(bar);
+        autoBox.appendChild(ask);
+      }
+      if (autoErr) { autoBox.appendChild(el('div', 'vpk-out bad', autoErr)); }
+    }
 
     function pollParked(VA) {
       if (!parkedBox) return;

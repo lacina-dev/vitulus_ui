@@ -7,3 +7,6 @@ __pycache__/
 # Zalohy: od zalohovani je git (AGENT_V2_PLAN.md E0)
 *_bak_*
 *_bak[0-9]*
+
+# Claude Code worktrees and settings (local only)
+.claude/
