@@ -266,6 +266,38 @@
     var agentUp = null;
     var probeInFlight = false;
 
+    /* Issue vitulus-field#28: on a tester's robot the agent is not installed
+       at all, the /agent route exists (webnode) but answers 503, and the
+       panel kept asking /api/unified/jobs about once a second — the console
+       drowned in 503s.  So: the first 503 or network failure of ANY /agent
+       call marks the agent down (one console.warn, not one per request),
+       every poller goes quiet behind the agentUp gate, and only the health
+       probe keeps asking, with exponential backoff 5 s → 10 → 20 → 40 → 120 s.
+       The first good answer resets the backoff and wakes the pollers, so a
+       single transient 503 on the owner's robot costs at most ~5 s. */
+    var PROBE_UP_MS = 30000, PROBE_MIN_MS = 5000, PROBE_MAX_MS = 120000;
+    var probeDelay = PROBE_MIN_MS;
+    var probeTimer = null;
+    var downWarned = false;
+
+    function nextProbe(ms) {
+        if (probeTimer) { clearTimeout(probeTimer); }
+        probeTimer = setTimeout(function () { probeTimer = null; probeAgent(); }, ms);
+    }
+
+    function markAgentDown(why) {
+        if (agentUp === false) { return; }
+        agentUp = false;
+        if (!downWarned) {
+            downWarned = true;
+            try { console.warn('Vitulus agent is not available (' + why +
+                               '); agent panel polling paused, retrying with backoff.'); } catch (e) {}
+        }
+        applyAgentState();
+        probeDelay = PROBE_MIN_MS;
+        nextProbe(probeDelay);
+    }
+
     function healthOnce(base) {
         var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var timer = ctl ? setTimeout(function () { ctl.abort(); }, 4000) : null;
@@ -282,8 +314,17 @@
             .then(function (up) {
                 probeInFlight = false;
                 var was = agentUp;
-                agentUp = !!up;
-                if (agentUp) { conn.okTs = Date.now(); }
+                if (!up) {
+                    if (was !== false) { markAgentDown('health probe failed'); return; }
+                    probeDelay = Math.min(probeDelay * 2, PROBE_MAX_MS);
+                    nextProbe(probeDelay);          // still down: back off
+                    return;
+                }
+                agentUp = true;
+                downWarned = false;                 // warn again on a later outage
+                probeDelay = PROBE_MIN_MS;
+                nextProbe(PROBE_UP_MS);             // up: the old slow watch
+                conn.okTs = Date.now();
                 applyAgentState();
                 if (agentUp && typeof schedule === 'function' &&
                         (was !== true || !timers.length)) {
@@ -318,9 +359,9 @@
                 ph.id = 'vagent_down';
                 ph.className = 'vagent-down';
                 var msg = document.createElement('p');
-                msg.textContent = 'The agent is not answering through /agent ' +
-                    'on this robot. Chat, jobs, approvals and findings need the ' +
-                    'vitulus_agent service and the webnode proxy in front of it.';
+                msg.textContent = 'Agent is not available on this robot. ' +
+                    'Chat, jobs, approvals and findings need the vitulus_agent ' +
+                    'service; the panel checks again now and then.';
                 ph.appendChild(msg);
                 var retry = document.createElement('button');
                 retry.type = 'button';
@@ -359,6 +400,12 @@
         }
         return fetch(AGENT_HTTP + path, init).then(function (r) {
             if (timer) { clearTimeout(timer); }
+            if (r.status === 503) {          // webnode: nothing behind /agent (#28)
+                markAgentDown('HTTP 503 from /agent');
+                var e503 = new Error('HTTP 503');
+                e503.status = 503;
+                throw e503;
+            }
             conn.okTs = Date.now();
             paintConn();
             if (!r.ok) {
@@ -399,6 +446,8 @@
             });
         }).catch(function (err) {
             if (timer) { clearTimeout(timer); }
+            // network-level failure (not our own timeout abort) = no agent
+            if (err && err.name === 'TypeError') { markAgentDown('network error'); }
             conn.failTs = Date.now();
             paintConn();
             throw err;
@@ -3723,6 +3772,8 @@
             return pollLegacySchedules().then(function () { renderJobsPane(composeJobs()); });
         }
         return api('/api/unified/jobs').then(function (d) {
+            // agent down (#28) says nothing about the contract — don't latch
+            if (d && d.agent_down) { return null; }
             if (!d || d.ok === false) {
                 unifiedOk = false;
                 return pollLegacySchedules().then(function () { renderJobsPane(composeJobs()); });
@@ -5451,7 +5502,7 @@
 
         installStrip();
         probeAgent();                         // decide availability once, now
-        setInterval(probeAgent, 30000);       // and keep watching for it to appear
+        // …and keep watching: probeAgent re-arms itself (30 s up, backoff down)
         setInterval(pollStrip, 30000);        // shell strip: right even when shut
         setTimeout(pollStrip, 1500);
         schedule();
