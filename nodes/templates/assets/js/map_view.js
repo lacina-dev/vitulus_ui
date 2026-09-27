@@ -2103,13 +2103,26 @@ class CameraView {
     // stream (watchdog, first-frame poll, right_dock.js). WebKit (iOS/iPadOS
     // Safari) keeps naturalWidth at 0 for a multipart/x-mixed-replace stream
     // even while frames arrive, so naturalWidth alone restarted a healthy
-    // stream every 3 s and the loader never went away. width*height is the
-    // very test the upstream viewer's draw() uses (mjpegcanvas.js), and that
-    // viewer renders fine on those devices. No pixel sampling: the stream is
-    // cross-origin (:8080) and would taint the canvas.
+    // stream every 3 s and the loader never went away. width*height does not
+    // help there: the viewer's Image is not in the DOM, so its width IS the
+    // natural width (vitulus-field#8, NOT FIXED on field-2026.09.27-1).
+    // Positive signals: real dimensions, or a 'load' event on this Image.
+    // WebKit fallback (the approach the tester confirmed on an iPhone): the
+    // stream URL is set, no 'error' fired and it has been open for
+    // STREAM_GRACE_MS. No pixel sampling: the stream is cross-origin (:8080)
+    // and would taint the canvas.
     static framesOk(img) {
         if (!img) return false;
-        return img.naturalWidth > 0 || (img.width * img.height > 0);
+        if (img.naturalWidth > 0 || (img.width * img.height > 0)) return true;
+        if (img._camLoaded) return true;
+        if (!CameraView.WEBKIT_STREAM || img._camError || !img._camStart) return false;
+        if ((img.src || '').indexOf('/stream?') < 0) return false;
+        return Date.now() - img._camStart >= CameraView.STREAM_GRACE_MS;
+    }
+
+    // Age of the current stream attempt in ms (Infinity when unknown).
+    static streamAge(img) {
+        return (img && img._camStart) ? Date.now() - img._camStart : Infinity;
     }
 
     constructor(ros) {
@@ -2159,6 +2172,8 @@ class CameraView {
         setInterval(function() {
             if (!self._active || document.hidden) return;
             if (!self.camViewer || !self.camViewer.image) return;
+            // a fresh attempt gets its grace period before it can be judged
+            if (CameraView.streamAge(self.camViewer.image) < CameraView.STREAM_GRACE_MS) return;
             if (!CameraView.framesOk(self.camViewer.image)) {
                 self._showLoader();
                 // forced: the cooldown must not starve recovery retries —
@@ -2248,7 +2263,15 @@ class CameraView {
     _attachImageHandlers() {
         var self = this;
         if (!this.camViewer || !this.camViewer.image) return;
-        this.camViewer.image.onerror = function() {
+        var img = this.camViewer.image;
+        // liveness bookkeeping for framesOk(): a new attempt starts now
+        img._camStart = Date.now();
+        img._camError = false;
+        img._camLoaded = false;
+        img.onload = function() { img._camLoaded = true; };
+        img.onerror = function() {
+            img._camError = true;
+            img._camLoaded = false;
             if (!self._active) return;
             console.warn('[CameraView] stream error, retrying in 3s');
             self._showLoader();
@@ -2372,6 +2395,21 @@ class CameraView {
         content.style.height = Math.round(canvas_size.height + (border_el*2) + (padding_el*2)) + 'px';
     };
 }
+
+// How long a stream attempt may run before the watchdog judges it, and
+// before the WebKit fallback in framesOk() calls it live.
+CameraView.STREAM_GRACE_MS = 1500;
+// WebKit engines that hide MJPEG frame dimensions: every browser on iOS /
+// iPadOS (iPadOS reports itself as a Mac with touch) and desktop Safari.
+CameraView.WEBKIT_STREAM = (function() {
+    try {
+        var ua = navigator.userAgent || '';
+        if (/iPad|iPhone|iPod/.test(ua)) return true;
+        if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
+        return /AppleWebKit/.test(ua) && /Safari/.test(ua) &&
+               !/Chrome|Chromium|CriOS|Edg|OPR|Android/.test(ua);
+    } catch (e) { return false; }
+})();
 
 
 class LidarControl {
