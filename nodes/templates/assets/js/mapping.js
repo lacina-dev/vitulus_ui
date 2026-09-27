@@ -197,6 +197,11 @@ class MappingV3 {
         this._directPending = null;         // accumulated partial for debounce
         this._directDebounce = null;        // debounce timer
         this._directPresetSig = '';         // preset <select> rebuild guard
+        // vitulus-field#23: Load/Save/Delete need direct_raster (session
+        // only) — keep their titles to restore them when a session runs
+        this._directPresetTitles = [this.btn_direct_preset_load,
+            this.btn_direct_preset_save, this.btn_direct_preset_del]
+            .map((b) => (b ? b.title : ''));
         // slider spec: [input, key, decimals, unit] — value echo span is
         // the input id + "_val"; shared by wiring, sync and applyDirect.
         this._directSliders = [
@@ -491,6 +496,13 @@ class MappingV3 {
         // dead. The direct mapper reports its own status via direct_status.
         sub('/mapping/direct_status', 'std_msgs/String',
             (m) => this.handleDirectStatus(m));
+        // vitulus-field#23: the preset list also comes from mapping_manager
+        // (always running, latched) so it is filled outside a session too
+        sub('/mapping_manager/direct_presets', 'std_msgs/String', (m) => {
+            let d;
+            try { d = JSON.parse(m.data); } catch (e) { return; }
+            this._fillDirectPresets(d && d.presets);
+        });
 
         // Terrain elevation as a 3D plane (see terrain_group above). rosbridge
         // delivers CompressedImage.data as base64. The PNG and the world bounds
@@ -719,7 +731,8 @@ class MappingV3 {
         }
         // environment presets: applied/saved/deleted SERVER-side by
         // direct_raster (topic /mapping/direct_preset); the select is
-        // populated from direct_status.presets in handleDirectStatus.
+        // populated by _fillDirectPresets from direct_status.presets and
+        // /mapping_manager/direct_presets.
         if (this.btn_direct_preset_load) {
             this.btn_direct_preset_load.addEventListener('click', () => {
                 const name = this.sel_direct_preset && this.sel_direct_preset.value;
@@ -2403,6 +2416,16 @@ class MappingV3 {
                 'Start a mapping session to set sensor range caps.';
             this.el_ranges_status.style.color = '';
         }
+        // vitulus-field#23: the preset list is visible any time, but Load /
+        // Save / Delete are served by direct_raster, which only runs in a
+        // session.
+        [this.btn_direct_preset_load, this.btn_direct_preset_save,
+         this.btn_direct_preset_del].forEach((b, i) => {
+            if (!b) return;
+            b.disabled = !on;
+            b.title = on ? this._directPresetTitles[i]
+                : 'Start a recording to load/save/delete presets.';
+        });
     }
 
     // Remove the Direct layer's current mesh (same teardown the client does
@@ -2987,6 +3010,44 @@ class MappingV3 {
         this.el_proj.style.color = p.state === 'error' ? '#ff6b6b' : '';
     }
 
+    // environment preset <select>: rebuild only when the name list
+    // changes (signature guard), keeping the current selection. Fed by
+    // direct_status.presets (session) and /mapping_manager/direct_presets
+    // (always) — same list, so the guard keeps them from fighting.
+    _fillDirectPresets(presets) {
+        if (!this.sel_direct_preset || !Array.isArray(presets)) return;
+        const sig = presets.map(
+            (p) => p.name + (p.builtin ? '*' : '')).join('|');
+        if (sig === this._directPresetSig) return;
+        this._directPresetSig = sig;
+        const cur = this.sel_direct_preset.value;
+        this.sel_direct_preset.innerHTML = '';
+        presets.forEach((p) => {
+            const o = document.createElement('option');
+            o.value = p.name;
+            o.textContent = p.name + (p.builtin ? '' : ' (custom)');
+            this.sel_direct_preset.appendChild(o);
+        });
+        if (cur && presets.some((p) => p.name === cur)) {
+            this.sel_direct_preset.value = cur;
+        } else {
+            // settings-persistence: first fill (or vanished selection)
+            // -> re-select the preset remembered from the last session.
+            // Selection only — nothing is applied/published here.
+            const remembered = this._strPref('vitulus_direct_preset_sel', '');
+            if (remembered && presets.some((p) => p.name === remembered)) {
+                this.sel_direct_preset.value = remembered;
+            }
+        }
+        if (!this._directPresetSelWired) {
+            this._directPresetSelWired = true;
+            this.sel_direct_preset.addEventListener('change', () => {
+                this._saveStrPref('vitulus_direct_preset_sel',
+                    this.sel_direct_preset.value);
+            });
+        }
+    }
+
     // Direct 2D raster mapper status — /mapping/direct_status, latched,
     // ~1.5 Hz: {enabled, pass, reasons[], counters{lidar,cam_obstacle,
     // cam_free:{in,throttled,gate_closed,passed}}, settings{...},
@@ -3024,41 +3085,7 @@ class MappingV3 {
             });
         }
 
-        // environment preset <select>: rebuild only when the name list
-        // changes (signature guard), keeping the current selection
-        if (this.sel_direct_preset && Array.isArray(s.presets)) {
-            const sig = s.presets.map(
-                (p) => p.name + (p.builtin ? '*' : '')).join('|');
-            if (sig !== this._directPresetSig) {
-                this._directPresetSig = sig;
-                const cur = this.sel_direct_preset.value;
-                this.sel_direct_preset.innerHTML = '';
-                s.presets.forEach((p) => {
-                    const o = document.createElement('option');
-                    o.value = p.name;
-                    o.textContent = p.name + (p.builtin ? '' : ' (custom)');
-                    this.sel_direct_preset.appendChild(o);
-                });
-                if (cur && s.presets.some((p) => p.name === cur)) {
-                    this.sel_direct_preset.value = cur;
-                } else {
-                    // settings-persistence: first fill (or vanished selection)
-                    // -> re-select the preset remembered from the last session.
-                    // Selection only — nothing is applied/published here.
-                    const remembered = this._strPref('vitulus_direct_preset_sel', '');
-                    if (remembered && s.presets.some((p) => p.name === remembered)) {
-                        this.sel_direct_preset.value = remembered;
-                    }
-                }
-                if (!this._directPresetSelWired) {
-                    this._directPresetSelWired = true;
-                    this.sel_direct_preset.addEventListener('change', () => {
-                        this._saveStrPref('vitulus_direct_preset_sel',
-                            this.sel_direct_preset.value);
-                    });
-                }
-            }
-        }
+        this._fillDirectPresets(s.presets);
 
         if (!this.el_direct_status) return;
         const g = s.grid || {};
