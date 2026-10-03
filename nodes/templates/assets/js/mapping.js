@@ -2526,6 +2526,9 @@ class MappingV3 {
         // (small hook — piggybacks this existing status handler, no new sub).
         var _mds = document.getElementById('map_detail_site');
         if (_mds) _mds.textContent = s.serving ? (s.serving.site + ' / ' + s.serving.raster) : '—';
+        // vitulus-field#46: the active map's name for the Programs panel
+        // (map_view.js) — a new program belongs to it. '' = no map is active.
+        window.vitulusServedSite = (s.serving && s.serving.site) ? s.serving.site : '';
         // vitulus_ui R2 (2026-07-18) + R3 (2026-07-19): the served site raster IS
         // the displayed base map, so every registered active-map display (Map-tab
         // header + the mini status-bar panel over the 3D view) shows
@@ -2696,8 +2699,14 @@ class MappingV3 {
         if (!servable && !recording) { head.appendChild(this._mlChip('muted', 'no session')); }
         const n = site.rasters || 0;
         const area = (site.dem_m2 !== undefined) ? site.dem_m2 + ' m²' : (site.dem_kb ? site.dem_kb + ' kB' : '');
-        head.appendChild(this._mlEl('span', 'ml-meta',
-            (area ? area + ' · ' : '') + n + ' session' + (n === 1 ? '' : 's')));
+        // vitulus-field#46: programs belong to their map and are deleted with it
+        const progs = site.programs || [];
+        const progsText = progs.length + ' program' + (progs.length === 1 ? '' : 's');
+        const meta = this._mlEl('span', 'ml-meta',
+            (area ? area + ' · ' : '') + n + ' session' + (n === 1 ? '' : 's') +
+            (progs.length ? ' · ' + progsText : ''));
+        if (progs.length) { meta.title = 'Programs of this map: ' + progs.join(', '); }
+        head.appendChild(meta);
 
         const actions = this._mlEl('div', 'ml-actions');
         const servingCombined = served && site.combined && s.serving.raster === site.combined.name;
@@ -2715,10 +2724,14 @@ class MappingV3 {
             del.disabled = true;
             del.title = recording ? 'Cannot delete while recording' : 'The active map cannot be deleted — activate another first';
         } else {
-            del.title = 'Delete the whole map (terrain + all sessions). Click twice to confirm.';
+            del.title = progs.length
+                ? 'Delete the whole map (terrain + all sessions) AND its ' + progsText +
+                  ': ' + progs.join(', ') + '. Click twice to confirm.'
+                : 'Delete the whole map (terrain + all sessions). Click twice to confirm.';
             this._wireDoubleClickDelete(del,
                 () => this.pub_remove.publish(new ROSLIB.Message({data: site.name})),
-                '<i class="fa fa-trash"></i>');
+                '<i class="fa fa-trash"></i>',
+                progs.length ? 'Delete with ' + progsText + '?' : '');
         }
         actions.appendChild(del);
         head.appendChild(actions);
@@ -2875,8 +2888,10 @@ class MappingV3 {
 
     // Double-click-confirm on a delete button (never window.confirm): first
     // click arms + relabels "Confirm?" for 3 s; a second click within the window
-    // fires onConfirm. `restoreHtml` is the button's normal inner HTML.
-    _wireDoubleClickDelete(btn, onConfirm, restoreHtml) {
+    // fires onConfirm. `restoreHtml` is the button's normal inner HTML;
+    // `armedLabel` (plain text) replaces "Sure?" when the delete takes more
+    // with it than the button says.
+    _wireDoubleClickDelete(btn, onConfirm, restoreHtml, armedLabel) {
         if (!btn) { return; }
         let armed = false, timer = null;
         btn.addEventListener('click', (ev) => {
@@ -2890,6 +2905,7 @@ class MappingV3 {
                 btn.style.width = 'auto';
                 btn.style.whiteSpace = 'nowrap';
                 btn.innerHTML = '<span style="font-size:11px;">Sure?</span>';
+                if (armedLabel) { btn.firstChild.textContent = armedLabel; }
                 timer = setTimeout(() => {
                     armed = false;
                     btn.classList.remove('btn-danger');

@@ -6053,9 +6053,27 @@ class Programs {
         zones.forEach((zone) => { html += new ProgramZoneItemTemplate(zone).element; });
         c.innerHTML = html;
     }
+    // vitulus-field#46: a site program belongs to the map it is created on, so
+    // creating / saving one needs an ACTIVE map (mapping.js keeps its name in
+    // window.vitulusServedSite; '' = none, undefined = no status seen yet).
+    // Returns the map for a new program, or null after telling the user why
+    // not. Legacy navi maps ('***env*' in active_map) keep the old flow.
+    _mapForNewProgram() {
+        if ((this.active_map_data || '').indexOf('***env*') !== -1) return this.active_map_data;
+        var site = window.vitulusServedSite;
+        if (site === '') {
+            window.alert('No map is active — activate a map first. A program belongs to the map it is created on.');
+            return null;
+        }
+        return site || this.active_map_data;
+    }
     newProgram() {
+        var mapName = this._mapForNewProgram();
+        if (mapName === null) return;
+        this.map_menu.span_menu_program_map.innerText = mapName.split('***env*')[0];
+        this.map_menu.span_menu_program_env.innerText = mapName.split('***env*')[1] || '—';
         this.selected_program = {
-            name: '', map_name: this.active_map_data, zone_list: [],
+            name: '', map_name: mapName, zone_list: [],
             rpm: 0, cut_height: 0, speed: 'mid', override_zone: false,
             area: 0, length: 0, last_duration_minutes: 0, last_result: '',
         };
@@ -6098,6 +6116,13 @@ class Programs {
         // Legacy programs carry a " (<map>)" suffix; site programs (map_name
         // 'SITE') are named as typed, so editing one keeps its name.
         var legacy = (mapData || '').indexOf('***env*') !== -1;
+        // vitulus-field#46: the planner refuses a new program (a rename is
+        // one) while no map is active; stop here, before the old entry of a
+        // renamed program would be removed.
+        if (!legacy && window.vitulusServedSite === '') {
+            window.alert('No map is active — activate the map of this program first.');
+            return;
+        }
         var baseName = nameInput || (prg.name ? (legacy ? prg.name.replace(/ \([^)]+\)$/, '') : prg.name) : '');
         if (!baseName) { window.alert('Program name is empty.'); return; }
         if (!prg.zone_list.length) { window.alert('Program has no zones.'); return; }
