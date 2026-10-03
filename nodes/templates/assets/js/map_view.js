@@ -6056,8 +6056,10 @@ class Programs {
     // vitulus-field#46: a site program belongs to the map it is created on, so
     // creating / saving one needs an ACTIVE map (mapping.js keeps its name in
     // window.vitulusServedSite; '' = none, undefined = no status seen yet).
-    // Returns the map for a new program, or null after telling the user why
-    // not. Legacy navi maps ('***env*' in active_map) keep the old flow.
+    // Returns the map a new program will belong to, or null after telling the
+    // user why not. Legacy navi maps ('***env*' in active_map) keep the old
+    // flow. The planner is the authority: it puts the owner map into map_name
+    // on save, so the message keeps carrying active_map as before.
     _mapForNewProgram() {
         if ((this.active_map_data || '').indexOf('***env*') !== -1) return this.active_map_data;
         var site = window.vitulusServedSite;
@@ -6073,7 +6075,7 @@ class Programs {
         this.map_menu.span_menu_program_map.innerText = mapName.split('***env*')[0];
         this.map_menu.span_menu_program_env.innerText = mapName.split('***env*')[1] || '—';
         this.selected_program = {
-            name: '', map_name: mapName, zone_list: [],
+            name: '', map_name: this.active_map_data, zone_list: [],
             rpm: 0, cut_height: 0, speed: 'mid', override_zone: false,
             area: 0, length: 0, last_duration_minutes: 0, last_result: '',
         };
