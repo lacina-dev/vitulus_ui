@@ -334,6 +334,7 @@ window.MapEditor = (function () {
                 tfClient: tf,
                 topic: '/web_plan/zone_preview_marker',
             });
+            if (window.liftMarkerArrayClient) window.liftMarkerArrayClient(_zonePreview);
         } catch (e) { console.warn('[mapeditor] zone preview unavailable:', e); _zonePreview = null; }
     }
     var _zoneSelectTopic = null;

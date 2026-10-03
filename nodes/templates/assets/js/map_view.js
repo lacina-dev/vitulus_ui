@@ -1608,6 +1608,7 @@ class PathsPointsVisualization {
           tfClient: tf_client,
           topic: "/web_plan/program_marker",
         });
+        liftMarkerArrayClient(this.markerArrayClient);
         this.mapPath = new ROS3D.Path({
             ros : ros,
             tfClient: tf_client,
@@ -1617,6 +1618,24 @@ class PathsPointsVisualization {
         });
     }
 }
+
+
+// Planner markers (program / zone preview) come in at z=0, but the map layers
+// are drawn a little above it (z ~0.3), so with depth testing the lines were
+// hidden under the map. Lift every marker above the layers after each update
+// (ROS3D resets the marker pose on update, so this runs on every 'change').
+const MARKER_LIFT_Z = 0.6;
+function liftMarkerArrayClient(client) {
+    const lift = () => {
+        Object.keys(client.markers).forEach((key) => {
+            const marker = client.markers[key].children[0];
+            if (marker) marker.position.z = MARKER_LIFT_Z;
+        });
+    };
+    client.on('change', lift);
+    lift();
+}
+window.liftMarkerArrayClient = liftMarkerArrayClient;
 
 
 class IconStatus {
@@ -5966,6 +5985,11 @@ class Programs {
             name: '/web_plan/program_new',
             messageType: 'vitulus_msgs/PlannerProgram'
         });
+        this.topic_program_remove = new ROSLIB.Topic({
+            ros: ros,
+            name: '/web_plan/program_remove',
+            messageType: 'std_msgs/String'
+        });
         this.program_list = [];
         this.selected_program = null;
         // vitulus_ui: program editing (create / rename / add+remove zones). The
@@ -6070,28 +6094,49 @@ class Programs {
         var prg = this.selected_program;
         if (!prg) return;
         var nameInput = this.map_menu.inp_program_name ? this.map_menu.inp_program_name.value.trim() : '';
-        var baseName = nameInput || (prg.name ? prg.name.replace(/ \([^)]+\)$/, '') : '');
+        var mapData = prg.map_name || this.active_map_data;
+        // Legacy programs carry a " (<map>)" suffix; site programs (map_name
+        // 'SITE') are named as typed, so editing one keeps its name.
+        var legacy = (mapData || '').indexOf('***env*') !== -1;
+        var baseName = nameInput || (prg.name ? (legacy ? prg.name.replace(/ \([^)]+\)$/, '') : prg.name) : '');
         if (!baseName) { window.alert('Program name is empty.'); return; }
         if (!prg.zone_list.length) { window.alert('Program has no zones.'); return; }
-        var mapData = prg.map_name || this.active_map_data;
         var mapShort = (mapData || '').split('***env*')[0];
+        var rpm = parseInt(this.map_menu.inp_program_rpm.value) || 0;
+        var cutHeight = parseInt(this.map_menu.inp_program_cut_height.value) || 0;
+        var override = this.map_menu.chk_program_override_zone.checked;
+        if (override && (rpm <= 0 || cutHeight <= 0)) {
+            window.alert('Override zone settings needs RPM and cut height above 0.');
+            return;
+        }
         var speed = this.map_menu.btn_program_speed_slow.classList.contains('btn-secondary') ? 'slow'
             : this.map_menu.btn_program_speed_fast.classList.contains('btn-secondary') ? 'fast' : 'mid';
         var area = 0, length = 0;
         prg.zone_list.forEach((z) => { area += z.area || 0; length += z.length || 0; });
         var msg = {
-            name: baseName + ' (' + mapShort + ')',
+            name: legacy ? baseName + ' (' + mapShort + ')' : baseName,
             map_name: mapData,
             area: area, length: length,
             zone_list: prg.zone_list,
-            rpm: parseInt(this.map_menu.inp_program_rpm.value) || 0,
-            cut_height: parseInt(this.map_menu.inp_program_cut_height.value) || 0,
+            rpm: rpm,
+            cut_height: cutHeight,
             speed: speed,
-            override_zone: this.map_menu.chk_program_override_zone.checked,
+            override_zone: override,
             last_duration_minutes: prg.last_duration_minutes || 0,
             last_result: prg.last_result || '',
         };
         this.topic_program_new.publish(new ROSLIB.Message(msg));
+        // Renamed: drop the old entry, or it stays as a duplicate.
+        if (!this._editing_new && prg.name && prg.name !== msg.name) {
+            // after the save has landed (the planner handles both topics on
+            // separate threads)
+            var oldName = prg.name, self = this;
+            window.setTimeout(function () {
+                self.topic_program_remove.publish(new ROSLIB.Message({ data: oldName }));
+            }, 1500);
+        }
+        this.selected_program = Object.assign({}, prg, msg);
+        uiPrefSet('vitulus_sel_program', msg.name);
         this._editing_new = false;
     }
 
@@ -6102,6 +6147,7 @@ class Programs {
         this.topic_program_select.advertise();
         this.topic_program_resume.advertise();
         this.topic_program_new.advertise();
+        this.topic_program_remove.advertise();
         this.smach_stop_Topic.advertise();
         this.smach_reset_Topic.advertise();
         this.reload_planner_data();
@@ -6158,13 +6204,15 @@ class Programs {
         // reload re-selects the same program once the list arrives again.
         uiPrefSet('vitulus_sel_program', program.name);
         this.map_menu.btn_menu_program_show.innerText = 'Show';
-        this.map_menu.span_menu_program_name.innerText = program.name.split(' (')[0];
+        const legacy = (program.map_name || '').indexOf('***env*') !== -1;
+        const shownName = legacy ? program.name.split(' (')[0] : program.name;
+        this.map_menu.span_menu_program_name.innerText = shownName;
         this.map_menu.span_menu_program_length.innerText = program.length;
         this.map_menu.span_menu_program_area.innerText = program.area;
         this.map_menu.span_menu_program_duration.innerText = program.last_duration_minutes;
         const map_name = program.map_name.split('***env*')[0];
         const map_env = program.map_name.split('***env*')[1];
-        this.map_menu.span_menu_program_env.innerText = map_env;
+        this.map_menu.span_menu_program_env.innerText = map_env || '—';
         this.map_menu.span_menu_program_map.innerText = map_name;
         this.map_menu.span_menu_program_last_result.innerText = program.last_result;
         this.map_menu.inp_program_rpm.value = program.rpm !== undefined ? program.rpm : 0;
@@ -6176,7 +6224,7 @@ class Programs {
         // doesn't mutate the cached list before saving.
         this.selected_program = Object.assign({}, program, { zone_list: (program.zone_list || []).slice() });
         this._editing_new = false;
-        if (this.map_menu.inp_program_name) this.map_menu.inp_program_name.value = program.name.split(' (')[0];
+        if (this.map_menu.inp_program_name) this.map_menu.inp_program_name.value = shownName;
         this._renderProgramZones();
         this._ensureZones();
         //remove all markers
