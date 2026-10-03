@@ -3367,7 +3367,7 @@ class MapMenu {
     }
 
     // Full close: hide every panel (also exits the map editor) and slide out.
-    // Used by the drawer chrome ✕, the backdrop tap, and the editor ✕.
+    // Used by the drawer chrome ✕ and the backdrop tap.
     close_drawer() {
         this.hide_all_submenu_divs();
         this._drawer_slide_out();

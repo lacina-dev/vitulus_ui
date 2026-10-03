@@ -481,24 +481,30 @@ window.MapEditor = (function () {
         var t = _toggleBtn(); if (t) t.classList.remove('active');
         if (c.active) c.exit();
     }
-    // The Map-menu "Edit map" toggle: leaving the editor returns to the Map panel
-    // it was launched from (keeps the drawer open).
+    // Leave the editor back to the Map panel it was launched from (keeps the
+    // drawer open). Without the Map panel API fall back to closing the drawer.
+    function closeToMapPanel() {
+        hideDetail();
+        try {
+            var m = window.map_menu;
+            if (m && m.show_map_panel) m.show_map_panel();
+            else if (m && m.close_drawer) m.close_drawer();
+        } catch (e) {}
+    }
+    // The Map-menu "Edit map" toggle.
     function toggleDetail() {
         if (controller().active) {
-            hideDetail();
-            try {
-                if (window.map_menu && window.map_menu.show_map_panel) window.map_menu.show_map_panel();
-            } catch (e) {}
+            closeToMapPanel();
         } else {
             // 2026-08-16: keepBase — site-native serving IS the base map now;
             // swapping to the legacy planner map was jarring and is retired.
             showDetail({keepBase: true});
         }
     }
-    // The editor's own ✕ (header / footer): close the whole drawer.
+    // The editor's own ✕ (header / footer "Close editor"): same way back as the
+    // toggle — the Map panel, not a closed drawer (vitulus-field#45).
     function closeFromEditor() {
-        if (window.map_menu && window.map_menu.close_drawer) window.map_menu.close_drawer();
-        else hideDetail();
+        closeToMapPanel();
     }
 
     // Wire the edit icon + close button. Call once after the map view is up.
