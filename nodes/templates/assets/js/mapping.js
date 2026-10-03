@@ -2811,7 +2811,7 @@ class MappingV3 {
         const sec = this._mlEl('div', 'ml-sec', '<i class="fa fa-bars" style="opacity:.7;"></i> Layers');
         const nOn = list.filter((r) => r.enabled !== false).length;
         sec.appendChild(this._mlEl('span', 'ml-sec-state',
-            list.length ? (c ? nOn + ' of ' + list.length + ' included · newest first' : 'sessions, newest first') : ''));
+            list.length ? ((c || nOn < list.length) ? nOn + ' of ' + list.length + ' included · newest first' : 'sessions, newest first') : ''));
         body.appendChild(sec);
         if (!list.length) {
             body.appendChild(this._mlEl('div', 'ml-empty', 'No saved session yet — Save & finish creates one.'));
@@ -2825,7 +2825,10 @@ class MappingV3 {
             if (isServed && c) { chips.push(this._mlChip('warn', 'single session')); }
             if (!enabled) { chips.push(this._mlChip('muted', 'excluded')); }
             const actions = [];
-            if (c) {
+            // the include switch stays even without a combined map: a site
+            // whose sessions are all excluded has none, and the switch is the
+            // only way back (vitulus-field#47)
+            {
                 const sw = this._mlEl('label', 'ml-switch');
                 sw.title = enabled ? 'Included in the combined map — click to exclude this session'
                                    : 'Excluded from the combined map — click to include this session';
