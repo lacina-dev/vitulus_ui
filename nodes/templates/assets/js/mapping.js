@@ -2546,10 +2546,15 @@ class MappingV3 {
         if (window.renderActiveMapName) window.renderActiveMapName();
         // WP-D2: enable "Edit map" only while a site is served (editor draws
         // against the served map). Tooltip reflects the current state.
-        if (this.btn_edit_map) {
+        // vitulus-field#44: the JS-created button this used to target is gone
+        // (2026-08-16), so the guard was dead — it now drives the header
+        // toggle. An already open editor keeps the button enabled: it is also
+        // the way back out of the editor.
+        const btnEditMap = document.getElementById('btn_map_detail_toggle');
+        if (btnEditMap) {
             const serving = !!s.serving;
-            this.btn_edit_map.disabled = !serving;
-            this.btn_edit_map.title = serving
+            btnEditMap.disabled = !serving && !btnEditMap.classList.contains('active');
+            btnEditMap.title = serving
                 ? ('Edit the ACTIVE map: ' + s.serving.site + '/' + s.serving.raster)
                 : 'Activate a map first — the editor draws edits/waypoints into the ACTIVE map';
         }
