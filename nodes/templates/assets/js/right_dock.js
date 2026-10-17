@@ -375,7 +375,7 @@
     // fires while messages keep coming, and the panel stayed over the notice.
     function placeSoon() {
         if (placeTimer) { return; }
-        placeTimer = setTimeout(function () { placeTimer = null; place(); }, 150);
+        placeTimer = setTimeout(function () { placeTimer = null; place(); }, 60);
     }
 
     /* Malý displej: log patří pod ikonky a přes CELOU šířku (jinak by ho
