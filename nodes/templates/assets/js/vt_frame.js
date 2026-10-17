@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    var DOCK_MIN_W = 1024, DOCK_MIN_H = 500, SHEET_MAX_W = 576;
+    var DOCK_MIN_W = 1024, DOCK_MIN_H = 500, SHEET_MAX_W = 576, LOG_MIN_W = 420;
     var LS_LAST = 'vitulus_last_panel';
     var BTN_FOR = {marker: 'btn_marker', map: 'btn_map', program: 'btn_programs',
                    config: 'btn_settings', agent: 'btn_agent'};
@@ -104,6 +104,11 @@
         var log = $('div_log_view');
         var lh = (visible(log) && !log.classList.contains('log-expanded')) ? log.offsetHeight : 0;
         root.style.setProperty('--vt-log-small-h', px(lh));
+        // kolo 6: next to an open panel the small log can get too narrow
+        // (landscape phone: ~160 px). Then it spans the full width above the
+        // bottom bar and the panel ends above it instead.
+        var wide = m !== 'sheet' && occ > 0 && (window.innerWidth - occ - rpw) < LOG_MIN_W;
+        body.classList.toggle('vt-log-wide', wide);
 
         // the map canvas changes width when the docked panel opens/closes
         if (dock !== lastDock) {

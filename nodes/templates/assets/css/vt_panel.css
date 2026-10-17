@@ -1134,3 +1134,9 @@ html body.vt-frame:not(.vt-m-sheet) #joy_view {
 html body.vt-frame.vt-m-sheet #joy_view {
     bottom: calc(var(--vt-bottom-h, 40px) + 14px) !important;
 }
+
+/* ============ U1 kolo 6: small log full-width when the panel leaves it no room */
+html body.vt-frame.vt-log-wide #div_log_view:not(.log-expanded) { left: 4px !important; }
+body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer {
+    bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 22px);   /* + the log's expand tab */
+}

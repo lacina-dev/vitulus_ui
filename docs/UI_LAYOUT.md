@@ -46,7 +46,7 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Levý panel | sloupec přes mapu, max. 60 % šířky, lícuje s lištami, stín vpravo | — |
 | Mapa | celá plocha (panel ji částečně kryje) | celá plocha |
 | Pravý stavový panel | vpravo; když na něj nezbývá místo, zbyde úchyt | vpravo |
-| Log malý | pruh nad spodní lištou vpravo od panelu | celá šířka po pravý panel |
+| Log malý | když vpravo od panelu zbývá ≥ 420 px: pruh vpravo od panelu; jinak (typicky telefon na šířku) **přes celou šířku nad spodní lištou a panel končí nad ním** (`vt-log-wide`) | celá šířka po pravý panel |
 | Log celý | plocha vpravo od panelu, pod hláškami, nad spodní lištou | celá šířka po pravý panel |
 | Joystick | vpravo dole, nad malým logem | totéž |
 
