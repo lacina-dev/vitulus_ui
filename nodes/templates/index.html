@@ -313,8 +313,7 @@ body:not(.rp-joy-side) #joy_view {
 /* IMU tab: propagate the bounded outer height down the row + columns so
    the left controls column fills the block; #3d_view gets its own
    explicit viewport height (set in build) and no longer relies on this. */
-#div_content_imu > .row,
-#div_content_imu > .row > [class*="col-"] { height: 100%; }
+/* IMU tab layout: vt_panel.css (.vt-imu) */
 
 /* ===== Map-edit panel (#div_map_detail) redesign ===== */
 #div_map_detail { font-size: 13px; }
@@ -405,60 +404,8 @@ body:not(.rp-joy-side) #joy_view {
 #tab-map .form-control, #tab-map .form-select { min-height: 34px; font-size: 12px; }
 #tab-map .input-group-sm > .form-control, #tab-map .input-group-sm > .input-group-text { min-height: 32px; }
 
-/* ===== Settings panel (#div_menu_config) tabs: fluid width in the drawer =====
-   Motors / Power / Mower / Rosbag were authored back when #div_menu_config was
-   a wide dropdown menu; their top-level rows use fixed pixel column widths
-   (col-auto width:336px/337px) or narrow min-widths (150px) that don't fit
-   the 460px drawer body, which forced an inner horizontal scrollbar on the
-   row (overflow:auto). Turn those rows into a fluid auto-fit grid so columns
-   share the full drawer width and reflow with no media query needed: they
-   mostly stack to one full-width column in the normal 460px drawer and pack
-   more columns automatically if the drawer is widened (.wide/.full). The
-   minmax(min(Npx,100%), 1fr) form caps the minimum track size at the
-   container width so a track can never force horizontal overflow on a very
-   narrow screen. Numeric inputs/buttons inside are untouched — only the
-   outer column sizing changes; Bootstrap's .input-group already stretches to
-   100% of its column and wraps internally if it runs out of room.
-   Navi (#tab_lidar) and Diag (#tab_diag) already use unconstrained col-auto /
-   plain divs that reflow correctly on their own — left alone. IMU (#tab_imu /
-   #3d_view) is out of scope and not touched here. */
-#tab_motors > div > .row {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
-  gap: 6px 12px;
-  width: 100% !important;
-  max-width: 100% !important;
-  overflow: visible !important;
-}
-#tab_power > div > .row,
-#tab_mower > div > .row,
-#tab_rosbag > .row {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-  gap: 6px 12px;
-  width: 100% !important;
-  max-width: 100% !important;
-  overflow: visible !important;
-}
-#tab_motors > div > .row > .col-auto,
-#tab_power > div > .row > .col-auto,
-#tab_mower > div > .row > .col-auto,
-#tab_rosbag > .row > .col-auto {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-/* The Power readout column carries a hard-coded <hr style="width:318px"> divider
-   (authored for the old 336px column). The grid/col-auto rules above only size
-   the row and its columns, not inner block elements, so that divider still
-   stops short of the now full-width column. Let any divider inside these columns
-   span the full width like the rest of the content. */
-#tab_power > div > .row > .col-auto > hr,
-#tab_mower > div > .row > .col-auto hr {
-  width: auto !important;
-}
+/* (U1 kolo 2: the Settings tab bodies are now laid out by vt_panel.css —
+   the old fluid-grid overrides for #tab_motors/#tab_power/... are gone.) */
 
 /* ===== Left slide-out drawer (Phase 1) — hosts the relocated menu panels ===== */
 /* The drawer is a fixed box on the LEFT, spanning from just under the top navbar
@@ -1510,72 +1457,74 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                 </div>
                             </div>
                             </div>
-<div class="tab-pane" role="tabpanel" id="tab_calendar"><!-- ===== Calendar Events Section ===== -->
-                            <div class="row" style="margin-top: 12px;margin-bottom: 3px;">
-                                <div class="col-auto d-flex align-items-center" style="gap: 8px;">
-                                    <span style="font-size: 12px;font-weight: 600;color: var(--bs-info);">Calendar</span>
-                                    <button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button" style="font-size: 11px;padding: 2px 8px;">+ Add event</button>
-                                    <span id="span_scheduler_status" style="font-size: 11px;color: #9aa0a6;margin-left: 8px;"></span>
-                                    <span id="span_scheduler_next" style="font-size: 11px;color: #6fae6f;margin-left: 8px;"></span>
-                                    <div class="form-check form-switch" style="margin:0;margin-left:auto;">
-                                        <input class="form-check-input" type="checkbox" id="chk_scheduler_inhibit" style="cursor:pointer;">
-                                        <label class="form-check-label" for="chk_scheduler_inhibit" style="font-size:11px;color:#9aa0a6;">Inhibit</label>
+<div class="tab-pane" role="tabpanel" id="tab_calendar"><!-- ===== Calendar Events Section (U1 kolo 2: panel anatomy, no inline styling) ===== -->
+                            <div class="vt-stack">
+                                <div class="vt-card">
+                                    <div class="vt-card-head">
+                                        <span class="vt-card-title">Calendar</span>
+                                        <span class="vt-end"><span id="span_scheduler_status"></span> <span class="vt-ok-text" id="span_scheduler_next"></span></span>
+                                        <div class="form-check form-switch vt-switch-inline">
+                                            <input class="form-check-input" type="checkbox" id="chk_scheduler_inhibit">
+                                            <label class="form-check-label" for="chk_scheduler_inhibit">Inhibit</label>
+                                        </div>
                                     </div>
+                                    <div id="div_calendar_events" class="vt-list"></div>
+                                    <div class="vt-row vt-card-actions"><button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button">+ Add event</button></div>
                                 </div>
-                            </div>
-                            <div id="div_calendar_events" style="max-height: calc(100vh - 360px);overflow-y: auto;"></div>
-                            <!-- Calendar event edit form (hidden by default) -->
-                            <div id="div_calendar_form" style="display:none;background:#37434d;border-radius:4px;padding:10px;margin-top:6px;">
-                                <div class="row g-2 align-items-center" style="flex-wrap:wrap;">
-                                    <div class="col-auto">
-                                        <label style="font-size:11px;color:#9aa0a6;">Program</label>
-                                        <select id="sel_cal_program" class="form-select form-select-sm" style="width:160px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);"></select>
-                                    </div>
-                                    <div class="col-auto">
-                                        <label style="font-size:11px;color:#9aa0a6;">Time</label>
-                                        <div class="d-flex align-items-center">
-                                            <input class="form-control form-control-sm" type="number" id="input_cal_hour" min="0" max="23" step="1" style="width:48px;font-size:12px;text-align:center;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="8">
-                                            <span style="margin:0 2px;color:#ccc;">:</span>
-                                            <input class="form-control form-control-sm" type="text" id="input_cal_minute" maxlength="2" style="width:48px;font-size:12px;text-align:center;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="00">
+                                <!-- Calendar event edit form (hidden by default; display toggled by calendar_manager.js) -->
+                                <div id="div_calendar_form" class="vt-card" data-state="info" style="display:none;">
+                                    <div class="vt-card-head"><span class="vt-card-title">Event</span></div>
+                                    <div class="vt-form">
+                                        <div class="vt-form-item">
+                                            <label class="vt-label" for="sel_cal_program">Program</label>
+                                            <select id="sel_cal_program" class="form-select form-select-sm"></select>
+                                        </div>
+                                        <div class="vt-form-item">
+                                            <label class="vt-label" for="input_cal_hour">Time</label>
+                                            <div class="vt-row vt-time">
+                                                <input class="form-control form-control-sm" type="number" id="input_cal_hour" min="0" max="23" step="1" value="8">
+                                                <span>:</span>
+                                                <input class="form-control form-control-sm" type="text" id="input_cal_minute" maxlength="2" value="00">
+                                            </div>
+                                        </div>
+                                        <div class="vt-form-item">
+                                            <label class="vt-label" for="sel_cal_recurrence">Recurrence</label>
+                                            <select id="sel_cal_recurrence" class="form-select form-select-sm">
+                                                <option value="none">Once</option>
+                                                <option value="daily">Daily</option>
+                                                <option value="weekly" selected>Weekly</option>
+                                                <option value="monthly">Monthly</option>
+                                                <option value="yearly">Yearly</option>
+                                            </select>
+                                        </div>
+                                        <div class="vt-form-item" id="div_cal_days">
+                                            <span class="vt-label">Days</span>
+                                            <div class="btn-group btn-group-sm vt-days" role="group">
+                                                <button class="btn btn-outline-info btn-sm" type="button" data-day="0">Mo</button>
+                                                <button class="btn btn-outline-info btn-sm" type="button" data-day="1">Tu</button>
+                                                <button class="btn btn-outline-info btn-sm" type="button" data-day="2">We</button>
+                                                <button class="btn btn-outline-info btn-sm" type="button" data-day="3">Th</button>
+                                                <button class="btn btn-outline-info btn-sm" type="button" data-day="4">Fr</button>
+                                                <button class="btn btn-outline-info btn-sm" type="button" data-day="5">Sa</button>
+                                                <button class="btn btn-outline-info btn-sm" type="button" data-day="6">Su</button>
+                                            </div>
+                                        </div>
+                                        <div class="vt-form-item" id="div_cal_date" style="display:none;">
+                                            <label class="vt-label" for="input_cal_date">Date</label>
+                                            <input class="form-control form-control-sm" type="date" id="input_cal_date">
+                                        </div>
+                                        <div class="vt-form-item" id="div_cal_dom" style="display:none;">
+                                            <label class="vt-label" for="input_cal_dom">Day of month</label>
+                                            <input class="form-control form-control-sm vt-num-in" type="number" id="input_cal_dom" min="1" max="31" value="1">
+                                        </div>
+                                        <div class="vt-form-item" id="div_cal_month" style="display:none;">
+                                            <label class="vt-label" for="input_cal_month">Month</label>
+                                            <input class="form-control form-control-sm vt-num-in" type="number" id="input_cal_month" min="1" max="12" value="1">
                                         </div>
                                     </div>
-                                    <div class="col-auto">
-                                        <label style="font-size:11px;color:#9aa0a6;">Recurrence</label>
-                                        <select id="sel_cal_recurrence" class="form-select form-select-sm" style="width:110px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);">
-                                            <option value="none">Once</option>
-                                            <option value="daily">Daily</option>
-                                            <option value="weekly" selected>Weekly</option>
-                                            <option value="monthly">Monthly</option>
-                                            <option value="yearly">Yearly</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-auto" id="div_cal_days">
-                                        <label style="font-size:11px;color:#9aa0a6;">Days</label>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="0" style="font-size:10px;padding:2px 5px;">Mo</button>
-                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="1" style="font-size:10px;padding:2px 5px;">Tu</button>
-                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="2" style="font-size:10px;padding:2px 5px;">We</button>
-                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="3" style="font-size:10px;padding:2px 5px;">Th</button>
-                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="4" style="font-size:10px;padding:2px 5px;">Fr</button>
-                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="5" style="font-size:10px;padding:2px 5px;">Sa</button>
-                                            <button class="btn btn-outline-info btn-sm" type="button" data-day="6" style="font-size:10px;padding:2px 5px;">Su</button>
-                                        </div>
-                                    </div>
-                                    <div class="col-auto" id="div_cal_date" style="display:none;">
-                                        <label style="font-size:11px;color:#9aa0a6;">Date</label>
-                                        <input class="form-control form-control-sm" type="date" id="input_cal_date" style="width:140px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);">
-                                    </div>
-                                    <div class="col-auto" id="div_cal_dom" style="display:none;">
-                                        <label style="font-size:11px;color:#9aa0a6;">Day of month</label>
-                                        <input class="form-control form-control-sm" type="number" id="input_cal_dom" min="1" max="31" style="width:58px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="1">
-                                    </div>
-                                    <div class="col-auto" id="div_cal_month" style="display:none;">
-                                        <label style="font-size:11px;color:#9aa0a6;">Month</label>
-                                        <input class="form-control form-control-sm" type="number" id="input_cal_month" min="1" max="12" style="width:54px;font-size:12px;background:var(--bs-gray-800);color:var(--bs-gray-200);" value="1">
-                                    </div>
-                                    <div class="col-auto d-flex align-items-end" style="gap:4px;padding-top:14px;">
-                                        <button class="btn btn-sm btn-success" id="btn_cal_save" type="button" style="font-size:11px;padding:3px 10px;">Save</button>
-                                        <button class="btn btn-sm btn-secondary" id="btn_cal_cancel" type="button" style="font-size:11px;padding:3px 10px;">Cancel</button>
+                                    <div class="vt-row vt-card-actions">
+                                        <button class="btn btn-sm btn-success" id="btn_cal_save" type="button">Save</button>
+                                        <button class="btn btn-sm btn-secondary" id="btn_cal_cancel" type="button">Cancel</button>
                                     </div>
                                 </div>
                             </div>
@@ -1597,236 +1546,205 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu">IMU</a></li>
                                         </ul>
                                         <div class="tab-content" style="display: block;position: relative;">
-                                            <div class="tab-pane fade" role="tabpanel" id="tab_motors" style="padding-left: 8px;padding-right: 8px;max-height: calc(100vh - 145px);overflow: auto;">
-                                                <div class="d-xl-flex justify-content-xl-center">
-                                                    <div class="row g-0 d-xl-flex justify-content-xl-end" style="margin: 0px;">
-                                                        <div class="col-auto col-xl-6" style="height: auto;margin-top: 8px;margin-left: 4px;"><span id="span_motors" style="display: block;font-size: 12px;margin-bottom: 4px;">Motors</span>
-                                                            <div class="btn-group btn-group-sm" role="group" id="btngroup_motors_on_off" style="border: 2px solid var(--bs-danger);border-radius: 4px;"><button class="btn btn-primary fw-bold" id="btn_motors_on" type="button">ON&nbsp;<i class="la la-check" style="font-weight: bold;color: var(--bs-success);"></i></button><button class="btn btn-primary fw-bold" id="btn_motors_off" type="button">OFF&nbsp;<i class="la la-close" style="font-weight: bold;color: var(--bs-danger);"></i></button></div>
-                                                        </div>
-                                                        <div class="col-auto col-xl-6" style="margin: 0px;margin-top: 8px;margin-left: 4px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Torque</span>
-                                                            <div class="input-group input-group-sm" style="padding-top: 2px;"><span class="text-info input-group-text" id="span_motor_torque" style="border-right-style: none;border-left-style: none;padding-right: 1px;width: 45px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;">Nm</span><input class="form-control" type="number" id="input_motor_torque" min="0" max="24" step="1" style="color: var(--bs-gray-200);background: var(--bs-gray-800);max-width: 66px;"><button class="btn btn-primary" id="btn_motor_torque" type="button">Save</button></div>
-                                                        </div>
-                                                    </div>
-                                                    <hr style="margin-bottom: 3px;margin-top: 12px;">
-                                                    <div class="row g-0" style="margin: 0px;padding-top: 2px;overflow: auto;">
-                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
-                                                            <div class="d-flex align-items-center"><img id="ico_fl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLF_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">FRONT LEFT</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor1_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor1_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor1_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor1_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor1_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor1_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor1_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
-                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor1_mode" style="min-width: 20px;">&nbsp;</span></div>
-                                                        </div>
-                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
-                                                            <div class="d-flex align-items-center"><img id="ico_fr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRF_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">FRONT RIGHT</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor2_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor2_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor2_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor2_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor2_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor2_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor2_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
-                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor2_mode" style="min-width: 20px;">&nbsp;</span></div>
-                                                        </div>
-                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
-                                                            <div class="d-flex align-items-center"><img id="ico_rl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLR_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">REAR LEFT</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor3_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor3_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor3_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor3_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor3_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor3_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor3_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
-                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor3_mode" style="min-width: 20px;">&nbsp;</span></div>
-                                                        </div>
-                                                        <div class="col-auto" style="margin: 0px;padding-top: 4px;min-width: 150px;">
-                                                            <div class="d-flex align-items-center"><img id="ico_rr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRR_grey.png" style="transform: scale(0.75);margin-left: -2px;"><span class="text-nowrap" style="color: var(--bs-info);padding-left: 2px;font-size: 14px;width: 106px;">REAR RIGHT</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Id:&nbsp;</span><span id="span_motor4_id" style="min-width: 20px;color: var(--bs-info);font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Status:&nbsp;</span><span id="span_motor4_status" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Torque:&nbsp;</span><span id="span_motor4_torque" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;Nm</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Temp:&nbsp;</span><span id="span_motor4_temp" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;°C</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Velocity:&nbsp;</span><span id="span_motor4_velocity" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m/s</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Position:&nbsp;</span><span id="span_motor4_position" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;m</span></div>
-                                                            <div style="font-size: 13.5px;"><span style="font-size: 13.5px;">Volts:&nbsp;</span><span id="span_motor4_volts" style="min-width: 20px;font-size: 13.5px;">&nbsp;</span><span style="font-size: 13.5px;">&nbsp;V</span></div>
-                                                            <div style="font-size: 13.5px;"><span>Mode:&nbsp;</span><span id="span_motor4_mode" style="min-width: 20px;">&nbsp;</span></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="tab-pane fade show active" role="tabpanel" id="tab_lidar" style="padding-left: 8px;padding-right: 8px;">
-                                                <div class="row">
-                                                    <div class="col-auto" style="height: auto;margin-top: 8px;margin-left: 4px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Speed</span>
-                                                        <div class="btn-group btn-group-sm" role="group" style="padding-top: 2px;"><button class="btn btn-primary" id="btn_menu_speed_low" type="button">SLOW</button><button class="btn btn-primary" id="btn_menu_speed_moderate" type="button">MODERATE</button><button class="btn btn-primary" id="btn_menu_speed_fast" type="button">FAST</button></div>
-                                                    </div>
-                                                    <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">Lidar</span>
-                                                        <div class="btn-group btn-group-sm" role="group" id="btngroup_lidar_on_off" style="border: 2px solid var(--bs-danger);border-radius: 4px;"><button class="btn btn-primary fw-bold" id="btn_menu_lidar_on" type="button">ON&nbsp;<i class="la la-check" style="font-weight: bold;color: var(--bs-success);"></i></button><button class="btn btn-primary fw-bold" id="btn_menu_lidar_off" type="button">OFF&nbsp;<i class="la la-close" style="font-weight: bold;color: var(--bs-danger);"></i></button></div>
-                                                    </div>
-                                                    <div class="col-auto" style="height: auto;margin-top: 8px;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap sensor source</span>
-                                                        <div class="btn-group btn-group-sm" role="group" id="btngroup_lidar_on_off-1" style="border-radius: 4px;border: 2px solid var(--bs-info) ;"><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_camera" type="button">Camera&nbsp;</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_lidar" type="button">Lidar&nbsp;</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_both" type="button">Both&nbsp;</button></div>
-                                                    </div>
-                                                    <div class="col-auto" style="height: auto;margin-top: 8px;">
-                                                        <div style="width: 184.281px;display: flex;"><span style="display: block;font-size: 12px;margin-bottom: 4px;">RtabMap sensor distance</span><span class="d-flex justify-content-end" id="span_rtabmap_distance" style="margin-left: 4px;display: inline;font-size: 12px;color: var(--bs-info);">0</span><span id="span_rtabmap_distance-1" style="margin-left: 3px;display: inline;font-size: 12px;">m</span></div>
-                                                        <div class="d-flex"><input class="form-range" type="range" id="input_range_rtabmap_distance" style="margin-top: 3px;" min="0.1" max="8.0" step="0.1" value="2.7"><span style="margin-left: 2px;font-size: 12px;display: block;margin-top: 6px;"><span id="span_menu_rtabmap_distance_apply" style="margin-left: 4px;font-size: 12px;margin-right: 6px;display: inline;">0.0</span>m</span></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="tab-pane fade" role="tabpanel" id="tab_power" style="overflow: auto;max-height: calc(100vh - 145px);">
-                                                <div class="justify-content-xl-center">
-                                                    <div class="row d-xl-flex justify-content-xl-center" style="margin-left: 0px;margin-right: 0px;">
-                                                        <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: hidden;padding-top: 5px;width: 336px;">
-                                                            <div class="d-flex align-items-center"><img id="ico_supply_conf" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 5px;margin-right: 13px;">Input</span><span class="text-info" id="span_supply_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_supply_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_supply_status" style="margin-left: auto;padding-left: 10px;text-align: right;">&nbsp;</span></div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 4px;"><span style="text-align: center;width: 36px;padding-right: 5px;"><img id="ico_batt_conf" src="assets/img/robot_icons/Nextion_ico_battCHARGE_disabled.png" style="transform: scale(0.75);height: 26px;"></span><span style="margin-left: -8px;">Battery</span><span class="text-info" id="span_batt_volts" style="margin-left: 4px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_batt_amps" style="margin-left: 8px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span><span id="span_batt_status" style="margin-left: auto;padding-left: 10px;text-align: right;">DISCHARGING&nbsp;</span></div>
-                                                            <div style="margin-top: -1px;margin-bottom: 4px;display: block;">
-                                                                <div style="display: block;">
-                                                                    <div style="padding-left: 4px;padding-right: 4px;">
-                                                                        <div class="progress" style="height: 7px;padding: 3px;border-style: none;">
-                                                                            <div class="progress-bar progress-bar-animated" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress_batt_capacity" style="width: 0%;"><span class="visually-hidden">0%</span></div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div style="text-align: center;padding-left: 4px;padding-right: 4px;"><span style="margin-right: 5px;">Capacity</span><span id="span_batt_capacity" style="margin-left: 2px;margin-right: 1px;width: 28px;text-align: right;">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</span><span>%</span></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 3px;"><img id="ico_nuc_conf" src="assets/img/robot_icons/ico_nuc_grey.png" style="margin-left: 4px;transform: scale(0.75);height: 26px;"><span style="margin-left: 0px;">NUC output</span><span class="text-info" id="span_nuc_volts" style="margin-left: 7px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">V</span><span class="text-info" id="span_nuc_amps" style="margin-left: 8px;width: 41px;text-align: right;">&nbsp;</span><span style="margin-left: 3px;">A</span></div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 3px;"><img id="ico_motor_conf" src="assets/img/robot_icons/ico_motor_grey.png" style="margin-left: 8px;transform: scale(0.75);height: 26px;"><span style="margin-left: 4px;">Motors output</span>
-                                                                <div class="d-flex justify-content-end align-items-center" style="margin-left: auto;text-align: right;"><img id="ico_mower_conf" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" style="margin-left: 13px;transform: scale(0.75);height: 26px;"><span style="margin-left: 2px;">Mower output</span></div>
-                                                            </div>
-                                                            <hr style="width: 318px;">
-                                                            <div class="d-flex align-items-center" style="margin-top: 0px;"><img id="ico_temp_pcb_conf" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_pcb_temp" style="margin-left: 2px;text-align: right;width: 45px;">&nbsp;&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_pcb_conf" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_pcb_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
-                                                            <div class="d-flex align-items-center" style="margin-top: 0px;"><img id="ico_temp_conf" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" style="transform: scale(0.75);margin-left: 6px;height: 26px;"><span id="span_curr_ext_temp" style="margin-left: 2px;width: 45px;text-align: right;">&nbsp;</span><span style="margin-left: 1px;">°C</span><img id="ico_fan_conf" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" style="transform: scale(0.75);margin-left: 15px;height: 26px;"><span id="span_ext_rpm" style="width: 36px;text-align: right;">&nbsp;</span><span style="margin-left: 4px;">rpm</span></div>
-                                                            <div class="d-flex align-items-center" style="display: inline-block;"></div>
-                                                        </div>
-                                                        <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: auto;padding-top: 5px;width: 336px;">
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button" style="flex: 1;">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button" style="flex: 1;">OFF</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 175px;">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button" style="flex: 1;">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button" style="flex: 1;">OFF</button></div>
-                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 109px;">Run charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_run_charge" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Run cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_run_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_run_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_run_cutoff" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Stanby charge</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_charge" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_charge" inputmode="numeric" min="500" max="4000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_standby_charge" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 109px;">Standby cutoff</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_cutoff" style="width: 50px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">mA</span><input class="form-control" type="number" id="input_standby_cutoff" inputmode="numeric" min="300" max="2000" step="100" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_standby_cutoff" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">PCB temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_pcb_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_pcb_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_pcb_temp" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 134px;">External temp limit</span><span class="text-info d-flex justify-content-end input-group-text" id="span_ext_temp" style="width: 34px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 32px;text-align: left;">°C</span><input class="form-control" type="number" id="input_ext_temp" inputmode="numeric" min="20" max="45" step="1" required="" style="text-align: left;background: var(--bs-gray-800);color: var(--bs-gray-200);min-width: 60px;flex: 1 1 auto;"><button class="btn btn-primary" id="btn_ext_temp" type="button">Save</button></div>
-                                                        </div>
-                                                        <div class="col-auto col-sm-auto col-md-auto col-lg-auto col-xl-auto col-xxl-auto" style="padding-right: 0px;padding-left: 0px;overflow: auto;padding-top: 5px;width: 336px;">
-                                                            <div style="font-size: 12px;color: var(--bs-secondary-color);margin-bottom: 3px;">Sleep control</div>
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 155px;">Sleep time</span><span class="text-info d-flex justify-content-end input-group-text" id="span_sleep_time_min" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_sleep_time_min" min="1" max="1440" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_sleep_time_save" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 155px;">Sleep now</span><button class="btn btn-warning" id="btn_sleep_timed" type="button" style="flex: 1;">Timed</button><button class="btn btn-warning" id="btn_sleep_until_charged" type="button" style="flex: 1;">Until charged</button></div>
-                                                            <hr style="margin-top: 6px;margin-bottom: 5px;">
-                                                            <div class="input-group input-group-sm"><span class="input-group-text" style="width: 155px;">Standby delay</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_delay" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_standby_delay" min="0" max="60" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_standby_delay" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 155px;">Charged offset</span><span class="text-info d-flex justify-content-end input-group-text" id="span_sleep_charged_offset" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_sleep_charged_offset" min="0" max="60" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_sleep_charged_offset" type="button">Save</button></div>
-                                                            <div class="input-group input-group-sm" style="margin-top: 1px;"><span class="input-group-text" style="width: 155px;">Discharge timeout</span><span class="text-info d-flex justify-content-end input-group-text" id="span_standby_timeout_discharging" style="width: 40px;border-left-style: none;padding-right: 0px;">&nbsp;</span><span class="input-group-text" style="border-left-style: none;width: 41px;text-align: left;">min</span><input class="form-control" type="number" id="input_standby_timeout_discharging" min="0" max="1440" step="1" style="background: var(--bs-gray-800);color: var(--bs-gray-200);text-align: left;"><button class="btn btn-primary" id="btn_standby_timeout_discharging" type="button">Save</button></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="tab-pane fade" role="tabpanel" id="tab_mower" style="max-height: calc(100vh - 145px);overflow: auto;">
-                                                <div>
-                                                    <div class="row d-xl-flex justify-content-xl-center" style="margin: 0px;padding: 0px;padding-top: 6px;">
-                                                        <div class="col-auto" style="margin: 0px;padding: 0px;overflow: auto;width: 337px;">
-                                                            <div class="row" style="margin: 0px;">
-                                                                <div class="col" style="margin: 0px;">
-                                                                    <div class="input-group input-group-sm" id="inputgroup_mower_on_off" style="padding: 2px;border-radius: 5px;border: 2px solid var(--bs-danger) ;border-right-width: 1px;border-right-style: solid;"><button class="btn btn-primary fw-bold" id="btn_mower_on" type="button" style="width: 72px;white-space: nowrap;">ON&nbsp;<i class="la la-check" style="font-weight: bold;color: var(--bs-success);"></i></button><button class="btn btn-primary fw-bold" id="btn_mower_off" type="button" style="width: 72px;white-space: nowrap;">OFF&nbsp;<i class="la la-close" style="font-weight: bold;color: var(--bs-danger);"></i></button><span class="text-info d-flex justify-content-center input-group-text form-control" id="span_mower_temp" style="min-width: 47px;">0˚C</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_status" style="width: 109.5156px;">UNK</span></div>
-                                                                    <div class="input-group input-group-sm" style="margin-top: 4px;"><span class="input-group-text">Direction</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_direction" style="border-left-style: none;">UNK</span><button class="btn btn-primary" id="btn_mower_left" type="button" style="width: 62px;">Left</button><button class="btn btn-primary" id="btn_mower_right" type="button" style="width: 62px;">Right</button></div>
-                                                                    <div class="input-group input-group-sm" style="margin-top: 3px;"><span class="input-group-text">Height</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_cut_height" style="border-left-style: none;">0/0 cm</span><input class="form-control" type="number" id="input_mower_cut_height" style="flex: 0 0 auto;width: 62px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="10" max="90"><button class="btn btn-primary" id="btn_mower_set_height" type="button" style="width: 62px;">Set</button></div>
-                                                                    <div class="input-group input-group-sm" style="display: flex;margin-top: 3px;"><span class="input-group-text">RPM</span><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_mower_rpm" style="border-left-style: none;">0/0 rpm</span><input class="form-control" type="number" id="input_mower_rpm" style="flex: 0 0 auto;width: 62px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="500" max="4000"><button class="btn btn-primary" id="btn_mower_set_rpm" type="button" style="width: 62px;">Set</button></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row" style="margin: 0px;margin-top: 3px;">
-                                                                <div class="col" style="margin: 0px;">
-                                                                    <div class="btn-group" role="group" style="display: flex;"><button class="btn btn-primary btn-sm" id="btn_mower_home" type="button" style="width: 100%;">Home</button><button class="btn btn-primary btn-sm" id="btn_mower_calibration" type="button" style="width: 100%;display: none;">&nbsp;Height calibration</button></div>
-                                                                    <div class="btn-group btn-group-sm" role="group" style="display: flex;margin-top: 2px;"><button class="btn btn-success btn-sm fw-bold" id="btn_mower_start_motor" type="button" style="width: 100%;">START MOTOR</button><button class="btn btn-danger fw-bold" id="btn_mower_stop_motor" type="button" style="width: 100%;height: 100%;border-radius: 4px;">STOP MOTOR</button></div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-auto" style="margin: 0px;padding: 0px;overflow: auto;width: 337px;">
-                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
-                                                                <div class="col" style="margin: 0px;">
-                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd1" style="color: var(--bs-gray-200);background: var(--bs-gray-800);" placeholder="PRINT HELP"><button class="btn btn-primary" id="btn_mower_cmd1_send" type="button">Send</button></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
-                                                                <div class="col" style="margin: 0px;">
-                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd2" style="color: var(--bs-gray-200);background: var(--bs-gray-800);"><button class="btn btn-primary" id="btn_mower_cmd2_send" type="button">Send</button></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
-                                                                <div class="col" style="margin: 0px;">
-                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd3" style="color: var(--bs-gray-200);background: var(--bs-gray-800);"><button class="btn btn-primary" id="btn_mower_cmd3_send" type="button">Send</button></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row" style="margin: 0px;padding-top: 3px;">
-                                                                <div class="col" style="margin: 0px;">
-                                                                    <div class="input-group input-group-sm"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd4" style="color: var(--bs-gray-200);background: var(--bs-gray-800);"><button class="btn btn-primary" id="btn_mower_cmd4_send" type="button">Send</button></div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row" style="margin: 0px;padding-top: 8px;">
-                                                                <div class="col" style="margin: 0px;">
-                                                                    <p id="paragraph_mower_config" style="font-size: 12px;color: var(--bs-blue);margin-bottom: 0px;overflow: auto;height: 71px;">Try "PRINT HELP" command.&nbsp;</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="tab-pane fade" role="tabpanel" id="tab_diag" style="overflow: auto;">
-                                                <div>
-                                                    <div id="div_diag_all" style="overflow: auto;padding: 3px;font-size: 13px;height: 100%;"></div>
-                                                </div>
-                                            </div>
-                                            <div class="tab-pane fade" role="tabpanel" id="tab_rosbag" style="max-height: calc(100vh - 145px);overflow: auto;">
-                                                <div class="row d-xl-flex justify-content-xl-center" style="margin: 0px;padding: 0px;padding-top: 6px;">
-                                                    <div class="col-auto" style="margin: 0px;padding: 4px;min-width: 310px;">
-                                                        <p style="font-size: 12px;color: var(--bs-info);margin-bottom: 4px;"><i class="fa fa-video-camera" style="margin-right: 5px;"></i>D435 RGB-D camera</p>
-                                                        <div class="input-group input-group-sm" id="inputgroup_d435_rec" style="padding: 2px;border-radius: 5px;border: 2px solid var(--bs-danger);">
-                                                            <button class="btn btn-primary fw-bold" id="btn_d435_rec_start" type="button" style="width: 70px;white-space: nowrap;">REC&nbsp;<i class="la la-circle" style="font-weight: bold;color: var(--bs-danger);"></i></button>
-                                                            <button class="btn btn-primary fw-bold" id="btn_d435_rec_stop" type="button" style="width: 82px;white-space: nowrap;">STOP&nbsp;<i class="la la-stop" style="font-weight: bold;color: var(--bs-warning);"></i></button>
-                                                            <span class="text-info d-flex justify-content-end input-group-text form-control" id="span_d435_rec_status" style="font-size: 11px;">idle</span>
-                                                        </div>
-                                                        <div class="input-group input-group-sm" style="margin-top: 3px;">
-                                                            <span class="input-group-text">FPS</span>
-                                                            <input class="form-control" type="number" id="input_d435_rec_fps" style="flex: 0 0 auto;width: 62px;color: var(--bs-gray-200);background: var(--bs-gray-800);" min="0.1" max="30" step="0.5" value="5">
-                                                            <button class="btn btn-primary" id="btn_d435_rec_fps" type="button" style="width: 62px;">Set</button>
-                                                            <span class="text-info d-flex justify-content-end input-group-text form-control" id="span_d435_rec_fps">5.0 fps</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-auto" style="margin: 0px;padding: 4px;min-width: 310px;">
-                                                        <p style="font-size: 12px;color: var(--bs-info);margin-bottom: 4px;"><i class="fa fa-globe" style="margin-right: 5px;"></i>GNSS forensics (heading var, fix, pose ownership)</p>
-                                                        <div class="input-group input-group-sm" id="inputgroup_gnss_rec" style="padding: 2px;border-radius: 5px;border: 2px solid var(--bs-danger);">
-                                                            <button class="btn btn-primary fw-bold" id="btn_gnss_rec_start" type="button" style="width: 70px;white-space: nowrap;">REC&nbsp;<i class="la la-circle" style="font-weight: bold;color: var(--bs-danger);"></i></button>
-                                                            <button class="btn btn-primary fw-bold" id="btn_gnss_rec_stop" type="button" style="width: 82px;white-space: nowrap;">STOP&nbsp;<i class="la la-stop" style="font-weight: bold;color: var(--bs-warning);"></i></button>
-                                                            <span class="text-info d-flex justify-content-end input-group-text form-control" id="span_gnss_rec_status" style="font-size: 11px;">idle</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="row d-xl-flex justify-content-xl-center" style="margin: 0px;padding: 0px;padding-top: 10px;">
-                                                    <div class="col-auto" style="margin: 0px;padding: 4px;min-width: 310px;max-width: 100%;">
-                                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-                                                            <p style="font-size: 12px;color: var(--bs-info);margin:0;"><i class="fa fa-database" style="margin-right: 5px;"></i>Stored bags</p>
-                                                            <span id="span_bag_total" style="font-size:11px;color:#9aa0a6;"></span>
-                                                            <button id="btn_bag_refresh" type="button" class="btn btn-sm btn-outline-secondary" style="margin-left:auto;padding:2px 8px;font-size:11px;" title="Refresh list">↻</button>
-                                                        </div>
-                                                        <div id="div_bag_list" class="bag-list" style="min-height: 120px;overflow: visible;border:1px solid rgba(255,255,255,0.08);border-radius:5px;background:rgba(0,0,0,0.2);padding:2px;">
-                                                            <div class="bag-empty" style="padding:12px;font-size:12px;color:#9aa0a6;text-align:center;">Loading…</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="tab-pane" role="tabpanel" id="tab_imu" style="max-height: calc(100vh - 150px);overflow: auto;"><div id="div_content_imu" style="height: calc(100vh - 165px);">
-            <div class="row" style="margin-left: 0px;margin-right: 0px;">
-                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="padding-right: 0px;padding-left: 0px;overflow: hidden;padding-top: 3px;padding-bottom: 8px;">
-                    <div id="div_btns" style="font-size: 13px;padding: 5px;background: rgba(58,63,68,0);border-radius: 8px;border: 1px none var(--bs-gray-800) ;">
-                        <div class="btn-group btn-group-sm d-flex ms-auto flo" role="group" id="btngroup_imu_tools-1"><button class="btn btn-outline-danger" id="btn_remove_dcd" type="button">Remove DCD</button><button class="btn btn-outline-info" id="btn_reset_imu" type="button">Reset IMU</button><button class="btn btn-outline-info" id="btn_run_calibration" type="button">Run</button><button class="btn btn-outline-info" id="btn_save_dcd" type="button">Save</button></div>
-                    </div>
-                    <div id="div_diag" style="font-size: 13px;padding: 6px;height: 200px;"></div>
-                    <div class="text-start text-center d-flex img float-end" id="joy_view_imu" style="width: 100%;background: url(&quot;assets/img/joystick_icon_45px.svg&quot;) center / auto no-repeat, rgba(2,60,85,0.22);/*resize: vertical;*/overflow: hidden;position: relative;height: 50px;"></div>
-                </div>
-                <div class="col-12 col-sm-6 col-md-6 col-lg-6 col-xl-6 col-xxl-6" style="padding-right: 0px;padding-left: 0px;overflow: hidden;">
-                    <div style="position: absolute;display: grid;"><span id="span_imu_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #1eb53a;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Imu:&nbsp;</span><span id="span_nav_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #017bd5;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Nav:&nbsp;</span><span id="span_mag_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #b70002;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Mag:&nbsp;</span><span id="span_rtk_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #9200b7;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">RTK:&nbsp;</span><span id="span_fuse_deg" style="position: static;padding: 0px;padding-right: 7px;padding-left: 7px;margin: 2px;text-shadow: 0px 0px rgb(4,4,4);font-weight: bold;color: #ffffff;margin-bottom: 0px;padding-bottom: 2px;margin-top: 0px;">Fuse:&nbsp;</span></div>
-                    <div class="text-start" id="3d_view" style="width: 100%;background: rgba(2,60,85,0.22);/*resize: vertical;*/overflow: hidden;height: calc(100vh - 175px);min-height: 0;max-height: none;padding: 2px;"></div>
-                </div>
-            </div>
-        </div></div>
+                                            <!-- U1 kolo 2: Settings tab bodies in the panel anatomy (vt_panel.css:
+     .vt-stack / .vt-card / .vt-kv / .vt-field). All ids kept; the only inline
+     styles left are runtime state that JS toggles (display) or parses
+     (#3d_view padding, read by imu_calibration.js). -->
+<div class="tab-pane fade" role="tabpanel" id="tab_motors">
+  <div class="vt-stack">
+    <div class="vt-card" data-state="off">
+      <div class="vt-card-head"><span class="vt-card-title" id="span_motors">Motors</span><span class="vt-end">power &amp; torque</span></div>
+      <div class="vt-row">
+        <div class="btn-group btn-group-sm vt-switch" role="group" id="btngroup_motors_on_off"><button class="btn btn-primary fw-bold" id="btn_motors_on" type="button">ON&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_motors_off" type="button">OFF&nbsp;<i class="la la-close vt-i-err"></i></button></div>
+        <div class="input-group input-group-sm vt-field vt-grow"><span class="input-group-text">Torque</span><span class="text-info input-group-text vt-val" id="span_motor_torque">&nbsp;</span><span class="input-group-text">Nm</span><input class="form-control" type="number" id="input_motor_torque" min="0" max="24" step="1"><button class="btn btn-primary" id="btn_motor_torque" type="button">Save</button></div>
+      </div>
+    </div>
+    <div class="vt-grid2">
+      <div class="vt-card vt-motor">
+        <div class="vt-card-head"><img class="vt-ico" id="ico_fl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLF_grey.png" alt=""><span class="vt-card-title">Front left</span></div>
+        <dl class="vt-kv">
+          <dt>Id</dt><dd><span id="span_motor1_id">&nbsp;</span></dd>
+          <dt>Status</dt><dd><span id="span_motor1_status">&nbsp;</span></dd>
+          <dt>Torque</dt><dd><span id="span_motor1_torque">&nbsp;</span> Nm</dd>
+          <dt>Temp</dt><dd><span id="span_motor1_temp">&nbsp;</span> °C</dd>
+          <dt>Velocity</dt><dd><span id="span_motor1_velocity">&nbsp;</span> m/s</dd>
+          <dt>Position</dt><dd><span id="span_motor1_position">&nbsp;</span> m</dd>
+          <dt>Volts</dt><dd><span id="span_motor1_volts">&nbsp;</span> V</dd>
+          <dt>Mode</dt><dd><span id="span_motor1_mode">&nbsp;</span></dd>
+        </dl>
+      </div>
+      <div class="vt-card vt-motor">
+        <div class="vt-card-head"><img class="vt-ico" id="ico_fr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRF_grey.png" alt=""><span class="vt-card-title">Front right</span></div>
+        <dl class="vt-kv">
+          <dt>Id</dt><dd><span id="span_motor2_id">&nbsp;</span></dd>
+          <dt>Status</dt><dd><span id="span_motor2_status">&nbsp;</span></dd>
+          <dt>Torque</dt><dd><span id="span_motor2_torque">&nbsp;</span> Nm</dd>
+          <dt>Temp</dt><dd><span id="span_motor2_temp">&nbsp;</span> °C</dd>
+          <dt>Velocity</dt><dd><span id="span_motor2_velocity">&nbsp;</span> m/s</dd>
+          <dt>Position</dt><dd><span id="span_motor2_position">&nbsp;</span> m</dd>
+          <dt>Volts</dt><dd><span id="span_motor2_volts">&nbsp;</span> V</dd>
+          <dt>Mode</dt><dd><span id="span_motor2_mode">&nbsp;</span></dd>
+        </dl>
+      </div>
+      <div class="vt-card vt-motor">
+        <div class="vt-card-head"><img class="vt-ico" id="ico_rl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLR_grey.png" alt=""><span class="vt-card-title">Rear left</span></div>
+        <dl class="vt-kv">
+          <dt>Id</dt><dd><span id="span_motor3_id">&nbsp;</span></dd>
+          <dt>Status</dt><dd><span id="span_motor3_status">&nbsp;</span></dd>
+          <dt>Torque</dt><dd><span id="span_motor3_torque">&nbsp;</span> Nm</dd>
+          <dt>Temp</dt><dd><span id="span_motor3_temp">&nbsp;</span> °C</dd>
+          <dt>Velocity</dt><dd><span id="span_motor3_velocity">&nbsp;</span> m/s</dd>
+          <dt>Position</dt><dd><span id="span_motor3_position">&nbsp;</span> m</dd>
+          <dt>Volts</dt><dd><span id="span_motor3_volts">&nbsp;</span> V</dd>
+          <dt>Mode</dt><dd><span id="span_motor3_mode">&nbsp;</span></dd>
+        </dl>
+      </div>
+      <div class="vt-card vt-motor">
+        <div class="vt-card-head"><img class="vt-ico" id="ico_rr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRR_grey.png" alt=""><span class="vt-card-title">Rear right</span></div>
+        <dl class="vt-kv">
+          <dt>Id</dt><dd><span id="span_motor4_id">&nbsp;</span></dd>
+          <dt>Status</dt><dd><span id="span_motor4_status">&nbsp;</span></dd>
+          <dt>Torque</dt><dd><span id="span_motor4_torque">&nbsp;</span> Nm</dd>
+          <dt>Temp</dt><dd><span id="span_motor4_temp">&nbsp;</span> °C</dd>
+          <dt>Velocity</dt><dd><span id="span_motor4_velocity">&nbsp;</span> m/s</dd>
+          <dt>Position</dt><dd><span id="span_motor4_position">&nbsp;</span> m</dd>
+          <dt>Volts</dt><dd><span id="span_motor4_volts">&nbsp;</span> V</dd>
+          <dt>Mode</dt><dd><span id="span_motor4_mode">&nbsp;</span></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tab-pane fade show active" role="tabpanel" id="tab_lidar">
+  <div class="vt-stack">
+    <div class="vt-card">
+      <div class="vt-card-head"><span class="vt-card-title">Speed</span></div>
+      <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-primary" id="btn_menu_speed_low" type="button">SLOW</button><button class="btn btn-primary" id="btn_menu_speed_moderate" type="button">MODERATE</button><button class="btn btn-primary" id="btn_menu_speed_fast" type="button">FAST</button></div>
+    </div>
+    <div class="vt-card" data-state="off">
+      <div class="vt-card-head"><span class="vt-card-title">Lidar</span></div>
+      <div class="btn-group btn-group-sm vt-switch" role="group" id="btngroup_lidar_on_off"><button class="btn btn-primary fw-bold" id="btn_menu_lidar_on" type="button">ON&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_menu_lidar_off" type="button">OFF&nbsp;<i class="la la-close vt-i-err"></i></button></div>
+    </div>
+    <div class="vt-card">
+      <div class="vt-card-head"><span class="vt-card-title">RtabMap</span></div>
+      <span class="vt-label">Sensor source</span>
+      <div class="btn-group btn-group-sm vt-seg" role="group" id="btngroup_lidar_on_off-1"><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_camera" type="button">Camera</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_lidar" type="button">Lidar</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_both" type="button">Both</button></div>
+      <span class="vt-label vt-label-gap">Sensor distance <span class="text-info" id="span_rtabmap_distance">0</span> <span id="span_rtabmap_distance-1">m</span></span>
+      <div class="vt-row"><input class="form-range vt-grow" type="range" id="input_range_rtabmap_distance" min="0.1" max="8.0" step="0.1" value="2.7"><span class="vt-unit"><span id="span_menu_rtabmap_distance_apply">0.0</span> m</span></div>
+    </div>
+  </div>
+</div>
+<div class="tab-pane fade" role="tabpanel" id="tab_power">
+  <div class="vt-stack">
+    <div class="vt-card">
+      <div class="vt-card-head"><span class="vt-card-title">Supply</span></div>
+      <div class="vt-reading"><img class="vt-ico" id="ico_supply_conf" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" alt=""><span class="vt-name">Input</span><span class="text-info vt-num" id="span_supply_volts">&nbsp;</span><span class="vt-unit">V</span><span class="text-info vt-num" id="span_supply_amps">&nbsp;</span><span class="vt-unit">A</span><span class="vt-stat" id="span_supply_status"></span></div>
+      <div class="vt-reading"><span><img class="vt-ico" id="ico_batt_conf" src="assets/img/robot_icons/Nextion_ico_battCHARGE_disabled.png" alt=""></span><span class="vt-name">Battery</span><span class="text-info vt-num" id="span_batt_volts">&nbsp;</span><span class="vt-unit">V</span><span class="text-info vt-num" id="span_batt_amps">&nbsp;</span><span class="vt-unit">A</span><span class="vt-stat" id="span_batt_status">DISCHARGING&nbsp;</span></div>
+      <div class="vt-meter">
+        <div class="progress"><div class="progress-bar progress-bar-animated" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress_batt_capacity" style="width: 0%;"><span class="visually-hidden">0%</span></div></div>
+        <span class="vt-meter-label">Capacity <span id="span_batt_capacity">&nbsp;</span> %</span>
+      </div>
+      <div class="vt-reading"><img class="vt-ico" id="ico_nuc_conf" src="assets/img/robot_icons/ico_nuc_grey.png" alt=""><span class="vt-name">NUC output</span><span class="text-info vt-num" id="span_nuc_volts">&nbsp;</span><span class="vt-unit">V</span><span class="text-info vt-num" id="span_nuc_amps">&nbsp;</span><span class="vt-unit">A</span></div>
+      <div class="vt-row vt-outputs"><span class="vt-reading"><img class="vt-ico" id="ico_motor_conf" src="assets/img/robot_icons/ico_motor_grey.png" alt=""><span class="vt-name">Motors output</span></span><span class="vt-reading"><img class="vt-ico" id="ico_mower_conf" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" alt=""><span class="vt-name">Mower output</span></span></div>
+    </div>
+    <div class="vt-card">
+      <div class="vt-card-head"><span class="vt-card-title">Temperature</span></div>
+      <div class="vt-row vt-temps">
+        <span class="vt-reading"><img class="vt-ico" id="ico_temp_pcb_conf" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" alt=""><span class="vt-num" id="span_curr_pcb_temp"></span><span class="vt-unit">°C</span></span>
+        <span class="vt-reading"><img class="vt-ico" id="ico_fan_pcb_conf" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" alt=""><span class="vt-num" id="span_pcb_rpm"></span><span class="vt-unit">rpm</span></span>
+        <span class="vt-reading"><img class="vt-ico" id="ico_temp_conf" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" alt=""><span class="vt-num" id="span_curr_ext_temp"></span><span class="vt-unit">°C</span></span>
+        <span class="vt-reading"><img class="vt-ico" id="ico_fan_conf" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" alt=""><span class="vt-num" id="span_ext_rpm"></span><span class="vt-unit">rpm</span></span>
+      </div>
+    </div>
+    <div class="vt-card">
+      <div class="vt-card-head"><span class="vt-card-title">Outputs &amp; limits</span></div>
+      <div class="vt-fields">
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button">OFF</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button">OFF</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Run charge</span><span class="text-info input-group-text vt-val" id="span_run_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_charge" min="500" max="4000" step="100"><button class="btn btn-primary" id="btn_run_charge" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Run cutoff</span><span class="text-info input-group-text vt-val" id="span_run_cutoff">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_cutoff" min="300" max="2000" step="100"><button class="btn btn-primary" id="btn_run_cutoff" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Standby charge</span><span class="text-info input-group-text vt-val" id="span_standby_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_standby_charge" min="500" max="4000" step="100"><button class="btn btn-primary" id="btn_standby_charge" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Standby cutoff</span><span class="text-info input-group-text vt-val" id="span_standby_cutoff">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_standby_cutoff" min="300" max="2000" step="100"><button class="btn btn-primary" id="btn_standby_cutoff" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">PCB temp limit</span><span class="text-info input-group-text vt-val" id="span_pcb_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_pcb_temp" min="20" max="45" step="1"><button class="btn btn-primary" id="btn_pcb_temp" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">External temp limit</span><span class="text-info input-group-text vt-val" id="span_ext_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_ext_temp" min="20" max="45" step="1"><button class="btn btn-primary" id="btn_ext_temp" type="button">Save</button></div>
+      </div>
+    </div>
+    <div class="vt-card">
+      <div class="vt-card-head"><span class="vt-card-title">Sleep control</span></div>
+      <div class="vt-fields">
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Sleep time</span><span class="text-info input-group-text vt-val" id="span_sleep_time_min">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_time_min" min="1" max="1440" step="1"><button class="btn btn-primary" id="btn_sleep_time_save" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Sleep now</span><button class="btn btn-warning" id="btn_sleep_timed" type="button">Timed</button><button class="btn btn-warning" id="btn_sleep_until_charged" type="button">Until charged</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Standby delay</span><span class="text-info input-group-text vt-val" id="span_standby_delay">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_standby_delay" min="0" max="60" step="1"><button class="btn btn-primary" id="btn_standby_delay" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Charged offset</span><span class="text-info input-group-text vt-val" id="span_sleep_charged_offset">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_charged_offset" min="0" max="60" step="1"><button class="btn btn-primary" id="btn_sleep_charged_offset" type="button">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Discharge timeout</span><span class="text-info input-group-text vt-val" id="span_standby_timeout_discharging">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_standby_timeout_discharging" min="0" max="1440" step="1"><button class="btn btn-primary" id="btn_standby_timeout_discharging" type="button">Save</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tab-pane fade" role="tabpanel" id="tab_mower">
+  <div class="vt-stack">
+    <div class="vt-card" data-state="off">
+      <div class="vt-card-head"><span class="vt-card-title">Mower</span></div>
+      <div class="vt-fields">
+        <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_mower_on_off"><button class="btn btn-primary fw-bold" id="btn_mower_on" type="button">ON&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_mower_off" type="button">OFF&nbsp;<i class="la la-close vt-i-err"></i></button><span class="text-info input-group-text form-control vt-val" id="span_mower_temp">0˚C</span><span class="text-info input-group-text form-control vt-val" id="span_mower_status">UNK</span></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Direction</span><span class="text-info input-group-text form-control vt-val" id="span_mower_direction">UNK</span><button class="btn btn-primary" id="btn_mower_left" type="button">Left</button><button class="btn btn-primary" id="btn_mower_right" type="button">Right</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Height</span><span class="text-info input-group-text form-control vt-val" id="span_mower_cut_height">0/0 cm</span><input class="form-control" type="number" id="input_mower_cut_height" min="10" max="90"><button class="btn btn-primary" id="btn_mower_set_height" type="button">Set</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">RPM</span><span class="text-info input-group-text form-control vt-val" id="span_mower_rpm">0/0 rpm</span><input class="form-control" type="number" id="input_mower_rpm" min="500" max="4000"><button class="btn btn-primary" id="btn_mower_set_rpm" type="button">Set</button></div>
+        <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-primary btn-sm" id="btn_mower_home" type="button">Home</button><button class="btn btn-primary btn-sm" id="btn_mower_calibration" type="button" style="display: none;">Height calibration</button></div>
+        <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-success btn-sm fw-bold" id="btn_mower_start_motor" type="button">START MOTOR</button><button class="btn btn-danger fw-bold" id="btn_mower_stop_motor" type="button">STOP MOTOR</button></div>
+      </div>
+    </div>
+    <div class="vt-card">
+      <div class="vt-card-head"><span class="vt-card-title">Commands</span></div>
+      <div class="vt-fields">
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd1" placeholder="PRINT HELP"><button class="btn btn-primary" id="btn_mower_cmd1_send" type="button">Send</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd2"><button class="btn btn-primary" id="btn_mower_cmd2_send" type="button">Send</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd3"><button class="btn btn-primary" id="btn_mower_cmd3_send" type="button">Send</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">Command</span><input class="form-control" type="text" id="input_mower_cmd4"><button class="btn btn-primary" id="btn_mower_cmd4_send" type="button">Send</button></div>
+        <p class="vt-console" id="paragraph_mower_config">Try "PRINT HELP" command.&nbsp;</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tab-pane fade" role="tabpanel" id="tab_diag">
+  <div class="vt-card vt-diag"><div id="div_diag_all"></div></div>
+</div>
+<div class="tab-pane fade" role="tabpanel" id="tab_rosbag">
+  <div class="vt-stack">
+    <div class="vt-card" data-state="off">
+      <div class="vt-card-head"><i class="fa fa-video-camera vt-fa"></i><span class="vt-card-title">D435 RGB-D camera</span></div>
+      <div class="vt-fields">
+        <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_d435_rec"><button class="btn btn-primary fw-bold" id="btn_d435_rec_start" type="button">REC&nbsp;<i class="la la-circle vt-i-err"></i></button><button class="btn btn-primary fw-bold" id="btn_d435_rec_stop" type="button">STOP&nbsp;<i class="la la-stop vt-i-warn"></i></button><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_d435_rec_status">idle</span></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text">FPS</span><input class="form-control" type="number" id="input_d435_rec_fps" min="0.1" max="30" step="0.5" value="5"><button class="btn btn-primary" id="btn_d435_rec_fps" type="button">Set</button><span class="text-info input-group-text form-control vt-val" id="span_d435_rec_fps">5.0 fps</span></div>
+      </div>
+    </div>
+    <div class="vt-card" data-state="off">
+      <div class="vt-card-head"><i class="fa fa-globe vt-fa"></i><span class="vt-card-title">GNSS forensics</span><span class="vt-end">heading var, fix, pose ownership</span></div>
+      <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_gnss_rec"><button class="btn btn-primary fw-bold" id="btn_gnss_rec_start" type="button">REC&nbsp;<i class="la la-circle vt-i-err"></i></button><button class="btn btn-primary fw-bold" id="btn_gnss_rec_stop" type="button">STOP&nbsp;<i class="la la-stop vt-i-warn"></i></button><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_gnss_rec_status">idle</span></div>
+    </div>
+    <div class="vt-card">
+      <div class="vt-card-head"><i class="fa fa-database vt-fa"></i><span class="vt-card-title">Stored bags</span><span class="vt-end" id="span_bag_total"></span><button id="btn_bag_refresh" type="button" class="btn btn-sm btn-outline-secondary vt-iconbtn vt-iconbtn-sm" title="Refresh list">&#8635;</button></div>
+      <div id="div_bag_list" class="bag-list"><div class="bag-empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+<div class="tab-pane" role="tabpanel" id="tab_imu"><div id="div_content_imu">
+  <div class="vt-imu">
+    <div class="vt-imu-side">
+      <div class="vt-card">
+        <div class="vt-card-head"><span class="vt-card-title">Calibration</span></div>
+        <div id="div_btns"><div class="btn-group btn-group-sm vt-seg" role="group" id="btngroup_imu_tools-1"><button class="btn btn-outline-danger" id="btn_remove_dcd" type="button">Remove DCD</button><button class="btn btn-outline-info" id="btn_reset_imu" type="button">Reset IMU</button><button class="btn btn-outline-info" id="btn_run_calibration" type="button">Run</button><button class="btn btn-outline-info" id="btn_save_dcd" type="button">Save</button></div></div>
+      </div>
+      <div class="vt-card"><div id="div_diag"></div></div>
+      <div class="img" id="joy_view_imu"></div>
+    </div>
+    <div class="vt-imu-view">
+      <div class="vt-imu-deg"><span id="span_imu_deg">Imu:&nbsp;</span><span id="span_nav_deg">Nav:&nbsp;</span><span id="span_mag_deg">Mag:&nbsp;</span><span id="span_rtk_deg">RTK:&nbsp;</span><span id="span_fuse_deg">Fuse:&nbsp;</span></div>
+      <div id="3d_view" style="padding: 2px;"></div>
+    </div>
+  </div>
+</div></div>
+
                                         </div>
                                     </div>
                                 </div>

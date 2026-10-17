@@ -504,6 +504,17 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
 };
 
 
+// U1 kolo 2: a switch/record group reports its state as a soft tint of its
+// card (vt_panel.css [data-state]) instead of an inline coloured border.
+// st: 'ok' | 'warn' | 'err' | 'off'.
+function vtSetState(el, st) {
+    if (!el) return;
+    el.style.removeProperty('border');
+    el.dataset.state = st;
+    var card = el.closest ? el.closest('.vt-card') : null;
+    if (card) card.dataset.state = st;
+}
+
 class PathListItemTemplate {
     constructor(item) {
         this.name = item;
@@ -2469,10 +2480,10 @@ class LidarControl {
     }
     status_data(message){
         if (message.lidar === "ON") {
-            this.btngroup_lidar_on_off.style.setProperty('border', '2px solid var(--bs-success)');
+            vtSetState(this.btngroup_lidar_on_off, 'ok');
         }
         else {
-            this.btngroup_lidar_on_off.style.setProperty('border', '2px solid var(--bs-danger)');
+            vtSetState(this.btngroup_lidar_on_off, 'err');
         }
     }
 }
@@ -2586,10 +2597,10 @@ class MotorControl {
 
     motor_state_data(message){
         if (message.data){
-            this.btngroup_motors_on_off.style.setProperty('border', '2px solid var(--bs-success)');
+            vtSetState(this.btngroup_motors_on_off, 'ok');
         }
         else {
-            this.btngroup_motors_on_off.style.setProperty('border', '2px solid var(--bs-danger)');
+            vtSetState(this.btngroup_motors_on_off, 'off');
         }
     }
 
@@ -5270,14 +5281,14 @@ class RosbagControl {
     d435_status_data(message) {
         this.span_d435_rec_status.textContent = message.data;
         if (message.data.startsWith('recording')) {
-            this.inputgroup_d435_rec.style.setProperty('border', '2px solid var(--bs-success)');
+            vtSetState(this.inputgroup_d435_rec, 'ok');
             this.span_d435_rec_status.className = 'text-success d-flex justify-content-end input-group-text form-control';
             const fps_match = message.data.match(/fps=(\d+\.?\d*)/);
             if (fps_match) {
                 this.span_d435_rec_fps.textContent = fps_match[1] + ' fps';
             }
         } else {
-            this.inputgroup_d435_rec.style.setProperty('border', '2px solid var(--bs-danger)');
+            vtSetState(this.inputgroup_d435_rec, 'off');
             this.span_d435_rec_status.className = 'text-info d-flex justify-content-end input-group-text form-control';
         }
     }
@@ -5295,10 +5306,10 @@ class RosbagControl {
     gnss_status_data(message) {
         this.span_gnss_rec_status.textContent = message.data;
         if (message.data.startsWith('recording')) {
-            this.inputgroup_gnss_rec.style.setProperty('border', '2px solid var(--bs-success)');
+            vtSetState(this.inputgroup_gnss_rec, 'ok');
             this.span_gnss_rec_status.className = 'text-success d-flex justify-content-end input-group-text form-control';
         } else {
-            this.inputgroup_gnss_rec.style.setProperty('border', '2px solid var(--bs-danger)');
+            vtSetState(this.inputgroup_gnss_rec, 'off');
             this.span_gnss_rec_status.className = 'text-info d-flex justify-content-end input-group-text form-control';
         }
     }
@@ -5545,14 +5556,16 @@ class Mower {
                 this.span_mower_status.textContent = message.status;
         }
         if (message.status === 'UNK' || message.status === 'OFF' || message.status === 'ERR' || message.status === 'BLOCKED' || message.status === 'TEMP') {
-            this.inputgroup_mower_on_off.style.setProperty('border', '2px solid var(--bs-danger)');
+            // OFF/UNK = simply off; ERR/BLOCKED/TEMP = a real fault
+            vtSetState(this.inputgroup_mower_on_off,
+                (message.status === 'UNK' || message.status === 'OFF') ? 'off' : 'err');
         }
         else {
             if (message.status === 'READY' || message.status === 'RUN') {
-                this.inputgroup_mower_on_off.style.setProperty('border', '2px solid var(--bs-success)');
+                vtSetState(this.inputgroup_mower_on_off, 'ok');
             }
             else {
-                this.inputgroup_mower_on_off.style.setProperty('border', '2px solid var(--bs-warning)');
+                vtSetState(this.inputgroup_mower_on_off, 'warn');
             }
         }
 

@@ -138,7 +138,7 @@ class CalendarManager {
     render() {
         if (!this.containerEl) return;
         if (!this.events || this.events.length === 0) {
-            this.containerEl.innerHTML = '<div style="padding:8px;font-size:12px;color:#9aa0a6;">No calendar events yet.</div>';
+            this.containerEl.innerHTML = '<div class="vt-empty">No calendar events yet.</div>';
             return;
         }
         const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -148,13 +148,14 @@ class CalendarManager {
             const opacity = enabled ? '1' : '0.5';
             const recLabel = this._recurrenceLabel(ev);
             const timeStr = ev.start_time || '??:??';
-            html += `<div class="d-flex align-items-center" style="gap:6px;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,0.06);opacity:${opacity};">`;
-            html += `<div class="form-check form-switch" style="margin:0;min-width:34px;"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" ${enabled ? 'checked' : ''} style="cursor:pointer;"></div>`;
-            html += `<span class="text-info" style="font-size:13px;min-width:80px;font-weight:600;">${this._escHtml(ev.program_name)}</span>`;
-            html += `<span style="font-size:12px;color:var(--bs-gray-300);min-width:44px;">${timeStr}</span>`;
-            html += `<span style="font-size:11px;color:#9aa0a6;flex:1;">${recLabel}</span>`;
-            html += `<button class="btn btn-sm btn-outline-info cal-edit" data-id="${ev.id}" style="font-size:10px;padding:1px 7px;">Edit</button>`;
-            html += `<button class="btn btn-sm btn-outline-danger cal-del" data-id="${ev.id}" style="font-size:10px;padding:1px 7px;">Del</button>`;
+            // U1: one row look (vt_panel.css .vt-cal-row); disabled = dimmed
+            html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}">`;
+            html += `<div class="form-check form-switch"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" ${enabled ? 'checked' : ''}></div>`;
+            html += `<span class="vt-cal-name">${this._escHtml(ev.program_name)}</span>`;
+            html += `<span class="vt-cal-time">${timeStr}</span>`;
+            html += `<span class="vt-cal-rec">${recLabel}</span>`;
+            html += `<button class="btn btn-sm btn-outline-info cal-edit" data-id="${ev.id}">Edit</button>`;
+            html += `<button class="btn btn-sm btn-outline-danger cal-del" data-id="${ev.id}">Del</button>`;
             html += `</div>`;
         });
         this.containerEl.innerHTML = html;
@@ -325,15 +326,7 @@ class CalendarManager {
 
     _setDayBtnActive(btn, active) {
         btn.dataset.active = active ? 'true' : 'false';
-        if (active) {
-            btn.style.backgroundColor = 'var(--bs-info)';
-            btn.style.color = '#000';
-            btn.style.borderColor = 'var(--bs-info)';
-        } else {
-            btn.style.backgroundColor = '';
-            btn.style.color = '';
-            btn.style.borderColor = '';
-        }
+        btn.classList.toggle('vt-on', !!active);   // look: vt_panel.css .vt-days
     }
 
     _uuid() {

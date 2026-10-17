@@ -548,3 +548,134 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
 #ui_drawer hr { border-color: var(--vt-border); opacity: 1; }
 /* the program detail block and other legacy inner frames: card look */
 #ui_drawer #div_menu_program_detail_row { border-radius: var(--vt-r-card); }
+
+/* ===================================== panel bodies (U1 kolo 2, Settings…) */
+.vt-stack { display: flex; flex-direction: column; gap: var(--vt-gap-2); }
+.vt-card-head {
+    display: flex; align-items: center; gap: var(--vt-gap-2);
+    min-height: 26px; margin-bottom: var(--vt-gap-2);
+}
+.vt-card-title { font-size: var(--vt-fs); font-weight: 600; color: var(--vt-accent); white-space: nowrap; }
+.vt-card-head .vt-end {
+    margin-left: auto; min-width: 0;
+    font-size: var(--vt-fs-sm); color: var(--vt-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vt-card-head .vt-end + .vt-iconbtn, .vt-card-head .vt-end + .form-switch { margin-left: 0; }
+.vt-card-head > .vt-iconbtn:last-child, .vt-card-head > .form-switch:last-child { margin-left: auto; }
+.vt-card-head .vt-end ~ .vt-iconbtn, .vt-card-head .vt-end ~ .form-switch { margin-left: 0; }
+.vt-card-actions { margin-top: var(--vt-gap-2); }
+.vt-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--vt-gap-2); }
+.vt-grow { flex: 1 1 220px; min-width: 0; }
+.vt-label { display: block; font-size: var(--vt-fs-sm); color: var(--vt-muted); margin-bottom: var(--vt-gap-1); }
+.vt-label-gap { margin-top: var(--vt-gap-3); }
+.vt-unit { font-size: var(--vt-fs-sm); color: var(--vt-muted); white-space: nowrap; }
+.vt-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: var(--vt-gap-2); }
+.vt-ico { width: 24px; height: 24px; object-fit: contain; flex: 0 0 auto; }
+.vt-fa { color: var(--vt-accent); width: 16px; text-align: center; }
+.vt-i-ok { font-weight: bold; color: var(--vt-ok); }
+.vt-i-err { font-weight: bold; color: var(--vt-err); }
+.vt-i-warn { font-weight: bold; color: var(--vt-warn); }
+.vt-ok-text { color: var(--vt-ok); }
+.vt-empty { padding: var(--vt-gap-2); font-size: var(--vt-fs-sm); color: var(--vt-muted); text-align: center; }
+
+/* key/value list (motor cards) */
+.vt-kv { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--vt-gap-3); margin: 0; font-size: var(--vt-fs); }
+.vt-kv dt { font-weight: 400; color: var(--vt-muted); }
+.vt-kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--vt-text); }
+/* motor card tint from its own status (JS colours the status span) */
+.vt-card.vt-motor:has([id$="_status"].text-success) { background: var(--vt-tint-ok), var(--vt-surface-2); border-color: var(--vt-edge-ok); }
+.vt-card.vt-motor:has([id$="_status"].text-danger)  { background: var(--vt-tint-err), var(--vt-surface-2); border-color: var(--vt-edge-err); }
+
+/* a reading row: icon · name · numbers · units · status */
+.vt-reading { display: flex; align-items: center; gap: 6px; min-height: 30px; font-size: var(--vt-fs); }
+.vt-reading .vt-name { flex: 1 1 auto; min-width: 0; color: var(--vt-text); }
+.vt-num { min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
+.vt-stat { min-width: 84px; text-align: right; font-size: var(--vt-fs-sm); font-weight: 600; color: var(--vt-muted); }
+.vt-outputs { justify-content: space-between; }
+.vt-outputs .vt-reading .vt-name { flex: 0 1 auto; }
+.vt-temps { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--vt-gap-1) var(--vt-gap-3); }
+.vt-meter { margin: var(--vt-gap-1) 0 var(--vt-gap-2); }
+.vt-meter .progress { height: 7px; padding: 0; border: 0; background: var(--vt-surface-3); border-radius: var(--vt-r-tag); }
+.vt-meter-label { display: block; margin-top: 3px; text-align: center; font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+
+/* labelled input rows: label · current value · unit · input · action */
+.vt-fields { display: flex; flex-direction: column; gap: 6px; }
+.vt-field.input-group { flex-wrap: nowrap; width: 100%; }
+.vt-fields > .vt-field > .input-group-text:first-child { min-width: 128px; }
+.vt-field > .vt-val { min-width: 56px; justify-content: flex-end; font-variant-numeric: tabular-nums; }
+.vt-field > .form-control { min-width: 54px; }
+.vt-field > .btn { flex: 0 0 auto; }
+.vt-field > .btn:only-of-type, .vt-field > .btn + .btn { flex: 1 1 0; }
+@media (max-width: 400px) { .vt-fields > .vt-field > .input-group-text:first-child { min-width: 96px; } }
+
+/* segmented button rows fill the card */
+.vt-seg { display: flex; width: 100%; }
+.vt-seg > .btn { flex: 1 1 0; }
+/* switch / record groups: state ring (data-state set by vtSetState) */
+.vt-switch[data-state="ok"]   { box-shadow: 0 0 0 2px var(--vt-edge-ok);   border-radius: var(--vt-r-ctl); }
+.vt-switch[data-state="err"]  { box-shadow: 0 0 0 2px var(--vt-edge-err);  border-radius: var(--vt-r-ctl); }
+.vt-switch[data-state="warn"] { box-shadow: 0 0 0 2px var(--vt-edge-warn); border-radius: var(--vt-r-ctl); }
+.vt-card[data-state="off"] { border-color: var(--vt-border-strong); }
+
+.vt-console {
+    margin: 0; height: 72px; overflow: auto;
+    padding: 6px var(--vt-gap-2);
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-size: var(--vt-fs-sm); color: var(--vt-accent);
+    background: var(--vt-bg); border: 1px solid var(--vt-border); border-radius: var(--vt-r-ctl);
+}
+.vt-diag { font-size: var(--vt-fs); line-height: 1.5; }
+.vt-iconbtn-sm { width: 30px !important; min-width: 30px !important; height: 30px !important; min-height: 30px !important; font-size: 14px; }
+
+/* IMU tab: controls left, 3D view right (stacked in the 480 px drawer) */
+.vt-imu { display: flex; flex-wrap: wrap; gap: var(--vt-gap-2); }
+.vt-imu-side { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: var(--vt-gap-2); }
+.vt-imu-view { flex: 1 1 260px; min-width: 0; position: relative; }
+#div_diag { font-size: var(--vt-fs); min-height: 60px; }
+#joy_view_imu {
+    position: relative; overflow: hidden; height: 50px; width: 100%;
+    background: url("../img/joystick_icon_45px.svg") center / auto no-repeat, rgba(var(--vt-accent-rgb), 0.10);
+    border: 1px solid var(--vt-border); border-radius: var(--vt-r-card);
+}
+[id="3d_view"] {
+    width: 100%; height: min(62vh, 560px); overflow: hidden;
+    background: rgba(var(--vt-accent-rgb), 0.08);
+    border: 1px solid var(--vt-border); border-radius: var(--vt-r-card);
+}
+.vt-imu-deg { position: absolute; z-index: 1; top: 6px; left: 6px; display: grid; gap: 1px; pointer-events: none; }
+.vt-imu-deg span { padding: 0 6px; font-weight: bold; font-size: var(--vt-fs); text-shadow: 0 1px 2px #000; }
+#span_imu_deg { color: #1eb53a; }
+#span_nav_deg { color: #3ea0ff; }
+#span_mag_deg { color: #ff5a5f; }
+#span_rtk_deg { color: #c65bff; }
+#span_fuse_deg { color: #ffffff; }
+
+/* Calendar */
+.vt-switch-inline { margin: 0 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.vt-switch-inline .form-check-label { font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+.vt-switch-inline .form-check-input { cursor: pointer; }
+.vt-list { display: flex; flex-direction: column; }
+.vt-cal-row {
+    display: flex; align-items: center; gap: 6px; padding: 6px 2px;
+    border-bottom: 1px solid var(--vt-border);
+}
+.vt-cal-row:last-child { border-bottom: 0; }
+.vt-cal-row.is-off { opacity: .5; }
+.vt-cal-row .form-switch { margin: 0; min-width: 34px; }
+.vt-cal-row .form-check-input { cursor: pointer; }
+.vt-cal-name { min-width: 80px; font-weight: 600; color: var(--vt-accent); }
+.vt-cal-time { min-width: 44px; font-variant-numeric: tabular-nums; }
+.vt-cal-rec { flex: 1 1 auto; min-width: 0; font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+.vt-cal-row .btn { padding: 2px 8px; font-size: var(--vt-fs-sm); }
+.vt-form { display: flex; flex-wrap: wrap; gap: var(--vt-gap-2) var(--vt-gap-3); }
+.vt-form-item { min-width: 0; }
+.vt-form-item .form-select { min-width: 150px; }
+.vt-time input { width: 52px; text-align: center; }
+.vt-num-in { width: 64px; }
+.vt-days .btn { padding: 3px 7px; font-size: var(--vt-fs-sm); }
+.vt-days .btn.vt-on { background: var(--vt-accent); border-color: var(--vt-accent); color: #000; }
+@media (max-width: 575.98px) {
+    .vt-row > .vt-grow { flex-basis: 100%; }
+    .vt-temps { grid-template-columns: repeat(2, 1fr); }
+}
