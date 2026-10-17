@@ -75,13 +75,24 @@ komponenta: `assets/css/vt_panel.css`.
 | Agent → Robot | vlastní statický náhled mapy (~5 s CPU/render) | tlačítko Show on map → živá hlavní mapa |
 | Sheet na telefonu | jen klepnutí na úchyt | tažení nahoru/dolů/zavřít, klávesnice zvedne sheet a odroluje k poli |
 
+## Kolo 3 (větev `ui-unify`)
+
+| Oblast | Před | Po |
+|---|---|---|
+| Path / Point / Dock / Rain / Loc | inline styly v HTML i v dock.js / gloc.js / rain_alert.js (barvy textů, štítek na obrázku, placeholdery, lightbox) | bez inline stylování (jen stavové `display:none`), barvy přes `vtTone()` → `.vt-tone-*`, štítek `.vt-overlay-badge[data-state]`, řádky cest/bodů `.vt-item` |
+| Programs | input-group řádky, detail jako šedý blok s inline styly | karty tónované podle posledního běhu (ok/varování/chyba/nikdy), detail jako jedna karta se stejným nádechem, zóny jako karty |
+| Pravý panel, sbalený řádek | mapa · baterie | mapa · tečka Pose · tečka GNSS · baterie (barva a text z čipů v Navi) |
+| Dotyk 360×740 a 844×390 | lišty 27 px, tlačítka 28–34 px, checkboxy 13 px | automatický průchod: 0 cílů pod 40 px, 0 přetečení; token `--vt-bar-h` pro výšku spodní lišty |
+
 ## Co zbývá (návrh další etapy)
 
-- Dock / Rain / Loc záložky panelu Map a Path/Point seznamy: pořád inline
-  styly z dock.js/rain_alert.js/gloc.js — převést na karty.
-- Programs: řádky programů a detail programu (inline styly v map_view.js
-  šablonách) na karty se stavem posledního běhu.
-- Pravý panel ve sbaleném řádku: přidat stav polohy (Pose/GNSS tečka).
+- Mapping (záložka Map › Map, mapping.js / map_library.css) a map editor
+  (mapedits.js) generují vlastní HTML s inline styly — převést na
+  `.vt-card`/`.vt-item` stejně jako Path/Point.
+- Agent (agent_blocks.js) má stále hodně inline `cssText` v blocích Work /
+  Robot / Models — dotykové velikosti už sedí, vzhled by šel dál sjednotit.
+- Čipy v sekci Navi pravého panelu barví map_view.js inline backgroundem;
+  převést na `data-state`, tečky ve sbaleném řádku by pak četly třídu.
 - Ověřit na skutečném iPhonu/Androidu: tažení sheetu a klávesnici (zde jen
   emulace v Playwrightu).
 
