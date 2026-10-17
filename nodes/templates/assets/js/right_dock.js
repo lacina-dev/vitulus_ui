@@ -30,6 +30,7 @@
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
     var LS_OPEN = 'vitulus_rightpanel_open';
+    var LS_COMPACT = 'vitulus_rightpanel_compact';   // U1: telefon, 1 řádek
     var DOCK_W = 216, DOCK_H = 162;      // náhled kamery (4:3 jako zdroj 160×120)
     var PANEL_W = 196;
 
@@ -114,6 +115,31 @@
             neutralize(e);
             topRow.appendChild(e);
         });
+        /* U1 kolo 2: na telefonu jde panel sbalit do JEDNOHO řádku (mapa +
+           baterie + ▾), ať nezakrývá půl mapy. Baterie je zrcadlo
+           #span_batt_pct (ten zůstává v sekci Controls), tlačítko přepíná
+           sbaleno/rozbaleno; stav v localStorage, výchozí = sbaleno. */
+        var sum = el('span', 'rp-sum', topRow);
+        sum.id = 'rp_sum_batt';
+        var cbtn = el('button', 'rp-compact-btn', topRow);
+        cbtn.type = 'button';
+        cbtn.id = 'rp_compact_btn';
+        cbtn.addEventListener('click', function () {
+            lsSet(LS_COMPACT, isCompact() ? '0' : '1');
+            applyCompact();
+            place();
+            paintCam();
+        });
+        var bp = document.getElementById('span_batt_pct');
+        if (bp) {
+            var mirror = function () {
+                sum.textContent = '⚡' + (bp.textContent || '').trim();
+                sum.style.color = bp.style.color || '';
+            };
+            mirror();
+            new MutationObserver(mirror).observe(bp, {childList: true, characterData: true,
+                subtree: true, attributes: true, attributeFilter: ['style']});
+        }
         var fico = document.getElementById('div_status_follow_ico');
         if (fico) {
             fico.classList.add('rp-click');
@@ -197,6 +223,21 @@
     // ------------------------------------------------------- skrýt/zobrazit
     function isOpen() { return lsGet(LS_OPEN) !== '0'; }
 
+    /* jeden řádek jen na telefonu; na desktopu je panel vždy celý */
+    function isCompact() { return window.innerWidth < 576 && lsGet(LS_COMPACT) !== '0'; }
+    function applyCompact() {
+        if (!panel) { return; }
+        var c = isCompact();
+        panel.classList.toggle('compact', c);
+        var b = document.getElementById('rp_compact_btn');
+        if (b) {
+            b.textContent = c ? '▾' : '▴';
+            b.title = c ? 'Show controls, navi and camera' : 'Collapse to one row';
+            b.setAttribute('aria-label', b.title);
+            b.setAttribute('aria-expanded', c ? 'false' : 'true');
+        }
+    }
+
     function setOpen(open) {
         lsSet(LS_OPEN, open ? '1' : '0');
         panel.classList.toggle('closed', !open);
@@ -217,6 +258,7 @@
     // ------------------------------------------------------------ pozice
     function place() {
         if (!panel) { return; }
+        applyCompact();
         var vw = window.innerWidth, vh = window.innerHeight;
         var joy = rectOf('joy_view');
         var bar = rectOf('div_bottom_menu');
@@ -385,7 +427,7 @@
         /* Místo pro náhled se rezervuje, i když stream zrovna neběží — jinak
            by se sekce po vypnutí „složila" a nešlo by k ní doscrollovat. */
         var camSec = panel.querySelector('.rp-sec[data-sec="camera"]');
-        var folded = !!(camSec && camSec.classList.contains('folded'));
+        var folded = !!(camSec && camSec.classList.contains('folded')) || panel.classList.contains('compact');
         var eligible = !big && open && !narrow && !folded;
         var docked = on && eligible;
 

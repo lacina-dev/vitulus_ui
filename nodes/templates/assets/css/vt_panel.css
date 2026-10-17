@@ -682,3 +682,24 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
 .vt-card-actions:empty { display: none; }
 #ui_drawer_foot > .btn.ms-auto { margin-left: 0 !important; }
 #ui_drawer_foot > .btn.text-info { color: var(--vt-accent) !important; }
+
+/* ----------------------------- right panel: one-row mode on a phone (U1) */
+.rp-sum, .rp-compact-btn { display: none; }
+@media (max-width: 575.98px) {
+    .rp-top { gap: 6px; }
+    .rp-sum {
+        display: inline-block; flex: 0 0 auto; margin-left: auto;
+        font-size: var(--vt-fs-sm); font-weight: 600; color: var(--vt-muted);
+        font-variant-numeric: tabular-nums;
+    }
+    .rp-compact-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 auto; width: var(--vt-touch); height: 32px; padding: 0;
+        font-size: 15px; line-height: 1; color: var(--vt-text);
+        background: transparent; border: 1px solid var(--vt-border-strong);
+        border-radius: var(--vt-r-ctl); cursor: pointer;
+    }
+    #right_panel.compact .rp-sec { display: none !important; }
+    #right_panel.compact .rp-top { border-bottom: 0; padding-bottom: var(--vt-gap-1); }
+    #right_panel.compact { max-height: none !important; }
+}

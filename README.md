@@ -21,7 +21,8 @@ controls and an agent chat panel — all usable from a phone in the garden.
 * **Right panel** — motion & dock controls (speed presets, keyboard teleop,
   battery, Dock/Undock/Stop), localization status (Pose/VO/lidar/wheel/RTK
   FIX), active map, small live camera view. Collapsible, state persisted in
-  `localStorage`.
+  `localStorage`. On a phone it starts as ONE row (map · battery · ▾) so it
+  never covers half of the map; ▾ expands it, ▴ folds it back.
 * **Status header** — the robot status icon strip (WiFi/GPS/IMU/lidar/camera/
   mower/motors/temps/supply/battery) plus a read-only host system monitor
   (CPU/MEM/DISK/NET) served by this package's own webnode.
