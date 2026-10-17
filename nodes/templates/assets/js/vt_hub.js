@@ -14,6 +14,7 @@
  *   VTHub.get(key) -> {data, ok, ts, err} | undefined
  *   VTHub.on(key, fn) -> off()      fn(entry) now and on every change
  *   VTHub.refresh(key)              fetch now
+ *   VTHub.stop(key)                 stop a poller (data stays; poll() restarts)
  *
  * Read-only by construction: it only ever issues GET.
  */
@@ -91,8 +92,16 @@
         });
     });
 
+    function stop(key) {
+        var p = pollers[key];
+        if (!p) { return; }
+        clearTimeout(p.timer);
+        delete pollers[key];
+    }
+
     window.VTHub = {
         poll: poll,
+        stop: stop,
         put: function (key, data) { put(key, data, true); },
         get: function (key) { return store[key]; },
         on: on,

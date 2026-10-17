@@ -145,6 +145,19 @@ dnes polluje sám; převede se na hub).
   uzavření s výsledkem). Zdroje se rozjedou při prvním otevření panelu, hub
   drží jeden poller na zdroj (teď 15 s, seznamy 60 s).
 
+- **I3 + I4 hotovo (jen čtení, větev `ui-field-support`):** panel
+  **Support** (`assets/js/vt_support.js`), tlačítko na konci pásu menu za
+  Agentem; záložky *Issues* (otevřené issues s fází smyčky, závažností, kdo je
+  na tahu, „Recently closed“ složené), *Releases* (verze kitu, vydání, watcher,
+  co čeká na retest, počty ve fázích), *Signal* (obě strany: stav, kit,
+  heartbeat, čeká na člověka, chyby 24 h; telefonní notifikace — bez ntfy
+  tématu). Zdroje `/field/api/issues` a `/field/api/home`, pollují jen při
+  otevřeném panelu (`VTHub.stop`). *Help* = nápověda UI robota v angličtině,
+  nahoře sekce k právě otevřenému panelu; na PC tlačítko **?** v navbaru
+  (na telefonu jen záložka, navbar by se zalomil); odkaz na field `#/help`.
+  Text nápovědy je v `vt_support.js` (`HELP`) — **každá změna UI ho musí
+  aktualizovat**.
+
 ## 7. Joystick v rozložení (vstup pro layout matici U1)
 
 Komponenta je hotová (`vt_joy.js/css`), umístění patří rámu. Rozměry:

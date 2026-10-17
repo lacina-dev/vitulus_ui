@@ -163,6 +163,7 @@
         var last = lsGet(LS_LAST) || 'map';
         if (last === 'agent' && window.VAgent && window.VAgent.open) { window.VAgent.open(); return; }
         if (last === 'needs' && window.VTNeeds && window.VTNeeds.open) { window.VTNeeds.open(); return; }   // U2
+        if (last === 'support' && window.VTSupport && window.VTSupport.open) { window.VTSupport.open(); return; }   // U2
         var b = $(BTN_FOR[last] || 'btn_map');
         if (b) { b.click(); }
     }
