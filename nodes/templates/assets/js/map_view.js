@@ -3378,6 +3378,7 @@ class MapMenu {
         }
         if (this.ui_drawer_title) this.ui_drawer_title.textContent = (this._drawer_titles[key] || '');
         this._drawer_chrome(key);
+        this._menu_active(key);
         if (this.ui_drawer_body) this.ui_drawer_body.scrollTop = 0;
         this._drawer_backdrop(true);
         // The inline top above changed the drawer's height -> re-check whether
@@ -3387,6 +3388,18 @@ class MapMenu {
         var remembered_full = false;
         try { remembered_full = localStorage.getItem('vitulus_drawer_full_' + key) === '1'; } catch (e) {}
         this.set_drawer_full(remembered_full);
+    }
+
+    // U1: the menu-row button of the open panel looks active (the Agent
+    // button always did; the others only flipped a JS flag).
+    _menu_active(key) {
+        var map = {marker: 'btn_marker', map: 'btn_map', editor: 'btn_map',
+                   program: 'btn_programs', config: 'btn_settings'};
+        ['btn_marker', 'btn_map', 'btn_programs', 'btn_settings'].forEach(function (id) {
+            var b = document.getElementById(id);
+            // 'vt-on', not 'active': webui.js strips .active 700 ms after any click
+            if (b) b.classList.toggle('vt-on', map[key] === id);
+        });
     }
 
     // U1 panel anatomy: put the panel's own meta/status and primary actions
@@ -3421,6 +3434,7 @@ class MapMenu {
             this.ui_drawer.setAttribute('aria-hidden', 'true');
         }
         this._drawer_chrome(null);
+        this._menu_active(null);
         this._drawer_backdrop(false);
         uiPrefDel('vitulus_open_panel');   // closed -> nothing to restore
     }
