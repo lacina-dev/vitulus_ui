@@ -683,7 +683,7 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
 
 /* ----------------------------- right panel: one-row mode on a phone (U1) */
 .rp-sum, .rp-compact-btn { display: none; }
-@media (max-width: 575.98px) {
+@media (max-width: 575.98px), (max-height: 499.98px) {   /* + landscape phone (U1 kolo 6) */
     .rp-top { gap: 6px; }
     .rp-sum {
         display: inline-block; flex: 0 0 auto; margin-left: auto;
@@ -797,12 +797,12 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 
 /* right panel, one-row mode: Pose + GNSS dots next to the battery */
 .rp-sum-loc { display: none; }
-@media (max-width: 575.98px) {
+@media (max-width: 575.98px), (max-height: 499.98px) {   /* + landscape phone (U1 kolo 6) */
     .rp-sum-loc { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
     .rp-sum-loc + .rp-sum { margin-left: 4px; }
     .rp-sum-dot { width: 10px; height: 10px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
 }
-@media (max-width: 575.98px) {
+@media (max-width: 575.98px), (max-height: 499.98px) {   /* + landscape phone (U1 kolo 6) */
     #right_panel.compact { width: min(250px, 66vw) !important; }
 }
 
@@ -1075,8 +1075,8 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 
 /* ---- left panel: part of the frame (desktop + landscape) ----------------- */
 body.vt-frame:not(.vt-m-sheet) #ui_drawer {
-    top: var(--vt-top-h, 72px) !important;
-    bottom: var(--vt-bottom-h, 40px);
+    top: var(--vt-frame-top, 72px) !important;
+    bottom: var(--vt-frame-bottom, 40px);
     border-radius: 0;
     border: 0;
     border-right: 1px solid var(--vt-frame-border, var(--vt-border-strong));
@@ -1090,30 +1090,30 @@ body.vt-frame.vt-m-overlay #ui_drawer.full { max-width: none; }
 
 /* ---- the map makes room for the docked panel ---------------------------- */
 body.vt-frame.vt-m-dock.vt-panel-open #map_view {
-    margin-left: var(--vt-dock-w, 0px);
-    width: calc(100% - var(--vt-dock-w, 0px)) !important;
+    margin-left: var(--vt-frame-dock, 0px);
+    width: calc(100% - var(--vt-frame-dock, 0px)) !important;
 }
 
 /* ---- notices: centred over the free map area ----------------------------- */
-body.vt-frame:not(.vt-m-sheet) .vt-notice-row { padding-left: var(--vt-left-occ, 0px); }
+body.vt-frame:not(.vt-m-sheet) .vt-notice-row { padding-left: var(--vt-frame-left, 0px); }
 
 /* ---- log: small strip in the map area, full = the map area -------------- */
 html body.vt-frame:not(.vt-m-sheet) #div_log_view:not(.log-expanded) {
-    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
-    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    left: calc(var(--vt-frame-left, 0px) + 4px) !important;
+    right: calc(var(--vt-frame-rp-w, 0px) + 6px) !important;
     width: auto !important;
     margin-left: 0 !important;
-    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + 4px) !important;
 }
 html body.vt-frame #div_log_view.log-expanded {
-    top: calc(var(--vt-notice-b, 72px) + 6px) !important;
-    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
-    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
-    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    top: calc(var(--vt-frame-notice-b, 72px) + 6px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + 4px) !important;
+    left: calc(var(--vt-frame-left, 0px) + 4px) !important;
+    right: calc(var(--vt-frame-rp-w, 0px) + 6px) !important;
     z-index: 8 !important;            /* under the panel, bars and notices */
 }
 html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
-    top: calc(max(var(--vt-notice-b, 72px), var(--vt-rp-b, 72px)) + 6px) !important;
+    top: calc(max(var(--vt-frame-notice-b, 72px), var(--vt-frame-rp-b, 72px)) + 6px) !important;
     left: 4px !important;
     right: 4px !important;
 }
@@ -1125,12 +1125,80 @@ html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
 #row_menu #btn_marker.vt-tbar-first { border-top-left-radius: 0; }
 /* agent bars (finding / ask strip) sit right under the navbar — or at the top
    edge when the navbar is hidden on a low window */
-body.vt-frame #vagent_bars { top: max(var(--vt-nav-b, 42px), var(--safe-top, 0px)); }
+body.vt-frame #vagent_bars { top: max(var(--vt-frame-nav-b, 42px), var(--safe-top, 0px)); }
 /* joystick: bottom-right of the map area, always ABOVE the small log
    (placement only — its look belongs to the joystick files) */
 html body.vt-frame:not(.vt-m-sheet) #joy_view {
-    bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 14px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px) + 14px) !important;
 }
 html body.vt-frame.vt-m-sheet #joy_view {
-    bottom: calc(var(--vt-bottom-h, 40px) + 14px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + 14px) !important;
 }
+
+/* ============ U1 kolo 6: small log full-width when the panel leaves it no room */
+html body.vt-frame.vt-log-wide #div_log_view:not(.log-expanded) { left: 4px !important; }
+body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer {
+    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px) + 22px);   /* + the log's expand tab */
+}
+#btn_agent.vagent-btn { position: relative; }
+
+/* ============================== U1 kolo 6: frame polish (labels, states, focus, motion) */
+/* text labels next to the icons in the two bars — on a PC there is room,
+   on a phone the icons stay alone (tooltips / aria-label carry the name) */
+body.vt-frame.vt-m-dock #row_menu .btn[data-label]::after,
+body.vt-frame.vt-m-dock #div_bottom_menu .btn[data-label]:not(#btn_stop_all)::after {
+    content: attr(data-label);
+    margin-left: 7px;
+    font-size: var(--vt-fs-sm);
+    font-weight: 500;
+    letter-spacing: .2px;
+}
+/* toggles in the bottom bar show when their thing is on (vt_frame.js) */
+#div_bottom_menu .btn.vt-on:not(#btn_stop_all) {
+    color: #fff;
+    background: rgba(var(--vt-accent-rgb), 0.24);
+    box-shadow: inset 0 2px 0 var(--vt-accent);
+}
+/* one hover / press feel for both bars */
+#row_menu .btn, #div_bottom_menu .btn { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+#row_menu .btn:active, #div_bottom_menu .btn:active { transform: translateY(1px); }
+/* keyboard focus: one visible ring everywhere in the frame and panels */
+#row_menu .btn:focus-visible, #div_bottom_menu .btn:focus-visible,
+#div_menu :is(a, button, [tabindex]):focus-visible, #vagent_bars :is(button, [role], [tabindex]):focus-visible,
+#ui_drawer :is(button, a, summary, select, input, textarea, [tabindex]):focus-visible,
+#right_panel :is(button, a, input, [tabindex]):focus-visible,
+#div_log_view :is(button, input, select):focus-visible,
+.rp-handle:focus-visible, #ui_drawer_grip:focus-visible {
+    outline: 2px solid var(--vt-accent) !important;
+    outline-offset: 2px;
+    box-shadow: none !important;
+    position: relative;
+    z-index: 3;
+}
+/* the right-panel handle and the drawer slide share one short timing */
+#ui_drawer { transition: transform var(--vt-ease), width var(--vt-ease); }
+/* motion is optional: honour the OS setting */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ===== U1 kolo 6: joystick and the panel never fight =====================
+   phone portrait: with the stick on, the sheet (also "full") ends below a
+   free band for the stick, and the stick sits right above the sheet */
+body.vt-frame.vt-m-sheet.vt-joy-on #ui_drawer.open {
+    max-height: var(--vt-frame-sheet-max, 50dvh) !important;
+}
+body.vt-frame.vt-m-sheet.vt-joy-on #ui_drawer.open.full {
+    top: auto !important;
+    height: var(--vt-frame-sheet-max, 50dvh);
+}
+html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view {
+    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-sheet-h, 0px) + 10px) !important;
+}
+/* landscape phone: a narrower panel leaves the map (and the stick) room */
+body.vt-frame.vt-m-overlay #ui_drawer:not(.full) { width: min(420px, 52vw); }

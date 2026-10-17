@@ -244,7 +244,11 @@
     function isOpen() { return lsGet(LS_OPEN) !== '0'; }
 
     /* jeden řádek jen na telefonu; na desktopu je panel vždy celý */
-    function isCompact() { return window.innerWidth < 576 && lsGet(LS_COMPACT) !== '0'; }
+    // U1 kolo 6: also a landscape phone (low window), where the full panel
+    // would cover most of the map
+    function isCompact() {
+        return (window.innerWidth < 576 || window.innerHeight < 500) && lsGet(LS_COMPACT) !== '0';
+    }
     function applyCompact() {
         if (!panel) { return; }
         var c = isCompact();
@@ -279,6 +283,7 @@
     function place() {
         if (!panel) { return; }
         applyCompact();
+        if (window.innerWidth < 576) { placeLog(); }   // log under icons + notices
         var vw = window.innerWidth, vh = window.innerHeight;
         var joy = rectOf('joy_view');
         var bar = rectOf('div_bottom_menu');
@@ -353,7 +358,8 @@
         /* log nesmí zabíhat pod panel — zkrátí se přesně o jeho šířku */
         document.body.classList.toggle('rp-panel-open', isOpen());
         document.documentElement.style.setProperty('--rp-log-right', (pw + 14) + 'px');
-        document.body.classList.toggle('rp-joy-side', !!joy && isOpen());
+        // U1 kolo 6: a collapsed one-row panel does not push the stick aside
+        document.body.classList.toggle('rp-joy-side', !!joy && isOpen() && !isCompact());
         document.documentElement.style.setProperty('--rp-joy-right', (pw + 14) + 'px');
         if (handle) {                       // úchyt drží hranu vedle panelu
             handle.style.display = '';
@@ -364,23 +370,33 @@
     }
 
     var placeTimer = null;
+    // U1 kolo 6: THROTTLE, not debounce — the status text is rewritten on
+    // every robot status message; a debounce that restarts on each one never
+    // fires while messages keep coming, and the panel stayed over the notice.
     function placeSoon() {
-        if (placeTimer) { clearTimeout(placeTimer); }
-        placeTimer = setTimeout(place, 150);
+        if (placeTimer) { return; }
+        placeTimer = setTimeout(function () { placeTimer = null; place(); }, 60);
     }
 
     /* Malý displej: log patří pod ikonky a přes CELOU šířku (jinak by ho
        panel ořízl). map_view.js mu drží inline margin-top: calc(100vh - …),
        proto se přepisuje pravidlem s !important a offset se počítá tady. */
+    var logWatched = false;   // U1 kolo 6: observers once (placeLog runs on every resize/place)
     function placeLog() {
         var info = document.getElementById('span_status_info');
-        if (info) {
+        if (info && !logWatched) {
+            logWatched = true;
             new MutationObserver(placeSoon).observe(info, {
                 childList: true, characterData: true, subtree: true,
                 attributes: true, attributeFilter: ['style']
             });
             if (window.ResizeObserver) {
                 new ResizeObserver(placeSoon).observe(info);
+                /* U1 kolo 6: the span is INLINE (a ResizeObserver never fires
+                   for it) — watch its notice row, which grows when the text
+                   wraps or when the row's side columns are moved out. */
+                var nrow = info.closest ? info.closest('.row') : null;
+                if (nrow) { new ResizeObserver(placeSoon).observe(nrow); }
             }
         }
         var log = document.getElementById('div_log_view');
@@ -390,6 +406,9 @@
         if (!mobile) { return; }
         var icons = rectOf('status_div');
         var top = icons && icons.bottom > 0 ? icons.bottom + 4 : 76;
+        // U1 kolo 6: and below the notice band — the log must never cover it
+        var nr = infoRowRect();
+        if (nr && nr.bottom + 4 > top) { top = nr.bottom + 4; }
         document.documentElement.style.setProperty('--rp-log-top', Math.round(top) + 'px');
     }
 
@@ -612,6 +631,9 @@
         wireMapName();
 
         window.addEventListener('resize', function () { placeLog(); placeSoon(); });
+        // web fonts / late layout change line heights after the first place()
+        window.addEventListener('load', placeSoon);
+        if (document.fonts && document.fonts.ready) { document.fonts.ready.then(placeSoon); }
         var cam = document.getElementById('div_camera_view');
         if (cam) {
             new MutationObserver(paintCam)
@@ -640,6 +662,11 @@
             });
             if (window.ResizeObserver) {
                 new ResizeObserver(placeSoon).observe(info);
+                /* U1 kolo 6: the span is INLINE (a ResizeObserver never fires
+                   for it) — watch its notice row, which grows when the text
+                   wraps or when the row's side columns are moved out. */
+                var nrow = info.closest ? info.closest('.row') : null;
+                if (nrow) { new ResizeObserver(placeSoon).observe(nrow); }
             }
         }
         var log = document.getElementById('div_log_view');
