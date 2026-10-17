@@ -161,6 +161,20 @@
         return d;
     }
 
+    /* I6: a field item also links to the agent chat and to its issue */
+    function fieldActs(x, p) {
+        var acts = [linkBtn('Open in Support', supportUrl(x.link))];
+        if (window.VTLinks) {
+            acts.push(VTLinks.button('Ask the agent', function () {
+                VTLinks.askAgent('About the Support item' + (x.issue ? ' on issue #' + x.issue : '') +
+                                 ' "' + (p.headline || x.title || '') + '": ');
+            }, 'Opens the agent chat with a draft about this item — you send it'));
+            if (x.issue && window.VTSupport) {
+                acts.push(VTLinks.button('Issue #' + x.issue, function () { VTLinks.openIssue(x.issue); }));
+            }
+        }
+        return acts;
+    }
     function render() {
         var m = model();
         paintBell(m);
@@ -211,7 +225,7 @@
                     { title: KIND[x.kind] || 'Support', end: age(sinceSec(x.since)) },
                     p.headline || x.title || '', p.explain || x.why || '',
                     chips.concat(rec ? [['recommended: ' + (rec.label || '').slice(0, 60), 'ok']] : []),
-                    [linkBtn('Open in Support', supportUrl(x.link))]);
+                    fieldActs(x, p));
             });
             if (!fc.length) { fc = [el('p', 'vt-empty', 'Nothing from Support.')]; }
             if (!m.fieldEntry.ok) {

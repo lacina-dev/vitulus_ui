@@ -334,3 +334,30 @@
 .vt-act-src-agent { background: var(--vt-glow-brand); color: var(--vt-brand); }
 .vt-act-more { align-self: center; min-height: var(--vt-touch); }
 .vt-act[data-state="off"] .vt-act-txt { color: var(--vt-muted); }
+
+/* ------------------------------------- Support + Help (vt_support.js, I3/I4) */
+.vt-support-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.vt-support-btn.vt-on { color: #fff; background: rgba(var(--vt-accent-rgb), 0.24); border-color: var(--vt-accent); }
+.vt-support-pane { padding-bottom: var(--vt-gap-3); }
+.vt-help-btn {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; margin: 0 2px 0 6px; padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--vt-r-ctl);
+    background: transparent; color: var(--vt-muted); cursor: pointer;
+    font: 700 var(--vt-fs-md)/1 var(--vt-font-head);
+}
+.vt-help-btn:hover { border-color: var(--vt-accent); color: var(--vt-text); }
+/* phone: the navbar has room for the bell only; Help is a tab of Support */
+@media (max-width: 575.98px) { .vt-help-btn { display: none; } }
+.vt-help-p { margin: 0 0 var(--vt-gap-2); font-size: var(--vt-fs); line-height: var(--vt-lh); color: var(--vt-text); }
+.vt-help-sec > summary .vt-needs-gt { font-weight: 600; }
+
+/* -------------------------------------------------- I6 links (vt_links.js) */
+.vt-act-link { cursor: pointer; }
+.vt-act-link:hover .vt-act-txt, .vt-act-link:focus-visible .vt-act-txt { color: var(--vt-accent); }
+.vt-act-link:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; border-radius: var(--vt-r-tag); }
+.vt-act-issue[hidden] { display: none; }
+.vt-act-issue .vt-iconbtn { width: 30px; min-width: 30px; height: 30px; min-height: 30px; font-size: 14px; }
+@keyframes vt-hl { 0% { box-shadow: 0 0 0 2px var(--vt-accent), 0 0 18px rgba(var(--vt-accent-rgb), .55); } 100% { box-shadow: inset 0 1px 0 var(--vt-st-edge); } }
+.vt-hl { animation: vt-hl 1.8s ease-out 1; }
+@media (prefers-reduced-motion: reduce) { .vt-hl { animation: none; outline: 2px solid var(--vt-accent); } }

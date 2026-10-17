@@ -194,6 +194,19 @@ The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
   `/field/api/activity/current`) and the agent's jobs and findings
   (`/agent/api/v2/jobs`), filters All / Agent / Support / Problems. Read only.
 
+* **Support + Help** (`assets/js/vt_support.js`) — the last button of the
+  menu band opens Support: Issues (open issues, stage of the fix loop, whose
+  turn), Releases (kit version, what waits for a retest), Signal (both robots,
+  phone notifications) and Help; on a PC "?" in the navbar opens Help for the
+  panel that is open. Read only (`/field/api/issues`, `/field/api/home`),
+  polled only while the panel is open. **The help text lives in
+  `vt_support.js` (`HELP`) — update it with every UI change.**
+
+* **Links agent ↔ field** (`assets/js/vt_links.js`) — "Ask the agent"
+  on issue and Needs-you cards puts a draft into the agent chat (never sends
+  it), "Timeline" shows Agent › Activity for one issue, Activity rows open the
+  issue / finding / job they are about. Read only.
+
 Plan for one UI with the field dashboard and the agent:
 `docs/UI_INTEGRATION_PLAN.md`.
 

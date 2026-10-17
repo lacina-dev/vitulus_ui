@@ -15,7 +15,7 @@
     var LS_FILTER = 'vitulus_activity_filter';
     var PAGE = 60;
     var root = null, listEl = null, nowEl = null, pillsEl = null, moreEl = null;
-    var filter = 'all', shown = PAGE, started = false;
+    var filter = 'all', shown = PAGE, started = false, issueOnly = null, issueChip = null;
 
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
@@ -40,7 +40,8 @@
     var FIELD_SRC = { tick: 'watcher', runner: 'runner', dash: 'dashboard', restart: 'restart',
                       kit: 'kit', fleet: 'fleet', agent: 'field agent' };
     function fieldRows() {
-        var e = window.VTHub && VTHub.get('field.activity');
+        /* one issue: its own query over 7 days (the dashboard filters) */
+        var e = window.VTHub && VTHub.get(issueOnly ? 'field.issueact:' + issueOnly : 'field.activity');
         var ev = (e && e.data && e.data.events) || [];
         return ev.map(function (x) {
             var t = Date.parse(x.ts);
@@ -48,6 +49,7 @@
                      state: x.level === 'error' ? 'err' : (x.level === 'warn' ? 'warn' : 'off'),
                      text: x.text_en || x.text || x.kind || '',
                      src: FIELD_SRC[x.source] || x.source || 'support',
+                     issue: x.issue || null,
                      key: 'f:' + (x.ts || '') + ':' + (x.kind || '') + ':' + (x.action_id || '') };
         });
     }
@@ -63,20 +65,21 @@
                            state: j.kind === 'finding' ? 'warn' : 'info',
                            busy: j.state === 'running',
                            text: (j.kind === 'finding' ? '' : 'Started · ') + what,
-                           src: j.origin || 'agent', key: 'a:' + j.id + ':c' });
+                           src: j.origin || 'agent', key: 'a:' + j.id + ':c', job: j.id, kind: j.kind });
             }
             if (j.finished) {
                 var st = JOB_DONE[j.state] || 'off';
                 var how = j.outcome ? j.outcome : j.state;
                 out.push({ t: j.finished * 1000, side: 'agent', state: st,
                            text: 'Closed (' + how + ') · ' + what + (j.error ? ' — ' + j.error : ''),
-                           src: j.origin || 'agent', key: 'a:' + j.id + ':f' });
+                           src: j.origin || 'agent', key: 'a:' + j.id + ':f', job: j.id, kind: j.kind });
             }
         });
         return out;
     }
     function rows() {
         var all = fieldRows().concat(agentRows());
+        if (issueOnly) { all = all.filter(function (r) { return r.side === 'field'; }); }
         if (filter === 'agent') { all = all.filter(function (r) { return r.side === 'agent'; }); }
         else if (filter === 'field') { all = all.filter(function (r) { return r.side === 'field'; }); }
         else if (filter === 'problems') { all = all.filter(function (r) { return r.state === 'err' || r.state === 'warn'; }); }
@@ -104,7 +107,7 @@
     }
     function renderList() {
         if (!listEl) { return; }
-        var fe = window.VTHub && VTHub.get('field.activity'), ae = window.VTHub && VTHub.get('agent.jobs');
+        var fe = window.VTHub && VTHub.get(issueOnly ? 'field.issueact:' + issueOnly : 'field.activity'), ae = window.VTHub && VTHub.get('agent.jobs');
         var all = rows();
         listEl.textContent = '';
         if (!fe && !ae) {
@@ -113,7 +116,8 @@
             return;
         }
         if (!all.length) {
-            listEl.appendChild(el('p', 'vt-empty', filter === 'problems' ? 'No problems in the last 24 h.' : 'Nothing happened yet.'));
+            listEl.appendChild(el('p', 'vt-empty', issueOnly ? ('Nothing about issue #' + issueOnly + ' in the last 7 days.')
+                : (filter === 'problems' ? 'No problems in the last 24 h.' : 'Nothing happened yet.')));
         }
         var lastDay = null;
         var ul = null;
@@ -132,6 +136,16 @@
             var t = el('span', 'vt-act-txt', r.text);
             t.title = r.text;
             li.appendChild(t);
+            if (r.issue) { t.textContent = '#' + r.issue + ' · ' + r.text; }
+            /* I6: a row opens what it is about (read only) */
+            var go = rowLink(r);
+            if (go) {
+                li.classList.add('vt-act-link');
+                li.tabIndex = 0;
+                li.setAttribute('role', 'button');
+                li.addEventListener('click', go);
+                li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+            }
             var meta = el('span', 'vt-act-time');
             meta.appendChild(el('span', 'vt-act-src vt-act-src-' + r.side, r.side === 'agent' ? 'agent' : r.src));
             meta.appendChild(document.createTextNode(' ' + hhmm(r.t)));
@@ -143,6 +157,17 @@
         if (fe && !fe.ok) { errs.push('Support: ' + fe.err); }
         if (ae && !ae.ok) { errs.push('agent: ' + ae.err); }
         if (errs.length) { listEl.insertBefore(el('p', 'vt-empty', 'Not reachable — ' + errs.join(' · ')), listEl.firstChild); }
+    }
+    function rowLink(r) {
+        if (!window.VTLinks) { return null; }
+        if (r.side === 'agent' && r.job) { return function () { VTLinks.openAgentJob(r.job, r.kind); }; }
+        if (r.side === 'field' && r.issue && window.VTSupport) { return function () { VTLinks.openIssue(r.issue); }; }
+        return null;
+    }
+    function paintIssue() {
+        if (!issueChip) { return; }
+        issueChip.hidden = !issueOnly;
+        issueChip.firstChild.textContent = issueOnly ? 'Issue #' + issueOnly + ' only' : '';
     }
     function paintPills() {
         Array.prototype.forEach.call(pillsEl.children, function (b) {
@@ -168,6 +193,15 @@
             pillsEl.appendChild(b);
         });
         root.appendChild(pillsEl);
+        issueChip = el('div', 'vt-attn vt-act-issue');
+        issueChip.setAttribute('data-state', 'info');
+        issueChip.appendChild(el('span', 'vt-attn-txt', ''));
+        var x = el('button', 'vt-iconbtn', '✕');
+        x.type = 'button'; x.title = 'Show everything again'; x.setAttribute('aria-label', 'Clear the issue filter');
+        x.addEventListener('click', function () { setIssue(null); });
+        issueChip.appendChild(x);
+        issueChip.hidden = true;
+        root.appendChild(issueChip);
         listEl = el('div', 'vt-act-list');
         root.appendChild(listEl);
         moreEl = el('button', 'btn btn-outline-info vt-act-more', 'Show more');
@@ -204,6 +238,28 @@
         });
         setInterval(function () { if (root && root.offsetParent) { renderList(); } }, 60000);  // day labels
     }
+    var issueKey = null, subscribed = {};
+    function setIssue(n) {
+        issueOnly = n ? String(n).replace(/\D/g, '') || null : null;
+        filter = 'all'; shown = PAGE;
+        if (pillsEl) { paintPills(); }
+        paintIssue();
+        if (!started) { start(); }
+        if (window.VTHub) {
+            if (issueKey) { VTHub.stop(issueKey); }
+            issueKey = issueOnly ? 'field.issueact:' + issueOnly : null;   // one key per issue: never a stale list
+            if (issueKey) {
+                if (!subscribed[issueKey]) {
+                    subscribed[issueKey] = true;
+                    var k = issueKey;
+                    VTHub.on(k, function () { if (issueKey === k) { renderList(); } });
+                }
+                VTHub.poll(issueKey, '/field/api/activity?issue=' + issueOnly + '&hours=168&limit=200', 60000);
+            }
+        }
+        renderList();
+    }
+    window.VTActivity = { filterIssue: setIssue };
     var registered = false;
     function tryRegister() {
         if (registered) { return true; }
