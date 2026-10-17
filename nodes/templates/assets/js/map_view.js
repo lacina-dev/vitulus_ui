@@ -507,6 +507,27 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
 // U1 kolo 2: a switch/record group reports its state as a soft tint of its
 // card (vt_panel.css [data-state]) instead of an inline coloured border.
 // st: 'ok' | 'warn' | 'err' | 'off'.
+// last-run text of a program -> card state
+function vtResultState(t) {
+    t = String(t || '');
+    if (!t) return 'off';
+    if (/succe|done|finish|complet|^ok/i.test(t)) return 'ok';
+    if (/fail|abort|error|crash|timeout/i.test(t)) return 'err';
+    if (/stop|cancel|preempt|pause|interrupt/i.test(t)) return 'warn';
+    return 'info';
+}
+function vtEsc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+}
+// colour of a status text without inline style: 'ok' | 'warn' | 'err' | 'info' | 'muted' | ''
+function vtTone(el, tone) {
+    if (!el) return;
+    el.style.removeProperty('color');
+    ['ok', 'warn', 'err', 'info', 'muted'].forEach(function (t) { el.classList.remove('vt-tone-' + t); });
+    if (tone) el.classList.add('vt-tone-' + tone);
+}
 function vtSetState(el, st) {
     if (!el) return;
     el.style.removeProperty('border');
@@ -516,23 +537,20 @@ function vtSetState(el, st) {
 }
 
 class PathListItemTemplate {
+    // U1 kolo 3: one list-row look (vt_panel.css .vt-item), no inline styles
     constructor(item) {
         this.name = item;
         this.element =  `
-            <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
-                <div class="input-group input-group-sm">
-                    <button onclick="map_menu.path_clicked_exec('${this.name}')" class="btn btn-primary" type="button" style="width: 42px;">
-                        <i class="fa fa-arrow-circle-right text-info"></i>
-                    </button>
-                    <span class="text-info input-group-text" style="padding-left: 5px;width: 143.1562px;padding-right: 5px;font-size: 13px;">
-                        ${this.name}
-                    </span>
-                    <button onclick="map_menu.add_path_point('${this.name}')" class="btn btn-primary" type="button">Add</button>
-                    <button onclick="map_menu.path_clicked_show('${this.name}')" class="btn btn-primary" type="button">Show</button>
-                    <button onclick="map_menu.show_modal_remove_path('${this.name}')" class="btn btn-primary" type="button" style="width: 40px;">
-                        <i class="fa fa-remove text-danger"></i>
-                    </button>
-                </div>
+            <div class="vt-item">
+                <button onclick="map_menu.path_clicked_exec('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="Drive this path">
+                    <i class="fa fa-arrow-circle-right text-info"></i>
+                </button>
+                <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
+                <button onclick="map_menu.add_path_point('${this.name}')" class="btn btn-primary" type="button">Add</button>
+                <button onclick="map_menu.path_clicked_show('${this.name}')" class="btn btn-primary" type="button">Show</button>
+                <button onclick="map_menu.show_modal_remove_path('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="Remove">
+                    <i class="fa fa-remove text-danger"></i>
+                </button>
             </div>
             `;
     }
@@ -540,6 +558,7 @@ class PathListItemTemplate {
 
 
 class ProgramZoneItemTemplate {
+    // U1 kolo 3: zone of a program = small card with a key/value list
     constructor(zone) {
         this.zone = zone;
         this.name = zone.name;
@@ -552,74 +571,21 @@ class ProgramZoneItemTemplate {
         this.border_paths = zone.border_paths;
         this.paths = zone.paths.length;
         this.element =  `
-            <div class="col-auto" style="margin-top: 4px;">
-                <div style="background: #37434d;padding: 5px;border-radius: 4px;padding-left: 8px;padding-right: 8px;">
-                    <div class="row" style="padding-left: 7px;padding-right: 7px;">
-                        <div class="col-auto" style="padding-left: 5px;padding-right: 2px;">
-                            <div class="d-flex align-items-center"><i class="fa fa-remove text-danger" title="Remove zone from program" style="cursor: pointer;margin-right: 6px;" onclick="programs.removeZoneFromProgram('${this.name}')"></i><span class="text-info" style="display: block;color: var(--bs-gray-500);font-size: 14px;padding-right: 6px;">
-                                    ${this.name}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                    Cut height: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.cut_height}
-                                </span><span class="text-light" style="display: block;font-size: 14px;"> cm</span>
-                            </div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                RPM: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.rpm}
-                                </span></div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                Coverage angle: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.coverage_angle}
-                                </span><span class="text-light" style="display: block;font-size: 14px;">°</span></div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                Path distance: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.paths_distance}
-                                </span><span class="text-light" style="display: block;font-size: 14px;"> m</span></div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                Area: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.area}
-                                </span><span class="text-light" style="display: block;font-size: 14px;"> m</span><span class="text-light" style="display: block;font-size: 9px;"> 2</span></div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                Length: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.length}
-                                </span><span class="text-light" style="display: block;font-size: 14px;"> m</span></div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                Borders: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.border_paths}
-                                </span></div>
-                        </div>
-                        <div class="col-auto" style="padding-right: 2px;padding-left: 5px;">
-                            <div class="d-flex align-items-center"><span class="text-secondary" style="display: block;font-size: 14px;">
-                                Paths: 
-                                </span><span class="text-light" style="display: block;font-size: 14px;">
-                                ${this.paths}
-                                </span></div>
-                        </div>
-                    </div>
+            <div class="vt-card vt-zone-card">
+                <div class="vt-card-head">
+                    <span class="vt-card-title">${vtEsc(this.name)}</span>
+                    <button class="vt-iconbtn vt-iconbtn-sm vt-zone-del" type="button" title="Remove zone from program" onclick="programs.removeZoneFromProgram('${this.name}')"><i class="fa fa-remove text-danger"></i></button>
                 </div>
+                <dl class="vt-kv vt-kv-2">
+                    <dt>Cut height</dt><dd>${this.cut_height} cm</dd>
+                    <dt>RPM</dt><dd>${this.rpm}</dd>
+                    <dt>Coverage angle</dt><dd>${this.coverage_angle}°</dd>
+                    <dt>Path distance</dt><dd>${this.paths_distance} m</dd>
+                    <dt>Area</dt><dd>${this.area} m²</dd>
+                    <dt>Length</dt><dd>${this.length} m</dd>
+                    <dt>Borders</dt><dd>${this.border_paths}</dd>
+                    <dt>Paths</dt><dd>${this.paths}</dd>
+                </dl>
             </div>
             `;
     }
@@ -627,27 +593,22 @@ class ProgramZoneItemTemplate {
 
 
 class ProgramListItemTemplate {
+    // U1 kolo 3: a program is a card tinted by its LAST RUN (ok / stopped /
+    // failed / never run) — the click opens its detail, as before.
     constructor(item, id) {
         this.program = id;
         this.name = item.name;
         this.length = item.length;
         this.area = item.area;
         this.last_duration = item.last_duration_minutes;
+        this.last_result = item.last_result || '';
+        const st = vtResultState(this.last_result);
+        const res = vtEsc(this.last_result || 'never run');
         this.element =  `
-            <div class="col-auto prog-row-fluid" style="overflow: hidden;margin-bottom: 3px;">
-                <div class="input-group input-group-sm">
-                    <button onclick="programs.show_program(${this.program})" class="btn btn-primary" type="button" style="width: 42px;">
-                        <i class="fa fa-arrow-circle-right text-info"></i>
-                    </button>
-                    <span class="text-info input-group-text prog-name" style="padding-left: 5px;padding-right: 5px;font-size: 13px;">
-                        <span class="text-info" style="font-size: 13px;">
-                            ${this.name} ${this.area}
-                        </span>
-                        <span class="text-info" style="font-size: 13px;padding-left: 3px;">m</span>
-                        <span class="text-info" style="font-size: 9px;">2</span>
-                    </span>
-                </div>
-            </div>
+            <button onclick="programs.show_program(${this.program})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="Open program">
+                <span class="vt-prog-name">${vtEsc(this.name)}</span>
+                <span class="vt-prog-meta">${this.area} m² · ${this.last_duration || 0} min · <span class="vt-prog-res">${res}</span></span>
+            </button>
             `;
     }
 }
@@ -732,22 +693,19 @@ class ItemList {
 }
 
 class PointListItemTemplate {
+    // U1 kolo 3: one list-row look (vt_panel.css .vt-item), no inline styles
     constructor(item) {
         this.name = item;
         this.element =  `
-            <div class="col-auto" style="overflow: hidden;margin-bottom: 3px;">
-                <div class="input-group input-group-sm">
-                    <button onclick="map_menu.point_clicked_goal('${this.name}')" class="btn btn-primary" type="button" style="width: 42px;">
-                        <i class="fa fa-map-marker text-info"></i>
-                    </button>
-                    <span class="text-info input-group-text" style="padding-left: 5px;width: 185.9219px;padding-right: 5px;font-size: 13px;">
-                        ${this.name}
-                    </span>
-                    <button onclick="map_menu.point_clicked_show('${this.name}')" class="btn btn-primary" type="button">Show</button>
-                    <button onclick="map_menu.show_modal_remove_point('${this.name}')" class="btn btn-primary" type="button" style="width: 40px;">
-                        <i class="fa fa-remove text-danger"></i>
-                    </button>
-                </div>
+            <div class="vt-item">
+                <button onclick="map_menu.point_clicked_goal('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="Go to this point">
+                    <i class="fa fa-map-marker text-info"></i>
+                </button>
+                <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
+                <button onclick="map_menu.point_clicked_show('${this.name}')" class="btn btn-primary" type="button">Show</button>
+                <button onclick="map_menu.show_modal_remove_point('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="Remove">
+                    <i class="fa fa-remove text-danger"></i>
+                </button>
             </div>
             `;
     }
@@ -6140,7 +6098,7 @@ class Programs {
         if (!c) return;
         var zones = (this.selected_program && this.selected_program.zone_list) || [];
         if (!zones.length) {
-            c.innerHTML = '<div class="col-auto"><span class="text-secondary" style="font-size:12px;">No zones — add one below.</span></div>';
+            c.innerHTML = '<div class="vt-empty">No zones — add one above.</div>';
             return;
         }
         var html = '';
@@ -6176,6 +6134,7 @@ class Programs {
         this._editing_new = true;
         this.map_menu.div_menu_program_detail_row.style.display = 'flex';
         this.map_menu.span_menu_program_name.innerText = '(new program)';
+        this.map_menu.div_menu_program_detail_row.dataset.state = 'off';
         if (this.map_menu.inp_program_name) { this.map_menu.inp_program_name.value = ''; this.map_menu.inp_program_name.focus(); }
         this.map_menu.span_menu_program_area.innerText = '0';
         this.map_menu.span_menu_program_length.innerText = '0';
@@ -6335,7 +6294,8 @@ class Programs {
         const map_env = program.map_name.split('***env*')[1];
         this.map_menu.span_menu_program_env.innerText = map_env || '—';
         this.map_menu.span_menu_program_map.innerText = map_name;
-        this.map_menu.span_menu_program_last_result.innerText = program.last_result;
+        this.map_menu.span_menu_program_last_result.innerText = program.last_result || 'never run';
+        this.map_menu.div_menu_program_detail_row.dataset.state = vtResultState(program.last_result);
         this.map_menu.inp_program_rpm.value = program.rpm !== undefined ? program.rpm : 0;
         this.map_menu.inp_program_cut_height.value = program.cut_height !== undefined ? program.cut_height : 0;
         this._setSpeedButtons(program.speed || 'mid');

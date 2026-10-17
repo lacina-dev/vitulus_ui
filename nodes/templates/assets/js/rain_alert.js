@@ -14,9 +14,9 @@ class RainAlert {
         this.hostname = location.hostname;
         
         // Setup placeholder text
-        this.rain_map_div.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="bi bi-cloud" style="font-size: 2rem;"></i><p>Waiting for map image...</p></div>';
-        this.rain_forecast_div.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="bi bi-cloud-sun" style="font-size: 2rem;"></i><p>Waiting for forecast image...</p></div>';
-        this.rain_div_report.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="bi bi-info-circle" style="font-size: 2rem;"></i><p>Waiting for weather alerts...</p></div>';
+        this.rain_map_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud"></i><p>Waiting for map image...</p></div>';
+        this.rain_forecast_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-sun"></i><p>Waiting for forecast image...</p></div>';
+        this.rain_div_report.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-info-circle"></i><p>Waiting for weather alerts...</p></div>';
         
         // Subscribe to rain alert topic
         this.rain_alert_topic = new ROSLIB.Topic({
@@ -58,10 +58,7 @@ class RainAlert {
         const buildImg = (topic, container_w) => {
             const img = new Image();
             img.src = `http://${this.hostname}:8080/snapshot?topic=${topic}&t=${timestamp}`;
-            img.style.maxWidth = '100%';
-            img.style.height = 'auto';
-            img.style.display = 'block';
-            img.style.cursor = 'zoom-in';
+            img.className = 'vt-img vt-img-zoom';   // U1: vt_panel.css
             img.title = 'Click to enlarge';
             img.addEventListener('click', () => this.openImageModal(topic));
             return img;
@@ -77,14 +74,12 @@ class RainAlert {
         mapImg.onload = () => {
             this.rain_map_div.innerHTML = '';
             const container = document.createElement('div');
-            container.style.width = PANEL_WIDTH;
-            container.style.maxWidth = '100%';
-            container.style.margin = '0 auto';
+            container.className = 'vt-img-frame';   // same width for NOW and forecast
             container.appendChild(mapImg);
             this.rain_map_div.appendChild(container);
         };
         mapImg.onerror = () => {
-            this.rain_map_div.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="bi bi-cloud-slash" style="font-size: 2rem;"></i><p>Map image unavailable</p></div>';
+            this.rain_map_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-slash"></i><p>Map image unavailable</p></div>';
         };
 
         // Forecast image (2×2 grid, same pixel size as map)
@@ -92,14 +87,12 @@ class RainAlert {
         forecastImg.onload = () => {
             this.rain_forecast_div.innerHTML = '';
             const container = document.createElement('div');
-            container.style.width = PANEL_WIDTH;
-            container.style.maxWidth = '100%';
-            container.style.margin = '0 auto';
+            container.className = 'vt-img-frame';   // same width for NOW and forecast
             container.appendChild(forecastImg);
             this.rain_forecast_div.appendChild(container);
         };
         forecastImg.onerror = () => {
-            this.rain_forecast_div.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="bi bi-cloud-slash" style="font-size: 2rem;"></i><p>Forecast image unavailable</p></div>';
+            this.rain_forecast_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-slash"></i><p>Forecast image unavailable</p></div>';
         };
     }
 
@@ -110,13 +103,7 @@ class RainAlert {
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'rain-img-modal';
-            Object.assign(modal.style, {
-                position: 'fixed', top: '0', left: '0',
-                width: '100vw', height: '100vh',
-                background: 'rgba(0,0,0,0.85)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                zIndex: '10000', cursor: 'zoom-out',
-            });
+            modal.className = 'vt-lightbox';
             modal.addEventListener('click', () => { modal.style.display = 'none'; });
             document.body.appendChild(modal);
         }
@@ -124,11 +111,7 @@ class RainAlert {
         const ts = new Date().getTime();
         const big = new Image();
         big.src = `http://${this.hostname}:8080/snapshot?topic=${topic}&t=${ts}`;
-        Object.assign(big.style, {
-            maxWidth: '95vw', maxHeight: '95vh',
-            objectFit: 'contain', boxShadow: '0 0 20px #000',
-            imageRendering: 'pixelated',
-        });
+        big.className = 'vt-lightbox-img';
         modal.appendChild(big);
         modal.style.display = 'flex';
     }

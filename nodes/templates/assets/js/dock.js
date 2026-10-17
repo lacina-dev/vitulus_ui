@@ -336,9 +336,9 @@ class Dock {
     handleIsInDockConfirmed(message) {
         if (this.dock_icon_in_dock) {
             if (message.data) {
-                this.dock_icon_in_dock.style.color = 'var(--bs-success)';
+                vtTone(this.dock_icon_in_dock, 'ok');
             } else {
-                this.dock_icon_in_dock.style.color = 'var(--bs-secondary)';
+                vtTone(this.dock_icon_in_dock, 'muted');
             }
         }
     }
@@ -351,27 +351,27 @@ class Dock {
         let badgeText, badgeColor;
         if (!s.docked) {
             badgeText = '—';
-            badgeColor = 'gray';
+            badgeColor = 'muted';
         } else if (s.last_seed_unconfirmed) {
             badgeText = 'seeded (UNCONFIRMED)';
-            badgeColor = 'orange';
+            badgeColor = 'warn';
         } else if (s.seeded_this_episode) {
             badgeText = 'seeded ✓';
-            badgeColor = 'green';
+            badgeColor = 'ok';
         } else {
             badgeText = 'waiting';
-            badgeColor = 'gray';
+            badgeColor = 'muted';
         }
 
         let seedHtml = `
         <div>
-            <span>Seed: <span style="color:${badgeColor};font-weight:bold;">${badgeText}</span></span>
+            <span>Seed: <span class="vt-strong vt-tone-${badgeColor}">${badgeText}</span></span>
         </div>
         `;
         if (s.docked_waypoint_present === false) {
             seedHtml += `
         <div>
-            <span style="color:red;">docked waypoint MISSING</span>
+            <span class="vt-tone-err">docked waypoint MISSING</span>
         </div>
             `;
         }
@@ -404,17 +404,10 @@ class Dock {
             
             const statusElement = document.createElement('div');
             statusElement.id = `mjpeg-status-${topic.replace(/\//g, '-')}`;
-            statusElement.style.position = 'absolute';
-            statusElement.style.bottom = '10px';
-            statusElement.style.right = '10px';
-            statusElement.style.background = 'rgba(0,0,0,0.5)';
-            statusElement.style.color = 'white';
-            statusElement.style.padding = '5px 10px';
-            statusElement.style.borderRadius = '3px';
-            statusElement.style.fontSize = '12px';
+            statusElement.className = 'vt-overlay-badge';   // U1: look in vt_panel.css, state via data-state
             statusElement.textContent = 'Connecting...';
             
-            divElement.style.position = 'relative';
+            divElement.classList.add('vt-overlay-host');
             divElement.appendChild(statusElement);
             
             let viewer = null;
@@ -431,12 +424,12 @@ class Dock {
                     onLoad: () => {
                         DockLogger.debug(`MJPEG viewer connected for ${topic}`);
                         statusElement.textContent = 'Connected';
-                        statusElement.style.background = 'rgba(0,128,0,0.5)';
+                        statusElement.dataset.state = 'ok';
                     },
                     onError: (error) => {
                         DockLogger.error(`MJPEG viewer error for ${topic}:`, error);
                         statusElement.textContent = 'Connection Error';
-                        statusElement.style.background = 'rgba(255,0,0,0.5)';
+                        statusElement.dataset.state = 'err';
                     }
                 });
                 
@@ -444,7 +437,7 @@ class Dock {
                 const observer = new MutationObserver((mutations) => {
                     mutations.forEach(() => {
                         statusElement.textContent = 'Receiving';
-                        statusElement.style.background = 'rgba(0,128,0,0.5)';
+                        statusElement.dataset.state = 'ok';
                         
                         // Update last image time
                         viewer.lastImageTime = Date.now();
@@ -465,7 +458,7 @@ class Dock {
                 intervalId = setInterval(() => {
                     if (viewer && viewer.lastImageTime && Date.now() - viewer.lastImageTime > 5000) {
                         statusElement.textContent = 'No updates';
-                        statusElement.style.background = 'rgba(255,165,0,0.5)';
+                        statusElement.dataset.state = 'warn';
                     }
                 }, 1000);
                 
@@ -478,7 +471,7 @@ class Dock {
             } catch (e) {
                 DockLogger.error(`Failed to create MJPEG viewer for ${topic}:`, e);
                 statusElement.textContent = 'Setup Error';
-                statusElement.style.background = 'rgba(255,0,0,0.5)';
+                statusElement.dataset.state = 'err';
                 
                 // Clear interval if it was created
                 if (intervalId) {
@@ -584,7 +577,6 @@ class Dock {
             if (this.dock_intensity_image_div && this.dockIntensityEnabled
                     && this.dock_intensity_image_div.style.display !== 'block') {
                 this.dock_intensity_image_div.style.display = 'block';
-                this.dock_intensity_image_div.style.marginTop = '10px';
             }
         }
     }
@@ -615,7 +607,7 @@ class Dock {
                     <span>(${message.nav_progress.toFixed(1)}%)</span>
                     <span>Distance: ${message.distance_to_goal.toFixed(2)} m</span>
                     <span>Est. time: ${message.estimated_time.toFixed(1)}s</span>
-                    ${message.nav_error ? `<span style="color: red">Error: ${message.nav_error}</span>` : ''}
+                    ${message.nav_error ? `<span class="vt-tone-err">Error: ${message.nav_error}</span>` : ''}
                 </div>
             </div>
         `;
@@ -637,7 +629,6 @@ class Dock {
             if (this.dock_map_image_div && this.dockMapEnabled
                     && this.dock_map_image_div.style.display !== 'block') {
                 this.dock_map_image_div.style.display = 'block';
-                this.dock_map_image_div.style.marginTop = '10px';
             }
         }
     }
@@ -653,7 +644,7 @@ class Dock {
                     // console.log("Dock map enabled, showing map and markers");
                     this.showDockMapAndMarkers();
                 }
-                this.dock_label_enable_by_map.style.color = 'green';
+                vtTone(this.dock_label_enable_by_map, 'ok');
                 this.dock_label_enable_by_map.textContent = 'Dock Map Enabled';
                 this.dock_check_enable_by_map.checked = true;
                 this.dockMapEnabled = true;
@@ -671,7 +662,7 @@ class Dock {
                     // console.log("Dock map disabled, hiding map and markers");
                     this.hideDockMapAndMarkers();
                 }
-                this.dock_label_enable_by_map.style.color = 'gray';
+                vtTone(this.dock_label_enable_by_map, 'muted');
                 this.dock_label_enable_by_map.textContent = 'Dock Map Disabled';
                 this.dock_check_enable_by_map.checked = false;
                 this.dockMapEnabled = false;
@@ -698,7 +689,7 @@ class Dock {
                     // console.log("Dock intensity enabled, showing intensity markers");
                     this.showDockIntensityMarkers();
                 }
-                this.dock_label_enable_by_intensity.style.color = 'green';
+                vtTone(this.dock_label_enable_by_intensity, 'ok');
                 this.dock_label_enable_by_intensity.textContent = 'Dock Intensity Enabled';
                 this.dock_check_enable_by_intensity.checked = true;
                 this.dockIntensityEnabled = true;
@@ -716,7 +707,7 @@ class Dock {
                     // console.log("Dock intensity disabled, hiding intensity markers");
                     this.hideDockIntensityMarkers();
                 }
-                this.dock_label_enable_by_intensity.style.color = 'gray';
+                vtTone(this.dock_label_enable_by_intensity, 'muted');
                 this.dock_label_enable_by_intensity.textContent = 'Dock Intensity Disabled';
                 this.dock_check_enable_by_intensity.checked = false;
                 this.dockIntensityEnabled = false;
@@ -1164,7 +1155,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_dock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span style="color: #5bc0de;">Dock program started</span>';
+                    statusDiv.innerHTML = '<span class="vt-tone-info">Dock program started</span>';
                 }
             });
         }
@@ -1207,7 +1198,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_dock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span style="color: #28a745;">Dock program saved</span>';
+                    statusDiv.innerHTML = '<span class="vt-tone-ok">Dock program saved</span>';
                 }
             });
         }
@@ -1248,7 +1239,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_predock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span style="color: #5bc0de;">Undock program started</span>';
+                    statusDiv.innerHTML = '<span class="vt-tone-info">Undock program started</span>';
                 }
             });
         }
@@ -1291,7 +1282,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_predock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span style="color: #28a745;">Undock program saved</span>';
+                    statusDiv.innerHTML = '<span class="vt-tone-ok">Undock program saved</span>';
                 }
             });
         }
@@ -1327,7 +1318,7 @@ class Dock {
                 this.dockProgramPublisher.publish(dockProgramMsg);
                 const statusDiv = document.getElementById('program_dock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span style="color: #5bc0de;">Dock program started via menu</span>';
+                    statusDiv.innerHTML = '<span class="vt-tone-info">Dock program started via menu</span>';
                 }
             });
         }
@@ -1362,7 +1353,7 @@ class Dock {
                 this.dockProgramPublisher.publish(undockProgramMsg);
                 const statusDiv = document.getElementById('program_predock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span style="color: #5bc0de;">Undock program started via menu</span>';
+                    statusDiv.innerHTML = '<span class="vt-tone-info">Undock program started via menu</span>';
                 }
             });
         }
@@ -1377,11 +1368,11 @@ class Dock {
                 // Optionally, update a status somewhere
                 const dockStatusDiv = document.getElementById('program_dock_div_status');
                 if (dockStatusDiv) {
-                    dockStatusDiv.innerHTML = '<span style="color: #d9534f;">Stop signal sent via menu</span>';
+                    dockStatusDiv.innerHTML = '<span class="vt-tone-err">Stop signal sent via menu</span>';
                 }
                 const undockStatusDiv = document.getElementById('program_predock_div_status');
                 if (undockStatusDiv) {
-                    undockStatusDiv.innerHTML = '<span style="color: #d9534f;">Stop signal sent via menu</span>';
+                    undockStatusDiv.innerHTML = '<span class="vt-tone-err">Stop signal sent via menu</span>';
                 }
             });
         }
@@ -1408,7 +1399,7 @@ class Dock {
         const statusElement = document.getElementById('dock-point-status');
         if (statusElement) {
             statusElement.textContent = `Navigating to ${pointName} point`;
-            statusElement.style.color = 'blue';
+            vtTone(statusElement, 'info');
             setTimeout(() => {
                 statusElement.textContent = '';
             }, 5000);
@@ -1431,7 +1422,7 @@ class Dock {
         const statusElement = document.getElementById('dock-point-status');
         if (statusElement) {
             statusElement.textContent = `${pointName} point set at current robot position`;
-            statusElement.style.color = 'green';
+            vtTone(statusElement, 'ok');
             setTimeout(() => {
                 statusElement.textContent = '';
             }, 5000);
@@ -1547,7 +1538,7 @@ class Dock {
         if (statusDiv) {
             statusDiv.innerHTML = '';
             const span = document.createElement('span');
-            span.style.color = '#d9534f';
+            span.className = 'vt-tone-err';
             span.textContent = text;
             statusDiv.appendChild(span);
         }

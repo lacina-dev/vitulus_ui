@@ -42,9 +42,9 @@ class Gloc {
         });
         this.status_subscriber.subscribe((m) => {
             this.el_status.textContent = m.data;
-            this.el_status.style.color =
-                m.data.startsWith('error') || m.data.startsWith('apply refused') ? '#ff6b6b' :
-                m.data.startsWith('APPLIED') ? '#ffd43b' : '';
+            vtTone(this.el_status,
+                m.data.startsWith('error') || m.data.startsWith('apply refused') ? 'err' :
+                m.data.startsWith('APPLIED') ? 'warn' : '');
         });
 
         // rosbridge delivers CompressedImage.data as base64 already
@@ -99,7 +99,7 @@ class Gloc {
             Math.round(r.apply_min_margin * 100) + '%)';
         else verdict = '  ⚠ YAW MISMATCH (mirror alias?)';
         this.el_margin.textContent = mtxt + verdict;
-        this.el_margin.style.color = applyOk ? '#51cf66' : '#ff6b6b';
+        vtTone(this.el_margin, applyOk ? 'ok' : 'err');
         this.el_current.textContent = r.current_pose ?
             this.fmtPose(r.current_pose) : 'no map→base tf';
         this.el_delta.textContent = r.delta_to_current ?
@@ -111,8 +111,8 @@ class Gloc {
         this.el_top.innerHTML = '';
         (r.top || []).forEach((t, i) => {
             const tr = document.createElement('tr');
-            tr.innerHTML = '<td style="opacity:.6;">' + (i + 1) + '.</td><td>' +
-                this.fmtPose(t) + '</td><td style="opacity:.8;">' +
+            tr.innerHTML = '<td class="vt-muted">' + (i + 1) + '.</td><td>' +
+                this.fmtPose(t) + '</td><td class="vt-muted">' +
                 t.score.toFixed(4) + '</td>';
             this.el_top.appendChild(tr);
         });
