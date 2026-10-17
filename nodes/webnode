@@ -749,6 +749,69 @@ if __name__ == '__main__':
         def agent_any(subpath):
             return _agent_proxy(subpath)
 
+        # -----------------------------------------------------------------
+        # Field proxy (U2, I0 of docs/UI_INTEGRATION_PLAN.md): READ-ONLY,
+        # same-origin door to the Vitulus Support dashboard (vitulus-dash).
+        # -----------------------------------------------------------------
+        # The robot UI shows "Needs you", activity and issues from the field
+        # kit without the browser ever talking to :8790 (its own TLS, its own
+        # write guards). Deliberate properties:
+        #  * GET only, and only the paths in FIELD_GET_RE - nothing here can
+        #    approve, answer, merge or tick; writes stay on the dashboard,
+        #    whose guards (page token, same-origin, Sec-Fetch, Host list)
+        #    this proxy must not launder;
+        #  * the upstream is fixed to loopback (VITULUS_FIELD_UPSTREAM may
+        #    point it at another loopback port for tests); TLS is checked
+        #    against the kit's own CA (~/.local/share/vitulus-support/tls/
+        #    ca.crt or VITULUS_TLS_DIR). The server cert names the robot's LAN
+        #    addresses, not 127.0.0.1, so only the chain is checked;
+        #  * not running / not installed = a clean 503 {"ok": false}; no
+        #    import from the kit (robot-vs-agent doctrine: HTTP only).
+        import re as _re
+        FIELD_UPSTREAM = os.environ.get("VITULUS_FIELD_UPSTREAM", "https://127.0.0.1:8790")
+        if not _re.match(r"^https?://(127\.0\.0\.1|localhost):[0-9]{2,5}$", FIELD_UPSTREAM):
+            FIELD_UPSTREAM = "https://127.0.0.1:8790"     # loopback only, whatever the env says
+        FIELD_TIMEOUT_S = 10.0
+        FIELD_GET_RE = _re.compile(
+            r"^(attention|attention/ctx|activity|activity/current|home|issues|"
+            r"issue/[1-9][0-9]{0,5}|meta|version|phone|fleet|task/list)$")
+        FIELD_QUERY_RE = _re.compile(r"^[A-Za-z0-9_=&.,:%+-]{0,300}$")
+
+        def _field_ssl_context():
+            import ssl
+            tls_dir = os.path.expanduser(os.environ.get(
+                "VITULUS_TLS_DIR", "~/.local/share/vitulus-support/tls"))
+            ca = os.path.join(tls_dir, "ca.crt")
+            ctx = ssl.create_default_context(cafile=ca if os.path.isfile(ca) else None)
+            ctx.check_hostname = False      # loopback; the cert names the LAN addresses
+            return ctx
+
+        @app.route("/field/api/<path:subpath>", methods=["GET"])
+        def field_api(subpath):
+            import urllib.request
+            import urllib.error
+            sub = subpath.strip("/")
+            if not FIELD_GET_RE.match(sub):
+                return jsonify({"ok": False, "error": "not on the read-only list"}), 404
+            query = request.query_string.decode("utf-8", "replace")
+            if not FIELD_QUERY_RE.match(query):
+                return jsonify({"ok": False, "error": "bad query"}), 400
+            url = FIELD_UPSTREAM + "/api/" + sub + ("?" + query if query else "")
+            req = urllib.request.Request(url, headers={"Accept": "application/json"}, method="GET")
+            try:
+                ctx = _field_ssl_context() if url.startswith("https:") else None
+                with urllib.request.urlopen(req, timeout=FIELD_TIMEOUT_S, context=ctx) as up:
+                    body, status = up.read(), up.status
+                    ctype = up.headers.get("Content-Type", "application/json")
+            except urllib.error.HTTPError as exc:
+                body, status, ctype = exc.read(), exc.code, "application/json"
+            except Exception as exc:
+                return jsonify({"ok": False, "error": "field dashboard unreachable: %s" % exc}), 503
+            resp = app.response_class(body, status=status, mimetype=None)
+            resp.headers["Content-Type"] = ctype
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+
         server = ServerThread(app, host, port)
         server.start()
         rospy.loginfo("Initialising webnode node...")

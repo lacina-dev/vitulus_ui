@@ -182,6 +182,13 @@ The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
   swallowed and shown in a badge (`window.VTMock.sent`). Use it for every
   test that touches a control.
 
+* **Needs you** (`assets/js/vt_needs.js`, `assets/js/vt_hub.js`) — a bell in
+  the navbar and a drawer panel that lists what waits for a human: the
+  robot agent's approvals and the field kit's "Needs you", read through the
+  read-only proxy `GET /field/api/*` (webnode → vitulus-dash on loopback
+  :8790). Deciding stays where the guards are (Agent › Work, the Support
+  dashboard).
+
 Plan for one UI with the field dashboard and the agent:
 `docs/UI_INTEGRATION_PLAN.md`.
 

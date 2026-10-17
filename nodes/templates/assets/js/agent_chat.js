@@ -4839,6 +4839,14 @@
     function pollApprovals() {
         return api('/api/approvals').then(function (d) {
             stripAsks = (d && d.approvals) || [];
+            /* U2 I1: the shared hub gets the SAME list (one poller, U44);
+               the Needs you panel reads it from there */
+            if (window.VTHub) {
+                window.VTHub.put('agent.asks', stripAsks.map(function (a) {
+                    return {id: a.id, what: (a.detail && a.detail.what) || a.plain || a.command || '',
+                            waiting_s: a.waiting_s, moves: !!askMoves(a)};
+                }));
+            }
             var after = d && Number(d.poll_after_s);
             if (after && !isNaN(after)) {
                 approvalsAfterMs = Math.min(120000, Math.max(2000, after * 1000));

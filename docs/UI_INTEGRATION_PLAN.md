@@ -118,6 +118,24 @@ dnes polluje sám; převede se na hub).
 | I5 | zápisy z UI robota (approve, answer, findings) | změna kitu (dash) + UI | owner schválí změnu bezpečnostního modelu |
 | I6 | agent ↔ field odkazy (Ask the agent, Report, ui_context) | agent + UI | jeden klik z nálezu do issue a zpět |
 
+### Stav etap (větev `ui-field-hub`)
+
+- **I0 hotovo:** `webnode` `GET /field/api/<cesta>` jen pro allow-list
+  (`attention`, `attention/ctx`, `activity`, `activity/current`, `home`,
+  `issues`, `issue/<N>`, `meta`, `version`, `phone`, `fleet`, `task/list`),
+  upstream napevno loopback, TLS ověřený proti CA kitu
+  (`~/.local/share/vitulus-support/tls/ca.crt`), jiné cesty 404, POST 405,
+  dashboard neběží = 503 `{ok:false}`. `assets/js/vt_hub.js` = jeden poller na
+  zdroj (pauza ve skryté záložce, backoff), `VTHub.put/get/on/poll/refresh`.
+  Agentní schválení do hubu dává `agent_chat.js` ze svého jediného polleru
+  (U44 — žádný druhý dotaz na `/api/approvals`).
+- **I1 hotovo (jen čtení):** `assets/js/vt_needs.js` — zvonek v navbaru
+  (vlevo od menu; na nízkém okně, kde navbar není, na konci pásu menu),
+  tón off/warn/err + počet; panel „Needs you“ ve sdíleném drawers: skupiny
+  *Robot agent* (→ Agent › Work) a *Support* (→ „Open in Support“ na
+  dashboardu). Na telefonu do 440 px uvolní titulek „Map view“ místo
+  zvonku, aby navbar zůstal na jeden řádek.
+
 ## 7. Joystick v rozložení (vstup pro layout matici U1)
 
 Komponenta je hotová (`vt_joy.js/css`), umístění patří rámu. Rozměry:
