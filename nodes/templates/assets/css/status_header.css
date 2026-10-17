@@ -127,6 +127,11 @@
     border-radius: 50%;
     background: rgba(255, 255, 255, .14);   /* quiet track until data paints it */
 }
+/* U1 kolo 6: ring colour by state, angle from --sh-pct (status_header.js) */
+.sh-system-ring[data-state] { background: conic-gradient(var(--sh-ring, #667784) var(--sh-pct, 0deg), rgba(255, 255, 255, .13) 0); }
+.sh-system-ring[data-state="ok"]   { --sh-ring: #43d58b; }
+.sh-system-ring[data-state="warn"] { --sh-ring: #ffb547; }
+.sh-system-ring[data-state="err"]  { --sh-ring: #ff5263; }
 .sh-system-ring b {
     display: grid;
     place-items: center;

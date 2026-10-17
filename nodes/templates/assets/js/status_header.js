@@ -153,12 +153,6 @@
         return monitor;
     }
 
-    function systemColor(value) {
-        if (value >= 90) { return '#ff5263'; }
-        if (value >= 75) { return '#ffb547'; }
-        return '#43d58b';
-    }
-
     function setPercent(name, value, title) {
         if (!monitor) { return; }
         var box = monitor.querySelector('[data-metric="' + name + '"]');
@@ -167,10 +161,11 @@
         var output = ring.querySelector('b');
         var valid = typeof value === 'number' && isFinite(value);
         var percent = valid ? Math.max(0, Math.min(100, value)) : 0;
-        var color = valid ? systemColor(percent) : '#667784';
         output.textContent = valid ? Math.round(percent) + '%' : '–';
-        ring.style.background = 'conic-gradient(' + color + ' ' +
-            (percent * 3.6) + 'deg, rgba(255,255,255,.13) 0)';
+        // U1 kolo 6: state as data-state (colour in status_header.css), the
+        // value as a CSS variable — no inline paint
+        ring.dataset.state = !valid ? 'off' : (percent >= 90 ? 'err' : (percent >= 75 ? 'warn' : 'ok'));
+        ring.style.setProperty('--sh-pct', (percent * 3.6) + 'deg');
         box.title = title;
     }
 

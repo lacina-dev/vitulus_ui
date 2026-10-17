@@ -1156,10 +1156,9 @@
         btn.id = 'btn_agent';
         btn.type = 'button';
         btn.title = 'Agent — chat, jobs, approvals (Alt+A)';
-        btn.style.position = 'relative';
+        btn.classList.add('vagent-btn');   // position: relative (badge anchor), vt_panel.css
         var ico = document.createElement('i');
         ico.className = 'la la-android';
-        ico.style.cssText = 'font-size:17px;font-weight:bold;';
         btn.appendChild(ico);
         var badge = document.createElement('span');
         badge.id = 'vagent_badge';
@@ -3389,7 +3388,7 @@
         if (j.subagents) { mid.appendChild(pill('subagents ' + j.subagents, '', 'running subagents')); }
         if (j.from_sched) {
             var fs = pill('from s:' + j.from_sched, '', 'started by recurring job s:' + j.from_sched + ' — click to highlight it');
-            fs.style.cursor = 'pointer';
+            fs.classList.add('vt-pointer');
             fs.addEventListener('click', function () {
                 if (window.VAgent && VAgent.highlightSched) { VAgent.highlightSched(j.from_sched); }
             });
@@ -4803,7 +4802,7 @@
                „Důvod: …") and the second one is the whole message. Without
                this the browser folds them into one run and the reason ends up
                far off the right edge on a phone. */
-            line.style.whiteSpace = 'pre-wrap';
+            line.classList.add('vt-pre');
             row.appendChild(line);
             gateBody.appendChild(row);
             shown += 1;

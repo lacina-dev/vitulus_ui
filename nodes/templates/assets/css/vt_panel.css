@@ -1140,3 +1140,4 @@ html body.vt-frame.vt-log-wide #div_log_view:not(.log-expanded) { left: 4px !imp
 body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer {
     bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 22px);   /* + the log's expand tab */
 }
+#btn_agent.vagent-btn { position: relative; }
