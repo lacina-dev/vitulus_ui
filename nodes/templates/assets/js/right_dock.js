@@ -119,6 +119,27 @@
            baterie + ▾), ať nezakrývá půl mapy. Baterie je zrcadlo
            #span_batt_pct (ten zůstává v sekci Controls), tlačítko přepíná
            sbaleno/rozbaleno; stav v localStorage, výchozí = sbaleno. */
+        /* U1 kolo 3: stav polohy ve sbaleném řádku — dvě tečky, Pose (kdo
+           drží polohu) a GNSS (fix), barva i text převzaté z čipů v sekci
+           Navi (#span_odom_drive, #span_gnss_fix), ať je jeden zdroj pravdy. */
+        var loc = el('span', 'rp-sum-loc', topRow);
+        loc.id = 'rp_sum_loc';
+        [['span_odom_drive', 'Pose'], ['span_gnss_fix', 'GNSS']].forEach(function (pair) {
+            var src = document.getElementById(pair[0]);
+            var dot = el('span', 'vt-dot rp-sum-dot', loc);
+            dot.id = 'rp_sum_dot_' + pair[1].toLowerCase();
+            if (!src) { return; }
+            var copy = function () {
+                var bg = src.style.background || src.style.backgroundColor ||
+                    getComputedStyle(src).backgroundColor;
+                dot.style.background = bg;
+                dot.title = pair[1] + ': ' + ((src.textContent || '').trim() || '—');
+                dot.setAttribute('aria-label', dot.title);
+            };
+            copy();
+            new MutationObserver(copy).observe(src, {childList: true, characterData: true,
+                subtree: true, attributes: true, attributeFilter: ['style', 'class']});
+        });
         var sum = el('span', 'rp-sum', topRow);
         sum.id = 'rp_sum_batt';
         var cbtn = el('button', 'rp-compact-btn', topRow);

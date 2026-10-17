@@ -796,3 +796,14 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 .vt-lightbox-img { max-width: 95vw; max-height: 95vh; object-fit: contain; box-shadow: 0 0 20px #000; image-rendering: pixelated; border-radius: var(--vt-r-card); }
 #rain_report_status { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--vt-muted); }
 
+
+/* right panel, one-row mode: Pose + GNSS dots next to the battery */
+.rp-sum-loc { display: none; }
+@media (max-width: 575.98px) {
+    .rp-sum-loc { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
+    .rp-sum-loc + .rp-sum { margin-left: 4px; }
+    .rp-sum-dot { width: 10px; height: 10px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+}
+@media (max-width: 575.98px) {
+    #right_panel.compact { width: min(250px, 66vw) !important; }
+}
