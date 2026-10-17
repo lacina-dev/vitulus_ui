@@ -509,10 +509,8 @@ body.rp-cam-dock #div_camera_view { border-radius: var(--vt-r-ctl) !important; }
     background: rgba(var(--vt-err-rgb), 0.14);
 }
 
-/* the expanded log is a full-screen layer: nothing of the map chrome on top */
-body:has(#div_log_view.log-expanded) #right_panel,
-body:has(#div_log_view.log-expanded) .rp-handle,
-body.rp-cam-dock:has(#div_log_view.log-expanded) #div_camera_view { visibility: hidden !important; }
+/* (kolo 5: the full log lives in the map area of the frame and no longer
+   covers the right panel — the old "hide the panel" rule is gone) */
 
 /* tab strips that scroll sideways: fade the edge that has more tabs (vt_ui.js) */
 ul.nav-tabs.drawer-pills.vt-more-r, #vagent_tabs.vt-more-r {
@@ -1068,3 +1066,63 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 .vt-batt-pct { font-size: var(--vt-fs-sm); font-weight: 600; color: var(--bs-secondary); margin-right: 5px; min-width: 28px; text-align: right; }
 .vt-chip-sm-note { font-size: 9px; margin-left: auto; opacity: 0.6; }
 #row_menu .btn > i, #row_menu .btn > svg, #div_bottom_menu .btn > i, #div_bottom_menu .btn > svg { font-size: 17px; font-weight: bold; }
+
+/* =============================================== U1 kolo 5: the FRAME ======
+   docs/UI_LAYOUT.md. vt_frame.js sets the mode class and the frame variables;
+   these rules place the left panel, the map, the notice band and the log.
+   Everything is prefixed with body.vt-frame so it only applies once the frame
+   script runs (and wins over the older per-feature rules). */
+
+/* ---- left panel: part of the frame (desktop + landscape) ----------------- */
+body.vt-frame:not(.vt-m-sheet) #ui_drawer {
+    top: var(--vt-top-h, 72px) !important;
+    bottom: var(--vt-bottom-h, 40px);
+    border-radius: 0;
+    border: 0;
+    border-right: 1px solid var(--vt-border-strong);
+    border-top: 1px solid var(--vt-border-strong);
+}
+body.vt-frame:not(.vt-m-sheet) #ui_drawer_head,
+body.vt-frame:not(.vt-m-sheet) #ui_drawer_foot { border-radius: 0; }
+body.vt-frame.vt-m-dock #ui_drawer { box-shadow: none; }          /* docked: flush, no float */
+body.vt-frame.vt-m-overlay #ui_drawer { max-width: 60vw; box-shadow: 6px 0 18px rgba(0, 0, 0, 0.45); }
+body.vt-frame.vt-m-overlay #ui_drawer.full { max-width: none; }
+
+/* ---- the map makes room for the docked panel ---------------------------- */
+body.vt-frame.vt-m-dock.vt-panel-open #map_view {
+    margin-left: var(--vt-dock-w, 0px);
+    width: calc(100% - var(--vt-dock-w, 0px)) !important;
+}
+
+/* ---- notices: centred over the free map area ----------------------------- */
+body.vt-frame:not(.vt-m-sheet) .vt-notice-row { padding-left: var(--vt-left-occ, 0px); }
+
+/* ---- log: small strip in the map area, full = the map area -------------- */
+html body.vt-frame:not(.vt-m-sheet) #div_log_view:not(.log-expanded) {
+    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
+    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    width: auto !important;
+    margin-left: 0 !important;
+    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
+}
+html body.vt-frame #div_log_view.log-expanded {
+    top: calc(var(--vt-notice-b, 72px) + 6px) !important;
+    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
+    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
+    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    z-index: 8 !important;            /* under the panel, bars and notices */
+}
+html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
+    top: calc(max(var(--vt-notice-b, 72px), var(--vt-rp-b, 72px)) + 6px) !important;
+    left: 4px !important;
+    right: 4px !important;
+}
+
+/* ---- the panel toggle in the menu band ---------------------------------- */
+#btn_panel_toggle { flex: 0 0 auto; min-width: 44px; border-top-left-radius: 6px; border-bottom-left-radius: 0; }
+#btn_panel_toggle .la { font-size: 18px; }
+#btn_panel_toggle.vt-on { color: #fff; background: rgba(var(--vt-accent-rgb), 0.24); border-color: var(--vt-accent); }
+#row_menu #btn_marker.vt-tbar-first { border-top-left-radius: 0; }
+/* agent bars (finding / ask strip) sit right under the navbar — or at the top
+   edge when the navbar is hidden on a low window */
+body.vt-frame #vagent_bars { top: max(var(--vt-nav-b, 42px), var(--safe-top, 0px)); }
