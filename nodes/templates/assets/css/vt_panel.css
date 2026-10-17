@@ -683,7 +683,7 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
 
 /* ----------------------------- right panel: one-row mode on a phone (U1) */
 .rp-sum, .rp-compact-btn { display: none; }
-@media (max-width: 575.98px) {
+@media (max-width: 575.98px), (max-height: 499.98px) {   /* + landscape phone (U1 kolo 6) */
     .rp-top { gap: 6px; }
     .rp-sum {
         display: inline-block; flex: 0 0 auto; margin-left: auto;
@@ -797,12 +797,12 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 
 /* right panel, one-row mode: Pose + GNSS dots next to the battery */
 .rp-sum-loc { display: none; }
-@media (max-width: 575.98px) {
+@media (max-width: 575.98px), (max-height: 499.98px) {   /* + landscape phone (U1 kolo 6) */
     .rp-sum-loc { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
     .rp-sum-loc + .rp-sum { margin-left: 4px; }
     .rp-sum-dot { width: 10px; height: 10px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
 }
-@media (max-width: 575.98px) {
+@media (max-width: 575.98px), (max-height: 499.98px) {   /* + landscape phone (U1 kolo 6) */
     #right_panel.compact { width: min(250px, 66vw) !important; }
 }
 
