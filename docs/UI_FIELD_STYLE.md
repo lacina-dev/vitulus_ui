@@ -17,7 +17,7 @@ z Vitulusu zůstává, a jak se to píše (třídy). Implementace:
 | Tvar | panel 12 px, karta 10 px, štítek 3 px | panel 14, karta 10, štítek 3 | zůstává 12/10/3 (stejný princip „hranaté uvnitř kulatého“) |
 | Elevace | jeden `--vt-shadow` | dvě úrovně: klid / hover-focus | **přebíráme** `--vt-elev-1/2` |
 | Stav v hlavičce | `.vt-dot` bez halo | tečka s halo (`box-shadow 0 0 0 4px glow`) | **přebíráme** (`.vt-sdot`) |
-| Štítky | `.vt-tag` (šedý obrys) | `.chip` s tečkou v barvě tónu, 3 px | **přebíráme** jako `.vt-chip` |
+| Štítky | `.vt-tag` (šedý obrys) | `.chip` s tečkou v barvě tónu, 3 px | **přebíráme** jako `.vt-pill` (plné `.vt-chip` pravého panelu zůstávají) |
 | „Potřebuje tě“ | agentní pruh `#vagent_strip` — plné barvy (hnědá, vínová) | tónovaný panel, čtvercový štítek v tónu, tečka | **přebíráme** vzhled, pruh zůstává tam, kde je |
 | Aktivita | log (monospace řádky) | řádek: čas · tečka · text · meta, pevná výška, pulzující tečka „běží“ | **přebíráme** `.vt-act` (pro agentní práci, nálezy, později feed) |
 | Prázdné stavy | `.vt-empty` (text na střed) | tichý čárkovaný box, „dobrá zpráva“ | **přebíráme** |
@@ -41,7 +41,7 @@ z Vitulusu zůstává, a jak se to píše (třídy). Implementace:
 2. **Radiální nádech** z levého horního rohu + **záře horní hrany**
    (`inset 0 1px 0 edge`) místo plochého gradientu. Bez pruhu vlevo.
 3. **Tečka s halo** v hlavičce karty = stav na první pohled.
-4. **Štítek s tečkou** (`.vt-chip`), čtvercový (3 px), tabulková čísla.
+4. **Štítek s tečkou** (`.vt-pill`), čtvercový (3 px), tabulková čísla.
 5. **Řádek aktivity** s pevnou výškou, čas vpravo, pulzující tečka pro „běží“.
 6. **Banner „Needs you“** — tónovaný, štítek v tónu, text, meta vpravo.
 7. **Tichý prázdný stav** a **skeleton** při načítání (nic neposkočí).
@@ -49,23 +49,23 @@ z Vitulusu zůstává, a jak se to píše (třídy). Implementace:
 ## 4. Třídy (jak to psát)
 
 ```html
-<!-- karta s tónem: data-state (ok|warn|err|info|off) nebo .vt-tone-* -->
+<!-- karta s tónem: data-state (ok|warn|err|info|off|brand) (.vt-tone-* zůstává jen barvou textu) -->
 <div class="vt-card" data-state="warn">
   <div class="vt-card-head">
     <span class="vt-sdot"></span><span class="vt-card-title">Battery</span>
     <span class="vt-end">12 min ago</span>
   </div>
   <div class="vt-big">23 %</div>            <!-- velké číslo: Bitter, tabulkové -->
-  <div class="vt-chips"><span class="vt-chip vt-tone-warn">LOW</span><span class="vt-chip">DOCK</span></div>
+  <div class="vt-pills"><span class="vt-pill" data-state="warn">LOW</span><span class="vt-pill">DOCK</span></div>
 </div>
 
 <!-- "Needs you" banner (vzhled #vagent_strip i samostatné použití) -->
-<div class="vt-attn vt-tone-warn"><span class="vt-attn-lab">Needs you</span>
+<div class="vt-attn" data-state="warn"><span class="vt-attn-lab">Needs you</span>
   <span class="vt-attn-txt">Approve the undock</span><span class="vt-attn-meta">2 min</span></div>
 
 <!-- řádky aktivity -->
 <ul class="vt-acts">
-  <li class="vt-act vt-tone-info vt-busy"><span class="vt-sdot"></span>
+  <li class="vt-act vt-busy" data-state="info"><span class="vt-sdot"></span>
     <span class="vt-act-txt">Agent checks the lidar</span><span class="vt-act-time">00:42</span></li>
 </ul>
 

@@ -1,4 +1,6 @@
-/* vt_tokens.css — ONE set of design tokens for the whole robot UI (U1, 2026-10).
+/* vt_tokens.css — ONE set of design tokens for the whole robot UI (U1, 2026-10;
+ * U2: tones ok/warn/err/info/off/brand as glow+edge, elevation, type scale
+ * 11-24, spacing to 32 — the field dashboard touch, docs/UI_FIELD_STYLE.md).
  *
  * Every panel (left drawer: Marker / Map / Programs / Settings / Agent / Map
  * editor, the right panel, the log) takes its colours, radii, spacing and type
@@ -42,15 +44,39 @@
     --vt-err-rgb: 241, 134, 143;
     --vt-danger: var(--bs-danger, #ee5f5b);  /* solid STOP / destructive */
 
-    /* state tints: whole-card wash + toned border (no left stripe) */
-    --vt-tint-ok: linear-gradient(180deg, rgba(var(--vt-ok-rgb), 0.14), rgba(var(--vt-ok-rgb), 0.03) 60%);
-    --vt-tint-warn: linear-gradient(180deg, rgba(var(--vt-warn-rgb), 0.14), rgba(var(--vt-warn-rgb), 0.03) 60%);
-    --vt-tint-err: linear-gradient(180deg, rgba(var(--vt-err-rgb), 0.16), rgba(var(--vt-err-rgb), 0.04) 60%);
-    --vt-tint-info: linear-gradient(180deg, rgba(var(--vt-accent-rgb), 0.12), rgba(var(--vt-accent-rgb), 0.02) 60%);
-    --vt-edge-ok: rgba(var(--vt-ok-rgb), 0.45);
-    --vt-edge-warn: rgba(var(--vt-warn-rgb), 0.45);
-    --vt-edge-err: rgba(var(--vt-err-rgb), 0.50);
-    --vt-edge-info: rgba(var(--vt-accent-rgb), 0.40);
+    --vt-info: var(--vt-accent);
+    --vt-info-rgb: var(--vt-accent-rgb);
+    --vt-off: #7a8288;           /* switched off / idle / unknown */
+    --vt-off-rgb: 122, 130, 136;
+    --vt-brand-rgb: 255, 113, 0;
+
+    /* tone = three numbers per state (U2, from the field dashboard):
+       --vt-glow-*  the soft wash from the top-left corner,
+       --vt-edge-*  the toned border + the 1 px glow along the top edge.
+       A surface takes them through --vt-st / --vt-st-glow / --vt-st-edge
+       (vt_field.css .vt-tone-* and [data-state]). */
+    --vt-glow-ok: rgba(var(--vt-ok-rgb), 0.11);
+    --vt-glow-warn: rgba(var(--vt-warn-rgb), 0.12);
+    --vt-glow-err: rgba(var(--vt-err-rgb), 0.15);
+    --vt-glow-info: rgba(var(--vt-accent-rgb), 0.11);
+    --vt-glow-off: rgba(var(--vt-off-rgb), 0.08);
+    --vt-glow-brand: rgba(var(--vt-brand-rgb), 0.12);
+    --vt-edge-ok: rgba(var(--vt-ok-rgb), 0.38);
+    --vt-edge-warn: rgba(var(--vt-warn-rgb), 0.40);
+    --vt-edge-err: rgba(var(--vt-err-rgb), 0.45);
+    --vt-edge-info: rgba(var(--vt-accent-rgb), 0.36);
+    --vt-edge-off: rgba(255, 255, 255, 0.12);
+    --vt-edge-brand: rgba(var(--vt-brand-rgb), 0.40);
+
+    /* state tints (U1 names, kept): the whole-card wash, now the field's
+       radial hint from the top-left corner instead of a flat top gradient.
+       Used as  background: var(--vt-tint-ok), var(--vt-surface-2); */
+    --vt-tint-ok: radial-gradient(130% 100% at 0% 0%, var(--vt-glow-ok) 0%, transparent 60%);
+    --vt-tint-warn: radial-gradient(130% 100% at 0% 0%, var(--vt-glow-warn) 0%, transparent 60%);
+    --vt-tint-err: radial-gradient(130% 100% at 0% 0%, var(--vt-glow-err) 0%, transparent 60%);
+    --vt-tint-info: radial-gradient(130% 100% at 0% 0%, var(--vt-glow-info) 0%, transparent 60%);
+    --vt-tint-off: radial-gradient(130% 100% at 0% 0%, var(--vt-glow-off) 0%, transparent 60%);
+    --vt-tint-brand: radial-gradient(130% 100% at 0% 0%, var(--vt-glow-brand) 0%, transparent 60%);
 
     /* radii */
     --vt-r-panel: 12px;
@@ -62,6 +88,9 @@
     --vt-gap-1: 4px;
     --vt-gap-2: 8px;
     --vt-gap-3: 12px;
+    --vt-gap-4: 16px;
+    --vt-gap-5: 24px;
+    --vt-gap-6: 32px;
     --vt-pad: 12px;              /* panel inner padding (head + body) */
 
     /* sizes */
@@ -77,11 +106,22 @@
     --vt-fs-xs: 11px;
     --vt-fs-sm: 12px;
     --vt-fs: 13px;
-    --vt-fs-title: 15px;
+    --vt-fs-title: 15px;         /* = --vt-fs-md */
+    /* type scale (U2): 11 · 12 · 13 · 15 · 17 · 20 · 24 */
+    --vt-fs-md: 15px;
+    --vt-fs-lg: 17px;
+    --vt-fs-xl: 20px;
+    --vt-fs-xxl: 24px;
+    --vt-lh: 1.45;
+    --vt-font-num: Bitter, serif; /* big readings, verdicts (field touch) */
 
     --vt-bar-h: 40px;            /* space reserved for the bottom toolbar (+gap) */
 
-    --vt-shadow: 0 10px 30px rgba(0, 0, 0, 0.50);
+    --vt-shadow: 0 10px 30px rgba(0, 0, 0, 0.50);   /* floating panel over the map */
+    /* elevation of cards inside panels (field): resting / hover-focus */
+    --vt-elev-0: none;
+    --vt-elev-1: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 30px -14px rgba(0, 0, 0, 0.65);
+    --vt-elev-2: 0 2px 4px rgba(0, 0, 0, 0.30), 0 18px 40px -16px rgba(0, 0, 0, 0.75);
     --vt-ease: 0.2s ease;
 }
 

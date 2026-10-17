@@ -1,0 +1,265 @@
+/* vt_field.css — the field dashboard's touch on the robot UI (U2, 2026-10).
+ *
+ * Shared components in the visual language of Vitulus Support (vitulus-dash),
+ * on the robot's own palette (docs/UI_FIELD_STYLE.md):
+ *   tone       [data-state=ok|warn|err|info|off|brand] sets
+ *              --vt-st (colour) / --vt-st-glow (wash) / --vt-st-edge (border)
+ *   card       .vt-card — radial wash from the top-left corner, toned border,
+ *              1 px glow along the top edge, status dot with a halo in the head
+ *   dot        .vt-sdot — the status dot (pulses with .vt-busy)
+ *   pill       .vt-pill — a square label with a dot in the tone (the solid
+ *              .vt-chip of the right panel stays as it is)
+ *   attention  .vt-attn — the "Needs you" banner (also #vagent_strip)
+ *   activity   .vt-acts > .vt-act — one fixed-height row: dot · text · time
+ *   empty      .vt-empty / .vt-empty-ok — a quiet dashed box
+ *   skeleton   .vt-skel — a loading line that keeps the slot's height
+ *   big        .vt-big — a big reading (Bitter, tabular)
+ * Never a coloured stripe on the left; nothing moves when data changes.
+ * Loaded after vt_panel.css (it refines the cards defined there). Tokens:
+ * vt_tokens.css.
+ */
+
+/* ------------------------------------------------------------------ tone */
+.vt-card, .vt-attn, .vt-act, .vt-pill, .vt-sdot, .vt-tone, .vagent-card {
+    --vt-st: var(--vt-faint);
+    --vt-st-glow: transparent;
+    --vt-st-edge: var(--vt-border);
+}
+[data-state="ok"] { --vt-st: var(--vt-ok);    --vt-st-glow: var(--vt-glow-ok);    --vt-st-edge: var(--vt-edge-ok); }
+[data-state="warn"] { --vt-st: var(--vt-warn);  --vt-st-glow: var(--vt-glow-warn);  --vt-st-edge: var(--vt-edge-warn); }
+[data-state="err"] { --vt-st: var(--vt-err);   --vt-st-glow: var(--vt-glow-err);   --vt-st-edge: var(--vt-edge-err); }
+[data-state="info"] { --vt-st: var(--vt-info);  --vt-st-glow: var(--vt-glow-info);  --vt-st-edge: var(--vt-edge-info); }
+[data-state="off"] { --vt-st: var(--vt-off);   --vt-st-glow: var(--vt-glow-off);   --vt-st-edge: var(--vt-edge-off); }
+[data-state="brand"] { --vt-st: var(--vt-brand); --vt-st-glow: var(--vt-glow-brand); --vt-st-edge: var(--vt-edge-brand); }
+
+/* ------------------------------------------------------------------ card */
+.vt-card,
+.vt-card[data-state] {
+    background: radial-gradient(130% 100% at 0% 0%, var(--vt-st-glow) 0%, transparent 60%), var(--vt-surface-2);
+    border: 1px solid var(--vt-st-edge);
+    border-radius: var(--vt-r-card);
+    transition: box-shadow var(--vt-ease), border-color var(--vt-ease), background-color var(--vt-ease);
+}
+.vt-card[data-state]:not([data-state="off"]) { box-shadow: inset 0 1px 0 var(--vt-st-edge); }
+@media (hover: hover) and (pointer: fine) {
+    .vt-card:hover { box-shadow: inset 0 1px 0 var(--vt-st-edge), var(--vt-elev-1); }
+}
+/* the motor cards colour themselves from their status span (vt_panel.css) */
+.vt-card.vt-motor:has([id$="_status"].text-success) { --vt-st: var(--vt-ok); --vt-st-glow: var(--vt-glow-ok); --vt-st-edge: var(--vt-edge-ok); }
+.vt-card.vt-motor:has([id$="_status"].text-danger)  { --vt-st: var(--vt-err); --vt-st-glow: var(--vt-glow-err); --vt-st-edge: var(--vt-edge-err); }
+.vt-card.vt-motor:has([id$="_status"].text-success),
+.vt-card.vt-motor:has([id$="_status"].text-danger) {
+    background: radial-gradient(130% 100% at 0% 0%, var(--vt-st-glow) 0%, transparent 60%), var(--vt-surface-2);
+    border-color: var(--vt-st-edge);
+}
+/* a card with a state shows it as a dot with a halo before its title
+   (unless the head already carries its own dot / switch status) */
+.vt-card[data-state]:not([data-state="off"]) > .vt-card-head:not(:has(.vt-dot, .vt-sdot)) > .vt-card-title::before,
+.vt-card.vt-motor:has([id$="_status"].text-success, [id$="_status"].text-danger) > .vt-card-head > .vt-card-title::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 8px 1px 1px;
+    border-radius: 50%;
+    vertical-align: middle;
+    background: var(--vt-st);
+    box-shadow: 0 0 0 3px var(--vt-st-glow), 0 0 10px var(--vt-st-edge);
+}
+
+/* ------------------------------------------------------------------- dot */
+.vt-sdot {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--vt-st);
+    box-shadow: 0 0 0 3px var(--vt-st-glow);
+}
+.vt-busy .vt-sdot, .vt-sdot.vt-busy { animation: vt-pulse 1.4s ease-in-out infinite; }
+@keyframes vt-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+
+/* ------------------------------------------------------------------ chip */
+.vt-pills { display: flex; flex-wrap: wrap; gap: var(--vt-gap-1) 6px; margin-top: var(--vt-gap-2); }
+.vt-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 20px;
+    padding: 0 7px;
+    border-radius: var(--vt-r-tag);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--vt-muted);
+    font: 600 var(--vt-fs-xs)/1 var(--vt-font);
+    letter-spacing: .02em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.vt-pill[data-state] {
+    color: var(--vt-st);
+    background: var(--vt-st-glow);
+    border-color: var(--vt-st-edge);
+}
+.vt-pill[data-state]::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+}
+/* the old .vt-tag keeps its shape, gains the tone when it has one */
+.vt-tag[data-state] { color: var(--vt-st); border-color: var(--vt-st-edge); background: var(--vt-st-glow); }
+
+/* --------------------------------------------------------- big readings */
+.vt-big {
+    font: 700 var(--vt-fs-xxl)/1.2 var(--vt-font-num);
+    font-variant-numeric: tabular-nums;
+    color: var(--vt-text);
+}
+.vt-card[data-state] .vt-big { color: var(--vt-st); }
+.vt-big small { font: 400 var(--vt-fs-sm) var(--vt-font); color: var(--vt-muted); margin-left: 4px; }
+
+/* ------------------------------------------------- attention ("Needs you") */
+.vt-attn {
+    display: flex;
+    align-items: center;
+    gap: var(--vt-gap-2);
+    min-height: 40px;
+    padding: 6px var(--vt-pad);
+    border: 1px solid var(--vt-st-edge);
+    border-radius: var(--vt-r-card);
+    background: radial-gradient(130% 160% at 0% 0%, var(--vt-st-glow) 0%, transparent 65%), var(--vt-surface);
+    box-shadow: inset 0 1px 0 var(--vt-st-edge);
+    color: var(--vt-text);
+    font-size: var(--vt-fs);
+}
+.vt-attn-lab {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    border-radius: var(--vt-r-tag);
+    background: var(--vt-st);
+    color: #1c2329;
+    font: 700 10.5px/1 var(--vt-font);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.vt-attn-txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-attn-meta { flex: 0 0 auto; color: var(--vt-muted); font-size: var(--vt-fs-sm); font-variant-numeric: tabular-nums; }
+
+/* the agent strip under the navbar is the robot's "Needs you": same height
+   and place as before (agent_panel.css), only the field look — a dark bar
+   with the tone as a wash, a toned bottom hairline and a square label */
+#vagent_strip { --vt-st: var(--vt-muted); --vt-st-glow: transparent; --vt-st-edge: rgba(255, 255, 255, 0.10); }
+#vagent_strip.va-ask     { --vt-st: var(--vt-warn);  --vt-st-glow: rgba(var(--vt-warn-rgb), 0.22);   --vt-st-edge: rgba(var(--vt-warn-rgb), 0.55); }
+#vagent_strip.va-blocked { --vt-st: var(--vt-err);   --vt-st-glow: rgba(var(--vt-err-rgb), 0.24);    --vt-st-edge: rgba(var(--vt-err-rgb), 0.60); }
+#vagent_strip.va-finding { --vt-st: var(--vt-err);   --vt-st-glow: rgba(var(--vt-err-rgb), 0.16);    --vt-st-edge: rgba(var(--vt-err-rgb), 0.42); }
+#vagent_strip.va-now     { --vt-st: var(--vt-info);  --vt-st-glow: rgba(var(--vt-accent-rgb), 0.12); --vt-st-edge: rgba(var(--vt-accent-rgb), 0.30); }
+#vagent_strip.va-ask, #vagent_strip.va-blocked, #vagent_strip.va-finding, #vagent_strip.va-now {
+    background: linear-gradient(90deg, var(--vt-st-glow), transparent 75%), rgba(28, 35, 41, 0.96);
+    border-bottom: 1px solid var(--vt-st-edge);
+    color: var(--vt-text);
+}
+#vagent_strip.va-ask .vs-lab, #vagent_strip.va-blocked .vs-lab,
+#vagent_strip.va-finding .vs-lab, #vagent_strip.va-now .vs-lab {
+    background: var(--vt-st);
+    color: #1c2329;
+    border-radius: var(--vt-r-tag);
+    opacity: 1;
+}
+#vagent_strip.va-now .vs-lab { background: rgba(var(--vt-accent-rgb), 0.18); color: var(--vt-accent); }
+#vagent_strip .vs-meta { color: var(--vt-muted); opacity: 1; }
+#vagent_strip:hover { filter: brightness(1.08); }
+/* va-move (the robot is about to move) stays solid red: it is a warning, not a hint */
+
+/* ------------------------------------------------------------- activity */
+.vt-acts { list-style: none; margin: 0; padding: 0; }
+.vt-act {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--vt-gap-2);
+    min-height: 34px;
+    padding: 0 2px;
+    border-top: 1px solid var(--vt-border);
+    font-size: var(--vt-fs);
+}
+.vt-act:first-child { border-top: 0; }
+.vt-act-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--vt-text); }
+.vt-act-time { color: var(--vt-muted); font-size: var(--vt-fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vt-act[data-state="err"] .vt-act-txt { color: var(--vt-err); }
+
+/* --------------------------------------------------- empty / skeleton */
+.vt-empty, .vt-empty-ok {
+    margin: var(--vt-gap-1) 0;
+    padding: var(--vt-gap-3) var(--vt-gap-4);
+    border: 1px dashed var(--vt-border-strong);
+    border-radius: var(--vt-r-card);
+    color: var(--vt-muted);
+    font-size: var(--vt-fs-sm);
+    text-align: center;
+    background: transparent;
+}
+.vt-empty-ok { color: var(--vt-ok); border-color: var(--vt-edge-ok); }
+.vt-skel {
+    display: block;
+    height: 12px;
+    width: 80%;
+    margin: 6px 0;
+    border-radius: var(--vt-r-tag);
+    background: linear-gradient(90deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .10), rgba(255, 255, 255, .05));
+    background-size: 200% 100%;
+    animation: vt-skel 1.4s linear infinite;
+}
+@keyframes vt-skel { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* ------------------------------------------- the agent panel, same language */
+.vagent-card {
+    background: var(--vt-surface-2);
+    border: 1px solid var(--vt-border);
+    border-radius: var(--vt-r-card);
+}
+.vagent-chip {
+    border-radius: var(--vt-r-tag);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.04);
+    font-variant-numeric: tabular-nums;
+}
+.vagent-chip.good { color: var(--vt-ok);   background: var(--vt-glow-ok);   border-color: var(--vt-edge-ok); }
+.vagent-chip.warn { color: var(--vt-warn); background: var(--vt-glow-warn); border-color: var(--vt-edge-warn); }
+.vagent-chip.bad  { color: var(--vt-err);  background: var(--vt-glow-err);  border-color: var(--vt-edge-err); }
+.vagent-chip.good .lbl, .vagent-chip.warn .lbl, .vagent-chip.bad .lbl { color: inherit; opacity: .8; }
+.vagent-pill { border-radius: var(--vt-r-tag); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------ ?mock badge */
+.vt-mock-badge {
+    position: fixed;
+    left: 50%;
+    top: calc(var(--navbar-h, 42px) + var(--safe-top, 0px) + 4px);
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: min(92vw, 560px);
+    padding: 3px 10px 3px 4px;
+    border: 1px solid var(--vt-edge-warn);
+    border-radius: var(--vt-r-ctl);
+    background: rgba(28, 35, 41, 0.92);
+    color: var(--vt-text);
+    font: 12px/1.3 var(--vt-font);
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.vt-mock-badge b { padding: 2px 6px; border-radius: var(--vt-r-tag); background: var(--vt-warn); color: #1c2329; font-size: 10.5px; letter-spacing: .05em; }
+.vt-mock-badge span { overflow: hidden; text-overflow: ellipsis; }
+
+@media (prefers-reduced-motion: reduce) {
+    .vt-busy .vt-sdot, .vt-sdot.vt-busy, .vt-skel { animation: none; }
+    .vt-card { transition: none; }
+}
