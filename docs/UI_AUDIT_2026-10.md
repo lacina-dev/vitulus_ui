@@ -50,3 +50,30 @@ Mobil: **bottom sheet** zespodu přes ~60 % výšky, mapa zůstane vidět nahoř
 
 Tokeny: `assets/css/vt_tokens.css` (barvy, rádiusy, mezery, písmo),
 komponenta: `assets/css/vt_panel.css`.
+
+## Stav po U1 (větev `ui-unify`)
+
+| Panel | Před | Po |
+|---|---|---|
+| Šuplík (všechny panely) | 460/640 px, rádius 8 px, různé hlavičky | jedna šířka 480 px, rádius 12 px, hlavička titulek · meta · akce · ⤢ · ✕, patička akcí |
+| Map editor | vlastní hlavička + rám, na mobilu zakryl mapu | sdílená hlavička (meta = obsluhovaná mapa), Close editor v patičce, mapa rámovaná do nezakryté plochy |
+| Agent | vlastní podtržené záložky, karty s pruhem vlevo | stejné pilulky, tečka/stáří v meta, ▤ ⌧ STOP ve slotu akcí, karty s nádechem stavu |
+| Settings | záložky na 2 řádky | 1 řádek, posun do strany s náznakem pokračování |
+| Map → uložené mapy | zelený/oranžový pruh vlevo | nádech celé karty |
+| Řádek menu | aktivní vidět jen u Agenta | aktivní tlačítko vidět u všech pěti |
+| Pravý panel | vlastní podklad, 6 px, nadpisy 10 px verzálky | tokeny šuplíku, 12 px, nadpisy sekcí jako v šuplíku |
+| Log rozbalený | pravý panel a kamera přes něj (mobil) | čistá vrstva, bez pruhu u kritických událostí |
+| Mobil | každý panel přes celou obrazovku | sheet zespodu 60 %, mapa nahoře vidět, ⤢/úchyt = celá obrazovka |
+
+## Co zbývá (návrh další etapy)
+
+- Těla záložek Settings (Motors/Power/Mower/Diag/Rosbag/IMU) jsou pořád
+  starý Bootstrap s inline styly — přepsat na sekce/karty anatomie
+  (stav motorů/baterie jako karty s nádechem).
+- Path/Point: „Cancel navi“ a Programs: „New program“ přesunout do slotu
+  akcí hlavičky nebo do patičky (jedno místo pro primární akci panelu).
+- Agent → Robot: malý náhled mapy je třetí podoba mapy; zvážit odkaz
+  „ukázat na mapě“ místo vlastního náhledu.
+- Pravý panel na telefonu překrývá polovinu mapy — sbalit do jednoho
+  řádku (mapa + baterie + Dock/Stop) s rozbalením.
+- Sheet na telefonu: tažení úchytem (teď jen klepnutí = celá obrazovka).

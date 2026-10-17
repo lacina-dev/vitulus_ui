@@ -26,10 +26,12 @@ controls and an agent chat panel — all usable from a phone in the garden.
   mower/motors/temps/supply/battery) plus a read-only host system monitor
   (CPU/MEM/DISK/NET) served by this package's own webnode.
 * **Left drawer** — Marker, Map (incl. Mapping v3 session controls from
-  `vitulus_mapping`), Programs, Settings, and the **agent panel**: a chat UI
-  for the robot's on-board assistant with jobs, approvals and incidents
-  (plain HTTP to the agent web bridge; the red STOP is answered by
-  deterministic code, never by a model).
+  `vitulus_mapping`), Programs, Settings, the map editor and the **agent
+  panel**: a chat UI for the robot's on-board assistant with jobs, approvals
+  and incidents (plain HTTP to the agent web bridge; the red STOP is answered
+  by deterministic code, never by a model). Every panel has the same anatomy
+  (see *Design system* below); on a phone the drawer is a bottom sheet so the
+  map stays visible above it, ⤢ or the grip makes it full screen.
 * **Rosbag manager** — list, download and delete recordings over HTTP.
 * **PWA** — web manifest + service worker, installable on a phone
   ("add to home screen"); mobile layout is a first-class target.
@@ -113,6 +115,27 @@ aerial layer), `right_dock.js`, `status_header.js`, `agent_chat.js` +
 `app.js` (section switching). Vendored libraries (three.js, ros3d, roslib,
 jquery, Bootstrap, …) are committed under `assets/` so the robot serves the UI
 with no internet access.
+
+### Design system (U1, 2026-10)
+
+One look for every panel, defined in two files loaded by `index.html`:
+
+* `assets/css/vt_tokens.css` — the tokens: surfaces, text, accent/brand and
+  state colours, state tints, radii (panel 12 px, card 10 px, control 7 px,
+  tag 3 px), spacing, sizes (drawer width 480 px, phone sheet 60 % height,
+  touch 40 px), fonts.
+* `assets/css/vt_panel.css` — the panel anatomy, loaded last:
+  **head** = title · meta/status (`#ui_drawer_meta`) · panel actions
+  (`#ui_drawer_actions`) · ⤢ · ✕; **tabs** = one row of pills that scrolls
+  sideways; **body** = `details` sections and cards; **foot**
+  (`#ui_drawer_foot`) = the panel's primary action. State is a soft tint of
+  the whole card plus a toned border — never a coloured stripe on the left.
+  A panel lends its meta/foot elements to the shared head/foot through
+  `MapMenu._drawer_chrome()` (moved with their ids, returned on hand-over);
+  the agent panel puts its dot/age and ▤ ⌧ STOP into the same slots.
+* `assets/js/vt_ui.js` — tab-strip edge fade + keeps the active tab in view.
+
+The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
 
 > `tools/build_index.py` (the old generator that assembled `index.html` from
 > `map_view.html` + `imu_calibration.html`) is **retired** and refuses to run:
