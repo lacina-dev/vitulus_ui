@@ -1095,7 +1095,13 @@ body.vt-frame.vt-m-dock.vt-panel-open #map_view {
 }
 
 /* ---- notices: centred over the free map area ----------------------------- */
-body.vt-frame:not(.vt-m-sheet) .vt-notice-row { padding-left: var(--vt-frame-left, 0px); }
+/* centred over the free map area BETWEEN the left panel and the right panel,
+   so the notice can never slide under the right panel's row — independent of
+   when the right panel last re-measured (landscape regression 2026-10-18) */
+body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
+    padding-left: var(--vt-frame-left, 0px);
+    padding-right: var(--vt-frame-rp-w, 0px);
+}
 
 /* ---- log: small strip in the map area, full = the map area -------------- */
 html body.vt-frame:not(.vt-m-sheet) #div_log_view:not(.log-expanded) {

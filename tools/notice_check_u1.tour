@@ -1,0 +1,36 @@
+goto http://127.0.0.1:7789/?mock
+wait 9000
+js window.__nchk=function(tag){const s=document.getElementById('span_status_info'); if(!s) return tag+': no notice'; const rs=[...s.getClientRects()]; if(!rs.length) return tag+': notice hidden'; const ids=['right_panel','rp_handle','ui_drawer','div_log_view','joy_view','div_camera_view','vagent_bars','row_menu','status_div','div_bottom_menu','div_menu']; const bad=[]; ids.forEach(id=>{const e=document.getElementById(id); if(!e) return; const cs=getComputedStyle(e); if(cs.display==='none'||cs.visibility==='hidden') return; if(id==='ui_drawer'&&!e.classList.contains('open')) return; const r=e.getBoundingClientRect(); if(!r.width||!r.height) return; rs.forEach(q=>{ if(q.left<r.right-1&&q.right>r.left+1&&q.top<r.bottom-1&&q.bottom>r.top+1) bad.push(id); });}); return tag+': '+(bad.length?'OVERLAP '+[...new Set(bad)].join(','):'ok');}; return 1
+js return __nchk('home')
+js window.__nt=setInterval(()=>{const s=document.getElementById('span_status_info'); if(s.textContent.indexOf('Undock refused')<0){s.textContent='Undock refused: motors are OFF and the RTK fix is missing — turn motors on, wait for RTK, then retry';} s.style.display='inline';},150); return 1
+wait 1200
+js return __nchk('long')
+click #rp_compact_btn
+wait 800
+js return __nchk('rp_toggled')
+click #rp_compact_btn
+wait 600
+click #btn_map
+wait 1000
+js return __nchk('panel')
+click #btn_log
+wait 1000
+js return __nchk('panel+log')
+click #btn_log_expand
+wait 1000
+js return __nchk('panel+logfull')
+click #btn_log_collapse
+click #btn_log
+click #btn_ui_drawer_close
+click #btn_map
+wait 1000
+js clearInterval(window.__nt); window.__nt=setInterval(()=>{const s=document.getElementById('span_status_info'); s.textContent='Executing goal.'; s.style.display='inline';},300); return 1
+wait 1200
+js return __nchk('panel-then-notice')
+click #btn_ui_drawer_close
+wait 800
+js return __nchk('notice-panel-closed')
+click #btn_joy
+wait 800
+js return __nchk('joy')
+click #btn_joy
