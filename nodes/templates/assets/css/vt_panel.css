@@ -533,3 +533,18 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
     .vt-iconbtn, #btn_ui_drawer_full, #btn_ui_drawer_close,
     #vagent_head_right button { width: var(--vt-touch); min-width: var(--vt-touch) !important; height: var(--vt-touch) !important; }
 }
+
+/* ------------------------------------------- panel bodies: Bootstrap bits */
+/* buttons, inputs, groups inside any panel take the panel radii (via the
+   Bootstrap variables, so button-group inner corners stay square) */
+#ui_drawer, #right_panel {
+    --bs-border-radius: var(--vt-r-ctl);
+    --bs-border-radius-sm: 5px;
+    --bs-border-radius-lg: var(--vt-r-card);
+    --bs-border-color: var(--vt-border-strong);
+}
+#ui_drawer .form-control, #ui_drawer .form-select { background-color: var(--vt-bg); border-color: var(--vt-border-strong); color: var(--vt-text); }
+#ui_drawer .input-group-text { background: var(--vt-surface-3); border-color: var(--vt-border-strong); color: var(--vt-muted); }
+#ui_drawer hr { border-color: var(--vt-border); opacity: 1; }
+/* the program detail block and other legacy inner frames: card look */
+#ui_drawer #div_menu_program_detail_row { border-radius: var(--vt-r-card); }
