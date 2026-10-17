@@ -1075,8 +1075,8 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 
 /* ---- left panel: part of the frame (desktop + landscape) ----------------- */
 body.vt-frame:not(.vt-m-sheet) #ui_drawer {
-    top: var(--vt-top-h, 72px) !important;
-    bottom: var(--vt-bottom-h, 40px);
+    top: var(--vt-frame-top, 72px) !important;
+    bottom: var(--vt-frame-bottom, 40px);
     border-radius: 0;
     border: 0;
     border-right: 1px solid var(--vt-border-strong);
@@ -1090,30 +1090,30 @@ body.vt-frame.vt-m-overlay #ui_drawer.full { max-width: none; }
 
 /* ---- the map makes room for the docked panel ---------------------------- */
 body.vt-frame.vt-m-dock.vt-panel-open #map_view {
-    margin-left: var(--vt-dock-w, 0px);
-    width: calc(100% - var(--vt-dock-w, 0px)) !important;
+    margin-left: var(--vt-frame-dock, 0px);
+    width: calc(100% - var(--vt-frame-dock, 0px)) !important;
 }
 
 /* ---- notices: centred over the free map area ----------------------------- */
-body.vt-frame:not(.vt-m-sheet) .vt-notice-row { padding-left: var(--vt-left-occ, 0px); }
+body.vt-frame:not(.vt-m-sheet) .vt-notice-row { padding-left: var(--vt-frame-left, 0px); }
 
 /* ---- log: small strip in the map area, full = the map area -------------- */
 html body.vt-frame:not(.vt-m-sheet) #div_log_view:not(.log-expanded) {
-    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
-    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    left: calc(var(--vt-frame-left, 0px) + 4px) !important;
+    right: calc(var(--vt-frame-rp-w, 0px) + 6px) !important;
     width: auto !important;
     margin-left: 0 !important;
-    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + 4px) !important;
 }
 html body.vt-frame #div_log_view.log-expanded {
-    top: calc(var(--vt-notice-b, 72px) + 6px) !important;
-    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
-    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
-    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    top: calc(var(--vt-frame-notice-b, 72px) + 6px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + 4px) !important;
+    left: calc(var(--vt-frame-left, 0px) + 4px) !important;
+    right: calc(var(--vt-frame-rp-w, 0px) + 6px) !important;
     z-index: 8 !important;            /* under the panel, bars and notices */
 }
 html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
-    top: calc(max(var(--vt-notice-b, 72px), var(--vt-rp-b, 72px)) + 6px) !important;
+    top: calc(max(var(--vt-frame-notice-b, 72px), var(--vt-frame-rp-b, 72px)) + 6px) !important;
     left: 4px !important;
     right: 4px !important;
 }
@@ -1125,20 +1125,20 @@ html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
 #row_menu #btn_marker.vt-tbar-first { border-top-left-radius: 0; }
 /* agent bars (finding / ask strip) sit right under the navbar — or at the top
    edge when the navbar is hidden on a low window */
-body.vt-frame #vagent_bars { top: max(var(--vt-nav-b, 42px), var(--safe-top, 0px)); }
+body.vt-frame #vagent_bars { top: max(var(--vt-frame-nav-b, 42px), var(--safe-top, 0px)); }
 /* joystick: bottom-right of the map area, always ABOVE the small log
    (placement only — its look belongs to the joystick files) */
 html body.vt-frame:not(.vt-m-sheet) #joy_view {
-    bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 14px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px) + 14px) !important;
 }
 html body.vt-frame.vt-m-sheet #joy_view {
-    bottom: calc(var(--vt-bottom-h, 40px) + 14px) !important;
+    bottom: calc(var(--vt-frame-bottom, 40px) + 14px) !important;
 }
 
 /* ============ U1 kolo 6: small log full-width when the panel leaves it no room */
 html body.vt-frame.vt-log-wide #div_log_view:not(.log-expanded) { left: 4px !important; }
 body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer {
-    bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 22px);   /* + the log's expand tab */
+    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px) + 22px);   /* + the log's expand tab */
 }
 #btn_agent.vagent-btn { position: relative; }
 

@@ -71,27 +71,27 @@
         var nav = $('div_menu'), sp = $('menu_spacer');
         var navB = visible(nav) ? (visible(sp) ? sp.getBoundingClientRect().bottom
                                                 : nav.getBoundingClientRect().bottom) : 0;
-        root.style.setProperty('--vt-nav-b', px(navB));
+        root.style.setProperty('--vt-frame-nav-b', px(navB));
         // top band: bottom edge of the menu row
         var rm = $('row_menu');
         var top = rm ? rm.getBoundingClientRect().bottom : 0;
-        root.style.setProperty('--vt-top-h', px(top));
+        root.style.setProperty('--vt-frame-top', px(top));
         // notice band
         var nb = top;
         var info = $('span_status_info');
         var row = info && info.closest ? info.closest('.vt-notice-row') : null;
         if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
-        root.style.setProperty('--vt-notice-b', px(nb));
+        root.style.setProperty('--vt-frame-notice-b', px(nb));
         // bottom bar zone
         var bm = $('div_bottom_menu');
         var bh = bm ? Math.max(0, window.innerHeight - bm.getBoundingClientRect().top) : 0;
-        root.style.setProperty('--vt-bottom-h', px(bh));
+        root.style.setProperty('--vt-frame-bottom', px(bh));
         // left panel
         var occ = 0;
         if (open && !full && m !== 'sheet' && drawer) { occ = drawer.offsetWidth; }
-        root.style.setProperty('--vt-left-occ', px(occ));
+        root.style.setProperty('--vt-frame-left', px(occ));
         var dock = (m === 'dock') ? occ : 0;
-        root.style.setProperty('--vt-dock-w', px(dock));
+        root.style.setProperty('--vt-frame-dock', px(dock));
         // right panel (only when it sits in the map area, i.e. not on a phone)
         var rp = $('right_panel');
         var rpw = 0, rpb = nb;
@@ -100,16 +100,16 @@
             rpb = rr.bottom;
             if (m !== 'sheet') { rpw = Math.max(0, window.innerWidth - rr.left); }
         }
-        root.style.setProperty('--vt-rp-w', px(rpw));
-        root.style.setProperty('--vt-rp-b', px(rpb));
+        root.style.setProperty('--vt-frame-rp-w', px(rpw));
+        root.style.setProperty('--vt-frame-rp-b', px(rpb));
         // small log
         var log = $('div_log_view');
         var lh = (visible(log) && !log.classList.contains('log-expanded')) ? log.offsetHeight : 0;
-        root.style.setProperty('--vt-log-small-h', px(lh));
+        root.style.setProperty('--vt-frame-log-h', px(lh));
         // kolo 6: next to an open panel the small log can get too narrow
         // (landscape phone: ~160 px). Then it spans the full width above the
         // bottom bar and the panel ends above it instead.
-        var wide = m !== 'sheet' && occ > 0 && (window.innerWidth - occ - rpw) < LOG_MIN_W;
+        var wide = lh > 0 && m !== 'sheet' && occ > 0 && (window.innerWidth - occ - rpw) < LOG_MIN_W;
         body.classList.toggle('vt-log-wide', wide);
 
         // the map canvas changes width when the docked panel opens/closes

@@ -88,19 +88,19 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 
 | Proměnná | Význam |
 |---|---|
-| `--vt-top-h` | spodní hrana pásu menu (px od horní hrany okna) |
-| `--vt-notice-b` | spodní hrana pásu hlášek (nebo `--vt-top-h`, když je prázdný) |
-| `--vt-bottom-h` | výška zóny spodní lišty (od spodní hrany okna) |
-| `--vt-left-occ` | šířka obsazená levým panelem v režimu dock/overlay (0 = skrytý) |
-| `--vt-dock-w` | o kolik se zúží mapa (jen `vt-m-dock`) |
-| `--vt-rp-w` | šířka pravého panelu v ploše mapy (0 = zavřený / telefon) |
-| `--vt-rp-b` | spodní hrana pravého panelu (telefon: sbalený řádek) |
-| `--vt-log-small-h` | výška malého logu, když je zobrazený (jinak 0) |
+| `--vt-frame-top` | spodní hrana pásu menu (px od horní hrany okna) |
+| `--vt-frame-notice-b` | spodní hrana pásu hlášek (nebo `--vt-frame-top`, když je prázdný) |
+| `--vt-frame-bottom` | výška zóny spodní lišty (od spodní hrany okna) |
+| `--vt-frame-left` | šířka obsazená levým panelem v režimu dock/overlay (0 = skrytý) |
+| `--vt-frame-dock` | o kolik se zúží mapa (jen `vt-m-dock`) |
+| `--vt-frame-rp-w` | šířka pravého panelu v ploše mapy (0 = zavřený / telefon) |
+| `--vt-frame-rp-b` | spodní hrana pravého panelu (telefon: sbalený řádek) |
+| `--vt-frame-log-h` | výška malého logu, když je zobrazený (jinak 0) |
 
 ## Požadavky na tokeny (pro U2 / vt_tokens.css)
 
 - `--vt-dock-w-desktop` (dnes 480 px natvrdo jako `--vt-drawer-w`) — šířka
   dokovaného sloupce, ať ji jde ladit spolu se vzhledem.
 - `--vt-frame-border` — barva sdílených hran rámu (dnes `--vt-border-strong`).
-- `--vt-log-small-h` výchozí výška malého logu (dnes 106 px / 62 px na nízkém
+- `--vt-frame-log-h` výchozí výška malého logu (dnes 106 px / 62 px na nízkém
   okně, natvrdo v index.html a right_dock.css).
