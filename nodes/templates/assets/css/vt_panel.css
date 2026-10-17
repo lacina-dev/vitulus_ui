@@ -1079,8 +1079,8 @@ body.vt-frame:not(.vt-m-sheet) #ui_drawer {
     bottom: var(--vt-frame-bottom, 40px);
     border-radius: 0;
     border: 0;
-    border-right: 1px solid var(--vt-border-strong);
-    border-top: 1px solid var(--vt-border-strong);
+    border-right: 1px solid var(--vt-frame-border, var(--vt-border-strong));
+    border-top: 1px solid var(--vt-frame-border, var(--vt-border-strong));
 }
 body.vt-frame:not(.vt-m-sheet) #ui_drawer_head,
 body.vt-frame:not(.vt-m-sheet) #ui_drawer_foot { border-radius: 0; }

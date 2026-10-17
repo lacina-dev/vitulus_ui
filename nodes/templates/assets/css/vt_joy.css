@@ -1,0 +1,157 @@
+/* vt_joy.css — the drive joystick (assets/js/vt_joy.js), U2 2026-10.
+ *
+ * A small floating card in the field look: status line (speed · motors),
+ * the pad (ring, dead zone, direction vector, knob), the live command.
+ * Size comes from --vt-joy-size (vt_tokens.css: 132 px with a mouse, 156 px
+ * on touch). WHERE it sits is the frame's job (index.html #joy_view rules,
+ * right_dock.css body.rp-joy-side, the layout matrix of docs/UI_LAYOUT.md);
+ * this file only styles the component and never sets its position.
+ */
+#joy_view.vt-joy, #joy_view_imu.vt-joy {
+    --vt-st: var(--vt-faint);
+    --vt-st-glow: transparent;
+    --vt-st-edge: var(--vt-border-strong);
+    width: calc(var(--vt-joy-size) + 24px) !important;
+    height: auto !important;
+    padding: 8px 12px 8px;
+    border: 1px solid var(--vt-st-edge);
+    border-radius: var(--vt-r-panel);
+    background: radial-gradient(130% 90% at 0% 0%, var(--vt-st-glow) 0%, transparent 60%), var(--vt-overlay);
+    box-shadow: inset 0 1px 0 var(--vt-st-edge), var(--vt-elev-1);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    color: var(--vt-text);
+    font: var(--vt-fs-sm)/1.2 var(--vt-font);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    z-index: 6;
+    transition: border-color var(--vt-ease), box-shadow var(--vt-ease);
+}
+#joy_view.vt-joy[data-state="info"], #joy_view_imu.vt-joy[data-state="info"] { --vt-st: var(--vt-accent); --vt-st-glow: var(--vt-glow-info); --vt-st-edge: var(--vt-edge-info); }
+#joy_view.vt-joy[data-state="warn"], #joy_view_imu.vt-joy[data-state="warn"] { --vt-st: var(--vt-warn); --vt-st-glow: var(--vt-glow-warn); --vt-st-edge: var(--vt-edge-warn); }
+
+/* status line: two fixed slots, nothing moves when they change */
+.vt-joy-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
+.vt-joy-chip {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    min-width: 44px; height: 20px; padding: 0 7px;
+    border: 1px solid rgba(255, 255, 255, 0.10); border-radius: var(--vt-r-tag);
+    background: rgba(255, 255, 255, 0.04); color: var(--vt-muted);
+    font: 700 10.5px/1 var(--vt-font); letter-spacing: .04em; white-space: nowrap;
+}
+.vt-joy-speed { color: var(--vt-accent); border-color: var(--vt-edge-info); background: var(--vt-glow-info); }
+.vt-joy-motors { min-width: 84px; }
+.vt-joy-motors::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.vt-joy-motors[data-state="ok"]   { color: var(--vt-ok);   border-color: var(--vt-edge-ok);   background: var(--vt-glow-ok); }
+.vt-joy-motors[data-state="warn"] { color: var(--vt-warn); border-color: var(--vt-edge-warn); background: var(--vt-glow-warn); }
+
+/* the pad */
+.vt-joy-pad {
+    --vt-joy-mag: 0;
+    --vt-joy-knob: calc(var(--vt-joy-size) * 0.34);
+    position: relative;
+    width: var(--vt-joy-size);
+    height: var(--vt-joy-size);
+    margin: 0 auto;
+    border-radius: 50%;
+    touch-action: none;
+    cursor: grab;
+    background:
+        radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.28) 70%),
+        var(--vt-bg);
+    border: 1px solid var(--vt-border-strong);
+    box-shadow:
+        inset 0 2px 10px rgba(0, 0, 0, 0.55),
+        0 0 0 calc(var(--vt-joy-mag) * 5px) rgba(var(--vt-accent-rgb), 0.14);
+    transition: box-shadow 0.08s linear;
+}
+.vt-joy-live .vt-joy-pad, .vt-joy-pad:active { cursor: grabbing; }
+/* cross hairs: forward / back and the turn axis */
+.vt-joy-pad::before, .vt-joy-pad::after {
+    content: ""; position: absolute; left: 50%; top: 50%; pointer-events: none;
+    background: rgba(255, 255, 255, 0.07);
+}
+.vt-joy-pad::before { width: 1px; height: 78%; transform: translate(-50%, -50%); }
+.vt-joy-pad::after  { width: 78%; height: 1px; transform: translate(-50%, -50%); }
+/* the dead zone */
+.vt-joy-dead {
+    position: absolute; left: 50%; top: 50%; pointer-events: none;
+    width: calc(var(--vt-joy-size) * 0.24); height: calc(var(--vt-joy-size) * 0.24);
+    transform: translate(-50%, -50%);
+    border-radius: 50%; border: 1px dashed rgba(255, 255, 255, 0.14);
+}
+/* the direction vector from the centre to the knob */
+.vt-joy-vec {
+    position: absolute; left: 50%; bottom: 50%; pointer-events: none;
+    width: 3px; margin-left: -1.5px;
+    height: calc(var(--vt-joy-size) / 2 - var(--vt-joy-knob) / 2);
+    transform-origin: 50% 100%;
+    border-radius: 2px;
+    background: linear-gradient(0deg, rgba(var(--vt-accent-rgb), 0), rgba(var(--vt-accent-rgb), 0.75));
+    opacity: 0;
+}
+.vt-joy-live .vt-joy-vec { opacity: 1; }
+[data-state="warn"] .vt-joy-vec { background: linear-gradient(0deg, rgba(var(--vt-warn-rgb), 0), rgba(var(--vt-warn-rgb), 0.75)); }
+/* the knob */
+.vt-joy-knob {
+    position: absolute; left: 50%; top: 50%; pointer-events: none;
+    width: var(--vt-joy-knob); height: var(--vt-joy-knob);
+    margin: calc(var(--vt-joy-knob) / -2) 0 0 calc(var(--vt-joy-knob) / -2);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #5d6a75, #37434d 55%, #2b343c);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: transform 0.14s cubic-bezier(.3, 1.4, .5, 1), border-color var(--vt-ease), box-shadow var(--vt-ease);
+}
+.vt-joy[data-state="info"] .vt-joy-knob,
+.vt-joy[data-state="warn"] .vt-joy-knob { transition: border-color var(--vt-ease), box-shadow var(--vt-ease); }  /* follows the finger 1:1 */
+.vt-joy[data-state="info"] .vt-joy-knob { border-color: rgba(var(--vt-accent-rgb), 0.9); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55), 0 0 14px rgba(var(--vt-accent-rgb), 0.45); }
+.vt-joy[data-state="warn"] .vt-joy-knob { border-color: rgba(var(--vt-warn-rgb), 0.9); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55), 0 0 14px rgba(var(--vt-warn-rgb), 0.45); }
+.vt-joy-nomotors .vt-joy-pad { opacity: .75; }
+/* rotate-only stick (IMU calibration): no forward axis */
+.vt-joy-turn .vt-joy-pad::before { display: none; }
+.vt-joy-turn .vt-joy-pad { height: calc(var(--vt-joy-size) * 0.5); border-radius: calc(var(--vt-joy-size) * 0.25); }
+/* in the IMU tab the stick sits in the page flow, not over the map */
+#joy_view_imu.vt-joy { position: static; overflow: visible; margin: 0 auto; background-image: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* the live command: fixed-width numbers */
+.vt-joy-read {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 7px; min-height: 16px;
+    color: var(--vt-muted); font-size: var(--vt-fs-xs);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.vt-joy-num { min-width: 7.2em; text-align: center; }
+.vt-joy-live .vt-joy-num { color: var(--vt-text); }
+.vt-joy-kb {
+    flex-basis: 100%; text-align: center; margin-top: 3px;
+    font-size: 10px; letter-spacing: .06em; color: var(--vt-faint);
+}
+.vt-joy-kb[hidden] { display: none; }
+.vt-joy-read { flex-wrap: wrap; row-gap: 0; }
+@media (prefers-reduced-motion: reduce) {
+    .vt-joy-knob, .vt-joy-pad, .vt-joy { transition: none; }
+}
+
+/* Placement follows the layout matrix (docs/UI_LAYOUT.md): the frame sets
+   the bottom edge (vt_panel.css, above the small log / the bottom bar) and
+   right_dock.css moves the stick beside an open right panel. Two guards here:
+   on a phone in portrait (vt-m-sheet) the right panel is a collapsed row
+   across the whole width, so the stick stays bottom-right under the right
+   thumb instead of being pushed left by the panel's width; and whatever
+   offset the frame gives, the stick never leaves the screen. */
+html body.vt-frame.vt-m-sheet #joy_view.vt-joy {
+    right: 12px !important;
+    left: auto !important;
+}
+body.rp-joy-side:not(.vt-m-sheet) #joy_view.vt-joy {
+    right: clamp(8px, var(--rp-joy-right, 250px), calc(100vw - var(--vt-joy-size) - 24px - 8px)) !important;
+}
+/* short screens (phone landscape): smaller pad, the live numbers go, the
+   status line stays */
+@media (max-height: 500px) {
+    :root { --vt-joy-size: 120px; }
+    .vt-joy .vt-joy-read { display: none; }
+    #joy_view.vt-joy { padding-bottom: 10px; }
+}

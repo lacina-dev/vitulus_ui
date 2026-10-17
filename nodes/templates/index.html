@@ -57,8 +57,10 @@
 <script src="/assets/js/easeljs.js"></script>
 <script src="/assets/js/eventemitter2.js"></script>
 <script src="/assets/js/roslib.js"></script>
+<script src="/assets/js/vt_mock.js"></script>
 <script src="/assets/js/ros3d.js"></script>
 <script src="/assets/js/nipplejs.js"></script>
+<script src="/assets/js/vt_joy.js"></script>
 <script src="/assets/js/mjpegcanvas.js"></script>
 <script src="/assets/js/rain_alert.js"></script>
 <script src="/assets/js/dock.js"></script>
@@ -70,7 +72,6 @@
 <script src="/assets/js/status_header.js"></script>
 <script src="/assets/js/right_dock.js"></script>
 <script src="/assets/js/calendar_manager.js"></script>
-<script src="/assets/js/keyboardteleop.js"></script>
 <script src="/assets/js/planner3d.js"></script>
 <script src="/assets/js/map_edit.js"></script>
 <script src="/assets/js/mapeditor.js"></script>
@@ -640,6 +641,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 }
 </style>
     <link rel="stylesheet" href="assets/css/vt_panel.css">
+    <link rel="stylesheet" href="assets/css/vt_field.css">
+    <link rel="stylesheet" href="assets/css/vt_joy.css">
 </head>
 
 <body>
@@ -1827,7 +1830,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
             <div id="map_view" style="width: 100%;height: 100%;background: rgba(2,60,85,0.22);color: rgba(2,60,85,0.22);overflow: hidden;"></div>
         </div>
     </div>
-    <div id="joy_view" style="width: 120px;height: 120px;position: absolute;border-radius: 118px;margin-top: calc(100vh - 269px);margin-left: calc(100vw - 170px);background: url(&quot;assets/img/joystick_icon_45px.svg&quot;) center no-repeat, radial-gradient(#00000033 43%, rgba(255,255,255,0) 74%), rgba(0,0,0,0);display: none;border: 0px solid var(--bs-secondary);z-index: 1;"></div>
+    <div id="joy_view" class="vt-joy" style="display: none;"></div>
     <div id="div_camera_view" style="width: 180px;height: 120px;position: absolute;border-radius: 5px;margin-top: calc(100vh - 268px);background: rgba(0,0,0,0.2);display: none;overflow: hidden;backdrop-filter: blur(0px);-webkit-backdrop-filter: blur(0px);filter: blur(0px);padding: 0px;float: right;margin-left: calc(4px);border: 0px solid var(--bs-secondary);z-index: 1;"></div>
     <div id="div_log_view" class="log-compact" style="width: calc(100vw - 8px);height: 106px;position: absolute;border-radius: 5px;margin-top: calc(100vh - 141px);background: rgb(28,38,44);display: none;overflow: auto;/*backdrop-filter: blur(0px);-webkit-backdrop-filter: blur(0px);*/filter: blur(0px);padding: 0px;/*float: right;*/margin-left: calc(4px);padding-right: 6px;padding-left: 5px;border: 0px none var(--bs-secondary);z-index: 1;box-shadow: 0px 0px 1px 0px #1e252c;">
         <div id="div_log_toolbar" class="log-toolbar">
