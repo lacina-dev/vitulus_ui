@@ -89,3 +89,13 @@ všech existujících kartách naráz bez zásahu do HTML.
 - Nadpisy panelů ve fieldu jsou Bitter normálním písmem, u robota VERZÁLKY
   akcentem. Navrhuji ponechat (rozlišuje „ovladač“ od „čtení“); Bitter jen pro
   velká čísla, verdikty a nadpisy v integrovaných field stránkách.
+
+## 6. V rámu C (U1) — doladění integrovaných panelů
+
+- Zvonek a **?** v navbaru jsou součástí plochy C: bez rámečku, hover =
+  jemná výplň; čeká-li něco, zvonek nese tón (amber / červená) jako nádech;
+  otevřený panel = výplň + hrana akcentu směrem k mapě (stejně jako pás menu).
+- Akce na kartách: první (cesta ven, „Open in Support“) obrysová, další jsou
+  textová tlačítka — místo tří obrysových boxů na kartu; 32 px myš / 40 px dotyk,
+  na telefonu první akce přes celou šířku.
+- Filtry Activity mluví jazykem záložek panelu (pilulky v tmavém pásu).
