@@ -6,6 +6,23 @@ panel, log a joystick žijí uvnitř plochy mapy na pevných místech. Řídí t
 `assets/js/vt_frame.js` (režim, CSS proměnné rámu) a sekce „frame“ ve
 `assets/css/vt_panel.css`.
 
+## Tvar rámu: „C“ (owner 2026-10-18)
+
+Horní lišta (navbar + pás agenta + pás menu), levý sloupec a spodní lišta
+jsou **jeden tvar v jedné barvě** (`--vt-frame-bg`), otevřený doprava k mapě.
+Vnější rohy u okrajů stránky jsou ostré; dva vnitřní rohy, kde sloupec
+přechází do horní a spodní lišty, jsou konkávně zaoblené (`--vt-frame-r`,
+14 px) — mapa leží v „dutině“ C. Tlačítka pásu menu a spodní lišty nemají
+vlastní rámečky; aktivní stav = jemná výplň + hrana akcentu směrem k mapě.
+
+| Stav | Záda C |
+|---|---|
+| panel zobrazený (PC, na šířku) | levý panel = záda C, dutina začíná za ním |
+| panel skrytý | úzký hřbet 12 px (telefon 6 px) `#vt_c_spine`, klik = otevře panel; na PC se mapa odsune za hřbet |
+| telefon na výšku, sheet otevřený | sheet je spodní část C, která vystoupala; hřbet končí na sheetu, zaoblený roh dutiny sedí nad sheetem |
+
+Pravý stavový panel, joystick, log a hlášky jsou uvnitř dutiny.
+
 ## Režimy (třída na `<body>`)
 
 | Režim | Kdy | Levý panel |

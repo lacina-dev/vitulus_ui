@@ -15,6 +15,7 @@
     'use strict';
 
     var DOCK_MIN_W = 1024, DOCK_MIN_H = 500, SHEET_MAX_W = 576, LOG_MIN_W = 420;
+    var SPINE = 12, SPINE_PHONE = 6;   // C frame: the back of the C when the panel is hidden
     var LS_LAST = 'vitulus_last_panel';
     var BTN_FOR = {marker: 'btn_marker', map: 'btn_map', program: 'btn_programs',
                    config: 'btn_settings', agent: 'btn_agent'};
@@ -90,7 +91,20 @@
         var occ = 0;
         if (open && !full && m !== 'sheet' && drawer) { occ = drawer.offsetWidth; }
         root.style.setProperty('--vt-frame-left', px(occ));
-        var dock = (m === 'dock') ? occ : 0;
+        // C frame (owner 2026-10-18): with the panel hidden a narrow SPINE
+        // keeps the top and bottom bars joined — the frame stays a "C".
+        var spine = (occ > 0) ? 0 : (m === 'sheet' ? SPINE_PHONE : SPINE);
+        var cleft = occ > 0 ? occ : spine;
+        if (open && m === 'sheet') { cleft = spine; }
+        root.style.setProperty('--vt-frame-spine', px(spine));
+        // bottom of the C's cavity: the bottom bar, or the top of the open
+        // phone sheet (the sheet is the bottom of the C rising)
+        var cb = bh;
+        if (open && m === 'sheet' && drawer) { cb = Math.max(bh, window.innerHeight - drawer.getBoundingClientRect().top); }
+        root.style.setProperty('--vt-frame-cbottom', px(cb));
+        root.style.setProperty('--vt-frame-cleft', px(cleft));
+        body.classList.toggle('vt-c-spine', spine > 0);
+        var dock = (m === 'dock') ? cleft : 0;
         root.style.setProperty('--vt-frame-dock', px(dock));
         // right panel (only when it sits in the map area, i.e. not on a phone)
         var rp = $('right_panel');
@@ -220,7 +234,28 @@
         });
     }
 
+    // C frame: the spine (clickable = open the panel) and the two concave
+    // inner corners where the spine/panel meets the top and the bottom bar
+    function installC() {
+        if ($('vt_c_spine')) { return; }
+        var sp = document.createElement('button');
+        sp.type = 'button';
+        sp.id = 'vt_c_spine';
+        sp.setAttribute('aria-label', 'Show panel (Alt+P)');
+        sp.title = 'Show panel (Alt+P)';
+        sp.addEventListener('click', function (e) { e.preventDefault(); togglePanel(); });
+        document.body.appendChild(sp);
+        ['tl', 'bl'].forEach(function (k) {
+            var c = document.createElement('div');
+            c.id = 'vt_c_' + k;
+            c.className = 'vt-c-corner';
+            c.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(c);
+        });
+    }
+
     function init() {
+        installC();
         installToggle();
         label();
         update();

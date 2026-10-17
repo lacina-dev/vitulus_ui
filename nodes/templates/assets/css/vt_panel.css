@@ -1202,3 +1202,133 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view {
 }
 /* landscape phone: a narrower panel leaves the map (and the stick) room */
 body.vt-frame.vt-m-overlay #ui_drawer:not(.full) { width: min(420px, 52vw); }
+
+/* =========================================================================
+   U1: the "C" frame (owner 2026-10-18). Top bar (navbar + agent bars + menu
+   band), the left column (panel, or a narrow spine when it is hidden) and
+   the bottom bar are ONE shape in one colour, open to the right towards the
+   map. Outer corners at the page edges are square; the two inner corners
+   where the column meets the bars are concave-rounded (the map sits in the
+   C's hollow). vt_frame.js places #vt_c_spine and the corners
+   (--vt-frame-cleft / --vt-frame-top / --vt-frame-cbottom).
+   ========================================================================= */
+:root {
+    --vt-frame-bg: var(--vt-navbar);     /* the C's surface (frame-local; U2 tokens may refine) */
+    --vt-frame-r: 14px;                  /* inner (hollow) corner radius */
+}
+/* -- top bar: navbar + menu band in the frame colour, no boxes/seams ------- */
+body.vt-frame #div_menu { background: var(--vt-frame-bg); }
+body.vt-frame #row_menu .btn-group,
+body.vt-frame #div_bottom_menu .btn-group {
+    background: var(--vt-frame-bg) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+body.vt-frame #row_menu .btn,
+body.vt-frame #div_bottom_menu .btn {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent;
+    color: var(--vt-accent);
+}
+body.vt-frame #row_menu .btn:hover,
+body.vt-frame #div_bottom_menu .btn:not(#btn_stop_all):hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+/* active = a light wash + an accent edge facing the map (down in the top
+   band, up in the bottom band) — no outline boxes */
+body.vt-frame #row_menu .btn.vt-on,
+body.vt-frame #row_menu #btn_agent.active {
+    background: rgba(var(--vt-accent-rgb), 0.16) !important;
+    color: #fff !important;
+    box-shadow: inset 0 -2px 0 var(--vt-accent) !important;
+    border-color: transparent !important;
+}
+body.vt-frame #div_bottom_menu .btn.vt-on:not(#btn_stop_all) {
+    background: rgba(var(--vt-accent-rgb), 0.16);
+    color: #fff;
+    box-shadow: inset 0 2px 0 var(--vt-accent);
+}
+/* STOP keeps its red, but as part of the bar (square, no frame) */
+body.vt-frame #div_bottom_menu #btn_stop_all { background: var(--vt-danger) !important; color: #fff; }
+body.vt-frame #div_bottom_menu #btn_stop_all:hover { filter: brightness(1.1); }
+
+/* -- the left column: the panel is the back of the C, same surface -------- */
+body.vt-frame:not(.vt-m-sheet) #ui_drawer {
+    background: var(--vt-frame-bg);
+    border: 0 !important;
+    box-shadow: none !important;
+}
+body.vt-frame #ui_drawer_head,
+body.vt-frame #ui_drawer_foot { background: var(--vt-frame-bg); }
+body.vt-frame:not(.vt-m-sheet) #ui_drawer_head { border-bottom-color: rgba(255, 255, 255, 0.06); }
+/* phone: the sheet is the bottom of the C rising — same surface, square top
+   corners at the page edges, the hollow above it gets the round corner */
+body.vt-frame.vt-m-sheet #ui_drawer,
+body.vt-frame.vt-m-sheet #ui_drawer.wide {
+    background: var(--vt-frame-bg);
+    border: 0;
+    border-radius: 0;
+    box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+body.vt-frame.vt-m-sheet #ui_drawer_grip { background: var(--vt-frame-bg); border-radius: 0; }
+
+/* -- spine: the C's narrow back while the panel is hidden ----------------- */
+#vt_c_spine { display: none; }
+body.vt-frame.vt-c-spine #vt_c_spine {
+    display: block;
+    position: fixed;
+    left: 0;
+    top: var(--vt-frame-top, 72px);
+    bottom: var(--vt-frame-cbottom, 30px);     /* phone: ends on the open sheet */
+    width: var(--vt-frame-spine, 12px);
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--vt-frame-bg);
+    z-index: 1001;
+    cursor: pointer;
+}
+/* grip dots in the middle say "this opens" */
+body.vt-frame.vt-c-spine #vt_c_spine::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 3px;
+    height: 28px;
+    margin: -14px 0 0 -1.5px;
+    border-radius: 2px;
+    background: rgba(var(--vt-accent-rgb), 0.35);
+    transition: background var(--vt-ease), height var(--vt-ease);
+}
+body.vt-frame.vt-c-spine #vt_c_spine:hover::after,
+body.vt-frame.vt-c-spine #vt_c_spine:focus-visible::after { background: var(--vt-accent); height: 44px; margin-top: -22px; }
+body.vt-frame.vt-c-spine #vt_c_spine:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; }
+/* the map makes room for the spine on a PC (the hollow starts after it) */
+body.vt-frame.vt-m-dock:not(.vt-panel-open) #map_view {
+    margin-left: var(--vt-frame-cleft, 12px);
+    width: calc(100% - var(--vt-frame-cleft, 12px)) !important;
+}
+
+/* -- concave inner corners ------------------------------------------------ */
+.vt-c-corner {
+    display: none;
+    position: fixed;
+    left: var(--vt-frame-cleft, 0px);
+    width: var(--vt-frame-r);
+    height: var(--vt-frame-r);
+    z-index: 1001;
+    pointer-events: none;
+}
+body.vt-frame .vt-c-corner { display: block; }
+#vt_c_tl {
+    top: var(--vt-frame-top, 72px);
+    background: radial-gradient(circle at 100% 100%, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+#vt_c_bl {
+    bottom: var(--vt-frame-cbottom, 30px);
+    background: radial-gradient(circle at 100% 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+/* the small log strip and the notices start right of the spine/corner */
+html body.vt-frame.vt-c-spine:not(.vt-m-sheet) #div_log_view:not(.log-expanded) { left: calc(var(--vt-frame-cleft, 12px) + 4px) !important; }
