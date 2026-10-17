@@ -137,7 +137,14 @@ One look for every panel, defined in two files loaded by `index.html`:
   A panel lends its meta/foot elements to the shared head/foot through
   `MapMenu._drawer_chrome()` (moved with their ids, returned on hand-over);
   the agent panel puts its dot/age and ▤ ⌧ STOP into the same slots.
-* `assets/js/vt_ui.js` — tab-strip edge fade + keeps the active tab in view.
+* `assets/js/vt_ui.js` — tab-strip edge fade + keeps the active tab in view;
+  the phone bottom sheet: drag the grip/header up = full screen, down = back
+  to the sheet, far down = close; with the soft keyboard open
+  (`visualViewport`) the sheet is lifted onto it and the focused field
+  scrolled into view.
+* Panel bodies use `.vt-stack` / `.vt-card` (`data-state` = ok/warn/err/off
+  tint) / `.vt-kv` / `.vt-field` / `.vt-reading`; JS reports a switch's state
+  with `vtSetState(el, state)` (map_view.js), never with an inline border.
 
 The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
 

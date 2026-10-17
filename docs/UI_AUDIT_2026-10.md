@@ -65,7 +65,28 @@ komponenta: `assets/css/vt_panel.css`.
 | Log rozbalený | pravý panel a kamera přes něj (mobil) | čistá vrstva, bez pruhu u kritických událostí |
 | Mobil | každý panel přes celou obrazovku | sheet zespodu 60 %, mapa nahoře vidět, ⤢/úchyt = celá obrazovka |
 
+## Kolo 2 (větev `ui-unify`)
+
+| Oblast | Před | Po |
+|---|---|---|
+| Settings: Motors/Navi/Power/Mower/Diag/Rosbag/IMU, Calendar | Bootstrap mřížky s inline styly, stav = inline barevný rámeček z JS | karty a sekce z tokenů, stav = `data-state` nádech karty + prstenec skupiny (`vtSetState`), id beze změny |
+| Primární akce | nahoře vpravo v těle (Cancel navi, New program, + Add event), Marker v těle | vždy v patičce šuplíku, podle panelu a aktivní záložky |
+| Pravý panel na telefonu | ~470 px, půl mapy zakryté | jeden řádek mapa · baterie · ▾, rozbalení na požádání |
+| Agent → Robot | vlastní statický náhled mapy (~5 s CPU/render) | tlačítko Show on map → živá hlavní mapa |
+| Sheet na telefonu | jen klepnutí na úchyt | tažení nahoru/dolů/zavřít, klávesnice zvedne sheet a odroluje k poli |
+
 ## Co zbývá (návrh další etapy)
+
+- Dock / Rain / Loc záložky panelu Map a Path/Point seznamy: pořád inline
+  styly z dock.js/rain_alert.js/gloc.js — převést na karty.
+- Programs: řádky programů a detail programu (inline styly v map_view.js
+  šablonách) na karty se stavem posledního běhu.
+- Pravý panel ve sbaleném řádku: přidat stav polohy (Pose/GNSS tečka).
+- Ověřit na skutečném iPhonu/Androidu: tažení sheetu a klávesnici (zde jen
+  emulace v Playwrightu).
+
+## Co zbývalo po kole 1
+
 
 - Těla záložek Settings (Motors/Power/Mower/Diag/Rosbag/IMU) jsou pořád
   starý Bootstrap s inline styly — přepsat na sekce/karty anatomie
