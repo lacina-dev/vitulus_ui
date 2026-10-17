@@ -79,6 +79,13 @@
     --vt-fs: 13px;
     --vt-fs-title: 15px;
 
+    --vt-bar-h: 40px;            /* space reserved for the bottom toolbar (+gap) */
+
     --vt-shadow: 0 10px 30px rgba(0, 0, 0, 0.50);
     --vt-ease: 0.2s ease;
+}
+
+/* touch screens: the two button bars become real 40 px targets */
+@media (pointer: coarse) {
+    :root { --vt-bar-h: 50px; }
 }

@@ -196,3 +196,22 @@
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initSheet); }
     else { initSheet(); }
 })();
+
+/* U1 kolo 3: small checkboxes wrapped in a plain span/div (keyboard teleop in
+ * the right panel, the Mapping "direct" sources) get the wrapper as their
+ * 40 px touch target: a tap on the wrapper — not on the box or a link/button
+ * inside — toggles the box exactly as a tap on it would. */
+(function () {
+    'use strict';
+    var WRAP = '#div_status_speed-1, #ui_drawer span:has(> input[type="checkbox"])';
+    document.addEventListener('click', function (ev) {
+        var t = ev.target;
+        if (!t || !t.closest || t.closest('input, label, button, a, select')) { return; }
+        var w;
+        try { w = t.closest(WRAP); } catch (e) { return; }   // :has unsupported
+        if (!w) { return; }
+        var box = w.querySelector(':scope > input[type="checkbox"]');
+        if (box && !box.disabled) { box.click(); }
+    });
+    window.__vtHitWrap = WRAP;
+})();

@@ -243,7 +243,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         /* anchored to the bottom toolbar; JS's inline `top` is for desktop */
         top: auto !important;
         height: var(--vt-sheet-h);
-        max-height: calc(100dvh - var(--vt-drawer-top, 96px) - 40px - var(--safe-bottom, 0px));
+        max-height: calc(100dvh - var(--vt-drawer-top, 96px) - var(--vt-bar-h, 40px) - var(--safe-bottom, 0px));
         border: 1px solid var(--vt-border-strong);
         border-bottom: 0;
         border-radius: var(--vt-r-panel) var(--vt-r-panel) 0 0;
@@ -806,4 +806,60 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 }
 @media (max-width: 575.98px) {
     #right_panel.compact { width: min(250px, 66vw) !important; }
+}
+
+/* ================================ U1 kolo 3: touch targets >= 40 px ===== */
+@media (pointer: coarse) {
+    /* menu row + bottom toolbar */
+    #row_menu .btn, #div_bottom_menu .btn { min-height: var(--vt-touch); }
+    #btn_navbar_toggler { min-width: var(--vt-touch); min-height: var(--vt-touch) !important; }
+    /* sheet grip */
+    #ui_drawer_grip { height: 22px; }
+    #ui_drawer_grip::after { top: 9px; }
+    /* right panel */
+    .rp-handle { width: var(--vt-touch) !important; }
+    #right_panel .rp-sec > h5 { min-height: var(--vt-touch); margin-bottom: 0; }
+    #right_panel .btn-group .btn, #right_panel .btn { min-height: var(--vt-touch); height: auto !important; }
+    .rp-compact-btn { height: var(--vt-touch); }
+    /* everything inside a panel */
+    #ui_drawer .btn, #ui_drawer .form-control, #ui_drawer .form-select,
+    #ui_drawer .input-group-text, #ui_drawer summary { min-height: var(--vt-touch); }
+    #ui_drawer .vt-iconbtn-sm { width: var(--vt-touch) !important; min-width: var(--vt-touch) !important; height: var(--vt-touch) !important; }
+    #ui_drawer .form-check-input, #right_panel .form-check-input, #right_panel input[type="checkbox"] { width: 24px; height: 24px; }
+    #ui_drawer .form-check, #ui_drawer .form-switch, #ui_drawer .form-check-inline { min-height: var(--vt-touch); display: inline-flex; align-items: center; gap: 8px; }
+    #ui_drawer .form-check-label { min-height: var(--vt-touch); display: inline-flex; align-items: center; }
+    #ui_drawer input[type="range"] { height: var(--vt-touch); }
+    #ui_drawer .nav-link { min-height: var(--vt-touch); }
+    .vt-item > .btn { min-height: var(--vt-touch); }
+}
+@media (pointer: coarse) {
+    #div_status_speed-1 { min-width: var(--vt-touch); min-height: var(--vt-touch); justify-content: center; cursor: pointer; }
+    #ui_drawer span:has(> input[type="checkbox"]) { min-height: var(--vt-touch); display: inline-flex; align-items: center; cursor: pointer; }
+    #right_panel .btn-group .btn { min-width: var(--vt-touch) !important; }
+    #ui_drawer_grip { height: var(--vt-touch); }
+    #ui_drawer_grip::after { top: 10px; }
+    #ui_drawer_head { min-height: 46px; }
+}
+@media (pointer: coarse) {
+    /* one rule for every control in a panel, the agent included: >= 40 px */
+    #ui_drawer button, #ui_drawer .btn, #ui_drawer select,
+    #ui_drawer input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    #div_log_view button, #div_log_view .btn, #right_panel button:not(.rp-handle) {
+        min-height: var(--vt-touch);
+        min-width: var(--vt-touch);
+    }
+    #ui_drawer summary { min-height: var(--vt-touch); display: flex; align-items: center; }
+    #ui_drawer input[type="checkbox"], #ui_drawer input[type="radio"] { width: 24px; height: 24px; flex: 0 0 auto; }
+    #ui_drawer label:has(> input[type="checkbox"]), #ui_drawer label:has(> input[type="radio"]) {
+        min-height: var(--vt-touch); display: inline-flex; align-items: center; gap: 6px;
+    }
+    #ui_drawer .vt-days .btn { padding: 0 4px; }
+    #right_panel .rp-line { flex-wrap: wrap; }
+    .bag-list .bag-actions .btn { padding: 0 10px; }
+}
+@media (pointer: coarse) {
+    /* the editor's older per-panel sizes (index.html #div_map_detail rules,
+       mapedits.js inline min-height) lose to the touch size */
+    #ui_drawer #div_map_detail .btn, #ui_drawer #div_map_detail .btn-sm,
+    #ui_drawer #div_map_detail .btn-group-sm > .btn { min-height: var(--vt-touch) !important; min-width: var(--vt-touch); }
 }
