@@ -361,3 +361,61 @@
 @keyframes vt-hl { 0% { box-shadow: 0 0 0 2px var(--vt-accent), 0 0 18px rgba(var(--vt-accent-rgb), .55); } 100% { box-shadow: inset 0 1px 0 var(--vt-st-edge); } }
 .vt-hl { animation: vt-hl 1.8s ease-out 1; }
 @media (prefers-reduced-motion: reduce) { .vt-hl { animation: none; outline: 2px solid var(--vt-accent); } }
+
+/* ===================== U2 polish: the integrated panels in the C frame =====
+   (docs/UI_LAYOUT.md "Tvar rámu C": buttons of the bars have no frames of
+   their own; active = a light wash + an accent edge facing the map) */
+/* navbar: bell and ? are part of the C surface, not boxes on it */
+body.vt-frame .vt-needs-bell,
+body.vt-frame .vt-help-btn {
+    border-color: transparent;
+    border-radius: var(--vt-r-ctl);
+    background: transparent;
+}
+body.vt-frame .vt-needs-bell:hover,
+body.vt-frame .vt-help-btn:hover { background: rgba(255, 255, 255, 0.05); border-color: transparent; color: #fff; }
+/* something waits: the tone shows as a soft wash (the count says how much) */
+body.vt-frame .vt-needs-bell[data-state="warn"],
+body.vt-frame .vt-needs-bell[data-state="err"] { background: var(--vt-st-glow); color: var(--vt-st); }
+/* open = the same active language as the menu band (edge facing the map) */
+body.vt-frame .vt-needs-bell.vt-on,
+body.vt-frame .vt-help-btn.vt-on {
+    background: rgba(var(--vt-accent-rgb), 0.16);
+    color: #fff;
+    box-shadow: inset 0 -2px 0 var(--vt-accent);
+    border-radius: var(--vt-r-ctl) var(--vt-r-ctl) 0 0;
+}
+body.vt-frame #row_menu .vt-needs-bell.vt-needs-inrow { border: 0 !important; border-radius: 0 !important; }
+
+/* card actions: one quiet row; the first action is the way out (outline),
+   the others are text buttons — three outlined boxes per card were noise */
+.vt-needs-acts { gap: 4px var(--vt-gap-2); align-items: center; }
+.vt-needs-btn,
+a.vt-needs-btn {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: var(--vt-fs);
+    font-weight: 500;
+    border-radius: var(--vt-r-ctl);
+}
+.vt-needs-acts > .vt-needs-btn ~ .vt-needs-btn {
+    border-color: transparent;
+    background: transparent;
+    padding: 0 8px;
+}
+.vt-needs-acts > .vt-needs-btn ~ .vt-needs-btn:hover { background: rgba(var(--vt-accent-rgb), 0.10); color: #fff; }
+@media (pointer: coarse) { .vt-needs-btn, a.vt-needs-btn { min-height: var(--vt-touch); } }
+@media (max-width: 575.98px) {
+    .vt-needs-btn { flex: 0 1 auto; }
+    .vt-needs-acts > .vt-needs-btn:first-child { flex: 1 1 100%; justify-content: center; }
+}
+/* the filters of Activity speak the pill language of the panel tabs */
+.vt-act-filters { padding: 3px; border-radius: var(--vt-r-ctl); background: rgba(0, 0, 0, 0.25); gap: var(--vt-gap-1); }
+.vt-act-filter { border-color: transparent; background: transparent; color: var(--vt-accent); border-radius: calc(var(--vt-r-ctl) - 2px); }
+.vt-act-filter:hover { border-color: var(--vt-border-strong); }
+.vt-act-filter.active { color: #fff; background: var(--vt-surface-3); border-color: var(--vt-edge-info); font-weight: 500; }
+/* section headings inside the panels (day labels, "Released, waiting…") */
+.vt-act-day { padding: 0 2px; }
+/* the bell defines a neutral tone for itself; its data-state must win over it */
+.vt-needs-bell[data-state="warn"] { --vt-st: var(--vt-warn); --vt-st-glow: var(--vt-glow-warn); --vt-st-edge: var(--vt-edge-warn); }
+.vt-needs-bell[data-state="err"]  { --vt-st: var(--vt-err);  --vt-st-glow: var(--vt-glow-err);  --vt-st-edge: var(--vt-edge-err); }

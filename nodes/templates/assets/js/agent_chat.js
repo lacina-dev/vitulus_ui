@@ -5556,6 +5556,9 @@
     // ------------------------------------------------------------- exports
     window.VAgent = {
         registerBlock: registerBlock,
+        /* U2: the Needs you panel asks for the approvals once when it opens
+           (the same single poller, U44, no second loop) */
+        pollApprovals: function () { return pollApprovals(); },
         api: api,
         num: num,                     // every number says where it came from
         auditNumbers: auditNumbers,   // …and the panel can be asked to prove it

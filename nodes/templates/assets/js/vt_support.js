@@ -216,9 +216,11 @@
     /* ----------------------------------------------------------- Help */
     var HELP = {
         general: ['The robot UI',
-            ['One frame: the top band (status, menu), the map in the middle, the bottom bar. The left panel shows one tool at a time — ◧ (Alt+P) hides or shows it, Esc hides it, ✕ closes it, ⤢ makes it full screen. On a phone the panel is a sheet: drag it up for full screen, down to close.',
-             'STOP (red, bottom left) is the emergency stop: it cancels navigation, switches the drive motors off, stops a running mowing program, the blade and docking, and opens the motor switch of the power module. Motors stay off until someone switches them on again.',
-             'The bell is "Needs you": approvals of the robot agent and decisions the field kit waits for. Support (the last button of the menu band) shows the fix loop: issues, releases, the link to the other robot.']],
+            ['One frame in the shape of a C: the top band (status, the agent strip, the menu), the left panel and the bottom bar are one surface around the map. The left panel shows one tool at a time — Panel (Alt+P) hides or shows it, Esc hides it, ✕ closes it, ⤢ makes it full screen; a hidden panel leaves a thin spine on the left edge, click it to bring the panel back. On a phone the panel is a sheet: drag it up for full screen, down to close.',
+             'The bottom bar: STOP · Joystick · Follow · Log (on a phone with a free gap in the middle for the system gesture). The camera is in the right panel (section Camera; on a phone unfold the collapsed row with ▾).',
+             'STOP (red, bottom left, always the same place) is the emergency stop: it cancels navigation, switches the drive motors off, stops a running mowing program, the blade and docking, and opens the motor switch of the power module. Motors stay off until someone switches them on again.',
+             'The bell in the top bar is "Needs you": approvals of the robot agent and decisions the field kit waits for. Support (the last button of the menu band) shows the fix loop: issues, releases, the link to the other robot — and this help.']],
+        camera: ['Camera', ['The live camera is a section of the right panel (top right of the map). On a phone the right panel is a collapsed row under the notices: ▾ unfolds it, the Camera section shows the preview. Follow in the bottom bar makes the map view follow the robot.']],
         marker: ['Marker', ['Place a goal on the map and press Send goal; Cancel navigation stops the drive to it.']],
         map: ['Map', ['Maps of the site: the active map, saving and loading, paths, points, the dock and rain settings. ✎ next to the active map opens the map editor.']],
         editor: ['Map editor', ['Zones and polygons of the active map, drawn on the map from above. The map stays drivable while you edit; close the editor with Close editor or ✕.']],
@@ -227,8 +229,8 @@
         agent: ['Agent', ['Chat with the robot agent; Work = its jobs and the approvals it asks for; Activity = one timeline of the agent and the field kit; Findings = what it noticed; Robot = live state; Models = which model does what. The red STOP in its head is answered by the robot core, never by a model.']],
         needs: ['Needs you', ['Everything that waits for a human, in one list. Approvals are decided in Agent › Work, field decisions on the Support dashboard (Open in Support) — this list only shows them.']],
         support: ['Support', ['Issues: open reports and their stage in the fix loop (reported → assessed → fixed → released → tested → verified → closed). Releases: the field kit version and what waits for a retest. Signal: both robots and the phone notifications. Everything opens on the Support dashboard, where decisions are made.']],
-        drive: ['Drive (joystick)', ['The stick in the bottom right (Joystick in the bottom bar shows / hides it). Push to drive: forward/back = speed, sideways = turn; near the centre it is fine, at the rim full speed (Slow / Mid / Fast). Let go = stop. It shows the speed mode and whether the drive motors are on — with motors OFF nothing moves. Keyboard: switch on "keyboard" in the right panel, then W A S D or arrows, Shift = half speed; never while typing in a field.']],
-        log: ['Log', ['Log in the bottom bar shows the log as a strip above the bar; Expand makes it fill the map area, Collapse shrinks it back.']]
+        drive: ['Drive (joystick)', ['The stick in the bottom right of the map (Joystick in the bottom bar shows / hides it; on a phone it stays above an open sheet). Push to drive: forward/back = speed, sideways = turn; near the centre it is fine, at the rim full speed (Slow / Mid / Fast). Let go = stop. It shows the speed mode and whether the drive motors are on — with motors OFF nothing moves. Keyboard: switch on "keyboard" in the right panel, then W A S D or arrows, Shift = half speed; never while typing in a field.']],
+        log: ['Log', ['Log in the bottom bar shows the log as a strip above the bar; Expand makes it fill the map area, Collapse shrinks it back; Log again hides it. The joystick always stays above the small log.']]
     };
     var CURRENT = { marker: 'marker', map: 'map', editor: 'editor', program: 'program', config: 'config',
                     agent: 'agent', needs: 'needs', support: 'support' };
@@ -236,7 +238,7 @@
         var pane = panes.help; if (!pane) { return; }
         pane.textContent = '';
         var first = helpFor && HELP[helpFor] ? helpFor : null;
-        var order = (first ? [first] : []).concat(['general', 'drive', 'needs', 'support', 'agent', 'marker', 'map', 'editor', 'program', 'config', 'log'].filter(function (k) { return k !== first; }));
+        var order = (first ? [first] : []).concat(['general', 'drive', 'camera', 'needs', 'support', 'agent', 'marker', 'map', 'editor', 'program', 'config', 'log'].filter(function (k) { return k !== first; }));
         order.forEach(function (k, idx) {
             var h = HELP[k];
             var d = el('details', 'drawer-sec vt-help-sec');
@@ -258,6 +260,7 @@
     /* ------------------------------------------------------- tabs/data */
     function showTab(id) {
         tab = id; lsSet(LS_TAB, id);
+        paintBtn();
         TABS.forEach(function (t) {
             panes[t[0]].hidden = t[0] !== id;
             tabLinks[t[0]].classList.toggle('active', t[0] === id);
@@ -394,7 +397,11 @@
 
     /* ----------------------------------------------------- the buttons */
     var menuBtn = null, helpBtn = null;
-    function paintBtn() { if (menuBtn) { menuBtn.classList.toggle('vt-on', active); } }
+    function paintBtn() {
+        if (menuBtn) { menuBtn.classList.toggle('vt-on', active); }
+        var hb = document.getElementById('btn_help');
+        if (hb) { hb.classList.toggle('vt-on', active && tab === 'help'); }
+    }
     function installButtons() {
         var group = document.querySelector('#row_menu .btn-group');
         if (group && !document.getElementById('btn_support')) {

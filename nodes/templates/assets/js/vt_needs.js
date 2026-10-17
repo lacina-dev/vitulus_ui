@@ -278,6 +278,9 @@
         active = true;
         lsSet('vitulus_needs_open', '1');
         if (window.VTHub) { VTHub.refresh('field.attention'); }
+        if (!VTHub.get('agent.asks') && window.VAgent && VAgent.pollApprovals) {
+            try { VAgent.pollApprovals(); } catch (e) { /* agent down */ }
+        }
         render();
     }
     function deactivate(slideOut) {
