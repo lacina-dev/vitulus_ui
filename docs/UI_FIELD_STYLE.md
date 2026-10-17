@@ -99,3 +99,9 @@ všech existujících kartách naráz bez zásahu do HTML.
   textová tlačítka — místo tří obrysových boxů na kartu; 32 px myš / 40 px dotyk,
   na telefonu první akce přes celou šířku.
 - Filtry Activity mluví jazykem záložek panelu (pilulky v tmavém pásu).
+- Agentní panel (Chat / Work / Findings / Robot / Models): jeden nadpis sekce
+  (malé verzálky, tlumený, počet jako čtvercový štítek), jeden prázdný stav
+  (`.vagent-empty`, `.vpk-none`, `.vm-none` = čárkovaný box jako `.vt-empty`),
+  načítání jako skeleton / dýchající text místo červeného řádku, štítky nálezů
+  tónované (ne plné bloky), řádky nálezů jako karty bez pruhu vlevo, nativní
+  checkboxy v barvě akcentu a tmavém schématu.

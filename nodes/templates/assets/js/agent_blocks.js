@@ -1515,11 +1515,20 @@
       if (!st) {
         // Before the first /api/state answer there is nothing to show yet —
         // saying "unavailable" there was the whole U1 complaint.
-        errLine(robotBox, (VA.state && VA.state.ts)
-          ? 'robot state unavailable' : 'robot state — loading…');
+        if (VA.state && VA.state.ts) { errLine(robotBox, 'robot state unavailable'); return; }
+        /* U2: loading is not an error - the slot keeps its height with
+           skeleton lines (vt_field.css) instead of a red line */
+        robotBox.textContent = '';
+        robotBox.setAttribute('aria-busy', 'true');
+        [0, 1, 2].forEach(function (i) {
+          var s = document.createElement('span');
+          s.className = 'vt-skel' + (i === 2 ? ' vt-skel-short' : '');
+          robotBox.appendChild(s);
+        });
         return;
       }
       robotBox.textContent = '';
+      robotBox.removeAttribute('aria-busy');
       var age = VA.state.age_s != null ? VA.state.age_s : null;
       robotBox.appendChild(row('Battery',
         VA.num(st.battery_pct, '/api/state#state.battery_pct', {unit: ' %'})));

@@ -419,3 +419,99 @@ a.vt-needs-btn {
 /* the bell defines a neutral tone for itself; its data-state must win over it */
 .vt-needs-bell[data-state="warn"] { --vt-st: var(--vt-warn); --vt-st-glow: var(--vt-glow-warn); --vt-st-edge: var(--vt-edge-warn); }
 .vt-needs-bell[data-state="err"]  { --vt-st: var(--vt-err);  --vt-st-glow: var(--vt-glow-err);  --vt-st-edge: var(--vt-edge-err); }
+
+/* ============ U2: agent panel bodies in the field card language ==========
+   One section heading, one empty state, one loading look, one label shape
+   across Chat / Work / Activity / Findings / Robot / Models (and the drawer
+   in general). Only looks — no layout of the frame, header or scrollbars. */
+
+/* native controls follow the dark theme and the accent */
+#ui_drawer { color-scheme: dark; }
+#ui_drawer input[type="checkbox"]:not(.form-check-input),
+#ui_drawer input[type="radio"]:not(.form-check-input) { accent-color: var(--vt-accent); width: 16px; height: 16px; }
+
+/* section headings: small caps, muted, the count as a square tag */
+#vagent_panel .vagent-sh,
+#vagent_panel .vrec-group,
+#vagent_panel .vrec-group-h > summary,
+#vagent_panel .vrec-ev > summary,
+#vagent_panel .vrec-seclbl,
+#vagent_panel .vagent-card h4,
+#vagent_panel details.vagent-card > summary,
+.vt-act-day {
+    font: 700 var(--vt-fs-xs)/1.3 var(--vt-font);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--vt-muted);
+}
+#vagent_panel .vrec-group.g-read { color: var(--vt-err); }
+#vagent_panel .vagent-sh .vagent-cnt,
+#vagent_panel .vrec-group .vagent-cnt,
+#vagent_panel details.vagent-card > summary .vagent-cnt {
+    min-width: 22px; padding: 0 6px; border-radius: var(--vt-r-tag);
+    background: rgba(255, 255, 255, 0.07); color: var(--vt-muted);
+    font: 700 var(--vt-fs-xs)/18px var(--vt-font); text-align: center; font-variant-numeric: tabular-nums;
+}
+
+/* one empty state everywhere: the quiet dashed box */
+#vagent_panel .vagent-empty,
+#vagent_panel .vpk-none,
+#vagent_panel .vm-none {
+    display: block;
+    margin: var(--vt-gap-1) 0;
+    padding: var(--vt-gap-3) var(--vt-gap-4);
+    border: 1px dashed var(--vt-border-strong);
+    border-radius: var(--vt-r-card);
+    background: transparent;
+    color: var(--vt-muted);
+    font-size: var(--vt-fs-sm);
+    text-align: center;
+    opacity: 1;
+}
+
+/* one loading look: muted text that breathes (keeps its slot, no jump) */
+#vagent_panel .vrec-load,
+#vagent_panel .vagent-loading {
+    color: var(--vt-muted);
+    opacity: 1;
+    font-size: var(--vt-fs-sm);
+    animation: vt-breathe 1.4s ease-in-out infinite;
+}
+@keyframes vt-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* labels: square, toned, never a solid block (the card already carries the state) */
+#vagent_panel .vrec-chip {
+    border-radius: var(--vt-r-tag);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--vt-muted);
+    font-size: 10.5px;
+}
+#vagent_panel .vrec-chip.c-read    { color: var(--vt-err);    background: var(--vt-glow-err);  border-color: var(--vt-edge-err); }
+#vagent_panel .vrec-chip.c-working { color: var(--vt-accent); background: var(--vt-glow-info); border-color: var(--vt-edge-info); }
+#vagent_panel .vrec-chip.c-new     { color: var(--vt-warn);   background: var(--vt-glow-warn); border-color: var(--vt-edge-warn); }
+#vagent_panel .vagent-pill { border: 1px solid transparent; line-height: 16px; }
+
+/* the finding rows: a card each, like every other card (radius, padding),
+   the stripe of agent_panel.css is gone for good (rule: no left stripe) */
+#vagent_panel .vrec-row {
+    border-left-width: 1px !important;
+    margin: 0 0 var(--vt-gap-2);
+    padding: 0 var(--vt-gap-3) !important;
+    background-color: var(--vt-surface-2);
+}
+#vagent_panel .vrec-row.s-read,
+#vagent_panel .vrec-row.s-working { padding-left: var(--vt-gap-3) !important; }
+#vagent_panel .vrec-title { font-size: var(--vt-fs-md); line-height: 1.35; }
+#vagent_panel .vrec-res { color: var(--vt-muted); opacity: 1; }
+#vagent_panel .vrec-age, #vagent_panel .vrec-x { color: var(--vt-muted); opacity: 1; font-variant-numeric: tabular-nums; }
+
+/* cards of the agent panel: the same radius and inner rhythm as .vt-card */
+#vagent_panel :is(.vagent-card, .vm-card, .vz-card, .vagent-ujob, .vagent-sched, .vpk-card, .vagent-ask) {
+    border-radius: var(--vt-r-card);
+}
+#vagent_panel .vagent-card { padding: var(--vt-gap-2) var(--vt-pad); margin: 0 0 var(--vt-gap-2); }
+
+/* secondary text and meta in one muted tone (no random opacities) */
+#vagent_panel :is(.vrec-id, .vrec-evmeta, .vrec-tl, .vrec-more, .vm-tok) { color: var(--vt-muted); opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #vagent_panel .vrec-load, #vagent_panel .vagent-loading { animation: none; } }
