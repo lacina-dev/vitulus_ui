@@ -20,7 +20,7 @@
  */
 
 /* ------------------------------------------------------------------ tone */
-.vt-card, .vt-attn, .vt-act, .vt-pill, .vt-sdot, .vt-tone, .vagent-card {
+.vt-card, .vt-attn, .vt-act, .vt-pill, .vt-tone, .vagent-card {
     --vt-st: var(--vt-faint);
     --vt-st-glow: transparent;
     --vt-st-edge: var(--vt-border);
@@ -74,8 +74,8 @@
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    background: var(--vt-st);
-    box-shadow: 0 0 0 3px var(--vt-st-glow);
+    background: var(--vt-st, var(--vt-faint));     /* the tone of its row / card */
+    box-shadow: 0 0 0 3px var(--vt-st-glow, transparent);
 }
 .vt-busy .vt-sdot, .vt-sdot.vt-busy { animation: vt-pulse 1.4s ease-in-out infinite; }
 @keyframes vt-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
@@ -313,3 +313,24 @@
     background: var(--vt-st-glow); color: var(--vt-st); border-color: var(--vt-st-edge);
 }
 #row_menu .vt-needs-bell.vt-needs-inrow[data-state="off"] { color: var(--bs-info); border-color: var(--bs-info); }
+
+/* -------------------------------------- Agent › Activity (vt_activity.js) */
+.vt-activity { display: flex; flex-direction: column; gap: var(--vt-gap-2); }
+.vt-act-nowbox .vt-act { border: 1px solid var(--vt-st-edge); border-radius: var(--vt-r-card); padding: 0 var(--vt-gap-3);
+    min-height: 40px; background: radial-gradient(130% 160% at 0% 0%, var(--vt-st-glow) 0%, transparent 65%), var(--vt-surface-2); }
+.vt-act-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.vt-act-filter {
+    min-height: 32px; padding: 0 12px; border-radius: var(--vt-r-tag); cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.03);
+    color: var(--vt-muted); font: 500 var(--vt-fs-sm)/1 var(--vt-font);
+}
+.vt-act-filter:hover { border-color: rgba(var(--vt-accent-rgb), 0.5); color: var(--vt-text); }
+.vt-act-filter.active { border-color: var(--vt-accent); background: var(--vt-glow-info); color: var(--vt-accent); font-weight: 700; }
+@media (pointer: coarse) { .vt-act-filter { min-height: var(--vt-touch); flex: 1 1 auto; } }
+.vt-act-day { margin: var(--vt-gap-2) 0 2px; font-size: var(--vt-fs-xs); font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--vt-faint); }
+.vt-act-src { display: inline-block; max-width: 7em; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom;
+    padding: 0 5px; margin-right: 4px; border-radius: var(--vt-r-tag); background: rgba(255, 255, 255, 0.05); font-size: 10.5px; }
+.vt-act-src-agent { background: var(--vt-glow-brand); color: var(--vt-brand); }
+.vt-act-more { align-self: center; min-height: var(--vt-touch); }
+.vt-act[data-state="off"] .vt-act-txt { color: var(--vt-muted); }

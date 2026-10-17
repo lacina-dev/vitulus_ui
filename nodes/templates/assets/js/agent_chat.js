@@ -700,18 +700,20 @@
        v agentovi tab kde tohle pujde nastavit. Na jake veci bude pouzivan
        jaky model jakeho providera."  It is the one screen that is neither
        chat, work, a finding nor the robot: it is how the agent is wired. */
-    var TAB_LABEL = {chat: 'Chat', work: 'Work', findings: 'Findings',
-                     robot: 'Robot', models: 'Models'};
-    var TAB_ORDER = ['chat', 'work', 'findings', 'robot', 'models'];
+    /* U2 I2: Activity = one timeline of the agent's jobs and the field kit's
+       events (vt_activity.js registers the block). */
+    var TAB_LABEL = {chat: 'Chat', work: 'Work', activity: 'Activity',
+                     findings: 'Findings', robot: 'Robot', models: 'Models'};
+    var TAB_ORDER = ['chat', 'work', 'activity', 'findings', 'robot', 'models'];
     // block id -> tab.  The tab's PRIMARY block renders plain, the rest as
     // collapsible cards; `gate` is pinned (plain) although it is not primary.
     var TAB_OF = {chat: 'chat', jobs: 'work', gate: 'work', mise: 'work',
                   incidents: 'findings', zdravi: 'findings',
                   robot: 'robot', nastroje: 'robot', dock: 'robot',
                   tools: 'robot',
-                  models: 'models'};
+                  models: 'models', activity: 'activity'};
     var TAB_PRIMARY = {chat: 'chat', work: 'jobs', findings: 'incidents',
-                       robot: 'robot', models: 'models'};
+                       robot: 'robot', models: 'models', activity: 'activity'};
     var TAB_PINNED = {gate: 1, dock: 1};
     // old tab ids still used by callers (and by localStorage) -> new ones
     var TAB_ALIAS = {jobs: 'work', gate: 'work', incidents: 'findings',

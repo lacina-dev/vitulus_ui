@@ -189,6 +189,11 @@ The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
   :8790). Deciding stays where the guards are (Agent › Work, the Support
   dashboard).
 
+* **Agent › Activity** (`assets/js/vt_activity.js`) — one timeline of the
+  field kit's events (`/field/api/activity`, "now" from
+  `/field/api/activity/current`) and the agent's jobs and findings
+  (`/agent/api/v2/jobs`), filters All / Agent / Support / Problems. Read only.
+
 Plan for one UI with the field dashboard and the agent:
 `docs/UI_INTEGRATION_PLAN.md`.
 

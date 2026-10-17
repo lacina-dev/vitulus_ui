@@ -136,6 +136,15 @@ dnes polluje sám; převede se na hub).
   dashboardu). Na telefonu do 440 px uvolní titulek „Map view“ místo
   zvonku, aby navbar zůstal na jeden řádek.
 
+- **I2 hotovo (jen čtení, větev `ui-field-activity`):** Agent › **Activity**
+  (`assets/js/vt_activity.js`, šestá záložka agentního panelu mezi Work a
+  Findings). Nahoře řádek „teď“ z `/field/api/activity/current` (pulzuje, když
+  něco běží), filtry All · Agent · Support · Problems (pamatuje se), pod nimi
+  jedna osa po dnech: události kitu za 24 h (`/field/api/activity`, anglický
+  text `text_en`) + agentní joby a nálezy (`/agent/api/v2/jobs`: založení a
+  uzavření s výsledkem). Zdroje se rozjedou při prvním otevření panelu, hub
+  drží jeden poller na zdroj (teď 15 s, seznamy 60 s).
+
 ## 7. Joystick v rozložení (vstup pro layout matici U1)
 
 Komponenta je hotová (`vt_joy.js/css`), umístění patří rámu. Rozměry:
