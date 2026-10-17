@@ -100,6 +100,11 @@
     --vt-drawer-w: 480px;        /* the ONE drawer width on desktop */
     --vt-sheet-h: 60dvh;         /* phone bottom sheet height */
     --vt-joy-size: 132px;        /* drive joystick pad (vt_joy.css) */
+    /* frame (requested by U1, docs/UI_LAYOUT.md) */
+    --vt-dock-w-desktop: var(--vt-drawer-w);   /* docked left column */
+    --vt-frame-border: var(--vt-border-strong); /* shared edges of the frame */
+    --vt-log-small-size: 106px;  /* default height of the small log; the frame's
+                                    runtime --vt-log-small-h stays 0 when hidden */
 
     /* type */
     --vt-font: Roboto, sans-serif;
@@ -126,6 +131,9 @@
     --vt-ease: 0.2s ease;
 }
 
+@media (max-height: 500px) {
+    :root { --vt-log-small-size: 62px; }
+}
 /* touch screens: the two button bars become real 40 px targets */
 @media (pointer: coarse) {
     :root { --vt-bar-h: 50px; --vt-joy-size: 156px; }
