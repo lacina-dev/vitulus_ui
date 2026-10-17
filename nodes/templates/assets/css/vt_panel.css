@@ -1358,3 +1358,72 @@ body.vt-frame #div_bottom_menu #btn_joy { margin-right: var(--vt-bar-gap); }
         padding-bottom: var(--safe-bottom, 0px);
     }
 }
+
+/* ===== C frame 2 (owner 2026-10-18) ======================================
+   1) the header is part of the C: navbar, agent strip, menu band and the
+      left panel's head are one surface — no other shade, no boxes;
+   2) scrollbars that do not disturb the C. */
+:root {
+    --vt-frame-scroll-thumb: rgba(222, 226, 230, 0.20);   /* frame bg + text, muted */
+    --vt-frame-scroll-thumb-hover: rgba(var(--vt-accent-rgb), 0.75);
+}
+@supports (color: color-mix(in srgb, red, blue)) {
+    :root { --vt-frame-scroll-thumb: color-mix(in srgb, var(--vt-frame-bg) 62%, var(--vt-text)); }
+}
+/* -- header: one surface -------------------------------------------------- */
+body.vt-frame #vagent_bars { background: var(--vt-frame-bg); }
+body.vt-frame #vagent_strip,
+body.vt-frame #vagent_strip.va-ask,
+body.vt-frame #vagent_strip.va-blocked {
+    background: var(--vt-frame-bg) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+body.vt-frame #vagent_strip:hover { background: var(--vt-frame-bg) !important; }
+body.vt-frame #vagent_strip:hover .vs-txt { color: #fff; }
+/* the state lives in the tinted label (a tag inside the C), not in a band */
+body.vt-frame #vagent_strip .vs-lab { border-radius: var(--vt-r-tag); }
+/* a latched STOP stays a red band on purpose: it must not look like a note */
+/* icon buttons in the navbar and the panel head: no boxes, hover wash */
+body.vt-frame #div_menu :is(#btn_help, #btn_needs, #btn_fullscreen),
+body.vt-frame #ui_drawer_head :is(#btn_ui_drawer_full, #btn_ui_drawer_close, .vt-iconbtn, #vagent_head_right button:not(#vagent_stop)) {
+    border-color: transparent !important;
+    background: transparent;
+}
+body.vt-frame #div_menu :is(#btn_help, #btn_needs, #btn_fullscreen):hover,
+body.vt-frame #ui_drawer_head :is(#btn_ui_drawer_full, #btn_ui_drawer_close, .vt-iconbtn, #vagent_head_right button:not(#vagent_stop)):hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: transparent !important;
+}
+/* the panel head flows into the column (no seam line) */
+body.vt-frame #ui_drawer_head { border-bottom: 0 !important; }
+body.vt-frame #ui_drawer_foot { border-top: 0 !important; }
+
+/* -- scrollbars ----------------------------------------------------------- */
+/* Firefox only: Chrome ≥121 ignores ::-webkit-scrollbar as soon as the
+   standard properties are set (and then draws arrow buttons) */
+@supports (-moz-appearance: none) {
+    * { scrollbar-width: thin; scrollbar-color: var(--vt-frame-scroll-thumb) transparent; }
+}
+/* older rules set scrollbar-width on some lists — neutralise for WebKit */
+@supports not (-moz-appearance: none) {
+    * { scrollbar-width: auto !important; scrollbar-color: auto !important; }
+    ul.nav-tabs.drawer-pills, #vagent_tabs, #vagent_status, #vagent_chips, #vagent_quick { scrollbar-width: none !important; }
+}
+*::-webkit-scrollbar { width: 8px !important; height: 8px !important; background: transparent !important; }
+*::-webkit-scrollbar-track { background: transparent !important; border: 0 !important; }
+*::-webkit-scrollbar-thumb {
+    background-color: var(--vt-frame-scroll-thumb) !important;
+    border: 2px solid transparent !important;          /* inset from the edge: no light line on the C */
+    background-clip: padding-box !important;
+    border-radius: 6px !important;
+}
+*::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:active { background-color: var(--vt-frame-scroll-thumb-hover) !important; }
+*::-webkit-scrollbar-corner { background: transparent !important; }
+*::-webkit-scrollbar-button { display: none !important; height: 0 !important; width: 0 !important; }
+/* touch: overlay-thin, takes no room */
+@media (pointer: coarse) {
+    *::-webkit-scrollbar { width: 4px !important; height: 4px !important; }
+    *::-webkit-scrollbar-thumb { border-width: 1px !important; }
+}
