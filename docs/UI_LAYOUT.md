@@ -63,6 +63,16 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Log celý | od hlášek/pravého panelu ke spodní liště; otevřený sheet je nad ním | totéž |
 | Joystick | vpravo dole nad spodní lištou | totéž |
 
+## Ovládání rámu
+
+| Ovládání | PC | Telefon |
+|---|---|---|
+| Zobrazit / skrýt panel | ◧ Panel v pásu menu, **Alt+P**, **Esc** (skrýt; ne při psaní, otevřeném modálu nebo celém logu), ✕ | ◧, ✕, tah sheetu dolů |
+| Popisky tlačítek | ikona + text v pásu menu i spodní liště | jen ikona; název v `aria-label` / tooltipu |
+| Stav přepínačů | aktivní panel, zapnutá kamera / joystick / log / sledování robota = podsvícené tlačítko (`vt-on`, `aria-pressed`) | totéž |
+| Fokus z klávesnice | jeden viditelný prstenec (`:focus-visible`, barva akcentu) v liště, panelu, pravém panelu i logu | — |
+| Animace | krátké (0,15–0,2 s); `prefers-reduced-motion: reduce` je vypne | totéž |
+
 ## Pravidla
 
 - Hlášky a ovládání (lišty, panel, pravý panel) **nic nepřekrývá** — log ani

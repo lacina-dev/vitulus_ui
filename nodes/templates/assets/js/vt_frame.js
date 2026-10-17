@@ -56,6 +56,8 @@
             var key = window.map_menu && window.map_menu._drawer_last;
             if (key && key !== 'editor') { lsSet(LS_LAST, key); }
         }
+        label();
+        paintToggles();
         var btn = $('btn_panel_toggle');
         if (btn) {
             btn.classList.toggle('vt-on', open);
@@ -161,8 +163,49 @@
         group.insertBefore(b, group.firstChild);
     }
 
+    // ------------------------------------------------ labels + states
+    // One name per control, used for the tooltip, the screen-reader label and
+    // (on a PC, vt_panel.css) the visible text next to the icon.
+    var LABELS = {
+        btn_panel_toggle: ['Panel', 'Show / hide the left panel (Alt+P)'],
+        btn_marker: ['Marker', 'Marker — drag it on the map and send a navigation goal'],
+        btn_settings: ['Settings', 'Settings — motors, navi, power, mower, diag, rosbag, IMU'],
+        btn_map: ['Map', 'Map — maps, paths, points, dock, rain, localization'],
+        btn_programs: ['Programs', 'Mowing programs and calendar'],
+        btn_agent: ['Agent', null],
+        btn_stop_all: ['STOP', 'STOP — stop all motion'],
+        btn_camera_show: ['Camera', 'Show / hide the camera preview'],
+        btn_joy: ['Joystick', 'Show / hide the on-screen joystick'],
+        btn_follow: ['Follow', 'Camera follows the map / the robot'],
+        btn_log: ['Log', 'Show / hide the log (expand it from its own bar)']
+    };
+    function label() {
+        Object.keys(LABELS).forEach(function (id) {
+            var b = $(id);
+            if (!b || b.dataset.label) { return; }
+            b.dataset.label = LABELS[id][0];
+            if (LABELS[id][1] && !b.title) { b.title = LABELS[id][1]; }
+            if (!b.getAttribute('aria-label')) { b.setAttribute('aria-label', b.title || LABELS[id][0]); }
+        });
+    }
+    // bottom-bar toggles show whether their thing is on (the old .active
+    // flag was JS-only and webui.js strips the class anyway)
+    function paintToggles() {
+        var on = {
+            btn_camera_show: visible($('div_camera_view')),
+            btn_joy: visible($('joy_view')),
+            btn_log: visible($('div_log_view')),
+            btn_follow: !!(window.tf_client && window.tf_client.follow_target === 'robot')
+        };
+        Object.keys(on).forEach(function (id) {
+            var b = $(id);
+            if (b) { b.classList.toggle('vt-on', on[id]); b.setAttribute('aria-pressed', on[id] ? 'true' : 'false'); }
+        });
+    }
+
     function init() {
         installToggle();
+        label();
         update();
         window.addEventListener('resize', schedule);
         var watch = function (el, opts) { if (el) { new MutationObserver(schedule).observe(el, opts); } };
@@ -171,6 +214,10 @@
         watch($('div_log_view'), {attributes: true, attributeFilter: ['class', 'style']});
         watch($('span_status_info'), {attributes: true, childList: true, characterData: true, subtree: true});
         watch(document.body, {attributes: true, attributeFilter: ['class']});
+        watch($('joy_view'), {attributes: true, attributeFilter: ['style', 'class']});
+        watch($('div_camera_view'), {attributes: true, attributeFilter: ['style']});
+        var fb = $('btn_follow');
+        if (fb) { fb.addEventListener('click', function () { setTimeout(schedule, 50); }); }
         if (window.ResizeObserver) {
             var ro = new ResizeObserver(schedule);
             ['row_menu', 'div_bottom_menu', 'ui_drawer', 'right_panel', 'div_log_view'].forEach(function (id) {
@@ -185,6 +232,18 @@
                 (ev.key === 'p' || ev.key === 'P' || ev.code === 'KeyP')) {
                 ev.preventDefault();
                 togglePanel();
+                return;
+            }
+            // Esc hides the panel — unless the user is typing, a modal or the
+            // full log is up (Esc belongs to them then)
+            if (ev.key === 'Escape' && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
+                var t = ev.target, tag = t && t.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) { return; }
+                if (document.querySelector('.modal.show')) { return; }
+                var lg = $('div_log_view');
+                if (lg && lg.classList.contains('log-expanded')) { return; }
+                var d = $('ui_drawer');
+                if (d && d.classList.contains('open')) { ev.preventDefault(); togglePanel(); }
             }
         });
         // right_dock.js builds the right panel after load; re-measure then

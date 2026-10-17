@@ -1141,3 +1141,48 @@ body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer {
     bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 22px);   /* + the log's expand tab */
 }
 #btn_agent.vagent-btn { position: relative; }
+
+/* ============================== U1 kolo 6: frame polish (labels, states, focus, motion) */
+/* text labels next to the icons in the two bars — on a PC there is room,
+   on a phone the icons stay alone (tooltips / aria-label carry the name) */
+body.vt-frame.vt-m-dock #row_menu .btn[data-label]::after,
+body.vt-frame.vt-m-dock #div_bottom_menu .btn[data-label]:not(#btn_stop_all)::after {
+    content: attr(data-label);
+    margin-left: 7px;
+    font-size: var(--vt-fs-sm);
+    font-weight: 500;
+    letter-spacing: .2px;
+}
+/* toggles in the bottom bar show when their thing is on (vt_frame.js) */
+#div_bottom_menu .btn.vt-on:not(#btn_stop_all) {
+    color: #fff;
+    background: rgba(var(--vt-accent-rgb), 0.24);
+    box-shadow: inset 0 2px 0 var(--vt-accent);
+}
+/* one hover / press feel for both bars */
+#row_menu .btn, #div_bottom_menu .btn { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+#row_menu .btn:active, #div_bottom_menu .btn:active { transform: translateY(1px); }
+/* keyboard focus: one visible ring everywhere in the frame and panels */
+#row_menu .btn:focus-visible, #div_bottom_menu .btn:focus-visible,
+#div_menu :is(a, button, [tabindex]):focus-visible, #vagent_bars :is(button, [role], [tabindex]):focus-visible,
+#ui_drawer :is(button, a, summary, select, input, textarea, [tabindex]):focus-visible,
+#right_panel :is(button, a, input, [tabindex]):focus-visible,
+#div_log_view :is(button, input, select):focus-visible,
+.rp-handle:focus-visible, #ui_drawer_grip:focus-visible {
+    outline: 2px solid var(--vt-accent) !important;
+    outline-offset: 2px;
+    box-shadow: none !important;
+    position: relative;
+    z-index: 3;
+}
+/* the right-panel handle and the drawer slide share one short timing */
+#ui_drawer { transition: transform var(--vt-ease), width var(--vt-ease); }
+/* motion is optional: honour the OS setting */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+    }
+}
