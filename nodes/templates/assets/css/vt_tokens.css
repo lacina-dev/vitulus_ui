@@ -1,0 +1,84 @@
+/* vt_tokens.css — ONE set of design tokens for the whole robot UI (U1, 2026-10).
+ *
+ * Every panel (left drawer: Marker / Map / Programs / Settings / Agent / Map
+ * editor, the right panel, the log) takes its colours, radii, spacing and type
+ * from here instead of hard-coding them. Values follow the existing Slate
+ * theme (Bootstrap vars) so nothing changes colour by accident; what changes
+ * is that the same thing now looks the same everywhere.
+ *
+ * Rules of the system (docs/UI_AUDIT_2026-10.md):
+ *  - panels are rounded (--vt-r-panel), cards a bit less (--vt-r-card),
+ *    labels/tags are nearly square (--vt-r-tag) — square inside round on purpose;
+ *  - state is a soft tint of the whole card (--vt-tint-*) + a dot/pill in the
+ *    header, NEVER a coloured stripe on the left edge;
+ *  - one accent (--vt-accent) for links, active tab and panel titles.
+ */
+:root {
+    /* surfaces, darkest -> lightest */
+    --vt-bg: #1c2329;            /* page / behind everything */
+    --vt-navbar: #282b30;        /* top navbar, panel header strip */
+    --vt-surface: #232b32;       /* panel body */
+    --vt-surface-2: #2b343c;     /* card / section inside a panel */
+    --vt-surface-3: #37434d;     /* row, hover, input group text */
+    --vt-overlay: rgba(28, 35, 41, 0.94);  /* floating panels over the map */
+
+    --vt-border: rgba(255, 255, 255, 0.10);
+    --vt-border-strong: rgba(255, 255, 255, 0.18);
+
+    /* text */
+    --vt-text: #dee2e6;
+    --vt-muted: #9aa4ad;
+    --vt-faint: #6f7a83;
+
+    /* brand + semantic */
+    --vt-accent: var(--bs-info, #5bc0de);
+    --vt-accent-rgb: 91, 192, 222;
+    --vt-brand: #ff7100;
+    --vt-ok: #43d58b;
+    --vt-ok-rgb: 67, 213, 139;
+    --vt-warn: #ffc107;
+    --vt-warn-rgb: 255, 193, 7;
+    --vt-err: #f1868f;
+    --vt-err-rgb: 241, 134, 143;
+    --vt-danger: var(--bs-danger, #ee5f5b);  /* solid STOP / destructive */
+
+    /* state tints: whole-card wash + toned border (no left stripe) */
+    --vt-tint-ok: linear-gradient(180deg, rgba(var(--vt-ok-rgb), 0.14), rgba(var(--vt-ok-rgb), 0.03) 60%);
+    --vt-tint-warn: linear-gradient(180deg, rgba(var(--vt-warn-rgb), 0.14), rgba(var(--vt-warn-rgb), 0.03) 60%);
+    --vt-tint-err: linear-gradient(180deg, rgba(var(--vt-err-rgb), 0.16), rgba(var(--vt-err-rgb), 0.04) 60%);
+    --vt-tint-info: linear-gradient(180deg, rgba(var(--vt-accent-rgb), 0.12), rgba(var(--vt-accent-rgb), 0.02) 60%);
+    --vt-edge-ok: rgba(var(--vt-ok-rgb), 0.45);
+    --vt-edge-warn: rgba(var(--vt-warn-rgb), 0.45);
+    --vt-edge-err: rgba(var(--vt-err-rgb), 0.50);
+    --vt-edge-info: rgba(var(--vt-accent-rgb), 0.40);
+
+    /* radii */
+    --vt-r-panel: 12px;
+    --vt-r-card: 10px;
+    --vt-r-ctl: 7px;
+    --vt-r-tag: 3px;
+
+    /* spacing */
+    --vt-gap-1: 4px;
+    --vt-gap-2: 8px;
+    --vt-gap-3: 12px;
+    --vt-pad: 12px;              /* panel inner padding (head + body) */
+
+    /* sizes */
+    --vt-head-h: 50px;           /* panel header row */
+    --vt-iconbtn: 36px;          /* header icon buttons (touch ok) */
+    --vt-touch: 40px;            /* min touch target */
+    --vt-drawer-w: 480px;        /* the ONE drawer width on desktop */
+    --vt-sheet-h: 60dvh;         /* phone bottom sheet height */
+
+    /* type */
+    --vt-font: Roboto, sans-serif;
+    --vt-font-head: Bitter, serif;
+    --vt-fs-xs: 11px;
+    --vt-fs-sm: 12px;
+    --vt-fs: 13px;
+    --vt-fs-title: 15px;
+
+    --vt-shadow: 0 10px 30px rgba(0, 0, 0, 0.50);
+    --vt-ease: 0.2s ease;
+}
