@@ -703,3 +703,9 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
     #right_panel.compact .rp-top { border-bottom: 0; padding-bottom: var(--vt-gap-1); }
     #right_panel.compact { max-height: none !important; }
 }
+
+/* Agent → Robot: actions under the state table (Show on map · Check numbers) */
+.vagent-robot-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--vt-gap-2); margin-top: var(--vt-gap-2); }
+.vagent-robot-actions .btn { min-height: 32px; font-size: var(--vt-fs-sm); }
+.vagent-audit-out { flex: 1 1 100%; font-size: var(--vt-fs-xs); white-space: pre-wrap; color: var(--vt-muted); }
+.vagent-audit-out:empty { display: none; }

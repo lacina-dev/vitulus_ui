@@ -1254,29 +1254,22 @@
       render: function (root) {
         robotBox = el('div');
         root.appendChild(robotBox);
-        var wrap = el('div');
-        wrap.style.cssText = 'margin-top:.4em;position:relative';
-        robotImg = el('img');
-        robotImg.alt = 'map preview';
-        robotImg.style.cssText = 'width:100%;border-radius:.4em;display:none;' +
-          'cursor:zoom-in;border:1px solid var(--bs-gray-700,#444)';
-        robotImg.addEventListener('click', function () {
-          if (robotImg.src) window.open(robotImg.src, '_blank');
+        var wrap = el('div', 'vagent-robot-actions');
+        /* U1 kolo 2: no own map preview here any more — the robot UI has ONE
+           map (the live three.js view). The preview cost the robot ~5 s of
+           CPU per render and was a third, stale look of the same map; this
+           button just takes you to the real one (closes the panel, the map
+           is right behind it). The agent's own /api/mapview tool is
+           untouched — only the panel stops showing it. */
+        var showMapBtn = el('button', null, 'Show on map');
+        showMapBtn.type = 'button';
+        showMapBtn.id = 'vagent_show_on_map';
+        showMapBtn.className = 'btn btn-sm btn-outline-info';
+        showMapBtn.title = 'Close the panel and show the robot on the live map';
+        showMapBtn.addEventListener('click', function () {
+          if (VA.close) { VA.close(); }
         });
-        robotImgNote = el('div', null, '');
-        robotImgNote.style.cssText = 'font-size:.75em;color:var(--bs-gray-500,#888)';
-
-        /* Vykreslení mapy stojí robota skoro pět sekund procesoru, takže si
-           o ně říká člověk, ne stopky. */
-        mapRefreshBtn = el('button', null, 'Refresh map');
-        mapRefreshBtn.type = 'button';
-        mapRefreshBtn.className = 'btn btn-sm btn-outline-secondary';
-        mapRefreshBtn.style.cssText = 'margin-top:.35em;font-size:.75em;min-height:2em';
-        mapRefreshBtn.title = 'Redraw the map on the robot (takes a few seconds)';
-        mapRefreshBtn.addEventListener('click', function () { pollMapview(VA, true); });
-
-        wrap.appendChild(robotImg); wrap.appendChild(robotImgNote);
-        wrap.appendChild(mapRefreshBtn);
+        wrap.appendChild(showMapBtn);
 
         /* „Součet a stáří jsou dvě místa, kde panel přestává citovat a
            začíná tvrdit — a obě dnes v noci lhaly." (tester, round 3)
@@ -1288,19 +1281,17 @@
         var auditBtn = el('button', null, 'Check numbers');
         auditBtn.type = 'button';
         auditBtn.className = 'btn btn-sm btn-outline-secondary';
-        auditBtn.style.cssText = 'margin:.35em 0 0 .35em;font-size:.75em;min-height:2em';
         auditBtn.title = 'Re-ask the core for every number this panel is ' +
           'showing and say which no longer match. Reads only.';
-        var auditOut = el('div', null, '');
-        auditOut.style.cssText = 'font-size:.75em;margin-top:.3em;white-space:pre-wrap';
+        var auditOut = el('div', 'vagent-audit-out', '');
         auditBtn.addEventListener('click', function () {
           auditBtn.disabled = true;
           auditOut.textContent = 'checking…';
-          auditOut.className = '';
+          auditOut.className = 'vagent-audit-out';
           VA.auditNumbers().then(function (rep) {
             auditBtn.disabled = false;
             var bad = rep.mismatches.length;
-            auditOut.className = bad ? 'vagent-unknown' : '';
+            auditOut.className = 'vagent-audit-out' + (bad ? ' vagent-unknown' : '');
             auditOut.textContent = rep.checked + ' numbers checked against the ' +
               'core · ' + bad + ' mismatch' + (bad === 1 ? '' : 'es') +
               (rep.unreadable.length ? ' · ' + rep.unreadable.length + ' could not be read' : '') +
@@ -1312,7 +1303,7 @@
               'with the age shown next to it.' : '');
           }, function (e) {
             auditBtn.disabled = false;
-            auditOut.className = 'vagent-unknown';
+            auditOut.className = 'vagent-audit-out vagent-unknown';
             auditOut.textContent = 'the audit itself could not run: ' + e;
           });
         });
@@ -1320,12 +1311,10 @@
         wrap.appendChild(auditOut);
         root.appendChild(wrap);
         root.appendChild(buildLidarObjects());
-        showLastMapview();
-        askCachedMapview(VA);
       },
       poll: { every_ms: 5000, fn: function () { drawRobot(VA); drawLidar(); } },
       onOpen: function () {
-        drawRobot(VA); showLastMapview(); askCachedMapview(VA);
+        drawRobot(VA);
         startLidarObjects();
       }
     });
