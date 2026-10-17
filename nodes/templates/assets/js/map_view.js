@@ -2016,85 +2016,40 @@ class IconStatus {
 
 
 class JoyTeleop {
+    /* U2 2026-10: the drive stick is assets/js/vt_joy.js (VTJoy) — one
+       component for touch, mouse and keyboard with dead zone, expo curve,
+       rate limit, haptics and multitouch safety. This class only owns the
+       /cmd_vel publisher. It never publishes while idle (not even a zero on
+       page load — that used to override whatever else was driving). */
     constructor(ros) {
         this.twist = new ROSLIB.Message({
             linear: {x: 0, y: 0, z: 0},
-            angular: {x: 0,y: 0, z: 0}
+            angular: {x: 0, y: 0, z: 0}
         });
         this.cmdVel = new ROSLIB.Topic({
             ros: ros.ros,
             name: "/cmd_vel",
             messageType: "geometry_msgs/Twist"
         });
-        this.publishImmidiately = true;
-        this.lin = 0;
-        this.ang = 0;
-        this.publish_joy = false;
-        this.joysize = 130;
-        // this.speed_lin_fast = 0.75;
-        // this.speed_ang_fast = 1.5;
-        // this.speed_lin_moderate = 0.5;
-        // this.speed_ang_moderate = 1.2;
-        // this.speed_lin_low = 0.25;
-        // this.speed_ang_low = 0.75;
-        // this.speed_lin = this.speed_lin_moderate;
-        // this.speed_ang = this.speed_ang_moderate;
-        // this.joysize = 172;
+        this._speed_lin = 0.4;
+        this._speed_ang = 1.3;
         this.joystickContainer = document.getElementById("joy_view");
-        this.options = {
-            zone: this.joystickContainer,
-            position: { left: 50 + "%", top: 50 + "%" },
-            mode: "dynamic",
-            //catchDistance: 1,
-            size: this.joysize,
-            color: "#0066ff",
-            dynamicPage: true,
-            //restJoystick: true
-        };
-        this.manager = nipplejs.create(this.options);
-        this.pub_end_published = false;
-
-        this.init();
-    }
-
-    init(){
-        this.cmdVel.advertise();
+        this.joy = window.VTJoy.create(this.joystickContainer, {
+            onCommand: (lin, ang) => this.moveAction(lin, ang)
+        });
     }
 
     moveAction(linear, angular) {
-        if (linear !== undefined && angular !== undefined) {
-            this.twist.linear.x = linear;
-            this.twist.angular.z = angular;
-        } else {
-            this.twist.linear.x = 0;
-            this.twist.angular.z = 0;
-        }
+        this.twist.linear.x = linear || 0;
+        this.twist.angular.z = angular || 0;
         this.cmdVel.publish(this.twist);
     }
 
-    joy_pub_speed(){
-        if (this.publish_joy){
-            this.moveAction(this.lin, this.ang);
-            this.pub_end_published = false;
-        }else{
-            if (this.pub_end_published === false){
-                this.moveAction(0, 0);
-                this.pub_end_published = true;
-            }
-        }
-    }
-
-    set_lin(lin){
-        this.lin = lin;
-    }
-
-    set_ang(ang){
-        this.ang = ang;
-    }
-
-    set_publish_joy(publish_joy){
-        this.publish_joy = publish_joy;
-    }
+    get speed_lin() { return this._speed_lin; }
+    set speed_lin(v) { this._speed_lin = v; this.joy.setSpeed(v, 0); }
+    get speed_ang() { return this._speed_ang; }
+    set speed_ang(v) { this._speed_ang = v; this.joy.setSpeed(0, v); }
+    set_speed_label(label) { this.joy.setSpeed(0, 0, label); }
 }
 
 class CameraView {
@@ -4508,15 +4463,10 @@ class MoveBaseControl {
         this.speed_ang_slow = 0.6;
         this.speed_lin_current = this.speed_lin_moderate;
         this.speed_ang_current = this.speed_ang_moderate;
-        // Keyboard teleop
-        this.keyboard_teleop = new KEYBOARDTELEOP.Teleop({
-            ros: ros,
-            topic: "/cmd_vel",
-            throttle_lin: this.speed_lin_current,
-            throttle_ang: this.speed_ang_current
-        });
-        this.keyboard_teleop.scale = 1.0;
-        this.keyboard_teleop.working = false;
+        // Keyboard drive: the joystick component reads W A S D / arrows
+        // (vt_joy.js) and publishes through the same /cmd_vel path; the old
+        // KEYBOARDTELEOP published zeros at 10 Hz forever after the first key
+        // and drove the robot while typing in a text field.
         this.checkbox_keyboard = document.getElementById('checkbox_keyboard_teleop');
         this.checkbox_keyboard.checked = false;
 
@@ -4539,6 +4489,7 @@ class MoveBaseControl {
         else if (speed === 'MEDIUM') { moderate = blue; label = 'MODERATE'; }
         else if (speed === 'FAST') { fast = blue; label = 'FAST'; }
         else { return; }  // unknown value, leave UI untouched
+        this.set_local_speed(label === 'MODERATE' ? 'moderate' : label.toLowerCase());
         this.btn_menu_speed_low.style.color = low;
         this.btn_menu_speed_moderate.style.color = moderate;
         this.btn_menu_speed_fast.style.color = fast;
@@ -4546,6 +4497,24 @@ class MoveBaseControl {
         this.btn_menu_speed_moderate_sm.style.color = moderate;
         this.btn_menu_speed_fast_sm.style.color = fast;
         this.span_status_speed.innerText = label;
+    }
+    /* the speed the joystick drives with, WITHOUT publishing it (the robot's
+       /navi_manager/speed is the source; the page only follows it) */
+    set_local_speed(speed) {
+        const table = {
+            slow: [this.speed_lin_slow, this.speed_ang_slow, 'SLOW'],
+            moderate: [this.speed_lin_moderate, this.speed_ang_moderate, 'MID'],
+            fast: [this.speed_lin_fast, this.speed_ang_fast, 'FAST']
+        };
+        const t = table[speed];
+        if (!t) { return; }
+        this.speed_lin_current = t[0];
+        this.speed_ang_current = t[1];
+        if (this.joy_teleop) {
+            this.joy_teleop.speed_lin = t[0];
+            this.joy_teleop.speed_ang = t[1];
+            this.joy_teleop.set_speed_label(t[2]);
+        }
     }
     pub_cancel_goal() {
         const cancelGoalMsg = new ROSLIB.Message({});
@@ -4571,8 +4540,7 @@ class MoveBaseControl {
             this.speed_lin_current = this.speed_lin_fast;
             this.speed_ang_current = this.speed_ang_fast;
         }
-        this.keyboard_teleop.throttle_lin = this.speed_lin_current;
-        this.keyboard_teleop.throttle_ang = this.speed_ang_current;
+        this.set_local_speed(speed);
     }
     btn_speed_fast_onclick() {
         this.joy_teleop.speed_lin = this.speed_lin_fast;
@@ -6691,6 +6659,8 @@ window.initMapView = function () {
     });
     motors_control.motorPowerStateTopic.subscribe(function (message) {
         motors_control.motor_state_data(message)
+        if (window.joy_teleop && window.joy_teleop.joy) { window.joy_teleop.joy.setMotors(!!message.data); }
+        if (window.vtImuJoy) { window.vtImuJoy.setMotors(!!message.data); }
     });
 
     lidar_control = new LidarControl(ros.ros);
@@ -7070,26 +7040,9 @@ window.initMapView = function () {
     };
 
     joy_teleop = new JoyTeleop(ros);
-
-    joy_teleop.manager.on("move", function(evt, nipple) {
-        let direction = nipple.angle.degree - 90;
-        if (direction > 180) {
-            direction = -(450 - nipple.angle.degree);
-        }
-        let nip_distance = (nipple.distance/(joy_teleop.joysize/2));
-        let lin = Math.cos(direction / 57.29) * nip_distance * joy_teleop.speed_lin; // linear speed conversion
-        let ang = Math.sin(direction / 57.29) * nip_distance * joy_teleop.speed_ang; // angular speed conversion
-        joy_teleop.set_lin(lin);
-        joy_teleop.set_ang(ang);
-        joy_teleop.set_publish_joy(true);
-    });
-    joy_teleop.manager.on("end", function() {
-        //moveAction(0, 0);
-        joy_teleop.set_publish_joy(false);
-        joy_teleop.set_lin(0);
-        joy_teleop.set_ang(0);
-    });
-    setInterval(function() {joy_teleop.joy_pub_speed()}, 50)
+    // a dropped rosbridge must not leave the stick "held"
+    ros.ros.on('close', function () { joy_teleop.joy.release(); });
+    ros.ros.on('error', function () { joy_teleop.joy.release(); });
 
 
     /**
@@ -7150,10 +7103,12 @@ window.initMapView = function () {
     }
 
     move_base_control.checkbox_keyboard.onclick = function() {
-        move_base_control.keyboard_teleop.working = !!this.checked;
+        joy_teleop.joy.setKeyboard(!!this.checked);
     };
 
-    move_base_control.pub_set_speed('moderate');
+    // U2: opening the page no longer PUBLISHES "MEDIUM" (it reset the speed a
+    // program or another browser had set); it follows /navi_manager/speed.
+    move_base_control.set_local_speed('moderate');
     move_base_control.btn_menu_speed_low.style.color = "#ffffff";
     move_base_control.btn_menu_speed_moderate.style.color = "#446de5";
     move_base_control.btn_menu_speed_fast.style.color = "#ffffff";

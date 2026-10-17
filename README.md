@@ -147,6 +147,31 @@ One look for every panel, defined in two files loaded by `index.html`:
   with `vtSetState(el, state)` (map_view.js), never with an inline border.
 
 The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
+* `assets/css/vt_field.css` (U2) — the field dashboard's touch on the same
+  palette: a tone is three variables (`--vt-st`, `--vt-st-glow`,
+  `--vt-st-edge`) set by `data-state` = ok/warn/err/info/off/brand; cards get a
+  radial wash from the top-left corner, a toned border and a status dot with a
+  halo; plus `.vt-pill` (label with a dot), `.vt-attn` ("Needs you", also the
+  look of the agent strip), `.vt-acts > .vt-act` (activity rows), `.vt-empty`,
+  `.vt-skel`, `.vt-big`. Comparison and rules: `docs/UI_FIELD_STYLE.md`.
+* **Joystick** — `assets/js/vt_joy.js` + `assets/css/vt_joy.css`: one
+  component for touch, mouse and keyboard (W A S D / arrows, Shift = half,
+  only with the keyboard switch on and never while typing). Dead zone 12 %,
+  expo curve, axial snap, acceleration cap, haptics, one pointer owns the
+  stick (multitouch-safe); release / cancel / blur / hidden tab / rosbridge
+  close stop it, it sends three zeros and then stays silent — it never
+  publishes while idle, not even on page load. The status line shows the
+  speed mode (follows `/navi_manager/speed`; opening the page no longer
+  publishes MEDIUM) and the motor state. The IMU tab uses the same component,
+  rotate-only.
+* **`?mock`** (`assets/js/vt_mock.js`) — open `/?mock` and the page still
+  reads the robot (subscribe) but every other rosbridge op (publish,
+  advertise, service call, action goal) and every non-GET HTTP request is
+  swallowed and shown in a badge (`window.VTMock.sent`). Use it for every
+  test that touches a control.
+
+Plan for one UI with the field dashboard and the agent:
+`docs/UI_INTEGRATION_PLAN.md`.
 
 > `tools/build_index.py` (the old generator that assembled `index.html` from
 > `map_view.html` + `imu_calibration.html`) is **retired** and refuses to run:

@@ -245,76 +245,28 @@ class ImuDiag {
 
 
 class JoyTeleop {
+    /* U2 2026-10: the shared drive stick (vt_joy.js), rotate-only here —
+       IMU calibration turns the robot on the spot (ang up to 1.2 rad/s, no
+       forward motion). Silent while idle, multitouch-safe, stops on release. */
     constructor(ros) {
         this.twist = new ROSLIB.Message({
             linear: {x: 0, y: 0, z: 0},
-            angular: {x: 0,y: 0, z: 0}
+            angular: {x: 0, y: 0, z: 0}
         });
         this.cmdVel = new ROSLIB.Topic({
             ros: ros.ros,
             name: "/cmd_vel",
             messageType: "geometry_msgs/Twist"
         });
-        this.publishImmidiately = true;
-        this.lin = 0;
-        this.ang = 0;
-        this.publish_joy = false;
-        this.joysize = 200;
-        // this.joysize = 172;
-        this.joystickContainer = document.getElementById("joy_view_imu");
-        this.options = {
-            zone: this.joystickContainer,
-            position: { left: 50 + "%", top: 50 + "%" },
-            mode: "static",
-            //catchDistance: 1,
-            size: this.joysize,
-            color: "#0066ff",
-            dynamicPage: true,
-            //restJoystick: true
-        };
-        this.manager = nipplejs.create(this.options);
-        this.pub_end_published = false;
-
-        this.init();
-    }
-
-    init(){
-        this.cmdVel.advertise();
-    }
-
-    moveAction(linear, angular) {
-        if (linear !== undefined && angular !== undefined) {
-            this.twist.linear.x = linear;
-            this.twist.angular.z = angular;
-        } else {
-            this.twist.linear.x = 0;
-            this.twist.angular.z = 0;
-        }
-        this.cmdVel.publish(this.twist);
-    }
-
-    joy_pub_speed(){
-        if (this.publish_joy){
-            this.moveAction(this.lin, this.ang);
-            this.pub_end_published = false;
-        }else{
-            if (this.pub_end_published === false){
-                this.moveAction(0, 0);
-                this.pub_end_published = true;
+        this.joy = window.VTJoy.create(document.getElementById("joy_view_imu"), {
+            turnOnly: true, speedLin: 0, speedAng: 1.2, label: 'TURN',
+            onCommand: (lin, ang) => {
+                this.twist.linear.x = 0;
+                this.twist.angular.z = ang || 0;
+                this.cmdVel.publish(this.twist);
             }
-        }
-    }
-
-    set_lin(lin){
-        this.lin = lin;
-    }
-
-    set_ang(ang){
-        this.ang = ang;
-    }
-
-    set_publish_joy(publish_joy){
-        this.publish_joy = publish_joy;
+        });
+        window.vtImuJoy = this.joy;      // map_view.js feeds it the motor state
     }
 }
 
@@ -347,27 +299,7 @@ window.initImu = function () {
     btn_remove_dcd.onclick = function() {imu_buttons.pub_reset_dcd()};
     btn_reset_imu.onclick = function() {imu_buttons.pub_restart_imu()};
     joy_teleop = new JoyTeleop(ros);
-
-    joy_teleop.manager.on("move", function(evt, nipple) {
-        let direction = nipple.angle.degree - 90;
-        if (direction > 180) {
-            direction = -(450 - nipple.angle.degree);
-        }
-        let nip_distance = (nipple.distance/(joy_teleop.joysize/2));
-        let lin = 0; // 0.52
-        let ang = Math.sin(direction / 57.29) * nip_distance * 1.2;
-        joy_teleop.set_lin(lin);
-        joy_teleop.set_ang(ang);
-        joy_teleop.set_publish_joy(true);
-    });
-    joy_teleop.manager.on("end", function() {
-        //moveAction(0, 0);
-        joy_teleop.set_publish_joy(false);
-        joy_teleop.set_lin(0);
-        joy_teleop.set_ang(0);
-    });
-
-    setInterval(function() {joy_teleop.joy_pub_speed()}, 50)
+    ros.ros.on('close', function () { joy_teleop.joy.release(); });
 };
 
 })();

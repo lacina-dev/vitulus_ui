@@ -99,6 +99,7 @@
     --vt-touch: 40px;            /* min touch target */
     --vt-drawer-w: 480px;        /* the ONE drawer width on desktop */
     --vt-sheet-h: 60dvh;         /* phone bottom sheet height */
+    --vt-joy-size: 132px;        /* drive joystick pad (vt_joy.css) */
 
     /* type */
     --vt-font: Roboto, sans-serif;
@@ -127,5 +128,5 @@
 
 /* touch screens: the two button bars become real 40 px targets */
 @media (pointer: coarse) {
-    :root { --vt-bar-h: 50px; }
+    :root { --vt-bar-h: 50px; --vt-joy-size: 156px; }
 }
