@@ -690,6 +690,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
   #div_menu_map_program .prog-row-fluid { max-width: 100%; }
 }
 </style>
+    <link rel="stylesheet" href="assets/css/vt_panel.css">
 </head>
 
 <body>
@@ -2088,13 +2089,20 @@ ul.nav-tabs.drawer-pills .nav-link.active {
          #div_menu_config) and the map editor (#div_map_detail) are MOVED into
          #ui_drawer_body at runtime by MapMenu.install_drawer(); IDs are preserved. -->
     <div id="ui_drawer_backdrop"></div>
+    <!-- U1 panel anatomy (assets/css/vt_panel.css): head = title · meta/status ·
+         panel actions · ⤢ · ✕ ; body ; foot = the panel's primary actions.
+         The grip only shows on a phone, where the drawer is a bottom sheet. -->
     <div id="ui_drawer" aria-hidden="true">
+        <button id="ui_drawer_grip" type="button" title="Full screen" aria-label="Full screen"></button>
         <div id="ui_drawer_head">
             <span id="ui_drawer_title">Menu</span>
+            <span id="ui_drawer_meta"></span>
+            <span id="ui_drawer_actions"></span>
             <button id="btn_ui_drawer_full" type="button" title="Expand" aria-label="Expand"><i class="la la-expand"></i></button>
             <button id="btn_ui_drawer_close" type="button" title="Close" aria-label="Close">&times;</button>
         </div>
         <div id="ui_drawer_body"></div>
+        <div id="ui_drawer_foot"></div>
     </div>
 </div>
     <script src="assets/js/jquery.min.js"></script>

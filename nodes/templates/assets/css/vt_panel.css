@@ -1,0 +1,291 @@
+/* vt_panel.css — the ONE panel anatomy of the robot UI (U1, 2026-10).
+ *
+ *   ┌ head ─ TITLE · meta/status ············· [panel actions] [⤢] [✕] ┐
+ *   │ tabs  ─ one row of pills (scrolls sideways, never wraps)          │
+ *   │ body  ─ sections (details), cards tinted by state, no left stripe │
+ *   └ foot  ─ the panel's primary action(s), only when it has some      ┘
+ *
+ * Applies to the left drawer (#ui_drawer) and therefore to every panel that
+ * lives in it: Marker, Map, Programs, Settings, Agent and the Map editor.
+ * Desktop: the drawer is a rounded card on the left, one width for everyone.
+ * Phone (<576 px): the same drawer is a bottom sheet over ~60 % of the height
+ * so the map stays visible above it (needed to edit the map); ⤢ (or the grip)
+ * makes it full screen. Loaded LAST so it wins over the older inline rules.
+ * Tokens: vt_tokens.css.
+ */
+
+/* ---------------------------------------------------------------- shell */
+#ui_drawer,
+#ui_drawer.wide {
+    width: var(--vt-drawer-w);
+    font-family: var(--vt-font);
+    font-size: var(--vt-fs);
+    background: var(--vt-surface);
+    border: 1px solid var(--vt-border-strong);
+    border-left: 0;
+    border-radius: 0 var(--vt-r-panel) var(--vt-r-panel) 0;
+    box-shadow: var(--vt-shadow);
+}
+#ui_drawer.full { width: 100vw !important; border-radius: 0 !important; }
+
+/* ----------------------------------------------------------------- head */
+#ui_drawer_head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--vt-gap-2);
+    min-height: var(--vt-head-h);
+    padding: 0 var(--vt-gap-2) 0 var(--vt-pad);
+    background: var(--vt-navbar);
+    border-bottom: 1px solid var(--vt-border);
+    border-top-right-radius: var(--vt-r-panel);
+}
+#ui_drawer.full #ui_drawer_head { border-radius: 0; }
+#ui_drawer_title {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: var(--vt-fs-title);
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--vt-accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* meta/status slot: always present, takes the free space, so the action
+   buttons stay pinned right and never move when the meta text changes */
+#ui_drawer_meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--vt-gap-1);
+    font-size: var(--vt-fs-sm);
+    color: var(--vt-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#ui_drawer_meta:empty::before { content: ""; }
+#ui_drawer_actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--vt-gap-1);
+}
+#ui_drawer_actions:empty { display: none; }
+
+/* one icon button for every panel header (⤢, ✕, agent ▤/⌧, …) */
+.vt-iconbtn,
+#btn_ui_drawer_full,
+#btn_ui_drawer_close {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--vt-iconbtn);
+    width: var(--vt-iconbtn);
+    height: var(--vt-iconbtn);
+    min-height: var(--vt-iconbtn);
+    padding: 0;
+    font-size: 17px;
+    line-height: 1;
+    color: var(--vt-text);
+    background: transparent;
+    border: 1px solid var(--vt-border-strong);
+    border-radius: var(--vt-r-ctl);
+    cursor: pointer;
+    transition: background var(--vt-ease), border-color var(--vt-ease), color var(--vt-ease);
+}
+#btn_ui_drawer_close { font-size: 22px; }
+.vt-iconbtn:hover,
+#btn_ui_drawer_full:hover,
+#btn_ui_drawer_close:hover {
+    background: var(--vt-surface-3);
+    border-color: var(--vt-accent);
+    color: #fff;
+}
+
+/* ----------------------------------------------------------------- body */
+#ui_drawer_body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--vt-gap-2) var(--vt-pad) var(--vt-pad);
+}
+/* panels inside the drawer: no own frame (the drawer is the frame) */
+#ui_drawer > #ui_drawer_body > [id^="div_menu_"],
+#ui_drawer > #ui_drawer_body > #div_map_detail {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    font-size: var(--vt-fs);
+}
+/* the old per-tab max-width caps (460px) — the drawer decides the width */
+#ui_drawer #tab-map, #ui_drawer #tab-path, #ui_drawer #tab-point,
+#ui_drawer #tab-dock, #ui_drawer #tab-rain, #ui_drawer #tab-gloc { max-width: none; }
+
+/* ----------------------------------------------------------------- foot */
+#ui_drawer_foot {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--vt-gap-2);
+    padding: var(--vt-gap-2) var(--vt-pad);
+    background: var(--vt-navbar);
+    border-top: 1px solid var(--vt-border);
+    border-bottom-right-radius: var(--vt-r-panel);
+}
+#ui_drawer_foot:empty { display: none; }
+#ui_drawer_foot > .btn { flex: 1 1 auto; min-height: var(--vt-touch); border-radius: var(--vt-r-ctl); }
+
+/* ----------------------------------------------------------------- tabs */
+/* ONE tab strip style: one row of pills; too many → scroll sideways. */
+ul.nav-tabs.drawer-pills {
+    flex-wrap: nowrap;
+    gap: var(--vt-gap-1);
+    padding: 3px;
+    margin-bottom: var(--vt-gap-2);
+    border: 0;
+    border-radius: var(--vt-r-ctl);
+    background: rgba(0, 0, 0, 0.25);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+ul.nav-tabs.drawer-pills::-webkit-scrollbar { display: none; }
+ul.nav-tabs.drawer-pills .nav-item { flex: 0 0 auto; margin: 0; }
+ul.nav-tabs.drawer-pills .nav-link {
+    min-height: 32px;
+    padding: 6px 12px !important;
+    font-size: var(--vt-fs);
+    line-height: 1.1;
+    white-space: nowrap;
+    color: var(--vt-accent);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: calc(var(--vt-r-ctl) - 2px);
+}
+ul.nav-tabs.drawer-pills .nav-link:hover { border-color: var(--vt-border-strong); }
+ul.nav-tabs.drawer-pills .nav-link.active {
+    color: #fff;
+    background: var(--vt-surface-3);
+    border-color: var(--vt-edge-info);
+}
+
+/* ------------------------------------------------------------- sections */
+/* the three historical copies (map-sec / mapedit-sec / drawer-sec) look the same */
+#ui_drawer details.drawer-sec,
+#ui_drawer details.map-sec,
+#ui_drawer details.mapedit-sec {
+    border: 1px solid var(--vt-border);
+    border-radius: var(--vt-r-card);
+    background: var(--vt-surface-2);
+    margin-bottom: var(--vt-gap-2);
+    overflow: hidden;
+}
+#ui_drawer details.drawer-sec > summary,
+#ui_drawer details.map-sec > summary,
+#ui_drawer details.mapedit-sec > summary {
+    min-height: var(--vt-touch);
+    padding: 6px var(--vt-pad);
+    font-size: var(--vt-fs);
+    font-weight: 600;
+    color: var(--vt-accent);
+}
+#ui_drawer details[open].drawer-sec > summary,
+#ui_drawer details[open].map-sec > summary,
+#ui_drawer details[open].mapedit-sec > summary { border-bottom: 1px solid var(--vt-border); }
+#ui_drawer details.drawer-sec > .drawer-sec-body,
+#ui_drawer details.map-sec > .map-sec-body,
+#ui_drawer details.mapedit-sec > .mapedit-sec-body { padding: var(--vt-gap-2) var(--vt-pad) var(--vt-pad); }
+
+/* ---------------------------------------------------- cards, tags, state */
+.vt-card {
+    border: 1px solid var(--vt-border);
+    border-radius: var(--vt-r-card);
+    background: var(--vt-surface-2);
+    padding: var(--vt-gap-2) var(--vt-pad);
+}
+.vt-card[data-state="ok"]   { background: var(--vt-tint-ok), var(--vt-surface-2);   border-color: var(--vt-edge-ok); }
+.vt-card[data-state="warn"] { background: var(--vt-tint-warn), var(--vt-surface-2); border-color: var(--vt-edge-warn); }
+.vt-card[data-state="err"]  { background: var(--vt-tint-err), var(--vt-surface-2);  border-color: var(--vt-edge-err); }
+.vt-card[data-state="info"] { background: var(--vt-tint-info), var(--vt-surface-2); border-color: var(--vt-edge-info); }
+.vt-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    font-size: var(--vt-fs-xs);
+    font-weight: 600;
+    line-height: 1.5;
+    border-radius: var(--vt-r-tag);
+    border: 1px solid var(--vt-border-strong);
+    color: var(--vt-muted);
+}
+.vt-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--vt-faint);
+    flex: 0 0 auto;
+}
+
+/* ---------------------------------------------------------------- grip */
+#ui_drawer_grip { display: none; }
+
+/* --------------------------------------------- phone: bottom sheet ---- */
+@media (max-width: 575.98px) {
+    #ui_drawer,
+    #ui_drawer.wide {
+        width: 100vw;
+        left: 0;
+        /* anchored to the bottom toolbar; JS's inline `top` is for desktop */
+        top: auto !important;
+        height: var(--vt-sheet-h);
+        max-height: calc(100dvh - var(--vt-drawer-top, 96px) - 40px - var(--safe-bottom, 0px));
+        border: 1px solid var(--vt-border-strong);
+        border-bottom: 0;
+        border-radius: var(--vt-r-panel) var(--vt-r-panel) 0 0;
+        box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.55);
+        transform: translateY(calc(100% + 80px));
+    }
+    #ui_drawer.open { transform: translateY(0); }
+    #ui_drawer.full {
+        top: var(--vt-drawer-top, 96px) !important;
+        height: auto;
+        max-height: none;
+        border-radius: 0 !important;
+    }
+    #ui_drawer_head { border-top-right-radius: 0; padding-top: 0; }
+    #ui_drawer_foot { border-radius: 0; }
+    /* the grip: a visible "this is a sheet" handle; tap = full screen / back */
+    #ui_drawer_grip {
+        display: block;
+        flex: 0 0 auto;
+        height: 16px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: var(--vt-navbar);
+        border-radius: var(--vt-r-panel) var(--vt-r-panel) 0 0;
+        cursor: pointer;
+        position: relative;
+    }
+    #ui_drawer_grip::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 6px;
+        width: 44px;
+        height: 4px;
+        margin-left: -22px;
+        border-radius: 2px;
+        background: var(--vt-border-strong);
+    }
+    #ui_drawer.full #ui_drawer_grip { border-radius: 0; }
+    /* the map above the sheet stays usable: no dimming backdrop */
+    #ui_drawer_backdrop { display: none !important; }
+    /* the ⤢ toggle is the sheet <-> full-screen switch on a phone */
+    #btn_ui_drawer_full { display: inline-flex !important; }
+}

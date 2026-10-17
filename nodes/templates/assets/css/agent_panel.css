@@ -741,19 +741,10 @@
     #vagent_send { height: 34px; min-height: 34px; }
 }
 
-/* Mobile height: the drawer spans top:42px → bottom:40px, which on phones is
-   the LAYOUT viewport — it does not shrink when the URL bar shows or the
-   keyboard opens.  dvh tracks the visible viewport; watchKeyboard() then
-   clamps precisely while the soft keyboard is up.  Scoped to the agent panel
-   so the shared drawer is untouched for other panels. */
-@supports (height: 100dvh) {
-    @media (max-width: 575px) {
-        #ui_drawer:has(#vagent_panel.vagent-merged) {
-            height: calc(100dvh - 42px - 40px - env(safe-area-inset-bottom) - var(--safe-top, 0px));
-            bottom: auto;
-        }
-    }
-}
+/* Mobile height: U1 — on a phone the shared drawer is a bottom sheet for
+   every panel (vt_panel.css); the agent no longer stretches it to the full
+   height on its own. ⤢ / the grip gives full screen, and watchKeyboard()
+   lifts the sheet onto the soft keyboard. */
 /* landscape phones: chrome is thin, the chat column must still fit */
 @media (max-height: 480px) {
     #vagent_panel { min-height: 0; }

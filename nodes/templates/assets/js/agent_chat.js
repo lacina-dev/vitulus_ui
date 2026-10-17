@@ -1012,7 +1012,10 @@
             var rm = document.getElementById('row_menu');
             if (rm) {
                 var b = rm.getBoundingClientRect().bottom;
-                if (b > 0) { d.drawer.style.top = Math.round(b + 2) + 'px'; }
+                if (b > 0) {
+                    d.drawer.style.top = Math.round(b + 2) + 'px';
+                    document.documentElement.style.setProperty('--vt-drawer-top', Math.round(b + 2) + 'px');
+                }
             }
         } catch (e) {}
         d.drawer.classList.add('open');
@@ -1055,7 +1058,7 @@
         unmergeHead();
         panelActive = false;
         var dd = document.getElementById('ui_drawer');
-        if (dd) { dd.style.height = ''; }   // keyboard clamp is ours alone
+        if (dd) { dd.style.height = ''; dd.style.bottom = ''; }   // keyboard clamp is ours alone
         document.dispatchEvent(new Event('vagent:activechange'));
         panel.style.display = 'none';
         var db = document.getElementById('ui_drawer_body');
@@ -1096,11 +1099,25 @@
             if (!d.drawer) { return; }
             if (!panelActive || window.innerWidth >= 576) {
                 d.drawer.style.height = '';
+                d.drawer.style.bottom = '';
                 return;
             }
-            var top = parseFloat(d.drawer.style.top || '0') || 0;
-            var h = Math.max(200, vv.height - top + (vv.offsetTop || 0));
-            d.drawer.style.height = Math.round(h) + 'px';
+            /* U1: on a phone the drawer is a bottom sheet (vt_panel.css).
+               Keyboard closed -> leave it to the CSS (sheet / full screen).
+               Keyboard open (iOS keeps the layout viewport, so the sheet
+               would sit under it) -> lift the sheet onto the keyboard and
+               let it fill the visible area up to the menu row. */
+            var visBottom = (vv.offsetTop || 0) + vv.height;
+            var kb = window.innerHeight - visBottom;
+            if (kb < 60) {
+                d.drawer.style.height = '';
+                d.drawer.style.bottom = '';
+            } else {
+                var top = parseFloat(getComputedStyle(document.documentElement)
+                    .getPropertyValue('--vt-drawer-top')) || parseFloat(d.drawer.style.top || '0') || 0;
+                d.drawer.style.bottom = Math.round(kb) + 'px';
+                d.drawer.style.height = Math.round(Math.max(200, visBottom - top)) + 'px';
+            }
             scrollChatBottom();
         }
         vv.addEventListener('resize', fit);

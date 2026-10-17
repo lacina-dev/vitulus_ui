@@ -3297,6 +3297,9 @@ class MapMenu {
         if (this.ui_drawer_backdrop) this.ui_drawer_backdrop.onclick = function () { self.close_drawer(); };
         var fb = document.getElementById("btn_ui_drawer_full");
         if (fb) fb.onclick = function () { self.toggle_drawer_full(); };
+        // U1: phone bottom-sheet grip = the same sheet <-> full-screen toggle.
+        var gb = document.getElementById("ui_drawer_grip");
+        if (gb) gb.onclick = function () { self.toggle_drawer_full(); };
     }
 
     // ----- Fullscreen-expand toggle (per-panel persisted) ------------------
@@ -3351,7 +3354,12 @@ class MapMenu {
             var rm = document.getElementById('row_menu');
             if (rm && this.ui_drawer) {
                 var b = rm.getBoundingClientRect().bottom;
-                if (b > 0) this.ui_drawer.style.top = Math.round(b + 2) + 'px';
+                if (b > 0) {
+                    this.ui_drawer.style.top = Math.round(b + 2) + 'px';
+                    // U1: the phone bottom sheet (vt_panel.css) uses this as
+                    // its full-screen top edge instead of the inline top.
+                    document.documentElement.style.setProperty('--vt-drawer-top', Math.round(b + 2) + 'px');
+                }
             }
         } catch (e) {}
         if (this.ui_drawer) {
