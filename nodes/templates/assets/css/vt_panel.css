@@ -863,3 +863,73 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
     #ui_drawer #div_map_detail .btn, #ui_drawer #div_map_detail .btn-sm,
     #ui_drawer #div_map_detail .btn-group-sm > .btn { min-height: var(--vt-touch) !important; min-width: var(--vt-touch); }
 }
+
+/* ============================ U1 kolo 4: utility classes from the tokens ===
+   Generated HTML (mapping.js, mapedits.js, the Map tab and the editor in
+   index.html) uses these instead of inline style="". Values come from
+   vt_tokens.css only; there is deliberately no class for arbitrary pixels. */
+.vt-block { display: block; }
+.vt-flex { display: flex; }
+.vt-inline { display: inline-flex; align-items: center; }
+.vt-col { flex-direction: column; }
+.vt-wrap { flex-wrap: wrap; }
+.vt-nowrap { flex-wrap: nowrap; }
+.vt-aic { align-items: center; }
+.vt-aie { align-items: flex-end; }
+.vt-between { justify-content: space-between; }
+.vt-gap6 { gap: 6px; }
+.vt-grow1 { flex: 1 1 auto; }
+.vt-none { flex: 0 0 auto; }
+.vt-min0 { min-width: 0; }
+.vt-minw150 { min-width: 150px; }
+.vt-fs-xs { font-size: var(--vt-fs-xs); }
+.vt-fs-sm { font-size: var(--vt-fs-sm); }
+.vt-fs-md { font-size: var(--vt-fs); }
+.vt-fs-lg { font-size: var(--vt-fs-title); }
+.vt-fs-xl { font-size: 18px; }
+.vt-lh1 { line-height: 1; }
+.vt-dim { opacity: .8; }
+.vt-accent { color: var(--vt-accent); }
+.vt-tar { text-align: right; }
+.vt-tac { text-align: center; }
+.vt-fr { float: right; }
+.vt-vam { vertical-align: middle; }
+.vt-ls { letter-spacing: .5px; }
+.vt-caps { text-transform: uppercase; }
+.vt-pre { white-space: pre-wrap; }
+.vt-nowrap-text { white-space: nowrap; }
+.vt-wrap-any { overflow-wrap: anywhere; }
+.vt-tnum { font-variant-numeric: tabular-nums; }
+.vt-pointer { cursor: pointer; }
+.vt-minh-line { min-height: 1.4em; }
+.vt-mt0 { margin-top: 0; } .vt-mt1 { margin-top: var(--vt-gap-1); } .vt-mt2 { margin-top: var(--vt-gap-2); } .vt-mt3 { margin-top: var(--vt-gap-3); }
+.vt-mb0 { margin-bottom: 0; } .vt-mb1 { margin-bottom: var(--vt-gap-1); } .vt-mb2 { margin-bottom: var(--vt-gap-2); } .vt-mb3 { margin-bottom: var(--vt-gap-3); }
+.vt-ml0 { margin-left: 0; } .vt-ml1 { margin-left: var(--vt-gap-1); } .vt-ml2 { margin-left: var(--vt-gap-2); }
+.vt-mr0 { margin-right: 0; } .vt-mr1 { margin-right: var(--vt-gap-1); } .vt-mr2 { margin-right: var(--vt-gap-2); }
+.vt-pt1 { padding-top: var(--vt-gap-1); } .vt-pt2 { padding-top: var(--vt-gap-2); }
+.vt-pl1 { padding-left: var(--vt-gap-1); } .vt-pr1 { padding-right: var(--vt-gap-1); }
+.vt-pad-s { padding: 2px var(--vt-gap-2); }
+.vt-pad-m { padding: var(--vt-gap-2) var(--vt-pad); }
+.vt-w100 { width: 100%; }
+.vt-w-xs { width: 48px; } .vt-w-sm { width: 88px; } .vt-w-md { width: 120px; } .vt-w-lg { width: 170px; }
+.vt-w-xs, .vt-w-sm, .vt-w-md, .vt-w-lg { max-width: 100%; }
+/* boxes and separators inside a panel */
+.vt-box { background: var(--vt-surface-2); border: 1px solid var(--vt-border); border-radius: var(--vt-r-card); padding: var(--vt-gap-2); }
+.vt-sep { border-bottom: 1px solid var(--vt-border); padding: var(--vt-gap-1) 2px; }
+.vt-sep-dashed { border-top: 1px dashed var(--vt-border-strong); padding-top: var(--vt-gap-2); }
+/* small chips / armed confirm */
+.vt-chip-btn { padding: 2px 10px; font-size: var(--vt-fs-sm); min-height: 28px; }
+.vt-armed { width: auto !important; white-space: nowrap; }
+.mapedit-path-vis[data-off] { opacity: .5; }
+/* aerial-offset nudge pad: 3×3 grid of 40 px buttons */
+.vt-nudge { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); gap: 6px; }
+#mapv3_aerial_offset_up { grid-column: 2; grid-row: 1; }
+#mapv3_aerial_offset_left { grid-column: 1; grid-row: 2; }
+#mapv3_aerial_offset_right { grid-column: 3; grid-row: 2; }
+#mapv3_aerial_offset_down { grid-column: 2; grid-row: 3; }
+/* colour inputs + layer legend swatches (data colours, not theme) */
+.vt-color { width: 36px; height: 22px; padding: 1px; background: none; border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-tag); }
+.vt-sw-000000 { color: #000000; } .vt-sw-0000fc { color: #0000fc; } .vt-sw-00d0a0 { color: #00d0a0; }
+.vt-sw-00e5e5 { color: #00e5e5; } .vt-sw-2a8cff { color: #2a8cff; } .vt-sw-8fd14f { color: #8fd14f; }
+.vt-sw-ff4d4d { color: #ff4d4d; } .vt-sw-ff7800 { color: #ff7800; }
+.vt-sw-terrain { background: linear-gradient(90deg, #3060ff, #30ff90, #ff3030); color: transparent; }

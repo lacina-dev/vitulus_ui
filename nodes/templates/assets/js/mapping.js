@@ -633,7 +633,7 @@ class MappingV3 {
             this.pub_serve.publish(new ROSLIB.Message({data: 'none'}));
             if (this.el_serving) {
                 this.el_serving.textContent = 'deactivating…';
-                this.el_serving.style.color = '';
+                vtTone(this.el_serving, '');
             }
         }, 'Deactivate');
         // 2026-08-16: the JS-created "Edit map" button in the Saved maps header
@@ -755,7 +755,7 @@ class MappingV3 {
                     if (this.el_direct_status) {
                         this.el_direct_status.textContent =
                             'type a preset name first';
-                        this.el_direct_status.style.color = '#ffd43b';
+                        vtTone(this.el_direct_status, 'warn');
                     }
                     return;
                 }
@@ -999,7 +999,7 @@ class MappingV3 {
     _tileOffsetStatus(text, warn) {
         if (!this.el_tile_off_status) { return; }
         this.el_tile_off_status.textContent = text || '';
-        this.el_tile_off_status.style.color = warn ? '#ffd43b' : '';
+        vtTone(this.el_tile_off_status, warn ? 'warn' : '');
     }
 
     _updateTileOffsetReadout() {
@@ -1314,7 +1314,7 @@ class MappingV3 {
         const status = (t, warn) => {
             if (this.el_aerial_status) {
                 this.el_aerial_status.textContent = t;
-                this.el_aerial_status.style.color = warn ? '#ffd43b' : '';
+                vtTone(this.el_aerial_status, warn ? 'warn' : '');
             }
         };
         const token = ++this.aerial_token;
@@ -1976,7 +1976,7 @@ class MappingV3 {
         const status = (t, warn) => {
             if (this.el_rain_status) {
                 this.el_rain_status.textContent = t;
-                this.el_rain_status.style.color = warn ? '#ffd43b' : '';
+                vtTone(this.el_rain_status, warn ? 'warn' : '');
             }
         };
         const token = ++this.rain_token;
@@ -2278,13 +2278,13 @@ class MappingV3 {
         if (!(bmin >= 0 && bmax <= 2.0 && bmin < bmax)) {
             this.el_band_status.textContent =
                 'invalid band: need 0 ≤ min < max ≤ 2.0 m';
-            this.el_band_status.style.color = '#ff6b6b';
+            vtTone(this.el_band_status, 'err');
             return;
         }
         if (!(ev >= 1 && ev <= 20 && cl >= 1 && cl <= 20)) {
             this.el_band_status.textContent =
                 'invalid: evidence/cluster must be 1..20';
-            this.el_band_status.style.color = '#ff6b6b';
+            vtTone(this.el_band_status, 'err');
             return;
         }
         const payload = {band_min: bmin, band_max: bmax,
@@ -2292,7 +2292,7 @@ class MappingV3 {
         this.pub_set_band.publish(new ROSLIB.Message({data: JSON.stringify(payload)}));
         this.band_edited = false;   // let projector_status re-sync the applied values
         this.el_band_status.textContent = 'applying…';
-        this.el_band_status.style.color = '';
+        vtTone(this.el_band_status, '');
     }
 
     applyRanges() {
@@ -2302,7 +2302,7 @@ class MappingV3 {
         if (!ok(lidar) || !ok(depth)) {
             this.el_ranges_status.textContent =
                 'invalid: each range must be 0.5..20 m';
-            this.el_ranges_status.style.color = '#ff6b6b';
+            vtTone(this.el_ranges_status, 'err');
             return;
         }
         const payload = {lidar_max_m: lidar, depth_max_m: depth};
@@ -2310,7 +2310,7 @@ class MappingV3 {
             new ROSLIB.Message({data: JSON.stringify(payload)}));
         this.ranges_edited = false;   // let gate_status re-sync applied values
         this.el_ranges_status.textContent = 'applying…';
-        this.el_ranges_status.style.color = '';
+        vtTone(this.el_ranges_status, '');
     }
 
     // ---- Direct mapper LIVE control helpers (2026-08-09) -------------------
@@ -2328,7 +2328,7 @@ class MappingV3 {
     _markDirectPending() {
         if (this.el_direct_status) {
             this.el_direct_status.textContent = 'applying…';
-            this.el_direct_status.style.color = '';
+            vtTone(this.el_direct_status, '');
         }
         this._direct_apply_pending = Date.now();
         setTimeout(() => {
@@ -2338,7 +2338,7 @@ class MappingV3 {
                     this.el_direct_status.textContent =
                         'no reply — start a mapping session first '
                         + '(settings apply to the running session)';
-                    this.el_direct_status.style.color = '#ffd43b';
+                    vtTone(this.el_direct_status, 'warn');
                 }
             }
         }, 3000);
@@ -2401,7 +2401,7 @@ class MappingV3 {
         if (this.el_band_status && !on && !this.band_edited) {
             this.el_band_status.textContent =
                 'Start a mapping session to tune the obstacle band.';
-            this.el_band_status.style.color = '';
+            vtTone(this.el_band_status, '');
         }
         // Range caps require the insertion_gate running (subscribes to
         // /mapping/set_ranges), same as the band Apply.
@@ -2414,7 +2414,7 @@ class MappingV3 {
         if (this.el_ranges_status && !on && !this.ranges_edited) {
             this.el_ranges_status.textContent =
                 'Start a mapping session to set sensor range caps.';
-            this.el_ranges_status.style.color = '';
+            vtTone(this.el_ranges_status, '');
         }
         // vitulus-field#23: the preset list is visible any time, but Load /
         // Save / Delete are served by direct_raster, which only runs in a
@@ -2488,7 +2488,7 @@ class MappingV3 {
             if (s.running) {
                 hdr.innerHTML = '● Recording map: <b>' + s.site + '</b> ('
                     + Math.floor((s.uptime_s || 0) / 60) + ' min)';
-                hdr.style.color = '#51cf66';
+                vtTone(hdr, 'ok');
                 // 2026-08-16 field fix: the Direct layer is THE live view of
                 // the map being recorded — with the toggle persisted in
                 // localStorage a long-forgotten uncheck made a healthy
@@ -2503,7 +2503,7 @@ class MappingV3 {
                 this._directLayerForced = true;
             } else {
                 hdr.textContent = 'No map recording';
-                hdr.style.color = '';
+                vtTone(hdr, '');
                 this._directLayerForced = false;
             }
         }
@@ -2512,14 +2512,14 @@ class MappingV3 {
                 // REPORT 2(b): show WHY a serve was rejected instead of the UI
                 // silently staying on the old map. Cleared on the next success.
                 this.el_serving.textContent = 'activation failed: ' + s.serve_error;
-                this.el_serving.style.color = '#ff6b6b';
+                vtTone(this.el_serving, 'err');
             } else if (s.serving) {
                 this.el_serving.textContent = 'active: ' + s.serving.site +
                     ' (' + s.serving.raster + ')';
-                this.el_serving.style.color = '';
+                vtTone(this.el_serving, '');
             } else {
                 this.el_serving.textContent = 'active: —';
-                this.el_serving.style.color = '';
+                vtTone(this.el_serving, '');
             }
         }
         // vitulus_ui: mirror the served site/raster into the map-edit panel header
@@ -2574,12 +2574,12 @@ class MappingV3 {
         if (s.running) {
             const up = Math.floor(s.uptime_s / 60);
             this.el_run.textContent = '● recording "' + s.site + '" (' + up + ' min)';
-            this.el_run.style.color = '#51cf66';
+            vtTone(this.el_run, 'ok');
         } else {
             this.el_run.textContent = 'not recording';
-            this.el_run.style.color = '';
+            vtTone(this.el_run, '');
             this.el_gate.textContent = '—';
-            this.el_gate.style.color = '';
+            vtTone(this.el_gate, '');
         }
         // sites list: datalist for the input + chips with stats
         // vitulus_ui: layout-jitter fix (sibling of the dock.js dock-tab fix,
@@ -2671,7 +2671,7 @@ class MappingV3 {
         this.pub_serve.publish(new ROSLIB.Message({data: ref}));
         if (this.el_serving) {
             this.el_serving.textContent = 'activating ' + ref + '…';
-            this.el_serving.style.color = '';
+            vtTone(this.el_serving, '');
         }
     }
 
@@ -2809,7 +2809,7 @@ class MappingV3 {
                 () => this.pub_rebuild_combined.publish(new ROSLIB.Message({data: site.name})));
             body.appendChild(mkRow({
                 primary: true, active: isServed, preview: c.name === previewR,
-                title: '<i class="fa fa-clone" style="margin-right:4px;color:#0dcaf0;"></i>Combined map',
+                title: '<i class="fa fa-clone vt-mr1 vt-accent"></i>Combined map',
                 chips: chips,
                 sub: nSrc + ' session' + (nSrc === 1 ? '' : 's') + ' · <b>' +
                      this._mlNum(c.cells_obstacle) + '</b> obst · <b>' + this._mlNum(c.cells_free) + '</b> free',
@@ -2821,7 +2821,7 @@ class MappingV3 {
             }));
         }
 
-        const sec = this._mlEl('div', 'ml-sec', '<i class="fa fa-bars" style="opacity:.7;"></i> Layers');
+        const sec = this._mlEl('div', 'ml-sec', '<i class="fa fa-bars vt-dim"></i> Layers');
         const nOn = list.filter((r) => r.enabled !== false).length;
         sec.appendChild(this._mlEl('span', 'ml-sec-state',
             list.length ? ((c || nOn < list.length) ? nOn + ' of ' + list.length + ' included · newest first' : 'sessions, newest first') : ''));
@@ -2901,15 +2901,13 @@ class MappingV3 {
                 btn.classList.add('btn-danger');
                 // compact label + let the button grow past its normal fixed
                 // width so the armed state never clips (field report 19.7.)
-                btn.dataset.prevWidth = btn.style.width || '';
-                btn.style.width = 'auto';
-                btn.style.whiteSpace = 'nowrap';
-                btn.innerHTML = '<span style="font-size:11px;">Sure?</span>';
+                btn.classList.add('vt-armed');      // width:auto + nowrap (vt_panel.css)
+                btn.innerHTML = '<span class="vt-fs-xs">Sure?</span>';
                 if (armedLabel) { btn.firstChild.textContent = armedLabel; }
                 timer = setTimeout(() => {
                     armed = false;
                     btn.classList.remove('btn-danger');
-                    btn.innerHTML = restoreHtml; btn.style.width = btn.dataset.prevWidth || '';
+                    btn.innerHTML = restoreHtml; btn.classList.remove('vt-armed');
                 }, 3000);
                 return;
             }
@@ -2921,7 +2919,7 @@ class MappingV3 {
             // Discard) stayed stuck on a red "Sure?" forever.
             btn.classList.remove('btn-danger');
             btn.innerHTML = restoreHtml;
-            btn.style.width = btn.dataset.prevWidth || '';
+            btn.classList.remove('vt-armed');
             onConfirm();
         });
     }
@@ -2955,7 +2953,7 @@ class MappingV3 {
                 this.el_ranges_status.textContent =
                     lid + ', depth ≤ ' + g.depth_max_m + ' m' +
                     (g.z_corr_mode ? ' | z-corr: ' + g.z_corr_mode : '');
-                this.el_ranges_status.style.color = '';
+                vtTone(this.el_ranges_status, '');
             }
         }
 
@@ -2973,11 +2971,11 @@ class MappingV3 {
         detail.push('clouds ' + io_out + '/' + io_in);
         if (g.pass) {
             this.el_gate.textContent = 'OPEN ✓ [' + g.mode + '] ' + detail.join(', ');
-            this.el_gate.style.color = '#51cf66';
+            vtTone(this.el_gate, 'ok');
         } else {
             this.el_gate.textContent = 'CLOSED [' + g.mode + '] ' +
                 (g.reasons || []).join(', ') + ' — ' + detail.join(', ');
-            this.el_gate.style.color = g.mode === 'off' ? '' : '#ffd43b';
+            vtTone(this.el_gate, g.mode === 'off' ? '' : 'warn');
         }
     }
 
@@ -2994,7 +2992,7 @@ class MappingV3 {
             d.samples + ' samples' + zr +
             (d.gps_alt_ok ? '' : ', ⚠ no RTK altitude') +
             (d.dz_skips ? ', ' + d.dz_skips + ' dz-skips' : '');
-        this.el_dem.style.color = d.gps_alt_ok ? '' : '#ffd43b';
+        vtTone(this.el_dem, d.gps_alt_ok ? '' : 'warn');
     }
 
     handleProjector(msg) {
@@ -3017,7 +3015,7 @@ class MappingV3 {
                     'obstacle band ' + p.band_min + '–' + p.band_max +
                     ' m above ground, evid ≥ ' + p.min_evidence +
                     ', clust ≥ ' + p.min_cluster_cells;
-                this.el_band_status.style.color = '';
+                vtTone(this.el_band_status, '');
             }
         }
 
@@ -3031,7 +3029,7 @@ class MappingV3 {
         }
         if (p.error) txt += ' | ' + p.error;
         this.el_proj.textContent = txt;
-        this.el_proj.style.color = p.state === 'error' ? '#ff6b6b' : '';
+        vtTone(this.el_proj, p.state === 'error' ? 'err' : '');
     }
 
     // environment preset <select>: rebuild only when the name list
@@ -3129,8 +3127,8 @@ class MappingV3 {
             Date.now() < this._direct_applied_until;
         this.el_direct_status.textContent =
             (applied ? '\u2713 applied \u00b7 ' : '') + txt;
-        this.el_direct_status.style.color = applied ? '#51cf66'
-            : ((s.reasons && s.reasons.length) ? '#ffd43b' : '');
+        vtTone(this.el_direct_status, applied ? 'ok'
+            : ((s.reasons && s.reasons.length) ? 'warn' : ''));
     }
 }
 

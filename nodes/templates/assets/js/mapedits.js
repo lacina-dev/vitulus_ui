@@ -547,7 +547,7 @@ window.MapEdits = (function () {
         var pts = _gfPoints();
         var area = _gfArea(pts);
         out.innerHTML = pts.length < 3
-            ? '<span style="color:var(--bs-gray-500);">' + pts.length + ' bodů — plot potřebuje aspoň 3</span>'
+            ? '<span class="vt-muted">' + pts.length + ' bodů — plot potřebuje aspoň 3</span>'
             : ('<b class="text-info">' + pts.length + ' vrcholů</b> · <b class="text-info">' +
                area.toFixed(1) + ' m²</b> · obvod ' + _gfPerimeter(pts).toFixed(1) + ' m' +
                (area < 4 ? ' <span class="text-danger">· pod minimem 4 m²</span>' : ''));
@@ -557,7 +557,7 @@ window.MapEdits = (function () {
 
     function _gfSay(html, cls) {
         var box = document.getElementById('mapedit_gf_out');
-        if (box) box.innerHTML = '<div class="' + (cls || '') + '" style="font-size:12px;white-space:pre-wrap;">' + html + '</div>';
+        if (box) box.innerHTML = '<div class="' + (cls || '') + ' vt-fs-sm vt-pre">' + html + '</div>';
     }
 
     function _finishGeofenceDraw() {
@@ -626,7 +626,7 @@ window.MapEdits = (function () {
         if (!tools || !ctx) { _built = false; return; }   // panel not (yet) redesigned
 
         // B. TOOLS — icon grid.
-        var gh = '<div class="text-uppercase fw-bold" style="font-size:11px;letter-spacing:.5px;color:var(--bs-gray-400);margin-bottom:6px;">Tools</div><div class="met-grid">';
+        var gh = '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb2">Tools</div><div class="met-grid">';
         for (var i = 0; i < TOOLS.length; i++) {
             var t = TOOLS[i];
             gh += '<button type="button" class="btn met-tool ' + t.idle + '" data-tool="' + t.tool + '" data-idle="' + t.idle + '">' +
@@ -639,33 +639,33 @@ window.MapEdits = (function () {
 
         // C. ACTIVE TOOL CONTEXT — one box showing only what the tool needs.
         ctx.innerHTML =
-            '<div class="text-uppercase fw-bold" style="font-size:11px;letter-spacing:.5px;color:var(--bs-gray-400);margin-bottom:4px;">Tool context</div>' +
-            '<div style="border:1px solid var(--bs-secondary);border-radius:5px;padding:8px;background:rgba(0,0,0,.2);">' +
-            '  <div id="mapedit_hint" style="font-size:12.5px;color:var(--bs-info);min-height:18px;"></div>' +
-            '  <div id="mapedit_wall_wrap" style="display:none;margin-top:8px;">' +
-            '    <span style="font-size:12px;display:block;margin-bottom:2px;">Barrier width</span>' +
-            '    <div class="input-group input-group-sm" style="width:130px;"><input class="form-control" id="mapedit_wall_w" type="number" min="0.02" max="2" step="0.05" value="0.10"><span class="input-group-text">m</span></div>' +
+            '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1">Tool context</div>' +
+            '<div class="vt-box">' +
+            '  <div id="mapedit_hint" class="vt-fs-sm vt-accent vt-minh-line"></div>' +
+            '  <div id="mapedit_wall_wrap" class="vt-mt2" style="display: none;">' +
+            '    <span class="vt-fs-sm vt-block vt-mb1">Barrier width</span>' +
+            '    <div class="input-group input-group-sm vt-w-md"><input class="form-control" id="mapedit_wall_w" type="number" min="0.02" max="2" step="0.05" value="0.10"><span class="input-group-text">m</span></div>' +
             '  </div>' +
-            '  <div id="mapedit_path_wrap" style="display:none;margin-top:8px;">' +
-            '    <span style="font-size:12px;display:block;margin-bottom:2px;">Path name</span>' +
-            '    <input class="form-control form-control-sm" id="mapedit_path_name" type="text" value="" style="width:180px;">' +
+            '  <div id="mapedit_path_wrap" class="vt-mt2" style="display: none;">' +
+            '    <span class="vt-fs-sm vt-block vt-mb1">Path name</span>' +
+            '    <input class="form-control form-control-sm vt-w-lg" id="mapedit_path_name" type="text" value="">' +
             '  </div>' +
-            '  <div id="mapedit_gf_wrap" style="display:none;margin-top:8px;">' +
-            '    <div id="mapedit_gf_live" style="font-size:12.5px;margin-bottom:6px;"></div>' +
-            '    <div class="d-flex" style="gap:6px;margin-bottom:6px;">' +
-            '      <div style="flex:1 1 0;min-width:0;"><span style="font-size:12px;display:block;margin-bottom:2px;">Site</span>' +
+            '  <div id="mapedit_gf_wrap" class="vt-mt2" style="display: none;">' +
+            '    <div id="mapedit_gf_live" class="vt-fs-sm vt-mb2"></div>' +
+            '    <div class="d-flex vt-gap6 vt-mb2">' +
+            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1">Site</span>' +
             '        <input class="form-control form-control-sm" id="mapedit_gf_site" type="text" placeholder="site"></div>' +
-            '      <div style="flex:1 1 0;min-width:0;"><span style="font-size:12px;display:block;margin-bottom:2px;">Klikal(a)</span>' +
+            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1">Klikal(a)</span>' +
             '        <input class="form-control form-control-sm" id="mapedit_gf_by" type="text" placeholder="jméno"></div>' +
             '    </div>' +
-            '    <button class="btn btn-outline-info btn-sm" id="mapedit_gf_export" type="button" style="width:100%;">Stáhnout JSON</button>' +
-            '    <div id="mapedit_gf_out" style="margin-top:8px;"></div>' +
+            '    <button class="btn btn-outline-info btn-sm vt-w100" id="mapedit_gf_export" type="button">Stáhnout JSON</button>' +
+            '    <div id="mapedit_gf_out" class="vt-mt2"></div>' +
             '  </div>' +
-            '  <div id="mapedit_wp_form" style="margin-top:8px;"></div>' +
-            '  <div id="mapedit_path_sel" style="margin-top:8px;"></div>' +
-            '  <div id="mapedit_ctx_actions" class="d-flex" style="gap:6px;margin-top:8px;">' +
-            '    <button class="btn btn-success btn-sm flex-fill" id="mapedit_finish" type="button" style="display:none;">Finish</button>' +
-            '    <button class="btn btn-warning btn-sm flex-fill" id="mapedit_cancel" type="button" style="display:none;">Cancel</button>' +
+            '  <div id="mapedit_wp_form" class="vt-mt2"></div>' +
+            '  <div id="mapedit_path_sel" class="vt-mt2"></div>' +
+            '  <div id="mapedit_ctx_actions" class="d-flex vt-gap6 vt-mt2">' +
+            '    <button class="btn btn-success btn-sm flex-fill" id="mapedit_finish" type="button" style="display: none;">Finish</button>' +
+            '    <button class="btn btn-warning btn-sm flex-fill" id="mapedit_cancel" type="button" style="display: none;">Cancel</button>' +
             '  </div>' +
             '</div>';
 
@@ -706,13 +706,13 @@ window.MapEdits = (function () {
         { k: 'zones',     label: 'Zones' },
     ];
     function _showRowHtml() {
-        var h = '<div id="mapedit_show_row" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;">' +
-                '<span style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--bs-gray-400);">Show:</span>';
+        var h = '<div id="mapedit_show_row" class="vt-flex vt-wrap vt-aic vt-gap6 vt-mt2">' +
+                '<span class="vt-fs-xs vt-caps vt-ls vt-muted">Show:</span>';
         for (var i = 0; i < SHOW_CHIPS.length; i++) {
             var c = SHOW_CHIPS[i];
             var on = _show[c.k] !== false;
             h += '<button type="button" class="btn btn-sm mapedit-show-chip ' + (on ? 'btn-info' : 'btn-outline-secondary') +
-                 '" data-show="' + c.k + '" style="min-height:28px;padding:2px 10px;font-size:12px;">' + c.label + '</button>';
+                 ' vt-chip-btn" data-show="' + c.k + '">' + c.label + '</button>';
         }
         h += '</div>';
         return h;
@@ -726,7 +726,7 @@ window.MapEdits = (function () {
                 _saveShow(k);
                 _applyShow(k);
                 b.className = 'btn btn-sm mapedit-show-chip ' + (_show[k] ? 'btn-info' : 'btn-outline-secondary');
-                b.style.minHeight = '28px'; b.style.padding = '2px 10px'; b.style.fontSize = '12px';
+                b.classList.add('vt-chip-btn');   // size: vt_panel.css
             });
         });
     }
@@ -994,9 +994,9 @@ window.MapEdits = (function () {
         if (!host) return;
         var np = (path.points || []).length;
         host.innerHTML =
-            '<div style="border-top:1px dashed var(--bs-secondary);padding-top:8px;">' +
-            '<div style="font-size:12px;margin-bottom:6px;">Selected path: <b class="text-info">' + _escapeHtml(path.name || '') + '</b> <span style="color:var(--bs-gray-500);">(' + np + ' pts)</span></div>' +
-            '<div class="d-flex" style="gap:6px;">' +
+            '<div class="vt-sep-dashed">' +
+            '<div class="vt-fs-sm vt-mb2">Selected path: <b class="text-info">' + _escapeHtml(path.name || '') + '</b> <span class="vt-muted">(' + np + ' pts)</span></div>' +
+            '<div class="d-flex vt-gap6">' +
             '  <button class="btn btn-outline-info btn-sm flex-fill" id="mapedit_path_sel_edit" type="button">Edit</button>' +
             '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_path_sel_del" type="button">Delete</button>' +
             '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_path_sel_cancel" type="button">Cancel</button>' +
@@ -1068,18 +1068,18 @@ window.MapEdits = (function () {
         var pl = document.getElementById('mapedit_path_list');
         if (!pl) return;
         var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
-        if (!paths.length) { pl.innerHTML = '<div style="font-size:12px;color:var(--bs-gray-500);">No paths yet.</div>'; return; }
+        if (!paths.length) { pl.innerHTML = '<div class="vt-fs-sm vt-muted">No paths yet.</div>'; return; }
         var html = '';
         for (var i = 0; i < paths.length; i++) {
             var pth = paths[i];
             var name = pth.name || '';
             var np = (pth.points || []).length;
             var hidden = _mapObjLayer.isPathHidden(name);
-            html += '<div class="d-flex align-items-center" style="border-bottom:1px solid #3a3f44;padding:4px 2px;font-size:12px;">' +
-                '<span class="text-truncate" style="flex:1 1 auto;min-width:0;color:' + (hidden ? 'var(--bs-gray-500)' : '#00d0a0') + ';" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || '(unnamed)') + '</span>' +
-                '<span style="width:44px;text-align:right;color:var(--bs-gray-500);">' + np + ' pts</span>' +
-                '<div class="btn-group btn-group-sm" style="margin-left:6px;">' +
-                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="Show / hide this path" style="opacity:' + (hidden ? '0.5' : '1') + ';">' + (hidden ? '🚫' : '👁') + '</button>' +
+            html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
+                '<span class="text-truncate vt-grow1 vt-min0 ' + (hidden ? 'vt-muted' : 'vt-sw-00d0a0') + '" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || '(unnamed)') + '</span>' +
+                '<span class="vt-w-xs vt-tar vt-muted">' + np + ' pts</span>' +
+                '<div class="btn-group btn-group-sm vt-ml2">' +
+                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="Show / hide this path"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '🚫' : '👁') + '</button>' +
                 '<button class="btn btn-outline-info mapedit-path-edit" data-n="' + _escapeAttr(name) + '" type="button">Edit</button>' +
                 '<button class="btn btn-outline-danger mapedit-path-del" data-n="' + _escapeAttr(name) + '" type="button">Delete</button>' +
                 '</div></div>';
@@ -1156,9 +1156,9 @@ window.MapEdits = (function () {
         var host = document.getElementById('mapedit_wp_form');
         if (host) {
             host.innerHTML =
-                '<div style="border-top:1px dashed var(--bs-secondary);padding-top:8px;">' +
-                '<div style="font-size:12px;margin-bottom:6px;">Selected waypoint: <b class="text-info">' + _escapeHtml(wp.name) + '</b></div>' +
-                '<div class="d-flex" style="gap:6px;">' +
+                '<div class="vt-sep-dashed">' +
+                '<div class="vt-fs-sm vt-mb2">Selected waypoint: <b class="text-info">' + _escapeHtml(wp.name) + '</b></div>' +
+                '<div class="d-flex vt-gap6">' +
                 '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_wp_sel_del" type="button">Delete</button>' +
                 '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_sel_cancel" type="button">Cancel</button>' +
                 '</div></div>';
@@ -1235,14 +1235,14 @@ window.MapEdits = (function () {
         var y0 = (typeof initYawDeg === 'number' && isFinite(initYawDeg))
             ? Math.round(initYawDeg * 2) / 2 : 0;
         host.innerHTML =
-            '<div style="border-top:1px dashed var(--bs-secondary);padding-top:8px;">' +
-            '<div style="font-size:12px;margin-bottom:2px;">Waypoint name</div>' +
+            '<div class="vt-sep-dashed">' +
+            '<div class="vt-fs-sm vt-mb1">Waypoint name</div>' +
             '<input class="form-control form-control-sm" id="mapedit_wp_name" type="text" value="' + _escapeAttr(name) + '"' + (lockName ? ' readonly' : '') + '>' +
-            '<div style="font-size:12px;margin:8px 0 2px;display:flex;align-items:center;gap:6px;">Heading' +
-            ' <input id="mapedit_wp_yawn" class="form-control form-control-sm" type="number" min="0" max="359.5" step="0.5" value="' + y0 + '" style="width:78px;padding:1px 6px;">°' +
-            ' <span style="opacity:.65;font-size:11px;">(arrow on the map)</span></div>' +
-            '<input id="mapedit_wp_yaw" type="range" min="0" max="359.5" step="0.5" value="' + y0 + '" style="width:100%;">' +
-            '<div class="d-flex" style="gap:6px;margin-top:8px;">' +
+            '<div class="vt-fs-sm vt-mt2 vt-mr0 vt-mb1 vt-ml0 vt-flex vt-aic vt-gap6">Heading' +
+            ' <input id="mapedit_wp_yawn" class="form-control form-control-sm vt-w-sm vt-pad-s" type="number" min="0" max="359.5" step="0.5" value="' + y0 + '">°' +
+            ' <span class="vt-dim vt-fs-xs">(arrow on the map)</span></div>' +
+            '<input id="mapedit_wp_yaw" type="range" min="0" max="359.5" step="0.5" value="' + y0 + '" class="vt-w100">' +
+            '<div class="d-flex vt-gap6 vt-mt2">' +
             '  <button class="btn btn-success btn-sm flex-fill" id="mapedit_wp_save" type="button">Save</button>' +
             '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_cancel" type="button">Cancel</button>' +
             '</div></div>';
@@ -1283,13 +1283,13 @@ window.MapEdits = (function () {
     function _renderWpList() {
         var wl = document.getElementById('mapedit_wp_list');
         if (!wl) return;
-        if (!_wpNames.length) { wl.innerHTML = '<div style="font-size:12px;color:var(--bs-gray-500);">No waypoints yet.</div>'; return; }
+        if (!_wpNames.length) { wl.innerHTML = '<div class="vt-fs-sm vt-muted">No waypoints yet.</div>'; return; }
         var html = '';
         for (var i = 0; i < _wpNames.length; i++) {
             var n = _wpNames[i];
-            html += '<div class="d-flex align-items-center" style="border-bottom:1px solid #3a3f44;padding:4px 2px;font-size:12px;">' +
-                '<span class="text-info text-truncate" style="flex:1 1 auto;min-width:0;" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>' +
-                '<div class="btn-group btn-group-sm" style="margin-left:6px;">' +
+            html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
+                '<span class="text-info text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>' +
+                '<div class="btn-group btn-group-sm vt-ml2">' +
                 '<button class="btn btn-outline-info mapedit-wp-move" data-n="' + _escapeAttr(n) + '" type="button">Move</button>' +
                 '<button class="btn btn-outline-danger mapedit-wp-del" data-n="' + _escapeAttr(n) + '" type="button">Delete</button>' +
                 '</div></div>';
@@ -1318,18 +1318,18 @@ window.MapEdits = (function () {
         var el = document.getElementById('mapedit_edit_list');
         if (!el) return;
         var edits = (_layer && _layer.edits) ? _layer.edits : [];
-        if (!edits.length) { el.innerHTML = '<div style="font-size:12px;color:var(--bs-gray-500);">No edits yet.</div>'; return; }
+        if (!edits.length) { el.innerHTML = '<div class="vt-fs-sm vt-muted">No edits yet.</div>'; return; }
         var LBL = { obstacle: 'Obstacle (area)', free: 'Free', wall: 'Barrier' };
         var html = '';
         for (var i = 0; i < edits.length; i++) {
             var e = edits[i];
             var kind = LBL[e.kind] || e.kind || '';
             var np = (e.points || []).length;
-            html += '<div class="d-flex align-items-center" style="border-bottom:1px solid #3a3f44;padding:4px 2px;font-size:12px;">' +
-                '<span class="text-truncate" style="flex:1 1 auto;min-width:0;" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || '(unnamed)') + '</span>' +
-                '<span class="text-light" style="width:70px;">' + _escapeHtml(kind) + '</span>' +
-                '<span style="width:44px;text-align:right;color:var(--bs-gray-500);">' + np + ' pts</span>' +
-                '<button class="btn btn-outline-danger btn-sm mapedit-edit-del" data-n="' + _escapeAttr(e.name || '') + '" type="button" style="margin-left:6px;">Delete</button>' +
+            html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
+                '<span class="text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || '(unnamed)') + '</span>' +
+                '<span class="text-light vt-w-sm">' + _escapeHtml(kind) + '</span>' +
+                '<span class="vt-w-xs vt-tar vt-muted">' + np + ' pts</span>' +
+                '<button class="btn btn-outline-danger btn-sm mapedit-edit-del vt-ml2" data-n="' + _escapeAttr(e.name || '') + '" type="button">Delete</button>' +
                 '</div>';
         }
         el.innerHTML = html;
@@ -1345,7 +1345,27 @@ window.MapEdits = (function () {
     function _escapeHtml(s) { return String(s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
     function _escapeAttr(s) { return String(s).replace(/["&<>]/g, function (c) { return { '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
 
+    /* U1 kolo 4 — DEV ONLY: render the editor panel from fake data so its
+       look can be checked WITHOUT entering the editor (entering talks to the
+       robot: planner reload, topic adverts). Works only with ?mock in the URL;
+       creates no ROS objects, publishes nothing. */
+    function mockPreview() {
+        if (!/[?&]mock\b/.test(location.search)) { return false; }
+        var keepL = _layer, keepM = _mapObjLayer, keepW = _wpNames;
+        _layer = {edits: [{name: 'Hedge corner', kind: 'obstacle', points: [1, 2, 3, 4]},
+                          {name: 'Gate', kind: 'wall', points: [1, 2]}], group: {}};
+        _mapObjLayer = {paths: [{name: 'Kolem_vina', points: new Array(42)},
+                                {name: 'Back lawn', points: new Array(18)}],
+                        isPathHidden: function (n) { return n === 'Back lawn'; }};
+        _wpNames = ['DOCK', 'UNDOCK', 'docked'];
+        try {
+            _loadShow(); _buildToolbar(); _renderEditList(); _renderWpList(); _renderPathList();
+        } finally { _layer = keepL; _mapObjLayer = keepM; _wpNames = keepW; }
+        return true;
+    }
+
     return {
+        mockPreview: mockPreview,
         onEnter: onEnter,
         onExit: onExit,
         setTool: _setTool,
