@@ -202,6 +202,11 @@ The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
   polled only while the panel is open. **The help text lives in
   `vt_support.js` (`HELP`) — update it with every UI change.**
 
+* **Links agent ↔ field** (`assets/js/vt_links.js`) — "Ask the agent"
+  on issue and Needs-you cards puts a draft into the agent chat (never sends
+  it), "Timeline" shows Agent › Activity for one issue, Activity rows open the
+  issue / finding / job they are about. Read only.
+
 Plan for one UI with the field dashboard and the agent:
 `docs/UI_INTEGRATION_PLAN.md`.
 

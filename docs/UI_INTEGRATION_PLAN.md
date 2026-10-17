@@ -158,6 +158,61 @@ dnes polluje sám; převede se na hub).
   Text nápovědy je v `vt_support.js` (`HELP`) — **každá změna UI ho musí
   aktualizovat**.
 
+- **I6 hotovo (jen čtení, větev `ui-field-links`):** `assets/js/vt_links.js`.
+  Karta issue (Support) má *Ask the agent* (otevře Agent › Chat s
+  předvyplněným konceptem „About Support issue #N …“ — **neodešle**, odešle
+  člověk) a *Timeline* (Agent › Activity jen pro issue #N za 7 dní — vlastní dotaz `/field/api/activity?issue=N`, štítek s ✕);
+  karta field položky v Needs you má *Ask the agent* a *Issue #N*. Řádky
+  Activity jsou odkazy: událost kitu s issue → Support › Issues se zvýrazněnou
+  kartou, agentní nález → Agent › Findings, job → zvýrazněný v Agent › Work.
+
+## I5 — zápisy z UI robota: návrh k rozhodnutí (NEIMPLEMENTOVÁNO)
+
+Čeká na ownerův souhlas se změnou bezpečnostního modelu. Dnes zapisuje jen
+dashboard (:8790) se svými pojistkami (token stránky za start, Host
+allow-list, přesný same-origin Origin/Referer, `Sec-Fetch-Site: same-origin`
++ `Sec-Fetch-Mode: cors`, JSON, sha256 zobrazeného textu, na loopbacku odmítnutí
+procesů agenta). Proxy `/field/api/*` je jen GET a tak má zůstat, dokud se
+nerozhodne jinak.
+
+**Co by šlo zapisovat (a nic víc):**
+
+| Akce | Endpoint dashboardu | Proč z UI robota |
+|---|---|---|
+| Hotovo / odpověď na lidský krok | `/api/human-step/done`, `/api/human-step/answer` | člověk stojí u robota, krok je fyzický |
+| Rozhodnutí karty Potřebuje tě (zvolená možnost) | `/api/plain/pick` | jedno místo pro rozhodnutí |
+| Odložit / připomenout | `/api/attention/snooze`, `/api/attention/remind` | úklid fronty bez přepínání |
+| Přijmout / zamítnout nález | `/api/findings/accept`, `/api/findings/dismiss` | nález vzniká na robotu |
+
+**Co ne:** merge (`/api/kitfix/merge`), `watch/tick`, `sync/apply`,
+`selftest/run`, `trial/start`, `test-hold`, instalace, fleet, telefon,
+nové reporty/úkoly (zůstávají na dashboardu). Nic, co spouští jízdu nebo
+sekání — to dál jen přes agentní schválení (brána jízda/sekání).
+
+**Pojistky (všechny najednou):**
+
+1. **Žádné obcházení tokenu:** UI robota si token nebere ze stránky
+   dashboardu. Dashboard vydá webnode na loopbacku krátkodobý *proxy token*
+   (např. 10 min, vázaný na akci a na `id` karty), webnode ho přidá do
+   hlavičky jen pro allow-list výše; prohlížeč ho nikdy nevidí.
+2. **Same-origin u robota:** `POST /field/act/<akce>` přijme webnode jen s
+   `Origin` = vlastní původ UI, `Sec-Fetch-Site: same-origin`, JSON, malé
+   tělo; z cizí stránky v LAN to nejde (žádné CORS).
+3. **Potvrzení v UI:** každá akce = karta ukáže přesný text, který dashboard
+   zobrazil (hash posílá s požadavkem jako dnes `sha256` promptu); tlačítko
+   má druhý krok „Opravdu?“ (inline, ne `confirm()`), u akcí s pohybem nikdy.
+4. **Kdo:** do auditu se zapíše jméno z UI (`vitulus_agent_author`) a adresa
+   klienta; bez jména akce nejde.
+5. **Audit:** dashboard zapisuje akci do svého feedu / receiptu jako dnes,
+   webnode navíc řádek do `~/.vitulus/ui_actions.jsonl` (čas, akce, karta,
+   kdo, výsledek); Activity v UI ho ukáže.
+6. **Vypínač:** vše za přepínačem v konfiguraci webnode (`field_writes:
+   false` výchozí), aby to owner mohl kdykoli vypnout.
+7. **?mock** dál blokuje všechny POSTy (testy).
+
+**Rozhodnutí pro ownera:** a) ano v tomto rozsahu, b) jen lidské kroky,
+c) ne (zápisy zůstávají na dashboardu, UI dál jen odkazuje).
+
 ## 7. Joystick v rozložení (vstup pro layout matici U1)
 
 Komponenta je hotová (`vt_joy.js/css`), umístění patří rámu. Rozměry:

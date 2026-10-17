@@ -20,6 +20,7 @@
     var TABS = [['issues', 'Issues'], ['releases', 'Releases'], ['signal', 'Signal'], ['help', 'Help']];
     var panel = null, active = false, tab = 'issues', helpFor = null;
     var panes = {}, tabLinks = {};
+    var hlIssue = null, hlUntil = 0, hlScrolled = false;   // I6: the card to point at
 
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
@@ -100,14 +101,29 @@
         var st = stageOf(i), sev = sevOf(i);
         var tone = i.state === 'CLOSED' ? 'off' : (i.waiting || i.mine ? 'warn' : (sev === 'critical' || sev === 'major' ? 'err' : 'info'));
         var turn = i.who_label || TURN[i.turn] || null;
-        return card(tone, '#' + i.number + ' · ' + (i.kind || 'issue'), ago(i.last_change),
+        var c = card(tone, '#' + i.number + ' · ' + (i.kind || 'issue'), ago(i.last_change),
             i.title || '', i.status_text ? ('Status: ' + i.status_text) : null,
             [[STAGE[st] || st, st === 'released' || st === 'test' ? 'warn' : null],
              sev ? [sev, sev === 'critical' || sev === 'major' ? 'err' : null] : null,
              turn ? ['turn: ' + turn, 'info'] : null,
              i.motion ? ['motion', 'warn'] : null,
              i.agent_active ? ['agent working', 'info'] : null],
-            [linkBtn('Open in Support', dash('#/issue/' + i.number))]);
+            issueActs(i.number, i.title));
+        c.dataset.issue = String(i.number);
+        if (hlIssue === String(i.number) && Date.now() < hlUntil) { c.classList.add('vt-hl'); }
+        return c;
+    }
+    /* I6: an issue links to the dashboard, the agent chat and its timeline */
+    function issueActs(n, title) {
+        var acts = [linkBtn('Open in Support', dash('#/issue/' + n))];
+        if (window.VTLinks) {
+            acts.push(VTLinks.button('Ask the agent', function () {
+                VTLinks.askAgent('About Support issue #' + n + (title ? ' "' + title + '"' : '') + ': ');
+            }, 'Opens the agent chat with a draft about this issue — you send it'));
+            acts.push(VTLinks.button('Timeline', function () { VTLinks.issueTimeline(n); },
+                'Agent › Activity filtered to this issue'));
+        }
+        return acts;
     }
     function renderIssues() {
         var pane = panes.issues; if (!pane) { return; }
@@ -133,6 +149,13 @@
             out.push(linkBtn('All issues in Support', dash('#/issues')));
             return out;
         }).forEach(function (x) { pane.appendChild(x); });
+        var hit = hlIssue && pane.querySelector('.vt-needs-card[data-issue="' + hlIssue + '"]');
+        if (hit && !hlScrolled) {
+            hlScrolled = true;
+            var det = hit.closest('details');
+            if (det && !det.open) { det.open = true; }
+            try { hit.scrollIntoView({ block: 'center' }); } catch (e) { hit.scrollIntoView(); }
+        }
     }
 
     /* ------------------------------------------------------- Releases */
@@ -157,7 +180,7 @@
                 out.push(card('warn', '#' + n + (i.kind ? ' · ' + i.kind : ''), rel.when ? ago(rel.when) : '',
                     i.title || ('Issue #' + n), rel.detail ? ('Release: ' + rel.detail) : null,
                     [[stage[n] === 'test' ? 'to test' : 'released', 'warn']],
-                    [linkBtn('Open in Support', dash('#/issue/' + n))]));
+                    issueActs(n, i.title)));
             });
             var st = (d.velin && d.velin.stages) || {};
             var pills = Object.keys(st).filter(function (k) { return st[k]; }).map(function (k) { return [(STAGE[k] || k) + ' ' + st[k]]; });
@@ -414,7 +437,12 @@
         VTHub.on('field.issues', function () { if (active && (tab === 'issues' || tab === 'releases')) { render(); } });
         VTHub.on('field.home', function () { if (active && (tab === 'releases' || tab === 'signal')) { render(); } });
         if (lsGet('vitulus_support_open') === '1') { setTimeout(function () { open(); }, 1600); }
-        window.VTSupport = { open: open, close: function () { deactivate(true); }, toggle: toggle, help: openHelp };
+        window.VTSupport = { open: open, close: function () { deactivate(true); }, toggle: toggle, help: openHelp,
+            /* I6: open Issues and point at card #n (survives the refresh that follows opening) */
+            showIssue: function (n) {
+                hlIssue = String(n).replace(/\D/g, ''); hlUntil = Date.now() + 4000; hlScrolled = false;
+                open('issues');
+            } };
     }
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
     else { init(); }
