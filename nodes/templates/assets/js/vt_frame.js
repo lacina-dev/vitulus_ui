@@ -112,6 +112,22 @@
         var wide = lh > 0 && m !== 'sheet' && occ > 0 && (window.innerWidth - occ - rpw) < LOG_MIN_W;
         body.classList.toggle('vt-log-wide', wide);
 
+        // U1 kolo 6: joystick vs. the phone sheet — when the stick is on and
+        // the sheet is open, the sheet leaves room above itself for the stick
+        // and the stick sits right above the sheet (never under it)
+        var joy = $('joy_view');
+        var joyOn = visible(joy);
+        body.classList.toggle('vt-joy-on', joyOn);
+        if (m === 'sheet' && open && joyOn && drawer) {
+            // the free band ends at the notices AND the right panel's row
+            var avail = window.innerHeight - bh - Math.max(nb, rpb);
+            var jh = joy.offsetHeight || 150;
+            root.style.setProperty('--vt-frame-sheet-max', px(Math.max(160, avail - jh - 24)));
+            root.style.setProperty('--vt-frame-sheet-h', px(drawer.offsetHeight));
+        } else {
+            root.style.setProperty('--vt-frame-sheet-h', '0px');
+        }
+
         // the map canvas changes width when the docked panel opens/closes
         if (dock !== lastDock) {
             lastDock = dock;

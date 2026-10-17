@@ -1186,3 +1186,19 @@ body.vt-frame.vt-m-dock #div_bottom_menu .btn[data-label]:not(#btn_stop_all)::af
         scroll-behavior: auto !important;
     }
 }
+
+/* ===== U1 kolo 6: joystick and the panel never fight =====================
+   phone portrait: with the stick on, the sheet (also "full") ends below a
+   free band for the stick, and the stick sits right above the sheet */
+body.vt-frame.vt-m-sheet.vt-joy-on #ui_drawer.open {
+    max-height: var(--vt-frame-sheet-max, 50dvh) !important;
+}
+body.vt-frame.vt-m-sheet.vt-joy-on #ui_drawer.open.full {
+    top: auto !important;
+    height: var(--vt-frame-sheet-max, 50dvh);
+}
+html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view {
+    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-sheet-h, 0px) + 10px) !important;
+}
+/* landscape phone: a narrower panel leaves the map (and the stick) room */
+body.vt-frame.vt-m-overlay #ui_drawer:not(.full) { width: min(420px, 52vw); }

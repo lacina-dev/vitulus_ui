@@ -43,9 +43,9 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 |---|---|---|
 | Horní lišta | při výšce < 600 px jen pás menu (navbar skrytý, jako dřív) | totéž |
 | Hlášky | pás pod menu, vycentrovaný vpravo od panelu | přes celou šířku |
-| Levý panel | sloupec přes mapu, max. 60 % šířky, lícuje s lištami, stín vpravo | — |
+| Levý panel | sloupec přes mapu, min(420 px, 52 % šířky), lícuje s lištami, stín vpravo | — |
 | Mapa | celá plocha (panel ji částečně kryje) | celá plocha |
-| Pravý stavový panel | vpravo; když na něj nezbývá místo, zbyde úchyt | vpravo |
+| Pravý stavový panel | **sbalený řádek** (mapa · Pose · GNSS · baterie · ▾) jako na výšku; joystick neodsouvá | totéž |
 | Log malý | když vpravo od panelu zbývá ≥ 420 px: pruh vpravo od panelu; jinak (typicky telefon na šířku) **přes celou šířku nad spodní lištou a panel končí nad ním** (`vt-log-wide`) | celá šířka po pravý panel |
 | Log celý | plocha vpravo od panelu, pod hláškami, nad spodní lištou | celá šířka po pravý panel |
 | Joystick | vpravo dole, nad malým logem | totéž |
@@ -61,7 +61,7 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Mapa | nad sheetem (editor ji rámuje do volné části) | celá plocha |
 | Log malý | pruh pod hláškami (nad pravým panelem), celá šířka | totéž |
 | Log celý | od hlášek/pravého panelu ke spodní liště; otevřený sheet je nad ním | totéž |
-| Joystick | vpravo dole nad spodní lištou | totéž |
+| Joystick | **nad sheetem** (sheet, i „celý“, končí pod volným pásem pro joystick — `vt-joy-on`) | vpravo dole nad spodní lištou |
 
 ## Ovládání rámu
 

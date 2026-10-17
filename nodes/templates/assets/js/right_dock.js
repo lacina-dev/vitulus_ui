@@ -358,7 +358,8 @@
         /* log nesmí zabíhat pod panel — zkrátí se přesně o jeho šířku */
         document.body.classList.toggle('rp-panel-open', isOpen());
         document.documentElement.style.setProperty('--rp-log-right', (pw + 14) + 'px');
-        document.body.classList.toggle('rp-joy-side', !!joy && isOpen());
+        // U1 kolo 6: a collapsed one-row panel does not push the stick aside
+        document.body.classList.toggle('rp-joy-side', !!joy && isOpen() && !isCompact());
         document.documentElement.style.setProperty('--rp-joy-right', (pw + 14) + 'px');
         if (handle) {                       // úchyt drží hranu vedle panelu
             handle.style.display = '';
@@ -369,9 +370,12 @@
     }
 
     var placeTimer = null;
+    // U1 kolo 6: THROTTLE, not debounce — the status text is rewritten on
+    // every robot status message; a debounce that restarts on each one never
+    // fires while messages keep coming, and the panel stayed over the notice.
     function placeSoon() {
-        if (placeTimer) { clearTimeout(placeTimer); }
-        placeTimer = setTimeout(place, 150);
+        if (placeTimer) { return; }
+        placeTimer = setTimeout(function () { placeTimer = null; place(); }, 150);
     }
 
     /* Malý displej: log patří pod ikonky a přes CELOU šířku (jinak by ho
