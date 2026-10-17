@@ -130,15 +130,14 @@
             dot.id = 'rp_sum_dot_' + pair[1].toLowerCase();
             if (!src) { return; }
             var copy = function () {
-                var bg = src.style.background || src.style.backgroundColor ||
-                    getComputedStyle(src).backgroundColor;
-                dot.style.background = bg;
+                // U1 kolo 4: the chip carries its state in data-state (vtChip)
+                dot.dataset.state = src.dataset.state || 'off';
                 dot.title = pair[1] + ': ' + ((src.textContent || '').trim() || '—');
                 dot.setAttribute('aria-label', dot.title);
             };
             copy();
             new MutationObserver(copy).observe(src, {childList: true, characterData: true,
-                subtree: true, attributes: true, attributeFilter: ['style', 'class']});
+                subtree: true, attributes: true, attributeFilter: ['data-state']});
         });
         var sum = el('span', 'rp-sum', topRow);
         sum.id = 'rp_sum_batt';

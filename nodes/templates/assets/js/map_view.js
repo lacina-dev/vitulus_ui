@@ -507,6 +507,18 @@ ROS3D.OccupancyGrid.prototype.getColor = function(index, row, col, value) {
 // U1 kolo 2: a switch/record group reports its state as a soft tint of its
 // card (vt_panel.css [data-state]) instead of an inline coloured border.
 // st: 'ok' | 'warn' | 'err' | 'off'.
+// U1 kolo 4: a status chip (right panel Navi) shows its state as data-state
+// (vt_panel.css .vt-chip), never as an inline colour. Accepts a state name or
+// one of the legacy hex colours the callers used to paint with.
+var VT_HEX_STATE = {'#5cb85c': 'ok', '#00d716': 'ok', '#d9534f': 'err', '#f0ad4e': 'warn',
+                    '#fff500': 'warn', '#555555': 'off', '#777777': 'off'};
+function vtChip(el, st, active) {
+    if (!el) return;
+    st = VT_HEX_STATE[String(st).toLowerCase()] || st || 'off';
+    el.style.removeProperty('background'); el.style.removeProperty('color'); el.style.removeProperty('outline');
+    el.dataset.state = st;
+    if (active !== undefined) el.classList.toggle('vt-chip-active', !!active);
+}
 // last-run text of a program -> card state
 function vtResultState(t) {
     t = String(t || '');
@@ -4908,15 +4920,13 @@ class Odom{
         if (!this.span_odom_hdg) return;
         var sat = message.heading !== 0;
         this.span_odom_hdg.textContent = sat ? "SAT" : "IMU";
-        this.span_odom_hdg.style.background = sat ? "#5cb85c" : "#777777";
+        vtChip(this.span_odom_hdg, sat ? "ok" : "off");
     }
 
     _chip(el, m, active) {
         if (!el) return;
         var on = (m && m[1] === "1");
-        el.style.background = on ? "#5cb85c" : "#555555";
-        el.style.color = on ? "#0c2a12" : "#dddddd";   // dark text on green, light on grey
-        el.style.outline = active ? "1px solid #fff" : "none";
+        vtChip(el, on ? "ok" : "off", active);   // active = outline (vt-chip-active)
     }
 
     process_bridge(s) {
@@ -4935,7 +4945,7 @@ class Odom{
                       : ({vo: "VO", licp: "LiDAR", wheel: "WHEEL"}[a] || (a ? a.toUpperCase() : "—"));
             var color = label === "RTK" ? "#5cb85c" : (label === "WHEEL" ? "#d9534f" : "#f0ad4e");
             this.span_odom_drive.textContent = label;
-            this.span_odom_drive.style.background = color;
+            vtChip(this.span_odom_drive, color);
         }
         this._chip(this.span_odom_vo,    /vo\[use=(\d)/.exec(s),    a === "vo");
         this._chip(this.span_odom_licp,  /licp\[use=(\d)/.exec(s),  a === "licp");
@@ -4944,8 +4954,7 @@ class Odom{
         // fix_usable fallback (only used if loc_status hasn't supplied it yet)
         if (!this.have_loc_status && this.span_odom_fix && fu) {
             var on = fu[1] === "1";
-            this.span_odom_fix.style.background = on ? "#5cb85c" : "#555555";
-            this.span_odom_fix.style.color = on ? "#0c2a12" : "#dddddd";
+            vtChip(this.span_odom_fix, on ? "ok" : "off");
         }
     }
 
@@ -4974,18 +4983,16 @@ class Odom{
                 txt = "DR (" + this.last_bridge_active.toUpperCase() + ")";
             }
             this.span_odom_drive.textContent = txt;
-            this.span_odom_drive.style.background = lc[1];
+            vtChip(this.span_odom_drive, lc[1]);
             this.span_odom_drive.title = "pose owner (loc_status)";
         }
         if (this.span_odom_fix) {
             var fixOn = !!o.fix_usable;
-            this.span_odom_fix.style.background = fixOn ? "#5cb85c" : "#555555";
-            this.span_odom_fix.style.color = fixOn ? "#0c2a12" : "#dddddd";
+            vtChip(this.span_odom_fix, fixOn ? "ok" : "off");
         }
         if (this.span_odom_prob) {
             var probOn = !!o.probation_proven;
-            this.span_odom_prob.style.background = probOn ? "#5cb85c" : "#555555";
-            this.span_odom_prob.style.color = probOn ? "#0c2a12" : "#dddddd";
+            vtChip(this.span_odom_prob, probOn ? "ok" : "off");
         }
     }
 
@@ -5007,8 +5014,7 @@ class Odom{
                 : (st < 0 ? "NO FIX"
                    : (st === 2 ? "GBAS" : (st === 1 ? "SBAS" : "FIX")));
             this.span_gnss_fix.textContent = fix;
-            this.span_gnss_fix.style.background =
-                st === null ? "#555555" : (st < 0 ? "#d9534f" : "#5cb85c");
+            vtChip(this.span_gnss_fix, st === null ? "off" : (st < 0 ? "err" : "ok"));
             this.span_gnss_fix.title = st === null
                 ? "The receiver has not said — unknown, not absent."
                 : "NavSatStatus " + st + " (-1 none, 0 fix, 1 SBAS, 2 GBAS)";
@@ -5019,7 +5025,7 @@ class Odom{
             // ordinary fix; no fix is st < 0.
             if (st === null || st < 0 || !m.position_covariance) {
                 this.span_gnss_pos.textContent = "pos —";
-                this.span_gnss_pos.style.color = "#d9534f";
+                vtTone(this.span_gnss_pos, "err");
             } else {
                 var cm = Math.sqrt(m.position_covariance[0]) * 100.0;
                 this.span_gnss_pos.textContent = "pos ±" + (cm < 10 ? cm.toFixed(1) : cm.toFixed(0)) + "cm";
@@ -5029,7 +5035,7 @@ class Odom{
                     "Standard deviation the GNSS receiver itself reports on " +
                     "/gnss/fix. The RTK figure elsewhere is the fused pose " +
                     "and is a different measurement.";
-                this.span_gnss_pos.style.color = cm <= 5 ? "#5cb85c" : (cm <= 50 ? "#f0ad4e" : "#d9534f");
+                vtTone(this.span_gnss_pos, cm <= 5 ? "ok" : (cm <= 50 ? "warn" : "err"));
             }
         }
     }
@@ -5043,14 +5049,14 @@ class Odom{
         var cov = m.orientation_covariance ? m.orientation_covariance[8] : null;
         if (cov == null || cov >= 100) {   // 1000 == no RTK heading
             this.span_gnss_hdg.textContent = "hdg —";
-            this.span_gnss_hdg.style.color = "#777777";
+            vtTone(this.span_gnss_hdg, "muted");
             return;
         }
         var deg = Math.sqrt(cov) * 180.0 / Math.PI;
         this.span_gnss_hdg.textContent = "hdg ±" + deg.toFixed(1) + "°";
         // green up to ~2 deg: that is the band navi_transform actually accepts
         // RTK heading at, so normal good heading reads green, not amber.
-        this.span_gnss_hdg.style.color = deg <= 2 ? "#5cb85c" : (deg <= 6 ? "#f0ad4e" : "#d9534f");
+        vtTone(this.span_gnss_hdg, deg <= 2 ? "ok" : (deg <= 6 ? "warn" : "err"));
     }
 }
 
@@ -5107,16 +5113,16 @@ class RtabMap{
 
     set_info(message){
         if (message.proximityDetectionId > 0){
-            this.span_rtabmap_proximity.style.background = "#fff500";
+            vtChip(this.span_rtabmap_proximity, "warn");
         }
         else {
-            this.span_rtabmap_proximity.style.background = "#555555";
+            vtChip(this.span_rtabmap_proximity, "off");
         }
         if (message.loopClosureId > 0){
-            this.span_rtabmap_lc.style.background = "#00d716";
+            vtChip(this.span_rtabmap_lc, "ok");
         }
         else {
-            this.span_rtabmap_lc.style.background = "#555555";
+            vtChip(this.span_rtabmap_lc, "off");
         }
         this.span_rtabmap_id.innerText = message.refId;
 

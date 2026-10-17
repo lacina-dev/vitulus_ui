@@ -960,3 +960,28 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 .vagent-lo-tbl .c0 { text-align: left; }
 .vagent-lo-tbl th.c0 { width: 26%; } .vagent-lo-tbl th.c1 { width: 16%; } .vagent-lo-tbl th.c2 { width: 20%; }
 .vagent-lo-tbl th.c3 { width: 22%; } .vagent-lo-tbl th.c4 { width: 16%; }
+
+/* ============ U1 kolo 4: status chips (right panel Navi) — state classes */
+.vt-chip {
+    display: inline-block; padding: 0 5px; margin-left: 4px;
+    font-size: var(--vt-fs-xs); font-weight: 700; line-height: 1.5;
+    border-radius: var(--vt-r-tag); border: 1px solid transparent;
+    color: #0c1a12; background: #555555;
+}
+.vt-chip-sm { font-size: 9px; font-weight: 600; line-height: 1.3; padding: 0 3px; margin-left: 3px; }
+.vt-chip[data-state="ok"]   { background: var(--vt-ok); }
+.vt-chip[data-state="warn"] { background: var(--vt-warn); }
+.vt-chip[data-state="err"]  { background: var(--vt-err); }
+.vt-chip[data-state="info"] { background: var(--vt-accent); }
+.vt-chip[data-state="off"]  { background: #555555; color: #dddddd; }
+.vt-chip-active { outline: 1px solid #fff; }
+.vt-chip-dot { display: inline-block; width: 15px; height: 9px; margin-left: 4px; border-radius: 24px; border: 1px solid var(--vt-border-strong); background: #555555; }
+.vt-chip-dot[data-state="ok"] { background: #00d716; }
+.vt-chip-dot[data-state="warn"] { background: #fff500; }
+.vt-ml-auto { margin-left: auto; }
+/* the one-row dots read the same state */
+.rp-sum-dot[data-state="ok"]   { background: var(--vt-ok); }
+.rp-sum-dot[data-state="warn"] { background: var(--vt-warn); }
+.rp-sum-dot[data-state="err"]  { background: var(--vt-err); }
+.rp-sum-dot[data-state="info"] { background: var(--vt-accent); }
+.rp-sum-dot[data-state="off"]  { background: var(--vt-faint); }
