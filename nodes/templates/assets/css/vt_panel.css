@@ -1126,3 +1126,11 @@ html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
 /* agent bars (finding / ask strip) sit right under the navbar — or at the top
    edge when the navbar is hidden on a low window */
 body.vt-frame #vagent_bars { top: max(var(--vt-nav-b, 42px), var(--safe-top, 0px)); }
+/* joystick: bottom-right of the map area, always ABOVE the small log
+   (placement only — its look belongs to the joystick files) */
+html body.vt-frame:not(.vt-m-sheet) #joy_view {
+    bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 14px) !important;
+}
+html body.vt-frame.vt-m-sheet #joy_view {
+    bottom: calc(var(--vt-bottom-h, 40px) + 14px) !important;
+}
