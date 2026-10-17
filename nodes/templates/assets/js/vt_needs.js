@@ -252,6 +252,7 @@
         } catch (e) { /* layout not ready */ }
         d.classList.remove('wide', 'editor');
         d.classList.add('open');
+        settle(d);
         d.setAttribute('aria-hidden', 'false');
         if (title) { title.textContent = TITLE; }
         var metaSlot = document.getElementById('ui_drawer_meta');
@@ -281,7 +282,34 @@
         }
         render();
     }
-    function toggle() { if (active) { deactivate(true); } else { open(); } }
+    /* Chrome can leave the drawer's slide-in transition un-started when the
+       compositor is throttled (window occluded / in the background): the
+       drawer then has .open but sits off-screen. Same fix as agent_chat.js
+       settleDrawer: finish whatever has not started, two frames later and on
+       plain timers (rAF does not run there either). */
+    function settle(d) {
+        if (!d || !d.getAnimations) { return; }
+        var run = function () {
+            d.getAnimations().forEach(function (a) {
+                if (a.playState === 'running' && (!a.startTime || !a.currentTime)) {
+                    try { a.finish(); } catch (e) { /* gone */ }
+                }
+            });
+        };
+        if (window.requestAnimationFrame) { requestAnimationFrame(function () { requestAnimationFrame(run); }); }
+        setTimeout(run, 120);
+        setTimeout(run, 500);
+    }
+    /* really on screen? (.open alone is not proof, see settle) */
+    function shown() {
+        var d = document.getElementById('ui_drawer');
+        if (!active || !d || !d.classList.contains('open') || panel.style.display === 'none') { return false; }
+        var r = d.getBoundingClientRect();
+        return r.width > 0 && r.right > 40 && r.left > -40;
+    }
+    /* the bell: closes only what the user can SEE open; anything else
+       (stale state, a stalled slide-in) opens / re-shows the panel */
+    function toggle() { if (shown()) { deactivate(true); } else { active = false; open(); } }
     function watchDrawer() {
         var d = document.getElementById('ui_drawer'), title = document.getElementById('ui_drawer_title');
         if (d) {
