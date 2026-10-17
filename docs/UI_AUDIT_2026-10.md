@@ -84,15 +84,26 @@ komponenta: `assets/css/vt_panel.css`.
 | Pravý panel, sbalený řádek | mapa · baterie | mapa · tečka Pose · tečka GNSS · baterie (barva a text z čipů v Navi) |
 | Dotyk 360×740 a 844×390 | lišty 27 px, tlačítka 28–34 px, checkboxy 13 px | automatický průchod: 0 cílů pod 40 px, 0 přetečení; token `--vt-bar-h` pro výšku spodní lišty |
 
+## Kolo 4 (větev `ui-unify`)
+
+| Oblast | Před | Po |
+|---|---|---|
+| Map › Map + editor (index.html, mapping.js, mapedits.js) | ~230 inline stylů + 30 inline barev v JS | utility třídy z tokenů, `vtTone()`, inline jen stavové `display:none`; `map_library.css` z tokenů |
+| Agent (agent_blocks.js) | `cssText` u štítků, řádků stavu, Lidar objects | třídy `.vagent-tagpill[data-state]`, `.vagent-kvrow`, `.vagent-lo*` |
+| Čipy Navi v pravém panelu | inline pozadí z map_view.js | `vtChip()` → `data-state`, tečky sbaleného řádku čtou `data-state` |
+
+Převodník deklarací na třídy: `tools/destyle_u1.py`. Vzhled editoru na dev
+instanci bez vstupu do editoru: `?mock` + `MapEdits.mockPreview()`.
+
 ## Co zbývá (návrh další etapy)
 
-- Mapping (záložka Map › Map, mapping.js / map_library.css) a map editor
-  (mapedits.js) generují vlastní HTML s inline styly — převést na
-  `.vt-card`/`.vt-item` stejně jako Path/Point.
-- Agent (agent_blocks.js) má stále hodně inline `cssText` v blocích Work /
-  Robot / Models — dotykové velikosti už sedí, vzhled by šel dál sjednotit.
-- Čipy v sekci Navi pravého panelu barví map_view.js inline backgroundem;
-  převést na `data-state`, tečky ve sbaleném řádku by pak četly třídu.
+- Zbylé inline styly mimo panely: stavový řádek a ikony v navbaru
+  (`#div_menu`, `#status_div`), spodní lišta, joystick, `#div_status_*`
+  v pravém panelu (rozměry pro výpočty v map_view.js — pozor, některé se
+  parsují), modály.
+- agent_chat.js (shell agenta) a status_header.js nebyly v rozsahu.
+- Utility třídy z kola 4 jsou mechanický převod; časem nahradit
+  sémantickými (`.vt-card`, `.vt-item`) tam, kde je HTML generované.
 - Ověřit na skutečném iPhonu/Androidu: tažení sheetu a klávesnici (zde jen
   emulace v Playwrightu).
 
