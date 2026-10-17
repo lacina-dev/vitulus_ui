@@ -137,5 +137,12 @@ Návrh umístění:
 | Tablet | jako PC, velikost dotyková | — |
 | Volitelně | předvolba „joystick vlevo“ (leváci), pamatovat v localStorage | pravidlo „pamatovat rozkliknuté“ |
 
-Do té doby drží `vt_joy.css` pojistku: joystick nikdy neopustí obrazovku
-(clamp odsazení od pravého panelu).
+**Stav po sloučení s rámem U1 (kolo 5):** spodní hranu dává rám
+(`vt_panel.css`: nad malým logem / nad spodní lištou), vedle otevřeného
+pravého panelu ho posouvá `right_dock.css`. `vt_joy.css` přidává dvě
+pojistky: na telefonu na výšku (`vt-m-sheet`) zůstává vpravo dole 12 px od
+hrany (pravý panel je tam sbalený řádek přes celou šířku) a jinde nikdy
+neopustí obrazovku. Ověřeno 1440×900, 390×844, 844×390: joystick nepřekrývá
+log, pravý panel ani lišty. Zbývá (rám): na výšku s otevřeným sheetem je pod
+ním (nedosažitelný, bezpečné); na šířku s otevřeným panelem zbývá mapě
+~140 px a joystick se do ní vejde jen těsně.

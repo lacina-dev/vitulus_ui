@@ -257,7 +257,7 @@ body.rp-joy-side #joy_view {
 /* Nízké okno: log si nesmí vzít 106 px, jinak na panel nezbude nic
    použitelného. Na krátkých viewportech dostane ~3 řádky. */
 @media (max-height: 700px) {
-    #div_log_view:not(.log-expanded) { height: 62px !important; }
+    #div_log_view:not(.log-expanded) { height: var(--vt-log-small-size, 62px) !important; }  /* vt_tokens.css */
 }
 
 body.rp-log-top #div_log_view {

@@ -131,7 +131,7 @@
     --vt-ease: 0.2s ease;
 }
 
-@media (max-height: 500px) {
+@media (max-height: 700px) {      /* right_dock.css: low window, ~3 log lines */
     :root { --vt-log-small-size: 62px; }
 }
 /* touch screens: the two button bars become real 40 px targets */

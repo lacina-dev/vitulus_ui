@@ -134,12 +134,18 @@
     .vt-joy-knob, .vt-joy-pad, .vt-joy { transition: none; }
 }
 
-/* Safety net for the frame's placement: whatever offset the layout gives
-   (right_dock.css body.rp-joy-side moves the stick left of the open right
-   panel), the stick never leaves the screen — on a phone in portrait the
-   panel is as wide as the screen and the old offset put half the stick
-   off the left edge. Placement proper: docs/UI_INTEGRATION_PLAN.md § Joystick. */
-body.rp-joy-side #joy_view.vt-joy {
+/* Placement follows the layout matrix (docs/UI_LAYOUT.md): the frame sets
+   the bottom edge (vt_panel.css, above the small log / the bottom bar) and
+   right_dock.css moves the stick beside an open right panel. Two guards here:
+   on a phone in portrait (vt-m-sheet) the right panel is a collapsed row
+   across the whole width, so the stick stays bottom-right under the right
+   thumb instead of being pushed left by the panel's width; and whatever
+   offset the frame gives, the stick never leaves the screen. */
+html body.vt-frame.vt-m-sheet #joy_view.vt-joy {
+    right: 12px !important;
+    left: auto !important;
+}
+body.rp-joy-side:not(.vt-m-sheet) #joy_view.vt-joy {
     right: clamp(8px, var(--rp-joy-right, 250px), calc(100vw - var(--vt-joy-size) - 24px - 8px)) !important;
 }
 /* short screens (phone landscape): smaller pad, the live numbers go, the
