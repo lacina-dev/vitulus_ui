@@ -509,10 +509,8 @@ body.rp-cam-dock #div_camera_view { border-radius: var(--vt-r-ctl) !important; }
     background: rgba(var(--vt-err-rgb), 0.14);
 }
 
-/* the expanded log is a full-screen layer: nothing of the map chrome on top */
-body:has(#div_log_view.log-expanded) #right_panel,
-body:has(#div_log_view.log-expanded) .rp-handle,
-body.rp-cam-dock:has(#div_log_view.log-expanded) #div_camera_view { visibility: hidden !important; }
+/* (kolo 5: the full log lives in the map area of the frame and no longer
+   covers the right panel — the old "hide the panel" rule is gone) */
 
 /* tab strips that scroll sideways: fade the edge that has more tabs (vt_ui.js) */
 ul.nav-tabs.drawer-pills.vt-more-r, #vagent_tabs.vt-more-r {
@@ -985,3 +983,154 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 .rp-sum-dot[data-state="err"]  { background: var(--vt-err); }
 .rp-sum-dot[data-state="info"] { background: var(--vt-accent); }
 .rp-sum-dot[data-state="off"]  { background: var(--vt-faint); }
+
+/* ===================== U1 kolo 5: the status notice has its own band ======
+   #span_status_info („Motors are OFF - turn motors on to dock", „Waiting for
+   dock cmd"…) sits in its own full-width row under the menu band, above the
+   map. It wraps instead of overflowing, reads as a pill on any map colour,
+   and the right panel is placed BELOW it (right_dock.js measures the row). */
+.vt-notice-row { margin: 0; display: flex; justify-content: center; }
+.vt-notice-row > .col-3 { display: none !important; }         /* their content lives in the right panel */
+.vt-notice-col { flex: 1 1 auto; width: auto; max-width: 100%; padding: 2px var(--vt-gap-2); text-align: center; }
+.vt-notice {
+    display: inline;
+    padding: 2px 10px;
+    font-size: var(--vt-fs); font-weight: 600; line-height: 1.7;
+    color: #fff;
+    background: var(--vt-overlay);
+    border: 1px solid var(--vt-border-strong);
+    border-radius: var(--vt-r-ctl);
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* ========== U1 kolo 5: navbar, status strip, bars, right-panel items — the
+   static look that used to be inline in index.html. Layout-managed elements
+   (#map_view, #joy_view, #div_camera_view, #div_log_view, #div_content,
+   #menu_spacer) keep their inline geometry: map_view.js LayoutManager writes
+   and partly READS it (camera border/padding/width are parsed). */
+.vt-navbar { background: var(--vt-navbar); padding: 3px 0; position: absolute; width: 100vw; }
+.vt-brand { display: flex; padding: 2px; border-right-style: none; }
+.vt-brand-title { margin-left: 9px; }
+.vt-navlist { color: rgba(40, 43, 48, 0.99); }
+.vt-navbar-toggler { height: 36px; border-width: 0; }
+.vt-conn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 0 6px; margin: 0 0 4px 6px;
+    font-size: var(--vt-fs-xs); font-weight: bold; line-height: 1; white-space: nowrap;
+    color: var(--vt-warn); background: transparent; border: none;
+    transition: color 0.25s; cursor: pointer; user-select: none;
+}
+.vt-conn-ico { font-size: 15px; vertical-align: middle; }
+.vt-rain-ico { margin: 0 0 6px 8px; font-size: 17.2px; }
+#ico_rain_ok { margin-left: 6px; }
+#ico_rain_danger { color: #e8112d !important; }
+
+.vt-bottom-bar { display: block; width: 100%; z-index: 1; }
+.vt-tbar { width: 100%; background: rgba(0, 0, 0, 0.6); }
+.vt-tbar-top { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-width: 5px; border-style: solid; }
+#btn_stop_all.vt-tbar-first { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+#btn_marker.vt-tbar-first { border-top-left-radius: 6px; border-bottom-left-radius: 0; }
+.vt-tbar-last { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+.vt-menu-overlay { position: absolute; width: 100%; z-index: 10; }
+.vt-row0 { margin-left: 0; margin-right: 0; }
+.vt-tabs-host { display: block; position: relative; }
+.vt-range { padding: 12px; width: 100%; }
+
+/* status icon strip */
+.vt-status-strip { padding: 4px; border-radius: 7px; box-shadow: 2px 2px var(--primary); position: relative; }
+.vt-sico { transform: scale(0.75); margin-left: -2px; }
+.vt-status-ico {
+    min-width: 17px; min-height: 17px; display: inline-flex;
+    border-bottom-style: none; border-bottom-right-radius: 0; border-bottom-left-radius: 0;
+    margin-bottom: -3px; z-index: 2; padding: 2px 2px 0;
+}
+.vt-status-ico-i { font-size: 13px; font-weight: bold; display: block; color: var(--vt-accent); }
+#div_status_follow_txt { border-top-left-radius: 0; }
+#div_status_map_name { border-top-right-radius: 0; }
+.vt-status-txt { font-size: var(--vt-fs-sm); min-width: 30px; display: inline-flex; padding: 0 2px; }
+#span_status_follow { margin-left: 2px; }
+#span_status_speed, #span_status_speed-1 { min-width: 20px; margin-left: 3px; }
+
+/* right-panel items (positions/widths: right_dock.css) */
+.vt-rp-block { padding: 1px 4px 1px 3px; width: 128px; display: grid; }
+.vt-rp-odom { height: 66px; }
+.vt-rp-gnss { height: 46px; margin-top: 2px; }
+.vt-rp-rtab { height: 24px; margin-top: 2px; }
+.vt-rtab-id { width: 37px; display: inline-block; }
+.vt-rp-mower { padding: 1px 4px; font-size: var(--vt-fs-xs); margin-bottom: 2px; }
+.vt-rp-line-item { padding: 1px 2px 1px 3px; }
+#div_status_speed-1 { margin-top: 2px; }
+#div_status_speed-2 { margin-top: 3px; }
+.vt-btn-mini { height: 18px; width: 42px; padding: 0 2px 0 3px; font-size: var(--vt-fs-xs); }
+#dock_btn_menu_dock, #dock_btn_menu_undock, #dock_btn_menu_stop { width: 50px; }
+.vt-batt-pct { font-size: var(--vt-fs-sm); font-weight: 600; color: var(--bs-secondary); margin-right: 5px; min-width: 28px; text-align: right; }
+.vt-chip-sm-note { font-size: 9px; margin-left: auto; opacity: 0.6; }
+#row_menu .btn > i, #row_menu .btn > svg, #div_bottom_menu .btn > i, #div_bottom_menu .btn > svg { font-size: 17px; font-weight: bold; }
+
+/* =============================================== U1 kolo 5: the FRAME ======
+   docs/UI_LAYOUT.md. vt_frame.js sets the mode class and the frame variables;
+   these rules place the left panel, the map, the notice band and the log.
+   Everything is prefixed with body.vt-frame so it only applies once the frame
+   script runs (and wins over the older per-feature rules). */
+
+/* ---- left panel: part of the frame (desktop + landscape) ----------------- */
+body.vt-frame:not(.vt-m-sheet) #ui_drawer {
+    top: var(--vt-top-h, 72px) !important;
+    bottom: var(--vt-bottom-h, 40px);
+    border-radius: 0;
+    border: 0;
+    border-right: 1px solid var(--vt-border-strong);
+    border-top: 1px solid var(--vt-border-strong);
+}
+body.vt-frame:not(.vt-m-sheet) #ui_drawer_head,
+body.vt-frame:not(.vt-m-sheet) #ui_drawer_foot { border-radius: 0; }
+body.vt-frame.vt-m-dock #ui_drawer { box-shadow: none; }          /* docked: flush, no float */
+body.vt-frame.vt-m-overlay #ui_drawer { max-width: 60vw; box-shadow: 6px 0 18px rgba(0, 0, 0, 0.45); }
+body.vt-frame.vt-m-overlay #ui_drawer.full { max-width: none; }
+
+/* ---- the map makes room for the docked panel ---------------------------- */
+body.vt-frame.vt-m-dock.vt-panel-open #map_view {
+    margin-left: var(--vt-dock-w, 0px);
+    width: calc(100% - var(--vt-dock-w, 0px)) !important;
+}
+
+/* ---- notices: centred over the free map area ----------------------------- */
+body.vt-frame:not(.vt-m-sheet) .vt-notice-row { padding-left: var(--vt-left-occ, 0px); }
+
+/* ---- log: small strip in the map area, full = the map area -------------- */
+html body.vt-frame:not(.vt-m-sheet) #div_log_view:not(.log-expanded) {
+    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
+    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    width: auto !important;
+    margin-left: 0 !important;
+    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
+}
+html body.vt-frame #div_log_view.log-expanded {
+    top: calc(var(--vt-notice-b, 72px) + 6px) !important;
+    bottom: calc(var(--vt-bottom-h, 40px) + 4px) !important;
+    left: calc(var(--vt-left-occ, 0px) + 4px) !important;
+    right: calc(var(--vt-rp-w, 0px) + 6px) !important;
+    z-index: 8 !important;            /* under the panel, bars and notices */
+}
+html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
+    top: calc(max(var(--vt-notice-b, 72px), var(--vt-rp-b, 72px)) + 6px) !important;
+    left: 4px !important;
+    right: 4px !important;
+}
+
+/* ---- the panel toggle in the menu band ---------------------------------- */
+#btn_panel_toggle { flex: 0 0 auto; min-width: 44px; border-top-left-radius: 6px; border-bottom-left-radius: 0; }
+#btn_panel_toggle .la { font-size: 18px; }
+#btn_panel_toggle.vt-on { color: #fff; background: rgba(var(--vt-accent-rgb), 0.24); border-color: var(--vt-accent); }
+#row_menu #btn_marker.vt-tbar-first { border-top-left-radius: 0; }
+/* agent bars (finding / ask strip) sit right under the navbar — or at the top
+   edge when the navbar is hidden on a low window */
+body.vt-frame #vagent_bars { top: max(var(--vt-nav-b, 42px), var(--safe-top, 0px)); }
+/* joystick: bottom-right of the map area, always ABOVE the small log
+   (placement only — its look belongs to the joystick files) */
+html body.vt-frame:not(.vt-m-sheet) #joy_view {
+    bottom: calc(var(--vt-bottom-h, 40px) + var(--vt-log-small-h, 0px) + 14px) !important;
+}
+html body.vt-frame.vt-m-sheet #joy_view {
+    bottom: calc(var(--vt-bottom-h, 40px) + 14px) !important;
+}

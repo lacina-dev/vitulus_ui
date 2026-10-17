@@ -1323,11 +1323,14 @@ class MappingV3 {
             if (!this.aerial_datum) {
                 status('loading datum…');
                 const resp = await fetch('/api/datum', { cache: 'no-store' });
-                if (!resp.ok) {
+                const dj = resp.ok ? await resp.json() : null;
+                // ok:false = no served site right now (normal while recording a
+                // new map) — say so, do not cache, try again next time.
+                if (!dj || dj.ok === false) {
                     status('no site datum served — cannot place tiles', true);
                     return;
                 }
-                this.aerial_datum = await resp.json();
+                this.aerial_datum = dj;
             }
             if (token !== this.aerial_token) { return; }
             const d = this.aerial_datum;
@@ -1986,8 +1989,9 @@ class MappingV3 {
             if (!this.rain_datum) {
                 status('loading datum…');
                 const resp = await fetch('/api/datum', { cache: 'no-store' });
-                if (!resp.ok) { status('no site datum — cannot place radar', true); return; }
-                this.rain_datum = await resp.json();
+                const dj = resp.ok ? await resp.json() : null;
+                if (!dj || dj.ok === false) { status('no site datum — cannot place radar', true); return; }
+                this.rain_datum = dj;
             }
             if (token !== this.rain_token) { return; }
             const d = this.rain_datum;

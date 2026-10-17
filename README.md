@@ -117,6 +117,18 @@ aerial layer), `right_dock.js`, `status_header.js`, `agent_chat.js` +
 jquery, Bootstrap, …) are committed under `assets/` so the robot serves the UI
 with no internet access.
 
+### Application frame (U1 kolo 5)
+
+`assets/js/vt_frame.js` + the "frame" section of `vt_panel.css` hold the
+layout of the whole app: top bar (navbar + menu band + notice band), bottom
+bar, the left panel and the map between them, with fixed places for the right
+status panel, the log and the joystick. Modes: `vt-m-dock` (PC: the panel is a
+docked column and the map canvas narrows), `vt-m-overlay` (landscape phone /
+small tablet: column over the map), `vt-m-sheet` (phone: bottom sheet). The
+panel can be hidden completely (◧ in the menu band, **Alt+P**, ✕); the log
+is hidden / small / full and never covers the bars, the panel, the right panel
+or the notices. Full matrix: `docs/UI_LAYOUT.md`.
+
 ### Design system (U1, 2026-10)
 
 One look for every panel, defined in two files loaded by `index.html`:
