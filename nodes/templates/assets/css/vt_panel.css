@@ -679,3 +679,6 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
     .vt-row > .vt-grow { flex-basis: 100%; }
     .vt-temps { grid-template-columns: repeat(2, 1fr); }
 }
+.vt-card-actions:empty { display: none; }
+#ui_drawer_foot > .btn.ms-auto { margin-left: 0 !important; }
+#ui_drawer_foot > .btn.text-info { color: var(--vt-accent) !important; }

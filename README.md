@@ -128,7 +128,10 @@ One look for every panel, defined in two files loaded by `index.html`:
   **head** = title · meta/status (`#ui_drawer_meta`) · panel actions
   (`#ui_drawer_actions`) · ⤢ · ✕; **tabs** = one row of pills that scrolls
   sideways; **body** = `details` sections and cards; **foot**
-  (`#ui_drawer_foot`) = the panel's primary action. State is a soft tint of
+  (`#ui_drawer_foot`) = the panel's primary action(s), per panel and per active
+  tab: Marker → Send goal / Cancel navigation, Map › Path and Map › Point →
+  Cancel navi, Programs → New program, Calendar → + Add event, Map editor →
+  Close editor. State is a soft tint of
   the whole card plus a toned border — never a coloured stripe on the left.
   A panel lends its meta/foot elements to the shared head/foot through
   `MapMenu._drawer_chrome()` (moved with their ids, returned on hand-over);

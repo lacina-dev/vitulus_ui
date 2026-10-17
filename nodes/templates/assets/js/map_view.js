@@ -3435,6 +3435,33 @@ class MapMenu {
             borrow('map_detail_site', meta);
             borrow('btn_map_detail_close_footer', foot);
         }
+        // U1 kolo 2: the panel's primary action(s) always sit in the foot —
+        // per panel, and for tabbed panels per active tab.
+        var FOOT = {
+            marker: {'': ['btn_marker_send_goal', 'btn_marker_cancel_navigation']},
+            map: {'tab-path': ['btn_menu_path_cancel'], 'tab-point': ['btn_menu_point_cancel']},
+            program: {'tab_programs': ['btn_program_new_prog'], 'tab_calendar': ['btn_calendar_add']},
+        };
+        var conf = FOOT[key];
+        if (conf) {
+            var ids = conf[''];
+            if (!ids) {
+                var host = key === 'map' ? 'div_menu_map' : 'div_menu_map_program';
+                var pane = document.querySelector('#' + host + ' .tab-content > .tab-pane.active');
+                ids = (pane && conf[pane.id]) || [];
+            }
+            ids.forEach(function (id) { borrow(id, foot); });
+        }
+        if (!this._drawer_tab_hook) {
+            // re-place the foot when the user switches a tab inside the open panel
+            this._drawer_tab_hook = true;
+            document.addEventListener('shown.bs.tab', function () {
+                if (self.ui_drawer && self.ui_drawer.classList.contains('open') &&
+                    (self._drawer_last === 'map' || self._drawer_last === 'program')) {
+                    self._drawer_chrome(self._drawer_last);
+                }
+            });
+        }
     }
 
     // Slide the drawer OUT (used by the per-button toggle-off path; panel already
