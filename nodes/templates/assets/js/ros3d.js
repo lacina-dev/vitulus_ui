@@ -57860,6 +57860,10 @@ var ROS3D = (function (exports, ROSLIB) {
 	  update(n)
 	  {
 	    this.geom.setDrawRange(0,n);
+	    // vitulus_ui (U1 kolo 5): an empty scan (n = 0) must not flag the
+	    // buffers — a dynamic attribute with updateRange.count 0 makes three.js
+	    // print a console.error on every frame. Nothing to upload anyway.
+	    if (!n) { return; }
 
 	    this.positions.needsUpdate = true;
 	    this.positions.updateRange.count = n * this.positions.itemSize;

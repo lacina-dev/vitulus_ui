@@ -275,14 +275,22 @@ if __name__ == '__main__':
             try:
                 with open(SITE_DATUM_PATH, 'r') as fh:
                     d = yaml.safe_load(fh) or {}
+            # U1 kolo 5: "no served site" (e.g. while a new map is being
+            # recorded) is a normal state, not a missing resource — answer 200
+            # with ok:false so the browser console stays clean on every page
+            # load. Real failures (unreadable file) stay 500.
             except FileNotFoundError:
-                return jsonify({'error': 'no site datum (no served site)'}), 404
+                return jsonify({'ok': False, 'available': False,
+                                'error': 'no site datum (no served site)'})
             except Exception as exc:
-                return jsonify({'error': str(exc)}), 500
+                return jsonify({'ok': False, 'error': str(exc)}), 500
             if not d or 'utm_e' not in d or 'utm_n' not in d:
-                return jsonify({'error': 'datum incomplete'}), 404
+                return jsonify({'ok': False, 'available': False,
+                                'error': 'datum incomplete'})
             # normalise the fields the UI needs; keep zone fixed at 33N.
             out = {
+                'ok': True,
+                'available': True,
                 'utm_e': d.get('utm_e'),
                 'utm_n': d.get('utm_n'),
                 'alt': d.get('alt'),
@@ -676,6 +684,9 @@ if __name__ == '__main__':
         AGENT_TIMEOUT_S = 30.0          # /api/mapview really does take ~5 s
         AGENT_MAX_BODY = 1024 * 1024    # 1 MiB is far above any panel POST
 
+        # GET endpoints the panel only probes (see the 404 note in _agent_proxy)
+        AGENT_OPTIONAL_GET = {"api/dock/lock"}
+
         def _agent_proxy(subpath):
             import urllib.request
             import urllib.error
@@ -711,6 +722,16 @@ if __name__ == '__main__':
                 ctype = exc.headers.get("Content-Type", "application/json") \
                     if exc.headers else "application/json"
                 status = exc.code
+                # U1 kolo 5: the panel PROBES a few optional agent endpoints on
+                # every page load to learn whether this core offers them (dock
+                # lock). A core that does not is a normal state, not an error —
+                # answer 200 {ok:false, supported:false} so the browser console
+                # stays clean. agent_chat.js already reads that shape as
+                # "not supported here" (same as HTTP 404).
+                if (status == 404 and request.method == "GET"
+                        and subpath.strip("/") in AGENT_OPTIONAL_GET):
+                    return jsonify({"ok": False, "supported": False,
+                                    "error": "not found (this agent core does not serve %s)" % subpath})
             except Exception as exc:                   # not running / timed out
                 return jsonify({"ok": False,
                                 "error": "agent bridge unreachable: %s" % exc}), 503
