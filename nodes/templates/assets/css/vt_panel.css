@@ -1332,3 +1332,29 @@ body.vt-frame .vt-c-corner { display: block; }
 }
 /* the small log strip and the notices start right of the spine/corner */
 html body.vt-frame.vt-c-spine:not(.vt-m-sheet) #div_log_view:not(.log-expanded) { left: calc(var(--vt-frame-cleft, 12px) + 4px) !important; }
+
+/* ===== C frame: the bottom bar (owner 2026-10-18) =========================
+   - Camera lives in the right panel (Camera section; on a phone: unfold the
+     collapsed row) — the bar button is gone. The element stays in the DOM,
+     hidden: right_dock.js / map_view.js still drive the stream through it.
+   - STOP is ALWAYS the same: bottom-left, 20 % of the width (as before) —
+     never smaller, never moved.
+   - On a phone the bar sits at the very bottom edge and leaves a free gap in
+     the middle for the system home button / gesture pill: STOP + Joystick on
+     the left, Follow + Log on the right. No gap on a PC. */
+:root { --vt-bar-gap: 0px; }
+@media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
+    :root { --vt-bar-gap: 84px; }
+}
+body.vt-frame #btn_camera_show { display: none !important; }
+body.vt-frame #div_bottom_menu .btn-group { display: flex !important; }
+body.vt-frame #div_bottom_menu .btn-group > .btn { flex: 1 1 0; min-width: 0; }
+body.vt-frame #div_bottom_menu #btn_stop_all { flex: 0 0 20%; }
+body.vt-frame #div_bottom_menu #btn_joy { margin-right: var(--vt-bar-gap); }
+@media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
+    body.vt-frame #div_bottom_menu {
+        bottom: 0 !important;
+        background: var(--vt-frame-bg);
+        padding-bottom: var(--safe-bottom, 0px);
+    }
+}

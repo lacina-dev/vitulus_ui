@@ -23,6 +23,15 @@ vlastní rámečky; aktivní stav = jemná výplň + hrana akcentu směrem k map
 
 Pravý stavový panel, joystick, log a hlášky jsou uvnitř dutiny.
 
+### Spodní lišta (část C)
+
+| | PC | Telefon (na výšku i na šířku, dotyk) |
+|---|---|---|
+| Pořadí | STOP · Joystick · Follow · Log | STOP · Joystick · *volné místo 84 px* · Follow · Log |
+| Poloha | spodní okraj | **úplně dole u spodní hrany**, tlačítka nad `env(safe-area-inset-bottom)`; střed volný pro systémové tlačítko / gesto Androidu a Chromu |
+| STOP | vlevo dole, 20 % šířky | totéž — **vždy stejné místo a velikost, nikdy se nezmenšuje ani neposouvá** |
+| Kamera | v pravém panelu (sekce Camera) | v pravém panelu: ▾ rozbalí sbalený řádek, sekce Camera |
+
 ## Režimy (třída na `<body>`)
 
 | Režim | Kdy | Levý panel |
