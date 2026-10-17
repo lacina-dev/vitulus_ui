@@ -175,29 +175,31 @@
 
   function pill(text, color) {
     var p = el('span', null, text);
-    p.style.cssText = 'display:inline-block;padding:0 .45em;border-radius:.6em;' +
-      'font-size:.75em;line-height:1.5;margin-right:.35em;color:#fff;background:' +
-      (color || 'var(--bs-secondary)');
+    // U1 kolo 4: a tag (vt_panel.css .vagent-tagpill) tinted by state; the
+    // old callers pass a CSS colour, which is mapped onto the state set
+    var c = String(color || '');
+    p.className = 'vagent-tagpill';
+    p.dataset.state = /success/.test(c) ? 'ok' : /warning/.test(c) ? 'warn'
+      : /danger/.test(c) ? 'err' : /info|primary/.test(c) ? 'info' : 'off';
     return p;
   }
   function errLine(box, message) {
     box.textContent = '';
     var e = el('div', null, message);
-    e.style.cssText = 'color:var(--bs-danger);font-size:.85em;padding:.25em 0';
+    e.className = 'vagent-errline';
     box.appendChild(e);
   }
   function row(label, value) {
     var r = el('div');
-    r.style.cssText = 'display:flex;justify-content:space-between;gap:.6em;' +
-      'padding:.1em 0;font-size:.9em';
+    r.className = 'vagent-kvrow';
     var l = el('span', null, label);
-    l.style.color = 'var(--bs-gray-500, #888)';
+    l.className = 'vagent-kvrow-k';
     // a value may arrive as a NODE (VAgent.num(), an age chip) so that it can
     // carry its own provenance in `data-src`; a plain string still works
     var v;
     if (value && value.nodeType === 1) { v = value; }
     else { v = el('span', null, value == null ? '—' : String(value)); }
-    v.style.fontWeight = '500';
+    v.classList.add('vagent-kvrow-v');
     r.appendChild(l); r.appendChild(v);
     return r;
   }
@@ -1335,17 +1337,17 @@
 
     function buildLidarObjects() {
       var wrap = el('div');
-      wrap.style.cssText = 'margin-top:.6em;border-top:1px solid var(--bs-gray-700,#444);padding-top:.4em';
+      wrap.className = 'vagent-lo';
       loHead = el('div');
-      loHead.style.cssText = 'display:flex;align-items:center;gap:.4em;flex-wrap:wrap;font-size:.9em';
+      loHead.className = 'vagent-lo-head';
       var t = el('span', null, 'Lidar objects');
-      t.style.color = 'var(--bs-gray-500, #888)';
+      t.className = 'vt-muted';
       t.title = 'People, dogs and cats seen by the lidar. The robot confirms ' +
         'an object over three consecutive scans and ignores anything that ' +
         'has been standing still long enough to become background.';
       loHead.appendChild(t);
       loBody = el('div');
-      loBody.style.cssText = 'font-size:.85em;margin-top:.25em';
+      loBody.className = 'vagent-lo-body';
       wrap.appendChild(loHead); wrap.appendChild(loBody);
       loBox = wrap;
       drawLidar();
@@ -1399,7 +1401,7 @@
       if (!loLog.length || !loBody) { return; }
       var CLS2 = {small: 'cat-sized', medium: 'dog-sized', large: 'person-sized'};
       var lg = el('div', 'lo-log');
-      lg.style.cssText = 'margin-top:.4em;font-size:.85em;opacity:.75';
+      lg.className = 'vagent-lo-log';
       lg.appendChild(el('div', null, 'Recent:'));
       loLog.forEach(function (e) {
         var d = new Date((Number(e.stamp) || 0) * 1000);
@@ -1424,7 +1426,7 @@
         var m = el('div', null, loErr ? loErr
           : (loData ? 'the detector stopped publishing'
                     : 'lidar_objects is not running on the robot'));
-        m.style.cssText = 'color:var(--bs-gray-500,#888)';
+        m.className = 'vt-muted';
         m.title = 'Start it with: roslaunch vitulus_safety safety.launch lidar_objects:=true';
         loBody.appendChild(m);
         return;
@@ -1432,14 +1434,14 @@
       if (loData.moving) {
         loHead.appendChild(pill('robot moving', 'var(--bs-gray-600,#666)'));
         var mv = el('div', null, 'not watching while the robot drives');
-        mv.style.color = 'var(--bs-gray-500,#888)';
+        mv.className = 'vt-muted';
         loBody.appendChild(mv);
         return;
       }
       if (!loData.background_ready) {
         loHead.appendChild(pill('learning', 'var(--bs-gray-600,#666)'));
         var lr = el('div', null, 'building the static background…');
-        lr.style.color = 'var(--bs-gray-500,#888)';
+        lr.className = 'vt-muted';
         loBody.appendChild(lr);
         return;
       }
@@ -1447,7 +1449,7 @@
       if (!objs.length) {
         loHead.appendChild(pill('clear', 'var(--bs-success,#198754)'));
         var c = el('div', null, 'nothing bigger than a cat around');
-        c.style.color = 'var(--bs-gray-500,#888)';
+        c.className = 'vt-muted';
         loBody.appendChild(c);
         drawLidarLog();
         return;
@@ -1457,13 +1459,11 @@
       /* Tabulka, ne mřížka: na telefonu se čtyři sloupce vejdou jen když
          mají pevná procenta a nezalamují se uprostřed čísla. */
       var tbl = el('table');
-      tbl.style.cssText = 'width:100%;table-layout:fixed;border-collapse:collapse';
+      tbl.className = 'vagent-lo-tbl';
       var head = el('tr');
       ['Class', 'Dist', 'Dir', 'Motion', 'Seen'].forEach(function (h, i) {
         var th = el('th', null, h);
-        th.style.cssText = 'text-align:' + (i ? 'right' : 'left') +
-          ';color:var(--bs-gray-500,#888);font-weight:400;padding:.1em .2em;' +
-          'width:' + [26, 16, 20, 22, 16][i] + '%';
+        th.className = 'c' + i;            // widths/alignment: vt_panel.css .vagent-lo-tbl
         head.appendChild(th);
       });
       tbl.appendChild(head);
@@ -1489,8 +1489,7 @@
         ];
         cells.forEach(function (v, i) {
           var td = el('td', null, v);
-          td.style.cssText = 'text-align:' + (i ? 'right' : 'left') +
-            ';padding:.1em .2em;overflow:hidden;text-overflow:ellipsis';
+          td.className = 'c' + i;
           tr.appendChild(td);
         });
         tr.title = 'id ' + o.id + ' · ' + (Number(o.size) || 0).toFixed(2) +
@@ -1505,7 +1504,7 @@
       var note = el('div', null,
         'class is a rough guess from size and speed — the lidar does not ' +
         'recognise identity');
-      note.style.cssText = 'color:var(--bs-gray-500,#888);font-size:.9em;margin-top:.2em';
+      note.className = 'vagent-lo-note';
       loBody.appendChild(note);
     }
 
@@ -3007,7 +3006,7 @@
                   || (err && err.status ? 'refused (HTTP ' + err.status + ')' : '')
                   || 'agent unreachable';
                 var e = el('span', 'vz-err', String(msg));
-                e.style.whiteSpace = 'pre-wrap';
+                e.classList.add('vt-pre');
                 prow.appendChild(e);
               });
           };
@@ -4011,7 +4010,7 @@
         if (item.why) {
           var why = el('div', 'vpk-why');
           why.textContent = String(item.why);
-          why.style.whiteSpace = 'pre-wrap';
+          why.classList.add('vt-pre');
           card.appendChild(why);
         }
         if (item.cost_usd) {
