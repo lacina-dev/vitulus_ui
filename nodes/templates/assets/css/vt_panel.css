@@ -513,3 +513,23 @@ body.rp-cam-dock #div_camera_view { border-radius: var(--vt-r-ctl) !important; }
 body:has(#div_log_view.log-expanded) #right_panel,
 body:has(#div_log_view.log-expanded) .rp-handle,
 body.rp-cam-dock:has(#div_log_view.log-expanded) #div_camera_view { visibility: hidden !important; }
+
+/* tab strips that scroll sideways: fade the edge that has more tabs (vt_ui.js) */
+ul.nav-tabs.drawer-pills.vt-more-r, #vagent_tabs.vt-more-r {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+ul.nav-tabs.drawer-pills.vt-more-l, #vagent_tabs.vt-more-l {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+}
+ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+/* thumbs: tabs and header buttons are real touch targets */
+@media (pointer: coarse) {
+    ul.nav-tabs.drawer-pills .nav-link, .vagent-tab { min-height: var(--vt-touch); }
+    .vt-iconbtn, #btn_ui_drawer_full, #btn_ui_drawer_close,
+    #vagent_head_right button { width: var(--vt-touch); min-width: var(--vt-touch) !important; height: var(--vt-touch) !important; }
+}
