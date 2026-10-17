@@ -105,10 +105,14 @@ def classes_for(style):
     cls = [c for c in dict.fromkeys(cls) if c]
     return cls, '; '.join(keep)
 
+import os
+EXCL = set(filter(None, os.environ.get('EXCL', '').split(',')))
 ATTR = re.compile(r'<(\w+)((?:[^>"\']|"[^"]*"|\'[^\']*\')*?)\s+style="([^"]*)"')
 def convert(text, unknown):
     def fix(m):
         tag, attrs, style = m.group(1), m.group(2), m.group(3)
+        im = re.search(r'\bid="([^"]+)"', attrs)
+        if im and im.group(1) in EXCL: return m.group(0)
         if "'" in style or '${' in style:          # dynamic JS style: leave for a hand edit
             unknown.append('DYN ' + style[:80]); return m.group(0)
         cls, keep = classes_for(style)

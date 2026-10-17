@@ -1005,3 +1005,66 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
     -webkit-box-decoration-break: clone; box-decoration-break: clone;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
+
+/* ========== U1 kolo 5: navbar, status strip, bars, right-panel items — the
+   static look that used to be inline in index.html. Layout-managed elements
+   (#map_view, #joy_view, #div_camera_view, #div_log_view, #div_content,
+   #menu_spacer) keep their inline geometry: map_view.js LayoutManager writes
+   and partly READS it (camera border/padding/width are parsed). */
+.vt-navbar { background: var(--vt-navbar); padding: 3px 0; position: absolute; width: 100vw; }
+.vt-brand { display: flex; padding: 2px; border-right-style: none; }
+.vt-brand-title { margin-left: 9px; }
+.vt-navlist { color: rgba(40, 43, 48, 0.99); }
+.vt-navbar-toggler { height: 36px; border-width: 0; }
+.vt-conn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 0 6px; margin: 0 0 4px 6px;
+    font-size: var(--vt-fs-xs); font-weight: bold; line-height: 1; white-space: nowrap;
+    color: var(--vt-warn); background: transparent; border: none;
+    transition: color 0.25s; cursor: pointer; user-select: none;
+}
+.vt-conn-ico { font-size: 15px; vertical-align: middle; }
+.vt-rain-ico { margin: 0 0 6px 8px; font-size: 17.2px; }
+#ico_rain_ok { margin-left: 6px; }
+#ico_rain_danger { color: #e8112d !important; }
+
+.vt-bottom-bar { display: block; width: 100%; z-index: 1; }
+.vt-tbar { width: 100%; background: rgba(0, 0, 0, 0.6); }
+.vt-tbar-top { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-width: 5px; border-style: solid; }
+#btn_stop_all.vt-tbar-first { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+#btn_marker.vt-tbar-first { border-top-left-radius: 6px; border-bottom-left-radius: 0; }
+.vt-tbar-last { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+.vt-menu-overlay { position: absolute; width: 100%; z-index: 10; }
+.vt-row0 { margin-left: 0; margin-right: 0; }
+.vt-tabs-host { display: block; position: relative; }
+.vt-range { padding: 12px; width: 100%; }
+
+/* status icon strip */
+.vt-status-strip { padding: 4px; border-radius: 7px; box-shadow: 2px 2px var(--primary); position: relative; }
+.vt-sico { transform: scale(0.75); margin-left: -2px; }
+.vt-status-ico {
+    min-width: 17px; min-height: 17px; display: inline-flex;
+    border-bottom-style: none; border-bottom-right-radius: 0; border-bottom-left-radius: 0;
+    margin-bottom: -3px; z-index: 2; padding: 2px 2px 0;
+}
+.vt-status-ico-i { font-size: 13px; font-weight: bold; display: block; color: var(--vt-accent); }
+#div_status_follow_txt { border-top-left-radius: 0; }
+#div_status_map_name { border-top-right-radius: 0; }
+.vt-status-txt { font-size: var(--vt-fs-sm); min-width: 30px; display: inline-flex; padding: 0 2px; }
+#span_status_follow { margin-left: 2px; }
+#span_status_speed, #span_status_speed-1 { min-width: 20px; margin-left: 3px; }
+
+/* right-panel items (positions/widths: right_dock.css) */
+.vt-rp-block { padding: 1px 4px 1px 3px; width: 128px; display: grid; }
+.vt-rp-odom { height: 66px; }
+.vt-rp-gnss { height: 46px; margin-top: 2px; }
+.vt-rp-rtab { height: 24px; margin-top: 2px; }
+.vt-rtab-id { width: 37px; display: inline-block; }
+.vt-rp-mower { padding: 1px 4px; font-size: var(--vt-fs-xs); margin-bottom: 2px; }
+.vt-rp-line-item { padding: 1px 2px 1px 3px; }
+#div_status_speed-1 { margin-top: 2px; }
+#div_status_speed-2 { margin-top: 3px; }
+.vt-btn-mini { height: 18px; width: 42px; padding: 0 2px 0 3px; font-size: var(--vt-fs-xs); }
+#dock_btn_menu_dock, #dock_btn_menu_undock, #dock_btn_menu_stop { width: 50px; }
+.vt-batt-pct { font-size: var(--vt-fs-sm); font-weight: 600; color: var(--bs-secondary); margin-right: 5px; min-width: 28px; text-align: right; }
+.vt-chip-sm-note { font-size: 9px; margin-left: auto; opacity: 0.6; }
+#row_menu .btn > i, #row_menu .btn > svg, #div_bottom_menu .btn > i, #div_bottom_menu .btn > svg { font-size: 17px; font-weight: bold; }
