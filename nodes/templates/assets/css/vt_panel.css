@@ -300,3 +300,132 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 #ui_drawer #div_map_detail > div[style*="padding: 8px 10px"] { padding: 0 !important; }
 #ui_drawer_meta #map_detail_site { flex: 1 1 auto; color: var(--vt-muted) !important; font-size: var(--vt-fs-sm) !important; }
 #ui_drawer_foot #btn_map_detail_close_footer { flex: 1 1 auto; width: auto !important; }
+
+/* ------------------------------------------------------------ Agent (U1) */
+/* Same head as every panel: status dot + age in the meta slot, ▤ ⌧ STOP in
+   the actions slot as the standard icon buttons (STOP stays solid red). */
+#vagent_head_left { display: inline-flex; align-items: center; gap: var(--vt-gap-1); min-width: 0; }
+#vagent_head_right { display: inline-flex; align-items: center; gap: var(--vt-gap-1); margin: 0 !important; }
+#vagent_head_right button,
+#vagent_bar button {
+    min-width: var(--vt-iconbtn) !important;
+    height: var(--vt-iconbtn) !important;
+    min-height: var(--vt-iconbtn) !important;
+    padding: 0 8px !important;
+    font-size: 15px;
+    color: var(--vt-text);
+    background: transparent;
+    border: 1px solid var(--vt-border-strong);
+    border-radius: var(--vt-r-ctl);
+}
+#vagent_head_right button:hover, #vagent_bar button:hover { background: var(--vt-surface-3); border-color: var(--vt-accent); }
+#vagent_stop {
+    font-size: var(--vt-fs) !important;
+    padding: 0 12px !important;
+    background: var(--vt-danger) !important;
+    border-color: var(--vt-danger) !important;
+}
+#vagent_dot { background: var(--vt-faint); }
+#vagent_dot.ok { background: var(--vt-ok); }
+#vagent_dot.slow { background: var(--vt-warn); }
+#vagent_dot.bad { background: var(--vt-err); }
+
+/* status strip: tags (square inside the round panel), tinted by state */
+#vagent_status { padding: var(--vt-gap-2) var(--vt-pad) var(--vt-gap-1); border-bottom: 0; }
+.vagent-chip {
+    border-radius: var(--vt-r-tag);
+    border: 1px solid var(--vt-border);
+    background: var(--vt-surface-2);
+    font-size: var(--vt-fs-xs);
+}
+.vagent-chip.good { background: rgba(var(--vt-ok-rgb), 0.16); border-color: var(--vt-edge-ok); }
+.vagent-chip.warn { background: rgba(var(--vt-warn-rgb), 0.16); border-color: var(--vt-edge-warn); }
+.vagent-chip.bad  { background: rgba(var(--vt-err-rgb), 0.18); border-color: var(--vt-edge-err); }
+
+/* tabs: the same pill strip as Map / Programs / Settings */
+#vagent_tabs {
+    gap: var(--vt-gap-1);
+    margin: var(--vt-gap-1) var(--vt-pad) var(--vt-gap-2);
+    padding: 3px;
+    border: 0;
+    border-radius: var(--vt-r-ctl);
+    background: rgba(0, 0, 0, 0.25);
+}
+.vagent-tab {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 6px 12px !important;
+    font-size: var(--vt-fs) !important;
+    font-weight: 400;
+    color: var(--vt-accent);
+    border: 1px solid transparent !important;
+    border-radius: calc(var(--vt-r-ctl) - 2px);
+}
+.vagent-tab:hover { color: var(--vt-accent); border-color: var(--vt-border-strong) !important; }
+.vagent-tab.active {
+    color: #fff;
+    font-weight: 400;
+    background: var(--vt-surface-3);
+    border-color: var(--vt-edge-info) !important;
+}
+.vagent-tab .vagent-badge, .vagent-tab .badge, .vagent-tab span { border-radius: var(--vt-r-tag); }
+
+/* filter chips (All / Chat / Reports / Jobs): small segmented buttons */
+#vagent_chips { padding: 0 var(--vt-pad) var(--vt-gap-1); }
+#vagent_chips button {
+    min-height: 28px;
+    border-radius: var(--vt-r-ctl);
+    border-color: var(--vt-border-strong);
+    color: var(--vt-muted);
+    font-size: var(--vt-fs-sm);
+}
+#vagent_chips button.on { background: var(--vt-surface-3); border-color: var(--vt-edge-info); color: #fff; }
+
+/* messages and every agent card: rounded, whole-card state tint, NO left stripe */
+.vagent-msg { border-radius: var(--vt-r-card); border-color: var(--vt-border); }
+.vagent-me .vagent-msg { background: rgba(var(--vt-accent-rgb), 0.14); border-color: var(--vt-edge-info); }
+#vagent_panel :is(.vagent-job, .vagent-sched, .vz-card, .vm-card, .vagent-ujob, .vz-inv, .vz-plan,
+                  .vagent-ask, .vpk-card, .vrec-row),
+#vagent_panel :is(.vagent-report, .vagent-work, .vagent-turn.vagent-script) .vagent-msg {
+    border-left-width: 1px !important;
+    border-left-style: solid;
+    border-radius: var(--vt-r-card);
+    border-color: var(--vt-border);
+}
+#vagent_panel .vrec-row { padding-left: 8px !important; }
+/* info (running, work, low severity, plans…) */
+#vagent_panel :is(.vagent-work .vagent-msg, .vagent-job.running, .vagent-sched, .vz-card.selfcare,
+                  .vz-card.sev-low, .vm-card, .vagent-ujob.st-running, .vz-inv.verdict-monitor,
+                  .vz-plan, .vagent-ask.k-plan, .vpk-card.w-budget, .vpk-card.w-deadline, .vrec-row.s-working) {
+    border-color: var(--vt-edge-info) !important;
+    background-image: var(--vt-tint-info);
+}
+/* warn (waiting on a human, queued, reports, drafts…) */
+#vagent_panel :is(.vagent-report .vagent-msg, .vagent-turn.vagent-script .vagent-msg, .vagent-job.blocked,
+                  .vagent-job.queued, .vz-card, .vz-card.sev-medium, .vm-card.queued, .vagent-sched.script,
+                  .vagent-ujob.st-queued, .vagent-ujob.st-blocked, .vagent-ujob.st-draft,
+                  .vagent-sched.script.st-draft, .vz-inv.verdict-fix_later, .vz-plan.plan-waiting,
+                  .vagent-ask, .vagent-ask.k-cmd, .vpk-card.w-blocked) {
+    border-color: var(--vt-edge-warn) !important;
+    background-image: var(--vt-tint-warn);
+}
+/* ok */
+#vagent_panel :is(.vagent-job.done, .vm-card.done, .vagent-sched.script.st-active, .vagent-ujob.st-scheduled,
+                  .vagent-ujob.st-done, .vz-plan.plan-executed) {
+    border-color: var(--vt-edge-ok) !important;
+    background-image: var(--vt-tint-ok);
+}
+/* err */
+#vagent_panel :is(.vagent-job.failed, .vagent-job.cancelled, .vagent-job.stalled, .vz-card.sev-high,
+                  .vz-card.sev-critical, .vm-card.failed, .vagent-sched.script.st-failed,
+                  .vagent-ujob.st-failed, .vz-inv.verdict-fix_now, .vpk-card.w-tests, .vrec-row.s-read) {
+    border-color: var(--vt-edge-err) !important;
+    background-image: var(--vt-tint-err);
+}
+/* neutral / parked */
+#vagent_panel :is(.vagent-sched.paused, .vagent-ujob.st-paused, .vz-card.log, .vz-card.other,
+                  .vz-inv.verdict-ignore, .vz-plan.plan-denied) {
+    border-color: var(--vt-border-strong) !important;
+    background-image: none;
+}
+#vagent_panel :is(.vagent-ujob.st-draft, .vagent-sched.script.st-draft) { border-style: dashed !important; }

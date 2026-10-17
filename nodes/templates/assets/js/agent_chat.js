@@ -938,14 +938,19 @@
         left.id = 'vagent_head_left';
         left.appendChild(panel.querySelector('#vagent_dot'));
         left.appendChild(panel.querySelector('#vagent_age'));
-        title.insertAdjacentElement('afterend', left);
+        // U1: the shared anatomy has a meta slot (status) and an actions slot
+        var metaSlot = document.getElementById('ui_drawer_meta');
+        if (metaSlot) { metaSlot.appendChild(left); }
+        else { title.insertAdjacentElement('afterend', left); }
         var right = document.createElement('span');
         right.id = 'vagent_head_right';
         right.appendChild(panel.querySelector('#vagent_density'));
         right.appendChild(panel.querySelector('#vagent_clear'));
         right.appendChild(panel.querySelector('#vagent_stop'));
+        var actSlot = document.getElementById('ui_drawer_actions');
         var full = document.getElementById('btn_ui_drawer_full');
-        if (full && full.parentNode === head) { head.insertBefore(right, full); }
+        if (actSlot) { actSlot.appendChild(right); }
+        else if (full && full.parentNode === head) { head.insertBefore(right, full); }
         else { head.appendChild(right); }
         headBits = {left: left, right: right};
         panel.classList.add('vagent-merged');
