@@ -289,3 +289,14 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     /* the ⤢ toggle is the sheet <-> full-screen switch on a phone */
     #btn_ui_drawer_full { display: inline-flex !important; }
 }
+
+/* ------------------------------------------------------- map editor (U1) */
+/* The editor is a normal drawer panel: shared head (title "Map editor", the
+   served map in the meta slot, ⤢, ✕ = back to the Map panel) and the shared
+   foot ("Close editor"). Its own historical header/footer stay hidden. */
+#ui_drawer.editor #ui_drawer_head { display: flex; }
+#ui_drawer #div_map_detail > .mapedit-head,
+#ui_drawer #div_map_detail .mapedit-foot { display: none !important; }
+#ui_drawer #div_map_detail > div[style*="padding: 8px 10px"] { padding: 0 !important; }
+#ui_drawer_meta #map_detail_site { flex: 1 1 auto; color: var(--vt-muted) !important; font-size: var(--vt-fs-sm) !important; }
+#ui_drawer_foot #btn_map_detail_close_footer { flex: 1 1 auto; width: auto !important; }

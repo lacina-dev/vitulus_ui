@@ -3293,7 +3293,13 @@ class MapMenu {
             if (el) self.ui_drawer_body.appendChild(el);   // move (not copy)
         });
         var xb = document.getElementById("btn_ui_drawer_close");
-        if (xb) xb.onclick = function () { self.close_drawer(); };
+        if (xb) xb.onclick = function () {
+            // U1: the editor has no header of its own any more; its ✕ keeps the
+            // editor's meaning (back to the Map panel, vitulus-field#45).
+            var ex = document.getElementById('btn_map_detail_close');
+            if (self._drawer_last === 'editor' && ex) { ex.click(); return; }
+            self.close_drawer();
+        };
         if (this.ui_drawer_backdrop) this.ui_drawer_backdrop.onclick = function () { self.close_drawer(); };
         var fb = document.getElementById("btn_ui_drawer_full");
         if (fb) fb.onclick = function () { self.toggle_drawer_full(); };
@@ -3371,6 +3377,7 @@ class MapMenu {
             this.ui_drawer.setAttribute('aria-hidden', 'false');
         }
         if (this.ui_drawer_title) this.ui_drawer_title.textContent = (this._drawer_titles[key] || '');
+        this._drawer_chrome(key);
         if (this.ui_drawer_body) this.ui_drawer_body.scrollTop = 0;
         this._drawer_backdrop(true);
         // The inline top above changed the drawer's height -> re-check whether
@@ -3382,6 +3389,30 @@ class MapMenu {
         this.set_drawer_full(remembered_full);
     }
 
+    // U1 panel anatomy: put the panel's own meta/status and primary actions
+    // into the shared head (#ui_drawer_meta) and foot (#ui_drawer_foot).
+    // Elements are MOVED with their ids (their code keeps updating them) and
+    // returned home when another panel takes the drawer.
+    _drawer_chrome(key) {
+        var meta = document.getElementById('ui_drawer_meta');
+        var foot = document.getElementById('ui_drawer_foot');
+        (this._drawer_borrowed || []).forEach(function (b) {
+            if (b.el && b.home) b.home.insertBefore(b.el, b.next && b.next.parentNode === b.home ? b.next : null);
+        });
+        this._drawer_borrowed = [];
+        var self = this;
+        function borrow(id, slot) {
+            var el = document.getElementById(id);
+            if (!el || !slot) return;
+            self._drawer_borrowed.push({el: el, home: el.parentNode, next: el.nextSibling});
+            slot.appendChild(el);
+        }
+        if (key === 'editor') {
+            borrow('map_detail_site', meta);
+            borrow('btn_map_detail_close_footer', foot);
+        }
+    }
+
     // Slide the drawer OUT (used by the per-button toggle-off path; panel already
     // hidden by the caller).
     _drawer_slide_out() {
@@ -3389,6 +3420,7 @@ class MapMenu {
             this.ui_drawer.classList.remove('open', 'wide', 'editor', 'full');
             this.ui_drawer.setAttribute('aria-hidden', 'true');
         }
+        this._drawer_chrome(null);
         this._drawer_backdrop(false);
         uiPrefDel('vitulus_open_panel');   // closed -> nothing to restore
     }

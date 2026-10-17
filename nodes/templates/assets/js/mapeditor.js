@@ -189,6 +189,32 @@ window.MapEditor = (function () {
             if (this.onZoom) this.onZoom();
         }
 
+        // U1: the part of the map canvas NOT covered by the drawer (right of
+        // it on desktop, between the menu row and the bottom sheet on a phone):
+        // its size and the pixel shift from the canvas centre to its centre.
+        _visibleRect() {
+            var r = this.canvas.getBoundingClientRect();
+            var out = {w: r.width, h: r.height, ch: r.height, dx: 0, dy: 0};
+            var d = document.getElementById('ui_drawer');
+            if (!r.width || !r.height || !d || !d.classList.contains('open') || d.classList.contains('full')) return out;
+            var top = r.top, bottom = r.bottom, left = r.left, right = r.right;
+            var rm = document.getElementById('row_menu');
+            if (rm) top = Math.max(top, rm.getBoundingClientRect().bottom);
+            if (window.innerWidth < 576) {
+                // the sheet's resting top edge (offsetTop ignores the slide-in transform)
+                bottom = Math.min(bottom, d.offsetTop);
+            } else {
+                left = Math.max(left, d.offsetLeft + d.offsetWidth);
+                var bm = document.getElementById('div_bottom_menu');
+                if (bm) bottom = Math.min(bottom, bm.getBoundingClientRect().top);
+            }
+            if (right - left < r.width * 0.25 || bottom - top < r.height * 0.2) return out;
+            out.w = right - left; out.h = bottom - top;
+            out.dx = (left + right) / 2 - (r.left + r.width / 2);
+            out.dy = (top + bottom) / 2 - (r.top + r.height / 2);
+            return out;
+        }
+
         // ---- top-down edit camera mode -------------------------------------
         // Centre the live OrbitControls view on the map, framed from (near)
         // straight above, and LOCK the tilt/rotation — but keep the controls
@@ -209,7 +235,10 @@ window.MapEditor = (function () {
             };
             if (cc) {
                 var fov = (cam.fov || 40) * Math.PI / 180;
-                var H = Math.max(8, (spanM * 0.5) / Math.tan(fov / 2) * 1.15);
+                // fit spanM into the uncovered area (U1), not the whole canvas
+                var vr = this._visibleRect();
+                var fit = vr.ch / Math.max(1, Math.min(vr.w, vr.h));
+                var H = Math.max(8, (spanM * 0.5) / Math.tan(fov / 2) * 1.15 * Math.max(1, fit));
                 cc.center.set(cx, cy, 0);
                 cam.position.set(cx, cy, H);
                 cc.scale = 1; cc.thetaDelta = 0; cc.phiDelta = 0;
@@ -223,6 +252,12 @@ window.MapEditor = (function () {
                 cc.rotateUp = function (a) { self.panByPixels(0, a * K); };
                 cc.rotateDown = function (a) { self.panByPixels(0, -a * K); };
                 cc.update(); cam.updateMatrixWorld(true);
+                // U1: frame the map in the part of the screen the drawer does
+                // NOT cover (right of it on desktop, above the bottom sheet on
+                // a phone), so the map is never centred behind the panel.
+                try {
+                    if (vr.dx || vr.dy) this.panByPixels(vr.dx, vr.dy);
+                } catch (e) {}
             }
             this.editing = true;
             this.overlayGroup.visible = true;

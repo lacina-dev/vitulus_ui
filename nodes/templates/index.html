@@ -1835,8 +1835,9 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                 </div>
 <div id="div_map_detail" class="all-events border-primary" style="display: none;width: 452px;margin-top: 4px;background: linear-gradient(var(--bs-gray-900) 0%, var(--bs-primary)), var(--bs-primary);border: 1px solid var(--bs-secondary);border-radius: 6px;pointer-events: auto;max-height: calc(100vh - 110px);overflow-y: auto;overflow-x: hidden;">
 
-<!-- A. Sticky header -->
-<div class="d-flex align-items-center" style="position: sticky;top: 0;z-index: 20;gap: 8px;padding: 8px 10px;background: var(--bs-gray-900);border-bottom: 1px solid var(--bs-secondary);">
+<!-- A. Sticky header — U1: used only outside the drawer; inside it the shared
+     drawer head shows "Map editor" + #map_detail_site (moved into the meta slot). -->
+<div class="d-flex align-items-center mapedit-head" style="position: sticky;top: 0;z-index: 20;gap: 8px;padding: 8px 10px;background: var(--bs-gray-900);border-bottom: 1px solid var(--bs-secondary);">
   <span class="text-uppercase fw-bold text-info" style="font-size: 14px;letter-spacing: .5px;white-space: nowrap;">Map editor</span>
   <span id="map_detail_site" class="text-truncate" style="font-size: 12px;color: var(--bs-gray-400);flex: 1 1 auto;min-width: 0;" title="Currently served map">—</span>
   <button class="btn btn-outline-info" id="btn_map_detail_full" type="button" style="flex: 0 0 auto;min-height: 34px;padding: 0 12px;font-size: 16px;line-height: 1;" title="Expand"><i class="la la-expand"></i></button>
@@ -1973,8 +1974,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 
 </div>
 
-<!-- E. Sticky footer -->
-<div style="position: sticky;bottom: 0;z-index: 20;padding: 8px 10px;background: var(--bs-gray-900);border-top: 1px solid var(--bs-secondary);">
+<!-- E. Sticky footer — U1: its button is moved into the drawer foot slot. -->
+<div class="mapedit-foot" style="position: sticky;bottom: 0;z-index: 20;padding: 8px 10px;background: var(--bs-gray-900);border-top: 1px solid var(--bs-secondary);">
   <button class="btn btn-warning w-100 fw-bold" id="btn_map_detail_close_footer" type="button" style="min-height: 44px;font-size: 14px;">Close editor</button>
 </div>
 </div>
