@@ -451,6 +451,19 @@
                     document.documentElement.style.setProperty('--vt-head-w', hd.offsetWidth + 'px');
                 }).observe(hd);
             }
+            // P27: phone portrait — the compact head's title moves into the
+            // sheet's grip row (a mirror of #ui_drawer_title, kept in sync)
+            var gr = $('ui_drawer_grip'), tt = $('ui_drawer_title');
+            if (gr) {
+                new ResizeObserver(function () {
+                    document.documentElement.style.setProperty('--vt-grip-h', gr.offsetHeight + 'px');
+                }).observe(gr);
+            }
+            if (gr && tt && window.MutationObserver) {
+                var syncT = function () { gr.setAttribute('data-title', (tt.textContent || '').trim()); };
+                syncT();
+                new MutationObserver(syncT).observe(tt, {childList: true, characterData: true, subtree: true});
+            }
             var info = $('span_status_info');
             var row = info && info.closest ? info.closest('.vt-notice-row') : null;
             if (row) { ro.observe(row); }

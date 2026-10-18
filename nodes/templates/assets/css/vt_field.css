@@ -867,22 +867,19 @@ a.vt-needs-btn {
     object-fit: contain;
     transition: filter var(--vt-ease), opacity var(--vt-ease);
 }
+/* P27 (owner): OK stays GREEN and clearly readable — as the icon files draw it */
 #status_div.sh-strip img[src*="_green"],
 #status_div.sh-strip img[src*="batt_full"], #status_div.sh-strip img[src*="battCHARGE_full"],
 #status_div.sh-strip img[src*="batt_34"], #status_div.sh-strip img[src*="battCHARGE_34"],
 #status_div.sh-strip img[src*="batt_half"], #status_div.sh-strip img[src*="battCHARGE_half"] {
-    filter: grayscale(1) brightness(1.6); opacity: .62;
+    filter: none; opacity: 1;
 }
-#status_div.sh-strip img[src*="_grey"], #status_div.sh-strip img[src*="_disabled"] {
-    filter: grayscale(1); opacity: .32;
-}
-#status_div.sh-strip img[src*="_orange"], #status_div.sh-strip img[src*="batt_14"],
-#status_div.sh-strip img[src*="battCHARGE_14"] {
-    filter: saturate(1.1) drop-shadow(0 0 3px rgba(var(--vt-warn-rgb), .45));
-}
-#status_div.sh-strip img[src*="_red"], #status_div.sh-strip img[src*="_empty"] {
-    filter: drop-shadow(0 0 3px rgba(var(--vt-err-rgb), .55));
-}
+/* the four state colours live IN the icon files (P27 palette, UI_FIELD_STYLE
+   §8): green OK, orange warning, red fault, grey no data / off — no filters */
+#status_div.sh-strip img[src*="_grey"], #status_div.sh-strip img[src*="_disabled"],
+#status_div.sh-strip img[src*="_orange"], #status_div.sh-strip img[src*="_red"],
+#status_div.sh-strip img[src*="batt_14"], #status_div.sh-strip img[src*="battCHARGE_14"],
+#status_div.sh-strip img[src*="_empty"] { filter: none; opacity: 1; }
 @media (max-width: 575.98px) {
     #status_div.sh-strip { column-gap: 8px; }
     #status_div.sh-strip .sh-group { gap: 2px; }
@@ -952,3 +949,18 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
 /* P25: map editor list rows (zones, paths, waypoints): their Edit / Remove /
    eye buttons use the panel's small type (were 11 px in 34 px buttons) */
 #div_map_detail .btn-group-sm > .btn { font-size: var(--vt-fs-sm); padding-left: 10px; padding-right: 10px; }
+
+/* ============ P27: section headings in Bitter, like the field dashboard's
+   section heads (owner 2026-10-18). Cards, labels and controls stay Roboto. */
+#ui_drawer details:is(.drawer-sec, .map-sec, .mapedit-sec, .vt-needs-grp) > summary,
+#vagent_panel :is(.vagent-sh, .vrec-group, .vagent-pinhead, .vrec-seclbl),
+#vagent_panel details.vagent-card > summary,
+#vagent_panel .vagent-pane[data-pane="robot"] > .vagent-pane-body::before,
+.vt-act-day, .vt-diag-gh, .vt-help-sec > summary {
+    font-family: var(--vt-font-head) !important;
+}
+/* the small-caps muted heads keep their size, Bitter reads a touch larger */
+#vagent_panel :is(.vagent-sh, .vrec-group, .vagent-pinhead, .vrec-seclbl),
+#vagent_panel details.vagent-card > summary,
+#vagent_panel .vagent-pane[data-pane="robot"] > .vagent-pane-body::before,
+.vt-act-day { letter-spacing: .05em; }

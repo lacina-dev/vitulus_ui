@@ -33,8 +33,8 @@
     --vt-faint: #6f7a83;
 
     /* brand + semantic */
-    --vt-accent: var(--bs-info, #5bc0de);
-    --vt-accent-rgb: 91, 192, 222;
+    --vt-accent: var(--bs-info, #0dcaf0);
+    --vt-accent-rgb: 13, 202, 240;
     --vt-brand: #ff7100;
     --vt-ok: #43d58b;
     --vt-ok-rgb: 67, 213, 139;
@@ -138,3 +138,32 @@
 @media (pointer: coarse) {
     :root { --vt-bar-h: 50px; --vt-joy-size: 156px; }
 }
+
+/* ===== accent = field's cyan #0dcaf0 (owner 2026-10-18, P27) ==============
+   The Slate theme's info colour (#5bc0de) is overridden at the source, so
+   every text-info / btn-*-info / border-info / --vt-accent follows. Dark
+   text on the filled cyan (contrast 11:1; white on #0dcaf0 is only 1.9:1). */
+:root, [data-bs-theme=dark], [data-bs-theme=light] {
+    --bs-cyan: #0dcaf0;
+    --bs-info: #0dcaf0;
+    --bs-info-rgb: 13, 202, 240;
+    --bs-info-text-emphasis: #6edff6;
+    --bs-info-bg-subtle: #032830;
+    --bs-info-border-subtle: #087990;
+}
+.btn-info {
+    --bs-btn-color: #10181d; --bs-btn-bg: #0dcaf0; --bs-btn-border-color: #0dcaf0;
+    --bs-btn-hover-color: #10181d; --bs-btn-hover-bg: #3dd5f3; --bs-btn-hover-border-color: #3dd5f3;
+    --bs-btn-active-color: #10181d; --bs-btn-active-bg: #0bb5d8; --bs-btn-active-border-color: #0bb5d8;
+    --bs-btn-disabled-color: #10181d; --bs-btn-disabled-bg: #0dcaf0; --bs-btn-disabled-border-color: #0dcaf0;
+    --bs-btn-focus-shadow-rgb: 13, 202, 240;
+}
+.btn-outline-info {
+    --bs-btn-color: #0dcaf0; --bs-btn-border-color: #0dcaf0;
+    --bs-btn-hover-color: #10181d; --bs-btn-hover-bg: #0dcaf0; --bs-btn-hover-border-color: #0dcaf0;
+    --bs-btn-active-color: #10181d; --bs-btn-active-bg: #0dcaf0; --bs-btn-active-border-color: #0dcaf0;
+    --bs-btn-disabled-color: #0dcaf0; --bs-btn-disabled-border-color: #0dcaf0;
+    --bs-btn-focus-shadow-rgb: 13, 202, 240;
+}
+.alert-info { background-color: #0dcaf0; color: #10181d; }
+.link-info:focus, .link-info:hover { color: #6edff6 !important; }

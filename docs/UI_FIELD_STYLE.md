@@ -12,7 +12,7 @@ z Vitulusu zůstává, a jak se to píše (třídy). Implementace:
 |---|---|---|---|
 | Podklad / plochy | `#1c2329` / `#232b32` / `#2b343c` / `#37434d` | `#1a2127` / `#232c33` / `#28323a` | **zůstává robot** (je to vzor, z něhož field vychází) |
 | Logo, značka | `#ff7100`, Bitter v navbaru | totéž | zůstává |
-| Akcent | `--bs-info` = **`#5bc0de`** (Slate) | **`#0dcaf0`** | zůstává `#5bc0de` (sedí na všechna `btn-outline-info`); field to má o odstín jinak — viz § 5 |
+| Akcent | `--bs-info` = `#5bc0de` (Slate) | **`#0dcaf0`** | **od P27 `#0dcaf0` jako field** (owner 18. 10.) — přebité u zdroje (`--bs-info`, `.btn-info`, `.btn-outline-info`, `--vt-accent`) ve `vt_tokens.css`; na plné azurové tmavý text `#10181d` (kontrast 11:1, bílý by měl 1,9:1) |
 | Tóny stavu | ok / warn / err (+info) jako lineární gradient shora | `--st / --st-glow / --st-edge` a **radiální nádech z levého horního rohu** + jemná záře horní hrany | **přebíráme** radiální nádech a záři hrany, i tón `off` a `brand` |
 | Tvar | panel 12 px, karta 10 px, štítek 3 px | panel 14, karta 10, štítek 3 | zůstává 12/10/3 (stejný princip „hranaté uvnitř kulatého“) |
 | Elevace | jeden `--vt-shadow` | dvě úrovně: klid / hover-focus | **přebíráme** `--vt-elev-1/2` |
@@ -126,3 +126,22 @@ všech existujících kartách naráz bez zásahu do HTML.
   (souhrn + skupiny řádků tečka · název · zpráva, stabilní pořadí).
 - **Ikony** (P5): v editoru mapy line-awesome místo emoji; barva nástroje
   jen na ikoně, aktivní nástroj v akcentu.
+
+## 8. Rozhodnutí majitele 18. 10. (P27)
+
+- **Akcent `#0dcaf0`** všude (viz tabulka § 1); hover výplní `#3dd5f3`,
+  stisk `#0bb5d8`, text na plné azurové `#10181d`.
+- **Nadpisy sekcí písmem Bitter** (jako `.sec-head h2` ve fieldu): sbalitelné
+  sekce panelů (`drawer-sec`, `map-sec`, `mapedit-sec`, skupiny Needs you,
+  nápověda), nadpisy sekcí agenta (RUNNING, ROBOT STATE, …), dny v Activity,
+  skupiny v Diag. Karty, popisky a ovládání zůstávají Roboto.
+- **Stavové ikony — čtyři barvy** (barva je přímo v PNG v
+  `assets/img/robot_icons/`, přebarvené z neonových barev displeje Nextion;
+  bez CSS filtrů). Kontrast proti ploše rámu `#282b30`:
+
+  | Stav | Barva | Kontrast | Pozn. |
+  |---|---|---|---|
+  | OK | `#43d58b` | 7,5 : 1 | = `--vt-ok`, zelená fieldu |
+  | varování | `#ffab45` | 7,4 : 1 | oranžová, světlejší a žlutější než logo `#ff7100` (5,2 : 1), aby nesplývala |
+  | chyba | `#ff5f6d` | 4,8 : 1 | sytější než `#f1868f`, čitelná i na slunci |
+  | bez dat / vypnuto | `#8a939b` | 4,6 : 1 | neutrální šedá |

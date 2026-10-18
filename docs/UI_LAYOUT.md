@@ -117,6 +117,7 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Ikonky + hlášky | součást horní lišty (plocha rámu), pod pásem menu | totéž |
 | Pravý stavový panel | — (při otevřeném sheetu ustoupí) | sbalený řádek visí z horní lišty u pravé hrany (📷 = large kamera, ▾ rozbalí) |
 | Levý panel | sheet od spodní lišty, 60 % výšky (celá výška ⤢) | — |
+| Hlavička panelu | panely se záložkami: STOP agenta, ⤢, ✕ na pravém konci řádku záložek, titulek panelu v řádku úchytu sheetu vlevo (P27); Marker a editor mapy beze změny | — |
 | Mapa | nad sheetem (editor ji rámuje do volné části) | celá plocha |
 | Log malý | za sheetem (sheet je stoupající spodek C) | výběžek spodní lišty přes celou šířku (od hřbetu) |
 | Log celý | od hlášek/pravého panelu ke spodní liště; otevřený sheet je nad ním | od řádku pravého panelu ke spodní liště, joystick zůstává nad ním |
