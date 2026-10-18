@@ -1782,6 +1782,7 @@
     "mapt.rec.preset_save_tip": "Save the CURRENT slider values as a named preset (same name = overwrite)",
     "mapt.rec.preset_del_tip": "Delete the selected CUSTOM preset (builtins cannot be deleted)",
     "cfg.imu.reset": "Reset IMU",
+    "page.initialized": "Initialized",
     /* ---- @end idx */
 
     /* ---- @frag chat: Agent panel: chat, jobs, approvals, dock lock (agent_chat.js) */

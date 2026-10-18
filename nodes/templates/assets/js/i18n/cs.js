@@ -1804,7 +1804,7 @@
     "bar.div_tip": "odchylka můstku od živé polohy",
     "bar.gnss_hdg_tip": "přesnost kurzu (1 sigma); — když není RTK kurz",
     "bar.batt_tip": "Kapacita baterie",
-    "bar.dock": "Do\u00a0doku",
+    "bar.dock": "Do doku",
     "bar.undock": "Vyjet",
     "bar.stop": "Stop",
     "log.source": "Zdroj logu",
@@ -1829,6 +1829,7 @@
     "mapt.rec.preset_save_tip": "Uloží AKTUÁLNÍ hodnoty posuvníků jako pojmenovanou předvolbu (stejný název = přepsat)",
     "mapt.rec.preset_del_tip": "Smaže vybranou VLASTNÍ předvolbu (vestavěné smazat nejdou)",
     "cfg.imu.reset": "Resetovat IMU",
+    "page.initialized": "Připraveno",
     /* ---- @end idx */
 
     /* ---- @frag chat: Agent panel: chat, jobs, approvals, dock lock (agent_chat.js) */
