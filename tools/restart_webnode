@@ -1,0 +1,41 @@
+#!/bin/bash
+# restart_webnode — restart the live UI web node cleanly (no false findings).
+#
+# The node runs under roslaunch with respawn="true" (launch/vitulus_ui.launch),
+# so stopping it is enough: roslaunch starts it again after respawn_delay (5 s)
+# and the new process loads index.html fresh (Jinja caches the template for
+# the life of the process — that is why a deploy needs a restart at all).
+#
+# SIGINT, not SIGKILL: the node's SIGINT handler shuts the HTTP server down and
+# exits 0, which roslaunch logs at INFO ("process has finished cleanly").
+# `kill -9` exits -9 and roslaunch logs an ERROR ("process has died … exit code
+# -9"), which the agent's log watcher files as a finding every deploy.
+# `rosnode kill /webnode` is not used: it stops rospy but the HTTP server
+# thread keeps the process alive.
+#
+# usage: tools/restart_webnode [port]     (default 7779)
+set -u
+PORT=${1:-7779}
+PAT='[d]evel/lib/vitulus_ui/webnode'
+OLD=$(pgrep -f "$PAT" | head -1)
+if [ -z "$OLD" ]; then echo "webnode not running"; exit 1; fi
+kill -INT "$OLD"
+for i in $(seq 1 20); do
+    kill -0 "$OLD" 2>/dev/null || break
+    sleep 0.5
+done
+if kill -0 "$OLD" 2>/dev/null; then
+    echo "webnode $OLD ignored SIGINT for 10 s — sending SIGTERM"
+    kill -TERM "$OLD"; sleep 3
+    kill -0 "$OLD" 2>/dev/null && { echo "still alive — SIGKILL (this one will show up as a finding)"; kill -9 "$OLD"; }
+fi
+for i in $(seq 1 40); do
+    NEW=$(pgrep -f "$PAT" | head -1)
+    if [ -n "$NEW" ] && [ "$NEW" != "$OLD" ] && \
+       curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/" | grep -q 200; then
+        echo "webnode restarted cleanly: pid $OLD -> $NEW, :$PORT answers"
+        exit 0
+    fi
+    sleep 0.5
+done
+echo "webnode did not come back within 20 s"; exit 2

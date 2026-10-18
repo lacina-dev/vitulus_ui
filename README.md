@@ -255,6 +255,24 @@ workspace. Editing `index.html` requires a node restart (Flask caches the
 template); JS/CSS assets are revalidated by the browser on every reload
 (`Cache-Control: no-cache`).
 
+### Deploying a UI change (restart the web node cleanly)
+
+```bash
+tools/restart_webnode          # live node on :7779; prints old -> new pid
+```
+
+The node runs under roslaunch with `respawn="true"`, so it only has to stop:
+the script sends **SIGINT**, the node's handler shuts the HTTP server down and
+exits 0, roslaunch logs `process has finished cleanly` (INFO) and starts it
+again after 5 s; the script waits until the new process answers on the port.
+Do **not** use `kill -9`: roslaunch then logs `process has died … exit code -9`
+at ERROR level and the agent's log watcher files it as a finding on every
+deploy. `rosnode kill /webnode` does not work either — it stops rospy, but the
+HTTP server thread keeps the process alive. (Agent side, not done here: the
+v2 log watcher could additionally ignore a `process has died` of `webnode-*`
+that is followed by a `started with pid` within ~10 s — a respawned web node
+is not a fault.)
+
 ### Restart-robot button (optional)
 
 `POST /system/restart` restarts `vitulus.service` via passwordless sudo. Install
