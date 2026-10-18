@@ -1103,26 +1103,6 @@ body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
     padding-right: var(--vt-frame-rp-w, 0px);
 }
 
-/* ---- log: small strip in the map area, full = the map area -------------- */
-html body.vt-frame:not(.vt-m-sheet) #div_log_view:not(.log-expanded) {
-    left: calc(var(--vt-frame-left, 0px) + 4px) !important;
-    right: calc(var(--vt-frame-rp-w, 0px) + 6px) !important;
-    width: auto !important;
-    margin-left: 0 !important;
-    bottom: calc(var(--vt-frame-bottom, 40px) + 4px) !important;
-}
-html body.vt-frame #div_log_view.log-expanded {
-    top: calc(var(--vt-frame-notice-b, 72px) + 6px) !important;
-    bottom: calc(var(--vt-frame-bottom, 40px) + 4px) !important;
-    left: calc(var(--vt-frame-left, 0px) + 4px) !important;
-    right: calc(var(--vt-frame-rp-w, 0px) + 6px) !important;
-    z-index: 8 !important;            /* under the panel, bars and notices */
-}
-html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
-    top: calc(max(var(--vt-frame-notice-b, 72px), var(--vt-frame-rp-b, 72px)) + 6px) !important;
-    left: 4px !important;
-    right: 4px !important;
-}
 
 /* ---- the panel toggle in the menu band ---------------------------------- */
 #btn_panel_toggle { flex: 0 0 auto; min-width: 44px; border-top-left-radius: 6px; border-bottom-left-radius: 0; }
@@ -1132,20 +1112,7 @@ html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
 /* agent bars (finding / ask strip) sit right under the navbar — or at the top
    edge when the navbar is hidden on a low window */
 body.vt-frame #vagent_bars { top: max(var(--vt-frame-nav-b, 42px), var(--safe-top, 0px)); }
-/* joystick: bottom-right of the map area, always ABOVE the small log
-   (placement only — its look belongs to the joystick files) */
-html body.vt-frame:not(.vt-m-sheet) #joy_view {
-    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px) + 14px) !important;
-}
-html body.vt-frame.vt-m-sheet #joy_view {
-    bottom: calc(var(--vt-frame-bottom, 40px) + 14px) !important;
-}
 
-/* ============ U1 kolo 6: small log full-width when the panel leaves it no room */
-html body.vt-frame.vt-log-wide #div_log_view:not(.log-expanded) { left: 4px !important; }
-body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer {
-    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px) + 22px);   /* + the log's expand tab */
-}
 #btn_agent.vagent-btn { position: relative; }
 
 /* ============================== U1 kolo 6: frame polish (labels, states, focus, motion) */
@@ -1202,9 +1169,6 @@ body.vt-frame.vt-m-sheet.vt-joy-on #ui_drawer.open {
 body.vt-frame.vt-m-sheet.vt-joy-on #ui_drawer.open.full {
     top: auto !important;
     height: var(--vt-frame-sheet-max, 50dvh);
-}
-html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view {
-    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-sheet-h, 0px) + 10px) !important;
 }
 /* landscape phone: a narrower panel leaves the map (and the stick) room */
 body.vt-frame.vt-m-overlay #ui_drawer:not(.full) { width: min(420px, 52vw); }
@@ -1336,8 +1300,6 @@ body.vt-frame .vt-c-corner { display: block; }
     bottom: var(--vt-frame-cbottom, 30px);
     background: radial-gradient(circle at 100% 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
 }
-/* the small log strip and the notices start right of the spine/corner */
-html body.vt-frame.vt-c-spine:not(.vt-m-sheet) #div_log_view:not(.log-expanded) { left: calc(var(--vt-frame-cleft, 12px) + 4px) !important; }
 
 /* ===== C frame: the bottom bar (owner 2026-10-18) =========================
    - Camera lives in the right panel (Camera section; on a phone: unfold the
@@ -1433,3 +1395,271 @@ body.vt-frame #ui_drawer_foot { border-top: 0 !important; }
     *::-webkit-scrollbar { width: 4px !important; height: 4px !important; }
     *::-webkit-scrollbar-thumb { border-width: 1px !important; }
 }
+
+/* =========================================================================
+   C frame 3 (owner 2026-10-18): the right status panel, the log and the
+   joystick are part of the C's outline — PROTRUSIONS of the frame, same
+   surface (--vt-frame-bg), no own box, border or shadow; square where they
+   touch a page edge, convex-rounded where they end in the hollow, concave
+   corners where they leave the frame. With nothing unfolded the right side
+   stays mostly open: it still reads as a C.
+     right panel  hangs from the top band along the right edge (#vt_c_tr);
+     small log    rises from the bottom bar, from the back of the C;
+     joystick     stands on the bottom bar at the right edge, beside the log
+                  (on it, when they do not fit side by side) (#vt_c_jb);
+     full log     grows from the bottom bar into the hollow, beside the right
+                  panel / joystick, under the notices (#vt_c_lr);
+     large camera takes the hollow; the map goes into the right panel's slot.
+   vt_frame.js sets the --vt-frame-* / --vt-cam-* variables (UI_LAYOUT.md).
+   ========================================================================= */
+body.vt-frame #vt_c_tr,
+body.vt-frame #vt_c_jb,
+body.vt-frame #vt_c_lr { display: none; left: auto; }
+
+/* -- right panel: a protrusion of the top band ---------------------------- */
+html body.vt-frame #right_panel {
+    background: var(--vt-frame-bg) !important;
+    border: 0 !important;
+    border-radius: 0 0 0 var(--vt-frame-r) !important;
+    box-shadow: none !important;
+}
+html body.vt-frame #right_panel .rp-top,
+html body.vt-frame #right_panel .rp-sec + .rp-sec { border-color: rgba(255, 255, 255, 0.06); }
+html body.vt-frame .rp-handle {
+    background: var(--vt-frame-bg) !important;
+    border: 0 !important;
+    border-radius: var(--vt-r-ctl) 0 0 var(--vt-r-ctl) !important;
+    color: var(--vt-muted);
+    box-shadow: none !important;
+}
+html body.vt-frame .rp-handle:hover { color: var(--vt-accent); background: var(--vt-frame-bg) !important; }
+body.vt-frame.vt-c-rp #vt_c_tr {
+    display: block;
+    left: calc(var(--vt-frame-rp-left, 100vw) - var(--vt-frame-r));
+    top: var(--vt-frame-top, 72px);
+    background: radial-gradient(circle at 0 100%, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+/* phone portrait: the status icons and the notice band belong to the top of
+   the C (the right panel's row hangs from them) */
+body.vt-frame.vt-m-sheet #row_icons,
+body.vt-frame.vt-m-sheet .vt-notice-row { background: var(--vt-frame-bg); }
+
+/* camera switch in the Camera section head: Off / S / L */
+.rp-cam-seg {
+    display: inline-flex;
+    margin-left: 6px;
+    border-radius: var(--vt-r-ctl);
+    background: rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+.rp-cam-opt {
+    min-width: 24px;
+    height: 20px;
+    padding: 0 6px;
+    border: 0;
+    background: transparent;
+    color: var(--vt-muted);
+    font: 600 10px/20px var(--vt-font);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.rp-cam-opt:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.rp-cam-opt.on { color: #fff; background: rgba(var(--vt-accent-rgb), 0.24); box-shadow: inset 0 -2px 0 var(--vt-accent); }
+.rp-sum-cam {
+    flex: 0 0 auto;
+    display: none;
+    width: 30px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--vt-r-ctl);
+    background: transparent;
+    color: var(--vt-muted);
+    font-size: 17px;
+    line-height: 26px;
+}
+#right_panel.compact .rp-sum-cam { display: inline-block; }
+.rp-sum-cam.on { color: #fff; background: rgba(var(--vt-accent-rgb), 0.24); box-shadow: inset 0 -2px 0 var(--vt-accent); }
+@media (pointer: coarse) {
+    .rp-cam-opt { min-width: 34px; height: 30px; line-height: 30px; font-size: 11px; }
+    .rp-sum-cam { width: 40px; height: 36px; line-height: 36px; }
+}
+
+/* -- small log: rises from the bottom bar --------------------------------- */
+html body.vt-frame.vt-frame #div_log_view:not(.log-expanded) {
+    position: fixed !important;
+    top: auto !important;
+    left: var(--vt-frame-log-left, 12px) !important;
+    right: var(--vt-frame-log-right, 0px) !important;
+    bottom: var(--vt-frame-bottom, 30px) !important;
+    width: auto !important;
+    margin: 0 !important;
+    background: var(--vt-frame-bg) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05) !important;   /* seam to the bar's buttons */
+    z-index: 7 !important;
+}
+/* expand: a quiet button inside the strip's top-right corner (no tab
+   sticking out of the C) */
+html body.vt-frame #div_log_view #btn_log_expand {
+    left: auto;
+    right: 6px;
+    top: 4px;
+    transform: none;
+    width: 30px;
+    height: 22px;
+    line-height: 22px;
+    border: 0;
+    border-radius: var(--vt-r-ctl);
+    background: var(--vt-frame-bg);
+    box-shadow: none;
+    color: var(--vt-muted);
+}
+html body.vt-frame #div_log_view #btn_log_expand:hover,
+html body.vt-frame #div_log_view #btn_log_expand:focus-visible { color: var(--vt-accent); background: rgba(255, 255, 255, 0.06); box-shadow: none; }
+@media (pointer: coarse) {
+    html body.vt-frame #div_log_view #btn_log_expand { width: 44px; height: 30px; line-height: 30px; top: 2px; }
+}
+/* the log-wide case: the left panel stands on the log (the log is the bottom
+   of the C there) */
+body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px)); }
+
+/* -- full log: grows from the bottom bar into the hollow ------------------ */
+html body.vt-frame #div_log_view.log-expanded {
+    top: calc(var(--vt-frame-notice-b, 72px) + 6px) !important;
+    bottom: var(--vt-frame-bottom, 30px) !important;
+    left: var(--vt-frame-cleft, 12px) !important;
+    right: var(--vt-frame-logfull-r, 0px) !important;
+    background: var(--vt-frame-bg) !important;
+    border: 0 !important;
+    border-radius: 0 var(--vt-frame-r) 0 0 !important;
+    box-shadow: none !important;
+    z-index: 8 !important;
+}
+html body.vt-frame.vt-c-logfull-edge #div_log_view.log-expanded { border-radius: 0 !important; }
+html body.vt-frame.vt-m-sheet #div_log_view.log-expanded {
+    top: calc(max(var(--vt-frame-notice-b, 72px), var(--vt-frame-rp-b, 72px)) + 6px) !important;
+    left: var(--vt-frame-cleft, 6px) !important;
+    right: 0 !important;
+    border-radius: 0 !important;
+}
+html body.vt-frame #div_log_view.log-expanded .log-toolbar {
+    background: transparent;
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+    border-radius: 0;
+}
+body.vt-frame.vt-c-logfull:not(.vt-c-logfull-edge):not(.vt-m-sheet) #vt_c_lr {
+    display: block;
+    left: calc(100vw - var(--vt-frame-logfull-r, 0px));
+    bottom: var(--vt-frame-bottom, 30px);
+    background: radial-gradient(circle at 100% 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+
+/* -- joystick: stands on the bottom ledge at the right edge --------------- */
+html body.vt-frame.vt-joy-on #joy_view.vt-joy.vt-joy {
+    position: fixed !important;
+    top: auto !important;
+    left: auto !important;
+    right: 0 !important;
+    bottom: var(--vt-frame-joy-b, 30px) !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: var(--vt-frame-r) 0 0 0 !important;
+    background: var(--vt-frame-bg) !important;
+    /* the state shows as an edge facing the map, like an active bar button */
+    box-shadow: inset 0 2px 0 var(--vt-st-edge) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    z-index: 9 !important;               /* over the full log on a phone */
+}
+body.vt-frame.vt-joy-on #vt_c_jb {
+    display: block;
+    left: calc(100vw - var(--vt-frame-joy-w, 0px) - var(--vt-frame-r));
+    bottom: var(--vt-frame-ledge, 30px);
+    background: radial-gradient(circle at 0 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+/* phone portrait with the sheet open: the stick floats right above the sheet
+   (kolo 6) — a tab of the frame on the right edge */
+html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy {
+    bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-sheet-h, 0px) + 10px) !important;
+    border-radius: var(--vt-frame-r) 0 0 var(--vt-frame-r) !important;
+}
+body.vt-frame.vt-m-sheet.vt-panel-open #vt_c_jb { display: none; }
+
+/* the stick beside the unfolded right panel's column (low window) */
+html body.vt-frame.vt-joy-on.vt-joy-beside-rp #joy_view.vt-joy.vt-joy { right: var(--vt-frame-joy-r, 0px) !important; }
+body.vt-frame.vt-joy-on.vt-joy-beside-rp #vt_c_jb { left: calc(100vw - var(--vt-frame-joy-r, 0px) - var(--vt-frame-joy-w, 0px) - var(--vt-frame-r)); }
+html body.vt-frame.vt-joy-beside-rp #right_panel { border-radius: 0 !important; }
+html body.vt-frame.vt-cam-paused #div_camera_view { visibility: hidden !important; }
+
+/* -- large camera: in the C's hollow (vt_frame.js placeCamLarge) ---------- */
+html body.vt-frame.vt-cam-large #div_camera_view {
+    position: fixed !important;
+    left: var(--vt-cam-l, 12px) !important;
+    top: var(--vt-cam-t, 100px) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: var(--vt-cam-w, 640px) !important;
+    height: var(--vt-cam-h, 480px) !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    background: #0b0e11 !important;
+    z-index: 4 !important;
+    cursor: zoom-out !important;
+}
+html body.vt-frame.vt-cam-large #div_camera_view > canvas {
+    display: block;
+    width: var(--vt-cam-cw, 640px) !important;
+    height: var(--vt-cam-ch, 480px) !important;
+    margin: calc((var(--vt-cam-h, 480px) - var(--vt-cam-ch, 480px)) / 2) 0 0 var(--vt-cam-ml, 0px);
+}
+/* ... and the map in the right panel's camera slot (the swap) */
+html body.vt-frame.vt-frame.vt-map-mini #map_view {
+    position: fixed !important;
+    left: var(--rp-cam-left, 0px) !important;
+    top: var(--rp-cam-top, 0px) !important;
+    width: var(--rp-cam-w, 180px) !important;
+    height: var(--rp-cam-h, 135px) !important;
+    margin: 0 !important;
+    z-index: 6 !important;
+    border-radius: 4px;
+}
+/* the hollow without its map (below the right panel) must not read as frame */
+html body.vt-frame.vt-map-mini #div_content { background: #0b0e11; }
+/* the map stays in the page's own layer, under the right panel: the panel
+   gets a window cut out exactly at the slot */
+html body.vt-frame.vt-map-mini #right_panel {
+    -webkit-mask: linear-gradient(#000 0 0) 0 0 / 100% 100% no-repeat,
+                  linear-gradient(#000 0 0) var(--rp-hole-x, 0px) var(--rp-hole-y, 0px) / var(--rp-cam-w, 0px) var(--rp-cam-h, 0px) no-repeat;
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) 0 0 / 100% 100% no-repeat exclude,
+          linear-gradient(#000 0 0) var(--rp-hole-x, 0px) var(--rp-hole-y, 0px) / var(--rp-cam-w, 0px) var(--rp-cam-h, 0px) no-repeat;
+}
+#vt_map_mini { display: none; }
+html body.vt-frame.vt-map-mini #vt_map_mini {
+    display: block;
+    position: fixed;
+    left: var(--rp-cam-left, 0px);
+    top: var(--rp-cam-top, 0px);
+    width: var(--rp-cam-w, 180px);
+    height: var(--rp-cam-h, 135px);
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    cursor: zoom-in;
+    z-index: 7;
+}
+#vt_map_mini > span {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    padding: 2px 7px;
+    border-radius: var(--vt-r-tag);
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font: 600 11px/16px var(--vt-font);
+}
+#vt_map_mini:hover > span, #vt_map_mini:focus-visible > span { background: rgba(var(--vt-accent-rgb), 0.85); }

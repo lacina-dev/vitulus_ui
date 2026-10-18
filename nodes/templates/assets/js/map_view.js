@@ -3196,7 +3196,9 @@ class MapMenu {
         if (this.div_camera_view.style.display === "none"){
             this.div_camera_view.style.display = "block";
             this.btn_camera_show.active = true;
-            camera_view._big = false;    // showing ALWAYS starts small+bottom
+            // C frame 3: small / large is the frame's remembered state
+            // (vt_frame.js camSet) — keep it when the stream (re)starts
+            camera_view._big = document.body.classList.contains('vt-cam-large');
             camera_view._applySize();
             camera_view.start();     // 2026-08-16: stream starts only now
         } else {
@@ -4709,7 +4711,10 @@ class LayoutManager {
         var drawer = document.getElementById('ui_drawer');
         if (log && drawer && log.style.display === 'block'
                 && !log.classList.contains('log-expanded')
-                && !document.body.classList.contains('rp-log-top')) {
+                && !document.body.classList.contains('rp-log-top')
+                // C frame 3 (vt_frame.js): the frame places the drawer — the
+                // phone sheet rises over the log (the bottom of the C)
+                && !document.body.classList.contains('vt-frame')) {
             // log bottom edge = 35 px, drawer bottom edge = 40 px above the
             // toolbar line; + 18 px expand tab (#btn_log_expand) + 3 px gap.
             var want = log.offsetHeight + 16;
