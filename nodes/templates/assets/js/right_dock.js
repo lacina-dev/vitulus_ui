@@ -31,6 +31,10 @@
 
     var LS_OPEN = 'vitulus_rightpanel_open';
     var LS_COMPACT = 'vitulus_rightpanel_compact';   // U1: telefon, 1 řádek
+    var FRAME_GAP = 14;                  // C frame: the open front between top and bottom protrusions
+    function setCls(e, c, on) {
+        if (e && e.classList.contains(c) !== !!on) { e.classList.toggle(c, !!on); }
+    }
     var DOCK_W = 216, DOCK_H = 162;      // náhled kamery (4:3 jako zdroj 160×120)
     var PANEL_W = 196;
 
@@ -66,6 +70,16 @@
         var r = (row || s).getBoundingClientRect();
         return r.height ? r : null;
     }
+
+    /* C frame 3 (vt_frame.js): the panel is a protrusion of the frame — it
+       hangs from the top band, the log and the joystick live at the bottom */
+    function inFrame() { return document.body.classList.contains('vt-frame'); }
+    function frameVar(k) {
+        var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(k));
+        return isNaN(v) ? null : v;
+    }
+    function camLarge() { return document.body.classList.contains('vt-cam-large'); }
+    function setCamLarge(on) { if (window.VtFrame && window.VtFrame.camSet) { window.VtFrame.camSet(on); } }
 
     function rectOf(id) {
         var e = document.getElementById(id);
@@ -141,6 +155,15 @@
         });
         var sum = el('span', 'rp-sum', topRow);
         sum.id = 'rp_sum_batt';
+        /* C frame 3: on a phone the collapsed row carries the camera switch —
+           the large camera is a band across the top of the map there */
+        var qcam = el('button', 'rp-sum-cam', topRow);
+        qcam.type = 'button';
+        qcam.id = 'rp_sum_cam';
+        qcam.innerHTML = '<i class="la la-video-camera"></i>';
+        qcam.title = 'Camera on / off (Alt+C)';
+        qcam.setAttribute('aria-label', qcam.title);
+        qcam.addEventListener('click', function (ev) { ev.stopPropagation(); setCamLarge(!camLarge()); });
         var cbtn = el('button', 'rp-compact-btn', topRow);
         cbtn.type = 'button';
         cbtn.id = 'rp_compact_btn';
@@ -222,6 +245,34 @@
             }
             if (def.camera) {
                 camState = el('span', 'rp-state', h);
+                /* C frame 3: one clear switch — Off (= folded, no stream) /
+                   Small (preview here) / Large (the camera takes the map's
+                   place, the map comes here). Alt+C toggles small/large. */
+                var seg = el('span', 'rp-cam-seg', h);
+                seg.setAttribute('role', 'group');
+                seg.setAttribute('aria-label', 'Camera size');
+                [['off', 'Off', 'Hide the camera (stops the stream)'],
+                 ['small', 'S', 'Small camera in this panel (Alt+C)'],
+                 ['large', 'L', 'Large camera in place of the map (Alt+C)']].forEach(function (d) {
+                    var b = el('button', 'rp-cam-opt', seg);
+                    b.type = 'button';
+                    b.setAttribute('data-cam', d[0]);
+                    b.textContent = d[1];
+                    b.title = d[2];
+                    b.setAttribute('aria-label', d[2]);
+                    b.addEventListener('click', function (ev) {
+                        ev.stopPropagation();
+                        var folded = sec.classList.contains('folded');
+                        if (d[0] === 'off') {
+                            if (camLarge()) { setCamLarge(false); }
+                            if (!folded) { h.click(); }
+                        } else {
+                            if (folded) { h.click(); }
+                            setCamLarge(d[0] === 'large');
+                        }
+                        paintSeg();
+                    });
+                });
                 var slot = el('div', 'rp-cam-slot', box);
                 slot.id = 'rp_cam_slot';
                 /* Žádné ruční zapínání: stream se rozjede rozbalením sekce a
@@ -263,6 +314,7 @@
     }
 
     function setOpen(open) {
+        if (!open && camLarge()) { setCamLarge(false); }   // closing the panel = camera off
         lsSet(LS_OPEN, open ? '1' : '0');
         panel.classList.toggle('closed', !open);
         handle.textContent = open ? '▸' : '◂';   // ▸ zavřít / ◂ otevřít
@@ -283,17 +335,32 @@
     function place() {
         if (!panel) { return; }
         applyCompact();
-        if (window.innerWidth < 576) { placeLog(); }   // log under icons + notices
+        var frame = inFrame();
+        if (window.innerWidth < 576 && !frame) { placeLog(); }   // log under icons + notices
         var vw = window.innerWidth, vh = window.innerHeight;
         var joy = rectOf('joy_view');
         var bar = rectOf('div_bottom_menu');
         var bottomLimit = vh - 8;
         if (bar && bar.top > 0) { bottomLimit = bar.top - 6; }
+        if (frame) {
+            /* C frame 3: the panel hangs from the top band and ends ABOVE the
+               bottom ledge (bar + small log) and the joystick, with a gap —
+               the C keeps its open front */
+            var lg = document.getElementById('div_log_view');
+            var lr = (lg && !lg.classList.contains('log-expanded')) ? rectOf('div_log_view') : null;
+            if (lr && lr.height > 0 && lr.right > vw - PANEL_W) { bottomLimit = Math.min(bottomLimit, lr.top - FRAME_GAP + 6); }
+            var beside = document.body.classList.contains('vt-joy-beside-rp');
+            if (beside) {
+                /* the stick stands beside the column: run down to the ledge */
+                bottomLimit = (lr && lr.height > 0) ? lr.top : (bar && bar.top > 0 ? bar.top : vh);
+            } else if (joy && joy.top > 0) { bottomLimit = Math.min(bottomLimit, joy.top - FRAME_GAP + 6); }
+            if (!beside) { bottomLimit = Math.min(bottomLimit, (bar && bar.top > 0 ? bar.top : vh) - FRAME_GAP + 6); }
+        }
         /* Joystick: dokud je panel zavřený, drží si svůj roh a panel se mu
            vyhne. S otevřeným panelem se joystick posune VEDLE něj (viz
            `rp-joy-side` níž) — jinak by panelu ukrojil polovinu výšky. */
         var panelOpen = isOpen();
-        if (joy && joy.top > 0 && !panelOpen) {
+        if (!frame && joy && joy.top > 0 && !panelOpen) {
             bottomLimit = Math.min(bottomLimit, joy.top - 8);
         }
 
@@ -326,7 +393,13 @@
         panel.style.width = narrow ? Math.floor(free) + 'px' : '';
 
         var top;
-        if (vw < 576) {
+        if (frame) {
+            /* straight from the top band — no gap, it is the same surface. The
+               notice band is centred between the left and the right panel (on a
+               phone it is part of the band above), so nothing slides under. */
+            var ft = frameVar('--vt-frame-top');
+            top = (ft !== null) ? ft : 42;
+        } else if (vw < 576) {
             /* shora: ikonky → log → panel */
             var icons = rectOf('status_div');
             var log = rectOf('div_log_view');
@@ -350,20 +423,20 @@
             var info = infoRowRect();
             if (info && info.bottom > top) { top = Math.round(info.bottom + 6); }
         }
-        top = Math.max(46, Math.min(top, bottomLimit - 60));
+        top = Math.max(frame ? 0 : 46, Math.min(top, bottomLimit - 60));
         panel.style.top = Math.round(top) + 'px';
         panel.style.maxHeight = Math.max(60, Math.round(bottomLimit - top)) + 'px';
         /* joystick vedle panelu, ať zůstane celý dosažitelný */
         var pw = (panel.offsetWidth || PANEL_W);
         /* log nesmí zabíhat pod panel — zkrátí se přesně o jeho šířku */
-        document.body.classList.toggle('rp-panel-open', isOpen());
+        setCls(document.body, 'rp-panel-open', isOpen());
         document.documentElement.style.setProperty('--rp-log-right', (pw + 14) + 'px');
         // U1 kolo 6: a collapsed one-row panel does not push the stick aside
-        document.body.classList.toggle('rp-joy-side', !!joy && isOpen() && !isCompact());
+        setCls(document.body, 'rp-joy-side', !frame && !!joy && isOpen() && !isCompact());
         document.documentElement.style.setProperty('--rp-joy-right', (pw + 14) + 'px');
         if (handle) {                       // úchyt drží hranu vedle panelu
             handle.style.display = '';
-            handle.style.top = Math.round(top + 10) + 'px';
+            handle.style.top = Math.round(top + (frame ? 24 : 10)) + 'px';   // C frame: below the concave corner
             handle.style.right = isOpen() ? (panel.offsetWidth || PANEL_W) + 'px' : '0px';
         }
         paintCam();
@@ -401,8 +474,8 @@
         }
         var log = document.getElementById('div_log_view');
         if (!log) { return; }
-        var mobile = window.innerWidth < 576;
-        document.body.classList.toggle('rp-log-top', mobile);
+        var mobile = window.innerWidth < 576 && !inFrame();   // C frame 3: the log rises from the bottom bar
+        setCls(document.body, 'rp-log-top', mobile);
         if (!mobile) { return; }
         var icons = rectOf('status_div');
         var top = icons && icons.bottom > 0 ? icons.bottom + 4 : 76;
@@ -454,6 +527,88 @@
         } catch (e) { return false; }
     }
 
+    /* the Off / S / L switch and the phone's camera button show the state */
+    function paintSeg(open, folded) {
+        var st = (!open || folded) ? 'off' : (camLarge() ? 'large' : 'small');
+        if (!panel) { return; }
+        Array.prototype.forEach.call(panel.querySelectorAll('.rp-cam-opt'), function (b) {
+            var on = b.getAttribute('data-cam') === st;
+            setCls(b, 'on', on);
+            var ap = on ? 'true' : 'false';
+            if (b.getAttribute('aria-pressed') !== ap) { b.setAttribute('aria-pressed', ap); }
+        });
+        var q = document.getElementById('rp_sum_cam');
+        if (q) {
+            setCls(q, 'on', camLarge());
+            var qp = camLarge() ? 'true' : 'false';
+            if (q.getAttribute('aria-pressed') !== qp) { q.setAttribute('aria-pressed', qp); }
+        }
+    }
+
+    /* C frame 3 — LARGE camera: the camera takes the C's hollow (vt_frame.js
+       places it); the slot here shows the MAP instead (the swap). The panel
+       closed or the section folded by the user = camera off. On a phone (the
+       collapsed one-row panel) there is no slot: the camera is a band across
+       the top of the hollow and the map stays below it. */
+    function paintCamLarge(cam, slot, off, on, open, narrow, folded) {
+        var compact = panel.classList.contains('compact');
+        var closedByUser = panel.classList.contains('closed');
+        if (closedByUser || (open && folded && !compact)) {
+            setCamLarge(false);
+            return;
+        }
+        /* the panel only stepped aside (a phone's sheet / a full drawer took
+           the width): the large camera pauses and comes back with it */
+        setCls(document.body, 'vt-cam-paused', !open);
+        if (!open) {
+            setCls(document.body, 'vt-map-mini', false);
+            var b0 = camButton();
+            if (b0 && on) { autoPaused = true; camAsked = 0; b0.click(); }
+            return;
+        }
+        setCls(document.body, 'rp-cam-dock', false);
+        setCls(document.body, 'rp-cam-clip', false);
+        if (off) { off.style.display = 'none'; }
+        var btn = camButton();
+        if (!on) {                                   // (re)start the stream
+            if (btn && (!camAsked || Date.now() - camAsked > 6000)) {
+                camAsked = Date.now();
+                autoPaused = false;
+                btn.click();
+            }
+        } else {
+            camAsked = camAsked || Date.now();
+        }
+        if (camState) {
+            var st = !on ? 'starting' : (frames() ? 'large' : 'waiting for signal');
+            if (camState.textContent !== st) { camState.textContent = st; }
+        }
+        var slotOk = !narrow && !compact && !folded;
+        slot.style.display = slotOk ? 'block' : 'none';
+        setCls(slot, 'idle', false);
+        var mini = false;
+        if (slotOk) {
+            var pr = panel.getBoundingClientRect();
+            var inner = slot.parentNode && slot.parentNode.clientWidth
+                ? slot.parentNode.clientWidth : Math.floor(pr.width - 16);
+            var w = Math.max(0, Math.floor(inner)), h = Math.round(w * 3 / 4);
+            if (slot.style.width !== w + 'px') { slot.style.width = w + 'px'; }
+            if (slot.style.height !== h + 'px') { slot.style.height = h + 'px'; }
+            var r = slot.getBoundingClientRect();
+            var root = document.documentElement.style;
+            root.setProperty('--rp-cam-w', w + 'px');
+            root.setProperty('--rp-cam-h', h + 'px');
+            root.setProperty('--rp-cam-left', Math.round(r.left) + 'px');
+            root.setProperty('--rp-cam-top', Math.round(r.top) + 'px');
+            /* the map lies UNDER the panel (it lives in the page's own layer):
+               the panel gets a window cut out at the slot (CSS mask) */
+            root.setProperty('--rp-hole-x', Math.round(r.left - pr.left) + 'px');
+            root.setProperty('--rp-hole-y', Math.round(r.top - pr.top) + 'px');
+            mini = r.width > 0 && r.top >= pr.top - 1 && r.bottom <= pr.bottom + 2;
+        }
+        setCls(document.body, 'vt-map-mini', mini);
+    }
+
     function paintCam() {
         var cam = document.getElementById('div_camera_view');
         var slot = document.getElementById('rp_cam_slot');
@@ -469,6 +624,10 @@
         var folded = !!(camSec && camSec.classList.contains('folded')) || panel.classList.contains('compact');
         var eligible = !big && open && !narrow && !folded;
         var docked = on && eligible;
+        paintSeg(open, folded && !panel.classList.contains('compact'));
+        if (camLarge() && inFrame()) { paintCamLarge(cam, slot, off, on, open, narrow, folded); return; }
+        setCls(document.body, 'vt-map-mini', false);
+        setCls(document.body, 'vt-cam-paused', false);
 
         if (camState) {
             camState.textContent = !on ? (autoPaused ? 'paused' : 'off')
@@ -621,6 +780,19 @@
         var r = el.getBoundingClientRect();
         return r.width > 0 && r.right > 0;
     }
+
+    /* tiny API for the frame (vt_frame.js) */
+    window.VtRightDock = {
+        place: function () { placeSoon(); },
+        /* large camera asked for: open the panel and unfold the Camera section */
+        reveal: function () {
+            if (!panel) { return; }
+            if (!isOpen()) { setOpen(true); }
+            var sec = panel.querySelector('.rp-sec[data-sec="camera"]');
+            var h = sec && sec.querySelector('h5');
+            if (sec && sec.classList.contains('folded') && h) { h.click(); }
+        }
+    };
 
     function init() {
         if (document.getElementById('right_panel')) { return; }

@@ -15,7 +15,8 @@
     'use strict';
 
     var DOCK_MIN_W = 1024, DOCK_MIN_H = 500, SHEET_MAX_W = 576, LOG_MIN_W = 420;
-    var SPINE = 12, SPINE_PHONE = 6;   // C frame: the back of the C when the panel is hidden
+    var SPINE = 12, SPINE_PHONE = 6;
+    var JOY_BESIDE_MIN = 240;          // C frame 3: min. room for the right panel above the stick   // C frame: the back of the C when the panel is hidden
     var LS_LAST = 'vitulus_last_panel';
     var BTN_FOR = {marker: 'btn_marker', map: 'btn_map', program: 'btn_programs',
                    config: 'btn_settings', agent: 'btn_agent'};
@@ -23,7 +24,16 @@
     function $(id) { return document.getElementById(id); }
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+    // classList.toggle rewrites the class attribute (and fires the body-class
+    // MutationObserver below) even when nothing changes — touch it on change only
+    function setCls(el, c, on) {
+        if (el && el.classList.contains(c) !== !!on) { el.classList.toggle(c, !!on); }
+    }
     function px(v) { return Math.max(0, Math.round(v || 0)) + 'px'; }
+    function setVar(k, v) {
+        var root = document.documentElement;
+        if (root.style.getPropertyValue(k) !== v) { root.style.setProperty(k, v); }
+    }
 
     function mode() {
         var w = window.innerWidth, h = window.innerHeight;
@@ -40,29 +50,33 @@
         return r.width > 0 && r.height > 0;
     }
 
-    var lastDock = null, resizeTimer = null, raf = null;
+    var lastDock = null, resizeTimer = null, raf = null, lastTop = null, lastMini = null;
 
     function update() {
         raf = null;
         var root = document.documentElement, body = document.body;
+        var W = window.innerWidth, H = window.innerHeight;
         var m = mode();
-        ['dock', 'overlay', 'sheet'].forEach(function (k) { body.classList.toggle('vt-m-' + k, k === m); });
-        body.classList.add('vt-frame');
+        ['dock', 'overlay', 'sheet'].forEach(function (k) { setCls(body, 'vt-m-' + k, k === m); });
+        setCls(body, 'vt-frame', true);
 
         var drawer = $('ui_drawer');
         var open = !!(drawer && drawer.classList.contains('open'));
         var full = !!(drawer && drawer.classList.contains('full'));
-        body.classList.toggle('vt-panel-open', open);
+        setCls(body, 'vt-panel-open', open);
         if (open) {
             var key = window.map_menu && window.map_menu._drawer_last;
             if (key && key !== 'editor') { lsSet(LS_LAST, key); }
+            // the map editor needs the map in the hollow: a large camera steps back
+            if (key === 'editor' && body.classList.contains('vt-cam-large')) { setTimeout(function () { camSet(false); }, 0); }
         }
         label();
         paintToggles();
         var btn = $('btn_panel_toggle');
         if (btn) {
-            btn.classList.toggle('vt-on', open);
-            btn.title = (open ? 'Hide panel' : 'Show panel') + ' (Alt+P)';
+            setCls(btn, 'vt-on', open);
+            var bt = (open ? 'Hide panel' : 'Show panel') + ' (Alt+P)';
+            if (btn.title !== bt) { btn.title = bt; }
             btn.setAttribute('aria-pressed', open ? 'true' : 'false');
         }
 
@@ -72,84 +86,186 @@
         var nav = $('div_menu'), sp = $('menu_spacer');
         var navB = visible(nav) ? (visible(sp) ? sp.getBoundingClientRect().bottom
                                                 : nav.getBoundingClientRect().bottom) : 0;
-        root.style.setProperty('--vt-frame-nav-b', px(navB));
+        setVar('--vt-frame-nav-b', px(navB));
         // top band: bottom edge of the menu row
         var rm = $('row_menu');
         var top = rm ? rm.getBoundingClientRect().bottom : 0;
-        root.style.setProperty('--vt-frame-top', px(top));
         // notice band
-        var nb = top;
         var info = $('span_status_info');
         var row = info && info.closest ? info.closest('.vt-notice-row') : null;
+        // C frame 3: on a phone in portrait the status icons and the notice
+        // band are part of the top of the C (opaque, frame surface) — the
+        // right panel's row then hangs straight from it
+        if (m === 'sheet') {
+            var ri = $('row_icons');
+            if (visible(ri)) { top = Math.max(top, ri.getBoundingClientRect().bottom); }
+            if (row && visible(row)) { top = Math.max(top, row.getBoundingClientRect().bottom); }
+        }
+        setVar('--vt-frame-top', px(top));
+        var nb = top;
         if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
-        root.style.setProperty('--vt-frame-notice-b', px(nb));
+        setVar('--vt-frame-notice-b', px(nb));
         // bottom bar zone
         var bm = $('div_bottom_menu');
-        var bh = bm ? Math.max(0, window.innerHeight - bm.getBoundingClientRect().top) : 0;
-        root.style.setProperty('--vt-frame-bottom', px(bh));
+        var bh = bm ? Math.max(0, H - bm.getBoundingClientRect().top) : 0;
+        setVar('--vt-frame-bottom', px(bh));
         // left panel
         var occ = 0;
         if (open && !full && m !== 'sheet' && drawer) { occ = drawer.offsetWidth; }
-        root.style.setProperty('--vt-frame-left', px(occ));
+        setVar('--vt-frame-left', px(occ));
         // C frame (owner 2026-10-18): with the panel hidden a narrow SPINE
         // keeps the top and bottom bars joined — the frame stays a "C".
         var spine = (occ > 0) ? 0 : (m === 'sheet' ? SPINE_PHONE : SPINE);
         var cleft = occ > 0 ? occ : spine;
         if (open && m === 'sheet') { cleft = spine; }
-        root.style.setProperty('--vt-frame-spine', px(spine));
-        // bottom of the C's cavity: the bottom bar, or the top of the open
-        // phone sheet (the sheet is the bottom of the C rising)
-        var cb = bh;
-        if (open && m === 'sheet' && drawer) { cb = Math.max(bh, window.innerHeight - drawer.getBoundingClientRect().top); }
-        root.style.setProperty('--vt-frame-cbottom', px(cb));
-        root.style.setProperty('--vt-frame-cleft', px(cleft));
-        body.classList.toggle('vt-c-spine', spine > 0);
+        setVar('--vt-frame-spine', px(spine));
+        setVar('--vt-frame-cleft', px(cleft));
+        setCls(body, 'vt-c-spine', spine > 0);
         var dock = (m === 'dock') ? cleft : 0;
-        root.style.setProperty('--vt-frame-dock', px(dock));
-        // right panel (only when it sits in the map area, i.e. not on a phone)
+        setVar('--vt-frame-dock', px(dock));
+
+        // ---- C frame 3: the protrusions (docs/UI_LAYOUT.md) ---------------
+        // Their sizes come from CSS (log height, joystick size), their places
+        // from these variables; nothing here depends on the right panel's
+        // own placement, so the two scripts cannot chase each other.
+        var log = $('div_log_view');
+        var logVis = visible(log);
+        var logFull = logVis && log.classList.contains('log-expanded');
+        var lh = (logVis && !logFull) ? log.offsetHeight : 0;
+        setVar('--vt-frame-log-h', px(lh));
+        var joy = $('joy_view');
+        var joyOn = visible(joy);
+        setCls(body, 'vt-joy-on', joyOn);
+        var jw = joyOn ? joy.offsetWidth : 0;
+        // the small log rises from the bottom bar, from the back of the C;
+        // when the open panel leaves it too little room it runs under the
+        // panel instead (the panel then stands on it)
+        var logLeft = cleft;
+        var wide = lh > 0 && m !== 'sheet' && occ > 0 && (W - occ - jw) < LOG_MIN_W;
+        if (wide) { logLeft = 0; }
+        setCls(body, 'vt-log-wide', wide);
+        // the joystick stands on the bottom bar at the right edge, beside the
+        // small log — or ON the log when the two would not fit side by side
+        // (phone in portrait)
+        var joyOnLog = joyOn && lh > 0 && (W - logLeft - jw) < LOG_MIN_W;
+        setCls(body, 'vt-joy-on-log', joyOnLog);
+        setVar('--vt-frame-log-left', px(logLeft));
+        setVar('--vt-frame-log-right', px(joyOn && !joyOnLog ? jw : 0));
+        setVar('--vt-frame-joy-w', px(jw));
+        setVar('--vt-frame-joy-b', px(bh + (joyOnLog ? lh : 0)));
+        setVar('--vt-frame-ledge', px(bh + lh));       // top of the bottom bar + small log
+        setCls(body, 'vt-c-log', lh > 0);
+
+        // right panel: hangs from the top band at the right edge
         var rp = $('right_panel');
-        var rpw = 0, rpb = nb;
-        if (visible(rp)) {
+        var rpOn = visible(rp);
+        var rpw = 0, rpb = nb, rpFull = false;
+        if (rpOn) {
             var rr = rp.getBoundingClientRect();
             rpb = rr.bottom;
-            if (m !== 'sheet') { rpw = Math.max(0, window.innerWidth - rr.left); }
+            rpFull = !rp.classList.contains('compact') && !rp.classList.contains('narrow');
+            if (m !== 'sheet') { rpw = Math.max(0, W - rr.left); }
+            setVar('--vt-frame-rp-left', px(rr.left));
         }
-        root.style.setProperty('--vt-frame-rp-w', px(rpw));
-        root.style.setProperty('--vt-frame-rp-b', px(rpb));
-        // small log
-        var log = $('div_log_view');
-        var lh = (visible(log) && !log.classList.contains('log-expanded')) ? log.offsetHeight : 0;
-        root.style.setProperty('--vt-frame-log-h', px(lh));
-        // kolo 6: next to an open panel the small log can get too narrow
-        // (landscape phone: ~160 px). Then it spans the full width above the
-        // bottom bar and the panel ends above it instead.
-        var wide = lh > 0 && m !== 'sheet' && occ > 0 && (window.innerWidth - occ - rpw) < LOG_MIN_W;
-        body.classList.toggle('vt-log-wide', wide);
+        setCls(body, 'vt-c-rp', rpOn);
+        // an unfolded right panel on a low window (landscape phone) would be
+        // squeezed to a sliver above the stick: the stick then stands beside
+        // the panel's column instead, and the column runs down to the ledge
+        var joyBeside = joyOn && rpOn && rpFull && m !== 'sheet' &&
+            (H - (bh + (joyOnLog ? lh : 0)) - joy.offsetHeight - top) < JOY_BESIDE_MIN;
+        setCls(body, 'vt-joy-beside-rp', joyBeside);
+        setVar('--vt-frame-joy-r', px(joyBeside ? rpw : 0));
+        setVar('--vt-frame-rp-w', px(rpw));
+        setVar('--vt-frame-rp-b', px(rpb));
+        // the full log grows from the bottom bar into the hollow, beside the
+        // right panel / the joystick (never under them, never over the notices)
+        var flr = 0;
+        if (rpOn && m !== 'sheet') { flr = Math.max(flr, W - rp.getBoundingClientRect().left + 8); }
+        if (joyOn && m !== 'sheet') { flr = Math.max(flr, jw + 8); }   // phone: the stick stays on top of it
+        setVar('--vt-frame-logfull-r', px(flr));
+        setCls(body, 'vt-c-logfull', logFull);
+        setCls(body, 'vt-c-logfull-edge', logFull && flr === 0);
+
+        // bottom of the C's cavity at its back: the bottom bar + the small log,
+        // the top of the full log, or the top of the open phone sheet (the
+        // sheet is the bottom of the C rising)
+        var cb = bh + (logLeft <= cleft ? lh : 0);
+        if (logFull) { cb = Math.max(cb, H - log.getBoundingClientRect().top); }
+        if (open && m === 'sheet' && drawer) { cb = Math.max(bh, H - drawer.getBoundingClientRect().top); }
+        setVar('--vt-frame-cbottom', px(cb));
 
         // U1 kolo 6: joystick vs. the phone sheet — when the stick is on and
         // the sheet is open, the sheet leaves room above itself for the stick
         // and the stick sits right above the sheet (never under it)
-        var joy = $('joy_view');
-        var joyOn = visible(joy);
-        body.classList.toggle('vt-joy-on', joyOn);
         if (m === 'sheet' && open && joyOn && drawer) {
             // the free band ends at the notices AND the right panel's row
-            var avail = window.innerHeight - bh - Math.max(nb, rpb);
+            var avail = H - bh - Math.max(nb, rpb);
             var jh = joy.offsetHeight || 150;
-            root.style.setProperty('--vt-frame-sheet-max', px(Math.max(160, avail - jh - 24)));
-            root.style.setProperty('--vt-frame-sheet-h', px(drawer.offsetHeight));
+            setVar('--vt-frame-sheet-max', px(Math.max(160, avail - jh - 24)));
+            setVar('--vt-frame-sheet-h', px(drawer.offsetHeight));
         } else {
-            root.style.setProperty('--vt-frame-sheet-h', '0px');
+            setVar('--vt-frame-sheet-h', '0px');
         }
 
-        // the map canvas changes width when the docked panel opens/closes
-        if (dock !== lastDock) {
+        // ---- the large camera: part of the scheme, in the C's hollow -------
+        placeCamLarge(m, cleft, nb, rpb, rpw, rpFull, bh + lh, W, H);
+
+        // the map canvas changes size when the docked panel opens/closes or
+        // when it moves into / out of the right panel (large camera swap)
+        var mini = body.classList.contains('vt-map-mini');
+        if (dock !== lastDock || mini !== lastMini) {
             lastDock = dock;
+            lastMini = mini;
             if (resizeTimer) { clearTimeout(resizeTimer); }
             resizeTimer = setTimeout(function () {
                 window.dispatchEvent(new Event('resize'));
             }, 230);   // after the drawer's 0.2 s slide
         }
+        // the right panel hangs from the top band: re-place it when that moves
+        if (top !== lastTop) {
+            lastTop = top;
+            if (window.VtRightDock) { window.VtRightDock.place(); }
+        }
+    }
+
+    // Large camera geometry. With the map in the right panel (the swap) the
+    // camera takes the whole hollow (image centred, 4:3); otherwise it is the
+    // biggest 4:3 box anchored in the hollow's top-left corner at the back of
+    // the C (phone portrait: a band across the top, at most half the hollow),
+    // so the map stays visible beside / below it.
+    var STREAM_MAX_W = 640;
+    function placeCamLarge(m, cleft, nb, rpb, rpw, rpFull, ledge, W, H) {
+        var body = document.body;
+        if (!body.classList.contains('vt-cam-large')) { return; }
+        var mini = body.classList.contains('vt-map-mini');
+        var L = cleft, T = (m === 'sheet') ? Math.max(nb, rpb) : nb;
+        var R = (m !== 'sheet' && rpFull) ? rpw : 0;
+        var aw = Math.max(80, W - L - R), ah = Math.max(60, H - ledge - T);
+        if (m === 'sheet') { ah = Math.min(ah, Math.round((H - ledge - T) * 0.5)); }
+        var cw = aw, ch = Math.round(aw * 3 / 4);
+        if (ch > ah) { ch = ah; cw = Math.round(ah * 4 / 3); }
+        // with the map in the slot the camera's box fills the hollow left of
+        // the right panel (not under it: the map shows through the panel's
+        // window there), the image centred
+        var bw = mini ? aw : cw, bhh = mini ? ah : ch;
+        setVar('--vt-cam-ml', px(mini ? (aw - cw) / 2 : 0));
+        setVar('--vt-cam-l', px(L));
+        setVar('--vt-cam-t', px(T));
+        setVar('--vt-cam-w', px(bw));
+        setVar('--vt-cam-h', px(bhh));
+        setVar('--vt-cam-cw', px(cw));
+        setVar('--vt-cam-ch', px(ch));
+        // the stream: sharp but bounded (the canvas is scaled by CSS)
+        var cv = window.camera_view;
+        if (!cv || !cv.camViewer || !cv._big) { return; }
+        var sw = Math.min(cw, STREAM_MAX_W), sh = Math.round(sw * 3 / 4);
+        if (Math.abs((cv.camViewer.width || 0) - sw) < 8 && Math.abs((cv.camViewer.height || 0) - sh) < 8) { return; }
+        cv.camViewer.width = sw;
+        cv.camViewer.height = sh;
+        cv.camViewer.quality = 60;
+        var cnv = cv.camViewer.canvas || ($('div_camera_view') && $('div_camera_view').querySelector('canvas'));
+        if (cnv) { cnv.width = sw; cnv.height = sh; }
+        if (cv._active && typeof cv.reloadStream === 'function') { cv.reloadStream('large', true); }
     }
 
     function schedule() {
@@ -231,7 +347,10 @@
         };
         Object.keys(on).forEach(function (id) {
             var b = $(id);
-            if (b) { b.classList.toggle('vt-on', on[id]); b.setAttribute('aria-pressed', on[id] ? 'true' : 'false'); }
+            if (!b) { return; }
+            setCls(b, 'vt-on', on[id]);
+            var ap = on[id] ? 'true' : 'false';
+            if (b.getAttribute('aria-pressed') !== ap) { b.setAttribute('aria-pressed', ap); }
         });
     }
 
@@ -246,13 +365,27 @@
         sp.title = 'Show panel (Alt+P)';
         sp.addEventListener('click', function (e) { e.preventDefault(); togglePanel(); });
         document.body.appendChild(sp);
-        ['tl', 'bl'].forEach(function (k) {
+        // tl/bl: the back meets the top / the bottom; tr: the top band turns
+        // down into the right panel; jb: the joystick's foot on the bottom
+        // ledge; lr: the full log's foot on the bottom bar (C frame 3)
+        ['tl', 'bl', 'tr', 'jb', 'lr'].forEach(function (k) {
             var c = document.createElement('div');
             c.id = 'vt_c_' + k;
             c.className = 'vt-c-corner';
             c.setAttribute('aria-hidden', 'true');
             document.body.appendChild(c);
         });
+        // large camera: the map shrinks into the right panel's camera slot;
+        // this cover takes the clicks there (never a goal / marker click on
+        // the tiny map) and swaps back
+        var mm = document.createElement('button');
+        mm.type = 'button';
+        mm.id = 'vt_map_mini';
+        mm.title = 'Back to the map (Alt+C)';
+        mm.setAttribute('aria-label', 'Back to the map — small camera (Alt+C)');
+        mm.innerHTML = '<span><i class="la la-map"></i> Map</span>';
+        mm.addEventListener('click', function (e) { e.preventDefault(); camSet(false); });
+        document.body.appendChild(mm);
     }
 
     function init() {
@@ -281,6 +414,13 @@
             if (row) { ro.observe(row); }
         }
         document.addEventListener('keydown', function (ev) {
+            if (ev.altKey && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && ev.code === 'KeyC') {
+                var tg = ev.target && ev.target.tagName;
+                if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT') { return; }
+                ev.preventDefault();
+                camSet(!document.body.classList.contains('vt-cam-large'));
+                return;
+            }
             if (ev.altKey && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey &&
                 (ev.key === 'p' || ev.key === 'P' || ev.code === 'KeyP')) {
                 ev.preventDefault();
@@ -299,12 +439,51 @@
                 if (d && d.classList.contains('open')) { ev.preventDefault(); togglePanel(); }
             }
         });
+        hookCamera(0);
         // right_dock.js builds the right panel after load; re-measure then
         setTimeout(schedule, 500);
         setTimeout(schedule, 1500);
     }
 
-    window.VtFrame = {update: schedule, toggle: togglePanel, mode: mode};
+    // ------------------------------------------------ camera small / large
+    // Three states, all chosen in the right panel's Camera section (+ Alt+C):
+    //   hidden = the section folded (or the panel closed): no stream;
+    //   small  = live preview in the right panel's slot;
+    //   large  = the camera takes the C's hollow and the map moves into the
+    //            slot (desktop) / a band across the top of the hollow (phone).
+    // Large is remembered (vitulus_cam_large). The stream only runs while the
+    // camera is on screen (right_dock.js paintCam decides).
+    var LS_CAMLARGE = 'vitulus_cam_large';
+    function camSet(large) {
+        var body = document.body, cv = window.camera_view;
+        large = !!large;
+        lsSet(LS_CAMLARGE, large ? '1' : '0');
+        if (large && window.VtRightDock) { window.VtRightDock.reveal(); }   // open panel + unfold Camera
+        setCls(body, 'vt-cam-large', large);
+        if (!large) { setCls(body, 'vt-map-mini', false); }
+        update();                                   // geometry before the stream is sized
+        if (cv && typeof cv._applySize === 'function' && !!cv._big !== large) {
+            cv._big = large;
+            if (cv.camViewer && cv._active) { cv._applySize(); }
+        }
+        update();
+        if (window.VtRightDock) { window.VtRightDock.place(); }
+    }
+    // CameraView's own click on the view (zoom in / out) goes the same way
+    function hookCamera(tries) {
+        var cv = window.camera_view;
+        if (!cv || typeof cv.toggleSize !== 'function') {
+            if (tries < 40) { setTimeout(function () { hookCamera(tries + 1); }, 500); }
+            return;
+        }
+        if (cv.__vtHooked) { return; }
+        cv.__vtHooked = true;
+        cv.toggleSize = function () { camSet(!document.body.classList.contains('vt-cam-large')); };
+        if (lsGet(LS_CAMLARGE) === '1') { setTimeout(function () { camSet(true); }, 800); }
+    }
+
+    window.VtFrame = {update: schedule, toggle: togglePanel, mode: mode, camSet: camSet,
+                      camLarge: function () { return document.body.classList.contains('vt-cam-large'); }};
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 0); }); }
     else { setTimeout(init, 0); }
 })();
