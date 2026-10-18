@@ -5613,6 +5613,27 @@ class Mower {
             name : '/mower/set_motor_rpm',
             messageType : 'std_msgs/Int16'
         });
+        // Remembered height/RPM (vitulus_mower node_mower_prefs): the Set buttons
+        // go through /mower/pref/* (saved + sent to the mower; restored after the
+        // mower powers on). Until that node answers on /mower/preferences the
+        // buttons publish straight to the mower as before.
+        this.mower_pref_cut_height_topic = new ROSLIB.Topic({
+            ros : ros.ros,
+            name : '/mower/pref/set_cut_height',
+            messageType : 'std_msgs/Int16'
+        });
+        this.mower_pref_motor_rpm_topic = new ROSLIB.Topic({
+            ros : ros.ros,
+            name : '/mower/pref/set_motor_rpm',
+            messageType : 'std_msgs/Int16'
+        });
+        this.mower_preferences_topic = new ROSLIB.Topic({
+            ros : ros.ros,
+            name : '/mower/preferences',
+            messageType : 'std_msgs/String'
+        });
+        this.prefs = null;
+        this.div_mower_saved = document.getElementById("div_mower_saved");
         this.mower_set_calibrate_topic = new ROSLIB.Topic({
             ros : ros.ros,
             name : '/mower/set_calibrate',
@@ -5641,6 +5662,8 @@ class Mower {
         this.mower_set_dir_topic.advertise();
         this.mower_set_cut_height_topic.advertise();
         this.mower_set_motor_rpm_topic.advertise();
+        this.mower_pref_cut_height_topic.advertise();
+        this.mower_pref_motor_rpm_topic.advertise();
         this.mower_set_calibrate_topic.advertise();
         this.mower_set_home_topic.advertise();
         this.mower_set_motor_on_topic.advertise();
@@ -5723,17 +5746,42 @@ class Mower {
     }
 
     pub_mower_set_cut_height(value) {
+        value = parseInt(value, 10);
+        if (!isFinite(value)) { return; }
         let msg = new ROSLIB.Message({
             data: value
         });
-        this.mower_set_cut_height_topic.publish(msg);
+        (this.prefs ? this.mower_pref_cut_height_topic : this.mower_set_cut_height_topic).publish(msg);
     }
 
     pub_mower_set_motor_rpm(value) {
+        value = parseInt(value, 10);
+        if (!isFinite(value)) { return; }
         let msg = new ROSLIB.Message({
             data: value
         });
-        this.mower_set_motor_rpm_topic.publish(msg);
+        (this.prefs ? this.mower_pref_motor_rpm_topic : this.mower_set_motor_rpm_topic).publish(msg);
+    }
+
+    mower_preferences(message) {
+        let p = null;
+        try { p = JSON.parse(message.data); } catch (e) { p = null; }
+        this.prefs = (p && typeof p === 'object') ? p : {};
+        this.render_saved();
+    }
+
+    // "Saved: 40 mm · 2600 rpm" under the Height/RPM rows — shown even while
+    // the mower is off or silent (the robot keeps it in ~/.vitulus/mower).
+    render_saved() {
+        if (!this.div_mower_saved) { return; }
+        const p = this.prefs;
+        if (!p) { this.div_mower_saved.hidden = true; return; }
+        const h = (p.cut_height !== undefined && p.cut_height !== null) ? p.cut_height + ' mm' : vtT('cfg.mower.saved_none');
+        const r = (p.motor_rpm !== undefined && p.motor_rpm !== null) ? p.motor_rpm + ' rpm' : vtT('cfg.mower.saved_none');
+        this.div_mower_saved.textContent = vtT('cfg.mower.saved', {height: h, rpm: r});
+        this.div_mower_saved.hidden = false;
+        if (this.input_mower_cut_height && p.cut_height) { this.input_mower_cut_height.placeholder = String(p.cut_height); }
+        if (this.input_mower_rpm && p.motor_rpm) { this.input_mower_rpm.placeholder = String(p.motor_rpm); }
     }
 
     pub_mower_set_calibrate(value) {
@@ -7520,6 +7568,11 @@ window.initMapView = function () {
         mower.mower_status(message);
     });
 
+
+    mower.mower_preferences_topic.subscribe(function (message) {
+        mower.mower_preferences(message);
+    });
+    vtOnLang(function () { mower.render_saved(); });
 
     mower.mower_config_print_topic.subscribe(function (message) {
         mower.paragraph_mower_config.innerHTML = message.data;

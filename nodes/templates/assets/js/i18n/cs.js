@@ -1744,6 +1744,8 @@
     "cfg.mower.right": "Vpravo",
     "cfg.mower.height": "Výška",
     "cfg.mower.height_tip": "Výška nože v mm (od 20 do maxima žacího ústrojí)",
+    "cfg.mower.saved": "Uloženo: výška {height} · otáčky {rpm} — po zapnutí sekačky se znovu nastaví (nůž zůstane vypnutý)",
+    "cfg.mower.saved_none": "nenastaveno",
     "cfg.mower.home": "Domů",
     "cfg.mower.calib": "Kalibrace výšky",
     "cfg.mower.start_motor": "SPUSTIT MOTOR",

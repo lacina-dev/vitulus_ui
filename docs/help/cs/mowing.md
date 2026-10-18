@@ -7,7 +7,7 @@ icon: la-cut
 summary: Napájení sekačky, nůž, výška sekání a otáčky v Nastavení › Sekačka.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
+keywords: [sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
 ---
 # Sekací ústrojí
 
@@ -28,9 +28,15 @@ Programy si sekačku řídí samy. **Nastavení › Sekačka** slouží ke kontr
 | **Domů** | kalibrace výšky — žací ústrojí vyjede nahoru na doraz a vezme ho jako výchozí bod |
 | **SPUSTIT MOTOR / ZASTAVIT MOTOR** | roztočí / zastaví nůž |
 
-- Když se sekačka zapne, její řadič začíná od nuly: žací ústrojí vyjede nahoru (**Domů**),
-  žádané otáčky jsou výchozí hodnota uložená v řadiči a nůž zůstane stát. Výška ani otáčky
-  nastavené ručně vypnutí nepřežijí.
+- **Robot si pamatuje výšku a otáčky, které tu nastavíš** (i joystickem nebo na displeji
+  robota), přes vypnutí sekačky i restart robota. Řádek pod otáčkami ukazuje uložené hodnoty —
+  i když je sekačka vypnutá nebo neodpovídá.
+- Když se sekačka zapne, její řadič začíná od nuly: žací ústrojí vyjede nahoru (**Domů**) a nůž
+  zůstane stát. Jakmile sekačka hlásí READY, robot posune žací ústrojí na uloženou výšku a nastaví
+  uložené otáčky jako žádané. **Nůž nikdy nespustí** — to dál dělá jen **SPUSTIT MOTOR** nebo
+  program. Když běží program, nedělá to.
+- Výška a otáčky programu nebo zóny a zaparkování nože na maximum po sekání nebo při zastavení
+  platí jen pro tu chvíli — uložené hodnoty nemění.
 - Programy používají výšku sekání a otáčky zóny nebo programu ([Programy](programs.md)).
 - **Výška sekání je vždy v milimetrech** — tady, v zónách ([Editor mapy](map-editor.md)) i
   v programech; robot sám pracuje v mm. 45 mm = 4,5 cm. Maximum je horní poloha žacího ústrojí,

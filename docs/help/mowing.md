@@ -7,7 +7,7 @@ icon: la-cut
 summary: Mower power, the blade, cut height and RPM in Settings › Mower.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [mower, blade, knife, cut height, height, rpm, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
+keywords: [mower, blade, knife, cut height, height, rpm, remember, saved height, saved rpm, after power-off, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
 ---
 # Mowing unit
 
@@ -28,9 +28,15 @@ Programs drive the mower by themselves. **Settings › Mower** is for checking a
 | **Home** | height calibration — the deck drives up to its top stop and takes it as the reference |
 | **START MOTOR / STOP MOTOR** | starts / stops the blade |
 
+- **The robot remembers the height and RPM you set here** (also with the joystick or on the
+  robot's display), over a mower power-off and a robot restart. The line under RPM shows the
+  saved values — also while the mower is off or not answering.
 - When the mower powers on, its controller starts afresh: the deck drives up to the top
-  (Home), the RPM setpoint is the controller's stored default and the blade stays off. A height
-  or RPM you set by hand is not kept over a power-off.
+  (Home) and the blade stays off. Once the mower reports READY the robot moves the deck to the
+  saved height and sets the saved RPM as the setpoint. **It never starts the blade** — that is
+  still only **START MOTOR** or a program. It does not do it while a program is running.
+- A program's or zone's height and RPM, and parking the blade at the max after mowing or on a
+  stop, are only for that moment — they do not change the saved values.
 - Programs use the zone's or the program's cut height and RPM ([Programs](programs.md)).
 - **Cut height is always in millimetres** — here, in zones ([Map editor](map-editor.md)) and in
   programs; the robot itself works in mm. 45 mm = 4.5 cm. The max is the top position of the

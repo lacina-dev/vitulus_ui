@@ -1697,6 +1697,8 @@
     "cfg.mower.right": "Right",
     "cfg.mower.height": "Height",
     "cfg.mower.height_tip": "Blade height in mm (20 to the deck maximum)",
+    "cfg.mower.saved": "Saved: height {height} · RPM {rpm} — set again when the mower powers on (the blade stays off)",
+    "cfg.mower.saved_none": "not set",
     "cfg.mower.home": "Home",
     "cfg.mower.calib": "Height calibration",
     "cfg.mower.start_motor": "START MOTOR",
