@@ -13,7 +13,9 @@ keywords: [sekačka, mower, nůž, blade, knife, výška sekání, cut height, v
 
 Programy si sekačku řídí samy. **Nastavení › Sekačka** slouží ke kontrole a ručnímu ovládání.
 Když je sekačka zapnutá, pravý panel ukáže pod Ovládáním sekci **Sekačka**: v řádku s názvem čip
-stavu, tečku nože s otáčkami, výšku sekání a — jen když je horko — teplotu; kliknutím se rozbalí
+stavu, tečku nože s otáčkami, — jen když je horko — teplotu a tlačítka nože **▶ Start** (dvě
+klepnutí, jen ve stavu `READY`) / **■ Stop** (červené, když se nůž točí), totéž co START MOTOR /
+STOP MOTOR tady; kliknutím na název se rozbalí
 **Nůž**, **Výška** a **Teplota** (vždy, oranžová od 50 °C, červená od 60 °C) a běžící program
 ([Pravý panel](frame.md#pravý-panel)).
 

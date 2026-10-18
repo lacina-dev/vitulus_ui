@@ -407,12 +407,36 @@ body.rp-log-top #div_log_view {
 #right_panel .rp-sec:not(.folded) > .rp-sec-body { animation: rp-unfold 0.14s ease-out; }
 @keyframes rp-unfold { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #right_panel .rp-sec:not(.folded) > .rp-sec-body { animation: none; } }
-.rp-golink {
-    align-self: flex-end; margin-top: 2px; padding: 0 6px; height: 18px; line-height: 16px;
-    border: 1px solid var(--vt-edge-off, rgba(255,255,255,0.18)); border-radius: 4px;
-    background: transparent; color: var(--vt-accent, #0dcaf0); font-size: 10px; font-weight: 600;
+/* level 3: the detail icon in the head, right before the "?" — the same
+   quiet round button as the help (vt_help.css .vth-q) */
+.rp-dq {
+    position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0; margin-left: 2px;
+    border: 0 !important; border-radius: 50% !important; background: transparent;
+    color: var(--vt-muted); cursor: pointer;
 }
-.rp-golink:hover { background: rgba(13, 202, 240, 0.12); }
+.rp-dq:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.rp-dq:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; }
+/* the panel is narrow: the detail icon and the "?" next to it shrink to
+   22 px here (the same pair, the same look) so the head tokens keep room */
+#right_panel .rp-sec > h5 .rp-dq, #right_panel .rp-sec > h5 .vth-q {
+    position: relative; width: 22px; height: 22px; margin-left: 0; font-size: 12px;
+}
+.rp-odo { margin-left: 2px; }
+/* Mower head: Start ▶ / Stop ■ — green when a start is allowed, red while
+   a program runs, grey otherwise; "arm" = the first tap, tap again */
+.rp-mbtn {
+    position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 20px; padding: 0; margin-left: 2px;
+    border: 1px solid var(--vt-edge-off, rgba(255,255,255,0.18)); border-radius: 5px;
+    background: transparent; color: var(--vt-faint, #6c757d); font-size: 10px; line-height: 1; cursor: pointer;
+}
+.rp-mbtn:disabled { cursor: default; opacity: 0.55; }
+.rp-mbtn[data-state="ok"]  { border-color: var(--vt-ok); color: var(--vt-ok); }
+.rp-mbtn[data-state="ok"]:hover  { background: rgba(var(--vt-ok-rgb, 25, 135, 84), 0.18); }
+.rp-mbtn[data-state="arm"] { border-color: var(--vt-ok); background: var(--vt-ok); color: #fff; }
+.rp-mbtn[data-state="err"] { border-color: var(--vt-err); background: var(--vt-err); color: #fff; }
+.rp-mbtn[data-state="err"]:hover { filter: brightness(1.12); }
 /* Mower expand: three cells + the running program */
 .rp-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; width: 100%; }
 .rp-cell { display: flex; flex-direction: column; min-width: 0; padding: 2px 4px; border-radius: 4px;
@@ -434,7 +458,11 @@ body.rp-log-top #div_log_view {
 .rp-gq .vt-gx-cols { font-size: 10px; line-height: 1.3; }
 .rp-gq .vt-gx-col { font-variant-numeric: tabular-nums; }
 @media (pointer: coarse) {
-    .rp-golink { height: 30px; line-height: 28px; font-size: 12px; padding: 0 10px; }
+    /* phone / touch: visually the same, the hit area grows to >= 40 px */
+    .rp-dq::before, .rp-mbtn::before, #right_panel .rp-sec > h5 .vth-q::before {
+        content: ''; position: absolute; inset: -9px -5px;
+    }
+    .rp-mbtn { width: 30px; height: 26px; font-size: 12px; margin-left: 4px; }
     .rp-cell-k { font-size: 10px; } .rp-cell-v { font-size: 13px; }
     .rp-trk1-t, .rp-mprog, .rp-gq .vt-gx-cols { font-size: 11px; }
 }

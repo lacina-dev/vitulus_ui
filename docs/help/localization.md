@@ -24,14 +24,16 @@ The robot combines several sources into one position (the *pose*):
 
 ## Read the state (right panel › Navi)
 
-![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi, expanded: 1 Pose chip · 2 heading source · 3 odometry chips VO / Li / Wh / FIX / PROB / ANC · 4 tracker line · 5 Detail ›")
+![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi, expanded: 1 Pose chip · 2 heading source · 3 odometry dot · 4 detail icon · 5 odometry chips VO / Li / Wh / FIX / PROB / ANC · 6 tracker line")
 
 The Navi title row carries the two most important chips — who owns the pose (1) and the heading
-source (2); the row below holds the odometry chips (3). Colour is the message (green fine, orange
+source (2) — and one odometry dot (3): green = VO / Li / Wh run, orange = one is degraded, red =
+one is lost, grey = paused in the dock. Click the title to expand the odometry chips (5) and one
+tracker line (6). Colour is the message (green fine, orange
 not exact yet, red bad, grey off); hover or long-press a chip for what it is and its number (the
-covariance of an odometry, the correction age behind `FIX`, the age of the anchor). Click the
-title to expand one tracker line (4) and **Detail ›** (5), which opens the left panel **Map › Loc
-› Localization detail**: pose & odometry (every chip in words, the drift budget, the last
+covariance of an odometry, the correction age behind `FIX`, the age of the anchor). The small
+detail icon in the title row (4, right before **?**) opens the left panel **Map › Loc ›
+Localization detail**: pose & odometry (every chip in words, the drift budget, the last
 changes of who held the pose), the lidar tracker lines, RtabMap and both GNSS receivers.
 
 The first chip (1) says **who owns the pose now**:
@@ -88,7 +90,7 @@ below), the satellites the position receiver uses (green from 12) and a dot for 
 corrections — green < 2 s, orange < 10 s, red older or none; the tooltips have the numbers and
 the row is tinted by the worse receiver. Click the title to expand the two tiles **Position |
 Heading** with the quick numbers (fix, satellites used / visible, accuracy, correction age);
-**Detail ›** under them opens the full card — both receivers side by side — in the left panel,
+the detail icon in the title row (before **?**) opens the full card — both receivers side by side — in the left panel,
 **Map › Loc › Localization detail › GNSS receivers**:
 
 - **Position** — the RTK rover. It gets its corrections (RTCM) from the **base station**.

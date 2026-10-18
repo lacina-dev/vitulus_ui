@@ -13,8 +13,9 @@ keywords: [mower, blade, knife, cut height, height, rpm, remember, saved height,
 
 Programs drive the mower by themselves. **Settings › Mower** is for checking and manual control.
 While the mower is switched on, the right panel shows a **Mower** section under Controls: the
-title row has the status chip, a blade dot with the RPM, the cut height and — only when hot — the
-temperature; click it to expand **Blade**, **Height** and **Temp** (always, orange from 50 °C, red
+title row has the status chip, a blade dot with the RPM, — only when hot — the temperature and
+the blade buttons **▶ Start** (two taps, only while `READY`) / **■ Stop** (red while the blade
+spins), the same as START MOTOR / STOP MOTOR here; click the title to expand **Blade**, **Height** and **Temp** (always, orange from 50 °C, red
 from 60 °C) and the running program
 ([The right panel](frame.md#the-right-panel)).
 

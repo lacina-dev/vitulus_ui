@@ -62,8 +62,8 @@
        holds only what does not fit there. Long texts live in the LEFT
        panel › Map › Loc (GNSS card, tracker lines, RtabMap — buildLocCard).
          Controls: head ⚡ battery % · motors; body speed + Dock/Undock/Stop
-         Mower:    head only — state chip · blade dot + rpm · height · temp if hot
-         Navi:     head pose owner + heading source; body VO Li Wh FIX PROB ANC
+         Mower:    head — state chip · blade dot + rpm · temp if hot · blade Start / Stop
+         Navi:     head pose owner + heading source + odometry dot; expand VO Li Wh FIX PROB ANC
          GNSS:     head only — Position · Heading fix · satellites · correction
                    age dot · › (opens the left panel's GNSS card)
          Camera:   head stream dot + Off / S / L; body the picture */
@@ -76,23 +76,25 @@
          2. in-place expand (caret, folded by default, remembered per
             section in localStorage `vitulus_rightpanel_x_<id>`) = the quick
             current numbers,
-         3. "Detail ›" at the bottom of the expand = the left panel › Map ›
-            Loc "Localization detail" (Navi, GNSS).
-         Mower:  expand = Blade · Height · Temp cells + the running program
-         Navi:   the dot row stays under the head (sub); expand = tracker
-                 one-liner + Detail ›
-         GNSS:   expand = Position | Heading, first rows only + Detail › */
+         3. a small detail icon in the head, right before the "?" = the
+            left panel › Map › Loc "Localization detail" (Navi, GNSS).
+         Mower:  head blade Start / Stop; expand = Blade · Height · Temp cells +
+                 the running program
+         Navi:   expand = the VO Li Wh FIX PROB ANC row + tracker one-liner
+         GNSS:   expand = Position | Heading, first rows only */
     var SECTIONS = [
         {id: 'drive', title: 'rdock.sec.drive',
          line: ['div_status_speed', 'div_status_speed-1'],
          movees: ['div_status_speed-2'], collapsible: true, drive: true},
         {id: 'mower', title: 'rdock.sec.mower', mower: true, collapsible: true, folded: true,
          lsKey: 'vitulus_rightpanel_x_mower'},
-        {id: 'state', title: 'rdock.sec.state', sub: ['div_odom'],
+        /* 2026-10-18 late: the VO Li Wh FIX PROB ANC row lives in the expand,
+           the head keeps owner · heading · one odometry dot */
+        {id: 'state', title: 'rdock.sec.state', movees: ['div_odom'], detail: 'loc_nav_box',
          collapsible: true, folded: true, lsKey: 'vitulus_rightpanel_x_navi', navi: true},
         /* the old /gnss/fix rows (#div_gnss) stay hidden here: map_view.js
            still writes into them */
-        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss'], gsum: true,
+        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss'], gsum: true, detail: 'loc_gnss_rx_box',
          collapsible: true, folded: true, lsKey: 'vitulus_rightpanel_x_gnss'},
         {id: 'camera', title: 'rdock.sec.camera', movees: [], camera: true, collapsible: true}
     ];
@@ -329,6 +331,7 @@
             if (def.gsum) { buildGnssSum(sec, h, box); }
             var lastCaret = h.querySelector('.rp-caret');
             if (lastCaret) { h.appendChild(lastCaret); }   // the caret stays last
+            if (def.detail) { headDetail(h, def.detail); } // … right before "?" + caret
             if (def.camera) {
                 /* stream state = one dot (green live, amber starting /
                    waiting, grey off / paused); the word is its tooltip */
@@ -433,14 +436,29 @@
 
     /* Navi head: who owns the pose (chip) + heading source SAT / IMU; the
        body keeps one row of odometry chips VO Li Wh FIX PROB ANC */
+    var ODO_RANK = {off: 0, ok: 1, warn: 2, err: 3};
     function buildNaviHead(h, ht) {
         var w = headTokens(h);
         ['span_odom_drive', 'span_odom_hdg'].forEach(function (id) {
             var e = byId(id);
             if (e) { e.classList.add('vt-chip-sm'); w.appendChild(e); }
         });
-        /* the title says what the section is + who holds the pose now */
+        /* one dot for the odometry sources VO / Li / Wh (the chips moved
+           into the expand): red if one is lost, amber if one is degraded,
+           green if they run; grey = no data / paused in the dock */
+        var odo = tdot(w, 'rp-odo');
+        odo.id = 'rp_odo_dot';
         var paint = function () {
+            var worst = 'off', tips = [];
+            [['span_odom_vo', 'VO'], ['span_odom_licp', 'Li'], ['span_odom_wheel', 'Wh']].forEach(function (d) {
+                var e = byId(d[0]);
+                if (!e) { return; }
+                var st = e.dataset.state || 'off';
+                if ((ODO_RANK[st] || 0) > (ODO_RANK[worst] || 0)) { worst = st; }
+                tips.push(e.title || d[1]);
+            });
+            if (odo.dataset.state !== worst) { odo.dataset.state = worst; }
+            setTip(odo, t('rdock.odo.tip', {s: t('rdock.odo.' + worst)}) + (tips.length ? '\n' + tips.join('\n') : ''));
             var o = byId('span_odom_drive'), hd = byId('span_odom_hdg');
             setTip(ht, t('rdock.navi.tip', {
                 o: o ? ((o.textContent || '').trim() || '—') : '—',
@@ -448,20 +466,25 @@
         };
         paint();
         relang.push(paint);
-        setInterval(paint, 2000);
+        setInterval(paint, 1000);
     }
 
-    /* the link at the bottom of an expand: level 3 = the left panel */
-    function detailLink(box, target) {
-        var b = el('button', 'rp-golink', box);
+    /* level 3 = the left panel: a small icon in the section head, right
+       before the "?" vt_help.js puts before the caret (owner 2026-10-18:
+       "less conspicuous — a small icon up in the header next to the help").
+       Not .vth-q: vt_help.js looks for that class to place its "?". */
+    var DETAIL_SVG = '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">' +
+        '<path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z"/>' +
+        '<path d="M3 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>';
+    function headDetail(h, target) {
+        var b = el('button', 'rp-dq');
         b.type = 'button';
-        var paint = function () {
-            b.textContent = t('rdock.detail') + ' ›';
-            setTip(b, t('rdock.detail.tip'));
-        };
+        b.innerHTML = DETAIL_SVG;
+        var paint = function () { setTip(b, t('rdock.detail.tip')); };
         paint();
         relang.push(paint);
-        b.addEventListener('click', function (ev) { ev.stopPropagation(); openLocTab(target); });
+        b.addEventListener('click', function (ev) { ev.stopPropagation(); ev.preventDefault(); openLocTab(target); });
+        h.insertBefore(b, h.querySelector('.vth-q') || h.querySelector('.rp-caret') || null);
         return b;
     }
 
@@ -475,7 +498,6 @@
         var chip = el('span', 'vt-chip vt-chip-sm', line);
         chip.dataset.state = 'off';
         var txt = el('span', 'rp-trk1-t', line);
-        detailLink(box, 'loc_nav_box');
         var paint = function () {
             if (sec.classList.contains('folded')) { return; }
             var st = document.getElementById('span_trk_state');
@@ -534,10 +556,9 @@
         blade.id = 'rp_mower_blade';
         var rpm = el('span', 'rp-tv', w);
         rpm.id = 'rp_mower_rpm';
-        var hgt = el('span', 'rp-tv', w);
-        hgt.id = 'rp_mower_height';
         var tmp = el('span', 'rp-tv', w);
         tmp.id = 'rp_mower_temp';
+        var ctl = buildMowerCtl(w);            // Start / Stop (the height is in the expand)
         neutralize(src);
         box.appendChild(src);                 // hidden (CSS), the source + visibility signal
         /* the panel is not in the document yet while it is being built:
@@ -560,8 +581,6 @@
             setTip(blade, t(r ? 'rdock.mower.blade_on' : 'rdock.mower.blade_off'));
             rpm.textContent = r ? (r >= 1000 ? (r / 1000).toFixed(1) + 'k' : String(Math.round(r))) : '';
             setTip(rpm, t('rdock.mower.blade') + ': ' + (r != null ? Math.round(r) + ' rpm' : '—'));
-            hgt.textContent = hh != null ? '↕' + Math.round(hh) : '';
-            setTip(hgt, t('rdock.mower.height') + ': ' + (hh != null ? Math.round(hh) + ' mm' : '—'));
             var hot = tc != null && tc >= MOWER_HOT;
             tmp.textContent = hot ? Math.round(tc) + '°' : '';
             tmp.style.display = hot ? '' : 'none';
@@ -579,6 +598,7 @@
             if (cT.textContent !== tt) { cT.textContent = tt; }
             cT.dataset.state = tc == null ? 'off' : (tc >= MOWER_TOO_HOT ? 'err' : (tc >= MOWER_HOT ? 'warn' : 'ok'));
             setTip(cT.parentNode, t('rdock.mower.temp.tip', {a: MOWER_HOT, b: MOWER_TOO_HOT}));
+            ctl({on: on, status: on ? txt.toUpperCase() : '', rpm: r || 0});
             var pg = window.programs, pn = '', ps = '';
             try {
                 if (pg && pg.mission_program && pg._isRunning && pg._isRunning(pg.mission_program)) {
@@ -604,6 +624,68 @@
             childList: true, characterData: true, subtree: true});
         setInterval(paint, 2000);              // the running program
         return 1;
+    }
+
+    /* Start / Stop in the Mower head = the BLADE (owner 2026-10-18: "start
+       / stop buttons" in the head, the blade, not the program) — exactly
+       what Settings › Mower START MOTOR / STOP MOTOR do (map_view.js
+       Mower): mower.pub_mower_set_motor_on(true / false) → /mower/set_motor_on.
+       Start only while the mower reports READY (powered, idle, blade
+       stopped); the head is clickable and the button small, so Start arms on
+       the first tap (3 s) and switches the blade on with the second. Stop
+       acts at once whenever the blade turns (rpm > 0 or RUN). The section —
+       and so the buttons — only shows while the mower is on (not OFF/UNK). */
+    function buildMowerCtl(w) {
+        var bs = el('button', 'rp-mbtn rp-mstart', w);
+        bs.type = 'button';
+        bs.id = 'rp_mower_start';
+        bs.textContent = '▶';
+        var bx = el('button', 'rp-mbtn rp-mstop', w);
+        bx.type = 'button';
+        bx.id = 'rp_mower_stop';
+        bx.textContent = '■';
+        var armed = 0, armTimer = null, cur = {on: false, status: '', rpm: 0};
+        var api = function () {
+            var m = window.mower;
+            return m && typeof m.pub_mower_set_motor_on === 'function' ? m : null;
+        };
+        var spinning = function () { return !!(cur.on && (cur.rpm > 0 || cur.status === 'RUN')); };
+        var canStart = function () { return !!(api() && cur.on && cur.status === 'READY' && !spinning()); };
+        var disarm = function () { armed = 0; if (armTimer) { clearTimeout(armTimer); armTimer = null; } };
+        var paint = function (st) {
+            if (st) { cur = st; }
+            var ok = canStart(), run = spinning();
+            if (!ok && armed) { disarm(); }
+            bs.disabled = !ok;
+            bs.dataset.state = ok ? (armed ? 'arm' : 'ok') : 'off';
+            setTip(bs, ok ? t(armed ? 'rdock.mower.start.arm' : 'rdock.mower.start.tip') :
+                (run ? t('rdock.mower.start.busy') : t('rdock.mower.start.notready', {s: cur.status || '—'})));
+            bx.disabled = !(run && api());
+            bx.dataset.state = run ? 'err' : 'off';
+            setTip(bx, t(run ? 'rdock.mower.stop.tip' : 'rdock.mower.stop.idle'));
+        };
+        bs.addEventListener('click', function (ev) {
+            ev.stopPropagation(); ev.preventDefault();
+            if (!canStart()) { paint(); return; }
+            if (!armed) {
+                armed = 1;
+                armTimer = setTimeout(function () { disarm(); paint(); }, 3000);
+                paint();
+                return;
+            }
+            disarm();
+            try { api().pub_mower_set_motor_on(true); } catch (e) { console.warn('[right_dock] blade on failed:', e); }
+            paint();
+        });
+        bx.addEventListener('click', function (ev) {
+            ev.stopPropagation(); ev.preventDefault();
+            var m = api();
+            if (!m) { paint(); return; }
+            try { m.pub_mower_set_motor_on(false); } catch (e) { console.warn('[right_dock] blade off failed:', e); }
+            paint();
+        });
+        relang.push(function () { paint(); });
+        return paint;
     }
 
     // ------------------------------------------------------- GNSS souhrn
@@ -645,7 +727,6 @@
         var cd = tdot(wrap, 'rp-corr');
         /* level 2: Position | Heading, the quick rows only (GnssRx.quick) */
         var quick = el('div', 'rp-gq', box);
-        detailLink(box, 'loc_gnss_rx_box');
         var lastQ = '';
         var paintQ = function () {
             if (sec.classList.contains('folded') || !window.gnss_rx || !window.gnss_rx.quick) { return; }

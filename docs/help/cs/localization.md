@@ -23,13 +23,15 @@ Robot skládá jednu polohu (*pose*) z několika zdrojů:
 
 ## Jak číst stav (pravý panel › Navi)
 
-![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi rozbalené: 1 čip Poloha · 2 zdroj kurzu · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC · 4 řádek trackeru · 5 Detail ›")
+![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi rozbalené: 1 čip Poloha · 2 zdroj kurzu · 3 tečka odometrie · 4 ikona detailu · 5 čipy odometrie VO / Li / Wh / FIX / PROB / ANC · 6 řádek trackeru")
 
-Řádek s názvem Navi nese dva nejdůležitější čipy — kdo drží polohu (1) a zdroj kurzu (2); řádek
-pod ním čipy odometrie (3). Zprávou je barva (zelená v pořádku, oranžová ještě nepřesné, červená
+Řádek s názvem Navi nese dva nejdůležitější čipy — kdo drží polohu (1) a zdroj kurzu (2) — a jednu
+tečku odometrie (3): zelená = VO / Li / Wh běží, oranžová = jedna je zhoršená, červená = jedna je
+ztracená, šedá = pozastavené v doku. Kliknutí na název rozbalí čipy odometrie (5) a jeden řádek
+trackeru (6). Zprávou je barva (zelená v pořádku, oranžová ještě nepřesné, červená
 špatně, šedá vypnuto); najetí myší nebo dlouhý stisk čipu řekne, co to je, a jeho číslo (kovarianci
-odometrie, stáří korekcí za `FIX`, stáří kotvy). Kliknutí na název rozbalí jeden řádek trackeru (4)
-a **Detail ›** (5), který otevře levý panel **Mapa › Loc › Detail lokalizace**: poloha a odometrie
+odometrie, stáří korekcí za `FIX`, stáří kotvy). Malá ikona detailu v řádku s názvem (4, hned
+před **?**) otevře levý panel **Mapa › Loc › Detail lokalizace**: poloha a odometrie
 (každý čip slovy, využitý rozpočet driftu, poslední změny toho, kdo držel polohu), řádky
 lidarového trackeru, RtabMap a oba přijímače GNSS.
 
@@ -85,7 +87,7 @@ fix Kurzu (`RTK` / `FLT` float / `DGN` DGNSS / `3D` / `NO`, barvy jako níže), 
 pozičním přijímačem (zeleně od 12) a tečka stáří jeho korekcí — zelená < 2 s, oranžová < 10 s,
 červená starší nebo žádné; čísla jsou v popiscích a nádech řádku je podle horšího přijímače.
 Kliknutí na název rozbalí dvě dlaždice **Poloha | Kurz** s rychlými čísly (fix, satelity použité
-/ viditelné, přesnost, stáří korekcí); **Detail ›** pod nimi otevře celou kartu — oba přijímače
+/ viditelné, přesnost, stáří korekcí); ikona detailu v řádku s názvem (před **?**) otevře celou kartu — oba přijímače
 vedle sebe — v levém panelu, **Mapa › Loc › Detail lokalizace › Přijímače GNSS**:
 
 - **Poloha** — RTK rover. Korekce (RTCM) dostává ze **základnové stanice**.
