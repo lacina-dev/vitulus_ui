@@ -580,7 +580,7 @@
             camAsked = camAsked || Date.now();
         }
         if (camState) {
-            var st = !on ? 'starting' : (frames() ? 'large' : 'waiting for signal');
+            var st = !on ? 'starting' : (frames() ? 'large' : 'waiting');
             if (camState.textContent !== st) { camState.textContent = st; }
         }
         var slotOk = !narrow && !compact && !folded;
@@ -631,7 +631,7 @@
 
         if (camState) {
             camState.textContent = !on ? (autoPaused ? 'paused' : 'off')
-                : big ? 'large' : (frames() ? 'live' : 'waiting for signal');
+                : big ? 'large' : (frames() ? 'live' : 'waiting');
         }
         slot.style.display = eligible ? 'block' : 'none';
         slot.classList.toggle('idle', !on);

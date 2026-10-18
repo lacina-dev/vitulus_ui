@@ -121,8 +121,12 @@ with no internet access.
 
 `assets/js/vt_frame.js` + the "frame" section of `vt_panel.css` hold the
 layout of the whole app: top bar (navbar + menu band + notice band), bottom
-bar, the left panel and the map between them, with fixed places for the right
-status panel, the log and the joystick. Modes: `vt-m-dock` (PC: the panel is a
+bar, the left panel and the map between them. Top bar, left column and bottom
+bar form one "C" open towards the map; the right status panel (hangs from the
+top bar), the log (rises from the bottom bar) and the joystick (stands on the
+bottom bar at the right edge) are protrusions of that C, and the large camera
+takes the C's hollow while the map moves into the right panel (Camera Off / S /
+L, **Alt+C**). Modes: `vt-m-dock` (PC: the panel is a
 docked column and the map canvas narrows), `vt-m-overlay` (landscape phone /
 small tablet: column over the map), `vt-m-sheet` (phone: bottom sheet). The
 panel can be hidden completely (◧ in the menu band, **Alt+P**, ✕); the log

@@ -1663,3 +1663,7 @@ html body.vt-frame.vt-map-mini #vt_map_mini {
     font: 600 11px/16px var(--vt-font);
 }
 #vt_map_mini:hover > span, #vt_map_mini:focus-visible > span { background: rgba(var(--vt-accent-rgb), 0.85); }
+/* the camera head keeps one line: state text shrinks, the switch never wraps */
+#right_panel .rp-sec[data-sec="camera"] > h5 { flex-wrap: nowrap; min-width: 0; }
+#right_panel .rp-sec[data-sec="camera"] .rp-state { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-cam-seg { flex: 0 0 auto; }

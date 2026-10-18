@@ -1,8 +1,8 @@
-# Rám aplikace a rozložení (U1, kolo 5)
+# Rám aplikace a rozložení (U1 kolo 5, U3 rám C3)
 
 Jeden **rám** drží všechny oblasti UI: horní lišta (navbar + pás menu + pás
 hlášek), spodní lišta, levý panel (šuplík) a mezi nimi mapa. Pravý stavový
-panel, log a joystick žijí uvnitř plochy mapy na pevných místech. Řídí to
+panel, log, joystick a velká kamera jsou **výběžky rámu** (C frame 3, níže). Řídí to
 `assets/js/vt_frame.js` (režim, CSS proměnné rámu) a sekce „frame“ ve
 `assets/css/vt_panel.css`.
 
@@ -21,7 +21,37 @@ vlastní rámečky; aktivní stav = jemná výplň + hrana akcentu směrem k map
 | panel skrytý | úzký hřbet 12 px (telefon 6 px) `#vt_c_spine`, klik = otevře panel; na PC se mapa odsune za hřbet |
 | telefon na výšku, sheet otevřený | sheet je spodní část C, která vystoupala; hřbet končí na sheetu, zaoblený roh dutiny sedí nad sheetem |
 
-Pravý stavový panel, joystick, log a hlášky jsou uvnitř dutiny.
+Hlášky jsou uvnitř dutiny (PC, na šířku) nebo v horní liště (telefon na výšku).
+
+### Výběžky rámu (C frame 3, owner 2026-10-18)
+
+Pravý panel, log a joystick patří do obvodové linky C: stejná plocha
+(`--vt-frame-bg`), žádný vlastní rámeček ani stín; u okraje stránky ostré
+rohy, kde končí v dutině konvexně zaoblené, kde vystupují z rámu konkávní roh
+(`#vt_c_tr`, `#vt_c_jb`, `#vt_c_lr`). Bez rozbaleného čehokoli čte celek jako C
+(pravá strana převážně otevřená); rozbalené panely čelní stranu částečně
+uzavřou.
+
+| Výběžek | Kde | Rohy |
+|---|---|---|
+| Pravý stavový panel | visí z horní lišty (bez mezery) podél pravé hrany; končí 14 px nad spodní lištou / malým logem / joystickem (otevřená čelní strana) | konkávní vlevo nahoře (`#vt_c_tr`), konvexní vlevo dole |
+| Malý log | vyrůstá ze spodní lišty od hřbetu C po joystick / pravou hranu; tlačítko Expand uvnitř pruhu vpravo nahoře | roh hřbetu `#vt_c_bl` sedí nad logem |
+| Celý log | roste ze spodní lišty do dutiny pod pásem hlášek, vedle pravého panelu / joysticku (8 px mezera) | konvexní vpravo nahoře, konkávní pata vpravo (`#vt_c_lr`) |
+| Joystick | stojí na spodní liště u pravé hrany vedle malého logu; když by se vedle sebe nevešly (< 420 px na log), stojí NA logu (telefon na výšku); když by rozbalenému pravému panelu nad ním zbylo < 240 px (telefon na šířku), stojí vedle sloupce pravého panelu a panel sahá až k logu | konvexní vlevo nahoře, konkávní pata vlevo (`#vt_c_jb`) |
+| Levý panel s logem | když vedle otevřeného panelu zbývá logu < 420 px, log vede pod panelem od levé hrany a panel stojí na něm (`vt-log-wide`) | — |
+
+### Kamera (C frame 3)
+
+Přepínač **Off / S / L** v hlavičce sekce Camera pravého panelu, **Alt+C**
+(small ↔ large), klik na obraz (zoom). Large si stav pamatuje
+(`vitulus_cam_large`). Stream běží jen když je kamera na obrazovce.
+
+| Stav | PC / na šířku | Telefon na výšku |
+|---|---|---|
+| Off | sekce Camera sbalená nebo pravý panel zavřený — stream stojí | totéž (rozbalený řádek → sekce) |
+| Small | živý náhled ve slotu pravého panelu | v rozbaleném pravém panelu |
+| Large | kamera vyplní dutinu C (obraz 4:3 vycentrovaný, od pásu hlášek po spodní část rámu, vlevo od pravého panelu); **mapa jde do slotu pravého panelu** (okno vyříznuté maskou) — klik na malou mapu = zpět na small (žádný omylem odeslaný cíl). Joystick a hlášky zůstávají nad ní / mimo ni. Otevření editoru mapy vrátí small. Sbalený pravý panel (telefon na šířku): kamera 4:3 v levém horním rohu dutiny, mapa vedle. | pás přes horní část dutiny (pod řádkem pravého panelu, nejvýš ½ dutiny), mapa pod ním; tlačítko kamery ve sbaleném řádku pravého panelu přepíná large / vypnuto |
+| Panel ustoupí (sheet, celý drawer) | — | velká kamera se pozastaví a vrátí se s panelem; zavření panelu / sbalení sekce = vypnuto |
 
 ### Spodní lišta (část C)
 
@@ -53,14 +83,15 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Oblast | Panel zobrazený | Panel skrytý |
 |---|---|---|
 | Horní lišta | navbar 42 px + pás menu, celá šířka | totéž |
-| Hlášky (`#span_status_info`) | vlastní pás pod menu, vycentrovaný nad **mapou** (vpravo od panelu) | vycentrovaný přes celou šířku |
+| Hlášky (`#span_status_info`) | vlastní pás pod menu, vycentrovaný mezi levým a pravým panelem | vycentrovaný mezi hřbetem a pravým panelem |
 | Levý panel | sloupec 480 px od pásu menu ke spodní liště, sdílené hrany, bez stínu | — |
 | Mapa | vpravo od panelu (plátno se zúží) | celá plocha mezi lištami |
-| Pravý stavový panel | vpravo nahoře v ploše mapy pod pásem hlášek | totéž |
-| Log malý | pruh nad spodní lištou v ploše mapy (od panelu po pravý panel) | od levé hrany po pravý panel |
-| Log celý | celá plocha mapy pod hláškami, vlevo končí u panelu, vpravo u pravého panelu | celá šířka po pravý panel |
+| Pravý stavový panel | výběžek z horní lišty u pravé hrany (hned pod pásem menu), konec nad logem / joystickem | totéž |
+| Log malý | výběžek spodní lišty od panelu po joystick (nebo pravou hranu) | od hřbetu po joystick / pravou hranu |
+| Log celý | ze spodní lišty do dutiny pod hlášky, vlevo od panelu, vpravo končí před pravým panelem / joystickem | od hřbetu, vpravo před pravým panelem / joystickem |
 | Log skrytý | — (tlačítko ≡ ve spodní liště) | — |
-| Joystick | vpravo dole v ploše mapy, nad malým logem, vedle pravého panelu | totéž |
+| Joystick | stojí na spodní liště u pravé hrany vedle malého logu | totéž |
+| Kamera large | dutina vlevo od pravého panelu, mapa ve slotu pravého panelu | totéž |
 | Spodní lišta | celá šířka | totéž |
 
 ### Telefon na šířku / malý tablet (`vt-m-overlay`)
@@ -71,23 +102,25 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Hlášky | pás pod menu, vycentrovaný vpravo od panelu | přes celou šířku |
 | Levý panel | sloupec přes mapu, min(420 px, 52 % šířky), lícuje s lištami, stín vpravo | — |
 | Mapa | celá plocha (panel ji částečně kryje) | celá plocha |
-| Pravý stavový panel | **sbalený řádek** (mapa · Pose · GNSS · baterie · ▾) jako na výšku; joystick neodsouvá | totéž |
-| Log malý | když vpravo od panelu zbývá ≥ 420 px: pruh vpravo od panelu; jinak (typicky telefon na šířku) **přes celou šířku nad spodní lištou a panel končí nad ním** (`vt-log-wide`) | celá šířka po pravý panel |
-| Log celý | plocha vpravo od panelu, pod hláškami, nad spodní lištou | celá šířka po pravý panel |
-| Joystick | vpravo dole, nad malým logem | totéž |
+| Pravý stavový panel | **sbalený řádek** (mapa · Pose · GNSS · baterie · kamera · ▾) visí z pásu menu u pravé hrany; rozbalený = sloupec, joystick pak stojí vedle něj | totéž |
+| Log malý | když vpravo od panelu zbývá ≥ 420 px (bez joysticku): pruh vpravo od panelu; jinak **od levé hrany po joystick a panel stojí na něm** (`vt-log-wide`) | od hřbetu po joystick |
+| Log celý | plocha vpravo od panelu, pod hláškami, ze spodní lišty, před joystickem | od hřbetu, před joystickem / pravým panelem |
+| Joystick | na spodní liště u pravé hrany vedle logu (s rozbaleným pravým panelem vedle jeho sloupce) | totéž |
+| Kamera large | se sbaleným pravým panelem: 4:3 v levém horním rohu dutiny, mapa vedle | 4:3 v levém horním rohu dutiny |
 
 ### Telefon na výšku (`vt-m-sheet`)
 
 | Oblast | Panel zobrazený (sheet) | Panel skrytý |
 |---|---|---|
 | Horní lišta | navbar + pás menu | totéž |
-| Hlášky | pás pod ikonkami, celá šířka | totéž |
-| Pravý stavový panel | sbalený řádek pod hláškami (▾ rozbalí) | totéž |
+| Ikonky + hlášky | součást horní lišty (plocha rámu), pod pásem menu | totéž |
+| Pravý stavový panel | — (při otevřeném sheetu ustoupí) | sbalený řádek visí z horní lišty u pravé hrany (📷 = large kamera, ▾ rozbalí) |
 | Levý panel | sheet od spodní lišty, 60 % výšky (celá výška ⤢) | — |
 | Mapa | nad sheetem (editor ji rámuje do volné části) | celá plocha |
-| Log malý | pruh pod hláškami (nad pravým panelem), celá šířka | totéž |
-| Log celý | od hlášek/pravého panelu ke spodní liště; otevřený sheet je nad ním | totéž |
-| Joystick | **nad sheetem** (sheet, i „celý“, končí pod volným pásem pro joystick — `vt-joy-on`) | vpravo dole nad spodní lištou |
+| Log malý | za sheetem (sheet je stoupající spodek C) | výběžek spodní lišty přes celou šířku (od hřbetu) |
+| Log celý | od hlášek/pravého panelu ke spodní liště; otevřený sheet je nad ním | od řádku pravého panelu ke spodní liště, joystick zůstává nad ním |
+| Joystick | **nad sheetem** (sheet, i „celý“, končí pod volným pásem pro joystick — `vt-joy-on`), záložka u pravé hrany | stojí NA malém logu u pravé hrany (bez logu na liště) |
+| Kamera large | pozastavená (pravý panel ustoupil) | pás v horní části dutiny, nejvýš ½, mapa pod ním |
 
 ## Ovládání rámu
 
@@ -102,7 +135,8 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 ## Pravidla
 
 - Hlášky a ovládání (lišty, panel, pravý panel) **nic nepřekrývá** — log ani
-  v celé velikosti; vrstvy: lišty a pás menu/hlášek (z 10) > panel (1000,
+  v celé velikosti, ani velká kamera (začíná pod pásem hlášek); STOP vždy
+  vlevo dole; zapnutý joystick je vždy nahoře (z 9) a dosažitelný; vrstvy: lišty a pás menu/hlášek (z 10) > panel (1000,
   ale mimo lišty) > pravý panel (5) / log (8) mimo sebe navzájem.
 - Log má 3 stavy: skrytý ↔ malý (≡ ve spodní liště) a malý ↔ celý (úchyt
   „Expand“ / „Collapse“ v liště logu); stav si pamatuje (`vitulus_hud_log`,
@@ -122,6 +156,20 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | `--vt-frame-rp-w` | šířka pravého panelu v ploše mapy (0 = zavřený / telefon) |
 | `--vt-frame-rp-b` | spodní hrana pravého panelu (telefon: sbalený řádek) |
 | `--vt-frame-log-h` | výška malého logu, když je zobrazený (jinak 0) |
+| `--vt-frame-cleft` / `--vt-frame-cbottom` | levý okraj dutiny (panel / hřbet) / dno dutiny u hřbetu (lišta + malý log, vršek celého logu, vršek sheetu) |
+| `--vt-frame-log-left` / `--vt-frame-log-right` | okraje malého logu (hřbet nebo 0 při `vt-log-wide` / šířka joysticku nebo 0) |
+| `--vt-frame-ledge` | vršek spodní části rámu (lišta + malý log) |
+| `--vt-frame-joy-w` / `--vt-frame-joy-b` / `--vt-frame-joy-r` | šířka joysticku / jeho spodek (lišta, nebo lišta + log) / odsazení zprava (vedle sloupce pravého panelu) |
+| `--vt-frame-rp-left` | levá hrana pravého panelu (roh `#vt_c_tr`) |
+| `--vt-frame-logfull-r` | pravý okraj celého logu (pravý panel / joystick + 8 px) |
+| `--vt-cam-l/t/w/h`, `--vt-cam-cw/ch`, `--vt-cam-ml` | box velké kamery a obraz 4:3 v něm (stream max. 640 px šířky, škáluje CSS) |
+| `--rp-cam-*`, `--rp-hole-x/y` (right_dock.js) | slot kamery v pravém panelu; při large v něm leží mapa a panel má na tom místě okno (maska) |
+
+Třídy na `<body>`: `vt-c-rp`, `vt-c-log`, `vt-c-logfull`, `vt-joy-on`,
+`vt-joy-on-log`, `vt-joy-beside-rp`, `vt-log-wide`, `vt-cam-large`,
+`vt-map-mini`, `vt-cam-paused`. Proměnné i třídy se zapisují jen při změně
+(žádná smyčka observerů); poloha výběžků nezávisí na poloze pravého panelu,
+takže se vt_frame.js a right_dock.js nemohou honit.
 
 ## Požadavky na tokeny (pro U2 / vt_tokens.css)
 
