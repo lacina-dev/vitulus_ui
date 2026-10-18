@@ -2765,8 +2765,6 @@ class MapMenu {
         this.input_menu_map_new = document.getElementById("input_menu_map_new");
         this.div_menu_map_items_row = document.getElementById("div_menu_map_items_row");
         this.div_menu_map_items_row.innerHTML = '';
-        this.btn_menu_map_planner_show = document.getElementById("btn_menu_map_planner_show");
-        this.btn_menu_map_rtabmap_show = document.getElementById("btn_menu_map_rtabmap_show");
 
         // this.btn_points = document.getElementById("btn_points_map");
         this.div_menu_map_point = document.getElementById("div_menu_map_point");
@@ -2936,11 +2934,6 @@ class MapMenu {
             name : '/navi_manager/show_map',
             messageType : 'std_msgs/String'
         });
-        this.map_source_Topic = new ROSLIB.Topic({
-            ros : ros,
-            name : '/navi_manager/map_source',
-            messageType : 'std_msgs/String'
-        });
         this.rtabmap_settings_Topic = new ROSLIB.Topic({
             ros : ros,
             name : '/navi_manager/rtabmap_settings',
@@ -2950,9 +2943,6 @@ class MapMenu {
             ros : ros,
             name : '/navi_manager/rtabmap_settings_set',
             messageType : 'vitulus_msgs/Rtabmap_settings'
-        });
-        this.map_source_Topic.subscribe((message) => {
-            this.map_btns_state(message);
         });
         this.rtabmap_settings_Topic.subscribe((message) => {
             this.rtabmap_settings_btns_state(message);
@@ -3011,17 +3001,6 @@ class MapMenu {
             grid_sensor_distance: parseFloat(this.span_menu_rtabmap_distance_apply.textContent),
         });
         this.rtabmap_settings_set_Topic.publish(msg);
-    }
-
-    map_btns_state(msg){
-        if (msg.data === 'planner'){
-            vtSel(this.btn_menu_map_planner_show, true);
-            vtSel(this.btn_menu_map_rtabmap_show, false);
-        }
-        if (msg.data === 'rtabmap'){
-            vtSel(this.btn_menu_map_planner_show, false);
-            vtSel(this.btn_menu_map_rtabmap_show, true);
-        }
     }
 
     rtabmap_settings_btns_state(msg){
@@ -7038,14 +7017,6 @@ window.initMapView = function () {
 
     map_menu.btn_menu_map_new_save.onclick = function () {
         map_menu.save_map();
-    }
-    map_menu.btn_menu_map_rtabmap_show.onclick = function () {
-        map_menu.map_to_show = 'rtabmap';
-        map_menu.show_rtabmap_map();
-    }
-    map_menu.btn_menu_map_planner_show.onclick = function () {
-        map_menu.map_to_show = 'planner';
-        map_menu.show_planner_map();
     }
 
 

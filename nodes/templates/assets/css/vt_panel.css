@@ -1789,3 +1789,12 @@ body.vt-frame.vt-c-logwin #vt_c_jb { display: none; }
 @media (max-height: 480px) {
     body.vt-frame #ui_drawer_foot:has(> #btn_map_detail_close_footer:only-child) { display: none !important; }
 }
+/* P26: in the L-log the stick's top edge faces only the small map window —
+   its state hairline read as a seam there; the state stays on its chips */
+html body.vt-frame.vt-c-logwin #joy_view.vt-joy.vt-joy { box-shadow: none !important; }
+/* P26: phone portrait, sheet closed, stick on: the full log stops above the
+   stick (full width kept) — the stick used to cover the newest lines */
+html body.vt-frame.vt-m-sheet.vt-joy-on:not(.vt-panel-open) #div_log_view.log-expanded {
+    bottom: calc(100vh - var(--vt-frame-joy-top, 100vh) + 6px) !important;
+    border-radius: 0 0 var(--vt-frame-r) 0 !important;
+}

@@ -214,6 +214,9 @@
         setCls(body, 'vt-c-logfull-l', lshape);
         setCls(body, 'vt-c-logwin', lshape && joyOn);
         setVar('--vt-frame-logfull-r', px(flr));
+        // P26: phone portrait, panel closed — the full log ends above the
+        // stick instead of running under it
+        setVar('--vt-frame-joy-top', px(joyOn ? joy.getBoundingClientRect().top : H));
         setCls(body, 'vt-c-logfull', logFull);
         setCls(body, 'vt-c-logfull-edge', logFull && flr === 0);
 
