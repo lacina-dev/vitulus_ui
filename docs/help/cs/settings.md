@@ -30,7 +30,7 @@ aplikaci samotnou. **?** v hlavičce panelu skočí na záložku, kterou máš o
 
 Záložka navigace:
 
-- **Rychlost** **SLOW / MID / FAST** — totéž nastavení jako **Slow / Mid /
+- **Rychlost** **SLOW / MODERATE / FAST** — totéž nastavení jako **Slow / Mid /
   Fast** v pravém panelu ([rychlosti](routes.md#rychlost)).
 - **Lidar** **ON / OFF**.
 - **RtabMap** — **Zdroj senzorů** (**Kamera** / **Lidar** / **Obojí**) a **Dosah senzorů** —

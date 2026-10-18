@@ -313,6 +313,8 @@
             document.getElementById('vt_needs_panel').style.display !== 'none') { try { VTNeeds.close(); } catch (e) { /* ok */ } }
         if (mm && typeof mm.close_drawer === 'function') { try { mm.close_drawer(); } catch (e) { /* ok */ } }
         if (panel.parentNode !== body) { body.appendChild(panel); }
+        // a language switch while the panel sat detached did not reach its tags
+        if (window.VTI18n) { VTI18n.apply(panel); }
         panel.style.display = 'block';
         try {
             var rm = document.getElementById('row_menu');

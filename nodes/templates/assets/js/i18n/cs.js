@@ -172,6 +172,8 @@
     "common.collapse": "Sbalit",
     "common.download": "Stáhnout",
     "common.upload": "Nahrát",
+    "common.tabs.prev": "Předchozí záložky",
+    "common.tabs.next": "Další záložky",
     /* ---- @end common */
 
     /* ---- @frag frame: Frame: right panel, status icons, frame, app shell, joystick, camera overlays (right_dock.js, status_header.js, vt_frame.js, app.js, vt_joy.js, vt_cam_overlay.js) */
@@ -894,7 +896,7 @@
     "mapview.cam.resize": "Klikni pro zvětšení / zmenšení obrazu kamery",
     "mapview.cam.loading": "kamera…",
     "mapview.speed.slow": "SLOW",
-    "mapview.speed.moderate": "STŘEDNĚ",
+    "mapview.speed.moderate": "MODERATE",
     "mapview.speed.fast": "FAST",
     "mapview.joy.slow": "SLOW",
     "mapview.joy.mid": "MID",
@@ -1709,7 +1711,7 @@
     "cfg.motors.m_volts": "Napětí",
     "cfg.motors.m_mode": "Režim",
     "cfg.navi.slow": "SLOW",
-    "cfg.navi.moderate": "STŘEDNĚ",
+    "cfg.navi.moderate": "MODERATE",
     "cfg.navi.fast": "FAST",
     "cfg.navi.source": "Zdroj senzorů",
     "cfg.navi.camera": "Kamera",

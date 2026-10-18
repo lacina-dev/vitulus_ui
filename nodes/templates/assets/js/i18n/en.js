@@ -173,6 +173,8 @@
     "common.collapse": "Collapse",
     "common.download": "Download",
     "common.upload": "Upload",
+    "common.tabs.prev": "Previous tabs",
+    "common.tabs.next": "More tabs",
     /* ---- @end common */
 
     /* ---- @frag frame: Frame: right panel, status icons, frame, app shell, joystick, camera overlays (right_dock.js, status_header.js, vt_frame.js, app.js, vt_joy.js, vt_cam_overlay.js) */

@@ -512,18 +512,52 @@ body.rp-cam-dock #div_camera_view { border-radius: var(--vt-r-ctl) !important; }
 /* (kolo 5: the full log lives in the map area of the frame and no longer
    covers the right panel — the old "hide the panel" rule is gone) */
 
-/* tab strips that scroll sideways: fade the edge that has more tabs (vt_ui.js) */
-ul.nav-tabs.drawer-pills.vt-more-r, #vagent_tabs.vt-more-r {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-            mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+/* tab strips that scroll sideways (vt_ui.js): the edge with more tabs shows
+   a ‹ / › button that sits on the strip (sticky, takes no room: its width is
+   given back by a negative margin) over a fade of the strip's own colour.
+   Click = scroll by a panel width; the wheel and a swipe scroll too. */
+ul.nav-tabs.drawer-pills, #vagent_tabs { position: relative; }
+.vt-tabs-nav {
+    display: none;
+    position: sticky;
+    z-index: 3;
+    flex: 0 0 28px;
+    width: 28px;
+    align-self: stretch;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
-ul.nav-tabs.drawer-pills.vt-more-l, #vagent_tabs.vt-more-l {
-    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
-            mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+.vt-tabs-nav-l { left: -3px; margin-right: calc(-28px - var(--vt-gap-1)) !important; }
+.vt-tabs-nav-r { right: -3px; margin-left: calc(-28px - var(--vt-gap-1)) !important; }
+:is(ul.nav-tabs.drawer-pills, #vagent_tabs).vt-more-l > .vt-tabs-nav-l,
+:is(ul.nav-tabs.drawer-pills, #vagent_tabs).vt-more-r > .vt-tabs-nav-r { display: flex; }
+.vt-tabs-nav .vt-tabs-btn { flex: 1 1 auto; display: flex; }
+.vt-tabs-nav .vt-tabs-btn, button.vt-tabs-nav {
+    align-items: center; justify-content: center;
+    width: 28px; min-width: 28px; height: auto; min-height: 0;
+    padding: 0 0 2px !important;
+    border: 0;
+    border-radius: calc(var(--vt-r-ctl) - 2px);
+    font: 700 20px/1 var(--vt-font, inherit) !important;
+    color: var(--vt-accent);
+    cursor: pointer;
+    --vt-tabs-fade: color-mix(in srgb, var(--vt-surface) 72%, #000);
 }
-ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
-            mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+.vt-tabs-nav-l .vt-tabs-btn, button.vt-tabs-nav-l {
+    background: linear-gradient(to right, var(--vt-tabs-fade) 62%, transparent);
+    justify-content: flex-start; padding-left: 5px !important;
+}
+.vt-tabs-nav-r .vt-tabs-btn, button.vt-tabs-nav-r {
+    background: linear-gradient(to left, var(--vt-tabs-fade) 62%, transparent);
+    justify-content: flex-end; padding-right: 5px !important;
+}
+.vt-tabs-nav .vt-tabs-btn:hover, button.vt-tabs-nav:hover { color: #fff; }
+.vt-tabs-nav .vt-tabs-btn:focus-visible, button.vt-tabs-nav:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; }
+/* touch: a swipe stops on a tab, not half-way through one */
+@media (pointer: coarse) {
+    ul.nav-tabs.drawer-pills, #vagent_tabs { scroll-snap-type: x proximity; scroll-padding-inline: 30px; }
+    ul.nav-tabs.drawer-pills > .nav-item, #vagent_tabs > .vagent-tab { scroll-snap-align: start; }
 }
 /* thumbs: tabs and header buttons are real touch targets */
 @media (pointer: coarse) {
