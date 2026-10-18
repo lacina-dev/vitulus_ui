@@ -201,11 +201,18 @@
             if (stepY > 0 && notch > 0 && (H - bh) - rpb > 60) {
                 lshape = true;
                 flr = flrExt;
+                // P23: the map window left between the panel's foot and the
+                // stick gets the hollow's round inner corners (#vt_c_wt/_wb)
+                if (joyOn) {
+                    setVar('--vt-win-top', px(rpb));
+                    setVar('--vt-win-bot', px(joy.getBoundingClientRect().top));
+                }
                 setVar('--vt-log-step-y', px(stepY));
                 setVar('--vt-log-notch-w', px(notch));
             }
         }
         setCls(body, 'vt-c-logfull-l', lshape);
+        setCls(body, 'vt-c-logwin', lshape && joyOn);
         setVar('--vt-frame-logfull-r', px(flr));
         setCls(body, 'vt-c-logfull', logFull);
         setCls(body, 'vt-c-logfull-edge', logFull && flr === 0);
@@ -392,7 +399,7 @@
         // tl/bl: the back meets the top / the bottom; tr: the top band turns
         // down into the right panel; jb: the joystick's foot on the bottom
         // ledge; lr: the full log's foot on the bottom bar (C frame 3)
-        ['tl', 'bl', 'tr', 'jb', 'lr'].forEach(function (k) {
+        ['tl', 'bl', 'tr', 'jb', 'lr', 'wt', 'wb'].forEach(function (k) {
             var c = document.createElement('div');
             c.id = 'vt_c_' + k;
             c.className = 'vt-c-corner';
