@@ -1936,6 +1936,12 @@ html body.vt-frame:not(.vt-m-sheet) #vt_c_ped::before { left: var(--vt-frame-spi
 html body.vt-frame:not(.vt-m-sheet) #vt_c_ped::after { left: 100%; bottom: 0; }
 html body.vt-frame.vt-panel-open:not(.vt-m-sheet) #vt_c_ped::before,
 html body.vt-frame.vt-panel-open:not(.vt-m-sheet) #vt_c_ped::after { display: none; }
+/* panel closed: no pedestal — the frame's ring round the STOP instead
+   (vt_frame.js placeStopRing draws #vt_c_stopbg: spine → arc → ring → arc → bar) */
+#vt_c_stopbg { display: none; position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1205; overflow: visible; }
+#vt_c_stopbg path { fill: var(--vt-frame-bg); }
+html body.vt-frame.vt-stopring #vt_c_ped { display: none; }
+html body.vt-frame.vt-stopring:not(.vt-m-sheet) #div_bottom_menu .btn-group { padding-left: var(--vt-estop-x, 0px); }
 /* the left panel ends on the pedestal */
 html body.vt-frame:not(.vt-m-sheet) #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-ped-h)) !important; }
 html body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px) + var(--vt-ped-h)) !important; }

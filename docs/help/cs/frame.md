@@ -48,8 +48,9 @@ panel otevře) se celá posune do viditelné části; na klávesnici přepínaj�
 ![Spodní lišta: vlevo červený STOP, pak Joystick, Sledovat a Log](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: STOP · Joystick · Sledovat · Log")
 
 **Joystick** · **Sledovat** · **Log** (na telefonu s volnou mezerou uprostřed pro
-systémové gesto). **STOP** je kulatý červený „hřib" v **levém dolním rohu rámu**: na PC se tam
-spodní lišta zvedá do malého podstavce rámu a levý panel končí nad ním, takže STOP nic
+systémové gesto). **STOP** je kulatý červený „hřib" v **levém dolním rohu rámu**: na PC se zavřeným
+levým panelem levý okraj rámu plynule obtéká STOP obloukem a navazuje na spodní lištu; s otevřeným
+panelem se lišta zvedá do malého podstavce a panel končí nad ním, takže STOP nic
 nezakrývá a nic nezakrývá jeho — panel, log ani sheet. Je to jediné úplné zastavení
 ([Bezpečnost](safety.md#stop)); na telefonu sedí na levém konci lišty, na palec.
 **Sledovat** nechá pohled mapy sledovat robota.

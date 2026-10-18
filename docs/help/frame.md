@@ -49,8 +49,9 @@ opens) slides fully into view; with the keyboard **←** / **→** move between 
 
 **Joystick** · **Follow** · **Log** (on a phone with a free gap in the middle for the
 system gesture). The **STOP** is the round red mushroom in the **bottom-left corner of the frame**:
-on a PC the bottom bar rises there into a small pedestal of the frame and the left panel ends on
-it, so the STOP never covers anything and nothing covers it — not a panel, the log or the sheet.
+on a PC with the left panel closed the frame's left edge flows in one smooth arc round the STOP
+and on into the bottom bar; with the panel open the bar rises into a small pedestal and the panel
+ends on it, so the STOP never covers anything and nothing covers it — not a panel, the log or the sheet.
 It is the one full stop ([Safety](safety.md#stop)); on a phone it sits in the bar's left end,
 thumb-sized. **Follow** makes the map view follow the robot.
 

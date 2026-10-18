@@ -174,6 +174,10 @@
         // the STOP pedestal holds the bottom-left corner: the small log starts after it
         var ped = $('vt_c_ped');
         if (ped && m !== 'sheet' && visible(ped)) { logLeft = Math.max(logLeft, Math.ceil(ped.getBoundingClientRect().right) + 4); }
+        // panel closed: the frame flows around the STOP — the spine runs into
+        // a ring round the button and on into the bottom bar (placeStopRing)
+        var ringR = placeStopRing(m !== 'sheet' && occ === 0, spine, W, H);
+        if (ringR > 0) { logLeft = Math.max(logLeft, Math.ceil(ringR) + 4); }
         var wide = lh > 0 && m !== 'sheet' && occ > 0 && (W - occ - jw) < LOG_MIN_W;
         if (wide) { logLeft = 0; }
         setCls(body, 'vt-log-wide', wide);
@@ -298,6 +302,50 @@
     // the C (phone portrait: a band across the top, at most half the hollow),
     // so the map stays visible beside / below it.
     var STREAM_MAX_W = 640;
+    /* The STOP's ring of frame (owner 2026-10-19): the free left edge (the
+       spine, x = S) bends in a concave arc into a circle round the STOP and
+       leaves it in another concave arc into the bottom bar's top (y = Yb).
+       Fillets are tangent to both — one smooth outline, no corners. Returns
+       the x where the outline meets the bar (0 = not drawn). */
+    function placeStopRing(on, S, W, H) {
+        var svg = $('vt_c_stopbg'), st = $('vt_stop_big'), bar = $('div_bottom_menu');
+        if (!svg || !st || !bar) { return 0; }
+        var r = st.getBoundingClientRect(), b = bar.getBoundingClientRect();
+        if (!on || !r.width || !b.height) {
+            svg.style.display = 'none';
+            document.body.classList.remove('vt-stopring');
+            setVar('--vt-estop-x', '0px');
+            return 0;
+        }
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        var R = r.width / 2 + 9, f = 12, Yb = b.top;
+        S = Math.max(0, S || 0);
+        // fillet spine -> circle (above the circle, right of the spine)
+        var dx1 = S + f - cx, k1 = (R + f) * (R + f) - dx1 * dx1;
+        // fillet circle -> bar (right of the circle, above the bar)
+        var dy2 = Yb - f - cy, k2 = (R + f) * (R + f) - dy2 * dy2;
+        if (k1 <= 0 || k2 <= 0) { svg.style.display = 'none'; return 0; }
+        var f1x = S + f, f1y = cy - Math.sqrt(k1);
+        var f2x = cx + Math.sqrt(k2), f2y = Yb - f;
+        var p1x = cx + R * (f1x - cx) / (R + f), p1y = cy + R * (f1y - cy) / (R + f);
+        var p2x = cx + R * (f2x - cx) / (R + f), p2y = cy + R * (f2y - cy) / (R + f);
+        var a1 = Math.atan2(p1y - cy, p1x - cx), a2 = Math.atan2(p2y - cy, p2x - cx);
+        var sweep = a2 - a1; while (sweep < 0) { sweep += 2 * Math.PI; }
+        var n = function (v) { return v.toFixed(2); };
+        var d = 'M 0 ' + n(H) + ' L 0 ' + n(f1y - 1) + ' L ' + n(S) + ' ' + n(f1y - 1) +
+            ' L ' + n(S) + ' ' + n(f1y) +
+            ' A ' + f + ' ' + f + ' 0 0 0 ' + n(p1x) + ' ' + n(p1y) +
+            ' A ' + n(R) + ' ' + n(R) + ' 0 ' + (sweep > Math.PI ? 1 : 0) + ' 1 ' + n(p2x) + ' ' + n(p2y) +
+            ' A ' + f + ' ' + f + ' 0 0 0 ' + n(f2x) + ' ' + n(Yb) +
+            ' L ' + n(f2x) + ' ' + n(H) + ' Z';
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+        svg.firstChild.setAttribute('d', d);
+        svg.style.display = 'block';
+        document.body.classList.add('vt-stopring');
+        setVar('--vt-estop-x', px(Math.ceil(f2x)));
+        return f2x;
+    }
+
     function placeCamLarge(m, cleft, nb, rpb, rpw, rpFull, ledge, W, H) {
         var body = document.body;
         if (!body.classList.contains('vt-cam-large')) { return; }
@@ -475,6 +523,12 @@
             if (b) { b.click(); }
         });
         document.body.appendChild(st);
+        // the frame's ring round the STOP (panel closed): one SVG path
+        var rg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        rg.id = 'vt_c_stopbg';
+        rg.setAttribute('aria-hidden', 'true');
+        rg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'path'));
+        document.body.appendChild(rg);
         // large camera: the map shrinks into the right panel's camera slot;
         // this cover takes the clicks there (never a goal / marker click on
         // the tiny map) and swaps back
