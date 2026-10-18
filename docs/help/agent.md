@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master]
+keywords: [world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master]
 ---
 # Vitulus agent
 
@@ -160,6 +160,31 @@ too — write `co ses naučil` or `/naucil` in **Chat** (the full playbook is th
 When the same failure keeps coming back and nothing it knows helps, the agent opens a **finding**
 for it by itself (**Findings**), and the usual path follows: analysis, and a repair through tests
 — never while a mission is running.
+
+## What the agent can see
+
+Before it decides anything, the agent builds one **world model** from all the robot's sensors and
+data: lidar and the moving-object detector, the camera's obstacle and ground clouds and depth, IMU,
+GNSS (RTK fix, heading, satellites, accuracy), wheel, visual and lidar odometry, localization
+quality, the dock (contacts, reflectors, position), motors, battery, rain, the mower, the
+supervisor and who is driving. Every value carries its age and how much it can be trusted, and the
+sources are **cross-checked**: wheels turning while the camera and lidar see no motion means slip
+or stuck; no RTK while the lidar still matches the map means *trust the lidar*; an obstacle seen by
+both lidar and camera is certain. What the agent does not know is listed as *uncertain* — it does
+not guess.
+
+On the map it finds the robot (map and UTM, nearest points, zone), the obstacles around it
+(**new** ones that are not in the saved map vs known walls, moving objects), free directions,
+whether the robot is boxed in, and whether a point can be reached — it plans the path itself on the
+costmap (nothing is sent to the robot), finds the narrowest place and, when the way is blocked,
+a **detour** through another waypoint. Ask in **Chat** *kde jsi?*, *co je kolem?*, *dojedeš
+k TEST?* or *ukaž mapu k TEST* — the reply comes with a map image showing the robot, the
+obstacles and the planned route.
+
+When no tool can answer what it needs, the agent **builds its own read-only tool** (code + test),
+which must pass a gate: tests in isolation, no motion, no writes outside its own data. An approved
+tool shows up with the others and is offered again in similar situations; tools that would move the
+robot are never built — they are only proposed to you.
 
 ## Models
 
