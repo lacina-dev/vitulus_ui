@@ -1667,3 +1667,13 @@ html body.vt-frame.vt-map-mini #vt_map_mini {
 #right_panel .rp-sec[data-sec="camera"] > h5 { flex-wrap: nowrap; min-width: 0; }
 #right_panel .rp-sec[data-sec="camera"] .rp-state { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-cam-seg { flex: 0 0 auto; }
+/* phone portrait: a compact stick — the hollow is short there (the live
+   numbers go, the status line stays) */
+body.vt-frame.vt-m-sheet { --vt-joy-size: 112px; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-read { display: none; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy { padding: 6px 8px 8px; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-head { margin-bottom: 6px; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-motors { min-width: 0; }
+html body.vt-frame.vt-m-sheet #joy_view.vt-joy.vt-joy { width: calc(var(--vt-joy-size) + 50px) !important; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-head { gap: 4px; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-chip { padding: 0 5px; font-size: 10px; }

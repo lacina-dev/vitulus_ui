@@ -119,7 +119,7 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Mapa | nad sheetem (editor ji rámuje do volné části) | celá plocha |
 | Log malý | za sheetem (sheet je stoupající spodek C) | výběžek spodní lišty přes celou šířku (od hřbetu) |
 | Log celý | od hlášek/pravého panelu ke spodní liště; otevřený sheet je nad ním | od řádku pravého panelu ke spodní liště, joystick zůstává nad ním |
-| Joystick | **nad sheetem** (sheet, i „celý“, končí pod volným pásem pro joystick — `vt-joy-on`), záložka u pravé hrany | stojí NA malém logu u pravé hrany (bez logu na liště) |
+| Joystick | **nad sheetem** (sheet, i „celý“, končí pod volným pásem pro joystick — `vt-joy-on`), záložka u pravé hrany | stojí NA malém logu u pravé hrany (bez logu na liště); kompaktní (pad 112 px, bez číselného odečtu) |
 | Kamera large | pozastavená (pravý panel ustoupil) | pás v horní části dutiny, nejvýš ½, mapa pod ním |
 
 ## Ovládání rámu
