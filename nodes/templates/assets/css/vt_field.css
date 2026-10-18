@@ -592,3 +592,51 @@ a.vt-needs-btn {
 /* a short "how to" line at the top of a panel body (Marker) */
 .vt-hint { font-size: var(--vt-fs-sm); color: var(--vt-muted); line-height: 1.45; margin-bottom: var(--vt-gap-2); }
 .vt-hint b { color: var(--vt-text); font-weight: 600; }
+
+/* ============ P4: pinned guests (Dock lock in Robot, approvals in Work) are
+   cards like every other block — the same surface, radius, heading and a
+   state tone (dock UNLOCKED = warn). The lock pill sits in the card head on
+   the right, where every card keeps its status. */
+#vagent_panel .vagent-pinned {
+    --vt-st-glow: transparent; --vt-st-edge: var(--vt-border);
+    position: relative;
+    background: radial-gradient(130% 100% at 0% 0%, var(--vt-st-glow) 0%, transparent 60%), var(--vt-surface-2);
+    border: 1px solid var(--vt-st-edge);
+    border-radius: var(--vt-r-card);
+    padding: var(--vt-gap-2) var(--vt-pad) var(--vt-gap-3);
+    margin: 0 0 var(--vt-gap-2);
+}
+#vagent_panel .vagent-pinned:has(.dk-pill.open) {
+    --vt-st-glow: var(--vt-glow-warn); --vt-st-edge: var(--vt-edge-warn);
+    box-shadow: inset 0 1px 0 var(--vt-edge-warn);
+}
+#vagent_panel .vagent-pinhead {
+    font: 700 var(--vt-fs-xs)/1.3 var(--vt-font);
+    letter-spacing: .06em;
+    color: var(--vt-muted);
+    padding: 2px 0 8px;
+    min-height: 26px;
+}
+#vagent_panel .vagent-pinned .dk-h { position: absolute; top: var(--vt-gap-2); right: var(--vt-pad); margin: 0; }
+#vagent_panel .dk-pill { border-radius: var(--vt-r-tag); border: 1px solid transparent; line-height: 14px; }
+#vagent_panel .dk-pill.shut { color: var(--vt-ok); background: var(--vt-glow-ok); border-color: var(--vt-edge-ok); }
+#vagent_panel .dk-btn { border-radius: var(--vt-r-ctl, 7px); border-color: var(--vt-border-strong); }
+#vagent_panel .dk-btn.dk-primary { background: rgba(var(--vt-accent-rgb), 0.08); border-color: var(--vt-edge-info); color: var(--vt-accent); }
+#vagent_panel .dk-btn.dk-primary:hover { background: rgba(var(--vt-accent-rgb), 0.16); }
+/* Robot › the live state block is a card too (heading, surface, radius) */
+#vagent_panel .vagent-pane[data-pane="robot"] > .vagent-pane-body {
+    background: var(--vt-surface-2);
+    border: 1px solid var(--vt-border);
+    border-radius: var(--vt-r-card);
+    padding: var(--vt-gap-2) var(--vt-pad) var(--vt-gap-3);
+    margin: 0 0 var(--vt-gap-2);
+}
+#vagent_panel .vagent-pane[data-pane="robot"] > .vagent-pane-body::before {
+    content: "Robot state";
+    display: block;
+    font: 700 var(--vt-fs-xs)/1.3 var(--vt-font);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--vt-muted);
+    padding: 2px 0 8px;
+}
