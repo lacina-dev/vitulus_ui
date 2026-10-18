@@ -1010,6 +1010,12 @@ if __name__ == '__main__':
         # What the card may ask for; the agent checks the scope again.
         DOCK_UNLOCKABLE = ("dock.undock", "dock.start", "nav.goto_waypoint",
                            "nav.execute_path", "motor.on")
+        # Free drive (owner 2026-10-18: "anything until the robot is back in
+        # the dock"): every action the lock guards, as the agent derives it
+        # from its signed registry (v2/ros_wire.free_drive_actions).  No use
+        # count; the agent locks it again when the robot docks; 12 h cap.
+        DOCK_FREE_DRIVE = DOCK_UNLOCKABLE + ("map.new", "map.save")
+        DOCK_MAX_MINUTES = 720
 
         def _agent_ui_token():
             """The token, created (0600) when it does not exist yet - no
@@ -1097,24 +1103,35 @@ if __name__ == '__main__':
             if not isinstance(b, dict):
                 return jsonify({"ok": False, "error": "JSON object expected"}), 400
             acts = b.get("actions")
+            free = b.get("until_docked") is True
+            allowed = DOCK_FREE_DRIVE if free else DOCK_UNLOCKABLE
             if not isinstance(acts, list) or not acts or \
-                    any(a not in DOCK_UNLOCKABLE for a in acts):
+                    any(a not in allowed for a in acts):
                 return jsonify({"ok": False, "error": "actions: a list out of %s"
-                                % ", ".join(DOCK_UNLOCKABLE)}), 400
+                                % ", ".join(allowed)}), 400
+            if free and b.get("max_runs") is not None:
+                return jsonify({"ok": False, "error": "free drive has no max_runs: "
+                                "it ends when the robot docks"}), 400
             try:
                 minutes = float(b.get("minutes"))
-                max_runs = int(b.get("max_runs"))
+                max_runs = None if free else int(b.get("max_runs"))
             except (TypeError, ValueError):
                 return jsonify({"ok": False, "error": "minutes and max_runs: numbers"}), 400
-            if not (0 < minutes <= 720) or not (1 <= max_runs <= 20):
+            if not (0 < minutes <= DOCK_MAX_MINUTES) or \
+                    not (free or 1 <= max_runs <= 20):
                 return jsonify({"ok": False, "error": "minutes 1-720, max_runs 1-20"}), 400
             note = str(b.get("note") or "")[:300]
             # by/channel are not the browser's to choose: this door is the
             # owner's click in this UI and nothing else.
             body = {"by": "robert", "channel": "ui", "actions": sorted(set(acts)),
-                    "minutes": minutes, "max_runs": max_runs, "note": note or None}
+                    "minutes": minutes, "note": note or None}
+            if free:
+                body["until_docked"] = True
+            else:
+                body["max_runs"] = max_runs
             rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-unlock",
-                   "ref": ",".join(body["actions"]), "author": "robert",
+                   "ref": ("until docked: " if free else "") + ",".join(body["actions"]),
+                   "author": "robert",
                    "client": request.remote_addr}
             return _dock_post("/api/v2/dock", body, rec)
 

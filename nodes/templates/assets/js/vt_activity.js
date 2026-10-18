@@ -83,6 +83,13 @@
         var acts = (e && e.data && e.data.actions) || [];
         return acts.map(function (a) {
             var t = Date.parse(String(a.ts || '').replace(/([+-]\d\d)(\d\d)$/, '$1:$2'));
+            if (a.action === 'dock-relock' && a.author === 'robot') {
+                // free drive locked itself (agent core, v2/dock_relock)
+                return { t: isNaN(t) ? 0 : t, side: 'agent', state: 'ok', src: 'dock lock',
+                         text: 'Dock lock: free drive #' + (a.receipt || '?') +
+                               ' locked again by itself \u2014 the robot docked',
+                         key: 'u:' + a.ts + ':' + a.ref };
+            }
             return { t: isNaN(t) ? 0 : t, side: 'field', state: a.ok ? 'ok' : 'err', src: 'robot UI',
                      text: 'Robot UI (' + (a.author || '?') + '): ' + a.action + ' ' + (a.ref || '') +
                            (a.message ? ' — ' + a.message : ''),

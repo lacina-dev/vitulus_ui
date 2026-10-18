@@ -339,6 +339,39 @@
         return;
       }
 
+      if (live && rel.until_docked) {
+        /* Free drive (owner 2026-10-18): no use count, the core locks it
+           again by itself when the robot is back in the dock. */
+        dockBox.appendChild(el('div', 'dk-title', 'Unlocked until docked'));
+        dockBox.appendChild(dockRow('Allowed', 'every move: ' +
+          (rel.actions || []).join(', ')));
+        dockBox.appendChild(dockRow('Uses', 'no limit' +
+          (rel.used ? ' (used ' + rel.used + '\u00d7)' : '')));
+        dockBox.appendChild(dockRow('Robot', rel.left_dock_ago == null
+          ? 'still in the dock \u2014 locks once it has left and is back'
+          : 'left the dock \u2014 locks as soon as it docks'));
+        var capRow = dockRow('At the latest in',
+          VA.dock.mmss(VA.dock.left(rel)));
+        dockBox.appendChild(capRow);
+        dockBox.appendChild(dockRow('Signed by', rel.by || '?'));
+        dockBox.appendChild(el('div', 'dk-note',
+          'Locks itself when the robot docks (or after 12 h).'));
+        var again = el('button', 'dk-btn dk-back', 'Lock again');
+        again.type = 'button';
+        again.title = 'Take the permission back now';
+        again.addEventListener('click', function () {
+          again.disabled = true;
+          VA.dock.relock().catch(function () { again.disabled = false; });
+        });
+        dockBox.appendChild(again);
+        dockTick = setInterval(function () {
+          var l = VA.dock.left(rel);
+          capRow.querySelector('.dk-v').textContent = VA.dock.mmss(l);
+          if (l <= 0) { clearInterval(dockTick); dockTick = null; drawDock(VA); }
+        }, 1000);
+        return;
+      }
+
       if (live) {
         dockBox.appendChild(dockRow('Allowed', (rel.actions || []).join(', ')));
         dockBox.appendChild(dockRow('Uses left',
@@ -369,7 +402,14 @@
 
       dockBox.appendChild(el('div', 'dk-note',
         'The robot cannot leave the dock. Only you can allow it, only here, ' +
-        'and only for the named moves below \u2014 one go at a time.'));
+        'and only for the moves each button names.'));
+      if (st.relocked) {
+        var at = new Date(st.relocked.at);
+        dockBox.appendChild(el('div', 'dk-note',
+          'Free drive #' + st.relocked.id + ' locked itself at ' +
+          ('0' + at.getHours()).slice(-2) + ':' + ('0' + at.getMinutes()).slice(-2) +
+          ' \u2014 the robot docked.'));
+      }
       if (st.error) {
         dockBox.appendChild(el('div', 'dk-err', 'Lock state: ' + st.error));
       }
@@ -397,6 +437,7 @@
       });
       var until = new Date(Date.now() + g.ttl_s * 1000);
       dockBox.appendChild(dockRow('Until',
+        (g.until_docked ? 'the robot docks \u2014 at the latest ' : '') +
         ('0' + until.getHours()).slice(-2) + ':' +
         ('0' + until.getMinutes()).slice(-2)));
 

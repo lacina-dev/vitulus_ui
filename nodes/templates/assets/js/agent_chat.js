@@ -5064,6 +5064,30 @@
        Two, not one, because one departure alone strands the robot outside:
        coming home is `dock.start`, and that is movement too. */
     var DOCK_GRANTS = [{
+        /* 2026-10-18, the owner: „Chci dock unlock, který bude na cokoliv
+           a zapne se zas až tím, že robot zajede do docku."  Still NAMED:
+           the core writes the full list of guarded actions from its signed
+           registry (ros_wire.free_drive_actions — this list is what the card
+           shows and the webnode lets through), no use limit, and the core
+           locks it again by itself once the robot has left the dock and is
+           back in it (v2/dock_relock).  12 h stays as the safety cap. */
+        key: 'free',
+        until_docked: true,
+        actions: ['dock.start', 'dock.undock', 'map.new', 'map.save',
+                  'motor.on', 'nav.execute_path', 'nav.goto_waypoint'],
+        minutes: 720,
+        max_runs: null,
+        primary: true,
+        button: 'Free drive \u2014 anything until the robot is back in the dock\u2026',
+        title: 'You are about to allow free driving until the robot is back in the dock:',
+        lines: [
+            ['Actions', 'every move the lock knows: dock.undock \u00b7 dock.start \u00b7 nav.goto_waypoint \u00b7 nav.execute_path (saved routes) \u00b7 motor.on \u00b7 map.new / map.save (test maps)'],
+            ['Not allowed', 'the mower blade \u2014 never, by any route'],
+            ['Uses', 'no limit'],
+            ['Locks', 'itself when the robot docks (or after 12 h). Unlocked while it stands in the dock? It waits until the robot leaves and comes back.'],
+            ['Signed by', 'you (robert), from this browser']
+        ]
+    }, {
         /* 2026-10-18: the owner stands at the robot and wants the agent to
            do a test drive — undock, drive to a waypoint, wait, dock back.
            Those are THREE moving actions in one mission, and each phase
@@ -5075,7 +5099,6 @@
         actions: ['dock.undock', 'nav.goto_waypoint', 'dock.start', 'motor.on'],
         minutes: 30,
         max_runs: 8,
-        primary: true,
         button: 'Test drive: undock + drive to waypoint + dock back…',
         title: 'You are about to allow a test drive:',
         lines: [
@@ -5125,12 +5148,18 @@
 
     function mmss(sec) {
         sec = Math.max(0, Math.round(sec));
-        var m = Math.floor(sec / 60);
-        return m + ':' + ('0' + (sec - m * 60)).slice(-2);
+        var h = Math.floor(sec / 3600);
+        var m = Math.floor((sec - h * 3600) / 60);
+        var ss = ('0' + (sec - h * 3600 - m * 60)).slice(-2);
+        if (h) { return h + ':' + ('0' + m).slice(-2) + ':' + ss; }
+        return m + ':' + ss;
     }
 
+    /* Free drive (until_docked) has no use limit: the robot coming home
+       ends it, not a count. */
     function dockUsesLeft(rel) {
         if (!rel) { return 0; }
+        if (rel.until_docked) { return Infinity; }
         return Math.max(0, (rel.max_runs || 1) - (rel.used || 0));
     }
 
@@ -5150,7 +5179,21 @@
         return {id: a.id, row_id: a.id, actions: a.actions || [],
                 until: at + Math.max(0, +a.left_s || 0),
                 max_runs: a.max_runs, used: a.used || 0, by: a.by,
-                channel: a.channel, note: a.note};
+                channel: a.channel, note: a.note,
+                until_docked: !!a.until_docked,
+                left_dock_ago: a.left_dock ? Math.max(0, (d.ts || 0) - a.left_dock) : null};
+    }
+
+    /* The newest release the core locked again by itself (robot docked),
+       for the note on the locked card. */
+    function dockAutoRelocked(d) {
+        var r = ((d && d.recent) || []).filter(function (x) {
+            return x && x.revoked_note && /robot docked/.test(x.revoked_note);
+        })[0];
+        if (!r || !r.revoked) { return null; }
+        var ago = Math.max(0, (d.ts || 0) - r.revoked);
+        if (ago > 12 * 3600) { return null; }
+        return {id: r.id, at: Date.now() - ago * 1000, note: r.revoked_note};
     }
 
     function pollDock(force) {
@@ -5169,6 +5212,7 @@
             dockState.supported = true;
             dockState.error = null;
             dockState.release = dockFromV2(d);
+            dockState.relocked = dockAutoRelocked(d);
             dockState.locked = !dockState.release;
             dockState.ts = Date.now();
             announceDock();
@@ -5210,13 +5254,16 @@
     /* The grant itself.  Never called without a second tap in the card. */
     function dockUnlock(grant, note) {
         grant = grant || DOCK_GRANTS[0];
-        return dockWrite('/agent-dock/grant', {
+        var body = {
             actions: grant.actions,
             minutes: grant.minutes,
-            max_runs: grant.max_runs,
             note: note || ('granted in the panel (' + grant.key + '): ' +
                            grant.actions.join(', '))
-        }).then(function (d) {
+        };
+        // Free drive carries no use count: it ends when the robot docks.
+        if (grant.until_docked) { body.until_docked = true; }
+        else { body.max_runs = grant.max_runs; }
+        return dockWrite('/agent-dock/grant', body).then(function (d) {
             if (d && d.ok !== false && d.id) {
                 return pollDock(true).then(function () { return d; });
             }
@@ -5269,9 +5316,12 @@
         var txt = document.createElement('span');
         txt.className = 'vs-txt';
         var n = dockUsesLeft(rel);
-        txt.textContent = (rel.actions || []).join(', ') + ' · ' +
-            n + (n === 1 ? ' use' : ' uses') + ' left · ' +
-            mmss(dockLeft(rel)) + ' left';
+        txt.textContent = rel.until_docked
+            ? 'Unlocked until docked \u00b7 all moves \u00b7 at most ' +
+              mmss(dockLeft(rel)) + ' more'
+            : (rel.actions || []).join(', ') + ' · ' +
+              n + (n === 1 ? ' use' : ' uses') + ' left · ' +
+              mmss(dockLeft(rel)) + ' left';
         unlockedEl.appendChild(txt);
         var back = document.createElement('button');
         back.type = 'button';
