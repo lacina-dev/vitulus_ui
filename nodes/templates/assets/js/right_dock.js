@@ -1060,12 +1060,7 @@
         top = Math.max(frame ? 0 : 46, Math.min(top, bottomLimit - 60));
         panel.style.top = Math.round(top) + 'px';
         panel.style.maxHeight = Math.max(60, Math.round(bottomLimit - top)) + 'px';
-        /* C frame (owner, 3rd round): the column is ONE piece — the panel
-           runs down to the drive deck / bar instead of stopping where its
-           content ends and leaving a hole above the deck; the camera, the
-           last section, takes the room (applyCam) */
-        panel.style.minHeight = (frame && isOpen() && !isCompact())
-            ? Math.max(60, Math.round(bottomLimit - top)) + 'px' : '';
+        panel.style.minHeight = '';
         /* joystick vedle panelu, ať zůstane celý dosažitelný */
         var pw = (panel.offsetWidth || PANEL_W);
         /* log nesmí zabíhat pod panel — zkrátí se přesně o jeho šířku */
@@ -1332,10 +1327,6 @@
         } else {
             w = maxW;                    // plná šířka sekce
             h = Math.round(w * 3 / 4);
-            /* the column runs to the deck: give the camera the leftover
-               height too (keeps 4:3 — a taller slot is simply a larger
-               picture, centred by the stream itself) */
-            if (availH > h + 24) { h = availH; }
         }
         slot.style.width = w + 'px';
         slot.style.height = h + 'px';

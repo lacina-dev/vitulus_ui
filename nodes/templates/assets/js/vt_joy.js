@@ -162,13 +162,14 @@
             padBox = el('div', 'vt-joy-padbox', root);
             motOn = el('button', 'vt-joy-motbtn vt-joy-corner vt-joy-corner-r', padBox);   // one toggle: ON <-> OFF
             motOn.type = 'button';
-            motOn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M4.6 4.2a5 5 0 1 0 6.8 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+            /* a drive motor: a gear with a bolt, the state word under it */
+            motOn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2 9 1.5h-2l1 1.7Zm0 9.6-1 1.7h2l-1-1.7ZM3.2 8l-1.7-1v2l1.7-1Zm9.6 0 1.7 1v-2l-1.7 1ZM4.6 4.6 3.1 3.8l-.7.7.8 1.5 1.4-1.4Zm6.8 6.8 1.5.8.7-.7-.8-1.5-1.4 1.4Zm0-6.8 1.4 1.4.8-1.5-.7-.7-1.5.8ZM4.6 11.4l-1.4-1.4-.8 1.5.7.7 1.5-.8Z" fill="currentColor"/><circle cx="8" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8.4 5.6 6.9 8.3h1.3l-.6 2.1 1.6-2.8H7.9l.5-2Z" fill="currentColor"/></svg>';
             chipMotors = el('span', 'vt-joy-motors', motOn);    // right_dock.js mirrors its data-state
             motOff = el('span', 'vt-joy-motlbl', motOn);
             kbToggle = el('button', 'vt-joy-kbsw vt-joy-corner vt-joy-corner-l', padBox);
             kbToggle.type = 'button';
             kbToggle.setAttribute('aria-pressed', 'false');
-            kbToggle.innerHTML = '<span class="vt-joy-kbdot" aria-hidden="true"></span><span class="vt-joy-kblbl"></span>';
+            kbToggle.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="4" width="14" height="8.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.2 6.3h1.4M6.2 6.3h1.4M9.2 6.3h1.4M12.2 6.3h.8M3.2 8.6h1.4M6.2 8.6h3.8M11.2 8.6h1.8M4.2 10.8h7.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span class="vt-joy-kbdot" aria-hidden="true"></span><span class="vt-joy-kblbl"></span>';
             tagI(kbToggle.querySelector('.vt-joy-kblbl'), 'joy.kb.lbl');
             tagI(kbToggle, 'joy.kb.tip', 'title');
             [motOn, kbToggle].forEach(function (b) { b.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); });
@@ -212,14 +213,14 @@
                rim (r 49), left to right over the top; the lit one = what the
                robot reports; a click asks for that cap */
             var sel = sv('g', {'class': 'vt-joy-spdsel'}, svg);
-            var arcs = [['slow', -138, -52, 'joy.speed.slow'], ['moderate', -42, 42, 'joy.speed.mid'], ['fast', 52, 138, 'joy.speed.fast']];
+            var arcs = [['slow', -118, -62, 'joy.speed.slow'], ['moderate', -27, 27, 'joy.speed.mid'], ['fast', 62, 118, 'joy.speed.fast']];
             arcs.forEach(function (d) {
                 var g = sv('g', {'class': 'vt-joy-spd', 'data-speed': d[0], role: 'button', tabindex: '0'}, sel);
                 sv('path', {'class': 'vt-joy-spd-hit', d: arcPath(49, d[0] === 'slow' ? d[1] : d[1], d[2])}, g);
                 sv('path', {'class': 'vt-joy-spd-arc', d: arcPath(49, d[1], d[2])}, g);
-                var mid = (d[1] + d[2]) / 2, rad = mid * Math.PI / 180;
-                var t = sv('text', {'class': 'vt-joy-spd-lbl', x: (57 * Math.sin(rad)).toFixed(1), y: (-57 * Math.cos(rad) + 2.6).toFixed(1),
-                                    'text-anchor': 'middle'}, g);
+                /* one name above the rim: the lit arc's (the others are
+                   told by their place and the tooltip — no words at the sides) */
+                var t = sv('text', {'class': 'vt-joy-spd-lbl', x: '0', y: '-56', 'text-anchor': 'middle'}, g);
                 tagI(t, d[3]);
                 g.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
                 g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); g.dispatchEvent(new Event('click')); } });

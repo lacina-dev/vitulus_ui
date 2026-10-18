@@ -1897,13 +1897,14 @@ html body.vt-frame.vt-m-sheet.vt-joy-on:not(.vt-panel-open) #div_log_view.log-ex
    reads as part of the frame, not a floating button) and a red cap on it.
    Always visible; above the panels, the log and the sheet; never hidden.
    It is the same global stop as #btn_stop_all (vt_frame.js presses it). */
-:root { --vt-estop: 72px; --vt-estop-cap: 58px; }
-@media (pointer: coarse) { :root { --vt-estop: 76px; --vt-estop-cap: 62px; } }
-@media (max-height: 560px) { :root { --vt-estop: 60px; --vt-estop-cap: 48px; } }
+:root { --vt-estop: 96px; --vt-estop-cap: 74px; }
+@media (pointer: coarse) { :root { --vt-estop: 96px; --vt-estop-cap: 76px; } }
+@media (max-height: 560px) { :root { --vt-estop: 72px; --vt-estop-cap: 56px; } }
+@media (max-width: 575.98px) { :root { --vt-estop: 84px; --vt-estop-cap: 66px; } }
 html body.vt-frame #vt_stop_big {
     position: fixed;
-    left: 6px;
-    bottom: calc(var(--vt-frame-bar-h, 26px) + var(--safe-bottom, 0px) - 10px);
+    left: 0;
+    bottom: calc(var(--vt-frame-bar-h, 26px) + var(--safe-bottom, 0px) - var(--vt-estop) * 0.28);
     width: var(--vt-estop); height: var(--vt-estop);
     display: flex; align-items: center; justify-content: center;
     margin: 0; padding: 0; border: 0; background: transparent;
@@ -1911,43 +1912,71 @@ html body.vt-frame #vt_stop_big {
     z-index: 1210;                          /* above drawer (1200), log, deck, sheet */
     -webkit-tap-highlight-color: transparent;
 }
+/* the plate is the frame's own surface bulging out of the corner: it grows
+   from the bottom bar below and from the left panel's foot on the left —
+   no outline, no shadow of its own, just the C's material; the hollow's
+   radius continues around it */
 #vt_stop_big .vt-estop-plate {
     position: absolute; inset: 0; border-radius: 50%;
     background: var(--vt-frame-bg);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 14px rgba(0, 0, 0, 0.45);
 }
-/* the plate melts into the bottom bar: a square foot under the lower half */
-#vt_stop_big .vt-estop-plate::after {
-    content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 50%;
+#vt_stop_big .vt-estop-plate::before {     /* the foot: a solid block of the frame from
+                                              the bar up to the plate's middle, the full
+                                              plate width — nothing of a panel shows
+                                              under the mushroom */
+    content: ""; position: absolute; left: 0; right: 0; bottom: -2px;
+    height: calc(50% + 2px);
     background: var(--vt-frame-bg);
-    border-radius: 0 0 var(--vt-frame-r) 0;
+    border-top-right-radius: 0;
+}
+#vt_stop_big .vt-estop-plate::after {      /* the concave fillet on the right, down to the bar */
+    content: ""; position: absolute; right: calc(-1 * var(--vt-frame-r)); bottom: -2px;
+    width: var(--vt-frame-r); height: var(--vt-frame-r);
+    background: radial-gradient(circle at 100% 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
 }
 #vt_stop_big .vt-estop-cap {
     position: relative; width: var(--vt-estop-cap); height: var(--vt-estop-cap); border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     background: radial-gradient(circle at 38% 32%, #ff6b72 0%, #e23a43 45%, #b61e26 100%);
-    box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.35), inset 0 -6px 10px rgba(0, 0, 0, 0.35),
-                0 3px 0 #7d1118, 0 6px 10px rgba(0, 0, 0, 0.5);
-    color: #fff; font: 800 12px/1 var(--vt-font); letter-spacing: .14em;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06), inset 0 2px 2px rgba(255, 255, 255, 0.35), inset 0 -7px 12px rgba(0, 0, 0, 0.35),
+                0 4px 0 #7d1118, 0 7px 12px rgba(0, 0, 0, 0.5);
+    color: #fff; font: 800 14px/1 var(--vt-font); letter-spacing: .14em;
     transition: transform .08s ease, box-shadow .08s ease;
 }
 html body.vt-frame #vt_stop_big:hover .vt-estop-cap { filter: brightness(1.07); }
 html body.vt-frame #vt_stop_big:active .vt-estop-cap {
-    transform: translateY(3px);
-    box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.25), inset 0 -4px 8px rgba(0, 0, 0, 0.4), 0 0 0 #7d1118, 0 2px 6px rgba(0, 0, 0, 0.5);
+    transform: translateY(4px);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06), inset 0 2px 2px rgba(255, 255, 255, 0.25), inset 0 -4px 8px rgba(0, 0, 0, 0.4), 0 0 0 #7d1118, 0 2px 6px rgba(0, 0, 0, 0.5);
 }
-html body.vt-frame #vt_stop_big:focus-visible .vt-estop-cap { outline: 2px solid #fff; outline-offset: 2px; }
+html body.vt-frame #vt_stop_big:focus-visible .vt-estop-cap { outline: 2px solid #fff; outline-offset: 3px; }
+@media (max-height: 560px) { #vt_stop_big .vt-estop-cap { font-size: 11px; } }
 /* the bar's own STOP is the mushroom now: the bar keeps its other buttons */
 body.vt-frame #div_bottom_menu #btn_stop_all { display: none !important; }
-body.vt-frame #div_bottom_menu .btn-group { padding-left: calc(var(--vt-estop) + 2px); }
+body.vt-frame #div_bottom_menu .btn-group { padding-left: calc(var(--vt-estop) + 8px); }
 /* phone upright: the mushroom stands on the bar's left end, over the deck band */
-body.vt-frame.vt-m-sheet #vt_stop_big { bottom: calc(var(--vt-frame-bar-h, 26px) + var(--safe-bottom, 0px) - 8px); }
+body.vt-frame.vt-m-sheet #vt_stop_big { bottom: calc(var(--vt-frame-bar-h, 26px) + var(--safe-bottom, 0px) - var(--vt-estop) * 0.28); }
 
 /* the mushroom stands in the corner over the drawer's foot / the deck band:
    both keep clear of it so nothing hides under it */
-body.vt-frame #ui_drawer_body { padding-bottom: calc(var(--vt-estop) - 6px); }
-body.vt-frame #ui_drawer_foot { padding-left: calc(var(--vt-estop) + 4px); }
-body.vt-frame.vt-m-sheet.vt-joy-band #joy_view.vt-joy-deck { padding-left: calc(var(--vt-estop) + 10px) !important; }
+body.vt-frame #ui_drawer_body { padding-bottom: calc(var(--vt-estop) * 1.05); }
+body.vt-frame #ui_drawer_foot { padding-left: calc(var(--vt-estop) + 6px); }
+body.vt-frame.vt-m-sheet.vt-joy-band #joy_view.vt-joy-deck { padding-left: calc(var(--vt-estop) + 6px) !important; }
+
+/* the left panel's own corner is frame too: a block of the frame's material
+   in its bottom-left, the mushroom's width and the plate's lower half high,
+   above the panel's scrolling content (the content stops at it — padding
+   below) and below the mushroom; its right edge carries the hollow fillet */
+body.vt-frame:not(.vt-m-sheet) #ui_drawer::after {
+    content: ""; position: absolute; left: 0; bottom: 0;
+    width: calc(var(--vt-estop) + var(--vt-frame-r) + 6px);
+    height: calc(var(--vt-estop) + var(--vt-estop) * 0.28 - 4px);
+    background: var(--vt-frame-bg);
+    /* the block's top-right is a quarter circle the size of the plate: the
+       panel's content flows around the mushroom, nothing shows beside it */
+    border-top-right-radius: calc(var(--vt-estop) * 0.9);
+    pointer-events: none; z-index: 1190;   /* over the panel's body (which stacks via its scroll/transform), under the mushroom (1210) */
+}
+body.vt-frame:not(.vt-m-sheet) #ui_drawer { isolation: auto; }
 /* the deck stands straight on the bottom bar (no STOP under it any more) */
 html body.vt-frame.vt-joy-on:not(.vt-m-sheet) #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-joy-deck.vt-joy-deck {
     left: auto !important;

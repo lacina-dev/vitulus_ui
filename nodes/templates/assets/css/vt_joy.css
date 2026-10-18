@@ -165,9 +165,9 @@
 .vt-joy-spd { cursor: pointer; }
 .vt-joy-spd-hit { fill: none; stroke: transparent; stroke-width: 16; }
 .vt-joy-spd-arc { fill: none; stroke: rgba(255, 255, 255, 0.14); stroke-width: 3; stroke-linecap: round; transition: stroke var(--vt-ease), stroke-width var(--vt-ease); }
-.vt-joy-spd-lbl { fill: var(--vt-faint); font: 700 7px var(--vt-font); letter-spacing: .08em; pointer-events: none; transition: fill var(--vt-ease); }
+.vt-joy-spd-lbl { fill: var(--vt-accent); font: 700 7.5px var(--vt-font); letter-spacing: .1em; pointer-events: none; display: none; }
+.vt-joy-spd.sel .vt-joy-spd-lbl, .vt-joy-spd.pend .vt-joy-spd-lbl { display: block; }
 .vt-joy-spd:hover .vt-joy-spd-arc { stroke: rgba(255, 255, 255, 0.3); }
-.vt-joy-spd:hover .vt-joy-spd-lbl { fill: var(--vt-text); }
 .vt-joy-spd.sel .vt-joy-spd-arc { stroke: var(--vt-accent); stroke-width: 4; filter: drop-shadow(0 0 3px rgba(var(--vt-accent-rgb), 0.7)); }
 .vt-joy-spd.sel .vt-joy-spd-lbl { fill: var(--vt-accent); }
 .vt-joy-spd.pend .vt-joy-spd-arc { animation: vt-joy-pend-arc 0.9s ease-in-out infinite; }
@@ -187,18 +187,21 @@
 .vt-joy-corner-r { right: 2px; }
 .vt-joy-corner-l { left: 2px; }
 .vt-joy-corner:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
-/* motors: one toggle, its colour = the robot's state; the label is a tooltip */
-.vt-joy-motbtn svg { width: 16px; height: 16px; }
-.vt-joy-motbtn .vt-joy-motors, .vt-joy-motbtn .vt-joy-motlbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+/* motors: a gear-and-bolt key with the state word under it, its colour =
+   the robot's state */
+.vt-joy-corner { flex-direction: column; gap: 0; width: 38px; height: 38px; }
+.vt-joy-corner svg { width: 17px; height: 17px; flex: none; }
+.vt-joy-motbtn .vt-joy-motors { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.vt-joy-motbtn .vt-joy-motlbl { font: 800 7px/1 var(--vt-font); letter-spacing: .08em; margin-top: 1px; }
 .vt-joy-motbtn[data-state="on"] { color: #0b1a12; background: var(--vt-ok); border-color: var(--vt-ok); box-shadow: 0 0 10px rgba(var(--vt-ok-rgb), 0.55); }
 .vt-joy-motbtn[data-state="off"] { color: var(--vt-warn); border-color: var(--vt-edge-warn); background: var(--vt-glow-warn); }
 .vt-joy-motbtn[data-state="unknown"] { cursor: default; opacity: .6; }
 .vt-joy-motbtn.pend { animation: vt-joy-pend 0.9s ease-in-out infinite; }
 @keyframes vt-joy-pend { 50% { background: rgba(var(--vt-accent-rgb), 0.22); } }
-/* keyboard: a dot that lights when the keys drive */
-.vt-joy-kbsw { font: 600 8px/1 var(--vt-font); letter-spacing: .06em; text-transform: uppercase; color: var(--vt-faint); }
+/* keyboard: a keyboard glyph; a dot in its corner lights while the keys drive */
+.vt-joy-kbsw { color: var(--vt-faint); }
 .vt-joy-kbsw .vt-joy-kblbl { display: none; }
-.vt-joy-kbdot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--vt-faint); }
+.vt-joy-kbdot { position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--vt-faint); background: transparent; }
 .vt-joy-kbsw.on { color: var(--vt-accent); border-color: var(--vt-edge-info); }
 .vt-joy-kbsw.on .vt-joy-kbdot { background: var(--vt-accent); border-color: var(--vt-accent); box-shadow: 0 0 6px rgba(var(--vt-accent-rgb), 0.8); }
 /* take over: inside the pad, under the lock word */
@@ -215,7 +218,7 @@
 .vt-joy-deck button:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
 /* touch: taller controls, the keyboard switch goes (no keyboard there) */
 @media (pointer: coarse) {
-    .vt-joy-corner { width: 40px; height: 40px; }
+    .vt-joy-corner { width: 42px; height: 42px; }
     .vt-joy-spd-hit { stroke-width: 22; }
     .vt-joy-deck .vt-joy-kbsw { display: none; }
 }
