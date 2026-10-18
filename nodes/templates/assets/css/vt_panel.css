@@ -1712,3 +1712,28 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #div_log_view.log-expanded
     right: calc(var(--vt-frame-joy-w, 162px) + 6px) !important;
     border-radius: 0 var(--vt-frame-r) var(--vt-frame-r) 0 !important;
 }
+/* P20: landscape phone (≤ 480 px of height) — the panel head joins the tab
+   row: the tabs take the left, the head's actions (STOP for the agent, ⤢, ✕)
+   sit at the right end of the same row. Title and meta step back (the menu
+   band already shows which panel is open). Only for panels that HAVE a tab
+   row (Settings, Map, Programs, Agent, Support); Marker and the map editor
+   keep their head. Saves ~50 px of every panel's height. */
+@media (max-height: 480px) {
+    body.vt-frame.vt-m-overlay #ui_drawer:not(.full):has(> #ui_drawer_body > :is([id^="div_menu_"], #vagent_panel, #vt_support_panel):not([style*="none"]) :is(.drawer-pills, #vagent_tabs)) {
+        --vt-compact-head: 1;
+    }
+    body.vt-frame.vt-m-overlay #ui_drawer:not(.full):has(> #ui_drawer_body > :is([id^="div_menu_"], #vagent_panel, #vt_support_panel):not([style*="none"]) :is(.drawer-pills, #vagent_tabs)) > #ui_drawer_head {
+        position: absolute; top: 0; right: 0; z-index: 6;
+        width: auto; height: 48px; min-height: 0;
+        padding: 0 6px 0 8px; gap: 4px;
+        border: 0 !important; background: var(--vt-frame-bg);
+        border-bottom-left-radius: var(--vt-r-ctl);
+    }
+    body.vt-frame.vt-m-overlay #ui_drawer:not(.full):has(> #ui_drawer_body > :is([id^="div_menu_"], #vagent_panel, #vt_support_panel):not([style*="none"]) :is(.drawer-pills, #vagent_tabs)) > #ui_drawer_head > :is(#ui_drawer_title, #ui_drawer_meta),
+    body.vt-frame.vt-m-overlay #ui_drawer:not(.full) #ui_drawer_head :is(#vagent_density, #vagent_clear, #vagent_age) {
+        display: none !important;
+    }
+    body.vt-frame.vt-m-overlay #ui_drawer:not(.full):has(> #ui_drawer_body > :is([id^="div_menu_"], #vagent_panel, #vt_support_panel):not([style*="none"]) :is(.drawer-pills, #vagent_tabs)) > #ui_drawer_body :is(.drawer-pills, #vagent_tabs) {
+        margin-right: var(--vt-head-w, 140px) !important;
+    }
+}

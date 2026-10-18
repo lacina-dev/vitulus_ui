@@ -101,6 +101,7 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Horní lišta | při výšce < 600 px jen pás menu (navbar skrytý, jako dřív) | totéž |
 | Hlášky | pás pod menu, vycentrovaný vpravo od panelu | přes celou šířku |
 | Levý panel | sloupec přes mapu, min(420 px, 52 % šířky), lícuje s lištami, stín vpravo | — |
+| Hlavička panelu (výška ≤ 480 px) | panely se záložkami (Settings, Map, Programs, Agent, Support): akce hlavičky (STOP agenta, ⤢, ✕) sedí na pravém konci řádku záložek, titulek a meta ustoupí (P20); Marker a editor mapy mají hlavičku beze změny | — |
 | Mapa | celá plocha (panel ji částečně kryje) | celá plocha |
 | Pravý stavový panel | **sbalený řádek** (mapa · Pose · GNSS · baterie · kamera · ▾) visí z pásu menu u pravé hrany; rozbalený = sloupec, joystick pak stojí vedle něj | totéž |
 | Log malý | když vpravo od panelu zbývá ≥ 420 px (bez joysticku): pruh vpravo od panelu; jinak **od levé hrany po joystick a panel stojí na něm** (`vt-log-wide`) | od hřbetu po joystick |

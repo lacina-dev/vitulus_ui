@@ -413,6 +413,14 @@
             ['row_menu', 'div_bottom_menu', 'ui_drawer', 'right_panel', 'div_log_view'].forEach(function (id) {
                 if ($(id)) { ro.observe($(id)); }
             });
+            // P20: the compact (landscape) panel head floats over the tab row —
+            // the tab row keeps that much room on its right (--vt-head-w)
+            var hd = $('ui_drawer_head');
+            if (hd) {
+                new ResizeObserver(function () {
+                    document.documentElement.style.setProperty('--vt-head-w', hd.offsetWidth + 'px');
+                }).observe(hd);
+            }
             var info = $('span_status_info');
             var row = info && info.closest ? info.closest('.vt-notice-row') : null;
             if (row) { ro.observe(row); }
