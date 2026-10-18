@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched]
+keywords: [free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master]
 ---
 # Vitulus agent
 
@@ -100,6 +100,18 @@ answering, the time runs out, the blade spins, or a **person takes over** (joyst
 It clears itself after at least 10 s once the robot stands still with the motors and the blade
 off — nothing moves when it clears. A parked mission then resumes by itself (at most twice in 30
 min); after a takeover, the blade or a position bound it waits for `pokračuj`.
+
+The supervisor's stop switches the blade off directly; it sends the mower stop only while a
+mowing program runs, so a FAULT during a test drive never cancels the docking that follows.
+
+### Robot restart during a mission
+
+When the robot's software restarts (the support kit does it after an update), the agent stays
+running and reconnects to the restarted robot by itself within a few seconds — the mission sees
+the robot again and goes on. A parked mission resumes once the supervisor is READY, starting
+from what the robot really is doing (an undock it already finished is not repeated). If the
+agent itself had to restart because of it, the mission also resumes by itself; after any other
+restart of the agent (yours, a crash) it waits for `pokračuj`.
 
 ## Activity
 

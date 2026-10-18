@@ -4,9 +4,9 @@ title: Troubleshooting
 group: When something is wrong
 order: 200
 icon: la-wrench
-summary: The robot does not drive, no map, no GPS fix, docking fails, supervisor FAULT, the UI does not respond.
+summary: The robot does not drive, no map, no GPS fix, docking fails or is cancelled, supervisor FAULT, the agent after a restart, the UI does not respond.
 related: [safety, localization, dock, agent, support]
-keywords: [problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge]
+keywords: [problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge, docking cancelled, mower stop, reconnect]
 ---
 # Troubleshooting
 
@@ -72,6 +72,21 @@ The agent's chat says the supervisor is in FAULT. It stops the robot repeatedly 
 safe again; it clears by itself once the robot has stood still for at least 10 s with motors and
 blade off. A parked mission then usually resumes by itself; after a person took over it waits for
 `pokračuj`. Details: [Supervisor FAULT](agent.md#supervisor-fault).
+
+## Docking was cancelled for no reason
+
+Docking ended with *failed* although nobody pressed anything, often right after a restart or a
+supervisor FAULT. An older mowing node used to send a delayed stop to the dock tens of seconds
+after a mower stop, even with no program running. Now a mower stop cancels docking only while a
+mowing program runs, and at once ([Mowing unit](mowing.md#stop)). If it still happens, report it
+with the time.
+
+## The agent does not see the robot after a restart
+
+After the robot's software restarted, the agent reconnects by itself within a few seconds; a
+mission waiting on the robot goes on. If the chat keeps saying the robot does not answer for
+more than a minute, ask the agent *stav robota* or report it ([Robot restart during a
+mission](agent.md#robot-restart-during-a-mission)).
 
 ## The UI does not respond
 
