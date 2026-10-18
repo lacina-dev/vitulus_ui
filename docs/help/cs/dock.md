@@ -35,7 +35,7 @@ Robot je **v doku, když nabíječka dodává proud** (ikona napájení zelená,
 Motory zapnout | program zapne pojezdové motory
 Vycouvat | podle odrazky vyjede 1,25 m z doku
 Na UNDOCK | podle mapy místa dojede na bod UNDOCK
-warn: Čekat na RTK | oba GPS přijímače RTK a ustálená GPS odometrie 5 s (max. 10 min)
+warn: Čekat na RTK | oba GPS přijímače RTK a ustálená GPS odometrie 5 s (10 min, po restartu až ~25 min)
 ok: Hotovo | motory zůstanou zapnuté
 ```
 
@@ -43,8 +43,14 @@ ok: Hotovo | motory zůstanou zapnuté
 - Když má mapa místa bod **UNDOCK**, robot na něj nejdřív dojede a na GPS čeká až tam — pod
   okrajem střechy doku bývá fix špatný.
 - *Waiting for RTK fix* ve stavovém řádku znamená, že robot stojí a čeká, až obě ikony GPS
-  zezelenají (a GPS odometrie se ustálí). Ztráta RTK odpočet 5 s spustí znovu. Po 10 minutách se
-  výjezd přeruší s hláškou *Navigation readiness timeout*.
+  zezelenají (a GPS odometrie se ustálí). Ztráta RTK odpočet 5 s spustí znovu. Každých 30 s
+  ukáže displej průběh, např. *Waiting for RTK: main RTK, heading 3DFIX - 4:43 / 19:43*
+  (čekám / aktuální limit).
+- Limit je 10 minut. Když přijímače postupují (hlavní dosáhne RTK, heading přepne na RTK),
+  prodlouží se o 15 minut, nejvýš ale do ~25 minut od naběhnutí GPS — po restartu potřebuje
+  heading přijímač ~15–17 minut. Pak se výjezd přeruší s hláškou *RTK not ready in time*.
+  V programu sekání robot potom zajede zpátky do doku a program se zkusí později (jako po jiné
+  chybě); ruční Undock ho nechá stát.
 
 ## Zajetí do doku
 

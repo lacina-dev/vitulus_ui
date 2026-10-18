@@ -36,7 +36,7 @@ The robot counts as **docked when the charger supplies power** (supply icon gree
 Motors on | the program switches the drive motors on
 Back out | intensity: drives 1.25 m out of the dock
 To UNDOCK | by the site map, to the UNDOCK point
-warn: Wait for RTK | both GPS receivers RTK and GPS odometry ready for 5 s (max 10 min)
+warn: Wait for RTK | both GPS receivers RTK and GPS odometry ready for 5 s (10 min, after a reboot up to ~25 min)
 ok: Ready | motors stay on
 ```
 
@@ -44,8 +44,14 @@ ok: Ready | motors stay on
 - With a site map that has an **UNDOCK** point the robot first drives out to that point and only
   then waits for GPS — under the roof edge of the dock the fix is often poor.
 - *Waiting for RTK fix* in the status bar means the robot stands and waits for both GPS icons to
-  turn green (and for the GPS odometry to settle). Losing RTK restarts the 5 s count. After 10 minutes the undock aborts with
-  *Navigation readiness timeout*.
+  turn green (and for the GPS odometry to settle). Losing RTK restarts the 5 s count. Every 30 s
+  the display shows the progress, e.g. *Waiting for RTK: main RTK, heading 3DFIX - 4:43 / 19:43*
+  (time waited / current limit).
+- The limit is 10 minutes. While the receivers make progress (the main one reaches RTK, the
+  heading one switches to RTK) it grows by 15 minutes, but never past ~25 minutes after the GPS
+  came up — after a reboot the heading receiver needs ~15–17 minutes. Then the undock aborts with
+  *RTK not ready in time*. In a mowing program the robot then drives back to the dock and the
+  program is retried later (like after any other error); a manual Undock leaves it standing.
 
 ## Dock
 
