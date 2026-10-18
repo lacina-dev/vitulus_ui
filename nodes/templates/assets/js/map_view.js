@@ -11,6 +11,22 @@ function vtSel(btn, on) {
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 
+/* i18n (docs/I18N.md): every UI text of map_view goes through these. Not
+   named t(): this file is global scope and `t` is a common local name here.
+   vtTag follows each language switch by itself (data-i18n); text drawn with
+   vtT is redrawn from a vtOnLang subscriber. */
+function vtT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+function vtTn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
+function vtTag(el, k, attr) {
+    if (!el) return el;
+    if (window.VTI18n) return VTI18n.tag(el, k, attr);
+    if (attr) el.setAttribute(attr, k); else el.textContent = k;
+    return el;
+}
+function vtOnLang(fn) {
+    if (window.VTI18n && VTI18n.onChange) VTI18n.onChange(fn);
+}
+
 ROS3D.Viewer.prototype.resize = function(width, height) {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -563,15 +579,18 @@ class PathListItemTemplate {
     // U1 kolo 3: one list-row look (vt_panel.css .vt-item), no inline styles
     constructor(item) {
         this.name = item;
-        this.element =  `
+    }
+    // a getter, so a redraw after a language switch has the new texts
+    get element() {
+        return `
             <div class="vt-item">
-                <button onclick="map_menu.path_clicked_exec('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="Drive this path">
+                <button onclick="map_menu.path_clicked_exec('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="${vtEsc(vtT('mlib.path.drive'))}">
                     <i class="fa fa-arrow-circle-right text-info"></i>
                 </button>
                 <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
-                <button onclick="map_menu.add_path_point('${this.name}')" class="btn btn-primary" type="button">Add</button>
-                <button onclick="map_menu.path_clicked_show('${this.name}')" class="btn btn-primary" type="button">Show</button>
-                <button onclick="map_menu.show_modal_remove_path('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="Remove">
+                <button onclick="map_menu.add_path_point('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.add'))}</button>
+                <button onclick="map_menu.path_clicked_show('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.show'))}</button>
+                <button onclick="map_menu.show_modal_remove_path('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="${vtEsc(vtT('common.remove'))}">
                     <i class="fa fa-remove text-danger"></i>
                 </button>
             </div>
@@ -597,17 +616,17 @@ class ProgramZoneItemTemplate {
             <div class="vt-card vt-zone-card">
                 <div class="vt-card-head">
                     <span class="vt-card-title">${vtEsc(this.name)}</span>
-                    <button class="vt-iconbtn vt-iconbtn-sm vt-zone-del" type="button" title="Remove zone from program" onclick="programs.removeZoneFromProgram('${this.name}')"><i class="fa fa-remove text-danger"></i></button>
+                    <button class="vt-iconbtn vt-iconbtn-sm vt-zone-del" type="button" title="${vtEsc(vtT('mapview.zone.remove'))}" onclick="programs.removeZoneFromProgram('${this.name}')"><i class="fa fa-remove text-danger"></i></button>
                 </div>
                 <dl class="vt-kv vt-kv-2">
-                    <dt>Cut height</dt><dd>${this.cut_height} mm</dd>
-                    <dt>RPM</dt><dd>${this.rpm}</dd>
-                    <dt>Coverage angle</dt><dd>${this.coverage_angle}°</dd>
-                    <dt>Path distance</dt><dd>${this.paths_distance} m</dd>
-                    <dt>Area</dt><dd>${this.area} m²</dd>
-                    <dt>Length</dt><dd>${this.length} m</dd>
-                    <dt>Borders</dt><dd>${this.border_paths}</dd>
-                    <dt>Paths</dt><dd>${this.paths}</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.cut_height'))}</dt><dd>${this.cut_height} mm</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.rpm'))}</dt><dd>${this.rpm}</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.angle'))}</dt><dd>${this.coverage_angle}°</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.path_distance'))}</dt><dd>${this.paths_distance} m</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.area'))}</dt><dd>${this.area} m²</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.length'))}</dt><dd>${this.length} m</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.borders'))}</dt><dd>${this.border_paths}</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.paths'))}</dt><dd>${this.paths}</dd>
                 </dl>
             </div>
             `;
@@ -626,9 +645,10 @@ class ProgramListItemTemplate {
         this.last_duration = item.last_duration_minutes;
         this.last_result = item.last_result || '';
         const st = vtResultState(this.last_result);
-        const res = vtEsc(this.last_result || 'never run');
+        // last_result comes from the planner (data); only the "never run" stand-in is UI text
+        const res = vtEsc(this.last_result || vtT('mapview.prog.never_run'));
         this.element =  `
-            <button onclick="programs.show_program(${this.program})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="Open program">
+            <button onclick="programs.show_program(${this.program})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
                 <span class="vt-prog-name">${vtEsc(this.name)}</span>
                 <span class="vt-prog-meta">${this.area} m² · ${this.last_duration || 0} min · <span class="vt-prog-res">${res}</span></span>
             </button>
@@ -660,6 +680,16 @@ class ItemList {
             // console.log(message);
             this.process_list(message);
         });
+        // the list topic is latched (arrives once): redraw on a language switch
+        vtOnLang(() => this.redraw());
+    }
+    redraw(){
+        if (this.type === 'path'){
+            this.map_menu.div_menu_path_items_row.innerHTML = this.get_html()
+        }
+        if (this.type === 'point') {
+            this.map_menu.div_menu_point_items_row.innerHTML = this.get_html()
+        }
     }
     get_html(){
         let elements = "";
@@ -705,12 +735,7 @@ class ItemList {
         // Redraw list if there was any change.
         if (change_list){
             // console.log(this.list);
-            if (this.type === 'path'){
-                this.map_menu.div_menu_path_items_row.innerHTML = this.get_html()
-            }
-            if (this.type === 'point') {
-                this.map_menu.div_menu_point_items_row.innerHTML = this.get_html()
-            }
+            this.redraw();
         }
     }
 }
@@ -719,14 +744,17 @@ class PointListItemTemplate {
     // U1 kolo 3: one list-row look (vt_panel.css .vt-item), no inline styles
     constructor(item) {
         this.name = item;
-        this.element =  `
+    }
+    // a getter, so a redraw after a language switch has the new texts
+    get element() {
+        return `
             <div class="vt-item">
-                <button onclick="map_menu.point_clicked_goal('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="Go to this point">
+                <button onclick="map_menu.point_clicked_goal('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="${vtEsc(vtT('mlib.point.goto'))}">
                     <i class="fa fa-map-marker text-info"></i>
                 </button>
                 <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
-                <button onclick="map_menu.point_clicked_show('${this.name}')" class="btn btn-primary" type="button">Show</button>
-                <button onclick="map_menu.show_modal_remove_point('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="Remove">
+                <button onclick="map_menu.point_clicked_show('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.show'))}</button>
+                <button onclick="map_menu.show_modal_remove_point('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="${vtEsc(vtT('common.remove'))}">
                     <i class="fa fa-remove text-danger"></i>
                 </button>
             </div>
@@ -1014,7 +1042,8 @@ class ConnectionStatus {
         this.set(ros && ros.state ? ros.state : 'connecting');
         // Allow click to force an immediate reconnect attempt
         this.el.style.cursor = 'pointer';
-        this.el.title = 'Click to reconnect';
+        vtTag(this.el, 'mapview.conn.reconnect', 'title');
+        vtOnLang(function () { self.set(self._state); });
         this.el.addEventListener('click', function() {
             if (self.ros.state !== 'connected') {
                 if (self.ros._reconnect_timer) { clearTimeout(self.ros._reconnect_timer); self.ros._reconnect_timer = null; }
@@ -1025,10 +1054,11 @@ class ConnectionStatus {
     }
     set(state) {
         if (!this.el) return;
+        this._state = state;
         var conf = {
-            connected:    {color: 'var(--bs-success)', txt: 'ONLINE', icon: 'la la-wifi',    pulse: false},
-            connecting:   {color: 'var(--bs-warning)', txt: 'CONNECTING',   icon: 'la la-wifi',    pulse: true},
-            disconnected: {color: 'var(--bs-danger)',  txt: 'OFFLINE', icon: 'la la-wifi',   pulse: false}
+            connected:    {color: 'var(--bs-success)', txt: vtT('mapview.conn.online'), icon: 'la la-wifi',    pulse: false},
+            connecting:   {color: 'var(--bs-warning)', txt: vtT('mapview.conn.connecting'),   icon: 'la la-wifi',    pulse: true},
+            disconnected: {color: 'var(--bs-danger)',  txt: vtT('mapview.conn.offline'), icon: 'la la-wifi',   pulse: false}
         };
         var c = conf[state] || conf.disconnected;
         this.el.style.color = c.color;
@@ -1159,13 +1189,14 @@ function show_webgl_warning() {
             'position:fixed;top:0;left:0;right:0;z-index:99999;' +
             'background:#e8643c;color:#fff;font:14px/1.4 sans-serif;' +
             'padding:10px 44px 10px 16px;box-shadow:0 2px 8px rgba(0,0,0,.4);';
-        bar.innerHTML =
-            '<strong>3D map disabled — WebGL is not available in this browser.</strong> ' +
-            'Robot status and controls still work, but the 3D map, laser and point ' +
-            'cloud cannot be shown. This usually means hardware acceleration is ' +
-            'turned off. Enable it (e.g. Chrome: Settings &rarr; System &rarr; ' +
-            '“Use hardware acceleration when available”, or chrome://gpu) ' +
-            'and reload the page.';
+        // tagged spans: the banner follows a language switch by itself
+        var head = document.createElement('strong');
+        vtTag(head, 'mapview.webgl.title');
+        var body = document.createElement('span');
+        vtTag(body, 'mapview.webgl.body');
+        bar.appendChild(head);
+        bar.appendChild(document.createTextNode(' '));
+        bar.appendChild(body);
         var close = document.createElement('span');
         close.textContent = '×';
         close.style.cssText =
@@ -2151,7 +2182,7 @@ class CameraView {
         var _host0 = document.getElementById('div_camera_view');
         if (_host0) {
             _host0.style.cursor = 'zoom-in';
-            _host0.title = 'Click to enlarge / shrink the camera view';
+            vtTag(_host0, 'mapview.cam.resize', 'title');
             _host0.addEventListener('click', function () { self.toggleSize(); });
         }
         // Watchdog (only while ACTIVE + tab visible): no frames -> loader +
@@ -2230,7 +2261,8 @@ class CameraView {
         this._loader = document.createElement('div');
         this._loader.className = 'cam-loader';
         this._loader.style.display = 'none';
-        this._loader.innerHTML = '<div class="spin"></div><div>camera…</div>';
+        this._loader.innerHTML = '<div class="spin"></div><div></div>';
+        vtTag(this._loader.lastChild, 'mapview.cam.loading');
         host.appendChild(this._loader);
     }
     _showLoader() { if (this._loader) this._loader.style.display = 'flex'; }
@@ -3240,13 +3272,25 @@ class MapMenu {
         this.ui_drawer_body = document.getElementById("ui_drawer_body");
         this.ui_drawer_title = document.getElementById("ui_drawer_title");
         this.ui_drawer_backdrop = document.getElementById("ui_drawer_backdrop");
+        // i18n keys of the drawer titles (vtT at the moment the panel opens)
         this._drawer_titles = {
-            marker: 'Marker', map: 'Map', program: 'Programs',
-            config: 'Settings', editor: 'Map editor',
+            marker: 'mlay.title.marker', map: 'mlay.title.map', program: 'mlay.title.program',
+            config: 'mlay.title.config', editor: 'mlay.title.editor',
         };
         this._drawer_last = null;
+        this._drawer_title_text = null;   // the title this panel wrote (see vtOnLang below)
         if (!this.ui_drawer || !this.ui_drawer_body) return;
         var self = this;
+        // Not VTI18n.tag: Support / Needs you write their own text into the same
+        // #ui_drawer_title, and a left-over data-i18n would put the map title
+        // back on a language switch. Retitle only while the title is still ours.
+        vtOnLang(function () {
+            var tt = self.ui_drawer_title, key = self._drawer_titles[self._drawer_last];
+            if (tt && key && self._drawer_title_text !== null && tt.textContent === self._drawer_title_text) {
+                self._drawer_title_text = vtT(key);
+                tt.textContent = self._drawer_title_text;
+            }
+        });
         ['div_menu_marker', 'div_menu_map', 'div_menu_map_program',
          'div_menu_config', 'div_map_detail'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -3291,12 +3335,12 @@ class MapMenu {
 
     _update_drawer_full_buttons(on) {
         var icon = on ? 'la-compress' : 'la-expand';
-        var title = on ? 'Restore' : 'Expand';
+        var title = on ? 'mlay.full.restore' : 'common.expand';
         ['btn_ui_drawer_full', 'btn_map_detail_full'].forEach(function (id) {
             var b = document.getElementById(id);
             if (!b) return;
-            b.title = title;
-            b.setAttribute('aria-label', title);
+            vtTag(b, title, 'title');
+            vtTag(b, title, 'aria-label');
             var i = b.querySelector('i');
             if (i) { i.classList.remove('la-expand', 'la-compress'); i.classList.add(icon); }
         });
@@ -3336,7 +3380,10 @@ class MapMenu {
             else this.ui_drawer.classList.remove('editor');
             this.ui_drawer.setAttribute('aria-hidden', 'false');
         }
-        if (this.ui_drawer_title) this.ui_drawer_title.textContent = (this._drawer_titles[key] || '');
+        if (this.ui_drawer_title) {
+            this._drawer_title_text = this._drawer_titles[key] ? vtT(this._drawer_titles[key]) : '';
+            this.ui_drawer_title.textContent = this._drawer_title_text;
+        }
         this._drawer_chrome(key);
         this._menu_active(key);
         if (this.ui_drawer_body) this.ui_drawer_body.scrollTop = 0;
@@ -3766,6 +3813,7 @@ class RosLog{
         // label into the controls.
         if (this.filters.search) { this.searchInput.value = this.filters.search; }
         this._update_source_label();
+        vtOnLang(() => this._update_source_label());
 
         let searchTimer = null;
         this.searchInput.addEventListener('input', () => {
@@ -3795,13 +3843,13 @@ class RosLog{
         if (this.autoscroll) {
             this.pauseBtn.classList.add('btn-outline-info');
             this.pauseBtn.classList.remove('btn-info');
-            if (span) span.textContent = 'Live';
-            this.pauseBtn.title = 'Pause autoscroll';
+            if (span) vtTag(span, 'mlog.live');
+            vtTag(this.pauseBtn, 'mlog.pause', 'title');
         } else {
             this.pauseBtn.classList.remove('btn-outline-info');
             this.pauseBtn.classList.add('btn-info');
-            if (span) span.textContent = 'Paused';
-            this.pauseBtn.title = 'Resume autoscroll';
+            if (span) vtTag(span, 'mlog.paused');
+            vtTag(this.pauseBtn, 'mlog.resume', 'title');
         }
     }
 
@@ -3977,13 +4025,13 @@ class RosLog{
         if (!this.sourceToggleBtn) return;
         const count = this.filters.sources.size;
         if (count === 0) {
-            this.sourceToggleBtn.textContent = 'All nodes \u25be';
+            this.sourceToggleBtn.textContent = vtT('mlog.nodes.all') + ' \u25be';
         } else if (count === 1) {
             const name = Array.from(this.filters.sources)[0];
             const short = name.length > 18 ? name.slice(0, 17) + '\u2026' : name;
             this.sourceToggleBtn.textContent = short + ' \u25be';
         } else {
-            this.sourceToggleBtn.textContent = count + '\u00a0nodes \u25be';
+            this.sourceToggleBtn.textContent = vtTn('mlog.nodes', count) + ' \u25be';
         }
     }
 
@@ -4039,6 +4087,14 @@ function robotEventClassify(value, hintedSource) {
             signature: source + '|' + msg.toLowerCase()};
 }
 
+// the source ids above -> their shown label (i18n)
+var ROBOT_EVENT_SOURCE_KEYS = {
+    Robot: 'mlog.src.robot', Position: 'mlog.src.position', Lidar: 'mlog.src.lidar',
+    Drive: 'mlog.src.drive', Dock: 'mlog.src.dock', Navigation: 'mlog.src.navigation',
+    Camera: 'mlog.src.camera', Power: 'mlog.src.power', Connection: 'mlog.src.connection',
+    Agent: 'mlog.src.agent'
+};
+
 class StatusLog {
     constructor(ros) {
         this.LOG_COMPACT = 30;
@@ -4064,6 +4120,11 @@ class StatusLog {
             messageType: 'std_msgs/String'
         });
         this.ros = ros && ros.ros;
+        // source labels + the browser's own events are translated: redraw
+        vtOnLang(() => {
+            if (!this.active || !this.contentEl) return;
+            if (this.expanded) this.render_full(); else this.render_compact();
+        });
     }
 
     attach(viewEl) {
@@ -4076,12 +4137,14 @@ class StatusLog {
     subscribe() {
         this.history_topic.subscribe((message) => this.process_history(message));
         if (this.ros && this.ros.on) {
+            // msg stays English (it is classified + de-duplicated by its text);
+            // key is what format_line shows, in the current language
             this.ros.on('connection', () => this.ingest({
-                t: Date.now() / 1000, msg: 'Connection to the robot restored', source: 'Connection'}));
+                t: Date.now() / 1000, msg: 'Connection to the robot restored', key: 'mlog.ev.restored', source: 'Connection'}));
             this.ros.on('close', () => this.ingest({
-                t: Date.now() / 1000, msg: 'Lost signal from the robot', source: 'Connection'}));
+                t: Date.now() / 1000, msg: 'Lost signal from the robot', key: 'mlog.ev.lost', source: 'Connection'}));
             this.ros.on('error', () => this.ingest({
-                t: Date.now() / 1000, msg: 'Robot connection error', source: 'Connection'}));
+                t: Date.now() / 1000, msg: 'Robot connection error', key: 'mlog.ev.error', source: 'Connection'}));
         }
         this.poll_agent();
     }
@@ -4145,7 +4208,7 @@ class StatusLog {
         // three real transitions and must not be hidden by an old signature.
         if (previous && previous.signature === classified.signature &&
                 Math.abs(t - previous.t) < 60) return false;
-        var entry = {seq: raw.seq, t: t, msg: classified.msg,
+        var entry = {seq: raw.seq, t: t, msg: classified.msg, key: raw.key || null,
                      source: classified.source, severity: classified.severity,
                      signature: classified.signature};
 
@@ -4204,9 +4267,12 @@ class StatusLog {
         span.appendChild(dot);
         const source = document.createElement('span');
         source.className = 'event-source';
-        source.textContent = (entry.source || 'Robot') + ' · ';
+        // entry.source is an internal id (English, used as a map key); shown translated
+        const srcKey = ROBOT_EVENT_SOURCE_KEYS[entry.source || 'Robot'];
+        source.textContent = (srcKey ? vtT(srcKey) : entry.source) + ' · ';
         span.appendChild(source);
-        span.appendChild(document.createTextNode(entry.msg));
+        // robot / agent text is data; only the browser's own events carry a key
+        span.appendChild(document.createTextNode(entry.key ? vtT(entry.key) : entry.msg));
         span.title = t.toLocaleString();
         return span;
     }
@@ -4294,13 +4360,13 @@ class StatusLog {
         if (this.autoscroll) {
             this.pauseBtn.classList.add('btn-outline-info');
             this.pauseBtn.classList.remove('btn-info');
-            if (span) span.textContent = 'Live';
-            this.pauseBtn.title = 'Pause autoscroll';
+            if (span) vtTag(span, 'mlog.live');
+            vtTag(this.pauseBtn, 'mlog.pause', 'title');
         } else {
             this.pauseBtn.classList.remove('btn-outline-info');
             this.pauseBtn.classList.add('btn-info');
-            if (span) span.textContent = 'Paused';
-            this.pauseBtn.title = 'Resume autoscroll';
+            if (span) vtTag(span, 'mlog.paused');
+            vtTag(this.pauseBtn, 'mlog.resume', 'title');
         }
     }
 
@@ -4520,24 +4586,39 @@ class MoveBaseControl {
         vtSel(this.btn_menu_speed_low_sm, low === blue);
         vtSel(this.btn_menu_speed_moderate_sm, moderate === blue);
         vtSel(this.btn_menu_speed_fast_sm, fast === blue);
-        this.span_status_speed.innerText = label;
+        this._show_status_speed(label === 'MODERATE' ? 'moderate' : label.toLowerCase());
+    }
+    // the status-bar speed word (i18n; the value itself is SLOW/MEDIUM/FAST)
+    _show_status_speed(speed) {
+        const key = {slow: 'mapview.speed.slow', moderate: 'mapview.speed.moderate',
+                     fast: 'mapview.speed.fast'}[speed];
+        if (key && this.span_status_speed) vtTag(this.span_status_speed, key);
     }
     /* the speed the joystick drives with, WITHOUT publishing it (the robot's
        /navi_manager/speed is the source; the page only follows it) */
     set_local_speed(speed) {
         const table = {
-            slow: [this.speed_lin_slow, this.speed_ang_slow, 'SLOW'],
-            moderate: [this.speed_lin_moderate, this.speed_ang_moderate, 'MID'],
-            fast: [this.speed_lin_fast, this.speed_ang_fast, 'FAST']
+            slow: [this.speed_lin_slow, this.speed_ang_slow, 'mapview.joy.slow'],
+            moderate: [this.speed_lin_moderate, this.speed_ang_moderate, 'mapview.joy.mid'],
+            fast: [this.speed_lin_fast, this.speed_ang_fast, 'mapview.joy.fast']
         };
         const t = table[speed];
         if (!t) { return; }
+        this._local_speed = speed;
         this.speed_lin_current = t[0];
         this.speed_ang_current = t[1];
         if (this.joy_teleop) {
             this.joy_teleop.speed_lin = t[0];
             this.joy_teleop.speed_ang = t[1];
-            this.joy_teleop.set_speed_label(t[2]);
+            this.joy_teleop.set_speed_label(vtT(t[2]));
+        }
+        if (!this._lang_hooked) {
+            // the joystick's speed label is drawn once per change: redraw it
+            this._lang_hooked = true;
+            vtOnLang(() => {
+                const r = table[this._local_speed];
+                if (r && this.joy_teleop) this.joy_teleop.set_speed_label(vtT(r[2]));
+            });
         }
     }
     pub_cancel_goal() {
@@ -4548,19 +4629,19 @@ class MoveBaseControl {
     pub_set_speed(speed) {
         if (speed === 'slow') {
             this.speedTopic.publish({data: 'SLOW'});
-            this.span_status_speed.innerText = 'SLOW';
+            this._show_status_speed('slow');
             this.speed_lin_current = this.speed_lin_slow;
             this.speed_ang_current = this.speed_ang_slow;
         }
         if (speed === 'moderate') {
             this.speedTopic.publish({data: 'MEDIUM'});
-            this.span_status_speed.innerText = 'MODERATE';
+            this._show_status_speed('moderate');
             this.speed_lin_current = this.speed_lin_moderate;
             this.speed_ang_current = this.speed_ang_moderate;
         }
         if (speed === 'fast') {
             this.speedTopic.publish({data: 'FAST'});
-            this.span_status_speed.innerText = 'FAST';
+            this._show_status_speed('fast');
             this.speed_lin_current = this.speed_lin_fast;
             this.speed_ang_current = this.speed_ang_fast;
         }
@@ -4628,7 +4709,7 @@ class StatusBar {
         this.div_status_follow_txt.style.display = "inline-flex";
         this.span_status_follow = document.getElementById("span_status_follow");
         this.span_status_follow.style.display = "inline";
-        this.set_follow_text("Map");
+        this.set_follow_text("mapview.follow.map");
 
         this.div_status_map_name = document.getElementById("div_status_map_name");
         this.div_status_map_name.style.display = "none";
@@ -4647,8 +4728,9 @@ class StatusBar {
         this.is_indoor = false;
 
     }
-    set_follow_text(text) {
-        this.span_status_follow.innerText = text;
+    // key: mapview.follow.map | mapview.follow.robot (tagged: follows a language switch)
+    set_follow_text(key) {
+        vtTag(this.span_status_follow, key);
     }
     set_map_name(message) {
         this.div_status_map_name.style.display = "inline-flex";
@@ -4939,7 +5021,8 @@ class Odom{
             var label = (g && g[1] === "1") ? "RTK"
                       : ({vo: "VO", licp: "LiDAR", wheel: "WHEEL"}[a] || (a ? a.toUpperCase() : "—"));
             var color = label === "RTK" ? "#5cb85c" : (label === "WHEEL" ? "#d9534f" : "#f0ad4e");
-            this.span_odom_drive.textContent = label;
+            // label stays the English id (compared above); WHEEL is shown translated
+            this.span_odom_drive.textContent = label === "WHEEL" ? vtT('mapview.odom.wheel') : label;
             vtChip(this.span_odom_drive, color);
         }
         this._chip(this.span_odom_vo,    /vo\[use=(\d)/.exec(s),    a === "vo");
@@ -4962,11 +5045,11 @@ class Odom{
         if (this.span_odom_drive) {
             var labels = {
                 gps: ["RTK", "#5cb85c"],
-                dock: ["DOCK", "#5cb85c"],       // precise anchor, not degraded
+                dock: [vtT('mapview.odom.dock'), "#5cb85c"],       // precise anchor, not degraded
                 tracker: ["TRACKER", "#f0ad4e"],
                 rtabmap: ["RTABMAP", "#f0ad4e"],
                 legacy: ["EXT", "#f0ad4e"],
-                dr: ["DEAD-RECKON", "#d9534f"]
+                dr: [vtT('mapview.odom.dr'), "#d9534f"]
             };
             var lc = labels[o.owner] || ["—", "#555555"];
             var txt = lc[0];
@@ -4979,7 +5062,7 @@ class Odom{
             }
             this.span_odom_drive.textContent = txt;
             vtChip(this.span_odom_drive, lc[1]);
-            this.span_odom_drive.title = "pose owner (loc_status)";
+            this.span_odom_drive.title = vtT('mapview.odom.owner_tip');
         }
         if (this.span_odom_fix) {
             var fixOn = !!o.fix_usable;
@@ -5005,50 +5088,47 @@ class Odom{
         var st = (m.status && typeof m.status.status === "number")
             ? m.status.status : null;
         if (this.span_gnss_fix) {
-            var fix = st === null ? "fix —"
-                : (st < 0 ? "NO FIX"
+            var fix = st === null ? vtT('mapview.gnss.fix_unknown')
+                : (st < 0 ? vtT('mapview.gnss.no_fix')
                    : (st === 2 ? "GBAS" : (st === 1 ? "SBAS" : "FIX")));
             this.span_gnss_fix.textContent = fix;
             vtChip(this.span_gnss_fix, st === null ? "off" : (st < 0 ? "err" : "ok"));
             this.span_gnss_fix.title = st === null
-                ? "The receiver has not said — unknown, not absent."
-                : "NavSatStatus " + st + " (-1 none, 0 fix, 1 SBAS, 2 GBAS)";
+                ? vtT('mapview.gnss.fix_unknown_tip')
+                : vtT('mapview.gnss.fix_tip', {st: st});
         }
         if (this.span_gnss_pos) {
             // Only trust the position covariance when there IS a fix.  The old
             // gate was `st === 0`, i.e. it threw away the covariance of every
             // ordinary fix; no fix is st < 0.
             if (st === null || st < 0 || !m.position_covariance) {
-                this.span_gnss_pos.textContent = "pos —";
+                this.span_gnss_pos.textContent = vtT('mapview.gnss.pos_none');
                 vtTone(this.span_gnss_pos, "err");
             } else {
                 var cm = Math.sqrt(m.position_covariance[0]) * 100.0;
-                this.span_gnss_pos.textContent = "pos ±" + (cm < 10 ? cm.toFixed(1) : cm.toFixed(0)) + "cm";
+                this.span_gnss_pos.textContent = vtT('mapview.gnss.pos', {cm: (cm < 10 ? cm.toFixed(1) : cm.toFixed(0))});
                 // whose number this is: the RECEIVER's own covariance on
                 // /gnss/fix, not the fused pose accuracy the RTK chip quotes
-                this.span_gnss_pos.title =
-                    "Standard deviation the GNSS receiver itself reports on " +
-                    "/gnss/fix. The RTK figure elsewhere is the fused pose " +
-                    "and is a different measurement.";
+                this.span_gnss_pos.title = vtT('mapview.gnss.pos_tip');
                 vtTone(this.span_gnss_pos, cm <= 5 ? "ok" : (cm <= 50 ? "warn" : "err"));
             }
         }
     }
 
     process_navpvt(m) {
-        if (this.span_gnss_sats) this.span_gnss_sats.textContent = "sats " + (m.numSV != null ? m.numSV : "–");
+        if (this.span_gnss_sats) this.span_gnss_sats.textContent = vtT('mapview.gnss.sats', {n: (m.numSV != null ? m.numSV : "–")});
     }
 
     process_navheading(m) {
         if (!this.span_gnss_hdg) return;
         var cov = m.orientation_covariance ? m.orientation_covariance[8] : null;
         if (cov == null || cov >= 100) {   // 1000 == no RTK heading
-            this.span_gnss_hdg.textContent = "hdg —";
+            this.span_gnss_hdg.textContent = vtT('mapview.gnss.hdg_none');
             vtTone(this.span_gnss_hdg, "muted");
             return;
         }
         var deg = Math.sqrt(cov) * 180.0 / Math.PI;
-        this.span_gnss_hdg.textContent = "hdg ±" + deg.toFixed(1) + "°";
+        this.span_gnss_hdg.textContent = vtT('mapview.gnss.hdg', {deg: deg.toFixed(1)});
         // green up to ~2 deg: that is the band navi_transform actually accepts
         // RTK heading at, so normal good heading reads green, not amber.
         vtTone(this.span_gnss_hdg, deg <= 2 ? "ok" : (deg <= 6 ? "warn" : "err"));
@@ -5199,13 +5279,13 @@ class Diag {
             (groups[g] = groups[g] || []).push({n: n, m: item.message, st: st});
         });
         var sum = [];
-        if (cnt.err) sum.push('<span class="vt-diag-c" data-state="err">' + cnt.err + ' error' + (cnt.err > 1 ? 's' : '') + '</span>');
-        if (cnt.warn) sum.push('<span class="vt-diag-c" data-state="warn">' + cnt.warn + ' warning' + (cnt.warn > 1 ? 's' : '') + '</span>');
-        sum.push('<span class="vt-diag-c" data-state="ok">' + cnt.ok + ' OK</span>');
-        if (cnt.off) sum.push('<span class="vt-diag-c" data-state="off">' + cnt.off + ' stale</span>');
+        if (cnt.err) sum.push('<span class="vt-diag-c" data-state="err">' + esc(vtTn('mapview.diag.errors', cnt.err)) + '</span>');
+        if (cnt.warn) sum.push('<span class="vt-diag-c" data-state="warn">' + esc(vtTn('mapview.diag.warnings', cnt.warn)) + '</span>');
+        sum.push('<span class="vt-diag-c" data-state="ok">' + esc(vtT('mapview.diag.ok', {n: cnt.ok})) + '</span>');
+        if (cnt.off) sum.push('<span class="vt-diag-c" data-state="off">' + esc(vtT('mapview.diag.stale', {n: cnt.off})) + '</span>');
         var diag_html_content = diag_arr.length
             ? '<div class="vt-diag-sum">' + sum.join('') + '</div>'
-            : '<div class="vt-empty">Waiting for /diagnostics…</div>';
+            : '<div class="vt-empty">' + esc(vtT('mapview.diag.waiting')) + '</div>';
         Object.keys(groups).sort().forEach(function (g) {
             var rows = groups[g].sort(function (a, b) { return a.n.localeCompare(b.n); });
             diag_html_content += '<div class="vt-diag-grp"><div class="vt-diag-gh">' + esc(g) + '</div>';
@@ -5344,6 +5424,12 @@ class BagManager {
         this.btn_confirm = document.getElementById('btn_modal_remove_bag');
         this.pending_path = null;
         this.in_flight = false;
+        this._last = null;          // last list / error, redrawn on a language switch
+        vtOnLang(() => {
+            if (!this.div_list || !this._last) return;
+            if (this._last.err !== undefined) this.render_error(this._last.err);
+            else this.render(this._last.data);
+        });
     }
 
     init() {
@@ -5380,31 +5466,36 @@ class BagManager {
         fetch('/rosbag/list', { cache: 'no-store' })
             .then(r => r.ok ? r.json() : Promise.reject(r.status))
             .then(data => this.render(data))
-            .catch(err => {
-                this.div_list.innerHTML = '<div class="bag-empty" style="padding:12px;font-size:12px;color:var(--bs-danger);text-align:center;">Failed to load bag list (' + err + ')</div>';
-                this.span_total.textContent = '';
-            })
+            .catch(err => this.render_error(err))
             .finally(() => { this.in_flight = false; });
     }
 
+    render_error(err) {
+        this._last = {err: err};
+        this.div_list.innerHTML = '<div class="bag-empty" style="padding:12px;font-size:12px;color:var(--bs-danger);text-align:center;">' + vtEsc(vtT('mapview.bag.load_failed', {err: err})) + '</div>';
+        this.span_total.textContent = '';
+    }
+
     render(data) {
+        this._last = {data: data};
         const items = data.items || [];
         if (!items.length) {
-            this.div_list.innerHTML = '<div class="bag-empty" style="padding:12px;font-size:12px;color:#9aa0a6;text-align:center;">No bags recorded yet.</div>';
-            this.span_total.textContent = '0 files';
+            this.div_list.innerHTML = '<div class="bag-empty" style="padding:12px;font-size:12px;color:#9aa0a6;text-align:center;">' + vtEsc(vtT('mapview.bag.empty')) + '</div>';
+            this.span_total.textContent = vtTn('mapview.bag.files', 0);
             return;
         }
-        this.span_total.textContent = items.length + ' file' + (items.length === 1 ? '' : 's') + ' · ' + this.human_size(data.total_size || 0);
+        this.span_total.textContent = vtT('mapview.bag.total', {files: vtTn('mapview.bag.files', items.length), size: this.human_size(data.total_size || 0)});
 
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const rec = esc(vtT('mapview.bag.recording'));
         const rows = items.map(it => {
             const loc = it.subdir ? it.subdir + ' · ' : '';
             const dl_url = '/rosbag/download?path=' + encodeURIComponent(it.path);
             const del_attrs = it.active
-                ? 'disabled title="Recording in progress"'
+                ? 'disabled title="' + rec + '"'
                 : 'data-path="' + esc(it.path) + '" data-name="' + esc(it.name) + '"';
             const dl_attrs = it.active
-                ? 'disabled title="Recording in progress" href="#" onclick="return false;"'
+                ? 'disabled title="' + rec + '" href="#" onclick="return false;"'
                 : 'href="' + dl_url + '" download';
             return '<div class="bag-row' + (it.active ? ' active' : '') + '">' +
                 '<div class="bag-info">' +
@@ -5412,8 +5503,8 @@ class BagManager {
                     '<div class="bag-meta">' + esc(loc) + this.human_size(it.size) + ' · ' + this.human_time(it.mtime) + '</div>' +
                 '</div>' +
                 '<div class="bag-actions">' +
-                    '<a class="btn btn-sm btn-outline-info" ' + dl_attrs + ' title="Download">⬇</a>' +
-                    '<button class="btn btn-sm btn-outline-danger" type="button" ' + del_attrs + ' title="Delete">✕</button>' +
+                    '<a class="btn btn-sm btn-outline-info" ' + dl_attrs + ' title="' + esc(vtT('common.download')) + '">⬇</a>' +
+                    '<button class="btn btn-sm btn-outline-danger" type="button" ' + del_attrs + ' title="' + esc(vtT('common.delete')) + '">✕</button>' +
                 '</div>' +
             '</div>';
         }).join('');
@@ -5446,12 +5537,12 @@ class BagManager {
             .then(r => r.json().catch(() => ({})).then(j => ({ ok: r.ok, j })))
             .then(res => {
                 modal.hide();
-                if (!res.ok) alert('Delete failed: ' + (res.j && res.j.error ? res.j.error : 'unknown'));
+                if (!res.ok) alert(vtT('mapview.bag.delete_failed', {err: (res.j && res.j.error ? res.j.error : vtT('common.unknown'))}));
                 this.refresh();
             })
             .catch(err => {
                 modal.hide();
-                alert('Delete failed: ' + err);
+                alert(vtT('mapview.bag.delete_failed', {err: err}));
             });
     }
 }
@@ -5559,13 +5650,13 @@ class Mower {
     mower_status(message) {
         switch (message.status) {
             case 'UNK':
-                this.span_mower_status.textContent = 'OFF';
+                this.span_mower_status.textContent = vtT('mapview.mower.off');
                 break;
             case 'CALIBRATING':
-                this.span_mower_status.textContent = 'CALIB';
+                this.span_mower_status.textContent = vtT('mapview.mower.calib');
                 break;
             case 'CHANGE_HEIGHT':
-                this.span_mower_status.textContent = 'HEIGHT';
+                this.span_mower_status.textContent = vtT('mapview.mower.height');
                 break;
             default:
                 this.span_mower_status.textContent = message.status;
@@ -5604,8 +5695,8 @@ class Mower {
                 // Status text and color
                 let statusText = message.status;
                 let statusColor = 'var(--bs-warning)';
-                if (message.status === 'CALIBRATING') statusText = 'CALIB';
-                if (message.status === 'CHANGE_HEIGHT') statusText = 'HEIGHT';
+                if (message.status === 'CALIBRATING') statusText = vtT('mapview.mower.calib');
+                if (message.status === 'CHANGE_HEIGHT') statusText = vtT('mapview.mower.height');
                 if (message.status === 'READY' || message.status === 'RUN') {
                     statusColor = 'var(--bs-success)';
                 } else if (message.status === 'ERR' || message.status === 'BLOCKED' || message.status === 'TEMP') {
@@ -6116,7 +6207,25 @@ class Programs {
             ros: ros, name: '/navi_manager/active_map', messageType: 'std_msgs/String'
         });
         this.active_map_data_Topic.subscribe((m) => { this.active_map_data = m.data; });
+        vtOnLang(() => this._relang());
         this.init();
+    }
+
+    // language switch: redraw what this class drew with vtT (the planner's /
+    // mission's own texts are data and stay as they came)
+    _relang() {
+        try {
+            this.draw_program_list();
+            if (this.selected_program) this._renderProgramZones();
+            if (this._editing_new) this.map_menu.span_menu_program_name.innerText = vtT('mapview.prog.new_name');
+            this._paintRunning();
+            if (this.smach_blocked && this.smach_blocked_key) {
+                const el = document.getElementById('div_menu_program_run_msg');
+                const was = this.smach_blocked_text;
+                this.smach_blocked_text = vtT(this.smach_blocked_key);
+                if (el && el.textContent === was) el.textContent = this.smach_blocked_text;
+            }
+        } catch (e) { console.warn('[programs] language redraw failed:', e); }
     }
 
     // ---- program editing (vitulus_ui) -------------------------------------
@@ -6156,7 +6265,7 @@ class Programs {
         if (!c) return;
         var zones = (this.selected_program && this.selected_program.zone_list) || [];
         if (!zones.length) {
-            c.innerHTML = '<div class="vt-empty">No zones — add one above.</div>';
+            c.innerHTML = '<div class="vt-empty">' + vtEsc(vtT('mapview.prog.no_zones')) + '</div>';
             return;
         }
         var html = '';
@@ -6174,7 +6283,7 @@ class Programs {
         if ((this.active_map_data || '').indexOf('***env*') !== -1) return this.active_map_data;
         var site = window.vitulusServedSite;
         if (site === '') {
-            window.alert('No map is active — activate a map first. A program belongs to the map it is created on.');
+            window.alert(vtT('mapview.prog.no_map_new'));
             return null;
         }
         return site || this.active_map_data;
@@ -6205,11 +6314,11 @@ class Programs {
         card.style.display = '';
         card.dataset.state = waits ? 'warn' : 'info';
         const title = document.getElementById('span_program_running_title');
-        if (title) title.textContent = waits ? 'Stopped' : 'Running';
+        if (title) vtTag(title, waits ? 'mapview.prog.run.stopped' : 'mapview.prog.run.running');
         const n = document.getElementById('span_program_running_name');
         if (n) n.textContent = name || '';
         const s = document.getElementById('span_program_running_status');
-        if (s) s.textContent = waits ? st + ' — press Reset, then Run or Resume' : st;
+        if (s) s.textContent = waits ? vtT('mapview.prog.run.waits', {status: st}) : st;
         const stop = document.getElementById('btn_program_running_stop');
         if (stop) stop.style.display = busy ? '' : 'none';
         const reset = document.getElementById('btn_program_running_reset');
@@ -6233,7 +6342,7 @@ class Programs {
         const prg = this.selected_program;
         if (!prg || this._editing_new || !prg.name) return;
         if (this._isRunning(prg.name)) {
-            this._flashRunMsg('Program is running — Stop it first, then Delete.');
+            this._flashRunMsg(vtT('mapview.prog.delete_running'));
             return;
         }
         this._delete_name = prg.name;
@@ -6243,8 +6352,7 @@ class Programs {
         const cal = document.getElementById('p_modal_remove_program_cal');
         const uses = this._calendarUses(prg.name);
         if (cal) {
-            cal.textContent = uses ? (uses + (uses === 1 ? ' calendar event uses' : ' calendar events use')
-                + ' this program — it will be skipped until you pick another program in it.') : '';
+            cal.textContent = uses ? vtTn('mapview.prog.delete_cal', uses) : '';
             cal.style.display = uses ? '' : 'none';
         }
         $('#modal_remove_program').modal('show');
@@ -6255,11 +6363,11 @@ class Programs {
         this._delete_name = null;
         if (!name) return;
         if (this._isRunning(name)) {
-            this._flashRunMsg('Program is running — Stop it first, then Delete.');
+            this._flashRunMsg(vtT('mapview.prog.delete_running'));
             return;
         }
         this.topic_program_remove.publish(new ROSLIB.Message({ data: name }));
-        if (this.map_menu.btn_menu_program_show.innerText === 'Hide') this.show_program_in_map();
+        if (this._programShown()) this.show_program_in_map();
         this.selected_program = null;
         this.map_menu.div_menu_program_detail_row.style.display = 'none';
         if (uiPrefGet('vitulus_sel_program', '') === name) uiPrefSet('vitulus_sel_program', '');
@@ -6284,7 +6392,7 @@ class Programs {
         this._editing_new = true;
         this._markNew();
         this.map_menu.div_menu_program_detail_row.style.display = 'flex';
-        this.map_menu.span_menu_program_name.innerText = '(new program)';
+        this.map_menu.span_menu_program_name.innerText = vtT('mapview.prog.new_name');
         this.map_menu.div_menu_program_detail_row.dataset.state = 'off';
         if (this.map_menu.inp_program_name) { this.map_menu.inp_program_name.value = ''; this.map_menu.inp_program_name.focus(); }
         this.map_menu.span_menu_program_area.innerText = '0';
@@ -6326,23 +6434,23 @@ class Programs {
         // one) while no map is active; stop here, before the old entry of a
         // renamed program would be removed.
         if (!legacy && window.vitulusServedSite === '') {
-            window.alert('No map is active — activate the map of this program first.');
+            window.alert(vtT('mapview.prog.no_map_save'));
             return;
         }
         var baseName = nameInput || (prg.name ? (legacy ? prg.name.replace(/ \([^)]+\)$/, '') : prg.name) : '');
-        if (!baseName) { window.alert('Program name is empty.'); return; }
+        if (!baseName) { window.alert(vtT('mapview.prog.name_empty')); return; }
         var newName = legacy ? baseName + ' (' + (mapData || '').split('***env*')[0] + ')' : baseName;
         if (!this._editing_new && prg.name && prg.name !== newName && this._isRunning(prg.name)) {
-            window.alert('This program is running — Stop it before you rename it.');
+            window.alert(vtT('mapview.prog.rename_running'));
             return;
         }
-        if (!prg.zone_list.length) { window.alert('Program has no zones.'); return; }
+        if (!prg.zone_list.length) { window.alert(vtT('mapview.prog.zones_empty')); return; }
         var mapShort = (mapData || '').split('***env*')[0];
         var rpm = parseInt(this.map_menu.inp_program_rpm.value) || 0;
         var cutHeight = parseInt(this.map_menu.inp_program_cut_height.value) || 0;
         var override = this.map_menu.chk_program_override_zone.checked;
         if (override && (rpm <= 0 || cutHeight <= 0)) {
-            window.alert('Override zone settings needs RPM and cut height above 0.');
+            window.alert(vtT('mapview.prog.override_zero'));
             return;
         }
         var speed = this.map_menu.btn_program_speed_slow.classList.contains('btn-secondary') ? 'slow'
@@ -6443,7 +6551,7 @@ class Programs {
         // settings-persistence: remember the selection (by raw name) so a
         // reload re-selects the same program once the list arrives again.
         uiPrefSet('vitulus_sel_program', program.name);
-        this.map_menu.btn_menu_program_show.innerText = 'Show';
+        this._setShowBtn(false);
         const legacy = (program.map_name || '').indexOf('***env*') !== -1;
         const shownName = legacy ? program.name.split(' (')[0] : program.name;
         this.map_menu.span_menu_program_name.innerText = shownName;
@@ -6454,7 +6562,13 @@ class Programs {
         const map_env = program.map_name.split('***env*')[1];
         this.map_menu.span_menu_program_env.innerText = map_env || '—';
         this.map_menu.span_menu_program_map.innerText = map_name;
-        this.map_menu.span_menu_program_last_result.innerText = program.last_result || 'never run';
+        // last_result is the planner's own text (data); only the stand-in is UI text
+        if (program.last_result) {
+            this.map_menu.span_menu_program_last_result.removeAttribute('data-i18n');
+            this.map_menu.span_menu_program_last_result.innerText = program.last_result;
+        } else {
+            vtTag(this.map_menu.span_menu_program_last_result, 'mapview.prog.never_run');
+        }
         this.map_menu.div_menu_program_detail_row.dataset.state = vtResultState(program.last_result);
         this.map_menu.inp_program_rpm.value = program.rpm !== undefined ? program.rpm : 0;
         this.map_menu.inp_program_cut_height.value = program.cut_height !== undefined ? program.cut_height : 0;
@@ -6502,13 +6616,23 @@ class Programs {
         this.selected_program = updated;
         this.topic_program_new.publish(new ROSLIB.Message(updated));
     }
+    // Show / Hide of the program in the map: the state is data-shown, the
+    // text is translated (it used to be read back from innerText)
+    _programShown() {
+        return this.map_menu.btn_menu_program_show.dataset.shown === '1';
+    }
+    _setShowBtn(shown) {
+        const b = this.map_menu.btn_menu_program_show;
+        b.dataset.shown = shown ? '1' : '0';
+        vtTag(b, shown ? 'common.hide' : 'common.show');
+    }
     show_program_in_map(){
-        if (this.map_menu.btn_menu_program_show.innerText === 'Show'){
+        if (!this._programShown()){
             Object.keys(this.paths_visualization.markerArrayClient.markers).forEach((key) => {
                 this.paths_visualization.markerArrayClient.removeMarker(key);
             });
             this.program_to_show_marker_Topic.publish(this.selected_program);
-            this.map_menu.btn_menu_program_show.innerText = 'Hide';
+            this._setShowBtn(true);
         }
         // OR Hide marker
         else {
@@ -6518,7 +6642,7 @@ class Programs {
             Object.keys(this.paths_visualization.markerArrayClient.markers).forEach((key) => {
                 this.paths_visualization.markerArrayClient.removeMarker(key);
             });
-            this.map_menu.btn_menu_program_show.innerText = 'Show';
+            this._setShowBtn(false);
         }
     }
     // Served site changed: remove every program marker from the 3D scene, make
@@ -6530,7 +6654,7 @@ class Programs {
         this.program_to_show_marker_Topic.publish(new ROSLIB.Message({
             name: 'none'
         }));
-        this.map_menu.btn_menu_program_show.innerText = 'Show';
+        this._setShowBtn(false);
         this.selected_program = null;
         this.map_menu.div_menu_program_detail_row.style.display = "none";
     }
@@ -6541,10 +6665,10 @@ class Programs {
     _setSmachBlocked(status) {
         const blocked = /^\s*(stopped|terminal[ _]error)/i.test(status || '');
         this.smach_blocked = blocked;
-        this.smach_blocked_text = blocked
-            ? (/^\s*stopped/i.test(status) ? 'Mission is stopped' : 'Mission is in TERMINAL ERROR')
-              + ' — press Reset first'
+        this.smach_blocked_key = blocked
+            ? (/^\s*stopped/i.test(status) ? 'mapview.prog.blocked.stopped' : 'mapview.prog.blocked.terminal')
             : '';
+        this.smach_blocked_text = blocked ? vtT(this.smach_blocked_key) : '';
         const btn = this.map_menu.btn_menu_program_reset;
         if (btn) btn.classList.toggle('vitulus-attn', blocked);
         if (!blocked) this._setRunMsg('');
@@ -6647,6 +6771,7 @@ class Programs {
 // active map name.
 window.ACTIVE_MAP_NAME_ELS = ['active_map_name', 'span_status_map_name'];
 window.renderActiveMapName = function () {
+    window.__activeMapNameDrawn = true;
     window.ACTIVE_MAP_NAME_ELS.forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
@@ -6658,10 +6783,12 @@ window.renderActiveMapName = function () {
         // only as the hover tooltip. Priority: served site > running mapping
         // session > explicit 'no map served'.
         if (site) { el.textContent = site; el.title = legacy; }
-        else if (mapping) { el.textContent = 'mapping: ' + mapping + '\u2026'; el.title = legacy; }
-        else { el.textContent = 'no map served'; el.title = legacy; }
+        else if (mapping) { el.textContent = vtT('mapview.activemap.mapping', {name: mapping}); el.title = legacy; }
+        else { el.textContent = vtT('mapview.activemap.none'); el.title = legacy; }
     });
 };
+// only once it has drawn (before that the elements keep their "—" placeholder)
+vtOnLang(function () { if (window.__activeMapNameDrawn) window.renderActiveMapName(); });
 
 // vitulus_ui: was `window.onload`; converted to a named initialiser so the
 // merged single page can lazily start each view. Called by app.js on window load.
@@ -7195,7 +7322,7 @@ window.initMapView = function () {
                 tf_client.map_cam_center.copy(viewer.viewer.cameraControls.center);
                 tf_client.follow_target = 'robot';
                 viewer.viewer.camera.position.z = tf_client.robot_cam_position.z;
-                status_bar.set_follow_text("Robot");
+                status_bar.set_follow_text("mapview.follow.robot");
                 break;
             case 'robot':
                 // vitulus_ui: the "Robot front" (chase) view was removed; the
@@ -7203,7 +7330,7 @@ window.initMapView = function () {
                 tf_client.robot_cam_position.copy(viewer.viewer.camera.position);
                 tf_client.follow_target = 'map';
                 tf_client.map_reinit = true;
-                status_bar.set_follow_text("Map");
+                status_bar.set_follow_text("mapview.follow.map");
                 break;
         }
         uiPrefSet('vitulus_follow', tf_client.follow_target);
@@ -7280,7 +7407,7 @@ window.initMapView = function () {
         try { pm_motor_switch_estop.publish(new ROSLIB.Message({ data: false })); }
         catch (e) { console.error('[stop_all] open PM motor switch failed:', e); }
 
-        update_status_bar_info("Emergency stop");
+        update_status_bar_info(vtT("mapview.estop"));
     }
 
     move_base_control.checkbox_keyboard.onclick = function() {
