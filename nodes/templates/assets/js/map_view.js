@@ -2026,22 +2026,44 @@ class IconStatus {
 
 
 
+/* The drive topic for a person: /teleop/cmd_vel once the robot's cmd_vel_mux
+   is up (it latches /cmd_vel_mux/active), /cmd_vel before that. `onSwitch`
+   gets the new topic. Shared by the map joystick and the IMU calibration one. */
+window.vtDriveTopic = function (ros, onSwitch) {
+    const mk = (name) => new ROSLIB.Topic({
+        ros: ros.ros, name: name, messageType: "geometry_msgs/Twist"
+    });
+    const direct = mk("/cmd_vel");
+    const active = new ROSLIB.Topic({
+        ros: ros.ros, name: "/cmd_vel_mux/active", messageType: "std_msgs/String"
+    });
+    let switched = false;
+    active.subscribe(() => {
+        if (switched) return;
+        switched = true;
+        onSwitch(mk("/teleop/cmd_vel"));
+    });
+    return direct;
+};
+
 class JoyTeleop {
     /* U2 2026-10: the drive stick is assets/js/vt_joy.js (VTJoy) — one
        component for touch, mouse and keyboard with dead zone, expo curve,
        rate limit, haptics and multitouch safety. This class only owns the
-       /cmd_vel publisher. It never publishes while idle (not even a zero on
-       page load — that used to override whatever else was driving). */
+       drive publisher. It never publishes while idle (not even a zero on
+       page load — that used to override whatever else was driving).
+       It publishes on /teleop/cmd_vel, the human input of the robot's
+       cmd_vel_mux (vitulus_base): a moved stick beats navigation/docking and
+       cancels their goal; only the DS4 gamepad ranks higher. Until the mux
+       announces itself (/cmd_vel_mux/active, latched) it drives the old way
+       on /cmd_vel — a robot whose stack was not restarted yet, or one
+       started with cmd_vel_mux:=false, still drives by hand. */
     constructor(ros) {
         this.twist = new ROSLIB.Message({
             linear: {x: 0, y: 0, z: 0},
             angular: {x: 0, y: 0, z: 0}
         });
-        this.cmdVel = new ROSLIB.Topic({
-            ros: ros.ros,
-            name: "/cmd_vel",
-            messageType: "geometry_msgs/Twist"
-        });
+        this.cmdVel = vtDriveTopic(ros, (t) => { this.cmdVel = t; });
         this._speed_lin = 0.4;
         this._speed_ang = 1.3;
         this.joystickContainer = document.getElementById("joy_view");
@@ -4456,7 +4478,7 @@ class MoveBaseControl {
         this.speed_lin_current = this.speed_lin_moderate;
         this.speed_ang_current = this.speed_ang_moderate;
         // Keyboard drive: the joystick component reads W A S D / arrows
-        // (vt_joy.js) and publishes through the same /cmd_vel path; the old
+        // (vt_joy.js) and publishes through the same /teleop/cmd_vel path; the old
         // KEYBOARDTELEOP published zeros at 10 Hz forever after the first key
         // and drove the robot while typing in a text field.
         this.checkbox_keyboard = document.getElementById('checkbox_keyboard_teleop');

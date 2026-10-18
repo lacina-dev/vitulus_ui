@@ -19,14 +19,14 @@ var KEYBOARDTELEOP = KEYBOARDTELEOP || {
  * @constructor
  * @param options - possible keys include:
  *   * ros - the ROSLIB.Ros connection handle
- *   * topic (optional) - the Twist topic to publish to, like '/cmd_vel'
+ *   * topic (optional) - the Twist topic to publish to, like '/teleop/cmd_vel'
  *   * throttle (optional) - a constant throttle for the speed
  */
 KEYBOARDTELEOP.Teleop = function(options) {
   var that = this;
   options = options || {};
   var ros = options.ros;
-  var topic = options.topic || '/cmd_vel';
+  var topic = options.topic || '/teleop/cmd_vel';
   // permanent throttle
   this.throttle_lin = options.throttle_lin || 1.0;
   this.throttle_ang = options.throttle_ang || 1.0;

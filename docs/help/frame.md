@@ -75,8 +75,9 @@ above an open sheet).
   speed. Never while typing in a field.
 
 > [!WARNING]
-> Navigation and the gamepad use the same drive input — cancel a running goal before you take
-> over ([Safety](safety.md#the-gamepad-ds4-overrides-the-software)).
+> Pushing the joystick takes over from the software: it **cancels** the navigation goal, docking
+> and a running program, and after you let go the robot stays. Only the DS4 gamepad ranks higher
+> ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)).
 
 ## Log
 

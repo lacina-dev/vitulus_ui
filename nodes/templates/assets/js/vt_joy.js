@@ -1,7 +1,7 @@
 /* vt_joy.js — the on-screen joystick + keyboard drive of the robot UI (U2, 2026-10).
  *
  * One component for touch, mouse and keyboard; ROS-agnostic: it only calls
- * opts.onCommand(lin, ang) — map_view.js turns that into /cmd_vel.
+ * opts.onCommand(lin, ang) — map_view.js turns that into /teleop/cmd_vel (human input of cmd_vel_mux).
  *
  *   ┌──────────────── #joy_view ────────────────┐
  *   │  [MID] [MOTORS ON]          lin 0.32 m/s  │   status line (fixed slots)

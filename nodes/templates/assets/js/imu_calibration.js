@@ -253,11 +253,12 @@ class JoyTeleop {
             linear: {x: 0, y: 0, z: 0},
             angular: {x: 0, y: 0, z: 0}
         });
-        this.cmdVel = new ROSLIB.Topic({
-            ros: ros.ros,
-            name: "/cmd_vel",
-            messageType: "geometry_msgs/Twist"
-        });
+        // /teleop/cmd_vel (human input of cmd_vel_mux) once the mux is up,
+        // /cmd_vel before that — see vtDriveTopic in map_view.js.
+        this.cmdVel = window.vtDriveTopic
+            ? window.vtDriveTopic(ros, (t) => { this.cmdVel = t; })
+            : new ROSLIB.Topic({ros: ros.ros, name: "/cmd_vel",
+                                messageType: "geometry_msgs/Twist"});
         this.joy = window.VTJoy.create(document.getElementById("joy_view_imu"), {
             turnOnly: true, speedLin: 0, speedAng: 1.2, label: 'TURN',
             onCommand: (lin, ang) => {

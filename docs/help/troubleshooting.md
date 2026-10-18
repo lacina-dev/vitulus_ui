@@ -21,7 +21,11 @@ Check in this order:
 1. **Motors off?** After every start, restart and STOP the drive motors are OFF. The joystick
    shows it, the log says *Motors are OFF – turn motors on to move/dock*. →
    **Settings › Motors › ON**.
-2. **The gamepad is on?** A switched-on DS4 holds the robot still. → switch it off.
+2. **Did a person take over?** Moving the gamepad stick (or PS / L1 / R1) or the UI joystick
+   cancels the goal, docking and a running program, and the software stays stopped after you let
+   go ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)). → send the goal
+   again, Undock again, or **Reset** + **Run** the program. A switched-on gamepad with centred
+   sticks does *not* block anything.
 3. **A program after Stop?** Run is ignored until **Reset** ([Programs](programs.md#run-it)).
 4. **An agent task?**
    - *Dock lock* locked → the mission waits; unlock in **Agent › Robot**
