@@ -1705,3 +1705,10 @@ body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-chip { padding: 0 5px; font-si
     #vagent_panel:has(.vagent-pane[data-pane="chat"].active):has(> #vagent_ctx:not([style*="none"])) #vagent_chips :is(.sp, #vagent_scope) { display: none; }
     #vagent_panel:has(.vagent-pane[data-pane="chat"].active):has(> #vagent_ctx:not([style*="none"])) > #vagent_ctx { background: var(--vt-frame-bg, var(--vt-surface)); }
 }
+/* P19: phone portrait, sheet open, stick on: the full log in the hollow
+   above the sheet ends left of the stick (it used to run under it — the
+   stick covered half of every line) */
+html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #div_log_view.log-expanded {
+    right: calc(var(--vt-frame-joy-w, 162px) + 6px) !important;
+    border-radius: 0 var(--vt-frame-r) var(--vt-frame-r) 0 !important;
+}

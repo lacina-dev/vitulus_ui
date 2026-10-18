@@ -912,3 +912,14 @@ body.vt-frame.vt-m-overlay #status_div.sh-strip:not(.in-header) {
 body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip img:is([src*="_green"], [src*="_grey"], [src*="_disabled"], [src*="batt_full"], [src*="battCHARGE_full"], [src*="batt_34"], [src*="battCHARGE_34"], [src*="batt_half"], [src*="battCHARGE_half"]) { display: none !important; }
 body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip { column-gap: 6px; }
 body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*="_orange"], img[src*="_red"], img[src*="_14"], img[src*="_empty"])) { display: none !important; }
+
+/* P19: a narrow full log (landscape phone with the panel open, ~170–400 px)
+   keeps its toolbar on ONE row (scrolls sideways) and drops the date — the
+   time stays, the full date is the line's tooltip */
+#div_log_view.log-expanded { container-type: inline-size; container-name: vtlog; }
+@container vtlog (max-width: 460px) {
+    #div_log_view .log-date { display: none; }
+    #div_log_view .log-toolbar-row { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
+    #div_log_view .log-toolbar-row::-webkit-scrollbar { display: none; }
+    #div_log_view .log-toolbar-row > * { flex: 0 0 auto; }
+}
