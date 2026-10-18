@@ -757,13 +757,13 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                     <div class="col vt-pr0 vt-pl0">
                         <div class="bg-primary border-primary vt-drawer-panel" id="div_menu_marker" style="display: none;">
                             <div class="drawer-primary">
-                                <label class="form-label vt-fs-sm">Marker</label>
+                                <div class="vt-hint vt-marker-hint">Drag the marker on the map to the goal, turn it to the heading the robot should end in, then <b>Send goal</b>.</div>
                                 <button class="btn btn-primary btn-sm" id="btn_marker_send_goal" type="button">Send goal</button>
                                 <button class="btn btn-warning btn-sm" id="btn_marker_cancel_navigation" type="button">Cancel navigation</button>
                             </div>
                             <div class="vt-mt1">
-                                <label class="form-label vt-fs-sm">Marker orientation</label>
-                                <input class="form-range bg-secondary border rounded-pill border-secondary vt-range" type="range" id="range_marker_orientation" min="0" max="6.28" step="0.05" value="0">
+                                <div class="vt-row vt-list-head"><span class="vt-label">Heading</span><span class="vt-end-slot vt-val" id="span_marker_heading">0°</span></div>
+                                <input class="form-range vt-range" type="range" id="range_marker_orientation" min="0" max="6.28" step="0.05" value="0">
                             </div>
                         </div>
                         <div class="border-primary vt-drawer-panel" id="div_menu_map" style="display: none;">

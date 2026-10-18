@@ -534,3 +534,61 @@ a.vt-needs-btn {
 .vt-needs-done { opacity: .55; }
 .vt-needs-name .form-control { margin-top: 6px; }
 @media (pointer: coarse) { .vt-decide-btn { min-height: var(--vt-touch); } }
+
+/* ============ P3: one checkbox look across the app =======================
+   Bootstrap's theme painted .form-check-input white when OFF and grey when
+   ON (looked inverted on the dark frame). Now: dark well when off, accent
+   fill when on — the same as the native checkboxes above. */
+.form-check-input {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--vt-border-strong);
+    cursor: pointer;
+}
+.form-check-input:checked {
+    background-color: var(--vt-accent);
+    border-color: var(--vt-accent);
+}
+.form-check-input[type="checkbox"]:checked {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%231c2329' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+.form-check-input:focus {
+    border-color: rgba(var(--vt-accent-rgb), 0.7);
+    box-shadow: 0 0 0 0.18rem rgba(var(--vt-accent-rgb), 0.22);
+}
+.form-switch .form-check-input:not(:checked) {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%239aa4ad'/%3e%3c/svg%3e");
+}
+.form-switch .form-check-input:checked {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%231c2329'/%3e%3c/svg%3e");
+}
+.form-check-input:disabled { opacity: 0.45; cursor: default; }
+
+/* ============ P3: one slider look ========================================
+   (Bootstrap theme: white track, grey thumb.) Dark well, accent thumb. */
+.form-range { background: transparent; border: 0 !important; }
+.form-range::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 0 0 1px var(--vt-border);
+}
+.form-range::-moz-range-track {
+    height: 6px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.10);
+}
+.form-range::-webkit-slider-thumb {
+    width: 18px; height: 18px; margin-top: -6px;
+    background: var(--vt-accent);
+    border: 2px solid var(--vt-surface);
+    box-shadow: 0 0 0 1px rgba(var(--vt-accent-rgb), 0.6), 0 0 8px rgba(var(--vt-accent-rgb), 0.35);
+}
+.form-range::-moz-range-thumb {
+    width: 18px; height: 18px;
+    background: var(--vt-accent);
+    border: 2px solid var(--vt-surface);
+}
+.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(var(--vt-accent-rgb), 0.3); }
+.vt-range { padding: 8px 2px; }
+
+/* a short "how to" line at the top of a panel body (Marker) */
+.vt-hint { font-size: var(--vt-fs-sm); color: var(--vt-muted); line-height: 1.45; margin-bottom: var(--vt-gap-2); }
+.vt-hint b { color: var(--vt-text); font-weight: 600; }

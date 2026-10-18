@@ -221,7 +221,7 @@
              'STOP (red, bottom left, always the same place) is the emergency stop: it cancels navigation, switches the drive motors off, stops a running mowing program, the blade and docking, and opens the motor switch of the power module. Motors stay off until someone switches them on again.',
              'The bell in the top bar is "Needs you": approvals of the robot agent and decisions the field kit waits for. Support (the last button of the menu band) shows the fix loop: issues, releases, the link to the other robot — and this help.']],
         camera: ['Camera', ['The live camera is a section of the right panel (top right of the map). On a phone the right panel is a collapsed row under the notices: ▾ unfolds it, the Camera section shows the preview. Follow in the bottom bar makes the map view follow the robot.']],
-        marker: ['Marker', ['Place a goal on the map and press Send goal; Cancel navigation stops the drive to it.']],
+        marker: ['Marker', ['While the Marker panel is open, a goal marker sits on the map: drag it to the goal, turn it (Heading slider, shown in degrees) to the direction the robot should end in, then Send goal at the bottom of the panel. Cancel navigation stops the drive to it.']],
         map: ['Map', ['Maps of the site: the active map, saving and loading, paths, points, the dock and rain settings. ✎ next to the active map opens the map editor.']],
         editor: ['Map editor', ['Zones and polygons of the active map, drawn on the map from above. The map stays drivable while you edit; close the editor with Close editor or ✕.']],
         program: ['Programs', ['Mowing programs (zones, speed, cut height) and the calendar that starts them. Run / Resume / Stop act on the robot — the mower moves.']],

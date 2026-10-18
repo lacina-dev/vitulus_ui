@@ -12,13 +12,12 @@
 /* ---- map card ---------------------------------------------------------- */
 .ml-card {
     border: 1px solid var(--vt-border);
-    border-left: 3px solid var(--vt-border-strong);
     border-radius: var(--vt-r-card);
     background: rgba(255, 255, 255, 0.025);
     min-width: 0;
 }
-.ml-card.is-active { border-left-color: var(--vt-ok); }
-.ml-card.is-rec    { border-left-color: #ff9f43; box-shadow: inset 4px 0 10px -8px #ff9f43; }
+.ml-card.is-active { border-color: var(--vt-edge-ok); }
+.ml-card.is-rec    { border-color: rgba(255, 159, 67, 0.45); }
 .ml-card.is-empty  { opacity: 0.75; }
 
 .ml-head {
@@ -64,8 +63,10 @@
 }
 .ml-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .ml-btn:disabled { cursor: default; opacity: 0.55; }
-.ml-btn.go   { color: #0b1a10; background: var(--vt-ok); border-color: var(--vt-ok); font-weight: 600; }
-.ml-btn.go:hover { background: #5ee6a1; }
+/* P3: Activate is a quiet tonal action (five solid green buttons in a row
+   shouted louder than the ACTIVE map itself); it fills on hover */
+.ml-btn.go   { color: var(--vt-ok); background: rgba(var(--vt-ok-rgb), 0.08); border-color: var(--vt-edge-ok); font-weight: 600; }
+.ml-btn.go:hover { color: #0b1a10; background: var(--vt-ok); border-color: var(--vt-ok); }
 .ml-btn.go.is-on { color: var(--vt-ok); background: rgba(var(--vt-ok-rgb), 0.14); border-color: var(--vt-edge-ok); cursor: default; opacity: 1; }
 .ml-btn.eye.is-on { color: var(--vt-accent); background: rgba(13, 202, 240, 0.16); border-color: rgba(13, 202, 240, 0.5); }
 .ml-btn.del  { color: var(--vt-err); background: transparent; border-color: rgba(241, 134, 143, 0.35); padding: 0 7px; }

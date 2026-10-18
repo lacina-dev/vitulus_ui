@@ -6839,6 +6839,8 @@ window.initMapView = function () {
     map_menu.range_marker_orientation.oninput = function() {
         const marker = viewer.viewer.scene.getObjectByName("webgui_marker");
         interactive_markers.euler.z = parseFloat(map_menu.range_marker_orientation.value);
+        const hd = document.getElementById('span_marker_heading');
+        if (hd) hd.textContent = Math.round(interactive_markers.euler.z * 180 / Math.PI) + '°';
         const quaternion = new THREE.Quaternion();
         quaternion.setFromEuler(interactive_markers.euler);
         const rotate_z = viewer.viewer.scene.getObjectByName("rotate_z");
