@@ -640,3 +640,21 @@ a.vt-needs-btn {
     color: var(--vt-muted);
     padding: 2px 0 8px;
 }
+
+/* ============ P6: right panel Navi chips — readable and calm =============
+   9 px chips were below the app's smallest type; "off" sources were grey
+   blocks as loud as the live ones. Now 10 px, a quiet outline when off and
+   the state fill only when on; the sources share one line (VO Li Wh FIX PROB Δ). */
+#right_panel .vt-chip-sm { font-size: 10px; line-height: 15px; padding: 0 4px; margin-left: 3px; }
+#right_panel .vt-chip[data-state="off"] {
+    background: transparent; color: var(--vt-muted);
+    border-color: var(--vt-border-strong);
+}
+#right_panel .vt-chip-sm-note { font-size: 10px; opacity: 1; color: var(--vt-muted); }
+/* the selected option of a choice group (map_view.js vtSel) */
+.btn.vt-sel, .btn.vt-sel:hover, .btn.vt-sel:focus {
+    color: var(--vt-accent) !important;
+    background-color: rgba(var(--vt-accent-rgb), 0.18) !important;
+    box-shadow: inset 0 0 0 1px var(--vt-edge-info);
+    font-weight: 700;
+}

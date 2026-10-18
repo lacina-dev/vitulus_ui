@@ -1,5 +1,16 @@
 // Desc: MapView for Vitulus WebUI
 
+/* P6: the selected button of a choice group (speed, RtabMap sensor, map
+   source, mapping/localization) is a class, not an inline blue text colour —
+   the look lives in vt_field.css (.vt-sel) and matches the frame's active
+   state everywhere. */
+function vtSel(btn, on) {
+    if (!btn) return;
+    btn.style.color = '';
+    btn.classList.toggle('vt-sel', !!on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
 ROS3D.Viewer.prototype.resize = function(width, height) {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -3004,30 +3015,30 @@ class MapMenu {
 
     map_btns_state(msg){
         if (msg.data === 'planner'){
-            this.btn_menu_map_planner_show.style.color = "#446de5";
-            this.btn_menu_map_rtabmap_show.style.color = "#ffffff";
+            vtSel(this.btn_menu_map_planner_show, true);
+            vtSel(this.btn_menu_map_rtabmap_show, false);
         }
         if (msg.data === 'rtabmap'){
-            this.btn_menu_map_planner_show.style.color = "#ffffff";
-            this.btn_menu_map_rtabmap_show.style.color = "#446de5";
+            vtSel(this.btn_menu_map_planner_show, false);
+            vtSel(this.btn_menu_map_rtabmap_show, true);
         }
     }
 
     rtabmap_settings_btns_state(msg){
         if (msg.grid_sensor === 0) {
-            this.btn_menu_rtabmap_lidar.style.color = "#446de5";
-            this.btn_menu_rtabmap_camera.style.color = "#ffffff";
-            this.btn_menu_rtabmap_both.style.color = "#ffffff";
+            vtSel(this.btn_menu_rtabmap_lidar, true);
+            vtSel(this.btn_menu_rtabmap_camera, false);
+            vtSel(this.btn_menu_rtabmap_both, false);
         }
         if (msg.grid_sensor === 1) {
-            this.btn_menu_rtabmap_lidar.style.color = "#ffffff";
-            this.btn_menu_rtabmap_camera.style.color = "#446de5";
-            this.btn_menu_rtabmap_both.style.color = "#ffffff";
+            vtSel(this.btn_menu_rtabmap_lidar, false);
+            vtSel(this.btn_menu_rtabmap_camera, true);
+            vtSel(this.btn_menu_rtabmap_both, false);
         }
         if (msg.grid_sensor === 2) {
-            this.btn_menu_rtabmap_lidar.style.color = "#ffffff";
-            this.btn_menu_rtabmap_camera.style.color = "#ffffff";
-            this.btn_menu_rtabmap_both.style.color = "#446de5";
+            vtSel(this.btn_menu_rtabmap_lidar, false);
+            vtSel(this.btn_menu_rtabmap_camera, false);
+            vtSel(this.btn_menu_rtabmap_both, true);
         }
         this.span_rtabmap_distance.textContent = Math.round(msg.grid_sensor_distance * 100) / 100;
     }
@@ -4492,12 +4503,12 @@ class MoveBaseControl {
         else if (speed === 'FAST') { fast = blue; label = 'FAST'; }
         else { return; }  // unknown value, leave UI untouched
         this.set_local_speed(label === 'MODERATE' ? 'moderate' : label.toLowerCase());
-        this.btn_menu_speed_low.style.color = low;
-        this.btn_menu_speed_moderate.style.color = moderate;
-        this.btn_menu_speed_fast.style.color = fast;
-        this.btn_menu_speed_low_sm.style.color = low;
-        this.btn_menu_speed_moderate_sm.style.color = moderate;
-        this.btn_menu_speed_fast_sm.style.color = fast;
+        vtSel(this.btn_menu_speed_low, low === blue);
+        vtSel(this.btn_menu_speed_moderate, moderate === blue);
+        vtSel(this.btn_menu_speed_fast, fast === blue);
+        vtSel(this.btn_menu_speed_low_sm, low === blue);
+        vtSel(this.btn_menu_speed_moderate_sm, moderate === blue);
+        vtSel(this.btn_menu_speed_fast_sm, fast === blue);
         this.span_status_speed.innerText = label;
     }
     /* the speed the joystick drives with, WITHOUT publishing it (the robot's
@@ -4548,34 +4559,34 @@ class MoveBaseControl {
         this.joy_teleop.speed_lin = this.speed_lin_fast;
         this.joy_teleop.speed_ang = this.speed_ang_fast;
         this.pub_set_speed('fast');
-        this.btn_menu_speed_low.style.color = "#ffffff";
-        this.btn_menu_speed_moderate.style.color = "#ffffff";
-        this.btn_menu_speed_fast.style.color = "#446de5";
-        this.btn_menu_speed_low_sm.style.color = "#ffffff";
-        this.btn_menu_speed_moderate_sm.style.color = "#ffffff";
-        this.btn_menu_speed_fast_sm.style.color = "#446de5";
+        vtSel(this.btn_menu_speed_low, false);
+        vtSel(this.btn_menu_speed_moderate, false);
+        vtSel(this.btn_menu_speed_fast, true);
+        vtSel(this.btn_menu_speed_low_sm, false);
+        vtSel(this.btn_menu_speed_moderate_sm, false);
+        vtSel(this.btn_menu_speed_fast_sm, true);
     }
     btn_speed_moderate_onclick() {
         this.joy_teleop.speed_lin = this.speed_lin_moderate;
         this.joy_teleop.speed_ang = this.speed_ang_moderate;
         this.pub_set_speed('moderate');
-        this.btn_menu_speed_low.style.color = "#ffffff";
-        this.btn_menu_speed_moderate.style.color = "#446de5";
-        this.btn_menu_speed_fast.style.color = "#ffffff";
-        this.btn_menu_speed_low_sm.style.color = "#ffffff";
-        this.btn_menu_speed_moderate_sm.style.color = "#446de5";
-        this.btn_menu_speed_fast_sm.style.color = "#ffffff";
+        vtSel(this.btn_menu_speed_low, false);
+        vtSel(this.btn_menu_speed_moderate, true);
+        vtSel(this.btn_menu_speed_fast, false);
+        vtSel(this.btn_menu_speed_low_sm, false);
+        vtSel(this.btn_menu_speed_moderate_sm, true);
+        vtSel(this.btn_menu_speed_fast_sm, false);
     }
     btn_speed_slow_onclick() {
         this.joy_teleop.speed_lin = this.speed_lin_slow;
         this.joy_teleop.speed_ang = this.speed_ang_slow;
         this.pub_set_speed('slow');
-        this.btn_menu_speed_low.style.color = "#446de5";
-        this.btn_menu_speed_moderate.style.color = "#ffffff";
-        this.btn_menu_speed_fast.style.color = "#ffffff";
-        this.btn_menu_speed_low_sm.style.color = "#446de5";
-        this.btn_menu_speed_moderate_sm.style.color = "#ffffff";
-        this.btn_menu_speed_fast_sm.style.color = "#ffffff";
+        vtSel(this.btn_menu_speed_low, true);
+        vtSel(this.btn_menu_speed_moderate, false);
+        vtSel(this.btn_menu_speed_fast, false);
+        vtSel(this.btn_menu_speed_low_sm, true);
+        vtSel(this.btn_menu_speed_moderate_sm, false);
+        vtSel(this.btn_menu_speed_fast_sm, false);
     }
 }
 
@@ -5117,15 +5128,15 @@ class RtabMap{
         // console.log("rtabmap_loc_map_buttons_state");
         if (this.is_rtabmap === true) {
             if (this.is_localization === true) {
-                this.btn_menu_map_rtabmap_mapping.style.color = "#ffffff";
-                this.btn_menu_map_rtabmap_localization.style.color = "#446de5";
+                vtSel(this.btn_menu_map_rtabmap_mapping, false);
+                vtSel(this.btn_menu_map_rtabmap_localization, true);
             } else {
-                this.btn_menu_map_rtabmap_mapping.style.color = "#446de5";
-                this.btn_menu_map_rtabmap_localization.style.color = "#ffffff";
+                vtSel(this.btn_menu_map_rtabmap_mapping, true);
+                vtSel(this.btn_menu_map_rtabmap_localization, false);
             }
         } else {
-            this.btn_menu_map_rtabmap_mapping.style.color = "#ffffff";
-            this.btn_menu_map_rtabmap_localization.style.color = "#ffffff";
+            vtSel(this.btn_menu_map_rtabmap_mapping, false);
+            vtSel(this.btn_menu_map_rtabmap_localization, false);
         }
     }
 }
@@ -7116,12 +7127,12 @@ window.initMapView = function () {
     // U2: opening the page no longer PUBLISHES "MEDIUM" (it reset the speed a
     // program or another browser had set); it follows /navi_manager/speed.
     move_base_control.set_local_speed('moderate');
-    move_base_control.btn_menu_speed_low.style.color = "#ffffff";
-    move_base_control.btn_menu_speed_moderate.style.color = "#446de5";
-    move_base_control.btn_menu_speed_fast.style.color = "#ffffff";
-    move_base_control.btn_menu_speed_low_sm.style.color = "#ffffff";
-    move_base_control.btn_menu_speed_moderate_sm.style.color = "#446de5";
-    move_base_control.btn_menu_speed_fast_sm.style.color = "#ffffff";
+    vtSel(move_base_control.btn_menu_speed_low, false);
+    vtSel(move_base_control.btn_menu_speed_moderate, true);
+    vtSel(move_base_control.btn_menu_speed_fast, false);
+    vtSel(move_base_control.btn_menu_speed_low_sm, false);
+    vtSel(move_base_control.btn_menu_speed_moderate_sm, true);
+    vtSel(move_base_control.btn_menu_speed_fast_sm, false);
 
     joy_teleop.speed_lin = move_base_control.speed_lin_current;
     joy_teleop.speed_ang = move_base_control.speed_ang_current;
