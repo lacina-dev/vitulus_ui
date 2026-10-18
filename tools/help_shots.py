@@ -8,6 +8,7 @@ them again from a running UI, so after a UI change it is one command:
     # a dev instance of THIS worktree, never the live robot UI (see README):
     nice -n 19 tools/help_shots.py --url http://127.0.0.1:7861
     nice -n 19 tools/help_shots.py --url http://127.0.0.1:7861 --only shot-dock-tab,shot-navi
+    nice -n 19 tools/help_shots.py --url http://127.0.0.1:7861 --demo   # the pictures for the help
     tools/help_shots.py --list
 
 Safety: every page is opened with ?mock (vt_mock.js: the page reads the robot
@@ -15,12 +16,21 @@ live but sends nothing) and the script stops when the page is not in mock mode.
 It only clicks menu buttons, tabs and section heads (list CLICK_OK); port 7779
 (the live UI) is refused.
 
+--demo: the panels that show conversations and reports (Agent chat, Support
+issues, Needs you, Activity) get invented, neutral content instead of the
+owner's real chat and reports. The browser answers those GET requests itself
+(Playwright route, DEMO below) — nothing is sent to any server. Shots marked
+demo=True are skipped without --demo, so the owner's messages never end up in
+the help by accident.
+
 Needs: python3-playwright + Google Chrome, Pillow with WebP. The pictures are
 the live robot's state at that moment (night = black camera) — shots whose
 content would mislead are schematic SVG instead (docs/help/img/*.svg).
 """
 import argparse
 import io
+import json
+import time
 import os
 import re
 import sys
@@ -48,8 +58,8 @@ CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|agent|support|log|j
 # the map view starts close on the dock; a little farther shows the garden.
 # The aerial photo layer is switched off in the pictures: it would show where
 # the owner lives (the help goes to every user of the kit).
-ZOOM_OUT = ("const v = viewer.viewer; v.camera.position.z *= 2.2; v.cameraControls.update();"
-            "const a = document.getElementById('mapv3_chk_aerial'); if (a && a.checked) a.click(); return '';")
+AERIAL_OFF = "const a = document.getElementById('mapv3_chk_aerial'); if (a && a.checked) a.click(); return '';"
+ZOOM_OUT = ("const v = viewer.viewer; v.camera.position.z *= 2.2; v.cameraControls.update();" + AERIAL_OFF)
 
 # the running card is painted by the page's own code from the mission's
 # state; the picture sets that state in the page only (nothing is sent)
@@ -174,15 +184,104 @@ SHOTS = [
          marks=[('#mapedit_tools', '1', 'ri'), ('#mapedit_tools + *, #mapedit_context', '2', 'tr'), ('#mapedit_context', '3', 'ri'),
                 ('#mapedit_edit_list, #div_map_detail details', '4', 'ri'), ('#btn_map_detail_close_footer', '5', 't'),
                 ('#map_view', '6', 'c')]),
-    dict(name='shot-agent', vp=DESK, clip='#ui_drawer_head|#ui_drawer_body', steps=panel('#btn_agent', None, [('wait', 2500)]),
+    dict(name='shot-agent', vp=DESK, demo=True, clip='#ui_drawer_head|#ui_drawer_body', steps=panel('#btn_agent', None, [('wait', 2500)]),
          marks=[('#vagent_status', '1', 'ri'), ('#vagent_stop', '2', 'b'),
                 ('#vagent_tabs', '3', 'b'), ('#vagent_panel textarea, #vagent_panel input[type=text]', '4', 't'), ('#vagent_quick', '5', 'ri')]),
-    dict(name='shot-support', vp=DESK, clip='#ui_drawer_head|#ui_drawer_body', trim=(2000, 300),
+    dict(name='shot-support', vp=DESK, demo=True, clip='#ui_drawer_head|#ui_drawer_body', trim=(2000, 300),
          steps=panel('#btn_support', None, [('wait', 2500)]), marks=[]),
     dict(name='shot-help', vp=DESK, scale=1, width=1200, md=26,
          steps=panel('#btn_map', 'tab-dock', [('click', '#btn_ui_drawer_help'), ('wait', 1500)]),
          marks=[('#btn_ui_drawer_help', '1', 'b'), ('.vth-search', '2', 'b'), ('.vth-toc', '3', 'l'), ('.vth-close', '4', 'b')]),
 ]
+
+
+# --- --demo: invented, neutral content for the panels that show the owner's
+# conversations and reports. The browser answers these GET requests itself
+# (Playwright route), the server never sees them; everything else is read live.
+def _demo_tasks(now):
+    T = []
+
+    def add(ago_s, source, author, klass, text, reply, took=4, meta=None):
+        ts = now - ago_s
+        T.append(dict(id=900 + len(T), ts=ts, source=source, author=author, text=text, klass=klass,
+                      state='done', reply=reply, reply_ts=ts + took, meta=meta))
+    add(1500, 'web', 'Owner', 'query', 'status?',
+        'Docked and charged (battery 100 %). RTK fix, accuracy 2 cm. Drive motors off, blade off.')
+    add(1380, 'web', 'Owner', 'mission', 'Test drive: undock, drive to TEST, wait 10 s, dock back',
+        'Taking it as mission #12. Plan, checked like a test scenario: 1) undock, 2) drive to TEST, '
+        '3) wait 10 s, 4) dock. I report after every phase; say "cancel" to stop it.')
+    add(1330, 'agent', 'agent', 'mission', 'mission #12 · phase 1/4',
+        'Phase 1/4 undock — done: motors on, out of the dock at UNDOCK, RTK fix.', took=1)
+    add(1270, 'agent', 'agent', 'mission', 'mission #12 · phase 2/4',
+        'Phase 2/4 drive to TEST — done in 48 s, 11.6 m, goal reached within 6 cm.', took=1)
+    add(1255, 'agent', 'agent', 'mission', 'mission #12 · phase 3/4',
+        'Phase 3/4 wait 10 s at TEST — done.', took=1)
+    add(1190, 'agent', 'agent', 'mission', 'mission #12 · phase 4/4',
+        'Phase 4/4 dock — done: docked, the charger supplies power. Mission #12 finished in 3 min 10 s.', took=1)
+    add(420, 'web', 'Owner', 'query', 'Is the path to the back lawn clear?',
+        'Yes. The lidar sees no new obstacle on the planned path; the nearest one is the bench, 1.4 m off the path.')
+    return T
+
+
+def _demo_issue(n, title, status, current, labels, who, ago_h, closed=False):
+    order = ['reported', 'assessed', 'fixed', 'released', 'tested', 'verified', 'closed']
+    stamp = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - ago_h * 3600))
+    steps = []
+    for sid in order:
+        st = 'done' if order.index(sid) < order.index(current) else ('current' if sid == current else 'todo')
+        steps.append(dict(id=sid, state=st, when=stamp if st == 'done' else None, detail=None))
+    return dict(number=n, title=title, state='CLOSED' if closed else 'OPEN', labels=labels, kind='report',
+                status_text=status, last_change=stamp, created_at=stamp, closed_at=stamp if closed else None,
+                url='', comments=2, waiting='tester' if who else None, motion=False,
+                pipeline=dict(mode='pipeline', steps=steps, current=None if closed else current, closed=closed,
+                              tally=None, redo=False, round=1, partial=False, rounds=[]),
+                turn='verify' if who else 'none', agent_active=False, mine=False, who='verify' if who else 'none',
+                who_label=who, mine_since=None)
+
+
+def _demo_issues():
+    iss = [
+        _demo_issue(12, '[report] Camera picture stays on "waiting for signal" on a tablet',
+                    'fix released, test running', 'released', ['area:ui', 'sev:minor', 'waiting:tester'], 'Tester', 1.2),
+        _demo_issue(11, '[report] Undock waits too long for RTK under the roof edge',
+                    'fix ready, waiting for release', 'fixed', ['area:dock', 'sev:minor'], None, 5),
+        _demo_issue(9, '[report] Program list is empty after switching the map',
+                    'verified', 'closed', ['area:programs', 'sev:minor'], None, 30, closed=True),
+    ]
+    return dict(meta=dict(repo='', lang='en', kit_version='1.0.0', stale=False, error=None, approvals=True),
+                role='owner', issues=iss,
+                turn=dict(who={}, labels={}, counts=dict(you=0, agent=0, field=0, verify=1, them=0, none=1, open=2),
+                          you=[], names={}),
+                contexts={})
+
+
+DEMO_EMPTY_ATTENTION = dict(count=0, oldest_since=None, high=0, items=[], you_issues=[], working=0, mine=0, acks=[], ctx={})
+
+
+def demo_answer(path, query):
+    """The invented answer for a GET path, or None (read live)."""
+    if path == '/agent/api/tasks':
+        return dict(tasks=[] if 'since_id' in query else _demo_tasks(time.time()),
+                    cleared_after=0, has_more=False, oldest_id=900, live_floor=900)
+    if path == '/field/api/issues':
+        return _demo_issues()
+    if path == '/field/api/attention':
+        return DEMO_EMPTY_ATTENTION
+    if path == '/agent/api/v2/approvals':
+        return dict(approvals=[], ts=time.time())
+    return None
+
+
+def install_demo(ctx):
+    from urllib.parse import urlsplit
+
+    def handle(route):
+        u = urlsplit(route.request.url)
+        data = demo_answer(u.path, u.query) if route.request.method == 'GET' else None
+        if data is None:
+            return route.continue_()
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(data))
+    ctx.route(re.compile(r'^https?://[^/]+/(agent|field)/'), handle)
 
 
 def mark_js():
@@ -249,7 +348,7 @@ def box_of(pg, clip, pad):
     return {'x': x0, 'y': y0, 'width': x1 - x0, 'height': y1 - y0}
 
 
-def run(url, only, keep_png):
+def run(url, only, keep_png, demo=False):
     base = url.rstrip('/')
     if re.search(r':7779\b', base):
         sys.exit('refused: :7779 is the live UI — start a dev instance (docs/help/README.md)')
@@ -261,10 +360,17 @@ def run(url, only, keep_png):
         for s in SHOTS:
             if only and s['name'] not in only:
                 continue
+            if s.get('demo') and not demo:
+                print('  %s: skipped — shows chat / reports, run with --demo' % s['name'])
+                continue
             w, h = s['vp']
             phone = w < 600
             ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=s.get('scale', 2),
-                                is_mobile=phone, has_touch=phone)
+                                is_mobile=phone, has_touch=phone,
+                                # the page's service worker would fetch past the demo route
+                                service_workers='block' if demo else 'allow')
+            if demo:
+                install_demo(ctx)
             pg = ctx.new_page()
             pg.add_init_script('window.alert=()=>{};window.confirm=()=>false;window.prompt=()=>null;'
                                'try{localStorage.clear()}catch(e){}')
@@ -272,6 +378,8 @@ def run(url, only, keep_png):
             pg.wait_for_timeout(s.get('boot', 8000))
             if not pg.evaluate("document.documentElement.classList.contains('vt-mock')"):
                 sys.exit('refused: the page is not in mock mode')
+            pg.evaluate('()=>{' + AERIAL_OFF + '}')   # every picture: no aerial photo (where the owner lives)
+            pg.wait_for_timeout(600)
             for st in s.get('steps', []):
                 k = st[0]
                 if k == 'click':
@@ -329,6 +437,8 @@ if __name__ == '__main__':
     ap.add_argument('--url', help='a dev instance, e.g. http://127.0.0.1:7861 (never :7779)')
     ap.add_argument('--only', default='', help='comma separated shot names')
     ap.add_argument('--list', action='store_true', help='list the shots and exit')
+    ap.add_argument('--demo', action='store_true',
+                    help='invented chat / reports instead of the real ones (use for the help pictures)')
     ap.add_argument('--png', default='', help='also save a PNG copy into this directory (for a look)')
     a = ap.parse_args()
     if a.list:
@@ -337,4 +447,4 @@ if __name__ == '__main__':
         sys.exit(0)
     if not a.url:
         ap.error('--url is required')
-    run(a.url, set(x for x in a.only.split(',') if x), a.png)
+    run(a.url, set(x for x in a.only.split(',') if x), a.png, a.demo)

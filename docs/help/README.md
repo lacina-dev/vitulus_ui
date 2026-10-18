@@ -94,9 +94,9 @@ The help should *show* what it talks about. Two kinds:
   sed 's/^port = 7779/port = 7861/' nodes/webnode > nodes/.webnode_dev.py
   ROS_MASTER_URI=http://10.254.254.254:11311 ROS_IP=10.254.254.254 \
     VITULUS_UI_SETTINGS=/tmp/help_shots_ui.json nice -n 19 python3 nodes/.webnode_dev.py __name:=webnode_shots &
-  # 2. all pictures, or only some
-  nice -n 19 tools/help_shots.py --url http://127.0.0.1:7861
-  nice -n 19 tools/help_shots.py --url http://127.0.0.1:7861 --only shot-dock-tab,shot-navi --png /tmp/look
+  # 2. all pictures, or only some (--demo: invented chat / reports, see below)
+  nice -n 19 tools/help_shots.py --url http://127.0.0.1:7861 --demo
+  nice -n 19 tools/help_shots.py --url http://127.0.0.1:7861 --demo --only shot-dock-tab,shot-navi --png /tmp/look
   tools/help_shots.py --list
   # 3. look at them (--png keeps PNG copies), stop the dev webnode, rm nodes/.webnode_dev.py
   ```
@@ -107,7 +107,16 @@ The help should *show* what it talks about. Two kinds:
   tabs and section heads, refuses `:7779` and stops when the page is not in mock mode. The
   pictures show the robot's state at that moment: avoid things that would mislead or expose the
   owner (the aerial photo and the rain radar show where the garden is — the script switches the
-  aerial layer off; at night the camera is black, hence the schematic `camera-overlays.svg`).
+  aerial layer off in every picture; at night the camera is black, hence the schematic
+  `camera-overlays.svg`).
+- **No real conversations in the help:** always shoot with `--demo`. The Agent chat, the Support
+  issues and Needs you then show invented, neutral content (an English test drive with its
+  phases, two made-up reports) — the browser answers those GET requests itself (`DEMO` /
+  `install_demo` in the script, a Playwright route; the page's service worker is blocked so it
+  cannot fetch past it), nothing goes to a server. Shots marked `demo=True` (`shot-agent`,
+  `shot-support`) are skipped without `--demo`. A new shot of a panel with messages, reports,
+  names, e-mails or addresses gets `demo=True` and its data in `demo_answer()`. Look at every
+  picture before committing.
 - Size: WebP (quality ~82) or SVG, at most 400 kB per file (the test checks); 2× pixels for small
   crops so they stay sharp in the lightbox.
 
