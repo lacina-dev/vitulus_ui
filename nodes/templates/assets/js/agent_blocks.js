@@ -49,6 +49,24 @@
   }
 
   // ---- drobné utility -----------------------------------------------------
+  /* i18n (docs/I18N.md): every word the frame writes goes through T();
+     what the core or the agent wrote is data and is shown verbatim. */
+  function T(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+  function TN(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
+  function tag(node, k, attr) {
+    if (window.VTI18n) { VTI18n.tag(node, k, attr); }
+    return node;
+  }
+  /* „… ago" as one sentence per language (common.ago.*), same numbers as
+     fmtAgo(). */
+  function agoText(ts) {
+    if (!ts) return '—';
+    var s = Math.max(0, (Date.now() / 1000) - ts);
+    if (s < 90) return T('common.ago.s', {n: Math.round(s)});
+    if (s < 5400) return T('common.ago.min', {n: Math.round(s / 60)});
+    if (s < 172800) return T('common.ago.h', {n: (s / 3600).toFixed(1)});
+    return T('common.ago.d', {n: Math.round(s / 86400)});
+  }
   function el(tag, cls, text) {
     var node = document.createElement(tag);
     if (cls) node.className = cls;
@@ -66,10 +84,10 @@
   function fmtIn(ts) {
     if (!ts) return '—';
     var s = ts - Date.now() / 1000;
-    if (s < 0) return 'now';
-    if (s < 90) return 'in ' + Math.round(s) + ' s';
-    if (s < 5400) return 'in ' + Math.round(s / 60) + ' min';
-    return 'in ' + (s / 3600).toFixed(s < 36000 ? 1 : 0) + ' h';
+    if (s < 0) return T('common.now');
+    if (s < 90) return T('blocks.in.s', {n: Math.round(s)});
+    if (s < 5400) return T('blocks.in.min', {n: Math.round(s / 60)});
+    return T('blocks.in.h', {n: (s / 3600).toFixed(s < 36000 ? 1 : 0)});
   }
   function fmtAbs(ts) {
     if (!ts) return '';
@@ -115,8 +133,11 @@
   function paintAge(n) {
     var at = Number(n.getAttribute('data-age-at'));
     if (!at) { return; }
-    n.textContent = (n.getAttribute('data-age-pre') || '') + fmtAgo(at) +
-                    (n.getAttribute('data-age-post') || '');
+    // data-age-key: one sentence with {age} (word order differs per language)
+    var akey = n.getAttribute('data-age-key');
+    n.textContent = akey ? T(akey, {age: fmtAgo(at)})
+      : (n.getAttribute('data-age-pre') || '') + fmtAgo(at) +
+        (n.getAttribute('data-age-post') || '');
     var warn = Number(n.getAttribute('data-age-warn') || 0);
     if (warn) {
       var stale = (Date.now() / 1000 - at) > warn;
@@ -154,13 +175,12 @@
     var c = el('span', 'vagent-pill');
     if (capturedAtSec == null) {
       c.className += ' queued';
-      c.textContent = opts.unknown || 'age unknown';
-      c.title = opts.unknownTitle ||
-        'The core did not say when this was taken — treat it as unknown, ' +
-        'not as fresh.';
+      c.textContent = opts.unknown || T('blocks.age.unknown');
+      c.title = opts.unknownTitle || T('blocks.age.unknown_title');
       return c;
     }
     c.setAttribute('data-age-at', String(Math.round(capturedAtSec * 1000) / 1000));
+    if (opts.key) { c.setAttribute('data-age-key', opts.key); }
     c.setAttribute('data-age-pre', opts.pre || '');
     c.setAttribute('data-age-post', opts.post || '');
     if (opts.warnS) { c.setAttribute('data-age-warn', String(opts.warnS)); }
@@ -258,9 +278,11 @@
   function cssEsc(s) {
     return (window.CSS && CSS.escape) ? CSS.escape(String(s)) : String(s).replace(/["\\]/g, '\\$&');
   }
+  /* `what` is a label the caller already translated */
   function apiUnavailable(box, what, err) {
     var e = el('div', 'vagent-empty',
-      what + ': ' + (/HTTP 404/.test(String(err)) ? 'API not available yet' : 'the agent (/agent) is not responding'));
+      /HTTP 404/.test(String(err)) ? T('blocks.api.missing', {what: what})
+                                   : T('blocks.api.silent', {what: what}));
     box.textContent = '';
     box.appendChild(e);
   }
@@ -276,7 +298,7 @@
     var dockBox = null, dockTick = null, dockGrantOpen = false;
 
     VA.registerBlock({
-      id: 'dock', title: 'Dock lock', order: 5,
+      id: 'dock', title: T('blocks.title.dock'), titleKey: 'blocks.title.dock', order: 5,
       render: function (root) { dockBox = root; drawDock(VA); },
       onOpen: function () { if (VA.dock) { VA.dock.poll(true); } drawDock(VA); }
     });
@@ -323,42 +345,37 @@
 
       var head = el('div', 'dk-h');
       var pill = el('span', 'dk-pill ' + (live ? 'open' : 'shut'),
-                    live ? 'UNLOCKED' : 'LOCKED');
+                    live ? T('blocks.dock.unlocked') : T('blocks.dock.locked'));
       head.appendChild(pill);
       dockBox.appendChild(head);
 
       if (st.supported === false) {
-        dockBox.appendChild(el('div', 'dk-note',
-          'The robot stays in the dock. This robot\u2019s agent does not serve ' +
-          'the unlock endpoint yet, so there is nothing to click — and nothing ' +
-          'can move without it.'));
+        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.unsupported')));
         return;
       }
       if (st.supported === null) {
-        dockBox.appendChild(el('div', 'dk-note', 'Reading the lock\u2026'));
+        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.reading')));
         return;
       }
 
       if (live && rel.until_docked) {
         /* Free drive (owner 2026-10-18): no use count, the core locks it
            again by itself when the robot is back in the dock. */
-        dockBox.appendChild(el('div', 'dk-title', 'Unlocked until docked'));
-        dockBox.appendChild(dockRow('Allowed', 'every move: ' +
-          (rel.actions || []).join(', ')));
-        dockBox.appendChild(dockRow('Uses', 'no limit' +
-          (rel.used ? ' (used ' + rel.used + '\u00d7)' : '')));
-        dockBox.appendChild(dockRow('Robot', rel.left_dock_ago == null
-          ? 'still in the dock \u2014 locks once it has left and is back'
-          : 'left the dock \u2014 locks as soon as it docks'));
-        var capRow = dockRow('At the latest in',
+        dockBox.appendChild(el('div', 'dk-title', T('blocks.dock.until_docked')));
+        dockBox.appendChild(dockRow(T('blocks.dock.allowed'), T('blocks.dock.every_move',
+          {actions: (rel.actions || []).join(', ')})));
+        dockBox.appendChild(dockRow(T('blocks.dock.uses'), rel.used
+          ? T('blocks.dock.no_limit_used', {n: rel.used}) : T('blocks.dock.no_limit')));
+        dockBox.appendChild(dockRow(T('blocks.dock.robot'), rel.left_dock_ago == null
+          ? T('blocks.dock.still_in') : T('blocks.dock.left')));
+        var capRow = dockRow(T('blocks.dock.latest_in'),
           VA.dock.mmss(VA.dock.left(rel)));
         dockBox.appendChild(capRow);
-        dockBox.appendChild(dockRow('Signed by', rel.by || '?'));
-        dockBox.appendChild(el('div', 'dk-note',
-          'Locks itself when the robot docks (or after 12 h).'));
-        var again = el('button', 'dk-btn dk-back', 'Lock again');
+        dockBox.appendChild(dockRow(T('blocks.dock.signed_by'), rel.by || '?'));
+        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.locks_itself')));
+        var again = el('button', 'dk-btn dk-back', T('blocks.dock.lock_again'));
         again.type = 'button';
-        again.title = 'Take the permission back now';
+        again.title = T('blocks.dock.lock_again_title');
         again.addEventListener('click', function () {
           again.disabled = true;
           VA.dock.relock().catch(function () { again.disabled = false; });
@@ -373,19 +390,19 @@
       }
 
       if (live) {
-        dockBox.appendChild(dockRow('Allowed', (rel.actions || []).join(', ')));
-        dockBox.appendChild(dockRow('Uses left',
-          VA.dock.usesLeft(rel) + ' of ' + (rel.max_runs || 1)));
-        var leftRow = dockRow('Expires in', VA.dock.mmss(VA.dock.left(rel)));
+        dockBox.appendChild(dockRow(T('blocks.dock.allowed'), (rel.actions || []).join(', ')));
+        dockBox.appendChild(dockRow(T('blocks.dock.uses_left'),
+          T('blocks.dock.n_of_max', {n: VA.dock.usesLeft(rel), max: (rel.max_runs || 1)})));
+        var leftRow = dockRow(T('blocks.dock.expires_in'), VA.dock.mmss(VA.dock.left(rel)));
         dockBox.appendChild(leftRow);
-        dockBox.appendChild(dockRow('Signed by', rel.by || '?'));
+        dockBox.appendChild(dockRow(T('blocks.dock.signed_by'), rel.by || '?'));
         if (rel.used) {
           dockBox.appendChild(el('div', 'dk-note',
-            'Already used ' + rel.used + '\u00d7.'));
+            T('blocks.dock.used_n', {n: rel.used})));
         }
-        var back = el('button', 'dk-btn dk-back', 'Lock again');
+        var back = el('button', 'dk-btn dk-back', T('blocks.dock.lock_again'));
         back.type = 'button';
-        back.title = 'Take the permission back now';
+        back.title = T('blocks.dock.lock_again_title');
         back.addEventListener('click', function () {
           back.disabled = true;
           VA.dock.relock().catch(function () { back.disabled = false; });
@@ -400,18 +417,15 @@
         return;
       }
 
-      dockBox.appendChild(el('div', 'dk-note',
-        'The robot cannot leave the dock. Only you can allow it, only here, ' +
-        'and only for the moves each button names.'));
+      dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.cannot_leave')));
       if (st.relocked) {
         var at = new Date(st.relocked.at);
-        dockBox.appendChild(el('div', 'dk-note',
-          'Free drive #' + st.relocked.id + ' locked itself at ' +
-          ('0' + at.getHours()).slice(-2) + ':' + ('0' + at.getMinutes()).slice(-2) +
-          ' \u2014 the robot docked.'));
+        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.relocked', {
+          id: st.relocked.id,
+          time: ('0' + at.getHours()).slice(-2) + ':' + ('0' + at.getMinutes()).slice(-2)})));
       }
       if (st.error) {
-        dockBox.appendChild(el('div', 'dk-err', 'Lock state: ' + st.error));
+        dockBox.appendChild(el('div', 'dk-err', T('blocks.dock.state_err', {err: st.error})));
       }
       VA.dock.grants().forEach(function (g) {
         var open = el('button', 'dk-btn dk-grant' + (g.primary ? ' dk-primary' : ''), g.button);
@@ -429,46 +443,46 @@
       dockGrantOpen = true;
       dockBox.textContent = '';
       var head = el('div', 'dk-h');
-      head.appendChild(el('span', 'dk-pill shut', 'LOCKED'));
+      head.appendChild(el('span', 'dk-pill shut', T('blocks.dock.locked')));
       dockBox.appendChild(head);
       dockBox.appendChild(el('div', 'dk-title', g.title));
       g.lines.forEach(function (pair) {
         dockBox.appendChild(dockRow(pair[0], pair[1]));
       });
       var until = new Date(Date.now() + g.ttl_s * 1000);
-      dockBox.appendChild(dockRow('Until',
-        (g.until_docked ? 'the robot docks \u2014 at the latest ' : '') +
-        ('0' + until.getHours()).slice(-2) + ':' +
-        ('0' + until.getMinutes()).slice(-2)));
+      var untilHm = ('0' + until.getHours()).slice(-2) + ':' +
+        ('0' + until.getMinutes()).slice(-2);
+      dockBox.appendChild(dockRow(T('blocks.dock.until'), g.until_docked
+        ? T('blocks.dock.until_docked_at', {time: untilHm}) : untilHm));
 
       var row = el('div', 'dk-acts');
-      var yes = el('button', 'dk-btn dk-yes', 'Unlock \u2014 tap again to confirm');
+      var yes = el('button', 'dk-btn dk-yes', T('blocks.dock.unlock'));
       yes.type = 'button';
       var armed = false, timer = null;
       yes.addEventListener('click', function () {
         if (!armed) {
           armed = true;
-          yes.textContent = 'Yes \u2014 unlock the dock';
+          yes.textContent = T('blocks.dock.unlock_yes');
           yes.classList.add('armed');
           timer = setTimeout(function () {
             armed = false;
             yes.classList.remove('armed');
-            yes.textContent = 'Unlock \u2014 tap again to confirm';
+            yes.textContent = T('blocks.dock.unlock');
           }, 6000);
           return;
         }
         if (timer) { clearTimeout(timer); }
         yes.disabled = true;
-        yes.textContent = 'Unlocking\u2026';
+        yes.textContent = T('blocks.dock.unlocking');
         VA.dock.unlock(g).then(function (d) {
           if (!d || d.ok === false) {
             // stay on the card: the refusal has to stay readable, and a
             // poll must not wipe it away
             yes.disabled = false;
             armed = false;
-            yes.textContent = 'Unlock \u2014 tap again to confirm';
-            dockBox.appendChild(el('div', 'dk-err',
-              'Not unlocked: ' + ((d && d.error) || 'the core refused it')));
+            yes.textContent = T('blocks.dock.unlock');
+            dockBox.appendChild(el('div', 'dk-err', T('blocks.dock.not_unlocked',
+              {err: (d && d.error) || T('blocks.dock.core_refused')})));
             return;
           }
           dockGrantOpen = false;
@@ -476,15 +490,15 @@
         }).catch(function (e) {
           yes.disabled = false;
           armed = false;
-          yes.textContent = 'Unlock \u2014 tap again to confirm';
+          yes.textContent = T('blocks.dock.unlock');
           dockBox.appendChild(el('div', 'dk-err',
             /HTTP 404/.test(String(e))
-              ? 'Not unlocked: this agent does not serve the unlock endpoint yet.'
-              : 'Not unlocked: ' + e));
+              ? T('blocks.dock.not_unlocked_404')
+              : T('blocks.dock.not_unlocked', {err: String(e)})));
         });
       });
       row.appendChild(yes);
-      var no = el('button', 'dk-btn', 'Cancel');
+      var no = el('button', 'dk-btn', T('common.cancel'));
       no.type = 'button';
       no.addEventListener('click', function () { dockGrantOpen = false; drawDock(VA); });
       row.appendChild(no);
@@ -536,51 +550,52 @@
        way tonight: `operator` split into `chat` + `robot`, the frame did not
        know the two new names, so it fell through to the core's Czech labels
        and put them in an English column. */
+    /* i18n: the maps hold dictionary keys; the frame's words are looked up
+       when drawn (T()), the core's words stay as the core wrote them. */
     var MD_ROLE_EN = {
-      coder: 'Working with code',
-      chat: 'Answering in chat',
-      robot: 'Driving the robot',
-      operator: 'Chat and robot together (old, replaced by the two above)',
-      checker: 'Judging finished work',
-      reflector: 'Lessons from finished work',
-      grower: 'Looking for gaps in its own skills',
-      triage: 'Sorting (one word, cheapest model)'
+      coder: 'bmodel.role.coder',
+      chat: 'bmodel.role.chat',
+      robot: 'bmodel.role.robot',
+      operator: 'bmodel.role.operator',
+      checker: 'bmodel.role.checker',
+      reflector: 'bmodel.role.reflector',
+      grower: 'bmodel.role.grower',
+      triage: 'bmodel.role.triage'
     };
     var MD_NOTE_EN = {
-      chat: 'Talking to the owner. Safe to switch any time — it wants ' +
-            'personality, continuity, speed and a low price, and there is ' +
-            'a lot of it.',
-      robot: 'DRIVES A MACHINE THAT MOVES. Change it deliberately and ' +
-             'rarely. When it fails nothing stands in for it — the work ' +
-             'waits instead.',
-      operator: 'The old shared name for chat and robot. While it is still ' +
-                'set it applies to both of the new roles — set those two ' +
-                'instead.',
-      checker: 'Must be a different vendor than the code work, or the agent ' +
-               'marks its own homework.',
-      reflector: 'Must be a different vendor than the code work.',
-      grower: 'Must be a different vendor than the code work.'
+      chat: 'bmodel.note.chat',
+      robot: 'bmodel.note.robot',
+      operator: 'bmodel.note.operator',
+      checker: 'bmodel.note.checker',
+      reflector: 'bmodel.note.differ',
+      grower: 'bmodel.note.differ'
     };
     var MD_BACKEND_EN = {
       claude: 'Claude', codex: 'Codex', deepseek: 'DeepSeek',
-      hermes: 'Hermes — the robot’s own agent'
+      hermes: 'bmodel.backend.hermes'
     };
+    function mdBackendName(id) {
+      var n = MD_BACKEND_EN[id];
+      if (!n) { return id; }
+      return n.indexOf('bmodel.') === 0 ? T(n) : n;
+    }
     var MD_STATUS_EN = {
-      ok: 'available', limited: 'rate limited', rate_limited: 'rate limited',
-      quota_exhausted: 'quota used up', exhausted: 'quota used up',
-      no_key: 'no key', down: 'not answering', unknown: 'unknown'
+      ok: 'bmodel.status.ok', limited: 'bmodel.status.limited',
+      rate_limited: 'bmodel.status.limited',
+      quota_exhausted: 'bmodel.status.exhausted', exhausted: 'bmodel.status.exhausted',
+      no_key: 'bmodel.status.no_key', down: 'bmodel.status.down',
+      unknown: 'bmodel.status.unknown'
     };
     var MD_SOURCE_EN = {
-      provider: 'list came from the provider itself',
-      cache: 'list came from the provider’s own cache file',
-      fixed: 'fixed aliases of the command-line tool',
-      config: 'only what the config file happens to name',
-      unknown: 'nobody here knows this provider’s models — pick the ' +
-               'default and let it say what it runs'
+      provider: 'bmodel.source.provider',
+      cache: 'bmodel.source.cache',
+      fixed: 'bmodel.source.fixed',
+      config: 'bmodel.source.config',
+      unknown: 'bmodel.source.unknown'
     };
 
     VA.registerBlock({
-      id: 'models', title: 'Models', order: 70,
+      id: 'models', title: T('bmodel.title'), titleKey: 'bmodel.title', order: 70,
       render: function (root) { mdBox = root; drawModels(VA); pollModels(VA); },
       // Opening the tab always asks again: „not served yet" is a statement
       // about a moment, not a verdict, and the endpoint may land while the
@@ -641,9 +656,9 @@
        `label_en` is honoured the day the core starts sending it, and then
        this stops being a list at all. */
     function mdRoleName(r) {
-      if (MD_ROLE_EN[r.role]) { return MD_ROLE_EN[r.role]; }
+      if (MD_ROLE_EN[r.role]) { return T(MD_ROLE_EN[r.role]); }
       if (r.label_en) { return String(r.label_en); }
-      return String(r.role) + ' — no English name yet';
+      return T('bmodel.role.unnamed', {role: String(r.role)});
     }
 
     /* The core's own label for a role, when the frame is showing a name of
@@ -704,9 +719,7 @@
                               : ((mdData && mdData.coder_vendor) || null);
       if (coder && mdTwoStep(mdBackendRow(coder.backend))) {
         out.push({hard: true, text:
-          'The code work cannot run on ' + (MD_BACKEND_EN[coder.backend] ||
-          coder.backend) + ' — that one is the robot’s voice and ' +
-          'hands, not a builder. The core refuses it.'});
+          T('bmodel.v.coder_twostep', {backend: mdBackendName(coder.backend)})});
       }
       var op = plan.roles.operator;
       var opVendor = op ? mdVendorOf(op.backend, plan) : null;
@@ -716,9 +729,7 @@
         var jv = mdVendorOf(plan.roles[r.role].backend, plan);
         if (jv && coderVendor && jv === coderVendor) {
           out.push({hard: true, text:
-            mdRoleName(r) + ' and the code work would both come from ' + jv +
-            ' — then the agent marks its own homework. Move one of them ' +
-            'to a different vendor.'});
+            T('bmodel.v.same_vendor', {role: mdRoleName(r), vendor: jv})});
         } else if (jv && opVendor && jv === opVendor) {
           shareOp.push(mdRoleName(r));
         }
@@ -728,11 +739,8 @@
       // majitel číst má — v noci 31. 8. mu kvůli tomuhle oněměl chat.
       if (shareOp.length) {
         out.push({hard: false, text:
-          shareOp.join(', ') + ' and the chat/robot work all run on ' +
-          opVendor + ' — one outage takes out ' +
-          (shareOp.length > 1 ? 'all of them' : 'both') + ' at once, and the ' +
-          'judge is grading its own vendor’s work. The core refuses this only ' +
-          'if you make it worse, so Save still tries.'});
+          T(shareOp.length > 1 ? 'bmodel.v.share_op_all' : 'bmodel.v.share_op_both',
+            {roles: shareOp.join(', '), vendor: opVendor})});
       }
       return out;
     }
@@ -792,34 +800,32 @@
          number, one place. */
       if (r.legacy) {
         var whom = (r.replaced_by || []).map(function (x) {
-          return MD_ROLE_EN[x] || x;
+          return MD_ROLE_EN[x] ? T(MD_ROLE_EN[x]) : x;
         });
         var lg = el('span', 'md-s',
           whom.length
-            ? 'spend before the split is counted under “' + whom[0] + '” — ' +
-              'not added again here'
-            : 'replaced — its spend is counted under the role that took over');
+            ? T('bmodel.stat.legacy_under', {role: whom[0]})
+            : T('bmodel.stat.legacy'));
         lg.title = r.note || '';
         box.appendChild(lg);
         return box;
       }
       var calls = Number(r.calls_7d || 0);
       if (!calls && !Number(r.usd_7d || 0)) {
-        var none = el('span', 'md-s', 'no runs in the last ' + days + ' d');
-        none.title = 'Nothing recorded — not a reason to leave it as it is.';
+        var none = el('span', 'md-s', T('bmodel.stat.no_runs', {days: days}));
+        none.title = T('bmodel.stat.no_runs_title');
         box.appendChild(none);
         return box;
       }
       var est = Number(r.usd_estimated_7d || 0);
       var whole = est > 0 && est >= Number(r.usd_7d || 0) - 1e-9;
       var money = el('span', 'md-s money' + (whole ? ' est' : ''),
-                     mdMoney(r.usd_7d) + ' / ' + days + ' d' +
-                     (whole ? ' (estimate)' : ''));
+                     whole ? T('bmodel.stat.money_est', {usd: mdMoney(r.usd_7d), days: days})
+                           : T('bmodel.stat.money', {usd: mdMoney(r.usd_7d), days: days}));
       money.title = whole
-        ? 'The provider did not report usage, so the core priced it from the ' +
-          'length of the prompt. An estimate does not stop you from saving.'
-        : (est > 0 ? mdMoney(est) + ' of that is the core’s own estimate.'
-                   : 'Billed from what the provider reported.');
+        ? T('bmodel.stat.est_whole')
+        : (est > 0 ? T('bmodel.stat.est_part', {usd: mdMoney(est)})
+                   : T('bmodel.stat.billed'));
       /* Both numbers say where they come from, so VAgent.auditNumbers() can
          re-ask the core and prove them.  U35 was two cards quoting one
          ledger row; a number that carries its own pointer cannot be added to
@@ -827,15 +833,15 @@
       money.setAttribute('data-src', '/api/models#roles[role=' + r.role + '].usd_7d');
       money.setAttribute('data-num', String(Number(r.usd_7d || 0)));
       box.appendChild(money);
-      var c = el('span', 'md-s', calls + ' call' + (calls === 1 ? '' : 's'));
-      c.title = 'How many times this kind of work asked a model.';
+      var c = el('span', 'md-s', TN('bmodel.stat.calls', calls));
+      c.title = T('bmodel.stat.calls_title');
       c.setAttribute('data-src', '/api/models#roles[role=' + r.role + '].calls_7d');
       c.setAttribute('data-num', String(calls));
       box.appendChild(c);
-      var t = el('span', 'md-s', mdTokens(r.tokens_in_7d) + ' in · ' +
-                                mdTokens(r.tokens_out_7d) + ' out');
-      t.title = 'Tokens read and written in the last ' + days + ' days.';
-      box.appendChild(t);
+      var tk = el('span', 'md-s', T('bmodel.stat.tokens',
+        {tin: mdTokens(r.tokens_in_7d), tout: mdTokens(r.tokens_out_7d)}));
+      tk.title = T('bmodel.stat.tokens_title', {days: days});
+      box.appendChild(tk);
       return box;
     }
 
@@ -862,23 +868,19 @@
       if (!mdBox) return;
       mdBox.textContent = '';
       if (mdState === 'unsupported') {
-        mdBox.appendChild(el('div', 'md-note',
-          'This robot’s agent does not serve the model settings yet ' +
-          '(GET /api/models). Nothing here can be changed from the panel ' +
-          'until it does — the wiring still lives in the core’s ' +
-          'config files.'));
+        mdBox.appendChild(el('div', 'md-note', T('bmodel.unsupported')));
         if (mdErr) { mdBox.appendChild(el('div', 'md-err', String(mdErr))); }
         return;
       }
       if (!mdData) {
-        mdBox.appendChild(el('div', 'md-note', 'Reading the model wiring…'));
+        mdBox.appendChild(el('div', 'md-note', T('bmodel.reading')));
         return;
       }
       var days = mdData.days || 7;
       var plan = mdPlan();
 
       // ---- co na čem běží
-      mdBox.appendChild(el('div', 'md-h', 'What runs on what'));
+      mdBox.appendChild(el('div', 'md-h', T('bmodel.h.runs')));
       // U35: a replaced role goes last — it is still live while it is set,
       // so it cannot be hidden, but it must not sit among the roles the
       // owner is meant to be choosing between.
@@ -892,51 +894,42 @@
         var head = el('div', 'md-rh');
         var nm = el('span', 'md-name', mdRoleName(r));
         var coreLab = mdRoleLabel(r);
-        if (coreLab) { nm.title = 'The core calls this role: ' + coreLab; }
+        if (coreLab) { nm.title = T('bmodel.core_calls', {label: coreLab}); }
         head.appendChild(nm);
         if (!mdRoleKnown(r)) {
           /* U43: an unknown role used to borrow the core's Czech sentence and
              wear it as an English name.  Now the frame admits it has no name
              for it, and the core's words are shown AS the core's words. */
-          var unk = el('span', 'md-lock', 'unknown role');
-          unk.title = 'This panel has no English name for `' + r.role + '`. ' +
-            'The core’s own label is printed next to it, word for word, ' +
-            'instead of being passed off as this panel’s.';
+          var unk = el('span', 'md-lock', T('bmodel.unknown_role'));
+          unk.title = T('bmodel.unknown_role_title', {role: r.role});
           head.appendChild(unk);
           if (coreLab) {
-            var q = el('span', 'md-ven', '„' + coreLab + '” (core)');
-            q.title = 'The core’s own label for this role, quoted.';
+            var q = el('span', 'md-ven', T('bmodel.core_quote', {label: coreLab}));
+            q.title = T('bmodel.core_quote_title');
             head.appendChild(q);
           }
         }
         var ven = mdVendorOf(cur.backend, plan);
-        var vch = el('span', 'md-ven', ven || 'vendor unknown');
-        vch.title = ven
-          ? 'The vendor the core reports for this choice. The judge rule is ' +
-            'checked against this, never against the provider’s name.'
-          : 'The core did not name a vendor for this choice, so the judge ' +
-            'rule cannot be checked here — the server still checks it.';
+        var vch = el('span', 'md-ven', ven || T('bmodel.vendor_unknown'));
+        vch.title = ven ? T('bmodel.vendor_title') : T('bmodel.vendor_unknown_title');
         head.appendChild(vch);
         if (r.no_fallback) {
-          var nf = el('span', 'md-lock', 'no stand-in');
-          nf.title = 'Work that touches the robot never switches to another ' +
-                     'model — a different model has a different opinion ' +
-                     'about a machine that moves.';
+          var nf = el('span', 'md-lock', T('bmodel.no_standin'));
+          nf.title = T('bmodel.no_standin_title');
           head.appendChild(nf);
         }
         if (r.must_differ_from_coder) {
-          var jd = el('span', 'md-badge', 'judge');
-          jd.title = 'Must not share a vendor with the code work.';
+          var jd = el('span', 'md-badge', T('bmodel.judge'));
+          jd.title = T('bmodel.judge_title');
           head.appendChild(jd);
         }
         if (r.legacy) {
-          var lgb = el('span', 'md-lock', 'replaced');
-          lgb.title = r.note ||
-            'Superseded by newer roles; still applies while it is set.';
+          var lgb = el('span', 'md-lock', T('bmodel.replaced'));
+          lgb.title = r.note || T('bmodel.replaced_title');
           head.appendChild(lgb);
         }
         row.appendChild(head);
-        var note = MD_NOTE_EN[r.role] || '';
+        var note = MD_NOTE_EN[r.role] ? T(MD_NOTE_EN[r.role]) : '';
         if (note) {
           var nd = el('div', 'md-desc', note);
           if (r.note) { nd.title = r.note; }
@@ -947,7 +940,7 @@
 
         // 1) backend
         var backOpts = (mdData.providers || []).map(function (b) {
-          return {id: b.backend, label: MD_BACKEND_EN[b.backend] || b.backend};
+          return {id: b.backend, label: mdBackendName(b.backend)};
         });
         var backSel = mdSelect(backOpts, cur.backend, function (v) {
           mdDraft = mdDraft || {};
@@ -961,7 +954,7 @@
         /* U dvoustupňového backendu dostane „Runs on" vlastní řádek, aby
            poskytovatel a model zůstali VEDLE SEBE — to je ta dvojice, kterou
            majitel mění spolu. */
-        picks.appendChild(mdField('Runs on', backSel, null, null,
+        picks.appendChild(mdField(T('bmodel.f.runs_on'), backSel, null, null,
                                   mdTwoStep(p) ? 'wide' : null));
 
         // 2) poskytovatel — jen u dvoustupňového backendu (Hermes)
@@ -975,19 +968,18 @@
           var ready = choices.filter(function (c) { return c.ready; }).length;
           var provOpts = choices.map(function (c) {
             return {id: c.provider,
-                    label: (c.display || c.provider) +
-                           (c.ready ? '' : ' — locked, no key'),
+                    label: c.ready ? (c.display || c.provider)
+                                   : T('bmodel.prov_locked', {name: c.display || c.provider}),
                     locked: !c.ready && c.provider !== want,
                     title: c.ready ? (c.description || '')
-                                   : (c.locked_why || 'no key on this machine')};
+                                   : (c.locked_why || T('bmodel.no_key_here'))};
           });
           var provSel = mdSelect(provOpts, want, function (v) {
             mdApplyProvider(VA, p, v);
           });
-          picks.appendChild(mdField('Provider', provSel,
-            ready + ' of ' + choices.length + ' ready',
-            'The rest are listed but locked — they have no key on this ' +
-            'machine. Nothing is hidden from you.'));
+          picks.appendChild(mdField(T('bmodel.f.provider'), provSel,
+            T('bmodel.f.ready', {n: ready, total: choices.length}),
+            T('bmodel.f.ready_title')));
           provMoved = (want || '') !== (p.provider || '');
         }
 
@@ -997,10 +989,10 @@
         // je to jméno, které nový poskytovatel nezná.
         var deflt = provMoved ? null : (p ? (p.selected || p.accounting_fallback) : null);
         modelOpts.push({id: '',
-                        label: deflt ? 'Default (' + deflt + ')'
-                             : provMoved ? 'Default of the new provider'
-                                         : 'Default of this backend',
-                        title: 'Leave the choice to the backend itself.'});
+                        label: deflt ? T('bmodel.default_is', {model: deflt})
+                             : provMoved ? T('bmodel.default_new')
+                                         : T('bmodel.default_backend'),
+                        title: T('bmodel.default_title')});
         if (!provMoved) {
           ((p && p.models) || []).forEach(function (m) {
             modelOpts.push({id: m.id, label: m.label || m.id});
@@ -1019,17 +1011,14 @@
           });
         var srcTxt, srcTitle;
         if (provMoved) {
-          srcTxt = 'save the provider first';
-          srcTitle = 'The list below still belongs to the provider that is ' +
-            'running now. Save this change and the models of the new one ' +
-            'arrive with the next read — the panel will not guess them.';
+          srcTxt = T('bmodel.save_prov_first');
+          srcTitle = T('bmodel.save_prov_first_title');
         } else {
-          srcTxt = MD_SOURCE_EN[(p && p.models_source) || 'unknown'] ||
-                   String((p && p.models_source) || '');
-          srcTitle = 'Where this list comes from. A list on paper and a list ' +
-                     'from the provider are not the same thing.';
+          var srcKey = MD_SOURCE_EN[(p && p.models_source) || 'unknown'];
+          srcTxt = srcKey ? T(srcKey) : String((p && p.models_source) || '');
+          srcTitle = T('bmodel.source_title');
         }
-        picks.appendChild(mdField('Model', modSel, srcTxt, srcTitle));
+        picks.appendChild(mdField(T('bmodel.f.model'), modSel, srcTxt, srcTitle));
         row.appendChild(picks);
         row.appendChild(mdStat(r, days));
         mdBox.appendChild(row);
@@ -1042,11 +1031,9 @@
         if (!locked.length) { return; }
         var head = el('div', 'md-more');
         var btn = el('button', 'md-mini wide',
-          (mdShowLocked ? '▾ hide ' : '▸ show ') + locked.length +
-          ' locked provider' + (locked.length === 1 ? '' : 's'));
+          TN(mdShowLocked ? 'bmodel.locked_hide' : 'bmodel.locked_show', locked.length));
         btn.type = 'button';
-        btn.title = 'They exist and they are not hidden from you — each ' +
-                    'one says what it would take to switch to it.';
+        btn.title = T('bmodel.locked_title');
         btn.addEventListener('click', function () {
           mdShowLocked = !mdShowLocked; drawModels(VA);
         });
@@ -1056,14 +1043,14 @@
         locked.forEach(function (c) {
           var row = el('div', 'md-locked');
           row.appendChild(el('span', 'md-name', c.display || c.provider));
-          var need = (c.env_vars || []).join(' or ');
+          var need = (c.env_vars || []).join(T('bmodel.or'));
           var why = el('span', 'md-s',
-            need ? 'needs ' + need + ' in the agent’s secrets file'
-                 : 'needs a sign-in of its own');
+            need ? T('bmodel.needs_env', {vars: need})
+                 : T('bmodel.needs_signin'));
           why.title = c.locked_why || '';
           row.appendChild(why);
           if (c.signup_url) {
-            var a = el('a', 'md-s link', 'where to get one');
+            var a = el('a', 'md-s link', T('bmodel.where_get'));
             a.href = c.signup_url; a.target = '_blank'; a.rel = 'noopener';
             row.appendChild(a);
           }
@@ -1073,17 +1060,16 @@
 
       // ---- pořadí náhradníků
       if (mdData.fallback_order) {
-        var oh = el('div', 'md-h', 'Stand-in order');
-        oh.title = 'Who gets asked when the first choice says it cannot. ' +
-                   'Work that touches the robot never uses this list.';
+        var oh = el('div', 'md-h', T('bmodel.h.order'));
+        oh.title = T('bmodel.h.order_title');
         mdBox.appendChild(oh);
         var order = (mdDraft && mdDraft.__order) || mdData.fallback_order.slice();
         order.forEach(function (id, i) {
           var row = el('div', 'md-ord');
           row.appendChild(el('span', 'md-num', (i + 1) + '.'));
-          row.appendChild(el('span', 'md-name', MD_BACKEND_EN[id] || id));
+          row.appendChild(el('span', 'md-name', mdBackendName(id)));
           var up = el('button', 'md-mini', '↑');
-          up.type = 'button'; up.title = 'Move up';
+          up.type = 'button'; up.title = T('bmodel.up');
           up.disabled = i === 0;
           up.addEventListener('click', function () {
             var o = order.slice();
@@ -1091,7 +1077,7 @@
             mdDraft = mdDraft || {}; mdDraft.__order = o; drawModels(VA);
           });
           var dn = el('button', 'md-mini', '↓');
-          dn.type = 'button'; dn.title = 'Move down';
+          dn.type = 'button'; dn.title = T('bmodel.down');
           dn.disabled = i === order.length - 1;
           dn.addEventListener('click', function () {
             var o = order.slice();
@@ -1104,7 +1090,7 @@
       }
 
       // ---- stav zdrojů
-      mdBox.appendChild(el('div', 'md-h', 'Providers right now'));
+      mdBox.appendChild(el('div', 'md-h', T('bmodel.h.providers')));
       ((mdData.backends && mdData.backends.length)
           ? mdData.backends
           : (mdData.providers || []).map(function (p) {
@@ -1112,28 +1098,25 @@
             })
       ).forEach(function (b) {
         var row = el('div', 'md-prov');
-        row.appendChild(el('span', 'md-name',
-                           MD_BACKEND_EN[b.backend] || b.backend));
+        row.appendChild(el('span', 'md-name', mdBackendName(b.backend)));
         var v = el('span', 'md-ven', b.vendor || '?');
-        v.title = 'Who is behind it.';
+        v.title = T('bmodel.who_behind');
         row.appendChild(v);
         var st = String(b.status || 'unknown');
         var cls = st === 'ok' ? 'good'
           : (st === 'limited' || st === 'rate_limited') ? 'warn'
           : (st === 'quota_exhausted' || st === 'exhausted') ? 'bad'
           : st === 'no_key' ? 'off' : '';
-        var pill = el('span', 'md-pill ' + cls, MD_STATUS_EN[st] || st);
+        var pill = el('span', 'md-pill ' + cls, MD_STATUS_EN[st] ? T(MD_STATUS_EN[st]) : st);
         if (b.why) { pill.title = String(b.why).slice(0, 400); }
         row.appendChild(pill);
         if (b.until) {
           var u = new Date(b.until * 1000);
-          var us = el('span', 'md-s', 'until ~' +
-            ('0' + u.getHours()).slice(-2) + ':' +
-            ('0' + u.getMinutes()).slice(-2) +
-            (b.estimated ? ' (estimate)' : ''));
-          us.title = b.estimated
-            ? 'The provider does not say when; this is the core’s estimate.'
-            : 'Reported by the provider.';
+          var uHm = ('0' + u.getHours()).slice(-2) + ':' +
+            ('0' + u.getMinutes()).slice(-2);
+          var us = el('span', 'md-s', T(b.estimated ? 'bmodel.until_est' : 'bmodel.until',
+                                        {time: uHm}));
+          us.title = b.estimated ? T('bmodel.until_est_title') : T('bmodel.until_title');
           row.appendChild(us);
         }
         if (b.model) { row.appendChild(el('span', 'md-s', b.model)); }
@@ -1161,17 +1144,13 @@
         // U36: the frame stays English and says whose words follow, so the
         // core's Czech sentences read as a quotation, not as a tab that
         // could not make up its mind which language it is in.
-        var rh = el('div', 'md-rulehead', 'Rules the core enforces, in its own words');
+        var rh = el('div', 'md-rulehead', T('bmodel.rules_head'));
         rules.appendChild(rh);
         coreRules.forEach(function (t) {
           rules.appendChild(el('div', 'md-rule', t));
         });
       } else {
-        [ 'The judge may not come from the same vendor as the code work — ' +
-          'otherwise the agent marks its own homework.',
-          'Work that touches the robot gets no stand-in model, from here or ' +
-          'from a config file.',
-          'A model is picked from a list; free text is refused.'
+        [ T('bmodel.rule.judge'), T('bmodel.rule.robot'), T('bmodel.rule.list')
         ].forEach(function (t) { rules.appendChild(el('div', 'md-rule', t)); });
       }
       mdBox.appendChild(rules);
@@ -1190,28 +1169,27 @@
       });
       var when = el('div', 'md-note small',
         mdData.applies === 'runtime'
-          ? 'A change here takes effect straight away — no restart.'
-          : 'A change here takes effect after the agent restarts.');
+          ? T('bmodel.applies_now')
+          : T('bmodel.applies_restart'));
       if (mdData.overlay) {
-        when.title = 'Written to ' + mdData.overlay + ', which sits on top of ' +
-          'the hand-written config — that file keeps its comments.';
+        when.title = T('bmodel.overlay', {file: mdData.overlay});
       }
       mdBox.appendChild(when);
       if (mdSaved) {
         mdBox.appendChild(el('div', 'md-ok', mdSaved === 'revert'
-          ? 'Back to the last working wiring. This is what is running now.'
-          : 'Saved. This is what is running now.'));
+          ? T('bmodel.reverted')
+          : T('bmodel.saved')));
       }
 
       var acts = el('div', 'md-acts');
-      var save = el('button', 'md-btn primary', mdSaving ? 'Saving…' : 'Save');
+      var save = el('button', 'md-btn primary', mdSaving ? T('common.saving') : T('common.save'));
       save.type = 'button';
       save.disabled = !dirty || hard.length > 0 || mdSaving;
-      if (hard.length) { save.title = 'A rule the core enforces is broken above.'; }
+      if (hard.length) { save.title = T('bmodel.rule_broken'); }
       save.addEventListener('click', function () { mdSave(VA, plan); });
       acts.appendChild(save);
 
-      var cancel = el('button', 'md-btn', 'Discard changes');
+      var cancel = el('button', 'md-btn', T('bmodel.discard'));
       cancel.type = 'button';
       cancel.disabled = !dirty || mdSaving;
       cancel.addEventListener('click', function () {
@@ -1220,20 +1198,20 @@
       });
       acts.appendChild(cancel);
 
-      var back = el('button', 'md-btn', 'Back to last working');
+      var back = el('button', 'md-btn', T('bmodel.back'));
       back.type = 'button';
       back.disabled = mdSaving;
-      back.title = 'Undo the last save in one step — the core keeps the ' +
-                   'previous wiring beside the current one.';
+      back.title = T('bmodel.back_title');
       back.addEventListener('click', function () {
         if (back.dataset.armed !== '1') {
           back.dataset.armed = '1';
-          back.textContent = 'Yes — go back';
+          back.textContent = T('bmodel.back_yes');
           setTimeout(function () {
-            if (back.dataset) { back.dataset.armed = '0'; }
-            if (back.textContent === 'Yes — go back') {
-              back.textContent = 'Back to last working';
+            // state, not text: the label may be in any language
+            if (back.dataset && back.dataset.armed === '1') {
+              back.textContent = T('bmodel.back');
             }
+            if (back.dataset) { back.dataset.armed = '0'; }
           }, 6000);
           return;
         }
@@ -1245,7 +1223,7 @@
             if (d && d.roles) { mdData = d; }
             drawModels(VA);
             pollModels(VA, true);
-          }).catch(function (e) { mdFail(VA, e, 'Not reverted'); });
+          }).catch(function (e) { mdFail(VA, e, 'revert'); });
       });
       acts.appendChild(back);
       mdBox.appendChild(acts);
@@ -1259,9 +1237,10 @@
         mdErr = null;
       } else {
         mdProblems = [];
+        // lead: 'save' | 'revert' — the sentence is one key per language
         mdErr = /HTTP 404/.test(String(e))
-          ? lead + ': this agent does not serve model settings yet.'
-          : lead + ': ' + e;
+          ? T(lead === 'revert' ? 'bmodel.err.revert_404' : 'bmodel.err.save_404')
+          : T(lead === 'revert' ? 'bmodel.err.revert' : 'bmodel.err.save', {err: String(e)});
       }
       drawModels(VA);
     }
@@ -1300,21 +1279,22 @@
         mdSaving = false;
         if (!d || d.ok === false) {
           mdProblems = (d && d.problems) ? d.problems.map(String)
-                                         : ['the core refused it without saying why'];
+                                         : [T('bmodel.refused_silent')];
           drawModels(VA);
           return;
         }
         mdDraft = null; mdSaved = 'save';
         if (d.roles) { mdData = d; }        // POST answers with the new view
         drawModels(VA);
-      }).catch(function (e) { mdFail(VA, e, 'Not saved'); });
+      }).catch(function (e) { mdFail(VA, e, 'save'); });
     }
 
     // ---- blok: Robot ------------------------------------------------------
     var robotBox, robotImg, robotImgStamp = 0, robotImgNote, mapRefreshBtn;
     var robotSeen = {};     // U46: fields this panel has EVER been told
+    var lastAudit = null, paintAudit = function () {};   // „Check numbers" answer
     VA.registerBlock({
-      id: 'robot', title: 'Robot', order: 30,
+      id: 'robot', title: T('brobot.title'), titleKey: 'brobot.title', order: 30,
       render: function (root) {
         robotBox = el('div');
         root.appendChild(robotBox);
@@ -1330,6 +1310,7 @@
         showMapBtn.id = 'vagent_show_on_map';
         showMapBtn.className = 'btn btn-sm btn-outline-info';
         showMapBtn.title = 'Close the panel and show the robot on the live map';
+        tag(showMapBtn, 'brobot.show_map'); tag(showMapBtn, 'brobot.show_map_title', 'title');
         showMapBtn.addEventListener('click', function () {
           if (VA.close) { VA.close(); }
         });
@@ -1345,30 +1326,38 @@
         var auditBtn = el('button', null, 'Check numbers');
         auditBtn.type = 'button';
         auditBtn.className = 'btn btn-sm btn-outline-secondary';
-        auditBtn.title = 'Re-ask the core for every number this panel is ' +
-          'showing and say which no longer match. Reads only.';
+        tag(auditBtn, 'brobot.audit.btn'); tag(auditBtn, 'brobot.audit.btn_title', 'title');
         var auditOut = el('div', 'vagent-audit-out', '');
+        /* the last answer is kept so a language switch can re-say it */
+        paintAudit = function () {
+          var a = lastAudit;
+          if (!a) { return; }
+          if (a.busy) { auditOut.textContent = T('brobot.audit.checking'); return; }
+          if (a.err != null) {
+            auditOut.textContent = T('brobot.audit.failed', {err: String(a.err)});
+            return;
+          }
+          var rep = a.rep, bad = rep.mismatches.length;
+          auditOut.textContent = TN('brobot.audit.result', bad, {checked: rep.checked}) +
+            (rep.unreadable.length ? T('brobot.audit.unreadable', {n: rep.unreadable.length}) : '') +
+            (rep.derived.length ? T('brobot.audit.derived', {n: rep.derived.length}) : '') +
+            (bad ? '\n' + rep.mismatches.map(function (m) {
+              return T('brobot.audit.line', {src: m.src, drawn: m.drawn, core: m.core});
+            }).join('\n') + '\n' + T('brobot.audit.hint') : '');
+        };
         auditBtn.addEventListener('click', function () {
           auditBtn.disabled = true;
-          auditOut.textContent = 'checking…';
+          lastAudit = {busy: true}; paintAudit();
           auditOut.className = 'vagent-audit-out';
           VA.auditNumbers().then(function (rep) {
             auditBtn.disabled = false;
             var bad = rep.mismatches.length;
             auditOut.className = 'vagent-audit-out' + (bad ? ' vagent-unknown' : '');
-            auditOut.textContent = rep.checked + ' numbers checked against the ' +
-              'core · ' + bad + ' mismatch' + (bad === 1 ? '' : 'es') +
-              (rep.unreadable.length ? ' · ' + rep.unreadable.length + ' could not be read' : '') +
-              (rep.derived.length ? ' · ' + rep.derived.length + ' computed here (listed in the console)' : '') +
-              (bad ? '\n' + rep.mismatches.map(function (m) {
-                return m.src + ': panel ' + m.drawn + ', core ' + m.core;
-              }).join('\n') +
-              '\nA mismatch is either a wrong number or a stale one — read it ' +
-              'with the age shown next to it.' : '');
+            lastAudit = {rep: rep}; paintAudit();
           }, function (e) {
             auditBtn.disabled = false;
             auditOut.className = 'vagent-audit-out vagent-unknown';
-            auditOut.textContent = 'the audit itself could not run: ' + e;
+            lastAudit = {err: e}; paintAudit();
           });
         });
         wrap.appendChild(auditBtn);
@@ -1402,12 +1391,10 @@
       wrap.className = 'vagent-lo';
       loHead = el('div');
       loHead.className = 'vagent-lo-head';
-      var t = el('span', null, 'Lidar objects');
-      t.className = 'vt-muted';
-      t.title = 'People, dogs and cats seen by the lidar. The robot confirms ' +
-        'an object over three consecutive scans and ignores anything that ' +
-        'has been standing still long enough to become background.';
-      loHead.appendChild(t);
+      var lt = el('span', null, 'Lidar objects');
+      lt.className = 'vt-muted';
+      tag(lt, 'brobot.lo.title'); tag(lt, 'brobot.lo.title_tip', 'title');
+      loHead.appendChild(lt);
       loBody = el('div');
       loBody.className = 'vagent-lo-body';
       wrap.appendChild(loHead); wrap.appendChild(loBody);
@@ -1422,8 +1409,9 @@
         loRos = new ROSLIB.Ros({
           url: 'ws://' + location.hostname + ':9090', groovyCompatibility: false
         });
-        loRos.on('error', function () { loErr = 'rosbridge unreachable'; drawLidar(); });
-        loRos.on('close', function () { loErr = 'rosbridge disconnected'; drawLidar(); });
+        // loErr: a dictionary key (frame's words) or a raw error (data)
+        loRos.on('error', function () { loErr = 'brobot.lo.unreachable'; drawLidar(); });
+        loRos.on('close', function () { loErr = 'brobot.lo.disconnected'; drawLidar(); });
         loRos.on('connection', function () { loErr = null; drawLidar(); });
         loTopic = new ROSLIB.Topic({
           ros: loRos, name: '/safety/lidar_objects',
@@ -1441,7 +1429,7 @@
             });
             if (loLog.length > 8) { loLog.length = 8; }
           }
-          catch (e) { loErr = 'bad payload'; }
+          catch (e) { loErr = 'brobot.lo.bad_payload'; }
           drawLidar();
         });
       } catch (e) { loErr = String(e); drawLidar(); }
@@ -1451,27 +1439,28 @@
       // směr slovem — na telefonu je „front-left" čitelnější než „-137°"
       var d = Number(deg) || 0;
       if (d > 180) d -= 360; if (d < -180) d += 360;
-      var a = Math.abs(d), side = d >= 0 ? 'left' : 'right';
-      if (a <= 22.5) return 'front';
-      if (a >= 157.5) return 'rear';
-      if (a < 67.5) return 'front-' + side;
-      if (a <= 112.5) return side;
-      return 'rear-' + side;
+      var a = Math.abs(d), left = d >= 0;
+      if (a <= 22.5) return T('brobot.dir.front');
+      if (a >= 157.5) return T('brobot.dir.rear');
+      if (a < 67.5) return T(left ? 'brobot.dir.front_left' : 'brobot.dir.front_right');
+      if (a <= 112.5) return T(left ? 'brobot.dir.left' : 'brobot.dir.right');
+      return T(left ? 'brobot.dir.rear_left' : 'brobot.dir.rear_right');
     }
 
     function drawLidarLog() {
       if (!loLog.length || !loBody) { return; }
-      var CLS2 = {small: 'cat-sized', medium: 'dog-sized', large: 'person-sized'};
+      var CLS2 = {small: 'brobot.cls.small', medium: 'brobot.cls.medium', large: 'brobot.cls.large'};
       var lg = el('div', 'lo-log');
       lg.className = 'vagent-lo-log';
-      lg.appendChild(el('div', null, 'Recent:'));
+      lg.appendChild(el('div', null, T('brobot.lo.recent')));
       loLog.forEach(function (e) {
         var d = new Date((Number(e.stamp) || 0) * 1000);
         var hh = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
-        var txt = hh + ' ' + (CLS2[e.cls] || e.cls || 'object') + ' ' +
-          (e.type === 'left' ? ('left after ' + (Number(e.seen_s) || 0).toFixed(0) + ' s')
-                             : 'appeared') +
-          ' at ' + Math.hypot(Number(e.x) || 0, Number(e.y) || 0).toFixed(1) + ' m';
+        var what = CLS2[e.cls] ? T(CLS2[e.cls]) : (e.cls || T('brobot.lo.object'));
+        var dist = Math.hypot(Number(e.x) || 0, Number(e.y) || 0).toFixed(1);
+        var txt = e.type === 'left'
+          ? T('brobot.lo.log_left', {time: hh, what: what, s: (Number(e.seen_s) || 0).toFixed(0), d: dist})
+          : T('brobot.lo.log_appeared', {time: hh, what: what, d: dist});
         lg.appendChild(el('div', null, txt));
       });
       loBody.appendChild(lg);
@@ -1484,66 +1473,67 @@
 
       var stale = !loAt || (Date.now() - loAt) > 8000;
       if (loErr || !loData || stale) {
-        loHead.appendChild(pill('no data', 'var(--bs-gray-600,#666)'));
-        var m = el('div', null, loErr ? loErr
-          : (loData ? 'the detector stopped publishing'
-                    : 'lidar_objects is not running on the robot'));
+        loHead.appendChild(pill(T('brobot.lo.no_data'), 'var(--bs-gray-600,#666)'));
+        var m = el('div', null, loErr
+          ? (String(loErr).indexOf('brobot.') === 0 ? T(loErr) : loErr)
+          : (loData ? T('brobot.lo.stopped') : T('brobot.lo.not_running')));
         m.className = 'vt-muted';
-        m.title = 'Start it with: roslaunch vitulus_safety safety.launch lidar_objects:=true';
+        m.title = T('brobot.lo.start_hint');
         loBody.appendChild(m);
         return;
       }
       if (loData.moving) {
-        loHead.appendChild(pill('robot moving', 'var(--bs-gray-600,#666)'));
-        var mv = el('div', null, 'not watching while the robot drives');
+        loHead.appendChild(pill(T('brobot.lo.moving'), 'var(--bs-gray-600,#666)'));
+        var mv = el('div', null, T('brobot.lo.moving_note'));
         mv.className = 'vt-muted';
         loBody.appendChild(mv);
         return;
       }
       if (!loData.background_ready) {
-        loHead.appendChild(pill('learning', 'var(--bs-gray-600,#666)'));
-        var lr = el('div', null, 'building the static background…');
+        loHead.appendChild(pill(T('brobot.lo.learning'), 'var(--bs-gray-600,#666)'));
+        var lr = el('div', null, T('brobot.lo.learning_note'));
         lr.className = 'vt-muted';
         loBody.appendChild(lr);
         return;
       }
       var objs = loData.objects || [];
       if (!objs.length) {
-        loHead.appendChild(pill('clear', 'var(--bs-success,#198754)'));
-        var c = el('div', null, 'nothing bigger than a cat around');
+        loHead.appendChild(pill(T('brobot.lo.clear'), 'var(--bs-success,#198754)'));
+        var c = el('div', null, T('brobot.lo.clear_note'));
         c.className = 'vt-muted';
         loBody.appendChild(c);
         drawLidarLog();
         return;
       }
-      loHead.appendChild(pill(objs.length + (objs.length === 1 ? ' object' : ' objects'),
+      loHead.appendChild(pill(TN('brobot.lo.objects', objs.length),
                               'var(--bs-danger,#dc3545)'));
       /* Tabulka, ne mřížka: na telefonu se čtyři sloupce vejdou jen když
          mají pevná procenta a nezalamují se uprostřed čísla. */
       var tbl = el('table');
       tbl.className = 'vagent-lo-tbl';
       var head = el('tr');
-      ['Class', 'Dist', 'Dir', 'Motion', 'Seen'].forEach(function (h, i) {
-        var th = el('th', null, h);
+      ['brobot.th.class', 'brobot.th.dist', 'brobot.th.dir', 'brobot.th.motion',
+       'brobot.th.seen'].forEach(function (h, i) {
+        var th = el('th', null, T(h));
         th.className = 'c' + i;            // widths/alignment: vt_panel.css .vagent-lo-tbl
         head.appendChild(th);
       });
       tbl.appendChild(head);
-      var CLS = {small: 'cat-sized', medium: 'dog-sized', large: 'person-sized',
-                 unknown: 'unknown'};
+      var CLS = {small: 'brobot.cls.small', medium: 'brobot.cls.medium',
+                 large: 'brobot.cls.large', unknown: 'brobot.cls.unknown'};
       objs.forEach(function (o) {
         var tr = el('tr');
         /* Motion comes from the node (radial speed vs. speed): approaching /
            leaving / passing / still. Arrow + speed keep it readable on a
            phone; the tooltip has the numbers. */
-        var MOT = {approaching: '\u2192 closer', leaving: '\u2190 away',
-                   passing: '\u2195 passing', still: 'still'};
-        var mot = MOT[o.motion] || (o.motion || '');
+        var MOT = {approaching: 'brobot.mot.closer', leaving: 'brobot.mot.away',
+                   passing: 'brobot.mot.passing', still: 'brobot.mot.still'};
+        var mot = MOT[o.motion] ? T(MOT[o.motion]) : (o.motion || '');
         if (o.motion && o.motion !== 'still') {
           mot += ' ' + (Number(o.speed) || 0).toFixed(1) + ' m/s';
         }
         var cells = [
-          CLS[o.cls] || o.cls,
+          CLS[o.cls] ? T(CLS[o.cls]) : o.cls,
           (Number(o.range_m) || 0).toFixed(1) + ' m',
           loDir(o.bearing_deg),
           mot,
@@ -1554,18 +1544,17 @@
           td.className = 'c' + i;
           tr.appendChild(td);
         });
-        tr.title = 'id ' + o.id + ' · ' + (Number(o.size) || 0).toFixed(2) +
-          ' m wide · ' + (Number(o.speed) || 0).toFixed(1) + ' m/s · ' +
-          (Number(o.bearing_deg) || 0).toFixed(0) + '°' +
-          (o.heading_deg != null ? ' · heading ' + Number(o.heading_deg).toFixed(0) + '°' : '') +
-          ' · radial ' + (Number(o.radial_mps) || 0).toFixed(2) + ' m/s';
+        tr.title = T(o.heading_deg != null ? 'brobot.lo.row_tip_h' : 'brobot.lo.row_tip', {
+          id: o.id, size: (Number(o.size) || 0).toFixed(2),
+          speed: (Number(o.speed) || 0).toFixed(1),
+          bearing: (Number(o.bearing_deg) || 0).toFixed(0),
+          heading: o.heading_deg != null ? Number(o.heading_deg).toFixed(0) : '',
+          radial: (Number(o.radial_mps) || 0).toFixed(2)});
         tbl.appendChild(tr);
       });
       loBody.appendChild(tbl);
       drawLidarLog();
-      var note = el('div', null,
-        'class is a rough guess from size and speed — the lidar does not ' +
-        'recognise identity');
+      var note = el('div', null, T('brobot.lo.note'));
       note.className = 'vagent-lo-note';
       loBody.appendChild(note);
     }
@@ -1577,7 +1566,7 @@
       if (!st) {
         // Before the first /api/state answer there is nothing to show yet —
         // saying "unavailable" there was the whole U1 complaint.
-        if (VA.state && VA.state.ts) { errLine(robotBox, 'robot state unavailable'); return; }
+        if (VA.state && VA.state.ts) { errLine(robotBox, T('brobot.state_na')); return; }
         /* U2: loading is not an error - the slot keeps its height with
            skeleton lines (vt_field.css) instead of a red line */
         robotBox.textContent = '';
@@ -1592,19 +1581,19 @@
       robotBox.textContent = '';
       robotBox.removeAttribute('aria-busy');
       var age = VA.state.age_s != null ? VA.state.age_s : null;
-      robotBox.appendChild(row('Battery',
+      robotBox.appendChild(row(T('brobot.battery'),
         VA.num(st.battery_pct, '/api/state#state.battery_pct', {unit: ' %'})));
-      robotBox.appendChild(row('In dock', st.in_dock === true ? 'yes' : st.in_dock === false ? 'no' : null));
+      robotBox.appendChild(row(T('brobot.in_dock'), st.in_dock === true ? T('brobot.yes') : st.in_dock === false ? T('brobot.no') : null));
       var rtk = st.rtk && typeof st.rtk === 'object'
         ? (st.rtk.fix || '?') + (st.rtk.sats != null ? ' (' + st.rtk.sats + ' sat)' : '')
         : st.rtk;
       robotBox.appendChild(row('RTK', rtk || null));
-      robotBox.appendChild(row('Motors', st.motor_power === true ? 'on' : st.motor_power === false ? 'off' : null));
-      optRow('mower', 'Mower (RPM)', (st.mower && st.mower.moto_rpm != null) ? st.mower.moto_rpm : null);
-      optRow('charging', 'Charging', (st.battery_pct != null && st.charger) ? st.charger : null);
-      optRow('map', 'Map', st.map || st.active_map || null);
+      robotBox.appendChild(row(T('brobot.motors'), st.motor_power === true ? T('brobot.on') : st.motor_power === false ? T('brobot.off') : null));
+      optRow('mower', T('brobot.mower'), (st.mower && st.mower.moto_rpm != null) ? st.mower.moto_rpm : null);
+      optRow('charging', T('brobot.charging'), (st.battery_pct != null && st.charger) ? st.charger : null);
+      optRow('map', T('brobot.map'), st.map || st.active_map || null);
       var rain = st.rain != null ? st.rain : (st.rain_alert ? st.rain_alert.alert : null);
-      optRow('rain', 'Rain', rain == null ? null : (rain ? 'reported' : 'no'));
+      optRow('rain', T('brobot.rain'), rain == null ? null : (rain ? T('brobot.rain_yes') : T('brobot.no')));
 
       /* U40, second place: `age_s` is the age AT THE MOMENT THE CORE
          ANSWERED.  Printed straight, it stood still — measured „Measured 2 s
@@ -1613,11 +1602,10 @@
       var at = (age != null && VA.state.ts)
         ? (VA.state.ts / 1000 - Number(age)) : null;
       if (at != null) {
-        var mv = ageChip(at, {post: ' ago', title:
-          'The core said this reading was ' + Number(age).toFixed(1) + ' s ' +
-          'old when it answered; the rest is time that has passed since.'});
+        var mv = ageChip(at, {post: ' ago', key: 'brobot.measured_ago',
+          title: T('brobot.measured_title', {s: Number(age).toFixed(1)})});
         mv.setAttribute('data-src', 'derived: /api/state#age_s + time since the answer arrived');
-        robotBox.appendChild(row('Measured', mv));
+        robotBox.appendChild(row(T('brobot.measured'), mv));
       }
 
       /* U46: a row that vanishes is worse than a row that admits it did not
@@ -1633,9 +1621,7 @@
           if (!robotSeen[key]) { return; }
           var r = row(label, '—');
           r.lastChild.className = 'vagent-unknown';
-          r.title = 'This answer from the core did not carry ' + label.toLowerCase() +
-                    '. It was there before, so the row stays — an empty line ' +
-                    'is not the same as „no map".';
+          r.title = T('brobot.row_missing', {what: label.toLowerCase()});
           robotBox.appendChild(r);
           return;
         }
@@ -1660,10 +1646,10 @@
        from what it is.  Below ten hours it keeps a decimal. */
     function mapAge(ts) {
       var s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-      if (s < 90) return s + ' s old';
-      if (s < 5400) return Math.round(s / 60) + ' min old';
-      if (s < 36000) return (s / 3600).toFixed(1) + ' h old';
-      return Math.round(s / 3600) + ' h old';
+      if (s < 90) return T('brobot.mapage.s', {n: s});
+      if (s < 5400) return T('brobot.mapage.min', {n: Math.round(s / 60)});
+      if (s < 36000) return T('brobot.mapage.h', {n: (s / 3600).toFixed(1)});
+      return T('brobot.mapage.h', {n: Math.round(s / 3600)});
     }
 
     /* Otevření panelu NIC nekreslí. Nově se ale smí ZEPTAT: jádro dostalo
@@ -1734,26 +1720,26 @@
       try { raw = JSON.parse(localStorage.getItem(LS_MAPVIEW) || 'null'); } catch (e) {}
       if (!raw || !raw.url) {
         robotImg.style.display = 'none';
-        robotImgNote.textContent = 'No map render yet — press Refresh (takes a few seconds on the robot).';
+        robotImgNote.textContent = T('brobot.map_none');
         return;
       }
       robotImg.src = agentBase() + raw.url;
       robotImg.style.display = '';
       robotImgNote.textContent = mapAge(raw.ts || 0) +
-        (raw.layers && raw.layers.length ? ' · layers: ' + raw.layers.join(', ') : '');
+        (raw.layers && raw.layers.length ? T('brobot.map_layers', {layers: raw.layers.join(', ')}) : '');
     }
 
     function pollMapview(VA, force) {
       if (mapviewBusy || !robotImg || !force) return;
       mapviewBusy = true;
       if (mapRefreshBtn) { mapRefreshBtn.disabled = true; }
-      robotImgNote.textContent = 'drawing on the robot…';
+      robotImgNote.textContent = T('brobot.map_drawing');
       VA.api('/api/mapview', {timeout_ms: 20000}).then(function (data) {
         mapviewBusy = false;
         if (mapRefreshBtn) { mapRefreshBtn.disabled = false; }
         if (!data || !data.ok || !data.url) {
-          robotImgNote.textContent = (data && data.error) ? 'map: ' + data.error
-            : 'map render failed';
+          robotImgNote.textContent = (data && data.error) ? T('brobot.map_err', {err: data.error})
+            : T('brobot.map_failed');
           return;
         }
         try {
@@ -1762,12 +1748,12 @@
         } catch (e) {}
         robotImg.src = agentBase(VA) + data.url;
         robotImg.style.display = '';
-        robotImgNote.textContent = 'just now' +
-          ((data.layers || []).length ? ' · layers: ' + data.layers.join(', ') : '');
+        robotImgNote.textContent = T('brobot.map_now') +
+          ((data.layers || []).length ? T('brobot.map_layers', {layers: data.layers.join(', ')}) : '');
       }).catch(function () {
         mapviewBusy = false;
         if (mapRefreshBtn) { mapRefreshBtn.disabled = false; }
-        robotImgNote.textContent = 'map render failed';
+        robotImgNote.textContent = T('brobot.map_failed');
       });
     }
 
@@ -1776,7 +1762,7 @@
        aktuální fáze zvýrazněná, verdikt jako pill, tlačítka. */
     var missionBox, missionBadge = badge(), missionsFp = null;
     VA.registerBlock({
-      id: 'mise', title: 'Mission / driving', order: 40, summaryExtra: missionBadge,
+      id: 'mise', title: T('bwork.title'), titleKey: 'bwork.title', order: 40, summaryExtra: missionBadge,
       render: function (root) { missionBox = el('div', 'vm'); root.appendChild(missionBox); },
       poll: { every_ms: 5000, fn: function () { pollMissions(VA); } },
       onOpen: function () { pollMissions(VA); }
@@ -1799,7 +1785,7 @@
       if (!missionBox) return;
       VA.api('/api/missions').then(function (data) {
         if (!data || data.ok === false) {
-          errLine(missionBox, 'mission: ' + ((data && data.error) || 'unavailable')); return;
+          errLine(missionBox, T('bwork.err', {err: (data && data.error) || T('blocks.unavailable')})); return;
         }
         var msig = fp([data.missions, data.token]);
         if (msig === missionsFp) return;            // nothing changed → no DOM
@@ -1812,11 +1798,11 @@
         });
         missionBadge.textContent = live.length ? String(live.length) : '';
         var lend = data.token && data.token.lend;
-        var tokenText = lend ? ('token lent: ' + (lend.purpose || lend.holder || 'mission'))
-          : 'token held by the main agent';
+        var tokenText = lend ? T('bwork.token_lent', {to: lend.purpose || lend.holder || T('bwork.mission')})
+          : T('bwork.token_main');
         if (!missions.length) {
           var none = el('div', 'vm-none');
-          none.appendChild(el('span', 'vagent-pill queued', 'no mission'));
+          none.appendChild(el('span', 'vagent-pill queued', T('bwork.none')));
           none.appendChild(el('span', 'vm-tok', tokenText));
           missionBox.appendChild(none);
           return;
@@ -1829,13 +1815,13 @@
             ? (function () {
                 var b = el('button', 'vagent-ref', '#' + m.job_id);
                 b.type = 'button';
-                b.title = 'Show job #' + m.job_id;
+                b.title = T('blocks.show_job', {id: m.job_id});
                 b.addEventListener('click', function () { VA.highlightJob(m.job_id); });
                 return b;
               })()
             : el('span', 'vagent-pill', '#' + m.job_id));
           head.appendChild(el('span', 'vagent-pill ' + (PLAN_CLS[st] || ''), st || '?'));
-          var when = el('span', 'vm-when', m.finished ? fmtAgo(m.finished) + ' ago' : fmtElapsed(m.started));
+          var when = el('span', 'vm-when', m.finished ? agoText(m.finished) : fmtElapsed(m.started));
           head.appendChild(when);
           card.appendChild(head);
           var goal = el('div', 'vm-goal', m.goal || m.title || '');
@@ -1846,18 +1832,21 @@
             var prog = el('div', 'vm-prog');
             for (var i = 0; i < m.phase_count; i++) {
               var seg = el('span', 'vm-seg' + (i < cur ? ' done' : i === cur ? ' cur' : ''));
-              seg.title = 'phase ' + (i + 1) + (i === cur && m.phase_title ? ': ' + m.phase_title : '');
+              seg.title = (i === cur && m.phase_title)
+                ? T('bwork.phase_t', {n: i + 1, title: m.phase_title})
+                : T('bwork.phase', {n: i + 1});
               prog.appendChild(seg);
             }
-            var lab = el('span', 'vm-plab', 'phase ' + (cur + 1) + '/' + m.phase_count +
-              (m.phase_title ? ' · ' + m.phase_title : ''));
+            var lab = el('span', 'vm-plab', m.phase_title
+              ? T('bwork.phase_of_t', {n: cur + 1, total: m.phase_count, title: m.phase_title})
+              : T('bwork.phase_of', {n: cur + 1, total: m.phase_count}));
             lab.title = m.phase_title || '';
             card.appendChild(prog);
             card.appendChild(lab);
           }
           if (m.last_verdict) {
             var vr = el('div', 'vm-verdict');
-            vr.appendChild(el('span', 'vm-lbl', 'verdict'));
+            vr.appendChild(el('span', 'vm-lbl', T('bwork.verdict')));
             vr.appendChild(verdictPill(m.last_verdict));
             if (m.last_reason) {
               var rs = el('span', 'vm-reason', m.last_reason);
@@ -1868,13 +1857,13 @@
           }
           if (m.state === 'running' || m.state === 'blocked' || m.plan_state === 'parked') {
             var btns = el('div', 'vagent-actions');
-            btns.appendChild(actionBtn(VA, 'Stop', 'danger', function () {
+            btns.appendChild(actionBtn(VA, T('common.stop'), 'danger', function () {
               return VA.api('/api/stop', { method: 'POST', body: { author: 'ui' } });
             }));
-            btns.appendChild(actionBtn(VA, 'Resume', 'primary', function () {
+            btns.appendChild(actionBtn(VA, T('common.resume'), 'primary', function () {
               return VA.api('/api/task', { method: 'POST', body: { text: 'pokračuj' } });
             }));
-            btns.appendChild(actionBtn(VA, 'Cancel', '', function () {
+            btns.appendChild(actionBtn(VA, T('common.cancel'), '', function () {
               return VA.api('/api/task', { method: 'POST', body: { text: 'zruš #' + m.job_id } });
             }));
             card.appendChild(btns);
@@ -1882,7 +1871,7 @@
           missionBox.appendChild(card);
         });
         missionBox.appendChild(el('div', 'vm-tok', tokenText));
-      }).catch(function (e) { apiUnavailable(missionBox, 'mission', e); });
+      }).catch(function (e) { apiUnavailable(missionBox, T('bwork.mission'), e); });
     }
 
     function actionBtn(VA, label, cls, run) {
@@ -1892,10 +1881,10 @@
         ev.stopPropagation();
         b.disabled = true;
         run().then(function () {
-          VA.notify && VA.notify('ok', label + ' sent');
+          VA.notify && VA.notify('ok', T('blocks.sent', {what: label}));
           b.disabled = false;
         }).catch(function (e) {
-          VA.notify && VA.notify('error', label + ': ' + e);
+          VA.notify && VA.notify('error', T('blocks.what_err', {what: label, err: String(e)}));
           b.disabled = false;
         });
       });
@@ -1946,7 +1935,7 @@
       doctorBadge.textContent = '';
     }
     VA.registerBlock({
-      id: 'incidents', title: 'Incidents', order: 45, summaryExtra: doctorBadge,
+      id: 'incidents', title: T('bfind.title'), titleKey: 'bfind.title', order: 45, summaryExtra: doctorBadge,
       render: function (root) {
         recBox = el('div', 'vrec'); root.appendChild(recBox);
         doctorBox = el('div', 'vz'); root.appendChild(doctorBox);
@@ -1998,7 +1987,7 @@
       VA.api('/api/v2/records', {timeout_ms: 12000}).then(function (d) {
         if (!d || !d.counts || !Array.isArray(d.records)) {
           if (d && d.agent_down) return;
-          errLine(recBox, 'records: ' + ((d && d.error) || 'unavailable'));
+          errLine(recBox, T('bfind.rec_err', {err: (d && d.error) || T('blocks.unavailable')}));
           return;
         }
         recMode = true;
@@ -2028,7 +2017,7 @@
         drawRecords(VA);
       }).catch(function (e) {
         if (recIs404(e)) { recFallback(VA); return; }
-        if (!recData) apiUnavailable(recBox, 'records', e);
+        if (!recData) apiUnavailable(recBox, T('bfind.records'), e);
       });
     }
 
@@ -2041,13 +2030,14 @@
     }
 
     var REC_GROUPS = [
-      {key: 'read', label: 'READ THIS', open: true},
-      {key: 'working', label: 'Working', open: true},
-      {key: 'new', label: 'New', open: true},
-      {key: 'resolved', label: 'Handled', open: false}
+      {key: 'read', label: 'bfind.g.read', open: true},
+      {key: 'working', label: 'bfind.g.working', open: true},
+      {key: 'new', label: 'bfind.g.new', open: true},
+      {key: 'resolved', label: 'bfind.g.handled', open: false}
     ];
-    var REC_OUTCOME = {ignored: 'ignored', fixed: 'fixed', told: 'answered',
-                       fixing: 'in repair', pending: 'open'};
+    var REC_OUTCOME = {ignored: 'bfind.out.ignored', fixed: 'bfind.out.fixed',
+                       told: 'bfind.out.told', fixing: 'bfind.out.fixing',
+                       pending: 'bfind.out.pending'};
 
     /* Volby se kreslí u „READ THIS" — a taky u VYŘÍZENÉHO záznamu, kterému
        jádro cesty poslalo: samooprava je hotová, ale „Vrátit zpět" musí jít
@@ -2059,10 +2049,11 @@
     }
 
     function recChip(r) {
-      if (r.status === 'read') return 'READ THIS';
-      if (r.status === 'working') return 'Fixing';
-      if (r.status === 'new') return 'New';
-      return 'Handled · ' + (REC_OUTCOME[r.outcome] || r.outcome || 'done');
+      if (r.status === 'read') return T('bfind.g.read');
+      if (r.status === 'working') return T('bfind.chip.fixing');
+      if (r.status === 'new') return T('bfind.g.new');
+      return T('bfind.chip.handled', {outcome: REC_OUTCOME[r.outcome] ? T(REC_OUTCOME[r.outcome])
+                                              : (r.outcome || T('blocks.done'))});
     }
 
     function drawRecords(VA) {
@@ -2070,8 +2061,7 @@
       recBox.textContent = '';
       var list = recData.records || [];
       if (!list.length) {
-        recBox.appendChild(el('div', 'vagent-empty',
-          'Nothing recorded — robot and agent are fine.'));
+        recBox.appendChild(el('div', 'vagent-empty', T('bfind.rec_empty')));
         return;
       }
       REC_GROUPS.forEach(function (g) {
@@ -2085,7 +2075,7 @@
           det.open = isOpen('rec:handled', false);
           det.addEventListener('toggle', function () { setOpen('rec:handled', det.open); });
           var sum = el('summary');
-          sum.appendChild(el('span', null, g.label));
+          sum.appendChild(el('span', null, T(g.label)));
           sum.appendChild(el('span', 'vagent-cnt', String(total)));
           det.appendChild(sum);
           var body = el('div', 'vrec-group-b');
@@ -2096,7 +2086,7 @@
           return;
         }
         var h = el('div', 'vrec-group g-' + g.key);
-        h.appendChild(el('span', null, g.label));
+        h.appendChild(el('span', null, T(g.label)));
         h.appendChild(el('span', 'vagent-cnt', String(total)));
         recBox.appendChild(h);
         items.forEach(function (r) { recBox.appendChild(recRow(VA, r)); });
@@ -2109,8 +2099,7 @@
        „New 400" nad šedesáti řádky by jinak vypadalo jako chyba (U33). */
     function recMore(box, shown, total) {
       if (!total || shown >= total) return;
-      box.appendChild(el('div', 'vrec-more',
-        'showing ' + shown + ' of ' + total));
+      box.appendChild(el('div', 'vrec-more', T('bfind.showing', {n: shown, total: total})));
     }
 
     /* ---- rozhodnutí majitele (Robert, 20. 9.: „ty READ THIS musí nabízet
@@ -2195,13 +2184,13 @@
         var q = el('div', 'vrec-askq', recDoes(r, ask) || String(ask.label || ''));
         host.appendChild(q);
         var arow = el('div', 'vrec-btnrow');
-        var yes = el('button', 'vagent-actbtn primary', 'Confirm');
+        var yes = el('button', 'vagent-actbtn primary', T('common.confirm'));
         yes.type = 'button'; yes.disabled = busy;
         yes.addEventListener('click', function (ev) {
           ev.stopPropagation();
           recDecide(VA, r, ask);
         });
-        var no = el('button', 'vagent-actbtn', 'Cancel');
+        var no = el('button', 'vagent-actbtn', T('common.cancel'));
         no.type = 'button'; no.disabled = busy;
         no.addEventListener('click', function (ev) {
           ev.stopPropagation();
@@ -2223,7 +2212,7 @@
         ways.forEach(function (w) { row.appendChild(recWayBtn(VA, r, w, busy)); });
         host.appendChild(row);
       }
-      if (busy) host.appendChild(el('div', 'vrec-prog', 'working…'));
+      if (busy) host.appendChild(el('div', 'vrec-prog', T('bfind.working')));
       else if (recOut[r.id]) {
         host.appendChild(el('div', 'vrec-out' + (recOut[r.id].bad ? ' bad' : ''),
                             recOut[r.id].text));
@@ -2246,7 +2235,7 @@
           delete recAskWay[r.id];
           var bad = !!(res && res.ok === false);
           recOut[r.id] = {text: String((res && (bad ? res.error : res.message)) ||
-                                       (bad ? 'refused' : 'done')), bad: bad};
+                                       (bad ? T('blocks.refused') : T('blocks.done'))), bad: bad};
           delete recDetail[r.id];
           recWaysRedraw(VA, r);
           recRefreshLater(VA);
@@ -2255,7 +2244,7 @@
           delete recBusy[r.id];
           var st = err && err.status;
           var msg = (err && err.body && (err.body.error || err.body.message)) ||
-            (st ? 'refused (HTTP ' + st + ')' : 'agent unreachable');
+            (st ? T('blocks.refused_http', {code: st}) : T('blocks.unreachable'));
           recOut[r.id] = {text: String(msg), bad: true};
           if (st === 409) {                 // rozhodl někdo dřív → říct a načíst znovu
             delete recAskWay[r.id];
@@ -2289,16 +2278,16 @@
         (r.status === 'resolved' ? ' o-' + (r.outcome || '') : ''), recChip(r)));
       if (r.count && r.count > 1) {
         var x = el('span', 'vrec-x', '×' + r.count);
-        x.title = r.count + ' occurrences';
+        x.title = TN('bfind.occurrences', r.count);
         l1.appendChild(x);
       }
       var idl = el('span', 'vrec-id', '#' + r.id);
-      idl.title = 'the agent\'s own number for this incident';
+      idl.title = T('bfind.own_number');
       l1.appendChild(idl);
       var age = el('span', 'vrec-age', r.last_ts ? fmtAgo(r.last_ts) : '');
       if (r.last_ts) {
-        age.title = (r.first_ts ? 'first: ' + fmtAbs(r.first_ts) + '\n' : '') +
-          'last: ' + fmtAbs(r.last_ts);
+        age.title = (r.first_ts ? T('bfind.first', {at: fmtAbs(r.first_ts)}) + '\n' : '') +
+          T('bfind.last', {at: fmtAbs(r.last_ts)});
       }
       l1.appendChild(age);
       head.appendChild(l1);
@@ -2322,7 +2311,7 @@
         /* Běžící úkol nic nechce — jen řekne, co dělá (`resolution` výš)
            a pod jakým číslem se to dá najít. */
         var jref = recJobRef(r);
-        if (jref) row.appendChild(el('div', 'vrec-job', 'job ' + jref));
+        if (jref) row.appendChild(el('div', 'vrec-job', T('bfind.job', {ref: jref})));
       }
 
       var det = el('div', 'vrec-det');
@@ -2334,18 +2323,18 @@
         det.style.display = '';
         if (recDetail[r.id]) { recDetailDraw(VA, r, det, recDetail[r.id]); return; }
         det.textContent = '';
-        det.appendChild(el('div', 'vrec-load', 'loading…'));
+        det.appendChild(el('div', 'vrec-load', T('bfind.loading')));
         VA.api('/api/v2/records/' + r.id, {timeout_ms: 12000}).then(function (d) {
           if (!d || d.ok === false) {
             det.textContent = '';
-            det.appendChild(el('div', 'vrec-out bad', (d && d.error) || 'unavailable'));
+            det.appendChild(el('div', 'vrec-out bad', (d && d.error) || T('blocks.unavailable')));
             return;
           }
           recDetail[r.id] = d;
           if (isOpen(key, false)) recDetailDraw(VA, r, det, d);
         }).catch(function (e) {
           det.textContent = '';
-          det.appendChild(el('div', 'vrec-out bad', 'detail: ' + e));
+          det.appendChild(el('div', 'vrec-out bad', T('bfind.detail_err', {err: String(e)})));
         });
       }
       function toggle(ev) {
@@ -2364,8 +2353,8 @@
 
     /* Sekce detailu.  Prázdná se vynechá — nadpis nad prázdnem je přesně ta
        informace bez hodnoty, kvůli které se tenhle tab předělával. */
-    var REC_SECTIONS = [['what', 'What happened'], ['did', 'What I did'],
-                        ['why', 'Why'], ['about', 'About']];
+    var REC_SECTIONS = [['what', 'bfind.sec.what'], ['did', 'bfind.sec.did'],
+                        ['why', 'bfind.sec.why'], ['about', 'bfind.sec.about']];
 
     function recDetailDraw(VA, r, det, d) {
       det.textContent = '';
@@ -2374,7 +2363,7 @@
         var txt = detail[p[0]];
         if (!txt) return;
         var sec = el('div', 'vrec-sec');
-        sec.appendChild(el('div', 'vrec-seclbl', p[1]));
+        sec.appendChild(el('div', 'vrec-seclbl', T(p[1])));
         var body = el('div', 'vrec-sectxt');
         body.textContent = String(txt);      // agentova vlastní věta, doslova
         sec.appendChild(body);
@@ -2388,7 +2377,7 @@
         dd.open = isOpen(ek, false);
         dd.addEventListener('toggle', function () { setOpen(ek, dd.open); });
         var sum = el('summary');
-        sum.appendChild(el('span', null, 'Evidence'));
+        sum.appendChild(el('span', null, T('bfind.evidence')));
         if (ev.count) sum.appendChild(el('span', 'vagent-cnt', String(ev.count)));
         dd.appendChild(sum);
         var body = el('div', 'vrec-evbody');
@@ -2430,7 +2419,7 @@
           /* Starší jádro posílalo jednu cestu s vlastní URL — beze změny. */
           var way = dways[0];
           var bar = el('div', 'vrec-btns');
-          var b = el('button', 'vagent-actbtn primary', way.label || 'Do it');
+          var b = el('button', 'vagent-actbtn primary', way.label || T('bfind.do_it'));
           b.type = 'button';
           b.disabled = !!recBusy[r.id];
           b.addEventListener('click', function (e2) {
@@ -2441,7 +2430,7 @@
           det.appendChild(bar);
         } else {
           var sec = el('div', 'vrec-sec');
-          sec.appendChild(el('div', 'vrec-seclbl', 'Your options'));
+          sec.appendChild(el('div', 'vrec-seclbl', T('bfind.options')));
           sec.appendChild(recWays(VA, r, dways, true));
           det.appendChild(sec);
           optsShown = true;              // hlášku jádra už ukazuje ta sekce
@@ -2450,16 +2439,15 @@
       if (d.undo) {
         var wrap = el('div', 'vrec-undo');
         if (recAsk[r.id]) {
-          wrap.appendChild(el('span', 'vrec-undoq',
-            'Undo the ignore? It will be looked at again.'));
-          var yes = el('button', 'vagent-actbtn primary', d.undo.label || 'Undo ignore');
+          wrap.appendChild(el('span', 'vrec-undoq', T('bfind.undo_q')));
+          var yes = el('button', 'vagent-actbtn primary', d.undo.label || T('bfind.undo'));
           yes.type = 'button';
           yes.addEventListener('click', function (e3) {
             e3.stopPropagation();
             delete recAsk[r.id];
             recPost(VA, r, det, d.undo.path, {by: VA.authorId || 'ui'}, yes);
           });
-          var no = el('button', 'vagent-actbtn', 'Keep ignoring');
+          var no = el('button', 'vagent-actbtn', T('bfind.keep_ignoring'));
           no.type = 'button';
           no.addEventListener('click', function (e4) {
             e4.stopPropagation();
@@ -2468,7 +2456,7 @@
           });
           wrap.appendChild(yes); wrap.appendChild(no);
         } else {
-          var lnk = el('button', 'vrec-link', d.undo.label || 'Undo ignore');
+          var lnk = el('button', 'vrec-link', d.undo.label || T('bfind.undo'));
           lnk.type = 'button';
           lnk.addEventListener('click', function (e5) {
             e5.stopPropagation();
@@ -2500,7 +2488,7 @@
                     timeout_ms: 15000})
         .then(function (res) {
           delete recBusy[r.id];
-          recOut[r.id] = {text: (res && res.message) || (res && res.error) || 'done',
+          recOut[r.id] = {text: (res && res.message) || (res && res.error) || T('blocks.done'),
                           bad: !!(res && res.error)};
           out.textContent = recOut[r.id].text;
           delete recDetail[r.id];
@@ -2509,7 +2497,7 @@
         .catch(function (err) {
           delete recBusy[r.id];
           var msg = (err && err.body && err.body.error)
-            || (err && err.status ? 'refused (HTTP ' + err.status + ')' : 'agent unreachable');
+            || (err && err.status ? T('blocks.refused_http', {code: err.status}) : T('blocks.unreachable'));
           recOut[r.id] = {text: msg, bad: true};
           out.className = 'vrec-out bad';
           out.textContent = msg;
@@ -2518,10 +2506,10 @@
     }
 
     var GROUP = {
-      senses: {label: 'senses', icon: '⚠', cls: 'senses'},
-      selfcare: {label: 'selfcare', icon: '🛠', cls: 'selfcare'},
-      log: {label: 'logs', icon: '📜', cls: 'log'},
-      other: {label: 'other', icon: '•', cls: 'other'}
+      senses: {label: 'bfind.grp.senses', icon: '⚠', cls: 'senses'},
+      selfcare: {label: 'bfind.grp.selfcare', icon: '🛠', cls: 'selfcare'},
+      log: {label: 'bfind.grp.log', icon: '📜', cls: 'log'},
+      other: {label: 'bfind.grp.other', icon: '•', cls: 'other'}
     };
     function groupOf(f) {
       var k = String(f.kind || ''), s = String(f.source || '');
@@ -2538,11 +2526,11 @@
       if (!doctorBox) return;
       VA.api('/api/doctor').then(function (data) {
         if (!data || data.ok === false) {
-          errLine(doctorBox, 'health: ' + ((data && data.error) || 'unavailable')); return;
+          errLine(doctorBox, T('bfind.health_err', {err: (data && data.error) || T('blocks.unavailable')})); return;
         }
         doctorData = data;
         drawDoctor(VA);
-      }).catch(function (e) { apiUnavailable(doctorBox, 'health', e); });
+      }).catch(function (e) { apiUnavailable(doctorBox, T('bfind.health'), e); });
     }
 
     /* What one card renders from — a change here is the only reason to
@@ -2629,21 +2617,21 @@
       // stavový řádek
       var status = el('div', 'vz-status');
       status.appendChild(el('span', 'vagent-pill ' + (senses.muted ? 'queued' : 'done'),
-        senses.muted ? 'reports muted' : 'reports on'));
+        senses.muted ? T('bfind.reports_muted') : T('bfind.reports_on')));
       status.appendChild(el('span', 'vagent-pill ' + (selfcare.repairs_enabled === false ? 'queued' : 'done'),
-        selfcare.repairs_enabled === false ? 'repairs off' : 'repairs on'));
-      var visit = el('button', 'vagent-actbtn primary', 'Visit now');
+        selfcare.repairs_enabled === false ? T('bfind.repairs_off') : T('bfind.repairs_on')));
+      var visit = el('button', 'vagent-actbtn primary', T('bfind.visit'));
       visit.type = 'button';
       visit.addEventListener('click', function () {
         visit.disabled = true;
         VA.api('/api/doctor/visit', { method: 'POST', body: {} }).then(function (r) {
           VA.notify && VA.notify(r && r.ok ? 'ok' : 'error',
-            r && r.ok ? 'Visit queued (#' + r.id + ')' : 'Visit: ' + (r && r.error));
-          visit.textContent = r && r.ok ? 'Visit queued ✓' : 'Visit now';
+            r && r.ok ? T('bfind.visit_queued', {id: r.id}) : T('bfind.visit_err', {err: r && r.error}));
+          visit.textContent = r && r.ok ? T('bfind.visit_queued_ok') : T('bfind.visit');
           visit.disabled = false;
           if (r && r.ok && VA.activateTab) VA.activateTab('chat');
         }).catch(function (e) {
-          VA.notify && VA.notify('error', 'Visit: ' + e); visit.disabled = false;
+          VA.notify && VA.notify('error', T('bfind.visit_err', {err: String(e)})); visit.disabled = false;
         });
       });
       status.appendChild(visit);
@@ -2652,7 +2640,7 @@
       if (data.next_visit && (data.next_visit.at || data.next_visit.ts)) {
         var nv = data.next_visit.ts || null;
         var f1 = el('div', 'vz-fact');
-        f1.appendChild(el('span', 'vm-lbl', 'next visit'));
+        f1.appendChild(el('span', 'vm-lbl', T('bfind.next_visit')));
         var nvv = el('span', null, nv ? fmtIn(nv) + ' · ' + fmtAbs(nv) : String(data.next_visit.at));
         nvv.title = data.next_visit.at || '';
         f1.appendChild(nvv);
@@ -2660,9 +2648,9 @@
       }
       if (selfcare.last_repair) {
         var f2 = el('div', 'vz-fact');
-        f2.appendChild(el('span', 'vm-lbl', 'last repair'));
+        f2.appendChild(el('span', 'vm-lbl', T('bfind.last_repair')));
         f2.appendChild(el('span', null, (selfcare.last_repair.what || '?') +
-          ' · ' + fmtAgo(selfcare.last_repair.ts) + ' ago'));
+          ' · ' + agoText(selfcare.last_repair.ts)));
         facts.appendChild(f2);
       }
       if (facts.childNodes.length) doctorBox.appendChild(facts);
@@ -2680,10 +2668,10 @@
            added by U33 — but „all" means all, and all is 114.  The chip
            filters the LIST, so it says what the list is: what is shown. */
         var c = el('button', 'vagent-fchip' + (doctorFilter === g ? ' on' : ''),
-          (g === 'all' ? 'shown' : GROUP[g].label) + ' ' + counts[g]);
+          g === 'all' ? T('bfind.chip_shown', {n: counts[g]})
+                      : T(GROUP[g].label) + ' ' + counts[g]);
         if (g === 'all') {
-          c.title = 'Everything this grouped view holds — not every finding ' +
-                    'the agent has. The real totals are on the line below.';
+          c.title = T('bfind.chip_shown_title');
         }
         c.type = 'button';
         c.addEventListener('click', function () {
@@ -2693,7 +2681,7 @@
       });
       if (resolvedCount) {
         var rc = el('button', 'vagent-fchip vz-resolved-toggle' + (showResolved ? ' on' : ''),
-          (showResolved ? 'hide resolved' : 'show resolved') + ' ' + resolvedCount);
+          T(showResolved ? 'bfind.hide_resolved' : 'bfind.show_resolved', {n: resolvedCount}));
         rc.type = 'button';
         rc.addEventListener('click', function () {
           showResolved = !showResolved; lsSet('vitulus_agent_incidents_resolved', showResolved ? '1' : '0');
@@ -2720,25 +2708,23 @@
         var gb = el('span');
         gb.appendChild(VA.num(base.length,
           'derived: /api/doctor#findings, grouped and filtered by this panel'));
-        gb.appendChild(document.createTextNode(' grouped below'));
+        gb.appendChild(document.createTextNode(T('bfind.cnt.grouped')));
         cl.appendChild(gb);
         if (cnt.open === null || cnt.open === undefined) {
-          cl.appendChild(el('span', 'vz-unknown',
-            'open: could not be read — this is not a zero'));
+          cl.appendChild(el('span', 'vz-unknown', T('bfind.cnt.open_na')));
         } else {
           var ob = el('span');
           ob.appendChild(VA.num(cnt.open, '/api/doctor#counts.open'));
-          ob.appendChild(document.createTextNode(' open'));
+          ob.appendChild(document.createTextNode(T('bfind.cnt.open')));
           if (cnt.total) {
             ob.appendChild(document.createTextNode(' · '));
             ob.appendChild(VA.num(cnt.total, '/api/doctor#counts.total'));
-            ob.appendChild(document.createTextNode(' ever'));
+            ob.appendChild(document.createTextNode(T('bfind.cnt.ever')));
           }
           cl.appendChild(ob);
         }
-        cl.title = 'Counted by the agent itself' +
-          (cnt.source ? ' (' + cnt.source + ')' : '') +
-          '. The list below groups repeats, so it is shorter than the count.';
+        cl.title = cnt.source ? T('bfind.cnt.title_src', {src: cnt.source})
+                              : T('bfind.cnt.title');
         doctorBox.appendChild(cl);
       }
 
@@ -2748,8 +2734,8 @@
       });
       if (!shown.length) {
         doctorBox.appendChild(el('div', 'vagent-empty',
-          findings.length ? (base.length ? 'Nothing in this filter.' : 'All incidents resolved.')
-            : 'No findings — robot and agent are fine.'));
+          findings.length ? (base.length ? T('bfind.empty_filter') : T('bfind.all_resolved'))
+            : T('bfind.empty')));
         return;
       }
       function seen(f) { return f.last_seen || f.ts || 0; }
@@ -2760,7 +2746,7 @@
         return seen(b) - seen(a);
       });
       var t0 = todayStart();
-      var groups = [{label: 'Today', items: []}, {label: 'Earlier', items: []}];
+      var groups = [{label: T('bfind.today'), items: []}, {label: T('bfind.earlier'), items: []}];
       shown.forEach(function (f) { groups[seen(f) >= t0 ? 0 : 1].items.push(f); });
       groups.forEach(function (gp) {
         if (!gp.items.length) return;
@@ -2780,9 +2766,9 @@
        problem, evidence[], first_seen, last_seen, count, state, resolution,
        severity, suggested, related_job_id); what is missing is skipped. */
     var SEV_RANK = {critical: 4, high: 3, medium: 2, low: 1};
-    var STATE_LABEL = {open: 'open', acknowledged: 'acknowledged',
-                       investigated: 'investigated',
-                       resolved: 'resolved', auto_repaired: 'auto-repaired'};
+    var STATE_LABEL = {open: 'bfind.st.open', acknowledged: 'bfind.st.acknowledged',
+                       investigated: 'bfind.st.investigated',
+                       resolved: 'bfind.st.resolved', auto_repaired: 'bfind.st.auto_repaired'};
     var localState = {};      // optimistic ack/resolve until the next poll agrees
     /* „Investigate" = a deeper look, not a repair: the core opens a job that
        reads the evidence and comes back with a verdict (fix now / fix later /
@@ -2790,10 +2776,10 @@
        that back, the button's own answer („investigating → #job") is kept
        here so a redraw does not lose it. */
     var localInvestigation = {};
-    var VERDICT_LABEL = {fix_now: 'fix now', fix_later: 'fix later',
-                         monitor: 'monitor', ignore: 'ignore'};
-    var PLAN_STATE_LABEL = {waiting: 'waiting approval', approved: 'approved',
-                            denied: 'denied', executed: 'executed'};
+    var VERDICT_LABEL = {fix_now: 'bfind.vd.fix_now', fix_later: 'bfind.vd.fix_later',
+                         monitor: 'bfind.vd.monitor', ignore: 'bfind.vd.ignore'};
+    var PLAN_STATE_LABEL = {waiting: 'bfind.ps.waiting', approved: 'bfind.ps.approved',
+                            denied: 'bfind.ps.denied', executed: 'bfind.ps.executed'};
     var ACT_ICON = {assigned: '🛠', planned: '🗺', plan_approved: '✅',
                     plan_denied: '⛔', executed: '⚙', investigated: '🔎',
                     acknowledged: '👁', resolved: '✔', reopened: '↩',
@@ -2820,10 +2806,12 @@
       return s === 'resolved' || s === 'auto_repaired';
     }
 
-    function toggleSection(card, label, count, openByDefault, build) {
+    /* `sec` names the section for the open state (language-independent),
+       `label` is what is printed */
+    function toggleSection(card, sec, label, count, openByDefault, build) {
       var det = el('details', 'vz-sec');
       // open state lives in openSet (+ sessionStorage), never only in the DOM
-      var key = (card.getAttribute('data-inc') || '') + ':' + label.toLowerCase();
+      var key = (card.getAttribute('data-inc') || '') + ':' + sec;
       det.open = isOpen(key, openByDefault);
       det.addEventListener('toggle', function () { setOpen(key, det.open); });
       var sum = el('summary');
@@ -2856,11 +2844,11 @@
       var head = el('div', 'vz-head');
       if (sev) {
         var sp = el('span', 'vz-sev ' + sev, sev);
-        sp.title = 'severity: ' + sev;
+        sp.title = T('bfind.severity', {sev: sev});
         head.appendChild(sp);
       }
       var ico = el('span', 'vz-ico', g.icon);
-      ico.title = g.label + (f.kind ? ' · ' + f.kind : '');
+      ico.title = T(g.label) + (f.kind ? ' · ' + f.kind : '');
       head.appendChild(ico);
       var title = el('span', 'vz-title',
                      (VA.findingTitle ? VA.findingTitle(f) : f.title) || f.kind || '?');
@@ -2868,12 +2856,12 @@
       head.appendChild(title);
       if (f.count && f.count > 1) {
         var cnt = el('span', 'vz-count', '×' + f.count);
-        cnt.title = f.count + ' occurrences merged';
+        cnt.title = TN('bfind.merged', f.count);
         head.appendChild(cnt);
       }
-      var when = el('span', 'vz-when', lastSeen ? fmtAgo(lastSeen) + ' ago' : '');
-      when.title = (f.first_seen ? 'first: ' + fmtAbs(f.first_seen) + '\n' : '') +
-        'last: ' + fmtAbs(lastSeen);
+      var when = el('span', 'vz-when', lastSeen ? agoText(lastSeen) : '');
+      when.title = (f.first_seen ? T('bfind.first', {at: fmtAbs(f.first_seen)}) + '\n' : '') +
+        T('bfind.last', {at: fmtAbs(lastSeen)});
       head.appendChild(when);
       card.appendChild(head);
 
@@ -2883,7 +2871,7 @@
       if (summary) card.appendChild(el('div', 'vz-summary', summary));
       if (problem) {
         var pr = el('div', 'vz-problem');
-        pr.appendChild(el('span', 'vz-plabel', 'Problem'));
+        pr.appendChild(el('span', 'vz-plabel', T('bfind.problem')));
         pr.appendChild(el('span', null, problem));
         card.appendChild(pr);
       }
@@ -2895,19 +2883,19 @@
         body.textContent = text;
         card.appendChild(body);
         if (long) {
-          var more = el('button', 'vz-more', isOpen(tkey, false) ? 'less' : 'more');
+          var more = el('button', 'vz-more', isOpen(tkey, false) ? T('bfind.less') : T('bfind.more'));
           more.type = 'button';
           more.addEventListener('click', function (e) {
             e.stopPropagation();
             var nowOpen = !isOpen(tkey, false);
             setOpen(tkey, nowOpen);
             body.classList.toggle('clip', !nowOpen);
-            more.textContent = nowOpen ? 'less' : 'more';
+            more.textContent = nowOpen ? T('bfind.less') : T('bfind.more');
           });
           card.appendChild(more);
         }
       } else if (text && (summary || problem) && text !== summary && text !== problem) {
-        toggleSection(card, 'Details', 0, false, function (box) {
+        toggleSection(card, 'details', T('common.details'), 0, false, function (box) {
           var b = el('div', 'vz-body'); b.textContent = text; box.appendChild(b);
         });
       }
@@ -2915,7 +2903,7 @@
       // ---- evidence (collapsed)
       var ev = Array.isArray(f.evidence) ? f.evidence : [];
       if (ev.length) {
-        toggleSection(card, 'Evidence', ev.length, false, function (box) {
+        toggleSection(card, 'evidence', T('bfind.evidence'), ev.length, false, function (box) {
           ev.forEach(function (e) {
             if (!e) return;
             var line = el('div', 'vz-ev');
@@ -2939,12 +2927,12 @@
             var more = null;
             function toggleEv() {
               var open = tx.classList.toggle('full');
-              if (more) { more.textContent = open ? 'less' : 'more'; }
+              if (more) { more.textContent = open ? T('bfind.less') : T('bfind.more'); }
             }
             if (t.length > 120) {
-              more = el('button', 'vz-evmore', 'more');
+              more = el('button', 'vz-evmore', T('bfind.more'));
               more.type = 'button';
-              more.title = 'Show the whole line';
+              more.title = T('bfind.whole_line');
               more.addEventListener('click', function (ev) {
                 ev.stopPropagation(); toggleEv();
               });
@@ -2963,7 +2951,7 @@
       // ---- suggested
       if (f.suggested) {
         var sg = el('div', 'vz-suggest');
-        sg.appendChild(el('span', 'vz-plabel', 'Suggested'));
+        sg.appendChild(el('span', 'vz-plabel', T('bfind.suggested')));
         sg.appendChild(el('span', null, String(f.suggested)));
         card.appendChild(sg);
       }
@@ -2974,23 +2962,23 @@
       if (inv) {
         var ib = el('div', 'vz-inv verdict-' + String(inv.verdict || '').toLowerCase());
         var ih = el('div', 'vz-invhead');
-        ih.appendChild(el('span', 'vz-plabel', 'Investigation'));
+        ih.appendChild(el('span', 'vz-plabel', T('bfind.investigation')));
         ih.appendChild(el('span', 'vz-verdict ' + String(inv.verdict || '').toLowerCase(),
-          VERDICT_LABEL[inv.verdict] || inv.verdict || '?'));
+          VERDICT_LABEL[inv.verdict] ? T(VERDICT_LABEL[inv.verdict]) : (inv.verdict || '?')));
         if (inv.effort) {
-          var ef = el('span', 'vz-effort', 'effort: ' + inv.effort);
-          ef.title = 'estimated effort';
+          var ef = el('span', 'vz-effort', T('bfind.effort', {e: inv.effort}));
+          ef.title = T('bfind.effort_title');
           ih.appendChild(ef);
         }
         if (inv.job_id) {
           var jb = el('button', 'vagent-ref', '→ #' + inv.job_id);
           jb.type = 'button';
-          jb.title = 'Show the investigating job';
+          jb.title = T('bfind.show_inv_job');
           jb.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(inv.job_id); });
           ih.appendChild(jb);
         }
         if (inv.ts) {
-          var iw = el('span', 'vz-when', fmtAgo(inv.ts) + ' ago');
+          var iw = el('span', 'vz-when', agoText(inv.ts));
           iw.title = fmtAbs(inv.ts);
           ih.appendChild(iw);
         }
@@ -3003,8 +2991,8 @@
         card.appendChild(ib);
       } else if (pend && pend.pending) {
         var pb = el('div', 'vz-inv pending');
-        pb.appendChild(el('span', 'vz-plabel', 'Investigation'));
-        var pt = el('span', null, 'investigating');
+        pb.appendChild(el('span', 'vz-plabel', T('bfind.investigation')));
+        var pt = el('span', null, T('bfind.investigating'));
         pb.appendChild(pt);
         if (pend.job_ref) {
           var pj = el('button', 'vagent-ref', '→ #' + String(pend.job_ref).replace(/^[js]:/, ''));
@@ -3021,18 +3009,18 @@
         var pstate = String(plan.state || 'waiting');
         var pl = el('div', 'vz-plan plan-' + pstate);
         var ph = el('div', 'vz-invhead');
-        ph.appendChild(el('span', 'vz-plabel', 'Plan'));
+        ph.appendChild(el('span', 'vz-plabel', T('bfind.plan')));
         ph.appendChild(el('span', 'vz-planstate ' + pstate,
-          PLAN_STATE_LABEL[pstate] || pstate));
+          PLAN_STATE_LABEL[pstate] ? T(PLAN_STATE_LABEL[pstate]) : pstate));
         if (plan.job_id) {
           var pj = el('button', 'vagent-ref', '→ #' + plan.job_id);
           pj.type = 'button';
-          pj.title = 'Show the planning job';
+          pj.title = T('bfind.show_plan_job');
           pj.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(plan.job_id); });
           ph.appendChild(pj);
         }
         if (plan.ts) {
-          var pw = el('span', 'vz-when', fmtAgo(plan.ts) + ' ago');
+          var pw = el('span', 'vz-when', agoText(plan.ts));
           pw.title = fmtAbs(plan.ts);
           ph.appendChild(pw);
         }
@@ -3043,23 +3031,23 @@
         pbody.textContent = ptxt;
         pl.appendChild(pbody);
         if (ptxt.length > 160 || ptxt.split('\n').length > 3) {
-          var pmore = el('button', 'vz-more', isOpen(pkey, false) ? 'less' : 'more');
+          var pmore = el('button', 'vz-more', isOpen(pkey, false) ? T('bfind.less') : T('bfind.more'));
           pmore.type = 'button';
           pmore.addEventListener('click', function (e) {
             e.stopPropagation();
             var nowOpen = !isOpen(pkey, false);
             setOpen(pkey, nowOpen);
             pbody.classList.toggle('clip', !nowOpen);
-            pmore.textContent = nowOpen ? 'less' : 'more';
+            pmore.textContent = nowOpen ? T('bfind.less') : T('bfind.more');
           });
           pl.appendChild(pmore);
         }
         if (pstate === 'waiting' && plan.approval_id) {
           var prow = el('div', 'vz-planbtns');
-          var okb = el('button', 'vagent-actbtn approve', 'Approve plan');
+          var okb = el('button', 'vagent-actbtn approve', T('bfind.approve_plan'));
           okb.type = 'button';
-          okb.title = 'Approving runs the plan (approval #' + plan.approval_id + ')';
-          var nob = el('button', 'vagent-actbtn deny', 'Deny');
+          okb.title = T('bfind.approve_plan_title', {id: plan.approval_id});
+          var nob = el('button', 'vagent-actbtn deny', T('bfind.deny'));
           nob.type = 'button';
           var decidePlan = function (decision, btn) {
             btn.disabled = true;
@@ -3074,18 +3062,18 @@
               .then(function (r) {
                 if (r && (r.ok || r.state)) {
                   prow.textContent = decision === 'allow'
-                    ? 'approved — executing' : 'denied';
+                    ? T('bfind.plan_approved') : T('bfind.ps.denied');
                 } else {
                   btn.disabled = false;
                   prow.appendChild(el('span', 'vz-err',
-                    (r && r.error) || 'failed'));
+                    (r && r.error) || T('blocks.failed')));
                 }
               })
               .catch(function (err) {
                 btn.disabled = false;
                 var msg = (err && err.body && err.body.error)
-                  || (err && err.status ? 'refused (HTTP ' + err.status + ')' : '')
-                  || 'agent unreachable';
+                  || (err && err.status ? T('blocks.refused_http', {code: err.status}) : '')
+                  || T('blocks.unreachable');
                 var e = el('span', 'vz-err', String(msg));
                 e.classList.add('vt-pre');
                 prow.appendChild(e);
@@ -3103,7 +3091,7 @@
       // ---- activity: everything that happened around this incident
       var acts = Array.isArray(f.activity) ? f.activity : [];
       if (acts.length) {
-        toggleSection(card, 'Activity', acts.length, true, function (box) {
+        toggleSection(card, 'activity', T('bfind.activity'), acts.length, true, function (box) {
           acts.forEach(function (a) {
             if (!a) return;
             var line = el('div', 'vz-act');
@@ -3117,7 +3105,7 @@
             if (a.job_id) {
               var ab = el('button', 'vagent-ref', '#' + a.job_id);
               ab.type = 'button';
-              ab.title = 'Show job #' + a.job_id;
+              ab.title = T('blocks.show_job', {id: a.job_id});
               ab.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(a.job_id); });
               line.appendChild(ab);
             }
@@ -3129,7 +3117,7 @@
               var rkey = id + ':act:' + (a.job_id || a.ts);
               var res = el('div', 'vz-actres' + (isOpen(rkey, false) ? '' : ' clip'));
               res.textContent = String(a.result);
-              res.title = 'click to expand';
+              res.title = T('bfind.click_expand');
               res.addEventListener('click', function () {
                 var nowOpen = !isOpen(rkey, false);
                 setOpen(rkey, nowOpen);
@@ -3143,14 +3131,14 @@
 
       // ---- footer: state pill · related job · resolution
       var foot = el('div', 'vz-foot');
-      var stp = el('span', 'vz-state ' + state, STATE_LABEL[state] || state);
+      var stp = el('span', 'vz-state ' + state, STATE_LABEL[state] ? T(STATE_LABEL[state]) : state);
       if (f.resolution) stp.title = String(f.resolution);
       foot.appendChild(stp);
       if (f.related_job_id) {
-        foot.appendChild(el('span', 'vm-lbl', 'related job'));
+        foot.appendChild(el('span', 'vm-lbl', T('bfind.related_job')));
         var rb = el('button', 'vagent-ref', '#' + f.related_job_id);
         rb.type = 'button';
-        rb.title = 'Show job #' + f.related_job_id;
+        rb.title = T('blocks.show_job', {id: f.related_job_id});
         rb.addEventListener('click', function () { if (VA.highlightJob) VA.highlightJob(f.related_job_id); });
         foot.appendChild(rb);
       }
@@ -3183,17 +3171,17 @@
       if (!isResolved(f)) {
         // Investigate — a deeper look before anyone decides what to do.
         var pending = localInvestigation[id];
-        var invBtn = el('button', 'vagent-actbtn', inv ? 'Investigate again' : 'Investigate');
+        var invBtn = el('button', 'vagent-actbtn', inv ? T('bfind.investigate_again') : T('bfind.investigate'));
         invBtn.type = 'button';
-        invBtn.title = 'Open a job that digs into this incident and comes back with a verdict';
+        invBtn.title = T('bfind.investigate_title');
         if (pending && pending.pending) {
           invBtn.disabled = true;
-          invBtn.textContent = 'investigating…';
+          invBtn.textContent = T('bfind.investigating_dots');
         }
         invBtn.addEventListener('click', function (e) {
           e.stopPropagation();
           invBtn.disabled = true;
-          invBtn.textContent = 'investigating…';
+          invBtn.textContent = T('bfind.investigating_dots');
           localInvestigation[id] = {pending: true};
           VA.api('/api/incidents/' + encodeURIComponent(id) + '/investigate',
                  {method: 'POST', body: {author: VA.authorId || 'ui'}})
@@ -3201,67 +3189,67 @@
               if (!r || r.ok === false) {
                 delete localInvestigation[id];
                 invBtn.disabled = false;
-                invBtn.textContent = 'Investigate';
-                invBtn.title = 'investigate failed: ' + ((r && r.error) || '?');
+                invBtn.textContent = T('bfind.investigate');
+                invBtn.title = T('bfind.investigate_failed', {err: (r && r.error) || '?'});
                 drawDoctor(VA, true);
                 return;
               }
               localInvestigation[id] = {pending: true, job_ref: r.job_ref || r.job_id || null};
-              VA.notify && VA.notify('ok', 'investigating');
+              VA.notify && VA.notify('ok', T('bfind.investigating'));
               drawDoctor(VA, true);
             })
             .catch(function (err) {
               delete localInvestigation[id];
               invBtn.disabled = false;
-              invBtn.textContent = 'Investigate';
+              invBtn.textContent = T('bfind.investigate');
               if (/HTTP 404/.test(String(err))) {
                 // Contract not live yet — ask for the same thing in chat.
-                invBtn.title = 'API not available yet — sent to chat';
+                invBtn.title = T('bfind.sent_to_chat');
                 VA.submitText('prozkoumej hlouběji incident #' + id + ': ' +
                   String(f.title || summary || f.text || '').slice(0, 160) +
                   ' — vrať verdikt (fix now / fix later / monitor / ignore), příčinu a odhad práce',
                   {incident_id: id, action: 'investigate'});
                 if (VA.activateTab) VA.activateTab('chat');
               } else {
-                invBtn.title = 'investigate failed: ' + err;
+                invBtn.title = T('bfind.investigate_failed', {err: String(err)});
               }
               drawDoctor(VA, true);
             });
         });
         bar.appendChild(invBtn);
         if (state !== 'acknowledged') {
-          var ack = el('button', 'vagent-actbtn', 'Acknowledge');
+          var ack = el('button', 'vagent-actbtn', T('bfind.ack'));
           ack.type = 'button';
-          ack.title = 'Mark as seen — stays open';
+          ack.title = T('bfind.ack_title');
           ack.addEventListener('click', function (e) {
             e.stopPropagation();
             ack.disabled = true;
             localState[id] = 'acknowledged';
             postIncident(VA, id, 'ack').then(function (r) {
-              if (r && r.ok === false) { delete localState[id]; ack.disabled = false; ack.title = 'ack failed: ' + (r.error || '?'); }
+              if (r && r.ok === false) { delete localState[id]; ack.disabled = false; ack.title = T('bfind.ack_failed', {err: r.error || '?'}); }
               drawDoctor(VA);
             }).catch(function (err) {
               delete localState[id]; ack.disabled = false;
-              VA.notify && VA.notify('error', 'Acknowledge: ' + err);
+              VA.notify && VA.notify('error', T('blocks.what_err', {what: T('bfind.ack'), err: String(err)}));
               drawDoctor(VA);
             });
           });
           bar.appendChild(ack);
         }
-        var res = el('button', 'vagent-actbtn danger', 'Resolve');
+        var res = el('button', 'vagent-actbtn danger', T('bfind.resolve'));
         res.type = 'button';
-        res.title = 'Close the incident';
+        res.title = T('bfind.resolve_title');
         res.addEventListener('click', function (e) {
           e.stopPropagation();
           var run = function () {
             res.disabled = true;
             localState[id] = 'resolved';
             postIncident(VA, id, 'resolve').then(function (r) {
-              if (r && r.ok === false) { delete localState[id]; res.title = 'resolve failed: ' + (r.error || '?'); }
+              if (r && r.ok === false) { delete localState[id]; res.title = T('bfind.resolve_failed', {err: r.error || '?'}); }
               drawDoctor(VA);
             }).catch(function (err) {
               delete localState[id];
-              VA.notify && VA.notify('error', 'Resolve: ' + err);
+              VA.notify && VA.notify('error', T('blocks.what_err', {what: T('bfind.resolve'), err: String(err)}));
               drawDoctor(VA);
             });
           };
@@ -3280,7 +3268,7 @@
     var toolsView = lsGet('vitulus_agent_tools_view') || 'tools';
     var toolsQuery = '';
     VA.registerBlock({
-      id: 'nastroje', title: 'Tools & skills', order: 60, summaryExtra: growthBadge,
+      id: 'nastroje', title: T('blocks.title.growth'), titleKey: 'blocks.title.growth', order: 60, summaryExtra: growthBadge,
       render: function (root) { growthBox = el('div', 'vt'); root.appendChild(growthBox); },
       poll: { every_ms: 30000, fn: function () { pollGrowth(VA); } },
       onOpen: function () { pollGrowth(VA); }
@@ -3290,7 +3278,7 @@
       if (!growthBox) return;
       VA.api('/api/growth').then(function (data) {
         if (!data || data.ok === false) {
-          errLine(growthBox, 'tools: ' + ((data && data.error) || 'unavailable')); return;
+          errLine(growthBox, T('blocks.tools_err', {err: (data && data.error) || T('blocks.unavailable')})); return;
         }
         var gsig = fp(data);
         if (gsig === growthFp) return;              // same data → keep search box, focus, scroll
@@ -3298,7 +3286,7 @@
         growthFp = gsig;
         growthData = data;
         drawGrowth(VA);
-      }).catch(function (e) { apiUnavailable(growthBox, 'tools', e); });
+      }).catch(function (e) { apiUnavailable(growthBox, T('blocks.tools_lbl'), e); });
     }
 
     /* U27: „97 tools & skills" was a raw directory listing.  Among the 37
@@ -3365,8 +3353,8 @@
 
       // přepínač + hledání
       var bar = el('div', 'vt-bar');
-      [['tools', 'Tools', tools.length], ['skills', 'Skills', skills.length]].forEach(function (v) {
-        var b = el('button', 'vagent-fchip' + (toolsView === v[0] ? ' on' : ''), v[1] + ' ' + v[2]);
+      [['tools', 'blocks.growth.tools', tools.length], ['skills', 'blocks.growth.skills', skills.length]].forEach(function (v) {
+        var b = el('button', 'vagent-fchip' + (toolsView === v[0] ? ' on' : ''), T(v[1]) + ' ' + v[2]);
         b.type = 'button';
         b.addEventListener('click', function () {
           toolsView = v[0]; lsSet('vitulus_agent_tools_view', v[0]); drawGrowth(VA);
@@ -3374,7 +3362,7 @@
         bar.appendChild(b);
       });
       var q = el('input', 'vt-q');
-      q.type = 'search'; q.placeholder = 'search…'; q.value = toolsQuery;
+      q.type = 'search'; q.placeholder = T('blocks.growth.search'); q.value = toolsQuery;
       q.addEventListener('input', function () {
         toolsQuery = q.value.trim().toLowerCase();
         drawList();
@@ -3392,7 +3380,7 @@
         listBox.textContent = '';
         if (toolsView === 'tools') {
           var ts = tools.filter(matches);
-          if (!ts.length) listBox.appendChild(el('div', 'vagent-empty', 'nothing found'));
+          if (!ts.length) listBox.appendChild(el('div', 'vagent-empty', T('blocks.growth.nothing')));
           ts.forEach(function (e) { listBox.appendChild(itemRow(e)); });
           return;
         }
@@ -3400,12 +3388,12 @@
         var cats = {};
         skills.filter(matches).forEach(function (e) {
           var parts = String(e.name || '').split('/');
-          var cat = parts.length > 1 ? parts[0] : 'other';
+          var cat = parts.length > 1 ? parts[0] : T('blocks.growth.other');
           (cats[cat] = cats[cat] || []).push({name: parts.length > 1 ? parts.slice(1).join('/') : e.name,
                                                 path: e.path, mtime: e.mtime});
         });
         var keys = Object.keys(cats).sort();
-        if (!keys.length) listBox.appendChild(el('div', 'vagent-empty', 'nothing found'));
+        if (!keys.length) listBox.appendChild(el('div', 'vagent-empty', T('blocks.growth.nothing')));
         keys.forEach(function (cat) {
           var h = el('div', 'vz-group');
           h.appendChild(el('span', null, cat));
@@ -3421,8 +3409,8 @@
       // because a backup quietly appearing in the tools directory is itself
       // worth seeing (registry finding S4).
       if (hidden.length) {
-        var WHY = {backup: 'backup copies', cache: 'language caches',
-                   internal: 'store internals', doc: 'documentation'};
+        var WHY = {backup: T('blocks.growth.why.backup'), cache: T('blocks.growth.why.cache'),
+                   internal: T('blocks.growth.why.internal'), doc: T('blocks.growth.why.doc')};
         var order = ['backup', 'cache', 'internal', 'doc'];
         var counts = {};
         hidden.forEach(function (h) { counts[h.why] = (counts[h.why] || 0) + 1; });
@@ -3430,7 +3418,7 @@
           .map(function (k) { return counts[k] + ' ' + WHY[k]; });
         var det = el('details', 'vt-hidden');
         var sm = el('summary', null,
-                    hidden.length + ' not counted — ' + parts.join(', '));
+                    T('blocks.growth.hidden', {n: hidden.length, parts: parts.join(', ')}));
         det.appendChild(sm);
         hidden.slice().sort(function (a, b) {
           return (b.e.mtime || 0) - (a.e.mtime || 0);
@@ -3445,10 +3433,10 @@
 
       // timeline růstu
       var gh = el('div', 'vz-group');
-      gh.appendChild(el('span', null, 'What Hermes added'));
+      gh.appendChild(el('span', null, T('blocks.growth.added')));
       gh.appendChild(el('span', 'vagent-cnt', growth.length ? String(growth.length) : ''));
       growthBox.appendChild(gh);
-      if (!growth.length) growthBox.appendChild(el('div', 'vagent-empty', 'nothing yet'));
+      if (!growth.length) growthBox.appendChild(el('div', 'vagent-empty', T('blocks.growth.nothing_yet')));
       growth.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).forEach(function (entry) {
         var line = el('div', 'vt-g');
         line.appendChild(el('span', 'vagent-pill ' + (
@@ -3499,14 +3487,15 @@
     var toolsBox = null, toolsData = null, toolsState = null,
         toolsArgs = {}, toolsResult = {}, toolsBusy = {};
 
-    var TOOL_KIND_EN = {pohled: 'view', cidlo: 'sensor', ovladani: 'control'};
-    var TOOL_TOUCH_EN = {read: 'reads only', code: 'writes code',
-                         robot: 'touches the machine'};
-    var TOOL_AUTHOR_EN = {dodano: 'shipped', agent: 'built by the agent',
-                          majitel: 'asked for by the owner'};
+    var TOOL_KIND_EN = {pohled: 'blocks.tools.kind.view', cidlo: 'blocks.tools.kind.sensor',
+                        ovladani: 'blocks.tools.kind.control'};
+    var TOOL_TOUCH_EN = {read: 'blocks.tools.touch.read', code: 'blocks.tools.touch.code',
+                         robot: 'blocks.tools.touch.robot'};
+    var TOOL_AUTHOR_EN = {dodano: 'blocks.tools.author.shipped', agent: 'blocks.tools.author.agent',
+                          majitel: 'blocks.tools.author.owner'};
 
     VA.registerBlock({
-      id: 'tools', title: 'Robot tools', order: 55,
+      id: 'tools', title: T('blocks.title.tools'), titleKey: 'blocks.title.tools', order: 55,
       render: function (root) { toolsBox = root; drawTools(VA); loadTools(VA); },
       onOpen: function () { if (toolsState !== 'ok') { loadTools(VA); } }
     });
@@ -3559,11 +3548,8 @@
     function toolInput(t, v) {
       var wrap = el('label', 'tl-in');
       var lab = el('span', 'tl-inl', toolInputLabel(v));
-      lab.title = 'argument `' + String(v.jmeno) + '`' +
-        (v.popis || v.nazev || v.label ? ' — named by the core'
-                                       : ' — the manifest carries no label ' +
-                                         'for it yet, so this name is derived ' +
-                                         'from the key');
+      lab.title = T(v.popis || v.nazev || v.label ? 'blocks.tools.arg_named' : 'blocks.tools.arg_derived',
+                    {arg: String(v.jmeno)});
       wrap.appendChild(lab);
       var typ = String(v.typ || 'text');
       var node;
@@ -3625,7 +3611,7 @@
       if (res.ok === false || res.error) {
         // the core writes its refusals as finished Czech sentences, for the
         // owner to read — printed word for word, never summarised
-        var er = el('div', 'tl-err', String(res.error || 'the tool failed'));
+        var er = el('div', 'tl-err', String(res.error || T('blocks.tools.failed')));
         box.appendChild(er);
         return box;
       }
@@ -3641,8 +3627,7 @@
           });
           box.appendChild(img);
         } else {
-          box.appendChild(el('div', 'vagent-empty',
-            'the picture is too big to send inline — the core kept it on disk'));
+          box.appendChild(el('div', 'vagent-empty', T('blocks.tools.too_big')));
         }
         // HOW OLD IT IS, always, next to the picture — and it has to TICK.
         // U40: this chip used to rebuild the capture moment out of the length
@@ -3654,22 +3639,20 @@
         var ageS = (res.age_s == null) ? null : Number(res.age_s);
         var at = capturedAt(res, ageS);
         var chip = ageChip(at, {
-          pre: 'taken ', post: ' ago', warnS: 120,
-          title: 'Taken ' + (fmtAbs(at) || '?') + '. The core measured ' +
-                 ageS + ' s between the capture and its answer; the rest of ' +
-                 'this number is time that has passed since.'
+          pre: 'taken ', post: ' ago', key: 'blocks.tools.taken_ago', warnS: 120,
+          title: T('blocks.tools.taken_title', {at: fmtAbs(at) || '?', s: ageS})
         });
         chip.setAttribute('data-src', 'derived: /api/v2/tools/*/run#age_s + time since __at');
         age.appendChild(chip);
         if (res.cache) {
           var ch = el('span', 'tl-s', res.cache === 'hit'
-            ? 'not redrawn — nothing had changed' : 'drawn now');
+            ? T('blocks.tools.cache_hit') : T('blocks.tools.cache_new'));
           ch.title = 'cache: ' + res.cache;
           age.appendChild(ch);
         }
         if (res.render_s) {
           age.appendChild(el('span', 'tl-s',
-            'took ' + Number(res.render_s).toFixed(1) + ' s of the robot'));
+            T('blocks.tools.took', {s: Number(res.render_s).toFixed(1)})));
         }
         box.appendChild(age);
       } else if (kind === 'tabulka') {
@@ -3694,9 +3677,7 @@
         var val = (res.value == null) ? res.cislo : res.value;
         box.appendChild(el('div', 'tl-num', val == null ? '—' : String(val)));
       } else if (kind === 'vrstva_do_mapy') {
-        box.appendChild(el('div', 'vagent-empty',
-          'this tool draws into the map, and the panel cannot put it there ' +
-          'yet — the numbers it returned are below'));
+        box.appendChild(el('div', 'vagent-empty', T('blocks.tools.map_layer')));
         box.appendChild(el('pre', 'tl-pre', fp(res)));
       } else {
         box.appendChild(el('div', 'tl-text', String(res.text || res.value || '')));
@@ -3721,7 +3702,7 @@
       VA.api('/api/v2/tools/' + encodeURIComponent(t.id) + '/run',
              {body: {args: toolsArgs[t.id] || {}}, timeout_ms: 60000,
               keep_error_body: true})
-        .then(function (d) { toolsResult[t.id] = d || {ok: false, error: 'no answer'}; })
+        .then(function (d) { toolsResult[t.id] = d || {ok: false, error: T('blocks.tools.no_answer')}; })
         .catch(function (e) {
           var body = e && e.body;
           toolsResult[t.id] = {ok: false,
@@ -3739,19 +3720,15 @@
       }
       toolsBox.textContent = '';
       if (toolsState === 'unsupported') {
-        toolsBox.appendChild(el('div', 'vagent-empty',
-          'This robot’s agent does not serve the tool manifests yet ' +
-          '(GET /api/v2/tools). The tools exist and the core knows how to ' +
-          'run them; the process that is running was started before they ' +
-          'landed, so there is nothing to draw here until it is restarted.'));
+        toolsBox.appendChild(el('div', 'vagent-empty', T('blocks.tools.unsupported')));
         return;
       }
       if (toolsState === 'down') {
-        apiUnavailable(toolsBox, 'tools', 'down');
+        apiUnavailable(toolsBox, T('blocks.tools_lbl'), 'down');
         return;
       }
       if (!toolsData) {
-        toolsBox.appendChild(el('div', 'vagent-empty', 'Reading the tools…'));
+        toolsBox.appendChild(el('div', 'vagent-empty', T('blocks.tools.reading')));
         return;
       }
       // a broken manifest must not take the others down with it
@@ -3761,7 +3738,7 @@
       });
       var list = toolsData.tools || [];
       if (!list.length) {
-        toolsBox.appendChild(el('div', 'vagent-empty', 'No tool has a manifest yet.'));
+        toolsBox.appendChild(el('div', 'vagent-empty', T('blocks.tools.none')));
         return;
       }
       list.forEach(function (t) {
@@ -3773,27 +3750,26 @@
         var sum = el('summary');
         sum.appendChild(el('span', 'tl-name', t.nazev || t.id));
         sum.appendChild(el('span', 'vagent-pill queued',
-          TOOL_KIND_EN[t.druh] || t.druh || '?'));
+          TOOL_KIND_EN[t.druh] ? T(TOOL_KIND_EN[t.druh]) : (t.druh || '?')));
         var tp = el('span', 'vagent-pill ' + (t.touches === 'read' ? 'done' : 'failed'),
-                    TOOL_TOUCH_EN[t.touches] || t.touches || '?');
+                    TOOL_TOUCH_EN[t.touches] ? T(TOOL_TOUCH_EN[t.touches]) : (t.touches || '?'));
         tp.title = t.touches === 'read'
-          ? 'Reading only — it cannot move anything, so it needs no permission.'
-          : 'This one touches the machine. It is not run from here: it goes ' +
-            'through the gate and the dock lock, which only the owner opens.';
+          ? T('blocks.tools.read_title')
+          : T('blocks.tools.touch_title');
         sum.appendChild(tp);
         // the account is what tells a live tool from a dead one
         var acc = t.ucet || null;
         var ab = el('span', 'tl-acc');
         if (!acc || !acc.runs) {
-          ab.textContent = 'never run';
-          ab.title = 'No run recorded — nobody knows whether it still works.';
+          ab.textContent = T('blocks.tools.never_run');
+          ab.title = T('blocks.tools.never_run_title');
           ab.className += ' cold';
         } else {
-          ab.textContent = acc.runs + ' run' + (acc.runs === 1 ? '' : 's') +
-            (acc.failed ? ' · ' + acc.failed + ' failed' : '');
+          ab.textContent = TN('blocks.tools.runs', acc.runs) +
+            (acc.failed ? T('blocks.tools.failed_n', {n: acc.failed}) : '');
           if (acc.failed) { ab.className += ' bad'; }
-          ab.title = 'last success ' + (acc.last_ok ? fmtAgo(acc.last_ok) + ' ago' : 'never') +
-            (acc.last_fail ? ' · last failure ' + fmtAgo(acc.last_fail) + ' ago' : '');
+          ab.title = T('blocks.tools.last_ok', {when: acc.last_ok ? agoText(acc.last_ok) : T('common.never')}) +
+            (acc.last_fail ? T('blocks.tools.last_fail', {when: agoText(acc.last_fail)}) : '');
         }
         sum.appendChild(ab);
         card.appendChild(sum);
@@ -3802,14 +3778,14 @@
         if (t.popis) { body.appendChild(el('div', 'tl-desc', String(t.popis))); }
 
         var meta = el('div', 'tl-meta');
-        meta.appendChild(el('span', 'tl-s', TOOL_AUTHOR_EN[t.autor] || t.autor || ''));
+        meta.appendChild(el('span', 'tl-s', TOOL_AUTHOR_EN[t.autor] ? T(TOOL_AUTHOR_EN[t.autor]) : (t.autor || '')));
         if (t.test) {
-          var te = el('span', 'tl-s', 'has a test');
+          var te = el('span', 'tl-s', T('blocks.tools.has_test'));
           te.title = t.test;
           meta.appendChild(te);
         } else {
-          var nt = el('span', 'tl-s cold', 'no test');
-          nt.title = 'The manifest names no test — nothing would notice if it broke.';
+          var nt = el('span', 'tl-s cold', T('blocks.tools.no_test'));
+          nt.title = T('blocks.tools.no_test_title');
           meta.appendChild(nt);
         }
         body.appendChild(meta);
@@ -3823,16 +3799,14 @@
         var bar = el('div', 'tl-bar');
         if (t.runnable) {
           var run = el('button', 'vagent-fchip tl-run',
-                       toolsBusy[t.id] ? 'Running…' : 'Run');
+                       toolsBusy[t.id] ? T('blocks.tools.running') : T('blocks.tools.run'));
           run.type = 'button';
           run.disabled = !!toolsBusy[t.id];
           run.addEventListener('click', function () { runTool(VA, t); });
           bar.appendChild(run);
-          bar.appendChild(el('span', 'tl-s', 'runs on a click — never on its own'));
+          bar.appendChild(el('span', 'tl-s', T('blocks.tools.on_click')));
         } else {
-          var no = el('span', 'tl-s cold',
-            'not run from here — it touches the machine, so it goes through ' +
-            'the gate and the dock lock');
+          var no = el('span', 'tl-s cold', T('blocks.tools.not_here'));
           bar.appendChild(no);
         }
         body.appendChild(bar);
@@ -3876,7 +3850,7 @@
     }
 
     VA.registerBlock({
-      id: 'parked', title: 'Needs you', order: 15, summaryExtra: parkedSummaryEl,
+      id: 'parked', title: T('bwork.parked_title'), titleKey: 'bwork.parked_title', order: 15, summaryExtra: parkedSummaryEl,
       render: function (root) {
         autoBox = el('div', 'vpk-auto'); root.appendChild(autoBox);
         parkedBox = el('div', 'vpk'); root.appendChild(parkedBox);
@@ -3893,22 +3867,19 @@
     var autoBox = null, autoData = null, autoFp = '', autoBusy = false,
         autoAsk = null, autoErr = '';
     var AUTO_SCOPES = [
-      ['motion', 'Driving'],
-      ['mower', 'Mower blade'],
-      ['escalation', 'sudo / docker']
+      ['motion', 'bwork.auto.motion'],
+      ['mower', 'bwork.auto.mower'],
+      ['escalation', 'bwork.auto.escalation']
     ];
     var AUTO_CONFIRM = {
-      on: 'The agent will approve its own requests, including driving, ' +
-          'without asking you.',
-      mower: 'The agent will approve requests that involve the mower blade ' +
-             'without asking you.',
-      escalation: 'The agent will approve sudo / docker commands without ' +
-                  'asking you. These can lift every other limit.'
+      on: 'bwork.auto.confirm_on',
+      mower: 'bwork.auto.confirm_mower',
+      escalation: 'bwork.auto.confirm_escalation'
     };
 
     function autoScopeNames(d) {
       return AUTO_SCOPES.filter(function (s) { return d.scope && d.scope[s[0]]; })
-                        .map(function (s) { return s[1].toLowerCase(); });
+                        .map(function (s) { return T(s[1]).toLowerCase(); });
     }
 
     function autoChip() {
@@ -3916,8 +3887,8 @@
       autoChipEl.style.display = on ? '' : 'none';
       if (!on) return;
       var names = autoScopeNames(autoData);
-      autoChipEl.textContent = 'AUTO-APPROVE ON' + (names.length ? ' · ' + names.join(', ') : '');
-      autoChipEl.title = 'Turned on by ' + (autoData.by || '?') +
+      autoChipEl.textContent = T('bwork.auto.chip') + (names.length ? ' · ' + names.join(', ') : '');
+      autoChipEl.title = T('bwork.auto.by', {by: autoData.by || '?'}) +
         (autoData.since ? ' · ' + fmtAbs(autoData.since) : '');
     }
 
@@ -3944,14 +3915,14 @@
         .then(function (d) {
           autoBusy = false;
           if (d && d.ok !== false) { autoData = d; autoFp = fp(d); }
-          else { autoErr = (d && d.error) || 'refused'; }
+          else { autoErr = (d && d.error) || T('blocks.refused'); }
           autoChip(); drawAuto(VA);
           parkedFp = ''; pollParked(VA);      // swept asks leave the list
         })
         .catch(function (err) {
           autoBusy = false;
           autoErr = (err && err.body && err.body.error)
-            || (err && err.status ? 'refused (HTTP ' + err.status + ')' : 'agent unreachable');
+            || (err && err.status ? T('blocks.refused_http', {code: err.status}) : T('blocks.unreachable'));
           autoFp = ''; drawAuto(VA); pollAuto(VA);
         });
     }
@@ -3972,37 +3943,37 @@
       if (!autoData) return;
       var on = !!autoData.enabled;
       autoBox.className = 'vpk-auto' + (on ? ' on' : '');
-      var row = autoCheck('Auto-approve', on, function (want) {
+      var row = autoCheck(T('bwork.auto.label'), on, function (want) {
         if (!want) { postAuto(VA, {enabled: false}); return; }
-        autoAsk = {text: AUTO_CONFIRM.on, body: {enabled: true}}; drawAuto(VA);
+        // the key, not the text: a language switch re-says the question
+        autoAsk = {key: AUTO_CONFIRM.on, body: {enabled: true}}; drawAuto(VA);
       });
       row.className += ' main';
       autoBox.appendChild(row);
       if (on) {
         var opts = el('div', 'vpk-auto-scope');
         AUTO_SCOPES.forEach(function (sc) {
-          opts.appendChild(autoCheck(sc[1], autoData.scope && autoData.scope[sc[0]], function (want) {
+          opts.appendChild(autoCheck(T(sc[1]), autoData.scope && autoData.scope[sc[0]], function (want) {
             var scope = {motion: !!autoData.scope.motion, mower: !!autoData.scope.mower,
                          escalation: !!autoData.scope.escalation};
             scope[sc[0]] = want;
             var body = {enabled: true, scope: scope};
             if (want && AUTO_CONFIRM[sc[0]]) {
-              autoAsk = {text: AUTO_CONFIRM[sc[0]], body: body}; drawAuto(VA);
+              autoAsk = {key: AUTO_CONFIRM[sc[0]], body: body}; drawAuto(VA);
             } else { postAuto(VA, body); }
           }));
         });
         autoBox.appendChild(opts);
-        autoBox.appendChild(el('div', 'vpk-auto-note',
-          'The safety layer, the dock lock and dry-run stay locked regardless.'));
+        autoBox.appendChild(el('div', 'vpk-auto-note', T('bwork.auto.note')));
       }
       if (autoAsk) {
         var ask = el('div', 'vpk-auto-ask');
-        ask.appendChild(el('div', '', autoAsk.text));
+        ask.appendChild(el('div', '', T(autoAsk.key)));
         var bar = el('div', 'vpk-btns');
-        var yes = el('button', 'vagent-actbtn approve', 'Turn on');
+        var yes = el('button', 'vagent-actbtn approve', T('bwork.auto.turn_on'));
         yes.type = 'button';
         yes.addEventListener('click', function () { postAuto(VA, autoAsk.body); });
-        var no = el('button', 'vagent-actbtn deny', 'Cancel');
+        var no = el('button', 'vagent-actbtn deny', T('common.cancel'));
         no.type = 'button';
         no.addEventListener('click', function () { autoAsk = null; autoFp = ''; drawAuto(VA); });
         bar.appendChild(yes); bar.appendChild(no);
@@ -4017,7 +3988,7 @@
       VA.api('/api/v2/approvals', {timeout_ms: 12000}).then(function (d) {
         if (!d || d.ok === false) {
           if (d && d.agent_down) return;
-          errLine(parkedBox, 'parked work: ' + ((d && d.error) || 'unavailable'));
+          errLine(parkedBox, T('bwork.parked_err', {err: (d && d.error) || T('blocks.unavailable')}));
           return;
         }
         var sig = fp(d);
@@ -4025,19 +3996,19 @@
         if (interacting(parkedBox)) { whenIdle('parked', parkedBox, function () { pollParked(VA); }); return; }
         parkedFp = sig; parkedData = d; parkedBadge();
         drawParked(VA);
-      }).catch(function (e) { apiUnavailable(parkedBox, 'parked work', e); });
+      }).catch(function (e) { apiUnavailable(parkedBox, T('bwork.parked'), e); });
     }
 
     /* English in the UI (owner, 2026-08-24) — but `why` is the core's own
        Czech sentence and is QUOTED, never translated: it is evidence. */
     var PARKED_WHAT = {
-      blocked: 'blocked — needs your decision',
-      budget: 'out of budget',
-      deadline: 'out of time',
-      tests: 'acceptance tests failed',
-      verdict: 'the judge could not decide',
-      no_judge: 'no judge available',
-      approval: 'waiting for your approval'
+      blocked: 'bwork.what.blocked',
+      budget: 'bwork.what.budget',
+      deadline: 'bwork.what.deadline',
+      tests: 'bwork.what.tests',
+      verdict: 'bwork.what.verdict',
+      no_judge: 'bwork.what.no_judge',
+      approval: 'bwork.what.approval'
     };
 
     function parkedAct(VA, item, way, card) {
@@ -4053,7 +4024,7 @@
              {method: 'POST', body: body, keep_error_body: true, timeout_ms: 15000})
         .then(function (r) {
           delete parkedBusy[key];
-          out.textContent = (r && r.message) || (r && r.error) || 'done';
+          out.textContent = (r && r.message) || (r && r.error) || T('blocks.done');
           parkedFp = '';                       // force a redraw from the core
           pollParked(VA);
         })
@@ -4061,7 +4032,7 @@
           delete parkedBusy[key];
           out.className = 'vpk-out bad';
           out.textContent = (err && err.body && err.body.error)
-            || (err && err.status ? 'refused (HTTP ' + err.status + ')' : 'agent unreachable');
+            || (err && err.status ? T('blocks.refused_http', {code: err.status}) : T('blocks.unreachable'));
         });
     }
 
@@ -4070,7 +4041,7 @@
       parkedBox.textContent = '';
       var list = (parkedData && parkedData.approvals) || [];
       if (!list.length) {
-        parkedBox.appendChild(el('div', 'vpk-none', 'Nothing is waiting on you.'));
+        parkedBox.appendChild(el('div', 'vpk-none', T('bwork.nothing')));
         return;
       }
       list.forEach(function (item) {
@@ -4078,7 +4049,8 @@
         var head = el('div', 'vpk-head');
         head.appendChild(el('span', 'vpk-id', '#' + item.id));
         head.appendChild(el('span', 'vpk-what',
-          PARKED_WHAT[item.what] || String(item.what || 'parked')));
+          PARKED_WHAT[item.what] ? T(PARKED_WHAT[item.what])
+                                 : (item.what ? String(item.what) : T('bwork.what.parked'))));
         if (item.since) {
           var since = el('span', 'vpk-age', fmtAgo(item.since));
           since.title = fmtAbs(item.since);
@@ -4095,10 +4067,10 @@
           card.appendChild(why);
         }
         if (item.cost_usd) {
-          card.appendChild(el('div', 'vpk-cost',
-            'spent ' + Number(item.cost_usd).toFixed(2) + ' USD'
-            + (item.budget_usd ? ' of ' + Number(item.budget_usd).toFixed(2) : '')
-            + ' — cancelling does not get it back'));
+          card.appendChild(el('div', 'vpk-cost', item.budget_usd
+            ? T('bwork.cost_of', {spent: Number(item.cost_usd).toFixed(2),
+                                  budget: Number(item.budget_usd).toFixed(2)})
+            : T('bwork.cost', {spent: Number(item.cost_usd).toFixed(2)})));
         }
         var bar = el('div', 'vpk-btns');
         (item.ways || []).forEach(function (way) {
@@ -4111,6 +4083,26 @@
         });
         card.appendChild(bar);
         parkedBox.appendChild(card);
+      });
+    }
+
+    /* Language switch (docs/I18N.md): every block re-says what it drew with
+       T() from the data it already has.  Block titles go through the shell
+       (agent_chat.js), which gets `titleKey` with each registration. */
+    if (window.VTI18n && VTI18n.onChange) {
+      VTI18n.onChange(function () {
+        try {
+          drawDock(VA);
+          drawModels(VA);
+          drawRobot(VA); drawLidar(); paintAudit();
+          missionsFp = null; pollMissions(VA);
+          if (recMode === true) { if (recData) { drawRecords(VA); } }
+          else if (doctorData) { drawDoctor(VA, true); }
+          if (growthData) { drawGrowth(VA); }
+          drawTools(VA, true);
+          autoChip(); drawAuto(VA);
+          if (parkedData) { drawParked(VA); }
+        } catch (e) { try { console.error(e); } catch (x) { /* no console */ } }
       });
     }
   }
