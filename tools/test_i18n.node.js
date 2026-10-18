@@ -4,6 +4,7 @@
  *
  *     node tools/test_i18n.node.js            report + checks
  *     node tools/test_i18n.node.js --missing  also list every missing key
+ *     node tools/test_i18n.node.js --hardcoded  list English left without i18n (heuristic)
  *
  * REPORTS (never fails — the translation is work in progress):
  *   - keys of en.js that cs.js does not have yet (they show in English);
@@ -177,6 +178,94 @@ LANGS.forEach((l) => {
     const untr = merged.filter((d) => d.untranslated).map((d) => d.id);
     note('help ' + l + ': ' + (merged.length - untr.length) + '/' + merged.length + ' topics translated' + (untr.length ? ' (English: ' + untr.join(', ') + ')' : ''));
 });
+
+/* ---- hard-coded English left without i18n (heuristic, REPORT only)
+ *   index.html: a text node whose element has no data-i18n, a title /
+ *   placeholder / aria-label without its data-i18n-<attr>;
+ *   JS modules loaded by index.html: a string literal that looks like English
+ *   words for a person (≥ 2 words, or one capitalised word in a text-ish
+ *   context) on a line that does not go through t()/tn()/tag().
+ *   --hardcoded lists every hit; the summary line always prints.
+ *   Allowed as they are (technical, data, brand): ALLOW below. */
+const SHOW_HARD = process.argv.includes('--hardcoded');
+const ALLOW = new Set(['VITULUS', 'Vitulus', 'RTK', 'GPS', 'GNSS', 'IMU', 'ROS', 'EKF', 'D435', 'NUC', 'FPS', 'UTM', 'RTAB-Map', 'RtabMap',
+    'rosbag', 'Wi-Fi', 'WiFi', 'English', 'Čeština', 'OK', 'Hz', 'Nm', 'RPM', 'rpm', 'SMACH', 'MBF', 'TF', 'JSON', 'YAML', 'PGM', 'PNG', 'SVG',
+    'GitHub', 'Discord', 'Claude', 'Codex', 'Hermes', 'DeepSeek', 'Opus', 'Sonnet', 'Haiku', 'lidar', 'Lidar', 'RGB-D', 'x', 'y', 'z', 'yaw', 'Yaw']);
+const enWords = /\b(the|a|an|to|of|is|are|no|not|on|off|and|or|for|with|from|in|at|by|this|that|it|be|was|all|new|save|load|start|stop|map|dock|robot|zone|path|point|delete|cancel|close|open|show|hide|loading|error|failed|waiting|ready|set|reset|edit|add|remove|name|speed|mode|status|none|unknown|connected|disconnected|saved|apply|send|done|running|idle|enabled|disabled|clear|refresh|back|next|yes)\b/i;
+function looksText(s) {
+    s = s.trim();
+    if (s.length < 2 || !/[A-Za-z]{2,}/.test(s)) { return false; }
+    if (ALLOW.has(s)) { return false; }
+    if (/^[\w.\-\/#:]+$/.test(s) && !/^[A-Z][a-z]+$/.test(s) && !/^[A-Z]{2,}$/.test(s)) { return false; }  // ids, paths, keys
+    if (/[{};=<>]|=>|\$\{|px\b|rgba?\(|var\(--|^\.|^#|\.(js|css|png|svg|json|yaml|md|html)\b|^\/|https?:|^[a-z_]+\(|^[a-z]+:[a-z]/.test(s)) { return false; }
+    const words = s.split(/\s+/).filter((w) => /[A-Za-z]/.test(w));
+    if (words.every((w) => ALLOW.has(w.replace(/[^\w\-]/g, '')) || /^[^A-Za-z]*$/.test(w))) { return false; }
+    if (words.length >= 2) { return enWords.test(s) || /^[A-Z][a-z]/.test(s); }
+    return /^[A-Z][a-z]{2,}[.…:!?]?$/.test(s) || /^[A-Z]{2,}$/.test(s);
+}
+const hard = { html: [], js: {} };
+(function () {
+    const body = html.slice(html.indexOf('<body'));
+    // strip <script>/<style> blocks and comments, keep line numbers
+    const clean = body.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, (m) => m.replace(/[^\n]/g, ' ')).replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
+    const off = html.slice(0, html.indexOf('<body')).split('\n').length - 1;
+    const lineOf = (i) => off + clean.slice(0, i).split('\n').length;
+    const stack = [];
+    const re = /<(\/?)([a-zA-Z][\w-]*)([^>]*)>|([^<]+)/g;
+    const VOID = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'source', 'wbr', 'col', 'area', 'base', 'embed', 'param', 'track']);
+    let m;
+    while ((m = re.exec(clean))) {
+        if (m[4] !== undefined) {
+            const txt = m[4].replace(/&nbsp;|&#?\w+;/g, ' ').trim();
+            const top = stack[stack.length - 1];
+            if (txt && looksText(txt) && !(top && top.i18n)) { hard.html.push(lineOf(m.index) + ': "' + txt.slice(0, 70) + '"'); }
+            continue;
+        }
+        const tagName = m[2].toLowerCase(), attrs = m[3];
+        if (m[1]) { while (stack.length && stack.pop().tag !== tagName) { /* unclosed */ } continue; }
+        ['title', 'placeholder', 'aria-label'].forEach((a) => {
+            const v = new RegExp('\\s' + a + '="([^"]*)"').exec(attrs);
+            if (v && looksText(v[1]) && attrs.indexOf('data-i18n-' + a + '=') < 0) { hard.html.push(lineOf(m.index) + ': ' + a + '="' + v[1].slice(0, 60) + '"'); }
+        });
+        if (!VOID.has(tagName) && !/\/\s*$/.test(attrs)) { stack.push({ tag: tagName, i18n: /\sdata-i18n="/.test(attrs) }); }
+    }
+})();
+(function () {
+    const loaded = [];
+    html.replace(/<script src="\/assets\/js\/([\w.\/-]+\.js)"/g, (_, f) => { loaded.push(f); });
+    const LIBS = new Set(['three.js', 'easeljs.js', 'eventemitter2.js', 'roslib.js', 'ros3d.js', 'nipplejs.js', 'mjpegcanvas.js', 'vt_i18n.js', 'vt_help_md.js']);
+    loaded.filter((f) => !LIBS.has(f) && !f.startsWith('i18n/')).forEach((f) => {
+        const lines = fs.readFileSync(path.join(JS, f), 'utf8').split('\n');
+        let inC = false;
+        lines.forEach((ln, i) => {
+            let s = ln;
+            if (inC) { const e = s.indexOf('*/'); if (e < 0) { return; } s = s.slice(e + 2); inC = false; }
+            s = s.replace(/\/\*.*?\*\//g, '');
+            const c = s.indexOf('/*'); if (c >= 0) { inC = true; s = s.slice(0, c); }
+            if (/^\s*\/\//.test(s) || /console\.|throw |new Error|querySelector|getElementById|addEventListener|classList|localStorage|\.on\(|\.emit\(|ROSLIB|messageType|serviceType|name:\s*'\//.test(s)) { return; }
+            s = s.replace(/\b(?:t|tn|tag|_t|T)\s*\(\s*'[^']*'/g, '').replace(/VTI18n\.\w+\([^)]*\)/g, '');
+            const lit = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|`([^`$]*)`/g;
+            let mm;
+            while ((mm = lit.exec(s))) {
+                let v = mm[1] !== undefined ? mm[1] : (mm[2] !== undefined ? mm[2] : mm[3]);
+                // text between tags inside an HTML template string
+                const parts = /[<>]/.test(v) ? (v.match(/>([^<>]+)</g) || []).map((x) => x.slice(1, -1)) : [v];
+                parts.forEach((p) => {
+                    p = p.replace(/\\u2026|\\u00a0|&nbsp;|&\w+;/g, ' ');
+                    if (looksText(p)) { (hard.js[f] = hard.js[f] || []).push((i + 1) + ': "' + p.trim().slice(0, 70) + '"'); }
+                });
+            }
+        });
+    });
+})();
+const jsHard = Object.values(hard.js).reduce((a, l) => a + l.length, 0);
+note('hard-coded English (heuristic): index.html ' + hard.html.length + ', JS ' + jsHard +
+    (jsHard ? ' (' + Object.entries(hard.js).sort((a, b) => b[1].length - a[1].length).map(([f, l]) => f + ' ' + l.length).join(', ') + ')' : '') +
+    (SHOW_HARD ? '' : ' — --hardcoded lists them'));
+if (SHOW_HARD) {
+    hard.html.forEach((h) => console.log('     index.html:' + h));
+    Object.entries(hard.js).forEach(([f, l]) => l.forEach((h) => console.log('     ' + f + ':' + h)));
+}
 
 console.log((fails ? 'FAILED ' + fails : 'OK') + ' — ' + Object.keys(en).length + ' en keys, ' + used.size + ' used in index.html / JS');
 process.exit(fails ? 1 : 0);
