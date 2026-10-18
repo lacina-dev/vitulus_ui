@@ -1,0 +1,377 @@
+#!/usr/bin/env python3
+"""camera_overlay — lidar / obstacle / free clouds and depth for the UI camera.
+
+The web UI shows the D435 colour image (web_video_server MJPEG). This node
+lets it draw, on top of that image and aligned with it like the RViz Camera
+display, any of:
+
+  /camera_overlay/scan       the lidar (/scan)
+  /camera_overlay/obstacles  the obstacle cloud of the obstacle segmentation
+  /camera_overlay/free       the ground ("free") cloud of the same segmentation
+  /camera_overlay/depth      the aligned depth image, colour-mapped (bgr8,
+                             streamed by web_video_server like the camera)
+
+LAZY: every input is subscribed only while its output has a subscriber (the
+UI turns a layer on). With all layers off the node holds no subscription at
+all — not even /tf — and costs nothing.
+
+Projection (points layers):
+  * TF of the data at the DATA stamp, camera at the IMAGE stamp (the newest
+    camera_info = the frame being streamed now), joined through the fixed
+    frame (odom) — tf2 lookup_transform_full, exactly what RViz does when it
+    renders data in the fixed frame from the camera's pose at image time. So
+    the overlay does not slide when the robot turns between a scan and the
+    image. If that lookup is not possible (odom not yet in the buffer), the
+    transform at the data stamp is used (data and camera at the same time).
+    Never "latest".
+  * pinhole from camera_info P (+ plumb_bob distortion from D when non-zero),
+    points behind the camera (z < min_z) and outside the image dropped,
+    at most max_points kept (evenly thinned), at most rate Hz per layer.
+
+Output of a points layer: std_msgs/UInt8MultiArray (rosbridge sends uint8[]
+as base64 — about 6 bytes per point instead of ~25 for JSON floats):
+    bytes 0..27   little endian  '<4sHHIdd'
+                  magic b'VCO1', image width, image height, point count n,
+                  data stamp [s], image stamp [s]
+    then n x '<HHH'  u [px], v [px] (image pixel of camera_info size),
+                     depth along the optical axis [mm]
+
+Output of the depth layer: sensor_msgs/Image bgr8, depth downsampled
+(depth_scale, default 1/2 -> 320x240 for 640x480), turbo colour map near =
+red ... far = blue, no depth = black (the UI blends it with 'screen' so black
+is transparent). The aligned depth (realsense align_depth:=true) has the
+colour camera's geometry, so the image lies on the camera picture 1:1.
+"""
+import math
+import struct
+import threading
+
+import numpy as np
+import rospy
+import tf2_ros
+from sensor_msgs.msg import CameraInfo, Image, LaserScan, PointCloud2
+from std_msgs.msg import UInt8MultiArray
+
+try:
+    import cv2
+except Exception:          # pragma: no cover - cv2 is on the robot
+    cv2 = None
+
+HDR = struct.Struct('<4sHHIdd')
+MAGIC = b'VCO1'
+
+
+def quat_to_mat(q):
+    x, y, z, w = q.x, q.y, q.z, q.w
+    return np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+        [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+        [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]],
+        dtype=np.float64)
+
+
+def tf_to_rt(t):
+    tr = t.transform.translation
+    return quat_to_mat(t.transform.rotation), np.array([tr.x, tr.y, tr.z])
+
+
+class Intrinsics(object):
+    """Pinhole camera from a CameraInfo (P, plumb_bob D)."""
+
+    def __init__(self, ci):
+        P = ci.P
+        self.fx, self.fy, self.cx, self.cy = P[0], P[5], P[2], P[6]
+        self.tx = P[3]
+        self.w, self.h = int(ci.width), int(ci.height)
+        self.frame = ci.header.frame_id.lstrip('/')
+        D = list(ci.D) + [0.0] * 5
+        self.D = D[:5] if (ci.distortion_model in ('plumb_bob', 'rational_polynomial')
+                           and any(abs(d) > 1e-9 for d in D[:5])) else None
+
+
+def project(pts_cam, intr, min_z=0.15):
+    """Nx3 points in the optical frame -> (u, v, z) of points inside the image."""
+    if pts_cam.shape[0] == 0:
+        return np.zeros((0,)), np.zeros((0,)), np.zeros((0,))
+    z = pts_cam[:, 2]
+    m = np.isfinite(z) & (z > min_z)
+    p = pts_cam[m]
+    z = p[:, 2]
+    xn = p[:, 0] / z
+    yn = p[:, 1] / z
+    if intr.D is not None:
+        k1, k2, p1, p2, k3 = intr.D
+        r2 = xn * xn + yn * yn
+        rad = 1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2
+        xd = xn * rad + 2 * p1 * xn * yn + p2 * (r2 + 2 * xn * xn)
+        yd = yn * rad + p1 * (r2 + 2 * yn * yn) + 2 * p2 * xn * yn
+        xn, yn = xd, yd
+    u = intr.fx * xn + intr.cx + intr.tx / z
+    v = intr.fy * yn + intr.cy
+    ok = (u >= 0) & (u < intr.w) & (v >= 0) & (v < intr.h)
+    return u[ok], v[ok], z[ok]
+
+
+def thin(n, max_points):
+    """Indices of at most max_points evenly spread over n."""
+    if n <= max_points:
+        return slice(None)
+    return np.linspace(0, n - 1, max_points).astype(np.int64)
+
+
+def pack(u, v, z, intr, t_data, t_img):
+    n = int(u.shape[0])
+    body = np.empty((n, 3), dtype='<u2')
+    body[:, 0] = np.clip(np.round(u), 0, 65535)
+    body[:, 1] = np.clip(np.round(v), 0, 65535)
+    body[:, 2] = np.clip(np.round(z * 1000.0), 0, 65535)
+    return HDR.pack(MAGIC, intr.w, intr.h, n, t_data, t_img) + body.tobytes()
+
+
+def scan_points(s):
+    r = np.asarray(s.ranges, dtype=np.float64)
+    a = s.angle_min + s.angle_increment * np.arange(r.shape[0])
+    m = np.isfinite(r) & (r > max(s.range_min, 0.05)) & (r < s.range_max)
+    r, a = r[m], a[m]
+    return np.stack([r * np.cos(a), r * np.sin(a), np.zeros_like(r)], axis=1)
+
+
+def cloud_points(c):
+    """x, y, z of a PointCloud2 as Nx3 float64 (NaNs dropped)."""
+    n = c.width * c.height
+    if n == 0:
+        return np.zeros((0, 3))
+    off = {f.name: f.offset for f in c.fields}
+    if not all(k in off for k in ('x', 'y', 'z')):
+        return np.zeros((0, 3))
+    end = '>' if c.is_bigendian else '<'
+    dt = np.dtype({'names': ['x', 'y', 'z'], 'formats': [end + 'f4'] * 3,
+                   'offsets': [off['x'], off['y'], off['z']],
+                   'itemsize': c.point_step})
+    if c.row_step == c.width * c.point_step:
+        a = np.frombuffer(c.data, dtype=dt, count=n)
+    else:   # padded rows
+        buf = np.frombuffer(c.data, dtype=np.uint8).reshape(c.height, c.row_step)
+        a = np.frombuffer(buf[:, :c.width * c.point_step].tobytes(), dtype=dt, count=n)
+    p = np.stack([a['x'], a['y'], a['z']], axis=1).astype(np.float64)
+    return p[np.all(np.isfinite(p), axis=1)]
+
+
+def turbo_lut():
+    """256x1x3 BGR LUT: 0 = no depth (black), 1 = near (red) .. 255 = far
+    (blue). Turbo from cv2 when available, else a simple HSV ramp."""
+    # the bright middle of turbo only: its dark ends would vanish in the
+    # 'screen' blend of the UI (near = turbo 0.90 red, far = 0.10 blue)
+    g = np.linspace(230, 25, 256).astype(np.uint8).reshape(256, 1)
+    if cv2 is not None and hasattr(cv2, 'COLORMAP_TURBO'):
+        out = cv2.applyColorMap(g, cv2.COLORMAP_TURBO)
+        out[0] = 0
+        return out
+    h = (np.arange(256) / 255.0 * 0.66)[::-1]           # red .. blue
+    out = np.zeros((256, 1, 3), dtype=np.uint8)
+    for i, hh in enumerate(h):
+        k = (np.array([5, 3, 1]) + hh * 6) % 6
+        rgb = 1 - np.clip(np.minimum(k, 4 - k), 0, 1)
+        out[i, 0] = (rgb[::-1] * 255).astype(np.uint8)
+    out[0] = 0
+    return out
+
+
+class Layer(object):
+    def __init__(self, name, in_topic, in_type, out_pub, cb):
+        self.name, self.in_topic, self.in_type = name, in_topic, in_type
+        self.pub, self.cb = out_pub, cb
+        self.sub = None
+        self.last = 0.0
+        self.n_in = self.n_out = self.n_tf_fail = 0
+
+
+class CameraOverlay(object):
+    def __init__(self):
+        p = rospy.get_param
+        self.fixed = p('~fixed_frame', 'odom')
+        self.rate = float(p('~rate', 5.0))
+        self.depth_rate = float(p('~depth_rate', 5.0))
+        self.max_points = int(p('~max_points', 3000))
+        self.min_z = float(p('~min_z', 0.15))
+        self.tf_timeout = float(p('~tf_timeout', 0.08))
+        self.depth_scale = max(1, int(p('~depth_decimation', 2)))
+        self.depth_min = float(p('~depth_min', 0.2))
+        self.depth_max = float(p('~depth_max', 5.0))
+        self.ci_topic = p('~camera_info', '/d435/color/camera_info')
+        self.lock = threading.Lock()
+        self.intr = None
+        self.t_img = None
+        self.ci_sub = None
+        self.tf_buf = None
+        self.tf_lis = None
+        self.lut = turbo_lut()
+
+        listener = rospy.SubscribeListener()
+        listener.peer_subscribe = lambda *a: self.reconcile()
+        listener.peer_unsubscribe = lambda *a: self.reconcile()
+
+        def pub(name, typ):
+            return rospy.Publisher('/camera_overlay/' + name, typ, queue_size=1,
+                                   subscriber_listener=listener)
+
+        self.layers = [
+            Layer('scan', p('~scan', '/scan'), LaserScan,
+                  pub('scan', UInt8MultiArray), self.on_scan),
+            Layer('obstacles', p('~obstacles', '/obstacles_cloud'), PointCloud2,
+                  pub('obstacles', UInt8MultiArray), self.on_cloud),
+            Layer('free', p('~free', '/ground_cloud'), PointCloud2,
+                  pub('free', UInt8MultiArray), self.on_cloud),
+            Layer('depth', p('~depth', '/d435/aligned_depth_to_color/image_raw'), Image,
+                  pub('depth', Image), self.on_depth),
+        ]
+        # safety net for a missed (un)subscribe notification
+        rospy.Timer(rospy.Duration(2.0), lambda e: self.reconcile())
+        rospy.Timer(rospy.Duration(60.0), lambda e: self.report())
+
+    # ---------------------------------------------------------- lazy plumbing
+    def reconcile(self):
+        with self.lock:
+            any_points = False
+            for L in self.layers:
+                want = L.pub.get_num_connections() > 0
+                if want and L.sub is None:
+                    big = (2 ** 24) if L.in_type is not LaserScan else 65536
+                    # AnyMsg: a frame is deserialized only when the layer is
+                    # due (rate), the skipped 2/3 of a 15 Hz depth stream cost
+                    # no unpacking at all
+                    L.sub = rospy.Subscriber(L.in_topic, rospy.AnyMsg, self.on_raw, callback_args=L,
+                                             queue_size=1, buff_size=big)
+                    rospy.loginfo('camera_overlay: %s on (%s)', L.name, L.in_topic)
+                elif not want and L.sub is not None:
+                    L.sub.unregister()
+                    L.sub = None
+                    rospy.loginfo('camera_overlay: %s off', L.name)
+                if want and L.name != 'depth':
+                    any_points = True
+            if any_points and self.ci_sub is None:
+                self.ci_sub = rospy.Subscriber(self.ci_topic, CameraInfo, self.on_ci, queue_size=1)
+                self.tf_buf = tf2_ros.Buffer(rospy.Duration(5.0))
+                self.tf_lis = tf2_ros.TransformListener(self.tf_buf)
+            elif not any_points and self.ci_sub is not None:
+                self.ci_sub.unregister()
+                self.ci_sub = None
+                try:
+                    self.tf_lis.unregister()
+                except Exception:
+                    pass
+                self.tf_lis = None
+                self.tf_buf = None
+                self.intr = None
+
+    def report(self):
+        act = ['%s in %d out %d tf_fail %d' % (L.name, L.n_in, L.n_out, L.n_tf_fail)
+               for L in self.layers if L.sub is not None]
+        if act:
+            rospy.loginfo('camera_overlay: %s', '; '.join(act))
+
+    def on_ci(self, ci):
+        self.intr = Intrinsics(ci)
+        self.t_img = ci.header.stamp
+
+    def due(self, L, rate):
+        now = rospy.get_time()
+        L.n_in += 1
+        if now - L.last < 1.0 / rate - 0.01 and now >= L.last:
+            return False
+        L.last = now
+        return True
+
+    def on_raw(self, raw, L):
+        if L.in_type is not Image and self.intr is None:
+            return
+        if not self.due(L, self.depth_rate if L.in_type is Image else self.rate):
+            return
+        msg = L.in_type()
+        msg.deserialize(raw._buff)
+        L.cb(msg, L)
+
+    # ------------------------------------------------------------- transforms
+    def to_camera(self, L, frame, stamp, pts):
+        """pts (Nx3, in `frame` at `stamp`) -> camera optical frame at the
+        image stamp; None when no transform at the right times exists."""
+        intr, buf, t_img = self.intr, self.tf_buf, self.t_img
+        if intr is None or buf is None:
+            return None
+        frame = frame.lstrip('/')
+        T = None
+        if t_img is not None and t_img != stamp:
+            try:
+                T = buf.lookup_transform_full(intr.frame, t_img, frame, stamp, self.fixed,
+                                              rospy.Duration(self.tf_timeout))
+            except Exception:
+                T = None
+        if T is None:
+            if frame == intr.frame:
+                return pts
+            try:
+                T = buf.lookup_transform(intr.frame, frame, stamp, rospy.Duration(self.tf_timeout))
+            except Exception:
+                L.n_tf_fail += 1
+                return None
+        R, t = tf_to_rt(T)
+        return pts.dot(R.T) + t
+
+    def emit(self, L, frame, stamp, pts):
+        cam = self.to_camera(L, frame, stamp, pts)
+        intr = self.intr
+        if cam is None or intr is None:
+            return
+        u, v, z = project(cam, intr, self.min_z)
+        k = thin(u.shape[0], self.max_points)
+        u, v, z = u[k], v[k], z[k]
+        t_img = self.t_img.to_sec() if self.t_img is not None else stamp.to_sec()
+        L.pub.publish(UInt8MultiArray(data=pack(u, v, z, intr, stamp.to_sec(), t_img)))
+        L.n_out += 1
+
+    # -------------------------------------------------------------- callbacks
+    def on_scan(self, s, L):
+        self.emit(L, s.header.frame_id, s.header.stamp, scan_points(s))
+
+    def on_cloud(self, c, L):
+        self.emit(L, c.header.frame_id, c.header.stamp, cloud_points(c))
+
+    def on_depth(self, m, L):
+        if m.encoding in ('16UC1', 'mono16'):
+            d = np.frombuffer(m.data, dtype='>u2' if m.is_bigendian else '<u2')
+            d = d.reshape(m.height, m.step // 2)[:, :m.width]
+            s = self.depth_scale
+            d = d[::s, ::s].astype(np.float32) * 0.001
+        elif m.encoding == '32FC1':
+            d = np.frombuffer(m.data, dtype='>f4' if m.is_bigendian else '<f4')
+            d = d.reshape(m.height, m.step // 4)[:, :m.width]
+            s = self.depth_scale
+            d = np.nan_to_num(d[::s, ::s], nan=0.0, posinf=0.0, neginf=0.0)
+        else:
+            return
+        img = depth_colormap(d, self.depth_min, self.depth_max, self.lut)
+        out = Image()
+        out.header = m.header
+        out.height, out.width = img.shape[0], img.shape[1]
+        out.encoding = 'bgr8'
+        out.step = out.width * 3
+        out.data = img.tobytes()
+        L.pub.publish(out)
+        L.n_out += 1
+
+
+def depth_colormap(d, dmin, dmax, lut):
+    """depth [m] HxW -> bgr8 HxWx3: near red .. far blue, no depth black.
+    LUT entry 0 is black (no depth), 1..255 the ramp — one table lookup."""
+    idx = np.clip((d - dmin) * (254.0 / max(1e-3, dmax - dmin)), 0, 254) + 1
+    idx[~((d >= dmin * 0.5) & np.isfinite(d))] = 0
+    idx = idx.astype(np.uint8)
+    if cv2 is not None:
+        return cv2.LUT(cv2.merge((idx, idx, idx)), lut)
+    return np.ascontiguousarray(lut[idx, 0])
+
+
+if __name__ == '__main__':
+    rospy.init_node('camera_overlay')
+    CameraOverlay()
+    rospy.spin()

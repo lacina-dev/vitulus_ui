@@ -1,0 +1,131 @@
+/* vt_cam_overlay.css — overlays on the camera image (vt_cam_overlay.js).
+   Colours from the UI palette (docs/UI_FIELD_STYLE.md): lidar = accent
+   #0dcaf0, obstacles = error #ff5f6d, free ground = OK #43d58b. */
+#div_camera_view .vco-wrap {
+    position: absolute;
+    left: 0; top: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 3;                      /* above the image, under the loader (5) */
+    overflow: hidden;
+}
+#div_camera_view .vco-wrap > .vco-pts,
+#div_camera_view .vco-wrap > .vco-depth {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    display: block;
+}
+/* black = no depth: 'screen' leaves the camera image untouched there */
+#div_camera_view .vco-wrap > .vco-depth {
+    mix-blend-mode: screen;
+    opacity: var(--vco-op, 0.75);
+    object-fit: fill;
+}
+
+#div_camera_view .vco-ui {
+    position: absolute;
+    left: 0; top: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 6;
+}
+#div_camera_view .vco-ui > * { pointer-events: auto; }
+#div_camera_view .vco-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    z-index: 6;
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+    border: 1px solid var(--vt-border-strong, rgba(255, 255, 255, 0.18));
+    border-radius: var(--vt-r-ctl, 8px);
+    background: rgba(28, 35, 41, 0.72);
+    color: var(--vt-text, #dee2e6);
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+#div_camera_view .vco-btn:hover { color: #fff; background: rgba(43, 52, 60, 0.9); }
+#div_camera_view .vco-btn.on {
+    color: var(--vt-accent, #0dcaf0);
+    border-color: rgba(var(--vt-accent-rgb, 13, 202, 240), 0.6);
+}
+#div_camera_view .vco-btn:focus-visible,
+#div_camera_view .vco-chip:focus-visible { outline: 2px solid var(--vt-accent, #0dcaf0); outline-offset: 1px; }
+
+#div_camera_view .vco-menu {
+    position: absolute;
+    top: 40px; left: 4px; right: 4px;   /* under the button, the image's width */
+    z-index: 7;
+    max-height: calc(100% - 44px);
+    overflow: auto;
+    padding: 6px;
+    border: 1px solid var(--vt-border, rgba(255, 255, 255, 0.10));
+    border-radius: var(--vt-r-card, 10px);
+    background: var(--vt-overlay, rgba(28, 35, 41, 0.94));
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    cursor: default;
+    font-size: 12px;
+    color: var(--vt-text, #dee2e6);
+}
+#div_camera_view .vco-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+#div_camera_view .vco-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 26px;
+    padding: 3px 8px;
+    border: 1px solid var(--vt-border-strong, rgba(255, 255, 255, 0.18));
+    border-radius: 999px;
+    background: transparent;
+    color: var(--vt-muted, #9aa4ad);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+}
+#div_camera_view .vco-chip:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+#div_camera_view .vco-chip.on {
+    color: #fff;
+    border-color: rgba(var(--vt-accent-rgb, 13, 202, 240), 0.55);
+    background: rgba(var(--vt-accent-rgb, 13, 202, 240), 0.16);
+}
+#div_camera_view .vco-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    flex: 0 0 9px;
+    opacity: 0.45;
+}
+#div_camera_view .vco-chip.on .vco-dot { opacity: 1; }
+#div_camera_view .vco-dot-depth { background: linear-gradient(90deg, #d93806, #f3c63a, #4bf0a6, #3a7df6, #30123b); }
+#div_camera_view .vco-op {
+    display: flex; align-items: center; gap: 8px;
+    margin: 6px 2px 0;
+    color: var(--vt-muted, #9aa4ad);
+}
+#div_camera_view .vco-op input { flex: 1 1 auto; min-width: 80px; accent-color: var(--vt-accent, #0dcaf0); }
+
+#div_camera_view .vco-help {
+    flex: 0 0 auto;
+    width: 24px; height: 24px; padding: 0;
+    border: 1px solid var(--vt-border-strong, rgba(255, 255, 255, 0.18));
+    border-radius: 50%;
+    background: transparent;
+    color: var(--vt-muted, #9aa4ad);
+    font-size: 12px; line-height: 1;
+    cursor: pointer;
+}
+#div_camera_view .vco-help:hover { color: #fff; }
+
+/* phone: bigger touch targets */
+@media (pointer: coarse) {
+    #div_camera_view .vco-ui {
+    position: absolute;
+    left: 0; top: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 6;
+}
+#div_camera_view .vco-ui > * { pointer-events: auto; }
+#div_camera_view .vco-btn { width: 36px; height: 36px; }
+    #div_camera_view .vco-menu { top: 46px; max-height: calc(100% - 50px); }
+    #div_camera_view .vco-chip { min-height: 34px; padding: 4px 10px; font-size: 12px; }
+    #div_camera_view .vco-help { width: 32px; height: 32px; }
+}
