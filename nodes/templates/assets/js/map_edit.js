@@ -14,6 +14,15 @@ window.initPlanner = function(opts) {
     opts = opts || {};
     var integrated = !!opts.overlay;
 
+    // i18n (docs/I18N.md): UI text through VTI18n; the planner's own log /
+    // result messages are data and stay as they come.
+    function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tag(el, k) { if (!el) return; if (window.VTI18n) VTI18n.tag(el, k); else el.textContent = k; }
+    var _i18nRedraw = [];   // re-render hooks run on a language switch
+    if (window.VTI18n) VTI18n.onChange(function () {
+        _i18nRedraw.forEach(function (fn) { try { fn(); } catch (e) { console.error(e); } });
+    });
+
     var ros;
     if (opts.ros) ros = opts.ros;
     else ros = new ROSLIB.Ros({url: "ws://" + location.hostname + ":9090"});
@@ -178,8 +187,14 @@ window.initPlanner = function(opts) {
         name: '/web_plan/log',
         messageType: 'std_msgs/String'
     });
+    // _logKey: the log line is our own hint (a key) — re-drawn on a language
+    // switch until the planner's next log line replaces it.
+    var _logKey = null;
+    function _logSay(key) { _logKey = key; div_log.textContent = t(key); }
+    _i18nRedraw.push(function () { if (_logKey) div_log.textContent = t(_logKey); });
     logTopic.subscribe(function (message) {
         // console.log("MapEdit log:" + message.data);
+        _logKey = null;
         div_log.textContent = message.data;
         if (typeof _zoneSaveOnLog === 'function') _zoneSaveOnLog(message.data);
     });
@@ -313,7 +328,7 @@ window.initPlanner = function(opts) {
                 polygon.fillShape.graphics._instructions = [];
                 polygon.fillShape.graphics._oldInstructions = [];
             }else{
-                div_log.textContent = "Draw the polygon on the map!";
+                _logSay('medit.draw_polygon');
             }
         }
 
@@ -364,9 +379,15 @@ window.initPlanner = function(opts) {
         });
 
         var current_poly_list = [];
+        var last_poly_msg = null;
+        _i18nRedraw.push(function () { if (last_poly_msg) render_poly_list(last_poly_msg); });
         polyListTopic.subscribe(function(message) {
             initial_polys_received = true;
             current_poly_list = message.polygon_list;
+            last_poly_msg = message;
+            render_poly_list(message);
+        });
+        function render_poly_list(message) {
             var html_poly_list ='';
             for (let poly in message.polygon_list){
                 let poly_name = message.polygon_list[poly].name;
@@ -376,8 +397,8 @@ window.initPlanner = function(opts) {
                         <span class="text-info text-truncate" style="flex: 1 1 auto;min-width: 0;" title="${poly_name}">${poly_name}</span>
                         <span class="text-light" style="width: 70px;">${poly_type}</span>
                         <div class="btn-group btn-group-sm" role="group" style="margin-left: 6px;">
-                            <button id="btn_poly_edit" class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="editPoly(&#39;${poly_name}&#39;)">Edit</button>
-                            <button id="btn_poly_remove" class="btn btn-outline-danger" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="removePoly(&#39;${poly_name}&#39;)">Remove</button>
+                            <button id="btn_poly_edit" class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="editPoly(&#39;${poly_name}&#39;)">${t('common.edit')}</button>
+                            <button id="btn_poly_remove" class="btn btn-outline-danger" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="removePoly(&#39;${poly_name}&#39;)">${t('common.remove')}</button>
                         </div>
                     </div>
     `;
@@ -386,7 +407,7 @@ window.initPlanner = function(opts) {
             if (message.polygon_list.length == 0){
                 div_poly_list.innerHTML = "";
             }
-        });
+        }
         }
     map_polygons();
 
@@ -517,7 +538,7 @@ window.initPlanner = function(opts) {
             // (see _zoneSave* below); the drawn polygon stays until then.
             _zoneSaveBegin(msg.name);
         } else {
-            div_log.textContent = "Draw the polygon on the map!";
+            _logSay('medit.draw_polygon');
         }
     }
 
@@ -542,11 +563,18 @@ window.initPlanner = function(opts) {
     var zone_template_status = document.getElementById("zone_template_status");
     var _zoneSavePending = null;          // {name, waitTimer, timer, logTimer} while waiting
 
+    // text: a planner message (data, shown as is) or {k, v} — our own text,
+    // re-drawn on a language switch.
+    var _zoneStatusLast = null;
     function _zoneSaveStatus(text, cls) {
         if (!zone_template_status) return;
-        zone_template_status.textContent = text || '';
+        _zoneStatusLast = (text && typeof text === 'object') ? { text: text, cls: cls } : null;
+        zone_template_status.textContent = (text && typeof text === 'object') ? t(text.k, text.v) : (text || '');
         zone_template_status.className = cls || '';
     }
+    _i18nRedraw.push(function () {
+        if (_zoneStatusLast) _zoneSaveStatus(_zoneStatusLast.text, _zoneStatusLast.cls);
+    });
     function _zoneSaveClear() {
         if (_zoneSavePending) {
             clearTimeout(_zoneSavePending.waitTimer);
@@ -555,21 +583,21 @@ window.initPlanner = function(opts) {
         }
         _zoneSavePending = null;
         btn_zone_template_save.disabled = false;
-        btn_zone_template_save.textContent = 'Save';
+        tag(btn_zone_template_save, 'common.save');
     }
     function _zoneSaveBegin(name) {
         _zoneSaveClear();
         btn_zone_template_save.disabled = true;
-        btn_zone_template_save.textContent = 'Saving…';
-        _zoneSaveStatus('Saving zone "' + name + '"…', 'text-info');
+        tag(btn_zone_template_save, 'common.saving');
+        _zoneSaveStatus({ k: 'medit.zone_saving', v: { name: name } }, 'text-info');
         var pending = { name: name, waitTimer: null, timer: null, logTimer: null };
         pending.waitTimer = setTimeout(function () {
             if (_zoneSavePending !== pending) return;
-            _zoneSaveStatus('Still waiting for the planner…', 'text-warning');
+            _zoneSaveStatus({ k: 'medit.zone_waiting' }, 'text-warning');
         }, ZONE_SAVE_WAIT_MS);
         pending.timer = setTimeout(function () {
             if (_zoneSavePending !== pending) return;
-            _zoneSaveFailed('Zone not saved — no response from planner');
+            _zoneSaveFailed({ k: 'medit.zone_no_response' });
         }, ZONE_SAVE_TIMEOUT_MS);
         _zoneSavePending = pending;
     }
@@ -583,7 +611,8 @@ window.initPlanner = function(opts) {
         polygon.lineContainer.children = [];
         polygon.fillShape.graphics._instructions = [];
         polygon.fillShape.graphics._oldInstructions = [];
-        div_log.textContent = text || ('Zone ' + name + ' saved.');
+        if (text) { _logKey = null; div_log.textContent = text; }
+        else { _logKey = null; div_log.textContent = t('medit.zone_saved', { name: name }); }
     }
     function _zoneSaveFailed(text) {
         _zoneSaveClear();
@@ -613,7 +642,7 @@ window.initPlanner = function(opts) {
         try { r = JSON.parse(message.data); } catch (e) { return; }
         if (!r || r.op !== 'save' || r.name !== _zoneSavePending.name) return;
         if (r.ok) _zoneSaveSucceeded(r.message);
-        else _zoneSaveFailed(r.message || 'Zone not saved');
+        else _zoneSaveFailed(r.message || { k: 'medit.zone_not_saved' });
     });
 
     // Get zone list
@@ -624,10 +653,16 @@ window.initPlanner = function(opts) {
     });
 
     var current_zone_list = [];
+    var last_zone_msg = null;
+    _i18nRedraw.push(function () { if (last_zone_msg) render_zone_list(last_zone_msg); });
     zoneListTopic.subscribe(function (message) {
         // console.log("Zone list:");
         initial_lists_received = true;
         current_zone_list = message.zone_list;
+        last_zone_msg = message;
+        render_zone_list(message);
+    });
+    function render_zone_list(message) {
         var html_zone_list = '';
         for (let zone in message.zone_list) {
             // console.log(message.zone_list[zone]);
@@ -643,8 +678,8 @@ window.initPlanner = function(opts) {
                     <span class="text-light text-end" style="width: 58px;">${zone_rpm}rpm</span>
                     <span class="text-light text-end" style="width: 50px;">${zone_area}m&sup2;</span>
                     <div class="btn-group btn-group-sm" role="group" style="margin-left: 6px;">
-                        <button id="btn_zone_edit" class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="editZone(&#39;${zone_name}&#39;)">Edit</button>
-                        <button id="btn_zone_remove" class="btn btn-outline-danger" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="removeZone(&#39;${zone_name}&#39;)">Remove</button>
+                        <button id="btn_zone_edit" class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="editZone(&#39;${zone_name}&#39;)">${t('common.edit')}</button>
+                        <button id="btn_zone_remove" class="btn btn-outline-danger" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="removeZone(&#39;${zone_name}&#39;)">${t('common.remove')}</button>
                     </div>
                 </div>
             `;
@@ -653,7 +688,7 @@ window.initPlanner = function(opts) {
         if (message.zone_list.length === 0) {
             div_zone_list.innerHTML = "";
         }
-    });
+    }
 
 
     // Edit zone from list by name
@@ -817,11 +852,11 @@ window.initPlanner = function(opts) {
         let ready = true;
         if (input_program_template_name.value === "") {
             ready = false;
-            div_log.innerHTML = "<span class='text-danger'>Program name is empty!</span>";
+            div_log.innerHTML = "<span class='text-danger'>" + t('medit.prog_no_name') + "</span>";
         };
         if (selected_program_msg.zone_list.length === 0) {
             ready = false;
-            div_log.innerHTML = "<span class='text-danger'>Program has no zones!</span>";
+            div_log.innerHTML = "<span class='text-danger'>" + t('medit.prog_no_zones') + "</span>";
         }
         if (ready) {
             selected_program_msg.name = input_program_template_name.value + ' (' + active_map_file_name.split("***env*")[0] + ')';
@@ -840,7 +875,7 @@ window.initPlanner = function(opts) {
             topic_new_program.publish(selected_program_msg);
             input_program_template_name.value = "";
             div_program_template.setAttribute('style', 'display:none !important');
-            div_log.innerHTML = "<span class='text-info'>Saving program " + selected_program_msg.name + "...</span>";
+            div_log.innerHTML = "<span class='text-info'>" + t('medit.prog_saving', { name: selected_program_msg.name }) + "</span>";
         }
     }
 

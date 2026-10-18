@@ -25,6 +25,16 @@ window.MapEdits = (function () {
     'use strict';
 
     var T = window.THREE;
+
+    // i18n (docs/I18N.md). Static parts of the panel carry data-i18n (VTI18n
+    // re-translates them on a switch by itself); what is drawn from data (the
+    // lists, the hint, the geofence readout) is re-drawn in _onLang below.
+    function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
+    function _tag(el, k) { if (!el) return; if (window.VTI18n) VTI18n.tag(el, k); else el.textContent = k; }
+    // an element whose whole text is one key: ' data-i18n="k">Text'
+    function _ti(k) { return ' data-i18n="' + k + '">' + _escapeHtml(t(k)); }
+
     function EDITS_ORDER() {
         return (window.MapLayerOrder && typeof window.MapLayerOrder.EDITS === 'number')
             ? window.MapLayerOrder.EDITS : 15;
@@ -471,14 +481,14 @@ window.MapEdits = (function () {
     // tile colour lives in CSS (index.html "tool grid") keyed on data-tool, the
     // `idle` class stays for the active/idle swap below.
     var TOOLS = [
-        { tool: 'off',           ico: '<i class="la la-hand-paper-o"></i>', label: 'Pan',               idle: 'btn-outline-light' },
-        { tool: 'waypoint',      ico: '<i class="la la-map-marker"></i>',   label: 'Waypoint',          idle: 'btn-outline-info' },
-        { tool: 'path',          ico: '<i class="la la-road"></i>',         label: 'Path',              idle: 'btn-outline-primary' },
-        { tool: 'edit_obstacle', ico: '<i class="la la-square"></i>',       label: 'Obstacle (area)',   idle: 'btn-outline-danger' },
-        { tool: 'edit_free',     ico: '<i class="la la-square-o"></i>',     label: 'Free (clear area)', idle: 'btn-outline-success' },
-        { tool: 'edit_wall',     ico: '<i class="la la-minus"></i>',        label: 'Barrier (line)',    idle: 'btn-outline-warning' },
-        { tool: 'edit_delete',   ico: '<i class="la la-trash"></i>',        label: 'Delete',            idle: 'btn-outline-secondary' },
-        { tool: 'geofence',      ico: '<i class="la la-shield"></i>',       label: 'Geofence',          idle: 'btn-outline-warning' },
+        { tool: 'off',           ico: '<i class="la la-hand-paper-o"></i>', label: 'medits.tool.pan',               idle: 'btn-outline-light' },
+        { tool: 'waypoint',      ico: '<i class="la la-map-marker"></i>',   label: 'medits.tool.waypoint',          idle: 'btn-outline-info' },
+        { tool: 'path',          ico: '<i class="la la-road"></i>',         label: 'medits.tool.path',              idle: 'btn-outline-primary' },
+        { tool: 'edit_obstacle', ico: '<i class="la la-square"></i>',       label: 'medits.tool.obstacle',   idle: 'btn-outline-danger' },
+        { tool: 'edit_free',     ico: '<i class="la la-square-o"></i>',     label: 'medits.tool.free', idle: 'btn-outline-success' },
+        { tool: 'edit_wall',     ico: '<i class="la la-minus"></i>',        label: 'medits.tool.wall',    idle: 'btn-outline-warning' },
+        { tool: 'edit_delete',   ico: '<i class="la la-trash"></i>',        label: 'medits.tool.delete',            idle: 'btn-outline-secondary' },
+        { tool: 'geofence',      ico: '<i class="la la-shield"></i>',       label: 'medits.tool.geofence',          idle: 'btn-outline-warning' },
     ];
 
     // =====================================================================
@@ -497,8 +507,8 @@ window.MapEdits = (function () {
     // --digest <digest>`, or `/geofence podepsat <digest>` in the agent chat) —
     // nothing this page can do arms a fence.
     //
-    // The frame text is English like the whole UI (owner rule); a refusal
-    // reason from the propose API is shown verbatim inside it.
+    // The frame text goes through VTI18n (en / cs); a refusal reason from the
+    // propose API is data and is shown verbatim inside it.
     var _gfTimer = null;
     var _gfLast = null;         // last submitted ring (for the JSON export)
 
@@ -549,28 +559,33 @@ window.MapEdits = (function () {
         var pts = _gfPoints();
         var area = _gfArea(pts);
         out.innerHTML = pts.length < 3
-            ? '<span class="vt-muted">' + pts.length + ' points — a fence needs at least 3</span>'
-            : ('<b class="text-info">' + pts.length + ' vertices</b> · <b class="text-info">' +
-               area.toFixed(1) + ' m²</b> · perimeter ' + _gfPerimeter(pts).toFixed(1) + ' m' +
-               (area < 4 ? ' <span class="text-danger">· below the 4 m² minimum</span>' : ''));
+            ? '<span class="vt-muted">' + _escapeHtml(tn('medits.gf.few_points', pts.length)) + '</span>'
+            : ('<b class="text-info">' + _escapeHtml(tn('medits.gf.vertices', pts.length)) + '</b> · <b class="text-info">' +
+               area.toFixed(1) + ' m²</b> · ' + _escapeHtml(t('medits.gf.perimeter', { m: _gfPerimeter(pts).toFixed(1) })) +
+               (area < 4 ? ' <span class="text-danger">· ' + _escapeHtml(t('medits.gf.below_min')) + '</span>' : ''));
     }
     function _gfStartTicker() { if (!_gfTimer) _gfTimer = setInterval(_gfTick, 250); }
     function _gfStopTicker() { if (_gfTimer) { clearInterval(_gfTimer); _gfTimer = null; } }
 
+    // html: a string, or a function building it (re-run on a language switch)
+    var _gfSaid = null;
     function _gfSay(html, cls) {
+        _gfSaid = (typeof html === 'function') ? { fn: html, cls: cls } : null;
         var box = document.getElementById('mapedit_gf_out');
-        if (box) box.innerHTML = '<div class="' + (cls || '') + ' vt-fs-sm vt-pre">' + html + '</div>';
+        if (box) box.innerHTML = '<div class="' + (cls || '') + ' vt-fs-sm vt-pre">' +
+            (typeof html === 'function' ? html() : html) + '</div>';
     }
 
     function _finishGeofenceDraw() {
         var pts = _gfPoints();
-        if (pts.length < 3) { _setHint('A fence needs at least 3 vertices.'); return; }
+        if (pts.length < 3) { _setHint('medits.gf.need3'); return; }
         var site = (document.getElementById('mapedit_gf_site') || {}).value || '';
         site = site.trim();
-        if (!site) { _gfSay('Site name missing — fill it in above the button.', 'text-danger'); return; }
+        if (!site) { _gfSay(function () { return _escapeHtml(t('medits.gf.no_site')); }, 'text-danger'); return; }
         var by = ((document.getElementById('mapedit_gf_by') || {}).value || '').trim();
         _gfLast = { site: site, points: pts, clicked_by: by || null };
-        _gfSay('Sending ' + pts.length + ' points to the robot…');
+        var nSent = pts.length;
+        _gfSay(function () { return _escapeHtml(tn('medits.gf.sending', nSent)); });
         // Same-origin: the robot's own web node (:7779) serves this. No agent.
         fetch('/api/geofence/propose', {
             method: 'POST',
@@ -578,23 +593,28 @@ window.MapEdits = (function () {
             body: JSON.stringify(_gfLast),
         }).then(function (r) { return r.json(); }).then(function (d) {
             if (!d || d.ok !== true) {
-                _gfSay('<b class="text-danger">Proposal rejected</b>\n' +
-                       _escapeHtml((d && (d.error || d.detail)) || 'unknown error') +
-                       '\n\nThe whole fence must lie in mapped space — vertices and edges. ' +
-                       'Adjust the points and send again.');
+                var why = (d && (d.error || d.detail)) || null;
+                _gfSay(function () {
+                    return '<b class="text-danger">' + _escapeHtml(t('medits.gf.rejected')) + '</b>\n' +
+                       _escapeHtml(why || t('medits.gf.unknown_error')) +
+                       '\n\n' + _escapeHtml(t('medits.gf.rejected_hint'));
+                });
                 return;
             }
-            _gfSay('<b class="text-success">Proposal saved</b> (NOT active yet)\n' +
+            _gfSay(function () {
+                return '<b class="text-success">' + _escapeHtml(t('medits.gf.saved')) + '</b> ' +
+                   _escapeHtml(t('medits.gf.not_active')) + '\n' +
                    _escapeHtml(d.summary) + '\ndigest: <b>' + _escapeHtml(d.digest) + '</b>\n' +
                    _escapeHtml(d.path) + '\n\n' +
-                   'Only a person can activate it by signing on the command line:\n' +
+                   _escapeHtml(t('medits.gf.sign_cli')) + '\n' +
                    '<code>' + _escapeHtml(d.sign_hint) + '</code>\n' +
-                   '(or <code>/geofence podepsat ' + _escapeHtml(d.digest) +
-                   '</code> in the agent chat while it runs.)');
+                   t('medits.gf.sign_chat', { cmd: '<code>/geofence podepsat ' + _escapeHtml(d.digest) + '</code>' });
+            });
         }).catch(function (err) {
-            _gfSay('<b class="text-danger">No answer from the robot</b>\n' + _escapeHtml(String(err)) +
-                   '\nIs the robot web node (:7779) running? You can save the points with ' +
-                   '"Download JSON" and feed them to tools/geofence_propose.');
+            _gfSay(function () {
+                return '<b class="text-danger">' + _escapeHtml(t('medits.gf.no_answer')) + '</b>\n' + _escapeHtml(String(err)) +
+                   '\n' + _escapeHtml(t('medits.gf.no_answer_hint', { btn: t('medits.gf.download') }));
+            });
         });
     }
 
@@ -602,7 +622,7 @@ window.MapEdits = (function () {
     // návrh plotu nesmí záviset na tom, že zrovna běží agent.
     function _gfExport() {
         var pts = _gfPoints();
-        if (pts.length < 3) { _gfSay('Click at least 3 points first.', 'text-danger'); return; }
+        if (pts.length < 3) { _gfSay(function () { return _escapeHtml(t('medits.gf.click3')); }, 'text-danger'); return; }
         var site = ((document.getElementById('mapedit_gf_site') || {}).value || '').trim();
         var by = ((document.getElementById('mapedit_gf_by') || {}).value || '').trim();
         var blob = new Blob([JSON.stringify({
@@ -616,9 +636,12 @@ window.MapEdits = (function () {
         a.click();
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-        _gfSay('Downloaded ' + pts.length + ' points (map frame).\n' +
-               'Next:  tools/geofence_propose propose --site ' +
-               _escapeHtml(site || '<site>') + ' --points <file>');
+        var nDl = pts.length;
+        _gfSay(function () {
+            return _escapeHtml(tn('medits.gf.downloaded', nDl)) + '\n' +
+               _escapeHtml(t('medits.gf.next')) + '  tools/geofence_propose propose --site ' +
+               _escapeHtml(site || '<site>') + ' --points <file>';
+        });
     }
 
     function _buildToolbar() {
@@ -628,11 +651,11 @@ window.MapEdits = (function () {
         if (!tools || !ctx) { _built = false; return; }   // panel not (yet) redesigned
 
         // B. TOOLS — icon grid.
-        var gh = '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb2">Tools</div><div class="met-grid">';
+        var gh = '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb2"' + _ti('medits.tools') + '</div><div class="met-grid">';
         for (var i = 0; i < TOOLS.length; i++) {
-            var t = TOOLS[i];
-            gh += '<button type="button" class="btn met-tool ' + t.idle + '" data-tool="' + t.tool + '" data-idle="' + t.idle + '">' +
-                  '<span class="met-ico">' + t.ico + '</span><span>' + t.label + '</span></button>';
+            var tl = TOOLS[i];
+            gh += '<button type="button" class="btn met-tool ' + tl.idle + '" data-tool="' + tl.tool + '" data-idle="' + tl.idle + '">' +
+                  '<span class="met-ico">' + tl.ico + '</span><span' + _ti(tl.label) + '</span></button>';
         }
         gh += '</div>';
         // V3: "Show:" row of toggle chips for the editor overlay groups.
@@ -641,33 +664,33 @@ window.MapEdits = (function () {
 
         // C. ACTIVE TOOL CONTEXT — one box showing only what the tool needs.
         ctx.innerHTML =
-            '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1">Tool context</div>' +
+            '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1"' + _ti('medits.tool_context') + '</div>' +
             '<div class="vt-box">' +
             '  <div id="mapedit_hint" class="vt-fs-sm vt-accent vt-minh-line"></div>' +
             '  <div id="mapedit_wall_wrap" class="vt-mt2" style="display: none;">' +
-            '    <span class="vt-fs-sm vt-block vt-mb1">Barrier width</span>' +
+            '    <span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.wall_width') + '</span>' +
             '    <div class="input-group input-group-sm vt-w-md"><input class="form-control" id="mapedit_wall_w" type="number" min="0.02" max="2" step="0.05" value="0.10"><span class="input-group-text">m</span></div>' +
             '  </div>' +
             '  <div id="mapedit_path_wrap" class="vt-mt2" style="display: none;">' +
-            '    <span class="vt-fs-sm vt-block vt-mb1">Path name</span>' +
+            '    <span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.path_name') + '</span>' +
             '    <input class="form-control form-control-sm vt-w-lg" id="mapedit_path_name" type="text" value="">' +
             '  </div>' +
             '  <div id="mapedit_gf_wrap" class="vt-mt2" style="display: none;">' +
             '    <div id="mapedit_gf_live" class="vt-fs-sm vt-mb2"></div>' +
             '    <div class="d-flex vt-gap6 vt-mb2">' +
-            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1">Site</span>' +
-            '        <input class="form-control form-control-sm" id="mapedit_gf_site" type="text" placeholder="site"></div>' +
-            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1">Clicked by</span>' +
-            '        <input class="form-control form-control-sm" id="mapedit_gf_by" type="text" placeholder="name"></div>' +
+            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.gf.site') + '</span>' +
+            '        <input class="form-control form-control-sm" id="mapedit_gf_site" type="text" data-i18n-placeholder="medits.gf.site_ph" placeholder="' + _escapeAttr(t('medits.gf.site_ph')) + '"></div>' +
+            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.gf.by') + '</span>' +
+            '        <input class="form-control form-control-sm" id="mapedit_gf_by" type="text" data-i18n-placeholder="medits.gf.by_ph" placeholder="' + _escapeAttr(t('medits.gf.by_ph')) + '"></div>' +
             '    </div>' +
-            '    <button class="btn btn-outline-info btn-sm vt-w100" id="mapedit_gf_export" type="button">Download JSON</button>' +
+            '    <button class="btn btn-outline-info btn-sm vt-w100" id="mapedit_gf_export" type="button"' + _ti('medits.gf.download') + '</button>' +
             '    <div id="mapedit_gf_out" class="vt-mt2"></div>' +
             '  </div>' +
             '  <div id="mapedit_wp_form" class="vt-mt2"></div>' +
             '  <div id="mapedit_path_sel" class="vt-mt2"></div>' +
             '  <div id="mapedit_ctx_actions" class="d-flex vt-gap6 vt-mt2">' +
-            '    <button class="btn btn-success btn-sm flex-fill" id="mapedit_finish" type="button" style="display: none;">Finish</button>' +
-            '    <button class="btn btn-warning btn-sm flex-fill" id="mapedit_cancel" type="button" style="display: none;">Cancel</button>' +
+            '    <button class="btn btn-success btn-sm flex-fill" id="mapedit_finish" type="button" style="display: none;"' + _ti('medits.finish') + '</button>' +
+            '    <button class="btn btn-warning btn-sm flex-fill" id="mapedit_cancel" type="button" style="display: none;"' + _ti('common.cancel') + '</button>' +
             '  </div>' +
             '</div>';
 
@@ -692,7 +715,7 @@ window.MapEdits = (function () {
         // the tool grid.
         var editctl = document.getElementById('mapedit_editctl');
         if (editctl) {
-            editctl.innerHTML = '<button class="btn btn-outline-danger btn-sm" id="mapedit_clear_all" type="button">Clear all</button>';
+            editctl.innerHTML = '<button class="btn btn-outline-danger btn-sm" id="mapedit_clear_all" type="button"' + _ti('medits.clear_all') + '</button>';
             _wireClearAll(editctl.querySelector('#mapedit_clear_all'));
         }
 
@@ -702,19 +725,19 @@ window.MapEdits = (function () {
 
     // ---- V3: "Show:" toggle chips ----
     var SHOW_CHIPS = [
-        { k: 'waypoints', label: 'Waypoints' },
-        { k: 'paths',     label: 'Paths' },
-        { k: 'edits',     label: 'Edits' },
-        { k: 'zones',     label: 'Zones' },
+        { k: 'waypoints', label: 'medits.show.waypoints' },
+        { k: 'paths',     label: 'medits.show.paths' },
+        { k: 'edits',     label: 'medits.show.edits' },
+        { k: 'zones',     label: 'medits.show.zones' },
     ];
     function _showRowHtml() {
         var h = '<div id="mapedit_show_row" class="vt-flex vt-wrap vt-aic vt-gap6 vt-mt2">' +
-                '<span class="vt-fs-xs vt-caps vt-ls vt-muted">Show:</span>';
+                '<span class="vt-fs-xs vt-caps vt-ls vt-muted"' + _ti('medits.show') + '</span>';
         for (var i = 0; i < SHOW_CHIPS.length; i++) {
             var c = SHOW_CHIPS[i];
             var on = _show[c.k] !== false;
             h += '<button type="button" class="btn btn-sm mapedit-show-chip ' + (on ? 'btn-info' : 'btn-outline-secondary') +
-                 ' vt-chip-btn" data-show="' + c.k + '">' + c.label + '</button>';
+                 ' vt-chip-btn" data-show="' + c.k + '"' + _ti(c.label) + '</button>';
         }
         h += '</div>';
         return h;
@@ -762,30 +785,39 @@ window.MapEdits = (function () {
                 window.bootstrap.Tab.getOrCreateInstance(link).show();
             } else if (link) { link.click(); }
         } catch (e) { if (link) link.click(); }
-        _setHint(which === 'poly'
-            ? 'Use "New polygon" below to draw a free/obstacle polygon (planner).'
-            : 'Use "New zone" below to draw a mowing zone (planner).');
+        // {btn}: the button's own (translated) text, read again on every draw
+        var btnId = (which === 'poly') ? 'btn_new_poly' : 'btn_new_zone';
+        _setHint(which === 'poly' ? 'medits.hint.new_polygon' : 'medits.hint.new_zone', function () {
+            var b = document.getElementById(btnId);
+            return { btn: ((b && b.textContent) || '').trim() || (which === 'poly' ? 'New polygon' : 'New zone') };
+        });
     }
 
     // Double-click-to-confirm (NEVER window.confirm — it blocks the event loop).
     function _wireClearAll(btn) {
         if (!btn) return;
         var armed = false, timer = null;
-        var orig = btn.textContent;
-        function disarm() { armed = false; btn.textContent = orig; btn.classList.remove('btn-danger'); btn.classList.add('btn-outline-danger'); if (timer) { clearTimeout(timer); timer = null; } }
+        function disarm() { armed = false; _tag(btn, 'medits.clear_all'); btn.classList.remove('btn-danger'); btn.classList.add('btn-outline-danger'); if (timer) { clearTimeout(timer); timer = null; } }
         btn.addEventListener('click', function () {
             if (!armed) {
-                armed = true; btn.textContent = 'Sure?'; btn.classList.remove('btn-outline-danger'); btn.classList.add('btn-danger');
+                armed = true; _tag(btn, 'medits.sure'); btn.classList.remove('btn-outline-danger'); btn.classList.add('btn-danger');
                 timer = setTimeout(disarm, 2500);
             } else {
                 disarm();
                 if (_layer) _layer.clearAll();
-                _setHint('All edits cleared.');
+                _setHint('medits.hint.cleared');
             }
         });
     }
 
-    function _setHint(t) { var h = document.getElementById('mapedit_hint'); if (h) h.textContent = t || ''; }
+    // the hint is a key (+ vars, or a function giving them); kept so a
+    // language switch can re-draw it
+    var _hintK = null, _hintV = null;
+    function _setHint(k, v) {
+        _hintK = k || null; _hintV = v || null;
+        var h = document.getElementById('mapedit_hint');
+        if (h) h.textContent = k ? t(k, (typeof v === 'function') ? v() : v) : '';
+    }
     function _refreshDisabled() {
         // Obstacle/Free/Wall/Delete/Clear need the edits backend; if the shared
         // polygon isn't ready (planner not inited) the draw tools still function
@@ -809,7 +841,7 @@ window.MapEdits = (function () {
         // Finish means "save an edit" everywhere except the geofence, where it
         // means "send this ring to the agent as a PROPOSAL". Say so on the button,
         // so nobody reads it as "apply the fence".
-        if (fin) fin.textContent = (mode === 'geofence') ? 'Send proposal' : 'Finish';
+        if (fin) _tag(fin, (mode === 'geofence') ? 'medits.gf.send' : 'medits.finish');
         var gw = document.getElementById('mapedit_gf_wrap');
         if (gw) gw.style.display = (mode === 'geofence') ? '' : 'none';
         var ww = document.getElementById('mapedit_wall_wrap');
@@ -850,7 +882,7 @@ window.MapEdits = (function () {
         if (_tool === 'edit_obstacle' || _tool === 'edit_free' || _tool === 'edit_wall'
                 || _tool === 'path' || _tool === 'geofence') {
             var P = sharedPolygon();
-            if (!P) { _setHint('Editor not ready — open the map editor and try again.'); _setTool('off'); return; }
+            if (!P) { _setHint('medits.hint.not_ready'); _setTool('off'); return; }
             _clearPolygon(P);
             // path + barrier are open polylines - no closing edge, no fill
             P.openLine = (_tool === 'path' || _tool === 'edit_wall');
@@ -865,27 +897,23 @@ window.MapEdits = (function () {
                 _gfSay('');
                 _gfTick();
                 _gfStartTicker();
-                _setHint('Click the fence perimeter (at least 3 points), then "Send proposal". ' +
-                         'The robot converts the points to UTM and rejects a ring that crosses ' +
-                         'unmapped space. Only your signature turns it into the active fence.');
+                _setHint('medits.hint.geofence');
             } else if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');
                 if (pn && !pn.value.trim()) pn.value = 'path_' + _pathN;
-                _setHint('Click path points on the map, then Finish. Or click an existing path to edit/delete it. Paths appear in the Paths section.');
+                _setHint('medits.hint.path');
             } else {
                 _setHint(_tool === 'edit_wall'
-                    ? 'Barrier = a virtual line the robot must not cross (fence / keep-out). Click points; set the width; Finish.'
-                    : (_tool === 'edit_obstacle'
-                        ? 'Obstacle = a polygon area of a real object. Click at least 3 points, then Finish.'
-                        : 'Free = clears mapped obstacles / marks the area as drivable. Click at least 3 points, then Finish.'));
+                    ? 'medits.hint.wall'
+                    : (_tool === 'edit_obstacle' ? 'medits.hint.obstacle' : 'medits.hint.free'));
             }
         } else if (_tool === 'waypoint') {
             _renderWpList();
-            _setHint('Click the map to place a waypoint. Existing ones are in the Waypoints section (Move / Delete).');
+            _setHint('medits.hint.waypoint');
         } else if (_tool === 'edit_delete') {
-            _setHint('Click an edit (obstacle / free / wall) to delete it.');
+            _setHint('medits.hint.delete');
         } else {
-            _setHint('Pick a tool above. Pan = drag and zoom the map.');
+            _setHint('medits.hint.pick');
         }
     }
 
@@ -899,14 +927,14 @@ window.MapEdits = (function () {
         for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]); // store y=-rosY -> map y
         var kind = (_tool === 'edit_obstacle') ? 'obstacle' : (_tool === 'edit_free') ? 'free' : 'wall';
         var minPts = (kind === 'wall') ? 2 : 3;
-        if (pts.length < minPts) { _setHint('Need at least ' + minPts + ' points for: ' + kind + '.'); return; }
+        if (pts.length < minPts) { _setHint('medits.hint.need_pts.' + kind, { n: minPts }); return; }
         var spec = { kind: kind, points: pts };
         if (kind === 'wall') {
             var wi = document.getElementById('mapedit_wall_w');
             spec.width_m = wi ? (parseFloat(wi.value) || 0.10) : 0.10;
         }
         if (_layer) _layer.saveEdit(spec);
-        _setHint('Saved (' + kind + ', ' + pts.length + ' pts). Map + zone paths update in a few seconds.');
+        _setHint('medits.hint.saved.' + kind, { n: pts.length });
         _setTool('off');
     }
 
@@ -919,13 +947,13 @@ window.MapEdits = (function () {
         var pts = [];
         var ch = P.pointContainer.children || [];
         for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]); // ros y -> map y
-        if (pts.length < 2) { _setHint('Need at least 2 points for a path.'); return; }
+        if (pts.length < 2) { _setHint('medits.hint.path_need2'); return; }
         var pn = document.getElementById('mapedit_path_name');
         var name = (pn && pn.value ? pn.value : '').trim() || ('path_' + _pathN);
-        if (!_pub_path_at) { _setHint('Path publisher not ready.'); return; }
+        if (!_pub_path_at) { _setHint('medits.hint.path_pub'); return; }
         _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: name, points: pts }) }));
         _pathN++;
-        _setHint('Saved path "' + name + '" (' + pts.length + ' points). It appears in the Path tab.');
+        _setHint('medits.hint.path_saved', { name: name, n: pts.length });
         _setTool('off');
     }
 
@@ -963,8 +991,8 @@ window.MapEdits = (function () {
         if (!_layer) return;
         var tol = _ov.worldTol ? _ov.worldTol(10) : 0.3;
         var name = _layer.hitTest(world, tol);
-        if (name) { _layer.removeEdit(name); _setHint('Deleted edit "' + name + '".'); }
-        else _setHint('No edit under the cursor.');
+        if (name) { _layer.removeEdit(name); _setHint('medits.hint.edit_deleted', { name: name }); }
+        else _setHint('medits.hint.no_edit');
     }
 
     // =====================================================================
@@ -997,11 +1025,11 @@ window.MapEdits = (function () {
         var np = (path.points || []).length;
         host.innerHTML =
             '<div class="vt-sep-dashed">' +
-            '<div class="vt-fs-sm vt-mb2">Selected path: <b class="text-info">' + _escapeHtml(path.name || '') + '</b> <span class="vt-muted">(' + np + ' pts)</span></div>' +
+            '<div class="vt-fs-sm vt-mb2"><span' + _ti('medits.sel_path') + '</span> <b class="text-info">' + _escapeHtml(path.name || '') + '</b> <span class="vt-muted" data-medits-pts="' + np + '">(' + _escapeHtml(tn('medits.pts', np)) + ')</span></div>' +
             '<div class="d-flex vt-gap6">' +
-            '  <button class="btn btn-outline-info btn-sm flex-fill" id="mapedit_path_sel_edit" type="button">Edit</button>' +
-            '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_path_sel_del" type="button">Delete</button>' +
-            '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_path_sel_cancel" type="button">Cancel</button>' +
+            '  <button class="btn btn-outline-info btn-sm flex-fill" id="mapedit_path_sel_edit" type="button"' + _ti('common.edit') + '</button>' +
+            '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_path_sel_del" type="button"' + _ti('common.delete') + '</button>' +
+            '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_path_sel_cancel" type="button"' + _ti('common.cancel') + '</button>' +
             '</div></div>';
         host.querySelector('#mapedit_path_sel_edit').addEventListener('click', function () {
             _hidePathSel();
@@ -1010,13 +1038,13 @@ window.MapEdits = (function () {
         _wireRowDelete(host.querySelector('#mapedit_path_sel_del'), path.name, function () {
             _removePath(path.name);
             _hidePathSel();
-            _setHint('Deleted path "' + path.name + '".');
+            _setHint('medits.hint.path_deleted', { name: path.name });
         });
         host.querySelector('#mapedit_path_sel_cancel').addEventListener('click', function () {
             _hidePathSel();
-            _setHint('Click path points on the map, then Finish. Or click an existing path to edit/delete it.');
+            _setHint('medits.hint.path_short');
         });
-        _setHint('Path "' + (path.name || '') + '" selected — Edit to modify its points, or Delete.');
+        _setHint('medits.hint.path_selected', { name: path.name || '' });
     }
     function _hidePathSel() {
         var host = document.getElementById('mapedit_path_sel');
@@ -1030,14 +1058,14 @@ window.MapEdits = (function () {
     function _editPath(path) {
         _setTool('path');                       // attaches + clears the shared polygon
         var P = sharedPolygon();
-        if (!P) { _setHint('Editor not ready — open the map editor and try again.'); return; }
+        if (!P) { _setHint('medits.hint.not_ready'); return; }
         var pts = path.points || [];
         var seed = [];
         for (var i = 0; i < pts.length; i++) seed.push({ x: pts[i][0], y: -pts[i][1] });
         P.pointContainer.children = seed;       // setter -> _redraw()
         var pn = document.getElementById('mapedit_path_name');
         if (pn) pn.value = path.name || '';
-        _setHint('Editing path "' + (path.name || '') + '" (' + seed.length + ' pts). Drag vertices, click to add points, then Finish to replace. Cancel leaves it unchanged.');
+        _setHint('medits.hint.path_editing', { name: path.name || '', n: seed.length });
     }
 
     function _removePath(name) {
@@ -1049,12 +1077,16 @@ window.MapEdits = (function () {
     function _wireRowDelete(btn, name, onConfirm) {
         if (!btn) return;
         var armed = false, timer = null;
-        var orig = btn.textContent;
+        var orig = btn.textContent, origKey = btn.getAttribute('data-i18n');
         var solid = 'btn-danger', outline = 'btn-outline-danger';
-        function disarm() { armed = false; btn.textContent = orig; btn.classList.remove(solid); btn.classList.add(outline); if (timer) { clearTimeout(timer); timer = null; } }
+        function disarm() {
+            armed = false;
+            if (origKey) _tag(btn, origKey); else btn.textContent = orig;
+            btn.classList.remove(solid); btn.classList.add(outline); if (timer) { clearTimeout(timer); timer = null; }
+        }
         btn.addEventListener('click', function () {
             if (!armed) {
-                armed = true; btn.textContent = 'Confirm'; btn.classList.remove(outline); btn.classList.add(solid);
+                armed = true; _tag(btn, 'common.confirm'); btn.classList.remove(outline); btn.classList.add(solid);
                 timer = setTimeout(disarm, 2500);
             } else {
                 disarm();
@@ -1070,7 +1102,7 @@ window.MapEdits = (function () {
         var pl = document.getElementById('mapedit_path_list');
         if (!pl) return;
         var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
-        if (!paths.length) { pl.innerHTML = '<div class="vt-fs-sm vt-muted">No paths yet.</div>'; return; }
+        if (!paths.length) { pl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_paths') + '</div>'; return; }
         var html = '';
         for (var i = 0; i < paths.length; i++) {
             var pth = paths[i];
@@ -1078,12 +1110,12 @@ window.MapEdits = (function () {
             var np = (pth.points || []).length;
             var hidden = _mapObjLayer.isPathHidden(name);
             html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
-                '<span class="text-truncate vt-grow1 vt-min0 ' + (hidden ? 'vt-muted' : 'vt-sw-00d0a0') + '" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || '(unnamed)') + '</span>' +
-                '<span class="vt-w-xs vt-tar vt-muted">' + np + ' pts</span>' +
+                '<span class="text-truncate vt-grow1 vt-min0 ' + (hidden ? 'vt-muted' : 'vt-sw-00d0a0') + '" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || t('medits.unnamed')) + '</span>' +
+                '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>' +
                 '<div class="btn-group btn-group-sm vt-ml2">' +
-                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="Show / hide this path"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '<i class="la la-eye-slash"></i>' : '<i class="la la-eye"></i>') + '</button>' +
-                '<button class="btn btn-outline-info mapedit-path-edit" data-n="' + _escapeAttr(name) + '" type="button">Edit</button>' +
-                '<button class="btn btn-outline-danger mapedit-path-del" data-n="' + _escapeAttr(name) + '" type="button">Delete</button>' +
+                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="' + _escapeAttr(t('medits.path_vis')) + '"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '<i class="la la-eye-slash"></i>' : '<i class="la la-eye"></i>') + '</button>' +
+                '<button class="btn btn-outline-info mapedit-path-edit" data-n="' + _escapeAttr(name) + '" type="button"' + _ti('common.edit') + '</button>' +
+                '<button class="btn btn-outline-danger mapedit-path-del" data-n="' + _escapeAttr(name) + '" type="button"' + _ti('common.delete') + '</button>' +
                 '</div></div>';
         }
         pl.innerHTML = html;
@@ -1109,7 +1141,7 @@ window.MapEdits = (function () {
             var n = b.getAttribute('data-n');
             _wireRowDelete(b, n, function () {
                 _removePath(n);
-                _setHint('Deleted path "' + n + '".');
+                _setHint('medits.hint.path_deleted', { name: n });
             });
         });
     }
@@ -1130,7 +1162,7 @@ window.MapEdits = (function () {
                 var yaw = (yawDeg || 0) * Math.PI / 180;
                 _publishWaypointAt(finalName, world.x, world.y, yaw);
                 _pendingMoveName = null;
-                _setHint('Moved waypoint "' + finalName + '".');
+                _setHint('medits.hint.wp_moved', { name: finalName });
             }, world, _wpYawDeg(mv));
             return;
         }
@@ -1147,7 +1179,7 @@ window.MapEdits = (function () {
             var yaw = (yawDeg || 0) * Math.PI / 180;
             _publishWaypointAt(finalName, world.x, world.y, yaw);
             _wpN++;
-            _setHint('Saved waypoint "' + finalName + '".');
+            _setHint('medits.hint.wp_saved', { name: finalName });
         }, world, 0);
     }
 
@@ -1159,21 +1191,21 @@ window.MapEdits = (function () {
         if (host) {
             host.innerHTML =
                 '<div class="vt-sep-dashed">' +
-                '<div class="vt-fs-sm vt-mb2">Selected waypoint: <b class="text-info">' + _escapeHtml(wp.name) + '</b></div>' +
+                '<div class="vt-fs-sm vt-mb2"><span' + _ti('medits.sel_wp') + '</span> <b class="text-info">' + _escapeHtml(wp.name) + '</b></div>' +
                 '<div class="d-flex vt-gap6">' +
-                '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_wp_sel_del" type="button">Delete</button>' +
-                '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_sel_cancel" type="button">Cancel</button>' +
+                '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_wp_sel_del" type="button"' + _ti('common.delete') + '</button>' +
+                '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_sel_cancel" type="button"' + _ti('common.cancel') + '</button>' +
                 '</div></div>';
             host.querySelector('#mapedit_wp_sel_del').addEventListener('click', function () {
                 if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: wp.name }));
                 _pendingMoveName = null; _hideWpInput();
-                _setHint('Deleted waypoint "' + wp.name + '".');
+                _setHint('medits.hint.wp_deleted', { name: wp.name });
             });
             host.querySelector('#mapedit_wp_sel_cancel').addEventListener('click', function () {
                 _pendingMoveName = null; _hideWpInput();
             });
         }
-        _setHint('Waypoint "' + wp.name + '" selected — click the map to move it, or use Delete.');
+        _setHint('medits.hint.wp_selected', { name: wp.name });
     }
 
     function _publishWaypointAt(name, x, y, yaw) {
@@ -1238,15 +1270,15 @@ window.MapEdits = (function () {
             ? Math.round(initYawDeg * 2) / 2 : 0;
         host.innerHTML =
             '<div class="vt-sep-dashed">' +
-            '<div class="vt-fs-sm vt-mb1">Waypoint name</div>' +
+            '<div class="vt-fs-sm vt-mb1"' + _ti('medits.wp_name') + '</div>' +
             '<input class="form-control form-control-sm" id="mapedit_wp_name" type="text" value="' + _escapeAttr(name) + '"' + (lockName ? ' readonly' : '') + '>' +
-            '<div class="vt-fs-sm vt-mt2 vt-mr0 vt-mb1 vt-ml0 vt-flex vt-aic vt-gap6">Heading' +
+            '<div class="vt-fs-sm vt-mt2 vt-mr0 vt-mb1 vt-ml0 vt-flex vt-aic vt-gap6"><span' + _ti('medits.heading') + '</span>' +
             ' <input id="mapedit_wp_yawn" class="form-control form-control-sm vt-w-sm vt-pad-s" type="number" min="0" max="359.5" step="0.5" value="' + y0 + '">°' +
-            ' <span class="vt-dim vt-fs-xs">(arrow on the map)</span></div>' +
+            ' <span class="vt-dim vt-fs-xs"' + _ti('medits.heading_hint') + '</span></div>' +
             '<input id="mapedit_wp_yaw" type="range" min="0" max="359.5" step="0.5" value="' + y0 + '" class="vt-w100">' +
             '<div class="d-flex vt-gap6 vt-mt2">' +
-            '  <button class="btn btn-success btn-sm flex-fill" id="mapedit_wp_save" type="button">Save</button>' +
-            '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_cancel" type="button">Cancel</button>' +
+            '  <button class="btn btn-success btn-sm flex-fill" id="mapedit_wp_save" type="button"' + _ti('common.save') + '</button>' +
+            '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_cancel" type="button"' + _ti('common.cancel') + '</button>' +
             '</div></div>';
         _wpInput = host;
         var yaw = host.querySelector('#mapedit_wp_yaw');
@@ -1285,15 +1317,15 @@ window.MapEdits = (function () {
     function _renderWpList() {
         var wl = document.getElementById('mapedit_wp_list');
         if (!wl) return;
-        if (!_wpNames.length) { wl.innerHTML = '<div class="vt-fs-sm vt-muted">No waypoints yet.</div>'; return; }
+        if (!_wpNames.length) { wl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_wps') + '</div>'; return; }
         var html = '';
         for (var i = 0; i < _wpNames.length; i++) {
             var n = _wpNames[i];
             html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
                 '<span class="text-info text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>' +
                 '<div class="btn-group btn-group-sm vt-ml2">' +
-                '<button class="btn btn-outline-info mapedit-wp-move" data-n="' + _escapeAttr(n) + '" type="button">Move</button>' +
-                '<button class="btn btn-outline-danger mapedit-wp-del" data-n="' + _escapeAttr(n) + '" type="button">Delete</button>' +
+                '<button class="btn btn-outline-info mapedit-wp-move" data-n="' + _escapeAttr(n) + '" type="button"' + _ti('medits.move') + '</button>' +
+                '<button class="btn btn-outline-danger mapedit-wp-del" data-n="' + _escapeAttr(n) + '" type="button"' + _ti('common.delete') + '</button>' +
                 '</div></div>';
         }
         wl.innerHTML = html;
@@ -1301,14 +1333,14 @@ window.MapEdits = (function () {
             b.addEventListener('click', function () {
                 if (_tool !== 'waypoint') _setTool('waypoint');
                 _pendingMoveName = b.getAttribute('data-n');
-                _setHint('Click the map to move "' + _pendingMoveName + '" to a new spot.');
+                _setHint('medits.hint.wp_move', { name: _pendingMoveName });
             });
         });
         wl.querySelectorAll('.mapedit-wp-del').forEach(function (b) {
             b.addEventListener('click', function () {
                 var n = b.getAttribute('data-n');
                 if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: n }));
-                _setHint('Deleted waypoint "' + n + '".');
+                _setHint('medits.hint.wp_deleted', { name: n });
             });
         });
     }
@@ -1320,18 +1352,18 @@ window.MapEdits = (function () {
         var el = document.getElementById('mapedit_edit_list');
         if (!el) return;
         var edits = (_layer && _layer.edits) ? _layer.edits : [];
-        if (!edits.length) { el.innerHTML = '<div class="vt-fs-sm vt-muted">No edits yet.</div>'; return; }
-        var LBL = { obstacle: 'Obstacle (area)', free: 'Free', wall: 'Barrier' };
+        if (!edits.length) { el.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_edits') + '</div>'; return; }
+        var LBL = { obstacle: t('medits.kind.obstacle'), free: t('medits.kind.free'), wall: t('medits.kind.wall') };
         var html = '';
         for (var i = 0; i < edits.length; i++) {
             var e = edits[i];
             var kind = LBL[e.kind] || e.kind || '';
             var np = (e.points || []).length;
             html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
-                '<span class="text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || '(unnamed)') + '</span>' +
+                '<span class="text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || t('medits.unnamed')) + '</span>' +
                 '<span class="text-light vt-w-sm">' + _escapeHtml(kind) + '</span>' +
-                '<span class="vt-w-xs vt-tar vt-muted">' + np + ' pts</span>' +
-                '<button class="btn btn-outline-danger btn-sm mapedit-edit-del vt-ml2" data-n="' + _escapeAttr(e.name || '') + '" type="button">Delete</button>' +
+                '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>' +
+                '<button class="btn btn-outline-danger btn-sm mapedit-edit-del vt-ml2" data-n="' + _escapeAttr(e.name || '') + '" type="button"' + _ti('common.delete') + '</button>' +
                 '</div>';
         }
         el.innerHTML = html;
@@ -1339,7 +1371,7 @@ window.MapEdits = (function () {
             b.addEventListener('click', function () {
                 var n = b.getAttribute('data-n');
                 if (_layer) _layer.removeEdit(n);
-                _setHint('Deleted edit "' + n + '".');
+                _setHint('medits.hint.edit_deleted', { name: n });
             });
         });
     }
@@ -1365,6 +1397,20 @@ window.MapEdits = (function () {
         } finally { _layer = keepL; _mapObjLayer = keepM; _wpNames = keepW; }
         return true;
     }
+
+    // Language switch: data-i18n parts follow by themselves; re-draw the rest.
+    function _onLang() {
+        if (!_built) return;
+        _renderEditList(); _renderWpList(); _renderPathList();
+        var sel = document.querySelectorAll('[data-medits-pts]');
+        for (var i = 0; i < sel.length; i++) {
+            sel[i].textContent = '(' + tn('medits.pts', parseInt(sel[i].getAttribute('data-medits-pts'), 10) || 0) + ')';
+        }
+        if (_hintK) _setHint(_hintK, _hintV);
+        if (_gfSaid) _gfSay(_gfSaid.fn, _gfSaid.cls);
+        if (_tool === 'geofence') _gfTick();
+    }
+    if (window.VTI18n) VTI18n.onChange(_onLang);
 
     return {
         mockPreview: mockPreview,
