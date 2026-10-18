@@ -3313,7 +3313,7 @@
                 row.className = 'jd-amend';
                 var meta = document.createElement('span');
                 meta.className = 'jd-amend-m';
-                var when = a.ts ? new Date(a.ts * 1000).toLocaleString() : '';
+                var when = a.ts ? new Date(a.ts * 1000).toLocaleString(window.VTI18n ? VTI18n.lang() : undefined) : '';
                 meta.textContent = (i + 1) + '. ' + (a.by || _t('ajob.d.owner'))
                     + (when ? ' · ' + when : '');
                 var txt = document.createElement('span');

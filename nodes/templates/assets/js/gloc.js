@@ -123,7 +123,7 @@ class Gloc {
             (r.delta_to_current.dist_m.toFixed(2) + ' m / ' +
              r.delta_to_current.dyaw_deg.toFixed(1) + '°') : '—';
         this.el_meta.textContent = glocT('gloc.meta', {s: r.compute_s.toFixed(2),
-            hyp: r.hypotheses.toLocaleString(), rays: r.rays_used});
+            hyp: r.hypotheses.toLocaleString((window.VTI18n ? VTI18n.lang() : undefined)), rays: r.rays_used});
 
         this.el_top.innerHTML = '';
         (r.top || []).forEach((t, i) => {

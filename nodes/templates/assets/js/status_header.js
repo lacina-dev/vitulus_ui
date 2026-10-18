@@ -200,7 +200,7 @@
         netBox.querySelector('.rx').textContent = '↓ ' + formatRate(net.rx_bytes_s);
         netBox.querySelector('.tx').textContent = '↑ ' + formatRate(net.tx_bytes_s);
         monitor.classList.remove('is-offline');
-        monitor.title = tr('status.sys.updated', {time: new Date((data.ts || Date.now() / 1000) * 1000).toLocaleTimeString()});
+        monitor.title = tr('status.sys.updated', {time: new Date((data.ts || Date.now() / 1000) * 1000).toLocaleTimeString((window.VTI18n ? VTI18n.lang() : undefined))});
     }
 
     function pollSystem() {

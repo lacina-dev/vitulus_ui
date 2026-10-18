@@ -4273,7 +4273,7 @@ class StatusLog {
         span.appendChild(source);
         // robot / agent text is data; only the browser's own events carry a key
         span.appendChild(document.createTextNode(entry.key ? vtT(entry.key) : entry.msg));
-        span.title = t.toLocaleString();
+        span.title = t.toLocaleString((window.VTI18n ? VTI18n.lang() : undefined));
         return span;
     }
 

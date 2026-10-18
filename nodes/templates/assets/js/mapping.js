@@ -3101,7 +3101,7 @@ class MappingV3 {
         }
 
         this._say(this.el_proj, () => {
-            let txt = mapT('mapping.proj.voxels', {state: p.state, n: (p.octomap_points || 0).toLocaleString()});
+            let txt = mapT('mapping.proj.voxels', {state: p.state, n: (p.octomap_points || 0).toLocaleString((window.VTI18n ? VTI18n.lang() : undefined))});
             if (p.cells_obstacle !== undefined) {
                 txt += mapT('mapping.proj.raster', {obst: p.cells_obstacle, free: p.cells_free, s: p.took_s});
             }
