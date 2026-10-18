@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master]
+keywords: [world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
 ---
 # Vitulus agent
 
@@ -52,6 +52,57 @@ ok: Report | done, or why not
 
 Only these fixed words continue or cancel — never a model's guess. The mission card has the same
 as buttons (**Resume**, **Cancel**), and **Follow up** pre-fills `pokračuj na N: `.
+
+## When a step fails
+
+The agent does not give up after the first failure. It **measures what went wrong** and tries a
+fitting alternative by itself; you only get a short report.
+
+```flow
+Step fails | e.g. no path to TEST
+Measure | dock messages, navigation codes, GPS, supervisor
+Pick | best untried alternative
+Try | then the step again
+warn: Nothing left | robot outside → back to the dock
+bad: Not even that | stop, motors off, asks you
+```
+
+What it reads: the dock sequence's own messages (the same ones the robot's display shows, e.g.
+*Navigation readiness timeout*, *Intensity timeout*), the navigation result codes (*no path
+found*, *path blocked*, *robot stuck*, *oscillation*), the GPS/RTK state, the battery and the
+supervisor.
+
+| What happened | What the agent tries (in this order, best first) |
+|---|---|
+| no RTK after the undock | waits for RTK up to 10 min (display *waiting RTK (2/10 min)*), then goes on |
+| no path / navigation gave up | short pause and a new plan; then via another named waypoint (from the other side) |
+| path blocked | waits 30 s for the obstacle to move; then via another waypoint |
+| robot stuck / oscillating | a new plan; via another waypoint |
+| docking failed (reflector, map drive) | drives again in front of the dock (UNDOCK) and docks from there; runs the dock program again |
+| motors off | switches the motors on and tries again |
+| still in the dock | undocks first |
+
+- Each alternative has an estimated chance; what helped before on this robot ranks higher (the
+  agent remembers the outcome of every attempt).
+- Limits: at most 8 alternatives per mission, 4 per step, 30 min of trying. Every attempt still
+  needs the dock lock and the supervisor, like any other move. One move of the dock lock is always
+  kept for the way home.
+- **Only when nothing is left** and the robot is outside does it **drive back to the dock**; the
+  mission then ends as *not finished* with the reason. When even docking fails, the robot stops,
+  the motors go off and the chat asks you (`pokračuj` when it can go on).
+- **Never retried:** a person taking over (gamepad, joystick), the STOP, the blade and a position
+  bound. The mission waits for you.
+- What the robot cannot do yet (back up a little, clear the costmaps, dock by another method, a
+  goal next to a waypoint) is filed as a **proposed new capability**; it is added only through the
+  normal review, never during a drive.
+
+### What the robot's display says
+
+During a mission the second line of the robot's display shows what the agent is doing or waiting
+for — short, in English, only when it changes (at most one message every few seconds), for
+example *Agent: driving to TEST*, *Agent: waiting RTK (2/10 min)*, *Agent: trying another way*,
+*Agent: returning to dock*, *Agent: waiting: owner unlock dock*, *Agent: need help - see app*.
+The same in Czech goes to the chat and to the agent's status strip.
 
 ## Work (approvals and jobs)
 

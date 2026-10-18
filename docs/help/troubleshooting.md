@@ -4,9 +4,9 @@ title: Troubleshooting
 group: When something is wrong
 order: 200
 icon: la-wrench
-summary: The robot does not drive, no map, no GPS fix, docking fails or is cancelled, supervisor FAULT, the agent after a restart, the UI does not respond.
+summary: The robot does not drive, no map, no GPS fix, docking fails or is cancelled, supervisor FAULT, a mission did not finish, the agent after a restart, the UI does not respond.
 related: [safety, localization, dock, agent, support]
-keywords: [problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge, docking cancelled, mower stop, reconnect]
+keywords: [problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge, docking cancelled, mower stop, reconnect, mission not finished, returned to dock, need help]
 ---
 # Troubleshooting
 
@@ -56,6 +56,9 @@ Check in this order:
 3. Open sky, a few minutes of patience, the base station running.
 4. `FIX` without `GBAS` = no RTK corrections.
 5. Still nothing → record a *GNSS forensics* bag (**Settings › Rosbag**) and report it.
+6. In an agent mission the agent waits for RTK by itself after a failed undock (up to 10 min, the
+   display says *Agent: waiting RTK*); without RTK it drives back to the dock
+   ([When a step fails](agent.md#when-a-step-fails)).
 
 ## Docking fails
 
@@ -66,7 +69,8 @@ Check in this order:
 4. Reflector not found → clean the reflector, drive the robot to a few metres in front of the dock
    facing it, try again. **Map › Dock › Dock by intensity** tests this stage alone.
 5. A failed sequence does not retry by itself; status *failed* = aborted, detectors off, goal
-   cancelled.
+   cancelled. An agent mission does retry: it drives in front of the dock (UNDOCK) again and
+   docks from there ([When a step fails](agent.md#when-a-step-fails)).
 
 ## Supervisor FAULT
 
@@ -74,6 +78,16 @@ The agent's chat says the supervisor is in FAULT. It stops the robot repeatedly 
 safe again; it clears by itself once the robot has stood still for at least 10 s with motors and
 blade off. A parked mission then usually resumes by itself; after a person took over it waits for
 `pokračuj`. Details: [Supervisor FAULT](agent.md#supervisor-fault).
+
+## The agent's mission did not finish
+
+- *Back in the dock — the task was not finished*: the agent tried its alternatives, none worked,
+  so it brought the robot home. The chat names the cause and every attempt (*Zotavení cestou*).
+  Fix the cause (an obstacle, no RTK, a waypoint in a bad place) and give the task again.
+- *Need help – see app* on the display: even docking failed; the robot stands with the motors
+  off. Look at it, then write `pokračuj` or drive it home yourself.
+- The mission waits after a takeover, STOP or the blade: the agent never retries those — write
+  `pokračuj` when it is safe.
 
 ## Docking was cancelled for no reason
 
