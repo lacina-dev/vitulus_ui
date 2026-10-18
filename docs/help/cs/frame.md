@@ -48,7 +48,7 @@ Visí z horního pásu u pravého okraje:
 
 - **Ovládání** — rychlost Pomalu / Středně / Rychle, jízda klávesnicí, baterie a **Do doku** /
   **Vyjet** / **Stop** ([Dok a výjezd](dock.md)).
-- **Navigace** — stav lokalizace ([co znamenají čipy](localization.md#read-the-state-right-panel--navi)).
+- **Navigace** — stav lokalizace ([co znamenají čipy](localization.md#jak-číst-stav-pravý-panel--navigace)).
 - **Kamera** — viz níže.
 
 Každá sekce se sbalí kliknutím na svůj název. Na telefonu (na výšku i na šířku) je pravý panel

@@ -51,7 +51,7 @@ Programy spouští kalendář sám (když je zapnutá automatika a není zapnut�
 2. Otevři **Mapa** a zkontroluj, že je nějaká mapa **aktivní** (na její kartě je *aktivní*). Bez
    aktivní mapy robot nemůže navigovat ani sekat — [Mapy a mapování](mapping.md).
 3. Vyjeď s robotem z doku tlačítkem **Vyjet** v pravém panelu — [Dok a výjezd](dock.md).
-4. Zkus krátkou jízdu se [Značkou](routes.md#send-a-goal-with-the-marker) nebo joystickem.
+4. Zkus krátkou jízdu se [Značkou](routes.md#cíl-pomocí-značky) nebo joystickem.
 5. Když si nejsi jistý, zeptej se normální řečí [agenta Vitulus](agent.md).
 
 ## Jak používat tuto nápovědu

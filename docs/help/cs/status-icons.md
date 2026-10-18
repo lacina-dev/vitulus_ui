@@ -46,7 +46,7 @@ napájení); na úzké obrazovce v pruhu pod menu. Když na ikonu najedeš myš�
 | ![](../../../nodes/templates/assets/img/robot_icons/Nextion_ico_supply_green.png) | Napájecí vstup (nabíječka) | připojeno (= v doku) | — | porucha | nic |
 | ![](../../../nodes/templates/assets/img/robot_icons/Nextion_ico_batt_full.png) | Baterie | plná · ¾ · ½ · ¼ · prázdná; při nabíjení s bleskem | | | bez dat |
 
-Ikona **mráčku** vedle loga je upozornění na déšť ([Počasí](waiting.md#weather-map--rain)),
+Ikona **mráčku** vedle loga je upozornění na déšť ([Počasí](waiting.md#počasí-mapa--déšť)),
 text **spojení** vlevo od něj (**SPOJENO** / **PŘIPOJUJI** / **ODPOJENO**) říká, jestli je stránka
 připojená k robotu — kliknutím se hned připojí znovu.
 
