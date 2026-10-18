@@ -88,7 +88,13 @@ only while a layer is on and the camera is shown; with every layer off it does n
   overlay service is not running yet (it starts with the robot's software).
 - **Points slightly off the edges of things** — a few pixels is normal (sensor mounting
   tolerance); a large, constant shift means the sensor positions in the robot model need a
-  calibration.
+  calibration. Measured 18. 10. 2026 (robot in the dock): lidar points sit about 10 px left of
+  edges 3–4 m away, within a few pixels at 1 m — not yet enough to change the robot model; a
+  check outdoors in front of a wall / posts decides it (tool `tools/overlay_extrinsics.py`).
+- **Depth colour vs lidar at distance** — the depth camera reads a little too far the farther it
+  looks: about +1 cm at 1 m, +5 cm at 2 m, +18 cm at 4 m (stereo calibration of the camera, not
+  the robot model). The lidar distance is the right one; the camera's on-chip calibration
+  (RealSense self-calibration / tare) fixes the depth.
 
 ## Drive by hand (joystick)
 
