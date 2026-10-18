@@ -1259,7 +1259,7 @@
         mdSaving = false;
         if (!d || d.ok === false) {
           mdProblems = (d && d.problems) ? d.problems.map(String)
-                                         : ['jádro to odmítlo a neřeklo proč'];
+                                         : ['the core refused it without saying why'];
           drawModels(VA);
           return;
         }

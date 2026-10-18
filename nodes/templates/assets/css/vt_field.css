@@ -426,9 +426,13 @@ a.vt-needs-btn {
    in general). Only looks — no layout of the frame, header or scrollbars. */
 
 /* native controls follow the dark theme and the accent */
-#ui_drawer { color-scheme: dark; }
+#ui_drawer, #right_panel, #div_log_view { color-scheme: dark; }
 #ui_drawer input[type="checkbox"]:not(.form-check-input),
 #ui_drawer input[type="radio"]:not(.form-check-input) { accent-color: var(--vt-accent); width: 16px; height: 16px; }
+/* the right panel's lone native checkbox (keyboard teleop) — same dark/accent look, row size */
+#right_panel input[type="checkbox"]:not(.form-check-input) { accent-color: var(--vt-accent); width: 14px; height: 14px; vertical-align: middle; cursor: pointer; }
+/* status pills never break into two lines ("running" / "2") */
+.vagent-pill { white-space: nowrap; }
 
 /* section headings: small caps, muted, the count as a square tag */
 #vagent_panel .vagent-sh,

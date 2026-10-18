@@ -547,10 +547,10 @@ window.MapEdits = (function () {
         var pts = _gfPoints();
         var area = _gfArea(pts);
         out.innerHTML = pts.length < 3
-            ? '<span class="vt-muted">' + pts.length + ' bodů — plot potřebuje aspoň 3</span>'
-            : ('<b class="text-info">' + pts.length + ' vrcholů</b> · <b class="text-info">' +
-               area.toFixed(1) + ' m²</b> · obvod ' + _gfPerimeter(pts).toFixed(1) + ' m' +
-               (area < 4 ? ' <span class="text-danger">· pod minimem 4 m²</span>' : ''));
+            ? '<span class="vt-muted">' + pts.length + ' points — a fence needs at least 3</span>'
+            : ('<b class="text-info">' + pts.length + ' vertices</b> · <b class="text-info">' +
+               area.toFixed(1) + ' m²</b> · perimeter ' + _gfPerimeter(pts).toFixed(1) + ' m' +
+               (area < 4 ? ' <span class="text-danger">· below the 4 m² minimum</span>' : ''));
     }
     function _gfStartTicker() { if (!_gfTimer) _gfTimer = setInterval(_gfTick, 250); }
     function _gfStopTicker() { if (_gfTimer) { clearInterval(_gfTimer); _gfTimer = null; } }
@@ -562,13 +562,13 @@ window.MapEdits = (function () {
 
     function _finishGeofenceDraw() {
         var pts = _gfPoints();
-        if (pts.length < 3) { _setHint('Plot potřebuje aspoň 3 vrcholy.'); return; }
+        if (pts.length < 3) { _setHint('A fence needs at least 3 vertices.'); return; }
         var site = (document.getElementById('mapedit_gf_site') || {}).value || '';
         site = site.trim();
-        if (!site) { _gfSay('Chybí jméno site — vyplň ho nad tlačítkem.', 'text-danger'); return; }
+        if (!site) { _gfSay('Site name missing — fill it in above the button.', 'text-danger'); return; }
         var by = ((document.getElementById('mapedit_gf_by') || {}).value || '').trim();
         _gfLast = { site: site, points: pts, clicked_by: by || null };
-        _gfSay('Posílám robotu ' + pts.length + ' bodů…');
+        _gfSay('Sending ' + pts.length + ' points to the robot…');
         // Same-origin: the robot's own web node (:7779) serves this. No agent.
         fetch('/api/geofence/propose', {
             method: 'POST',
@@ -576,23 +576,23 @@ window.MapEdits = (function () {
             body: JSON.stringify(_gfLast),
         }).then(function (r) { return r.json(); }).then(function (d) {
             if (!d || d.ok !== true) {
-                _gfSay('<b class="text-danger">Návrh odmítnut</b>\n' +
-                       _escapeHtml((d && (d.error || d.detail)) || 'neznámá chyba') +
-                       '\n\nPlot musí celý ležet ve zmapovaném prostoru — vrcholy i hrany. ' +
-                       'Uprav body a zkus Finish znovu.');
+                _gfSay('<b class="text-danger">Proposal rejected</b>\n' +
+                       _escapeHtml((d && (d.error || d.detail)) || 'unknown error') +
+                       '\n\nThe whole fence must lie in mapped space — vertices and edges. ' +
+                       'Adjust the points and send again.');
                 return;
             }
-            _gfSay('<b class="text-success">Návrh uložen</b> (zatím NEaktivní)\n' +
-                   _escapeHtml(d.summary) + '\notisk: <b>' + _escapeHtml(d.digest) + '</b>\n' +
+            _gfSay('<b class="text-success">Proposal saved</b> (NOT active yet)\n' +
+                   _escapeHtml(d.summary) + '\ndigest: <b>' + _escapeHtml(d.digest) + '</b>\n' +
                    _escapeHtml(d.path) + '\n\n' +
-                   'Aktivovat ho může jen člověk podpisem v příkazové řádce:\n' +
+                   'Only a person can activate it by signing on the command line:\n' +
                    '<code>' + _escapeHtml(d.sign_hint) + '</code>\n' +
-                   '(nebo <code>/geofence podepsat ' + _escapeHtml(d.digest) +
-                   '</code> v chatu agenta, když běží.)');
+                   '(or <code>/geofence podepsat ' + _escapeHtml(d.digest) +
+                   '</code> in the agent chat while it runs.)');
         }).catch(function (err) {
-            _gfSay('<b class="text-danger">Robot neodpověděl</b>\n' + _escapeHtml(String(err)) +
-                   '\nBěží web node robota (:7779)? Body si můžeš stáhnout tlačítkem ' +
-                   '„Stáhnout JSON" a nahrát je přes tools/geofence_propose.');
+            _gfSay('<b class="text-danger">No answer from the robot</b>\n' + _escapeHtml(String(err)) +
+                   '\nIs the robot web node (:7779) running? You can save the points with ' +
+                   '"Download JSON" and feed them to tools/geofence_propose.');
         });
     }
 
@@ -600,7 +600,7 @@ window.MapEdits = (function () {
     // návrh plotu nesmí záviset na tom, že zrovna běží agent.
     function _gfExport() {
         var pts = _gfPoints();
-        if (pts.length < 3) { _gfSay('Nejdřív naklikej aspoň 3 body.', 'text-danger'); return; }
+        if (pts.length < 3) { _gfSay('Click at least 3 points first.', 'text-danger'); return; }
         var site = ((document.getElementById('mapedit_gf_site') || {}).value || '').trim();
         var by = ((document.getElementById('mapedit_gf_by') || {}).value || '').trim();
         var blob = new Blob([JSON.stringify({
@@ -614,9 +614,9 @@ window.MapEdits = (function () {
         a.click();
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-        _gfSay('Staženo ' + pts.length + ' bodů (rámec map).\n' +
-               'Dál:  tools/geofence_propose propose --site ' +
-               _escapeHtml(site || '<site>') + ' --points <soubor>');
+        _gfSay('Downloaded ' + pts.length + ' points (map frame).\n' +
+               'Next:  tools/geofence_propose propose --site ' +
+               _escapeHtml(site || '<site>') + ' --points <file>');
     }
 
     function _buildToolbar() {
@@ -655,10 +655,10 @@ window.MapEdits = (function () {
             '    <div class="d-flex vt-gap6 vt-mb2">' +
             '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1">Site</span>' +
             '        <input class="form-control form-control-sm" id="mapedit_gf_site" type="text" placeholder="site"></div>' +
-            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1">Klikal(a)</span>' +
-            '        <input class="form-control form-control-sm" id="mapedit_gf_by" type="text" placeholder="jméno"></div>' +
+            '      <div class="vt-grow1 vt-min0"><span class="vt-fs-sm vt-block vt-mb1">Clicked by</span>' +
+            '        <input class="form-control form-control-sm" id="mapedit_gf_by" type="text" placeholder="name"></div>' +
             '    </div>' +
-            '    <button class="btn btn-outline-info btn-sm vt-w100" id="mapedit_gf_export" type="button">Stáhnout JSON</button>' +
+            '    <button class="btn btn-outline-info btn-sm vt-w100" id="mapedit_gf_export" type="button">Download JSON</button>' +
             '    <div id="mapedit_gf_out" class="vt-mt2"></div>' +
             '  </div>' +
             '  <div id="mapedit_wp_form" class="vt-mt2"></div>' +
@@ -807,7 +807,7 @@ window.MapEdits = (function () {
         // Finish means "save an edit" everywhere except the geofence, where it
         // means "send this ring to the agent as a PROPOSAL". Say so on the button,
         // so nobody reads it as "apply the fence".
-        if (fin) fin.textContent = (mode === 'geofence') ? 'Odeslat návrh' : 'Finish';
+        if (fin) fin.textContent = (mode === 'geofence') ? 'Send proposal' : 'Finish';
         var gw = document.getElementById('mapedit_gf_wrap');
         if (gw) gw.style.display = (mode === 'geofence') ? '' : 'none';
         var ww = document.getElementById('mapedit_wall_wrap');
@@ -863,9 +863,9 @@ window.MapEdits = (function () {
                 _gfSay('');
                 _gfTick();
                 _gfStartTicker();
-                _setHint('Naklikej obvod plotu (aspoň 3 body), pak „Odeslat návrh". ' +
-                         'Agent body převede do UTM a odmítne prstenec, který vede přes ' +
-                         'nezmapovaný prostor. Aktivní plot z toho udělá teprve tvůj podpis.');
+                _setHint('Click the fence perimeter (at least 3 points), then "Send proposal". ' +
+                         'The robot converts the points to UTM and rejects a ring that crosses ' +
+                         'unmapped space. Only your signature turns it into the active fence.');
             } else if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');
                 if (pn && !pn.value.trim()) pn.value = 'path_' + _pathN;

@@ -184,17 +184,17 @@
         var disk = data && data.disk || {};
         var net = data && data.net || {};
         setPercent('cpu', cpu.percent,
-            'CPU ' + (cpu.percent == null ? 'nedostupné' : cpu.percent + '%') +
+            'CPU ' + (cpu.percent == null ? 'unavailable' : cpu.percent + '%') +
             ' · load ' + (cpu.load_1m == null ? '–' : cpu.load_1m));
-        setPercent('mem', mem.percent, 'Paměť ' + (mem.percent == null ? 'nedostupná' : mem.percent + '%'));
+        setPercent('mem', mem.percent, 'Memory ' + (mem.percent == null ? 'unavailable' : mem.percent + '%'));
         setPercent('disk', disk.percent,
-            'Disk / ' + (disk.percent == null ? 'nedostupný' : disk.percent + '%') +
-            ' · volno ' + (disk.free_bytes == null ? '–' : formatRate(disk.free_bytes).replace('/s', '')));
+            'Disk / ' + (disk.percent == null ? 'unavailable' : disk.percent + '%') +
+            ' · free ' + (disk.free_bytes == null ? '–' : formatRate(disk.free_bytes).replace('/s', '')));
         var netBox = monitor.querySelector('[data-metric="net"]');
         netBox.querySelector('.rx').textContent = '↓ ' + formatRate(net.rx_bytes_s);
         netBox.querySelector('.tx').textContent = '↑ ' + formatRate(net.tx_bytes_s);
         monitor.classList.remove('is-offline');
-        monitor.title = 'System Vitulus NUC · aktualizováno ' + new Date((data.ts || Date.now() / 1000) * 1000).toLocaleTimeString();
+        monitor.title = 'System Vitulus NUC · updated ' + new Date((data.ts || Date.now() / 1000) * 1000).toLocaleTimeString();
     }
 
     function pollSystem() {
@@ -206,7 +206,7 @@
             if (!response.ok) { throw new Error('HTTP ' + response.status); }
             return response.json();
         }).then(paintSystem).catch(function () {
-            if (monitor) { monitor.classList.add('is-offline'); monitor.title = 'Systémová telemetrie nedostupná'; }
+            if (monitor) { monitor.classList.add('is-offline'); monitor.title = 'System telemetry unavailable'; }
         }).finally(function () {
             monitorTimer = window.setTimeout(pollSystem, 2000);
         });

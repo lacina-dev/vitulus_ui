@@ -111,8 +111,8 @@
         handle = el('button', 'rp-handle');
         handle.type = 'button';
         handle.id = 'rp_handle';
-        handle.title = 'Skrýt / zobrazit pravý panel';
-        handle.setAttribute('aria-label', 'Skrýt / zobrazit pravý panel');
+        handle.title = 'Show / hide the right panel';
+        handle.setAttribute('aria-label', 'Show / hide the right panel');
         document.body.appendChild(handle);
 
         var body = el('div', 'rp-body', panel);
@@ -186,7 +186,7 @@
         var fico = document.getElementById('div_status_follow_ico');
         if (fico) {
             fico.classList.add('rp-click');
-            fico.title = 'Přepnout sledování (mapa / robot)';
+            fico.title = 'Toggle follow (map / robot)';
             fico.addEventListener('click', function () {
                 var b = document.getElementById('btn_follow');
                 if (b) { b.click(); }

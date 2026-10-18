@@ -3999,19 +3999,19 @@ function robotEventClassify(value, hintedSource) {
         severity = 'critical';
     } else if (/(warning|varov|slab|degrad|nedostup|unavailable|blocked|čeká na schválení|ztrác)/i.test(n)) {
         severity = 'warning';
-    } else if (/(obnoven|recovered|connected|připojen|dokončen|hotovo|docked|v doku|nabito|charged|fix získán|fix acquired)/i.test(n)) {
+    } else if (/(obnoven|recovered|restored|connected|připojen|dokončen|hotovo|docked|v doku|nabito|charged|fix získán|fix acquired)/i.test(n)) {
         severity = 'good';
     }
     var source = hintedSource || 'Robot';
     if (!hintedSource) {
-        if (/(rtk|gnss|gps|fix|satelit)/i.test(n)) source = 'Poloha';
+        if (/(rtk|gnss|gps|fix|satelit)/i.test(n)) source = 'Position';
         else if (/(lidar|laser|scan)/i.test(n)) source = 'Lidar';
-        else if (/(motor|moteus|pohon)/i.test(n)) source = 'Pohon';
-        else if (/(dock|dok|nabíj|charger)/i.test(n)) source = 'Dok';
-        else if (/(navig|trasa|waypoint|cíl|goal)/i.test(n)) source = 'Navigace';
-        else if (/(kamera|camera|realsense)/i.test(n)) source = 'Kamera';
-        else if (/(bater|battery|napájen|power)/i.test(n)) source = 'Napájení';
-        else if (/(signal|spojení|connection|wifi|síť)/i.test(n)) source = 'Spojení';
+        else if (/(motor|moteus|pohon)/i.test(n)) source = 'Drive';
+        else if (/(dock|dok|nabíj|charger)/i.test(n)) source = 'Dock';
+        else if (/(navig|trasa|waypoint|cíl|goal)/i.test(n)) source = 'Navigation';
+        else if (/(kamera|camera|realsense)/i.test(n)) source = 'Camera';
+        else if (/(bater|battery|napájen|power)/i.test(n)) source = 'Power';
+        else if (/(signal|spojení|connection|wifi|síť)/i.test(n)) source = 'Connection';
     }
     return {msg: msg, source: source, severity: severity,
             signature: source + '|' + msg.toLowerCase()};
@@ -4055,11 +4055,11 @@ class StatusLog {
         this.history_topic.subscribe((message) => this.process_history(message));
         if (this.ros && this.ros.on) {
             this.ros.on('connection', () => this.ingest({
-                t: Date.now() / 1000, msg: 'Spojení s robotem obnoveno', source: 'Spojení'}));
+                t: Date.now() / 1000, msg: 'Connection to the robot restored', source: 'Connection'}));
             this.ros.on('close', () => this.ingest({
-                t: Date.now() / 1000, msg: 'Ztratil se signál z robota', source: 'Spojení'}));
+                t: Date.now() / 1000, msg: 'Lost signal from the robot', source: 'Connection'}));
             this.ros.on('error', () => this.ingest({
-                t: Date.now() / 1000, msg: 'Chyba spojení s robotem', source: 'Spojení'}));
+                t: Date.now() / 1000, msg: 'Robot connection error', source: 'Connection'}));
         }
         this.poll_agent();
     }
