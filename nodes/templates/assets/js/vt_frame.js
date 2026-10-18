@@ -177,6 +177,7 @@
         // panel closed: the frame flows around the STOP — the spine runs into
         // a ring round the button and on into the bottom bar (placeStopRing)
         var ringR = placeStopRing(m !== 'sheet' && occ === 0, spine, W, H);
+        placeStopNotch(m !== 'sheet' && occ > 0);
         if (ringR > 0) { logLeft = Math.max(logLeft, Math.ceil(ringR) + 4); }
         var wide = lh > 0 && m !== 'sheet' && occ > 0 && (W - occ - jw) < LOG_MIN_W;
         if (wide) { logLeft = 0; }
@@ -344,6 +345,41 @@
         document.body.classList.add('vt-stopring');
         setVar('--vt-estop-x', px(Math.ceil(f2x)));
         return f2x;
+    }
+
+    /* Panel open (owner's sketch 2026-10-19): the panel runs down to the bar
+       and its CONTENT flows round the STOP — the content's left edge bends
+       in a concave arc into a circle round the button and out in another
+       arc onto the bottom. A clip-path on the scrolling body (or on the foot,
+       when the panel has one) cuts that notch; the frame shows in it. */
+    function placeStopNotch(on) {
+        var st = $('vt_stop_big'), body = $('ui_drawer_body'), foot = $('ui_drawer_foot');
+        [body, foot].forEach(function (e) { if (e) { e.style.clipPath = ''; } });
+        document.body.classList.toggle('vt-stopnotch', !!on);
+        if (!on || !st || !body) { return; }
+        var tgt = (foot && foot.offsetHeight > 0) ? foot : body;
+        var r = st.getBoundingClientRect(), b = tgt.getBoundingClientRect();
+        if (!r.width || !b.height) { return; }
+        var cx = r.left + r.width / 2 - b.left, cy = r.top + r.height / 2 - b.top;
+        var R = r.width / 2 + 9, f = 14, w = b.width, h = b.height;
+        var S = 0, Yb = h;
+        var dx1 = S + f - cx, k1 = (R + f) * (R + f) - dx1 * dx1;
+        var dy2 = Yb - f - cy, k2 = (R + f) * (R + f) - dy2 * dy2;
+        if (k1 <= 0 || k2 <= 0 || cy - Math.sqrt(k1) > h) { return; }   // the STOP is not at its foot
+        var f1x = S + f, f1y = cy - Math.sqrt(k1);
+        var f2x = cx + Math.sqrt(k2), f2y = Yb - f;
+        var p1x = cx + R * (f1x - cx) / (R + f), p1y = cy + R * (f1y - cy) / (R + f);
+        var p2x = cx + R * (f2x - cx) / (R + f), p2y = cy + R * (f2y - cy) / (R + f);
+        var a1 = Math.atan2(p1y - cy, p1x - cx), a2 = Math.atan2(p2y - cy, p2x - cx);
+        var sweep = a2 - a1; while (sweep < 0) { sweep += 2 * Math.PI; }
+        var n = function (v) { return v.toFixed(2); };
+        var d = 'M 0 0 L ' + n(w) + ' 0 L ' + n(w) + ' ' + n(h) + ' L ' + n(f2x) + ' ' + n(h) +
+            ' A ' + f + ' ' + f + ' 0 0 1 ' + n(p2x) + ' ' + n(p2y) +
+            ' A ' + n(R) + ' ' + n(R) + ' 0 ' + (sweep > Math.PI ? 1 : 0) + ' 0 ' + n(p1x) + ' ' + n(p1y) +
+            ' A ' + f + ' ' + f + ' 0 0 1 0 ' + n(f1y) + ' Z';
+        tgt.style.clipPath = "path('" + d + "')";
+        // the end of the content scrolls clear of the notch
+        setVar('--vt-notch-h', px(Math.ceil(h - f1y) + 6));
     }
 
     function placeCamLarge(m, cleft, nb, rpb, rpw, rpFull, ledge, W, H) {

@@ -1941,6 +1941,12 @@ html body.vt-frame.vt-panel-open:not(.vt-m-sheet) #vt_c_ped::after { display: no
 #vt_c_stopbg { display: none; position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1205; overflow: visible; }
 #vt_c_stopbg path { fill: var(--vt-frame-bg); }
 html body.vt-frame.vt-stopring #vt_c_ped { display: none; }
+/* panel open: no pedestal either — the panel runs to the bar and its content
+   flows round the STOP (vt_frame.js placeStopNotch clips the body) */
+html body.vt-frame.vt-stopnotch #vt_c_ped { display: none; }
+html body.vt-frame.vt-stopnotch:not(.vt-m-sheet) #ui_drawer_body::after { content: ""; display: block; height: var(--vt-notch-h, 0px); }
+html body.vt-frame.vt-stopnotch:not(.vt-m-sheet) #ui_drawer { bottom: var(--vt-frame-bottom, 40px) !important; }
+html body.vt-frame.vt-stopnotch.vt-log-wide:not(.vt-m-sheet) #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px)) !important; }
 html body.vt-frame.vt-stopring:not(.vt-m-sheet) #div_bottom_menu .btn-group { padding-left: var(--vt-estop-x, 0px); }
 /* the left panel ends on the pedestal */
 html body.vt-frame:not(.vt-m-sheet) #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-ped-h)) !important; }
