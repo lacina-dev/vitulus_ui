@@ -113,6 +113,10 @@
         var occ = 0;
         if (open && !full && m !== 'sheet' && drawer) { occ = drawer.offsetWidth; }
         setVar('--vt-frame-left', px(occ));
+        // P19: the panel over the map (landscape phone) — its width, so the
+        // status strip can centre itself in the part of the hollow left free
+        var ovl = (open && !full && m === 'overlay' && drawer) ? drawer.offsetWidth : 0;
+        setVar('--vt-frame-ovl-left', px(ovl));
         // C frame (owner 2026-10-18): with the panel hidden a narrow SPINE
         // keeps the top and bottom bars joined — the frame stays a "C".
         var spine = (occ > 0) ? 0 : (m === 'sheet' ? SPINE_PHONE : SPINE);

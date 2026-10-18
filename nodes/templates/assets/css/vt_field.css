@@ -235,13 +235,15 @@
 
 /* ------------------------------------------------------ ?mock badge */
 .vt-mock-badge {
-    /* P17: dev-only badge sits low on the left, just above the bottom bar,
-       so it never covers the top of the C (agent strip, notices, menu) */
+    /* P17/P19: dev-only badge — a small tag in the middle of the bottom bar
+       (on a phone that is the free gesture gap), so it never covers the
+       top band, the log or a panel; the last blocked call is its tooltip */
     position: fixed;
-    left: calc(var(--vt-frame-cleft, 12px) + 6px);
-    bottom: calc(var(--vt-frame-bottom, 40px) + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(var(--safe-bottom, 0px) + 3px);
     z-index: 2000;
-    opacity: .9;
+    opacity: .85;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -259,7 +261,7 @@
     text-overflow: ellipsis;
 }
 .vt-mock-badge b { padding: 2px 6px; border-radius: var(--vt-r-tag); background: var(--vt-warn); color: #1c2329; font-size: 10.5px; letter-spacing: .05em; }
-.vt-mock-badge span { overflow: hidden; text-overflow: ellipsis; }
+.vt-mock-badge span { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
     .vt-busy .vt-sdot, .vt-sdot.vt-busy, .vt-skel { animation: none; }
@@ -886,3 +888,27 @@ a.vt-needs-btn {
     #status_div.sh-strip .sh-group { gap: 2px; }
     #status_div.sh-strip img { width: 13px !important; height: 13px !important; }
 }
+/* landscape phone / small tablet: the strip floats over the map — it hangs
+   from the menu band as a small protrusion of the C (frame surface, square
+   top, rounded bottom), centred in the free part of the hollow between the
+   panel and the right panel; when that is narrow it takes two rows (the
+   row stays 32 px, nothing below moves) */
+body.vt-frame.vt-m-overlay #row_icons {
+    padding-left: calc(var(--vt-frame-ovl-left, 0px) + 8px);
+    padding-right: calc(100vw - var(--vt-frame-rp-left, 100vw) + 8px);
+}
+body.vt-frame.vt-m-overlay #row_icons > .col-1 { display: none; }
+body.vt-frame.vt-m-overlay #row_icons > [class*="col-10"] { flex: 1 1 auto; width: auto; max-width: none; display: flex; justify-content: center; }
+body.vt-frame.vt-m-overlay #status_div.sh-strip:not(.in-header) {
+    width: auto; max-width: 100%;
+    position: relative; z-index: 4;          /* above the 3D canvas */
+    background: var(--vt-frame-bg);
+    border-radius: 0 0 var(--vt-r-ctl) var(--vt-r-ctl);
+    padding: 0 8px !important;
+}
+/* …and when the panel is open the free gap is too narrow for 17 icons: the
+   strip then shows only what needs attention (warning / fault); the quiet
+   OK and no-data icons step back until the panel closes */
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip img:is([src*="_green"], [src*="_grey"], [src*="_disabled"], [src*="batt_full"], [src*="battCHARGE_full"], [src*="batt_34"], [src*="battCHARGE_34"], [src*="batt_half"], [src*="battCHARGE_half"]) { display: none !important; }
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip { column-gap: 6px; }
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*="_orange"], img[src*="_red"], img[src*="_14"], img[src*="_empty"])) { display: none !important; }

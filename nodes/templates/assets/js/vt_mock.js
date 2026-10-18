@@ -58,6 +58,7 @@
             document.body.appendChild(badge);
         }
         if (badgeTxt) { badgeTxt.textContent = count + ' blocked · ' + fmt(m); }
+        if (badge) { var bb = badge.firstChild; if (bb) { bb.textContent = 'MOCK ' + count; } badge.title = count + ' blocked · ' + fmt(m); }
     }
     function record(m) {
         m = m || {};
