@@ -438,6 +438,19 @@
             handle.style.display = '';
             handle.style.top = Math.round(top + (frame ? 24 : 10)) + 'px';   // C frame: below the concave corner
             handle.style.right = isOpen() ? (panel.offsetWidth || PANEL_W) + 'px' : '0px';
+            /* P9: the collapsed one-row panel (phone) is shorter than the
+               handle — the handle used to hang ~30 px below the row. Fit it
+               into the row, under the concave corner. */
+            var ph = isOpen() ? panel.offsetHeight : 0;
+            if (ph && ph < 100) {
+                var hh = Math.max(24, ph - (frame ? 20 : 12));
+                handle.style.top = Math.round(top + (frame ? 16 : 6)) + 'px';
+                handle.style.height = hh + 'px';
+                handle.style.lineHeight = hh + 'px';
+            } else {
+                handle.style.height = '';
+                handle.style.lineHeight = '';
+            }
         }
         paintCam();
     }

@@ -691,3 +691,5 @@ a.vt-needs-btn {
     margin-left: auto; flex-wrap: nowrap; max-width: 100%;
 }
 #vagent_panel .vagent-ujob .vagent-polgrp > .vagent-policy { margin-left: 0; }
+/* Models: vendor / judge labels are tags (square inside round), not pills */
+#vagent_panel .md-ven, #vagent_panel .md-badge { border-radius: var(--vt-r-tag); }
