@@ -73,6 +73,7 @@
     function asset(src) {
         src = String(src || '').trim();
         if (/^img\//.test(src)) { return '/help/' + src; }
+        if (/^\.\.\/img\//.test(src)) { return '/help/' + src.slice(3); }   // from docs/help/<lang>/
         var a = /^(?:\.\.\/)+nodes\/templates\/(assets\/.*)$/.exec(src);
         if (a) { return '/' + a[1]; }
         if (/^\/(assets|help)\//.test(src)) { return src; }
@@ -233,7 +234,24 @@
                  html: r.html, headings: r.headings, blocks: r.blocks, links: links };
     }
 
-    var api = { parse: parse, slug: slug, fold: fold, esc: esc, asset: asset };
+    /* Language of the help: `base` = the parsed English topics, `tr` = the
+       parsed topics of docs/help/<lang>/. A translation replaces the English
+       topic with the same id; every other topic stays English and is marked
+       untranslated (d.lang = 'en', d.untranslated = true). A translation
+       without an English topic is dropped (English is the source). */
+    function merge(base, tr, lang) {
+        var by = {};
+        (tr || []).forEach(function (d) { if (d && d.id) { by[d.id] = d; } });
+        return (base || []).map(function (d) {
+            var x = lang && lang !== 'en' ? by[d.id] : null;
+            if (x) { x.lang = lang; x.untranslated = false; x.source = d; return x; }
+            d.lang = 'en';
+            d.untranslated = !!(lang && lang !== 'en');
+            return d;
+        });
+    }
+
+    var api = { parse: parse, slug: slug, fold: fold, esc: esc, asset: asset, merge: merge };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     else { root.VTHelpMd = api; }
 })(typeof window !== 'undefined' ? window : this);

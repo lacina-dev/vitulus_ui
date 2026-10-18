@@ -4,15 +4,15 @@ title: Settings
 group: Using the UI
 order: 120
 icon: la-cog
-summary: Motors, Navi, Power, Mower, Diag, Rosbag and IMU — what each tab is for.
-ui: [config, config/motors#motors, config/lidar#navi, config/power#power, config/diag#diag, config/rosbag#rosbag, config/imu#imu]
+summary: Motors, Navi, Power, Mower, Diag, Rosbag, IMU and App (language, agent, support, display) — what each tab is for.
+ui: [config, config/motors#motors, config/lidar#navi, config/power#power, config/diag#diag, config/rosbag#rosbag, config/imu#imu, config/app#app]
 related: [safety, mowing, status-icons]
-keywords: [settings, motors, torque, navi, lidar, power, battery, charge, sleep, diagnostics, diag, rosbag, recording, bag, imu, calibration]
+keywords: [settings, app, language, czech, čeština, jazyk, english, display, motors, torque, navi, lidar, power, battery, charge, sleep, diagnostics, diag, rosbag, recording, bag, imu, calibration]
 ---
 # Settings
 
-**Settings** (⚙ in the menu band) has one tab per part of the robot. The **?** in the panel head
-jumps to the tab you have open.
+**Settings** (⚙ in the menu band) has one tab per part of the robot, and **App** for this
+application itself. The **?** in the panel head jumps to the tab you have open.
 
 ## Motors
 
@@ -68,3 +68,26 @@ Bags take a lot of disk space; delete what you no longer need.
 Calibration of the inertial sensor: **Remove DCD**, **Reset IMU**, **Run**, **Save**, and the
 state of the IMU, navigation, magnetometer, RTK and fusion. A small stick lets the robot only
 rotate in place during the calibration. Meant for service.
+
+## App
+
+Settings of this application (the UI), not of the robot. Nothing here moves the robot or changes
+anything on it except the stored language.
+
+- **Language** — **English** or **Čeština**. It switches at once, without a reload, and is stored
+  **on the robot**, so every phone and PC shows the same language (the line under the buttons
+  says *Saved on the robot*). When the robot cannot store it (it is restarting, or the page runs
+  as `?mock`), it is kept on this device only and the line says so. The help follows the
+  language; a topic not translated yet shows in English with a note. The default is English.
+- **Agent** — *Message density* (Comfortable / Compact, the same as ▤ in the agent panel),
+  *Chat history* (All devices / This browser, the same as the all / mine switch above the chat)
+  and the tab the agent panel *opens on*.
+- **Support** — *Your name*, which signs the decisions you make in **Needs you** (audit), the tab
+  the Support panel *opens on*, and whether *decisions from the robot UI* are allowed. That last
+  one is only shown here; it is switched in the Support kit (**Open the Support dashboard**).
+- **Display** — what this device shows at the next start: the log (Hidden / Small / Full screen)
+  and what it shows (Changes / ROS), the camera small or large, the joystick, whether the view
+  follows the map or the robot, and the right panel on a phone (one line or full).
+
+Agent, Support and Display are remembered **in this browser** (each phone or PC has its own) and
+follow what you do elsewhere in the UI — set here what the next start should look like.

@@ -649,6 +649,14 @@ ul.nav-tabs.drawer-pills.vt-more-l.vt-more-r, #vagent_tabs.vt-more-l.vt-more-r {
 #span_rtk_deg { color: #c65bff; }
 #span_fuse_deg { color: #ffffff; }
 
+/* Settings › App (vt_app_settings.js): label · control · hint per item */
+.vt-app-items { display: flex; flex-direction: column; gap: var(--vt-gap-3); }
+.vt-app-item .vt-label { margin-bottom: var(--vt-gap-1); }
+.vt-app-item .vt-seg > .btn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vt-app-item .vt-select { width: 100%; }
+.vt-app-hint { margin-top: var(--vt-gap-1); font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+.vt-app-item .vt-row { gap: var(--vt-gap-2); }
+
 /* Calendar */
 .vt-switch-inline { margin: 0 0 0 auto; display: flex; align-items: center; gap: 6px; }
 .vt-switch-inline .form-check-label { font-size: var(--vt-fs-sm); color: var(--vt-muted); }

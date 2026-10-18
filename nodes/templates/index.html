@@ -58,6 +58,9 @@
 <script src="/assets/js/eventemitter2.js"></script>
 <script src="/assets/js/roslib.js"></script>
 <script src="/assets/js/vt_mock.js"></script>
+<script src="/assets/js/i18n/en.js"></script>
+<script src="/assets/js/i18n/cs.js"></script>
+<script src="/assets/js/vt_i18n.js"></script>
 <script src="/assets/js/ros3d.js"></script>
 <script src="/assets/js/nipplejs.js"></script>
 <script src="/assets/js/vt_joy.js"></script>
@@ -86,6 +89,7 @@
 <script src="/assets/js/vt_help_md.js"></script>
 <script src="/assets/js/vt_help.js"></script>
 <script src="/assets/js/vt_support.js"></script>
+<script src="/assets/js/vt_app_settings.js"></script>
 <script src="/assets/js/vt_frame.js"></script>
 <script src="/assets/js/vt_cam_overlay.js"></script>
 <style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
@@ -1466,6 +1470,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag">Diag</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag">Rosbag</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu">IMU</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_app" data-i18n="settings.tab.app">App</a></li>
                                         </ul>
                                         <div class="tab-content vt-tabs-host">
                                             <!-- U1 kolo 2: Settings tab bodies in the panel anatomy (vt_panel.css:
@@ -1650,6 +1655,9 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     </div>
   </div>
 </div>
+<!-- Settings › App: settings of this application (language, agent, support,
+     display) — built by assets/js/vt_app_settings.js, texts in assets/js/i18n/ -->
+<div class="tab-pane fade" role="tabpanel" id="tab_app"><div id="div_app_settings"></div></div>
 <div class="tab-pane" role="tabpanel" id="tab_imu"><div id="div_content_imu">
   <div class="vt-imu">
     <div class="vt-imu-side">

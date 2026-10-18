@@ -21,8 +21,16 @@
 (function () {
     'use strict';
     var MD = window.VTHelpMd;
+    var I = window.VTI18n;
+    function t(k, v) { return I ? I.t(k, v) : k; }
+    function lang() { return I ? I.lang() : 'en'; }
+    /* group names stay English in the front matter (they are keys); the
+       pane shows them in the UI language */
     var GROUPS = ['Start here', 'Robot', 'Using the UI', 'When something is wrong'];
-    var docs = null, byId = {}, uiMap = {}, loading = null;
+    var GROUP_KEY = { 'Start here': 'help.group.start', 'Robot': 'help.group.robot',
+                      'Using the UI': 'help.group.ui', 'When something is wrong': 'help.group.wrong' };
+    function groupName(g) { return GROUP_KEY[g] ? t(GROUP_KEY[g]) : g; }
+    var docs = null, byId = {}, uiMap = {}, loading = null, docsLang = null;
     var pane, body, search, backBtn, title;
     var history = [], cur = null, ctxKey = null, opener = null;
 
@@ -33,17 +41,30 @@
         return e;
     }
     function $(id) { return document.getElementById(id); }
+    /* a text that follows the UI language (vt_i18n.js re-applies data-i18n*) */
+    function tagT(e, key, attr) {
+        if (I) { return I.tag(e, key, attr); }
+        if (attr) { e.setAttribute(attr, key); } else { e.textContent = key; }
+        return e;
+    }
 
     /* --------------------------------------------------------- the docs */
+    /* docs/help/*.md in English + docs/help/<lang>/*.md for the UI language
+       (VTHelpMd.merge: a translation replaces its topic, the rest stays EN) */
     function load(cb) {
+        if (docs && docsLang !== lang()) { docs = null; byId = {}; uiMap = {}; }
         if (docs) { cb(docs); return; }
         if (loading) { loading.push(cb); return; }
         loading = [cb];
-        fetch('/help/docs.json', { cache: 'no-cache' }).then(function (r) {
+        var want = lang();
+        fetch('/help/docs.json' + (want !== 'en' ? '?lang=' + encodeURIComponent(want) : ''), { cache: 'no-cache' }).then(function (r) {
             if (!r.ok) { throw new Error('HTTP ' + r.status); }
             return r.json();
         }).then(function (j) {
-            docs = (j.docs || []).map(function (d) { return MD.parse(d.file, d.text); });
+            var base = (j.docs || []).map(function (d) { return MD.parse(d.file, d.text); });
+            var tr = (j.translations || []).map(function (d) { return MD.parse(d.file, d.text); });
+            docs = MD.merge ? MD.merge(base, tr, j.lang || 'en') : base;
+            docsLang = want;
             docs.sort(function (a, b) { return (a.meta.order || 999) - (b.meta.order || 999) || a.meta.title.localeCompare(b.meta.title); });
             docs.forEach(function (d) {
                 byId[d.id] = d;
@@ -55,6 +76,7 @@
         }).catch(function (e) {
             docs = [];
             docs.error = String(e && e.message || e);
+            docsLang = want;
         }).then(function () {
             var q = loading; loading = null;
             q.forEach(function (f) { f(docs); });
@@ -113,7 +135,7 @@
         groups.forEach(function (g) {
             var list = docs.filter(function (d) { return (d.meta.group || 'Robot') === g; });
             if (!list.length) { return; }
-            frag.appendChild(el('h3', 'vth-grp', g));
+            frag.appendChild(el('h3', 'vth-grp', groupName(g)));
             var grid = el('div', 'vth-cards');
             list.forEach(function (d) { grid.appendChild(card(d, onPick)); });
             frag.appendChild(grid);
@@ -122,10 +144,10 @@
     }
     function foot(extra) {
         var f = el('div', 'vth-foot');
-        f.appendChild(document.createTextNode('This help is the documentation: '));
+        f.appendChild(document.createTextNode(t('help.foot.doc')));
         f.appendChild(el('code', null, extra || 'docs/help/'));
-        f.appendChild(document.createTextNode(' in vitulus_ui. Support kit help: '));
-        var a = el('a', null, 'Support › Help');
+        f.appendChild(document.createTextNode(t('help.foot.kit')));
+        var a = el('a', null, t('help.foot.link'));
         a.href = 'https://' + location.hostname + ':8790/#/help'; a.target = '_blank'; a.rel = 'noopener';
         f.appendChild(a);
         return f;
@@ -135,17 +157,17 @@
         backBtn.hidden = true;
         body.textContent = '';
         if (docs.error) {
-            body.appendChild(el('p', 'vth-empty', 'Help could not be loaded (' + docs.error + '). The robot UI web node may be restarting — try again in a few seconds.'));
+            body.appendChild(el('p', 'vth-empty', t('help.error', { err: docs.error })));
             return;
         }
         var ctx = resolve(ctxKey);
         if (ctx && byId[ctx.id]) {
             var box = el('div', 'vth-ctx');
-            box.appendChild(el('span', 'vth-ctx-lab', 'For what is open now'));
+            box.appendChild(el('span', 'vth-ctx-lab', t('help.ctx')));
             box.appendChild(card(byId[ctx.id], function () { go(ctx.id, ctx.anchor); }));
             body.appendChild(box);
         } else {
-            body.appendChild(el('p', 'vth-intro', 'How to use the robot and this screen. Search above, or pick a topic. The small ? in a panel’s head opens the topic of that panel.'));
+            body.appendChild(el('p', 'vth-intro', t('help.intro')));
         }
         body.appendChild(cardsByGroup(function (id) { go(id); }));
         body.appendChild(foot());
@@ -158,13 +180,14 @@
         backBtn.hidden = false;
         body.textContent = '';
         var cr = el('div', 'vth-crumb');
-        var hb = el('button', null, 'All topics'); hb.type = 'button';
+        var hb = el('button', null, t('help.all')); hb.type = 'button';
         hb.addEventListener('click', function () { history.push(cur); showHome(); });
         cr.appendChild(hb);
-        cr.appendChild(document.createTextNode('›  ' + (d.meta.group || '')));
+        cr.appendChild(document.createTextNode('›  ' + groupName(d.meta.group || '')));
         body.appendChild(cr);
         body.appendChild(el('h2', 'vth-h-title', d.meta.title));
         if (d.meta.summary) { body.appendChild(el('p', 'vth-sum', d.meta.summary)); }
+        if (d.untranslated) { body.appendChild(el('p', 'vth-sum vth-untr', t('help.untranslated'))); }
         var h2 = d.headings.filter(function (h) { return h.level === 2; });
         if (h2.length >= 3) {
             var toc = el('div', 'vth-toc');
@@ -180,13 +203,13 @@
         body.appendChild(doc);
         if (d.meta.related.length) {
             var rel = el('div', 'vth-ctx');
-            rel.appendChild(el('span', 'vth-ctx-lab', 'Related'));
+            rel.appendChild(el('span', 'vth-ctx-lab', t('help.related')));
             var g = el('div', 'vth-cards');
             d.meta.related.forEach(function (r) { if (byId[r]) { g.appendChild(card(byId[r], function () { go(r); })); } });
             rel.appendChild(g);
             body.appendChild(rel);
         }
-        body.appendChild(foot('docs/help/' + d.file));
+        body.appendChild(foot('docs/help/' + (d.lang && d.lang !== 'en' ? d.lang + '/' : '') + d.file));
         body.scrollTop = 0;
         if (anchor) { setTimeout(function () { jump(anchor); }, 30); }
     }
@@ -257,7 +280,7 @@
         hits.sort(function (a, b) { return b.score - a.score; });
         body.textContent = '';
         if (!hits.length) {
-            body.appendChild(el('p', 'vth-empty', 'Nothing found for “' + raw + '”. Try another word (e.g. dock, GPS, map, stop).'));
+            body.appendChild(el('p', 'vth-empty', t('help.nothing', { q: raw })));
             return;
         }
         var ul = el('ul', 'vth-hits');
@@ -281,22 +304,22 @@
         pane = el('aside');
         pane.id = 'vt_help';
         pane.setAttribute('role', 'complementary');
-        pane.setAttribute('aria-label', 'Help');
+        tagT(pane, 'help.title', 'aria-label');
         pane.setAttribute('aria-hidden', 'true');
         var grip = el('button', 'vth-grip'); grip.type = 'button';
-        grip.setAttribute('aria-label', 'Full height');
+        tagT(grip, 'help.full', 'aria-label');
         grip.addEventListener('click', function () { pane.classList.toggle('vth-full'); });
         pane.appendChild(grip);
         var head = el('div', 'vth-head');
         backBtn = el('button', 'vth-btn', '‹'); backBtn.type = 'button';
-        backBtn.title = 'Back'; backBtn.setAttribute('aria-label', 'Back'); backBtn.hidden = true;
+        tagT(backBtn, 'help.back', 'title'); tagT(backBtn, 'help.back', 'aria-label'); backBtn.hidden = true;
         backBtn.addEventListener('click', back);
-        title = el('span', 'vth-title', 'Help');
+        title = tagT(el('span', 'vth-title'), 'help.title');
         search = el('input', 'vth-search');
-        search.type = 'search'; search.placeholder = 'Search help'; search.setAttribute('aria-label', 'Search help');
+        search.type = 'search'; tagT(search, 'help.search', 'placeholder'); tagT(search, 'help.search', 'aria-label');
         search.addEventListener('input', runSearch);
         var x = el('button', 'vth-btn vth-close', '×'); x.type = 'button';
-        x.title = 'Close help (Esc)'; x.setAttribute('aria-label', 'Close help');
+        tagT(x, 'help.close.tip', 'title'); tagT(x, 'help.close', 'aria-label');
         x.addEventListener('click', close);
         head.appendChild(backBtn); head.appendChild(title); head.appendChild(search); head.appendChild(x);
         pane.appendChild(head);
@@ -360,22 +383,22 @@
     }
 
     /* ------------------------------------------------- the "?" buttons */
-    function qBtn(id, label, onClick) {
+    function qBtn(id, labelKey, onClick) {
         var b = el('button', 'vth-q', '?');
         if (id) { b.id = id; }
-        b.type = 'button'; b.title = label; b.setAttribute('aria-label', label);
+        b.type = 'button'; tagT(b, labelKey, 'title'); tagT(b, labelKey, 'aria-label');
         b.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); onClick(); });
         return b;
     }
     function install() {
         var head = $('ui_drawer_head'), full = $('btn_ui_drawer_full');
         if (head && !$('btn_ui_drawer_help')) {
-            head.insertBefore(qBtn('btn_ui_drawer_help', 'Help for this panel', function () { toggle(); }), full || $('btn_ui_drawer_close'));
+            head.insertBefore(qBtn('btn_ui_drawer_help', 'help.q.panel', function () { toggle(); }), full || $('btn_ui_drawer_close'));
         }
         // the log toolbar: what Changes / ROS mean
         var tb = document.querySelector('#div_log_view .log-toolbar');
         if (tb && !tb.querySelector('.vth-q')) {
-            var lb = qBtn(null, 'Help for the log', function () { toggle('log'); });
+            var lb = qBtn(null, 'help.q.log', function () { toggle('log'); });
             lb.classList.add('vth-q-log');
             var ex = $('btn_log_expand');
             if (ex && ex.parentNode === tb) { tb.insertBefore(lb, ex); } else { tb.appendChild(lb); }
@@ -385,7 +408,7 @@
         (function rp() {
             var h = document.querySelector('#right_panel .rp-sec[data-sec="state"] > h5');
             if (h && !h.querySelector('.vth-q')) {
-                var b = qBtn(null, 'What these states mean', function () { toggle('right/state'); });
+                var b = qBtn(null, 'help.q.state', function () { toggle('right/state'); });
                 var caret = h.querySelector('.rp-caret');
                 h.insertBefore(b, caret || null);
                 return;
@@ -394,9 +417,23 @@
         })();
     }
 
+    /* language switch: the next load() fetches that language; an open pane
+       redraws the topic (or the list) it shows */
+    function relang() {
+        if (!docs || docsLang === lang()) { return; }
+        docs = null; byId = {}; uiMap = {};
+        if (!isOpen()) { return; }
+        var at = cur;
+        load(function () {
+            history = [];
+            search.value = '';
+            if (at && byId[at.id]) { showDoc(at.id, ''); } else { showHome(); }
+        });
+    }
     function init() {
         if (!MD) { return; }
         install();
+        if (I) { I.onChange(relang); }
         window.VTHelp = {
             open: open, close: close, toggle: toggle, contextKey: contextKey, isOpen: isOpen,
             topics: function (cb) { load(cb); },
@@ -404,7 +441,7 @@
             cards: function (onPick) {
                 var box = el('div');
                 load(function () {
-                    if (docs.error) { box.appendChild(el('p', 'vt-empty', 'Help could not be loaded.')); return; }
+                    if (docs.error) { box.appendChild(el('p', 'vt-empty', t('help.error.short'))); return; }
                     box.appendChild(cardsByGroup(onPick || function (id) { open(id); }));
                 });
                 return box;

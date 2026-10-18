@@ -247,3 +247,4 @@ ol.vth-list > li::marker { color: var(--vt-accent); font-weight: 700; }
     #vt_help:not(.vth-sheet) { --vth-w: min(380px, 50vw); }
     .vth-head { min-height: 40px; }
 }
+#vt_help .vth-untr { font-style: italic; font-size: var(--vt-fs-sm, 12px); opacity: .8; }

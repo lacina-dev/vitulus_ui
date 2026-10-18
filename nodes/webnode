@@ -512,29 +512,129 @@ if __name__ == '__main__':
                 rospy.logwarn("[webnode] tile_offsets reset failed: %s", exc)
                 return jsonify({'ok': False, 'error': str(exc)}), 400
 
+        # ------------------------------------------------------------------
+        # UI settings of THIS application (Settings › App), shared by every
+        # browser/device: today only the language (assets/js/vt_i18n.js).
+        # STORE : ~/.vitulus/ui/ui_settings.json (VITULUS_UI_SETTINGS overrides
+        #         the path — a dev instance must not write the live file).
+        # Writes: same-origin JSON of this page with X-Vitulus-UI: 1
+        #         (_same_origin_json, the guard of the other UI writes), only
+        #         the whitelisted keys below, atomic (tmp + os.replace).
+        # Nothing here reaches ROS or the robot's behaviour.
+        UI_SETTINGS_PATH = os.path.expanduser(os.environ.get(
+            'VITULUS_UI_SETTINGS', '~/.vitulus/ui/ui_settings.json'))
+        UI_LANGS = ('en', 'cs')
+
+        def _v_lang(v):
+            v = str(v or '').strip().lower()
+            if v not in UI_LANGS:
+                raise ValueError('lang must be one of %s' % ', '.join(UI_LANGS))
+            return v
+        # key -> validator(value) -> clean value (raises ValueError). A new
+        # shared setting = one line here + its default below.
+        UI_SETTINGS_SCHEMA = {'lang': _v_lang}
+        UI_SETTINGS_DEFAULTS = {'lang': 'en'}
+        _ui_settings_lock = threading.Lock()
+
+        def _ui_settings_load():
+            try:
+                with open(UI_SETTINGS_PATH, 'r') as fh:
+                    doc = json.load(fh)
+            except FileNotFoundError:
+                return {}
+            except Exception as exc:
+                rospy.logwarn("[webnode] ui_settings.json unreadable (%s) - defaults", exc)
+                return {}
+            src = doc.get('settings') if isinstance(doc, dict) else None
+            clean = {}
+            for k, fn in UI_SETTINGS_SCHEMA.items():
+                if isinstance(src, dict) and k in src:
+                    try:
+                        clean[k] = fn(src[k])
+                    except ValueError:
+                        pass
+            return clean
+
+        def _ui_settings_payload(stored):
+            out = dict(UI_SETTINGS_DEFAULTS)
+            out.update(stored)
+            return {'ok': True, 'settings': out, 'stored': sorted(stored.keys()),
+                    'langs': list(UI_LANGS), 'ts': int(time.time())}
+
+        @app.route('/api/ui_settings', methods=['GET'])
+        def api_ui_settings_get():
+            resp = jsonify(_ui_settings_payload(_ui_settings_load()))
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+
+        @app.route('/api/ui_settings', methods=['POST'])
+        def api_ui_settings_set():
+            bad = _same_origin_json()
+            if bad:
+                return bad
+            payload = request.get_json(silent=True)
+            if not isinstance(payload, dict) or not payload:
+                return jsonify({'ok': False, 'error': 'body must be a JSON object'}), 400
+            unknown = [k for k in payload if k not in UI_SETTINGS_SCHEMA]
+            if unknown:
+                return jsonify({'ok': False, 'error': 'unknown setting: %s'
+                                % ', '.join(sorted(str(k) for k in unknown))}), 400
+            try:
+                upd = {k: UI_SETTINGS_SCHEMA[k](v) for k, v in payload.items()}
+            except ValueError as exc:
+                return jsonify({'ok': False, 'error': str(exc)}), 400
+            try:
+                with _ui_settings_lock:
+                    cur = _ui_settings_load()
+                    cur.update(upd)
+                    os.makedirs(os.path.dirname(UI_SETTINGS_PATH), exist_ok=True)
+                    tmp = UI_SETTINGS_PATH + '.tmp'
+                    with open(tmp, 'w') as fh:
+                        json.dump({'version': 1, 'ts': int(time.time()), 'settings': cur},
+                                  fh, indent=1, sort_keys=True)
+                        fh.flush()
+                        os.fsync(fh.fileno())
+                    os.replace(tmp, UI_SETTINGS_PATH)
+            except Exception as exc:
+                rospy.logwarn("[webnode] ui_settings POST failed: %s", exc)
+                return jsonify({'ok': False, 'error': str(exc)}), 500
+            return jsonify(_ui_settings_payload(cur))
+
         # Help = documentation: the help panel (assets/js/vt_help.js) renders
         # the Markdown files of docs/help/ as they are on disk — one source,
         # read in git and in the UI alike (docs/help/README.md). Read-only.
+        # Translations: docs/help/<lang>/<id>.md (e.g. docs/help/cs/settings.md);
+        # ?lang=cs adds them as "translations" next to the English "docs" —
+        # the client (VTHelpMd.merge) puts a translation in place of its
+        # English topic and keeps English for every topic not translated yet.
         _HELP_DIR = os.path.normpath(os.path.join(_HERE, '..', 'docs', 'help'))
 
-        @app.route('/help/docs.json')
-        def help_docs():
-            docs = []
+        def _help_read(folder):
+            out = []
             try:
-                names = sorted(os.listdir(_HELP_DIR))
+                names = sorted(os.listdir(folder))
             except OSError:
                 names = []
             for name in names:
                 if not name.endswith('.md') or name.upper() == 'README.MD':
                     continue
-                path = os.path.join(_HELP_DIR, name)
+                path = os.path.join(folder, name)
                 try:
                     with open(path, 'r', encoding='utf-8') as fh:
-                        docs.append({'file': name, 'text': fh.read(),
-                                     'mtime': int(os.path.getmtime(path))})
+                        out.append({'file': name, 'text': fh.read(),
+                                    'mtime': int(os.path.getmtime(path))})
                 except (OSError, UnicodeDecodeError):
                     continue
-            resp = jsonify({'dir': 'docs/help', 'docs': docs})
+            return out
+
+        @app.route('/help/docs.json')
+        def help_docs():
+            body = {'dir': 'docs/help', 'docs': _help_read(_HELP_DIR)}
+            lang = str(request.args.get('lang') or '').strip().lower()
+            if lang in UI_LANGS and lang != 'en':
+                body['lang'] = lang
+                body['translations'] = _help_read(os.path.join(_HELP_DIR, lang))
+            resp = jsonify(body)
             resp.headers['Cache-Control'] = 'no-cache'
             return resp
 
