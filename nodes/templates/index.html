@@ -1354,15 +1354,16 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                             </div>
 <div class="tab-pane" role="tabpanel" id="tab_calendar"><!-- ===== Calendar Events Section (U1 kolo 2: panel anatomy, no inline styling) ===== -->
                             <div class="vt-stack">
-                                <div class="vt-card">
+                                <div class="vt-card" id="card_calendar">
                                     <div class="vt-card-head">
                                         <span class="vt-card-title">Calendar</span>
-                                        <span class="vt-end"><span id="span_scheduler_status"></span> <span class="vt-ok-text" id="span_scheduler_next"></span></span>
-                                        <div class="form-check form-switch vt-switch-inline">
+                                        <span class="vt-cal-state" id="span_scheduler_state" data-state="off">—</span>
+                                        <div class="form-check form-switch vt-switch-inline" title="Hold = no program starts from the calendar until you release it">
                                             <input class="form-check-input" type="checkbox" id="chk_scheduler_inhibit">
-                                            <label class="form-check-label" for="chk_scheduler_inhibit">Inhibit</label>
+                                            <label class="form-check-label" for="chk_scheduler_inhibit">Hold</label>
                                         </div>
                                     </div>
+                                    <div class="vt-cal-line"><span id="span_scheduler_status" class="vt-muted"></span><span class="vt-ok-text" id="span_scheduler_next"></span></div>
                                     <div id="div_calendar_events" class="vt-list"></div>
                                     <div class="vt-row vt-card-actions"><button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button">+ Add event</button></div>
                                 </div>

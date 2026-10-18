@@ -2821,7 +2821,8 @@
       var ico = el('span', 'vz-ico', g.icon);
       ico.title = g.label + (f.kind ? ' · ' + f.kind : '');
       head.appendChild(ico);
-      var title = el('span', 'vz-title', f.title || f.kind || '?');
+      var title = el('span', 'vz-title',
+                     (VA.findingTitle ? VA.findingTitle(f) : f.title) || f.kind || '?');
       title.title = (f.title || '') + (f.kind ? ' [' + f.kind + ']' : '');
       head.appendChild(title);
       if (f.count && f.count > 1) {

@@ -835,3 +835,17 @@ a.vt-needs-btn {
     --bs-btn-hover-color: var(--vt-text); --bs-btn-hover-bg: #43494f; --bs-btn-hover-border-color: rgba(var(--vt-accent-rgb), 0.55);
 }
 .modal-backdrop.show { opacity: .6; }
+
+/* ============ P15: Programs › Calendar — one state tag with a tone in the
+   head (Held / Automation off / Active / Mowing / Off dock), the raw
+   scheduler line under it, the switch says what it does (Hold) */
+.vt-cal-state {
+    margin-left: auto; flex: 0 0 auto;
+    font: 700 var(--vt-fs-xs)/18px var(--vt-font); letter-spacing: .04em; text-transform: uppercase;
+    padding: 0 7px; border-radius: var(--vt-r-tag);
+    color: var(--vt-st, var(--vt-muted)); background: var(--vt-st-glow, transparent);
+    border: 1px solid var(--vt-st-edge, var(--vt-border-strong));
+}
+.vt-cal-state[data-state="off"] { color: var(--vt-muted); border-color: var(--vt-border-strong); }
+#card_calendar .vt-card-head .form-switch { margin-left: 8px; }
+.vt-cal-line { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--vt-fs-sm); margin: -2px 0 var(--vt-gap-2); min-height: 1.2em; }

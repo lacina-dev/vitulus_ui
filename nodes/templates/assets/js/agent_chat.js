@@ -1691,6 +1691,41 @@
 
     /* Incident templates — the same three the backend sends as `actions`;
        used client-side when a report carries none (older core). */
+    /* English display title of a robot finding (owner rule: the UI speaks
+       English). The v1 doctor (/api/doctor) titles its findings with a Czech
+       label per `kind` (selfcare.TITLES, senses.TITLES, incidents.py) — the
+       kind is stable, so the UI shows its own English name for it and keeps
+       the agent's text for the body. Unknown kinds fall back to the title,
+       never in capitals. */
+    var FINDING_EN = {
+        brain_failures: 'Hermes keeps failing', oracle_failures: 'Oracle keeps failing',
+        latency_drift: 'Replies getting slower', job_failures: 'Background jobs failing',
+        job_stalled: 'Job stalled', log_errors: 'Repeated errors in the logs',
+        queue_stalled: 'Task queue stalled', task_stuck: 'Task stuck',
+        bridge_down: 'Web bridge not answering', chat_topic_dead: 'Chat topic has no subscriber',
+        topic_silent: 'Required topic is silent', disk_footprint: 'Disk space',
+        escalated: 'Recurring fault', repaired: 'Repaired itself', repair_refused: 'Repair refused',
+        rtk_fixed: 'RTK fix', rtk_lost: 'RTK fix lost', battery_low: 'Battery low',
+        battery_critical: 'Battery critical', charging_started: 'Charging started',
+        charging_complete: 'Charged', dock_left: 'Left the dock', dock_returned: 'Back in the dock',
+        mower_unauthorised: 'Blade running without permission', rain_out_of_dock: 'Rain outside the dock',
+        motor_power_changed: 'Motor power changed', drive_motor_fault: 'Drive motor fault',
+        drive_motor_recovered: 'Drive motors recovered', service_down: 'Service down',
+        service_up: 'Service running', morning_report: 'Morning report'
+    };
+    function findingTitle(f) {
+        if (!f) { return ''; }
+        var job = /#(\d+)/.exec(String(f.title || ''));
+        if (f.kind === 'job_parked') { return 'Job ' + (job ? '#' + job[1] + ' ' : '') + 'parked'; }
+        if (f.kind === 'job_unrecoverable') { return 'Job ' + (job ? '#' + job[1] + ' ' : '') + 'cannot be revived'; }
+        if (FINDING_EN[f.kind]) { return FINDING_EN[f.kind]; }
+        var t = String(f.title || f.kind || '').trim();
+        if (t && t === t.toUpperCase() && t !== t.toLowerCase()) {
+            t = t.charAt(0) + t.slice(1).toLowerCase();
+        }
+        return t;
+    }
+
     function incidentActions(id, title, text) {
         var what = String(title || text || '').replace(/\s+/g, ' ').slice(0, 160);
         return [
@@ -5331,8 +5366,8 @@
         }
         if (hot) {
             return {kind: 'finding', tab: 'findings',
-                    label: 'Finding: ' + cut(hot.title, 30),
-                    text: hot.count ? hot.count + '×' : '',
+                    label: 'Finding',
+                    text: findingTitle(hot) + (hot.count > 1 ? ' · ' + hot.count + '×' : ''),
                     age: shortAge(hot.last_seen ? (Date.now() / 1000 - hot.last_seen) : null)};
         }
         if (running) {
@@ -5723,6 +5758,7 @@
         highlightSched: highlightSched,
         inlineConfirm: inlineConfirm,
         incidentActions: incidentActions,
+        findingTitle: findingTitle,
         actionButtons: actionButtons,
         renderMarkdown: renderMarkdown,
         state: sharedState,

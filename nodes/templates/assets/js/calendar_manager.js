@@ -61,7 +61,9 @@ class CalendarManager {
         // Subscribe to scheduler status
         this.statusSub.subscribe((msg) => {
             const el = document.getElementById('span_scheduler_status');
-            if (el) el.textContent = msg.data || '';
+            this._status = msg.data || '';
+            if (el) el.textContent = this._status;
+            this._paintState();
         });
 
         // Subscribe to next-run info
@@ -81,6 +83,8 @@ class CalendarManager {
                 el.checked = !!msg.data;
                 this._inhibitFromRos = false;
             }
+            this._held = !!msg.data;
+            this._paintState();
         });
 
         // DOM references
@@ -130,6 +134,34 @@ class CalendarManager {
                 if (this._inhibitFromRos) return;  // skip ROS-driven updates
                 this.inhibitPub.publish(new ROSLIB.Message({ data: inhibitEl.checked }));
             });
+        }
+    }
+
+    /* P15: one unambiguous state in the card head, with a tone — the raw
+       master_controller status stays on the line below it.
+         Hold on (inhibit)            → "Held"            amber
+         "Disabled" (param off)       → "Automation off"  grey
+         "Mowing"                     → "Mowing"          accent
+         "Off-dock …"                 → "Off dock"        amber
+         "Initialising"               → "Starting"        grey
+         anything else ("Idle …")     → "Active"          green  */
+    _paintState() {
+        const el = document.getElementById('span_scheduler_state');
+        const card = document.getElementById('card_calendar');
+        if (!el) return;
+        const st = String(this._status || '');
+        let label = '—', tone = 'off';
+        if (this._held || /^Inhibited/.test(st)) { label = 'Held'; tone = 'warn'; }
+        else if (/^Disabled/.test(st)) { label = 'Automation off'; tone = 'off'; }
+        else if (/^Mowing/.test(st)) { label = 'Mowing'; tone = 'info'; }
+        else if (/^Off-dock/.test(st)) { label = 'Off dock'; tone = 'warn'; }
+        else if (/^Initialising/.test(st)) { label = 'Starting'; tone = 'off'; }
+        else if (st) { label = 'Active'; tone = 'ok'; }
+        el.textContent = label;
+        el.dataset.state = tone;
+        el.title = st ? 'Scheduler: ' + st : '';
+        if (card) {
+            if (tone === 'off') { delete card.dataset.state; } else { card.dataset.state = tone; }
         }
     }
 
