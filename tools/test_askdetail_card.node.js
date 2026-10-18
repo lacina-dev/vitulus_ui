@@ -10,7 +10,7 @@
  *
  *   1. header strip   (.ah  = type chip + age/auto-deny pills,
  *                      .ah.asrc = job ref + goal head + who asked)
- *   2. the ask        (.asay — ONE plain Czech sentence per kind)
+ *   2. the ask        (.asay — ONE plain English sentence per kind)
  *   3. decision row   (.ar.aact — Approve / Deny / „via:" executors)
  *   4. details        (.adet — every <details> collapsed by default)
  *
@@ -218,18 +218,19 @@ async function main() {
         cls(gate.children[2]).indexOf('k-resume') >= 0);
 
     const say = row.children[2].text();
+    // the UI speaks English (owner rule 2026-08-24); the plan title is data
     ok('plan sentence names the plan title',
-        say.indexOf('připravil plán „AI diagnostický rozlišovač pro incidenty“') >= 0);
-    ok('plan sentence names the job', say.indexOf('pro práci #147') >= 0);
-    ok('plan sentence asks for a yes', say.indexOf('čeká na tvoje ANO') >= 0);
+        say.indexOf('has a plan \u201cAI diagnostický rozlišovač pro incidenty\u201d') >= 0);
+    ok('plan sentence names the job', say.indexOf('for job #147') >= 0);
+    ok('plan sentence asks for a yes', say.indexOf('needs your yes') >= 0);
     ok('plan title stops before the next heading',
         say.indexOf('Problém') < 0);
     const saySt = gate.children[2].children[2].text();
-    ok('resume sentence is plain Czech',
-        saySt.indexOf('Práce #11 stojí a čeká na tvoje ANO') >= 0);
+    ok('resume sentence is plain English',
+        saySt.indexOf('Job #11 is standing still and needs your yes') >= 0);
     const sayCmd = gate.children[3].children[2].text();
-    ok('command sentence is plain Czech',
-        sayCmd.indexOf('Robot chce jednou spustit tento příkaz') >= 0);
+    ok('command sentence is plain English',
+        sayCmd.indexOf('The robot wants to run this command once') >= 0);
     ok('command sentence shows the command itself',
         sayCmd.indexOf('systemctl --user --failed') >= 0);
     ok('command is rendered as <code>',
@@ -240,7 +241,7 @@ async function main() {
                 {context: Object.assign({}, resumeAsk.detail.context,
                     {job_state: 'blocked'})})}), 'resume').text;
     ok('a parked job says it is stuck',
-        blockedSay.indexOf('Práce #11 se zasekla') >= 0);
+        blockedSay.indexOf('Job #11 is stuck') >= 0);
     ok('a bare ask falls back to detail.what',
         w.askSentence({id: 1, detail: {what: 'Udělej X.'}}, 'resume').text
             === 'Udělej X.');

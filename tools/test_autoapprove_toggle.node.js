@@ -13,7 +13,9 @@
  *   - click posts to /<ref>/autoapprove with {on: true} when off (and
  *     {on: false} when on),
  *   - a {ok: true} reply flips the visual state (class 'on' + label),
- *   - a {ok: false} reply leaves the state alone and surfaces the error.
+ *   - a {ok: false} reply leaves the state alone and surfaces the error,
+ *   - switching it ON costs a second tap (the first only arms the button,
+ *     posts nothing); switching it OFF is one tap.
  */
 'use strict';
 const fs = require('fs');
@@ -43,6 +45,8 @@ function stubEl() {
         get className() { return Array.from(el.classes).join(' '); },
         classList: {
             toggle(cls, on) { if (on) { el.classes.add(cls); } else { el.classes.delete(cls); } },
+            add(cls) { el.classes.add(cls); },
+            remove(cls) { el.classes.delete(cls); },
             contains(cls) { return el.classes.has(cls); },
         },
         addEventListener(ev, fn) { el.handlers[ev] = fn; },
@@ -63,12 +67,15 @@ const scope = {
     afterAction() {},
 };
 
+// the arm timeout (6 s) never fires inside the test; a handle is enough
+const timers = {setTimeout() { return 1; }, clearTimeout() {}};
 const factory = new Function(
-    'document', 'AUTOAPPR_TIP', 'jobPost', 'afterAction',
+    'document', 'AUTOAPPR_TIP', 'jobPost', 'afterAction', 'setTimeout', 'clearTimeout',
     slice('autoApproveLabel') + '\n' + slice('autoApproveToggle') +
     '\nreturn autoApproveToggle;');
 const autoApproveToggle = factory(scope.document, scope.AUTOAPPR_TIP,
-                                  scope.jobPost, scope.afterAction);
+                                  scope.jobPost, scope.afterAction,
+                                  timers.setTimeout, timers.clearTimeout);
 
 const failures = [];
 function ok(label, cond) {
@@ -84,6 +91,9 @@ function ok(label, cond) {
     let b = autoApproveToggle(j);
     ok('starts without the on class', !b.classList.contains('on'));
     await b.click();
+    ok('first tap only arms (posts nothing)', posts.length === 0 && b.classList.contains('armed'));
+    await b.click();
+    ok('second tap disarms', !b.classList.contains('armed'));
     ok('posts verb autoapprove', posts[0] && posts[0].verb === 'autoapprove');
     ok('posts the job ref', posts[0] && posts[0].ref === 'j:12');
     ok('payload is {on: true}', posts[0] && posts[0].body.on === true);
@@ -99,7 +109,8 @@ function ok(label, cond) {
 
     // backend refusal → state untouched, error surfaced
     reply = {ok: false, error: 'práce #12 neexistuje'};
-    await b.click();
+    await b.click();   // arm
+    await b.click();   // send
     ok('refusal keeps model off', j.auto === false);
     ok('refusal keeps class off', !b.classList.contains('on'));
     ok('refusal lands in the title', /failed: práce #12/.test(b.title));
