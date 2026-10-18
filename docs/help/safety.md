@@ -7,7 +7,7 @@ icon: la-shield
 summary: STOP, the gamepad and joystick that beat the software, the blade, the power button and why motors are off after a start.
 ui: [stop]
 related: [dock, mowing, frame]
-keywords: [stop, emergency, blade, knife, gamepad, ds4, joystick, takeover, priority, mux, motors off, danger]
+keywords: [stop, emergency, blade, knife, gamepad, ds4, joystick, takeover, priority, mux, motors off, danger, direct driving, primitive, agent drives, mowing program]
 ---
 # Safety
 
@@ -62,7 +62,8 @@ Every drive command passes one priority switch on the robot (the *cmd_vel mux*):
 |---|---|---|
 | 1 | **DS4 gamepad** | a stick is moved (or PS / L1 / R1 pressed) |
 | 2 | **Joystick in the UI** (and the keyboard drive) | it is pushed |
-| 3 | **The software** — navigation, a program, docking / undocking, an agent mission | nobody is driving by hand |
+| 3 | **The agent's direct driving** — drive straight, turn, back off (`drive.*`, `nav.backup`) | nobody is driving by hand; while it drives, navigation waits |
+| 4 | **The software** — navigation, a program, docking / undocking, an agent mission | nobody else is driving |
 
 A paired PlayStation DS4 gamepad talks to the robot directly (no web UI, no Wi-Fi needed).
 
@@ -72,8 +73,8 @@ At that moment the robot
 1. follows your stick at once — the software's commands are thrown away,
 2. **cancels** what the software was doing: the navigation goal, docking / undocking, and a
    running mowing program (it goes to *Stopped* and stops the blade, like Stop in Programs),
-3. tells a running agent mission that a person took over (the mission stops, see
-   [Agent](agent.md#supervisor-fault)).
+3. stops the agent's direct driving at once and tells a running agent mission that a person
+   took over (the mission stops and waits for you, see [Agent](agent.md#supervisor-fault)).
 
 ```flow
 Software drives | a goal, a program, docking or an agent mission
@@ -117,6 +118,10 @@ the battery output and the computer (the hardest stop; the UI goes away too). Ho
 - Switching the mower **power** on does not start the blade; it only re-applies the last height
   and RPM.
 - **STOP** always stops the blade too.
+- The agent never switches the blade on by itself — there is no such action. It may only run a
+  **saved mowing program** after your unlock (**Mow** or **Free drive** in the dock lock); its
+  supervisor accepts blade RPM only while that program runs and stops it on STOP, a takeover or a
+  lost heartbeat ([Agent](agent.md#mowing-programs)).
 - The safety node switches the mower off by itself (blade and mower power) when the robot tilts
   more than 30° or the mower motor gets hotter than 70 °C.
 

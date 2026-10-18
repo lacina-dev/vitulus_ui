@@ -7,7 +7,7 @@ icon: la-shield
 summary: STOP, gamepad a joystick s předností před softwarem, nůž, vypínač a proč jsou motory po startu vypnuté.
 ui: [stop]
 related: [dock, mowing, frame]
-keywords: [stop, nouzové zastavení, nůž, gamepad, ds4, joystick, převzetí, přednost, mux, motory vypnuté, nebezpečí, vypínač, náklon, mock, emergency, blade, knife, takeover, priority, motors off, danger]
+keywords: [stop, nouzové zastavení, nůž, gamepad, ds4, joystick, převzetí, přednost, mux, motory vypnuté, nebezpečí, vypínač, náklon, mock, emergency, blade, knife, takeover, priority, motors off, danger, přímé řízení, direct driving, program sekání, mowing program]
 ---
 # Bezpečnost
 
@@ -62,7 +62,8 @@ Každý příkaz k jízdě prochází na robotu jedním přepínačem priorit (*
 |---|---|---|
 | 1 | **Gamepad DS4** | se pohne páčkou (nebo stiskneš PS / L1 / R1) |
 | 2 | **Joystick v UI** (i jízda klávesnicí) | se s ním hýbe |
-| 3 | **Software** — navigace, program, zajíždění do doku / výjezd, mise agenta | nikdo neřídí ručně |
+| 3 | **Přímé řízení agenta** — jeď rovně, otoč se, couvni (`drive.*`, `nav.backup`) | nikdo neřídí ručně; dokud jede, navigace čeká |
+| 4 | **Software** — navigace, program, zajíždění do doku / výjezd, mise agenta | nikdo jiný neřídí |
 
 Spárovaný gamepad PlayStation DS4 komunikuje s robotem přímo (bez webového UI, bez Wi-Fi).
 
@@ -72,7 +73,8 @@ pohybu). V tu chvíli robot
 1. hned poslouchá tvoji páčku — příkazy softwaru se zahazují,
 2. **zruší**, co dělal software: cíl navigace, zajíždění do doku / výjezd a běžící program sekání
    (ten přejde do *Zastaveno* a zastaví nůž, stejně jako **Stop** v Programech),
-3. oznámí běžící misi agenta, že řízení převzal člověk (mise skončí, viz
+3. hned zastaví přímé řízení agenta a oznámí běžící misi agenta, že řízení převzal člověk
+   (mise skončí a počká na tebe, viz
    [Agent](agent.md#fault-supervisoru)).
 
 ```flow
@@ -116,6 +118,10 @@ může vrátit.
   ([Sekání](mowing.md)). Programy ho spouštějí a zastavují samy.
 - Zapnutí **napájení** sekačky nůž nespustí; jen znovu nastaví poslední výšku a otáčky.
 - **STOP** vždy zastaví i nůž.
+- Agent nůž sám nikdy nezapne — taková akce neexistuje. Smí jen spustit **uložený program
+  sekání** po tvém odemčení (**Sekání** nebo **Volná jízda** v zámku doku); jeho supervisor
+  snese otáčky nože jen dokud ten program běží a při STOP, převzetí nebo ztrátě heartbeatu ho
+  zastaví ([Agent](agent.md#programy-sekání)).
 - Bezpečnostní node sekačku vypne sám (nůž i napájení sekačky), když se robot nakloní o víc než
   30° nebo se motor sekačky zahřeje nad 70 °C.
 

@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
+keywords: [world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
 ---
 # Vitulus agent
 
@@ -31,7 +31,8 @@ udělej undock, dojeď na TEST, počkej 10 s a vrať se do doku
 A mission is a numbered job (**#N**) of steps: *undock*, *drive to a named waypoint*, *wait*
 (up to 10 min), *dock*. The plan is checked before anything moves (the waypoints must exist on the
 active map), then the agent reports after each step. Anything more complex (photos, maps, routes,
-conditions) goes to its planner first. **The mower and the blade are never part of a mission.**
+conditions) goes to its planner first. **The blade is never switched on by the agent itself** — a
+mission may only run a saved mowing program after your unlock ([Mowing programs](#mowing-programs)).
 
 ```flow
 You write | "drive to TEST and back"
@@ -81,6 +82,9 @@ supervisor.
 | docking failed (reflector, map drive) | drives again in front of the dock (UNDOCK) and docks from there; runs the dock program again |
 | motors off | switches the motors on and tries again |
 | still in the dock | undocks first |
+| obstacle right in front / stuck | backs off a little (`nav.backup`), turns (`drive.rotate`), then a new plan |
+| no named way round | drives to a detour point the world model checked as reachable (`nav.goto_xy`) |
+| docking by one method keeps failing | docks by the other modality (map / reflector only, `dock.start_modality`) |
 
 - The waypoint for a detour comes from the agent's [world model](#what-the-agent-can-see) (a
   named point it can actually reach); without it the agent picks the shortest way round itself.
@@ -94,9 +98,8 @@ supervisor.
   the motors go off and the chat asks you (`pokračuj` when it can go on).
 - **Never retried:** a person taking over (gamepad, joystick), the STOP, the blade and a position
   bound. The mission waits for you.
-- What the robot cannot do yet (back up a little, clear the costmaps, dock by another method, a
-  goal next to a waypoint) is filed as a **proposed new capability**; it is added only through the
-  normal review, never during a drive.
+- What the robot still cannot do is filed as a **proposed new capability**; it is added only
+  through the normal review, never during a drive.
 
 ### What the robot's display says
 
@@ -132,16 +135,22 @@ raise the badge, and on Discord they arrive without a phone notification.
 ### Dock lock
 
 By default the agent **cannot move the robot out of the dock** — every moving action (undock,
-dock, drive to a waypoint, drive a path) needs the owner's click here. Stopping always works.
+dock, drive to a waypoint or a point, drive a path, direct driving, a mowing program) needs the
+owner's click here. Stopping always works.
 
 1. Pick a preset and read its scope: *Actions*, *Not allowed*, *Valid for*, *Uses*,
    *Signed by*.
    - **Free drive — anything until the robot is back in the dock** (on top) — unlocks every
-     move (not the mower) without a use limit. It locks itself once the robot is back in the
+     move, direct driving and saved mowing programs included (never the blade on its own),
+     without a use limit. It locks itself once the robot is back in the
      dock (or after 12 h at most). Unlocked while the robot stands in the dock, it waits until the
      robot leaves and comes back. The card says *Unlocked until docked*.
-   - **Test drive** — undock, drive to waypoints, dock back (and switch motors on if needed);
-     30 min, up to 8 moves; no saved routes, no mower.
+   - **Test drive** — undock, drive to waypoints, dock back (and switch motors on if needed),
+     plus what the mission's recovery needs (back off, turn, a detour point, dock by another
+     modality); 45 min, up to 12 moves; no saved routes, no mowing.
+   - **Mow: run a saved mowing program** — starts or resumes a saved program, the same as
+     **Run** / **Resume** on the program card; 60 min to start, up to 3 starts. See
+     [Mowing programs](#mowing-programs).
    - **Undock only, once** — 15 min, 1 use.
    - **Undock and dock back** — 30 min, 2 uses.
 2. **Unlock — tap again to confirm**, then **Yes — unlock the dock** within 6 s.
@@ -151,6 +160,56 @@ dock, drive to a waypoint, drive a path) needs the owner's click here. Stopping 
 A mission that needs the lock parks itself; its chat message has **Open Dock lock**. After you
 unlock, the mission continues by itself (after 2 h of waiting only `pokračuj` restarts it). The
 lock governs the agent only, not your own buttons and joystick.
+
+## What the agent may do
+
+Everything goes through one signed list of actions; there is no "send anything" path. The agent
+picks an action, checks its arguments and the robot's state, needs the supervisor (and the dock
+lock for moves), then **measures** the result — a reply never claims success without evidence.
+
+| Action | What it does | Safeguards |
+|---|---|---|
+| `dock.undock` / `dock.start` | the robot's own saved undock / dock program | dock lock · supervisor · measured dock state |
+| `dock.start_modality` | dock with the saved program by map or by reflector only | as above |
+| `nav.goto_waypoint` / `nav.execute_path` | drive to a saved waypoint / along a saved route | name must exist · dock lock · supervisor · navigation result |
+| `nav.goto_xy` | drive to a point on the map (x, y, heading) | the world model must find a reachable path first · dock lock · supervisor |
+| `nav.goto_offset` | a point up to 1 m next to a saved waypoint | as above |
+| `nav.backup` | back off 5–50 cm | direct driving rules below |
+| `drive.straight` / `drive.rotate` / `drive.velocity` | drive straight up to ±2 m, turn up to ±360°, or a speed for at most 5 s | direct driving rules below |
+| `mower.program_run` / `mower.program_resume` | run / resume a saved mowing program | dock lock (Mow or Free drive) · supervisor mowing run |
+| `mower.program_stop` / `mower.program_reset`, `drive.stop`, `dock.stop`, `nav.cancel_*`, `motor.off` | stop things | always allowed |
+| `nav.speed`, `nav.clear_costmaps`, `nav.save_waypoint`, `nav.record_path_start` / `_stop`, `map.*` | settings, map tools, recording (agent names start with `agent_`) | no motion of their own; mapping sessions need the dock lock |
+
+**Never:** spinning the blade on its own (no such action exists), and nothing outside the list.
+
+### Direct driving
+
+`drive.*` and `nav.backup` drive the wheels directly, like a joystick, through their own input of
+the robot's priority switch: **above navigation, always below your DS4 gamepad and the web
+joystick** ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)). The robot
+measures the distance and the angle from its odometry, ramps the speed (at most 0.3 m/s and
+0.8 rad/s) and stops by itself — the action ends *aborted* with the reason — when:
+
+- you take over (gamepad or joystick) — the mission parks and waits for you,
+- you press STOP (the robot's or the agent's),
+- the agent stops sending its keep-alive or the supervisor stops being RUNNING (about 0.6 s),
+- the lidar sees an obstacle in the direction of travel (closer than 0.3 m plus the braking
+  distance; when turning, anything within the robot's turning circle) — if it is already there,
+  the action is refused and nothing moves,
+- the motors go off, odometry or lidar data get old, or the robot does not move although it
+  should (stuck).
+
+### Mowing programs
+
+The agent may run only a **saved mowing program**, the same way the program card's **Run** /
+**Resume** does. The program undocks, mows its zones and docks back by itself. Starting or
+resuming needs your unlock (**Mow** or **Free drive**); stopping and resetting it always works.
+
+While the program runs, the supervisor watches it as a *mowing run*: blade RPM is expected **only
+while the robot's mowing program reports exactly that program running**; RPM at any other time
+stops everything as before. STOP, your takeover, a lost agent heartbeat or the time limit still
+stop the robot — the supervisor sends the program its stop and switches the blade off. The agent
+never switches the blade on by itself.
 
 ## The agent's STOP
 
@@ -163,7 +222,7 @@ that is the red STOP bottom left ([Safety](safety.md#stop)).
 
 While a mission drives, a separate supervisor watches it. It goes to **FAULT** and keeps the
 robot stopped when the robot leaves its allowed area, loses its position, the agent stops
-answering, the time runs out, the blade spins, or a **person takes over** (joystick, gamepad).
+answering, the time runs out, the blade spins outside a mowing program, or a **person takes over** (joystick, gamepad).
 It clears itself after at least 10 s once the robot stands still with the motors and the blade
 off — nothing moves when it clears. A parked mission then resumes by itself (at most twice per
 mission, if the supervisor clears within 30 min); after a takeover, the blade or a position bound it waits for `pokračuj`.

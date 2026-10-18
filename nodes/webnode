@@ -1138,13 +1138,25 @@ if __name__ == '__main__':
         # Every attempt goes to ~/.vitulus/ui_actions.jsonl (Agent > Activity).
         AGENT_UI_TOKEN = os.path.expanduser("~/.vitulus/agent/ui_token")
         # What the card may ask for; the agent checks the scope again.
-        DOCK_UNLOCKABLE = ("dock.undock", "dock.start", "nav.goto_waypoint",
-                           "nav.execute_path", "motor.on")
+        # 18. 10. evening (owner: "all actions, the gamepad takeover too"):
+        # direct driving (drive.*, the cmd_vel_mux `primitive` input - always
+        # below DS4 and the web joystick), a checked map point, backing off,
+        # docking by another modality and SAVED mowing programs are moves as
+        # well.  The blade itself is never an action (no set_motor_on /
+        # set_power anywhere): only a saved program spins it.
+        DOCK_UNLOCKABLE = ("dock.undock", "dock.start", "dock.start_modality",
+                           "nav.goto_waypoint", "nav.execute_path",
+                           "nav.goto_xy", "nav.goto_offset", "nav.backup",
+                           "drive.straight", "drive.rotate", "drive.velocity",
+                           "mower.program_run", "mower.program_resume",
+                           "motor.on")
         # Free drive (owner 2026-10-18: "anything until the robot is back in
         # the dock"): every action the lock guards, as the agent derives it
         # from its signed registry (v2/ros_wire.free_drive_actions).  No use
         # count; the agent locks it again when the robot docks; 12 h cap.
-        DOCK_FREE_DRIVE = DOCK_UNLOCKABLE + ("map.new", "map.save")
+        DOCK_FREE_DRIVE = DOCK_UNLOCKABLE + ("map.new", "map.save",
+                                             "map.session_start",
+                                             "map.session_stop")
         DOCK_MAX_MINUTES = 720
 
         def _agent_ui_token():

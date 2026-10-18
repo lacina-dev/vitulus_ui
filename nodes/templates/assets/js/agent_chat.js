@@ -5332,8 +5332,17 @@
            back in it (v2/dock_relock).  12 h stays as the safety cap. */
         key: 'free',
         until_docked: true,
-        actions: ["dock.start", "dock.undock", "map.new", "map.save",
-                  "motor.on", "nav.execute_path", "nav.goto_waypoint"],
+        /* 18. 10. evening, the owner: „Přidej agentovi všechny akce, a to
+           i převzetí gamepadem" — direct driving (drive.*, through the
+           cmd_vel_mux `primitive` input, always under the gamepad and the
+           web joystick) and saved mowing programs are moves too.  The blade
+           is never an action: only a saved program runs it. */
+        actions: ["dock.start", "dock.start_modality", "dock.undock",
+                  "drive.rotate", "drive.straight", "drive.velocity",
+                  "map.new", "map.save", "map.session_start", "map.session_stop",
+                  "motor.on", "mower.program_resume", "mower.program_run",
+                  "nav.backup", "nav.execute_path", "nav.goto_offset",
+                  "nav.goto_waypoint", "nav.goto_xy"],
         minutes: 720,
         max_runs: null,
         primary: true,
@@ -5355,9 +5364,15 @@
            counts as movement while a navigation goal is pending (B13); when
            nothing is pending it never spends a use. */
         key: 'test',
-        actions: ["dock.undock", "nav.goto_waypoint", "dock.start", "motor.on"],
-        minutes: 30,
-        max_runs: 8,
+        /* The mission's recovery (recovery.CATALOGUE) backs off an obstacle,
+           turns, takes a detour point or docks by another modality — each
+           of those is a move and spends a use, so the test drive covers them
+           and has room for them. */
+        actions: ["dock.undock", "nav.goto_waypoint", "dock.start", "motor.on",
+                  "nav.backup", "drive.rotate", "drive.straight", "nav.goto_xy",
+                  "nav.goto_offset", "dock.start_modality"],
+        minutes: 45,
+        max_runs: 12,
         button: 'agent.dock.test.button',
         title: 'agent.dock.test.title',
         lines: [
@@ -5366,6 +5381,26 @@
             ['agent.dock.l.valid', 'agent.dock.test.valid'],
             ['agent.dock.l.uses', 'agent.dock.test.uses'],
             ['agent.dock.l.signed', 'agent.dock.test.signed']
+        ]
+    }, {
+        /* 18. 10.: a saved mowing program, started the way the Run / Resume
+           buttons of the program card start it (/web_plan/program_select).
+           The program undocks, mows and docks back by itself; the blade runs
+           only inside it, and the supervisor's mowing run stops it on STOP,
+           a takeover or a lost heartbeat. */
+        key: 'mow',
+        actions: ["mower.program_run", "mower.program_resume", "motor.on"],
+        minutes: 60,
+        max_runs: 3,
+        button: 'agent.dock.mow.button',
+        title: 'agent.dock.mow.title',
+        lines: [
+            ['agent.dock.l.actions', 'agent.dock.mow.actions'],
+            ['agent.dock.l.not', 'agent.dock.mow.not'],
+            ['agent.dock.l.valid', 'agent.dock.mow.valid'],
+            ['agent.dock.l.uses', 'agent.dock.mow.uses'],
+            ['agent.dock.l.stops', 'agent.dock.mow.stops'],
+            ['agent.dock.l.signed', 'agent.dock.mow.signed']
         ]
     }, {
         key: 'out',

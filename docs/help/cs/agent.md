@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a zámek doku.
 ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-zámek-doku, agent/models#modely, needs#čeká-na-tebe]
 related: [safety, dock, support]
-keywords: [model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
+keywords: [model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
 ---
 # Agent Vitulus
 
@@ -30,7 +30,8 @@ udělej undock, dojeď na TEST, počkej 10 s a vrať se do doku
 Mise je očíslovaná úloha (**#N**) z kroků: *vyjet z doku*, *dojet na pojmenovaný bod*, *počkat*
 (nejvýš 10 min), *zajet do doku*. Plán se zkontroluje dřív, než se cokoli pohne (body musí být na
 aktivní mapě), a agent se pak ozve po každém kroku. Cokoli složitějšího (fotky, mapy, trasy,
-podmínky) jde nejdřív do jeho plánovače. **Sekačka a nůž nikdy nejsou součástí mise.**
+podmínky) jde nejdřív do jeho plánovače. **Nůž agent nikdy sám nezapne** — mise smí jen spustit
+uložený program sekání po tvém odemčení ([Programy sekání](#programy-sekání)).
 
 ```flow
 Napíšeš | „dojeď na TEST a zpátky"
@@ -80,6 +81,9 @@ supervisoru.
 | zajetí do doku selhalo (odrazka, jízda podle mapy) | zajede znovu před dok (UNDOCK) a dokuje odtamtud; pustí dokovací program znovu |
 | motory jsou vypnuté | zapne motory a zkusí to znovu |
 | robot je ještě v doku | nejdřív vyjede z doku |
+| překážka těsně před robotem / uvízl | kousek couvne (`nav.backup`), otočí se (`drive.rotate`), pak nový plán |
+| žádná pojmenovaná cesta kolem | dojede na bod objížďky, který model světa ověřil jako dosažitelný (`nav.goto_xy`) |
+| dokování jedním způsobem opakovaně selhává | zadokuje druhou modalitou (podle mapy / jen podle odrazky, `dock.start_modality`) |
 
 - Bod pro objížďku vybere [model světa](#co-agent-vidí) agenta (pojmenovaný bod, kam opravdu
   dojede); bez něj agent zvolí nejkratší cestu kolem sám.
@@ -93,9 +97,8 @@ supervisoru.
   zeptá tebe (`pokračuj`, až to půjde dál).
 - **Nikdy se nezkouší znovu:** převzetí člověkem (gamepad, joystick), STOP, nůž a hranice polohy.
   Mise počká na tebe.
-- Co robot zatím neumí (couvnout kousek zpět, vyčistit costmapy, dokovat jiným způsobem, cíl
-  kousek vedle bodu), založí agent jako **návrh nové schopnosti**; přidá se jen běžnou kontrolou,
-  nikdy za jízdy.
+- Co robot ještě neumí, založí agent jako **návrh nové schopnosti**; přidá se jen běžnou
+  kontrolou, nikdy za jízdy.
 
 ### Co ukazuje displej robota
 
@@ -131,16 +134,22 @@ nezvednou odznak, a na Discord přijdou bez upozornění na telefonu.
 ### Zámek doku
 
 Agent **sám s robotem z doku nevyjede** — každá akce s pohybem (vyjet z doku, zajet do doku,
-dojet na bod, projet trasu) potřebuje kliknutí majitele tady. Zastavit jde vždycky.
+dojet na bod nebo místo v mapě, projet trasu, přímé řízení, program sekání) potřebuje kliknutí
+majitele tady. Zastavit jde vždycky.
 
 1. Vyber předvolbu a přečti si její rozsah: *Akce*, *Nepovoleno*, *Platí*, *Použití*,
    *Podepsal*.
    - **Volná jízda — cokoli, dokud se robot nevrátí do doku** (nahoře) — povolí každý pohyb
-     (ne sekačku) bez omezení počtu použití. Zamkne se sama, jakmile je robot zpátky v doku
+     včetně přímého řízení a uložených programů sekání (samotný nůž nikdy), bez omezení počtu
+     použití. Zamkne se sama, jakmile je robot zpátky v doku
      (nebo nejpozději po 12 h). Když ji odemkneš, zatímco robot stojí v doku, počká, až robot
      vyjede a vrátí se. Karta píše *Odemčeno do návratu do doku*.
    - **Zkušební jízda** — vyjet z doku, jet k bodům, zajet zpět (a zapnout motory, je-li
-     potřeba); 30 min, nejvýš 8 pohybů; žádné uložené trasy, žádná sekačka.
+     potřeba) a k tomu, co potřebuje zotavení mise (couvnout, otočit se, bod objížďky, dokovat
+     jinou modalitou); 45 min, nejvýš 12 pohybů; žádné uložené trasy, žádné sekání.
+   - **Sekání: spustit uložený program sekání** — spustí nebo obnoví uložený program stejně jako
+     **Run** / **Resume** na kartě programu; 60 min na spuštění, nejvýš 3 spuštění. Viz
+     [Programy sekání](#programy-sekání).
    - **Jen výjezd z doku, jednou** — 15 min, 1 použití.
    - **Vyjet z doku a zajet zpět** — 30 min, 2 použití.
 2. **Odemknout — klepni znovu pro potvrzení**, pak do 6 s **Ano — odemknout dok**.
@@ -150,6 +159,55 @@ dojet na bod, projet trasu) potřebuje kliknutí majitele tady. Zastavit jde vž
 Mise, která zámek potřebuje, se sama zaparkuje; její zpráva v chatu má **Otevřít zámek doku**.
 Po odemčení mise pokračuje sama (po 2 h čekání ji znovu rozjede jen `pokračuj`). Zámek platí jen
 pro agenta, ne pro tvoje tlačítka a joystick.
+
+## Co agent smí
+
+Všechno jde přes jeden podepsaný seznam akcí; cesta „pošli cokoli" neexistuje. Agent vybere akci,
+zkontroluje její argumenty a stav robota, potřebuje supervisor (a u pohybu zámek doku) a výsledek
+pak **změří** — odpověď nikdy netvrdí úspěch bez důkazu.
+
+| Akce | Co dělá | Pojistky |
+|---|---|---|
+| `dock.undock` / `dock.start` | robotův vlastní uložený program výjezdu / zajetí do doku | zámek doku · supervisor · změřený stav doku |
+| `dock.start_modality` | zajetí uloženým programem podle mapy, nebo jen podle odrazky | jako výše |
+| `nav.goto_waypoint` / `nav.execute_path` | jízda na uložený bod / po uložené trase | jméno musí existovat · zámek doku · supervisor · výsledek navigace |
+| `nav.goto_xy` | jízda na místo v mapě (x, y, natočení) | model světa musí nejdřív najít dosažitelnou cestu · zámek doku · supervisor |
+| `nav.goto_offset` | místo nejvýš 1 m vedle uloženého bodu | jako výše |
+| `nav.backup` | couvnout o 5–50 cm | pravidla přímého řízení níže |
+| `drive.straight` / `drive.rotate` / `drive.velocity` | jet rovně nejvýš ±2 m, otočit se nejvýš o ±360°, nebo rychlost nejvýš na 5 s | pravidla přímého řízení níže |
+| `mower.program_run` / `mower.program_resume` | spustit / obnovit uložený program sekání | zámek doku (Sekání nebo Volná jízda) · supervisor v režimu sekání |
+| `mower.program_stop` / `mower.program_reset`, `drive.stop`, `dock.stop`, `nav.cancel_*`, `motor.off` | zastavit | vždycky povoleno |
+| `nav.speed`, `nav.clear_costmaps`, `nav.save_waypoint`, `nav.record_path_start` / `_stop`, `map.*` | nastavení, mapové nástroje, nahrávání (jména agenta začínají `agent_`) | sami robotem nehýbou; mapovací relace potřebují zámek doku |
+
+**Nikdy:** samotné roztočení nože (taková akce neexistuje) a nic mimo seznam.
+
+### Přímé řízení
+
+`drive.*` a `nav.backup` řídí kola přímo, jako joystick, vlastním vstupem přepínače priorit na
+robotu: **nad navigací, vždycky pod tvým gamepadem DS4 a webovým joystickem**
+([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)). Robot měří
+vzdálenost a úhel z odometrie, rychlost rozjíždí a brzdí plynule (nejvýš 0,3 m/s a 0,8 rad/s)
+a sám zastaví — akce skončí jako *přerušená* s důvodem — když:
+
+- převezmeš řízení (gamepad nebo joystick) — mise se zaparkuje a počká na tebe,
+- zmáčkneš STOP (robota nebo agenta),
+- agent přestane posílat udržovací signál nebo supervisor přestane být RUNNING (asi 0,6 s),
+- lidar uvidí překážku ve směru jízdy (blíž než 0,3 m plus brzdná dráha; při otáčení cokoli
+  v kružnici, kterou robot opisuje) — když tam je už na začátku, akce se odmítne a nic se nepohne,
+- vypnou se motory, data z odometrie nebo lidaru zestárnou, nebo se robot nehýbe, ačkoli by měl
+  (uvízl).
+
+### Programy sekání
+
+Agent smí spustit jen **uložený program sekání**, stejně jako **Run** / **Resume** na kartě
+programu. Program sám vyjede z doku, poseká své zóny a vrátí se do doku. Spuštění a obnovení
+potřebuje tvoje odemčení (**Sekání** nebo **Volná jízda**); zastavit a resetovat program jde
+vždycky.
+
+Dokud program běží, hlídá ho supervisor jako *běh sekání*: otáčky nože čeká **jen dokud sekací
+automat robota hlásí, že běží právě tenhle program**; otáčky v kteroukoli jinou chvíli zastaví
+všechno jako dřív. STOP, tvoje převzetí, ztracený heartbeat agenta nebo časový limit robot dál
+zastaví — supervisor programu pošle stop a nůž vypne. Nůž agent sám nikdy nezapne.
 
 ## STOP agenta
 
@@ -162,7 +220,7 @@ vlevo dole ([Bezpečnost](safety.md#stop)).
 
 Když mise jede, hlídá ji samostatný supervisor. Přejde do **FAULT** a drží robota zastaveného,
 když robot opustí povolenou oblast, ztratí polohu, agent přestane odpovídat, vyprší čas, roztočí
-se nůž nebo **převezme řízení člověk** (joystick, gamepad). Sám se uvolní nejdřív po 10 s, až
+se nůž mimo program sekání nebo **převezme řízení člověk** (joystick, gamepad). Sám se uvolní nejdřív po 10 s, až
 robot stojí a motory i nůž jsou vypnuté — po uvolnění se nic nerozjede. Zaparkovaná mise pak
 pokračuje sama (nejvýš dvakrát za misi, a jen když se supervisor uvolní do 30 min); po převzetí,
 kvůli noži nebo hranici polohy čeká na `pokračuj`.
