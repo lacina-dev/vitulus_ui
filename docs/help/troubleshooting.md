@@ -26,7 +26,7 @@ Check in this order:
    go ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)). → send the goal
    again, Undock again, or **Reset** + **Run** the program. A switched-on gamepad with centred
    sticks does *not* block anything.
-3. **A program after Stop?** Run is ignored until **Reset** ([Programs](programs.md#run-it)).
+3. **A program after Stop?** Run is ignored until **Reset** ([Programs](programs.md#interrupt-and-continue)).
 4. **An agent task?**
    - *Dock lock* locked → the mission waits; unlock in **Agent › Robot**
      ([Dock lock](agent.md#dock-lock)).

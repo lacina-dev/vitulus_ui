@@ -82,7 +82,8 @@ point in the [map editor](map-editor.md).
 
 The [Vitulus agent](agent.md) may not undock or drive away from the dock on its own: the **dock
 lock** is opened only by the owner, in **Agent › Robot › Dock lock**, for a named scope. See
-[Dock lock](agent.md#dock-lock).
+[Dock lock](agent.md#dock-lock). The lock is only for the agent: a program you start in
+**Programs** (Run / Resume) or one the calendar starts undocks without it.
 
 ## When it fails
 

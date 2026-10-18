@@ -6032,7 +6032,33 @@ class Programs {
         });
         this.smach_status_Topic.subscribe((message) => {
             this.map_menu.span_menu_program_status.innerText = message.data;
+            this.mission_status = message.data || '';
             this._setSmachBlocked(message.data);
+            this._paintRunning();
+        });
+        // 18. 10.: which program the mission runs (latched, " " = none) - the
+        // running card, and no Delete / rename of a program under the robot.
+        this.mission_program = '';
+        this.mission_status = '';
+        this.active_program_Topic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/mower_smach/active_program',
+            messageType : 'std_msgs/String'
+        });
+        this.active_program_Topic.subscribe((message) => {
+            this.mission_program = (message.data || '').trim();
+            this._paintRunning();
+        });
+        // The planner answers program saves / deletes / starts only on its log
+        // ("Program 'X' NOT saved: ..."): show those lines in the program card.
+        this.planner_log_Topic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/web_plan/log',
+            messageType : 'std_msgs/String'
+        });
+        this.planner_log_Topic.subscribe((message) => {
+            const t = message.data || '';
+            if (/^Programs? /.test(t)) this._flashRunMsg(t);
         });
         // 2026-09-20: the served site changed -> the program shown in the map
         // belongs to the previous site (event dispatched by mapping.js).
@@ -6143,6 +6169,92 @@ class Programs {
         }
         return site || this.active_map_data;
     }
+    // ---- running mission + delete (18. 10.) ----------------------------------
+    // Mission states in which nothing drives any more (mower_smach status).
+    _missionIdle(status) {
+        const st = String(status || '').trim();
+        return st === '' || /^(ready|starting|rejected)/i.test(st);
+    }
+    _missionWaitsReset(status) {
+        return /^\s*(stopped|terminal[ _]error)/i.test(status || '');
+    }
+    // true = program `name` is being run by the mission right now
+    _isRunning(name) {
+        return !!name && name === this.mission_program
+            && !this._missionIdle(this.mission_status)
+            && !this._missionWaitsReset(this.mission_status);
+    }
+    _paintRunning() {
+        const card = document.getElementById('div_program_running');
+        if (!card) return;
+        const st = String(this.mission_status || '').trim();
+        const waits = this._missionWaitsReset(st);
+        const busy = !this._missionIdle(st) && !waits;
+        const name = this.mission_program;
+        if (!busy && !waits) { card.style.display = 'none'; return; }
+        card.style.display = '';
+        card.dataset.state = waits ? 'warn' : 'info';
+        const title = document.getElementById('span_program_running_title');
+        if (title) title.textContent = waits ? 'Stopped' : 'Running';
+        const n = document.getElementById('span_program_running_name');
+        if (n) n.textContent = name || '';
+        const s = document.getElementById('span_program_running_status');
+        if (s) s.textContent = waits ? st + ' — press Reset, then Run or Resume' : st;
+        const stop = document.getElementById('btn_program_running_stop');
+        if (stop) stop.style.display = busy ? '' : 'none';
+        const reset = document.getElementById('btn_program_running_reset');
+        if (reset) reset.style.display = waits ? '' : 'none';
+    }
+    _flashRunMsg(text) {
+        this._setRunMsg(text);
+        if (this._runMsgTimer) window.clearTimeout(this._runMsgTimer);
+        this._runMsgTimer = window.setTimeout(() => {
+            this._runMsgTimer = null;
+            this._setRunMsg(this.smach_blocked ? this.smach_blocked_text : '');
+        }, 12000);
+    }
+    _calendarUses(name) {
+        try {
+            const evs = (typeof calendarManager !== 'undefined' && calendarManager && calendarManager.events) || [];
+            return evs.filter((ev) => ev.program_name === name).length;
+        } catch (e) { return 0; }
+    }
+    askDeleteProgram() {
+        const prg = this.selected_program;
+        if (!prg || this._editing_new || !prg.name) return;
+        if (this._isRunning(prg.name)) {
+            this._flashRunMsg('Program is running — Stop it first, then Delete.');
+            return;
+        }
+        this._delete_name = prg.name;
+        const legacy = (prg.map_name || '').indexOf('***env*') !== -1;
+        const nm = document.getElementById('span_modal_remove_program_name');
+        if (nm) nm.textContent = legacy ? prg.name.split(' (')[0] : prg.name;
+        const cal = document.getElementById('p_modal_remove_program_cal');
+        const uses = this._calendarUses(prg.name);
+        if (cal) {
+            cal.textContent = uses ? (uses + (uses === 1 ? ' calendar event uses' : ' calendar events use')
+                + ' this program — it will be skipped until you pick another program in it.') : '';
+            cal.style.display = uses ? '' : 'none';
+        }
+        $('#modal_remove_program').modal('show');
+    }
+    deleteProgram() {
+        const name = this._delete_name;
+        $('#modal_remove_program').modal('hide');
+        this._delete_name = null;
+        if (!name) return;
+        if (this._isRunning(name)) {
+            this._flashRunMsg('Program is running — Stop it first, then Delete.');
+            return;
+        }
+        this.topic_program_remove.publish(new ROSLIB.Message({ data: name }));
+        if (this.map_menu.btn_menu_program_show.innerText === 'Hide') this.show_program_in_map();
+        this.selected_program = null;
+        this.map_menu.div_menu_program_detail_row.style.display = 'none';
+        if (uiPrefGet('vitulus_sel_program', '') === name) uiPrefSet('vitulus_sel_program', '');
+    }
+
     // P22: a program that is not saved yet has nothing to Run / Resume / Show /
     // Stop / Reset — its card says so instead of offering robot actions
     _markNew() {
@@ -6209,6 +6321,11 @@ class Programs {
         }
         var baseName = nameInput || (prg.name ? (legacy ? prg.name.replace(/ \([^)]+\)$/, '') : prg.name) : '');
         if (!baseName) { window.alert('Program name is empty.'); return; }
+        var newName = legacy ? baseName + ' (' + (mapData || '').split('***env*')[0] + ')' : baseName;
+        if (!this._editing_new && prg.name && prg.name !== newName && this._isRunning(prg.name)) {
+            window.alert('This program is running — Stop it before you rename it.');
+            return;
+        }
         if (!prg.zone_list.length) { window.alert('Program has no zones.'); return; }
         var mapShort = (mapData || '').split('***env*')[0];
         var rpm = parseInt(this.map_menu.inp_program_rpm.value) || 0;
@@ -6272,6 +6389,9 @@ class Programs {
         this.program_list_msg = message;
         // console.log(message);
         this.draw_program_list();
+        // calendar rows mark events whose program is gone
+        try { if (typeof calendarManager !== 'undefined' && calendarManager) calendarManager.render(); }
+        catch (e) { console.warn('[programs] calendar refresh failed:', e); }
         // settings-persistence: on the FIRST list after load, re-select the
         // remembered program (exact name match; silently skipped if it no
         // longer exists). _zoneRequested is parked around the call so the

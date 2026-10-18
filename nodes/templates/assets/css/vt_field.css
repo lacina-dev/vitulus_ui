@@ -964,3 +964,21 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
 #vagent_panel details.vagent-card > summary,
 #vagent_panel .vagent-pane[data-pane="robot"] > .vagent-pane-body::before,
 .vt-act-day { letter-spacing: .05em; }
+
+/* ============ Programs 18. 10.: the running mission card (Stop / Reset
+   always at hand), Delete next to Save (not for an unsaved program), a
+   calendar event whose program is gone says so */
+#div_menu_program_detail_row.is-new #btn_program_delete { display: none; }
+.vt-card-actions .vt-prog-del { margin-left: auto; }
+.vt-prog-running { margin-bottom: var(--vt-gap-2); }
+.vt-prog-running .vt-row { align-items: center; gap: var(--vt-gap-2); }
+.vt-prog-running-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-cal-miss {
+    flex: 0 0 auto; padding: 0 6px; border-radius: 999px; font-size: var(--vt-fs-sm);
+    color: var(--vt-warn); border: 1px solid var(--vt-edge-warn, var(--vt-warn));
+}
+@media (max-width: 575.98px) {
+    /* phone: the "missing" chip pushes the recurrence to its own line */
+    .vt-cal-row.has-miss { flex-wrap: wrap; }
+    .vt-cal-row.has-miss .vt-cal-rec { order: 10; flex-basis: 100%; padding-left: 40px; }
+}

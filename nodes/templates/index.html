@@ -699,6 +699,21 @@ ul.nav-tabs.drawer-pills .nav-link.active {
             </div>
         </div>
     </div>
+    <div class="modal fade" role="dialog" tabindex="-1" id="modal_remove_program">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Delete program</h4><button class="btn-close" type="button" aria-label="Close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Delete program&nbsp;<span id="span_modal_remove_program_name" class="vt-strong vt-tone-warn"></span>?</p>
+                    <p class="vt-fs-sm vt-tone-warn" id="p_modal_remove_program_cal" style="display: none;"></p>
+                    <p class="vt-fs-sm vt-muted vt-mb0">Its zones stay on the map. This cannot be undone.</p>
+                </div>
+                <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="btn_modal_remove_program" type="button" onclick="programs.deleteProgram()">Delete</button></div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" role="dialog" tabindex="-1" id="modal_remove_map">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -1313,6 +1328,15 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                  lives in the drawer foot (map_view.js _drawer_chrome). -->
                             <div class="vt-stack">
                                 <div class="vt-row vt-list-head"><span class="vt-label">Programs</span><span class="vt-end-slot"><button class="btn btn-primary btn-sm text-info" id="btn_program_new_prog" type="button" onclick="programs.newProgram()">New program</button></span></div>
+                                <!-- 18. 10.: the running mission is always visible with its Stop / Reset,
+                                     no matter which program (or none) is open below -->
+                                <div id="div_program_running" class="vt-card vt-prog-running" data-state="info" style="display: none;">
+                                    <div class="vt-card-head">
+                                        <span class="vt-card-title" id="span_program_running_title">Running</span>
+                                        <span class="text-info vt-prog-running-name" id="span_program_running_name"></span>
+                                    </div>
+                                    <div class="vt-row"><span class="vt-muted vt-grow" id="span_program_running_status"></span><button class="btn btn-warning btn-sm" id="btn_program_running_stop" type="button" onclick="programs.stopProgram()">Stop</button><button class="btn btn-danger btn-sm" id="btn_program_running_reset" type="button" onclick="programs.resetSmach()">Reset</button></div>
+                                </div>
                                 <div id="div_menu_program_items_row" class="vt-cards"></div>
                                 <div id="div_menu_program_detail_row" class="vt-card vt-prog-detail" data-state="off">
                                     <div class="vt-card-head">
@@ -1347,7 +1371,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         </div>
                                         <div class="vt-form-item"><label class="vt-label" for="chk_program_override_zone">Override zone</label><div class="form-check vt-check"><input class="form-check-input" type="checkbox" id="chk_program_override_zone"></div></div>
                                     </div>
-                                    <div class="vt-row vt-card-actions"><button class="btn btn-success btn-sm" id="btn_program_save_settings" type="button">Save</button></div>
+                                    <div class="vt-row vt-card-actions"><button class="btn btn-success btn-sm" id="btn_program_save_settings" type="button">Save</button><button class="btn btn-outline-danger btn-sm vt-prog-del" id="btn_program_delete" type="button" title="Delete this program" onclick="programs.askDeleteProgram()">Delete</button></div>
                                     <span class="vt-label vt-label-gap">Program zones</span>
                                     <div class="vt-row"><select class="form-select form-select-sm vt-grow" id="sel_program_add_zone"></select><button class="btn btn-primary btn-sm" id="btn_program_add_zone_sel" type="button" onclick="programs.addZoneToProgram()">Add zone</button></div>
                                     <div class="vt-cards vt-zone-cards" id="row_menu_program_detail_zones"></div>

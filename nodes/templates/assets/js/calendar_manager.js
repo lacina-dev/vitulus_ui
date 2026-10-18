@@ -174,6 +174,9 @@ class CalendarManager {
             return;
         }
         const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        // Program names of the active map (null = list not received yet)
+        const pl = this.programs && this.programs.program_list_msg && this.programs.program_list_msg.program_list;
+        const known = (pl && pl.length) ? new Set(pl.map(p => p.name)) : null;
         let html = '';
         this.events.forEach((ev) => {
             const enabled = ev.enabled !== false;
@@ -181,9 +184,11 @@ class CalendarManager {
             const recLabel = this._recurrenceLabel(ev);
             const timeStr = ev.start_time || '??:??';
             // U1: one row look (vt_panel.css .vt-cal-row); disabled = dimmed
-            html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}">`;
+            const missing = known && !known.has(ev.program_name);
+            html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}${missing ? ' has-miss' : ''}">`;
             html += `<div class="form-check form-switch"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" ${enabled ? 'checked' : ''}></div>`;
             html += `<span class="vt-cal-name">${this._escHtml(ev.program_name)}</span>`;
+            if (missing) html += `<span class="vt-cal-miss" title="No program of this name on the active map - the event is skipped. Edit it and pick a program.">missing</span>`;
             html += `<span class="vt-cal-time">${timeStr}</span>`;
             html += `<span class="vt-cal-rec">${recLabel}</span>`;
             html += `<button class="btn btn-sm btn-outline-info cal-edit" data-id="${ev.id}">Edit</button>`;
