@@ -16,6 +16,8 @@ v mřížce a seznamy toho, co už existuje (**Úpravy mapy**, **Body**, **Trasy
 můžeš během úprav dál jezdit. Tlačítko rozbalení editor zvětší; **Zavřít editor** nebo **✕** tě
 vrátí do panelu Mapa.
 
+![Editor mapy s očíslovanými značkami](../img/shot-editor.webp "1 nástroje · 2 Zobrazit (vrstvy editoru) · 3 co vybraný nástroj potřebuje · 4 seznamy: úpravy, body, trasy, zóny · 5 Zavřít editor · 6 mapa, do které kreslíš")
+
 ## Nástroje
 
 | Nástroj | Jak |

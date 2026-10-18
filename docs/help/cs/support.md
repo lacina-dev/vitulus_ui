@@ -31,6 +31,8 @@ Otevři **Podpora** (tlačítko vedle **Agent** v pásu menu). Panel jen čte; r
 dashboardu. Má záložky **Hlášení**, **Vydání**, **Signál** a **Nápověda** (témata této
 nápovědy).
 
+![Panel Podpora se záložkami a první kartou hlášení](../img/shot-support.webp "Podpora › Hlášení: záložky Hlášení · Vydání · Signál · Nápověda, pod nimi jedna karta na každé otevřené hlášení")
+
 ### Hlášení
 
 Otevřená hlášení s fází smyčky, závažností a s tím, **kdo je na tahu**. Každá karta má

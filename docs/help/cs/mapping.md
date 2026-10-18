@@ -16,7 +16,22 @@ body (DOCK, UNDOCK, …), trasy, zóny, úpravy mapy a programy. Robot jezdí a 
 **aktivní** mapě. Všechno se ukládá v metrech ve skutečných souřadnicích (UTM), takže mapa sedí
 s GPS i s leteckým snímkem.
 
+![Mapa zahrady shora s očíslovanými částmi: dok, body, zóny se sekacími drahami, oblast překážky, bariéra, uložená trasa, robot, terén a zeď](../img/site.svg "Co obsahuje jedna mapa")
+
+1. **Dok**.
+2. Body **DOCK** (oranžový) a **UNDOCK** (zelený) před ním ([Dok](dock.md#body)).
+3. **Zóny** — plochy k sekání; plánovač je vyplní sekacími drahami (pruhy)
+   ([Editor mapy › Zóny](map-editor.md#zóny-co-sekat)).
+4. **Oblast překážky** — tam robot nikdy nevjede (záhon, jezírko).
+5. **Bariéra** — čára, kterou robot nesmí přejet.
+6. Uložená **trasa** ([Trasy](routes.md#trasy)).
+7. **Robot** (oranžově) tam, kde právě je.
+8. **Terén**, který robot nahrál — kudy může jezdit (vrstva Základ).
+9. **Zeď** nebo živý plot, který lidar viděl (vrstva Uložená, červená).
+
 ## Která mapa je aktivní
+
+![Mapa › Mapa s očíslovanými značkami](../img/shot-map-tab.webp "1 aktivní mapa · 2 Upravit mapu · 3 Deaktivovat · 4 karta aktivní mapy · 5 Aktivovat jinou mapu · 6 smazat mapu · 7 vrstvy na mapě · 8 Nahrávání mapy · 9 Zobrazení (vrstvy)")
 
 **Mapa › Mapa** ukazuje nahoře *Aktivní mapa: název* a pod tím kartu pro každou uloženou mapu
 se štítky (*aktivní*, *nahrává se*, *bez relace*), plochou, počtem relací a programů. Kliknutím
@@ -39,6 +54,8 @@ Projeď všechno | okraje, kolem překážek, dok
 ok: Uložit a dokončit | nejlíp v doku
 Aktivní | nová mapa je hned aktivní
 ```
+
+![Sekce Nahrávání mapy s očíslovanými značkami](../img/shot-map-recording.webp "1 název · 2 Nahrávat · 3 Uložit a dokončit · 4 Smazat a nahrávat dál · 5 Zahodit (neukládat)")
 
 1. **Mapa › Mapa › Nahrávání mapy**: napiš **název** (písmena, číslice, `_` a `-`; s jiným znakem
    robot nahrávání nespustí).

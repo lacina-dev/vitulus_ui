@@ -36,7 +36,11 @@ který panel byl otevřený (i po načtení stránky znovu).
 (60 % výšky). Na telefonu (na výšku i na šířku) má panel kompaktní hlavičku: STOP / ⤢ / ✕ jsou na
 konci řádku záložek; na výšku se název přesune do řádku s úchytem.
 
+![UI na telefonu na výšku, bez otevřeného panelu, s očíslovanými značkami](../img/shot-phone.webp "Telefon, žádný panel: 1 Čeká na tebe · 2 pás menu · 3 ikony stavu · 4 mapa · 5 pravý panel (jeden řádek, ▾ ho rozbalí) · 6 STOP · 7 Joystick, Sledovat, Log") ![UI na telefonu s panelem Mapa otevřeným jako sheet zdola, s očíslovanými značkami](../img/shot-phone-sheet.webp "Telefon, otevřený panel Mapa: 1 název (táhni za úchyt) · 2 záložky · 3 ? nápověda · 4 ⤢ celá obrazovka · 5 ✕ zavřít")
+
 ## Spodní lišta
+
+![Spodní lišta: vlevo červený STOP, pak Joystick, Sledovat a Log](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: STOP · Joystick · Sledovat · Log")
 
 **STOP** · **Joystick** · **Sledovat** · **Log** (na telefonu s volnou mezerou uprostřed pro
 systémové gesto). **STOP** je vždy vlevo dole, nikdy se nepřesouvá ani nezmenšuje
@@ -54,7 +58,11 @@ Visí z horního pásu u pravého okraje:
 Každá sekce se sbalí kliknutím na svůj název. Na telefonu (na výšku i na šířku) je pravý panel
 sbalený do jednoho řádku (mapa, poloha, GNSS, baterie, kamera, ▾) — ▾ ho rozbalí.
 
+![Sekce Ovládání pravého panelu s očíslovanými značkami](../img/shot-controls.webp "Ovládání: 1 rychlost Pomalu / Středně / Rychle · 2 jízda klávesnicí · 3 baterie · 4 Do doku · 5 Vyjet · 6 Stop (sekvence doku)") ![Sekce Navigace pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Navigace: 1 kdo vlastní polohu · 2 zdroj kurzu · 3 čipy odometrie · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu — vysvětleno v Lokalizaci")
+
 ## Kamera
+
+![Sekce Kamera pravého panelu s otevřenou nabídkou překryvů, očíslované značky](../img/shot-camera-layers.webp "1 Vyp / M / V · 2 tlačítko vrstev · 3 Lidar · 4 Překážky · 5 Volno · 6 Hloubka · 7 Průhlednost")
 
 Přepínač **Vyp / M / V** v hlavičce sekce Kamera: **M** = malý živý obraz v pravém panelu,
 **V** = kamera vyplní plochu mapy a mapa se přesune na místo kamery v pravém panelu (kliknutím na
@@ -73,6 +81,8 @@ a zapnout jde libovolná kombinace:
 - **Volno** (zelená) — zem, kterou stejná detekce vidí jako volnou a sjízdnou.
 - **Hloubka** — obraz vzdáleností z hloubkové kamery přes obraz: červená = blízko, žlutá / zelená
   = středně, modrá = daleko (asi 5 m); bez barvy = tam hloubka není (obloha, odlesk, moc daleko).
+
+![Schematický obraz kamery s překryvy: body lidaru, body překážek, body volné země a barvy hloubky](../img/camera-overlays.svg "Schéma: 1 body lidaru tam, kde paprsek narazí na zeď, sloupek a krabici · 2 překážky (krabice) · 3 volná zem · 4 hloubka: červená blízko → žlutá → zelená → modrá daleko · 5 bez barvy = bez hloubky (obloha)")
 
 **Průhlednost** nastaví, jak silně všechny překryvy zakrývají obraz. Body blíž k robotu jsou
 větší. Volba se pamatuje v tomto prohlížeči.
@@ -100,6 +110,8 @@ se všemi vrstvami vypnutými nedělá nic.
 **Joystick** ve spodní liště ukáže páčku vpravo dole na mapě (na telefonu zůstává nad otevřeným
 sheetem).
 
+![Webový joystick s očíslovanými značkami: režim rychlosti, stav motorů, páčka a údaj o rychlosti](../img/shot-joystick.webp "1 režim rychlosti · 2 pojezdové motory (tady VYP — nic se nepohne) · 3 páčka · 4 rychlost, kterou posílá")
+
 - Zatlač a jeď: dopředu / dozadu = rychlost, do stran = zatáčení. U středu jemně, na okraji plnou
   rychlostí (podle Pomalu / Středně / Rychle). **Pustíš = stop.**
 - Ukazuje režim rychlosti a jestli jsou zapnuté pojezdové motory — **s vypnutými motory se nic
@@ -113,6 +125,8 @@ sheetem).
 > ([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)).
 
 ## Log
+
+![Log rozbalený přes mapu, s lištou nástrojů a očíslovanými značkami](../img/shot-log.webp "Rozbalený log: 1 Změny · 2 ROS · 3 Živě · 4 Vymazat · 5 ▼ Sbalit · 6 ? nápověda")
 
 **Log** ve spodní liště ukáže log jako pruh nad lištou. **▲** (rozbalit) ho roztáhne přes plochu
 mapy, **▼** (sbalit) ho vrátí zpět; další **Log** ho skryje. Joystick zůstává vždy nad malým

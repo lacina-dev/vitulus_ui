@@ -16,6 +16,15 @@ keywords: [čeká, čekání, spánek, déšť, počasí, baterie, teplota, noc,
 
 ## Než program začne
 
+```flow
+Čas události v kalendáři | automatika zapnutá, Pozdržet vypnuté
+V doku? | a software běží 5 min, programy načtené
+Mise připravená? | nečeká na Reset
+warn: Denní okno? | 07:00–21:00, jinak spí, dokud nezačne
+warn: Baterie ≥ 40 %? | a neprší teď, v posledních 60 min ani do 30 min
+ok: Start | robot vyjede z doku a seká
+```
+
 Plánovač nic nespustí, dokud:
 
 - je automatika vypnutá, nebo je zapnuté **Pozdržet**;

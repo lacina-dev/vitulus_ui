@@ -17,6 +17,8 @@ Programy si sekačku řídí samy. **Nastavení › Sekačka** slouží ke kontr
 > Nůž je nebezpečný. Ručně ho spouštěj jen s robotem na trávníku, nikdo nesmí být poblíž a druhou
 > ruku měj na **STOP**.
 
+![Nastavení › Sekačka s očíslovanými značkami](../img/shot-mower.webp "1 ZAP / VYP (napájení) · 2 směr · 3 výška v mm + Nastavit · 4 otáčky + Nastavit · 5 Domů · 6 SPUSTIT MOTOR / ZASTAVIT MOTOR")
+
 | Ovládání | Co dělá |
 |---|---|
 | **ZAP / VYP** | napájení sekačky. Řádek ukazuje teplotu a stav: OFF, INIT, HOME, VÝŠKA, READY, RUN, ERR, BLOCKED, TEMP |

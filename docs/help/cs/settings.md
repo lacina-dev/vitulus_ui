@@ -16,6 +16,8 @@ aplikaci samotnou. **?** v hlavičce panelu skočí na záložku, kterou máš o
 
 ## Motory
 
+![Nastavení › Motory s očíslovanými značkami](../img/shot-motors.webp "1 ZAP / VYP · 2 omezení momentu · 3 jedna karta na kolo")
+
 - **ZAP / VYP** — napájení čtyř pojezdových motorů. **Po každém startu jsou vypnuté**
   ([Bezpečnost](safety.md#po-každém-startu-jsou-motory-vypnuté)); zapni je tady, než budeš jezdit
   ručně nebo dokovat. Barva tlačítka sleduje skutečný stav motorů.
@@ -73,6 +75,8 @@ kurz podle IMU, navigace, magnetometru, RTK a fúze. Malá páčka nechá robota
 otáčet na místě. Určeno pro servis.
 
 ## Aplikace
+
+![Nastavení › Aplikace s očíslovanými čtyřmi kartami](../img/shot-app.webp "Nastavení › Aplikace: 1 Jazyk · 2 Agent · 3 Podpora · 4 Zobrazení")
 
 Nastavení téhle aplikace (UI), ne robota. Nic tady s robotem nehne a nic na něm nemění kromě
 uloženého jazyka.

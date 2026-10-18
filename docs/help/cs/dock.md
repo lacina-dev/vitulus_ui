@@ -15,7 +15,19 @@ Dok robot nabíjí. Nabíjecí kontakty má **vzadu**, takže do doku vždy **co
 odrazka, podle které lidar dok přesně najde („intenzita“, odrazivost).
 Robot je **v doku, když nabíječka dodává proud** (ikona napájení zelená, *ONLINE*).
 
+![Dok shora s očíslovanými částmi: dok, jeho odrazka, usazený robot, body DOCK a UNDOCK, okraj střechy a volné nebe](../img/dock.svg "Zelená čárkovaná = cesta ven (výjezd), azurová = cesta dovnitř (zajetí, couváním).")
+
+1. **Dok** s nabíjecími kontakty na zadní stěně.
+2. **Odrazka** — lidar ji vidí jako velmi jasný pruh a podle ní dok najde.
+3. **docked** — poloha robota, když sedí v doku (zádí na kontaktech).
+4. **DOCK** — příjezdový bod před dokem, otočený od doku; odtud robot zacouvá dovnitř.
+5. **UNDOCK** — bod, na který robot vyjede.
+6. **Pod okrajem střechy** je GPS špatná — proto výjezd čeká na RTK až na UNDOCK.
+7. **Volné nebe** — tady se RTK vrátí.
+
 ## Výjezd z doku
+
+![Sekce Ovládání pravého panelu: rychlost, klávesnice, baterie a tlačítka Do doku, Vyjet a Stop](../img/shot-controls.webp "Pravý panel › Ovládání: 4 Do doku · 5 Vyjet · 6 Stop (přeruší sekvenci)")
 
 **Pravý panel › Ovládání › Vyjet** spustí uložený *program výjezdu z doku*:
 
@@ -56,6 +68,8 @@ v pořádku).
 ## Záložka Dok (Mapa › Dok)
 
 Slouží k nastavení a ručním zkouškám; běžně stačí **Do doku** / **Vyjet** v pravém panelu.
+
+![Záložka Dok panelu Mapa s očíslovanými kartami](../img/shot-dock-tab.webp "Mapa › Dok: 1 dok podle lidarové mapy · 2 dok podle odrazivosti · 3 Aktualizovat bod DOCK · 4 Aktualizovat bod UNDOCK · 5 mapa detektoru doku · 6 počáteční lokalizace · 7 program zajetí do doku · 8 program výjezdu z doku")
 
 | Část | Co dělá |
 |---|---|

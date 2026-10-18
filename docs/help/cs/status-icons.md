@@ -26,6 +26,10 @@ Barva akcentu (azurová) není stav: označuje odkazy, aktivní záložku a to, 
 
 ## Ikony v navbaru
 
+![Navbar na PC s očíslovanými značkami](../img/shot-navbar.webp "1 spojení s robotem · 2 upozornění na déšť · 3 ikony stavu · 4 ? nápověda · 5 Čeká na tebe (zvonek)")
+
+![Ikony stavu zblízka: skupiny senzory, pojezd, teplota a napájení](../img/shot-status-icons.webp "Čtyři skupiny zleva doprava: senzory · pojezd · teplota · napájení")
+
 Na PC jsou v navbaru ve čtyřech skupinách (připojení a senzory · pojezd a sekačka · teploty ·
 napájení); na úzké obrazovce v pruhu pod menu. Když na ikonu najedeš myší, ukáže svůj název.
 

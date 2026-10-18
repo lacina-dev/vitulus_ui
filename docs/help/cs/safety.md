@@ -20,6 +20,8 @@ agenta nebo cíl navigace.
 
 ## STOP
 
+![Spodní lišta s červeným STOP vlevo](../img/shot-bottom-bar.webp "STOP je červené tlačítko na levém konci spodní lišty — na PC i na telefonu.")
+
 Červené tlačítko **STOP**, vždy vlevo dole (na každé obrazovce stejné místo i velikost), udělá
 najednou všechno tohle:
 
@@ -54,6 +56,8 @@ se při zapnutém napájení zahřeje nad 70 °C.
 
 Každý příkaz k jízdě prochází na robotu jedním přepínačem priorit (*cmd_vel mux*):
 
+![Kdo řídí: gamepad má přednost před joystickem v UI, joystick před softwarem; převzetí zruší úkol softwaru](../img/takeover.svg "1 gamepad DS4 · 2 joystick v UI (i jízda klávesnicí) · 3 software (navigace, programy, zajíždění do doku, mise agenta) · 4 přepínač priorit na robotu · 5 kola · 6 převzetí zruší, co software dělal")
+
 | Pořadí | Kdo | Vyhraje, když |
 |---|---|---|
 | 1 | **Gamepad DS4** | se pohne páčkou (nebo stiskneš PS / L1 / R1) |
@@ -70,6 +74,15 @@ pohybu). V tu chvíli robot
    (ten přejde do *Zastaveno* a zastaví nůž, stejně jako **Zastavit** v Programech),
 3. oznámí běžící misi agenta, že řízení převzal člověk (mise skončí, viz
    [Agent](agent.md#supervisor-fault)).
+
+```flow
+Řídí software | cíl, program, zajíždění do doku nebo mise agenta
+warn: Převezmeš řízení | pohneš páčkou (nebo PS / L1 / R1), nebo zatlačíš webový joystick
+err: Úkol softwaru se zruší | cíl, zajíždění do doku, program → Zastaveno, nůž vypnutý
+Řídíš ty | robot poslouchá jen tvou páčku
+off: Pustíš | robot zastaví a stojí
+ok: Znovu spustit | nový cíl, Vyjet, nebo Reset + Spustit / Pokračovat
+```
 
 **Puštění:** robot zastaví a **stojí**. Software sám nepokračuje — je potřeba nový cíl, **Vyjet**
 nebo **Reset** + **Spustit** programu. Node, který po zrušení dál posílá příkazy, zůstane
@@ -96,6 +109,8 @@ i počítač (nejtvrdší zastavení; zmizí i UI). Podržení jen 2–4 s je po
 může vrátit.
 
 ## Nůž
+
+![Kde je nůž: pod středem těla (číslo 4)](../img/robot.svg "Nůž (4) se točí pod středem robota; nabíjecí kontakty (6) jsou vzadu.")
 
 - Nůž má vlastní spínač: **Nastavení › Sekačka › SPUSTIT MOTOR / ZASTAVIT MOTOR**
   ([Sekání](mowing.md)). Programy ho spouštějí a zastavují samy.

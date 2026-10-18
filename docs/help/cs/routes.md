@@ -16,6 +16,8 @@ a robota nebo obraz z kamery bys měl vidět. **Zrušit navigaci** nebo **STOP**
 
 ## Cíl pomocí značky
 
+![Panel Značka vedle mapy, s očíslovanými značkami](../img/shot-marker.webp "1 Kurz · 2 Odeslat cíl · 3 Zrušit navigaci — samotná značka cíle je na mapě vedle robota")
+
 1. V pásu menu otevři **Značka**. Na mapě se objeví značka cíle.
 2. Klikni nebo ťukni do mapy tam, kam má robot jet (nebo značku přetáhni).
 3. Posuvníkem **Kurz** ji natoč tím směrem, kterým má robot nakonec stát.
@@ -26,6 +28,8 @@ překážek a naplánuje znovu, než to vzdá.
 **Zrušit navigaci** jízdu zastaví (v logu je *Goal canceled*; motory zůstanou zapnuté).
 
 ## Rychlost
+
+![Sekce Ovládání pravého panelu](../img/shot-controls.webp "1 Pomalu / Středně / Rychle v pravém panelu")
 
 **Pravý panel › Ovládání › Pomalu / Středně / Rychle** nastaví rychlost navigace i joysticku.
 Robot si ji pamatuje i přes restart. Navigace:
@@ -39,6 +43,8 @@ Robot si ji pamatuje i přes restart. Navigace:
 Joystick jede stejnou rychlostí vpřed (i vzad) a otáčí se 0,6 / 1,3 / 1,5 rad/s.
 
 ## Body
+
+![Mapa › záložka Bod s očíslovanými značkami](../img/shot-point-tab.webp "Mapa › Bod: 1 název · 2 Přidat · 3 Smazat body") ![Mapa › záložka Trasa s očíslovanými značkami](../img/shot-path-tab.webp "Mapa › Trasa: 1 název · 2 Nová · 3 Nová auto · 4 Zastavit auto · 5 Smazat trasy")
 
 **Mapa › Bod** ukazuje uložené body: tlačítko se značkou na začátku řádku na bod dojede,
 **Ukázat** ho ukáže na mapě, **✕** ho odebere. Napiš název a stiskni **Přidat** — uloží se

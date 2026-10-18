@@ -19,9 +19,13 @@ Robot skládá jednu polohu (*pose*) z několika zdrojů:
 - **Lidarový tracker** — porovnává sken lidaru s mapou místa; funguje i v noci a pod stromy.
 - **Odometrie** — kola, lidar (Li) a kamera (VO) měří, jak se robot pohybuje; sama o sobě ujíždí.
 
+![Čtyři zdroje dávají jednu polohu; čip Poloha říká, který ji teď určuje](../img/localization.svg "1 RTK GPS (satelity, základnová stanice, dvě antény) · 2 dok · 3 lidarový tracker (sken proti mapě) · 4 odometrie (kola, IMU) · 5 jedna poloha · 6 čip Poloha: zelená = ukotveno, oranžová = podle mapy, červená = ujíždí")
+
 ## Jak číst stav (pravý panel › Navigace)
 
-První čip říká, **kdo teď určuje polohu**:
+![Sekce Navigace pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navigace: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu")
+
+První čip (1) říká, **kdo teď určuje polohu**:
 
 | Čip | Barva | Význam |
 |---|---|---|
@@ -34,7 +38,7 @@ První čip říká, **kdo teď určuje polohu**:
 
 Malé čipy vedle: **VO / Li / Wh** = vizuální, lidarová a kolová odometrie (zelená = použitelná,
 orámovaná = právě používaná), **FIX** = použitelný surový RTK fix, **PROB** = GPS fix se osvědčil
-(viz `RTK` výše), **kurz SAT / IMU** = kurz ze dvou antén GPS, nebo náhradně z IMU.
+(viz `RTK` výše), **Δ** = o kolik se odhad můstku liší od živé polohy, **kurz SAT / IMU** = kurz ze dvou antén GPS, nebo náhradně z IMU.
 
 Řádek **GNSS**:
 
@@ -69,6 +73,8 @@ Viz také [Řešení problémů › GPS](troubleshooting.md#gps-does-not-fix).
 
 **Mapa › Lokal.** se ptá: *kam na nahranou mapu nejlíp sedí současný sken lidaru?* Použij ji,
 když se robot ztratí (`ODHAD`, nebo je robot na mapě zjevně jinde, než ve skutečnosti stojí).
+
+![Záložka Lokal. panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Lokal.: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit")
 
 1. **Lokalizovat** (nebo zaškrtni **auto 5 s**) — spočítá kandidáty. Samotný výpočet robotem
    nikdy nepohne.

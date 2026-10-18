@@ -14,6 +14,8 @@ keywords: [program, programy, kalendář, calendar, plán, schedule, pozdržet, 
 **Program** říká, *co* sekat: seznam zón aktivní mapy, rychlost a volitelně jednu výšku sekání
 a otáčky pro všechny zóny. **Kalendář** říká, *kdy*. Obojí najdeš v **Programy**.
 
+![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů (kliknutím ho otevřeš; **Nový program** je dole v panelu) · 2 Spustit · 3 Pokračovat · 4 Ukázat / Skrýt · 5 Zastavit · 6 Reset · 7 Uložit · 8 Smazat")
+
 ## Vytvořit program
 
 1. Nejdřív aktivuj mapu — program patří k mapě, na které vznikl.
@@ -53,6 +55,8 @@ Když program běží, nad seznamem programů je karta **Běží** s jeho názve
 **Zastavit** — ať je dole otevřený kterýkoli program (nebo žádný). Po zastavení se z ní stane
 **Zastaveno** s tlačítkem **Reset**.
 
+![Karta Běží: název programu, jeho stav a Zastavit](../img/shot-program-running.webp "Běží — název, co mise právě dělá, Zastavit") ![Karta Zastaveno: stav a Reset](../img/shot-program-stopped.webp "Zastaveno — nejdřív Reset, pak Spustit nebo Pokračovat")
+
 ### Přerušit a pokračovat
 
 Běžící program se zastaví při kterékoli z těchto věcí — vždy do stavu *Zastaveno*, nůž vypnutý:
@@ -61,6 +65,14 @@ Běžící program se zastaví při kterékoli z těchto věcí — vždy do sta
 - červené **STOP** vlevo dole (vypne i pojezdové motory — [Bezpečnost](safety.md#stop)),
 - převzetí ovládání gamepadem nebo webovým joystickem
   ([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)).
+
+```flow
+ok: Spustit | robot vyjede z doku a seká zóny popořadě
+Běží | karta Běží ukazuje zónu / trasu
+warn: Zastaveno | Zastavit, červené STOP nebo převzetí; nůž vypnutý
+info: Reset | smaže Zastaveno — potřeba dřív než cokoli jiného
+ok: Pokračovat nebo Spustit | Pokračovat = odkud skončil, Spustit = od začátku
+```
 
 Robot pak stojí a čeká. Jak pokračovat: **Reset**, pak **Pokračovat** (naváže zhruba tam, kde
 skončil — mise si místo ukládá každou minutu) nebo **Spustit** (od začátku). Mimo dok musí být
@@ -77,9 +89,13 @@ důvod se ukáže pod tlačítky na kartě programu.
 
 ## Kalendář
 
+![Programy › Kalendář s očíslovanými značkami](../img/shot-calendar.webp "1 co plánovač právě dělá (štítek) · 2 Pozdržet · 3 jeho stav a příští spuštění · 4 událost · 5 přidat událost")
+
 **Programy › Kalendář** ukazuje události: program, čas a opakování (**Jednou**, **Denně**,
 **Týdně** s vybranými dny, **Měsíčně**, **Ročně**), každá s vypínačem, **Upravit** a **Smazat**.
 Událost se spustí do 15 minut po svém čase, jednou za den.
+
+![Formulář nové události kalendáře s očíslovanými značkami](../img/shot-calendar-form.webp "+ Přidat událost: 1 program · 2 čas · 3 opakování · 4 Uložit")
 
 Štítek v hlavičce kalendáře říká, co plánovač právě dělá:
 
