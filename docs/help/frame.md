@@ -47,10 +47,11 @@ opens) slides fully into view; with the keyboard **←** / **→** move between 
 
 ![The bottom bar: the red STOP on the left, then Joystick, Follow and Log](img/shot-bottom-bar.webp "The bottom bar on a PC, left to right: STOP · Joystick · Follow · Log")
 
-**STOP** · **Joystick** · **Follow** · **Log** (on a phone with a free gap in the middle for the
-system gesture). **STOP** is always bottom left, never moves and never shrinks
-([Safety](safety.md#stop)); on a PC the same stop is also the big **STOP** at the foot of the
-right column ([below](#drive-by-hand-joystick)). **Follow** makes the map view follow the robot.
+**Joystick** · **Follow** · **Log** (on a phone with a free gap in the middle for the
+system gesture). The **STOP** is the round red mushroom in the **bottom-left corner of the frame**:
+it is part of the frame itself, always on screen, never hidden by a panel, the log or the sheet,
+and it is the one full stop ([Safety](safety.md#stop)) — on a phone it sits in the same corner,
+thumb-sized. **Follow** makes the map view follow the robot.
 
 ## The right panel
 
@@ -153,23 +154,24 @@ only while a layer is on and the camera is shown; with every layer off it does n
 
 ## Drive by hand (joystick)
 
-**Joystick** in the bottom bar shows the **drive deck**: a small panel exactly as wide as the
-right panel, in the same column at the right edge, standing on the big **STOP** (on a phone
-held upright a band across the screen on the bottom bar). The stick with a narrow column of
-controls beside it:
+**Joystick** in the bottom bar shows the **drive deck**: a panel exactly as wide as the
+right panel, in the same column at the right edge, standing on the bottom bar (on a phone
+held upright a band across the screen on the bottom bar). The controls are part of the stick:
 
-![The drive deck and the big STOP with numbered markers](img/shot-joystick.webp "1 the stick (the ring = speed cap and state) · 2 speed Slow / Mid / Fast · 3 drive motors · 4 keyboard driving · 5 the big STOP")
+![The drive deck with numbered markers](img/shot-joystick.webp "1 the stick (the ring = speed cap and state) · 2 speed arcs Slow / Mid / Fast on the rim · 3 the motor key · 4 the keyboard dot")
 
-1. **The stick** — forward / back = speed, sideways = turn.
-2. **Slow / Mid / Fast** — the robot's speed mode for the joystick and navigation
-   ([Speed](routes.md#speed)). The lit one is what the **robot reports**; a click blinks until
-   the robot confirms it. Hover: the joystick's top speed (`max … m/s`).
-3. **MOT ON / MOT OFF** — one toggle for the drive motors (the same as Settings › Motors): green
-   = on, grey = off, as the robot reports; click switches them. The page never switches the
-   motors on by itself.
-4. **Keys** — keyboard driving on / off (**W A S D** or the arrows, **Shift** = half speed, never
-   while typing in a field). Not shown on touch screens.
-5. **STOP** — see below.
+1. **The stick** — forward / back = speed, sideways = turn. The ring's colour is the state:
+   green = free, orange = someone else holds the robot (a program, docking, the agent or the
+   gamepad; **Take over** appears), grey = motors off.
+2. **Slow / Mid / Fast** — the three arcs on the top of the rim are the robot's speed mode
+   for the joystick and navigation ([Speed](routes.md#speed)). The lit arc is what the
+   **robot reports**; click another one and it blinks until the robot confirms it. Hover: the
+   joystick's top speed (`max … m/s`).
+3. **⏻** (top right) — the drive motors, the same as Settings › Motors: green = on, orange =
+   off, as the robot reports; a click switches them and blinks until confirmed. The page never
+   switches the motors on by itself.
+4. **The dot** (top left) — keyboard driving on / off (**W A S D** or the arrows, **Shift** =
+   half speed, never while typing in a field). Not shown on touch screens.
 
 How the stick behaves:
 

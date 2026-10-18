@@ -156,28 +156,22 @@
             /* owner 2026-10-18 (2nd round): SMALL — the width of the right
                panel's column, the pad with a narrow column of controls beside
                it: speed Slow / Mid / Fast (stacked), motors (one toggle), keys */
+            /* owner 2026-10-18 (3rd round): BIGGER stick, the controls ARE
+               the stick — speed = three arcs of the outer ring (click one),
+               motors = a round power key in the corner, keys = a dot */
             padBox = el('div', 'vt-joy-padbox', root);
-            var ctl = el('div', 'vt-joy-ctl', root);
-            var spdSeg = el('div', 'vt-joy-seg vt-joy-spd', ctl);
-            spdSeg.setAttribute('role', 'group');
-            tagI(spdSeg, 'joy.speed.lbl', 'aria-label');
-            [['slow', 'joy.speed.slow'], ['moderate', 'joy.speed.mid'], ['fast', 'joy.speed.fast']].forEach(function (d) {
-                var b = el('button', 'vt-joy-opt', spdSeg);
-                b.type = 'button';
-                b.dataset.speed = d[0];
-                tagI(b, d[1]);
-                spdBtns[d[0]] = b;
-            });
-            motOn = el('button', 'vt-joy-motbtn', ctl);          // one toggle: ON <-> OFF
+            motOn = el('button', 'vt-joy-motbtn vt-joy-corner vt-joy-corner-r', padBox);   // one toggle: ON <-> OFF
             motOn.type = 'button';
+            motOn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M4.6 4.2a5 5 0 1 0 6.8 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
             chipMotors = el('span', 'vt-joy-motors', motOn);    // right_dock.js mirrors its data-state
             motOff = el('span', 'vt-joy-motlbl', motOn);
-            kbToggle = el('button', 'vt-joy-kbsw', ctl);
+            kbToggle = el('button', 'vt-joy-kbsw vt-joy-corner vt-joy-corner-l', padBox);
             kbToggle.type = 'button';
             kbToggle.setAttribute('aria-pressed', 'false');
             kbToggle.innerHTML = '<span class="vt-joy-kbdot" aria-hidden="true"></span><span class="vt-joy-kblbl"></span>';
             tagI(kbToggle.querySelector('.vt-joy-kblbl'), 'joy.kb.lbl');
             tagI(kbToggle, 'joy.kb.tip', 'title');
+            [motOn, kbToggle].forEach(function (b) { b.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); });
             /* the one-line hint: phone only (elsewhere it is the pad's tooltip) */
             hint = el('div', 'vt-joy-hint', root);
             hint.setAttribute('role', 'status');
@@ -213,6 +207,25 @@
         });
         sv('circle', {'class': 'vt-joy-dz', r: (DEAD * 34).toFixed(2)}, svg);
         sv('circle', {'class': 'vt-joy-ring', r: 46}, svg);
+        if (deck) {
+            /* the speed selector: SLOW · MID · FAST as three arcs of the outer
+               rim (r 49), left to right over the top; the lit one = what the
+               robot reports; a click asks for that cap */
+            var sel = sv('g', {'class': 'vt-joy-spdsel'}, svg);
+            var arcs = [['slow', -138, -52, 'joy.speed.slow'], ['moderate', -42, 42, 'joy.speed.mid'], ['fast', 52, 138, 'joy.speed.fast']];
+            arcs.forEach(function (d) {
+                var g = sv('g', {'class': 'vt-joy-spd', 'data-speed': d[0], role: 'button', tabindex: '0'}, sel);
+                sv('path', {'class': 'vt-joy-spd-hit', d: arcPath(49, d[0] === 'slow' ? d[1] : d[1], d[2])}, g);
+                sv('path', {'class': 'vt-joy-spd-arc', d: arcPath(49, d[1], d[2])}, g);
+                var mid = (d[1] + d[2]) / 2, rad = mid * Math.PI / 180;
+                var t = sv('text', {'class': 'vt-joy-spd-lbl', x: (57 * Math.sin(rad)).toFixed(1), y: (-57 * Math.cos(rad) + 2.6).toFixed(1),
+                                    'text-anchor': 'middle'}, g);
+                tagI(t, d[3]);
+                g.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+                g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); g.dispatchEvent(new Event('click')); } });
+                spdBtns[d[0]] = g;
+            });
+        }
         var arcLin = sv('path', {'class': 'vt-joy-arc vt-joy-arc-lin', d: ''}, svg);
         var arcAng = sv('path', {'class': 'vt-joy-arc vt-joy-arc-ang', d: ''}, svg);
         var knob = el('div', 'vt-joy-knob', pad);
@@ -274,7 +287,9 @@
             root.setAttribute('data-tone', tone());
             var lr = lockReason();
             root.classList.toggle('vt-joy-locked', !!lr);
-            lockEl.textContent = lr === 'motors' ? tr('joy.lock.motors_short') : (lr ? tr('joy.lock.owner_short') : '');
+            // the word in the pad only when someone else holds the robot; a
+            // grey ring already says "motors off" (owner: colour, not text)
+            lockEl.textContent = (lr && lr !== 'motors') ? tr('joy.lock.owner_short') : '';
             if (!deck) {
                 chipSpeed.textContent = speedText(speedLabel);
                 chipMotors.textContent = motors === true ? tr('joy.motors.on') : (motors === false ? tr('joy.motors.off') : tr('joy.motors.unknown'));
@@ -313,7 +328,14 @@
                 spdBtns[k].setAttribute('aria-pressed', speedKey === k ? 'true' : 'false');
             });
             var sc = tr('joy.speed.tip') + ' · ' + tr('joy.speed.cap', {v: speedLin.toFixed(2)});
-            Object.keys(spdBtns).forEach(function (k) { if (spdBtns[k].title !== sc) { spdBtns[k].title = sc; } });
+            Object.keys(spdBtns).forEach(function (k) {
+                var b = spdBtns[k];
+                if (b instanceof SVGElement) {      // deck: the arcs are SVG — tooltip = <title>
+                    var tt = b.querySelector('title');
+                    if (!tt) { tt = document.createElementNS('http://www.w3.org/2000/svg', 'title'); b.insertBefore(tt, b.firstChild); }
+                    if (tt.textContent !== sc) { tt.textContent = sc; }
+                } else if (b.title !== sc) { b.title = sc; }
+            });
         }
         function paintRead() {
             readLin.textContent = (oLin >= 0 ? '+' : '−') + Math.abs(oLin).toFixed(2) + ' m/s';

@@ -158,13 +158,13 @@
         var lh = (logVis && !logFull) ? log.offsetHeight : 0;
         setVar('--vt-frame-log-h', px(lh));
         setCls(body, 'vt-joy-on', joyOn);
-        var stopEl = $('vt_stop_big');
-        var stopOn = visible(stopEl);
-        var stopH = stopOn ? stopEl.offsetHeight : 0;
+        // the STOP mushroom sits in the bottom-left corner of the C, not in
+        // the right column: the deck stands straight on the bottom bar
+        var stopH = 0;
         setVar('--vt-frame-stop-h', px(stopH));
-        // the right column's foot: STOP (+ the deck on it)
-        var colOn = !band && (joyOn || stopOn);
-        var colH = colOn ? stopH + (joyOn ? joy.offsetHeight : 0) : 0;
+        // the right column's foot: the deck
+        var colOn = !band && joyOn;
+        var colH = colOn ? joy.offsetHeight : 0;
         setCls(body, 'vt-col-on', colOn);
         var jw = colOn ? colW : 0;
         // the small log rises from the bottom bar, from the back of the C;
@@ -449,13 +449,17 @@
             c.setAttribute('aria-hidden', 'true');
             document.body.appendChild(c);
         });
-        // the big STOP (owner 2026-10-18): always on screen at the foot of the
-        // right column (PC / landscape), the same global stop as the bottom
-        // bar's STOP — it presses that button, nothing of its own
+        // the emergency STOP (owner 2026-10-18, 3rd round): one round
+        // mushroom in the bottom-left corner of the C — part of the frame's
+        // surface, always on screen, never hidden by a panel or the log;
+        // the same global stop as the bottom bar's STOP — it presses that
+        // button, nothing of its own (docs/STOP_PATHS.md in vitulus_agent)
         var st = document.createElement('button');
         st.type = 'button';
         st.id = 'vt_stop_big';
-        st.innerHTML = '<span class="vt-stop-ico" aria-hidden="true"></span><span class="vt-stop-lbl"></span>';
+        st.className = 'vt-estop';
+        st.innerHTML = '<span class="vt-estop-plate" aria-hidden="true"></span>' +
+                       '<span class="vt-estop-cap" aria-hidden="true"><span class="vt-stop-lbl"></span></span>';
         tag(st.querySelector('.vt-stop-lbl'), 'joy.stop');
         st.title = tr('joy.stop.tip');
         st.setAttribute('aria-label', tr('joy.stop.tip'));
