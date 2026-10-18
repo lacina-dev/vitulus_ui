@@ -15,7 +15,20 @@ The dock charges the robot. Its charging contacts are at the **rear**, so the ro
 **reverses in**. A retro-reflector on the dock lets the lidar find it precisely ("intensity").
 The robot counts as **docked when the charger supplies power** (supply icon green, *ONLINE*).
 
+![The dock from above with numbered parts: the dock, its reflector, the seated robot, the DOCK and UNDOCK points, the roof edge and open sky](img/dock.svg "Green dashes = the way out (undock), cyan = the way in (dock, reversing).")
+
+1. **The dock** with the charging contacts on its back wall.
+2. **The reflector** — the lidar sees it as a very bright stripe and finds the dock by it.
+3. **docked** — the robot's pose when seated (rear on the contacts).
+4. **DOCK** — the approach point in front of the dock, facing away from it; from here the robot
+   reverses in.
+5. **UNDOCK** — the point the robot drives out to.
+6. **Under the roof edge** GPS is poor — that is why undock waits for RTK only at UNDOCK.
+7. **Open sky** — RTK comes back here.
+
 ## Undock
+
+![The Controls section of the right panel: speed, keyboard, battery and the Dock, Undock and Stop buttons](img/shot-controls.webp "Right panel › Controls: 4 Dock · 5 Undock · 6 Stop (aborts the sequence)")
 
 **Right panel › Controls › Undock** runs the saved *undock program*:
 
@@ -56,6 +69,8 @@ is expected).
 ## The Dock tab (Map › Dock)
 
 For setting up and for manual tests; normally the right panel's Dock / Undock is enough.
+
+![The Dock tab of the Map panel with numbered cards](img/shot-dock-tab.webp "Map › Dock: 1 dock by lidar map · 2 dock by intensity · 3 Update the DOCK point · 4 Update the UNDOCK point · 5 dock detector map · 6 localization seed · 7 dock program · 8 undock program")
 
 | Part | What it does |
 |---|---|

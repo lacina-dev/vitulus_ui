@@ -325,6 +325,8 @@
         pane.appendChild(head);
         body = el('div', 'vth-body'); body.tabIndex = -1;
         body.addEventListener('click', function (e) {
+            var z = e.target.closest && e.target.closest('.vth-zoom .vth-img');
+            if (z) { e.preventDefault(); zoom(z); return; }
             var a = e.target.closest && e.target.closest('a.vth-link');
             if (!a) { return; }
             e.preventDefault();
@@ -337,6 +339,7 @@
         // Esc closes help first (before the frame's Esc hides the left panel)
         document.addEventListener('keydown', function (ev) {
             if (ev.key !== 'Escape' || !isOpen()) { return; }
+            if (lightbox) { ev.stopPropagation(); ev.preventDefault(); unzoom(); return; }
             if (ev.target === search && search.value) { search.value = ''; runSearch(); ev.stopPropagation(); ev.preventDefault(); return; }
             var tg = ev.target && ev.target.tagName;
             if ((tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT') && ev.target !== search) { return; }
@@ -345,6 +348,27 @@
         }, true);
         window.addEventListener('resize', function () { if (isOpen()) { pane.classList.toggle('vth-sheet', sheetMode()); } });
     }
+    /* a help picture in full size over everything; click / Esc / ✕ closes */
+    var lightbox = null;
+    function zoom(img) {
+        unzoom();
+        lightbox = el('div', 'vth-lightbox');
+        lightbox.setAttribute('role', 'dialog');
+        lightbox.setAttribute('aria-label', img.alt || '');
+        var big = el('img');
+        big.src = img.currentSrc || img.src; big.alt = img.alt || '';
+        lightbox.appendChild(big);
+        var fc = img.parentNode && img.parentNode.querySelector('figcaption');
+        if (fc) { var p = el('p'); p.textContent = fc.textContent; lightbox.appendChild(p); }
+        var x = el('button', 'vth-btn', '×'); x.type = 'button';
+        var cx = pane && pane.querySelector('.vth-close');
+        x.setAttribute('aria-label', (cx && cx.getAttribute('aria-label')) || 'Close');
+        lightbox.appendChild(x);
+        lightbox.addEventListener('click', unzoom);
+        document.body.appendChild(lightbox);
+        x.focus();
+    }
+    function unzoom() { if (lightbox) { lightbox.remove(); lightbox = null; } }
     function isOpen() { return !!pane && pane.classList.contains('open'); }
     function paint() {
         var on = isOpen();
@@ -369,6 +393,7 @@
     }
     function close() {
         if (!pane || !isOpen()) { return; }
+        unzoom();
         pane.classList.remove('open', 'vth-full');
         pane.setAttribute('aria-hidden', 'true');
         paint();

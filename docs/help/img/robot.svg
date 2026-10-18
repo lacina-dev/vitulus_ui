@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 300" font-family="Roboto, Arial, sans-serif" role="img" aria-label="Vitulus from the side and from above, with numbered parts">
+  <title>Vitulus: the parts (side view and top view, front to the right)</title>
+  <defs>
+    <g id="n"><circle r="11" fill="#0dcaf0" stroke="#10181d" stroke-width="2"/></g>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#8a939b"/></marker>
+  </defs>
+  <rect width="660" height="300" rx="12" fill="#1c2329"/>
+  <!-- ===== side view ===== -->
+  <path d="M20 252 H310" stroke="#3b4650" stroke-width="2"/>
+  <!-- camera field of view -->
+  <path d="M262 134 L310 112 M262 134 L310 170" stroke="#0dcaf0" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+  <!-- body -->
+  <rect x="44" y="138" width="214" height="80" rx="12" fill="#37434d" stroke="#8a939b" stroke-width="1.5"/>
+  <rect x="58" y="146" width="186" height="10" rx="5" fill="#2b343c"/>
+  <!-- mower deck + blade -->
+  <rect x="104" y="218" width="96" height="10" rx="3" fill="#2b343c" stroke="#8a939b"/>
+  <path d="M112 234 H192" stroke="#ff5f6d" stroke-width="4" stroke-linecap="round"/>
+  <!-- wheels -->
+  <g fill="#232b32" stroke="#8a939b" stroke-width="2"><circle cx="82" cy="226" r="25"/><circle cx="220" cy="226" r="25"/></g>
+  <g fill="#8a939b"><circle cx="82" cy="226" r="6"/><circle cx="220" cy="226" r="6"/></g>
+  <!-- lidar on its mast -->
+  <rect x="170" y="116" width="6" height="22" fill="#8a939b"/>
+  <rect x="158" y="100" width="30" height="16" rx="4" fill="#0dcaf0"/>
+  <path d="M188 108 H300" stroke="#0dcaf0" stroke-width="1" stroke-dasharray="2 4" opacity=".7"/>
+  <!-- camera -->
+  <rect x="248" y="126" width="16" height="16" rx="3" fill="#0dcaf0"/>
+  <!-- GPS antennas (rear) -->
+  <rect x="80" y="118" width="4" height="20" fill="#8a939b"/>
+  <ellipse cx="82" cy="116" rx="16" ry="5" fill="#43d58b"/>
+  <!-- charging contacts (rear) -->
+  <rect x="36" y="190" width="10" height="16" rx="2" fill="#ffab45"/>
+  <!-- front arrow -->
+  <path d="M110 290 H190" stroke="#8a939b" stroke-width="2" marker-end="url(#ah)"/>
+  <!-- ===== top view ===== -->
+  <path d="M640 150 H612" stroke="#0dcaf0" stroke-dasharray="3 3" opacity=".6"/>
+  <path d="M612 150 L650 118 M612 150 L650 182" stroke="#0dcaf0" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+  <g fill="#232b32" stroke="#8a939b" stroke-width="2">
+    <rect x="384" y="30" width="54" height="22" rx="6"/><rect x="540" y="30" width="54" height="22" rx="6"/>
+    <rect x="384" y="248" width="54" height="22" rx="6"/><rect x="540" y="248" width="54" height="22" rx="6"/>
+  </g>
+  <rect x="378" y="52" width="222" height="196" rx="16" fill="#37434d" stroke="#8a939b" stroke-width="1.5"/>
+  <!-- blade under the body -->
+  <circle cx="489" cy="150" r="56" fill="none" stroke="#ff5f6d" stroke-width="2" stroke-dasharray="6 5" opacity=".9"/>
+  <path d="M449 150 H529" stroke="#ff5f6d" stroke-width="4" stroke-linecap="round" opacity=".9"/>
+  <!-- lidar -->
+  <circle cx="515" cy="150" r="17" fill="#0dcaf0"/><circle cx="515" cy="150" r="6" fill="#1c2329"/>
+  <!-- camera -->
+  <rect x="592" y="138" width="16" height="24" rx="3" fill="#0dcaf0"/>
+  <!-- two GPS antennas: left and right at the rear; their line gives the heading -->
+  <path d="M422 70 V230" stroke="#43d58b" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <circle cx="422" cy="70" r="13" fill="#43d58b"/><circle cx="422" cy="230" r="13" fill="#43d58b"/>
+  <!-- charging contacts at the rear -->
+  <rect x="370" y="122" width="10" height="16" rx="2" fill="#ffab45"/><rect x="370" y="162" width="10" height="16" rx="2" fill="#ffab45"/>
+  <!-- front arrow -->
+  <path d="M450 290 H530" stroke="#8a939b" stroke-width="2" marker-end="url(#ah)"/>
+  <!-- ===== numbers ===== -->
+  <g font-weight="700" font-size="13" fill="#10181d" text-anchor="middle">
+    <use href="#n" x="173" y="78"/><text x="173" y="83">1</text>
+    <use href="#n" x="276" y="112"/><text x="276" y="117">2</text>
+    <use href="#n" x="82" y="90"/><text x="82" y="95">3</text>
+    <use href="#n" x="152" y="266"/><text x="152" y="271">4</text>
+    <use href="#n" x="258" y="244"/><text x="258" y="249">5</text>
+    <use href="#n" x="22" y="198"/><text x="22" y="203">6</text>
+    <use href="#n" x="515" y="112"/><text x="515" y="117">1</text>
+    <use href="#n" x="626" y="128"/><text x="626" y="133">2</text>
+    <use href="#n" x="452" y="70"/><text x="452" y="75">3</text>
+    <use href="#n" x="489" y="226"/><text x="489" y="231">4</text>
+    <use href="#n" x="567" y="18"/><text x="567" y="23">5</text>
+    <use href="#n" x="356" y="150"/><text x="356" y="155">6</text>
+  </g>
+</svg>

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 300" font-family="Roboto, Arial, sans-serif" role="img" aria-label="The dock from above: the robot reverses in; DOCK and UNDOCK points in front of it">
+  <title>The dock from above (numbered parts and the two ways)</title>
+  <defs>
+    <g id="n"><circle r="11" fill="#0dcaf0" stroke="#10181d" stroke-width="2"/></g>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#232b32"/><path d="M0 0 V8" stroke="#3b4650" stroke-width="3"/></pattern>
+    <marker id="aok" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#43d58b"/></marker>
+    <marker id="ain" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#0dcaf0"/></marker>
+    <g id="bot"><rect x="-38" y="-30" width="76" height="60" rx="9" fill="#37434d" stroke="#8a939b" stroke-width="1.5"/><path d="M12 -10 L30 0 L12 10 Z" fill="#ff7100"/><circle cx="4" cy="0" r="7" fill="#0dcaf0"/></g>
+  </defs>
+  <rect width="660" height="300" rx="12" fill="#1c2329"/>
+  <!-- roof edge of the dock: GPS is poor here -->
+  <rect x="16" y="40" width="210" height="220" rx="10" fill="url(#hatch)" opacity=".8"/>
+  <!-- the dock -->
+  <path d="M40 70 H150 V86 H56 V214 H150 V230 H40 Z" fill="#2b343c" stroke="#8a939b" stroke-width="1.5"/>
+  <!-- reflector on the back wall -->
+  <rect x="58" y="96" width="7" height="108" rx="2" fill="#e9eef2"/>
+  <!-- charging contacts -->
+  <rect x="66" y="128" width="9" height="14" rx="2" fill="#ffab45"/><rect x="66" y="158" width="9" height="14" rx="2" fill="#ffab45"/>
+  <!-- the robot seated (rear = contacts side) -->
+  <use href="#bot" x="116" y="150"/>
+  <!-- ways: out (undock) and in (dock, reverses) -->
+  <path d="M160 118 C 230 112, 330 108, 470 112" fill="none" stroke="#43d58b" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#aok)"/>
+  <path d="M286 188 C 250 190, 210 186, 166 182" fill="none" stroke="#0dcaf0" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#ain)"/>
+  <path d="M470 196 C 420 196, 360 192, 322 190" fill="none" stroke="#0dcaf0" stroke-width="1.5" stroke-dasharray="3 5" opacity=".7"/>
+  <!-- lidar sees the reflector from the DOCK point -->
+  <g stroke="#0dcaf0" stroke-width="1" opacity=".45"><path d="M300 150 L66 104 M300 150 L66 150 M300 150 L66 196"/></g>
+  <!-- DOCK point (approach, facing away from the dock) -->
+  <g transform="translate(300 150)"><circle r="10" fill="#1c2329" stroke="#ffab45" stroke-width="3"/><path d="M12 0 L34 0" stroke="#ffab45" stroke-width="3"/><path d="M34 -6 L44 0 L34 6 Z" fill="#ffab45"/></g>
+  <!-- UNDOCK point -->
+  <g transform="translate(500 150)"><circle r="10" fill="#1c2329" stroke="#43d58b" stroke-width="3"/><path d="M12 0 L34 0" stroke="#43d58b" stroke-width="3"/><path d="M34 -6 L44 0 L34 6 Z" fill="#43d58b"/></g>
+  <!-- open sky: satellites -->
+  <g transform="translate(560 62)" fill="none" stroke="#8a939b" stroke-width="1.5"><rect x="-6" y="-6" width="12" height="12" fill="#8a939b"/><path d="M-20 -3 H-8 M8 -3 H20 M-20 3 H-8 M8 3 H20"/><path d="M-26 22 a 30 30 0 0 1 52 0" stroke-dasharray="3 4"/></g>
+  <!-- numbers -->
+  <g font-weight="700" font-size="13" fill="#10181d" text-anchor="middle">
+    <use href="#n" x="96" y="56"/><text x="96" y="61">1</text>
+    <use href="#n" x="61" y="84"/><text x="61" y="89">2</text>
+    <use href="#n" x="116" y="208"/><text x="116" y="213">3</text>
+    <use href="#n" x="300" y="122"/><text x="300" y="127">4</text>
+    <use href="#n" x="500" y="122"/><text x="500" y="127">5</text>
+    <use href="#n" x="204" y="248"/><text x="204" y="253">6</text>
+    <use href="#n" x="596" y="62"/><text x="596" y="67">7</text>
+  </g>
+</svg>

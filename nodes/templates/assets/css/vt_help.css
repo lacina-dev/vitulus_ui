@@ -128,6 +128,28 @@ ol.vth-list > li::marker { color: var(--vt-accent); font-weight: 700; }
 .vth-img { display: block; max-width: 100%; height: auto; margin: var(--vt-gap-2) 0 var(--vt-gap-3); border-radius: var(--vt-r-ctl); }
 .vth-doc td .vth-img, .vth-doc p .vth-img.vth-icon { display: inline-block; margin: 0; vertical-align: middle; }
 .vth-doc td .vth-img { width: 22px; height: 22px; }
+/* a picture with its caption (a paragraph of images only, vt_help_md.js);
+   2+ in a row = a grid that falls to one column in a narrow pane */
+.vth-fig { margin: var(--vt-gap-2) 0 var(--vt-gap-3); min-width: 0; }
+.vth-fig .vth-img { margin: 0; width: auto; max-width: 100%; max-height: 70vh; border: 1px solid var(--vt-border); background: var(--vt-bg); }
+.vth-fig figcaption { margin-top: 4px; color: var(--vt-muted); font-size: var(--vt-fs-sm); line-height: 1.35; }
+.vth-fig figcaption strong { color: var(--vt-text); }
+.vth-zoom .vth-img { cursor: zoom-in; }
+.vth-zoom .vth-img:hover { border-color: var(--vt-accent); }
+.vth-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--vt-gap-2); margin: var(--vt-gap-2) 0 var(--vt-gap-3); align-items: start; }
+.vth-figs[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.vth-figs .vth-fig { margin: 0; }
+@container (max-width: 300px) { .vth-figs, .vth-figs[data-n="3"] { grid-template-columns: 1fr; } }
+.vth-body { container-type: inline-size; }
+/* click a help picture → it fills the window; any click / Esc closes */
+.vth-lightbox {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    padding: 16px; background: rgba(10, 14, 17, .92); cursor: zoom-out;
+}
+.vth-lightbox img { max-width: 100%; max-height: calc(100% - 48px); object-fit: contain; border-radius: var(--vt-r-ctl); background: var(--vt-bg); }
+.vth-lightbox p { margin: 0; max-width: 900px; color: var(--vt-muted); font: var(--vt-fs)/1.4 var(--vt-font); text-align: center; }
+.vth-lightbox .vth-btn { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; font-size: 26px; color: #fff; }
 
 .vth-callout {
     --vt-st: var(--vt-info); --vt-st-glow: var(--vt-glow-info); --vt-st-edge: var(--vt-edge-info);

@@ -15,6 +15,8 @@
  *   ```flow       a step diagram: one step per line, "Title | detail",
  *                 optional tone prefix "ok:" "warn:" "err:" "info:"
  *   **b** *i* `code` [text](x.md#anchor) ![alt](img/x.svg)
+ *   ![alt](img/x.webp "caption")   a paragraph of images only = figures with
+ *                 captions (2+ = a grid); help pictures zoom on click
  * Links: "x.md#a" → another help section, "#a" → this one, http(s) → new tab,
  * "img/…" → /help/img/…, "../../nodes/templates/assets/…" → /assets/…
  * Every piece of text is HTML-escaped first; nothing in a file can inject
@@ -85,10 +87,10 @@
         var codes = [];
         s = String(s).replace(/`([^`]+)`/g, function (_, c) { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
         s = esc(s);
-        s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, function (_, alt, src) {
+        s = s.replace(IMG, function (_, alt, src, cap) {
             var u = asset(src.replace(/&amp;/g, '&'));
             if (!u) { return alt; }
-            return '<img class="vth-img" src="' + u + '" alt="' + alt + '" loading="lazy">';
+            return '<img class="vth-img" src="' + esc(u) + '" alt="' + alt + '"' + (cap ? ' title="' + cap + '"' : '') + ' loading="lazy">';
         });
         s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (_, txt, href) {
             var t = target(href.replace(/&amp;/g, '&'));
@@ -104,8 +106,30 @@
         s = s.replace(/\u0000(\d+)\u0000/g, function (_, i) { return '<code>' + esc(codes[+i]) + '</code>'; });
         return s;
     }
+    /* ![alt](src) or ![alt](src "caption") — runs on the escaped text, so the
+       quotes of the caption are &quot; there */
+    var IMG = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;((?:(?!&quot;)[^)])*)&quot;)?\)/g;
+    var IMG_RAW = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g;
+    /* a paragraph made of images only → figures (alt = the picture, the
+       caption under it); two or more → a grid of figures. A help picture
+       (img/…) can be clicked to see it bigger (vt_help.js). */
+    function figures(text) {
+        var t = String(text).trim();
+        if (!t || t.replace(IMG_RAW, '').trim()) { return null; }
+        var figs = [];
+        t.replace(IMG_RAW, function (_, alt, src, cap) {
+            var u = asset(src);
+            if (!u) { return ''; }
+            var zoom = /^\/help\//.test(u) ? ' vth-zoom' : '';
+            figs.push('<figure class="vth-fig' + zoom + '"><img class="vth-img" src="' + esc(u) + '" alt="' + esc(alt) +
+                '" loading="lazy">' + (cap ? '<figcaption>' + inline(cap) + '</figcaption>' : '') + '</figure>');
+            return '';
+        });
+        if (!figs.length) { return null; }
+        return figs.length > 1 ? '<div class="vth-figs" data-n="' + Math.min(figs.length, 3) + '">' + figs.join('') + '</div>' : figs[0];
+    }
     function plain(s) {
-        return String(s).replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        return String(s).replace(IMG_RAW, '$1').replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
             .replace(/[*`]/g, '').replace(/^>\s?\[![A-Z]+\]\s*/, '');
     }
 
@@ -215,7 +239,8 @@
             while (i < L.length && L[i].trim() && !/^(#{1,4}\s|```|\s*>|\s*([-*]|\d+\.)\s|\s*\|)/.test(L[i])) { para.push(L[i].trim()); i++; }
             if (!para.length) { para.push(line.trim()); i++; }
             addText(para.join(' '));
-            out.push('<p>' + inline(para.join(' '), links) + '</p>');
+            var fig = figures(para.join(' '));
+            out.push(fig || '<p>' + inline(para.join(' '), links) + '</p>');
         }
         blocks.forEach(function (b) { b.text = b.text.join(' '); });
         return { html: out.join('\n'), headings: headings, blocks: blocks.filter(function (b) { return b.text || b.heading; }) };
@@ -251,7 +276,7 @@
         });
     }
 
-    var api = { parse: parse, slug: slug, fold: fold, esc: esc, asset: asset, merge: merge };
+    var api = { parse: parse, slug: slug, fold: fold, esc: esc, asset: asset, merge: merge, IMG_RAW: IMG_RAW };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     else { root.VTHelpMd = api; }
 })(typeof window !== 'undefined' ? window : this);

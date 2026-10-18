@@ -20,9 +20,13 @@ The robot combines several sources into one position (the *pose*):
   trees.
 - **Odometry** — wheels, lidar (Li) and camera (VO) measure how the robot moves; alone it drifts.
 
+![Four sources feed one position; the Pose chip says which one owns it now](img/localization.svg "1 RTK GPS (satellites, the base station, the two antennas) · 2 the dock · 3 the lidar tracker (scan against the map) · 4 odometry (wheels, IMU) · 5 one pose · 6 the Pose chip: green = anchored, orange = map-matched, red = drifting")
+
 ## Read the state (right panel › Navi)
 
-The first chip says **who owns the pose now**:
+![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi: 1 Pose chip · 2 heading source (hdg) · 3 odometry chips VO / Li / Wh / FIX / PROB · 4 GNSS fix · 5 satellites · 6 position accuracy · 7 heading accuracy")
+
+The first chip (1) says **who owns the pose now**:
 
 | Chip | Colour | Meaning |
 |---|---|---|
@@ -35,7 +39,7 @@ The first chip says **who owns the pose now**:
 
 The small chips next to it: **VO / Li / Wh** = visual, lidar and wheel odometry (green = usable,
 outlined = in use), **FIX** = a usable raw RTK fix, **PROB** = the GPS fix has proven itself (see
-`RTK` above), **hdg SAT / IMU** = heading from the two GPS antennas or from the IMU fallback.
+`RTK` above), **Δ** = how far the bridge estimate differs from the live pose, **hdg SAT / IMU** = heading from the two GPS antennas or from the IMU fallback.
 
 **GNSS** line:
 
@@ -69,6 +73,8 @@ See also [Troubleshooting › GPS](troubleshooting.md#gps-does-not-fix).
 
 **Map › Loc** asks: *where does the current lidar scan fit best on the loaded map?* Use it when
 the robot is lost (`DEAD-RECKON`, or the robot on the map is obviously in the wrong place).
+
+![The Loc tab of the Map panel with numbered buttons](img/shot-loc-tab.webp "Map › Loc: 1 Localize · 2 auto 5 s · 3 Apply → robot · 4 Force")
 
 1. **Localize** (or tick **auto 5 s**) — computes candidates. Computing never moves the robot.
 2. Read the result: best pose and score, and the **margin**:

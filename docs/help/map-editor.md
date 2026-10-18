@@ -16,6 +16,8 @@ tools in a grid, lists of what exists (**Map edits**, **Waypoints**, **Paths**, 
 robot stays drivable while you edit. The expand button widens the editor; **Close editor** or **✕**
 returns to the Map panel.
 
+![The map editor with numbered markers](img/shot-editor.webp "1 tools · 2 Show (layers of the editor) · 3 what the chosen tool needs · 4 lists: edits, waypoints, paths, zones · 5 Close editor · 6 the map you draw on")
+
 ## Tools
 
 | Tool | How |

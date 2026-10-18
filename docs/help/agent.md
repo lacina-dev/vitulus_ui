@@ -17,6 +17,8 @@ band. Write to it in Czech or English; most of its replies are in Czech.
 
 Tabs: **Chat** · **Work** · **Activity** · **Findings** · **Robot** · **Models**.
 
+![The Agent panel with numbered markers](img/shot-agent.webp "1 robot state chips · 2 the agent's STOP · 3 tabs · 4 type a task or question · 5 quick commands")
+
 ## Give a task
 
 Type into **Chat** what you want, in plain words. A simple drive becomes a **mission** straight

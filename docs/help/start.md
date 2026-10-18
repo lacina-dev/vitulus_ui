@@ -7,7 +7,7 @@ icon: la-compass
 summary: What the robot is, what is where on the screen and the usual day.
 ui: [support/help]
 related: [safety, frame, troubleshooting]
-keywords: [overview, start, beginner, screen, intro]
+keywords: [overview, start, beginner, screen, intro, robot, parts, lidar, camera, antenna, blade, wheels, contacts, picture]
 ---
 # Vitulus in five minutes
 
@@ -16,7 +16,7 @@ finds its position with **RTK GPS**, the lidar and its wheels, drives on a **map
 mows **zones** of that map by **programs** that a **calendar** starts. This screen is its web UI —
 the same page on a PC, a tablet and a phone.
 
-![The C frame of the UI](img/frame.svg)
+![The robot UI on a PC: the map in the middle, the Map panel open on the left, the right panel, the log and the joystick; numbered markers 1 to 8](img/shot-desktop.webp "The UI on a PC — the numbers match the list below. Click a picture to see it bigger.")
 
 1. **Navbar** — the status icons (green = OK, orange = warning, red = fault, grey = no data,
    see [Status icons](status-icons.md)), **?** = this help, the bell = **Needs you**.
@@ -29,6 +29,23 @@ the same page on a PC, a tablet and a phone.
 6. **Log** — what the robot did and said ([more](frame.md#log)).
 7. **Joystick** — drive by hand ([more](frame.md#drive-by-hand-joystick)).
 8. **STOP** — always bottom left. Stops all motion ([Safety](safety.md)).
+
+## The robot
+
+![Vitulus from the side and from above with numbered parts: lidar, camera, two GPS antennas, blade, wheels, charging contacts](img/robot.svg "Side view (left) and top view (right); the front is on the right, as the arrows show.")
+
+1. **Lidar** on top — a laser that measures the distance all around; it finds the dock's reflector and
+   matches the garden's walls and posts to the map (works in the dark).
+2. **Camera** (Intel RealSense D435) at the front — the picture and the depth that the obstacle
+   detection uses ([camera overlays](frame.md#camera-overlays)).
+3. **Two GPS antennas** at the rear, left and right — the position (RTK) and, from the line
+   between them, the heading ([Localization](localization.md)).
+4. **Blade** under the body — it cuts; its height and speed are set by programs or in
+   [Settings › Mower](mowing.md).
+5. **Four wheels**, each with its own drive motor — OFF after every start
+   ([Safety](safety.md#motors-are-off-after-every-start)).
+6. **Charging contacts** at the rear — why the robot always **reverses** into the dock
+   ([Dock](dock.md)).
 
 ## The usual day
 
@@ -56,12 +73,16 @@ something on purpose: [Why the robot waits](waiting.md).
 
 ## How to use this help
 
+![The help pane on a PC, opened from the panel's ?, with the search, the topic's section buttons and the close button](img/shot-help.webp "1 the ? in a panel head · 2 search · 3 jump to a section · 4 close")
+
 - **?** in the head of any panel opens the topic of that panel (and of its open tab).
 - **?** in the navbar does the same on a PC; on a phone use the **?** in the panel head or
   **Support › Help**.
 - Type into **Search help** — it looks in every topic, with or without diacritics.
 - Links like [Troubleshooting](troubleshooting.md) jump between topics, **‹** goes back,
   **Esc** or **✕** closes the help. The map and the panel stay usable while help is open.
+- **Click a picture** to see it bigger; a click or **Esc** closes it again. The numbers in a
+  picture match the numbered list next to it.
 
 > [!NOTE]
 > This help is also the robot's documentation: every topic is a Markdown file in

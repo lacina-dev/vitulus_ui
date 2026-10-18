@@ -8,7 +8,10 @@
  * Fails when
  *   - a file has no id / title / group / summary, or its id is not its file name;
  *   - a link to another topic or to a heading (x.md#anchor, #anchor) is dead;
- *   - an image (img/…, ../../nodes/templates/assets/…) does not exist;
+ *   - an image (img/…, ../../nodes/templates/assets/…) does not exist — in
+ *     an English topic or a translation (docs/help/cs/) — or a help picture
+ *     has no alt text, or img/ has a picture no topic shows, one bigger than
+ *     400 kB or not svg / png / webp / jpg;
  *   - a "related:" topic does not exist;
  *   - a "ui:" key is claimed by two topics, or its #anchor is dead;
  *   - a panel, a tab of a panel (index.html, agent_chat.js TAB_ORDER,
@@ -45,6 +48,34 @@ files.forEach((f) => {
 });
 const anchors = (id) => new Set(docs[id].headings.map((h) => h.id));
 
+/* ---- images: every ![alt](src "caption") of a topic (en and every
+   translation) must exist on disk, be served, and a help picture (img/…)
+   needs an alt text; img/ holds no picture that nothing shows, none bigger
+   than IMG_MAX, only web formats. */
+const IMG_DIR = path.join(HELP, 'img');
+const IMG_MAX = 400 * 1024;
+const usedImgs = new Set();
+function checkImages(file, text, dir) {
+    const re = new RegExp(MD.IMG_RAW.source, 'g');
+    let im;
+    while ((im = re.exec(text))) {
+        const alt = im[1], src = im[2];
+        const u = MD.asset(src);
+        if (!u) { fail(file + ': image path not served: ' + src); continue; }
+        const disk = u.startsWith('/help/') ? path.join(HELP, u.slice(6)) : path.join(TPL, u.slice(1));
+        if (!fs.existsSync(disk)) { fail(file + ': image does not exist ' + src); continue; }
+        if (u.startsWith('/help/img/')) {
+            usedImgs.add(u.slice(10));
+            if (!alt.trim()) { fail(file + ': picture ' + src + ' has no alt text'); }
+        }
+    }
+    void dir;
+}
+const CS = path.join(HELP, 'cs');
+if (fs.existsSync(CS)) {
+    fs.readdirSync(CS).filter((f) => f.endsWith('.md')).forEach((f) => { checkImages('cs/' + f, fs.readFileSync(path.join(CS, f), 'utf8'), CS); });
+}
+
 /* ---- links, images, related */
 const lafont = fs.readFileSync(path.join(TPL, 'assets', 'fonts', 'line-awesome.min.css'), 'utf8');
 Object.values(docs).forEach((d) => {
@@ -60,12 +91,20 @@ Object.values(docs).forEach((d) => {
         const disk = src.startsWith('/help/') ? path.join(HELP, src.slice(6)) : path.join(TPL, src.slice(1));
         if (!fs.existsSync(disk)) { fail(d.file + ': image does not exist ' + src); }
     });
-    // an image path the renderer did not understand is dropped to its alt text
-    const raw = fs.readFileSync(path.join(HELP, d.file), 'utf8').match(/!\[[^\]]*\]\(([^)]+)\)/g) || [];
-    raw.forEach((m) => { const src = /\(([^)]+)\)/.exec(m)[1]; if (!MD.asset(src)) { fail(d.file + ': image path not served: ' + src); } });
+    checkImages(d.file, fs.readFileSync(path.join(HELP, d.file), 'utf8'), HELP);
     d.meta.related.forEach((r) => { if (!docs[r]) { fail(d.file + ': related topic ' + r + ' does not exist'); } });
     if (d.meta.icon && lafont.indexOf('.' + d.meta.icon + ':before') < 0) { fail(d.file + ': icon ' + d.meta.icon + ' is not in line-awesome'); }
 });
+
+if (fs.existsSync(IMG_DIR)) {
+    fs.readdirSync(IMG_DIR).forEach((f) => {
+        const st = fs.statSync(path.join(IMG_DIR, f));
+        if (st.isDirectory()) { return; }
+        if (!/\.(svg|png|webp|jpe?g)$/i.test(f)) { fail('img/' + f + ': not a web picture (svg, png, webp, jpg)'); }
+        if (st.size > IMG_MAX) { fail('img/' + f + ': ' + Math.round(st.size / 1024) + ' kB > ' + (IMG_MAX / 1024) + ' kB — optimise it'); }
+        if (!usedImgs.has(f)) { fail('img/' + f + ': no topic shows it — remove it or use it'); }
+    });
+}
 
 /* ---- ui keys */
 const owner = {};
@@ -104,6 +143,12 @@ need.forEach((k) => { if (!owner[k]) { fail('no help topic for "' + k + '" — a
 /* ---- the renderer escapes */
 const evil = MD.parse('x.md', '---\nid: x\n---\n<script>alert(1)</script> **b** [a](javascript:alert(1)) ![i](http://e/x.png)\n> [!TIP]\n> <img src=x onerror=1>\n');
 if (/<script|<img src=x|javascript:/i.test(evil.html)) { fail('renderer lets raw HTML / javascript: links through: ' + evil.html); }
+const evil2 = MD.parse('y.md', '---\nid: y\n---\n![a\" onerror=\"x](img/frame.svg \"<script>x</script>\")\n\n![b](img/frame.svg \"c <b>\") ![c](javascript:alert(1))\n\nt ![d](img/frame.svg \"e\" onload=\"x\")\n');
+if (/<script|<b>|javascript:|" on(error|load)=/i.test(evil2.html)) { fail('renderer lets raw HTML through an image / caption: ' + evil2.html); }
+const fig = MD.parse('z.md', '---\nid: z\n---\n![A](img/frame.svg \"Cap\")\n\n![B](img/frame.svg) ![C](img/frame.svg)\n');
+if (!/<figure class="vth-fig vth-zoom"><img [^>]*alt="A"[^>]*><figcaption>Cap<\/figcaption><\/figure>/.test(fig.html) || !/<div class="vth-figs" data-n="2">/.test(fig.html)) {
+    fail('renderer: a paragraph of images is not a figure / a grid: ' + fig.html);
+}
 
 const n = Object.keys(docs).length;
 console.log((fails ? 'FAILED ' + fails : 'OK') + ' — ' + n + ' topics, ' + Object.keys(owner).length + ' ui keys, ' + need.size + ' required');

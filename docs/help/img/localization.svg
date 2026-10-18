@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 300" font-family="Roboto, Arial, sans-serif" role="img" aria-label="Where the position comes from: RTK GPS, the dock, the lidar tracker and odometry feed one pose; the Pose chip says which source owns it">
+  <title>Sources of the position and the Pose chip</title>
+  <defs>
+    <g id="n"><circle r="11" fill="#0dcaf0" stroke="#10181d" stroke-width="2"/></g>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#8a939b"/></marker>
+  </defs>
+  <rect width="660" height="300" rx="12" fill="#1c2329"/>
+  <g fill="#2b343c" stroke="rgba(255,255,255,.12)">
+    <rect x="40" y="16" width="200" height="56" rx="10"/><rect x="40" y="84" width="200" height="56" rx="10"/>
+    <rect x="40" y="152" width="200" height="56" rx="10"/><rect x="40" y="220" width="200" height="56" rx="10"/>
+  </g>
+  <!-- 1 RTK: satellite, base station, two antennas -->
+  <g transform="translate(92 44)" fill="none" stroke="#e9eef2" stroke-width="1.5"><rect x="-5" y="-5" width="10" height="10" fill="#e9eef2"/><path d="M-18 -2 H-7 M7 -2 H18 M-18 3 H-7 M7 3 H18"/></g>
+  <g transform="translate(140 44)" stroke="#e9eef2" stroke-width="1.5" fill="none"><path d="M0 -14 V16 M-9 16 L0 -14 L9 16"/><path d="M-8 -16 a10 10 0 0 1 16 0" stroke="#8a939b"/></g>
+  <g fill="#43d58b"><circle cx="180" cy="38" r="7"/><circle cx="204" cy="50" r="7"/></g>
+  <!-- 2 dock -->
+  <g transform="translate(140 112)"><path d="M-36 -18 H18 V-10 H-28 V10 H18 V18 H-36 Z" fill="#37434d" stroke="#e9eef2" stroke-width="1.5"/><rect x="-22" y="-8" width="30" height="16" rx="4" fill="#ff7100"/><rect x="-33" y="-6" width="3" height="12" fill="#ffab45"/></g>
+  <!-- 3 lidar tracker: scan points over the map -->
+  <g transform="translate(140 180)">
+    <path d="M-50 -14 H40 M-50 -14 V16" stroke="#ff5f6d" stroke-width="3" opacity=".8"/>
+    <g fill="#0dcaf0"><circle cx="-38" cy="-13" r="2.2"/><circle cx="-24" cy="-13" r="2.2"/><circle cx="-10" cy="-13" r="2.2"/><circle cx="4" cy="-13" r="2.2"/><circle cx="18" cy="-13" r="2.2"/><circle cx="32" cy="-13" r="2.2"/><circle cx="-49" cy="-2" r="2.2"/><circle cx="-49" cy="10" r="2.2"/></g>
+    <circle cx="0" cy="6" r="8" fill="#0dcaf0"/><circle cx="0" cy="6" r="3" fill="#1c2329"/>
+  </g>
+  <!-- 4 odometry: wheel + IMU -->
+  <g transform="translate(124 248)"><circle r="15" fill="#232b32" stroke="#e9eef2" stroke-width="2"/><circle r="4" fill="#e9eef2"/><path d="M0 -15 V-6 M0 6 V15 M-15 0 H-6 M6 0 H15" stroke="#e9eef2" stroke-width="1.5"/></g>
+  <path d="M152 248 a 22 22 0 0 1 40 -4" fill="none" stroke="#8a939b" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#a)"/>
+  <!-- arrows into the pose -->
+  <g fill="none" stroke-width="2.5">
+    <path d="M240 44 C 300 44, 300 140, 352 146" stroke="#43d58b"/>
+    <path d="M240 112 C 290 112, 300 144, 352 148" stroke="#43d58b"/>
+    <path d="M240 180 C 290 180, 300 152, 352 152" stroke="#ffab45"/>
+    <path d="M240 248 C 300 248, 300 158, 352 156" stroke="#ff5f6d"/>
+  </g>
+  <!-- the pose (robot on the map) -->
+  <circle cx="384" cy="150" r="30" fill="#282b30" stroke="#0dcaf0" stroke-width="2"/>
+  <g transform="translate(384 150)"><circle r="12" fill="#ff7100"/><path d="M0 -8 L6 6 L0 3 L-6 6 Z" fill="#fff"/></g>
+  <path d="M416 150 H452" stroke="#8a939b" stroke-width="2.5" marker-end="url(#a)"/>
+  <!-- the Pose chip: who owns it now -->
+  <g font-weight="700" font-size="12" text-anchor="middle">
+    <rect x="462" y="62" width="76" height="24" rx="4" fill="#43d58b"/><text x="500" y="78" fill="#10181d">RTK</text>
+    <rect x="550" y="62" width="76" height="24" rx="4" fill="#43d58b"/><text x="588" y="78" fill="#10181d">DOCK</text>
+    <rect x="462" y="138" width="164" height="24" rx="4" fill="#ffab45"/><text x="544" y="154" fill="#10181d">TRACKER</text>
+    <rect x="462" y="214" width="164" height="24" rx="4" fill="#ff5f6d"/><text x="544" y="230" fill="#10181d">DEAD-RECKON</text>
+  </g>
+  <path d="M452 150 C 456 100, 456 80, 462 74 M452 150 H462 M452 150 C 456 200, 456 220, 462 226" fill="none" stroke="#3b4650" stroke-width="1.5"/>
+  <!-- numbers -->
+  <g font-weight="700" font-size="13" fill="#10181d" text-anchor="middle">
+    <use href="#n" x="40" y="44"/><text x="40" y="49">1</text>
+    <use href="#n" x="40" y="112"/><text x="40" y="117">2</text>
+    <use href="#n" x="40" y="180"/><text x="40" y="185">3</text>
+    <use href="#n" x="40" y="248"/><text x="40" y="253">4</text>
+    <use href="#n" x="384" y="106"/><text x="384" y="111">5</text>
+    <use href="#n" x="544" y="114"/><text x="544" y="119">6</text>
+  </g>
+</svg>

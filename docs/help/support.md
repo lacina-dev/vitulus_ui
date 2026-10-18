@@ -31,6 +31,8 @@ Open **Support** (the button next to **Agent** in the menu band). It only reads;
 made on the dashboard. Its tabs: **Issues**, **Releases**, **Signal** and **Help** (the topics of
 this help).
 
+![The Support panel with its tabs and the first issue card](img/shot-support.webp "Support › Issues: tabs Issues · Releases · Signal · Help, then one card per open report")
+
 ### Issues
 
 Open reports with their stage in the loop, severity and **whose turn** it is. Each card has

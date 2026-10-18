@@ -16,6 +16,8 @@ application itself. The **?** in the panel head jumps to the tab you have open.
 
 ## Motors
 
+![Settings › Motors with numbered markers](img/shot-motors.webp "1 ON / OFF · 2 torque limit · 3 one card per wheel")
+
 - **ON / OFF** — power of the four drive motors. **They are OFF after every start**
   ([Safety](safety.md#motors-are-off-after-every-start)); switch them on here before you drive
   by hand or dock. The button's colour follows the real motor state.
@@ -70,6 +72,8 @@ heading from the IMU, navigation, magnetometer, RTK and fusion. A small stick le
 rotate in place during the calibration. Meant for service.
 
 ## App
+
+![Settings › App with its four cards numbered](img/shot-app.webp "Settings › App: 1 Language · 2 Agent · 3 Support · 4 Display")
 
 Settings of this application (the UI), not of the robot. Nothing here moves the robot or changes
 anything on it except the stored language.

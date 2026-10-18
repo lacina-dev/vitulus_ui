@@ -16,6 +16,15 @@ Often the robot does nothing on purpose. The calendar's status line
 
 ## Before a program starts
 
+```flow
+Time of a calendar event | automation on, Hold off
+In the dock? | and the stack runs for 5 min, programs loaded
+Mission ready? | not waiting for Reset
+warn: Day window? | 07:00–21:00, otherwise it sleeps until then
+warn: Battery ≥ 40 %? | and no rain now, in the last 60 min or within 30 min
+ok: Start | the robot undocks and mows
+```
+
 The scheduler starts nothing while:
 
 - automation is off, or **Hold** is on;

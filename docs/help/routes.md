@@ -16,6 +16,8 @@ should be able to see the robot or the camera. **Cancel navigation** or **STOP**
 
 ## Send a goal with the marker
 
+![The Marker panel next to the map, with numbered markers](img/shot-marker.webp "1 Heading · 2 Send goal · 3 Cancel navigation — the goal marker itself sits on the map next to the robot")
+
 1. Open **Marker** in the menu band. A goal marker appears on the map.
 2. Click or tap the map where the robot should go (or drag the marker).
 3. Turn it with the **Heading** slider to the direction the robot should end in.
@@ -26,6 +28,8 @@ its obstacle memory and plans again before it gives up.
 **Cancel navigation** stops the drive (the log says *Goal canceled*; the motors stay on).
 
 ## Speed
+
+![The Controls section of the right panel](img/shot-controls.webp "1 Slow / Mid / Fast in the right panel")
 
 **Right panel › Controls › Slow / Mid / Fast** sets the driving speed of navigation and of the
 joystick. It is remembered on the robot across restarts. Navigation:
@@ -40,6 +44,8 @@ The joystick drives with the same forward speed (also in reverse) and turns at 0
 1.5 rad/s.
 
 ## Points
+
+![Map › Point tab with numbered markers](img/shot-point-tab.webp "Map › Point: 1 name · 2 Add · 3 clear all") ![Map › Path tab with numbered markers](img/shot-path-tab.webp "Map › Path: 1 name · 2 New · 3 New auto · 4 Stop auto · 5 Clear paths")
 
 **Map › Point** lists saved points: the marker button at the start of a row drives there, **Show**
 shows it on the map, **✕** removes it. Type a name and press **Add** to save the robot's current

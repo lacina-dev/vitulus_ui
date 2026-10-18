@@ -26,6 +26,10 @@ The accent colour (cyan) is not a state: it marks links, the active tab and what
 
 ## The icons in the navbar
 
+![The navbar on a PC with numbered markers](img/shot-navbar.webp "1 connection to the robot · 2 rain alert · 3 status icons · 4 ? help · 5 Needs you (the bell)")
+
+![The status icons close up: sensing, driving, temperature and power groups](img/shot-status-icons.webp "The four groups, left to right: sensing · driving · temperature · power")
+
 On a PC they sit in the navbar in four groups (sensing · driving · temperature · power); on a
 narrow screen in a strip under the menu. Hover an icon for its name.
 

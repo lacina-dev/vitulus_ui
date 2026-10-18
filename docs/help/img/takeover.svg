@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 260" font-family="Roboto, Arial, sans-serif" role="img" aria-label="Who drives: the gamepad beats the UI joystick, the joystick beats the software; taking over cancels the software's task">
+  <title>Drive priority: 1 gamepad, 2 UI joystick, 3 software</title>
+  <defs>
+    <g id="n"><circle r="11" fill="#0dcaf0" stroke="#10181d" stroke-width="2"/></g>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#8a939b"/></marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#ff5f6d"/></marker>
+  </defs>
+  <rect width="660" height="260" rx="12" fill="#1c2329"/>
+  <!-- row boxes -->
+  <g fill="#2b343c" stroke="rgba(255,255,255,.12)"><rect x="40" y="22" width="190" height="56" rx="10"/><rect x="40" y="102" width="190" height="56" rx="10"/><rect x="40" y="182" width="190" height="56" rx="10"/></g>
+  <!-- 1 gamepad -->
+  <g transform="translate(135 50)">
+    <path d="M-34 -12 Q-30 -18 -18 -18 H18 Q30 -18 34 -12 L42 12 Q44 22 34 22 Q28 22 22 12 H-22 Q-28 22 -34 22 Q-44 22 -42 12 Z" fill="#37434d" stroke="#e9eef2" stroke-width="1.5"/>
+    <circle cx="-14" cy="4" r="6" fill="#0dcaf0"/><circle cx="14" cy="4" r="6" fill="#0dcaf0"/>
+    <g fill="#8a939b"><circle cx="26" cy="-8" r="2.5"/><circle cx="32" cy="-3" r="2.5"/><path d="M-30 -10 h8 v3 h-8z M-27.5 -12.5 h3 v8 h-3z"/></g>
+  </g>
+  <!-- 2 UI joystick (phone with a stick) -->
+  <g transform="translate(135 130)">
+    <rect x="-17" y="-24" width="34" height="48" rx="6" fill="#37434d" stroke="#e9eef2" stroke-width="1.5"/>
+    <circle cx="0" cy="4" r="11" fill="none" stroke="#8a939b" stroke-width="1.5"/><circle cx="3" cy="0" r="5" fill="#0dcaf0"/>
+  </g>
+  <!-- 3 software: map pin + gear -->
+  <g transform="translate(118 210)">
+    <path d="M0 -18 a10 10 0 0 1 10 10 c0 8 -10 18 -10 18 s-10 -10 -10 -18 a10 10 0 0 1 10 -10z" fill="#37434d" stroke="#e9eef2" stroke-width="1.5"/><circle cx="0" cy="-8" r="3.5" fill="#0dcaf0"/>
+  </g>
+  <g transform="translate(152 210)" fill="none" stroke="#e9eef2" stroke-width="1.5">
+    <circle r="7"/><path d="M0 -13 V-9 M0 9 V13 M-13 0 H-9 M9 0 H13 M-9 -9 L-6.5 -6.5 M6.5 6.5 L9 9 M-9 9 L-6.5 6.5 M6.5 -6.5 L9 -9"/>
+  </g>
+  <!-- into the switch -->
+  <path d="M230 50 C 290 50, 300 118, 352 124" fill="none" stroke="#43d58b" stroke-width="5" marker-end="url(#a)"/>
+  <path d="M230 130 H350" fill="none" stroke="#0dcaf0" stroke-width="3.5" marker-end="url(#a)"/>
+  <path d="M230 210 C 290 210, 300 142, 352 136" fill="none" stroke="#8a939b" stroke-width="2.5" marker-end="url(#a)"/>
+  <!-- the switch (cmd_vel mux) -->
+  <rect x="356" y="96" width="70" height="68" rx="12" fill="#282b30" stroke="#0dcaf0" stroke-width="2"/>
+  <path d="M372 112 L392 130 L372 148 M392 130 H410" fill="none" stroke="#0dcaf0" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- to the wheels -->
+  <path d="M426 130 H500" stroke="#8a939b" stroke-width="3" marker-end="url(#a)"/>
+  <g fill="#232b32" stroke="#8a939b" stroke-width="2"><rect x="512" y="96" width="34" height="18" rx="5"/><rect x="512" y="146" width="34" height="18" rx="5"/><rect x="586" y="96" width="34" height="18" rx="5"/><rect x="586" y="146" width="34" height="18" rx="5"/></g>
+  <rect x="520" y="108" width="92" height="44" rx="9" fill="#37434d" stroke="#8a939b" stroke-width="1.5"/>
+  <!-- taking over cancels the software's task -->
+  <path d="M391 164 C 391 222, 330 228, 236 222" fill="none" stroke="#ff5f6d" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+  <g transform="translate(320 224)" stroke="#ff5f6d" stroke-width="3" stroke-linecap="round"><path d="M-7 -7 L7 7 M7 -7 L-7 7"/></g>
+  <!-- numbers -->
+  <g font-weight="700" font-size="13" fill="#10181d" text-anchor="middle">
+    <use href="#n" x="40" y="50"/><text x="40" y="55">1</text>
+    <use href="#n" x="40" y="130"/><text x="40" y="135">2</text>
+    <use href="#n" x="40" y="210"/><text x="40" y="215">3</text>
+    <use href="#n" x="391" y="84"/><text x="391" y="89">4</text>
+    <use href="#n" x="566" y="84"/><text x="566" y="89">5</text>
+    <use href="#n" x="346" y="236"/><text x="346" y="241">6</text>
+  </g>
+</svg>

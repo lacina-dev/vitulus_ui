@@ -36,7 +36,11 @@ its side**: the column lies over the map. **Phone upright** (< 576 px): the pane
 the bottom (60 % of the height). On a phone (upright or on its side) a compact head puts
 STOP / ⤢ / ✕ at the end of the tab row; upright the title moves into the grip row.
 
+![The UI on a phone held upright, no panel open, with numbered markers](img/shot-phone.webp "Phone, no panel: 1 Needs you · 2 menu band · 3 status icons · 4 map · 5 right panel (one row, ▾ unfolds it) · 6 STOP · 7 Joystick, Follow, Log") ![The UI on a phone with the Map panel open as a sheet from the bottom, with numbered markers](img/shot-phone-sheet.webp "Phone, Map panel open: 1 title (drag the grip) · 2 tabs · 3 ? help · 4 ⤢ full screen · 5 ✕ close")
+
 ## The bottom bar
+
+![The bottom bar: the red STOP on the left, then Joystick, Follow and Log](img/shot-bottom-bar.webp "The bottom bar on a PC, left to right: STOP · Joystick · Follow · Log")
 
 **STOP** · **Joystick** · **Follow** · **Log** (on a phone with a free gap in the middle for the
 system gesture). **STOP** is always bottom left, never moves and never shrinks
@@ -54,7 +58,11 @@ Hangs from the top band on the right edge:
 Each section folds by its title. On a phone (upright or on its side) the right panel is a
 collapsed row (map, pose, GNSS, battery, camera, ▾) — ▾ unfolds it.
 
+![The Controls section of the right panel with numbered markers](img/shot-controls.webp "Controls: 1 speed Slow / Mid / Fast · 2 keyboard driving · 3 battery · 4 Dock · 5 Undock · 6 Stop (of the dock sequence)") ![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Navi: 1 who owns the pose · 2 heading source · 3 odometry chips · 4 GNSS fix · 5 satellites · 6 position accuracy · 7 heading accuracy — explained in Localization")
+
 ## Camera
+
+![The Camera section of the right panel with the overlays menu open, numbered markers](img/shot-camera-layers.webp "1 Off / S / L · 2 the layers button · 3 Lidar · 4 Obstacles · 5 Free · 6 Depth · 7 Opacity")
 
 The switch **Off / S / L** in the head of the Camera section: **S** = a small live picture in the
 right panel, **L** = the camera fills the map area and the map moves into the right panel's slot
@@ -74,6 +82,8 @@ Each one is a switch; any mix can be on:
 - **Free** (green) — ground the same detection sees as free and drivable.
 - **Depth** — the depth camera's distance picture over the image: red = near, yellow / green =
   middle, blue = far (about 5 m); no colour = no depth there (sky, glare, too far).
+
+![A schematic camera picture with the overlays: lidar points, obstacle points, free ground points, and the depth colours](img/camera-overlays.svg "Schematic: 1 lidar points where the beam hits the wall, the post and the box · 2 obstacles (the box) · 3 free ground · 4 depth: red near → yellow → green → blue far · 5 no colour = no depth (sky)")
 
 **Opacity** sets how strongly all overlays cover the picture. Points nearer to the robot are drawn
 bigger. The choice is remembered in this browser.
@@ -101,6 +111,8 @@ only while a layer is on and the camera is shown; with every layer off it does n
 **Joystick** in the bottom bar shows the stick in the bottom right of the map (on a phone it stays
 above an open sheet).
 
+![The web joystick with numbered markers: speed mode, motor state, the stick and the speed readout](img/shot-joystick.webp "1 speed mode · 2 drive motors (here OFF — nothing moves) · 3 the stick · 4 the speed it sends")
+
 - Push to drive: forward / back = speed, sideways = turn. Near the centre it is fine, at the rim
   full speed (of Slow / Mid / Fast). **Let go = stop.**
 - It shows the speed mode and whether the drive motors are on — **with motors OFF nothing
@@ -114,6 +126,8 @@ above an open sheet).
 > ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)).
 
 ## Log
+
+![The log expanded over the map, with its toolbar and numbered markers](img/shot-log.webp "The expanded log: 1 Changes · 2 ROS · 3 Live · 4 Clear · 5 ▼ Collapse · 6 ? help")
 
 **Log** in the bottom bar shows the log as a strip above the bar. **▲** (expand) makes it fill
 the map area, **▼** (collapse) shrinks it back; **Log** again hides it. The joystick always stays

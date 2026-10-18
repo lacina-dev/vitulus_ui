@@ -16,7 +16,23 @@ it — waypoints (DOCK, UNDOCK, …), paths, zones, map edits and the programs. 
 and mows only on the **active** map. Everything is stored in metres in real-world (UTM)
 coordinates, so a map stays aligned with GPS and the aerial photo.
 
+![A garden map from above with numbered parts: the dock, the points, zones with mowing paths, an obstacle area, a barrier, a saved path, the robot, the terrain and a wall](img/site.svg "What one map holds")
+
+1. **The dock**.
+2. The **DOCK** (orange) and **UNDOCK** (green) points in front of it
+   ([Dock](dock.md#the-points)).
+3. **Zones** — the areas to mow; the planner fills them with mowing paths (the stripes)
+   ([Map editor › Zones](map-editor.md#zones-what-to-mow)).
+4. An **obstacle area** — the robot never drives there (a flower bed, a pond).
+5. A **barrier** — a line the robot must not cross.
+6. A saved **path** ([Paths](routes.md#paths)).
+7. **The robot** (orange) where it is now.
+8. **The terrain** the robot recorded — where it can drive (Base layer).
+9. A **wall** or a hedge the lidar saw (Saved layer, red).
+
 ## Which map is active
+
+![Map › Map with numbered markers](img/shot-map-tab.webp "1 the active map · 2 Edit map · 3 Deactivate · 4 the active map's card · 5 Activate another map · 6 delete a map · 7 layers on the map · 8 Map recording · 9 Display (layers)")
 
 **Map › Map** shows *Active map: name* at the top, and one card per saved map with chips
 (*active*, *recording*, *no session*), its area, the number of sessions and programs.
@@ -40,6 +56,8 @@ Cover it | edges, around obstacles, the dock
 ok: Save & finish | best while docked
 Active | the new map is active at once
 ```
+
+![The Map recording section with numbered markers](img/shot-map-recording.webp "1 name · 2 Start recording · 3 Save & finish · 4 Erase & keep recording · 5 Discard (no save)")
 
 1. **Map › Map › Map recording**: type a **name** (letters, digits, `_` and `-`; with any other
    character the robot does not start the recording).

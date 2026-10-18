@@ -14,6 +14,8 @@ keywords: [program, programs, calendar, schedule, hold, held, active, automation
 A **program** says *what* to mow: a list of zones of the active map, the speed, and optionally one
 cut height and RPM for all of them. The **calendar** says *when*. Both are in **Programs**.
 
+![Programs › Programs with a program open, numbered markers](img/shot-programs.webp "1 the program list (click one to open it; **New program** is at the bottom of the panel) · 2 Run · 3 Resume · 4 Show / Hide · 5 Stop · 6 Reset · 7 Save · 8 Delete")
+
 ## Make a program
 
 1. Activate the map first — a program belongs to the map it is made on.
@@ -51,6 +53,8 @@ While a program runs, a **Running** card on top of the program list shows its na
 a **Stop** button — whichever program (or none) is open below. After a Stop it turns into
 **Stopped** with **Reset**.
 
+![The Running card: the program's name, its state and Stop](img/shot-program-running.webp "Running — the name, what the mission does now, Stop") ![The Stopped card: the state and Reset](img/shot-program-stopped.webp "Stopped — Reset first, then Run or Resume")
+
 ### Interrupt and continue
 
 A running program stops on any of these — always into *Stopped*, the blade off:
@@ -58,6 +62,14 @@ A running program stops on any of these — always into *Stopped*, the blade off
 - **Stop** in Programs (the Running card or the program's card),
 - the red **STOP** bottom left (it also switches the drive motors off — [Safety](safety.md#stop)),
 - taking over with the gamepad or the web joystick ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)).
+
+```flow
+ok: Run | the robot undocks and mows the zones in order
+Running | the Running card shows the zone / path
+warn: Stopped | Stop, the red STOP or a takeover; blade off
+info: Reset | clears Stopped — needed before anything else
+ok: Resume or Run | Resume = from where it stopped, Run = from the beginning
+```
 
 The robot then stands and waits. To go on: **Reset**, then **Resume** (continues from about where it
 stopped — the mission saves its place every minute) or **Run** (from the beginning). Off the dock the motors must be on —
@@ -74,9 +86,13 @@ program is running), the reason appears under the buttons of the program's card.
 
 ## The calendar
 
+![Programs › Calendar with numbered markers](img/shot-calendar.webp "1 what the scheduler does now (tag) · 2 Hold · 3 its status and the next run · 4 an event · 5 add an event")
+
 **Programs › Calendar** lists events: program, time and recurrence (Once, Daily, Weekly with days,
 Monthly, Yearly), each with an on / off switch, **Edit** and **Del**. An event starts within 15
 minutes after its time, once a day.
+
+![The form for a new calendar event with numbered markers](img/shot-calendar-form.webp "+ Add event: 1 program · 2 time · 3 recurrence · 4 Save")
 
 The tag in the calendar's head says what the scheduler does now:
 

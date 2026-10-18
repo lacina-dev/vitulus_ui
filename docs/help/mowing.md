@@ -17,6 +17,8 @@ Programs drive the mower by themselves. **Settings › Mower** is for checking a
 > The blade is dangerous. Start it by hand only with the robot on the lawn, nobody near it, and
 > your other hand on **STOP**.
 
+![Settings › Mower with numbered markers](img/shot-mower.webp "1 ON / OFF (power) · 2 direction · 3 height in mm + Set · 4 RPM + Set · 5 Home · 6 START MOTOR / STOP MOTOR")
+
 | Control | What it does |
 |---|---|
 | **ON / OFF** | mower power. The row shows the temperature and status: OFF, INIT, HOME, HEIGHT, READY, RUN, ERR, BLOCKED, TEMP |

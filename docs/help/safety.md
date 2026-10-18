@@ -20,6 +20,8 @@ of the agent or a navigation goal tells it to.
 
 ## STOP
 
+![The bottom bar with the red STOP on the left](img/shot-bottom-bar.webp "STOP is the red button at the left end of the bottom bar — on a PC and a phone alike.")
+
 The red **STOP** button, always bottom left (same place and size on every screen), does all of
 this at once:
 
@@ -54,6 +56,8 @@ stops reporting, or gets hotter than 70 °C while powered.
 
 Every drive command passes one priority switch on the robot (the *cmd_vel mux*):
 
+![Who drives: the gamepad beats the UI joystick, the joystick beats the software; taking over cancels the software's task](img/takeover.svg "1 DS4 gamepad · 2 the joystick in the UI (and keyboard driving) · 3 the software (navigation, programs, docking, agent missions) · 4 the priority switch on the robot · 5 the wheels · 6 a takeover cancels what the software was doing")
+
 | Rank | Who | Wins when |
 |---|---|---|
 | 1 | **DS4 gamepad** | a stick is moved (or PS / L1 / R1 pressed) |
@@ -70,6 +74,15 @@ At that moment the robot
    running mowing program (it goes to *Stopped* and stops the blade, like Stop in Programs),
 3. tells a running agent mission that a person took over (the mission stops, see
    [Agent](agent.md#supervisor-fault)).
+
+```flow
+Software drives | a goal, a program, docking or an agent mission
+warn: You take over | move a stick (or PS / L1 / R1), or push the web joystick
+err: The software's task is cancelled | goal, docking, program → Stopped, blade off
+You drive | the robot follows your stick only
+off: Let go | the robot stops and stays
+ok: Start again | new goal, Undock, or Reset + Run / Resume
+```
 
 **Let go:** the robot stops and **stays**. The software does not drive on by itself — a new goal,
 an Undock or **Reset** + **Run** of the program is needed. A node that keeps sending commands
@@ -96,6 +109,8 @@ the battery output and the computer (the hardest stop; the UI goes away too). Ho
 2–4 s is a standby that software can undo.
 
 ## The blade
+
+![Where the blade is: under the middle of the body (number 4)](img/robot.svg "The blade (4) turns under the middle of the robot; the charging contacts (6) are at the rear.")
 
 - The blade has its own switch: **Settings › Mower › START MOTOR / STOP MOTOR**
   ([Mowing](mowing.md)). Programs start and stop it by themselves.
