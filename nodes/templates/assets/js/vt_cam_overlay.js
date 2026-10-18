@@ -218,8 +218,14 @@
     /* the overlay box = the camera canvas's box inside the host (S: the
        slot, L: centred in the hollow with margins) */
     function place() {
-        var c = host && host.firstElementChild;
-        if (!c || c.tagName !== 'CANVAS') { return false; }
+        // The camera canvas is the host's own <canvas> child — not the first
+        // child: the overlay divs sit in front of it, and a camera reload
+        // appends a new canvas after them (live 18. 10.: points never drawn).
+        var c = null;
+        for (var k = host ? host.firstElementChild : null; k; k = k.nextElementSibling) {
+            if (k.tagName === 'CANVAS') { c = k; break; }
+        }
+        if (!c) { return false; }
         var box = c.offsetLeft + ',' + c.offsetTop + ',' + c.offsetWidth + ',' + c.offsetHeight;
         if (box !== lastBox) {
             lastBox = box;
