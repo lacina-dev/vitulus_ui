@@ -88,7 +88,7 @@ panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 | Mapa | vpravo od panelu (plátno se zúží) | celá plocha mezi lištami |
 | Pravý stavový panel | výběžek z horní lišty u pravé hrany (hned pod pásem menu), konec nad logem / joystickem | totéž |
 | Log malý | výběžek spodní lišty od panelu po joystick (nebo pravou hranu) | od hřbetu po joystick / pravou hranu |
-| Log celý | ze spodní lišty do dutiny pod hlášky, vlevo od panelu, vpravo končí před pravým panelem / joystickem | od hřbetu, vpravo před pravým panelem / joystickem |
+| Log celý | ze spodní lišty do dutiny pod hlášky, vlevo od panelu; **tvar L (P21)**: vedle pravého panelu končí u jeho hrany, pod ním pokračuje až k joysticku (bez joysticku k pravé hraně) — log, pravý panel a joystick jsou jedna plocha rámu, otevřené zůstává jen okno mapy mezi spodkem pravého panelu a joystickem | totéž od hřbetu |
 | Log skrytý | — (tlačítko ≡ ve spodní liště) | — |
 | Joystick | stojí na spodní liště u pravé hrany vedle malého logu | totéž |
 | Kamera large | dutina vlevo od pravého panelu, mapa ve slotu pravého panelu | totéž |

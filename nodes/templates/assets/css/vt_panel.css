@@ -1737,3 +1737,18 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #div_log_view.log-expanded
         margin-right: var(--vt-head-w, 140px) !important;
     }
 }
+/* P21: desktop full log as an L — it runs under the right panel's column on
+   to the joystick (vt_frame.js sets --vt-log-step-y = the right panel's
+   bottom, --vt-log-notch-w = the panel's width minus the stick), so log,
+   panel and stick are one frame surface */
+html body.vt-frame.vt-c-logfull-l #div_log_view.log-expanded {
+    border-radius: 0 !important;
+    clip-path: polygon(0 0,
+        calc(100% - var(--vt-log-notch-w, 0px)) 0,
+        calc(100% - var(--vt-log-notch-w, 0px)) var(--vt-log-step-y, 0px),
+        100% var(--vt-log-step-y, 0px),
+        100% 100%, 0 100%);
+}
+html body.vt-frame.vt-c-logfull-l #div_log_view.log-expanded .log-toolbar { margin-right: var(--vt-log-notch-w, 0px); }
+html body.vt-frame.vt-c-logfull-l #div_log_view.log-expanded #div_log_content { padding-right: 4px; }
+html body.vt-frame.vt-c-logfull-l #right_panel { border-bottom-left-radius: 0 !important; }

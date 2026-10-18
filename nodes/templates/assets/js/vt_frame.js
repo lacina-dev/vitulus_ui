@@ -186,6 +186,26 @@
         var flr = 0;
         if (rpOn && m !== 'sheet') { flr = Math.max(flr, W - rp.getBoundingClientRect().left + 8); }
         if (joyOn && m !== 'sheet') { flr = Math.max(flr, jw + 8); }   // phone: the stick stays on top of it
+        // P21 (desktop): below the right panel the full log reaches on to the
+        // joystick (or the right edge) — an L: a notch the size of the right
+        // panel is cut out of its top-right corner (clip-path in vt_panel.css),
+        // so no sliver of map is left between the log, the panel and the stick
+        var lshape = false;
+        if (logFull && m === 'dock' && rpOn) {
+            var logTop = nb + 6;
+            // seamless: the log meets the panel's column and the stick edge to
+            // edge (same frame surface) — no 8 px seams of map in between
+            var stepY = rpb - logTop;
+            var flrExt = joyOn ? jw : 0;
+            var notch = (W - rp.getBoundingClientRect().left) - flrExt;
+            if (stepY > 0 && notch > 0 && (H - bh) - rpb > 60) {
+                lshape = true;
+                flr = flrExt;
+                setVar('--vt-log-step-y', px(stepY));
+                setVar('--vt-log-notch-w', px(notch));
+            }
+        }
+        setCls(body, 'vt-c-logfull-l', lshape);
         setVar('--vt-frame-logfull-r', px(flr));
         setCls(body, 'vt-c-logfull', logFull);
         setCls(body, 'vt-c-logfull-edge', logFull && flr === 0);
