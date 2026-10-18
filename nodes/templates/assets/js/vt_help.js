@@ -436,6 +436,12 @@
                 var b = qBtn(null, 'help.q.state', function () { toggle('right/state'); });
                 var caret = h.querySelector('.rp-caret');
                 h.insertBefore(b, caret || null);
+                // the GNSS section next to it: what the receiver card says
+                var hg = document.querySelector('#right_panel .rp-sec[data-sec="gnss"] > h5');
+                if (hg && !hg.querySelector('.vth-q')) {
+                    var bg = qBtn(null, 'help.q.gnss', function () { toggle('right/gnss'); });
+                    hg.insertBefore(bg, hg.querySelector('.rp-caret') || null);
+                }
                 return;
             }
             if (++tries < 20) { setTimeout(rp, 500); }

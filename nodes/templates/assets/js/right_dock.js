@@ -51,6 +51,9 @@
         {id: 'state', title: 'rdock.sec.state',
          movees: ['div_mower_info_panel', 'div_odom', 'div_gnss', 'div_rtabmap'],
          collapsible: true},
+        /* GNSS: both F9P receivers side by side (Position | Heading) — fix,
+           satellites, RTCM corrections, warm-up and why not RTK yet */
+        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss_rx'], collapsible: true},
         {id: 'camera', title: 'rdock.sec.camera', movees: [], camera: true, collapsible: true}
     ];
 

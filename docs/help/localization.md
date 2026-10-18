@@ -5,7 +5,7 @@ group: Robot
 order: 40
 icon: la-crosshairs
 summary: How the robot knows where it is — RTK, the map, the dock — and what the states mean.
-ui: [right/state, map/gloc#the-loc-tab-lidar-global-localization]
+ui: [right/state, right/gnss#gnss-receivers-right-panel--gnss, map/gloc#the-loc-tab-lidar-global-localization]
 related: [mapping, dock, troubleshooting, status-icons]
 keywords: [gps, gnss, rtk, fix, float, pose, tracker, dead reckoning, heading, localize, relocalize, gloc]
 ---
@@ -57,6 +57,47 @@ outlined = in use), **FIX** = a usable raw RTK fix, **PROB** = the GPS fix has p
 The two GPS icons in the navbar ([Status icons](status-icons.md)) say the same in one colour:
 green = RTK, orange = a 3D fix without RTK (or float), red = bad, grey = no data. **Undocking
 waits for both to be green** (docking only when it first has to load the outdoor dock map).
+
+## GNSS receivers (right panel › GNSS)
+
+The robot has **two** GPS receivers and the **GNSS** section shows both side by side:
+
+- **Position** — the RTK rover. It gets its corrections (RTCM) from the **base station**.
+- **Heading** — the second antenna. It gets its corrections from the **position receiver**
+  (the *moving base*) and measures the direction of the line between the two antennas.
+
+Each column is tinted by its state: green = `RTK`, orange = `FLOAT` / `DGNSS` / `3D` (a fix, not
+centimetre-exact yet), red = no fix, grey = no data (`OFF`). For the heading receiver `RTK` means
+a fixed heading solution with a valid heading.
+
+| Row | Meaning |
+|---|---|
+| `SV` | satellites used / visible; orange below 12 |
+| `acc` (Position) | horizontal accuracy the receiver reports: green ≤ 3 cm, orange ≤ 50 cm |
+| `hdg` (Heading) | heading accuracy: green ≤ 0.5°, orange ≤ 2° |
+| `corr` | age of the last correction message: green ≤ 3 s, orange older or not used, red > 10 s or `none` |
+| `up` | time since the receiver started |
+| `RTK` | how long after its start it reached RTK; `… 11:32` = still waiting (so far); `yes` = it was RTK before the robot started watching |
+
+When a receiver is **not RTK**, a line under the columns says how long it has waited and the
+**likely reason**:
+
+| Reason | What to do |
+|---|---|
+| *no corrections from the base station* | check the base (power, radio link) |
+| *no moving-base stream* / *moving-base stream incomplete* | the position receiver does not feed the heading receiver — usually after a reboot it comes by itself; if it stays, restart the GNSS |
+| *corrections stale* / *not used* | the link is dropping messages — check the radio |
+| *few satellites* | drive into open sky |
+| *float — position receiver not RTK yet* | wait for Position to turn green first |
+| *float — corrections OK, resolving ambiguities* | the normal warm-up; just wait |
+
+*after a start usually ~N min* is the median time to RTK from earlier starts of that receiver
+(after a reboot the heading receiver often needs ~15 min).
+
+**Tap the card** for details: satellites per system (G = GPS, E = Galileo, C = BeiDou,
+R = GLONASS), satellites with carrier corrections, every RTCM message type with its rate (`!` =
+some were not used), the distance to the base or the antenna baseline, and when the receiver got
+its first fix, float and RTK after start. Tap again to hide them.
 
 ## When GPS does not fix
 

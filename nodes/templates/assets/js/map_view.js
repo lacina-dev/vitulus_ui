@@ -111,6 +111,9 @@ var MapLayerOrder = {
     DIRECT:    21,   // direct 2D raster mapper overlay (mapping.js) — teal,
                      // sits just above LIVE so it reads on top when both
                      // layers are shown at once.
+    SENSING_COVER: 22, // Sensing layer: faint "already observed" swath of
+                     // the running recording (MapSensing in mapping.js)
+    SENSING:   25,   // Sensing layer: live lidar scan polygon + camera cone
     DOCK:      30,
     RAIN:     999,
     BEACON:   1000,  // far-zoom location "you are here" pin (mapping.js) — sits
@@ -5135,6 +5138,180 @@ class Odom{
     }
 }
 
+// GNSS receivers card (right panel › GNSS, 2026-10-18).
+// One column per F9P: Position (rover vs. the base station) and Heading
+// (moving-base rover vs. the position receiver). Data = /gnss_status, a 1 Hz
+// JSON summary from vitulus_gnss/nodes/gnss_status (read-only aggregator of
+// NAV-PVT / NAV-SAT / RXM-RTCM / NAV-RELPOSNED / NAV-STATUS). The point is to
+// see at a glance WHY a receiver is not RTK yet and how long the warm-up
+// takes. A tap on the card opens the detail (constellations, RTCM types,
+// relative solution, warm-up marks); the choice is remembered per device.
+class GnssRx{
+    constructor(ros) {
+        this.box = document.getElementById("div_gnss_rx");
+        if (!this.box) return;
+        this.last = null;
+        this.last_at = 0;
+        var self = this;
+        try { this.open = localStorage.getItem('vitulus_gnss_detail') === '1'; } catch (e) { this.open = false; }
+        this.box.addEventListener('click', function (ev) {
+            if (ev.target && ev.target.closest && ev.target.closest('a,button')) return;
+            self.open = !self.open;
+            try { localStorage.setItem('vitulus_gnss_detail', self.open ? '1' : '0'); } catch (e) {}
+            self.render();
+        });
+        this.topic = new ROSLIB.Topic({
+            ros : ros, name : '/gnss_status', messageType : 'std_msgs/String',
+            throttle_rate : 900
+        });
+        this.topic.subscribe(function (m) {
+            try { self.last = JSON.parse(m.data); self.last_at = Date.now(); } catch (e) { return; }
+            self.render();
+        });
+        // stale data / no aggregator yet → say so instead of freezing
+        setInterval(function () { if (Date.now() - self.last_at > 5000) self.render(); }, 3000);
+        if (window.VTI18n && VTI18n.onChange) VTI18n.onChange(function () { self.render(); });
+        this.render();
+    }
+
+    static dur(s) {
+        if (s == null || isNaN(s)) return "—";
+        s = Math.max(0, Math.round(s));
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+        var p = function (n) { return (n < 10 ? "0" : "") + n; };
+        return h ? h + ":" + p(m) + ":" + p(x) : m + ":" + p(x);
+    }
+
+    static fixState(o) {
+        if (!o || !o.alive) return "off";
+        if (o.label === "RTK") return "ok";
+        if (o.label === "FLOAT" || o.label === "DGNSS" || o.label === "3D") return "warn";
+        return "err";
+    }
+
+    static fixText(o) {
+        if (!o || !o.alive) return vtT('gnssrx.fix.off');
+        return {RTK: "RTK", FLOAT: "FLOAT", DGNSS: "DGNSS", "3D": "3D", "2D": "2D", NONE: vtT('gnssrx.fix.none')}[o.label] || o.label;
+    }
+
+    // the correction age: our own RXM-RTCM clock first, NAV-PVT flags3 as backup
+    static corr(o) {
+        var r = o.rtcm || {};
+        var a = r.last_age_s;
+        if (a == null) return {txt: vtT('gnssrx.corr.none'), tone: "err"};
+        if (a > 10) return {txt: vtT('gnssrx.corr.age', {s: Math.round(a)}), tone: "err"};
+        var tone = a > 3 ? "warn" : ((r.used_frac != null && r.used_frac < 0.2) ? "warn" : "ok");
+        return {txt: vtT('gnssrx.corr.age', {s: a < 10 ? a.toFixed(1) : Math.round(a)}), tone: tone};
+    }
+
+    row(k, v, tone, tip) {
+        return '<div class="vt-gx-r"' + (tip ? ' title="' + vtEsc(tip) + '"' : '') + '><span>' + vtEsc(k) + '</span><b' +
+            (tone ? ' class="vt-tone-' + tone + '"' : '') + '>' + vtEsc(v) + '</b></div>';
+    }
+
+    col(key, o, title) {
+        var st = GnssRx.fixState(o);
+        var h = '<div class="vt-gx-col" data-state="' + st + '">' +
+            '<div class="vt-gx-h"><span class="vt-gx-name">' + vtEsc(title) + '</span>' +
+            '<span class="vt-chip vt-chip-sm" data-state="' + st + '">' + vtEsc(GnssRx.fixText(o)) + '</span></div>';
+        if (!o || !o.alive) return h + '<div class="vt-gx-r vt-muted">' + vtEsc(vtT('gnssrx.silent')) + '</div></div>';
+        var p = o.pvt || {}, s = o.sat, rl = o.rel || {};
+        var sv = (s ? s.used + "/" + s.visible : (p.num_sv != null ? String(p.num_sv) : "—"));
+        h += this.row(vtT('gnssrx.r.sv'), sv, (s ? s.used : p.num_sv) < 12 ? "warn" : "", vtT('gnssrx.r.sv_tip'));
+        if (o.role === "heading") {
+            var ha = rl.hdg_valid ? rl.hdg_acc_deg : null;
+            h += this.row(vtT('gnssrx.r.hdg'), ha == null ? "—" : "±" + (ha < 1 ? ha.toFixed(2) : ha.toFixed(1)) + "°",
+                ha == null ? "muted" : (ha <= 0.5 ? "ok" : (ha <= 2 ? "warn" : "err")), vtT('gnssrx.r.hdg_tip'));
+        } else {
+            var cm = p.h_acc_mm != null ? p.h_acc_mm / 10 : null;
+            h += this.row(vtT('gnssrx.r.acc'), cm == null ? "—" : "±" + (cm < 10 ? cm.toFixed(1) : cm.toFixed(0)) + " cm",
+                cm == null ? "muted" : (cm <= 3 ? "ok" : (cm <= 50 ? "warn" : "err")), vtT('gnssrx.r.acc_tip'));
+        }
+        var c = GnssRx.corr(o);
+        h += this.row(vtT('gnssrx.r.corr'), c.txt, c.tone,
+            vtT(o.role === "heading" ? 'gnssrx.r.corr_tip_mb' : 'gnssrx.r.corr_tip'));
+        h += this.row(vtT('gnssrx.r.up'), GnssRx.dur(o.up_s), "", vtT('gnssrx.r.up_tip'));
+        var w = o.warm || {};
+        var rt = o.rtk ? (w.rtk != null ? GnssRx.dur(w.rtk) : vtT('gnssrx.r.rtk_early'))
+                       : (o.up_s != null ? "… " + GnssRx.dur(o.up_s) : "—");
+        h += this.row(vtT('gnssrx.r.rtk'), rt, o.rtk ? "ok" : "warn", vtT('gnssrx.r.rtk_tip'));
+        return h + '</div>';
+    }
+
+    reasonText(o) {
+        var p = o.pvt || {}, r = o.rtcm || {}, s = o.sat || {};
+        var age = r.last_age_s != null ? r.last_age_s.toFixed(1) : "—";
+        return vtT('gnssrx.why.' + o.reason, {
+            s: age, n: (s.used != null ? s.used : p.num_sv),
+            cr: (s.carrier_corr != null ? s.carrier_corr : "—")
+        });
+    }
+
+    // one line per receiver that is not RTK: how long it waits + the likely reason
+    note(o, title) {
+        if (!o) return "";
+        if (o.rtk) return "";
+        var st = !o.alive ? "err" : (o.reason === "float" || o.reason === "pos_not_rtk" ? "warn" : "err");
+        var wait = o.up_s != null ? vtT('gnssrx.wait', {t: GnssRx.dur(o.up_s)}) : "";
+        var typ = o.typical_rtk_s != null
+            ? " · " + vtT('gnssrx.typical', {m: Math.max(1, Math.round(o.typical_rtk_s / 60)), n: o.typical_n}) : "";
+        return '<div class="vt-gx-note" data-state="' + st + '"><b>' + vtEsc(title) + ':</b> ' +
+            vtEsc((wait ? wait + " · " : "") + this.reasonText(o) + typ) + '</div>';
+    }
+
+    detail(o, title) {
+        if (!o || !o.alive) return "";
+        var p = o.pvt || {}, s = o.sat, r = o.rtcm || {}, rl = o.rel, w = o.warm || {};
+        var L = [];
+        if (s && s.per) {
+            var per = Object.keys(s.per).map(function (g) { return g + " " + s.per[g].used + "/" + s.per[g].vis; }).join(" · ");
+            L.push(vtT('gnssrx.d.const', {v: per}));
+            L.push(vtT('gnssrx.d.carrier', {n: s.carrier_corr}));
+        }
+        var types = Object.keys(r.types || {}).map(function (k) {
+            var d = r.types[k];
+            return k + (d.used < d.n ? "!" : "") + " " + d.rate + "/s";
+        }).join(" · ");
+        L.push(vtT(o.role === "heading" ? 'gnssrx.d.rtcm_mb' : 'gnssrx.d.rtcm', {
+            v: types || "—", r: r.rate != null ? r.rate : "—",
+            u: r.used_frac != null ? Math.round(r.used_frac * 100) : "—", c: r.crc_fail || 0}));
+        if (rl) {
+            var fl = [];
+            if (rl.ref_obs_miss) fl.push(vtT('gnssrx.d.obs_miss'));
+            if (rl.ref_pos_miss) fl.push(vtT('gnssrx.d.pos_miss'));
+            L.push(vtT(o.role === "heading" ? 'gnssrx.d.rel_mb' : 'gnssrx.d.rel_base', {
+                m: rl.len_m != null ? rl.len_m.toFixed(2) : "—",
+                c: {0: vtT('gnssrx.fix.none'), 1: "FLOAT", 2: "FIXED"}[rl.carr] || "—"}) +
+                (fl.length ? " · " + fl.join(", ") : ""));
+        }
+        L.push(vtT('gnssrx.d.warm', {f: GnssRx.dur(w.fix), fl: GnssRx.dur(w.float), r: GnssRx.dur(w.rtk),
+                                       ttff: p && o.ttff_s != null ? o.ttff_s.toFixed(0) : "—"}));
+        if (o.rtk && o.rtk_for_s != null) L.push(vtT('gnssrx.d.rtk_for', {t: GnssRx.dur(o.rtk_for_s), d: o.rtk_drops || 0}));
+        L.push(vtT('gnssrx.d.dop', {p: p.pdop != null ? p.pdop.toFixed(1) : "—",
+                                     v: p.v_acc_mm != null ? (p.v_acc_mm / 10).toFixed(1) : "—"}));
+        return '<div class="vt-gx-det"><b>' + vtEsc(title) + '</b>' +
+            L.map(function (x) { return '<div>' + vtEsc(x) + '</div>'; }).join("") + '</div>';
+    }
+
+    render() {
+        if (!this.box) return;
+        var d = this.last, fresh = d && (Date.now() - this.last_at) < 5000;
+        if (!fresh) {
+            this.box.innerHTML = '<div class="vt-gx-note" data-state="off">' +
+                vtEsc(vtT(d ? 'gnssrx.stale' : 'gnssrx.nodata')) + '</div>';
+            return;
+        }
+        var pos = d.rx && d.rx.gnss, hdg = d.rx && d.rx.gnss_heading;
+        var tp = vtT('gnssrx.pos'), th = vtT('gnssrx.hdg');
+        var h = '<div class="vt-gx-cols">' + this.col('gnss', pos, tp) + this.col('gnss_heading', hdg, th) + '</div>';
+        h += this.note(pos, tp) + this.note(hdg, th);
+        if (this.open) h += this.detail(pos, tp) + this.detail(hdg, th);
+        h += '<div class="vt-gx-more">' + vtEsc(vtT(this.open ? 'gnssrx.less' : 'gnssrx.more')) + '</div>';
+        this.box.innerHTML = h;
+        this.box.title = vtT('gnssrx.tip');
+    }
+}
+
 class RtabMap{
     constructor(ros) {
         this.div_rtabmap = document.getElementById("div_rtabmap");
@@ -7172,6 +7349,8 @@ window.initMapView = function () {
     odom.odom_status_topic.subscribe(function(message) {
          odom.process_msg(message);
     });
+    // GNSS receivers card (right panel › GNSS): position + heading F9P
+    window.gnss_rx = new GnssRx(ros.ros);
 
 
      /**
@@ -7745,6 +7924,11 @@ window.initMapView = function () {
      */
 
     mapping_v3 = new MappingV3(ros.ros, tf_client.tfClientMap, viewer.viewer);
+    // Sensing layer — live lidar/camera footprint + covered swath while
+    // recording (mapping.js MapSensing; hooks into mapping_v3's statuses).
+    try {
+        window.map_sensing = new MapSensing(ros.ros, tf_client.tfClientMap, viewer.viewer, mapping_v3);
+    } catch (e) { console.error('[sensing] init failed:', e); }
 
     /**
      *  Global occupancy-map opacity sliders ("3D view layers" group).

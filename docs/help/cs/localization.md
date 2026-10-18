@@ -5,7 +5,7 @@ group: Robot
 order: 40
 icon: la-crosshairs
 summary: Jak robot ví, kde je — RTK, mapa, dok — a co znamenají jednotlivé stavy.
-ui: [right/state, map/gloc#záložka-loc-globální-lokalizace-lidarem]
+ui: [right/state, right/gnss#přijímače-gnss-pravý-panel--gnss, map/gloc#záložka-loc-globální-lokalizace-lidarem]
 related: [mapping, dock, troubleshooting, status-icons]
 keywords: [lokalizace, poloha, kurz, gps, gnss, rtk, fix, float, odhad, tracker, odometrie, relokalizace, lidar, gloc, pose, dead reckoning, heading, localize, relocalize]
 ---
@@ -57,6 +57,46 @@ Dvě ikony GPS v navbaru ([Ikony stavu](status-icons.md)) říkají totéž jedn
 zelená = RTK, oranžová = 3D fix bez RTK (nebo float), červená = špatně, šedá = žádná data.
 **Výjezd z doku čeká, až budou obě zelené** (zajetí do doku jen tehdy, když musí nejdřív nahrát
 venkovní mapu doku).
+
+## Přijímače GNSS (pravý panel › GNSS)
+
+Robot má **dva** přijímače GPS a sekce **GNSS** ukazuje oba vedle sebe:
+
+- **Poloha** — RTK rover. Korekce (RTCM) dostává ze **základnové stanice**.
+- **Kurz** — druhá anténa. Korekce dostává z **pozičního přijímače** (*moving base*) a měří
+  směr spojnice obou antén.
+
+Každý sloupec má jemný nádech podle stavu: zelená = `RTK`, oranžová = `FLOAT` / `DGNSS` / `3D`
+(fix, ale ještě ne na centimetry), červená = bez fixu, šedá = žádná data (`VYP`). U přijímače
+kurzu znamená `RTK` pevné (fixed) řešení s platným kurzem.
+
+| Řádek | Význam |
+|---|---|
+| `sat.` | satelity použité / viditelné; oranžově pod 12 |
+| `přesn.` (Poloha) | vodorovná přesnost hlášená přijímačem: zelená ≤ 3 cm, oranžová ≤ 50 cm |
+| `kurz` (Kurz) | přesnost kurzu: zelená ≤ 0,5°, oranžová ≤ 2° |
+| `kor.` | stáří poslední korekce: zelená ≤ 3 s, oranžová starší nebo nepoužitá, červená > 10 s nebo `žádné` |
+| `běží` | doba od startu přijímače |
+| `RTK` | za jak dlouho po startu dosáhl RTK; `… 11:32` = ještě čeká (zatím); `ano` = RTK měl už předtím, než ho robot začal sledovat |
+
+Když přijímač **nemá RTK**, řádek pod sloupci řekne, jak dlouho čeká, a **pravděpodobný důvod**:
+
+| Důvod | Co dělat |
+|---|---|
+| *žádné korekce ze základnové stanice* | zkontroluj základnu (napájení, rádiové spojení) |
+| *žádný moving-base proud* / *moving-base proud neúplný* | poziční přijímač nekrmí přijímač kurzu — po rebootu se to obvykle srovná samo; když trvá, restartuj GNSS |
+| *korekce jsou staré* / *nepoužívá je* | spojení ztrácí zprávy — zkontroluj rádio |
+| *málo satelitů* | popojeď pod volné nebe |
+| *float — poziční přijímač ještě nemá RTK* | počkej, až zezelená Poloha |
+| *float — korekce OK, řeší ambiguity* | normální zahřívání; stačí čekat |
+
+*po startu obvykle ~N min* je medián doby do RTK z dřívějších startů toho přijímače (po rebootu
+potřebuje přijímač kurzu často ~15 min).
+
+**Klepni na kartu** pro podrobnosti: satelity po systémech (G = GPS, E = Galileo, C = BeiDou,
+R = GLONASS), satelity s fázovou korekcí, každý typ RTCM zprávy s četností (`!` = některé nebyly
+použity), vzdálenost k základně nebo délka základny antén a kdy po startu přišel první fix, float
+a RTK. Dalším klepnutím je schováš.
 
 ## Když GPS nechytá fix
 

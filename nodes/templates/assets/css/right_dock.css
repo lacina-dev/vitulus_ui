@@ -275,3 +275,42 @@ body.rp-log-top #div_log_view {
     #right_panel { width: 190px; }
     .rp-handle { width: 22px; height: 54px; line-height: 54px; }
 }
+
+/* ---- GNSS: both receivers side by side (map_view.js GnssRx, 2026-10-18).
+   One panel anatomy: rounded tiles, state = a soft tint (vt_tokens), no side
+   stripe. Two columns even at 196 px; text wraps, never clips. */
+#right_panel #div_gnss_rx { width: 100% !important; padding: 0 !important; }
+.vt-gx { display: flex; flex-direction: column; gap: 3px; width: 100%; font-size: 10px; line-height: 1.35; }
+.vt-gx-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 100%; }
+.vt-gx-col {
+    min-width: 0;
+    padding: 3px 4px;
+    border: 1px solid var(--vt-edge-off, rgba(255,255,255,0.12));
+    border-radius: var(--vt-r-ctl, 7px);
+    background: var(--vt-tint-off), rgba(255, 255, 255, 0.03);
+    font-variant-numeric: tabular-nums;
+}
+.vt-gx-col[data-state="ok"]   { background: var(--vt-tint-ok), rgba(255,255,255,0.03);   border-color: var(--vt-edge-ok); }
+.vt-gx-col[data-state="warn"] { background: var(--vt-tint-warn), rgba(255,255,255,0.03); border-color: var(--vt-edge-warn); }
+.vt-gx-col[data-state="err"]  { background: var(--vt-tint-err), rgba(255,255,255,0.03);  border-color: var(--vt-edge-err); }
+.vt-gx-h { display: flex; align-items: center; justify-content: space-between; gap: 2px; margin-bottom: 1px; }
+.vt-gx-name { font-weight: 600; color: var(--vt-accent, #0dcaf0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-gx-h .vt-chip { margin-left: 0; white-space: nowrap; }
+.vt-gx-r { display: flex; justify-content: space-between; gap: 3px; }
+.vt-gx-r > span { color: var(--vt-muted, #9aa4ad); }
+.vt-gx-r > b { font-weight: 600; text-align: right; white-space: nowrap; }
+.vt-gx-note {
+    padding: 2px 4px;
+    border-radius: var(--vt-r-ctl, 7px);
+    border: 1px solid var(--vt-edge-off, rgba(255,255,255,0.12));
+    background: var(--vt-tint-off);
+    overflow-wrap: anywhere;
+}
+.vt-gx-note[data-state="warn"] { background: var(--vt-tint-warn); border-color: var(--vt-edge-warn); }
+.vt-gx-note[data-state="err"]  { background: var(--vt-tint-err);  border-color: var(--vt-edge-err); }
+.vt-gx-note b { font-weight: 600; }
+.vt-gx-det { padding: 2px 4px; color: var(--vt-muted, #9aa4ad); overflow-wrap: anywhere; border-top: 1px dashed rgba(255,255,255,0.08); }
+.vt-gx-det > b { color: var(--vt-text, #e6e9ec); font-weight: 600; }
+.vt-gx-more { align-self: flex-end; font-size: 9px; color: var(--vt-muted, #9aa4ad); }
+/* touch: the whole card is the tap target */
+@media (pointer: coarse) { .vt-gx { font-size: 11px; } .vt-gx-more { font-size: 10px; padding: 2px 0; } }
