@@ -19,20 +19,22 @@ Programs drive the mower by themselves. **Settings › Mower** is for checking a
 
 | Control | What it does |
 |---|---|
-| **ON / OFF** | mower power. The row shows the temperature and status: OFF, READY, RUN, CALIB, HEIGHT, ERR, BLOCKED, TEMP |
-| **Direction** | Left / Right — the blade's direction of rotation |
-| **Height** | current / max in **mm**; type a height in mm (20 up to the max, e.g. 45) and **Set** |
+| **ON / OFF** | mower power. The row shows the temperature and status: OFF, INIT, HOME, HEIGHT, READY, RUN, ERR, BLOCKED, TEMP |
+| **Direction** | Left / Right — the blade's direction of rotation. The current mower controller does not take it: it always reports LEFT |
+| **Height** | current / max in **mm**; type a height in mm (from the mower's minimum, 25 mm by default, up to the max, e.g. 45) and **Set**. A value outside that range is ignored |
 | **RPM** | current / setpoint; type a value (500–4000) and **Set** |
-| **Home** | height calibration — the cutting height drives to its reference position |
+| **Home** | height calibration — the deck drives up to its top stop and takes it as the reference |
 | **START MOTOR / STOP MOTOR** | starts / stops the blade |
 
-- The last height and RPM you set are remembered and applied again whenever the mower powers
-  on; the blade itself always stays off at power-on.
+- When the mower powers on, its controller starts afresh: the deck drives up to the top
+  (Home), the RPM setpoint is the controller's stored default and the blade stays off. A height
+  or RPM you set by hand is not kept over a power-off.
 - Programs use the zone's or the program's cut height and RPM ([Programs](programs.md)).
 - **Cut height is always in millimetres** — here, in zones ([Map editor](map-editor.md)) and in
   programs; the robot itself works in mm. 45 mm = 4.5 cm. The max is the top position of the
   deck, where the blade parks after mowing.
-- Status **TEMP**: the mower is too hot — a running program returns to the dock.
+- Status **TEMP**: the mower is too hot — the blade switches off (it can start again once it
+  has cooled down) and a running program returns to the dock.
 
 ## Stop
 

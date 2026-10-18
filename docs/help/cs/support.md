@@ -1,0 +1,76 @@
+---
+id: support
+title: Podpora v terénu
+group: Robot
+order: 90
+icon: la-life-ring
+summary: Panel Podpora, co dělá hlídač, restarty stacku a jak nahlásit problém.
+ui: [support, support/issues#hlášení, support/releases#vydání, support/signal#signál]
+related: [agent, troubleshooting]
+keywords: [podpora, support, field, kit, hlídač, watcher, hlášení, issue, report, problém, vydání, release, retest, nový test, signál, signal, restart, stack, dashboard]
+---
+# Podpora v terénu
+
+**Field support kit** propojuje tohoto robota s robotem vlastníka: problémy se v jedné smyčce
+nahlásí, opraví, vydají a znovu otestují. Jeho plný dashboard běží na robotu na
+`https://<robot>:8790` (*dashboard Podpory*); panel **Podpora** v tomhle UI ukazuje to hlavní
+a odkazuje tam.
+
+```flow
+Nahlášeno | popíšeš problém
+Posouzeno | strana vlastníka odpoví
+Opraveno | vznikne změna
+warn: Vydáno | robot dostane aktualizaci
+Otestováno | zkusíš to znovu
+ok: Zavřeno | hotovo
+```
+
+## Panel Podpora
+
+Otevři **Podpora** (tlačítko vedle **Agent** v pásu menu). Panel jen čte; rozhoduje se na
+dashboardu. Má záložky **Hlášení**, **Vydání**, **Signál** a **Nápověda** (témata této
+nápovědy).
+
+### Hlášení
+
+Otevřená hlášení s fází smyčky, závažností a s tím, **kdo je na tahu**. Každá karta má
+**Otevřít v Podpoře**, **Zeptat se agenta** (otevře chat agenta s návrhem zprávy o hlášení —
+odešleš ji ty) a **Časová osa** (Agent › Aktivita jen pro toto hlášení).
+
+### Vydání
+
+Verze kitu, jestli je hlídač aktuální, a co na tomto robotu čeká na **nový test**.
+
+### Signál
+
+Oba roboti (puls, verze kitu, připravenost) a upozornění na telefon (zpoždění, odesláno,
+přijato).
+
+## Co dělá hlídač
+
+Hlídač na robotu se spustí, kdykoli signál přinese novinku, a k tomu podle časovače (každých
+10 minut, nebo 30, dokud signál funguje). Stáhne novinky, zjistí další krok smyčky (nasadit
+vydání, znovu otestovat, odpovědět, zavřít) a buď ho udělá sám, nebo se jedním klikem zeptá
+člověka (zvonek, [Čeká na tebe](agent.md#needs-you)). **S robotem nikdy nehne** — cokoli
+s pohybem dělá člověk s rukou na STOP.
+
+## Restarty stacku
+
+Když přijde nový kód, kit restartuje stack robota sám — ale jen když je to bezpečné: robot
+v doku, žádný program, žádná mise agenta, zamčený zámek doku, vypnuté motory i nůž, žádné
+mapování, 2 minuty bez pohybu, baterie aspoň 15 %. Jinak krok čeká na dashboardu v části
+**Blokuje** s tlačítkem **Zkusit znovu**. Po restartu dostaneš upozornění.
+
+> [!IMPORTANT]
+> Po restartu jsou **pojezdové motory vypnuté** a kit je nikdy nezapíná. Mapa a stavové ikony
+> jsou minutu šedé, než se stack rozběhne.
+
+## Nahlásit problém
+
+1. Otevři dashboard Podpory › **Problémy** › **Nové hlášení**.
+2. Popiš problém vlastními slovy. Field agent se doptá, co chybí, ověří to na robotu (jen
+   čtením), zkontroluje duplicity a napíše koncept.
+3. Když je koncept hotový, **Podat hlášení** (dvě kliknutí: druhé potvrzuje).
+
+Z tohoto UI předvyplní chat agenta tlačítko **Zeptat se agenta** u hlášení. Dashboard má vlastní
+nápovědu (`#/help`); otevře ji **Podpora › Nápověda › Nápověda Support kitu**.

@@ -40,7 +40,7 @@
     'app.field.title': 'Podpora',
     'app.field.name': 'Tvoje jméno',
     'app.field.name.placeholder': 'Jméno',
-    'app.field.name.hint': 'Podepisují se jím rozhodnutí v Needs you (audit).',
+    'app.field.name.hint': 'Podepisují se jím rozhodnutí v panelu Čeká na tebe (audit).',
     'app.field.tab': 'Podpora se otevře na',
     'app.field.tab.issues': 'Hlášení',
     'app.field.tab.releases': 'Vydání',

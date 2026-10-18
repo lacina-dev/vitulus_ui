@@ -19,7 +19,7 @@ cut height and RPM for all of them. The **calendar** says *when*. Both are in **
 1. Activate the map first — a program belongs to the map it is made on.
 2. **Programs › Programs › New program**: a **name**, add zones from the list (**Add zone**).
 3. **Speed**: Slow / Mid / Fast.
-4. **RPM** and **Cut height (mm)**, and **Override zone**: with it ticked, these two values
+4. **RPM** and **Cut height** (mm), and **Override zone**: with it ticked, these two values
    replace each zone's own cut height and RPM (both must be above 0). The height is in
    millimetres like everywhere in the UI, e.g. 50 = 5 cm.
 5. **Save**.
@@ -86,8 +86,8 @@ The tag in the calendar's head says what the scheduler does now:
 | **Held** | **Hold** is on — nothing starts from the calendar until you switch Hold off |
 | **Automation off** | the scheduler is switched off on the robot (`automation_enabled: false`, see [below](#automation-on--off)) — nothing starts by itself |
 | **Mowing** | a program runs now |
-| **Off dock** | the robot is out of the dock |
-| **Starting** | a program is being started |
+| **Off dock** | a program ended away from the dock — the scheduler waits for the robot to come back (up to 20 minutes, then it puts the robot to sleep) |
+| **Starting** | the scheduler itself is starting (the first seconds after the robot stack starts) |
 
 The line under the tag is the scheduler's own status and the next run, for example
 *Idle (Wait 12m for …)*, or *Mowing (Stopped - press Reset)* while a scheduled program waits

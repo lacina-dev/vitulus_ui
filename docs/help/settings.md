@@ -59,14 +59,14 @@ Recording of sensor data for analysis:
 
 - **D435 RGB-D camera** — REC / STOP and the frame rate (FPS, **Set**).
 - **GNSS forensics** — records the GPS heading, fix and pose ownership (for localization issues).
-- **Stored bags** — the list with **Download** and **Delete** (↻ refreshes).
+- **Stored bags** — the list with **Download** (⬇) and **Delete** (✕) on each bag (↻ refreshes).
 
 Bags take a lot of disk space; delete what you no longer need.
 
 ## IMU
 
 Calibration of the inertial sensor: **Remove DCD**, **Reset IMU**, **Run**, **Save**, and the
-state of the IMU, navigation, magnetometer, RTK and fusion. A small stick lets the robot only
+heading from the IMU, navigation, magnetometer, RTK and fusion. A small stick lets the robot only
 rotate in place during the calibration. Meant for service.
 
 ## App

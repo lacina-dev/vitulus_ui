@@ -12,7 +12,7 @@ keywords: [čeká, čekání, spánek, déšť, počasí, baterie, teplota, noc,
 # Proč robot čeká
 
 Často robot nic nedělá schválně. Proč, říká stavový řádek kalendáře
-([Programy › Kalendář](programs.md#the-calendar)) a log.
+([Programy › Kalendář](programs.md#kalendář)) a log.
 
 ## Než program začne
 

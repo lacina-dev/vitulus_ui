@@ -27,8 +27,9 @@ ok: Closed | done
 
 ## The Support panel
 
-Open **Support** (the last button of the menu band). It only reads; decisions are made on the
-dashboard.
+Open **Support** (the button next to **Agent** in the menu band). It only reads; decisions are
+made on the dashboard. Its tabs: **Issues**, **Releases**, **Signal** and **Help** (the topics of
+this help).
 
 ### Issues
 
@@ -47,7 +48,8 @@ received).
 
 ## What the watcher does
 
-A watcher on the robot runs every ~10 minutes. It fetches news, works out the next step of the
+A watcher on the robot runs whenever the signal brings news, and on a timer (every 10 minutes, or
+every 30 while the signal works). It fetches news, works out the next step of the
 loop (deploy a release, retest, answer, close) and either does it by itself or asks a person with
 one click (the bell, [Needs you](agent.md#needs-you)). **It never moves the robot** — anything
 with motion is done by a person with a hand on STOP.
@@ -57,7 +59,7 @@ with motion is done by a person with a hand on STOP.
 When new code arrives, the kit restarts the robot stack by itself — but only when it is safe:
 the robot in the dock, no program, no agent mission, the dock lock locked, motors and blade off,
 no mapping, no motion for 2 minutes, battery at least 15 %. Otherwise the step waits under
-*Blokuje* (blocked) with *Zkusit znovu* (try again). You get a notification when it restarted.
+**Blocked** on the dashboard with **Try again**. You get a notification when it restarted.
 
 > [!IMPORTANT]
 > After a restart the **drive motors are OFF** and the kit never switches them on. The map and
@@ -65,10 +67,10 @@ no mapping, no motion for 2 minutes, battery at least 15 %. Otherwise the step w
 
 ## Report a problem
 
-1. Open the Support dashboard › **Problems** › **Nové hlášení** (new report).
-2. Describe it in your own words. The field agent asks at most three questions, checks the robot
+1. Open the Support dashboard › **Issues** › **New report**.
+2. Describe it in your own words. The field agent asks what is missing, checks the robot
    (read-only), looks for duplicates and writes a draft.
-3. When the draft is ready, **Podat hlášení** (submit; two clicks).
+3. When the draft is ready, **File the report** (two clicks: the second one confirms).
 
 From this UI, **Ask the agent** on an issue pre-fills the agent chat. The dashboard has its own
-help at **Support › Help** (`#/help`).
+help (`#/help`); **Support › Help › Support kit help** opens it.
