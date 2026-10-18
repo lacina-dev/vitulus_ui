@@ -3,9 +3,13 @@
 // ambiguity margin, top candidates, score heatmap) and lets the user apply
 // the hypothesis to the robot (rtabmap initialpose) — gated by the margin
 // on the server side; Force bypasses the gate.
+// i18n (docs/I18N.md): keys 'gloc.*'
+function glocT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+
 class Gloc {
     constructor(ros) {
         this.ros = ros;
+        this._statusLocal = false;   // the status line shows our own text (not gloc_server's)
 
         this.btn_localize = document.getElementById("gloc_btn_localize");
         this.chk_auto = document.getElementById("gloc_chk_auto");
@@ -41,6 +45,7 @@ class Gloc {
             ros: ros, name: '/gloc/status', messageType: 'std_msgs/String'
         });
         this.status_subscriber.subscribe((m) => {
+            this._statusLocal = false;
             this.el_status.textContent = m.data;
             vtTone(this.el_status,
                 m.data.startsWith('error') || m.data.startsWith('apply refused') ? 'err' :
@@ -68,10 +73,19 @@ class Gloc {
                 this.autoTimer = null;
             }
         });
+
+        // a language switch re-draws what this panel wrote itself
+        if (window.VTI18n) {
+            VTI18n.onChange(() => {
+                if (this._statusLocal) { this.el_status.textContent = glocT('gloc.computing'); }
+                if (this.lastResult) { this.renderResult(this.lastResult); }
+            });
+        }
     }
 
     localize() {
-        this.el_status.textContent = 'computing...';
+        this._statusLocal = true;
+        this.el_status.textContent = glocT('gloc.computing');
         this.compute_publisher.publish(new ROSLIB.Message({data: ''}));
     }
 
@@ -88,25 +102,28 @@ class Gloc {
         let r;
         try { r = JSON.parse(msg.data); } catch (e) { return; }
         this.lastResult = r;
+        this.renderResult(r);
+    }
 
-        this.el_best.textContent = this.fmtPose(r.best) +
-            '  score ' + r.best.score_m.toFixed(3) + ' m';
+    renderResult(r) {
+        this.el_best.textContent = this.fmtPose(r.best) + '  ' +
+            glocT('gloc.score', {m: r.best.score_m.toFixed(3)});
         const mtxt = (r.margin >= 9) ? '>900%' : Math.round(r.margin * 100) + '%';
         const applyOk = (r.apply_ok !== undefined) ? r.apply_ok : r.margin_ok;
         let verdict;
-        if (applyOk) verdict = '  ✓ unambiguous';
-        else if (!r.margin_ok) verdict = '  ⚠ AMBIGUOUS (gate ' +
-            Math.round(r.apply_min_margin * 100) + '%)';
-        else verdict = '  ⚠ YAW MISMATCH (mirror alias?)';
+        if (applyOk) verdict = '  ' + glocT('gloc.unambiguous');
+        else if (!r.margin_ok) verdict = '  ' + glocT('gloc.ambiguous',
+            {gate: Math.round(r.apply_min_margin * 100)});
+        else verdict = '  ' + glocT('gloc.yaw_mismatch');
         this.el_margin.textContent = mtxt + verdict;
         vtTone(this.el_margin, applyOk ? 'ok' : 'err');
         this.el_current.textContent = r.current_pose ?
-            this.fmtPose(r.current_pose) : 'no map→base tf';
+            this.fmtPose(r.current_pose) : glocT('gloc.no_tf');
         this.el_delta.textContent = r.delta_to_current ?
             (r.delta_to_current.dist_m.toFixed(2) + ' m / ' +
              r.delta_to_current.dyaw_deg.toFixed(1) + '°') : '—';
-        this.el_meta.textContent = r.compute_s.toFixed(2) + ' s, ' +
-            r.hypotheses.toLocaleString() + ' hypotheses, ' + r.rays_used + ' rays';
+        this.el_meta.textContent = glocT('gloc.meta', {s: r.compute_s.toFixed(2),
+            hyp: r.hypotheses.toLocaleString(), rays: r.rays_used});
 
         this.el_top.innerHTML = '';
         (r.top || []).forEach((t, i) => {

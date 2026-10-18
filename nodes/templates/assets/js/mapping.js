@@ -83,9 +83,23 @@ function tileOffsetFormat(off) {
     return 'dx ' + o.dx.toFixed(2) + ' m / dy ' + o.dy.toFixed(2) + ' m';
 }
 
+// i18n (docs/I18N.md): keys 'mapping.*'. Distinct global names — this is a
+// classic script, a top-level `t` would collide with other modules.
+function mapT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+function mapTn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
+function mapTag(el, k, attr) { if (el && window.VTI18n) { VTI18n.tag(el, k, attr); } }
+
 class MappingV3 {
     constructor(ros, tfClient, viewer3d) {
         this.ros = ros;
+        // i18n: status lines drawn through _say() re-render on a language switch
+        this._sayEls = new Set();
+        this._lastManagerMsg = null;
+        this._lastGateMsg = null;
+        this._lastDemMsg = null;
+        this._lastDirectMsg = null;
+        this._lastPresets = null;
+        this._relabel = [];   // [fn] re-run on a language switch (double-click buttons)
 
         // vitulus_ui INSERTION-ORDER HARDENING (belt + braces alongside the
         // renderer.sortObjects=true fix in map_view.js): create the AERIAL and
@@ -136,9 +150,7 @@ class MappingV3 {
         this.btn_apply_band = document.getElementById("mapv3_btn_apply_band");
         // the "what Apply does" tooltip, shown once a session is running
         // (setActionsEnabled swaps in a "why disabled" tooltip while idle)
-        this._applyBandTitle =
-            'Apply the obstacle classification settings live and re-raster '
-            + '(persisted per site).';
+        this._applyBandTitle = () => mapT('mapping.band.apply_tip');
         this.el_band_status = document.getElementById("mapv3_band_status");
         this.band_edited = false;   // don't clobber user typing with live status
         // per-source range caps (item 3/4): lidar + depth max range, fed to
@@ -147,9 +159,7 @@ class MappingV3 {
         this.in_lidar_max = document.getElementById("mapv3_lidar_max");
         this.in_depth_max = document.getElementById("mapv3_depth_max");
         this.btn_apply_ranges = document.getElementById("mapv3_btn_apply_ranges");
-        this._applyRangesTitle =
-            'Apply the per-source range caps live (dropped before insertion, '
-            + 'persisted per site).';
+        this._applyRangesTitle = () => mapT('mapping.ranges.apply_tip');
         this.el_ranges_status = document.getElementById("mapv3_ranges_status");
         this.ranges_edited = false;
 
@@ -202,6 +212,13 @@ class MappingV3 {
         this._directPresetTitles = [this.btn_direct_preset_load,
             this.btn_direct_preset_save, this.btn_direct_preset_del]
             .map((b) => (b ? b.title : ''));
+        // ...in the current language when the markup tags them (data-i18n-title)
+        this._presetTitle = (i) => {
+            const b = this._directPresetTitles && [this.btn_direct_preset_load,
+                this.btn_direct_preset_save, this.btn_direct_preset_del][i];
+            const k = b && b.getAttribute('data-i18n-title');
+            return k ? mapT(k) : this._directPresetTitles[i];
+        };
         // slider spec: [input, key, decimals, unit] — value echo span is
         // the input id + "_val"; shared by wiring, sync and applyDirect.
         this._directSliders = [
@@ -555,22 +572,22 @@ class MappingV3 {
             const site = this.input_site.value.trim();
             if (!site) { this.input_site.focus(); return; }
             this.pub_start.publish(new ROSLIB.Message({data: site}));
-            this.el_run.textContent = 'starting recording "' + site + '"…';
+            this._say(this.el_run, () => mapT('mapping.run.starting', {site: site}));
         });
         this.btn_stop.addEventListener('click', () => {
             this.pub_stop.publish(new ROSLIB.Message({data: ''}));
-            this.el_run.textContent = 'saving map & finishing…';
+            this._say(this.el_run, () => mapT('mapping.run.stopping'));
         });
         // 2026-08-09 session controls: Reset map + Discard, both behind the
         // same double-click-confirm pattern the delete buttons use.
         this._wireDoubleClickDelete(this.btn_reset_map, () => {
             this.pub_reset_direct.publish(new ROSLIB.Message({data: ''}));
-            this.el_run.textContent = 'in-progress map erased — still recording…';
-        }, 'Erase & keep recording');
+            this._say(this.el_run, () => mapT('mapping.run.erased'));
+        }, () => mapT('mapping.btn.reset_map'));
         this._wireDoubleClickDelete(this.btn_discard, () => {
             this.pub_stop.publish(new ROSLIB.Message({data: 'discard'}));
-            this.el_run.textContent = 'discarding (no save)…';
-        }, 'Discard (no save)');
+            this._say(this.el_run, () => mapT('mapping.run.discarding'));
+        }, () => mapT('mapping.btn.discard'));
 
         // WP-D2: "Edit map" entry — opens the in-view map editor (mapeditor.js
         // detail panel) keeping the SERVED site_map as the base. Created
@@ -621,9 +638,7 @@ class MappingV3 {
                 btnCc.disabled = true;
                 svcClear.callService(new ROSLIB.ServiceRequest({}), () => {
                     btnCc.disabled = false;
-                    if (this.el_site_status) {
-                        this.el_site_status.textContent = 'costmaps cleared';
-                    }
+                    this._say(this.el_site_status, () => mapT('mapping.site.costmaps_cleared'));
                 }, () => { btnCc.disabled = false; });
             });
         }
@@ -632,31 +647,31 @@ class MappingV3 {
         this._wireDoubleClickDelete(btnDeact, () => {
             this.pub_serve.publish(new ROSLIB.Message({data: 'none'}));
             if (this.el_serving) {
-                this.el_serving.textContent = 'deactivating…';
+                this._say(this.el_serving, () => mapT('mapping.serving.deactivating'));
                 vtTone(this.el_serving, '');
             }
-        }, 'Deactivate');
+        }, () => mapT('mapping.btn.deactivate'));
         // 2026-08-16: the JS-created "Edit map" button in the Saved maps header
         // is GONE — it duplicated the header Edit button (both open the same
         // editor; the header toggle now passes keepBase:true itself).
         // the middle mode button is 'Fused' now (relabel here to avoid an
         // index.html rebuild; fused = map from the fused pose, the default)
-        this.btn_mode_force.textContent = 'Fused';
-        this.btn_mode_force.title = 'Map from the fused odometry pose (default)';
-        this.btn_mode_rtk.title = 'Strict: insert only at RTK FIXED';
+        mapTag(this.btn_mode_force, 'mapping.mode.fused');
+        mapTag(this.btn_mode_force, 'mapping.mode.fused_tip', 'title');
+        mapTag(this.btn_mode_rtk, 'mapping.mode.rtk_tip', 'title');
         this.btn_mode_rtk.addEventListener('click', () => this.setMode('rtk'));
         this.btn_mode_force.addEventListener('click', () => this.setMode('fused'));
         this.btn_mode_off.addEventListener('click', () => this.setMode('off'));
         this.btn_raster.addEventListener('click', () => {
-            this.el_proj.textContent = 'regenerating…';
+            this._say(this.el_proj, () => mapT('mapping.proj.regenerating'));
             this.pub_regen.publish(new ROSLIB.Message({data: ''}));
         });
         this.btn_save.addEventListener('click', () => {
-            this.el_proj.textContent = 'saving snapshot…';
+            this._say(this.el_proj, () => mapT('mapping.proj.saving'));
             this.pub_save.publish(new ROSLIB.Message({data: ''}));
         });
         this.btn_compare.addEventListener('click', () => {
-            this.el_proj.textContent = 'comparing vs rtabmap…';
+            this._say(this.el_proj, () => mapT('mapping.proj.comparing'));
             this.pub_compare.publish(new ROSLIB.Message({data: ''}));
         });
 
@@ -753,8 +768,7 @@ class MappingV3 {
                 }
                 if (!name) {
                     if (this.el_direct_status) {
-                        this.el_direct_status.textContent =
-                            'type a preset name first';
+                        this._say(this.el_direct_status, () => mapT('mapping.preset.need_name'));
                         vtTone(this.el_direct_status, 'warn');
                     }
                     return;
@@ -780,17 +794,59 @@ class MappingV3 {
         this.btn_clear = document.createElement('button');
         this.btn_clear.className = 'btn btn-outline-danger';
         this.btn_clear.type = 'button';
-        this.btn_clear.textContent = 'Clear 3D';
-        this.btn_clear.title = 'Reset the 3D archive (keeps terrain DEM); ' +
-            'use after the map shifted due to a localization correction';
+        this.btn_clear.textContent = mapT('mapping.clear3d');
+        this.btn_clear.title = mapT('mapping.clear3d_tip');
+        mapTag(this.btn_clear, 'mapping.clear3d');
+        mapTag(this.btn_clear, 'mapping.clear3d_tip', 'title');
         this.btn_clear.disabled = true;
         this.btn_raster.parentNode.appendChild(this.btn_clear);
         this.btn_clear.addEventListener('click', () => {
-            if (confirm('Clear the 3D obstacle archive? Terrain DEM is kept; ' +
-                        'obstacles rebuild as you drive.')) {
+            if (confirm(mapT('mapping.clear3d_confirm'))) {
                 this.pub_clear.publish(new ROSLIB.Message({data: ''}));
             }
         });
+
+        // i18n: a language switch re-renders what this module drew itself
+        if (window.VTI18n) { VTI18n.onChange(() => this._onLang()); }
+    }
+
+    // ---- i18n ---------------------------------------------------------------
+    // Draw a status line from a render fn and remember the fn, so a language
+    // switch can draw it again (the fn closes over the data it shows).
+    _say(el, fn, html) {
+        if (!el) { return; }
+        const s = fn();
+        if (html) { el.innerHTML = s; } else { el.textContent = s; }
+        el._mapSay = fn;
+        el._mapSayHtml = !!html;
+        this._sayEls.add(el);
+    }
+
+    _onLang() {
+        this._sayEls.forEach((el) => {
+            if (!el._mapSay) { return; }
+            try {
+                const s = el._mapSay();
+                if (el._mapSayHtml) { el.innerHTML = s; } else { el.textContent = s; }
+            } catch (e) { /* keep the old text */ }
+        });
+        this._relabel.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
+        if (this._lastPresets) {
+            this._directPresetSig = '';
+            this._fillDirectPresets(this._lastPresets);
+        }
+        // the data handlers draw the rest (sites list, tooltips, gate, DEM)
+        try {
+            if (this._lastManagerMsg) {
+                this._lastSitesSig = null;
+                this.handleManager(this._lastManagerMsg);
+            }
+            if (this._lastGateMsg) { this.handleGate(this._lastGateMsg); }
+            if (this._lastDemMsg) { this._renderDem(this._lastDemMsg); }
+            if (this._lastDirectMsg && !this._direct_apply_pending) {
+                this.handleDirectStatus(this._lastDirectMsg);
+            }
+        } catch (e) { console.error('[mappingv3] language re-render failed:', e); }
     }
 
     setMode(mode) {
@@ -996,9 +1052,10 @@ class MappingV3 {
         } catch (e) { /* an offset must never break the 3D view */ }
     }
 
-    _tileOffsetStatus(text, warn) {
+    // `fn` renders the text (re-run on a language switch); '' clears it
+    _tileOffsetStatus(fn, warn) {
         if (!this.el_tile_off_status) { return; }
-        this.el_tile_off_status.textContent = text || '';
+        this._say(this.el_tile_off_status, (typeof fn === 'function') ? fn : () => (fn || ''));
         vtTone(this.el_tile_off_status, warn ? 'warn' : '');
     }
 
@@ -1036,7 +1093,7 @@ class MappingV3 {
         } catch (e) {
             console.warn('[mappingv3] tile offsets unavailable:', e);
             if (!this.tile_offsets) { this.tile_offsets = {}; }
-            this._tileOffsetStatus('offsets unavailable — layer unshifted', true);
+            this._tileOffsetStatus(() => mapT('mapping.offset.unavailable'), true);
         }
         this._updateTileOffsetReadout();
         this._applyAerialOffset();
@@ -1045,7 +1102,7 @@ class MappingV3 {
     // One nudge click / keypress: optimistic move now, debounced POST after.
     _nudgeTileOffset(dxStep, dyStep) {
         if (!this.tile_offset_map) {
-            this._tileOffsetStatus('no active map — nothing to align', true);
+            this._tileOffsetStatus(() => mapT('mapping.offset.no_map'), true);
             return;
         }
         const layer = this._aerialLayerId();
@@ -1060,7 +1117,7 @@ class MappingV3 {
     _queueTileOffsetPost(layer, off) {
         if (this._tileOffsetPost) { clearTimeout(this._tileOffsetPost); }
         const map = this.tile_offset_map;
-        this._tileOffsetStatus('saving…');
+        this._tileOffsetStatus(() => mapT('mapping.offset.saving'));
         this._tileOffsetPost = setTimeout(() => {
             this._tileOffsetPost = null;
             fetch('/api/tile_offsets', {
@@ -1070,13 +1127,14 @@ class MappingV3 {
                                        dx: off.dx, dy: off.dy }),
             }).then((r) => r.json()).then((j) => {
                 if (!j || j.ok !== true) {
-                    this._tileOffsetStatus(
-                        'save failed: ' + ((j && j.error) || 'unknown'), true);
+                    const err = (j && j.error) || null;
+                    this._tileOffsetStatus(() => mapT('mapping.offset.save_failed',
+                        {error: err || mapT('common.unknown')}), true);
                 } else {
-                    this._tileOffsetStatus('saved on robot (all browsers)');
+                    this._tileOffsetStatus(() => mapT('mapping.offset.saved'));
                 }
             }).catch(() => {
-                this._tileOffsetStatus('save failed — robot unreachable', true);
+                this._tileOffsetStatus(() => mapT('mapping.offset.save_unreachable'), true);
             });
         }, 400);
     }
@@ -1098,7 +1156,7 @@ class MappingV3 {
         }
         this._applyAerialOffset();
         this._updateTileOffsetReadout();
-        this._tileOffsetStatus('resetting…');
+        this._tileOffsetStatus(() => mapT('mapping.offset.resetting'));
         const body = allLayers ? { map: map } : { map: map, layer: layer };
         fetch('/api/tile_offsets/reset', {
             method: 'POST',
@@ -1106,14 +1164,15 @@ class MappingV3 {
             body: JSON.stringify(body),
         }).then((r) => r.json()).then((j) => {
             if (!j || j.ok !== true) {
-                this._tileOffsetStatus(
-                    'reset failed: ' + ((j && j.error) || 'unknown'), true);
+                const err = (j && j.error) || null;
+                this._tileOffsetStatus(() => mapT('mapping.offset.reset_failed',
+                    {error: err || mapT('common.unknown')}), true);
             } else {
-                this._tileOffsetStatus(allLayers
-                    ? 'all layers reset for this map' : 'layer offset reset');
+                this._tileOffsetStatus(() => mapT(allLayers
+                    ? 'mapping.offset.reset_all_done' : 'mapping.offset.reset_done'));
             }
         }).catch(() => {
-            this._tileOffsetStatus('reset failed — robot unreachable', true);
+            this._tileOffsetStatus(() => mapT('mapping.offset.reset_unreachable'), true);
         });
     }
 
@@ -1183,6 +1242,11 @@ class MappingV3 {
             cuzk: { layer: 'cuzk_layer', grid: 'gm_grid', label: 'ČÚZK orto' },
             osm: { layer: 'osm_demo', grid: 'webmercator', label: 'OSM' },
         };
+    }
+
+    // the source's name for the status line ('satellite' is a word, the rest names)
+    _aerialLabel(key, src) {
+        return (src && src.layer === 'gm_layer') ? mapT('mapping.aerial.src_sat') : src.label;
     }
 
     _aerialTileUrl(src, z, x, y) {
@@ -1311,9 +1375,10 @@ class MappingV3 {
     // configured detail cap) — so standard zoom stays crisp and only dolling
     // out past the default limit steps down to coarser world-scale tiles.
     async rebuildAerial() {
-        const status = (t, warn) => {
+        // status(fn, warn): fn renders the text (re-run on a language switch)
+        const status = (fn, warn) => {
             if (this.el_aerial_status) {
-                this.el_aerial_status.textContent = t;
+                this._say(this.el_aerial_status, fn);
                 vtTone(this.el_aerial_status, warn ? 'warn' : '');
             }
         };
@@ -1321,13 +1386,13 @@ class MappingV3 {
         try {
             // (1) datum — cache once; refetch only if we don't have it.
             if (!this.aerial_datum) {
-                status('loading datum…');
+                status(() => mapT('mapping.aerial.loading_datum'));
                 const resp = await fetch('/api/datum', { cache: 'no-store' });
                 const dj = resp.ok ? await resp.json() : null;
                 // ok:false = no served site right now (normal while recording a
                 // new map) — say so, do not cache, try again next time.
                 if (!dj || dj.ok === false) {
-                    status('no site datum served — cannot place tiles', true);
+                    status(() => mapT('mapping.aerial.no_datum'), true);
                     return;
                 }
                 this.aerial_datum = dj;
@@ -1335,13 +1400,13 @@ class MappingV3 {
             if (token !== this.aerial_token) { return; }
             const d = this.aerial_datum;
             if (d.origin_lat == null || d.origin_lon == null) {
-                status('datum missing origin_lat/lon', true);
+                status(() => mapT('mapping.datum_no_origin'), true);
                 return;
             }
 
             const T = this._r3d();
             const group = this._ensureAerialGroup();
-            if (!T || !group) { status('3D not ready', true); return; }
+            if (!T || !group) { status(() => mapT('mapping.not_ready_3d'), true); return; }
 
             // group carries the -yaw rotation: map = R(-yaw)*(UTM offset), so a
             // plane laid out in UTM-aligned metres inside the group ends up in
@@ -1437,8 +1502,7 @@ class MappingV3 {
             const { tx0, tx1, ty0, ty1 } = range;
             const nTiles = range.count;
             if (!(nTiles > 0) || nTiles > CAP) {
-                status('tile range unreasonable (' + nTiles + ') even at z' + z +
-                       ' — zoom in', true);
+                status(() => mapT('mapping.aerial.too_many', {n: nTiles, z: z}), true);
                 return;
             }
 
@@ -1448,8 +1512,9 @@ class MappingV3 {
             const sig = srcKey + '@' + z + ':' + tx0 + ',' + tx1 + ',' +
                         ty0 + ',' + ty1;
             if (sig === this._aerialSig && this.aerial_meshes.length > 0) {
-                status('tiles: ' + this.aerial_meshes.length + ' @ z' + z +
-                       ' — ' + src.label + ' (view unchanged)');
+                const nMesh = this.aerial_meshes.length;
+                status(() => mapT('mapping.aerial.tiles_same',
+                    {n: nMesh, z: z, src: this._aerialLabel(srcKey, src)}));
                 return;
             }
             this._aerialSig = sig;
@@ -1494,13 +1559,11 @@ class MappingV3 {
             }
             this._disposeAerialMeshes();
             this.aerial_meshes = newMeshes;
-            const detailNote = (z < zCap) ? ' (zoomed out — z' + z + ' < cap z' +
-                               zCap + ')' : '';
-            status('tiles: ' + built + ' @ z' + z + ' — ' + src.label +
-                   detailNote);
+            status(() => mapT((z < zCap) ? 'mapping.aerial.tiles_out' : 'mapping.aerial.tiles',
+                {n: built, z: z, cap: zCap, src: this._aerialLabel(srcKey, src)}));
         } catch (e) {
             console.error('[mappingv3] rebuildAerial failed:', e);
-            status('aerial build failed (see console)', true);
+            status(() => mapT('mapping.aerial.failed'), true);
         }
     }
 
@@ -1976,42 +2039,43 @@ class MappingV3 {
     // Async-safe, cancellable, fully try/catch-wrapped so a bad frame can never
     // take down the ROS3D render loop.
     async rebuildRain() {
-        const status = (t, warn) => {
+        // status(fn, warn): fn renders the text (re-run on a language switch)
+        const status = (fn, warn) => {
             if (this.el_rain_status) {
-                this.el_rain_status.textContent = t;
+                this._say(this.el_rain_status, fn);
                 vtTone(this.el_rain_status, warn ? 'warn' : '');
             }
         };
         const token = ++this.rain_token;
         try {
-            if (!this.rain_msg) { status('waiting for radar frame…'); return; }
+            if (!this.rain_msg) { status(() => mapT('mapping.rain.waiting')); return; }
             // datum — cache once.
             if (!this.rain_datum) {
-                status('loading datum…');
+                status(() => mapT('mapping.aerial.loading_datum'));
                 const resp = await fetch('/api/datum', { cache: 'no-store' });
                 const dj = resp.ok ? await resp.json() : null;
-                if (!dj || dj.ok === false) { status('no site datum — cannot place radar', true); return; }
+                if (!dj || dj.ok === false) { status(() => mapT('mapping.rain.no_datum'), true); return; }
                 this.rain_datum = dj;
             }
             if (token !== this.rain_token) { return; }
             const d = this.rain_datum;
             if (d.origin_lat == null || d.origin_lon == null) {
-                status('datum missing origin_lat/lon', true); return;
+                status(() => mapT('mapping.datum_no_origin'), true); return;
             }
 
             const T = this._r3d();
             const group = this._ensureRainGroup();
-            if (!T || !group) { status('3D not ready', true); return; }
+            if (!T || !group) { status(() => mapT('mapping.not_ready_3d'), true); return; }
 
             const m = this.rain_msg;
             const W = m.width | 0, H = m.height | 0;
-            if (!(W > 0) || !(H > 0)) { status('bad radar frame', true); return; }
+            if (!(W > 0) || !(H > 0)) { status(() => mapT('mapping.rain.bad_frame'), true); return; }
 
             // Decode base64 rgba8 -> RGBA passthrough + radius clip. No palette
             // keying: the node already delivers a clean rain-only image with
             // alpha=0 off the echo. Runs off the render path.
             const rgba = this._rainDecode(m, W, H);
-            if (!rgba) { status('radar decode failed', true); return; }
+            if (!rgba) { status(() => mapT('mapping.rain.decode_failed'), true); return; }
 
             // Geometry: the full frame spans 2*halfKm km. Centre it on the
             // radar centre expressed in map metres. The radar centre is the
@@ -2058,13 +2122,15 @@ class MappingV3 {
 
             const areaM = this.sel_rain_area ?
                 parseInt(this.sel_rain_area.value, 10) : 32000;
-            const shown = (areaM >= halfKm * 1000.0 * 0.9) ?
-                'full frame' : ('r≈' + (areaM / 1000) + ' km');
-            status('radar: ' + (2 * halfKm).toFixed(0) + ' km frame, showing ' +
-                   shown + ', float ' + z + ' m — updates ~5 min');
+            const full = (areaM >= halfKm * 1000.0 * 0.9);
+            const frameKm = (2 * halfKm).toFixed(0);
+            status(() => mapT('mapping.rain.status', {
+                frame: frameKm,
+                shown: full ? mapT('mapping.rain.full_frame') : ('r≈' + (areaM / 1000) + ' km'),
+                z: z}));
         } catch (e) {
             console.error('[mappingv3] rebuildRain failed:', e);
-            status('rain build failed (see console)', true);
+            status(() => mapT('mapping.rain.failed'), true);
         }
     }
 
@@ -2280,14 +2346,12 @@ class MappingV3 {
         const ev = parseInt(this.in_min_evidence.value, 10);
         const cl = parseInt(this.in_min_cluster.value, 10);
         if (!(bmin >= 0 && bmax <= 2.0 && bmin < bmax)) {
-            this.el_band_status.textContent =
-                'invalid band: need 0 ≤ min < max ≤ 2.0 m';
+            this._say(this.el_band_status, () => mapT('mapping.band.invalid_band'));
             vtTone(this.el_band_status, 'err');
             return;
         }
         if (!(ev >= 1 && ev <= 20 && cl >= 1 && cl <= 20)) {
-            this.el_band_status.textContent =
-                'invalid: evidence/cluster must be 1..20';
+            this._say(this.el_band_status, () => mapT('mapping.band.invalid_counts'));
             vtTone(this.el_band_status, 'err');
             return;
         }
@@ -2295,7 +2359,7 @@ class MappingV3 {
                          min_evidence: ev, min_cluster_cells: cl};
         this.pub_set_band.publish(new ROSLIB.Message({data: JSON.stringify(payload)}));
         this.band_edited = false;   // let projector_status re-sync the applied values
-        this.el_band_status.textContent = 'applying…';
+        this._say(this.el_band_status, () => mapT('mapping.applying'));
         vtTone(this.el_band_status, '');
     }
 
@@ -2304,8 +2368,7 @@ class MappingV3 {
         const depth = parseFloat(this.in_depth_max.value);
         const ok = (v) => (v >= 0.5 && v <= 20.0);
         if (!ok(lidar) || !ok(depth)) {
-            this.el_ranges_status.textContent =
-                'invalid: each range must be 0.5..20 m';
+            this._say(this.el_ranges_status, () => mapT('mapping.ranges.invalid'));
             vtTone(this.el_ranges_status, 'err');
             return;
         }
@@ -2313,7 +2376,7 @@ class MappingV3 {
         this.pub_set_ranges.publish(
             new ROSLIB.Message({data: JSON.stringify(payload)}));
         this.ranges_edited = false;   // let gate_status re-sync applied values
-        this.el_ranges_status.textContent = 'applying…';
+        this._say(this.el_ranges_status, () => mapT('mapping.applying'));
         vtTone(this.el_ranges_status, '');
     }
 
@@ -2323,7 +2386,7 @@ class MappingV3 {
         if (!span) return;
         const v = parseFloat(el.value);
         span.textContent = (dec === 0 ? String(Math.round(v)) : v.toFixed(dec))
-            + (unit || '');
+            + (unit === ' pts' ? mapT('mapping.unit.pts') : (unit || ''));
     }
 
     // honest feedback shared by every publish path: the settings are applied
@@ -2331,7 +2394,7 @@ class MappingV3 {
     // to hear the publish, so a pending mark with a timeout reports that.
     _markDirectPending() {
         if (this.el_direct_status) {
-            this.el_direct_status.textContent = 'applying…';
+            this._say(this.el_direct_status, () => mapT('mapping.applying'));
             vtTone(this.el_direct_status, '');
         }
         this._direct_apply_pending = Date.now();
@@ -2339,9 +2402,7 @@ class MappingV3 {
             if (this._direct_apply_pending) {
                 this._direct_apply_pending = null;
                 if (this.el_direct_status) {
-                    this.el_direct_status.textContent =
-                        'no reply — start a mapping session first '
-                        + '(settings apply to the running session)';
+                    this._say(this.el_direct_status, () => mapT('mapping.direct.no_reply'));
                     vtTone(this.el_direct_status, 'warn');
                 }
             }
@@ -2398,26 +2459,22 @@ class MappingV3 {
         // swap the tooltip and add a hint to the band status line when idle.
         if (this.btn_apply_band) {
             this.btn_apply_band.title = on
-                ? this._applyBandTitle
-                : 'Requires a running mapping session — press Start first '
-                  + '(the obstacle classifier only exists while mapping runs).';
+                ? this._applyBandTitle()
+                : mapT('mapping.band.needs_session_tip');
         }
         if (this.el_band_status && !on && !this.band_edited) {
-            this.el_band_status.textContent =
-                'Start a mapping session to tune the obstacle band.';
+            this._say(this.el_band_status, () => mapT('mapping.band.needs_session'));
             vtTone(this.el_band_status, '');
         }
         // Range caps require the insertion_gate running (subscribes to
         // /mapping/set_ranges), same as the band Apply.
         if (this.btn_apply_ranges) {
             this.btn_apply_ranges.title = on
-                ? this._applyRangesTitle
-                : 'Requires a running mapping session — press Start first '
-                  + '(the insertion gate only exists while mapping runs).';
+                ? this._applyRangesTitle()
+                : mapT('mapping.ranges.needs_session_tip');
         }
         if (this.el_ranges_status && !on && !this.ranges_edited) {
-            this.el_ranges_status.textContent =
-                'Start a mapping session to set sensor range caps.';
+            this._say(this.el_ranges_status, () => mapT('mapping.ranges.needs_session'));
             vtTone(this.el_ranges_status, '');
         }
         // vitulus-field#23: the preset list is visible any time, but Load /
@@ -2427,8 +2484,8 @@ class MappingV3 {
          this.btn_direct_preset_del].forEach((b, i) => {
             if (!b) return;
             b.disabled = !on;
-            b.title = on ? this._directPresetTitles[i]
-                : 'Start a recording to load/save/delete presets.';
+            b.title = on ? this._presetTitle(i)
+                : mapT('mapping.preset.needs_session_tip');
         });
     }
 
@@ -2449,6 +2506,7 @@ class MappingV3 {
     handleManager(msg) {
         let s;
         try { s = JSON.parse(msg.data); } catch (e) { return; }
+        this._lastManagerMsg = msg;
         // 2026-09-20: the direct_raster node dies with the session and never
         // publishes a clearing grid, so a tab open during recording kept the
         // last live Direct grid forever — drawn ABOVE the Saved layer (black
@@ -2490,8 +2548,8 @@ class MappingV3 {
         const hdr = document.getElementById('mapv3_hdr_session');
         if (hdr) {
             if (s.running) {
-                hdr.innerHTML = '● Recording map: <b>' + s.site + '</b> ('
-                    + Math.floor((s.uptime_s || 0) / 60) + ' min)';
+                const hSite = s.site, hMin = Math.floor((s.uptime_s || 0) / 60);
+                this._say(hdr, () => mapT('mapping.hdr.recording', {site: hSite, min: hMin}), true);
                 vtTone(hdr, 'ok');
                 // 2026-08-16 field fix: the Direct layer is THE live view of
                 // the map being recorded — with the toggle persisted in
@@ -2506,7 +2564,7 @@ class MappingV3 {
                 }
                 this._directLayerForced = true;
             } else {
-                hdr.textContent = 'No map recording';
+                this._say(hdr, () => mapT('mapping.hdr.idle'));
                 vtTone(hdr, '');
                 this._directLayerForced = false;
             }
@@ -2515,14 +2573,16 @@ class MappingV3 {
             if (s.serve_error) {
                 // REPORT 2(b): show WHY a serve was rejected instead of the UI
                 // silently staying on the old map. Cleared on the next success.
-                this.el_serving.textContent = 'activation failed: ' + s.serve_error;
+                const err = s.serve_error;
+                this._say(this.el_serving, () => mapT('mapping.serving.failed', {error: err}));
                 vtTone(this.el_serving, 'err');
             } else if (s.serving) {
-                this.el_serving.textContent = 'active: ' + s.serving.site +
-                    ' (' + s.serving.raster + ')';
+                const sv = s.serving;
+                this._say(this.el_serving, () => mapT('mapping.serving.active',
+                    {site: sv.site, raster: sv.raster}));
                 vtTone(this.el_serving, '');
             } else {
-                this.el_serving.textContent = 'active: —';
+                this._say(this.el_serving, () => mapT('mapping.serving.none'));
                 vtTone(this.el_serving, '');
             }
         }
@@ -2562,27 +2622,27 @@ class MappingV3 {
             const serving = !!s.serving;
             btnEditMap.disabled = !serving && !btnEditMap.classList.contains('active');
             btnEditMap.title = serving
-                ? ('Edit the ACTIVE map: ' + s.serving.site + '/' + s.serving.raster)
-                : 'Activate a map first — the editor draws edits/waypoints into the ACTIVE map';
+                ? mapT('mapping.edit_tip', {site: s.serving.site, raster: s.serving.raster})
+                : mapT('mapping.edit_tip_none');
         }
         // saved-map layer status (the latched site_map rendered in the 3D view)
         if (this.el_site_status) {
             if (s.serving) {
-                this.el_site_status.textContent = 'active map in 3D: ' +
-                    s.serving.site + '/' + s.serving.raster;
+                const sv = s.serving;
+                this._say(this.el_site_status, () => mapT('mapping.site.active_3d',
+                    {site: sv.site, raster: sv.raster}));
             } else {
-                this.el_site_status.textContent =
-                    'active map: — (activate one in the Saved maps list)';
+                this._say(this.el_site_status, () => mapT('mapping.site.none'));
             }
         }
         if (s.running) {
-            const up = Math.floor(s.uptime_s / 60);
-            this.el_run.textContent = '● recording "' + s.site + '" (' + up + ' min)';
+            const up = Math.floor(s.uptime_s / 60), rSite = s.site;
+            this._say(this.el_run, () => mapT('mapping.run.recording', {site: rSite, min: up}));
             vtTone(this.el_run, 'ok');
         } else {
-            this.el_run.textContent = 'not recording';
+            this._say(this.el_run, () => mapT('mapping.run.idle'));
             vtTone(this.el_run, '');
-            this.el_gate.textContent = '—';
+            this._say(this.el_gate, () => '—');
             vtTone(this.el_gate, '');
         }
         // sites list: datalist for the input + chips with stats
@@ -2658,13 +2718,18 @@ class MappingV3 {
         }
         return b;
     }
-    _mlNum(n) { return (n === null || n === undefined) ? '—' : Number(n).toLocaleString('en-US'); }
+    _mlNum(n) {
+        const loc = (window.VTI18n && VTI18n.lang() === 'cs') ? 'cs-CZ' : 'en-US';
+        return (n === null || n === undefined) ? '—' : Number(n).toLocaleString(loc);
+    }
     _mlDate(mtime) {
         try {
             const d = new Date(mtime * 1000);
-            const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+            // 'mapping.months' = twelve short month names, space separated
+            const mon = mapT('mapping.months').split(' ')[d.getMonth()] || '';
             const p = (n) => (n < 10 ? '0' + n : '' + n);
-            return d.getDate() + ' ' + mon + ' ' + d.getFullYear() + ' · ' + p(d.getHours()) + ':' + p(d.getMinutes());
+            return mapT('mapping.date', {d: d.getDate(), mon: mon, y: d.getFullYear(),
+                time: p(d.getHours()) + ':' + p(d.getMinutes())});
         } catch (e) { return '—'; }
     }
     _mlEsc(t) {
@@ -2674,7 +2739,7 @@ class MappingV3 {
         this.input_site.value = ref.split('/')[0];
         this.pub_serve.publish(new ROSLIB.Message({data: ref}));
         if (this.el_serving) {
-            this.el_serving.textContent = 'activating ' + ref + '…';
+            this._say(this.el_serving, () => mapT('mapping.serving.activating', {ref: ref}));
             vtTone(this.el_serving, '');
         }
     }
@@ -2692,50 +2757,49 @@ class MappingV3 {
             (recording ? ' is-rec' : '') + (!servable && !recording ? ' is-empty' : ''));
 
         const head = this._mlEl('div', 'ml-head');
-        head.title = expanded ? 'Collapse' : 'Show the combined map and the session layers';
+        head.title = expanded ? mapT('common.collapse') : mapT('mapping.card.expand_tip');
         head.appendChild(this._mlEl('span', 'ml-caret', expanded ? '▾' : '▸'));
         head.appendChild(this._mlEl('i', 'fa fa-tree ml-ico'));
         const name = this._mlEl('span', 'ml-name', this._mlEsc(site.name));
         name.title = site.name;
         head.appendChild(name);
-        if (served) { head.appendChild(this._mlChip('ok', 'active')); }
-        if (recording) { head.appendChild(this._mlChip('rec', 'recording', true)); }
-        if (!servable && !recording) { head.appendChild(this._mlChip('muted', 'no session')); }
+        if (served) { head.appendChild(this._mlChip('ok', mapT('mapping.chip.active'))); }
+        if (recording) { head.appendChild(this._mlChip('rec', mapT('mapping.chip.recording'), true)); }
+        if (!servable && !recording) { head.appendChild(this._mlChip('muted', mapT('mapping.chip.no_session'))); }
         const n = site.rasters || 0;
         const area = (site.dem_m2 !== undefined) ? site.dem_m2 + ' m²' : (site.dem_kb ? site.dem_kb + ' kB' : '');
         // vitulus-field#46: programs belong to their map and are deleted with it
         const progs = site.programs || [];
-        const progsText = progs.length + ' program' + (progs.length === 1 ? '' : 's');
+        const progsText = mapTn('mapping.n_programs', progs.length);
         const meta = this._mlEl('span', 'ml-meta',
-            (area ? area + ' · ' : '') + n + ' session' + (n === 1 ? '' : 's') +
+            (area ? area + ' · ' : '') + mapTn('mapping.n_sessions', n) +
             (progs.length ? ' · ' + progsText : ''));
-        if (progs.length) { meta.title = 'Programs of this map: ' + progs.join(', '); }
+        if (progs.length) { meta.title = mapT('mapping.card.programs_tip', {list: progs.join(', ')}); }
         head.appendChild(meta);
 
         const actions = this._mlEl('div', 'ml-actions');
         const servingCombined = served && site.combined && s.serving.raster === site.combined.name;
         const act = this._mlBtn('go' + (servingCombined ? ' is-on' : ''),
-            servingCombined ? '<i class="fa fa-check"></i> Active' : 'Activate',
+            servingCombined ? '<i class="fa fa-check"></i> ' + mapT('mapping.btn.active') : mapT('mapping.btn.activate'),
             servable
-                ? (servingCombined ? 'This map (combined) is the active map'
-                   : 'Make this map ACTIVE — the robot localizes + navigates on its combined map')
-                : 'No saved session yet — one is created by Save & finish',
+                ? (servingCombined ? mapT('mapping.card.active_tip')
+                   : mapT('mapping.card.activate_tip'))
+                : mapT('mapping.card.no_session_tip'),
             () => this._mlActivate(site.name));
         act.disabled = !servable || servingCombined;
         actions.appendChild(act);
         const del = this._mlBtn('del icon', '<i class="fa fa-trash"></i>', '');
         if (recording || served) {
             del.disabled = true;
-            del.title = recording ? 'Cannot delete while recording' : 'The active map cannot be deleted — activate another first';
+            del.title = recording ? mapT('mapping.card.del_recording') : mapT('mapping.card.del_active');
         } else {
             del.title = progs.length
-                ? 'Delete the whole map (terrain + all sessions) AND its ' + progsText +
-                  ': ' + progs.join(', ') + '. Click twice to confirm.'
-                : 'Delete the whole map (terrain + all sessions). Click twice to confirm.';
+                ? mapTn('mapping.card.del_with_programs_tip', progs.length, {list: progs.join(', ')})
+                : mapT('mapping.card.del_tip');
             this._wireDoubleClickDelete(del,
                 () => this.pub_remove.publish(new ROSLIB.Message({data: site.name})),
                 '<i class="fa fa-trash"></i>',
-                progs.length ? 'Delete with ' + progsText + '?' : '');
+                progs.length ? mapTn('mapping.card.del_with_programs', progs.length) : '');
         }
         actions.appendChild(del);
         head.appendChild(actions);
@@ -2789,12 +2853,12 @@ class MappingV3 {
         };
         const eyeBtn = (r, isPreview, what) => this._mlBtn('eye icon' + (isPreview ? ' is-on' : ''),
             '<i class="fa fa-' + (isPreview ? 'eye' : 'eye-slash') + '"></i>',
-            isPreview ? 'Hide the preview' : 'Preview ' + what + ' in blue in the 3D view (changes nothing)',
+            isPreview ? mapT('mapping.layer.hide_preview') : mapT('mapping.layer.preview_tip.' + what),
             () => this.pub_preview_raster.publish(new ROSLIB.Message({data: isPreview ? '' : ref(r)})));
         const goBtn = (r, isServed, what) => {
             const b = this._mlBtn('go' + (isServed ? ' is-on' : ''),
-                isServed ? '<i class="fa fa-check"></i> Active' : 'Activate',
-                isServed ? what + ' is the active map' : 'Make ' + what + ' the active map (localization + navigation)',
+                isServed ? '<i class="fa fa-check"></i> ' + mapT('mapping.btn.active') : mapT('mapping.btn.activate'),
+                isServed ? mapT('mapping.layer.is_active.' + what) : mapT('mapping.layer.make_active.' + what),
                 () => this._mlActivate(ref(r)));
             b.disabled = isServed;
             return b;
@@ -2805,50 +2869,50 @@ class MappingV3 {
             const nSrc = (c.sources || []).length;
             const nEx = (c.excluded || []).length;
             const chips = [];
-            if (isServed) { chips.push(this._mlChip('ok', 'active')); }
-            else if (servingR) { chips.push(this._mlChip('warn', 'not active')); }
-            if (nEx) { chips.push(this._mlChip('warn', nEx + ' excluded')); }
+            if (isServed) { chips.push(this._mlChip('ok', mapT('mapping.chip.active'))); }
+            else if (servingR) { chips.push(this._mlChip('warn', mapT('mapping.chip.not_active'))); }
+            if (nEx) { chips.push(this._mlChip('warn', mapTn('mapping.chip.n_excluded', nEx))); }
             const rebuild = this._mlBtn('icon', '<i class="fa fa-refresh"></i>',
-                'Rebuild the combined map from the included layers' + (c.built ? ' (built ' + c.built + ')' : ''),
+                c.built ? mapT('mapping.combined.rebuild_tip_built', {built: c.built})
+                        : mapT('mapping.combined.rebuild_tip'),
                 () => this.pub_rebuild_combined.publish(new ROSLIB.Message({data: site.name})));
             body.appendChild(mkRow({
                 primary: true, active: isServed, preview: c.name === previewR,
-                title: '<i class="fa fa-clone vt-mr1 vt-accent"></i>Combined map',
+                title: '<i class="fa fa-clone vt-mr1 vt-accent"></i>' + mapT('mapping.combined.title'),
                 chips: chips,
-                sub: nSrc + ' session' + (nSrc === 1 ? '' : 's') + ' · <b>' +
-                     this._mlNum(c.cells_obstacle) + '</b> obst · <b>' + this._mlNum(c.cells_free) + '</b> free',
-                tip: 'All sessions merged through their GPS datums; where they overlap the NEWER session wins. ' +
-                     'Rebuilt automatically after Save & finish, layer delete or layer toggle.' +
-                     (c.built ? ' Built ' + c.built + '.' : ''),
-                actions: [eyeBtn(c.name, c.name === previewR, 'the combined map'),
-                          goBtn(c.name, isServed, 'the combined map'), rebuild],
+                sub: mapTn('mapping.n_sessions', nSrc) + ' · ' + mapT('mapping.cells',
+                     {obst: this._mlNum(c.cells_obstacle), free: this._mlNum(c.cells_free)}),
+                tip: c.built ? mapT('mapping.combined.tip_built', {built: c.built})
+                             : mapT('mapping.combined.tip'),
+                actions: [eyeBtn(c.name, c.name === previewR, 'combined'),
+                          goBtn(c.name, isServed, 'combined'), rebuild],
             }));
         }
 
-        const sec = this._mlEl('div', 'ml-sec', '<i class="fa fa-bars vt-dim"></i> Layers');
+        const sec = this._mlEl('div', 'ml-sec', '<i class="fa fa-bars vt-dim"></i> ' + mapT('mapping.layers.title'));
         const nOn = list.filter((r) => r.enabled !== false).length;
         sec.appendChild(this._mlEl('span', 'ml-sec-state',
-            list.length ? ((c || nOn < list.length) ? nOn + ' of ' + list.length + ' included · newest first' : 'sessions, newest first') : ''));
+            list.length ? ((c || nOn < list.length) ? mapT('mapping.layers.included', {on: nOn, n: list.length}) : mapT('mapping.layers.sessions')) : ''));
         body.appendChild(sec);
         if (!list.length) {
-            body.appendChild(this._mlEl('div', 'ml-empty', 'No saved session yet — Save & finish creates one.'));
+            body.appendChild(this._mlEl('div', 'ml-empty', mapT('mapping.layers.empty')));
             return body;
         }
         list.forEach((r) => {
             const enabled = (r.enabled !== false);
             const isServed = (r.name === servingR);
             const chips = [];
-            if (isServed) { chips.push(this._mlChip('ok', 'active')); }
-            if (isServed && c) { chips.push(this._mlChip('warn', 'single session')); }
-            if (!enabled) { chips.push(this._mlChip('muted', 'excluded')); }
+            if (isServed) { chips.push(this._mlChip('ok', mapT('mapping.chip.active'))); }
+            if (isServed && c) { chips.push(this._mlChip('warn', mapT('mapping.chip.single'))); }
+            if (!enabled) { chips.push(this._mlChip('muted', mapT('mapping.chip.excluded'))); }
             const actions = [];
             // the include switch stays even without a combined map: a site
             // whose sessions are all excluded has none, and the switch is the
             // only way back (vitulus-field#47)
             {
                 const sw = this._mlEl('label', 'ml-switch');
-                sw.title = enabled ? 'Included in the combined map — click to exclude this session'
-                                   : 'Excluded from the combined map — click to include this session';
+                sw.title = enabled ? mapT('mapping.layer.included_tip')
+                                   : mapT('mapping.layer.excluded_tip');
                 const inp = document.createElement('input');
                 inp.type = 'checkbox';
                 inp.checked = enabled;
@@ -2861,14 +2925,14 @@ class MappingV3 {
                 sw.addEventListener('click', (ev) => ev.stopPropagation());
                 actions.push(sw);
             }
-            actions.push(eyeBtn(r.name, r.name === previewR, 'this session'));
-            actions.push(goBtn(r.name, isServed, 'this session alone'));
+            actions.push(eyeBtn(r.name, r.name === previewR, 'session'));
+            actions.push(goBtn(r.name, isServed, 'session_alone'));
             const del = this._mlBtn('del icon', '<i class="fa fa-trash"></i>', '');
             if (isServed) {
                 del.disabled = true;
-                del.title = 'The active session cannot be deleted — activate another map first';
+                del.title = mapT('mapping.layer.del_active');
             } else {
-                del.title = 'Delete this session (click twice to confirm)';
+                del.title = mapT('mapping.layer.del_tip');
                 this._wireDoubleClickDelete(del,
                     () => this.pub_remove_raster.publish(new ROSLIB.Message({data: ref(r.name)})),
                     '<i class="fa fa-trash"></i>');
@@ -2877,15 +2941,14 @@ class MappingV3 {
             body.appendChild(mkRow({
                 active: isServed, preview: r.name === previewR, off: !enabled,
                 title: this._mlDate(r.mtime), chips: chips,
-                sub: '<b>' + this._mlNum(r.cells_obstacle) + '</b> obst · <b>' +
-                     this._mlNum(r.cells_free) + '</b> free',
-                tip: 'Session ' + r.name + (enabled ? '' : ' (excluded from the combined map)'),
+                sub: mapT('mapping.cells', {obst: this._mlNum(r.cells_obstacle), free: this._mlNum(r.cells_free)}),
+                tip: mapT(enabled ? 'mapping.layer.tip' : 'mapping.layer.tip_excluded', {name: r.name}),
                 actions: actions,
             }));
         });
         if (c && servingR && servingR !== c.name) {
             body.appendChild(this._mlEl('div', 'ml-hint',
-                '<i class="fa fa-exclamation-triangle"></i> A single session is active — the combined map is not used. Activate the combined map to navigate on all sessions.'));
+                '<i class="fa fa-exclamation-triangle"></i> ' + mapT('mapping.layers.single_hint')));
         }
         return body;
     }
@@ -2894,10 +2957,16 @@ class MappingV3 {
     // click arms + relabels "Confirm?" for 3 s; a second click within the window
     // fires onConfirm. `restoreHtml` is the button's normal inner HTML;
     // `armedLabel` (plain text) replaces "Sure?" when the delete takes more
-    // with it than the button says.
+    // with it than the button says. `restoreHtml` may be a function (i18n:
+    // the label in the current language; re-drawn on a language switch).
     _wireDoubleClickDelete(btn, onConfirm, restoreHtml, armedLabel) {
         if (!btn) { return; }
         let armed = false, timer = null;
+        const restore = (typeof restoreHtml === 'function') ? restoreHtml : () => restoreHtml;
+        if (typeof restoreHtml === 'function') {
+            btn.innerHTML = restore();
+            this._relabel.push(() => { if (!armed) { btn.innerHTML = restore(); } });
+        }
         btn.addEventListener('click', (ev) => {
             ev.stopPropagation();
             if (!armed) {
@@ -2906,12 +2975,13 @@ class MappingV3 {
                 // compact label + let the button grow past its normal fixed
                 // width so the armed state never clips (field report 19.7.)
                 btn.classList.add('vt-armed');      // width:auto + nowrap (vt_panel.css)
-                btn.innerHTML = '<span class="vt-fs-xs">Sure?</span>';
+                btn.innerHTML = '<span class="vt-fs-xs"></span>';
+                btn.firstChild.textContent = mapT('mapping.sure');
                 if (armedLabel) { btn.firstChild.textContent = armedLabel; }
                 timer = setTimeout(() => {
                     armed = false;
                     btn.classList.remove('btn-danger');
-                    btn.innerHTML = restoreHtml; btn.classList.remove('vt-armed');
+                    btn.innerHTML = restore(); btn.classList.remove('vt-armed');
                 }, 3000);
                 return;
             }
@@ -2922,7 +2992,7 @@ class MappingV3 {
             // their DOM, but the static session buttons (Reset map /
             // Discard) stayed stuck on a red "Sure?" forever.
             btn.classList.remove('btn-danger');
-            btn.innerHTML = restoreHtml;
+            btn.innerHTML = restore();
             btn.classList.remove('vt-armed');
             onConfirm();
         });
@@ -2932,6 +3002,7 @@ class MappingV3 {
         if (!this.running) return;
         let g;
         try { g = JSON.parse(msg.data); } catch (e) { return; }
+        this._lastGateMsg = msg;
 
         // 2026-08-16 field fix: when a FRESH site's datum gets captured
         // mid-session (start without RTK, fix arrives outside), the aerial
@@ -2952,11 +3023,14 @@ class MappingV3 {
                 this.in_depth_max.value = g.depth_max_m;
             }
             if (this.el_ranges_status) {
-                const lid = (g.lidar_enabled === false) ? 'lidar OFF' :
-                    ('lidar ≤ ' + g.lidar_max_m + ' m');
-                this.el_ranges_status.textContent =
-                    lid + ', depth ≤ ' + g.depth_max_m + ' m' +
-                    (g.z_corr_mode ? ' | z-corr: ' + g.z_corr_mode : '');
+                const lidOff = (g.lidar_enabled === false);
+                const lidM = g.lidar_max_m, depM = g.depth_max_m, zc = g.z_corr_mode;
+                this._say(this.el_ranges_status, () => {
+                    const lid = lidOff ? mapT('mapping.ranges.lidar_off')
+                        : mapT('mapping.ranges.lidar', {m: lidM});
+                    return mapT('mapping.ranges.status', {lidar: lid, depth: depM}) +
+                        (zc ? ' | z-corr: ' + zc : '');
+                });
                 vtTone(this.el_ranges_status, '');
             }
         }
@@ -2966,19 +3040,20 @@ class MappingV3 {
         Object.keys(c).forEach((k) => { io_in += c[k].in; io_out += c[k].out; });
         const detail = [];
         if (g.pose_src) detail.push('pose:' + g.pose_src);
-        if (g.rtk_fixed !== undefined) detail.push(g.rtk_fixed ? 'RTK✓' : 'noRTK');
-        if (g.heading_rtk === false) detail.push('⚠ HDG-RX no fix');
+        if (g.rtk_fixed !== undefined) detail.push(g.rtk_fixed ? 'RTK✓' : mapT('mapping.gate.no_rtk'));
+        if (g.heading_rtk === false) detail.push(mapT('mapping.gate.hdg_no_fix'));
         if (g.hacc_mm !== undefined) detail.push('hAcc ' + Math.round(g.hacc_mm) + 'mm');
         if (g.heading_diff_deg !== undefined) detail.push('Δhdg ' + g.heading_diff_deg + '°');
         if (g.z_source) detail.push('z:' + g.z_source);
-        if (g.map_corrections) detail.push('⚠ corrections ' + g.map_corrections);
-        detail.push('clouds ' + io_out + '/' + io_in);
+        if (g.map_corrections) detail.push(mapT('mapping.gate.corrections', {n: g.map_corrections}));
+        detail.push(mapT('mapping.gate.clouds', {out: io_out, in: io_in}));
         if (g.pass) {
-            this.el_gate.textContent = 'OPEN ✓ [' + g.mode + '] ' + detail.join(', ');
+            this._say(this.el_gate, () => mapT('mapping.gate.open',
+                {mode: g.mode, detail: detail.join(', ')}));
             vtTone(this.el_gate, 'ok');
         } else {
-            this.el_gate.textContent = 'CLOSED [' + g.mode + '] ' +
-                (g.reasons || []).join(', ') + ' — ' + detail.join(', ');
+            this._say(this.el_gate, () => mapT('mapping.gate.closed',
+                {mode: g.mode, reasons: (g.reasons || []).join(', '), detail: detail.join(', ')}));
             vtTone(this.el_gate, g.mode === 'off' ? '' : 'warn');
         }
     }
@@ -2991,11 +3066,15 @@ class MappingV3 {
             this.terrain_bounds = d.terrain_bounds;
             this.rebuildTerrain();
         }
+        this._lastDemMsg = d;
+        this._renderDem(d);
+    }
+
+    _renderDem(d) {
         const zr = d.z_range ? (', z ' + d.z_range[0] + '…' + d.z_range[1] + ' m') : '';
-        this.el_dem.textContent = d.area_traj_m2 + ' m² driven, ' +
-            d.samples + ' samples' + zr +
-            (d.gps_alt_ok ? '' : ', ⚠ no RTK altitude') +
-            (d.dz_skips ? ', ' + d.dz_skips + ' dz-skips' : '');
+        this._say(this.el_dem, () => mapT('mapping.dem.status', {area: d.area_traj_m2, n: d.samples}) + zr +
+            (d.gps_alt_ok ? '' : mapT('mapping.dem.no_alt')) +
+            (d.dz_skips ? mapT('mapping.dem.dz_skips', {n: d.dz_skips}) : ''));
         vtTone(this.el_dem, d.gps_alt_ok ? '' : 'warn');
     }
 
@@ -3015,24 +3094,23 @@ class MappingV3 {
                     this.in_min_cluster.value = p.min_cluster_cells;
             }
             if (this.el_band_status) {
-                this.el_band_status.textContent =
-                    'obstacle band ' + p.band_min + '–' + p.band_max +
-                    ' m above ground, evid ≥ ' + p.min_evidence +
-                    ', clust ≥ ' + p.min_cluster_cells;
+                this._say(this.el_band_status, () => mapT('mapping.band.status',
+                    {min: p.band_min, max: p.band_max, ev: p.min_evidence, cl: p.min_cluster_cells}));
                 vtTone(this.el_band_status, '');
             }
         }
 
-        let txt = p.state + ', ' + (p.octomap_points || 0).toLocaleString() + ' voxels';
-        if (p.cells_obstacle !== undefined) {
-            txt += ' | raster: ' + p.cells_obstacle + ' obstacle, ' +
-                   p.cells_free + ' free cells (' + p.took_s + ' s)';
-        }
-        if (p.iou_obstacles !== undefined && p.iou_obstacles !== null) {
-            txt += ' | IoU vs rtabmap ' + Math.round(p.iou_obstacles * 100) + '%';
-        }
-        if (p.error) txt += ' | ' + p.error;
-        this.el_proj.textContent = txt;
+        this._say(this.el_proj, () => {
+            let txt = mapT('mapping.proj.voxels', {state: p.state, n: (p.octomap_points || 0).toLocaleString()});
+            if (p.cells_obstacle !== undefined) {
+                txt += mapT('mapping.proj.raster', {obst: p.cells_obstacle, free: p.cells_free, s: p.took_s});
+            }
+            if (p.iou_obstacles !== undefined && p.iou_obstacles !== null) {
+                txt += ' | IoU vs rtabmap ' + Math.round(p.iou_obstacles * 100) + '%';
+            }
+            if (p.error) txt += ' | ' + p.error;
+            return txt;
+        });
         vtTone(this.el_proj, p.state === 'error' ? 'err' : '');
     }
 
@@ -3042,6 +3120,7 @@ class MappingV3 {
     // (always) — same list, so the guard keeps them from fighting.
     _fillDirectPresets(presets) {
         if (!this.sel_direct_preset || !Array.isArray(presets)) return;
+        this._lastPresets = presets;
         const sig = presets.map(
             (p) => p.name + (p.builtin ? '*' : '')).join('|');
         if (sig === this._directPresetSig) return;
@@ -3051,7 +3130,7 @@ class MappingV3 {
         presets.forEach((p) => {
             const o = document.createElement('option');
             o.value = p.name;
-            o.textContent = p.name + (p.builtin ? '' : ' (custom)');
+            o.textContent = p.builtin ? p.name : mapT('mapping.preset.custom', {name: p.name});
             this.sel_direct_preset.appendChild(o);
         });
         if (cur && presets.some((p) => p.name === cur)) {
@@ -3082,6 +3161,7 @@ class MappingV3 {
     handleDirectStatus(msg) {
         let s;
         try { s = JSON.parse(msg.data); } catch (e) { return; }
+        this._lastDirectMsg = msg;
 
         // a status arriving while an Apply is pending = the session node
         // received + echoed the settings -> show a clear applied tick
@@ -3117,20 +3197,19 @@ class MappingV3 {
         const g = s.grid || {};
         const c = s.counters || {};
         const passed = (k) => (c[k] && c[k].passed !== undefined) ? c[k].passed : '—';
-        let txt = (s.enabled ? 'enabled' : 'disabled') +
-            (s.pass === false ? ' | gate CLOSED' : '') +
-            ' | occ ' + (g.occ_cells !== undefined ? g.occ_cells : '—') +
-            ', free ' + (g.free_cells !== undefined ? g.free_cells : '—') +
-            ' cells | lidar ' + passed('lidar') +
-            ', cam obst ' + passed('cam_obstacle') +
-            ', cam free ' + passed('cam_free') + ' passed';
+        let txt = mapT('mapping.direct.status', {
+            state: s.enabled ? mapT('common.enabled') : mapT('common.disabled'),
+            gate: s.pass === false ? mapT('mapping.direct.gate_closed') : '',
+            occ: (g.occ_cells !== undefined ? g.occ_cells : '—'),
+            free: (g.free_cells !== undefined ? g.free_cells : '—'),
+            lidar: passed('lidar'), obst: passed('cam_obstacle'), cfree: passed('cam_free')});
         if (s.reasons && s.reasons.length) {
             txt += ' — ' + s.reasons.join(', ');
         }
         const applied = this._direct_applied_until &&
             Date.now() < this._direct_applied_until;
-        this.el_direct_status.textContent =
-            (applied ? '\u2713 applied \u00b7 ' : '') + txt;
+        this._say(this.el_direct_status, () =>
+            (applied ? mapT('mapping.direct.applied') + ' \u00b7 ' : '') + txt);
         vtTone(this.el_direct_status, applied ? 'ok'
             : ((s.reasons && s.reasons.length) ? 'warn' : ''));
     }
