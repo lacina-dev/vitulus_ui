@@ -2,23 +2,23 @@
  * the Help (U2, I3 + I4 of docs/UI_INTEGRATION_PLAN.md).
  *
  *   menu band  [ … Agent | ⛑ Support ]   opens the panel (last tab)
- *   navbar     [ ? ]  (≥ 576 px)          opens Support › Help for the panel
- *                                         that is open right now
+ *   navbar     [ ? ]  (≥ 576 px)          opens the help pane (vt_help.js) for
+ *                                         the panel and tab open right now
  *   tabs       Issues · Releases · Signal · Help
  *
  * Issues / Releases / Signal read the field dashboard through the read-only
  * proxy (/field/api/issues, /field/api/home) via the shared hub; they poll
  * only while the panel is open. Nothing here writes: every card links to the
- * Support dashboard, where its guards are. Help is static text kept in this
- * file — update it with every change of the UI (kit rule: no deploy without
- * help).
+ * Support dashboard, where its guards are. Help lists the topics of
+ * docs/help/*.md (vt_help.js) — the help text is NOT kept in this file; every
+ * change of the UI updates those .md files (docs/help/README.md).
  */
 (function () {
     'use strict';
     var TITLE = 'Support';
     var LS_TAB = 'vitulus_support_tab';
     var TABS = [['issues', 'Issues'], ['releases', 'Releases'], ['signal', 'Signal'], ['help', 'Help']];
-    var panel = null, active = false, tab = 'issues', helpFor = null;
+    var panel = null, active = false, tab = 'issues';
     var panes = {}, tabLinks = {};
     var hlIssue = null, hlUntil = 0, hlScrolled = false;   // I6: the card to point at
 
@@ -214,48 +214,18 @@
     }
 
     /* ----------------------------------------------------------- Help */
-    var HELP = {
-        general: ['The robot UI',
-            ['One frame in the shape of a C: the top band (status, the agent strip, the menu), the left panel and the bottom bar are one surface around the map. The left panel shows one tool at a time — Panel (Alt+P) hides or shows it, Esc hides it, ✕ closes it, ⤢ makes it full screen; a hidden panel leaves a thin spine on the left edge, click it to bring the panel back. On a phone the panel is a sheet: drag it up for full screen, down to close.',
-             'The bottom bar: STOP · Joystick · Follow · Log (on a phone with a free gap in the middle for the system gesture). The camera is in the right panel (section Camera; on a phone unfold the collapsed row with ▾).',
-             'STOP (red, bottom left, always the same place) is the emergency stop: it cancels navigation, switches the drive motors off, stops a running mowing program, the blade and docking, and opens the motor switch of the power module. Motors stay off until someone switches them on again.',
-             'The bell in the top bar is "Needs you": approvals of the robot agent and decisions the field kit waits for. Support (the last button of the menu band) shows the fix loop: issues, releases, the link to the other robot — and this help.']],
-        camera: ['Camera', ['The live camera is a section of the right panel (top right of the map). Its head has the switch Off / S / L: S = a small live preview in the right panel, L = the camera fills the map area and the map moves into the right panel\u2019s slot (click the small map to go back to S). Alt+C switches S \u2194 L. The stream runs only while the camera is on screen.', 'On a phone the right panel is a collapsed row under the notices: ▾ unfolds it, the camera button in the row switches the large camera on and off. Follow in the bottom bar makes the map view follow the robot.']],
-        marker: ['Marker', ['While the Marker panel is open, a goal marker sits on the map: drag it to the goal, turn it (Heading slider, shown in degrees) to the direction the robot should end in, then Send goal at the bottom of the panel. Cancel navigation stops the drive to it.']],
-        map: ['Map', ['Maps of the site: the active map, saving and loading, paths, points, the dock and rain settings. ✎ next to the active map opens the map editor.']],
-        editor: ['Map editor', ['Zones and polygons of the active map, drawn on the map from above. The map stays drivable while you edit; close the editor with Close editor or ✕.', 'Tools (one tile each, the active one lit in the accent): Pan · Waypoint · Path · Obstacle (area) · Free (clear area) · Barrier (line) · Delete · Geofence. Geofence only sends a PROPOSAL — a person signs it before it becomes the active fence. Show: switches the editor layers (waypoints, paths, edits, zones) on and off.']],
-        program: ['Programs', ['Mowing programs (zones, speed, cut height) and the calendar that starts them. Run / Resume / Stop act on the robot — the mower moves.', 'Calendar: the tag in its head says what the scheduler does now — Active (it will start programs), Held (Hold is on: nothing starts from the calendar until you switch Hold off), Automation off (disabled on the robot by a parameter), Mowing, Off dock. The line under it is the scheduler\u2019s own status and the next run.']],
-        config: ['Settings', ['Motors (power and torque), Navi (speed, lidar, RtabMap), Power, Mower, Diag, Rosbag recording and IMU calibration (rotate-only stick).']],
-        agent: ['Agent', ['Chat with the robot agent; Work = its jobs and the approvals it asks for; Activity = one timeline of the agent and the field kit; Findings = what it noticed; Robot = live state; Models = which model does what. The red STOP in its head is answered by the robot core, never by a model.', 'Robot \u2192 Dock lock: the robot leaves the dock only when you unlock it there (two taps). Free drive unlocks every move without a use limit and locks itself when the robot docks (or after 12 h) \u2014 unlocked while the robot stands in the dock, it waits until the robot leaves and comes back. The smaller presets name their moves and are gone after their uses. Lock again takes any of them back at once.']],
-        needs: ['Needs you', ['Everything that waits for a human, in one list. Approvals of the robot agent are decided in Agent › Work.',
-            'Support cards can be decided right here: Done (a human step), an option of the card, Hide 24 h, Remind, Accept / Dismiss a finding. Two clicks — the first arms the button ("Sure? …"), the second sends it within 5 s. Each decision is signed with your name and written to the audit (Agent › Activity, "robot UI"). An option that moves the robot is never offered here — decide it at the robot. Anything else opens on the Support dashboard (Open in Support).']],
-        support: ['Support', ['Issues: open reports and their stage in the fix loop (reported → assessed → fixed → released → tested → verified → closed). Releases: the field kit version and what waits for a retest. Signal: both robots and the phone notifications. Everything opens on the Support dashboard, where decisions are made.']],
-        drive: ['Drive (joystick)', ['The stick in the bottom right of the map (Joystick in the bottom bar shows / hides it; on a phone it stays above an open sheet). Push to drive: forward/back = speed, sideways = turn; near the centre it is fine, at the rim full speed (Slow / Mid / Fast). Let go = stop. It shows the speed mode and whether the drive motors are on — with motors OFF nothing moves. Keyboard: switch on "keyboard" in the right panel, then W A S D or arrows, Shift = half speed; never while typing in a field.']],
-        log: ['Log', ['Log in the bottom bar shows the log as a strip above the bar; ▲ (Expand) makes it fill the map area, ▼ (Collapse) shrinks it back to the strip; Log again hides it. The joystick always stays above the small log.', 'Changes = the useful robot events (a green dot = something got better, amber = a warning, red = a fault), connection changes and agent reports. ROS = the raw /rosout console with level filters, a node filter and text search. Live pauses / resumes autoscroll, Clear empties the buffer in this browser only.']]
-    };
-    var CURRENT = { marker: 'marker', map: 'map', editor: 'editor', program: 'program', config: 'config',
-                    agent: 'agent', needs: 'needs', support: 'support' };
+    /* The help is the documentation in docs/help/*.md, drawn by vt_help.js
+       (the same topics open from the "?" in every panel head). This tab only
+       lists the topics; a click opens the help pane next to the panel. */
     function renderHelp() {
         var pane = panes.help; if (!pane) { return; }
         pane.textContent = '';
-        var first = helpFor && HELP[helpFor] ? helpFor : null;
-        var order = (first ? [first] : []).concat(['general', 'drive', 'camera', 'needs', 'support', 'agent', 'marker', 'map', 'editor', 'program', 'config', 'log'].filter(function (k) { return k !== first; }));
-        order.forEach(function (k, idx) {
-            var h = HELP[k];
-            var d = el('details', 'drawer-sec vt-help-sec');
-            d.open = idx === 0;
-            var s = el('summary');
-            s.appendChild(el('span', 'vt-needs-gt', h[0] + (k === first ? ' — this panel' : '')));
-            d.appendChild(s);
-            var b = el('div', 'drawer-sec-body');
-            h[1].forEach(function (p) { b.appendChild(el('p', 'vt-help-p', p)); });
-            d.appendChild(b);
-            pane.appendChild(d);
-        });
+        if (!window.VTHelp) { pane.appendChild(el('p', 'vt-empty', 'Help is not available.')); return; }
+        pane.appendChild(el('p', 'vt-needs-sub', 'How to use the robot and this screen. The small ? in the head of any panel opens the topic of that panel and its tab.'));
+        pane.appendChild(VTHelp.cards(function (id) { VTHelp.open(id); }));
         var more = el('div', 'vt-needs-acts');
-        more.appendChild(linkBtn('Field kit help', dash('#/help')));
+        more.appendChild(linkBtn('Support kit help', dash('#/help')));
         pane.appendChild(more);
-        pane.appendChild(el('p', 'vt-needs-sub', 'Tip: open any panel and press ? in the top bar to read about that panel first.'));
     }
 
     /* ------------------------------------------------------- tabs/data */
@@ -373,17 +343,8 @@
         }
     }
     function toggle() { if (shown()) { deactivate(true); } else { active = false; open(); } }
-    function currentPanel() {
-        var mm = window.map_menu, d = document.getElementById('ui_drawer');
-        if (!d || !d.classList.contains('open')) { return null; }
-        if (window.VAgent && VAgent.isVisible && VAgent.isVisible()) { return 'agent'; }
-        var np = document.getElementById('vt_needs_panel');
-        if (np && np.style.display !== 'none') { return 'needs'; }
-        return CURRENT[mm && mm._drawer_last] || null;
-    }
     function openHelp() {
-        if (shown() && tab === 'help') { deactivate(true); return; }
-        helpFor = currentPanel();
+        if (window.VTHelp) { VTHelp.toggle(); return; }
         open('help');
     }
     function watchDrawer() {
@@ -400,8 +361,6 @@
     var menuBtn = null, helpBtn = null;
     function paintBtn() {
         if (menuBtn) { menuBtn.classList.toggle('vt-on', active); }
-        var hb = document.getElementById('btn_help');
-        if (hb) { hb.classList.toggle('vt-on', active && tab === 'help'); }
     }
     function installButtons() {
         var group = document.querySelector('#row_menu .btn-group');
@@ -424,7 +383,7 @@
             helpBtn = el('button', 'vt-help-btn', '?');
             helpBtn.id = 'btn_help';
             helpBtn.type = 'button';
-            helpBtn.title = 'Help for the open panel';
+            helpBtn.title = 'Help — for the open panel and its tab';
             helpBtn.setAttribute('aria-label', 'Help');
             helpBtn.addEventListener('click', openHelp);
             toggler.parentNode.insertBefore(helpBtn, bell && bell.parentNode === toggler.parentNode ? bell : toggler);
@@ -446,6 +405,7 @@
         VTHub.on('field.home', function () { if (active && (tab === 'releases' || tab === 'signal')) { render(); } });
         if (lsGet('vitulus_support_open') === '1') { setTimeout(function () { open(); }, 1600); }
         window.VTSupport = { open: open, close: function () { deactivate(true); }, toggle: toggle, help: openHelp,
+            tab: function () { return active ? tab : null; },
             /* I6: open Issues and point at card #n (survives the refresh that follows opening) */
             showIssue: function (n) {
                 hlIssue = String(n).replace(/\D/g, ''); hlUntil = Date.now() + 4000; hlScrolled = false;

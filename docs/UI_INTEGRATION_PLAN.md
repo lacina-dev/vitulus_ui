@@ -155,8 +155,10 @@ dnes polluje sám; převede se na hub).
   otevřeném panelu (`VTHub.stop`). *Help* = nápověda UI robota v angličtině,
   nahoře sekce k právě otevřenému panelu; na PC tlačítko **?** v navbaru
   (na telefonu jen záložka, navbar by se zalomil); odkaz na field `#/help`.
-  Text nápovědy je v `vt_support.js` (`HELP`) — **každá změna UI ho musí
-  aktualizovat**.
+  *(Od 18. 10. 2026 nahrazeno: nápověda = dokumentace v `docs/help/*.md`,
+  panel nápovědy `vt_help.js` vpravo v rámu C / sheet na telefonu, „?“ v hlavičce
+  každého panelu; záložka Help v Supportu jen vypisuje témata. Údržba:
+  `docs/help/README.md`, kontrola `tools/test_help_docs.node.js`.)*
 
 - **I6 hotovo (jen čtení, větev `ui-field-links`):** `assets/js/vt_links.js`.
   Karta issue (Support) má *Ask the agent* (otevře Agent › Chat s

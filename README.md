@@ -201,10 +201,20 @@ The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
 * **Support + Help** (`assets/js/vt_support.js`) — the last button of the
   menu band opens Support: Issues (open issues, stage of the fix loop, whose
   turn), Releases (kit version, what waits for a retest), Signal (both robots,
-  phone notifications) and Help; on a PC "?" in the navbar opens Help for the
-  panel that is open. Read only (`/field/api/issues`, `/field/api/home`),
-  polled only while the panel is open. **The help text lives in
-  `vt_support.js` (`HELP`) — update it with every UI change.**
+  phone notifications) and Help (the list of help topics). Read only
+  (`/field/api/issues`, `/field/api/home`), polled only while the panel is
+  open.
+
+* **Help = documentation** (`docs/help/*.md`, `assets/js/vt_help.js`,
+  `vt_help_md.js`, `assets/css/vt_help.css`) — one Markdown file per topic
+  (robot and UI: safety, dock, localization, mapping, programs, agent, support,
+  troubleshooting, every panel and tab), served read-only by the webnode at
+  `/help/docs.json` and drawn in a pane on the right edge of the frame (a sheet
+  on a phone). Opened by the small "?" in every panel head (topic of the panel
+  **and** its open tab), "?" in the navbar, the right panel's Navi head, the
+  log toolbar and Support › Help; with search and links between topics.
+  **Every change of the UI or the robot updates the topic in the same commit**
+  — `docs/help/README.md`, check `node tools/test_help_docs.node.js`.
 
 * **Links agent ↔ field** (`assets/js/vt_links.js`) — "Ask the agent"
   on issue and Needs-you cards puts a draft into the agent chat (never sends

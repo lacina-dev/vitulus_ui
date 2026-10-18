@@ -512,6 +512,36 @@ if __name__ == '__main__':
                 rospy.logwarn("[webnode] tile_offsets reset failed: %s", exc)
                 return jsonify({'ok': False, 'error': str(exc)}), 400
 
+        # Help = documentation: the help panel (assets/js/vt_help.js) renders
+        # the Markdown files of docs/help/ as they are on disk — one source,
+        # read in git and in the UI alike (docs/help/README.md). Read-only.
+        _HELP_DIR = os.path.normpath(os.path.join(_HERE, '..', 'docs', 'help'))
+
+        @app.route('/help/docs.json')
+        def help_docs():
+            docs = []
+            try:
+                names = sorted(os.listdir(_HELP_DIR))
+            except OSError:
+                names = []
+            for name in names:
+                if not name.endswith('.md') or name.upper() == 'README.MD':
+                    continue
+                path = os.path.join(_HELP_DIR, name)
+                try:
+                    with open(path, 'r', encoding='utf-8') as fh:
+                        docs.append({'file': name, 'text': fh.read(),
+                                     'mtime': int(os.path.getmtime(path))})
+                except (OSError, UnicodeDecodeError):
+                    continue
+            resp = jsonify({'dir': 'docs/help', 'docs': docs})
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+
+        @app.route('/help/img/<path:name>')
+        def help_img(name):
+            return send_from_directory(os.path.join(_HELP_DIR, 'img'), name)
+
         @app.route('/api/system')
         def api_system():
             # Read-only host metrics (CPU/MEM/DISK/NET) for the header monitor.

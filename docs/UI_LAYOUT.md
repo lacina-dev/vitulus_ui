@@ -53,6 +53,19 @@ Přepínač **Off / S / L** v hlavičce sekce Camera pravého panelu, **Alt+C**
 | Large | kamera vyplní dutinu C (obraz 4:3 vycentrovaný, od pásu hlášek po spodní část rámu, vlevo od pravého panelu); **mapa jde do slotu pravého panelu** (okno vyříznuté maskou) — klik na malou mapu = zpět na small (žádný omylem odeslaný cíl). Joystick a hlášky zůstávají nad ní / mimo ni. Otevření editoru mapy vrátí small. Sbalený pravý panel (telefon na šířku): kamera 4:3 v levém horním rohu dutiny, mapa vedle. | pás přes horní část dutiny (pod řádkem pravého panelu, nejvýš ½ dutiny), mapa pod ním; tlačítko kamery ve sbaleném řádku pravého panelu přepíná large / vypnuto |
 | Panel ustoupí (sheet, celý drawer) | — | velká kamera se pozastaví a vrátí se s panelem; zavření panelu / sbalení sekce = vypnuto |
 
+### Nápověda (help pane, 18. 10. 2026)
+
+Malé **?** v hlavičce levého panelu (před ⤢ / ✕; v kompaktní hlavičce na
+telefonu v řádku záložek), **?** v navbaru (PC), **?** v hlavičce sekce Navi
+pravého panelu a v liště logu otevře nápovědu k tomu, co je otevřené (panel
+**i jeho záložka**). Obsah = `docs/help/*.md` (`vt_help.js`, `docs/help/README.md`).
+
+| | PC / na šířku | Telefon na výšku |
+|---|---|---|
+| Poloha | výběžek u pravé hrany od pásu menu ke spodní liště / malému logu (nad joystickem končí nad ním), přes pravý panel; z 9 (pod lištami) | sheet nad spodní lištou (72 % výšky, úchyt = celá výška), z 1001 nad sheetem panelu |
+| Zavření | ✕, Esc (Esc zavře nejdřív nápovědu, panel zůstane) | ✕ |
+| Nikdy | neotevře se sama, nemá backdrop — mapa i panel jdou dál ovládat | totéž |
+
 ### Spodní lišta (část C)
 
 | | PC | Telefon (na výšku i na šířku, dotyk) |
