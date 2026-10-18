@@ -799,11 +799,28 @@
        load, tab switch, panel open, tab un-hiding.  Deferred twice so layout
        (and late images) have happened before the scroll is measured. */
     function scrollChatBottom() {
-        function drop() { if (msgsEl) { msgsEl.scrollTop = msgsEl.scrollHeight; } }
-        drop();
+        stickBottom = true;
+        // the deferred drops respect a scroll the user made in between
+        function drop() { if (msgsEl && stickBottom) { msgsEl.scrollTop = msgsEl.scrollHeight; } }
+        if (msgsEl) { msgsEl.scrollTop = msgsEl.scrollHeight; }
         if (window.requestAnimationFrame) {
             requestAnimationFrame(function () { requestAnimationFrame(drop); });
         } else { setTimeout(drop, 50); }
+    }
+
+    /* C1 (owner: „odjíždí text v chatu"): a LAYOUT change — the phone
+       keyboard (visualViewport resize/scroll, which iOS fires while the
+       owner scrolls the messages with the keyboard up), the sheet / drawer
+       resizing, .full, coming back to the tab, focusing the input — used to
+       call scrollChatBottom() and yank the chat to the end no matter where
+       the owner was reading.  Layout changes only KEEP the bottom: the chat
+       follows the end only if it was already there (sticky bottom).  The
+       state is remembered from the owner's own scrolling, not re-measured
+       after the change — a viewport that just shrank under the keyboard is
+       „not at the bottom" by measurement, yet it was a moment ago. */
+    var stickBottom = true;
+    function keepBottom() {
+        if (stickBottom) { scrollChatBottom(); }
     }
 
     function flagTab(blockId) {
@@ -1125,7 +1142,7 @@
                 d.drawer.style.bottom = Math.round(kb) + 'px';
                 d.drawer.style.height = Math.round(Math.max(200, visBottom - top)) + 'px';
             }
-            scrollChatBottom();
+            keepBottom();
         }
         vv.addEventListener('resize', fit);
         vv.addEventListener('scroll', fit);
@@ -1139,7 +1156,7 @@
             if (!panelActive) { return; }
             if (!d.drawer.classList.contains('open')) { deactivate(false); return; }
             settleDrawer(d.drawer);
-            scrollChatBottom();   // .full toggle re-lays the chat out
+            keepBottom();   // .full toggle re-lays the chat out
         }).observe(d.drawer, {attributes: true, attributeFilter: ['class']});
         if (d.title) {
             new MutationObserver(function () {
@@ -1275,7 +1292,7 @@
     }
 
     function turn(kind, cls, text, meta, taskId) {
-        var stick = atBottom();
+        var stick = stickBottom || atBottom();
         var prepend = !!(insertRef && insertRef.parentNode === msgsEl);
         // The neighbour on the side this bubble is going in: the last row
         // when appending, the row it would sit in front of when a scroll-up
@@ -1337,9 +1354,29 @@
             msgsEl.insertBefore(wrap, insertRef);   // history prepend
         } else {
             msgsEl.appendChild(wrap);
-            if (stick) { msgsEl.scrollTop = msgsEl.scrollHeight; }
+            if (stick) { followNew(wrap, cls === 'vagent-me'); }
         }
         return wrap;
+    }
+
+    /* C1: the chat was at the end and a new bubble arrived.  A short one —
+       stay on the end.  One taller than the view (a long answer) — show its
+       START: dropping to its last line made the text „run away" from the
+       owner before he could read it.  Then the chat is no longer at the end,
+       so nothing below (late images, the next poll) pulls it anywhere.
+       A view squeezed to a sliver (keyboard + sheet) is no measure of
+       „long" — there every bubble would count, so it just follows the end. */
+    function followNew(wrap, mine) {
+        var view = msgsEl.clientHeight;
+        if (!mine && view >= 120 && wrap.offsetHeight > view - 24) {
+            var top = wrap.getBoundingClientRect().top -
+                msgsEl.getBoundingClientRect().top + msgsEl.scrollTop - 6;
+            msgsEl.scrollTop = Math.max(0, top);
+            stickBottom = atBottom();
+            return;
+        }
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+        stickBottom = true;
     }
 
     function attachImage(target, url) {
@@ -1347,7 +1384,9 @@
         img.className = 'snap';
         img.loading = 'lazy';
         img.addEventListener('load', function () {
-            if (atBottom()) { msgsEl.scrollTop = msgsEl.scrollHeight; }
+            // measured AFTER the image grew the chat, atBottom() is false
+            // even when the owner was on the end — use the remembered state
+            if (stickBottom) { msgsEl.scrollTop = msgsEl.scrollHeight; }
         });
         img.src = AGENT_HTTP + url;
         img.addEventListener('click', function () {
@@ -1372,7 +1411,8 @@
         var label = document.createElement('span');
         d.appendChild(dots); d.appendChild(label);
         msgsEl.appendChild(d);
-        msgsEl.scrollTop = msgsEl.scrollHeight;
+        msgsEl.scrollTop = msgsEl.scrollHeight;   // the owner just sent: go to the end
+        stickBottom = true;
         var began = Date.now();
         var stateWord = '';
         function paint() {
@@ -2135,9 +2175,18 @@
         });
         el.appendChild(jumpBtn);
         msgsEl.addEventListener('scroll', function () {
+            // hidden (other tab / closed panel) measures 0 — not a decision
+            if (msgsEl.clientHeight > 0) { stickBottom = atBottom(); }
             if (msgsEl.scrollTop < 80) { loadOlder(); }
             paintJump();
         }, {passive: true});
+        // the sheet / drawer / keyboard resizing the scroller: keep the end
+        // only if the chat was on it (C1)
+        if (window.ResizeObserver) {
+            new ResizeObserver(function () {
+                if (msgsEl.clientHeight > 0) { keepBottom(); paintJump(); }
+            }).observe(msgsEl);
+        }
 
         Array.prototype.forEach.call(el.querySelectorAll('#vagent_chips [data-f]'), function (b) {
             b.addEventListener('click', function () {
@@ -2185,7 +2234,7 @@
             if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); submit(); }
         });
         inputEl.addEventListener('focus', function () {
-            setTimeout(scrollChatBottom, 250);
+            setTimeout(keepBottom, 250);
         });
         inputEl.addEventListener('input', function () {
             inputEl.style.height = '38px';
@@ -5526,7 +5575,7 @@
         });
         document.addEventListener('visibilitychange', function () {
             if (!document.hidden && panelActive) {
-                clearUnread(); markSeenNow(); scrollChatBottom();
+                clearUnread(); markSeenNow(); keepBottom();
                 schedule();   // kick: fresh state/jobs/tasks now, not in 5 s
             }
         });
