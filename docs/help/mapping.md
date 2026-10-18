@@ -7,7 +7,7 @@ icon: la-map
 summary: Record a new map, extend one, activate it, layers and the combined map.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock]
-keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, terrain, session, save]
+keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, terrain, session, save, sensing, lidar, camera, coverage, field of view]
 ---
 # Maps and mapping
 
@@ -104,6 +104,22 @@ automatically after Save & finish, a layer delete or a switch; ↻ rebuilds it b
 Tick the layers under the map list: **Base** (cyan, the navigation map), **Saved** (red, the
 active map), **Direct** (black, the live recording), **Preview** (blue), **Terrain** (height: blue low,
 red high), **Aerial** (satellite photo), **Rain** (radar).
+
+**Sensing** shows what the robot is observing right now, drawn flat on the ground around it.
+It switches on by itself when a recording starts and off when it ends (tick it by hand any time):
+
+- **Violet = lidar.** The live scan: stronger fill up to the obstacle each beam hits (with a
+  violet outline along it), a faint fill where nothing was hit — that is free space up to the
+  mapper's lidar range (8 m by default), marked by a faint arc. Gaps are beams the map ignores.
+- **Yellow = camera.** The view cone of the depth camera: about 55° wide, up to the mapper's
+  camera range (2.8 m by default, never more than 4 m). When the ground and the obstacle range
+  differ, the shorter one is a dotted inner arc. During a recording a dimmed cone means the
+  camera delivers nothing to the map right now.
+- **Faint fill = already observed** in this recording (only while the mapper takes data in).
+  Places without it have not been seen yet — drive there to fill the map. It starts empty with
+  each recording and after **Erase & keep recording**.
+
+The ranges are the ones the mapper really uses (its sliders), not the sensors' maximum.
 
 **Display (layers)** sets their opacity, the robot marker colours, the aerial photo source
 (satellite / ČÚZK / OSM), zoom and an alignment nudge (saved on the robot for each map and tile

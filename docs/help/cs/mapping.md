@@ -7,7 +7,7 @@ icon: la-map
 summary: Nahrát novou mapu, rozšířit ji, aktivovat, vrstvy a souhrnná mapa.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock]
-keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, terén, terrain, relace, session, uložit]
+keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole]
 ---
 # Mapy a mapování
 
@@ -103,6 +103,22 @@ po **Uložit a dokončit**, po smazání vrstvy nebo po přepnutí; ↻ ji sesta
 Zaškrtni vrstvy pod seznamem map: **Základ** (tyrkysová, navigační mapa), **Uložená** (červená,
 aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (modrá), **Terén** (výška:
 modrá nízko, červená vysoko), **Letecká** (satelitní snímek), **Déšť** (radar).
+
+**Snímání** ukazuje, co robot právě sleduje, nakreslené naplocho na zemi kolem něj. Samo se
+zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kdykoli i ručně):
+
+- **Fialová = lidar.** Živý sken: sytější výplň až k překážce, kterou paprsek zasáhne (podél ní
+  fialový obrys), slabá výplň tam, kde nic nezasáhl — to je volné místo až po dosah lidaru
+  v mapovači (výchozí 8 m), označený slabým obloukem. Mezery jsou paprsky, které mapa nebere.
+- **Žlutá = kamera.** Zorný kužel hloubkové kamery: asi 55° široký, až po dosah kamery
+  v mapovači (výchozí 2,8 m, nikdy víc než 4 m). Když se dosah pro zem a pro překážky liší,
+  kratší je tečkovaný vnitřní oblouk. Ztlumený kužel během nahrávání znamená, že kamera teď do
+  mapy nic nedodává.
+- **Slabá výplň = už viděno** v tomto nahrávání (jen když mapovač data přijímá). Kde chybí, tam
+  robot ještě nebyl — zajeď tam a mapa se doplní. S každým nahráváním a po **Smazat a nahrávat dál** začíná
+  prázdná.
+
+Dosahy jsou ty, které mapovač opravdu používá (jeho posuvníky), ne maximum senzorů.
 
 **Zobrazení (vrstvy)** nastaví jejich krytí, barvy značky robota, zdroj leteckého snímku
 (satelit / ČÚZK / OSM), přiblížení a posun zarovnání (uložený na robotu pro každou mapu a zdroj

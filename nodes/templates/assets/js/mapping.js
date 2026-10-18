@@ -583,6 +583,8 @@ class MappingV3 {
         this._wireDoubleClickDelete(this.btn_reset_map, () => {
             this.pub_reset_direct.publish(new ROSLIB.Message({data: ''}));
             this._say(this.el_run, () => mapT('mapping.run.erased'));
+            // the Sensing layer's "already seen" swath belongs to the wiped raster
+            if (this.sensing) { this.sensing.clearCoverage(); }
         }, () => mapT('mapping.btn.reset_map'));
         this._wireDoubleClickDelete(this.btn_discard, () => {
             this.pub_stop.publish(new ROSLIB.Message({data: 'discard'}));
@@ -2514,6 +2516,8 @@ class MappingV3 {
         // toggles look dead. Drop it on the running -> not-running edge.
         if (this.running && !s.running) this._clearDirectGrid();
         this.running = s.running;
+        // Sensing layer (MapSensing below): default ON only while recording
+        if (this.sensing) { this.sensing.onSession(s); }
         this.setActionsEnabled(s.running);
         // 2026-08-16: ACTIVATING a different map switches the datum — the
         // aerial tiles must re-georeference (third refresh trigger, next to
@@ -3162,6 +3166,8 @@ class MappingV3 {
         let s;
         try { s = JSON.parse(msg.data); } catch (e) { return; }
         this._lastDirectMsg = msg;
+        // Sensing layer: live mapper ranges / sources / gate (MapSensing below)
+        if (this.sensing) { this.sensing.onDirect(s); }
 
         // a status arriving while an Apply is pending = the session node
         // received + echoed the settings -> show a clear applied tick
@@ -3256,3 +3262,561 @@ class MappingV3 {
         wire();
     }
 })();
+
+
+// ===========================================================================
+// SENSING LAYER (2026-10-18, owner: "while mapping, show the area in which
+// the lidar and the camera are collecting free space / obstacles")
+// ---------------------------------------------------------------------------
+// A map layer ("Sensing", Layers row, #mapv3_chk_sensing) drawn flat on the
+// ground around the robot:
+//   * LIDAR (violet) — the live scan polygon exactly as the Direct mapper
+//     (vitulus_mapping/nodes/direct_raster, cb_scan) ingests it: a beam that
+//     HIT something inside the mapper's cap is drawn to the hit (stronger
+//     fill + outline = what is being hit); a no-return / beyond-cap beam is a
+//     free ray to the cap (faint fill, faint arc at the cap); a beam the mapper
+//     ignores (range_min, weak return, filter-rejected NaN) leaves a gap.
+//   * CAMERA (yellow) — the D435 view cone from the camera mount: the
+//     horizontal FOV of the image the depth cloud is built from
+//     (rtabmap rgb camera_info_out, aligned depth) × the mapper's camera range
+//     (obstacle_max_range_m / free_max_range_m, never beyond the
+//     depth2cloud_wide max_depth 4.0 m).
+//   * COVERED (faint union of both) — while a recording runs and the mapper's
+//     insertion gate is open, every footprint is painted into one 512×512 px
+//     canvas at 0.2 m/px (~100 m square, 1 MB, re-centred when the robot
+//     leaves it): what has already been observed in this session. Cleared on
+//     a new recording and on Reset map.
+// Ranges are the CONFIGURED mapper values (what the map actually ingests,
+// not the raw sensor max): /mapping/direct_status settings while a session
+// runs, the mapping_v3.yaml defaults otherwise. Sensor poses come from TF
+// (base_scan, d435_link via the shared map TF client); until TF arrives the
+// URDF mounts below stand in (composed with base_link).
+// Cost: the scan is subscribed ONLY while the layer is on and the page is
+// visible, throttled by rosbridge to 5 Hz (queue 1), downsampled to 360
+// beams, drawn into pre-allocated buffers (no per-frame allocation); the
+// coverage texture re-uploads at most once a second. Default: ON while a
+// recording runs (switched on at its start, off at its end), OFF otherwise.
+// ROS3D bundles its own THREE (r89-era API): everything is built from
+// ROS3D.THREE (see the _r3d() note in MappingV3) — a window.THREE object
+// would kill the render loop.
+// ===========================================================================
+const SENSING_CFG = {
+    scanTopic: '/rplidar/scan_filtered',        // direct_raster ~lidar_scan_topic
+    camInfoTopic: '/rtabmap/rgb/camera_info_out', // intrinsics of the depth cloud
+    lidarFrame: 'base_scan',
+    camFrame: 'd435_link',
+    // mapping_v3.yaml direct_raster defaults (live values from direct_status)
+    lidarMaxRange: 8.0,          // lidar_max_range_m
+    lidarFreeNoHit: true,        // lidar_free_no_hit
+    camObstacleRange: 2.8,       // obstacle_max_range_m
+    camFreeRange: 2.8,           // free_max_range_m
+    camCloudMax: 4.0,            // depth2cloud_wide max_depth (hard ceiling)
+    // half-FOV left/right of the optical axis (rad) for K 640×480 fx 616.78
+    // cx 326.22: atan(cx/fx), atan((w-cx)/fx) — 54.9° in total
+    camHalfLeft: 0.4866,
+    camHalfRight: 0.4706,
+    // URDF mounts (tf base_link->base_scan / ->d435_link, 2026-10-18), used
+    // only until the sensor frames arrive over TF
+    lidarMount: {x: 0.062, y: 0.0, yaw: -Math.PI / 2},
+    camMount: {x: 0.212, y: 0.042, yaw: 0.0},
+    maxBeams: 360,
+    throttleMs: 200,             // ~5 Hz
+    coverRes: 0.2,               // m per coverage pixel
+    coverPx: 512,
+    z: 0.03,                     // drawn flat just above the ground layers
+    colLidar: 0xb388ff, colCam: 0xffd23f,
+    cssLidar: '#b388ff', cssCam: '#ffd23f',
+};
+
+// Per-beam classification with the SAME rules as direct_raster.cb_scan:
+//   1 hit  : finite, range_min <= r <= cap (and >= the live intensity gate)
+//   2 free : no-return (inf / NaN with intensity 0 / >= range_max) or a
+//            finite return beyond the cap -> free ray to the cap, only when
+//            lidar_free_no_hit
+//   0      : everything else — the mapper skips it (unknown), so we do too.
+// rosbridge sends inf/NaN as null; the intensity tells them apart as in the
+// mapper (NaN + intensity > 0 = filter-rejected real return = unknown).
+// Downsampled to <= maxBeams. Returns {a, r, k, n} (angle, drawn range, kind).
+function sensingClassifyBeams(scan, cap, freeNoHit, minInt, maxBeams) {
+    const R = (scan && scan.ranges) || [];
+    const n = R.length;
+    const I = (scan.intensities && scan.intensities.length === n) ? scan.intensities : null;
+    const step = Math.max(1, Math.ceil(n / Math.max(1, maxBeams || n)));
+    const m = Math.ceil(n / step);
+    const a = new Float32Array(m), r = new Float32Array(m), k = new Uint8Array(m);
+    const rmin = Number(scan.range_min) || 0;
+    const rmax = (Number(scan.range_max) > 0) ? Number(scan.range_max) : Infinity;
+    const a0 = Number(scan.angle_min) || 0, inc = Number(scan.angle_increment) || 0;
+    for (let i = 0, j = 0; i < n; i += step, j++) {
+        const v = R[i];
+        const fin = (typeof v === 'number') && isFinite(v);
+        const inten = I ? Number(I[i]) : null;
+        a[j] = a0 + i * inc;
+        let kind = 0, rr = 0;
+        const weak = minInt > 0 && I !== null && !(inten >= minInt);
+        if (fin && v >= rmin && v <= cap && !weak) {
+            kind = 1; rr = v;
+        } else if (freeNoHit) {
+            const beyond = fin && v > cap;
+            const noret = (fin && v >= rmax) || v === Infinity ||
+                (!fin && v !== -Infinity && (I === null || !(inten > 0)));
+            if (beyond || noret) { kind = 2; rr = cap; }
+        }
+        k[j] = kind; r[j] = rr;
+    }
+    return {a: a, r: r, k: k, n: m};
+}
+
+// 2-D part of a TF rotation (rows x,y of the matrix, columns x,y) — keeps a
+// flipped (upside-down) mount correct, not just the yaw.
+function sensingRot2(q) {
+    const x = q.x || 0, y = q.y || 0, z = q.z || 0, w = (q.w === undefined) ? 1 : q.w;
+    return [1 - 2 * (y * y + z * z), 2 * (x * y - w * z),
+            2 * (x * y + w * z), 1 - 2 * (x * x + z * z)];
+}
+
+class MapSensing {
+    constructor(ros, tfClient, viewer3d, mapping) {
+        this.ros = ros;
+        this.tf = tfClient;
+        this.viewer3d = viewer3d;
+        this.mapping = mapping || null;
+        this.cfg = SENSING_CFG;
+        // live mapper settings (direct_status), defaults until a session runs
+        this.st = {
+            use_lidar: true, lidar_max_range_m: this.cfg.lidarMaxRange,
+            lidar_free_no_hit: this.cfg.lidarFreeNoHit, lidar_min_intensity: 0,
+            use_cam_obstacle: true, obstacle_max_range_m: this.cfg.camObstacleRange,
+            use_cam_free: true, free_max_range_m: this.cfg.camFreeRange,
+        };
+        this.running = null;        // recording state (null = not known yet)
+        this.gatePass = null;       // direct_status.pass (null = no session)
+        this.camHalfL = this.cfg.camHalfLeft;
+        this.camHalfR = this.cfg.camHalfRight;
+        this.tfBase = null; this.tfLidar = null; this.tfCam = null;
+        this._tfSubscribed = false;
+        this._scanSub = null; this._scanCb = (m) => this._onScan(m);
+        this._lastScanAt = 0; this._lastScanRx = 0;
+        this._coverDirty = false; this._coverUploadAt = 0; this._coverDrawAt = 0;
+        this._camCounters = null; this._camStaleAt = 0; this._camLive = true;
+        this.T = (typeof ROS3D !== 'undefined' && ROS3D.THREE) ? ROS3D.THREE : null;
+
+        this.chk = this._ensureCheckbox();
+        if (this.chk) {
+            this.chk.checked = false;
+            this.chk.addEventListener('change', () => this._sync());
+        }
+        document.addEventListener('visibilitychange', () => this._sync());
+        // a scan stream that stops (lidar down, rosbridge gone) must not leave
+        // a frozen footprint on the map
+        setInterval(() => {
+            if (this.group && this.group.visible && this._lastScanRx &&
+                    Date.now() - this._lastScanRx > 2500) {
+                this._setLidarVisible(false);
+            }
+        }, 1000);
+
+        if (this.mapping) {
+            this.mapping.sensing = this;
+            // replay what MappingV3 already received before we existed
+            const parse = (m) => { try { return m ? JSON.parse(m.data) : null; } catch (e) { return null; } };
+            const sm = parse(this.mapping._lastManagerMsg);
+            if (sm) { this.onSession(sm); }
+            const sd = parse(this.mapping._lastDirectMsg);
+            if (sd) { this.onDirect(sd); }
+        }
+    }
+
+    // The checkbox is authored in index.html; a page served from an older
+    // (Jinja-cached) index.html gets the same markup built here.
+    _ensureCheckbox() {
+        let chk = document.getElementById('mapv3_chk_sensing');
+        if (chk) { return chk; }
+        const row = document.querySelector('.map-layers-row');
+        if (!row) { return null; }
+        const div = document.createElement('div');
+        div.className = 'form-check form-check-inline';
+        div.setAttribute('data-i18n-title', 'mapt.layer.sensing_tip');
+        div.innerHTML = '<input class="form-check-input" type="checkbox" id="mapv3_chk_sensing">' +
+            '<label class="form-check-label vt-fs-sm" for="mapv3_chk_sensing">' +
+            '<span data-i18n="mapt.layer.sensing">Sensing</span> ' +
+            '<span class="vt-sw-b388ff">&#9632;</span><span class="vt-sw-ffd23f">&#9632;</span></label>';
+        row.appendChild(div);
+        if (window.VTI18n && VTI18n.apply) { VTI18n.apply(div); }
+        return document.getElementById('mapv3_chk_sensing');
+    }
+
+    // ---- inputs from MappingV3 ---------------------------------------------
+    onSession(s) {
+        const run = !!(s && s.running);
+        const prev = this.running;
+        this.running = run;
+        if (!this.chk) { return; }
+        if (prev === null) {
+            this.chk.checked = run;               // first status: default by state
+            if (run) { this.clearCoverage(); }
+        } else if (!prev && run) {
+            this.clearCoverage();                 // a new recording = a new swath
+            this.chk.checked = true;
+        } else if (prev && !run) {
+            this.chk.checked = false;
+            this.gatePass = null;
+        } else {
+            return;
+        }
+        this._sync();
+    }
+
+    onDirect(d) {
+        if (!d) { return; }
+        if (d.settings && typeof d.settings === 'object') {
+            Object.keys(this.st).forEach((k) => {
+                if (d.settings[k] !== undefined && d.settings[k] !== null) { this.st[k] = d.settings[k]; }
+            });
+        }
+        this.gatePass = (d.pass === undefined) ? null : d.pass;
+        // camera liveness: the mapper counts incoming camera clouds; a count
+        // that does not move for 5 s = the camera branch delivers nothing
+        const c = d.counters || {};
+        const sig = JSON.stringify([(c.cam_obstacle || {}).in, (c.cam_free || {}).in]);
+        if (sig !== this._camCounters) { this._camCounters = sig; this._camStaleAt = Date.now(); this._camLive = true; }
+        else if (Date.now() - this._camStaleAt > 5000) { this._camLive = false; }
+    }
+
+    clearCoverage() {
+        if (!this.coverCtx) { this._coverCentre = null; return; }
+        this.coverCtx.clearRect(0, 0, this.cfg.coverPx, this.cfg.coverPx);
+        this._coverCentre = null;
+        this._coverDirty = true;
+        this._uploadCover(true);
+    }
+
+    // ---- subscriptions -------------------------------------------------------
+    _wanted() {
+        return !!(this.chk && this.chk.checked && !document.hidden && this.T &&
+                  this.viewer3d && this.viewer3d.scene);
+    }
+
+    _sync() {
+        const want = this._wanted();
+        if (want) {
+            this._ensureScene();
+            this._ensureTf();
+            this._ensureCamInfo();
+            if (!this._scanSub) {
+                this._scanSub = new ROSLIB.Topic({
+                    ros: this.ros, name: this.cfg.scanTopic,
+                    messageType: 'sensor_msgs/LaserScan',
+                    throttle_rate: this.cfg.throttleMs, queue_length: 1,
+                });
+                this._scanSub.subscribe(this._scanCb);
+            }
+        } else if (this._scanSub) {
+            try { this._scanSub.unsubscribe(this._scanCb); } catch (e) { /* ignore */ }
+            this._scanSub = null;
+        }
+        if (this.group) { this.group.visible = !!(this.chk && this.chk.checked); }
+        if (!want) { this._lastScanRx = 0; }
+    }
+
+    _ensureTf() {
+        if (this._tfSubscribed || !this.tf) { return; }
+        this._tfSubscribed = true;
+        this.tf.subscribe('base_link', (t) => { this.tfBase = t; });
+        this.tf.subscribe(this.cfg.lidarFrame, (t) => { this.tfLidar = t; });
+        this.tf.subscribe(this.cfg.camFrame, (t) => { this.tfCam = t; });
+    }
+
+    _ensureCamInfo() {
+        if (this._camInfoAsked) { return; }
+        this._camInfoAsked = true;
+        const t = new ROSLIB.Topic({ros: this.ros, name: this.cfg.camInfoTopic,
+                                    messageType: 'sensor_msgs/CameraInfo'});
+        const cb = (m) => {
+            try { t.unsubscribe(cb); } catch (e) { /* ignore */ }
+            const K = m && (m.K || m.k), w = m && m.width;
+            if (K && K[0] > 0 && w > 0) {
+                this.camHalfL = Math.atan(K[2] / K[0]);
+                this.camHalfR = Math.atan((w - K[2]) / K[0]);
+            }
+        };
+        t.subscribe(cb);
+    }
+
+    // ---- scene -----------------------------------------------------------------
+    _ensureScene() {
+        if (this.group || !this.T) { return; }
+        const T = this.T, C = this.cfg;
+        const ord = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder : {};
+        const live = (ord.SENSING !== undefined) ? ord.SENSING : 25;
+        const under = (ord.SENSING_COVER !== undefined) ? ord.SENSING_COVER : 22;
+        this.group = new T.Object3D();
+        const mkMat = (col, op, line) => {
+            const o = {color: col, transparent: true, opacity: op, depthWrite: false};
+            const mat = line ? new T.LineBasicMaterial(o) : new T.MeshBasicMaterial(o);
+            if (!line) { mat.side = T.DoubleSide; }
+            return mat;
+        };
+        const mk = (nVerts, mat, line) => {
+            const g = new T.BufferGeometry();
+            const attr = new T.BufferAttribute(new Float32Array(nVerts * 3), 3);
+            // the bundled THREE is r89-era (addAttribute / setDynamic)
+            if (attr.setUsage && T.DynamicDrawUsage !== undefined) { attr.setUsage(T.DynamicDrawUsage); }
+            else if (attr.setDynamic) { attr.setDynamic(true); }
+            if (g.setAttribute) { g.setAttribute('position', attr); } else { g.addAttribute('position', attr); }
+            g.setDrawRange(0, 0);
+            const o = line ? new T.LineSegments(g, mat) : new T.Mesh(g, mat);
+            o.frustumCulled = false;
+            o.renderOrder = live;
+            this.group.add(o);
+            return o;
+        };
+        const NB = C.maxBeams + 2, ARC = 40;
+        this.lidarHit = mk(NB * 3, mkMat(C.colLidar, 0.3), false);
+        this.lidarFree = mk(NB * 3, mkMat(C.colLidar, 0.1), false);
+        this.lidarEdge = mk(NB * 2, mkMat(C.colLidar, 0.9, true), true);
+        this.lidarCap = mk(NB * 2, mkMat(C.colLidar, 0.3, true), true);
+        this.camFill = mk(ARC * 3, mkMat(C.colCam, 0.2), false);
+        this.camEdge = mk((ARC + 4) * 2 * 2, mkMat(C.colCam, 0.8, true), true);
+        this._camMats = [this.camFill.material, this.camEdge.material];
+
+        // accumulated coverage: one canvas texture on a plane in the map frame
+        const px = C.coverPx;
+        const cv = document.createElement('canvas');
+        cv.width = px; cv.height = px;
+        this.coverCanvas = cv;
+        this.coverCtx = cv.getContext('2d');
+        this.coverTex = new T.CanvasTexture(cv);
+        this.coverTex.magFilter = T.NearestFilter;
+        this.coverTex.generateMipmaps = false;
+        this.coverTex.minFilter = T.LinearFilter;
+        const side = px * C.coverRes;
+        const pm = new T.MeshBasicMaterial({map: this.coverTex, transparent: true,
+                                            opacity: 0.16, depthWrite: false});
+        pm.side = T.DoubleSide;
+        this.coverMesh = new T.Mesh(new (T.PlaneBufferGeometry || T.PlaneGeometry)(side, side), pm);
+        this.coverMesh.renderOrder = under;
+        this.coverMesh.position.z = C.z - 0.01;
+        this.coverMesh.visible = false;
+        this.coverMesh.frustumCulled = false;
+        this.group.add(this.coverMesh);
+        this._coverCentre = null;
+        this.viewer3d.scene.add(this.group);
+    }
+
+    _setLidarVisible(v) {
+        [this.lidarHit, this.lidarFree, this.lidarEdge, this.lidarCap]
+            .forEach((o) => { if (o) { o.visible = v; } });
+    }
+
+    // sensor pose in the map frame: TF of the sensor frame, else base_link ∘ mount
+    _pose(tfSensor, mount) {
+        if (tfSensor && tfSensor.translation) {
+            return {x: tfSensor.translation.x, y: tfSensor.translation.y,
+                    R: sensingRot2(tfSensor.rotation || {})};
+        }
+        const b = this.tfBase;
+        if (!b || !b.translation) { return null; }
+        const Rb = sensingRot2(b.rotation || {});
+        const yb = Math.atan2(Rb[2], Rb[0]);
+        const c = Math.cos(yb + mount.yaw), s = Math.sin(yb + mount.yaw);
+        return {x: b.translation.x + Rb[0] * mount.x + Rb[1] * mount.y,
+                y: b.translation.y + Rb[2] * mount.x + Rb[3] * mount.y,
+                R: [c, -s, s, c]};
+    }
+
+    // ---- per scan (<= 5 Hz) ----------------------------------------------------
+    _onScan(msg) {
+        const now = Date.now();
+        this._lastScanRx = now;
+        if (!this._wanted() || !this.group) { return; }
+        if (now - this._lastScanAt < this.cfg.throttleMs * 0.9) { return; }
+        this._lastScanAt = now;
+        const C = this.cfg, st = this.st, z = C.z;
+        const lp = this._pose(this.tfLidar, C.lidarMount);
+        const cp = this._pose(this.tfCam, C.camMount);
+
+        // --- lidar fan
+        let runs = [];
+        if (st.use_lidar !== false && lp) {
+            const cap = Math.max(0.1, Number(st.lidar_max_range_m) || C.lidarMaxRange);
+            const B = sensingClassifyBeams(msg, cap, st.lidar_free_no_hit !== false,
+                                           Number(st.lidar_min_intensity) || 0, C.maxBeams);
+            const R = lp.R, ox = lp.x, oy = lp.y;
+            const ex = new Float32Array(B.n), ey = new Float32Array(B.n);
+            for (let j = 0; j < B.n; j++) {
+                const lx = B.r[j] * Math.cos(B.a[j]), ly = B.r[j] * Math.sin(B.a[j]);
+                ex[j] = ox + R[0] * lx + R[1] * ly;
+                ey[j] = oy + R[2] * lx + R[3] * ly;
+            }
+            const H = this.lidarHit.geometry.attributes.position.array;
+            const F = this.lidarFree.geometry.attributes.position.array;
+            const E = this.lidarEdge.geometry.attributes.position.array;
+            const P = this.lidarCap.geometry.attributes.position.array;
+            let nh = 0, nf = 0, ne = 0, np = 0;
+            const inc = Math.abs(Number(msg.angle_increment) || 0);
+            const span = B.n > 1 ? Math.abs(B.a[B.n - 1] - B.a[0]) : 0;
+            const step = B.n > 1 ? span / (B.n - 1) : 0;
+            const wrap = B.n > 2 && span + step * 1.5 >= 2 * Math.PI - 1e-3 && inc > 0;
+            const pairs = wrap ? B.n : B.n - 1;
+            let run = null;
+            for (let j = 0; j < pairs; j++) {
+                const i2 = (j + 1) % B.n;
+                const k1 = B.k[j], k2 = B.k[i2];
+                if (!k1 || !k2) { if (run) { runs.push(run); run = null; } continue; }
+                const both = (k1 === 1 && k2 === 1);
+                const A = both ? H : F;
+                let o = both ? nh : nf;
+                A[o++] = ox; A[o++] = oy; A[o++] = z;
+                A[o++] = ex[j]; A[o++] = ey[j]; A[o++] = z;
+                A[o++] = ex[i2]; A[o++] = ey[i2]; A[o++] = z;
+                if (both) { nh = o; } else { nf = o; }
+                if (both) {
+                    E[ne++] = ex[j]; E[ne++] = ey[j]; E[ne++] = z;
+                    E[ne++] = ex[i2]; E[ne++] = ey[i2]; E[ne++] = z;
+                } else if (k1 === 2 && k2 === 2) {
+                    P[np++] = ex[j]; P[np++] = ey[j]; P[np++] = z;
+                    P[np++] = ex[i2]; P[np++] = ey[i2]; P[np++] = z;
+                }
+                if (!run) { run = [ex[j], ey[j]]; }
+                run.push(ex[i2], ey[i2]);
+            }
+            if (run) { runs.push(run); }
+            this._commit(this.lidarHit, nh / 3);
+            this._commit(this.lidarFree, nf / 3);
+            this._commit(this.lidarEdge, ne / 3);
+            this._commit(this.lidarCap, np / 3);
+            this._setLidarVisible(true);
+            this._lidarOrigin = [ox, oy];
+        } else {
+            this._setLidarVisible(false);
+        }
+
+        // --- camera cone
+        let cone = null;
+        const useObs = st.use_cam_obstacle !== false, useFree = st.use_cam_free !== false;
+        const rObs = useObs ? Math.min(C.camCloudMax, Number(st.obstacle_max_range_m) || 0) : 0;
+        const rFree = useFree ? Math.min(C.camCloudMax, Number(st.free_max_range_m) || 0) : 0;
+        const rc = Math.max(rObs, rFree);
+        if (cp && rc > 0) {
+            const yaw = Math.atan2(cp.R[2], cp.R[0]);
+            const a0 = yaw - this.camHalfR, a1 = yaw + this.camHalfL, NA = 39;
+            const Fv = this.camFill.geometry.attributes.position.array;
+            const Ev = this.camEdge.geometry.attributes.position.array;
+            let nf = 0, ne = 0;
+            const arc = (rad) => {
+                const pts = [];
+                for (let i = 0; i <= NA; i++) {
+                    const a = a0 + (a1 - a0) * i / NA;
+                    pts.push(cp.x + rad * Math.cos(a), cp.y + rad * Math.sin(a));
+                }
+                return pts;
+            };
+            const outer = arc(rc);
+            for (let i = 0; i < NA; i++) {
+                Fv[nf++] = cp.x; Fv[nf++] = cp.y; Fv[nf++] = z;
+                Fv[nf++] = outer[2 * i]; Fv[nf++] = outer[2 * i + 1]; Fv[nf++] = z;
+                Fv[nf++] = outer[2 * i + 2]; Fv[nf++] = outer[2 * i + 3]; Fv[nf++] = z;
+            }
+            const seg = (x1, y1, x2, y2) => {
+                Ev[ne++] = x1; Ev[ne++] = y1; Ev[ne++] = z;
+                Ev[ne++] = x2; Ev[ne++] = y2; Ev[ne++] = z;
+            };
+            seg(cp.x, cp.y, outer[0], outer[1]);
+            seg(cp.x, cp.y, outer[2 * NA], outer[2 * NA + 1]);
+            for (let i = 0; i < NA; i++) { seg(outer[2 * i], outer[2 * i + 1], outer[2 * i + 2], outer[2 * i + 3]); }
+            // obstacle and ground ranges differ -> the shorter one as an inner arc
+            const rIn = Math.min(rObs || rc, rFree || rc);
+            if (rIn > 0 && rIn < rc - 0.05) {
+                const inner = arc(rIn);
+                for (let i = 0; i < NA; i += 2) { seg(inner[2 * i], inner[2 * i + 1], inner[2 * i + 2], inner[2 * i + 3]); }
+            }
+            this._commit(this.camFill, nf / 3);
+            this._commit(this.camEdge, ne / 3);
+            this.camFill.visible = this.camEdge.visible = true;
+            // during a session a camera branch that delivers nothing is dimmed
+            const dim = (this.running && this.gatePass !== null && !this._camLive) ? 0.35 : 1;
+            this.camFill.material.opacity = 0.2 * dim;
+            this.camEdge.material.opacity = 0.8 * dim;
+            cone = {x: cp.x, y: cp.y, pts: outer, live: dim === 1};
+        } else if (this.camFill) {
+            this.camFill.visible = this.camEdge.visible = false;
+        }
+
+        // --- coverage (recording + mapper gate open only)
+        if (this.running && this.gatePass !== false && (runs.length || cone)) {
+            if (now - this._coverDrawAt >= 400) {
+                this._coverDrawAt = now;
+                this._paintCover(lp, runs, cone);
+            }
+        }
+        this._uploadCover(false);
+    }
+
+    _commit(obj, nVerts) {
+        const g = obj.geometry;
+        g.setDrawRange(0, nVerts);
+        g.attributes.position.needsUpdate = true;
+    }
+
+    _paintCover(lp, runs, cone) {
+        const C = this.cfg, px = C.coverPx, res = C.coverRes, ctx = this.coverCtx;
+        if (!ctx) { return; }
+        const rx = lp ? lp.x : (cone ? cone.x : 0), ry = lp ? lp.y : (cone ? cone.y : 0);
+        const half = px * res / 2, margin = C.lidarMaxRange + 2;
+        if (!this._coverCentre) {
+            this._coverCentre = [Math.round(rx / res) * res, Math.round(ry / res) * res];
+        } else if (Math.abs(rx - this._coverCentre[0]) > half - margin ||
+                   Math.abs(ry - this._coverCentre[1]) > half - margin) {
+            // re-centre on the robot, keeping what overlaps
+            const nc = [Math.round(rx / res) * res, Math.round(ry / res) * res];
+            const dx = Math.round((this._coverCentre[0] - nc[0]) / res);
+            const dy = Math.round((nc[1] - this._coverCentre[1]) / res);
+            const tmp = document.createElement('canvas');
+            tmp.width = px; tmp.height = px;
+            tmp.getContext('2d').drawImage(this.coverCanvas, 0, 0);
+            ctx.clearRect(0, 0, px, px);
+            ctx.drawImage(tmp, dx, dy);
+            this._coverCentre = nc;
+        }
+        const c0 = this._coverCentre;
+        const X = (x) => (x - c0[0]) / res + px / 2;
+        const Y = (y) => px / 2 - (y - c0[1]) / res;
+        if (lp) {
+            ctx.fillStyle = C.cssLidar;
+            runs.forEach((pts) => {
+                ctx.beginPath();
+                ctx.moveTo(X(lp.x), Y(lp.y));
+                for (let i = 0; i < pts.length; i += 2) { ctx.lineTo(X(pts[i]), Y(pts[i + 1])); }
+                ctx.closePath();
+                ctx.fill();
+            });
+        }
+        if (cone && cone.live) {
+            ctx.fillStyle = C.cssCam;
+            ctx.beginPath();
+            ctx.moveTo(X(cone.x), Y(cone.y));
+            for (let i = 0; i < cone.pts.length; i += 2) { ctx.lineTo(X(cone.pts[i]), Y(cone.pts[i + 1])); }
+            ctx.closePath();
+            ctx.fill();
+        }
+        this._coverDirty = true;
+    }
+
+    _uploadCover(force) {
+        if (!this.coverMesh) { return; }
+        const now = Date.now();
+        if (this._coverCentre) {
+            this.coverMesh.position.x = this._coverCentre[0];
+            this.coverMesh.position.y = this._coverCentre[1];
+            this.coverMesh.visible = true;
+        } else {
+            this.coverMesh.visible = false;
+        }
+        if (this._coverDirty && (force || now - this._coverUploadAt >= 1000)) {
+            this._coverUploadAt = now;
+            this._coverDirty = false;
+            this.coverTex.needsUpdate = true;
+        }
+    }
+}

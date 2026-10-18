@@ -972,6 +972,7 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 .vt-sw-000000 { color: #000000; } .vt-sw-0000fc { color: #0000fc; } .vt-sw-00d0a0 { color: #00d0a0; }
 .vt-sw-00e5e5 { color: #00e5e5; } .vt-sw-2a8cff { color: #2a8cff; } .vt-sw-8fd14f { color: #8fd14f; }
 .vt-sw-ff4d4d { color: #ff4d4d; } .vt-sw-ff7800 { color: #ff7800; }
+.vt-sw-b388ff { color: #b388ff; } .vt-sw-ffd23f { color: #ffd23f; }
 .vt-sw-terrain { background: linear-gradient(90deg, #3060ff, #30ff90, #ff3030); color: transparent; }
 
 /* ============================== U1 kolo 4: agent_blocks.js without cssText */
