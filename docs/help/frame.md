@@ -33,8 +33,8 @@ remembers which panel was open (also across a reload).
 
 **PC** (≥ 1024 px wide): the panel is a column, the map narrows next to it. **Tablet / phone on
 its side**: the column lies over the map. **Phone upright** (< 576 px): the panel is a sheet from
-the bottom (60 % of the height); a compact head puts STOP / ⤢ / ✕ at the end of the tab row and
-the title in the grip row.
+the bottom (60 % of the height). On a phone (upright or on its side) a compact head puts
+STOP / ⤢ / ✕ at the end of the tab row; upright the title moves into the grip row.
 
 ## The bottom bar
 
@@ -51,8 +51,8 @@ Hangs from the top band on the right edge:
 - **Navi** — the localization state ([what the chips mean](localization.md#read-the-state-right-panel--navi)).
 - **Camera** — see below.
 
-Each section folds by its title. On a phone the right panel is a collapsed row (map, pose, GNSS,
-battery, camera, ▾) — ▾ unfolds it.
+Each section folds by its title. On a phone (upright or on its side) the right panel is a
+collapsed row (map, pose, GNSS, battery, camera, ▾) — ▾ unfolds it.
 
 ## Camera
 
@@ -105,8 +105,8 @@ above an open sheet).
   full speed (of Slow / Mid / Fast). **Let go = stop.**
 - It shows the speed mode and whether the drive motors are on — **with motors OFF nothing
   moves** (switch them on in Settings › Motors).
-- Keyboard: tick *keyboard* in the right panel, then **W A S D** or the arrows, **Shift** = half
-  speed. Never while typing in a field.
+- Keyboard: tick the box next to the keyboard icon in the right panel's **Controls**, then
+  **W A S D** or the arrows, **Shift** = half speed. Never while typing in a field.
 
 > [!WARNING]
 > Pushing the joystick takes over from the software: it **cancels** the navigation goal, docking
@@ -115,9 +115,11 @@ above an open sheet).
 
 ## Log
 
-**Log** in the bottom bar shows the log as a strip above the bar. **▲ Expand** makes it fill the
-map area, **▼ Collapse** shrinks it back; **Log** again hides it. The joystick always stays above
-the small log.
+**Log** in the bottom bar shows the log as a strip above the bar. **▲** (expand) makes it fill
+the map area, **▼** (collapse) shrinks it back; **Log** again hides it. The joystick always stays
+above the small log.
+
+The full log has a toolbar:
 
 - **Changes** — the useful robot events: a green dot = something got better, orange = a warning,
   red = a fault; connection changes and agent reports.
@@ -131,4 +133,4 @@ the small log.
 | **Alt+P** | show / hide the left panel |
 | **Esc** | close the help; hide the left panel (not while typing, a dialog or the full log is open) |
 | **Alt+C** | camera small ↔ large |
-| **W A S D**, arrows | drive (with *keyboard* ticked in the right panel), **Shift** = half speed |
+| **W A S D**, arrows | drive (with the keyboard box ticked in the right panel), **Shift** = half speed |

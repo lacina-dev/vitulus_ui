@@ -17,7 +17,7 @@ tuto aplikaci. **?** v hlavičce panelu skočí na záložku, kterou máš otev�
 ## Motory
 
 - **ON / OFF** — napájení čtyř pojezdových motorů. **Po každém startu jsou vypnuté**
-  ([Bezpečnost](safety.md#motors-are-off-after-every-start)); zapni je tady, než budeš jezdit
+  ([Bezpečnost](safety.md#po-každém-startu-jsou-motory-vypnuté)); zapni je tady, než budeš jezdit
   ručně nebo dokovat. Barva tlačítka sleduje skutečný stav motorů.
 - **Torque** (0–24 Nm) a **Save** — omezení momentu motorů.
 - Jedna karta na kolo (přední / zadní, levé / pravé): id, stav, moment, teplota, rychlost,

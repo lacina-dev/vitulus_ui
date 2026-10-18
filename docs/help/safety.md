@@ -102,6 +102,8 @@ the battery output and the computer (the hardest stop; the UI goes away too). Ho
 - Switching the mower **power** on does not start the blade; it only re-applies the last height
   and RPM.
 - **STOP** always stops the blade too.
+- The safety node switches the mower off by itself (blade and mower power) when the robot tilts
+  more than 30° or the mower motor gets hotter than 70 °C.
 
 ## Trying things without moving the robot
 

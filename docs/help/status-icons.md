@@ -4,10 +4,10 @@ title: Status icons and colours
 group: Using the UI
 order: 110
 icon: la-circle
-summary: What every icon in the navbar says, and the four colours used everywhere.
+summary: What every icon in the navbar says, the computer monitor, and the four colours used everywhere.
 ui: [icons]
 related: [localization, settings, troubleshooting]
-keywords: [icon, icons, colour, color, green, orange, red, grey, gray, status, wifi, gps, imu, lidar, camera, motor, temperature, fan, supply, battery, charging]
+keywords: [icon, icons, colour, color, green, orange, red, grey, gray, status, wifi, gps, imu, lidar, camera, motor, temperature, fan, supply, battery, charging, connection, online, offline, monitor, cpu, memory, disk, network, nuc]
 ---
 # Status icons and colours
 
@@ -37,19 +37,26 @@ narrow screen in a strip under the menu. Hover an icon for its name.
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_imu_green.png) | IMU | on | — | — | off |
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_lidar_green.png) | Lidar | on | — | — | off |
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_camera_green.png) | Camera (D435) | on | — | — | off |
-| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_mower_green.png) | Mower | on | busy | error | disabled |
+| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_mower_green.png) | Mower | on / busy | — | error | disabled |
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_motorLF_green.png) | Drive motor (one per wheel) | OK | warm | hot | disabled |
-| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_tempPCB_green.png) | Board temperature | OK | warm | hot | — |
+| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_tempPCB_green.png) | Board temperature | OK | warm | hot | no data |
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_fanPCB_green.png) | Board fan | running | — | — | off |
-| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_temp_green.png) | Outside temperature | OK | warm | hot | — |
+| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_temp_green.png) | Outside temperature | OK | warm | hot | no data |
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_fan_green.png) | Fan | running | — | — | off |
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_supply_green.png) | Charger supply | online (= docked) | — | fail | none |
-| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_batt_full.png) | Battery | full · ¾ · ½ · ¼ · empty; with a flash while charging | | | |
+| ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_batt_full.png) | Battery | full · ¾ · ½ · ¼ · empty; with a flash while charging | | | no data |
 
 The **cloud** icon next to the logo is the rain alert ([Weather](waiting.md#weather-map--rain)),
-the **connection** text left of it says whether the page is connected to the robot (click it to
-reconnect).
+the **connection** text left of it (**ONLINE** / **CONNECTING** / **OFFLINE**) says whether the page
+is connected to the robot — click it to reconnect right away.
 
 > [!TIP]
 > All icons grey? The page is not connected, or the robot stack is (re)starting — wait a minute,
 > then see [Troubleshooting](troubleshooting.md#the-ui-does-not-respond).
+
+## The computer monitor
+
+At the start of the navbar's right group (on a narrow screen under the menu button **☰**) four
+small gauges show the robot's computer (NUC): **CPU**, **MEM** (memory), **DISK** and **NET**
+(download ↓ / upload ↑). A gauge is green below 75 %, orange from 75 % and red from 90 %; grey
+when the computer's data is not available. Hover it for details.
