@@ -2320,6 +2320,12 @@ class CameraView {
         }
         this.camViewer.width = w;
         this.camViewer.height = h;
+        // The canvas buffer must follow the stream size: the large view sets
+        // it to 640x480 (vt_frame.js), and going back small left that buffer
+        // in place, so the 141 px stream filled only its top-left corner
+        // (live 18. 10.).  CSS still scales the canvas to the slot.
+        var cnv = this.camViewer.canvas || host.querySelector('canvas');
+        if (cnv && (cnv.width !== w || cnv.height !== h)) { cnv.width = w; cnv.height = h; }
         // big view: full JPEG quality tier (the small HUD view stays at the
         // bandwidth-friendly 20) — this is what makes the enlarged stream
         // actually sharp, on top of the width/height URL params.
