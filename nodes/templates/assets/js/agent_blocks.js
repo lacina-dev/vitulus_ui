@@ -1987,6 +1987,15 @@
     var REC_OUTCOME = {ignored: 'ignored', fixed: 'fixed', told: 'answered',
                        fixing: 'in repair', pending: 'open'};
 
+    /* Volby se kreslí u „READ THIS" — a taky u VYŘÍZENÉHO záznamu, kterému
+       jádro cesty poslalo: samooprava je hotová, ale „Vrátit zpět" musí jít
+       zmáčknout.  Jádro u vyřízených posílá `ways` jen tehdy, když něco
+       vrátit jde, takže panel si tu nic nevymýšlí. */
+    function recHasChoice(r, ways) {
+      return (r.status === 'read' || r.status === 'resolved') &&
+        Array.isArray(ways) && ways.length > 0;
+    }
+
     function recChip(r) {
       if (r.status === 'read') return 'READ THIS';
       if (r.status === 'working') return 'Fixing';
@@ -2243,7 +2252,7 @@
       /* Rozhodnutí patří NAD detail: „ideálně jeden klik" znamená, že se
          nesmí muset nic rozklikávat.  Co která cesta udělá, se dočte
          v detailu — tam jsou tatáž tlačítka i s větou. */
-      if (r.status === 'read' && Array.isArray(r.ways) && r.ways.length) {
+      if (recHasChoice(r, r.ways)) {
         var q = recQuestion(r);
         if (q) row.appendChild(el('div', 'vrec-rowq', q));
         row.appendChild(recWays(VA, r, r.ways, false));
@@ -2351,7 +2360,7 @@
          Cesty posílá jádro (`decision.ways`), panel si je nevymýšlí. */
       var optsShown = false;
       var dways = (d.decision && d.decision.ways) || [];
-      if (r.status === 'read' && dways.length) {
+      if (recHasChoice(r, dways)) {
         if (d.decision.question) {
           det.appendChild(el('div', 'vrec-q', String(d.decision.question)));
         }
