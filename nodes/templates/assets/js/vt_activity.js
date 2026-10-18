@@ -77,8 +77,20 @@
         });
         return out;
     }
+    /* I5: the robot UI's own writes (webnode ~/.vitulus/ui_actions.jsonl) */
+    function uiRows() {
+        var e = window.VTHub && VTHub.get('ui.actions');
+        var acts = (e && e.data && e.data.actions) || [];
+        return acts.map(function (a) {
+            var t = Date.parse(String(a.ts || '').replace(/([+-]\d\d)(\d\d)$/, '$1:$2'));
+            return { t: isNaN(t) ? 0 : t, side: 'field', state: a.ok ? 'ok' : 'err', src: 'robot UI',
+                     text: 'Robot UI (' + (a.author || '?') + '): ' + a.action + ' ' + (a.ref || '') +
+                           (a.message ? ' — ' + a.message : ''),
+                     key: 'u:' + a.ts + ':' + a.ref };
+        });
+    }
     function rows() {
-        var all = fieldRows().concat(agentRows());
+        var all = fieldRows().concat(agentRows()).concat(issueOnly ? [] : uiRows());
         if (issueOnly) { all = all.filter(function (r) { return r.side === 'field'; }); }
         if (filter === 'agent') { all = all.filter(function (r) { return r.side === 'agent'; }); }
         else if (filter === 'field') { all = all.filter(function (r) { return r.side === 'field'; }); }
@@ -219,6 +231,7 @@
         VTHub.on('field.now', renderNow);
         VTHub.on('field.activity', renderList);
         VTHub.on('agent.jobs', renderList);
+        VTHub.on('ui.actions', renderList);
         VTHub.poll('field.now', '/field/api/activity/current', 15000);
         VTHub.poll('field.activity', '/field/api/activity?hours=24&limit=200', 60000);
         VTHub.poll('agent.jobs', '/agent/api/v2/jobs?limit=50', 60000);

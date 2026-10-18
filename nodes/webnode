@@ -812,6 +812,186 @@ if __name__ == '__main__':
             resp.headers["Cache-Control"] = "no-store"
             return resp
 
+        # -----------------------------------------------------------------
+        # Field writes (U2, I5 of docs/UI_INTEGRATION_PLAN.md; kit 0.9.38
+        # "Zápisy z UI robota"): the few human decisions the owner wants in
+        # the robot UI, and NOTHING else - done / note of a human step, the
+        # option of a card (never one with motion: the dashboard refuses it),
+        # hide 24 h, remind, accept / dismiss a finding. No merge, tick,
+        # sync, install, fleet, phone, nothing that drives or mows.
+        #   browser --POST /field/act/<action> (same origin)--> webnode
+        #   webnode --POST /api/ui/token (loopback, UI key)--> dashboard:
+        #       a single-use token for 120 s bound to the action, the card
+        #       (sha256 of the text the human confirmed) and the exact body
+        #   webnode --POST <endpoint> + X-Vitulus-UI-Token--> dashboard: its
+        #       own endpoint, receipt, guards and "ui-write" in Aktivita
+        # Every attempt is written to ~/.vitulus/ui_actions.jsonl (who, what,
+        # result) and shown in Agent > Activity (GET /field/ui_actions).
+        # The switch: rosparam ~field_writes (default True - kit rule
+        # "loosen, never tighten": the guards above stay on either way, and a
+        # robot without the kit's key file cannot write at all).
+        import hashlib as _hashlib
+        FIELD_WRITES = bool(rospy.get_param("~field_writes", True))
+        FIELD_ACTIONS = {
+            "done": "/api/human-step/done",
+            "pick": "/api/plain/pick",
+            "snooze": "/api/attention/snooze",
+            "remind": "/api/attention/remind",
+            "finding-accept": "/api/findings/accept",
+            "finding-dismiss": "/api/findings/dismiss",
+        }
+        UI_ACTIONS_LOG = os.path.expanduser("~/.vitulus/ui_actions.jsonl")
+        UI_KEY_FILE = os.path.expanduser(os.environ.get(
+            "VITULUS_UI_KEY_FILE", "~/.local/share/vitulus-support/ui-proxy.key"))
+        _ID_RE = _re.compile(r"^[A-Za-z0-9][\w.:@/,-]{0,119}$")
+
+        def _field_body(action, b):
+            """The exact body the dashboard endpoint gets - built here from
+            checked fields, never the browser's bytes. (body, ref) or (None, why)."""
+            if action == "done":
+                step = str(b.get("step") or "")
+                if not _re.match(r"^hs-[0-9a-f]{12}$", step):
+                    return None, "step hs-<12 hex> expected"
+                issue = b.get("issue")
+                if issue is not None and (isinstance(issue, bool) or not isinstance(issue, int)):
+                    return None, "issue: a number"
+                note = str(b.get("note") or "")[:1000]
+                return {"issue": issue, "step": step, "note": note,
+                        "ack_item": "human-step:" + step}, "human-step:" + step
+            if action == "pick":
+                pid, sha, opt = str(b.get("pid") or ""), str(b.get("sha") or ""), b.get("opt")
+                if not _ID_RE.match(pid) or not _re.match(r"^[0-9a-f]{6,64}$", sha) or \
+                        isinstance(opt, bool) or not isinstance(opt, int) or not 0 <= opt <= 9:
+                    return None, "pid, opt and sha of the card expected"
+                return {"pid": pid, "opt": opt, "sha": sha}, pid
+            if action == "snooze":
+                iid = str(b.get("id") or "")
+                if not _ID_RE.match(iid):
+                    return None, "id of a hideable item expected"
+                return {"id": iid}, iid
+            if action == "remind":
+                issue = b.get("issue")
+                if isinstance(issue, bool) or not isinstance(issue, int) or not 0 < issue < 1000000:
+                    return None, "issue: a number"
+                return {"issue": issue}, "issue:%d" % issue
+            if action in ("finding-accept", "finding-dismiss"):
+                fid = str(b.get("id") or "")
+                if not _re.match(r"^[0-9a-f]{12}$", fid):
+                    return None, "finding id (12 hex) expected"
+                return {"id": fid}, "finding:" + fid
+            return None, "not an action of the robot UI"
+
+        def _ui_audit(rec):
+            try:
+                os.makedirs(os.path.dirname(UI_ACTIONS_LOG), exist_ok=True)
+                with open(UI_ACTIONS_LOG, "a") as f:
+                    f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            except Exception as exc:
+                rospy.logwarn("ui_actions.jsonl: %s" % exc)
+
+        def _dash_post(path, data, headers):
+            import urllib.request
+            import urllib.error
+            url = FIELD_UPSTREAM + path
+            req = urllib.request.Request(url, data=data, method="POST", headers=dict(
+                headers, **{"Content-Type": "application/json", "Accept": "application/json"}))
+            ctx = _field_ssl_context() if url.startswith("https:") else None
+            try:
+                with urllib.request.urlopen(req, timeout=FIELD_TIMEOUT_S, context=ctx) as up:
+                    raw, status = up.read(), up.status
+            except urllib.error.HTTPError as exc:
+                raw, status = exc.read(), exc.code
+            try:
+                return status, json.loads(raw.decode("utf-8") or "{}")
+            except ValueError:
+                return status, {"error": raw[:200].decode("utf-8", "replace")}
+
+        @app.route("/field/act/<action>", methods=["POST"])
+        def field_act(action):
+            started = time.time()
+            if not FIELD_WRITES:
+                return jsonify({"ok": False, "error": "writes from the robot UI are off (~field_writes)"}), 403
+            path = FIELD_ACTIONS.get(action)
+            if not path:
+                return jsonify({"ok": False, "error": "not an action of the robot UI"}), 404
+            # same origin: the page of THIS webnode (no CORS is ever answered;
+            # JSON + the custom header force a preflight for anything else)
+            origin = (request.headers.get("Origin") or "").rstrip("/")
+            if origin != request.host_url.rstrip("/"):
+                return jsonify({"ok": False, "error": "refused: cross-origin request"}), 403
+            sfs = request.headers.get("Sec-Fetch-Site")
+            if sfs is not None and sfs != "same-origin":
+                return jsonify({"ok": False, "error": "refused: not same-origin"}), 403
+            if request.headers.get("X-Vitulus-UI") != "1" or not request.is_json:
+                return jsonify({"ok": False, "error": "JSON from the robot UI expected"}), 415
+            if (request.content_length or 0) > 8192:
+                return jsonify({"ok": False, "error": "body too large"}), 413
+            b = request.get_json(silent=True)
+            if not isinstance(b, dict):
+                return jsonify({"ok": False, "error": "JSON object expected"}), 400
+            author = str(b.get("author") or "").strip()
+            shown = str(b.get("shown") or "")
+            if not author or len(author) > 60 or _re.search(r"[\x00-\x1f<>]", author):
+                return jsonify({"ok": False, "error": "author: who confirms (1-60 chars)"}), 400
+            if len(shown) > 4000:
+                return jsonify({"ok": False, "error": "shown text too long"}), 400
+            body, ref = _field_body(action, b)
+            if body is None:
+                return jsonify({"ok": False, "error": ref}), 400
+            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": action, "ref": ref,
+                   "author": author, "client": request.remote_addr}
+            try:
+                with open(UI_KEY_FILE) as f:
+                    key = f.read().strip()
+            except OSError:
+                rec.update(ok=False, status=503, message="the field kit's UI key is missing")
+                _ui_audit(rec)
+                return jsonify({"ok": False, "error": "the field kit cannot take writes from the robot UI yet (no UI key)"}), 503
+            data = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            try:
+                st, got = _dash_post("/api/ui/token", json.dumps({
+                    "action": path, "body": body,
+                    "body_sha256": _hashlib.sha256(data).hexdigest(),
+                    "shown_sha256": _hashlib.sha256(shown.encode("utf-8")).hexdigest(),
+                    "author": author}).encode("utf-8"), {"X-Vitulus-UI-Key": key})
+                if st == 200 and got.get("token"):
+                    st, got = _dash_post(path, data, {"X-Vitulus-UI-Token": got["token"]})
+            except Exception as exc:
+                st, got = 503, {"error": "field dashboard unreachable: %s" % exc}
+            ok = st == 200 and got.get("ok", True) is not False
+            msg = got.get("message") or got.get("error") or ""
+            rec.update(ok=ok, status=st, message=str(msg)[:300],
+                       receipt=got.get("receipt"), ms=int((time.time() - started) * 1000))
+            _ui_audit(rec)
+            out = {"ok": ok, "message": msg}
+            if got.get("receipt"):
+                out["receipt"] = got["receipt"]
+            if not ok:
+                out["error"] = msg or ("HTTP %d" % st)
+            return jsonify(out), (200 if ok else (st if 400 <= st < 600 else 502))
+
+        @app.route("/field/ui_actions", methods=["GET"])
+        def field_ui_actions():
+            """The audit of the robot UI's writes, newest last (Agent > Activity)."""
+            try:
+                limit = max(1, min(200, int(request.args.get("limit", "50"))))
+            except ValueError:
+                limit = 50
+            rows = []
+            try:
+                with open(UI_ACTIONS_LOG) as f:
+                    lines = f.readlines()[-limit:]
+                for line in lines:
+                    try:
+                        rows.append(json.loads(line))
+                    except ValueError:
+                        pass
+            except OSError:
+                pass
+            resp = jsonify({"ok": True, "writes": FIELD_WRITES, "actions": rows})
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+
         server = ServerThread(app, host, port)
         server.start()
         rospy.loginfo("Initialising webnode node...")

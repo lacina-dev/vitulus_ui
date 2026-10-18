@@ -207,6 +207,15 @@ The audit that led to it: `docs/UI_AUDIT_2026-10.md`.
   it), "Timeline" shows Agent › Activity for one issue, Activity rows open the
   issue / finding / job they are about. Read only.
 
+* **Deciding from the robot UI** (I5, kit 0.9.38) — Support cards in Needs you
+  offer Done, a card option without motion, Hide 24 h, Remind, Accept / Dismiss a
+  finding (two clicks, signed with the author's name). The browser posts
+  `POST /field/act/<action>` same-origin; webnode gets a single-use token from the
+  dashboard (`POST /api/ui/token`, loopback, the kit's `ui-proxy.key`) bound to the
+  action, the card and the exact body, then the dashboard runs its own endpoint with a
+  receipt. Audit: `~/.vitulus/ui_actions.jsonl`, `GET /field/ui_actions`, Agent ›
+  Activity. Switch: rosparam `~field_writes` (default true).
+
 Plan for one UI with the field dashboard and the agent:
 `docs/UI_INTEGRATION_PLAN.md`.
 

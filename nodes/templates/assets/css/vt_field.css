@@ -515,3 +515,18 @@ a.vt-needs-btn {
 /* secondary text and meta in one muted tone (no random opacities) */
 #vagent_panel :is(.vrec-id, .vrec-evmeta, .vrec-tl, .vrec-more, .vm-tok) { color: var(--vt-muted); opacity: 1; }
 @media (prefers-reduced-motion: reduce) { #vagent_panel .vrec-load, #vagent_panel .vagent-loading { animation: none; } }
+
+/* ------------------------------------ I5: deciding on a card (vt_needs.js) */
+.vt-decide { margin-top: var(--vt-gap-3); padding-top: var(--vt-gap-2); border-top: 1px solid var(--vt-border); }
+.vt-decide-btns { display: flex; flex-wrap: wrap; gap: var(--vt-gap-2); align-items: center; }
+.vt-decide-btn { color: var(--vt-text); border: 1px solid var(--vt-border-strong); background: rgba(255, 255, 255, 0.04); }
+.vt-decide-btn.vt-decide-rec { color: #10181d; background: var(--vt-accent); border-color: var(--vt-accent); font-weight: 700; }
+.vt-decide-btn.vt-armed { color: #1c2329; background: var(--vt-warn); border-color: var(--vt-warn); font-weight: 700; }
+.vt-decide-motion { white-space: normal; }
+.vt-decide-msg { min-height: 1.4em; margin-top: 6px; font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+.vt-decide-msg[data-state="ok"] { color: var(--vt-ok); }
+.vt-decide-msg[data-state="err"] { color: var(--vt-err); }
+.vt-decide-msg[data-state="warn"] { color: var(--vt-warn); }
+.vt-needs-done { opacity: .55; }
+.vt-needs-name .form-control { margin-top: 6px; }
+@media (pointer: coarse) { .vt-decide-btn { min-height: var(--vt-touch); } }

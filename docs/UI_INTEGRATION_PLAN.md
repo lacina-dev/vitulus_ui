@@ -166,7 +166,16 @@ dnes polluje sám; převede se na hub).
   Activity jsou odkazy: událost kitu s issue → Support › Issues se zvýrazněnou
   kartou, agentní nález → Agent › Findings, job → zvýrazněný v Agent › Work.
 
-## I5 — zápisy z UI robota: návrh k rozhodnutí (NEIMPLEMENTOVÁNO)
+## I5 — zápisy z UI robota (owner 2026-10-18: a) „ať je to integrované“)
+
+**Implementováno** (větev `ui-field-writes` + kit `kit-ui-writes`, 0.9.38): webnode
+`POST /field/act/<done|pick|snooze|remind|finding-accept|finding-dismiss>` a
+`GET /field/ui_actions`; dashboard `POST /api/ui/token` + průchod s `X-Vitulus-UI-Token`
+(docs/DASHBOARD.md „Zápisy z UI robota“). Vypínač `~field_writes` webnodu, výchozí **true**:
+pravidlo kitu „uvolňovat, ne zpřísňovat“ — všechny pojistky platí i tak a strana bez klíče
+dashboardu (`ui-proxy.key`) nezapíše nic. Původní návrh níže zůstává jako popis.
+
+### Původní návrh
 
 Čeká na ownerův souhlas se změnou bezpečnostního modelu. Dnes zapisuje jen
 dashboard (:8790) se svými pojistkami (token stránky za start, Host
