@@ -162,6 +162,124 @@
     }
 
     /* I6: a field item also links to the agent chat and to its issue */
+    /* ---------------------------------------- I5: decide from the robot UI
+       (kit 0.9.38 "Zápisy z UI robota"): Done, a card option WITHOUT motion,
+       Hide 24 h, Remind, Accept / Dismiss a finding. Two clicks (the first
+       arms, the second sends within 5 s); the webnode asks the dashboard for
+       a single-use token bound to this card and the text shown here, and the
+       dashboard runs its own endpoint. Nothing else is writable from here. */
+    var LS_UI_AUTHOR = 'vitulus_ui_author';
+    function author() {
+        var a = lsGet('vitulus_agent_author') || lsGet(LS_UI_AUTHOR) || '';
+        return String(a).replace(/^"|"$/g, '').trim().slice(0, 60);
+    }
+    function writesOn() {
+        var e = window.VTHub && VTHub.get('ui.actions');
+        return !!(e && e.data && e.data.writes);
+    }
+    function send(action, payload, shown, cardEl, msgEl) {
+        var who = author();
+        if (!who) {
+            msgEl.setAttribute('data-state', 'warn');
+            msgEl.textContent = 'Write your name above first — every decision is signed.';
+            return;
+        }
+        msgEl.removeAttribute('data-state');
+        msgEl.textContent = 'Sending…';
+        var body = JSON.stringify(Object.assign({ author: who, shown: shown }, payload));
+        fetch('/field/act/' + action, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-Vitulus-UI': '1' }, body: body
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) { return [r.ok, j]; });
+        }).then(function (res) {
+            var ok = res[0] && res[1].ok !== false;
+            msgEl.setAttribute('data-state', ok ? 'ok' : 'err');
+            msgEl.textContent = ok ? ('Done' + (res[1].message ? ' — ' + res[1].message : '')) :
+                ('Not done: ' + (res[1].error || res[1].message || 'error'));
+            if (ok) {
+                cardEl.classList.add('vt-needs-done');
+                if (window.VTHub) { VTHub.refresh('field.attention'); VTHub.refresh('ui.actions'); }
+            }
+        }, function (e) {
+            msgEl.setAttribute('data-state', 'err');
+            msgEl.textContent = 'Not done: ' + (e && e.message || e);
+        });
+    }
+    function armButton(label, cls, onSend, title) {
+        var b = el('button', 'btn vt-needs-btn vt-decide-btn ' + (cls || ''), label);
+        b.type = 'button';
+        if (title) { b.title = title; }
+        var timer = null;
+        b.addEventListener('click', function () {
+            if (!b.classList.contains('vt-armed')) {
+                b.classList.add('vt-armed');
+                b.textContent = 'Sure? ' + label;
+                timer = setTimeout(function () { b.classList.remove('vt-armed'); b.textContent = label; }, 5000);
+                return;
+            }
+            clearTimeout(timer);
+            b.classList.remove('vt-armed');
+            b.textContent = label;
+            b.disabled = true;
+            onSend();
+            setTimeout(function () { b.disabled = false; }, 3000);
+        });
+        return b;
+    }
+    function decideRow(x, p, cardEl) {
+        if (!writesOn()) { return null; }
+        var row = el('div', 'vt-decide');
+        var btns = el('div', 'vt-decide-btns');
+        var msg = el('div', 'vt-decide-msg');
+        msg.setAttribute('aria-live', 'polite');
+        var shown = p.headline || x.title || '';
+        (p.options || []).forEach(function (o, i) {
+            if (!o || !o.changes_something) { return; }
+            if (o.motion) {
+                btns.appendChild(el('span', 'vt-pill vt-decide-motion', (o.label || 'option') + ' — moves the robot: decide at the robot'));
+                return;
+            }
+            if (!p.pid || !p.sha) { return; }
+            btns.appendChild(armButton(o.label || ('Option ' + (i + 1)), o.recommended ? 'vt-decide-rec' : '',
+                function () { send('pick', { pid: p.pid, opt: i, sha: p.sha }, shown, cardEl, msg); },
+                o.what_happens || ''));
+        });
+        (x.actions || []).forEach(function (a) {
+            if (!a || !a.kind) { return; }
+            if (a.kind === 'step-done' && a.step) {
+                btns.appendChild(armButton(a.label && a.label !== 'Hotovo' ? a.label : 'Done', 'vt-decide-rec', function () {
+                    send('done', { step: a.step, issue: a.issue ? Number(a.issue) : null }, shown, cardEl, msg);
+                }));
+            } else if (a.kind === 'snooze' && a.aid) {
+                btns.appendChild(armButton('Hide 24 h', '', function () { send('snooze', { id: a.aid }, shown, cardEl, msg); }));
+            } else if (a.kind === 'remind' && a.issue) {
+                btns.appendChild(armButton('Remind', '', function () { send('remind', { issue: Number(a.issue) }, shown, cardEl, msg); },
+                    'One reminder comment to the other side'));
+            } else if ((a.kind === 'finding-accept' || a.kind === 'finding-dismiss') && a.fid) {
+                var acc = a.kind === 'finding-accept';
+                btns.appendChild(armButton(acc ? 'Accept' : 'Dismiss', acc ? 'vt-decide-rec' : '', function () {
+                    send(a.kind, { id: a.fid }, shown, cardEl, msg);
+                }));
+            }
+        });
+        if (!btns.children.length) { return null; }
+        row.appendChild(btns);
+        row.appendChild(msg);
+        return row;
+    }
+    function nameRow() {
+        if (author() || !writesOn()) { return null; }
+        var r = el('div', 'vt-card vt-needs-name');
+        r.setAttribute('data-state', 'info');
+        r.appendChild(el('div', 'vt-needs-sub', 'Your name — decisions made here are signed with it (audit).'));
+        var inp = el('input', 'form-control');
+        inp.type = 'text'; inp.maxLength = 60; inp.placeholder = 'Name';
+        inp.addEventListener('change', function () { lsSet(LS_UI_AUTHOR, inp.value.trim()); render(); });
+        r.appendChild(inp);
+        return r;
+    }
+
     function fieldActs(x, p) {
         var acts = [linkBtn('Open in Support', supportUrl(x.link))];
         if (window.VTLinks) {
@@ -221,17 +339,22 @@
                 if (rec && rec.motion) { chips.push(['motion', 'warn']); }
                 var KIND = { 'human-step': 'Your step', decision: 'Decision', approve: 'Approval',
                              finding: 'Finding', test: 'Test', reply: 'Reply' };
-                return card(x.urgency === 'high' ? 'err' : 'warn',
+                var c = card(x.urgency === 'high' ? 'err' : 'warn',
                     { title: KIND[x.kind] || 'Support', end: age(sinceSec(x.since)) },
                     p.headline || x.title || '', p.explain || x.why || '',
                     chips.concat(rec ? [['recommended: ' + (rec.label || '').slice(0, 60), 'ok']] : []),
                     fieldActs(x, p));
+                var dr = decideRow(x, p, c);
+                if (dr) { c.insertBefore(dr, c.querySelector('.vt-needs-acts')); }
+                return c;
             });
             if (!fc.length) { fc = [el('p', 'vt-empty', 'Nothing from Support.')]; }
             if (!m.fieldEntry.ok) {
                 fc.unshift(el('p', 'vt-empty', 'Support not reachable — showing the last known list.'));
             }
         }
+        var nr = nameRow();
+        if (nr && m.field.length) { fc.unshift(nr); }
         root.appendChild(group('field', 'Support', m.field.length, fc));
     }
 
@@ -365,6 +488,8 @@
         VTHub.on('agent.asks', render);
         VTHub.on('field.attention', render);
         VTHub.poll('field.attention', '/field/api/attention', FIELD_EVERY);
+        VTHub.on('ui.actions', render);
+        VTHub.poll('ui.actions', '/field/ui_actions?limit=50', 60000);   // I5: switch + audit
         setInterval(function () { if (active) { render(); } }, 30000);   // ages tick
         if (lsGet('vitulus_needs_open') === '1') { setTimeout(open, 1500); }
         window.VTNeeds = { open: open, close: function () { deactivate(true); }, toggle: toggle };
