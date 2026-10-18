@@ -35,7 +35,7 @@ mapy a do tras zón promítnou během několika sekund.
 ## Body DOCK a UNDOCK
 
 DOCK a UNDOCK jsou obyčejné pojmenované body — můžeš je tady přesunout jako každý jiný. Co
-znamenají, popisuje [Dok a výjezd](dock.md#the-points). Nejpřesněji je ale nastavíš tak, že
+znamenají, popisuje [Dok a výjezd z doku](dock.md#body). Nejpřesněji je ale nastavíš tak, že
 robotem dojedeš na místo a v **Mapa › Dok** stiskneš **Aktualizovat**.
 
 ## Zóny (co sekat)

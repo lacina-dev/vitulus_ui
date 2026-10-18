@@ -1800,7 +1800,7 @@
     "bar.licp_tip": "lidarová odometrie",
     "bar.wheel_tip": "odometrie kol/IMU",
     "bar.fix_tip": "surový RTK fix je použitelný (bez ohledu na vlastníka polohy)",
-    "bar.prob_tip": "GPS ověřená za jízdy",
+    "bar.prob_tip": "GPS ověřená (za jízdy nebo ve stoje)",
     "bar.div_tip": "odchylka můstku od živé polohy",
     "bar.gnss_hdg_tip": "přesnost kurzu (1 sigma); — když není RTK kurz",
     "bar.batt_tip": "Kapacita baterie",

@@ -1753,7 +1753,7 @@
     "bar.licp_tip": "lidar odometry",
     "bar.wheel_tip": "wheel/imu odometry",
     "bar.fix_tip": "raw RTK fix usable (independent of ownership)",
-    "bar.prob_tip": "GPS proven in motion",
+    "bar.prob_tip": "GPS proven (while driving or standing still)",
     "bar.div_tip": "bridge divergence from live pose",
     "bar.gnss_hdg_tip": "heading accuracy (1 sigma); — when no RTK heading",
     "bar.batt_tip": "Battery capacity",
