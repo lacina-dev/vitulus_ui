@@ -18,7 +18,9 @@
  */
 (function () {
     'use strict';
-    var TITLE = 'Needs you';
+    function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
+    var drawerTitle = '';   // the text this panel put into #ui_drawer_title
     var FIELD_EVERY = 30000;
     var panel = null, active = false, bell = null, bellN = null;
     var openGroups = {};
@@ -51,8 +53,8 @@
 
     /* ------------------------------------------------------------ model */
     function model() {
-        var asks = (window.VTHub && VTHub.get('agent.asks')) || null;
-        var field = (window.VTHub && VTHub.get('field.attention')) || null;
+        var asks = (window.VTHub && VTHub.get("agent.asks")) || null;
+        var field = (window.VTHub && VTHub.get("field.attention")) || null;
         var a = (asks && asks.data) || [];
         var f = (field && field.data && field.data.items) || [];
         var urgent = a.some(function (x) { return x.moves; }) ||
@@ -69,8 +71,8 @@
         bell = el('button', 'vt-needs-bell');
         bell.id = 'btn_needs';
         bell.type = 'button';
-        bell.setAttribute('aria-label', TITLE);
-        bell.title = TITLE + ' — approvals and decisions waiting for you';
+        bell.setAttribute('aria-label', t('needs.title'));
+        bell.title = t('needs.bell.tip');
         bell.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>';
         bellN = el('span', 'vt-needs-n');
         bell.appendChild(bellN);
@@ -100,7 +102,8 @@
         bell.setAttribute('data-state', m.n ? (m.urgent ? 'err' : 'warn') : 'off');
         bellN.textContent = m.n ? (m.n > 99 ? '99+' : String(m.n)) : '';
         bell.classList.toggle('vt-on', active);
-        bell.setAttribute('aria-label', m.n ? (TITLE + ': ' + m.n) : TITLE + ': nothing waits');
+        bell.title = t('needs.bell.tip');
+        bell.setAttribute('aria-label', m.n ? t('needs.bell.n', { n: m.n }) : t('needs.bell.none'));
     }
 
     /* ------------------------------------------------------------ panel */
@@ -135,7 +138,7 @@
         return b;
     }
     function agentBtn() {
-        var b = el('button', 'btn btn-outline-info vt-needs-btn', 'Review in Agent › Work');
+        var b = el('button', 'btn btn-outline-info vt-needs-btn', t('needs.review_agent'));
         b.type = 'button';
         b.addEventListener('click', function () {
             if (window.VAgent) {
@@ -174,18 +177,18 @@
         return String(a).replace(/^"|"$/g, '').trim().slice(0, 60);
     }
     function writesOn() {
-        var e = window.VTHub && VTHub.get('ui.actions');
+        var e = window.VTHub && VTHub.get("ui.actions");
         return !!(e && e.data && e.data.writes);
     }
     function send(action, payload, shown, cardEl, msgEl) {
         var who = author();
         if (!who) {
             msgEl.setAttribute('data-state', 'warn');
-            msgEl.textContent = 'Write your name above first — every decision is signed.';
+            msgEl.textContent = t('needs.sign_first');
             return;
         }
         msgEl.removeAttribute('data-state');
-        msgEl.textContent = 'Sending…';
+        msgEl.textContent = t('needs.sending');
         var body = JSON.stringify(Object.assign({ author: who, shown: shown }, payload));
         fetch('/field/act/' + action, {
             method: 'POST', credentials: 'same-origin',
@@ -195,15 +198,15 @@
         }).then(function (res) {
             var ok = res[0] && res[1].ok !== false;
             msgEl.setAttribute('data-state', ok ? 'ok' : 'err');
-            msgEl.textContent = ok ? ('Done' + (res[1].message ? ' — ' + res[1].message : '')) :
-                ('Not done: ' + (res[1].error || res[1].message || 'error'));
+            msgEl.textContent = ok ? (res[1].message ? t('needs.sent.msg', { msg: res[1].message }) : t('needs.sent')) :
+                t('needs.not_done', { err: res[1].error || res[1].message || t('needs.err') });
             if (ok) {
                 cardEl.classList.add('vt-needs-done');
-                if (window.VTHub) { VTHub.refresh('field.attention'); VTHub.refresh('ui.actions'); }
+                if (window.VTHub) { VTHub.refresh("field.attention"); VTHub.refresh("ui.actions"); }
             }
         }, function (e) {
             msgEl.setAttribute('data-state', 'err');
-            msgEl.textContent = 'Not done: ' + (e && e.message || e);
+            msgEl.textContent = t('needs.not_done', { err: e && e.message || e });
         });
     }
     function armButton(label, cls, onSend, title) {
@@ -214,7 +217,7 @@
         b.addEventListener('click', function () {
             if (!b.classList.contains('vt-armed')) {
                 b.classList.add('vt-armed');
-                b.textContent = 'Sure? ' + label;
+                b.textContent = t('needs.sure', { label: label });
                 timer = setTimeout(function () { b.classList.remove('vt-armed'); b.textContent = label; }, 5000);
                 return;
             }
@@ -237,28 +240,28 @@
         (p.options || []).forEach(function (o, i) {
             if (!o || !o.changes_something) { return; }
             if (o.motion) {
-                btns.appendChild(el('span', 'vt-pill vt-decide-motion', (o.label || 'option') + ' — moves the robot: decide at the robot'));
+                btns.appendChild(el('span', 'vt-pill vt-decide-motion', t('needs.motion_pill', { label: o.label || t('needs.option') })));
                 return;
             }
             if (!p.pid || !p.sha) { return; }
-            btns.appendChild(armButton(o.label || ('Option ' + (i + 1)), o.recommended ? 'vt-decide-rec' : '',
+            btns.appendChild(armButton(o.label || t('needs.option_n', { n: i + 1 }), o.recommended ? 'vt-decide-rec' : '',
                 function () { send('pick', { pid: p.pid, opt: i, sha: p.sha }, shown, cardEl, msg); },
                 o.what_happens || ''));
         });
         (x.actions || []).forEach(function (a) {
             if (!a || !a.kind) { return; }
             if (a.kind === 'step-done' && a.step) {
-                btns.appendChild(armButton(a.label && a.label !== 'Hotovo' ? a.label : 'Done', 'vt-decide-rec', function () {
+                btns.appendChild(armButton(a.label && a.label !== 'Hotovo' ? a.label : t('common.done'), 'vt-decide-rec', function () {
                     send('done', { step: a.step, issue: a.issue ? Number(a.issue) : null }, shown, cardEl, msg);
                 }));
             } else if (a.kind === 'snooze' && a.aid) {
-                btns.appendChild(armButton('Hide 24 h', '', function () { send('snooze', { id: a.aid }, shown, cardEl, msg); }));
+                btns.appendChild(armButton(t('needs.hide24'), '', function () { send('snooze', { id: a.aid }, shown, cardEl, msg); }));
             } else if (a.kind === 'remind' && a.issue) {
-                btns.appendChild(armButton('Remind', '', function () { send('remind', { issue: Number(a.issue) }, shown, cardEl, msg); },
-                    'One reminder comment to the other side'));
+                btns.appendChild(armButton(t('needs.remind'), '', function () { send('remind', { issue: Number(a.issue) }, shown, cardEl, msg); },
+                    t('needs.remind.tip')));
             } else if ((a.kind === 'finding-accept' || a.kind === 'finding-dismiss') && a.fid) {
                 var acc = a.kind === 'finding-accept';
-                btns.appendChild(armButton(acc ? 'Accept' : 'Dismiss', acc ? 'vt-decide-rec' : '', function () {
+                btns.appendChild(armButton(acc ? t('needs.accept') : t('needs.dismiss'), acc ? 'vt-decide-rec' : '', function () {
                     send(a.kind, { id: a.fid }, shown, cardEl, msg);
                 }));
             }
@@ -272,23 +275,24 @@
         if (author() || !writesOn()) { return null; }
         var r = el('div', 'vt-card vt-needs-name');
         r.setAttribute('data-state', 'info');
-        r.appendChild(el('div', 'vt-needs-sub', 'Your name — decisions made here are signed with it (audit).'));
+        r.appendChild(el('div', 'vt-needs-sub', t('needs.name.hint')));
         var inp = el('input', 'form-control');
-        inp.type = 'text'; inp.maxLength = 60; inp.placeholder = 'Name';
+        inp.type = 'text'; inp.maxLength = 60; inp.placeholder = t('needs.name.placeholder');
         inp.addEventListener('change', function () { lsSet(LS_UI_AUTHOR, inp.value.trim()); render(); });
         r.appendChild(inp);
         return r;
     }
 
     function fieldActs(x, p) {
-        var acts = [linkBtn('Open in Support', supportUrl(x.link))];
+        var acts = [linkBtn(t('needs.open_support'), supportUrl(x.link))];
         if (window.VTLinks) {
-            acts.push(VTLinks.button('Ask the agent', function () {
-                VTLinks.askAgent('About the Support item' + (x.issue ? ' on issue #' + x.issue : '') +
-                                 ' "' + (p.headline || x.title || '') + '": ');
-            }, 'Opens the agent chat with a draft about this item — you send it'));
+            acts.push(VTLinks.button(t('needs.ask'), function () {
+                var hl = p.headline || x.title || '';
+                VTLinks.askAgent(x.issue ? t('needs.ask.draft_issue', { n: x.issue, title: hl })
+                                         : t('needs.ask.draft', { title: hl }));
+            }, t('needs.ask.tip')));
             if (x.issue && window.VTSupport) {
-                acts.push(VTLinks.button('Issue #' + x.issue, function () { VTLinks.openIssue(x.issue); }));
+                acts.push(VTLinks.button(t('needs.issue_n', { n: x.issue }), function () { VTLinks.openIssue(x.issue); }));
             }
         }
         return acts;
@@ -299,7 +303,7 @@
         if (!panel || !active) { return; }
         var meta = document.getElementById('vt_needs_meta');
         if (meta) {
-            meta.textContent = m.n ? (m.n + ' waiting') : 'nothing waits';
+            meta.textContent = m.n ? tn('needs.waiting', m.n) : t('needs.nothing_waits');
         }
         var root = panel.querySelector('.vt-needs-body');
         root.textContent = '';
@@ -308,57 +312,58 @@
         // (header + 0) but no longer repeat "nothing here" twice below it
         var allClear = !m.n && m.fieldEntry && m.fieldEntry.ok && !!m.askEntry;
         if (allClear) {
-            root.appendChild(el('p', 'vt-empty-ok', 'Nothing waits for you.'));
+            root.appendChild(el('p', 'vt-empty-ok', t('needs.all_clear')));
         }
 
         /* robot agent */
         var ac = m.asks.map(function (x) {
             return card(x.moves ? 'err' : 'warn',
-                { title: x.moves ? 'Movement needs your yes' : 'Approval', end: age(x.waiting_s) },
-                x.what || 'The agent asks for a decision.', null,
-                [['agent'], x.moves ? ['moves the robot', 'err'] : null].filter(Boolean),
+                { title: x.moves ? t('needs.card.motion') : t('needs.card.approval'), end: age(x.waiting_s) },
+                x.what || t('needs.card.ask'), null,
+                [[t('needs.chip.agent')], x.moves ? [t('needs.chip.moves'), 'err'] : null].filter(Boolean),
                 [agentBtn()]);
         });
         if (!m.askEntry) {
-            ac = [el('p', 'vt-empty', 'Waiting for the agent…')];
+            ac = [el('p', 'vt-empty', t('needs.wait_agent'))];
         } else if (!ac.length) {
-            ac = allClear ? [] : [el('p', 'vt-empty', 'No approvals waiting.')];
+            ac = allClear ? [] : [el('p', 'vt-empty', t('needs.no_approvals'))];
         }
-        root.appendChild(group('agent', 'Robot agent', m.asks.length, ac));
+        root.appendChild(group('agent', t('needs.grp.agent'), m.asks.length, ac));
 
         /* field kit */
         var fc;
         if (!m.fieldEntry) {
             fc = [el('span', 'vt-skel'), el('span', 'vt-skel vt-skel-short')];
         } else if (!m.fieldEntry.ok && !m.field.length) {
-            fc = [el('p', 'vt-empty', 'Support dashboard not reachable (' + (m.fieldEntry.err || 'error') + ').')];
+            fc = [el('p', 'vt-empty', t('needs.field.unreachable', { err: m.fieldEntry.err || t('needs.err') }))];
         } else {
             fc = m.field.map(function (x) {
                 var p = x.plain || {};
                 var rec = (p.options || []).filter(function (o) { return o.recommended; })[0];
-                var chips = [[x.kind || 'item']];
+                var chips = [[x.kind || t('needs.chip.item')]];
                 if (x.issue) { chips.push(['#' + x.issue, 'info']); }
-                if (x.urgency === 'high') { chips.push(['urgent', 'err']); }
-                if (rec && rec.motion) { chips.push(['motion', 'warn']); }
-                var KIND = { 'human-step': 'Your step', decision: 'Decision', approve: 'Approval',
-                             finding: 'Finding', test: 'Test', reply: 'Reply' };
+                if (x.urgency === 'high') { chips.push([t('needs.chip.urgent'), 'err']); }
+                if (rec && rec.motion) { chips.push([t('needs.chip.motion'), 'warn']); }
+                var KIND = { 'human-step': 'human_step', decision: 'decision', approve: 'approve',
+                             finding: 'finding', test: 'test', reply: 'reply' };
                 var c = card(x.urgency === 'high' ? 'err' : 'warn',
-                    { title: KIND[x.kind] || 'Support', end: age(sinceSec(x.since)) },
+                    { title: t(Object.prototype.hasOwnProperty.call(KIND, x.kind) ? 'needs.kind.' + KIND[x.kind] : 'needs.kind.support'),
+                      end: age(sinceSec(x.since)) },
                     p.headline || x.title || '', p.explain || x.why || '',
-                    chips.concat(rec ? [['recommended: ' + (rec.label || '').slice(0, 60), 'ok']] : []),
+                    chips.concat(rec ? [[t('needs.chip.recommended', { label: (rec.label || '').slice(0, 60) }), 'ok']] : []),
                     fieldActs(x, p));
                 var dr = decideRow(x, p, c);
                 if (dr) { c.insertBefore(dr, c.querySelector('.vt-needs-acts')); }
                 return c;
             });
-            if (!fc.length) { fc = allClear ? [] : [el('p', 'vt-empty', 'Nothing from Support.')]; }
+            if (!fc.length) { fc = allClear ? [] : [el('p', 'vt-empty', t('needs.field.none'))]; }
             if (!m.fieldEntry.ok) {
-                fc.unshift(el('p', 'vt-empty', 'Support not reachable — showing the last known list.'));
+                fc.unshift(el('p', 'vt-empty', t('needs.field.stale')));
             }
         }
         var nr = nameRow();
         if (nr && m.field.length) { fc.unshift(nr); }
-        root.appendChild(group('field', 'Support', m.field.length, fc));
+        root.appendChild(group('field', t('needs.grp.field'), m.field.length, fc));
     }
 
     function build() {
@@ -394,7 +399,7 @@
         d.classList.add('open');
         settle(d);
         d.setAttribute('aria-hidden', 'false');
-        if (title) { title.textContent = TITLE; }
+        if (title) { drawerTitle = t('needs.title'); title.textContent = drawerTitle; }
         var metaSlot = document.getElementById('ui_drawer_meta');
         var meta = document.getElementById('vt_needs_meta');
         if (metaSlot && meta) { metaSlot.appendChild(meta); }
@@ -403,8 +408,8 @@
         if (bd) { bd.style.display = window.innerWidth < 576 ? 'block' : 'none'; }
         active = true;
         lsSet('vitulus_needs_open', '1');
-        if (window.VTHub) { VTHub.refresh('field.attention'); }
-        if (!VTHub.get('agent.asks') && window.VAgent && VAgent.pollApprovals) {
+        if (window.VTHub) { VTHub.refresh("field.attention"); }
+        if (!VTHub.get("agent.asks") && window.VAgent && VAgent.pollApprovals) {
             try { VAgent.pollApprovals(); } catch (e) { /* agent down */ }
         }
         render();
@@ -462,7 +467,7 @@
         }
         if (title) {
             new MutationObserver(function () {
-                if (active && title.textContent !== TITLE) { deactivate(false); }
+                if (active && title.textContent !== drawerTitle) { deactivate(false); }
             }).observe(title, { childList: true, characterData: true, subtree: true });
         }
         var fb = document.getElementById('btn_ui_drawer_full');
@@ -488,12 +493,19 @@
         var nav = document.getElementById('div_menu');
         if (nav) { new MutationObserver(placeBell).observe(nav, { attributes: true, attributeFilter: ['style', 'class'] }); }
         watchDrawer();
-        VTHub.on('agent.asks', render);
-        VTHub.on('field.attention', render);
-        VTHub.poll('field.attention', '/field/api/attention', FIELD_EVERY);
-        VTHub.on('ui.actions', render);
-        VTHub.poll('ui.actions', '/field/ui_actions?limit=50', 60000);   // I5: switch + audit
+        VTHub.on("agent.asks", render);
+        VTHub.on("field.attention", render);
+        VTHub.poll("field.attention", '/field/api/attention', FIELD_EVERY);
+        VTHub.on("ui.actions", render);
+        VTHub.poll("ui.actions", '/field/ui_actions?limit=50', 60000);   // I5: switch + audit
         setInterval(function () { if (active) { render(); } }, 30000);   // ages tick
+        if (window.VTI18n) {
+            VTI18n.onChange(function () {   // live language switch: the drawer title, bell and cards
+                var tt = document.getElementById('ui_drawer_title');
+                if (active && tt) { drawerTitle = t('needs.title'); tt.textContent = drawerTitle; }
+                render();
+            });
+        }
         if (lsGet('vitulus_needs_open') === '1') { setTimeout(open, 1500); }
         window.VTNeeds = { open: open, close: function () { deactivate(true); }, toggle: toggle };
     }

@@ -34,7 +34,14 @@
     }
     var sent = window.VTMock.sent;
     var lastBy = {};
-    var badge = null, badgeTxt = null, count = 0;
+    var badge = null, badgeTxt = null, count = 0, lastM = null;
+    /* vt_i18n.js loads AFTER this file: ask for the text only when drawing */
+    function t(k, v) {
+        if (window.VTI18n) { return VTI18n.t(k, v); }
+        return String(k === 'mock.blocked' ? '{n} blocked · {what}' : k).replace(/\{(\w+)\}/g, function (s, n) {
+            return v && n in v ? String(v[n]) : s;
+        });
+    }
 
     function fmt(m) {
         var t = m.topic || m.service || m.action || m.name || '';
@@ -49,6 +56,12 @@
     }
     function show(m) {
         count++;
+        lastM = m;
+        paint();
+    }
+    function paint() {
+        var m = lastM;
+        if (!m) { return; }
         if (!badge && document.body) {
             badge = document.createElement('div');
             badge.className = 'vt-mock-badge';
@@ -57,9 +70,11 @@
             badgeTxt = badge.lastChild;
             document.body.appendChild(badge);
         }
-        if (badgeTxt) { badgeTxt.textContent = count + ' blocked · ' + fmt(m); }
-        if (badge) { var bb = badge.firstChild; if (bb) { bb.textContent = 'MOCK ' + count; } badge.title = count + ' blocked · ' + fmt(m); }
+        var line = t('mock.blocked', { n: count, what: fmt(m) });
+        if (badgeTxt) { badgeTxt.textContent = line; }
+        if (badge) { var bb = badge.firstChild; if (bb) { bb.textContent = 'MOCK ' + count; } badge.title = line; }
     }
+    document.addEventListener('vt:lang', paint);   // live language switch
     function record(m) {
         m = m || {};
         var t = m.topic || m.service || m.action || '';

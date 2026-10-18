@@ -17,6 +17,13 @@
     var root = null, listEl = null, nowEl = null, pillsEl = null, moreEl = null;
     var filter = 'all', shown = PAGE, started = false, issueOnly = null, issueChip = null;
 
+    function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tag(e, k, attr) { if (window.VTI18n) { VTI18n.tag(e, k, attr); } return e; }
+    /* the kit sends text (its own language, Czech) and text_en: show the one of the UI's language */
+    function kitText(x) {
+        var cs = window.VTI18n && VTI18n.lang() === 'cs';
+        return (cs ? (x.text || x.text_en) : (x.text_en || x.text)) || '';
+    }
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
     function el(tag, cls, text) {
@@ -30,69 +37,72 @@
     function dayKey(t) { var d = new Date(t); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
     function dayLabel(t) {
         var k = dayKey(t), now = Date.now();
-        if (k === dayKey(now)) { return 'Today'; }
-        if (k === dayKey(now - 86400000)) { return 'Yesterday'; }
+        if (k === dayKey(now)) { return tr('activity.today'); }
+        if (k === dayKey(now - 86400000)) { return tr('activity.yesterday'); }
         var d = new Date(t);
         return d.getDate() + '. ' + (d.getMonth() + 1) + '.';
     }
 
     /* ------------------------------------------------- normalise sources */
-    var FIELD_SRC = { tick: 'watcher', runner: 'runner', dash: 'dashboard', restart: 'restart',
-                      kit: 'kit', fleet: 'fleet', agent: 'field agent' };
+    var FIELD_SRC = { tick: 'activity.src.watcher', runner: 'activity.src.runner', dash: 'activity.src.dashboard',
+                      restart: 'activity.src.restart', kit: 'activity.src.kit', fleet: 'activity.src.fleet',
+                      agent: 'activity.src.field_agent' };
     function fieldRows() {
         /* one issue: its own query over 7 days (the dashboard filters) */
-        var e = window.VTHub && VTHub.get(issueOnly ? 'field.issueact:' + issueOnly : 'field.activity');
+        var e = window.VTHub && VTHub.get(issueOnly ? 'field.issueact:' + issueOnly : "field.activity");
         var ev = (e && e.data && e.data.events) || [];
         return ev.map(function (x) {
             var t = Date.parse(x.ts);
             return { t: isNaN(t) ? 0 : t, side: 'field',
                      state: x.level === 'error' ? 'err' : (x.level === 'warn' ? 'warn' : 'off'),
-                     text: x.text_en || x.text || x.kind || '',
-                     src: FIELD_SRC[x.source] || x.source || 'support',
+                     text: kitText(x) || x.kind || '',
+                     src: Object.prototype.hasOwnProperty.call(FIELD_SRC, x.source) ? tr(FIELD_SRC[x.source])
+                         : (x.source || tr('activity.src.support')),
                      issue: x.issue || null,
                      key: 'f:' + (x.ts || '') + ':' + (x.kind || '') + ':' + (x.action_id || '') };
         });
     }
     var JOB_DONE = { done: 'ok', finished: 'ok', cancelled: 'off', failed: 'err', error: 'err' };
     function agentRows() {
-        var e = window.VTHub && VTHub.get('agent.jobs');
+        var e = window.VTHub && VTHub.get("agent.jobs");
         var jobs = (e && e.data && e.data.jobs) || [];
         var out = [];
         jobs.forEach(function (j) {
-            var what = (j.kind === 'finding' ? 'Finding: ' : 'Job #' + j.id + ': ') + (j.title || '');
+            var what = j.kind === 'finding' ? tr('activity.finding', { title: j.title || '' })
+                : tr('activity.job', { id: j.id, title: j.title || '' });
             if (j.created) {
                 out.push({ t: j.created * 1000, side: 'agent',
                            state: j.kind === 'finding' ? 'warn' : 'info',
                            busy: j.state === 'running',
-                           text: (j.kind === 'finding' ? '' : 'Started · ') + what,
-                           src: j.origin || 'agent', key: 'a:' + j.id + ':c', job: j.id, kind: j.kind });
+                           text: j.kind === 'finding' ? what : tr('activity.started', { what: what }),
+                           src: j.origin || tr('activity.src.agent'), key: 'a:' + j.id + ':c', job: j.id, kind: j.kind });
             }
             if (j.finished) {
                 var st = JOB_DONE[j.state] || 'off';
                 var how = j.outcome ? j.outcome : j.state;
                 out.push({ t: j.finished * 1000, side: 'agent', state: st,
-                           text: 'Closed (' + how + ') · ' + what + (j.error ? ' — ' + j.error : ''),
-                           src: j.origin || 'agent', key: 'a:' + j.id + ':f', job: j.id, kind: j.kind });
+                           text: j.error ? tr('activity.closed_err', { how: how, what: what, err: j.error })
+                                         : tr('activity.closed', { how: how, what: what }),
+                           src: j.origin || tr('activity.src.agent'), key: 'a:' + j.id + ':f', job: j.id, kind: j.kind });
             }
         });
         return out;
     }
     /* I5: the robot UI's own writes (webnode ~/.vitulus/ui_actions.jsonl) */
     function uiRows() {
-        var e = window.VTHub && VTHub.get('ui.actions');
+        var e = window.VTHub && VTHub.get("ui.actions");
         var acts = (e && e.data && e.data.actions) || [];
         return acts.map(function (a) {
             var t = Date.parse(String(a.ts || '').replace(/([+-]\d\d)(\d\d)$/, '$1:$2'));
             if (a.action === 'dock-relock' && a.author === 'robot') {
                 // free drive locked itself (agent core, v2/dock_relock)
-                return { t: isNaN(t) ? 0 : t, side: 'agent', state: 'ok', src: 'dock lock',
-                         text: 'Dock lock: free drive #' + (a.receipt || '?') +
-                               ' locked again by itself \u2014 the robot docked',
+                return { t: isNaN(t) ? 0 : t, side: 'agent', state: 'ok', src: tr('activity.src.dock'),
+                         text: tr('activity.dock_relock', { r: a.receipt || '?' }),
                          key: 'u:' + a.ts + ':' + a.ref };
             }
-            return { t: isNaN(t) ? 0 : t, side: 'field', state: a.ok ? 'ok' : 'err', src: 'robot UI',
-                     text: 'Robot UI (' + (a.author || '?') + '): ' + a.action + ' ' + (a.ref || '') +
-                           (a.message ? ' — ' + a.message : ''),
+            var uv = { who: a.author || '?', action: a.action, ref: a.ref || '', msg: a.message };
+            return { t: isNaN(t) ? 0 : t, side: 'field', state: a.ok ? 'ok' : 'err', src: tr('activity.src.ui'),
+                     text: a.message ? tr('activity.ui_msg', uv) : tr('activity.ui', uv),
                      key: 'u:' + a.ts + ':' + a.ref };
         });
     }
@@ -109,7 +119,7 @@
     /* ------------------------------------------------------------ render */
     function renderNow() {
         if (!nowEl) { return; }
-        var e = window.VTHub && VTHub.get('field.now');
+        var e = window.VTHub && VTHub.get("field.now");
         var d = e && e.data;
         nowEl.textContent = '';
         var row = el('div', 'vt-act vt-act-now');
@@ -118,15 +128,15 @@
         row.setAttribute('data-state', d.level === 'error' ? 'err' : (d.level === 'warn' || d.state === 'waiting') ? 'warn' : (busy ? 'info' : 'ok'));
         if (busy) { row.classList.add('vt-busy'); }
         row.appendChild(el('span', 'vt-sdot'));
-        var txt = el('span', 'vt-act-txt', (d.text_en || d.text || '').replace(/\s+/g, ' '));
-        txt.title = d.text_en || d.text || '';
+        var txt = el('span', 'vt-act-txt', kitText(d).replace(/\s+/g, ' '));
+        txt.title = kitText(d);
         row.appendChild(txt);
-        row.appendChild(el('span', 'vt-act-time', e.ok ? 'now' : 'stale'));
+        row.appendChild(el('span', 'vt-act-time', e.ok ? tr('common.now') : tr('activity.stale')));
         nowEl.appendChild(row);
     }
     function renderList() {
         if (!listEl) { return; }
-        var fe = window.VTHub && VTHub.get(issueOnly ? 'field.issueact:' + issueOnly : 'field.activity'), ae = window.VTHub && VTHub.get('agent.jobs');
+        var fe = window.VTHub && VTHub.get(issueOnly ? 'field.issueact:' + issueOnly : "field.activity"), ae = window.VTHub && VTHub.get("agent.jobs");
         var all = rows();
         listEl.textContent = '';
         if (!fe && !ae) {
@@ -135,8 +145,8 @@
             return;
         }
         if (!all.length) {
-            listEl.appendChild(el('p', 'vt-empty', issueOnly ? ('Nothing about issue #' + issueOnly + ' in the last 7 days.')
-                : (filter === 'problems' ? 'No problems in the last 24 h.' : 'Nothing happened yet.')));
+            listEl.appendChild(el('p', 'vt-empty', issueOnly ? tr('activity.none_issue', { n: issueOnly })
+                : (filter === 'problems' ? tr('activity.none_problems') : tr('activity.none'))));
         }
         var lastDay = null;
         var ul = null;
@@ -166,16 +176,16 @@
                 li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
             }
             var meta = el('span', 'vt-act-time');
-            meta.appendChild(el('span', 'vt-act-src vt-act-src-' + r.side, r.side === 'agent' ? 'agent' : r.src));
+            meta.appendChild(el('span', 'vt-act-src vt-act-src-' + r.side, r.side === 'agent' ? tr('activity.src.agent') : r.src));
             meta.appendChild(document.createTextNode(' ' + hhmm(r.t)));
             li.appendChild(meta);
             ul.appendChild(li);
         });
         moreEl.hidden = all.length <= shown;
         var errs = [];
-        if (fe && !fe.ok) { errs.push('Support: ' + fe.err); }
-        if (ae && !ae.ok) { errs.push('agent: ' + ae.err); }
-        if (errs.length) { listEl.insertBefore(el('p', 'vt-empty', 'Not reachable — ' + errs.join(' · ')), listEl.firstChild); }
+        if (fe && !fe.ok) { errs.push(tr('activity.err.field', { err: fe.err })); }
+        if (ae && !ae.ok) { errs.push(tr('activity.err.agent', { err: ae.err })); }
+        if (errs.length) { listEl.insertBefore(el('p', 'vt-empty', tr('activity.unreachable', { what: errs.join(' · ') })), listEl.firstChild); }
     }
     function rowLink(r) {
         if (!window.VTLinks) { return null; }
@@ -186,7 +196,7 @@
     function paintIssue() {
         if (!issueChip) { return; }
         issueChip.hidden = !issueOnly;
-        issueChip.firstChild.textContent = issueOnly ? 'Issue #' + issueOnly + ' only' : '';
+        issueChip.firstChild.textContent = issueOnly ? tr('activity.issue_only', { n: issueOnly }) : '';
     }
     function paintPills() {
         Array.prototype.forEach.call(pillsEl.children, function (b) {
@@ -202,8 +212,9 @@
         nowEl = el('div', 'vt-act-nowbox');
         root.appendChild(nowEl);
         pillsEl = el('div', 'vt-act-filters');
-        [['all', 'All'], ['agent', 'Agent'], ['field', 'Support'], ['problems', 'Problems']].forEach(function (f) {
-            var b = el('button', 'vt-act-filter', f[1]);
+        [['all', 'common.all'], ['agent', 'activity.f.agent'], ['field', 'activity.f.field'],
+         ['problems', 'activity.f.problems']].forEach(function (f) {
+            var b = tag(el('button', 'vt-act-filter', tr(f[1])), f[1]);
             b.type = 'button';
             b.dataset.f = f[0];
             b.addEventListener('click', function () {
@@ -216,14 +227,15 @@
         issueChip.setAttribute('data-state', 'info');
         issueChip.appendChild(el('span', 'vt-attn-txt', ''));
         var x = el('button', 'vt-iconbtn', '✕');
-        x.type = 'button'; x.title = 'Show everything again'; x.setAttribute('aria-label', 'Clear the issue filter');
+        x.type = 'button'; x.title = tr('activity.issue_clear.tip'); x.setAttribute('aria-label', tr('activity.issue_clear'));
+        tag(x, 'activity.issue_clear.tip', 'title'); tag(x, 'activity.issue_clear', 'aria-label');
         x.addEventListener('click', function () { setIssue(null); });
         issueChip.appendChild(x);
         issueChip.hidden = true;
         root.appendChild(issueChip);
         listEl = el('div', 'vt-act-list');
         root.appendChild(listEl);
-        moreEl = el('button', 'btn btn-outline-info vt-act-more', 'Show more');
+        moreEl = tag(el('button', 'btn btn-outline-info vt-act-more', tr('activity.more')), 'activity.more');
         moreEl.type = 'button';
         moreEl.hidden = true;
         moreEl.addEventListener('click', function () { shown += PAGE; renderList(); });
@@ -235,28 +247,31 @@
     function start() {
         if (started || !window.VTHub) { return; }
         started = true;
-        VTHub.on('field.now', renderNow);
-        VTHub.on('field.activity', renderList);
-        VTHub.on('agent.jobs', renderList);
-        VTHub.on('ui.actions', renderList);
-        VTHub.poll('field.now', '/field/api/activity/current', 15000);
-        VTHub.poll('field.activity', '/field/api/activity?hours=24&limit=200', 60000);
-        VTHub.poll('agent.jobs', '/agent/api/v2/jobs?limit=50', 60000);
+        VTHub.on("field.now", renderNow);
+        VTHub.on("field.activity", renderList);
+        VTHub.on("agent.jobs", renderList);
+        VTHub.on("ui.actions", renderList);
+        VTHub.poll("field.now", '/field/api/activity/current', 15000);
+        VTHub.poll("field.activity", '/field/api/activity?hours=24&limit=200', 60000);
+        VTHub.poll("agent.jobs", '/agent/api/v2/jobs?limit=50', 60000);
     }
 
     function register(VA) {
         filter = lsGet(LS_FILTER) || 'all';
         VA.registerBlock({
-            id: 'activity', title: 'Activity', order: 25,
+            id: 'activity', title: tr('activity.title'), titleKey: 'activity.title', order: 25,
             render: function (body) { build(body); },
             /* the sources start the first time the tab is opened, and every
                opening asks again (the hub keeps one poller per source) */
             onOpen: function () {
                 if (!started) { start(); return; }
-                ['field.now', 'field.activity', 'agent.jobs'].forEach(function (k) { VTHub.refresh(k); });
+                ["field.now", "field.activity", "agent.jobs"].forEach(function (k) { VTHub.refresh(k); });
             }
         });
         setInterval(function () { if (root && root.offsetParent) { renderList(); } }, 60000);  // day labels
+        if (window.VTI18n) {   // live language switch: everything drawn with tr()
+            VTI18n.onChange(function () { if (root) { renderNow(); renderList(); paintIssue(); } });
+        }
     }
     var issueKey = null, subscribed = {};
     function setIssue(n) {
