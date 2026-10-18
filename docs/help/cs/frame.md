@@ -33,8 +33,8 @@ který panel byl otevřený (i po načtení stránky znovu).
 
 **PC** (šířka ≥ 1024 px): panel je sloupec, mapa se vedle něj zúží. **Tablet / telefon na
 šířku**: sloupec leží přes mapu. **Telefon na výšku** (< 576 px): panel je sheet vysouvaný zdola
-(60 % výšky). Na telefonu (na výšku i na šířku) má panel kompaktní hlavičku: STOP / ⤢ / ✕ jsou na
-konci řádku záložek; na výšku se název přesune do řádku s úchytem.
+(60 % výšky). Na telefonu (na výšku i na šířku) má panel kompaktní hlavičku: **?** / ⤢ / ✕ (v panelu Agent
+i jeho STOP) jsou na konci řádku záložek; na výšku se název přesune do řádku s úchytem.
 
 ![UI na telefonu na výšku, bez otevřeného panelu, s očíslovanými značkami](../img/shot-phone.webp "Telefon, žádný panel: 1 Čeká na tebe · 2 pás menu · 3 ikony stavu · 4 mapa · 5 pravý panel (jeden řádek, ▾ ho rozbalí) · 6 STOP · 7 Joystick, Sledovat, Log") ![UI na telefonu s panelem Mapa otevřeným jako sheet zdola, s očíslovanými značkami](../img/shot-phone-sheet.webp "Telefon, otevřený panel Mapa: 1 název (táhni za úchyt) · 2 záložky · 3 ? nápověda · 4 ⤢ celá obrazovka · 5 ✕ zavřít")
 
