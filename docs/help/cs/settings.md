@@ -16,9 +16,9 @@ aplikaci samotnou. **?** v hlavičce panelu skočí na záložku, kterou máš o
 
 ## Motory
 
-![Nastavení › Motory s očíslovanými značkami](../img/shot-motors.webp "1 ZAP / VYP · 2 omezení momentu · 3 jedna karta na kolo")
+![Nastavení › Motory s očíslovanými značkami](../img/shot-motors.webp "1 ON / OFF · 2 omezení momentu · 3 jedna karta na kolo")
 
-- **ZAP / VYP** — napájení čtyř pojezdových motorů. **Po každém startu jsou vypnuté**
+- **ON / OFF** — napájení čtyř pojezdových motorů. **Po každém startu jsou vypnuté**
   ([Bezpečnost](safety.md#po-každém-startu-jsou-motory-vypnuté)); zapni je tady, než budeš jezdit
   ručně nebo dokovat. Barva tlačítka sleduje skutečný stav motorů.
 - **Moment** (0–24 Nm) a **Uložit** — omezení momentu motorů.
@@ -30,9 +30,9 @@ aplikaci samotnou. **?** v hlavičce panelu skočí na záložku, kterou máš o
 
 Záložka navigace:
 
-- **Rychlost** **POMALU / STŘEDNĚ / RYCHLE** — totéž nastavení jako **Pomalu / Středně /
-  Rychle** v pravém panelu ([rychlosti](routes.md#rychlost)).
-- **Lidar** **ZAP / VYP**.
+- **Rychlost** **SLOW / MID / FAST** — totéž nastavení jako **Slow / Mid /
+  Fast** v pravém panelu ([rychlosti](routes.md#rychlost)).
+- **Lidar** **ON / OFF**.
 - **RtabMap** — **Zdroj senzorů** (**Kamera** / **Lidar** / **Obojí**) a **Dosah senzorů** —
   pro starší lokalizaci RTAB-Map; běžně se nemění.
 
@@ -41,7 +41,7 @@ Záložka navigace:
 - **Zdroj** — **Vstup** z nabíječky (V, A), **Baterie** (V, A, stav nabíjení, %), **Kapacita**,
   **Výstup NUC** (počítač) a jestli jsou zapnuté **Výstup motorů** a **Výstup sekačky**.
 - **Teplota** — teplota desky a venkovní teplota a otáčky ventilátorů.
-- **Výstupy a limity** — výstup motorů a sekačky **ZAP / VYP**, nabíjecí a vypínací proudy pro
+- **Výstupy a limity** — výstup motorů a sekačky **ON / OFF**, nabíjecí a vypínací proudy pro
   běh a pohotovost, limit teploty desky (PCB) a vnější teploty. Měň jen, když víš proč.
 - **Řízení spánku** — **Doba spánku**, **Uspat teď** (**Na čas** / **Do nabití**), **Prodleva
   pohotovosti**, **Posun po nabití**, **Limit vybíjení**. Plánovač spánek používá, když čeká
@@ -70,7 +70,7 @@ Bagy zabírají hodně místa na disku; mazej, co už nepotřebuješ.
 
 ## IMU
 
-Kalibrace inerciálního senzoru: **Odstranit DCD**, **Resetovat IMU**, **Spustit**, **Uložit** a
+Kalibrace inerciálního senzoru: **Odstranit DCD**, **Reset IMU**, **Run**, **Uložit** a
 kurz podle IMU, navigace, magnetometru, RTK a fúze. Malá páčka nechá robota během kalibrace jen
 otáčet na místě. Určeno pro servis.
 

@@ -32,8 +32,8 @@ najednou všechno tohle:
 5. zastaví zajíždění do doku nebo výjezd z doku,
 6. rozpojí spínač motorů v napájecím modulu.
 
-Po STOP se nic nerozjede, dokud někdo motory znovu nezapne (**Nastavení › Motory › ZAP**, nebo
-**Vyjet**, které je zapne samo). STOP se pošle jednou — nic nezamyká, takže nový příkaz (výjezd,
+Po STOP se nic nerozjede, dokud někdo motory znovu nezapne (**Nastavení › Motory › ON**, nebo
+**Undock**, které je zapne samo). STOP se pošle jednou — nic nezamyká, takže nový příkaz (výjezd,
 displej robota) motory zase zapnout může.
 
 > [!NOTE]
@@ -45,8 +45,8 @@ displej robota) motory zase zapnout může.
 Po zapnutí robota, restartu softwaru robota nebo restartu ovladače podvozku jsou **pojezdové
 motory VYPNUTÉ**. Robot se nepohne, dokud je někdo nezapne:
 
-- **Nastavení › Motory › ZAP**, nebo
-- **Vyjet** (program výjezdu je zapne), nebo
+- **Nastavení › Motory › ON**, nebo
+- **Undock** (program výjezdu je zapne), nebo
 - tlačítkem na displeji robota.
 
 Bezpečnostní node vypne motory sám (s alarmem), když motor hlásí poruchu, přestane se hlásit nebo
@@ -71,7 +71,7 @@ pohybu). V tu chvíli robot
 
 1. hned poslouchá tvoji páčku — příkazy softwaru se zahazují,
 2. **zruší**, co dělal software: cíl navigace, zajíždění do doku / výjezd a běžící program sekání
-   (ten přejde do *Zastaveno* a zastaví nůž, stejně jako **Zastavit** v Programech),
+   (ten přejde do *Zastaveno* a zastaví nůž, stejně jako **Stop** v Programech),
 3. oznámí běžící misi agenta, že řízení převzal člověk (mise skončí, viz
    [Agent](agent.md#fault-supervisoru)).
 
@@ -81,11 +81,11 @@ warn: Převezmeš řízení | pohneš páčkou (nebo PS / L1 / R1), nebo zatlač
 err: Úkol softwaru se zruší | cíl, zajíždění do doku, program → Zastaveno, nůž vypnutý
 Řídíš ty | robot poslouchá jen tvou páčku
 off: Pustíš | robot zastaví a stojí
-ok: Znovu spustit | nový cíl, Vyjet, nebo Reset + Spustit / Pokračovat
+ok: Znovu spustit | nový cíl, Undock, nebo Reset + Run / Resume
 ```
 
-**Puštění:** robot zastaví a **stojí**. Software sám nepokračuje — je potřeba nový cíl, **Vyjet**
-nebo **Reset** + **Spustit** programu. Node, který po zrušení dál posílá příkazy, zůstane
+**Puštění:** robot zastaví a **stojí**. Software sám nepokračuje — je potřeba nový cíl, **Undock**
+nebo **Reset** + **Run** programu. Node, který po zrušení dál posílá příkazy, zůstane
 zablokovaný, dokud na 1 s neztichne.
 
 **Zapnutý gamepad s páčkami uprostřed nedělá nic.** Robota nedrží a program nezastaví — klidně

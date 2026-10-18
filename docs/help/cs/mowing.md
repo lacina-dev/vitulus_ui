@@ -17,11 +17,11 @@ Programy si sekačku řídí samy. **Nastavení › Sekačka** slouží ke kontr
 > Nůž je nebezpečný. Ručně ho spouštěj jen s robotem na trávníku, nikdo nesmí být poblíž a druhou
 > ruku měj na **STOP**.
 
-![Nastavení › Sekačka s očíslovanými značkami](../img/shot-mower.webp "1 ZAP / VYP (napájení) · 2 směr · 3 výška v mm + Nastavit · 4 otáčky + Nastavit · 5 Domů · 6 SPUSTIT MOTOR / ZASTAVIT MOTOR")
+![Nastavení › Sekačka s očíslovanými značkami](../img/shot-mower.webp "1 ON / OFF (napájení) · 2 směr · 3 výška v mm + Nastavit · 4 otáčky + Nastavit · 5 Domů · 6 START MOTOR / STOP MOTOR")
 
 | Ovládání | Co dělá |
 |---|---|
-| **ZAP / VYP** | napájení sekačky. Řádek ukazuje teplotu a stav: OFF, INIT, HOME, VÝŠKA, READY, RUN, ERR, BLOCKED, TEMP |
+| **ON / OFF** | napájení sekačky. Řádek ukazuje teplotu a stav: OFF, INIT, HOME, VÝŠKA, READY, RUN, ERR, BLOCKED, TEMP |
 | **Směr** | **Vlevo** / **Vpravo** — směr otáčení nože. Současný řadič sekačky ho nepřebírá: hlásí vždy LEFT |
 | **Výška** | aktuální / maximum v **mm**; zadej výšku v mm (od minima sekačky, výchozí 25 mm, po maximum, třeba 45) a **Nastavit**. Hodnota mimo rozsah se ignoruje |
 | **Otáčky** | aktuální / žádané; zadej hodnotu (500–4000) a **Nastavit** |
@@ -46,7 +46,7 @@ Programy si sekačku řídí samy. **Nastavení › Sekačka** slouží ke kontr
 
 ## Zastavení
 
-Zastavení sekačky (z **Programy › Zastavit**, od supervizoru agenta nebo když člověk převezme
+Zastavení sekačky (z **Programy › Stop**, od supervizoru agenta nebo když člověk převezme
 řízení joystickem) zabere **hned**: nůž se *vypne* v okamžiku, kdy pokyn dorazí.
 
 - **Běží program** — zastavení zruší i zajíždění programu do doku a ukončí misi ve stavu

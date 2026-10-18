@@ -50,15 +50,15 @@ systémové gesto). **STOP** je vždy vlevo dole, nikdy se nepřesouvá ani nezm
 
 Visí z horního pásu u pravého okraje:
 
-- **Ovládání** — rychlost Pomalu / Středně / Rychle, jízda klávesnicí, baterie a **Do doku** /
-  **Vyjet** / **Stop** ([Dok a výjezd](dock.md)).
-- **Navigace** — stav lokalizace ([co znamenají čipy](localization.md#jak-číst-stav-pravý-panel--navigace)).
+- **Ovládání** — rychlost Slow / Mid / Fast, jízda klávesnicí, baterie a **Dock** /
+  **Undock** / **Stop** ([Dok a výjezd](dock.md)).
+- **Navi** — stav lokalizace ([co znamenají čipy](localization.md#jak-číst-stav-pravý-panel--navi)).
 - **Kamera** — viz níže.
 
 Každá sekce se sbalí kliknutím na svůj název. Na telefonu (na výšku i na šířku) je pravý panel
 sbalený do jednoho řádku (mapa, poloha, GNSS, baterie, kamera, ▾) — ▾ ho rozbalí.
 
-![Sekce Ovládání pravého panelu s očíslovanými značkami](../img/shot-controls.webp "Ovládání: 1 rychlost Pomalu / Středně / Rychle · 2 jízda klávesnicí · 3 baterie · 4 Do doku · 5 Vyjet · 6 Stop (sekvence doku)") ![Sekce Navigace pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Navigace: 1 kdo vlastní polohu · 2 zdroj kurzu · 3 čipy odometrie · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu — vysvětleno v Lokalizaci")
+![Sekce Ovládání pravého panelu s očíslovanými značkami](../img/shot-controls.webp "Ovládání: 1 rychlost Slow / Mid / Fast · 2 jízda klávesnicí · 3 baterie · 4 Dock · 5 Undock · 6 Stop (sekvence doku)") ![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Navi: 1 kdo vlastní polohu · 2 zdroj kurzu · 3 čipy odometrie · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu — vysvětleno v Lokalizaci")
 
 ## Kamera
 
@@ -110,10 +110,10 @@ se všemi vrstvami vypnutými nedělá nic.
 **Joystick** ve spodní liště ukáže páčku vpravo dole na mapě (na telefonu zůstává nad otevřeným
 sheetem).
 
-![Webový joystick s očíslovanými značkami: režim rychlosti, stav motorů, páčka a údaj o rychlosti](../img/shot-joystick.webp "1 režim rychlosti · 2 pojezdové motory (tady VYP — nic se nepohne) · 3 páčka · 4 rychlost, kterou posílá")
+![Webový joystick s očíslovanými značkami: režim rychlosti, stav motorů, páčka a údaj o rychlosti](../img/shot-joystick.webp "1 režim rychlosti · 2 pojezdové motory (tady MOTORS OFF — nic se nepohne) · 3 páčka · 4 rychlost, kterou posílá")
 
 - Zatlač a jeď: dopředu / dozadu = rychlost, do stran = zatáčení. U středu jemně, na okraji plnou
-  rychlostí (podle Pomalu / Středně / Rychle). **Pustíš = stop.**
+  rychlostí (podle Slow / Mid / Fast). **Pustíš = stop.**
 - Ukazuje režim rychlosti a jestli jsou zapnuté pojezdové motory — **s vypnutými motory se nic
   nepohne** (zapni je v Nastavení › Motory).
 - Klávesnice: zaškrtni políčko u ikony klávesnice v sekci **Ovládání** pravého panelu, pak

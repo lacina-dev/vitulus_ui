@@ -29,22 +29,22 @@ překážek a naplánuje znovu, než to vzdá.
 
 ## Rychlost
 
-![Sekce Ovládání pravého panelu](../img/shot-controls.webp "1 Pomalu / Středně / Rychle v pravém panelu")
+![Sekce Ovládání pravého panelu](../img/shot-controls.webp "1 Slow / Mid / Fast v pravém panelu")
 
-**Pravý panel › Ovládání › Pomalu / Středně / Rychle** nastaví rychlost navigace i joysticku.
+**Pravý panel › Ovládání › Slow / Mid / Fast** nastaví rychlost navigace i joysticku.
 Robot si ji pamatuje i přes restart. Navigace:
 
 | | vpřed | vzad | otáčení |
 |---|---|---|---|
-| Pomalu | 0,25 m/s | 0,25 m/s | 0,9 rad/s |
-| Středně | 0,4 m/s | 0,25 m/s | 0,9 rad/s |
-| Rychle | 0,75 m/s | 0,5 m/s | 1,5 rad/s |
+| Slow | 0,25 m/s | 0,25 m/s | 0,9 rad/s |
+| Mid | 0,4 m/s | 0,25 m/s | 0,9 rad/s |
+| Fast | 0,75 m/s | 0,5 m/s | 1,5 rad/s |
 
 Joystick jede stejnou rychlostí vpřed (i vzad) a otáčí se 0,6 / 1,3 / 1,5 rad/s.
 
 ## Body
 
-![Mapa › záložka Bod s očíslovanými značkami](../img/shot-point-tab.webp "Mapa › Bod: 1 název · 2 Přidat · 3 Smazat body") ![Mapa › záložka Trasa s očíslovanými značkami](../img/shot-path-tab.webp "Mapa › Trasa: 1 název · 2 Nová · 3 Nová auto · 4 Zastavit auto · 5 Smazat trasy")
+![Mapa › záložka Bod s očíslovanými značkami](../img/shot-point-tab.webp "Mapa › Bod: 1 název · 2 Přidat · 3 Smazat body") ![Mapa › záložka Trasa s očíslovanými značkami](../img/shot-path-tab.webp "Mapa › Trasa: 1 název · 2 Nová · 3 Nová auto · 4 Stop auto · 5 Smazat trasy")
 
 **Mapa › Bod** ukazuje uložené body: tlačítko se značkou na začátku řádku na bod dojede,
 **Ukázat** ho ukáže na mapě, **✕** ho odebere. Napiš název a stiskni **Přidat** — uloží se
@@ -56,7 +56,7 @@ jízdu zastaví.
 **Mapa › Trasa** ukazuje uložené trasy: tlačítko se šipkou na začátku řádku trasu projede,
 **Přidat** k ní přidá současnou polohu robota jako další bod, **Ukázat** ji ukáže, **✕** ji odebere.
 Nahrání nové: napiš název a pak **Nová** (začne v současné poloze, body přidáváš za jízdy) nebo
-**Nová auto** (nahrává sama za jízdy; **Zastavit auto** ji ukončí). **Smazat trasy** smaže všechny
+**Nová auto** (nahrává sama za jízdy; **Stop auto** ji ukončí). **Smazat trasy** smaže všechny
 trasy mapy. **Zrušit navigaci** jízdu zastaví.
 
 Trasy a body jde nakreslit i v [editoru mapy](map-editor.md).

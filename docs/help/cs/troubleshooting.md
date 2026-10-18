@@ -22,13 +22,13 @@ Projdi v tomhle pořadí:
 
 1. **Vypnuté motory?** Po každém startu, restartu a STOPu jsou pojezdové motory VYPNUTÉ. Ukazuje to
    joystick a log píše *Motors are OFF – turn motors on to move/dock*. →
-   **Nastavení › Motory › ZAP**.
+   **Nastavení › Motory › ON**.
 2. **Převzal řízení člověk?** Pohyb páčkou gamepadu (nebo PS / L1 / R1) nebo joystickem v UI
    zruší cíl, zajetí do doku i běžící program a software zůstane zastavený i po puštění
    ([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)). → pošli cíl
-   znovu, znovu **Vyjet**, nebo u programu **Reset** + **Spustit**. Zapnutý gamepad s páčkami
+   znovu, znovu **Undock**, nebo u programu **Reset** + **Run**. Zapnutý gamepad s páčkami
    uprostřed nic *neblokuje*.
-3. **Program po zastavení?** **Spustit** se ignoruje, dokud nedáš **Reset**
+3. **Program po zastavení?** **Run** se ignoruje, dokud nedáš **Reset**
    ([Programy](programs.md#přerušit-a-pokračovat)).
 4. **Úkol agenta?**
    - *Zámek doku* zamčený → mise čeká; odemkni v **Agent › Robot**
@@ -37,7 +37,7 @@ Projdi v tomhle pořadí:
    - Mise čeká na supervisor → viz [FAULT supervisoru](#fault-supervisoru).
    - Podpůrný kit restartuje stack → mise počkají, než skončí.
 5. **Žádná aktivní mapa / žádná lokalizace** → [Mapa není vidět](#mapa-není-vidět),
-   [stav lokalizace](localization.md#jak-číst-stav-pravý-panel--navigace).
+   [stav lokalizace](localization.md#jak-číst-stav-pravý-panel--navi).
 
 ## Mapa není vidět
 
@@ -51,7 +51,7 @@ Projdi v tomhle pořadí:
 
 ## GPS nechytá fix
 
-1. Dvě ikony GPS a řádek GNSS ([Lokalizace](localization.md#jak-číst-stav-pravý-panel--navigace)).
+1. Dvě ikony GPS a řádek GNSS ([Lokalizace](localization.md#jak-číst-stav-pravý-panel--navi)).
 2. V doku nebo hned vedle něj bývá fix často špatný — proto výjezd z doku nejdřív dojede na
    UNDOCK a teprve pak čeká na RTK.
 3. Volné nebe, pár minut trpělivosti, běžící základnová stanice.
@@ -63,12 +63,12 @@ Projdi v tomhle pořadí:
 
 ## Zajetí do doku selže
 
-1. *Motors are OFF* → zapni motory a znovu stiskni **Do doku** (zajetí do doku je samo nezapne).
+1. *Motors are OFF* → zapni motory a znovu stiskni **Dock** (zajetí do doku je samo nezapne).
 2. *Map has no DOCK/UNDOCK point* → nastav body ([Dok](dock.md#body)).
-3. Dokovací a výjezdový program musí být uložené (**Mapa › Dok**) a mapa by měla být dokončená
+3. Dokovací a výjezdový program musí být uložené (**Mapa › Dock**) a mapa by měla být dokončená
    *v doku*.
 4. Odrazka se nenašla → očisti odrazku, dojeď s robotem pár metrů před dok čelem k němu a zkus
-   to znovu. **Mapa › Dok › Dok podle odrazivosti** vyzkouší jen tuhle fázi.
+   to znovu. **Mapa › Dock › Dok podle odrazivosti** vyzkouší jen tuhle fázi.
 5. Nepovedená sekvence se sama neopakuje; stav *failed* = přerušeno, detektory vypnuté, cíl
    zrušený. Mise agenta to ale zkusí znovu: zajede znovu před dok (UNDOCK) a dokuje odtamtud
    ([Když krok selže](agent.md#když-krok-selže)).

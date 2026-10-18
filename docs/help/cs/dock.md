@@ -27,9 +27,9 @@ Robot je **v doku, když nabíječka dodává proud** (ikona napájení zelená,
 
 ## Výjezd z doku
 
-![Sekce Ovládání pravého panelu: rychlost, klávesnice, baterie a tlačítka Do doku, Vyjet a Stop](../img/shot-controls.webp "Pravý panel › Ovládání: 4 Do doku · 5 Vyjet · 6 Stop (přeruší sekvenci)")
+![Sekce Ovládání pravého panelu: rychlost, klávesnice, baterie a tlačítka Dock, Undock a Stop](../img/shot-controls.webp "Pravý panel › Ovládání: 4 Dock · 5 Undock · 6 Stop (přeruší sekvenci)")
 
-**Pravý panel › Ovládání › Vyjet** spustí uložený *program výjezdu z doku*:
+**Pravý panel › Ovládání › Undock** spustí uložený *program výjezdu z doku*:
 
 ```flow
 Motory zapnout | program zapne pojezdové motory
@@ -48,7 +48,7 @@ ok: Hotovo | motory zůstanou zapnuté
 
 ## Zajetí do doku
 
-**Pravý panel › Ovládání › Do doku** spustí uložený *program zajetí do doku*:
+**Pravý panel › Ovládání › Dock** spustí uložený *program zajetí do doku*:
 
 ```flow
 Na DOCK | podle mapy dojede na bod DOCK před dokem
@@ -60,22 +60,22 @@ ok: Usadit | 15 s dosedá, pak vypne motory
 > [!IMPORTANT]
 > Zajetí do doku motory nikdy nezapne. Když jsou vypnuté, hned selže s hláškou
 > *Motors are OFF – turn motors on to dock*. Zapni je v **Nastavení › Motory** a stiskni znovu
-> **Do doku**.
+> **Dock**.
 
-**Stop** vedle **Do doku** / **Vyjet** sekvenci přeruší (stav na chvíli ukáže *failed* — to je
+**Stop** vedle **Dock** / **Undock** sekvenci přeruší (stav na chvíli ukáže *failed* — to je
 v pořádku).
 
-## Záložka Dok (Mapa › Dok)
+## Záložka Dock (Mapa › Dock)
 
-Slouží k nastavení a ručním zkouškám; běžně stačí **Do doku** / **Vyjet** v pravém panelu.
+Slouží k nastavení a ručním zkouškám; běžně stačí **Dock** / **Undock** v pravém panelu.
 
-![Záložka Dok panelu Mapa s očíslovanými kartami](../img/shot-dock-tab.webp "Mapa › Dok: 1 dok podle lidarové mapy · 2 dok podle odrazivosti · 3 Aktualizovat bod DOCK · 4 Aktualizovat bod UNDOCK · 5 mapa detektoru doku · 6 počáteční lokalizace · 7 program zajetí do doku · 8 program výjezdu z doku")
+![Záložka Dock panelu Mapa s očíslovanými kartami](../img/shot-dock-tab.webp "Mapa › Dock: 1 dok podle lidarové mapy · 2 dok podle odrazivosti · 3 Aktualizovat bod DOCK · 4 Aktualizovat bod UNDOCK · 5 mapa detektoru doku · 6 počáteční lokalizace · 7 program zajetí do doku · 8 program výjezdu z doku")
 
 | Část | Co dělá |
 |---|---|
-| Dok podle lidarové mapy | přepínač zapnutí, **Před dok**, **Do doku**, **Vyjet**, **Zastavit** — jen krok s lidarovou mapou doku |
-| Dok podle odrazivosti | přepínač zapnutí, **Do doku**, **Vyjet**, **Zastavit** — jen krok s odrazkou |
-| Body doku / výjezdu | **Jet** dojede na bod DOCK nebo UNDOCK; **Aktualizovat** uloží *současnou* polohu robota jako ten bod |
+| Dok podle lidarové mapy | přepínač zapnutí, **Před dok**, **Dock**, **Undock**, **Stop** — jen krok s lidarovou mapou doku |
+| Dok podle odrazivosti | přepínač zapnutí, **Dock**, **Undock**, **Stop** — jen krok s odrazkou |
+| Body doku / výjezdu | **Navi** dojede na bod DOCK nebo UNDOCK; **Aktualizovat** uloží *současnou* polohu robota jako ten bod |
 | Mapa detektoru doku | **Nová mapa**, **Upravit mapu**, **Uložit mapu** — lidarový obraz doku |
 | Počáteční lokalizace | poloha *docked*, podle které se robot v doku lokalizuje; když chybí, píše *CHYBÍ bod polohy v doku* |
 | Program zajetí do doku / výjezdu z doku | zaškrtni kroky (bod z mapy, trasa z lidarové mapy, akce podle odrazivosti) a dej **Provést** nebo **Uložit** |
@@ -97,7 +97,7 @@ Nastavení DOCK nebo UNDOCK: dojeď s robotem přesně na místo (i se správný
 [Agent Vitulus](agent.md) nesmí sám vyjet z doku ani od něj odjet: **zámek doku** otevírá jen
 majitel, v **Agent › Robot › Zámek doku**, a to pro pojmenovaný rozsah. Viz
 [Zámek doku](agent.md#zámek-doku). Zámek platí jen pro agenta: program, který spustíš v
-**Programy** (**Spustit** / **Pokračovat**), nebo program spuštěný kalendářem vyjede z doku i bez
+**Programy** (**Run** / **Resume**), nebo program spuštěný kalendářem vyjede z doku i bez
 něj.
 
 ## Když to selže
@@ -106,7 +106,7 @@ Automatické opakování není: při timeoutu nebo chybě skončí sekvence jako
 vypnou a navigace se zruší. Motory zůstanou, jak byly.
 
 > [!TIP]
-> - *Motors are OFF* → zapni motory a stiskni znovu **Do doku**.
+> - *Motors are OFF* → zapni motory a stiskni znovu **Dock**.
 > - *Map has no DOCK/UNDOCK point* → nastav bod (viz výše).
 > - Visí na *Waiting for RTK fix* → podívej se na ikony GPS a na
 >   [stav lokalizace](localization.md); pomůže volné nebe, základnová stanice musí běžet.

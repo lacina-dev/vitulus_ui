@@ -4,7 +4,7 @@ title: Programy a kalendář
 group: Robot
 order: 60
 icon: la-calendar
-summary: Co a kdy sekat — programy (vytvořit, upravit, smazat), Spustit / Pokračovat / Zastavit / Reset, kalendář a Pozdržet.
+summary: Co a kdy sekat — programy (vytvořit, upravit, smazat), Run / Resume / Stop / Reset, kalendář a Pozdržet.
 ui: [program, program/programs, program/calendar#kalendář]
 related: [map-editor, mowing, waiting]
 keywords: [program, programy, kalendář, calendar, plán, schedule, pozdržet, hold, pozastaveno, held, aktivní, active, automatika vypnuta, automation off, spustit, run, pokračovat, resume, zastavit, stop, reset, přepsat zóny, override zone, smazat, delete, přejmenovat, rename, běží, running, chybí, missing, přerušit, interrupt, pauza]
@@ -14,14 +14,14 @@ keywords: [program, programy, kalendář, calendar, plán, schedule, pozdržet, 
 **Program** říká, *co* sekat: seznam zón aktivní mapy, rychlost a volitelně jednu výšku sekání
 a otáčky pro všechny zóny. **Kalendář** říká, *kdy*. Obojí najdeš v **Programy**.
 
-![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů (kliknutím ho otevřeš; **Nový program** je dole v panelu) · 2 Spustit · 3 Pokračovat · 4 Ukázat / Skrýt · 5 Zastavit · 6 Reset · 7 Uložit · 8 Smazat")
+![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů (kliknutím ho otevřeš; **Nový program** je dole v panelu) · 2 Run · 3 Resume · 4 Show / Hide · 5 Stop · 6 Reset · 7 Uložit · 8 Smazat")
 
 ## Vytvořit program
 
 1. Nejdřív aktivuj mapu — program patří k mapě, na které vznikl.
 2. **Programy › Programy › Nový program**: vyplň **Název** a přidej zóny ze seznamu
    (**Přidat zónu**).
-3. **Rychlost**: **Pomalu** / **Středně** / **Rychle**.
+3. **Rychlost**: **Slow** / **Mid** / **Fast**.
 4. **Otáčky**, **Výška sekání** (mm) a **Přepsat zóny**: když je zaškrtnuté, tyhle dvě hodnoty
    nahradí výšku sekání a otáčky každé zóny (obě musí být nad 0). Výška je v milimetrech jako
    všude v UI, třeba 50 = 5 cm.
@@ -39,49 +39,49 @@ zastav.
 Zóny programu na mapě zůstanou — zmizí jen program. Když program používají události v kalendáři,
 dialog řekne kolik; v kalendáři zůstanou s označením **chybí** a přeskakují se, dokud je
 neotevřeš přes **Upravit** a nevybereš jiný program. Běžící program smazat nejde — nejdřív
-**Zastavit** (zastavený program smazat jde).
+**Stop** (zastavený program smazat jde).
 
 ## Spuštění
 
 | Tlačítko | Co dělá |
 |---|---|
-| **Spustit** | spustí program od začátku — robot vyjede z doku a seká |
-| **Pokračovat** | pokračuje v nedokončeném programu od zóny / trasy, kde skončil |
+| **Run** | spustí program od začátku — robot vyjede z doku a seká |
+| **Resume** | pokračuje v nedokončeném programu od zóny / trasy, kde skončil |
 | **Ukázat / Skrýt** | vykreslí trasy programu na mapu |
-| **Zastavit** | zastaví misi: cíl jízdy se zruší, nůž se zastaví, robot zůstane stát, kde je — *Zastaveno* |
+| **Stop** | zastaví misi: cíl jízdy se zruší, nůž se zastaví, robot zůstane stát, kde je — *Zastaveno* |
 | **Reset** | smaže stav *STOPPED* nebo *TERMINAL ERROR* |
 
 Když program běží, nad seznamem programů je karta **Běží** s jeho názvem, stavem a tlačítkem
-**Zastavit** — ať je dole otevřený kterýkoli program (nebo žádný). Po zastavení se z ní stane
+**Stop** — ať je dole otevřený kterýkoli program (nebo žádný). Po zastavení se z ní stane
 **Zastaveno** s tlačítkem **Reset**.
 
-![Karta Běží: název programu, jeho stav a Zastavit](../img/shot-program-running.webp "Běží — název, co mise právě dělá, Zastavit") ![Karta Zastaveno: stav a Reset](../img/shot-program-stopped.webp "Zastaveno — nejdřív Reset, pak Spustit nebo Pokračovat")
+![Karta Běží: název programu, jeho stav a Stop](../img/shot-program-running.webp "Běží — název, co mise právě dělá, Stop") ![Karta Zastaveno: stav a Reset](../img/shot-program-stopped.webp "Zastaveno — nejdřív Reset, pak Run nebo Resume")
 
 ### Přerušit a pokračovat
 
 Běžící program se zastaví při kterékoli z těchto věcí — vždy do stavu *Zastaveno*, nůž vypnutý:
 
-- **Zastavit** v Programech (na kartě Běží nebo na kartě programu),
+- **Stop** v Programech (na kartě Běží nebo na kartě programu),
 - červené **STOP** vlevo dole (vypne i pojezdové motory — [Bezpečnost](safety.md#stop)),
 - převzetí ovládání gamepadem nebo webovým joystickem
   ([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)).
 
 ```flow
-ok: Spustit | robot vyjede z doku a seká zóny popořadě
+ok: Run | robot vyjede z doku a seká zóny popořadě
 Běží | karta Běží ukazuje zónu / trasu
-warn: Zastaveno | Zastavit, červené STOP nebo převzetí; nůž vypnutý
+warn: Zastaveno | Stop, červené STOP nebo převzetí; nůž vypnutý
 info: Reset | smaže Zastaveno — potřeba dřív než cokoli jiného
-ok: Pokračovat nebo Spustit | Pokračovat = odkud skončil, Spustit = od začátku
+ok: Resume nebo Run | Resume = odkud skončil, Run = od začátku
 ```
 
-Robot pak stojí a čeká. Jak pokračovat: **Reset**, pak **Pokračovat** (naváže zhruba tam, kde
-skončil — mise si místo ukládá každou minutu) nebo **Spustit** (od začátku). Mimo dok musí být
-motory zapnuté — po červeném STOP je nejdřív zapni (**Nastavení › Motory › ZAP**), jinak se start
+Robot pak stojí a čeká. Jak pokračovat: **Reset**, pak **Resume** (naváže zhruba tam, kde
+skončil — mise si místo ukládá každou minutu) nebo **Run** (od začátku). Mimo dok musí být
+motory zapnuté — po červeném STOP je nejdřív zapni (**Nastavení › Motory › ON**), jinak se start
 odmítne hláškou *Start rejected: motors are OFF*. Když chceš program místo toho ukončit, dej
-**Reset** a pošli robota domů (**pravý panel › Ovládání › Do doku**).
+**Reset** a pošli robota domů (**pravý panel › Ovládání › Dock**).
 
 > [!IMPORTANT]
-> Po zastavení nebo chybě mise čeká na **Reset** — **Spustit** a **Pokračovat** se do té doby
+> Po zastavení nebo chybě mise čeká na **Reset** — **Run** a **Resume** se do té doby
 > ignorují a UI napíše *Mise je zastavená — nejdřív stiskni Reset*.
 
 Když plánovač něco odmítne (žádné zóny, zóna už na mapě není, žádná aktivní mapa, program běží),
@@ -118,7 +118,7 @@ má označení **chybí**; plánovač ji ten den přeskočí. Otevři ji přes *
 ### Pozdržet
 
 **Pozdržet** zastaví nová spuštění z kalendáře — program, který už běží, nezastaví (na to je
-**Zastavit**). Naplánovaný program, který běží ve chvíli, kdy Pozdržet zapneš, se dál sleduje až
+**Stop**). Naplánovaný program, který běží ve chvíli, kdy Pozdržet zapneš, se dál sleduje až
 do konce. Když se přerušil (baterie, déšť, teplota), robot se při zapnutém Pozdržet neuspí; po
 vypnutí Pozdržet ho plánovač obnoví jako obvykle.
 

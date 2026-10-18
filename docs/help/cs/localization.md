@@ -5,7 +5,7 @@ group: Robot
 order: 40
 icon: la-crosshairs
 summary: Jak robot ví, kde je — RTK, mapa, dok — a co znamenají jednotlivé stavy.
-ui: [right/state, map/gloc#záložka-lokal-globální-lokalizace-lidarem]
+ui: [right/state, map/gloc#záložka-loc-globální-lokalizace-lidarem]
 related: [mapping, dock, troubleshooting, status-icons]
 keywords: [lokalizace, poloha, kurz, gps, gnss, rtk, fix, float, odhad, tracker, odometrie, relokalizace, lidar, gloc, pose, dead reckoning, heading, localize, relocalize]
 ---
@@ -21,9 +21,9 @@ Robot skládá jednu polohu (*pose*) z několika zdrojů:
 
 ![Čtyři zdroje dávají jednu polohu; čip Poloha říká, který ji teď určuje](../img/localization.svg "1 RTK GPS (satelity, základnová stanice, dvě antény) · 2 dok · 3 lidarový tracker (sken proti mapě) · 4 odometrie (kola, IMU) · 5 jedna poloha · 6 čip Poloha: zelená = ukotveno, oranžová = podle mapy, červená = ujíždí")
 
-## Jak číst stav (pravý panel › Navigace)
+## Jak číst stav (pravý panel › Navi)
 
-![Sekce Navigace pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navigace: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu")
+![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu")
 
 První čip (1) říká, **kdo teď určuje polohu**:
 
@@ -69,12 +69,12 @@ venkovní mapu doku).
 
 Viz také [Řešení problémů › GPS](troubleshooting.md#gps-nechytá-fix).
 
-## Záložka Lokal. (globální lokalizace lidarem)
+## Záložka Loc (globální lokalizace lidarem)
 
-**Mapa › Lokal.** se ptá: *kam na nahranou mapu nejlíp sedí současný sken lidaru?* Použij ji,
+**Mapa › Loc** se ptá: *kam na nahranou mapu nejlíp sedí současný sken lidaru?* Použij ji,
 když se robot ztratí (`ODHAD`, nebo je robot na mapě zjevně jinde, než ve skutečnosti stojí).
 
-![Záložka Lokal. panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Lokal.: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit")
+![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit")
 
 1. **Lokalizovat** (nebo zaškrtni **auto 5 s**) — spočítá kandidáty. Samotný výpočet robotem
    nikdy nepohne.
@@ -89,4 +89,4 @@ když se robot ztratí (`ODHAD`, nebo je robot na mapě zjevně jinde, než ve s
 > [!TIP]
 > Poloha, která poskočí hned po výjezdu z doku, se obvykle ustálí, jakmile se RTK osvědčí (zhruba
 > 1 m jízdy nebo krátké zastavení pod volným nebem). Když je robot hodně mimo, zastav, použij
-> Lokal. a pak pokračuj.
+> Loc a pak pokračuj.

@@ -25,7 +25,7 @@ stejná stránka na PC, tabletu i telefonu.
 3. **Levý panel** — otevřený nástroj. V jeho hlavičce je malé **?**, které otevře nápovědu k tomuto
    panelu a záložce, na které jsi.
 4. **Mapa** — robot (oranžově), jeho trasa a vrstvy mapy.
-5. **Pravý panel** — rychlost, **Do doku** / **Vyjet**, stav lokalizace a kamera.
+5. **Pravý panel** — rychlost, **Dock** / **Undock**, stav lokalizace a kamera.
 6. **Log** — co robot dělal a hlásil ([víc](frame.md#log)).
 7. **Joystick** — ruční jízda ([víc](frame.md#ruční-jízda-joystick)).
 8. **STOP** — vždy vlevo dole. Zastaví veškerý pohyb ([Bezpečnost](safety.md)).
@@ -52,7 +52,7 @@ stejná stránka na PC, tabletu i telefonu.
 ok: V doku | nabíjí se, motory vypnuté
 Výjezd | vyjede z doku, čeká na RTK
 Sekání | program projede zóny
-Do doku | zpět podle mapy, pak zacouvá dovnitř
+Dock | zpět podle mapy, pak zacouvá dovnitř
 ok: Nabíjení | do dalšího běhu
 ```
 
@@ -66,7 +66,7 @@ Programy spouští kalendář sám (když je zapnutá automatika a není zapnut�
    ještě startuje nebo není připojený.
 2. Otevři **Mapa** a zkontroluj, že je nějaká mapa **aktivní** (na její kartě je *aktivní*). Bez
    aktivní mapy robot nemůže navigovat ani sekat — [Mapy a mapování](mapping.md).
-3. Vyjeď s robotem z doku tlačítkem **Vyjet** v pravém panelu — [Dok a výjezd](dock.md).
+3. Vyjeď s robotem z doku tlačítkem **Undock** v pravém panelu — [Dok a výjezd](dock.md).
 4. Zkus krátkou jízdu se [Značkou](routes.md#cíl-pomocí-značky) nebo joystickem.
 5. Když si nejsi jistý, zeptej se normální řečí [agenta Vitulus](agent.md).
 
