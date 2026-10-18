@@ -92,13 +92,14 @@ mission](agent.md#robot-restart-during-a-mission)).
 
 ## The UI does not respond
 
-1. Reload the page. Grey icons and *disconnected* = the page lost the robot — click the
-   connection text to reconnect.
+1. Reload the page. Grey icons and *OFFLINE* in the navbar = the page lost the robot — click
+   that text (*Click to reconnect*) to reconnect at once.
 2. If every button is dead, the robot's websocket bridge (rosbridge) is down → restart the robot
    stack: the **Restart** item in the navbar menu (it restarts the robot's service; motors are OFF
    afterwards).
 3. The page loads but a panel is broken after an update → hard reload (Ctrl+Shift+R).
-4. *Agent not responding* in the agent panel → the agent process restarts; wait a minute.
+4. The agent panel says the agent is not running on this robot or is not responding → the
+   agent restarts by itself after a crash; wait a minute. Still the same → report it.
 5. For maintainers: the web node is restarted with `tools/restart_webnode` (never `kill -9`).
 
 ## Something else

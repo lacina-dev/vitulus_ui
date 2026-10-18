@@ -100,8 +100,8 @@ While a mission drives, a separate supervisor watches it. It goes to **FAULT** a
 robot stopped when the robot leaves its allowed area, loses its position, the agent stops
 answering, the time runs out, the blade spins, or a **person takes over** (joystick, gamepad).
 It clears itself after at least 10 s once the robot stands still with the motors and the blade
-off — nothing moves when it clears. A parked mission then resumes by itself (at most twice in 30
-min); after a takeover, the blade or a position bound it waits for `pokračuj`.
+off — nothing moves when it clears. A parked mission then resumes by itself (at most twice per
+mission, if the supervisor clears within 30 min); after a takeover, the blade or a position bound it waits for `pokračuj`.
 
 The supervisor's stop switches the blade off directly; it sends the mower stop only while a
 mowing program runs, so a FAULT during a test drive never cancels the docking that follows.

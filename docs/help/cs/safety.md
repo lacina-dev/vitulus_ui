@@ -73,7 +73,7 @@ pohybu). V tu chvíli robot
 2. **zruší**, co dělal software: cíl navigace, zajíždění do doku / výjezd a běžící program sekání
    (ten přejde do *Zastaveno* a zastaví nůž, stejně jako **Zastavit** v Programech),
 3. oznámí běžící misi agenta, že řízení převzal člověk (mise skončí, viz
-   [Agent](agent.md#supervisor-fault)).
+   [Agent](agent.md#fault-supervisoru)).
 
 ```flow
 Řídí software | cíl, program, zajíždění do doku nebo mise agenta

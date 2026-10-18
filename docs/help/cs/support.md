@@ -53,7 +53,7 @@ přijato).
 Hlídač na robotu se spustí, kdykoli signál přinese novinku, a k tomu podle časovače (každých
 10 minut, nebo 30, dokud signál funguje). Stáhne novinky, zjistí další krok smyčky (nasadit
 vydání, znovu otestovat, odpovědět, zavřít) a buď ho udělá sám, nebo se jedním klikem zeptá
-člověka (zvonek, [Čeká na tebe](agent.md#needs-you)). **S robotem nikdy nehne** — cokoli
+člověka (zvonek, [Čeká na tebe](agent.md#čeká-na-tebe)). **S robotem nikdy nehne** — cokoli
 s pohybem dělá člověk s rukou na STOP.
 
 ## Restarty stacku

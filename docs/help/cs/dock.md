@@ -96,7 +96,7 @@ Nastavení DOCK nebo UNDOCK: dojeď s robotem přesně na místo (i se správný
 
 [Agent Vitulus](agent.md) nesmí sám vyjet z doku ani od něj odjet: **zámek doku** otevírá jen
 majitel, v **Agent › Robot › Zámek doku**, a to pro pojmenovaný rozsah. Viz
-[Zámek doku](agent.md#dock-lock). Zámek platí jen pro agenta: program, který spustíš v
+[Zámek doku](agent.md#zámek-doku). Zámek platí jen pro agenta: program, který spustíš v
 **Programy** (**Spustit** / **Pokračovat**), nebo program spuštěný kalendářem vyjede z doku i bez
 něj.
 
@@ -112,4 +112,4 @@ vypnou a navigace se zruší. Motory zůstanou, jak byly.
 >   [stav lokalizace](localization.md); pomůže volné nebe, základnová stanice musí běžet.
 > - Odrazka se nenašla → je čistá a vidět, je robot pár metrů od doku a míří k němu? Přijeď
 >   joystickem blíž a zkus to znovu.
-> - Víc v [Řešení problémů](troubleshooting.md#docking-fails).
+> - Víc v [Řešení problémů](troubleshooting.md#zajetí-do-doku-selže).

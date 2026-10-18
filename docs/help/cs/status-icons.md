@@ -56,7 +56,7 @@ připojená k robotu — kliknutím se hned připojí znovu.
 
 > [!TIP]
 > Všechny ikony šedé? Stránka není připojená, nebo software robota (znovu) startuje — počkej
-> minutu, pak viz [Řešení problémů](troubleshooting.md#the-ui-does-not-respond).
+> minutu, pak viz [Řešení problémů](troubleshooting.md#ui-nereaguje).
 
 ## Monitor počítače
 

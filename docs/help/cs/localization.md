@@ -67,7 +67,7 @@ venkovní mapu doku).
 5. Robot i tak může jezdit po mapě s lidarovým trackerem (`TRACKER`), jen méně přesně; dlouhé
    mise by měly na RTK počkat.
 
-Viz také [Řešení problémů › GPS](troubleshooting.md#gps-does-not-fix).
+Viz také [Řešení problémů › GPS](troubleshooting.md#gps-nechytá-fix).
 
 ## Záložka Lokal. (globální lokalizace lidarem)
 

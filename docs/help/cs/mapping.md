@@ -111,4 +111,4 @@ které si robot právě pamatuje — žádnou uloženou mapu nemění.
 
 > [!NOTE]
 > Když se vrstva mapy neukáže, nemusí chybět — nejdřív obnov stránku. Víc v
-> [Řešení problémů › Mapa není vidět](troubleshooting.md#the-map-is-not-visible).
+> [Řešení problémů › Mapa není vidět](troubleshooting.md#mapa-není-vidět).
