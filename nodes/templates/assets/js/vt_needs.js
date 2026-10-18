@@ -304,7 +304,10 @@
         var root = panel.querySelector('.vt-needs-body');
         root.textContent = '';
 
-        if (!m.n && m.fieldEntry && m.fieldEntry.ok) {
+        // P22: all clear = ONE good-news line; the two groups keep their place
+        // (header + 0) but no longer repeat "nothing here" twice below it
+        var allClear = !m.n && m.fieldEntry && m.fieldEntry.ok && !!m.askEntry;
+        if (allClear) {
             root.appendChild(el('p', 'vt-empty-ok', 'Nothing waits for you.'));
         }
 
@@ -319,7 +322,7 @@
         if (!m.askEntry) {
             ac = [el('p', 'vt-empty', 'Waiting for the agent…')];
         } else if (!ac.length) {
-            ac = [el('p', 'vt-empty', 'No approvals waiting.')];
+            ac = allClear ? [] : [el('p', 'vt-empty', 'No approvals waiting.')];
         }
         root.appendChild(group('agent', 'Robot agent', m.asks.length, ac));
 
@@ -348,7 +351,7 @@
                 if (dr) { c.insertBefore(dr, c.querySelector('.vt-needs-acts')); }
                 return c;
             });
-            if (!fc.length) { fc = [el('p', 'vt-empty', 'Nothing from Support.')]; }
+            if (!fc.length) { fc = allClear ? [] : [el('p', 'vt-empty', 'Nothing from Support.')]; }
             if (!m.fieldEntry.ok) {
                 fc.unshift(el('p', 'vt-empty', 'Support not reachable — showing the last known list.'));
             }

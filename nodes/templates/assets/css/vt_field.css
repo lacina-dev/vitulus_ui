@@ -923,3 +923,12 @@ body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*=
     #div_log_view .log-toolbar-row::-webkit-scrollbar { display: none; }
     #div_log_view .log-toolbar-row > * { flex: 0 0 auto; }
 }
+
+/* ============ P22: Programs › a NEW program: no robot actions until it is
+   saved (an unsaved program cannot run); name field gets air before the facts */
+#div_menu_program_detail_row.is-new .vt-prog-action { display: none; }
+#div_menu_program_detail_row.is-new .vt-kv { opacity: .6; }
+#div_menu_program_detail_row .vt-form { margin-bottom: var(--vt-gap-2); }
+/* Needs you: an empty group shows its header (title · 0) only */
+.vt-needs-grp > .drawer-sec-body:empty { display: none; }
+.vt-needs-grp:has(> .drawer-sec-body:empty) > summary { border-bottom: 0 !important; }

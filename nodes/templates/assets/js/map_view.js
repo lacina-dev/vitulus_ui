@@ -6140,6 +6140,12 @@ class Programs {
         }
         return site || this.active_map_data;
     }
+    // P22: a program that is not saved yet has nothing to Run / Resume / Show /
+    // Stop / Reset — its card says so instead of offering robot actions
+    _markNew() {
+        const r = this.map_menu && this.map_menu.div_menu_program_detail_row;
+        if (r) r.classList.toggle('is-new', !!this._editing_new);
+    }
     newProgram() {
         var mapName = this._mapForNewProgram();
         if (mapName === null) return;
@@ -6151,6 +6157,7 @@ class Programs {
             area: 0, length: 0, last_duration_minutes: 0, last_result: '',
         };
         this._editing_new = true;
+        this._markNew();
         this.map_menu.div_menu_program_detail_row.style.display = 'flex';
         this.map_menu.span_menu_program_name.innerText = '(new program)';
         this.map_menu.div_menu_program_detail_row.dataset.state = 'off';
@@ -6237,6 +6244,7 @@ class Programs {
         this.selected_program = Object.assign({}, prg, msg);
         uiPrefSet('vitulus_sel_program', msg.name);
         this._editing_new = false;
+        this._markNew();
     }
 
     init(){
@@ -6324,6 +6332,7 @@ class Programs {
         // doesn't mutate the cached list before saving.
         this.selected_program = Object.assign({}, program, { zone_list: (program.zone_list || []).slice() });
         this._editing_new = false;
+        this._markNew();
         if (this.map_menu.inp_program_name) this.map_menu.inp_program_name.value = shownName;
         this._renderProgramZones();
         this._ensureZones();
