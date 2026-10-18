@@ -248,6 +248,9 @@ const hard = { html: [], js: {} };
             let mm;
             while ((mm = lit.exec(s))) {
                 let v = mm[1] !== undefined ? mm[1] : (mm[2] !== undefined ? mm[2] : mm[3]);
+                // compared / switched on / an object key / an index: protocol, not text
+                const before = s.slice(Math.max(0, mm.index - 12), mm.index), after = s.slice(lit.lastIndex, lit.lastIndex + 5);
+                if (/(===?|!==?|case|\[)\s*$/.test(before) || /^\s*(===?|!==?|:|\])/.test(after) || /(startsWith|endsWith|indexOf|includes|match|test)\(\s*$/.test(before)) { continue; }
                 // text between tags inside an HTML template string
                 const parts = /[<>]/.test(v) ? (v.match(/>([^<>]+)</g) || []).map((x) => x.slice(1, -1)) : [v];
                 parts.forEach((p) => {
