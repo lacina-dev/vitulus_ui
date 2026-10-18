@@ -749,7 +749,7 @@ a.vt-needs-btn {
    Save buttons line up (°C used to be narrower than mA) */
 .vt-field > .input-group-text:not(:first-child):not(.vt-val):not(.form-control) { min-width: 40px; justify-content: center; }
 .vt-fields > .vt-field > .input-group-text:first-child { min-width: 146px; }
-@media (max-width: 400px) { .vt-fields > .vt-field > .input-group-text:first-child { min-width: 118px; } }
+@media (max-width: 400px) { .vt-fields > .vt-field > .input-group-text:first-child { min-width: 138px; } }
 
 /* ============ P11: flat buttons (field dashboard language)
    The Slate theme paints every .btn with a vertical gradient, a text shadow
@@ -806,3 +806,10 @@ a.vt-needs-btn {
 }
 #div_menu_path_items_row:empty::before { content: "No saved paths on this map yet."; }
 #div_menu_point_items_row:empty::before { content: "No saved points on this map yet."; }
+/* Programs › speed: the chosen speed (btn-secondary among outlines, set by
+   the program code) reads as the selected option, like .vt-sel */
+[id^="btn_program_speed_"].btn-secondary {
+    color: var(--vt-accent) !important; background-color: rgba(var(--vt-accent-rgb), 0.18) !important;
+    border-color: var(--vt-edge-info) !important; font-weight: 700;
+}
+[id^="btn_program_speed_"].btn-outline-secondary { color: var(--vt-muted); border-color: var(--vt-border-strong); }
