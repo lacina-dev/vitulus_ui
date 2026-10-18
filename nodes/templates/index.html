@@ -1141,13 +1141,12 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         </details>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-dock">
-                                        <!-- PRIMARY: dock / undock actions + live status -->
-                                        <div>
-                                            <div class="vt-gap d-flex align-items-center">
-                                                <span class="drawer-hint">Dock by lidar map</span>
-                                                <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="formCheck-1">Enable</label></div>
+                                        <!-- PRIMARY: dock / undock actions + live status (P12: two cards, one anatomy) -->
+                                        <div class="vt-card vt-dock-card vt-mb2">
+                                            <div class="vt-card-head"><span class="vt-card-title">Dock by lidar map</span>
+                                                <span class="vt-end form-check form-check-inline vt-m0"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="dock_check_enable_by_map">Enable</label></span>
                                             </div>
-                                            <div class="vt-gap d-flex align-items-center">
+                                            <div class="btn-group btn-group-sm vt-seg" role="group">
                                                 <button class="btn btn-primary btn-sm" id="predock_btn_by_map" type="button">Predock</button>
                                                 <button class="btn btn-primary btn-sm" id="dock_btn_by_map" type="button">Dock</button>
                                                 <button class="btn btn-primary btn-sm" id="dock_btn_undock_by_map" type="button">Undock</button>
@@ -1156,13 +1155,11 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <div id="dock_div_map_status"></div>
                                             <div id="dock_div_map_image"></div>
                                         </div>
-                                        <hr>
-                                        <div>
-                                            <div class="vt-gap d-flex align-items-center">
-                                                <span class="drawer-hint">Dock by intensity</span>
-                                                <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="formCheck-2">Enable</label></div>
+                                        <div class="vt-card vt-dock-card vt-mb2">
+                                            <div class="vt-card-head"><span class="vt-card-title">Dock by intensity</span>
+                                                <span class="vt-end form-check form-check-inline vt-m0"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="dock_check_enable_by_intensity">Enable</label></span>
                                             </div>
-                                            <div class="vt-gap d-flex align-items-center">
+                                            <div class="btn-group btn-group-sm vt-seg" role="group">
                                                 <button class="btn btn-primary btn-sm" id="dock_btn_by_intensity" type="button">Dock</button>
                                                 <button class="btn btn-primary btn-sm" id="undock_btn_by_intensity" type="button">Undock</button>
                                                 <button class="btn btn-danger btn-sm" id="dock_btn_by_intensity-stop" type="button">Stop</button>
@@ -1260,17 +1257,19 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-gloc">
                                         <!-- PRIMARY: status + main localize action -->
-                                        <span class="drawer-hint">Lidar global localization (scan vs. map)</span>
-                                        <div class="drawer-primary">
-                                            <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button">Localize</button>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
-                                                <label class="form-check-label" for="gloc_chk_auto">auto 5s</label>
+                                        <div class="vt-card vt-gloc-card vt-mb2">
+                                            <div class="vt-card-head"><span class="vt-card-title">Lidar global localization</span><span class="vt-end">scan vs. map</span></div>
+                                            <div class="vt-gloc-row">
+                                                <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button">Localize</button>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
+                                                    <label class="form-check-label" for="gloc_chk_auto">auto 5 s</label>
+                                                </div>
+                                                <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled>Apply&nbsp;&rarr;&nbsp;robot</button>
+                                                <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled>Force</button>
                                             </div>
-                                            <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled>Apply&nbsp;&rarr;&nbsp;robot</button>
-                                            <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled>Force</button>
+                                            <div class="vt-gloc-status"><span class="vt-label">Status</span><span id="gloc_status">waiting for gloc_server...</span></div>
                                         </div>
-                                        <div><span class="drawer-hint">Status:&nbsp;</span><span id="gloc_status">waiting for gloc_server...</span></div>
 
                                         <details class="drawer-sec" data-drawersec="gloc_detail">
                                             <summary>Hypothesis detail &amp; candidates</summary>

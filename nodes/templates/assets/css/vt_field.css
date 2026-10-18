@@ -778,3 +778,31 @@ a.vt-needs-btn {
     color: var(--vt-warn); background-color: rgba(var(--vt-warn-rgb), 0.12); border-color: var(--vt-edge-warn);
 }
 #ui_drawer_foot .btn-warning:hover { color: #1c2329; background-color: var(--vt-warn); border-color: var(--vt-warn); }
+
+/* ============ P12: Map › Dock — the two dock modes are cards */
+.vt-dock-card { padding: var(--vt-gap-2) var(--vt-pad) var(--vt-gap-3); }
+.vt-dock-card .vt-card-head { margin-bottom: var(--vt-gap-2); }
+.vt-dock-card .vt-card-head .form-check { margin: 0 0 0 auto !important; min-height: 0; padding-left: 1.6em; display: inline-flex; align-items: center; gap: 6px; }
+.vt-dock-card .vt-card-head .form-check-input { margin: 0 0 0 -1.6em; float: none; }
+.vt-dock-card .vt-card-head .form-check-label { font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+.vt-dock-card:has(.form-check-input:checked) { --vt-st-glow: var(--vt-glow-ok); --vt-st-edge: var(--vt-edge-ok); }
+.vt-dock-card .vt-seg > .btn { min-height: 34px; }
+.vt-dock-card #dock_div_map_status:not(:empty), .vt-dock-card #dock_div_intensity_status:not(:empty) { margin-top: var(--vt-gap-2); }
+/* Map › Loc: one card — head, the action row, the status line */
+.vt-gloc-card { padding: var(--vt-gap-2) var(--vt-pad) var(--vt-gap-3); }
+.vt-gloc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.vt-gloc-row .form-check { margin: 0 4px 0 2px !important; min-height: 0; }
+.vt-gloc-row .form-check-label { font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+.vt-gloc-status { display: flex; align-items: baseline; gap: 8px; margin-top: var(--vt-gap-2); font-size: var(--vt-fs-sm); }
+.vt-gloc-status .vt-label { margin: 0; flex: 0 0 auto; }
+.vt-gloc-status #gloc_status { min-width: 0; overflow-wrap: anywhere; }
+/* Map › Path / Point: an empty list says so (same quiet box as elsewhere) */
+#div_menu_path_items_row:empty::before,
+#div_menu_point_items_row:empty::before {
+    display: block; padding: var(--vt-gap-2); text-align: center;
+    font-size: var(--vt-fs-sm); color: var(--vt-muted);
+    border: 1px dashed var(--vt-border-strong); border-radius: var(--vt-r-card);
+    margin-bottom: var(--vt-gap-2);
+}
+#div_menu_path_items_row:empty::before { content: "No saved paths on this map yet."; }
+#div_menu_point_items_row:empty::before { content: "No saved points on this map yet."; }
