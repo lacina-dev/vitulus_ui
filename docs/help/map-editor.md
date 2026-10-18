@@ -12,8 +12,9 @@ keywords: [editor, zone, zones, waypoint, path, obstacle, barrier, free, geofenc
 # Map editor
 
 **Map › Map › Edit map** (✎ next to the active map) opens the editor: the map from above, the
-tools in a grid, lists of what exists. The robot stays drivable while you edit. **Close editor**
-or **✕** returns to the Map panel.
+tools in a grid, lists of what exists (**Map edits**, **Waypoints**, **Paths**, **Zones**). The
+robot stays drivable while you edit. The expand button widens the editor; **Close editor** or **✕**
+returns to the Map panel.
 
 ## Tools
 
@@ -21,11 +22,11 @@ or **✕** returns to the Map panel.
 |---|---|
 | **Pan** | drag and zoom the map |
 | **Waypoint** | click to place, type a name and a heading (0–359.5°, an orange arrow), **Save**. Click an existing dot to select it, then move or delete it |
-| **Path** | click points, then **Finish** |
+| **Path** | click points, then **Finish**. Click an existing path to edit or delete it |
 | **Obstacle (area)** | at least 3 points, **Finish** — the robot will not drive there |
 | **Free (clear area)** | marks an area as drivable (removes a false obstacle) |
 | **Barrier (line)** | a virtual line the robot must not cross; width 0.02–2 m (default 0.10) |
-| **Delete** | click an edit to remove it |
+| **Delete** | click an edit (obstacle, free area, barrier) to remove it |
 | **Geofence** | click the perimeter, then **Send proposal** — see below |
 
 **Show** switches the editor layers on and off: waypoints, paths, edits, zones. Saved edits

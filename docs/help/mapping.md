@@ -21,6 +21,8 @@ coordinates, so a map stays aligned with GPS and the aerial photo.
 **Map › Map** shows *Active map: name* at the top, and one card per saved map with chips
 (*active*, *recording*, *no session*), its area, the number of sessions and programs.
 
+Click a card to show that map in the 3D view and open its layers (below).
+
 - **Activate** — the robot localizes and navigates on this map from now on.
 - **Edit map** (next to the active map) — opens the [map editor](map-editor.md). Only with an
   active map.
@@ -39,52 +41,55 @@ ok: Save & finish | best while docked
 Active | the new map is active at once
 ```
 
-1. **Map › Map › Map recording**: type a **name** (letters, digits, `_` and `-`).
+1. **Map › Map › Map recording**: type a **name** (letters, digits, `_` and `-`; with any other
+   character the robot does not start the recording).
 2. Press **Start recording** and drive the robot over the whole area (joystick, slow speed).
    Drive along the edges and around obstacles; good RTK makes the map land in the right place.
 3. Finish in the dock and press **Save & finish**. The map is saved and becomes **active**.
 
 > [!TIP]
-> Ending the recording **while docked** automatically creates the *docked* point and ties the dock
-> to the map — the dock and undock then work without further setup. If the session never had
-> stable RTK, the log warns *captured NO georef datum… remap with good GPS*.
+> Ending the recording **while docked** automatically creates the *docked* point (the robot's pose
+> in the dock), which seeds the localization in the dock. The DOCK and UNDOCK points are set
+> separately in **Map › Dock** ([Dock and undock](dock.md#the-points)). If the session never had
+> stable RTK, the robot's log warns *captured NO georef datum… remap with good GPS*.
 
 While recording:
 
 - **Erase & keep recording** — wipes what was recorded so far, keeps recording (click twice).
-- **Discard (no save)** — ends the recording and throws it away; the active map stays as it was
-  (click twice).
+- **Discard (no save)** — ends the recording and throws it away, nothing of it is saved; the
+  robot goes back to a saved map (click twice).
 - **Environment preset** and *Advanced sensing tuning* — obstacle detection settings, live; only
   while recording.
 - *Localization while recording* — how the robot localizes during this recording.
 
 ## Extend a map
 
-Start a recording with the **existing name** of the map. The robot shows the current map while
-you drive, and the new session is added as a new **layer**. Where sessions overlap, the newer one
-wins.
+Start a recording with the **existing name** of the map (pick it from the list under the name
+field). That map becomes active while you record, so the robot localizes on what it already knows,
+and the new session is added as a new **layer**. Where sessions overlap, the newer one wins.
 
 ## Sessions, layers and the combined map
 
-Open a map's card to see its **layers** — one per recording session, newest first:
+Open a map's card to see the **combined map** (👁 preview, **Activate**, ↻ rebuild) and its
+**layers** — one per recording session, named by its date, newest first:
 
 - the switch includes / excludes the session from the **combined map**,
 - 👁 previews it (blue, changes nothing),
 - **Activate** uses this one session alone (a warning then says the combined map is not used),
-- **Delete** (click twice) removes it.
+- 🗑 (click twice) removes it; the session that is active cannot be deleted.
 
 The **combined map** merges all included sessions by their GPS positions. It is rebuilt
-automatically after Save & finish, a layer delete or a switch; there is also a manual rebuild.
+automatically after Save & finish, a layer delete or a switch; ↻ rebuilds it by hand.
 
 ## What you see on the map (layers)
 
 Tick the layers under the map list: **Base** (cyan, the navigation map), **Saved** (red, the
-active map), **Direct** (the live recording), **Preview** (blue), **Terrain** (height: blue low,
+active map), **Direct** (black, the live recording), **Preview** (blue), **Terrain** (height: blue low,
 red high), **Aerial** (satellite photo), **Rain** (radar).
 
 **Display (layers)** sets their opacity, the robot marker colours, the aerial photo source
-(satellite / ČÚZK / OSM), zoom and an alignment nudge (saved per map), the rain radar and the
-terrain. **Clear costmaps** forgets the obstacles the robot currently remembers — it does not
+(satellite / ČÚZK / OSM), zoom and an alignment nudge (saved on the robot for each map and tile
+source), the rain radar, and shows the terrain (DEM) status. **Clear costmaps** forgets the obstacles the robot currently remembers — it does not
 change any saved map.
 
 > [!NOTE]
