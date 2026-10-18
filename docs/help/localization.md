@@ -26,23 +26,23 @@ The first chip says **who owns the pose now**:
 
 | Chip | Colour | Meaning |
 |---|---|---|
-| `RTK` | green | GPS owns the pose. A fix must first prove itself over about 1 m of driving — standing still never proves it. |
+| `RTK` | green | GPS owns the pose. A fix must first prove itself: about 1 m of driving, or about 10 s standing still with a steady fix and a good heading. |
 | `DOCK` | green | Anchored by the dock. |
 | `TRACKER` | orange | The lidar scan matched against the site map. |
 | `RTABMAP` | orange | Camera / lidar map localization (older maps). |
 | `EXT` | orange | An external or legacy source. |
-| `DEAD-RECKON` / `DR` | red | No absolute anchor — the position drifts. Drive with care, stop longer missions. |
+| `DEAD-RECKON` / `DR (…)` | red | No absolute anchor — the position drifts (the bracket says which odometry carries it, e.g. `DR (LICP)`). Drive with care, stop longer missions. |
 
 The small chips next to it: **VO / Li / Wh** = visual, lidar and wheel odometry (green = usable,
-outlined = in use), **FIX** = a usable raw RTK fix, **hdg SAT / IMU** = heading from the two GPS
-antennas or from the IMU fallback.
+outlined = in use), **FIX** = a usable raw RTK fix, **PROB** = the GPS fix has proven itself (see
+`RTK` above), **hdg SAT / IMU** = heading from the two GPS antennas or from the IMU fallback.
 
 **GNSS** line:
 
 | Shown | Meaning |
 |---|---|
 | `GBAS` | RTK fixed — the good state |
-| `FIX` | a standard fix (also RTK float) — metres, not centimetres |
+| `FIX` | a standard fix (also RTK float) — not centimetre-exact |
 | `SBAS` | satellite-augmented fix |
 | `NO FIX` | no position from GPS |
 | `fix —` | no data |
@@ -51,8 +51,8 @@ antennas or from the IMU fallback.
 | `hdg ±°` | heading accuracy: green ≤ 2°, orange ≤ 6°, red above; `—` = no RTK heading |
 
 The two GPS icons in the navbar ([Status icons](status-icons.md)) say the same in one colour:
-green = RTK, orange = a 3D fix without RTK (or float), red = bad, grey = no data. **Undock and
-dock wait for both to be green.**
+green = RTK, orange = a 3D fix without RTK (or float), red = bad, grey = no data. **Undocking
+waits for both to be green** (docking only when it first has to load the outdoor dock map).
 
 ## When GPS does not fix
 
@@ -80,4 +80,4 @@ the robot is lost (`DEAD-RECKON`, or the robot on the map is obviously in the wr
 
 > [!TIP]
 > A pose that jumps right after undocking usually settles once RTK proves itself (about 1 m of
-> driving in open sky). If the robot is far off, stop, use Loc, then continue.
+> driving, or a short stop, in open sky). If the robot is far off, stop, use Loc, then continue.

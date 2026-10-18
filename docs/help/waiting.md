@@ -31,6 +31,9 @@ A program also refuses to start when:
 - it **rains now**, rained in the last 60 minutes, or rain is forecast within 30 minutes
   (unless the rain checks are switched off — see [below](#rain-checks-on--off)).
 
+A calendar program refused for the battery sleeps until charged, one refused for rain sleeps 4 h —
+then the robot tries again.
+
 ### Rain checks on / off
 
 `weather_rain_bypass` switches the rain checks — both the one before the start and the one
@@ -59,8 +62,9 @@ applies again.
 | Terminal error | waits 20 min, resets, then sleeps 8 h |
 | Stopped by a person | nothing automatic — start it again yourself |
 
-Resuming needs at least 40 % battery. Recovery sleeps are shortened so the robot is awake for the
-next scheduled program. A program that ends off the dock waits 20 minutes for the robot to come
+Resuming needs at least 40 % battery and applies to programs the calendar started; a program you
+started yourself is not resumed (only a critical error still sleeps). Recovery sleeps are shortened so the robot is awake for the next
+scheduled program. A program that ends off the dock waits 20 minutes for the robot to come
 back, then the robot goes to an emergency sleep.
 
 ## Weather (Map › Rain)
@@ -74,4 +78,4 @@ radar image and the **forecast** (+10 / 20 / 30 min). The images refresh every 3
 
 The temperature icons (board, outside) and the motor icons turn orange when warm and red when
 hot. The power module has its own temperature limits (**Settings › Power**); the safety node
-switches the drive motors off above 70 °C.
+switches the drive motors off when one of them is above 70 °C, and the mower motor likewise.

@@ -23,7 +23,7 @@ The robot counts as **docked when the charger supplies power** (supply icon gree
 Motors on | the program switches the drive motors on
 Back out | intensity: drives 1.25 m out of the dock
 To UNDOCK | by the site map, to the UNDOCK point
-warn: Wait for RTK | both GPS receivers RTK for 5 s (max 10 min)
+warn: Wait for RTK | both GPS receivers RTK and GPS odometry ready for 5 s (max 10 min)
 ok: Ready | motors stay on
 ```
 
@@ -31,7 +31,7 @@ ok: Ready | motors stay on
 - With a site map that has an **UNDOCK** point the robot first drives out to that point and only
   then waits for GPS — under the roof edge of the dock the fix is often poor.
 - *Waiting for RTK fix* in the status bar means the robot stands and waits for both GPS icons to
-  turn green. Losing RTK restarts the 5 s count. After 10 minutes the undock aborts with
+  turn green (and for the GPS odometry to settle). Losing RTK restarts the 5 s count. After 10 minutes the undock aborts with
   *Navigation readiness timeout*.
 
 ## Dock
@@ -59,12 +59,12 @@ For setting up and for manual tests; normally the right panel's Dock / Undock is
 
 | Part | What it does |
 |---|---|
-| Dock by lidar map | Enable, Predock, Dock, Undock, Stop — the lidar dock-map stage alone |
-| Dock by intensity | Enable, Dock, Undock, Stop — the reflector stage alone |
+| Dock by lidar map | enable switch, Predock, Dock, Undock, Stop — the lidar dock-map stage alone |
+| Dock by intensity | enable switch, Dock, Undock, Stop — the reflector stage alone |
 | Dock / undock points | **Navi** drives to the DOCK or UNDOCK point; **Update** saves the robot's *current* position as that point |
-| Dock detector map | New, Edit, Save — the lidar picture of the dock |
+| Dock detector map | New map, Edit map, Save map — the lidar picture of the dock |
 | Localization seed | the *docked* pose used to localize in the dock; says *docked waypoint MISSING* when it is not set |
-| Dock program / Undock program | tick the steps (dock map point, lidar map path, intensity), then **Execute** or **Save** |
+| Dock program / Undock program | tick the steps (map point, lidar map path, intensity action), then **Execute** or **Save** |
 
 The manual cards bypass the dock state machine — use them only while you watch the robot.
 

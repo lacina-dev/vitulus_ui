@@ -27,7 +27,7 @@ tuto aplikaci. **?** v hlavičce panelu skočí na záložku, kterou máš otev�
 ## Navigace
 
 - **Speed** SLOW / MODERATE / FAST — totéž nastavení jako Slow / Mid / Fast v pravém panelu
-  ([rychlosti](routes.md#speed)).
+  ([rychlosti](routes.md#rychlost)).
 - **Lidar** ON / OFF.
 - **RtabMap** zdroj senzoru (Camera / Lidar / Both) a vzdálenost — pro starší lokalizaci
   RTAB-Map; běžně se nemění.
