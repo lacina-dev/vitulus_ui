@@ -235,16 +235,18 @@
 
 /* ------------------------------------------------------ ?mock badge */
 .vt-mock-badge {
+    /* P17: dev-only badge sits low on the left, just above the bottom bar,
+       so it never covers the top of the C (agent strip, notices, menu) */
     position: fixed;
-    left: 50%;
-    top: calc(var(--navbar-h, 42px) + var(--safe-top, 0px) + 4px);
-    transform: translateX(-50%);
+    left: calc(var(--vt-frame-cleft, 12px) + 6px);
+    bottom: calc(var(--vt-frame-bottom, 40px) + 6px);
     z-index: 2000;
+    opacity: .9;
     display: flex;
     align-items: center;
     gap: 8px;
-    max-width: min(92vw, 560px);
-    padding: 3px 10px 3px 4px;
+    max-width: min(70vw, 460px);
+    padding: 2px 8px 2px 3px;
     border: 1px solid var(--vt-edge-warn);
     border-radius: var(--vt-r-ctl);
     background: rgba(28, 35, 41, 0.92);
@@ -849,3 +851,38 @@ a.vt-needs-btn {
 .vt-cal-state[data-state="off"] { color: var(--vt-muted); border-color: var(--vt-border-strong); }
 #card_calendar .vt-card-head .form-switch { margin-left: 8px; }
 .vt-cal-line { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--vt-fs-sm); margin: -2px 0 var(--vt-gap-2); min-height: 1.2em; }
+
+/* ============ P18: the status icon strip reads as part of the C frame
+   One box per icon (the Nextion PNGs are 11–29 px wide → uneven rhythm),
+   even gaps, and ONE tone language: OK = quiet (muted light grey), warning
+   = amber, fault = red, no data = faint. The icon files are untouched — the
+   tone comes from the colour already in their file name (_green / _orange /
+   _red / _grey), which dashboard.js swaps by state. */
+#status_div.sh-strip { column-gap: 12px; }
+#status_div.sh-strip .sh-group { gap: 4px; }
+#status_div.sh-strip img {
+    width: 16px !important; height: 16px !important;
+    object-fit: contain;
+    transition: filter var(--vt-ease), opacity var(--vt-ease);
+}
+#status_div.sh-strip img[src*="_green"],
+#status_div.sh-strip img[src*="batt_full"], #status_div.sh-strip img[src*="battCHARGE_full"],
+#status_div.sh-strip img[src*="batt_34"], #status_div.sh-strip img[src*="battCHARGE_34"],
+#status_div.sh-strip img[src*="batt_half"], #status_div.sh-strip img[src*="battCHARGE_half"] {
+    filter: grayscale(1) brightness(1.6); opacity: .62;
+}
+#status_div.sh-strip img[src*="_grey"], #status_div.sh-strip img[src*="_disabled"] {
+    filter: grayscale(1); opacity: .32;
+}
+#status_div.sh-strip img[src*="_orange"], #status_div.sh-strip img[src*="batt_14"],
+#status_div.sh-strip img[src*="battCHARGE_14"] {
+    filter: saturate(1.1) drop-shadow(0 0 3px rgba(var(--vt-warn-rgb), .45));
+}
+#status_div.sh-strip img[src*="_red"], #status_div.sh-strip img[src*="_empty"] {
+    filter: drop-shadow(0 0 3px rgba(var(--vt-err-rgb), .55));
+}
+@media (max-width: 575.98px) {
+    #status_div.sh-strip { column-gap: 8px; }
+    #status_div.sh-strip .sh-group { gap: 2px; }
+    #status_div.sh-strip img { width: 13px !important; height: 13px !important; }
+}
