@@ -3605,8 +3605,13 @@
                 }).catch(function (e) { b.disabled = false; b.title = 'archive failed: ' + e; });
             }));
         }
-        acts.appendChild(policySelect(j));
-        acts.appendChild(autoApproveToggle(j));
+        // the policy (report ▾ + auto-approve) is one group: on a narrow card
+        // it wraps as a whole instead of leaving one control alone on a line
+        var pol = document.createElement('span');
+        pol.className = 'vagent-polgrp';
+        pol.appendChild(policySelect(j));
+        pol.appendChild(autoApproveToggle(j));
+        acts.appendChild(pol);
         acts.appendChild(deleteBtn(j));
         card.appendChild(acts);
 

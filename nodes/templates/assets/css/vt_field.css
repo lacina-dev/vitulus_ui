@@ -675,3 +675,19 @@ a.vt-needs-btn {
 }
 #div_log_toolbar .form-control::placeholder { color: var(--vt-faint); }
 #div_log_toolbar .form-control:focus { border-color: var(--vt-edge-info); box-shadow: 0 0 0 0.15rem rgba(var(--vt-accent-rgb), 0.2); }
+
+/* ============ P8: job cards (Agent › Work)
+   - "auto-approve on" was said twice (tag in the head + the toggle in the
+     action row): the toggle is the state AND the control, the head tag goes
+     when the card has the toggle;
+   - the delete button no longer wraps alone onto a second line: the run
+     actions (Run · Follow up · archive · delete) stay together on the left,
+     the policy (report ▾ · auto-approve) on the right — when the row is too
+     narrow, the policy wraps as one group. */
+#vagent_panel .vagent-ujob:has(.sa .autoap) > .st .vagent-pill.autoap { display: none; }
+#vagent_panel .vagent-ujob .sa > .ja.danger { order: 1; }
+#vagent_panel .vagent-ujob .sa > .vagent-polgrp {
+    order: 2; display: inline-flex; align-items: center; gap: 5px;
+    margin-left: auto; flex-wrap: nowrap; max-width: 100%;
+}
+#vagent_panel .vagent-ujob .vagent-polgrp > .vagent-policy { margin-left: 0; }
