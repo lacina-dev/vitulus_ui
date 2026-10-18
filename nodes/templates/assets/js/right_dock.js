@@ -7,10 +7,14 @@
  *   0. Horní řádek — follow + název aktivní mapy (telefon: + tečky, baterie)
  *   1. Controls    — rychlost (Slow/Mid/Fast), klávesnicový teleop,
  *                    baterie + Dock/Undock/Stop
- *   2. Mower       — jen když je sekačka zapnutá: stav, nůž rpm, výška, teplota
- *   3. Navi        — Pose/VO/Li/Wh/FIX/PROB/ANC, tracker, RtabMap
- *   4. GNSS        — karta obou přijímačů, sbaleně souhrnný řádek
- *   5. Kamera      — malý živý náhled
+ *   2. Mower       — jen když je sekačka zapnutá, jen hlavička: stav, nůž, výška
+ *   3. Navi        — hlavička: kdo drží polohu + kurz; řádek VO/Li/Wh/FIX/PROB/ANC
+ *   4. GNSS        — jen hlavička: fix Poloha · Kurz · SV · stáří korekcí · ›
+ *   5. Kamera      — tečka stavu streamu, malý živý náhled
+ *
+ * Hlavičky sekcí nesou stav barevnými značkami (slova v tooltipu); dlouhé
+ * texty (karta GNSS, řádky trackeru, RtabMap) jsou v levém panelu › Mapa ›
+ * Loc (buildLocCard), › v řádku GNSS je otevře.
  *
  * Prvky se REPARENTUJÍ i s id, takže je map_view.js dál obsluhuje beze změny
  * (nastavuje jim text i display). Výjimka je kamera: #div_camera_view vlastní
@@ -51,24 +55,28 @@
        Navi (kdo drží polohu, odometrie, tracker, RtabMap) → GNSS (JEDEN zdroj
        pravdy = karta přijímačů; sbaleno = souhrnný řádek v hlavičce, staré
        řádky GNSS z Navi jsou pryč) → Camera. */
+    /* 2026-10-18 later (owner: "the right panel is not for essays … the
+       colour alone should carry it; the camera no longer fits"; and "the
+       Navi sub-panel can carry info in its HEADER"): every section head is
+       a row of coloured tokens (right-aligned, words in tooltips), the body
+       holds only what does not fit there. Long texts live in the LEFT
+       panel › Map › Loc (GNSS card, tracker lines, RtabMap — buildLocCard).
+         Controls: head ⚡ battery % · motors; body speed + Dock/Undock/Stop
+         Mower:    head only — state chip · blade dot + rpm · height · temp if hot
+         Navi:     head pose owner + heading source; body VO Li Wh FIX PROB ANC
+         GNSS:     head only — Position · Heading fix · satellites · correction
+                   age dot · › (opens the left panel's GNSS card)
+         Camera:   head stream dot + Off / S / L; body the picture */
     var SECTIONS = [
         {id: 'drive', title: 'rdock.sec.drive',
-         /* rychlost + klávesnicový teleop na JEDEN řádek (ušetřený řádek) */
          line: ['div_status_speed', 'div_status_speed-1'],
-         movees: ['div_status_speed-2'], collapsible: true},
-        /* mower: status in the head chip, blade RPM / height / temperature
-           below; the section exists only while /mower/status is not OFF/UNK */
-        {id: 'mower', title: 'rdock.sec.mower', mower: true, collapsible: true},
-        {id: 'state', title: 'rdock.sec.state',
-         movees: ['div_odom', 'div_rtabmap'],
-         collapsible: true},
-        /* GNSS: both F9P receivers side by side (Position | Heading) — fix,
-           satellites, RTCM corrections, warm-up and why not RTK yet. Folded
-           by default: the head then carries the one-line summary. The old
-           /gnss/fix rows (#div_gnss) said the same thing again — hidden here
-           (kept in the DOM: map_view.js still writes into them). */
-        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss_rx', 'div_gnss'],
-         collapsible: true, folded: true, gsum: true},
+         movees: ['div_status_speed-2'], collapsible: true, drive: true},
+        {id: 'mower', title: 'rdock.sec.mower', mower: true, headOnly: true},
+        {id: 'state', title: 'rdock.sec.state', movees: ['div_odom'],
+         collapsible: true, navi: true},
+        /* the old /gnss/fix rows (#div_gnss) stay hidden here: map_view.js
+           still writes into them */
+        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss'], gsum: true, headOnly: true},
         {id: 'camera', title: 'rdock.sec.camera', movees: [], camera: true, collapsible: true}
     ];
 
@@ -233,6 +241,7 @@
         SECTIONS.forEach(function (def) {
             var sec = el('section', 'rp-sec', body);
             sec.setAttribute('data-sec', def.id);
+            if (def.headOnly) { sec.classList.add('rp-head-only'); }
             var h = el('h5', null, sec);
             /* the title in its own span: the h5 also holds the caret and the
                camera switch, a tag on the h5 would wipe them */
@@ -284,10 +293,15 @@
                     moved++;
                 });
             }
+            if (def.drive) { buildDriveHead(h); }
+            if (def.navi) { buildNaviHead(h); }
             if (def.mower) { moved = buildMower(sec, h, box); }
             if (def.gsum) { buildGnssSum(sec, h); }
             if (def.camera) {
-                camState = el('span', 'rp-state', h);
+                /* stream state = one dot (green live, amber starting /
+                   waiting, grey off / paused); the word is its tooltip */
+                camState = el('span', 'rp-tdot rp-cam-dot', h);
+                camState.dataset.state = 'off';
                 /* C frame 3: one clear switch — Off (= folded, no stream) /
                    Small (preview here) / Large (the camera takes the map's
                    place, the map comes here). Alt+C toggles small/large. */
@@ -339,39 +353,100 @@
         handle.addEventListener('click', function () { setOpen(!isOpen()); });
     }
 
+    // ------------------------------------------------------ hlavičky sekcí
+    /* Head tokens: a right-aligned row in the section head; the caret (and
+       the "?" vt_help.js puts before it) stay last. */
+    function headTokens(h) {
+        var w = el('span', 'rp-htok', h);
+        var caret = h.querySelector('.rp-caret');
+        if (caret) { h.appendChild(caret); }
+        return w;
+    }
+    function tdot(parent, cls) {
+        var d = el('span', 'rp-tdot' + (cls ? ' ' + cls : ''), parent);
+        d.dataset.state = 'off';
+        return d;
+    }
+    /* while the panel is being built it is not in the document yet */
+    function byId(id) {
+        return document.getElementById(id) || (panel && panel.querySelector('#' + id));
+    }
+    function setTip(e, tip) {
+        if (e.title !== tip) { e.title = tip; e.setAttribute('aria-label', tip); }
+    }
+
+    /* Controls head: ⚡ (green in the dock / charging, dock.js) · battery %
+       (its own colour, map_view.js) · motors chip (mirrors the joystick's) */
+    function buildDriveHead(h) {
+        var w = headTokens(h);
+        ['dock_icon_in_dock', 'span_batt_pct'].forEach(function (id) {
+            var e = byId(id);
+            if (e) { w.appendChild(e); }
+        });
+        var mot = el('span', 'vt-chip vt-chip-sm rp-mot', w);
+        mot.id = 'rp_motors';
+        mot.textContent = 'MOT';
+        mot.dataset.state = 'off';
+        var paint = function () {
+            var src = document.querySelector('#joy_view .vt-joy-motors');
+            var st = (src && src.getAttribute('data-state')) || 'off';
+            if (mot.dataset.state !== st) { mot.dataset.state = st; }
+            var key = st === 'ok' ? 'rdock.mot.on' : (st === 'warn' ? 'rdock.mot.off' : 'rdock.mot.unknown');
+            setTip(mot, t(key));
+        };
+        paint();
+        relang.push(paint);
+        setInterval(paint, 1500);
+    }
+
+    /* Navi head: who owns the pose (chip) + heading source SAT / IMU; the
+       body keeps one row of odometry chips VO Li Wh FIX PROB ANC */
+    function buildNaviHead(h) {
+        var w = headTokens(h);
+        ['span_odom_drive', 'span_odom_hdg'].forEach(function (id) {
+            var e = byId(id);
+            if (e) { e.classList.add('vt-chip-sm'); w.appendChild(e); }
+        });
+    }
+
     // ------------------------------------------------------------ sekačka
     /* The mower block (#div_mower_info_panel) is driven by map_view.js
        (Mower.process): display none while OFF/UNK, its spans get text and
-       colour. Here: the status goes to the section head as a chip, RPM /
-       height / temperature into three labelled cells, and the whole section
-       (and the phone's dot) follows the block's display. */
+       colour. Here everything is the section HEAD: state chip · blade dot +
+       rpm · cut height · temperature only when hot; the section (and the
+       phone's dot) follows the block's display. */
+    var MOWER_HOT = 50, MOWER_TOO_HOT = 60;     // °C: amber / red token
     function moverState(st) {
         var c = (st && st.style && st.style.color) || '';
         return c.indexOf('success') >= 0 ? 'ok' : (c.indexOf('danger') >= 0 ? 'err' : 'warn');
     }
+    function num(e) {
+        var n = parseFloat(((e && e.textContent) || '').replace(/[^0-9.\-]/g, ''));
+        return isNaN(n) ? null : n;
+    }
     function buildMower(sec, h, box) {
         var src = document.getElementById('div_mower_info_panel');
         if (!src) { return 0; }
-        var chip = el('span', 'vt-chip vt-chip-sm rp-head-chip', h);
+        var w = headTokens(h);
+        var chip = el('span', 'vt-chip vt-chip-sm', w);
         chip.id = 'rp_mower_chip';
         chip.dataset.state = 'off';
-        var grid = el('div', 'rp-cells', box);
-        [['span_mower_panel_rpm', 'rdock.mower.blade'], ['span_mower_panel_height', 'rdock.mower.height'],
-         ['span_mower_panel_temp', 'rdock.mower.temp']].forEach(function (d) {
-            var v = document.getElementById(d[0]);
-            if (!v) { return; }
-            var cell = el('div', 'rp-cell', grid);
-            var k = el('span', 'rp-cell-k', cell);
-            k.textContent = t(d[1]);
-            tag(k, d[1]);
-            v.className = 'rp-cell-v';
-            cell.appendChild(v);
-        });
+        var blade = tdot(w, 'rp-blade');
+        blade.id = 'rp_mower_blade';
+        var rpm = el('span', 'rp-tv', w);
+        rpm.id = 'rp_mower_rpm';
+        var hgt = el('span', 'rp-tv', w);
+        hgt.id = 'rp_mower_height';
+        var tmp = el('span', 'rp-tv', w);
+        tmp.id = 'rp_mower_temp';
         neutralize(src);
-        box.appendChild(src);                 // hidden (CSS), the visibility signal
+        box.appendChild(src);                 // hidden (CSS), the source + visibility signal
         /* the panel is not in the document yet while it is being built:
            look up inside it, not via document.getElementById */
         var st = src.querySelector('#span_mower_panel_status');
+        var vR = src.querySelector('#span_mower_panel_rpm');
+        var vH = src.querySelector('#span_mower_panel_height');
+        var vT = src.querySelector('#span_mower_panel_temp');
         var mdot = panel.querySelector('#rp_sum_dot_mower');
         var paint = function () {
             var on = src.style.display !== 'none';
@@ -379,7 +454,20 @@
             var state = on ? moverState(st) : 'off';
             if (chip.textContent !== txt) { chip.textContent = txt; }
             if (chip.dataset.state !== state) { chip.dataset.state = state; }
+            setTip(chip, t('rdock.sec.mower') + ': ' + (txt || '—'));
             if (sec.dataset.tone !== state) { sec.dataset.tone = state; }
+            var r = num(vR), hh = num(vH), tc = num(vT);
+            blade.dataset.state = r ? 'ok' : 'off';
+            setTip(blade, t(r ? 'rdock.mower.blade_on' : 'rdock.mower.blade_off'));
+            rpm.textContent = r ? (r >= 1000 ? (r / 1000).toFixed(1) + 'k' : String(Math.round(r))) : '';
+            setTip(rpm, t('rdock.mower.blade') + ': ' + (r != null ? Math.round(r) + ' rpm' : '—'));
+            hgt.textContent = hh != null ? '↕' + Math.round(hh) : '';
+            setTip(hgt, t('rdock.mower.height') + ': ' + (hh != null ? Math.round(hh) + ' mm' : '—'));
+            var hot = tc != null && tc >= MOWER_HOT;
+            tmp.textContent = hot ? Math.round(tc) + '°' : '';
+            tmp.style.display = hot ? '' : 'none';
+            tmp.dataset.state = hot ? (tc >= MOWER_TOO_HOT ? 'err' : 'warn') : 'off';
+            setTip(tmp, t('rdock.mower.temp') + ': ' + (tc != null ? Math.round(tc) + ' °C' : '—'));
             var disp = on ? '' : 'none';
             if (sec.style.display !== disp) { sec.style.display = disp; placeSoon(); }
             if (mdot) {
@@ -397,75 +485,140 @@
     }
 
     // ------------------------------------------------------- GNSS souhrn
-    /* One line for the folded GNSS section and the phone's dot, computed from
-       the same /gnss_status the card shows (window.gnss_rx, map_view.js):
-       "RTK RTK 25sv·0.5s" = Position fix, Heading fix, satellites
-       used and the correction age of the position receiver (the tooltip
-       adds used/visible). */
+    /* The GNSS head, computed from the same /gnss_status the card shows
+       (window.gnss_rx, map_view.js): Position fix · Heading fix · satellites
+       used · correction-age dot (green < 2 s, amber < 10 s, red older or
+       none) · › = the full card in the left panel › Map › Loc. */
     var RANK = {off: 0, ok: 1, warn: 2, err: 3};
+    var SHORT = {FLOAT: 'FLT', DGNSS: 'DGN', 'NO FIX': 'NO', NONE: 'NO'};
     function gnssSummary() {
         var g = window.gnss_rx;
         var d = g && g.last, fresh = d && (Date.now() - (g.last_at || 0)) < 5000;
         if (!fresh || typeof GnssRx === 'undefined') { return null; }
         var pos = d.rx && d.rx.gnss, hdg = d.rx && d.rx.gnss_heading;
         var sp = GnssRx.fixState(pos), sh = GnssRx.fixState(hdg);
-        var sv = '—', corr = '', svUsed = null;
+        var sv = '—', corr = '', svUsed = null, age = null, cs = 'off';
         if (pos && pos.alive) {
             var s = pos.sat, p = pos.pvt || {};
             sv = s ? s.used + '/' + s.visible : (p.num_sv != null ? String(p.num_sv) : '—');
             svUsed = s ? s.used : p.num_sv;
             var a = pos.rtcm && pos.rtcm.last_age_s;
+            age = a == null ? null : a;
             corr = a == null ? t('rdock.gnss.nocorr') : (a < 10 ? a.toFixed(1) : Math.round(a)) + 's';
+            cs = a == null ? 'err' : (a < 2 ? 'ok' : (a < 10 ? 'warn' : 'err'));
         }
         var worst = RANK[sp] >= RANK[sh] ? sp : sh;
         if (sp === 'off' && sh !== 'off') { worst = sh; }
         return {pos: [GnssRx.fixText(pos), sp], hdg: [GnssRx.fixText(hdg), sh],
-                sv: sv, svUsed: svUsed, corr: corr, worst: worst, posState: sp};
+                sv: sv, svUsed: svUsed, corr: corr, age: age, corrState: cs,
+                worst: worst, posState: sp};
     }
+    function shortFix(s) { s = String(s || '—'); return SHORT[s.toUpperCase()] || s; }
     function buildGnssSum(sec, h) {
-        var wrap = el('span', 'rp-gsum', h);
+        var wrap = el('span', 'rp-htok rp-gsum', h);
         wrap.id = 'rp_gnss_sum';
         var cp = el('span', 'vt-chip vt-chip-sm', wrap);
         var ch = el('span', 'vt-chip vt-chip-sm', wrap);
-        var tx = el('span', 'rp-gsum-t', wrap);
-        var caret = h.querySelector('.rp-caret');
-        if (caret) { h.appendChild(caret); }   // the caret stays last
+        var tx = el('span', 'rp-tv rp-gsum-t', wrap);
+        var cd = tdot(wrap, 'rp-corr');
+        var more = el('button', 'rp-more', h);
+        more.type = 'button';
+        more.id = 'rp_gnss_more';
+        more.textContent = '›';
+        setTip(more, t('rdock.gnss.more'));
+        more.addEventListener('click', function (ev) { ev.stopPropagation(); openLocTab(); });
         var gdot = panel.querySelector('#rp_sum_dot_gnss');
         var last = '';
         var paint = function () {
             var m = gnssSummary();
             var key = m ? [m.pos, m.hdg, m.sv, m.corr].join('|') : 'none';
-            var tip;
-            if (m) {
-                tip = t('gnssrx.pos') + ' ' + m.pos[0] + ' · ' + t('gnssrx.hdg') + ' ' + m.hdg[0] +
-                      ' · SV ' + m.sv + (m.corr ? ' · ' + t('gnssrx.r.corr') + ' ' + m.corr : '');
-            } else {
-                tip = t('rdock.gnss.nodata');
-            }
             if (key !== last) {
                 last = key;
-                cp.textContent = m ? m.pos[0] : '—';
+                cp.textContent = m ? shortFix(m.pos[0]) : '—';
                 cp.dataset.state = m ? m.pos[1] : 'off';
-                ch.textContent = m ? m.hdg[0] : '—';
+                setTip(cp, t('gnssrx.pos') + ': ' + (m ? m.pos[0] : '—'));
+                ch.textContent = m ? shortFix(m.hdg[0]) : '—';
                 ch.dataset.state = m ? m.hdg[1] : 'off';
-                /* the head has ~50 px left: used satellites + correction age
-                   ("24sv·0.5s"); used/visible is in the tooltip and the card */
-                tx.textContent = m ? (m.svUsed != null ? m.svUsed + 'sv' : '—') + (m.corr ? '·' + m.corr : '') : '';
+                setTip(ch, t('gnssrx.hdg') + ': ' + (m ? m.hdg[0] : '—'));
+                tx.textContent = m && m.svUsed != null ? String(m.svUsed) : '—';
+                tx.dataset.state = m && m.svUsed != null ? (m.svUsed >= 12 ? 'ok' : 'warn') : 'off';
+                setTip(tx, t('rdock.gnss.sv', {sv: m ? m.sv : '—'}));
+                cd.dataset.state = m ? m.corrState : 'off';
+                setTip(cd, t('gnssrx.r.corr') + ': ' + (m && m.corr ? m.corr : '—') + ' · ' + t('rdock.gnss.corr_code'));
                 sec.dataset.tone = m ? m.worst : 'off';
             }
-            if (wrap.title !== tip) { wrap.title = tip; }
+            var tip = m ? t('gnssrx.pos') + ' ' + m.pos[0] + ' · ' + t('gnssrx.hdg') + ' ' + m.hdg[0] +
+                ' · SV ' + m.sv + (m.corr ? ' · ' + t('gnssrx.r.corr') + ' ' + m.corr : '') : t('rdock.gnss.nodata');
             if (gdot) {
                 var gs = m ? m.posState : 'off';
                 if (gdot.dataset.state !== gs) { gdot.dataset.state = gs; }
-                var gt = 'GNSS: ' + tip;
-                if (gdot.title !== gt) { gdot.title = gt; gdot.setAttribute('aria-label', gt); }
+                setTip(gdot, 'GNSS: ' + tip);
             }
         };
         paint();
-        relang.push(function () { last = ''; paint(); });
-        var card = sec.querySelector('#div_gnss_rx') || document.getElementById('div_gnss_rx');
+        relang.push(function () { last = ''; paint(); setTip(more, t('rdock.gnss.more')); });
+        var card = document.getElementById('div_gnss_rx');
         if (card) { new MutationObserver(paint).observe(card, {childList: true}); }
         setInterval(paint, 2000);              // stale data → '—'
+    }
+
+    // ------------------------------------------ levý panel › Map › Loc
+    /* The long texts live in the LEFT panel (plenty of room there): one card
+       "GNSS & tracker" at the top of Map › Loc holds the receivers card
+       (#div_gnss_rx, GnssRx), the lidar tracker lines (map_view.js Odom
+       builds them inside #div_odom — they are moved here as soon as they
+       exist) and the RtabMap row. Elements move with their ids, so
+       map_view.js keeps writing into them. */
+    function buildLocCard() {
+        var tab = document.getElementById('tab-gloc');
+        if (!tab) { return; }
+        var card = document.getElementById('loc_gnss_card');
+        if (!card) {
+            card = el('div', 'vt-card vt-mb2 vt-locg-card');
+            card.id = 'loc_gnss_card';
+            var head = el('div', 'vt-card-head', card);
+            var ti = el('span', 'vt-card-title', head);
+            ti.textContent = t('locg.title');
+            tag(ti, 'locg.title');
+            var sub = el('span', 'vt-end', head);
+            sub.textContent = t('locg.sub');
+            tag(sub, 'locg.sub');
+            tab.insertBefore(card, tab.firstChild);
+        }
+        ['div_gnss_rx', 'div_rtabmap'].forEach(function (id) {
+            var e = document.getElementById(id);
+            if (e && e.parentNode !== card) { neutralize(e); card.appendChild(e); }
+        });
+        var trk = document.getElementById('loc_trk_box');
+        if (!trk) {
+            trk = el('div', 'vt-locg-trk');
+            trk.id = 'loc_trk_box';
+            var rt = document.getElementById('div_rtabmap');
+            card.insertBefore(trk, rt && rt.parentNode === card ? rt : null);
+        }
+        var tries = 0;
+        (function moveTrk() {
+            var rows = document.querySelectorAll('#right_panel .vt-trk-row');
+            Array.prototype.forEach.call(rows, function (r) { trk.appendChild(r); });
+            if (!trk.children.length && ++tries < 120) { setTimeout(moveTrk, 1000); }
+        })();
+    }
+
+    /* › in the GNSS head: the left panel › Map › Loc, scrolled to the card */
+    function openLocTab() {
+        var mm = window.map_menu;
+        try { if (mm && mm.show_map_panel) { mm.show_map_panel(); } } catch (e) {}
+        setTimeout(function () {
+            var a = document.querySelector('a[href="#tab-gloc"]');
+            if (a) {
+                try {
+                    if (window.bootstrap && bootstrap.Tab) { bootstrap.Tab.getOrCreateInstance(a).show(); }
+                    else { a.click(); }
+                } catch (e) { a.click(); }
+            }
+            var c = document.getElementById('loc_gnss_card');
+            if (c && c.scrollIntoView) { try { c.scrollIntoView({block: 'start'}); } catch (e) {} }
+        }, 80);
     }
 
     // ------------------------------------------------------- skrýt/zobrazit
@@ -769,10 +922,9 @@
         } else {
             camAsked = camAsked || Date.now();
         }
-        if (camState) {
-            var st = !on ? t('rdock.cam.st.starting') : (frames() ? t('rdock.cam.st.large') : t('rdock.cam.st.waiting'));
-            if (camState.textContent !== st) { camState.textContent = st; }
-        }
+        if (!on) { setCamSt('rdock.cam.st.starting', 'warn'); }
+        else if (frames()) { setCamSt('rdock.cam.st.large', 'ok'); }
+        else { setCamSt('rdock.cam.st.waiting', 'warn'); }
         var slotOk = !narrow && !compact && !folded;
         slot.style.display = slotOk ? 'block' : 'none';
         setCls(slot, 'idle', false);
@@ -799,6 +951,13 @@
         setCls(document.body, 'vt-map-mini', mini);
     }
 
+    function setCamSt(key, state) {
+        if (!camState) { return; }
+        if (camState.dataset.state !== state) { camState.dataset.state = state; }
+        var tip = t('rdock.sec.camera') + ': ' + t(key);
+        if (camState.title !== tip) { camState.title = tip; camState.setAttribute('aria-label', tip); }
+    }
+
     function paintCam() {
         var cam = document.getElementById('div_camera_view');
         var slot = document.getElementById('rp_cam_slot');
@@ -819,10 +978,10 @@
         setCls(document.body, 'vt-map-mini', false);
         setCls(document.body, 'vt-cam-paused', false);
 
-        if (camState) {
-            camState.textContent = !on ? (autoPaused ? t('rdock.cam.st.paused') : t('rdock.cam.st.off'))
-                : big ? t('rdock.cam.st.large') : (frames() ? t('rdock.cam.st.live') : t('rdock.cam.st.waiting'));
-        }
+        if (!on) { setCamSt(autoPaused ? 'rdock.cam.st.paused' : 'rdock.cam.st.off', 'off'); }
+        else if (big) { setCamSt('rdock.cam.st.large', 'ok'); }
+        else if (frames()) { setCamSt('rdock.cam.st.live', 'ok'); }
+        else { setCamSt('rdock.cam.st.waiting', 'warn'); }
         slot.style.display = eligible ? 'block' : 'none';
         slot.classList.toggle('idle', !on);
         /* „no signal" až po chvíli marného čekání — jinak by problikávalo při
@@ -974,6 +1133,7 @@
     /* tiny API for the frame (vt_frame.js) */
     window.VtRightDock = {
         place: function () { placeSoon(); },
+        openLoc: openLocTab,
         /* large camera asked for: open the panel and unfold the Camera section */
         reveal: function () {
             if (!panel) { return; }
@@ -987,6 +1147,7 @@
     function init() {
         if (document.getElementById('right_panel')) { return; }
         build();
+        buildLocCard();
         setOpen(isOpen());
         placeLog();
         place();

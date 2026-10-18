@@ -12,8 +12,8 @@ keywords: [sekačka, mower, nůž, blade, knife, výška sekání, cut height, v
 # Sekací ústrojí
 
 Programy si sekačku řídí samy. **Nastavení › Sekačka** slouží ke kontrole a ručnímu ovládání.
-Když je sekačka zapnutá, pravý panel ukáže pod Ovládáním sekci **Sekačka**: stav, otáčky nože,
-výšku sekání a teplotu na první pohled ([Pravý panel](frame.md#pravý-panel)).
+Když je sekačka zapnutá, pravý panel ukáže pod Ovládáním řádek **Sekačka**: čip stavu, tečku nože
+s otáčkami, výšku sekání a — jen když je horko — teplotu ([Pravý panel](frame.md#pravý-panel)).
 
 > [!CAUTION]
 > Nůž je nebezpečný. Ručně ho spouštěj jen s robotem na trávníku, nikdo nesmí být poblíž a druhou

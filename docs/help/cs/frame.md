@@ -53,27 +53,41 @@ systémové gesto). **STOP** je vždy vlevo dole, nikdy se nepřesouvá ani nezm
 
 ## Pravý panel
 
-Visí z horního pásu u pravého okraje:
+Visí z horního pásu u pravého okraje. Ukazuje **stav barvou, ne větami**: řádek s názvem každé
+sekce nese vpravo její stav jako malé barevné značky, slova jsou v popisku (najetí myší, na
+telefonu dlouhý stisk). Dlouhá vysvětlení jsou v levém panelu (**Mapa › Loc**, karta
+*GNSS a tracker*).
 
-- **Ovládání** — rychlost Slow / Mid / Fast, jízda klávesnicí, baterie a **Dock** /
-  **Undock** / **Stop** ([Dok a výjezd](dock.md)).
-- **Sekačka** — jen když je sekačka zapnutá: její stav (`READY`, `RUN`, `HEIGHT`, `ERR`…)
-  v řádku s názvem, pod ním otáčky nože, výška sekání a teplota ([Sekání](mowing.md)).
-  Vypnutá sekačka tu sekci vůbec nemá.
-- **Navi** — stav lokalizace ([co znamenají čipy](localization.md#jak-číst-stav-pravý-panel--navi)).
-- **GNSS** — oba přijímače GPS. Sbalená (výchozí) je to jeden řádek v názvu: fix Polohy, fix
-  Kurzu, použité satelity a stáří korekcí, např. `RTK RTK 24sv·0.5s`; rozbalená ukáže kartu
-  s oběma přijímači vedle sebe ([Přijímače GNSS](localization.md#přijímače-gnss-pravý-panel--gnss)).
-- **Kamera** — viz níže.
+**Jeden barevný kód všude:** zelená = v pořádku · oranžová (jantarová) = pracuje se na tom /
+ještě není přesné · červená = chyba nebo chybí data, která by tu měla být · šedá = vypnuto,
+pozastaveno nebo není co ukázat.
 
-Každá sekce se sbalí kliknutím na svůj název a zůstane, jak jsi ji nechal. Sekce se stavem
-(Sekačka, GNSS) má jemný barevný nádech: zelená = v pořádku, oranžová = zahřívá se / ještě není
-přesná, červená = chyba. Na telefonu (na výšku i na šířku) je pravý panel sbalený do jednoho
-řádku (mapa, poloha, GNSS, tečka sekačky, když je zapnutá, baterie, kamera, ▾) — ▾ ho rozbalí.
+- **Ovládání** — v řádku s názvem: ⚡ (zelený = v doku / nabíjí se), baterie v %, `MOT` (motory:
+  zelená zapnuté, oranžová vypnuté, šedá neznámo). Pod ním rychlost **Slow / Mid / Fast**, jízda
+  klávesnicí a **Dock / Undock / Stop** ([Dok a výjezd](dock.md)).
+- **Sekačka** — jeden řádek, jen když je sekačka zapnutá: čip stavu (`READY`, `RUN`, `HEIGHT`,
+  `ERR`…), tečka nože (zelená = točí se) s otáčkami (`3.2k`), výška sekání (`↕45` v mm)
+  a teplota — ta jen když je horko (oranžová od 50 °C, červená od 60 °C) ([Sekání](mowing.md)).
+  Vypnutá sekačka ten řádek vůbec nemá.
+- **Navi** — v řádku s názvem: kdo drží polohu (`DOCK`, `RTK`, `TRACKER`…) a zdroj kurzu
+  (`SAT` / `IMU`); pod ním jeden řádek čipů odometrie `VO Li Wh FIX PROB ANC`
+  ([co znamenají čipy](localization.md#jak-číst-stav-pravý-panel--navi)).
+- **GNSS** — jeden řádek: fix Polohy, fix Kurzu (`RTK`, `FLT` = float, `DGN` = DGNSS, `3D`,
+  `NO`), použité satelity (zeleně od 12) a tečka stáří korekcí (zelená < 2 s, oranžová < 10 s,
+  červená starší nebo žádné). **›** otevře celou kartu obou přijímačů v levém panelu
+  ([Přijímače GNSS](localization.md#přijímače-gnss-pravý-panel--gnss)).
+- **Kamera** — tečka v řádku s názvem (zelená = živý obraz, oranžová = startuje / čeká, šedá =
+  vypnuto) a přepínač Off / S / L; viz níže.
 
-![Sekce Ovládání pravého panelu s očíslovanými značkami](../img/shot-controls.webp "Ovládání: 1 rychlost Slow / Mid / Fast · 2 jízda klávesnicí · 3 baterie · 4 Dock · 5 Undock · 6 Stop (sekvence doku)") ![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Navi: 1 kdo vlastní polohu · 2 zdroj kurzu · 3 čipy odometrie · 4 lidarový tracker — vysvětleno v Lokalizaci")
+Ovládání, Navi a Kamera se sbalí kliknutím na název a zůstanou, jak jsi je nechal. Sekce se
+stavem (Sekačka, GNSS) má jemný barevný nádech. Všechno nad kamerou se vejde na jednu obrazovku,
+takže malý obraz kamery je vidět bez posouvání. Na telefonu (na výšku i na šířku) je pravý panel
+sbalený do jednoho řádku (mapa, poloha, GNSS, tečka sekačky, když je zapnutá, baterie, kamera,
+▾) — ▾ ho rozbalí.
 
-![Sekce Sekačka pravého panelu s očíslovanými značkami](../img/shot-rp-mower.webp "Sekačka (jen když je zapnutá): 1 stav · 2 otáčky nože · 3 výška sekání · 4 teplota") ![Sbalená sekce GNSS pravého panelu s očíslovanými značkami](../img/shot-rp-gnss.webp "GNSS sbaleně: 1 fix přijímače Poloha · 2 fix přijímače Kurz · 3 použité satelity · stáří korekcí")
+![Sekce Ovládání pravého panelu s očíslovanými značkami](../img/shot-controls.webp "Ovládání: 1 rychlost Slow / Mid / Fast · 2 jízda klávesnicí · 3 baterie · 4 Dock · 5 Undock · 6 Stop (sekvence doku)") ![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Navi: 1 kdo drží polohu · 2 zdroj kurzu · 3 čipy odometrie — vysvětleno v Lokalizaci")
+
+![Řádek Sekačka pravého panelu s očíslovanými značkami](../img/shot-rp-mower.webp "Sekačka (jen když je zapnutá): 1 stav · 2 tečka nože a otáčky · 3 výška sekání") ![Řádek GNSS pravého panelu s očíslovanými značkami](../img/shot-rp-gnss.webp "GNSS: 1 fix přijímače Poloha · 2 fix přijímače Kurz · 3 použité satelity · 4 stáří korekcí · 5 › celá karta v Mapa › Loc")
 
 ## Kamera
 

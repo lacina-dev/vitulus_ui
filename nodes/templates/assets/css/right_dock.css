@@ -285,33 +285,16 @@ body.rp-log-top #div_log_view {
 #right_panel .rp-sec[data-tone="err"]  { background: var(--vt-tint-err); }
 #right_panel .rp-sec > h5 { gap: 3px; min-width: 0; }
 #right_panel .rp-sec > h5 .rp-head-chip { margin-left: auto; white-space: nowrap; text-transform: none; letter-spacing: 0; }
-/* GNSS folded: "RTK RTK 25sv·0.5s" in the head; unfolded the card says it */
-.rp-gsum { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; min-width: 0;
-           text-transform: none; letter-spacing: 0; font-weight: 500; white-space: nowrap; overflow: hidden; }
-.rp-gsum .vt-chip { margin-left: 0 !important; }
-.rp-gsum-t { font-size: 10px; color: var(--vt-text, #e6e9ec); font-variant-numeric: tabular-nums;
-             overflow: hidden; text-overflow: ellipsis; margin-left: 2px; }
-#right_panel .rp-sec[data-sec="gnss"]:not(.folded) .rp-gsum { display: none; }
-/* folded, the summary takes the head's room; the "?" comes with the card */
-#right_panel .rp-sec[data-sec="gnss"].folded > h5 .vth-q { display: none; }
 /* the old /gnss/fix rows: same facts as the card — kept for map_view.js only */
 #right_panel #div_gnss { display: none !important; }
-/* RtabMap row: hidden while rtabmap is not running (map_view.js only toggles
-   visibility, which reserved an empty line in the panel) */
-#right_panel #div_rtabmap[style*="hidden"] { display: none !important; }
-/* Mower: three labelled cells, the status lives in the head chip */
+/* RtabMap row (left panel › Loc): hidden while rtabmap is not running */
+#div_rtabmap[style*="hidden"] { display: none !important; }
 #right_panel #div_mower_info_panel { display: none !important; }
-.rp-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; width: 100%; }
-.rp-cell { display: flex; flex-direction: column; min-width: 0; padding: 2px 4px; border-radius: 4px;
-           background: rgba(255, 255, 255, 0.04); }
-.rp-cell-k { font-size: 9px; color: var(--vt-muted, #9aa4ad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rp-cell-v { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; margin: 0 !important; }
-@media (pointer: coarse) { .rp-cell-k { font-size: 10px; } .rp-cell-v { font-size: 13px; } }
 
 /* ---- GNSS: both receivers side by side (map_view.js GnssRx, 2026-10-18).
    One panel anatomy: rounded tiles, state = a soft tint (vt_tokens), no side
    stripe. Two columns even at 196 px; text wraps, never clips. */
-#right_panel #div_gnss_rx { width: 100% !important; padding: 0 !important; }
+#div_gnss_rx { width: 100% !important; padding: 0 !important; }
 .vt-gx { display: flex; flex-direction: column; gap: 3px; width: 100%; font-size: 10px; line-height: 1.35; }
 .vt-gx-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 100%; }
 .vt-gx-col {
@@ -347,10 +330,69 @@ body.rp-log-top #div_log_view {
 /* touch: the whole card is the tap target */
 @media (pointer: coarse) { .vt-gx { font-size: 11px; } .vt-gx-more { font-size: 10px; padding: 2px 0; } }
 
-/* ---- Navi › Pose: lidar tracker lines (map_view.js Odom, 2026-10-18).
-   The block grows with the two text rows instead of the old fixed 66 px;
-   the text wraps at 190 px instead of clipping. */
-#right_panel #div_odom { height: auto !important; row-gap: 1px; }
+/* ---- Lidar tracker lines — left panel › Map › Loc (map_view.js Odom
+   builds them, right_dock.js moves them into #loc_gnss_card). */
 .vt-trk-row { min-width: 0; gap: 1px 3px; flex-wrap: wrap; }
 .vt-trk-row > .vt-trk-txt { flex: 1 1 100%; }
 .vt-trk-txt { font-size: 10px; line-height: 1.25; color: var(--vt-muted, #9aa4ad); min-width: 0; overflow-wrap: anywhere; }
+
+/* ---- Right panel = coloured tokens, 2026-10-18 (owner: "not for essays —
+   the colour alone carries it; the camera has to fit"). Section heads carry
+   the state, right-aligned; words are in the tooltips. One palette:
+   green ok · amber warn · red bad · grey off / no data (vt_tokens). */
+#right_panel .rp-sec > h5 { flex-wrap: nowrap; }
+.rp-htok {
+    display: inline-flex; align-items: center; gap: 3px; margin-left: auto;
+    min-width: 0; overflow: hidden; white-space: nowrap;
+    text-transform: none; letter-spacing: 0; font-weight: 600;
+}
+.rp-htok .vt-chip { margin-left: 0 !important; white-space: nowrap; flex: 0 0 auto; }
+.rp-htok #span_odom_drive { max-width: 76px; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+.rp-htok svg { flex: 0 0 auto; margin: 0 !important; font-size: 12px !important; }
+.rp-htok .vt-batt-pct { font-size: 11px; font-variant-numeric: tabular-nums; }
+.rp-tv { font-size: 11px; color: var(--vt-text, #e6e9ec); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.rp-tv[data-state="warn"] { color: var(--vt-warn); }
+.rp-tv[data-state="err"]  { color: var(--vt-err); }
+.rp-tdot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+    background: var(--vt-faint); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.rp-tdot[data-state="ok"]   { background: var(--vt-ok); }
+.rp-tdot[data-state="warn"] { background: var(--vt-warn); }
+.rp-tdot[data-state="err"]  { background: var(--vt-err); }
+.rp-cam-dot { margin-left: auto; margin-right: 2px; }
+.rp-more {
+    flex: 0 0 auto; margin-left: 2px; padding: 0 5px; min-width: 18px; height: 18px; line-height: 16px;
+    border: 1px solid var(--vt-edge-off, rgba(255,255,255,0.18)); border-radius: 4px;
+    background: transparent; color: var(--vt-accent, #0dcaf0); font-size: 13px; font-weight: 700;
+}
+.rp-more:hover { background: rgba(13, 202, 240, 0.12); }
+/* a section whose whole content is its head (Mower, GNSS) */
+#right_panel .rp-sec.rp-head-only > .rp-sec-body { display: none !important; }
+#right_panel .rp-sec.rp-head-only > h5 { margin-bottom: 0; }
+/* Controls: battery + dock moved to the head → the dock line is buttons only */
+#right_panel #div_status_speed-2 > .btn-group { flex: 1 1 auto; }
+/* Navi body: the old "Pose … hdg" label row is empty (its chips are in the head) */
+#right_panel #div_odom { height: auto !important; }
+#right_panel #div_odom > div:first-child { display: none !important; }
+#right_panel #div_odom .vt-chip { margin-left: 0; }
+#right_panel #div_odom > div { gap: 3px; }
+@media (pointer: coarse) {
+    .rp-tdot { width: 11px; height: 11px; }
+    .rp-more { min-width: 32px; height: 32px; line-height: 30px; font-size: 16px; }
+    .rp-tv, .rp-htok .vt-batt-pct { font-size: 12px; }
+}
+
+/* ---- Left panel › Map › Loc: "GNSS & tracker" — the detailed card, wider
+   and in bigger type than it ever fitted the right panel */
+.vt-locg-card { display: flex; flex-direction: column; gap: 6px; }
+.vt-locg-card .status-panels {
+    position: static !important; width: 100% !important; height: auto !important;
+    background: transparent !important; border: 0 !important; box-shadow: none !important; margin: 0 !important;
+}
+.vt-locg-card .vt-gx { font-size: 12px; }
+.vt-locg-card .vt-gx-more { font-size: 11px; }
+.vt-locg-trk { display: flex; flex-direction: column; gap: 2px; }
+.vt-locg-trk:empty { display: none; }
+.vt-locg-card .vt-trk-row { display: flex; align-items: center; }
+.vt-locg-card .vt-trk-txt { font-size: 12px; }

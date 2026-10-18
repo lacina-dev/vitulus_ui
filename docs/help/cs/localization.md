@@ -23,7 +23,13 @@ Robot skládá jednu polohu (*pose*) z několika zdrojů:
 
 ## Jak číst stav (pravý panel › Navi)
 
-![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC · 4 řádek lidarového trackeru (Trk)")
+![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC")
+
+Řádek s názvem Navi nese dva nejdůležitější čipy — kdo drží polohu (1) a zdroj kurzu (2); řádek
+pod ním čipy odometrie (3). Zprávou je barva (zelená v pořádku, oranžová ještě nepřesné, červená
+špatně, šedá vypnuto); slova ukáže najetí myší nebo dlouhý stisk čipu. Řádky lidarového trackeru
+a karta GNSS jsou v levém panelu: **Mapa › Loc › GNSS a tracker** (otevře ji **›** v řádku GNSS
+pravého panelu).
 
 První čip (1) říká, **kdo teď určuje polohu**:
 
@@ -44,9 +50,9 @@ Malé čipy vedle:
 | `FIX` | použitelný surový RTK fix (bez ohledu na to, kdo drží polohu) |
 | `PROB` | GPS fix se osvědčil (viz `RTK` výše) |
 | `ANC` | kotva polohy: zelená = čerstvá, oranžová = zamrzlá (poloha jede na odometrii kol od poslední kotvy; i když zamrzne kotva kurzu); stáří ukáže tooltip |
-| `kurz SAT / IMU` | kurz ze dvou antén GPS, nebo náhradně z IMU; oranžový `SAT` = antény hlásí kurz, kterému robot zatím nevěří |
+| `SAT / IMU` (2) | kurz ze dvou antén GPS, nebo náhradně z IMU; oranžový `SAT` = antény hlásí kurz, kterému robot zatím nevěří |
 
-### Řádek lidarového trackeru (`Trk`)
+### Řádek lidarového trackeru (`Trk`, levý panel › Mapa › Loc)
 
 Lidarový tracker porovnává každý sken s mapou místa. **Čeká, dokud polohu drží GPS**, a převezme
 ji až po zhruba 5 s bez použitelného fixu (aby krátké zablikání RTK polohu nepřehazovalo).
@@ -65,19 +71,6 @@ dok* (dokud robota kotví dok, opravy trackeru ignoruje), nebo *zadrženo: důvo
 počítá všechny opravy od startu trackeru. Dokud drží polohu GPS, řádek ukazuje i *odchylku od
 mapy N cm* — o kolik by tracker robota právě posunul; pár centimetrů znamená, že mapa pořád sedí.
 
-Řádek **GNSS**:
-
-| Ukazuje | Význam |
-|---|---|
-| `GBAS` | RTK fixed — dobrý stav |
-| `FIX` | běžný fix (i RTK float) — ne na centimetry |
-| `SBAS` | fix se satelitní korekcí |
-| `BEZ FIXU` | GPS nedává polohu |
-| `fix —` | žádná data |
-| `sat. N` | počet použitých satelitů |
-| `pol. ±cm` | přesnost polohy: zelená ≤ 5 cm, oranžová ≤ 50 cm, červená víc |
-| `kurz ±°` | přesnost kurzu: zelená ≤ 2°, oranžová ≤ 6°, červená víc; `—` = bez RTK kurzu |
-
 Dvě ikony GPS v navbaru ([Ikony stavu](status-icons.md)) říkají totéž jednou barvou:
 zelená = RTK, oranžová = 3D fix bez RTK (nebo float), červená = špatně, šedá = žádná data.
 **Výjezd z doku čeká, až budou obě zelené** (zajetí do doku jen tehdy, když musí nejdřív nahrát
@@ -85,11 +78,12 @@ venkovní mapu doku).
 
 ## Přijímače GNSS (pravý panel › GNSS)
 
-Robot má **dva** přijímače GPS a sekce **GNSS** ukazuje oba vedle sebe. Je to jediné místo pro
-GNSS v pravém panelu (staré řádky GNSS pod Navi zmizely). **Sbalená** — výchozí — to řekne jedním
-řádkem v názvu: fix Polohy, fix Kurzu, satelity použité pozičním přijímačem a stáří jeho korekcí,
-např. `RTK RTK 24sv·0.5s` (po najetí myší použité / viditelné); nádech sekce podle horšího z obou.
-Rozbal ji kliknutím na název a uvidíš kartu:
+Robot má **dva** přijímače GPS. Řádek **GNSS** v pravém panelu to řekne značkami: fix Polohy,
+fix Kurzu (`RTK` / `FLT` float / `DGN` DGNSS / `3D` / `NO`, barvy jako níže), satelity použité
+pozičním přijímačem (zeleně od 12) a tečka stáří jeho korekcí — zelená < 2 s, oranžová < 10 s,
+červená starší nebo žádné; čísla jsou v popiscích a nádech řádku je podle horšího přijímače.
+**›** na jeho konci otevře celou kartu — oba přijímače vedle sebe — v levém panelu,
+**Mapa › Loc › GNSS a tracker**:
 
 - **Poloha** — RTK rover. Korekce (RTCM) dostává ze **základnové stanice**.
 - **Kurz** — druhá anténa. Korekce dostává z **pozičního přijímače** (*moving base*) a měří
@@ -143,7 +137,7 @@ Viz také [Řešení problémů › GPS](troubleshooting.md#gps-nechytá-fix).
 **Mapa › Loc** se ptá: *kam na nahranou mapu nejlíp sedí současný sken lidaru?* Použij ji,
 když se robot ztratí (`ODHAD`, nebo je robot na mapě zjevně jinde, než ve skutečnosti stojí).
 
-![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit")
+![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit · 5 karta GNSS a tracker (oba přijímače; klepnutím podrobnosti) · 6 řádek lidarového trackeru")
 
 1. **Lokalizovat** (nebo zaškrtni **auto 5 s**) — spočítá kandidáty. Samotný výpočet robotem
    nikdy nepohne.

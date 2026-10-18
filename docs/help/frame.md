@@ -53,28 +53,40 @@ system gesture). **STOP** is always bottom left, never moves and never shrinks
 
 ## The right panel
 
-Hangs from the top band on the right edge:
+Hangs from the top band on the right edge. It shows **state in colour, not in sentences**: every
+section's title row carries its state as small coloured tokens on the right, the words are in
+the tooltip (hover, or long-press on a phone). The long explanations live in the left panel
+(**Map › Loc**, the *GNSS & tracker* card).
 
-- **Controls** — speed Slow / Mid / Fast, keyboard driving, the battery and **Dock / Undock /
-  Stop** ([Dock and undock](dock.md)).
-- **Mower** — only while the mower is switched on: its status (`READY`, `RUN`, `HEIGHT`, `ERR`…)
-  in the title row, below it the blade RPM, the cut height and the temperature
-  ([Mowing](mowing.md)). With the mower off the section is not there at all.
-- **Navi** — the localization state ([what the chips mean](localization.md#read-the-state-right-panel--navi)).
-- **GNSS** — both GPS receivers. Folded (the default) it is one line in its title: the Position
-  fix, the Heading fix, the satellites used and the age of the corrections, e.g.
-  `RTK RTK 24sv·0.5s`; unfolded the card with both receivers side by side
-  ([GNSS receivers](localization.md#gnss-receivers-right-panel--gnss)).
-- **Camera** — see below.
+**One colour code everywhere:** green = fine · orange (amber) = working on it / not exact yet ·
+red = a fault or no data where there should be some · grey = off, paused or nothing to show.
 
-Each section folds by its title and stays as you left it. A section with a state (Mower, GNSS)
-is softly tinted by it: green = fine, orange = warming up / not exact yet, red = a fault.
-On a phone (upright or on its side) the right panel is a collapsed row (map, pose, GNSS, a mower
-dot while the mower is on, battery, camera, ▾) — ▾ unfolds it.
+- **Controls** — title row: ⚡ (green = in the dock / charging), the battery %, `MOT` (motors:
+  green on, orange off, grey unknown). Below: speed **Slow / Mid / Fast**, keyboard driving and
+  **Dock / Undock / Stop** ([Dock and undock](dock.md)).
+- **Mower** — one row, only while the mower is switched on: the status chip (`READY`, `RUN`,
+  `HEIGHT`, `ERR`…), a blade dot (green = spinning) with the RPM (`3.2k`), the cut height (`↕45`
+  in mm) and the temperature — that one only when it is hot (orange from 50 °C, red from 60 °C)
+  ([Mowing](mowing.md)). With the mower off the row is not there at all.
+- **Navi** — title row: who owns the pose (`DOCK`, `RTK`, `TRACKER`…) and the heading source
+  (`SAT` / `IMU`); below one row of odometry chips `VO Li Wh FIX PROB ANC`
+  ([what the chips mean](localization.md#read-the-state-right-panel--navi)).
+- **GNSS** — one row: the Position fix, the Heading fix (`RTK`, `FLT` = float, `DGN` = DGNSS,
+  `3D`, `NO`), the satellites used (green from 12) and a dot for the age of the corrections
+  (green < 2 s, orange < 10 s, red older or none). **›** opens the full card with both
+  receivers in the left panel ([GNSS receivers](localization.md#gnss-receivers-right-panel--gnss)).
+- **Camera** — a dot in the title row (green = live picture, orange = starting / waiting, grey =
+  off) and the switch Off / S / L; see below.
 
-![The Controls section of the right panel with numbered markers](img/shot-controls.webp "Controls: 1 speed Slow / Mid / Fast · 2 keyboard driving · 3 battery · 4 Dock · 5 Undock · 6 Stop (of the dock sequence)") ![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Navi: 1 who owns the pose · 2 heading source · 3 odometry chips · 4 lidar tracker — explained in Localization")
+Controls, Navi and Camera fold by their title and stay as you left them. A section with a state
+(Mower, GNSS) is softly tinted by it. Everything above the camera fits on one screen, so the
+small camera picture is always in view without scrolling. On a phone (upright or on its side) the
+right panel is a collapsed row (map, pose, GNSS, a mower dot while the mower is on, battery,
+camera, ▾) — ▾ unfolds it.
 
-![The Mower section of the right panel with numbered markers](img/shot-rp-mower.webp "Mower (only while it is on): 1 status · 2 blade RPM · 3 cut height · 4 temperature") ![The folded GNSS section of the right panel with numbered markers](img/shot-rp-gnss.webp "GNSS folded: 1 Position receiver fix · 2 Heading receiver fix · 3 satellites used · age of the corrections")
+![The Controls section of the right panel with numbered markers](img/shot-controls.webp "Controls: 1 speed Slow / Mid / Fast · 2 keyboard driving · 3 battery · 4 Dock · 5 Undock · 6 Stop (of the dock sequence)") ![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Navi: 1 who owns the pose · 2 heading source · 3 odometry chips — explained in Localization")
+
+![The Mower row of the right panel with numbered markers](img/shot-rp-mower.webp "Mower (only while it is on): 1 status · 2 blade dot and RPM · 3 cut height") ![The GNSS row of the right panel with numbered markers](img/shot-rp-gnss.webp "GNSS: 1 Position receiver fix · 2 Heading receiver fix · 3 satellites used · 4 correction age · 5 › the full card in Map › Loc")
 
 ## Camera
 
