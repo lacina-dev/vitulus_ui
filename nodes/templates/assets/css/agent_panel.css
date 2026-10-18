@@ -219,7 +219,9 @@
 .vagent-pill.running { background: rgba(13, 202, 240, 0.25); color: var(--bs-info, #0dcaf0); }
 .vagent-pill.queued { background: rgba(255, 255, 255, 0.10); color: var(--bs-secondary-color, #adb5bd); }
 .vagent-pill.done { background: rgba(25, 135, 84, 0.25); color: #6fd39a; }
-.vagent-pill.failed, .vagent-pill.cancelled { background: rgba(220, 53, 69, 0.25); color: #f1868f; }
+.vagent-pill.failed { background: rgba(220, 53, 69, 0.25); color: #f1868f; }
+/* zrušené není selhání (2026-10-18): šedě, nic se nečeká */
+.vagent-pill.cancelled { background: rgba(173, 181, 189, 0.18); color: var(--bs-secondary-color, #adb5bd); }
 
 /* --------------------------------------------------------------- chat pane */
 #vagent_chips {
@@ -448,7 +450,8 @@
 }
 .vagent-job.running { border-left-color: var(--bs-info, #0dcaf0); }
 .vagent-job.done { border-left-color: var(--bs-success, #198754); }
-.vagent-job.failed, .vagent-job.cancelled { border-left-color: var(--bs-danger, #dc3545); }
+.vagent-job.failed { border-left-color: var(--bs-danger, #dc3545); }
+.vagent-job.cancelled { border-left-color: var(--bs-secondary, #6c757d); }
 .vagent-job.blocked, .vagent-job.queued { border-left-color: var(--bs-warning, #ffc107); }
 .vagent-job .jt { flex: 1 1 100%; font-weight: 600; line-height: 1.35; }
 .vagent-job .jl {
@@ -460,7 +463,7 @@
     white-space: nowrap;
 }
 .vagent-job .jn { color: var(--bs-secondary-color, #adb5bd); font-size: 11px; white-space: nowrap; }
-.vagent-job.failed .jn, .vagent-job.cancelled .jn { color: var(--bs-danger, #dc3545); }
+.vagent-job.failed .jn { color: var(--bs-danger, #dc3545); }
 .vagent-job.done .jn { color: var(--bs-success, #198754); }
 .vagent-job.blocked .jn { color: var(--bs-warning, #ffc107); }
 .vagent-spin { display: inline-block; animation: vagent-rot 1.6s linear infinite; color: var(--bs-info, #0dcaf0); }
@@ -1251,6 +1254,7 @@ details.vagent-card:not([open]) > summary { margin-bottom: 0; }
 .vagent-pill.state-active { background: rgba(25, 135, 84, 0.25); color: #6fd39a; }
 .vagent-pill.state-paused { background: rgba(255, 255, 255, 0.10); color: var(--bs-secondary-color, #adb5bd); }
 .vagent-pill.state-failed { background: rgba(220, 53, 69, 0.25); color: #f1868f; }
+.vagent-pill.state-cancelled { background: rgba(173, 181, 189, 0.18); color: var(--bs-secondary-color, #adb5bd); }
 .vagent-pill.state-draft {
     background: rgba(255, 193, 7, 0.22); color: #ffd866;
     animation: vagent-pulse 1.6s ease-in-out infinite;
@@ -1353,6 +1357,32 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
 .vagent-ujob.st-paused { border-left-color: var(--bs-secondary, #6c757d); opacity: 0.85; }
 .vagent-ujob.st-failed { border-left-color: var(--bs-danger, #dc3545); }
 .vagent-ujob.st-done { border-left-color: rgba(25, 135, 84, 0.6); }
+.vagent-ujob.st-cancelled { border-left-color: var(--bs-secondary, #6c757d); opacity: 0.8; }
+/* Kdo je na tahu (attention.py, 2026-10-18): svítí jen „ty"; selhání, které
+   řeší agent nebo nikoho nepotřebuje, je tlumené — žádná červená. */
+.vagent-ujob.st-failed.attn-agent { border-left-color: var(--bs-info, #0dcaf0); }
+.vagent-ujob.st-failed.attn-none { border-left-color: var(--bs-secondary, #6c757d); opacity: 0.85; }
+.vagent-ujob.attn-human { border-left-color: var(--bs-warning, #ffc107); background: rgba(255, 193, 7, 0.06); }
+.vagent-ujob .vagent-attn {
+    margin-top: 4px; font-size: 11.5px; line-height: 1.35;
+    color: var(--bs-secondary-color, #adb5bd); overflow-wrap: anywhere;
+}
+.vagent-ujob .vagent-attn .aw { font-weight: 600; }
+.vagent-ujob .vagent-attn.a-human { color: var(--bs-warning, #ffc107); }
+.vagent-ujob .vagent-attn.a-agent .aw { color: var(--bs-info, #0dcaf0); }
+.vagent-ujob .se.quiet { color: var(--bs-secondary-color, #adb5bd); }
+.vagent-handled {
+    padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 7px; background: rgba(255, 255, 255, 0.02);
+    font-size: 11.5px; line-height: 1.4; min-width: 0;
+}
+.vagent-handled + .vagent-handled { margin-top: 4px; }
+.vagent-handled .hh { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vagent-handled .ht { flex: 1 1 auto; min-width: 0; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vagent-handled .sx { font-size: 11px; color: var(--bs-secondary-color, #adb5bd); }
+.vagent-handled .hl { color: var(--bs-secondary-color, #adb5bd); overflow-wrap: anywhere; }
+.vagent-handled .hk { color: var(--bs-body-color, #dee2e6); font-weight: 600; }
 .vagent-ujob.st-draft { border-left-color: var(--bs-warning, #ffc107); border-left-style: dashed; }
 .vagent-ujob.stalled {
     border-left-color: var(--bs-danger, #dc3545);

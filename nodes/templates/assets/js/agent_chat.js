@@ -1759,7 +1759,10 @@
             });
             attachFlowButtons(row, task, kind);
         }
-        if (!fromHistory && (fromAgent || !isMine)) {
+        /* a quiet report (RTK fix, dock, „repaired it myself", a summary —
+           the core marks it, attention.py) stays in the feed but does not
+           bump the badge: the count is for things that want a person */
+        if (!fromHistory && (fromAgent || !isMine) && !(fromAgent && task.quiet)) {
             notify(kind, task.reply || task.text || '');
         }
         return true;
@@ -1998,7 +2001,7 @@
                 // cursor and the unread badge only — „Latest" reloads clean.
                 rows.forEach(function (t) {
                     if (t.id > lastTaskId) { lastTaskId = t.id; }
-                    if (t.source === 'agent'
+                    if (t.source === 'agent' && !t.quiet
                             && (t.state === 'done' || t.state === 'failed')) {
                         notify(taskKind(t), t.reply || t.text || '');
                     }
@@ -2710,7 +2713,7 @@
        panel does not need a flag day when :8088 starts speaking v2. */
     var STATUS_CLS = {running: 'running', queued: 'queued', blocked: 'blocked',
                       scheduled: 'scheduled', paused: 'paused', draft: 'draft',
-                      failed: 'failed', cancelled: 'failed', done: 'done',
+                      failed: 'failed', cancelled: 'cancelled', done: 'done',
                       stalled: 'stalled',
                       waiting: 'blocked', armed: 'scheduled'};
 
@@ -2793,6 +2796,15 @@
             // Only a RUN row is "from" a schedule; a definition row carries
             // its own id in schedule_id and must not pill itself.
             from_sched: (ref.indexOf('j:') === 0 ? (j.schedule_id || null) : null),
+            /* Does it need a HUMAN? The core decides (attention.py), the
+               panel only colours: human = lit, agent = working on it
+               quietly, none = nothing waits. Absent (older core) = null,
+               and the old status-based grouping stands. */
+            attn: j.attention || null,
+            attn_code: j.attention_code || '',
+            attn_why: j.attention_why || '',
+            attn_params: j.attention_params || {},
+            tidy: j.tidy || null,
             src: 'unified'
         };
     }
@@ -2894,6 +2906,15 @@
         var st = j.status;
         if (st === 'running' || st === 'queued' || st === 'blocked' ||
                 st === 'waiting') { return 'running'; }
+        /* Owner, 2026-10-18: „what does not need me must not light up".
+           With the core's verdict, ONLY attn=human goes to Needs attention;
+           a failure the agent handles or that waits for nobody is history. */
+        if (j.attn) {
+            if (j.attn === 'human') { return 'attention'; }
+            if (st === 'stalled' || j.stalled) { return 'running'; }
+            if (j.schedule) { return 'scheduled'; }
+            return 'recent';
+        }
         if (st === 'failed' || st === 'draft' || st === 'stalled' || j.stalled) { return 'attention'; }
         if (j.schedule && (st === 'scheduled' || st === 'paused' || st === 'armed')) { return 'scheduled'; }
         if (st === 'done' || st === 'cancelled') { return 'recent'; }
@@ -2905,7 +2926,7 @@
         return JSON.stringify([j.ref, j.kind, j.title, j.text, j.status, j.schedule,
             j.policy, j.last, j.runs, j.stalled, j.note, j.legs, j.slot, j.program,
             j.incident, j.live, j.job_id, j.auto, j.archived, j.amendments,
-            groupOf(j), pr]);
+            j.attn, j.attn_code, j.attn_params, j.tidy, groupOf(j), pr]);
     }
 
     // --------------------------------------------------------------- actions
@@ -3560,11 +3581,41 @@
         card.appendChild(box);
     }
 
+    /* One sentence on WHO is on it: you (lit), the agent (quiet), or
+       nobody needs to be (quiet).  The words are the panel's (VTI18n, keyed
+       by the core's code); the core's own Czech sentence rides in the
+       tooltip as evidence. */
+    function attnText(code, params, fallback) {
+        var key = (code.indexOf('fix.') === 0 ? 'ajob.handled.' : 'ajob.attn.') + code;
+        var got = _t(key, params || {});
+        return got && got !== key ? got : (fallback || '');
+    }
+    function attnLine(card, j) {
+        if (!j.attn || !j.attn_code) { return; }
+        if (j.attn_code === 'active' || j.attn_code === 'done' ||
+                j.attn_code === 'scheduled' || j.attn_code === 'paused') { return; }
+        var params = {};
+        Object.keys(j.attn_params || {}).forEach(function (k) { params[k] = j.attn_params[k]; });
+        if (params.next_ts) { params.when = relTime(params.next_ts); }
+        var txt = attnText(j.attn_code, params, j.attn_why);
+        if (!txt) { return; }
+        var row = document.createElement('div');
+        row.className = 'vagent-attn a-' + j.attn;
+        var who = document.createElement('span');
+        who.className = 'aw';
+        who.textContent = _t('ajob.attn.who.' + j.attn);
+        row.appendChild(who);
+        row.appendChild(document.createTextNode(' ' + txt));
+        row.title = j.attn_why || txt;
+        if (j.tidy && j.tidy.fix) { row.title += '\n' + j.tidy.fix; }
+        card.appendChild(row);
+    }
+
     function buildJobCard(j, group) {
         var p = parseRef(j.ref);
         var card = document.createElement('div');
         card.className = 'vagent-ujob k-' + j.kind + ' st-' + (STATUS_CLS[j.status] || '') +
-            (j.stalled ? ' stalled' : '');
+            (j.stalled ? ' stalled' : '') + (j.attn ? ' attn-' + j.attn : '');
         card.setAttribute('data-ref', j.ref);
         card.setAttribute('data-group', group);
 
@@ -3676,10 +3727,11 @@
             ll.title = live;
             card.appendChild(ll);
         }
+        attnLine(card, j);
         var err = j.last && j.last.error;
         if (err && (group === 'attention' || j.status === 'failed')) {
             var eb = document.createElement('div');
-            eb.className = 'se';
+            eb.className = 'se' + (j.attn && j.attn !== 'human' ? ' quiet' : '');
             eb.textContent = String(err);
             eb.title = String(err);
             card.appendChild(eb);
@@ -3806,6 +3858,7 @@
         {id: 'attention', label: 'ajob.g.attention', saysState: true,
          empty: 'ajob.g.attention_empty'},
         {id: 'recent', label: 'ajob.g.recent', empty: 'ajob.g.recent_empty'},
+        {id: 'handled', label: 'ajob.g.handled', empty: 'ajob.g.handled_empty'},
         {id: 'archive', label: 'ajob.g.archive',
          empty: 'ajob.g.archive_empty'}
     ];
@@ -3853,7 +3906,8 @@
     function renderJobsPane(list, force) {
         if (!jobsListBox) { return; }
         list = list || [];
-        var sig = JSON.stringify(list.map(jobFp)) + '|' + unifiedOk + '|' + jobsErr;
+        var sig = JSON.stringify(list.map(jobFp)) + '|' + unifiedOk + '|' + jobsErr +
+            '|' + JSON.stringify(lastHandled);
         lastJobs = list;
         if (!force && sig === jobsFp) { return; }
         if (!force && uiInteracting(jobsBody)) {
@@ -3868,7 +3922,7 @@
         }
         jobsFp = sig;
         var buckets = {running: [], scheduled: [], attention: [], recent: [],
-                       archive: []};
+                       handled: [], archive: []};
         list.forEach(function (j) { buckets[groupOf(j)].push(j); });
         var keep = {};
         var pane = jobsBody ? jobsBody.closest('.vagent-pane') : null;
@@ -3884,7 +3938,9 @@
 
         GROUPS.forEach(function (g) {
             if (g.id === 'archive' && unifiedOk !== true) { return; }
-            var items = sortJobs(g.id, buckets[g.id]);
+            if (g.id === 'handled' && (unifiedOk !== true || !lastHandled.length)) { return; }
+            var items = g.id === 'handled' ? lastHandled.slice()
+                : sortJobs(g.id, buckets[g.id]);
             var total = items.length;
             if (g.id === 'recent') { items = items.slice(0, 10); }
             var head = document.createElement('div');
@@ -3896,7 +3952,7 @@
             head.appendChild(c);
 
             var host;
-            if (g.id === 'recent' || g.id === 'archive') {
+            if (g.id === 'recent' || g.id === 'archive' || g.id === 'handled') {
                 // collapsed by default; the fold survives every poll — and
                 // the archive shelf is only ever FETCHED once it is opened
                 var gkey = 'group:' + g.id;
@@ -3934,6 +3990,10 @@
                 host.appendChild(e);
                 return;
             }
+            if (g.id === 'handled') {
+                items.forEach(function (h) { host.appendChild(handledRow(h)); });
+                return;
+            }
             items.forEach(function (j) {
                 var fpv = jobFp(j);
                 var prev = jobCards[j.ref];
@@ -3960,6 +4020,52 @@
         jobsBadge.className = 'vagent-cnt' + (att ? ' warn' : '');
         jobsBadge.title = _t('ajob.badge.tip', {run: act, att: att});
         if (att) { flagTab('jobs'); }
+    }
+
+    /* „Handled by agent" — the owner's short overview, Problem · Reason ·
+       Fix, of what the agent tidied or solved on its own.  Read-only, never a
+       badge: it exists so that „quiet" can be checked, not to be acted on. */
+    var lastHandled = [];
+    var HANDLED_CODES = {cancelled: 1, superseded: 1, replaced: 1, cause_gone: 1,
+                         cause_fixed: 1, denied: 1, grow: 1, transient: 1,
+                         agent_stopped: 1, revived: 1, selfcare_repair: 1};
+    function handledRow(h) {
+        var row = document.createElement('div');
+        row.className = 'vagent-handled';
+        var head = document.createElement('div');
+        head.className = 'hh';
+        if (h.ref) { head.appendChild(refButton(h.ref, '#' + String(h.ref).replace(/^j:/, ''))); }
+        var tt = document.createElement('span');
+        tt.className = 'ht';
+        tt.textContent = (h.params && h.params.title) || h.problem || '';
+        tt.title = h.problem || '';
+        head.appendChild(tt);
+        var when = document.createElement('span');
+        when.className = 'sx';
+        when.textContent = h.ts ? relTime(h.ts) : '';
+        if (h.ts) { when.title = new Date(h.ts * 1000).toLocaleString('cs-CZ'); }
+        head.appendChild(when);
+        row.appendChild(head);
+        var known = HANDLED_CODES[h.code];
+        var params = {};
+        Object.keys(h.params || {}).forEach(function (k) { params[k] = h.params[k]; });
+        [['problem', h.problem],
+         ['reason', known && h.code !== 'selfcare_repair'
+             ? attnText(h.code, params, h.why) : h.why],
+         ['fix', known && h.code !== 'selfcare_repair'
+             ? attnText('fix.' + h.code, params, h.fix) : h.fix]
+        ].forEach(function (pair) {
+            if (!pair[1]) { return; }
+            var line = document.createElement('div');
+            line.className = 'hl';
+            var lab = document.createElement('span');
+            lab.className = 'hk';
+            lab.textContent = _t('ajob.handled.' + pair[0]);
+            line.appendChild(lab);
+            line.appendChild(document.createTextNode(' ' + pair[1]));
+            row.appendChild(line);
+        });
+        return row;
     }
 
     // --------------------------------------------------------------- polling
@@ -4044,6 +4150,7 @@
             unifiedOk = true;
             jobsErr = '';
             lastUnifiedRaw = d.jobs || [];
+            lastHandled = Array.isArray(d.handled) ? d.handled : [];
             renderJobsPane(composeJobs());
             return null;
         }).catch(function (e) {
@@ -5095,6 +5202,13 @@
                             waiting_s: a.waiting_s, moves: !!askMoves(a)};
                 }));
             }
+            /* Work that needs a HUMAN and is not an approval (a mission
+               waiting for the dock to be unlocked, a parked job, a failure
+               only a person can fix) — the core decides (attention.py), the
+               same answer feeds the bell. */
+            if (window.VTHub && d && Array.isArray(d.needs_you)) {
+                window.VTHub.put("agent.needs", d.needs_you);   // a hub key, not i18n
+            }
             var after = d && Number(d.poll_after_s);
             if (after && !isNaN(after)) {
                 approvalsAfterMs = Math.min(120000, Math.max(2000, after * 1000));
@@ -5499,6 +5613,7 @@
        nothing on the page moves.  The "now bar" (4) is the quiet one: verb +
        object + leg n/m + time, hard-cut to 60 characters. */
     var stripEl = null, stripText = null, stripFindings = [], stripAsks = [];
+    var stripReadN;              // v2 „Read this" count (undefined = older core)
     var stripFp = '';
     var STRIP_CUT = 60;
 
@@ -5562,8 +5677,19 @@
                               blocked.text, 44),
                     age: shortAge(blocked.elapsed_s)};
         }
+        /* Findings light the strip only when one asks for the OWNER („Read
+           this", v2 records) — an open, even high, finding the agent is still
+           analysing or has handled wants nobody.  An older core without the
+           count keeps the old open+high rule. */
+        if (typeof stripReadN === 'number') {
+            if (stripReadN > 0) {
+                return {kind: 'finding', tab: 'findings',
+                        label: _t('agent.strip.finding'),
+                        text: _t('agent.strip.read_n', {n: stripReadN}), age: ''};
+            }
+        }
         var hot = null;
-        for (var k = 0; k < stripFindings.length; k++) {
+        for (var k = 0; k < stripFindings.length && typeof stripReadN !== 'number'; k++) {
             var f = stripFindings[k];
             if (f.state === 'open' && f.severity === 'high') { hot = f; break; }
         }
@@ -5720,6 +5846,8 @@
         if (stripTick % 4 === 1) {
             api('/api/doctor').then(function (d) {
                 stripFindings = (d && d.findings) || [];
+                var rn = d && d.counts && d.counts.read;
+                stripReadN = (typeof rn === 'number') ? rn : undefined;
                 paintStrip();
             }).catch(function () {});
         }
@@ -5789,7 +5917,7 @@
             api('/api/tasks?since_id=' + seenId).then(function (d) {
                 emitTasks((d && d.tasks) || []);
                 var fresh = ((d && d.tasks) || []).filter(function (t) {
-                    return t.source === 'agent' &&
+                    return t.source === 'agent' && !t.quiet &&
                         (t.state === 'done' || t.state === 'failed');
                 });
                 if (fresh.length) {

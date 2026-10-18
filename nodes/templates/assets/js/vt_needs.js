@@ -55,13 +55,19 @@
     function model() {
         var asks = (window.VTHub && VTHub.get("agent.asks")) || null;
         var field = (window.VTHub && VTHub.get("field.attention")) || null;
+        /* agent work that needs a person and is not an approval — the core
+           decides (attention.py: dock lock, parked mission, a failure only a
+           human can fix); everything the agent handles itself stays out */
+        var needs = (window.VTHub && VTHub.get("agent.needs")) || null;
         var a = (asks && asks.data) || [];
+        var w = (needs && needs.data) || [];
         var f = (field && field.data && field.data.items) || [];
         var urgent = a.some(function (x) { return x.moves; }) ||
+            w.some(function (x) { return x.code === 'safety'; }) ||
             f.some(function (x) { return x.urgency === 'high'; }) ||
             !!(field && field.data && field.data.high);
-        return { asks: a, field: f, fieldEntry: field, askEntry: asks,
-                 n: a.length + f.length, urgent: urgent };
+        return { asks: a, work: w, field: f, fieldEntry: field, askEntry: asks,
+                 n: a.length + w.length + f.length, urgent: urgent };
     }
 
     /* ------------------------------------------------------------- bell */
@@ -137,15 +143,32 @@
         b.href = href; b.target = '_blank'; b.rel = 'noopener';
         return b;
     }
-    function agentBtn() {
+    function agentBtn(ref) {
         var b = el('button', 'btn btn-outline-info vt-needs-btn', t('needs.review_agent'));
         b.type = 'button';
         b.addEventListener('click', function () {
             if (window.VAgent) {
-                try { VAgent.open(); if (VAgent.activateTab) { VAgent.activateTab('work'); } } catch (e) { /* agent down */ }
+                try {
+                    VAgent.open();
+                    if (VAgent.activateTab) { VAgent.activateTab('work'); }
+                    if (ref && VAgent.highlightJob) { VAgent.highlightJob(ref); }
+                } catch (e) { /* agent down */ }
             }
         });
         return b;
+    }
+    /* one sentence: WHAT you are asked to do and WHY (ajob.attn.<code>);
+       the core's own Czech sentence is the sub-line — it is evidence */
+    function workCard(x) {
+        var key = 'needs.work.' + x.code, head = t(key);
+        if (head === key) { head = t('needs.work.other'); }
+        var main = t('ajob.attn.' + x.code, { ref: x.ref });
+        if (main === 'ajob.attn.' + x.code) { main = x.why || ''; }
+        var sub = '#' + String(x.ref || '').replace(/^[js]:/, '') + ' ' + (x.title || '');
+        if (x.detail) { sub += ' — ' + x.detail; }
+        return card(x.code === 'safety' ? 'err' : 'warn',
+            { title: head, end: age(sinceSec(x.since)) },
+            main, sub, [[t('needs.chip.agent')]], [agentBtn(x.ref)]);
     }
     function group(key, title, count, body) {
         var d = el('details', 'drawer-sec vt-needs-grp');
@@ -316,19 +339,19 @@
         }
 
         /* robot agent */
-        var ac = m.asks.map(function (x) {
+        var ac = m.work.map(workCard).concat(m.asks.map(function (x) {
             return card(x.moves ? 'err' : 'warn',
                 { title: x.moves ? t('needs.card.motion') : t('needs.card.approval'), end: age(x.waiting_s) },
                 x.what || t('needs.card.ask'), null,
                 [[t('needs.chip.agent')], x.moves ? [t('needs.chip.moves'), 'err'] : null].filter(Boolean),
                 [agentBtn()]);
-        });
-        if (!m.askEntry) {
+        }));
+        if (!m.askEntry && !m.work.length) {
             ac = [el('p', 'vt-empty', t('needs.wait_agent'))];
         } else if (!ac.length) {
             ac = allClear ? [] : [el('p', 'vt-empty', t('needs.no_approvals'))];
         }
-        root.appendChild(group('agent', t('needs.grp.agent'), m.asks.length, ac));
+        root.appendChild(group('agent', t('needs.grp.agent'), m.asks.length + m.work.length, ac));
 
         /* field kit */
         var fc;
@@ -494,6 +517,7 @@
         if (nav) { new MutationObserver(placeBell).observe(nav, { attributes: true, attributeFilter: ['style', 'class'] }); }
         watchDrawer();
         VTHub.on("agent.asks", render);
+        VTHub.on("agent.needs", render);
         VTHub.on("field.attention", render);
         VTHub.poll("field.attention", '/field/api/attention', FIELD_EVERY);
         VTHub.on("ui.actions", render);

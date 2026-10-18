@@ -113,6 +113,18 @@ The same in Czech goes to the chat and to the agent's status strip.
 **Approve** / **Deny**. If the robot would move, the card says
 *THE ROBOT WOULD MOVE — only you may allow this* and the button needs a second tap.
 
+### Only what needs you lights up
+
+Each job card says in one line who is on it: **You:** (lit, it waits for you — unlock the dock,
+a parked mission, missing site setup, a stop by the safety layer, a physical hand), **Agent:**
+(the doctor revives it or the driver watches it — quiet) or **Nothing to do:** (quiet). Only *You*
+jobs go to **Needs attention** and to the bell. A **cancelled** job is grey, never a failure. A
+failure that a later run of the same work fixed, that a later mission took over, or whose outage
+is over, is moved to the archive by itself within minutes. The folded group **Handled by the
+agent** lists what it tidied or solved on its own as *Problem · Reason · Fix* — to check, nothing
+to do. Messages that only inform (RTK, dock, "repaired it myself") stay in the chat but do not
+raise the badge, and on Discord they arrive without a phone notification.
+
 ## Robot and the dock lock
 
 **Robot** shows the live state, the robot tools and the **Dock lock** card.
@@ -185,6 +197,9 @@ Repairs by itself change only the agent's own code, never driving, mowing or saf
 only proposed), and never while a mission runs. You get a short message *Problem · Reasoning ·
 Fix · Verification* with *Vrátit zpět* (revert) and *Příště ignorovat* (ignore next time).
 
+Only **READ THIS** (findings that want you) lights the status strip; **New** (waiting for the
+agent's own analysis) and the handled ones are folded.
+
 ## What the agent learns
 
 Every mission is kept as an **episode**: the task, map, waypoint, time of day and light, rain,
@@ -249,7 +264,9 @@ The **bell** in the navbar is quiet when nothing waits, orange with a count when
 red when it is urgent or the robot would move. It opens one list of everything that waits for a
 person:
 
-- **Robot agent** — approvals and parked jobs; decide them in **Agent › Work**.
+- **Robot agent** — approvals, and agent work only a person can unblock (dock lock, parked
+  mission, missing site setup, safety stop), each with one sentence what and why; decide them in
+  **Agent › Work**.
 - **Support** — what the field support kit waits for. These can be decided right in the list:
   **Done**, an option of the card, **Hide 24 h**, **Remind**, **Accept / Dismiss** a finding. Two
   clicks within 5 s; each decision is signed with your name. An option that moves the robot is

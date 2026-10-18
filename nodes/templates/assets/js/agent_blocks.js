@@ -2032,7 +2032,7 @@
     var REC_GROUPS = [
       {key: 'read', label: 'bfind.g.read', open: true},
       {key: 'working', label: 'bfind.g.working', open: true},
-      {key: 'new', label: 'bfind.g.new', open: true},
+      {key: 'new', label: 'bfind.g.new', open: false},
       {key: 'resolved', label: 'bfind.g.handled', open: false}
     ];
     var REC_OUTCOME = {ignored: 'bfind.out.ignored', fixed: 'bfind.out.fixed',
@@ -2068,12 +2068,15 @@
         var items = list.filter(function (r) { return r.status === g.key; });
         var total = (recData.counts && recData.counts[g.key]) || items.length;
         if (!items.length) return;
-        if (g.key === 'resolved') {
+        if (g.key === 'resolved' || g.key === 'new') {
           /* Hotové věci se sbalí: jsou to ty, kvůli kterým se sem chodit
-             nemusí — ale musí jít doložit, že se staly. */
-          var det = el('details', 'vrec-group-h');
-          det.open = isOpen('rec:handled', false);
-          det.addEventListener('toggle', function () { setOpen('rec:handled', det.open); });
+             nemusí — ale musí jít doložit, že se staly.  Totéž „nové":
+             čekají na rozbor AGENTA, majitele nepotřebují (18. 10. 2026),
+             takže nesvítí a neroztahují tab. */
+          var okey = g.key === 'new' ? 'rec:new' : 'rec:handled';
+          var det = el('details', 'vrec-group-h g-' + g.key);
+          det.open = isOpen(okey, false);
+          det.addEventListener('toggle', function () { setOpen(okey, det.open); });
           var sum = el('summary');
           sum.appendChild(el('span', null, T(g.label)));
           sum.appendChild(el('span', 'vagent-cnt', String(total)));

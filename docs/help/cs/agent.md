@@ -112,6 +112,18 @@ kartu *Mise / jízda*. Když agent chce udělat něco, k čemu je potřeba člov
 **Schválit** / **Zamítnout**. Kdyby se robot pohnul, karta píše
 *ROBOT BY SE POHNUL — povolit to smíš jen ty* a tlačítko potřebuje druhé klepnutí.
 
+### Svítí jen to, co potřebuje tebe
+
+Každá karta úlohy jedním řádkem řekne, kdo je na tahu: **Ty:** (svítí, čeká na tebe — odemknout
+dok, zaparkovaná mise, chybí nastavení místa, zastavila bezpečnostní vrstva, fyzický zásah),
+**Agent:** (doktor ji oživí nebo ji hlídá ovladač — tiše) nebo **Nic se nečeká:** (tiše). Do
+**Chce pozornost** a do zvonku jdou jen úlohy *Ty*. **Zrušená** úloha je šedá, nikdy selhání.
+Selhání, které pozdější běh téže práce spravil, které převzala pozdější mise nebo jehož výpadek
+pominul, agent do pár minut sám přesune do archivu. Sbalená skupina **Vyřešil agent** ukazuje,
+co uklidil nebo vyřešil sám, jako *Problém · Zdůvodnění · Řešení* — k nahlédnutí, nic dělat
+nemusíš. Hlášení, která jen informují (RTK, dok, „sám jsem si spravil"), zůstanou v chatu, ale
+nezvednou odznak, a na Discord přijdou bez upozornění na telefonu.
+
 ## Robot a zámek doku
 
 **Robot** ukazuje živý stav, nástroje robota a kartu **Zámek doku**.
@@ -184,6 +196,9 @@ Sám opravuje jen vlastní kód agenta, nikdy jízdu, sekání ani bezpečnost (
 když běží mise. Dostaneš krátkou zprávu *Problém · Zdůvodnění · Řešení · Ověření* s volbami
 *Vrátit zpět* a *Příště ignorovat*.
 
+Stavový pruh rozsvítí jen **PŘEČTI SI** (nálezy, které chtějí tebe); **Nové** (čekají na rozbor
+agentem) a vyřešené jsou sbalené.
+
 ## Co se agent naučí
 
 Každou misi si agent uloží jako **epizodu**: úkol, mapu, bod, denní dobu a světlo, déšť, RTK,
@@ -246,7 +261,9 @@ Který AI model co pro agenta dělá (chat, plánování, rozbor) — jen pro in
 **Zvonek** v navbaru je tichý, když nic nečeká, oranžový s počtem, když něco čeká, a červený,
 když je to naléhavé nebo by se robot pohnul. Otevře jeden seznam všeho, co čeká na člověka:
 
-- **Agent robota** — schválení a zaparkované úlohy; rozhoduješ je v **Agent › Práce**.
+- **Agent robota** — schválení a práce agenta, kterou odblokuje jen člověk (zámek doku,
+  zaparkovaná mise, chybí nastavení místa, bezpečnostní stop), každá s jednou větou co a proč;
+  rozhoduješ je v **Agent › Práce**.
 - **Podpora** — na co čeká podpůrný kit. Ty jde rozhodnout přímo v seznamu: **Hotovo**, volba
   z karty, **Skrýt na 24 h**, **Připomenout**, **Přijmout / Zamítnout** nález. Dvě kliknutí do
   5 s; každé rozhodnutí je podepsané tvým jménem. Volba, která by pohnula robotem, se tady nikdy
