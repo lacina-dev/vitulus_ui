@@ -297,7 +297,7 @@
         cv.camViewer.width = sw;
         cv.camViewer.height = sh;
         cv.camViewer.quality = 60;
-        var cnv = cv.camViewer.canvas || ($('div_camera_view') && $('div_camera_view').querySelector('canvas'));
+        var cnv = cv.camViewer.canvas || ($('div_camera_view') && $('div_camera_view').querySelector(':scope > canvas'));
         if (cnv) { cnv.width = sw; cnv.height = sh; }
         if (cv._active && typeof cv.reloadStream === 'function') { cv.reloadStream('large', true); }
     }
