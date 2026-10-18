@@ -23,13 +23,15 @@ Robot skládá jednu polohu (*pose*) z několika zdrojů:
 
 ## Jak číst stav (pravý panel › Navi)
 
-![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC")
+![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi rozbalené: 1 čip Poloha · 2 zdroj kurzu · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC · 4 řádek trackeru · 5 Detail ›")
 
 Řádek s názvem Navi nese dva nejdůležitější čipy — kdo drží polohu (1) a zdroj kurzu (2); řádek
 pod ním čipy odometrie (3). Zprávou je barva (zelená v pořádku, oranžová ještě nepřesné, červená
-špatně, šedá vypnuto); slova ukáže najetí myší nebo dlouhý stisk čipu. Řádky lidarového trackeru
-a karta GNSS jsou v levém panelu: **Mapa › Loc › GNSS a tracker** (otevře ji **›** v řádku GNSS
-pravého panelu).
+špatně, šedá vypnuto); najetí myší nebo dlouhý stisk čipu řekne, co to je, a jeho číslo (kovarianci
+odometrie, stáří korekcí za `FIX`, stáří kotvy). Kliknutí na název rozbalí jeden řádek trackeru (4)
+a **Detail ›** (5), který otevře levý panel **Mapa › Loc › Detail lokalizace**: poloha a odometrie
+(každý čip slovy, využitý rozpočet driftu, poslední změny toho, kdo držel polohu), řádky
+lidarového trackeru, RtabMap a oba přijímače GNSS.
 
 První čip (1) říká, **kdo teď určuje polohu**:
 
@@ -82,8 +84,9 @@ Robot má **dva** přijímače GPS. Řádek **GNSS** v pravém panelu to řekne 
 fix Kurzu (`RTK` / `FLT` float / `DGN` DGNSS / `3D` / `NO`, barvy jako níže), satelity použité
 pozičním přijímačem (zeleně od 12) a tečka stáří jeho korekcí — zelená < 2 s, oranžová < 10 s,
 červená starší nebo žádné; čísla jsou v popiscích a nádech řádku je podle horšího přijímače.
-**›** na jeho konci otevře celou kartu — oba přijímače vedle sebe — v levém panelu,
-**Mapa › Loc › GNSS a tracker**:
+Kliknutí na název rozbalí dvě dlaždice **Poloha | Kurz** s rychlými čísly (fix, satelity použité
+/ viditelné, přesnost, stáří korekcí); **Detail ›** pod nimi otevře celou kartu — oba přijímače
+vedle sebe — v levém panelu, **Mapa › Loc › Detail lokalizace › Přijímače GNSS**:
 
 - **Poloha** — RTK rover. Korekce (RTCM) dostává ze **základnové stanice**.
 - **Kurz** — druhá anténa. Korekce dostává z **pozičního přijímače** (*moving base*) a měří
@@ -137,7 +140,7 @@ Viz také [Řešení problémů › GPS](troubleshooting.md#gps-nechytá-fix).
 **Mapa › Loc** se ptá: *kam na nahranou mapu nejlíp sedí současný sken lidaru?* Použij ji,
 když se robot ztratí (`ODHAD`, nebo je robot na mapě zjevně jinde, než ve skutečnosti stojí).
 
-![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit · 5 karta GNSS a tracker (oba přijímače; klepnutím podrobnosti) · 6 řádek lidarového trackeru")
+![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit · 5 karta Detail lokalizace (poloha a odometrie, lidarový tracker, RtabMap, přijímače GNSS — klepnutím na přijímače víc) · 6 řádek lidarového trackeru")
 
 1. **Lokalizovat** (nebo zaškrtni **auto 5 s**) — spočítá kandidáty. Samotný výpočet robotem
    nikdy nepohne.

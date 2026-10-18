@@ -396,3 +396,52 @@ body.rp-log-top #div_log_view {
 .vt-locg-trk:empty { display: none; }
 .vt-locg-card .vt-trk-row { display: flex; align-items: center; }
 .vt-locg-card .vt-trk-txt { font-size: 12px; }
+
+/* ---- Three levels, 2026-10-18 evening (owner: "a dashboard — colour at a
+   glance, the current numbers at hand, the detail in the left panel").
+   1 head = tokens · 2 expand (caret, folded by default) = quick numbers ·
+   3 "Detail ›" = left panel › Map › Loc. Same caret disclosure as every
+   other section of the panel. */
+#right_panel .rp-sec-sub { display: flex; flex-direction: column; gap: 2px; }
+#right_panel .rp-sec-sub + .rp-sec-body { margin-top: 3px; }
+#right_panel .rp-sec:not(.folded) > .rp-sec-body { animation: rp-unfold 0.14s ease-out; }
+@keyframes rp-unfold { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #right_panel .rp-sec:not(.folded) > .rp-sec-body { animation: none; } }
+.rp-golink {
+    align-self: flex-end; margin-top: 2px; padding: 0 6px; height: 18px; line-height: 16px;
+    border: 1px solid var(--vt-edge-off, rgba(255,255,255,0.18)); border-radius: 4px;
+    background: transparent; color: var(--vt-accent, #0dcaf0); font-size: 10px; font-weight: 600;
+}
+.rp-golink:hover { background: rgba(13, 202, 240, 0.12); }
+/* Mower expand: three cells + the running program */
+.rp-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; width: 100%; }
+.rp-cell { display: flex; flex-direction: column; min-width: 0; padding: 2px 4px; border-radius: 4px;
+           background: rgba(255, 255, 255, 0.04); }
+.rp-cell-k { font-size: 9px; color: var(--vt-muted, #9aa4ad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-cell-v { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+             overflow: hidden; text-overflow: ellipsis; }
+.rp-cell-v[data-state="ok"]   { color: var(--vt-ok); }
+.rp-cell-v[data-state="warn"] { color: var(--vt-warn); }
+.rp-cell-v[data-state="err"]  { color: var(--vt-err); }
+.rp-mprog { font-size: 10px; color: var(--vt-text, #e6e9ec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Navi expand: one tracker line */
+.rp-trk1 { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.rp-trk1-k { font-size: 10px; color: var(--vt-accent, #0dcaf0); flex: 0 0 auto; }
+.rp-trk1 .vt-chip { margin-left: 0; flex: 0 0 auto; }
+.rp-trk1-t { font-size: 10px; color: var(--vt-muted, #9aa4ad); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* GNSS expand: Position | Heading, quick rows only */
+.rp-gq { width: 100%; }
+.rp-gq .vt-gx-cols { font-size: 10px; line-height: 1.3; }
+.rp-gq .vt-gx-col { font-variant-numeric: tabular-nums; }
+@media (pointer: coarse) {
+    .rp-golink { height: 30px; line-height: 28px; font-size: 12px; padding: 0 10px; }
+    .rp-cell-k { font-size: 10px; } .rp-cell-v { font-size: 13px; }
+    .rp-trk1-t, .rp-mprog, .rp-gq .vt-gx-cols { font-size: 11px; }
+}
+/* left panel › Loc: block headings + the Navi rows */
+.vt-locg-h { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+             color: var(--vt-muted, #9aa4ad); margin-top: 2px; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 4px; }
+.vt-locg-card .vt-card-head + .vt-locg-h { border-top: 0; padding-top: 0; }
+.vt-locg-nav { display: flex; flex-direction: column; gap: 1px; font-size: 12px; line-height: 1.35; }
+.vt-locg-nav .vt-gx-r > b { white-space: normal; overflow-wrap: anywhere; }
+.vt-locg-hist { font-size: 11px; color: var(--vt-muted, #9aa4ad); overflow-wrap: anywhere; margin-top: 2px; }

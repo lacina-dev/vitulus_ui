@@ -67,16 +67,33 @@
          GNSS:     head only — Position · Heading fix · satellites · correction
                    age dot · › (opens the left panel's GNSS card)
          Camera:   head stream dot + Off / S / L; body the picture */
+    /* 2026-10-18 evening (owner: "the right panel is a dashboard — colour
+       at a glance, the current numbers at hand when I look, the detail and
+       the explanations in the left panel"): THREE LEVELS for Mower, Navi and
+       GNSS —
+         1. head = colour + a few tokens (always visible; hover = what it is
+            and the one important number),
+         2. in-place expand (caret, folded by default, remembered per
+            section in localStorage `vitulus_rightpanel_x_<id>`) = the quick
+            current numbers,
+         3. "Detail ›" at the bottom of the expand = the left panel › Map ›
+            Loc "Localization detail" (Navi, GNSS).
+         Mower:  expand = Blade · Height · Temp cells + the running program
+         Navi:   the dot row stays under the head (sub); expand = tracker
+                 one-liner + Detail ›
+         GNSS:   expand = Position | Heading, first rows only + Detail › */
     var SECTIONS = [
         {id: 'drive', title: 'rdock.sec.drive',
          line: ['div_status_speed', 'div_status_speed-1'],
          movees: ['div_status_speed-2'], collapsible: true, drive: true},
-        {id: 'mower', title: 'rdock.sec.mower', mower: true, headOnly: true},
-        {id: 'state', title: 'rdock.sec.state', movees: ['div_odom'],
-         collapsible: true, navi: true},
+        {id: 'mower', title: 'rdock.sec.mower', mower: true, collapsible: true, folded: true,
+         lsKey: 'vitulus_rightpanel_x_mower'},
+        {id: 'state', title: 'rdock.sec.state', sub: ['div_odom'],
+         collapsible: true, folded: true, lsKey: 'vitulus_rightpanel_x_navi', navi: true},
         /* the old /gnss/fix rows (#div_gnss) stay hidden here: map_view.js
            still writes into them */
-        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss'], gsum: true, headOnly: true},
+        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss'], gsum: true,
+         collapsible: true, folded: true, lsKey: 'vitulus_rightpanel_x_gnss'},
         {id: 'camera', title: 'rdock.sec.camera', movees: [], camera: true, collapsible: true}
     ];
 
@@ -249,23 +266,36 @@
             ht.textContent = t(def.title);
             tag(ht, def.title);
             if (def.collapsible) {
-                var lsKey = 'vitulus_rightpanel_sec_' + def.id;
+                var lsKey = def.lsKey || ('vitulus_rightpanel_sec_' + def.id);
                 h.classList.add('rp-click');
                 var caret = el('span', 'rp-caret', h);
                 var openSec = def.folded ? lsGet(lsKey) === '1' : lsGet(lsKey) !== '0';
                 sec.classList.toggle('folded', !openSec);
                 caret.textContent = openSec ? '▾' : '▸';
+                h.setAttribute('aria-expanded', openSec ? 'true' : 'false');
                 h.addEventListener('click', function () {
                     var now = !sec.classList.contains('folded');
                     sec.classList.toggle('folded', now);     // now = bude sbaleno
                     caret.textContent = now ? '▸' : '▾';
+                    h.setAttribute('aria-expanded', now ? 'false' : 'true');
                     lsSet(lsKey, now ? '0' : '1');
+                    if (!now && sec.onUnfold) { sec.onUnfold(); }
                     place();
                     paintCam();
                 });
             }
-            var box = el('div', 'rp-sec-body', sec);
             var moved = 0;
+            if (def.sub) {                   // always visible under the head
+                var subBox = el('div', 'rp-sec-sub', sec);
+                def.sub.forEach(function (id) {
+                    var e = document.getElementById(id);
+                    if (!e) { return; }
+                    neutralize(e);
+                    subBox.appendChild(e);
+                    moved++;
+                });
+            }
+            var box = el('div', 'rp-sec-body', sec);
             if (def.line) {                  // víc prvků na jednom řádku
                 var line = el('div', 'rp-line', box);
                 def.line.forEach(function (id) {
@@ -294,9 +324,11 @@
                 });
             }
             if (def.drive) { buildDriveHead(h); }
-            if (def.navi) { buildNaviHead(h); }
+            if (def.navi) { buildNaviHead(h, ht); buildNaviBody(sec, box); }
             if (def.mower) { moved = buildMower(sec, h, box); }
-            if (def.gsum) { buildGnssSum(sec, h); }
+            if (def.gsum) { buildGnssSum(sec, h, box); }
+            var lastCaret = h.querySelector('.rp-caret');
+            if (lastCaret) { h.appendChild(lastCaret); }   // the caret stays last
             if (def.camera) {
                 /* stream state = one dot (green live, amber starting /
                    waiting, grey off / paused); the word is its tooltip */
@@ -401,12 +433,68 @@
 
     /* Navi head: who owns the pose (chip) + heading source SAT / IMU; the
        body keeps one row of odometry chips VO Li Wh FIX PROB ANC */
-    function buildNaviHead(h) {
+    function buildNaviHead(h, ht) {
         var w = headTokens(h);
         ['span_odom_drive', 'span_odom_hdg'].forEach(function (id) {
             var e = byId(id);
             if (e) { e.classList.add('vt-chip-sm'); w.appendChild(e); }
         });
+        /* the title says what the section is + who holds the pose now */
+        var paint = function () {
+            var o = byId('span_odom_drive'), hd = byId('span_odom_hdg');
+            setTip(ht, t('rdock.navi.tip', {
+                o: o ? ((o.textContent || '').trim() || '—') : '—',
+                h: hd ? ((hd.textContent || '').trim() || '—') : '—'}));
+        };
+        paint();
+        relang.push(paint);
+        setInterval(paint, 2000);
+    }
+
+    /* the link at the bottom of an expand: level 3 = the left panel */
+    function detailLink(box, target) {
+        var b = el('button', 'rp-golink', box);
+        b.type = 'button';
+        var paint = function () {
+            b.textContent = t('rdock.detail') + ' ›';
+            setTip(b, t('rdock.detail.tip'));
+        };
+        paint();
+        relang.push(paint);
+        b.addEventListener('click', function (ev) { ev.stopPropagation(); openLocTab(target); });
+        return b;
+    }
+
+    /* Navi expand: ONE tracker line — standby / active (the chip of the
+       left-panel tracker row, mirrored) + the last correction; the full
+       tracker lines, sources and anchor live in the left panel */
+    function buildNaviBody(sec, box) {
+        var line = el('div', 'rp-trk1', box);
+        var lab = el('span', 'rp-trk1-k', line);
+        lab.textContent = 'Trk';
+        var chip = el('span', 'vt-chip vt-chip-sm', line);
+        chip.dataset.state = 'off';
+        var txt = el('span', 'rp-trk1-t', line);
+        detailLink(box, 'loc_nav_box');
+        var paint = function () {
+            if (sec.classList.contains('folded')) { return; }
+            var st = document.getElementById('span_trk_state');
+            var note = document.getElementById('span_trk_note');
+            var last = document.getElementById('span_trk_last');
+            var ct = st ? (st.textContent || '').trim() : '—';
+            if (chip.textContent !== ct) { chip.textContent = ct || '—'; }
+            var cs = (st && st.dataset.state) || 'off';
+            if (chip.dataset.state !== cs) { chip.dataset.state = cs; }
+            var lt = last ? (last.textContent || '').trim() : '';
+            var nt = note ? (note.textContent || '').trim() : '';
+            if (txt.textContent !== lt) { txt.textContent = lt; }
+            setTip(chip, t('loc.trk.tip') + (nt ? ': ' + nt : ''));
+            setTip(line, (nt ? nt + ' · ' : '') + lt);
+        };
+        sec.onUnfold = paint;
+        paint();
+        relang.push(paint);
+        setInterval(paint, 1000);
     }
 
     // ------------------------------------------------------------ sekačka
@@ -428,6 +516,17 @@
         var src = document.getElementById('div_mower_info_panel');
         if (!src) { return 0; }
         var w = headTokens(h);
+        /* level 2: three cells + the running program (expand) */
+        var cells = el('div', 'rp-cells', box);
+        var mk = function (key) {
+            var c = el('div', 'rp-cell', cells);
+            var k = el('span', 'rp-cell-k', c);
+            k.textContent = t(key);
+            tag(k, key);
+            return el('span', 'rp-cell-v', c);
+        };
+        var cB = mk('rdock.mower.blade'), cH = mk('rdock.mower.height'), cT = mk('rdock.mower.temp');
+        var prog = el('div', 'rp-mprog', box);
         var chip = el('span', 'vt-chip vt-chip-sm', w);
         chip.id = 'rp_mower_chip';
         chip.dataset.state = 'off';
@@ -468,6 +567,28 @@
             tmp.style.display = hot ? '' : 'none';
             tmp.dataset.state = hot ? (tc >= MOWER_TOO_HOT ? 'err' : 'warn') : 'off';
             setTip(tmp, t('rdock.mower.temp') + ': ' + (tc != null ? Math.round(tc) + ' °C' : '—'));
+            /* the expand */
+            var bt = r ? t('rdock.mower.on') + ' · ' + Math.round(r) : t('rdock.mower.off');
+            if (cB.textContent !== bt) { cB.textContent = bt; }
+            cB.dataset.state = r ? 'ok' : 'off';
+            setTip(cB.parentNode, t('rdock.mower.blade') + ': ' + (r ? Math.round(r) + ' rpm' : t('rdock.mower.blade_off')));
+            var ht2 = hh != null ? Math.round(hh) + ' mm' : '—';
+            if (cH.textContent !== ht2) { cH.textContent = ht2; }
+            setTip(cH.parentNode, t('rdock.mower.height.tip'));
+            var tt = tc != null ? Math.round(tc) + ' °C' : '—';
+            if (cT.textContent !== tt) { cT.textContent = tt; }
+            cT.dataset.state = tc == null ? 'off' : (tc >= MOWER_TOO_HOT ? 'err' : (tc >= MOWER_HOT ? 'warn' : 'ok'));
+            setTip(cT.parentNode, t('rdock.mower.temp.tip', {a: MOWER_HOT, b: MOWER_TOO_HOT}));
+            var pg = window.programs, pn = '', ps = '';
+            try {
+                if (pg && pg.mission_program && pg._isRunning && pg._isRunning(pg.mission_program)) {
+                    pn = pg.mission_program; ps = String(pg.mission_status || '').trim();
+                }
+            } catch (e) { pn = ''; }
+            var ptxt = pn ? t('rdock.mower.prog', {n: pn}) + (ps ? ' · ' + ps : '') : '';
+            if (prog.textContent !== ptxt) { prog.textContent = ptxt; }
+            prog.style.display = pn ? '' : 'none';
+            setTip(prog, ptxt);
             var disp = on ? '' : 'none';
             if (sec.style.display !== disp) { sec.style.display = disp; placeSoon(); }
             if (mdot) {
@@ -481,6 +602,7 @@
         relang.push(paint);
         new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style'],
             childList: true, characterData: true, subtree: true});
+        setInterval(paint, 2000);              // the running program
         return 1;
     }
 
@@ -514,19 +636,23 @@
                 worst: worst, posState: sp};
     }
     function shortFix(s) { s = String(s || '—'); return SHORT[s.toUpperCase()] || s; }
-    function buildGnssSum(sec, h) {
+    function buildGnssSum(sec, h, box) {
         var wrap = el('span', 'rp-htok rp-gsum', h);
         wrap.id = 'rp_gnss_sum';
         var cp = el('span', 'vt-chip vt-chip-sm', wrap);
         var ch = el('span', 'vt-chip vt-chip-sm', wrap);
         var tx = el('span', 'rp-tv rp-gsum-t', wrap);
         var cd = tdot(wrap, 'rp-corr');
-        var more = el('button', 'rp-more', h);
-        more.type = 'button';
-        more.id = 'rp_gnss_more';
-        more.textContent = '›';
-        setTip(more, t('rdock.gnss.more'));
-        more.addEventListener('click', function (ev) { ev.stopPropagation(); openLocTab(); });
+        /* level 2: Position | Heading, the quick rows only (GnssRx.quick) */
+        var quick = el('div', 'rp-gq', box);
+        detailLink(box, 'loc_gnss_rx_box');
+        var lastQ = '';
+        var paintQ = function () {
+            if (sec.classList.contains('folded') || !window.gnss_rx || !window.gnss_rx.quick) { return; }
+            var q = window.gnss_rx.quick();
+            if (q !== lastQ) { lastQ = q; quick.innerHTML = q; }
+        };
+        sec.onUnfold = paintQ;
         var gdot = panel.querySelector('#rp_sum_dot_gnss');
         var last = '';
         var paint = function () {
@@ -547,6 +673,7 @@
                 setTip(cd, t('gnssrx.r.corr') + ': ' + (m && m.corr ? m.corr : '—') + ' · ' + t('rdock.gnss.corr_code'));
                 sec.dataset.tone = m ? m.worst : 'off';
             }
+            paintQ();
             var tip = m ? t('gnssrx.pos') + ' ' + m.pos[0] + ' · ' + t('gnssrx.hdg') + ' ' + m.hdg[0] +
                 ' · SV ' + m.sv + (m.corr ? ' · ' + t('gnssrx.r.corr') + ' ' + m.corr : '') : t('rdock.gnss.nodata');
             if (gdot) {
@@ -556,19 +683,32 @@
             }
         };
         paint();
-        relang.push(function () { last = ''; paint(); setTip(more, t('rdock.gnss.more')); });
+        relang.push(function () { last = ''; lastQ = ''; paint(); });
         var card = document.getElementById('div_gnss_rx');
         if (card) { new MutationObserver(paint).observe(card, {childList: true}); }
         setInterval(paint, 2000);              // stale data → '—'
     }
 
     // ------------------------------------------ levý panel › Map › Loc
-    /* The long texts live in the LEFT panel (plenty of room there): one card
-       "GNSS & tracker" at the top of Map › Loc holds the receivers card
-       (#div_gnss_rx, GnssRx), the lidar tracker lines (map_view.js Odom
-       builds them inside #div_odom — they are moved here as soon as they
-       exist) and the RtabMap row. Elements move with their ids, so
-       map_view.js keeps writing into them. */
+    /* Level 3 lives in the LEFT panel (plenty of room there): one card
+       "Localization detail" at the top of Map › Loc —
+         Pose & odometry  who holds the pose (+ its last changes), heading,
+                          VO / Li / Wh with state + covariance, FIX / PROB,
+                          anchor and the drift budget (#loc_nav_box, painted
+                          here from window.odom — the same numbers the right
+                          panel's chips show in their tooltips)
+         Lidar tracker    map_view.js Odom builds the rows inside #div_odom,
+                          they are moved here as soon as they exist
+         RtabMap          the row, only while rtabmap runs
+         GNSS receivers   the card of both receivers (#div_gnss_rx, GnssRx)
+       Elements move with their ids, so map_view.js keeps writing into them. */
+    function locHead(card, key, id) {
+        var hd = el('div', 'vt-locg-h', card);
+        if (id) { hd.id = id; }
+        hd.textContent = t(key);
+        tag(hd, key);
+        return hd;
+    }
     function buildLocCard() {
         var tab = document.getElementById('tab-gloc');
         if (!tab) { return; }
@@ -584,28 +724,107 @@
             sub.textContent = t('locg.sub');
             tag(sub, 'locg.sub');
             tab.insertBefore(card, tab.firstChild);
-        }
-        ['div_gnss_rx', 'div_rtabmap'].forEach(function (id) {
-            var e = document.getElementById(id);
-            if (e && e.parentNode !== card) { neutralize(e); card.appendChild(e); }
-        });
-        var trk = document.getElementById('loc_trk_box');
-        if (!trk) {
-            trk = el('div', 'vt-locg-trk');
+            locHead(card, 'locg.h.pose', 'loc_nav_box');
+            var nav = el('div', 'vt-locg-nav', card);
+            nav.id = 'loc_nav_rows';
+            locHead(card, 'locg.h.trk', 'loc_trk_head');
+            var trk = el('div', 'vt-locg-trk', card);
             trk.id = 'loc_trk_box';
             var rt = document.getElementById('div_rtabmap');
-            card.insertBefore(trk, rt && rt.parentNode === card ? rt : null);
+            if (rt) { neutralize(rt); card.appendChild(rt); }
+            locHead(card, 'locg.h.gnss', 'loc_gnss_rx_box');
+            var rx = document.getElementById('div_gnss_rx');
+            if (rx) { neutralize(rx); card.appendChild(rx); }
         }
+        var trkBox = document.getElementById('loc_trk_box');
         var tries = 0;
         (function moveTrk() {
             var rows = document.querySelectorAll('#right_panel .vt-trk-row');
-            Array.prototype.forEach.call(rows, function (r) { trk.appendChild(r); });
-            if (!trk.children.length && ++tries < 120) { setTimeout(moveTrk, 1000); }
+            Array.prototype.forEach.call(rows, function (r) { trkBox.appendChild(r); });
+            if (!trkBox.children.length && ++tries < 120) { setTimeout(moveTrk, 1000); }
         })();
+        paintLocNav();
+        relang.push(paintLocNav);
+        setInterval(paintLocNav, 1000);
     }
 
-    /* › in the GNSS head: the left panel › Map › Loc, scrolled to the card */
-    function openLocTab() {
+    /* who held the pose, the last few changes (this page's lifetime) */
+    var ownerHist = [], ownerLast = null;
+    function trackOwner() {
+        var o = window.odom && window.odom.loc;
+        var fresh = o && window.odom.loc_t && Date.now() - window.odom.loc_t < 5000;
+        var cur = fresh ? String(o.owner || '—') : null;
+        if (cur && cur !== ownerLast) {
+            if (ownerLast) {
+                ownerHist.unshift({t: new Date(), from: ownerLast, to: cur});
+                if (ownerHist.length > 5) { ownerHist.length = 5; }
+            }
+            ownerLast = cur;
+        }
+    }
+    var TONE = {ok: 'ok', warn: 'warn', err: 'err'};
+    function afterColon(s) {
+        s = String(s || '');
+        var i = s.indexOf(': ');
+        return i >= 0 ? s.slice(i + 2) : s;
+    }
+    function hhmmss(d) {
+        var p = function (n) { return (n < 10 ? '0' : '') + n; };
+        return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+    var navLast = '';
+    function paintLocNav() {
+        trackOwner();
+        var box = document.getElementById('loc_nav_rows');
+        if (!box) { return; }
+        var od = window.odom, L = od && od.loc;
+        var fresh = L && od.loc_t && Date.now() - od.loc_t < 5000;
+        var rows = [];
+        var chipRow = function (k, id, v) {
+            var e = document.getElementById(id);
+            if (!e) { return; }
+            rows.push([k, v != null ? v : afterColon(e.title), TONE[e.dataset.state] || 'muted', e.title]);
+        };
+        chipRow(t('bar.pose'), 'span_odom_drive');
+        var hd = document.getElementById('span_odom_hdg');
+        if (hd) {
+            var ht = (hd.textContent || '').trim();
+            rows.push([t('locg.r.hdg'), ht + (fresh ? ' · ' + t(L.heading_ok ? 'loc.hdg_ok' : 'loc.hdg_not_ok') : ''),
+                       TONE[hd.dataset.state] || 'muted', hd.title]);
+        }
+        var si = (od && od.srcInfo) || {};
+        [['vo', 'VO', 'span_odom_vo'], ['licp', 'Li', 'span_odom_licp'], ['wheel', 'Wh', 'span_odom_wheel']].forEach(function (d) {
+            var i = si[d[0]];
+            var e = document.getElementById(d[2]);
+            rows.push([d[1], i ? i.txt + (i.cov ? ' · ' + t('loc.src.cov', {c: i.cov}) : '') : t('loc.src.none'),
+                       i ? (TONE[i.st] || 'muted') : 'muted', e ? e.title : '']);
+        });
+        chipRow('FIX', 'span_odom_fix');
+        chipRow('PROB', 'span_odom_prob');
+        chipRow('ANC', 'span_odom_anc');
+        if (fresh && (L.budget_used_m != null || L.budget_used_deg != null)) {
+            rows.push([t('locg.r.budget'), (L.budget_used_m != null ? Number(L.budget_used_m).toFixed(2) + ' m' : '—') +
+                       ' · ' + (L.budget_used_deg != null ? Number(L.budget_used_deg).toFixed(1) + '°' : '—'),
+                       'muted', t('locg.r.budget_tip')]);
+        }
+        var hist = ownerHist.map(function (x) { return hhmmss(x.t) + ' ' + x.from + ' → ' + x.to; });
+        var key = JSON.stringify([rows, hist]);
+        if (key === navLast) { return; }
+        navLast = key;
+        box.innerHTML = '';
+        rows.forEach(function (r) {
+            var row = el('div', 'vt-gx-r', box);
+            if (r[3]) { row.title = r[3]; }
+            el('span', null, row).textContent = r[0];
+            var b = el('b', r[2] ? 'vt-tone-' + r[2] : null, row);
+            b.textContent = r[1] || '—';
+        });
+        var hh = el('div', 'vt-locg-hist', box);
+        hh.textContent = t('locg.r.hist') + ': ' + (hist.length ? hist.join(' · ') : t('locg.r.hist_none'));
+    }
+
+    /* "Detail ›": the left panel › Map › Loc, scrolled to the block */
+    function openLocTab(target) {
         var mm = window.map_menu;
         try { if (mm && mm.show_map_panel) { mm.show_map_panel(); } } catch (e) {}
         setTimeout(function () {
@@ -616,7 +835,7 @@
                     else { a.click(); }
                 } catch (e) { a.click(); }
             }
-            var c = document.getElementById('loc_gnss_card');
+            var c = document.getElementById(target || 'loc_gnss_card') || document.getElementById('loc_gnss_card');
             if (c && c.scrollIntoView) { try { c.scrollIntoView({block: 'start'}); } catch (e) {} }
         }, 80);
     }

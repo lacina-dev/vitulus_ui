@@ -24,13 +24,15 @@ The robot combines several sources into one position (the *pose*):
 
 ## Read the state (right panel › Navi)
 
-![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi: 1 Pose chip · 2 heading source · 3 odometry chips VO / Li / Wh / FIX / PROB / ANC")
+![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi, expanded: 1 Pose chip · 2 heading source · 3 odometry chips VO / Li / Wh / FIX / PROB / ANC · 4 tracker line · 5 Detail ›")
 
 The Navi title row carries the two most important chips — who owns the pose (1) and the heading
 source (2); the row below holds the odometry chips (3). Colour is the message (green fine, orange
-not exact yet, red bad, grey off); hover or long-press a chip for the words. The lidar tracker
-lines and the GNSS card are in the left panel: **Map › Loc › GNSS & tracker** (the **›** in the
-right panel's GNSS row opens it).
+not exact yet, red bad, grey off); hover or long-press a chip for what it is and its number (the
+covariance of an odometry, the correction age behind `FIX`, the age of the anchor). Click the
+title to expand one tracker line (4) and **Detail ›** (5), which opens the left panel **Map › Loc
+› Localization detail**: pose & odometry (every chip in words, the drift budget, the last
+changes of who held the pose), the lidar tracker lines, RtabMap and both GNSS receivers.
 
 The first chip (1) says **who owns the pose now**:
 
@@ -84,8 +86,10 @@ The robot has **two** GPS receivers. The right panel's **GNSS** row says it in t
 Position fix, the Heading fix (`RTK` / `FLT` float / `DGN` DGNSS / `3D` / `NO`, coloured like
 below), the satellites the position receiver uses (green from 12) and a dot for the age of its
 corrections — green < 2 s, orange < 10 s, red older or none; the tooltips have the numbers and
-the row is tinted by the worse receiver. **›** at its end opens the full card — both receivers
-side by side — in the left panel, **Map › Loc › GNSS & tracker**:
+the row is tinted by the worse receiver. Click the title to expand the two tiles **Position |
+Heading** with the quick numbers (fix, satellites used / visible, accuracy, correction age);
+**Detail ›** under them opens the full card — both receivers side by side — in the left panel,
+**Map › Loc › Localization detail › GNSS receivers**:
 
 - **Position** — the RTK rover. It gets its corrections (RTCM) from the **base station**.
 - **Heading** — the second antenna. It gets its corrections from the **position receiver**
@@ -140,7 +144,7 @@ See also [Troubleshooting › GPS](troubleshooting.md#gps-does-not-fix).
 **Map › Loc** asks: *where does the current lidar scan fit best on the loaded map?* Use it when
 the robot is lost (`DEAD-RECKON`, or the robot on the map is obviously in the wrong place).
 
-![The Loc tab of the Map panel with numbered buttons](img/shot-loc-tab.webp "Map › Loc: 1 Localize · 2 auto 5 s · 3 Apply → robot · 4 Force · 5 the GNSS & tracker card (both receivers; tap it for details) · 6 the lidar tracker line")
+![The Loc tab of the Map panel with numbered buttons](img/shot-loc-tab.webp "Map › Loc: 1 Localize · 2 auto 5 s · 3 Apply → robot · 4 Force · 5 the Localization detail card (pose & odometry, lidar tracker, RtabMap, GNSS receivers — tap the receivers for more) · 6 the lidar tracker line")
 
 1. **Localize** (or tick **auto 5 s**) — computes candidates. Computing never moves the robot.
 2. Read the result: best pose and score, and the **margin**:

@@ -4976,15 +4976,23 @@ class Odom{
         // rtabmap odometry signals tracking loss with covariance 9999 (VO in
         // the dark does that all night); dock_idle pauses VO + licp in the dock.
         this.src = {vo: {t: 0, lost: false}, licp: {t: 0, lost: false}, wheel: {t: 0, lost: false}};
+        this.srcInfo = {};          // painted state per source (left panel › Loc reads it)
         this.odom_paused = false;
         var lostOf = function (m) {
             var p = m.pose && m.pose.covariance, w = m.twist && m.twist.covariance;
             return !!((p && p[0] >= 9999) || (w && w[0] >= 9999));
         };
+        // the one number worth a tooltip: the x variance of the pose (or of
+        // the twist when the pose carries none)
+        var covOf = function (m) {
+            var p = m.pose && m.pose.covariance, w = m.twist && m.twist.covariance;
+            var c = p && p[0] > 0 ? p[0] : (w && w[0] > 0 ? w[0] : null);
+            return c != null && c < 9999 ? c : null;
+        };
         [['vo', '/vo/odom'], ['licp', '/licp/odom_cov'], ['wheel', '/mobile_base_controller/odom']].forEach(function (d) {
             new ROSLIB.Topic({
                 ros : ros, name : d[1], messageType : 'nav_msgs/Odometry', throttle_rate : 500, queue_length : 1
-            }).subscribe(function (m) { self.src[d[0]] = {t: Date.now(), lost: lostOf(m)}; });
+            }).subscribe(function (m) { self.src[d[0]] = {t: Date.now(), lost: lostOf(m), cov: covOf(m)}; });
         });
         new ROSLIB.Topic({
             ros : ros, name : '/dock_idle/status', messageType : 'std_msgs/String'
@@ -5056,6 +5064,12 @@ class Odom{
             row.parentNode.insertBefore(r1, row.nextSibling);
             row.parentNode.insertBefore(r2, r1.nextSibling);
         }
+        // the chips carry LIVE tooltips (what it is + the one number); the
+        // static data-i18n-title of the template would overwrite them
+        [this.span_odom_vo, this.span_odom_licp, this.span_odom_wheel, this.span_odom_fix,
+         this.span_odom_prob, this.span_odom_hdg, this.span_odom_drive].forEach(function (e) {
+            if (e) e.removeAttribute('data-i18n-title');
+        });
         this.span_trk_state = document.getElementById("span_trk_state");
         this.span_trk_note  = document.getElementById("span_trk_note");
         this.span_trk_last  = document.getElementById("span_trk_last");
@@ -5101,8 +5115,15 @@ class Odom{
             else if (s.lost) { st = d[0] === 'vo' ? "off" : "warn"; why = d[0] === 'vo' ? 'loc.src.vo_lost' : 'loc.src.lost'; }
             else { st = "ok"; why = 'loc.src.ok'; }
             vtChip(el, st);
-            el.title = vtT(d[2]) + ' · ' + vtT(why, {s: s.t ? Math.round(age / 1000) : '–'});
+            var cov = st === "ok" && s.cov != null ? Odom.cov(s.cov) : null;
+            var txt = vtT(why, {s: s.t ? Math.round(age / 1000) : '–'});
+            self.srcInfo[d[0]] = {st: st, txt: txt, cov: cov, age: s.t ? age / 1000 : null};
+            el.title = vtT(d[2]) + ': ' + txt + (cov ? ' · ' + vtT('loc.src.cov', {c: cov}) : '');
         });
+    }
+
+    static cov(c) {
+        return c < 0.001 ? c.toExponential(1) : (c < 0.1 ? c.toFixed(3) : c.toFixed(2));
     }
 
     static ago(ms) {
@@ -5199,12 +5220,12 @@ class Odom{
         var el = this.span_odom_anc, L = this.loc;
         if (!el) return;
         if (!L || Date.now() - this.loc_t > 3000) {
-            vtChip(el, "off"); el.title = vtT('bar.anc_tip') + ' · ' + vtT('loc.anc.none'); return;
+            vtChip(el, "off"); el.title = vtT('bar.anc_tip') + ': ' + vtT('loc.anc.none'); return;
         }
         var age = L.anchor_age_s, frozen = !!L.anchor_frozen, hf = !!L.heading_anchor_frozen;
         var st = (frozen || hf) ? "warn" : (age == null ? "off" : "ok");
         vtChip(el, st);
-        el.title = vtT('bar.anc_tip') + ' · ' + vtT(frozen ? 'loc.anc.frozen' : 'loc.anc.ok', {s: age == null ? '–' : (age < 10 ? age.toFixed(1) : Math.round(age))}) +
+        el.title = vtT('bar.anc_tip') + ': ' + vtT(frozen ? 'loc.anc.frozen' : 'loc.anc.ok', {s: age == null ? '–' : (age < 10 ? age.toFixed(1) : Math.round(age))}) +
             (L.heading_anchor_age_s != null ? ' · ' + vtT(hf ? 'loc.anc.hdg_frozen' : 'loc.anc.hdg', {
                 s: L.heading_anchor_age_s < 10 ? L.heading_anchor_age_s.toFixed(1) : Math.round(L.heading_anchor_age_s)}) : '');
     }
@@ -5244,15 +5265,25 @@ class Odom{
             if (best) txt = "DR (" + best + ")";
             this.span_odom_drive.textContent = txt;
             vtChip(this.span_odom_drive, lc[1]);
-            this.span_odom_drive.title = vtT('mapview.odom.owner_tip');
+            var od = vtT('loc.owner.' + (o.owner || 'none'));
+            if (/^loc\.owner\./.test(od)) od = String(o.owner || '—');
+            this.span_odom_drive.title = vtT('mapview.odom.owner_tip') + ': ' + txt + ' — ' + od;
         }
         if (this.span_odom_fix) {
             var fixOn = !!o.fix_usable;
             vtChip(this.span_odom_fix, fixOn ? "ok" : "off");
+            // + the correction age of the position receiver (/gnss_status)
+            var g = window.gnss_rx, ca = null;
+            try {
+                if (g && g.last && Date.now() - g.last_at < 5000) ca = g.last.rx.gnss.rtcm.last_age_s;
+            } catch (e) { ca = null; }
+            this.span_odom_fix.title = vtT('bar.fix_tip') + ': ' + vtT(fixOn ? 'loc.fix.yes' : 'loc.fix.no') +
+                (ca != null ? ' · ' + vtT('loc.fix.age', {s: ca < 10 ? ca.toFixed(1) : Math.round(ca)}) : '');
         }
         if (this.span_odom_prob) {
             var probOn = !!o.probation_proven;
             vtChip(this.span_odom_prob, probOn ? "ok" : "off");
+            this.span_odom_prob.title = vtT('bar.prob_tip') + ': ' + vtT(probOn ? 'loc.prob.yes' : 'loc.prob.no');
         }
     }
 
@@ -5388,7 +5419,7 @@ class GnssRx{
             (tone ? ' class="vt-tone-' + tone + '"' : '') + '>' + vtEsc(v) + '</b></div>';
     }
 
-    col(key, o, title) {
+    col(key, o, title, quick) {
         var st = GnssRx.fixState(o);
         var h = '<div class="vt-gx-col" data-state="' + st + '">' +
             '<div class="vt-gx-h"><span class="vt-gx-name">' + vtEsc(title) + '</span>' +
@@ -5409,6 +5440,7 @@ class GnssRx{
         var c = GnssRx.corr(o);
         h += this.row(vtT('gnssrx.r.corr'), c.txt, c.tone,
             vtT(o.role === "heading" ? 'gnssrx.r.corr_tip_mb' : 'gnssrx.r.corr_tip'));
+        if (quick) return h + '</div>';      // right panel › GNSS expand
         h += this.row(vtT('gnssrx.r.up'), GnssRx.dur(o.up_s), "", vtT('gnssrx.r.up_tip'));
         var w = o.warm || {};
         var rt = o.rtk ? (w.rtk != null ? GnssRx.dur(w.rtk) : vtT('gnssrx.r.rtk_early'))
@@ -5470,6 +5502,16 @@ class GnssRx{
                                      v: p.v_acc_mm != null ? (p.v_acc_mm / 10).toFixed(1) : "—"}));
         return '<div class="vt-gx-det"><b>' + vtEsc(title) + '</b>' +
             L.map(function (x) { return '<div>' + vtEsc(x) + '</div>'; }).join("") + '</div>';
+    }
+
+    // right panel › GNSS expand: the two columns, quick rows only
+    quick() {
+        var d = this.last, fresh = d && (Date.now() - this.last_at) < 5000;
+        if (!fresh) return '<div class="vt-gx-note" data-state="off">' +
+            vtEsc(vtT(d ? 'gnssrx.stale' : 'gnssrx.nodata')) + '</div>';
+        var pos = d.rx && d.rx.gnss, hdg = d.rx && d.rx.gnss_heading;
+        return '<div class="vt-gx-cols">' + this.col('gnss', pos, vtT('gnssrx.pos'), true) +
+            this.col('gnss_heading', hdg, vtT('gnssrx.hdg'), true) + '</div>';
     }
 
     render() {
