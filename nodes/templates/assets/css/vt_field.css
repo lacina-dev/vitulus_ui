@@ -932,3 +932,20 @@ body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*=
 /* Needs you: an empty group shows its header (title · 0) only */
 .vt-needs-grp > .drawer-sec-body:empty { display: none; }
 .vt-needs-grp:has(> .drawer-sec-body:empty) > summary { border-bottom: 0 !important; }
+
+/* ============ P24: native colour pickers (Map › Display › Robot marker) are
+   small square swatches with the frame's edge, not white browser boxes */
+input[type="color"].vt-color {
+    -webkit-appearance: none; appearance: none;
+    width: 26px; height: 20px; padding: 0; vertical-align: middle;
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-tag);
+    background: transparent; cursor: pointer;
+}
+input[type="color"].vt-color::-webkit-color-swatch-wrapper { padding: 2px; }
+input[type="color"].vt-color::-webkit-color-swatch { border: 0; border-radius: 2px; }
+input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px; }
+@media (pointer: coarse) { input[type="color"].vt-color { width: 36px; height: 30px; } }
+/* Mower: the status value speaks the switch's tone (READY/RUN green, faults
+   red, height change / calibration amber, off muted) */
+#inputgroup_mower_on_off[data-state] #span_mower_status { color: var(--vt-st) !important; font-weight: 700; }
+#inputgroup_mower_on_off[data-state="off"] #span_mower_status { color: var(--vt-muted) !important; }

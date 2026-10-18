@@ -1750,5 +1750,37 @@ html body.vt-frame.vt-c-logfull-l #div_log_view.log-expanded {
         100% 100%, 0 100%);
 }
 html body.vt-frame.vt-c-logfull-l #div_log_view.log-expanded .log-toolbar { margin-right: var(--vt-log-notch-w, 0px); }
-html body.vt-frame.vt-c-logfull-l #div_log_view.log-expanded #div_log_content { padding-right: 4px; }
+/* P23: lines wrap to the width that is visible at the TOP of the L (left of
+   the right panel), so a long line is never cut under the panel; the part
+   of the log under the panel's column stays plain frame surface */
+html body.vt-frame.vt-c-logfull-l #div_log_view.log-expanded #div_log_content { padding-right: calc(var(--vt-log-notch-w, 0px) + 8px); }
 html body.vt-frame.vt-c-logfull-l #right_panel { border-bottom-left-radius: 0 !important; }
+/* P23: L-log + stick — the map window between the right panel's foot and the
+   stick has the hollow's concave inner corners on its left side; the stick's
+   own top-left corner turns square (the log continues on its left) */
+body.vt-frame #vt_c_wt, body.vt-frame #vt_c_wb { display: none; }
+body.vt-frame.vt-c-logwin #vt_c_wt {
+    display: block;
+    left: calc(100vw - var(--vt-frame-joy-w, 0px));
+    top: var(--vt-win-top, 0px);
+    z-index: 9;
+    background: radial-gradient(circle at 100% 100%, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+body.vt-frame.vt-c-logwin #vt_c_wb {
+    display: block;
+    left: calc(100vw - var(--vt-frame-joy-w, 0px));
+    top: calc(var(--vt-win-bot, 0px) - var(--vt-frame-r));
+    z-index: 9;
+    background: radial-gradient(circle at 100% 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+html body.vt-frame.vt-c-logwin #joy_view.vt-joy.vt-joy { border-top-left-radius: 0 !important; }
+body.vt-frame.vt-c-logwin #vt_c_jb { display: none; }
+/* P24: …and that tab row stays at the top while the panel body scrolls, so
+   the floating head never sits over content (it always sits over the row) */
+@media (max-height: 480px) {
+    body.vt-frame.vt-m-overlay #ui_drawer:not(.full):has(> #ui_drawer_body > :is([id^="div_menu_"], #vt_support_panel):not([style*="none"]) .drawer-pills) > #ui_drawer_body .drawer-pills:first-of-type {
+        position: sticky; top: 0; z-index: 5;
+        background: linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)), var(--vt-frame-bg);
+        box-shadow: 0 -8px 0 var(--vt-frame-bg), 8px 0 0 var(--vt-frame-bg), -8px 0 0 var(--vt-frame-bg);
+    }
+}
