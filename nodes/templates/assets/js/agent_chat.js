@@ -53,6 +53,56 @@
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
+    /* i18n (docs/I18N.md).  The panel's OWN words go through VTI18n; what
+       the agent, the owner or a job wrote (messages, job texts, outputs,
+       the commands sent to the agent) is data and is never translated.
+       `_t`/`_tn` and not `t`: this file has dozens of locals called `t`.
+       lt(el, key, vars, attr) is VTI18n.tag with {vars}: the key is kept on
+       the element (data-vti-<attr>) and painted again on every language
+       switch (relangEls), so text drawn once — a bubble's meta line, a form
+       label — follows the switch without a redraw. */
+    function _t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function _tn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
+    var LT_ATTRS = ['text', 'title', 'placeholder', 'aria-label', 'data-label'];
+    function ltPaint(el, attr) {
+        var spec;
+        try { spec = JSON.parse(el.getAttribute('data-vti-' + attr) || 'null'); } catch (e) { spec = null; }
+        if (!spec) { return; }
+        // a var may itself be a key: {k: <key>} — translated too
+        var vars = spec[1];
+        if (vars) {
+            vars = Object.assign({}, vars);
+            Object.keys(vars).forEach(function (n) {
+                if (vars[n] && typeof vars[n] === 'object' && vars[n].k) { vars[n] = _t(vars[n].k); }
+            });
+        }
+        var s = spec[2] != null ? _tn(spec[0], spec[2], vars) : _t(spec[0], vars);
+        if (attr === 'text') { el.textContent = s; } else { el.setAttribute(attr, s); }
+    }
+    function lt(el, key, vars, attr) {
+        if (!el) { return el; }
+        attr = attr || 'text';
+        el.setAttribute('data-vti-' + attr, JSON.stringify([key, vars || null]));
+        ltPaint(el, attr);
+        return el;
+    }
+    function ltn(el, key, n, vars, attr) {
+        if (!el) { return el; }
+        attr = attr || 'text';
+        el.setAttribute('data-vti-' + attr, JSON.stringify([key, vars || null, n]));
+        ltPaint(el, attr);
+        return el;
+    }
+    /* a later plain assignment must not be overwritten by a stale key */
+    function ltOff(el, attr) { if (el) { el.removeAttribute('data-vti-' + (attr || 'text')); } return el; }
+    function relangEls(root) {
+        root = root || document;
+        LT_ATTRS.forEach(function (a) {
+            Array.prototype.forEach.call(root.querySelectorAll('[data-vti-' + a + ']'),
+                function (el) { ltPaint(el, a); });
+        });
+    }
+
     // ------------------------------------------------------------ helpers
     function clock(ts) {
         var d = new Date((ts || 0) * 1000);
@@ -112,7 +162,7 @@
         b.type = 'button';
         b.className = 'vagent-cmdbtn';
         b.textContent = text;
-        b.title = needConfirm ? 'Run (with confirmation)' : 'Run command';
+        lt(b, needConfirm ? 'chat.cmd.run_confirm' : 'chat.cmd.run', null, 'title');
         b.addEventListener('click', function (ev) {
             ev.stopPropagation();
             if (needConfirm) { inlineConfirm(b, function () { submitText(text); openChatSection(); }); }
@@ -126,7 +176,7 @@
         b.type = 'button';
         b.className = 'vagent-ref';
         b.textContent = label;
-        b.title = 'Show job #' + String(id).replace(/^[js]:/, '');
+        lt(b, 'chat.ref.show', {id: String(id).replace(/^[js]:/, '')}, 'title');
         b.addEventListener('click', function (ev) {
             ev.stopPropagation();
             highlightJob(id);
@@ -209,11 +259,11 @@
         var box = document.createElement('span');
         box.className = 'vagent-confirm';
         var q = document.createElement('span');
-        q.textContent = 'Really?';
+        lt(q, 'agent.confirm.really');
         var yes = document.createElement('button');
-        yes.type = 'button'; yes.className = 'cy'; yes.textContent = 'Yes';
+        yes.type = 'button'; yes.className = 'cy'; lt(yes, 'common.yes');
         var no = document.createElement('button');
-        no.type = 'button'; no.className = 'cn'; no.textContent = 'No';
+        no.type = 'button'; no.className = 'cn'; lt(no, 'common.no');
         box.appendChild(q); box.appendChild(yes); box.appendChild(no);
         function close() { if (box.parentNode) { box.remove(); } }
         yes.addEventListener('click', function (ev) { ev.stopPropagation(); close(); onYes(); });
@@ -341,9 +391,7 @@
         if (btn) {
             var down = agentUp === false;
             btn.classList.toggle('agent-down', down);
-            btn.title = down
-                ? 'Vitulus agent not running on this robot'
-                : 'Agent — chat, jobs, approvals (Alt+A)';
+            lt(btn, down ? 'agent.btn.down' : 'agent.btn.tip', null, 'title');
         }
         renderAgentPlaceholder();
     }
@@ -359,14 +407,12 @@
                 ph.id = 'vagent_down';
                 ph.className = 'vagent-down';
                 var msg = document.createElement('p');
-                msg.textContent = 'Agent is not available on this robot. ' +
-                    'Chat, jobs, approvals and findings need the vitulus_agent ' +
-                    'service; the panel checks again now and then.';
+                lt(msg, 'agent.down.msg');
                 ph.appendChild(msg);
                 var retry = document.createElement('button');
                 retry.type = 'button';
                 retry.className = 'vagent-retry';
-                retry.textContent = 'Retry';
+                lt(retry, 'agent.down.retry');
                 retry.addEventListener('click', function () { probeAgent(); });
                 ph.appendChild(retry);
                 blocks.parentNode.insertBefore(ph, blocks);
@@ -476,7 +522,6 @@
                                                     it has to SAY so
        A null value is never a zero: it prints as unreadable, which is the one
        thing the Findings tab already got right and everything else did not. */
-    var NUM_UNREADABLE = 'could not be read — this is not a zero';
 
     function num(value, src, opts) {
         opts = opts || {};
@@ -486,7 +531,8 @@
                    (typeof value === 'number' && isNaN(value)));
         if (bad) {
             s.className = 'vagent-unknown' + (opts.cls ? ' ' + opts.cls : '');
-            s.textContent = opts.unknown || NUM_UNREADABLE;
+            if (opts.unknown) { s.textContent = opts.unknown; }
+            else { lt(s, 'agent.num.unreadable'); }
             return s;
         }
         if (opts.cls) { s.className = opts.cls; }
@@ -631,9 +677,9 @@
         dot.className = since < 8 ? 'ok' : (since < 25 ? 'slow' : 'bad');
         if (age) {
             age.textContent = conn.okTs
-                ? (since < 8 ? '' : Math.round(since) + ' s ago')
-                : 'no connection';
-            age.title = 'Age of the last successful connection to the agent (/agent)';
+                ? (since < 8 ? '' : _t('common.ago.s', {n: Math.round(since)}))
+                : _t('agent.conn.none');
+            age.title = _t('agent.conn.tip');
         }
     }
 
@@ -702,8 +748,12 @@
        chat, work, a finding nor the robot: it is how the agent is wired. */
     /* U2 I2: Activity = one timeline of the agent's jobs and the field kit's
        events (vt_activity.js registers the block). */
-    var TAB_LABEL = {chat: 'Chat', work: 'Work', activity: 'Activity',
-                     findings: 'Findings', robot: 'Robot', models: 'Models'};
+    /* display names: app.agent.tab.<id> (the same words Settings › App
+       offers for „Agent opens on"); the ids themselves never change */
+    var TAB_LABEL = {chat: 'app.agent.tab.chat', work: 'app.agent.tab.work',
+                     activity: 'app.agent.tab.activity',
+                     findings: 'app.agent.tab.findings', robot: 'app.agent.tab.robot',
+                     models: 'app.agent.tab.models'};
     var TAB_ORDER = ['chat', 'work', 'activity', 'findings', 'robot', 'models'];
     // block id -> tab.  The tab's PRIMARY block renders plain, the rest as
     // collapsible cards; `gate` is pinned (plain) although it is not primary.
@@ -721,6 +771,13 @@
     var LS_TAB = 'vitulus_agent_tab';
     var panes = {}, tabBtns = {};
 
+    function relangTabs() {
+        Object.keys(tabBtns).forEach(function (id) {
+            var n = tabBtns[id].firstChild;
+            if (n && n.nodeType === 3) { n.nodeValue = _t(TAB_LABEL[id]); }
+        });
+    }
+
     function tabFor(blockId) {
         return TAB_OF[blockId] || (TAB_LABEL[blockId] ? blockId : 'work');
     }
@@ -732,14 +789,18 @@
             var pane = document.createElement('div');
             pane.className = 'vagent-pane';
             pane.setAttribute('data-pane', tabId);
-            pane.setAttribute('data-label', TAB_LABEL[tabId]);
+            lt(pane, TAB_LABEL[tabId], null, 'data-label');
             body.appendChild(pane);
             panes[tabId] = pane;
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'vagent-tab';
             btn.setAttribute('data-tab', tabId);
-            btn.textContent = TAB_LABEL[tabId];
+            // the words are the button's FIRST TEXT NODE, not its whole
+            // text: the primary block's badge is appended to this button
+            // (a span — and every span in a tab is styled as a badge), so
+            // a language switch rewrites only this node (relangTabs)
+            btn.appendChild(document.createTextNode(_t(TAB_LABEL[tabId])));
             btn.addEventListener('click', function () { activateTab(tabId); });
             // keep the visual order stable however late a block registers
             var after = null;
@@ -873,7 +934,10 @@
                 var h = document.createElement('summary');
                 var ht = document.createElement('span');
                 ht.className = 'ct';
-                ht.textContent = blk.title || blk.id;
+                // `titleKey` (an i18n key) follows the language switch;
+                // a plain `title` is shown as given
+                if (blk.titleKey) { lt(ht, blk.titleKey); }
+                else { ht.textContent = blk.title || blk.id; }
                 h.appendChild(ht);
                 if (blk.summaryExtra) { h.appendChild(blk.summaryExtra); }
                 host.appendChild(h);
@@ -891,7 +955,8 @@
                 ph.className = 'vagent-pinhead';
                 var pt = document.createElement('span');
                 pt.className = 'ct';
-                pt.textContent = blk.title || blk.id;
+                if (blk.titleKey) { lt(pt, blk.titleKey); }
+                else { pt.textContent = blk.title || blk.id; }
                 ph.appendChild(pt);
                 if (blk.summaryExtra) { ph.appendChild(blk.summaryExtra); }
                 host.appendChild(ph);
@@ -906,7 +971,7 @@
             pane.appendChild(host);
             blk.el = host;
             blk.body = inner;
-            try { blk.render(inner); } catch (e) { inner.textContent = 'block failed: ' + e; }
+            try { blk.render(inner); } catch (e) { lt(inner, 'agent.block.failed', {err: String(e)}); }
         });
         activateTab(lsGet(LS_TAB) || 'chat', true);   // restore, never write
     }
@@ -926,6 +991,10 @@
         '<div id="vagent_tabs"></div>' +
         '<div id="vagent_ctx"></div>' +
         '<div id="vagent_blocks"></div>';
+    // the English titles above are the first paint; these follow the language
+    lt(panel.querySelector('#vagent_density'), 'agent.density.tip', null, 'title');
+    lt(panel.querySelector('#vagent_clear'), 'agent.clear.tip', null, 'title');
+    lt(panel.querySelector('#vagent_stop'), 'agent.stop.tip', null, 'title');
     var panelActive = false;
     var syncPlaceholder = null;   // U32, set when the chat block is built
 
@@ -1174,7 +1243,7 @@
                         'align-items-center all-events';
         btn.id = 'btn_agent';
         btn.type = 'button';
-        btn.title = 'Agent — chat, jobs, approvals (Alt+A)';
+        lt(btn, 'agent.btn.tip', null, 'title');
         btn.classList.add('vagent-btn');   // position: relative (badge anchor), vt_panel.css
         var ico = document.createElement('i');
         ico.className = 'la la-android';
@@ -1287,8 +1356,7 @@
             host.insertBefore(b, host.firstChild);
         }
         b.textContent = '×' + n;
-        b.title = 'The robot sent this same message ' + n +
-                  ' times in a row — shown once.';
+        ltn(b, 'chat.repeat.tip', n, null, 'title');
     }
 
     function turn(kind, cls, text, meta, taskId) {
@@ -1342,10 +1410,10 @@
             var line = document.createElement('div');
             line.className = 'vagent-meta';
             meta.forEach(function (part) {
-                if (!part || !part.text) { return; }
+                if (!part || !(part.text || part.key)) { return; }
                 var s = document.createElement('span');
                 if (part.cls) { s.className = part.cls; }
-                s.textContent = part.text;
+                if (part.key) { lt(s, part.key, part.vars); } else { s.textContent = part.text; }
                 line.appendChild(s);
             });
             wrap.appendChild(line);
@@ -1417,9 +1485,12 @@
         var stateWord = '';
         function paint() {
             var s = Math.round((Date.now() - began) / 1000);
-            label.textContent = ' Sent ' + s + ' s ago' +
-                (stateWord ? ' · ' + stateWord : '') +
-                (s >= 60 ? ' · still running, no answer yet' : '');
+            // one sentence per variant (word order differs between
+            // languages); `stateWord` is the feed's own word
+            var key = s >= 60
+                ? (stateWord ? 'chat.wait.sent_state_long' : 'chat.wait.sent_long')
+                : (stateWord ? 'chat.wait.sent_state' : 'chat.wait.sent');
+            label.textContent = ' ' + _t(key, {s: s, state: stateWord});
         }
         d.setState = function (word) {
             word = String(word || '').trim();
@@ -1464,7 +1535,7 @@
             bits.push(String(row.did));
         }
         if (row.found) { bits.push(String(row.found)); }
-        if (row.error) { bits.push('chyba: ' + String(row.error)); }
+        if (row.error) { bits.push(_t('chat.trace.error', {err: String(row.error)})); }
         return bits.join(' · ');
     }
 
@@ -1472,7 +1543,7 @@
         box.textContent = '';
         var rows = (data && data.trace) || [];
         if (!rows.length) {
-            box.appendChild(edgeRow('No trace recorded for this one.'));
+            box.appendChild(lt(edgeRow(''), 'chat.trace.none'));
             return;
         }
         var t0 = rows[0].ts || 0;
@@ -1492,7 +1563,7 @@
             line.appendChild(k);
             var w = document.createElement('span');
             w.className = 'vt-w';
-            w.textContent = row.waited != null ? 'waited ' + Math.round(row.waited) + ' s' : '';
+            if (row.waited != null) { lt(w, 'chat.trace.waited', {s: Math.round(row.waited)}); }
             line.appendChild(w);
             var d = document.createElement('span');
             d.className = 'vt-d';
@@ -1502,8 +1573,8 @@
             if (row.false_claim) {
                 var f = document.createElement('span');
                 f.className = 'vt-f';
-                f.textContent = 'false claim';
-                f.title = 'The core caught this claim as unsupported';
+                lt(f, 'chat.trace.false');
+                lt(f, 'chat.trace.false_tip', null, 'title');
                 line.appendChild(f);
             }
             box.appendChild(line);
@@ -1511,9 +1582,9 @@
         var tail = document.createElement('div');
         tail.className = 'vt-tail';
         var usd = rows.reduce(function (a, r) { return a + (r.usd || 0); }, 0);
-        tail.textContent = rows.length + ' steps' +
-            (usd ? ' · $' + usd.toFixed(3) : '') +
-            (data.state ? ' · ' + data.state : '');
+        // `state` is the core's word (data)
+        ltn(tail, usd ? 'chat.trace.steps_usd' : 'chat.trace.steps', rows.length,
+            {usd: usd ? usd.toFixed(3) : '', state: data.state ? ' · ' + data.state : ''});
         box.appendChild(tail);
     }
 
@@ -1524,9 +1595,8 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'vtrace-btn';
-        btn.textContent = 'what happened';
-        btn.title = 'The core\u2019s own record of this: what it did, what it ' +
-            'waited for, what it found';
+        lt(btn, 'chat.trace.btn');
+        lt(btn, 'chat.trace.btn_tip', null, 'title');
         var box = document.createElement('div');
         box.className = 'vtrace';
         box.style.display = 'none';
@@ -1537,21 +1607,22 @@
             btn.classList.toggle('on', open);
             if (!open || traceOpen[id]) { return; }
             box.textContent = '';
-            box.appendChild(edgeRow('Loading the trace\u2026'));
+            box.appendChild(lt(edgeRow(''), 'chat.trace.loading'));
             api('/api/jobs/' + id + '/trace').then(function (d) {
                 if (!d || d.ok === false) {
                     box.textContent = '';
-                    box.appendChild(edgeRow('No trace: ' +
-                        ((d && d.error) || 'the core did not answer')));
+                    box.appendChild((d && d.error)
+                        ? lt(edgeRow(''), 'chat.trace.no_err', {err: String(d.error)})
+                        : lt(edgeRow(''), 'chat.trace.no_answer'));
                     return;
                 }
                 traceOpen[id] = true;
                 renderTrace(box, d);
             }).catch(function (e) {
                 box.textContent = '';
-                box.appendChild(edgeRow(/HTTP 404/.test(String(e))
-                    ? 'No trace for this one (older row).'
-                    : 'Trace failed: ' + e));
+                box.appendChild(/HTTP 404/.test(String(e))
+                    ? lt(edgeRow(''), 'chat.trace.old')
+                    : lt(edgeRow(''), 'chat.trace.failed', {err: String(e)}));
             });
         });
         row.appendChild(btn);
@@ -1594,8 +1665,9 @@
             if (!matched && (fromHistory || !isMine)) {
                 turn(kind, isMine ? 'vagent-me' : 'vagent-user', task.text, [
                     {text: clock(task.ts || 0)},
-                    {text: isMine ? (displayName || 'ty') : (task.author || '?'),
-                     cls: isMine ? '' : 'who'}
+                    isMine && !displayName ? {key: 'chat.you'}
+                        : {text: isMine ? displayName : (task.author || '?'),
+                           cls: isMine ? '' : 'who'}
                 ], task.id);
             }
         }
@@ -1607,8 +1679,10 @@
                     if (pendingByText[w].text === task.text &&
                             pendingByText[w].node &&
                             pendingByText[w].node.setState) {
+                        // 'new' is the panel's word „queued" (translated);
+                        // any other state is the feed's own word (data)
                         pendingByText[w].node.setState(
-                            task.state === 'new' ? 'queued' : task.state);
+                            task.state === 'new' ? _t('ajob.state.queued') : task.state);
                         if (pendingByText[w].node.setTrace) {
                             pendingByText[w].node.setTrace(traceId(task));
                         }
@@ -1643,7 +1717,7 @@
         ];
         var cls = fromAgent ? (kind === 'work' ? 'vagent-work' : 'vagent-report')
             : task.state === 'done' ? 'vagent-bot' : 'vagent-err';
-        var row = turn(fromAgent ? kind : 'bot', cls, task.reply || task.text || '(no reply)',
+        var row = turn(fromAgent ? kind : 'bot', cls, task.reply || task.text || _t('chat.no_reply'),
                        meta, task.id);
         // Artefacts from missions/jobs (photos, map renders) as thumbnails.
         var arts = (task.meta && task.meta.artefacts) || [];
@@ -1658,15 +1732,17 @@
             sh.className = 'vagent-scripthead';
             var kp = document.createElement('span');
             kp.className = 'vagent-pill kind-script';
-            kp.textContent = 'script';
+            lt(kp, 'ajob.kind.script');
             sh.appendChild(kp);
             var sid = task.meta.schedule_id;
-            var stitle = task.meta.schedule_title || (sid ? 'task #' + sid : 'script task');
+            var stitle = task.meta.schedule_title || '';
             var lnk = document.createElement('button');
             lnk.type = 'button';
             lnk.className = 'vagent-ref';
-            lnk.textContent = stitle + (sid ? ' (#' + sid + ')' : '');
-            lnk.title = 'Show this job in Jobs';
+            if (stitle) { lnk.textContent = stitle + (sid ? ' (#' + sid + ')' : ''); }
+            else if (sid) { lt(lnk, 'chat.script.task_n', {id: sid}); }
+            else { lt(lnk, 'chat.script.task'); }
+            lt(lnk, 'chat.script.show', null, 'title');
             lnk.addEventListener('click', function (e) {
                 e.stopPropagation();
                 if (sid) { highlightSched(sid); } else { activateTab('jobs'); }
@@ -1674,7 +1750,7 @@
             sh.appendChild(lnk);
             row.insertBefore(sh, row.firstChild);
         } else if (fromAgent) {
-            row.title = 'Click to prepare a reply to this report';
+            lt(row, 'chat.report.reply_tip', null, 'title');
             row.addEventListener('click', function () {
                 if (!inputEl) { return; }
                 inputEl.value = 'K hlášení #' + task.id + ' (' +
@@ -1698,27 +1774,49 @@
        the agent's text for the body. Unknown kinds fall back to the title,
        never in capitals. */
     var FINDING_EN = {
-        brain_failures: 'Hermes keeps failing', oracle_failures: 'Oracle keeps failing',
-        latency_drift: 'Replies getting slower', job_failures: 'Background jobs failing',
-        job_stalled: 'Job stalled', log_errors: 'Repeated errors in the logs',
-        queue_stalled: 'Task queue stalled', task_stuck: 'Task stuck',
-        bridge_down: 'Web bridge not answering', chat_topic_dead: 'Chat topic has no subscriber',
-        topic_silent: 'Required topic is silent', disk_footprint: 'Disk space',
-        escalated: 'Recurring fault', repaired: 'Repaired itself', repair_refused: 'Repair refused',
-        rtk_fixed: 'RTK fix', rtk_lost: 'RTK fix lost', battery_low: 'Battery low',
-        battery_critical: 'Battery critical', charging_started: 'Charging started',
-        charging_complete: 'Charged', dock_left: 'Left the dock', dock_returned: 'Back in the dock',
-        mower_unauthorised: 'Blade running without permission', rain_out_of_dock: 'Rain outside the dock',
-        motor_power_changed: 'Motor power changed', drive_motor_fault: 'Drive motor fault',
-        drive_motor_recovered: 'Drive motors recovered', service_down: 'Service down',
-        service_up: 'Service running', morning_report: 'Morning report'
+        brain_failures: 'agent.finding.brain_failures',
+        oracle_failures: 'agent.finding.oracle_failures',
+        latency_drift: 'agent.finding.latency_drift',
+        job_failures: 'agent.finding.job_failures',
+        job_stalled: 'agent.finding.job_stalled',
+        log_errors: 'agent.finding.log_errors',
+        queue_stalled: 'agent.finding.queue_stalled',
+        task_stuck: 'agent.finding.task_stuck',
+        bridge_down: 'agent.finding.bridge_down',
+        chat_topic_dead: 'agent.finding.chat_topic_dead',
+        topic_silent: 'agent.finding.topic_silent',
+        disk_footprint: 'agent.finding.disk_footprint',
+        escalated: 'agent.finding.escalated',
+        repaired: 'agent.finding.repaired',
+        repair_refused: 'agent.finding.repair_refused',
+        rtk_fixed: 'agent.finding.rtk_fixed',
+        rtk_lost: 'agent.finding.rtk_lost',
+        battery_low: 'agent.finding.battery_low',
+        battery_critical: 'agent.finding.battery_critical',
+        charging_started: 'agent.finding.charging_started',
+        charging_complete: 'agent.finding.charging_complete',
+        dock_left: 'agent.finding.dock_left',
+        dock_returned: 'agent.finding.dock_returned',
+        mower_unauthorised: 'agent.finding.mower_unauthorised',
+        rain_out_of_dock: 'agent.finding.rain_out_of_dock',
+        motor_power_changed: 'agent.finding.motor_power_changed',
+        drive_motor_fault: 'agent.finding.drive_motor_fault',
+        drive_motor_recovered: 'agent.finding.drive_motor_recovered',
+        service_down: 'agent.finding.service_down',
+        service_up: 'agent.finding.service_up',
+        morning_report: 'agent.finding.morning_report'
     };
     function findingTitle(f) {
         if (!f) { return ''; }
         var job = /#(\d+)/.exec(String(f.title || ''));
-        if (f.kind === 'job_parked') { return 'Job ' + (job ? '#' + job[1] + ' ' : '') + 'parked'; }
-        if (f.kind === 'job_unrecoverable') { return 'Job ' + (job ? '#' + job[1] + ' ' : '') + 'cannot be revived'; }
-        if (FINDING_EN[f.kind]) { return FINDING_EN[f.kind]; }
+        if (f.kind === 'job_parked') {
+            return job ? _t('agent.finding.job_parked_n', {n: job[1]}) : _t('agent.finding.job_parked');
+        }
+        if (f.kind === 'job_unrecoverable') {
+            return job ? _t('agent.finding.job_unrecoverable_n', {n: job[1]})
+                : _t('agent.finding.job_unrecoverable');
+        }
+        if (FINDING_EN[f.kind]) { return _t(FINDING_EN[f.kind]); }
         var t = String(f.title || f.kind || '').trim();
         if (t && t === t.toUpperCase() && t !== t.toLowerCase()) {
             t = t.charAt(0) + t.slice(1).toLowerCase();
@@ -1728,12 +1826,15 @@
 
     function incidentActions(id, title, text) {
         var what = String(title || text || '').replace(/\s+/g, ' ').slice(0, 160);
+        // `text` is what goes to the agent (its own language) — not UI;
+        // `label` is the English name for callers that print it as is,
+        // `labelKey` the same name in the UI's language
         return [
-            {label: 'Assign task', action: 'assign',
+            {label: 'Assign task', labelKey: 'agent.incident.assign', action: 'assign',
              text: 'Řeš incident #' + id + ': ' + what},
-            {label: 'Plan', action: 'plan',
+            {label: 'Plan', labelKey: 'agent.incident.plan', action: 'plan',
              text: 'Naplánuj řešení incidentu #' + id + ' (jen plán, nic neprováděj): ' + what},
-            {label: 'Execute', action: 'execute',
+            {label: 'Execute', labelKey: 'agent.incident.execute', action: 'execute',
              text: 'Proveď opravu incidentu #' + id + ': ' + what}
         ];
     }
@@ -1749,17 +1850,23 @@
             var b = document.createElement('button');
             b.type = 'button';
             b.className = 'vagent-actbtn' + (assigned[key] ? ' done' : '');
-            b.textContent = assigned[key] ? a.label + ' ✓' : a.label;
+            // a label from the backend is its own text; ours has a key
+            var lab = a.labelKey ? {k: a.labelKey} : a.label;
+            function paintLab(done) {
+                if (a.labelKey) { lt(b, done ? 'agent.act.done' : 'agent.act.label', {label: lab}); }
+                else { b.textContent = done ? a.label + ' ✓' : a.label; }
+            }
+            paintLab(!!assigned[key]);
             b.title = a.text;
             b.addEventListener('click', function (ev) {
                 ev.stopPropagation();
                 submitText(a.text, {incident_id: id, action: a.action || a.label});
                 assigned[key] = true;
                 b.classList.add('done');
-                b.textContent = a.label + ' ✓';
+                paintLab(true);
                 var tag = document.createElement('span');
                 tag.className = 'vagent-assigned';
-                tag.textContent = 'assigned';
+                lt(tag, 'agent.act.assigned');
                 if (!bar.querySelector('.vagent-assigned')) { bar.appendChild(tag); }
                 openChatSection();
                 if (onDone) { onDone(a); }
@@ -1789,8 +1896,8 @@
             var dgo = document.createElement('button');
             dgo.type = 'button';
             dgo.className = 'vagent-actbtn primary';
-            dgo.textContent = 'Open Dock lock';
-            dgo.title = 'Robot tab \u2192 Dock lock: read what it allows, tap twice';
+            lt(dgo, 'chat.dock.open');
+            lt(dgo, 'chat.dock.open_tip', null, 'title');
             dgo.addEventListener('click', function (e) {
                 e.stopPropagation();
                 openDock(meta.dock_grant || 'test');
@@ -1820,8 +1927,8 @@
         if (/plán/i.test(text) || meta.plan) {
             var go = document.createElement('button');
             go.type = 'button'; go.className = 'vagent-actbtn primary';
-            go.textContent = 'Execute';
-            go.title = 'Sends: proveď plán z práce #' + jobId;
+            lt(go, 'agent.incident.execute');
+            lt(go, 'chat.flow.execute_tip', {cmd: 'proveď plán z práce #' + jobId}, 'title');
             go.addEventListener('click', function (e) {
                 e.stopPropagation();
                 submitText('proveď plán z práce #' + jobId, {job_id: jobId, action: 'execute_plan'});
@@ -1831,8 +1938,8 @@
         }
         var cont = document.createElement('button');
         cont.type = 'button'; cont.className = 'vagent-actbtn';
-        cont.textContent = 'Follow up';
-        cont.title = 'Prepares „pokračuj na ' + jobId + ': …"';
+        lt(cont, 'chat.flow.follow');
+        lt(cont, 'chat.flow.follow_tip', {cmd: 'pokračuj na ' + jobId + ': …'}, 'title');
         cont.addEventListener('click', function (e) {
             e.stopPropagation();
             if (!inputEl) { return; }
@@ -1968,7 +2075,7 @@
     function loadOlder() {
         if (!hasMore || loadingOlder || !oldestTaskId || !msgsEl) { return; }
         loadingOlder = true;
-        var loader = edgeRow('Loading older…');
+        var loader = lt(edgeRow(''), 'chat.older.loading');
         msgsEl.insertBefore(loader, msgsEl.firstChild);
         api('/api/tasks?before_id=' + oldestTaskId + '&limit=' + PAGE + authorQ())
             .then(function (d) {
@@ -1983,14 +2090,14 @@
                 msgsEl.scrollTop = prevTop + (msgsEl.scrollHeight - prevH);
                 hasMore = !!(d && d.has_more);
                 if (!hasMore && !msgsEl.querySelector('.vagent-edge.begin')) {
-                    msgsEl.insertBefore(edgeRow('Beginning of history', 'begin'),
+                    msgsEl.insertBefore(lt(edgeRow('', 'begin'), 'chat.history.begin'),
                                         msgsEl.firstChild);
                 }
                 loadingOlder = false;
                 pruneWindow(true);
             })
             .catch(function () {
-                loader.textContent = 'Older messages could not be loaded.';
+                lt(loader, 'chat.older.failed');
                 setTimeout(function () { loader.remove(); }, 4000);
                 loadingOlder = false;
             });
@@ -2009,7 +2116,7 @@
         paintJump();
         var loading = document.createElement('div');
         loading.className = 'vagent-empty';
-        loading.textContent = 'Loading conversation history…';
+        lt(loading, 'chat.history.loading');
         msgsEl.appendChild(loading);
 
         function finish(found) {
@@ -2017,7 +2124,7 @@
             if (!found) {
                 var e = document.createElement('div');
                 e.className = 'vagent-empty';
-                e.textContent = 'Hi, I am Vitulus. Ask about status, the map or jobs.';
+                lt(e, 'chat.hello');
                 msgsEl.appendChild(e);
             }
             scrollChatBottom();
@@ -2038,7 +2145,7 @@
                 hasMore = !!data.has_more;
                 if (!hasMore && found
                         && !msgsEl.querySelector('.vagent-edge.begin')) {
-                    msgsEl.insertBefore(edgeRow('Beginning of history', 'begin'),
+                    msgsEl.insertBefore(lt(edgeRow('', 'begin'), 'chat.history.begin'),
                                         msgsEl.firstChild);
                 }
                 finish(found);
@@ -2063,7 +2170,7 @@
             return page(0);
         }).catch(function () {
             if (loading.parentNode) {
-                loading.textContent = 'History could not be loaded. You can still write.';
+                lt(loading, 'chat.history.failed');
             }
         });
     }
@@ -2086,7 +2193,7 @@
         function draw() {
             turn('me', 'vagent-me', text, [
                 {text: clock(Date.now() / 1000)},
-                {text: displayName || 'ty'}
+                displayName ? {text: displayName} : {key: 'chat.you'}
             ]);
             var node = waiting();
             pendingByText.push({text: text, node: node});
@@ -2114,8 +2221,9 @@
                         break;
                     }
                 }
-                turn('bot', 'vagent-err',
-                     'Could not send — the agent (/agent) is unreachable.', []);
+                // a UI line drawn as a bubble: it keeps the language of
+                // the moment it was drawn (like a log line)
+                turn('bot', 'vagent-err', _t('chat.send.failed'), []);
             };
             if (sendFailed) { onFail(); }
         }
@@ -2179,6 +2287,14 @@
         msgsEl = el.querySelector('#vagent_msgs');
         inputEl = el.querySelector('#vagent_input');
         var send = el.querySelector('#vagent_send');
+        // the English in the markup above is the first paint only
+        [['all', 'chat.filter.all'], ['chat', 'chat.filter.chat'],
+         ['report', 'chat.filter.report'], ['work', 'chat.filter.work']].forEach(function (f) {
+            lt(el.querySelector('#vagent_chips [data-f="' + f[0] + '"]'), f[1]);
+        });
+        lt(el.querySelector('#vagent_scope'), 'chat.scope.tip', null, 'title');
+        // the label only; data-q is what is sent to the agent
+        lt(el.querySelector('#vagent_quick [data-q="Jaký je stav robota?"]'), 'chat.quick.status');
 
         /* U32: at rest the field is 44 px — one touch target — but its own
            placeholder needed 64 px at 390 px wide, so the phone showed
@@ -2208,8 +2324,8 @@
             // 576 px is the panel's own phone breakpoint (see openPanel)
             var narrow = (w != null) ? (w < 340) : (window.innerWidth < 576);
             inputEl.placeholder = narrow
-                ? 'Task or question…  / = commands'
-                : 'Type a task or question… (/ for commands)';
+                ? _t('chat.input.short')
+                : _t('chat.input.long');
         };
         syncPlaceholder();
         if (window.requestAnimationFrame) { requestAnimationFrame(syncPlaceholder); }
@@ -2220,8 +2336,8 @@
         jumpBtn = document.createElement('button');
         jumpBtn.type = 'button';
         jumpBtn.id = 'vagent_jump';
-        jumpBtn.textContent = '↓ Latest';
-        jumpBtn.title = 'Jump to the latest messages';
+        lt(jumpBtn, 'chat.jump');
+        lt(jumpBtn, 'chat.jump.tip', null, 'title');
         jumpBtn.style.display = 'none';
         jumpBtn.addEventListener('click', function () {
             if (truncatedBottom) { loadHistory(); }
@@ -2253,7 +2369,7 @@
         });
         var scopeBtn = el.querySelector('#vagent_scope');
         function paintScope() {
-            scopeBtn.textContent = scope === 'all' ? 'all' : 'mine';
+            lt(scopeBtn, scope === 'all' ? 'chat.scope.all' : 'chat.scope.mine');
         }
         scopeBtn.addEventListener('click', function () {
             scope = scope === 'all' ? 'mine' : 'all';
@@ -2446,18 +2562,18 @@
             // lines apart.  Same word as its own card, always.
             var pw = stateWord(running.state, running.stalled);
             pl.className = 'vagent-pill ' + (STATUS_CLS[pw] || pw);
-            pl.textContent = pw + (active.length > 1 ? ' ' + active.length : '');
+            pl.textContent = stateLabel(pw) + (active.length > 1 ? ' ' + active.length : '');
             jb.appendChild(pl);
             var t = document.createElement('span');
             t.className = 'ct';
             t.textContent = '#' + running.id + ' ' + String(running.text || '').slice(0, 60)
-                + (active.length > 1 ? '  (+' + (active.length - 1) + ' more)' : '');
+                + (active.length > 1 ? '  ' + _t('ajob.ctx.more', {n: active.length - 1}) : '');
             jb.appendChild(t);
             var e2 = document.createElement('span');
             e2.className = 'ce';
             e2.textContent = humanDuration(running.elapsed_s || 0);
             jb.appendChild(e2);
-            jb.title = 'Switch to Jobs';
+            jb.title = _t('ajob.ctx.to_jobs');
             jb.addEventListener('click', function () { highlightJob('j:' + running.id); });
             bar.appendChild(jb);
         }
@@ -2471,10 +2587,10 @@
             ab.appendChild(n);
             var c = document.createElement('span');
             c.className = 'ct';
-            c.textContent = 'approvals: ' +
-                String((ctxAsks[0] && ctxAsks[0].command) || '').slice(0, 48);
+            c.textContent = _t('appr.ctx.label', {cmd:
+                String((ctxAsks[0] && ctxAsks[0].command) || '').slice(0, 48)});
             ab.appendChild(c);
-            ab.title = 'Switch to Approvals';
+            ab.title = _t('appr.ctx.tip');
             ab.addEventListener('click', function () {
                 activateTab('gate');
                 highlightAsk(ctxAsks[0] && ctxAsks[0].id);
@@ -2489,16 +2605,18 @@
     function humanEvery(s) {
         s = Number(s) || 0;
         if (!s) { return '–'; }
-        if (s < 60) { return 'every ' + Math.round(s) + ' s'; }
-        if (s % 86400 === 0) { return 'every ' + (s / 86400 === 1 ? 'day' : (s / 86400) + ' days'); }
-        if (s % 3600 === 0) { return 'every ' + (s / 3600) + ' h'; }
-        if (s % 60 === 0) { return 'every ' + (s / 60) + ' min'; }
-        return 'every ' + (s < 600 ? Math.round(s) + ' s' : (s / 60).toFixed(1) + ' min');
+        if (s < 60) { return _t('ajob.every', {t: Math.round(s) + ' s'}); }
+        if (s % 86400 === 0) {
+            return s / 86400 === 1 ? _t('ajob.every.day') : _tn('ajob.every.days', s / 86400);
+        }
+        if (s % 3600 === 0) { return _t('ajob.every', {t: (s / 3600) + ' h'}); }
+        if (s % 60 === 0) { return _t('ajob.every', {t: (s / 60) + ' min'}); }
+        return _t('ajob.every', {t: s < 600 ? Math.round(s) + ' s' : (s / 60).toFixed(1) + ' min'});
     }
 
     function scheduleText(sc) {
         if (!sc) { return ''; }
-        if (sc.type === 'daily' || sc.at) { return 'daily at ' + (sc.at || '?'); }
+        if (sc.type === 'daily' || sc.at) { return _t('ajob.daily_at', {at: sc.at || '?'}); }
         return humanEvery(sc.every_s);
     }
 
@@ -2510,7 +2628,7 @@
         else if (a < 3600) { s = Math.round(a / 60) + ' min'; }
         else if (a < 86400) { s = (a / 3600).toFixed(a < 36000 ? 1 : 0) + ' h'; }
         else { s = Math.round(a / 86400) + ' d'; }
-        return d >= 0 ? 'in ' + s : s + ' ago';
+        return d >= 0 ? _t('ajob.rel.in', {t: s}) : _t('ajob.rel.ago', {t: s});
     }
 
     /* How long something took/has been running.  Scripts are measured in
@@ -2581,8 +2699,10 @@
     }
 
     // ------------------------------------------------------ the unified shape
-    var POLICY_LABEL = {silent: 'Silent', result: 'Result', progress: 'Progress'};
-    var POLICY_TIP = 'Whether this job may post to chat';
+    // i18n keys (the ids silent/result/progress are the API's words)
+    var POLICY_LABEL = {silent: 'ajob.policy.silent', result: 'ajob.policy.result',
+                        progress: 'ajob.policy.progress'};
+    var POLICY_TIP = 'ajob.policy.tip';
     /* v1 and v2 state names side by side.  The v2 core's vocabulary is
        queued|running|waiting|done|failed|cancelled|armed|paused (plan §7);
        'waiting' is v1's 'blocked' (it wants a human), 'armed' is a recurring
@@ -2614,6 +2734,15 @@
         if (stalled && w !== 'blocked') { return 'stalled'; }
         return w || 'unknown';
     }
+    /* stateWord() is an id (CSS classes are built from it); this is how it
+       READS.  A word the panel does not know is the core's own — shown as is. */
+    var STATE_KEY = {running: 'ajob.state.running', queued: 'ajob.state.queued',
+                     blocked: 'ajob.state.blocked', scheduled: 'ajob.state.scheduled',
+                     paused: 'ajob.state.paused', draft: 'ajob.state.draft',
+                     failed: 'ajob.state.failed', cancelled: 'ajob.state.cancelled',
+                     done: 'ajob.state.done', stalled: 'ajob.state.stalled',
+                     unknown: 'ajob.state.unknown'};
+    function stateLabel(w) { return STATE_KEY[w] ? _t(STATE_KEY[w]) : w; }
 
     function toPolicy(v, kind) {
         var s = String(v == null ? '' : v).toLowerCase();
@@ -2836,7 +2965,7 @@
             if (rendered && !opts.always) { return; }
             rendered = true;
             body.textContent = '';
-            try { render(body); } catch (e) { body.textContent = 'failed: ' + e; }
+            try { render(body); } catch (e) { body.textContent = _t('ajob.failed', {err: String(e)}); }
         }
         det.addEventListener('toggle', function () {
             jobOpenSet(full, det.open);
@@ -2863,34 +2992,34 @@
     /* Rerun with a note — the one thing the owner wants most on a job that
        went wrong: say what should be different and send it back. */
     function rerunSection(card, j) {
-        jobSection(card, j.ref, 'rerun', '↻ Rerun with note', function (body) {
+        jobSection(card, j.ref, 'rerun', _t('ajob.rerun.title'), function (body) {
             var ta = document.createElement('textarea');
             ta.rows = 2;
-            ta.placeholder = 'What should be fixed?';
+            ta.placeholder = _t('ajob.rerun.ph');
             body.appendChild(ta);
             var row = document.createElement('div');
             row.className = 'sb';
             var msg = document.createElement('span');
             msg.className = 'sx';
-            var go = actBtn('Rerun', 'primary', 'Runs the job again with this note', function (b) {
+            var go = actBtn(_t('ajob.rerun.btn'), 'primary', _t('ajob.rerun.tip'), function (b) {
                 var note = ta.value.trim();
-                if (!note) { msg.textContent = 'write what should be fixed'; ta.focus(); return; }
+                if (!note) { msg.textContent = _t('ajob.rerun.empty'); ta.focus(); return; }
                 b.disabled = true;
-                msg.textContent = 'sending…';
+                msg.textContent = _t('ajob.sending');
                 jobPost(j.ref, 'rerun', {note: note}, function () {
                     return chatFallback('zopakuj ' + (j.kind === 'script' ? 'úkol' : 'práci') +
                         ' #' + parseRef(j.ref).id + ' — co opravit: ' + note);
                 }).then(function (d) {
                     b.disabled = false;
-                    if (d && d.ok === false) { msg.textContent = 'failed: ' + (d.error || '?'); return; }
+                    if (d && d.ok === false) { msg.textContent = _t('ajob.failed', {err: d.error || '?'}); return; }
                     msg.textContent = '';
                     if (d && d.job_ref) { msg.appendChild(refBtnFor(d.job_ref)); }
-                    else { msg.textContent = d && d.chat ? 'sent to chat' : 'sent'; }
+                    else { msg.textContent = d && d.chat ? _t('ajob.sent_chat') : _t('ajob.sent'); }
                     ta.value = '';
                     afterAction();
                 }).catch(function (e) {
                     b.disabled = false;
-                    msg.textContent = /HTTP 404/.test(String(e)) ? 'API not available yet' : 'failed: ' + e;
+                    msg.textContent = /HTTP 404/.test(String(e)) ? _t('ajob.api_missing') : _t('ajob.failed', {err: String(e)});
                 });
             });
             row.appendChild(go); row.appendChild(msg);
@@ -2904,22 +3033,22 @@
     }
 
     function editSection(card, j) {
-        jobSection(card, j.ref, 'edit', '✎ Edit', function (body) {
+        jobSection(card, j.ref, 'edit', _t('ajob.edit.title'), function (body) {
             var ta = document.createElement('textarea');
             ta.rows = 2;
             ta.placeholder = j.kind === 'script'
-                ? 'What should change in the program? (Czech is fine — it goes to Hermes)'
-                : 'What should change in this job? (Czech is fine — it goes to Hermes)';
+                ? _t('ajob.edit.ph_script')
+                : _t('ajob.edit.ph_job');
             body.appendChild(ta);
             var row = document.createElement('div');
             row.className = 'sb';
             var msg = document.createElement('span');
             msg.className = 'sx';
-            var go = actBtn('Send to Hermes', 'primary', '', function (b) {
+            var go = actBtn(_t('ajob.edit.btn'), 'primary', '', function (b) {
                 var change = ta.value.trim();
-                if (!change) { msg.textContent = 'write what should change'; ta.focus(); return; }
+                if (!change) { msg.textContent = _t('ajob.edit.empty'); ta.focus(); return; }
                 b.disabled = true;
-                msg.textContent = 'sending…';
+                msg.textContent = _t('ajob.sending');
                 var p = parseRef(j.ref);
                 jobPost(j.ref, 'edit', {change: change}, function () {
                     if (p.kind === 's') {
@@ -2930,15 +3059,15 @@
                     return chatFallback('uprav práci #' + p.id + ': ' + change);
                 }).then(function (d) {
                     b.disabled = false;
-                    if (d && d.ok === false) { msg.textContent = 'failed: ' + (d.error || '?'); return; }
+                    if (d && d.ok === false) { msg.textContent = _t('ajob.failed', {err: d.error || '?'}); return; }
                     msg.textContent = '';
                     if (d && (d.job_id || d.job_ref)) { msg.appendChild(refBtnFor(d.job_ref || ('j:' + d.job_id))); }
-                    else { msg.textContent = d && d.chat ? 'sent to chat' : 'sent'; }
+                    else { msg.textContent = d && d.chat ? _t('ajob.sent_chat') : _t('ajob.sent'); }
                     ta.value = '';
                     afterAction();
                 }).catch(function (e) {
                     b.disabled = false;
-                    msg.textContent = /HTTP 404/.test(String(e)) ? 'API not available yet' : 'failed: ' + e;
+                    msg.textContent = /HTTP 404/.test(String(e)) ? _t('ajob.api_missing') : _t('ajob.failed', {err: String(e)});
                 });
             });
             row.appendChild(go); row.appendChild(msg);
@@ -2951,14 +3080,14 @@
         wrap.className = 'vagent-policy';
         var lab = document.createElement('span');
         lab.className = 'sx';
-        lab.textContent = 'report';
+        lab.textContent = _t('ajob.policy.label');
         wrap.appendChild(lab);
         var sel = document.createElement('select');
         sel.className = 'vagent-sel';
-        sel.title = POLICY_TIP;
+        sel.title = _t(POLICY_TIP);
         ['silent', 'result', 'progress'].forEach(function (p) {
             var o = document.createElement('option');
-            o.value = p; o.textContent = POLICY_LABEL[p];
+            o.value = p; o.textContent = _t(POLICY_LABEL[p]);
             if (p === j.policy) { o.selected = true; }
             sel.appendChild(o);
         });
@@ -2971,14 +3100,14 @@
                 return Promise.reject(new Error('HTTP 404'));
             }).then(function (d) {
                 sel.disabled = false;
-                if (d && d.ok === false) { sel.value = prev; sel.title = 'failed: ' + (d.error || '?'); return; }
+                if (d && d.ok === false) { sel.value = prev; sel.title = _t('ajob.failed', {err: d.error || '?'}); return; }
                 j.policy = want;
-                sel.title = POLICY_TIP;
+                sel.title = _t(POLICY_TIP);
                 afterAction();
             }).catch(function (e) {
                 sel.disabled = false;
                 sel.value = prev;
-                sel.title = /HTTP 404/.test(String(e)) ? 'API not available yet' : 'failed: ' + e;
+                sel.title = /HTTP 404/.test(String(e)) ? _t('ajob.api_missing') : _t('ajob.failed', {err: String(e)});
             });
         });
         wrap.appendChild(sel);
@@ -2995,13 +3124,10 @@
        moves the machine — which is exactly what the owner reserved for
        himself.  Until the core excludes movement too (see the report), the
        tooltip says so out loud and turning the flag ON costs a second tap. */
-    var AUTOAPPR_TIP = 'Pre-approves this job’s requests — they pass as if you ' +
-        'pressed Approve. Mower and safety layer are never auto-approved; ' +
-        'MOVEMENT IS NOT EXCLUDED YET, so leave this off for anything that ' +
-        'can drive the robot.';
+    var AUTOAPPR_TIP = 'ajob.autoappr.tip';      // an i18n key: _t(AUTOAPPR_TIP)
 
     function autoApproveLabel(on) {
-        return on ? '🛡✓ auto-approve on' : '🛡 auto-approve';
+        return on ? _t('ajob.autoappr.on') : _t('ajob.autoappr.off');
     }
 
     function autoApproveToggle(j) {
@@ -3009,14 +3135,14 @@
         b.type = 'button';
         b.className = 'ja autoap' + (j.auto ? ' on' : '');
         b.textContent = autoApproveLabel(j.auto);
-        b.title = AUTOAPPR_TIP;
+        b.title = _t(AUTOAPPR_TIP);
         var arm = false, armT = null;
         b.addEventListener('click', function (ev) {
             ev.stopPropagation();
             var want = !j.auto;
             if (want && !arm) {          // switching it ON is a decision
                 arm = true;
-                b.textContent = '⚠ pre-approve? tap again';
+                b.textContent = _t('ajob.autoappr.arm');
                 b.classList.add('armed');
                 armT = setTimeout(function () {
                     arm = false;
@@ -3031,22 +3157,22 @@
             b.disabled = true;
             jobPost(j.ref, 'autoapprove', {on: want}).then(function (d) {
                 b.disabled = false;
-                if (!d || d.ok === false) { b.title = 'failed: ' + ((d && d.error) || '?'); return; }
+                if (!d || d.ok === false) { b.title = _t('ajob.failed', {err: (d && d.error) || '?'}); return; }
                 j.auto = want;
                 b.classList.toggle('on', want);
                 b.textContent = autoApproveLabel(want);
-                b.title = AUTOAPPR_TIP;
+                b.title = _t(AUTOAPPR_TIP);
                 afterAction();
             }).catch(function (e) {
                 b.disabled = false;
-                b.title = /HTTP 404/.test(String(e)) ? 'API not available yet' : 'failed: ' + e;
+                b.title = /HTTP 404/.test(String(e)) ? _t('ajob.api_missing') : _t('ajob.failed', {err: String(e)});
             });
         });
         return b;
     }
 
     function deleteBtn(j) {
-        return actBtn('🗑', 'danger', 'Delete job', function (b) {
+        return actBtn('🗑', 'danger', _t('ajob.delete.tip'), function (b) {
             inlineConfirm(b, function () {
                 b.disabled = true;
                 var p = parseRef(j.ref);
@@ -3060,7 +3186,7 @@
                     renderJobsPane(lastJobs.filter(function (x) { return x.ref !== j.ref; }), true);
                 }).catch(function (e) {
                     b.disabled = false;
-                    b.title = 'delete failed: ' + e;
+                    b.title = _t('ajob.delete.failed', {err: String(e)});
                 });
             });
         });
@@ -3078,11 +3204,11 @@
         if (text.split('\n').length > 6 || text.length > 400) {
             var more = document.createElement('button');
             more.type = 'button'; more.className = 'vz-more';
-            more.textContent = jobOpen.has(key) ? 'less' : 'more';
+            more.textContent = jobOpen.has(key) ? _t('ajob.out.less') : _t('ajob.out.more');
             more.addEventListener('click', function () {
                 var on = !pre.classList.contains('full');
                 pre.classList.toggle('full', on);
-                more.textContent = on ? 'less' : 'more';
+                more.textContent = on ? _t('ajob.out.less') : _t('ajob.out.more');
                 jobOpenSet(key, on);
             });
             card.appendChild(more);
@@ -3091,7 +3217,8 @@
 
     function followUpBtn(j) {
         var p = parseRef(j.ref);
-        return actBtn('Follow up', '', 'Prepares „pokračuj na ' + p.id + ': …"', function () {
+        return actBtn(_t('chat.flow.follow'), '',
+                      _t('chat.flow.follow_tip', {cmd: 'pokračuj na ' + p.id + ': …'}), function () {
             if (!inputEl) { return; }
             inputEl.value = 'pokračuj na ' + p.id + ': ';
             openChatSection();
@@ -3141,7 +3268,7 @@
     function copyPath(el, path) {
         function done() {
             var old = el.textContent;
-            el.textContent = 'copied';
+            el.textContent = _t('ajob.d.copied');
             setTimeout(function () { el.textContent = old; }, 900);
         }
         try {
@@ -3165,8 +3292,8 @@
         body.textContent = '';
         if (d.note) { jdRow(body, 'sx', d.note); }
 
-        jdHeading(body, 'Goal');
-        var goal = jdRow(body, 'jd-txt', d.goal || j.text || '(none)');
+        jdHeading(body, _t('ajob.d.goal'));
+        var goal = jdRow(body, 'jd-txt', d.goal || j.text || _t('ajob.d.none'));
         goal.title = '';
         // Amendments: later „pokračuj na N: …" / rerun notes / script edits
         // change what the job should do — the original goal alone is then
@@ -3179,7 +3306,7 @@
             box.className = 'jd-amends';
             var h = document.createElement('div');
             h.className = 'jd-amends-h';
-            h.textContent = 'Amendments (' + ams.length + ')';
+            h.textContent = _t('ajob.d.amends', {n: ams.length});
             box.appendChild(h);
             ams.forEach(function (a, i) {
                 var row = document.createElement('div');
@@ -3187,7 +3314,7 @@
                 var meta = document.createElement('span');
                 meta.className = 'jd-amend-m';
                 var when = a.ts ? new Date(a.ts * 1000).toLocaleString() : '';
-                meta.textContent = (i + 1) + '. ' + (a.by || 'owner')
+                meta.textContent = (i + 1) + '. ' + (a.by || _t('ajob.d.owner'))
                     + (when ? ' · ' + when : '');
                 var txt = document.createElement('span');
                 txt.className = 'jd-amend-t';
@@ -3204,14 +3331,14 @@
             if (revs.length) {
                 var rd = document.createElement('div');
                 rd.className = 'jd-amend-rev';
-                rd.textContent = '+ ' + revs.length + ' doctor revival(s)';
+                rd.textContent = _tn('ajob.d.revivals', revs.length);
                 box.appendChild(rd);
             }
             body.appendChild(box);
         }
 
         if (d.final_reply) {
-            jdHeading(body, 'Result');
+            jdHeading(body, _t('ajob.d.result'));
             var res = document.createElement('div');
             res.className = 'jd-txt jd-md';
             try { renderMarkdown(res, d.final_reply); }
@@ -3221,7 +3348,7 @@
 
         var arts = d.artifacts || [];
         if (arts.length) {
-            jdHeading(body, 'Files (' + arts.length + ')');
+            jdHeading(body, _t('ajob.d.files', {n: arts.length}));
             arts.forEach(function (a) {
                 var row = document.createElement('div');
                 row.className = 'jd-file';
@@ -3232,7 +3359,7 @@
                 var pa = document.createElement('span');
                 pa.className = 'jd-path';
                 pa.textContent = a.path;
-                pa.title = a.path + ' — click copies the path';
+                pa.title = _t('ajob.d.path_tip', {path: a.path});
                 pa.addEventListener('click', function () { copyPath(pa, a.path); });
                 row.appendChild(pa);
                 if ((a.count || 1) > 1) {
@@ -3247,7 +3374,7 @@
 
         var legsLog = d.legs && d.legs.length ? d.legs : null;
         if (legsLog) {
-            jdHeading(body, 'Timeline (' + legsLog.length + ' legs)');
+            jdHeading(body, _tn('ajob.d.timeline', legsLog.length));
             legsLog.forEach(function (leg) {
                 var row = document.createElement('div');
                 row.className = 'jd-leg';
@@ -3275,7 +3402,7 @@
                     row.appendChild(rh);
                 }
                 if (leg.driver_action) {
-                    jdRow(row, 'jd-drv', 'driver — ' + leg.driver_action);
+                    jdRow(row, 'jd-drv', _t('ajob.d.driver', {what: leg.driver_action}));
                 }
                 body.appendChild(row);
             });
@@ -3283,7 +3410,7 @@
 
         var runs = d.runs || [];
         if (runs.length) {                       // script definitions
-            jdHeading(body, 'Recent runs (' + runs.length + ')');
+            jdHeading(body, _t('ajob.d.runs', {n: runs.length}));
             runs.slice(-8).reverse().forEach(function (r) {
                 jdRow(body, 'jd-leg-t mono',
                       relTime(r.ts) + ' · exit ' + (r.exit === null ? '?' : r.exit) +
@@ -3294,7 +3421,7 @@
 
         var posts = d.posts || [];
         if (posts.length) {
-            jdHeading(body, 'Chat posts (' + posts.length + ')');
+            jdHeading(body, _t('ajob.d.posts', {n: posts.length}));
             posts.forEach(function (p) {
                 jdRow(body, 'jd-leg-t', relTime(p.ts) + ' · ' + (p.head || ''),
                       p.head || '');
@@ -3303,13 +3430,13 @@
 
         var asks = d.approvals || [];
         if (asks.length) {
-            jdHeading(body, 'Approvals');
+            jdHeading(body, _t('ajob.d.approvals'));
             asks.forEach(function (a) {
                 var row = document.createElement('div');
                 row.className = 'jd-leg-h';
                 /* auto-approved requests are never a pending row — they show
                    as their outcome, marked auto, with the deciding actor */
-                var stTxt = a.auto ? 'auto-approved' : (a.state || '');
+                var stTxt = a.auto ? _t('ajob.d.auto_approved') : (a.state || '');
                 row.appendChild(pill('#' + a.id + ' ' + stTxt,
                     a.state === 'pending' ? 'state-blocked' : (a.auto ? 'autoap' : ''),
                     a.by || ''));
@@ -3324,14 +3451,14 @@
     }
 
     function detailSection(card, j) {
-        jobSection(card, j.ref, 'detail', '☰ Details', function (body) {
-            jdRow(body, 'sx', 'loading…');
+        jobSection(card, j.ref, 'detail', _t('ajob.d.title'), function (body) {
+            jdRow(body, 'sx', _t('ajob.d.loading'));
             detailFetch(j).then(function (d) {
                 renderDetail(body, d, j);
             }).catch(function () {
                 // Endpoint not there (yet): show what the row itself knows.
                 renderDetail(body, {
-                    note: 'detail API not available yet — showing the card data',
+                    note: _t('ajob.d.api_missing'),
                     goal: j.text,
                     final_reply: j.last && j.last.output,
                     artifacts: [], legs: [], posts: [], approvals: [],
@@ -3391,7 +3518,7 @@
                 (merged ? i === total : i === pr.leg);
             seg.className = 'jp-seg' + (i <= pr.leg ? ' done' : '') +
                 (isNow ? ' now' : '');
-            seg.title = 'leg ' + (merged && i === total ? pr.leg : i) +
+            seg.title = _t('ajob.p.leg', {n: merged && i === total ? pr.leg : i}) +
                 (pr.phase && isNow ? ' · ' + pr.phase : '');
             bar.appendChild(seg);
         }
@@ -3407,20 +3534,20 @@
             if (title) { s.title = title; }
             facts.appendChild(s);
         }
-        fact(pr.legs ? 'leg ' + (pr.leg || pr.legs) + '/' + pr.legs : '',
-             'Legs finished out of the legs this job has taken so far');
-        fact(pr.steps ? pr.steps + ' steps' : '', 'Tool steps in this job');
-        fact(pr.phase, 'Phase');
-        fact(pr.elapsed_s ? shortAge(pr.elapsed_s) : '', 'Elapsed');
+        fact(pr.legs ? _t('ajob.p.leg_of', {n: pr.leg || pr.legs, of: pr.legs}) : '',
+             _t('ajob.p.leg_tip'));
+        fact(pr.steps ? _tn('ajob.p.steps', pr.steps) : '', _t('ajob.p.steps_tip'));
+        fact(pr.phase, _t('ajob.p.phase'));
+        fact(pr.elapsed_s ? shortAge(pr.elapsed_s) : '', _t('ajob.p.elapsed'));
         if (pr.verdict) {
             // U25: printed bare, `BLOCKED` read as a fourth state of the job
             // itself.  It is the verdict of ONE LEG — say so on the chip, not
             // only in a tooltip nobody hovers on a phone.
-            fact('verdict ' + pr.verdict, 'Verdict of the last leg',
+            fact(_t('ajob.p.verdict', {v: pr.verdict}), _t('ajob.p.verdict_tip'),
                  /BLOCK|FAIL/i.test(pr.verdict) ? 'bad'
                  : /OK|DONE/i.test(pr.verdict) ? 'good' : '');
         }
-        if (pr.stalled) { fact('stalled', 'No visible progress', 'bad'); }
+        if (pr.stalled) { fact(_t('ajob.state.stalled'), _t('ajob.p.stalled_tip'), 'bad'); }
         if (facts.childNodes.length) { box.appendChild(facts); }
 
         if (pr.last) {
@@ -3444,33 +3571,34 @@
         // ---- head: kind · #ref title · status · stalled · muted
         var top = document.createElement('div');
         top.className = 'st';
-        top.appendChild(pill(j.kind, 'kind-' + (j.kind === 'script' ? 'script' : 'prompt'),
+        top.appendChild(pill(_t(j.kind === 'script' ? 'ajob.kind.script' : 'ajob.kind.prompt'),
+            'kind-' + (j.kind === 'script' ? 'script' : 'prompt'),
             j.kind === 'script'
-                ? 'Program written by Hermes, run by the core without a model'
-                : 'Text handed to Hermes on every run'));
+                ? _t('ajob.kind.script_tip')
+                : _t('ajob.kind.prompt_tip')));
         var name = document.createElement('span');
         name.className = 'sn';
         name.textContent = '#' + p.id + ' ' + (j.title || j.text || '');
         name.title = j.text || j.title || '';
         top.appendChild(name);
         // stalled has its own pill right below, so it is not folded in here
-        var stLabel = j.status === 'draft' ? 'writing program…' : stateWord(j.status);
+        var stLabel = j.status === 'draft' ? _t('ajob.c.writing') : stateLabel(stateWord(j.status));
         top.appendChild(pill(stLabel, 'state-' + (STATUS_CLS[j.status] || 'queued'),
             j.status === 'failed' ? ((j.last && j.last.error) || '') : ''));
         if (j.stalled) {
-            top.appendChild(pill('stalled', 'stalled', j.note || 'no progress — the driver is stepping in'));
+            top.appendChild(pill(_t('ajob.state.stalled'), 'stalled', j.note || _t('ajob.c.stalled_tip')));
         }
         if (j.policy === 'silent') {
-            top.appendChild(pill('muted', 'muted', 'Silent — this job does not post to chat'));
+            top.appendChild(pill(_t('ajob.c.muted'), 'muted', _t('ajob.c.muted_tip')));
         }
         if (j.auto) {
-            top.appendChild(pill('🛡✓ auto-approve on', 'autoap', AUTOAPPR_TIP));
+            top.appendChild(pill(_t('ajob.autoappr.on'), 'autoap', _t(AUTOAPPR_TIP)));
         }
         if (j.archived) {
             card.classList.add('archived');
-            top.appendChild(pill('archived', 'arch',
-                j.archived_ts ? 'Archived ' +
-                    new Date(j.archived_ts * 1000).toLocaleString('cs-CZ') : ''));
+            top.appendChild(pill(_t('ajob.c.archived'), 'arch',
+                j.archived_ts ? _t('ajob.c.archived_at', {at:
+                    new Date(j.archived_ts * 1000).toLocaleString('cs-CZ')}) : ''));
         }
         card.appendChild(top);
 
@@ -3482,17 +3610,19 @@
                 j.schedule.next_run ? new Date(j.schedule.next_run * 1000).toLocaleString('cs-CZ') : ''));
             var nx = document.createElement('span');
             nx.className = 'sx';
-            nx.textContent = (j.status === 'paused') ? 'paused'
-                : 'next ' + relTime(j.schedule.next_run);
+            nx.textContent = (j.status === 'paused') ? _t('ajob.state.paused')
+                : _t('ajob.c.next', {t: relTime(j.schedule.next_run)});
             mid.appendChild(nx);
         }
-        if (j.legs) { mid.appendChild(pill('legs ' + j.legs, '', 'number of legs')); }
+        if (j.legs) { mid.appendChild(pill(_t('ajob.c.legs', {n: j.legs}), '', _t('ajob.c.legs_tip'))); }
         if (j.slot !== undefined && j.slot !== null) {
-            mid.appendChild(pill('slot ' + j.slot, '', 'parallel slot'));
+            mid.appendChild(pill(_t('ajob.c.slot', {n: j.slot}), '', _t('ajob.c.slot_tip')));
         }
-        if (j.subagents) { mid.appendChild(pill('subagents ' + j.subagents, '', 'running subagents')); }
+        if (j.subagents) {
+            mid.appendChild(pill(_t('ajob.c.subagents', {n: j.subagents}), '', _t('ajob.c.subagents_tip')));
+        }
         if (j.from_sched) {
-            var fs = pill('from s:' + j.from_sched, '', 'started by recurring job s:' + j.from_sched + ' — click to highlight it');
+            var fs = pill(_t('ajob.c.from', {id: j.from_sched}), '', _t('ajob.c.from_tip', {id: j.from_sched}));
             fs.classList.add('vt-pointer');
             fs.addEventListener('click', function () {
                 if (window.VAgent && VAgent.highlightSched) { VAgent.highlightSched(j.from_sched); }
@@ -3502,22 +3632,23 @@
         if (j.last && j.last.ts) {
             var lastLbl = document.createElement('span');
             lastLbl.className = 'sx';
-            lastLbl.textContent = 'last ' + relTime(j.last.ts) +
+            lastLbl.textContent = _t('ajob.c.last', {t: relTime(j.last.ts)}) +
                 (group !== 'running' && durationText(j) ? ' · ' + durationText(j) : '');
             lastLbl.title = new Date(j.last.ts * 1000).toLocaleString('cs-CZ');
             mid.appendChild(lastLbl);
         }
         if (group === 'running' && durationText(j)) {
-            mid.appendChild(pill(durationText(j), '', 'running for'));
+            mid.appendChild(pill(durationText(j), '', _t('ajob.c.running_for')));
         }
         if (j.runs) {
             var rc = document.createElement('span');
             rc.className = 'sx';
             var counted = (j.ok_count || 0) + (j.fail_count || 0);
             rc.textContent = j.runs + '×' +
-                (counted ? ' (' + (j.ok_count || 0) + ' ok / ' + (j.fail_count || 0) + ' fail' +
-                      (j.overruns ? ' · ' + j.overruns + ' overrun' : '') + ')' : '');
-            rc.title = 'runs so far';
+                (counted ? ' ' + (j.overruns
+                    ? _t('ajob.c.counts_over', {ok: j.ok_count || 0, fail: j.fail_count || 0, over: j.overruns})
+                    : _t('ajob.c.counts', {ok: j.ok_count || 0, fail: j.fail_count || 0})) : '');
+            rc.title = _t('ajob.c.runs_tip');
             mid.appendChild(rc);
         }
         if (j.job_id && String(j.job_id) !== String(p.id)) {
@@ -3526,8 +3657,8 @@
         if (j.incident) {
             var ib = document.createElement('button');
             ib.type = 'button'; ib.className = 'vagent-ref';
-            ib.textContent = 'incident ' + j.incident;
-            ib.title = 'Show it in Incidents';
+            ib.textContent = _t('ajob.c.incident', {id: j.incident});
+            ib.title = _t('ajob.c.incident_tip');
             ib.addEventListener('click', function () { activateTab('incidents'); });
             mid.appendChild(ib);
         }
@@ -3537,7 +3668,7 @@
         jobProgress(card, j, group);
 
         // ---- what it is doing / why it failed
-        var live = j.note ? 'driver: ' + j.note : (j.live || '');
+        var live = j.note ? _t('ajob.c.driver', {note: j.note}) : (j.live || '');
         if (live) {
             var ll = document.createElement('div');
             ll.className = 'jl';
@@ -3567,61 +3698,61 @@
         var acts = document.createElement('div');
         acts.className = 'sa';
         if (group === 'running') {
-            acts.appendChild(actBtn('Cancel', '', 'Stop this job', function (b) {
+            acts.appendChild(actBtn(_t('ajob.a.cancel'), '', _t('ajob.a.cancel_tip'), function (b) {
                 inlineConfirm(b, function () {
                     jobPost(j.ref, 'cancel', null, function () {
                         return chatFallback('zruš práci ' + p.id);
-                    }).then(afterAction).catch(function (e) { b.title = 'cancel failed: ' + e; });
+                    }).then(afterAction).catch(function (e) { b.title = _t('ajob.a.cancel_failed', {err: String(e)}); });
                 });
             }));
             if (j.status === 'blocked' || j.stalled) {
-                acts.appendChild(actBtn('Resume', 'primary', 'Nudge the job on', function (b) {
+                acts.appendChild(actBtn(_t('ajob.a.resume'), 'primary', _t('ajob.a.resume_tip'), function (b) {
                     b.disabled = true;
                     jobPost(j.ref, 'resume', null, function () {
                         return chatFallback('pokračuj na ' + p.id);
                     }).then(function () { b.disabled = false; afterAction(); })
-                      .catch(function (e) { b.disabled = false; b.title = 'resume failed: ' + e; });
+                      .catch(function (e) { b.disabled = false; b.title = _t('ajob.a.resume_failed', {err: String(e)}); });
                 }));
             }
         } else if (group === 'scheduled') {
             var on = j.status !== 'paused';
-            acts.appendChild(actBtn(on ? '⏸' : '▶', '', on ? 'Pause' : 'Resume', function (b) {
+            acts.appendChild(actBtn(on ? '⏸' : '▶', '', on ? _t('ajob.a.pause') : _t('ajob.a.resume'), function (b) {
                 b.disabled = true;
                 jobPost(j.ref, on ? 'pause' : 'resume', null, function () {
                     return schedPost(p.id, on ? 'pause' : 'resume');
                 }).then(function () { b.disabled = false; afterAction(); })
-                  .catch(function (e) { b.disabled = false; b.title = 'failed: ' + e; });
+                  .catch(function (e) { b.disabled = false; b.title = _t('ajob.failed', {err: String(e)}); });
             }));
-            acts.appendChild(actBtn('↻', '', 'Run now (outside the schedule)', function (b) {
+            acts.appendChild(actBtn('↻', '', _t('ajob.a.run_now'), function (b) {
                 b.disabled = true;
                 jobPost(j.ref, 'run', null, function () { return schedPost(p.id, 'run'); })
                     .then(function () {
                         setTimeout(function () { b.disabled = false; }, 1500);
                         afterAction();
-                    }).catch(function (e) { b.disabled = false; b.title = 'run failed: ' + e; });
+                    }).catch(function (e) { b.disabled = false; b.title = _t('ajob.a.run_failed', {err: String(e)}); });
             }));
         } else if (group === 'attention') {
             if (j.status !== 'draft') {
-                acts.appendChild(actBtn('↻ Run', '', 'Run again as it stands', function (b) {
+                acts.appendChild(actBtn(_t('ajob.a.run'), '', _t('ajob.a.run_tip'), function (b) {
                     b.disabled = true;
                     jobPost(j.ref, 'run', null, function () {
                         return p.kind === 's' ? schedPost(p.id, 'run')
                             : chatFallback('zopakuj práci #' + p.id);
                     }).then(function () { b.disabled = false; afterAction(); })
-                      .catch(function (e) { b.disabled = false; b.title = 'run failed: ' + e; });
+                      .catch(function (e) { b.disabled = false; b.title = _t('ajob.a.run_failed', {err: String(e)}); });
                 }));
             }
             acts.appendChild(followUpBtn(j));
         } else if (group === 'archive') {
             // read-only shelf: Unarchive + Details, nothing else
-            acts.appendChild(actBtn('Unarchive', 'primary',
-                'Take this job off the shelf', function (b) {
+            acts.appendChild(actBtn(_t('ajob.a.unarchive'), 'primary',
+                _t('ajob.a.unarchive_tip'), function (b) {
                 b.disabled = true;
                 jobPost(j.ref, 'unarchive', null).then(function () {
                     archFetched = false;    // shelf changed: refetch on open
                     pollArchived();
                     afterAction();
-                }).catch(function (e) { b.disabled = false; b.title = 'unarchive failed: ' + e; });
+                }).catch(function (e) { b.disabled = false; b.title = _t('ajob.a.unarchive_failed', {err: String(e)}); });
             }));
             card.appendChild(acts);
             detailSection(card, j);
@@ -3631,13 +3762,12 @@
         }
         if (unifiedOk === true && group !== 'running' &&
             (group !== 'scheduled' || j.status === 'paused' || j.status === 'draft')) {
-            acts.appendChild(actBtn('🗄', '', 'Archive — put this job away '
-                + '(inert, kept, reversible)', function (b) {
+            acts.appendChild(actBtn('🗄', '', _t('ajob.a.archive_tip'), function (b) {
                 b.disabled = true;
                 jobPost(j.ref, 'archive', null).then(function () {
                     archFetched = false;    // shelf changed: refetch on open
                     afterAction();
-                }).catch(function (e) { b.disabled = false; b.title = 'archive failed: ' + e; });
+                }).catch(function (e) { b.disabled = false; b.title = _t('ajob.a.archive_failed', {err: String(e)}); });
             }));
         }
         // the policy (report ▾ + auto-approve) is one group: on a narrow card
@@ -3667,16 +3797,17 @@
        Only the first kind can be contradicted by its contents, and only the
        first kind therefore gets renamed to match them.  Each group declares
        which it is, here, once — nobody outside this table decides it. */
+    // label / mixed / empty are i18n keys
     var GROUPS = [
-        {id: 'running', label: 'Running', saysState: true, mixed: 'Active',
-         empty: 'Nothing is running right now.'},
-        {id: 'scheduled', label: 'Scheduled', saysState: true,
-         empty: 'No scheduled job. Create one above — every N, or daily at a time.'},
-        {id: 'attention', label: 'Needs attention', saysState: true,
-         empty: 'Nothing failed or waiting to be written.'},
-        {id: 'recent', label: 'Recent', empty: 'No finished job yet.'},
-        {id: 'archive', label: 'Archive',
-         empty: 'Nothing archived. Old finished jobs move here on their own.'}
+        {id: 'running', label: 'ajob.g.running', saysState: true, mixed: 'ajob.g.active',
+         empty: 'ajob.g.running_empty'},
+        {id: 'scheduled', label: 'ajob.g.scheduled', saysState: true,
+         empty: 'ajob.g.scheduled_empty'},
+        {id: 'attention', label: 'ajob.g.attention', saysState: true,
+         empty: 'ajob.g.attention_empty'},
+        {id: 'recent', label: 'ajob.g.recent', empty: 'ajob.g.recent_empty'},
+        {id: 'archive', label: 'ajob.g.archive',
+         empty: 'ajob.g.archive_empty'}
     ];
 
     /* U25, second half — and U42, which was the same fault one group over.
@@ -3695,17 +3826,17 @@
            for its mixture
          · too many to list, or a shelf group -> the fixed label */
     function groupHeading(g, items) {
-        if (!g.saysState || !items || !items.length) { return g.label; }
+        if (!g.saysState || !items || !items.length) { return _t(g.label); }
         var seen = {}, order = [];
         items.forEach(function (j) {
             var w = stateWord(j.status, j.stalled);
-            if (!seen[w]) { seen[w] = 1; order.push(w); }
+            if (!seen[w]) { seen[w] = 1; order.push(stateLabel(w)); }
         });
         function cap(w) { return w.charAt(0).toUpperCase() + w.slice(1); }
         if (order.length === 1) { return cap(order[0]); }
-        if (g.mixed) { return g.mixed; }
+        if (g.mixed) { return _t(g.mixed); }
         if (order.length <= 3) { return cap(order.join(' · ')); }
-        return g.label;
+        return _t(g.label);
     }
 
     function sortJobs(group, items) {
@@ -3792,14 +3923,14 @@
             if (g.id === 'archive' && !archFetched) {
                 var loading = document.createElement('div');
                 loading.className = 'vagent-empty';
-                loading.textContent = 'Open to load the archive…';
+                loading.textContent = _t('ajob.g.archive_open');
                 host.appendChild(loading);
                 return;
             }
             if (!items.length) {
                 var e = document.createElement('div');
                 e.className = 'vagent-empty';
-                e.textContent = g.empty;
+                e.textContent = _t(g.empty);
                 host.appendChild(e);
                 return;
             }
@@ -3827,7 +3958,7 @@
         var att = buckets.attention.length;
         jobsBadge.textContent = act || att ? String(act + att) : '';
         jobsBadge.className = 'vagent-cnt' + (att ? ' warn' : '');
-        jobsBadge.title = act + ' running · ' + att + ' need attention';
+        jobsBadge.title = _t('ajob.badge.tip', {run: act, att: att});
         if (att) { flagTab('jobs'); }
     }
 
@@ -3884,7 +4015,8 @@
         return api('/api/schedules').then(function (d) {
             if (!d || d.ok === false) {
                 legacySchedOk = false; legacySched = [];
-                jobsErr = 'Scheduled jobs: ' + ((d && d.error) || 'API not available yet');
+                jobsErr = (d && d.error) ? _t('ajob.err.sched', {err: d.error})
+                    : _t('ajob.err.sched_missing');
                 return;
             }
             legacySchedOk = true;
@@ -3893,7 +4025,7 @@
         }).catch(function (e) {
             legacySchedOk = false;
             legacySched = [];
-            if (/HTTP 404/.test(String(e))) { jobsErr = 'Scheduled jobs: API not available yet.'; }
+            if (/HTTP 404/.test(String(e))) { jobsErr = _t('ajob.err.sched_missing') + '.'; }
         });
     }
 
@@ -3920,7 +4052,7 @@
                 jobsErr = '';
                 return pollLegacySchedules().then(function () { renderJobsPane(composeJobs()); });
             }
-            jobsErr = 'Jobs: the agent (/agent) is not responding.';
+            jobsErr = _t('ajob.err.down');
             renderJobsPane(lastJobs, true);
             return null;
         });
@@ -3960,11 +4092,11 @@
     var INTERVALS = [
         {label: '15 min', s: 900}, {label: '1 h', s: 3600}, {label: '2 h', s: 7200},
         {label: '4 h', s: 14400}, {label: '12 h', s: 43200}, {label: '24 h', s: 86400},
-        {label: 'custom', s: 0}
+        {key: 'ajob.f.custom', s: 0}
     ];
     var INTERVALS_SCRIPT = [
         {label: '5 s', s: 5}, {label: '10 s', s: 10}, {label: '20 s', s: 20}, {label: '30 s', s: 30},
-        {label: '1 min', s: 60}, {label: '5 min', s: 300}, {label: 'custom', s: 0}
+        {label: '1 min', s: 60}, {label: '5 min', s: 300}, {key: 'ajob.f.custom', s: 0}
     ];
 
     function parseInterval(v, allowSeconds) {
@@ -3980,7 +4112,7 @@
         form.className = 'vagent-schedform vagent-jobform';
         var toggle = document.createElement('button');
         toggle.type = 'button'; toggle.className = 'ja';
-        toggle.textContent = '+ new job';
+        lt(toggle, 'ajob.f.new');
         form.appendChild(toggle);
         var body = document.createElement('div');
         body.className = 'sf';
@@ -3990,14 +4122,14 @@
         var kind = 'prompt', kb = {};
         var kindRow = document.createElement('div');
         kindRow.className = 'vagent-kind';
-        [['prompt', 'Prompt', 'Hermes gets the text and works on it'],
-         ['script', 'Script', 'Hermes writes a program once; the core then runs it without a model']]
+        [['prompt', 'ajob.f.prompt', 'ajob.f.prompt_tip'],
+         ['script', 'ajob.f.script', 'ajob.f.script_tip']]
             .forEach(function (k) {
                 var b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'vagent-ivl' + (k[0] === kind ? ' on' : '');
-                b.textContent = k[1];
-                b.title = k[2];
+                lt(b, k[1]);
+                lt(b, k[2], null, 'title');
                 b.addEventListener('click', function () { setKind(k[0]); });
                 kindRow.appendChild(b);
                 kb[k[0]] = b;
@@ -4016,14 +4148,14 @@
         var whenRow = document.createElement('div');
         whenRow.className = 'si';
         var wb = {};
-        [['now', 'Now', 'Run once, right away'],
-         ['every', 'Every…', 'Repeat on an interval'],
-         ['daily', 'Daily at…', 'Once a day at a fixed time']].forEach(function (w) {
+        [['now', 'ajob.f.now', 'ajob.f.now_tip'],
+         ['every', 'ajob.f.every', 'ajob.f.every_tip'],
+         ['daily', 'ajob.f.daily', 'ajob.f.daily_tip']].forEach(function (w) {
             var b = document.createElement('button');
             b.type = 'button';
             b.className = 'vagent-ivl' + (w[0] === when ? ' on' : '');
-            b.textContent = w[1];
-            b.title = w[2];
+            lt(b, w[1]);
+            lt(b, w[2], null, 'title');
             b.addEventListener('click', function () { setWhen(w[0]); });
             whenRow.appendChild(b);
             wb[w[0]] = b;
@@ -4043,7 +4175,7 @@
                 var b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'vagent-ivl' + (iv.s === chosen ? ' on' : '');
-                b.textContent = iv.label;
+                if (iv.key) { lt(b, iv.key); } else { b.textContent = iv.label; }
                 b.addEventListener('click', function () {
                     Array.prototype.forEach.call(rowI.querySelectorAll('.vagent-ivl'),
                         function (x) { x.classList.remove('on'); });
@@ -4056,7 +4188,7 @@
             });
             custom = document.createElement('input');
             custom.type = 'text';
-            custom.placeholder = kind === 'script' ? 'e.g. 20s, 2m, 1h' : 'e.g. 90m, 3h, 2d';
+            lt(custom, kind === 'script' ? 'ajob.f.custom_ph_script' : 'ajob.f.custom_ph', null, 'placeholder');
             custom.style.display = 'none';
             rowI.appendChild(custom);
         }
@@ -4065,7 +4197,7 @@
         timeRow.className = 'si';
         var timeLbl = document.createElement('span');
         timeLbl.className = 'sx';
-        timeLbl.textContent = 'at';
+        lt(timeLbl, 'ajob.f.at');
         var timeIn = document.createElement('input');
         timeIn.type = 'time';
         timeIn.value = '07:00';
@@ -4078,18 +4210,18 @@
         polRow.className = 'si';
         var polLbl = document.createElement('span');
         polLbl.className = 'sx';
-        polLbl.textContent = 'report';
-        polLbl.title = POLICY_TIP;
+        lt(polLbl, 'ajob.policy.label');
+        lt(polLbl, POLICY_TIP, null, 'title');
         polRow.appendChild(polLbl);
         var pb = {};
-        [['silent', 'Silent', 'Never posts to chat — log only'],
-         ['result', 'Result', 'Posts the result'],
-         ['progress', 'Progress', 'Posts progress and the result']].forEach(function (m) {
+        [['silent', 'ajob.policy.silent', 'ajob.f.silent_tip'],
+         ['result', 'ajob.policy.result', 'ajob.f.result_tip'],
+         ['progress', 'ajob.policy.progress', 'ajob.f.progress_tip']].forEach(function (m) {
             var b = document.createElement('button');
             b.type = 'button';
             b.className = 'vagent-ivl';
-            b.textContent = m[1];
-            b.title = m[2];
+            lt(b, m[1]);
+            lt(b, m[2], null, 'title');
             b.addEventListener('click', function () { setPolicy(m[0]); });
             polRow.appendChild(b);
             pb[m[0]] = b;
@@ -4101,12 +4233,15 @@
         autoRow.className = 'si';
         var autoLab = document.createElement('label');
         autoLab.className = 'vagent-autoappr';
-        autoLab.title = AUTOAPPR_TIP;
+        lt(autoLab, AUTOAPPR_TIP, null, 'title');
         var autoCb = document.createElement('input');
         autoCb.type = 'checkbox';
         autoLab.appendChild(autoCb);
-        autoLab.appendChild(document.createTextNode(
-            ' Auto-approve this job’s requests (not for anything that drives)'));
+        // a span, not a text node: the label also holds the checkbox
+        var autoTxt = document.createElement('span');
+        lt(autoTxt, 'ajob.f.auto');
+        autoLab.appendChild(document.createTextNode(' '));
+        autoLab.appendChild(autoTxt);
         autoRow.appendChild(autoLab);
         body.appendChild(autoRow);
 
@@ -4123,12 +4258,8 @@
         function setKind(k) {
             kind = k;
             Object.keys(kb).forEach(function (x) { kb[x].classList.toggle('on', x === k); });
-            ta.placeholder = k === 'script'
-                ? 'What should the program do? (e.g. udělej snímek z lidaru a vypiš, když je někdo okolo)'
-                : 'What should Hermes do? (e.g. zkontroluj teploty a nahlas výkyvy)';
-            hint.textContent = k === 'script'
-                ? 'Hermes writes the program from this description; the core then runs it — no model per run. Seconds are fine as an interval.'
-                : 'Every run is a Hermes job. Intervals from one minute up.';
+            lt(ta, k === 'script' ? 'ajob.f.ph_script' : 'ajob.f.ph_prompt', null, 'placeholder');
+            lt(hint, k === 'script' ? 'ajob.f.hint_script' : 'ajob.f.hint_prompt');
             setPolicy(k === 'script' ? 'result' : 'progress');
             fillIntervals();
             setWhen(when);
@@ -4140,7 +4271,7 @@
         rowB.className = 'sb';
         var ok = document.createElement('button');
         ok.type = 'button'; ok.className = 'ja primary';
-        ok.textContent = 'Create';
+        lt(ok, 'ajob.f.create');
         var msg = document.createElement('span');
         msg.className = 'sx';
         rowB.appendChild(ok); rowB.appendChild(msg);
@@ -4150,27 +4281,26 @@
         toggle.addEventListener('click', function () {
             var open = body.style.display === 'none';
             body.style.display = open ? '' : 'none';
-            toggle.textContent = open ? '− close' : '+ new job';
+            lt(toggle, open ? 'ajob.f.close' : 'ajob.f.new');
             if (open) { ta.focus(); }
         });
 
         ok.addEventListener('click', function () {
             var text = ta.value.trim();
             if (!text) {
-                msg.textContent = kind === 'script'
-                    ? 'describe what the program should do' : 'write what should be done';
+                lt(msg, kind === 'script' ? 'ajob.f.empty_script' : 'ajob.f.empty');
                 return;
             }
             var every = 0, at = null;
             if (when === 'every') {
                 every = chosen || parseInterval(custom.value, kind === 'script');
                 if (kind === 'script' ? (!every || every < 1) : (!every || every < 60)) {
-                    msg.textContent = kind === 'script' ? 'interval at least 1 s' : 'interval at least 1 min';
+                    lt(msg, kind === 'script' ? 'ajob.f.min_s' : 'ajob.f.min_min');
                     return;
                 }
             } else if (when === 'daily') {
                 at = timeIn.value || '';
-                if (!/^\d{2}:\d{2}$/.test(at)) { msg.textContent = 'time as HH:MM'; return; }
+                if (!/^\d{2}:\d{2}$/.test(at)) { lt(msg, 'ajob.f.time'); return; }
             }
             var whenPayload = when === 'now' ? 'now'
                 : when === 'every' ? {every_s: every} : {at_hhmm: at};
@@ -4178,7 +4308,7 @@
             if (autoCb.checked) { payload.auto_approve = true; }
             if (kind === 'script') { payload.description = text; } else { payload.text = text; }
             ok.disabled = true;
-            msg.textContent = 'creating…';
+            lt(msg, 'ajob.f.creating');
 
             function optimistic(ref) {
                 var draft = {
@@ -4197,16 +4327,16 @@
 
             api('/api/unified/jobs', {body: payload}).then(function (d) {
                 ok.disabled = false;
-                if (!d || d.ok === false) { msg.textContent = 'failed: ' + ((d && d.error) || '?'); return; }
+                if (!d || d.ok === false) { lt(msg, 'ajob.failed', {err: (d && d.error) || '?'}); return; }
                 unifiedOk = true;
-                msg.textContent = 'created ';
+                createdMsg(msg);
                 if (d.ref) { msg.appendChild(refBtnFor(d.ref)); }
                 ta.value = '';
                 optimistic(d.ref || 'j:new');
                 pollUnified();
             }).catch(function (e) {
                 ok.disabled = false;
-                if (!/HTTP 404/.test(String(e))) { msg.textContent = 'failed: ' + e; return; }
+                if (!/HTTP 404/.test(String(e))) { lt(msg, 'ajob.failed', {err: String(e)}); return; }
                 unifiedOk = false;
                 createLegacy(text, kind, when, every, at, policy, msg, ta, optimistic);
             });
@@ -4226,7 +4356,7 @@
             } else {
                 submitText(text);
             }
-            msg.textContent = 'sent to chat (unified API not available yet)';
+            lt(msg, 'ajob.f.sent_legacy');
             ta.value = '';
             openChatSection();
             return;
@@ -4237,15 +4367,26 @@
             : {text: text, every_s: every || 86400, author: author};
         if (when === 'daily') { payload.at_hhmm = at; payload.every_s = 86400; }
         api('/api/schedules', {body: payload}).then(function (d) {
-            if (!d || d.ok === false) { msg.textContent = 'failed: ' + ((d && d.error) || '?'); return; }
-            msg.textContent = 'created ';
+            if (!d || d.ok === false) { lt(msg, 'ajob.failed', {err: (d && d.error) || '?'}); return; }
+            createdMsg(msg);
             if (d.job_id) { msg.appendChild(refBtnFor('j:' + d.job_id)); }
             ta.value = '';
             optimistic('s:' + d.id);
             pollUnified();
         }).catch(function (e) {
-            msg.textContent = 'failed: ' + e;
+            lt(msg, 'ajob.failed', {err: String(e)});
         });
+    }
+
+    /* „created →#12": the words in a span of their own (they follow the
+       language), the ref button appended after them */
+    function createdMsg(msg) {
+        ltOff(msg);
+        msg.textContent = '';
+        var w = document.createElement('span');
+        lt(w, 'ajob.f.created');
+        msg.appendChild(w);
+        msg.appendChild(document.createTextNode(' '));
     }
 
     function renderJobsTab(el) {
@@ -4284,7 +4425,7 @@
                 askOutcomes[item.id] = {
                     ok: good,
                     text: good ? [d.message, d.note].filter(Boolean).join(' ')
-                        : ((d && d.error) || 'Decision was not accepted.'),
+                        : ((d && d.error) || _t('appr.err.not_accepted')),
                     until: Date.now() + 12000
                 };
                 pollApprovals();
@@ -4304,10 +4445,9 @@
         var body = err && err.body;
         if (body && body.error) { return String(body.error); }
         if (err && err.status) {
-            return 'Decision was refused (HTTP ' + err.status + ') and the '
-                + 'agent gave no reason.';
+            return _t('appr.err.refused', {status: err.status});
         }
-        return 'Decision was not sent — agent unreachable. Try again.';
+        return _t('appr.err.unreachable');
     }
 
     /* Structured approval card, v2 (owner, 2026-08-28): „První potřebuju
@@ -4334,10 +4474,11 @@
     var askFocus = {id: null, until: 0};
     var lastAskFp = null;
 
+    // chip / sec are i18n keys
     var ASK_KIND = {
-        plan:    {chip: 'Plan approval', icon: '▤', cls: 'k-plan',   sec: 'Plan'},
-        command: {chip: 'Held command',  icon: '❯', cls: 'k-cmd',    sec: 'Command'},
-        resume:  {chip: 'Resume job',    icon: '▶', cls: 'k-resume', sec: 'Brief'}
+        plan:    {chip: 'appr.kind.plan',    icon: '▤', cls: 'k-plan',   sec: 'appr.sec.plan'},
+        command: {chip: 'appr.kind.command', icon: '❯', cls: 'k-cmd',    sec: 'appr.sec.command'},
+        resume:  {chip: 'appr.kind.resume',  icon: '▶', cls: 'k-resume', sec: 'appr.sec.brief'}
     };
     /* waiting work (a plan, a parked job) outranks a held one-off command */
     var ASK_RANK = {plan: 0, resume: 1, command: 2};
@@ -4362,16 +4503,16 @@
        line (and so the fingerprint does not churn every minute). */
     function askAge(seconds) {
         var s = Math.max(0, Math.round(seconds || 0));
-        if (s < 60) { return 'waiting ' + s + ' s'; }
-        if (s < 3600) { return 'waiting ' + Math.round(s / 60) + ' min'; }
-        return 'waiting ' + Math.floor(s / 3600) + ' h';
+        if (s < 60) { return _t('appr.age', {t: s + ' s'}); }
+        if (s < 3600) { return _t('appr.age', {t: Math.round(s / 60) + ' min'}); }
+        return _t('appr.age', {t: Math.floor(s / 3600) + ' h'});
     }
 
     /* „práce #147 (…)" is the job itself asking — say so short, the source
        line already carries the goal. */
     function askWho(item) {
         var m = /^prác[ei]\s*#(\d+)/i.exec(String(item.asker || ''));
-        if (m) { return 'job #' + m[1]; }
+        if (m) { return _t('appr.who.job', {n: m[1]}); }
         return headCut(item.asker || 'Hermes', 26);
     }
 
@@ -4445,26 +4586,24 @@
         var out = null;
         if (kind === 'plan') {
             var title = planTitle(payload.text || '');
-            out = {text: askAgent(item) + ' has a plan ' +
-                (title ? '\u201c' + title + '\u201d ' : '') +
-                (n ? 'for job #' + n + ' ' : '') +
-                'and needs your yes before building it.'};
+            // one sentence per variant: word order differs between languages
+            var pk = 'appr.say.plan' + (title ? '_title' : '') + (n ? '_job' : '');
+            out = {text: _t(pk, {who: askAgent(item), title: title, n: n})};
         } else if (kind === 'resume') {
             if (n) {
-                out = {text: 'Job #' + n +
-                    (state === 'blocked' ? ' is stuck' : ' is standing still') +
-                    ' and needs your yes to carry on.'};
+                out = {text: _t(state === 'blocked' ? 'appr.say.resume_stuck'
+                                                    : 'appr.say.resume_still', {n: n})};
             }
         } else {
             var cmd = payload.text || item.command || '';
             if (cmd) {
-                out = {text: 'The robot wants to run this command once: ',
+                out = {text: _t('appr.say.command') + ' ',
                        code: headCut(cmd, 78)};
             }
         }
         if (!out || !out.text) {
             out = {text: d.what || item.plain || item.command
-                   || 'Waiting for your decision.'};
+                   || _t('appr.say.waiting')};
         }
         return out;
     }
@@ -4487,7 +4626,7 @@
         s.textContent = label + ' ';
         var hint = document.createElement('span');
         hint.className = 'ashow';
-        hint.textContent = 'show';
+        hint.textContent = _t('appr.show');
         s.appendChild(hint);
         d.appendChild(s);
         d.addEventListener('toggle', function () {
@@ -4538,13 +4677,13 @@
         head.className = 'ah';
         var chip = document.createElement('span');
         chip.className = 'akind';
-        chip.textContent = K.icon + ' ' + K.chip;
+        chip.textContent = K.icon + ' ' + _t(K.chip);
         head.appendChild(chip);
         var pills = document.createElement('span');
         pills.className = 'ahp';
         askPill(pills, askAge(item.waiting_s));
         if (item.left_text) {
-            askPill(pills, 'auto-deny in ' + item.left_text, 'warn');
+            askPill(pills, _t('appr.autodeny', {t: item.left_text}), 'warn');
         }
         head.appendChild(pills);
         row.appendChild(head);
@@ -4559,19 +4698,20 @@
             jb.type = 'button';
             jb.className = 'aref';
             jb.textContent = jobRef + (goal ? ' · ' + headCut(goal, 50) : '');
-            jb.title = 'Open ' + jobRef + (goal ? ' — ' + goal : '');
+            jb.title = goal ? _t('appr.open_goal', {ref: jobRef, goal: goal})
+                : _t('appr.open', {ref: jobRef});
             jb.addEventListener('click', function () { highlightJob(jobRef); });
             src.appendChild(jb);
         } else if (ctx.incident_id || item.incident_id) {
             var inc = document.createElement('span');
             inc.className = 'asrct';
-            inc.textContent = 'incident ' + (ctx.incident_id || item.incident_id);
+            inc.textContent = _t('ajob.c.incident', {id: ctx.incident_id || item.incident_id});
             src.appendChild(inc);
         }
         var by = document.createElement('span');
         by.className = 'aby';
-        by.textContent = 'by ' + askWho(item) +
-            ((ctx.job_state || item.job_state) === 'blocked' ? ' · parked' : '');
+        by.textContent = _t((ctx.job_state || item.job_state) === 'blocked'
+            ? 'appr.by_parked' : 'appr.by', {who: askWho(item)});
         by.title = item.asker || 'Hermes';
         src.appendChild(by);
         row.appendChild(src);
@@ -4582,9 +4722,8 @@
             row.classList.add('moves');
             var mv = document.createElement('div');
             mv.className = 'amove';
-            mv.textContent = 'THE ROBOT WOULD MOVE — only you may allow this';
-            mv.title = 'This request can make the machine drive. ' +
-                'It never happens without your explicit yes.';
+            mv.textContent = _t('appr.move.banner');
+            mv.title = _t('appr.move.tip');
             row.appendChild(mv);
         }
         var say = document.createElement('div');
@@ -4620,11 +4759,10 @@
         var yes = document.createElement('button');
         yes.className = 'ay' + (moves ? ' moves' : '');
         yes.type = 'button';
-        yes.textContent = moves ? 'Allow the robot to move' : 'Approve';
+        yes.textContent = moves ? _t('appr.move.allow') : _t('appr.approve');
         yes.title = moves
-            ? 'Lets the machine drive. One more tap confirms — nothing moves '
-              + 'before that (same as /allow ' + item.id + ')'
-            : 'Runs it (same as /allow ' + item.id + ')';
+            ? _t('appr.move.allow_tip', {id: item.id})
+            : _t('appr.approve_tip', {id: item.id});
         if (moves) {
             // The irreversible half of the card is the one that gets the
             // second tap; Deny has had one all along.
@@ -4632,11 +4770,11 @@
             yes.addEventListener('click', function () {
                 if (!yArmed) {
                     yArmed = true;
-                    yes.textContent = 'Yes — let it move';
+                    yes.textContent = _t('appr.move.confirm');
                     yes.classList.add('armed');
                     yTimer = setTimeout(function () {
                         yArmed = false;
-                        yes.textContent = 'Allow the robot to move';
+                        yes.textContent = _t('appr.move.allow');
                         yes.classList.remove('armed');
                     }, 6000);
                     return;
@@ -4653,17 +4791,17 @@
         var no = document.createElement('button');
         no.className = 'an';
         no.type = 'button';
-        no.textContent = 'Deny';
-        no.title = 'Does not run it (same as /deny ' + item.id + ')';
+        no.textContent = _t('appr.deny');
+        no.title = _t('appr.deny_tip', {id: item.id});
         var armed = false, armTimer = null;
         no.addEventListener('click', function () {
             if (!armed) {                       // inline confirm, one tap more
                 armed = true;
-                no.textContent = 'Deny — really?';
+                no.textContent = _t('appr.deny_really');
                 no.classList.add('armed');
                 armTimer = setTimeout(function () {
                     armed = false;
-                    no.textContent = 'Deny';
+                    no.textContent = _t('appr.deny');
                     no.classList.remove('armed');
                 }, 6000);
                 return;
@@ -4677,7 +4815,7 @@
             erow.className = 'aexec';
             var el = document.createElement('span');
             el.className = 'al';
-            el.textContent = 'via:';
+            el.textContent = _t('appr.via');
             erow.appendChild(el);
             d.executors.forEach(function (ex) {
                 var b = document.createElement('button');
@@ -4689,7 +4827,7 @@
                 b.textContent = String(ex.label || ex.id).split(/[\s(]/)[0] +
                     (ex.id === d.recommended ? ' ★' : '');
                 b.title = (ex.label || ex.id) + ' — ' + (ex.desc || '') +
-                    (ex.id === d.recommended ? ' (recommended)' : '');
+                    (ex.id === d.recommended ? ' ' + _t('appr.recommended') : '');
                 b.addEventListener('click', function () {
                     execChoice = ex.id;
                     askExec[item.id] = ex.id;
@@ -4715,7 +4853,7 @@
                 var words = String(payload.text).trim().split(/\s+/)
                     .filter(Boolean).length;
                 var sec = askSection(item, 'payload',
-                    K.sec + ' · ' + words + ' words', false);
+                    _t(K.sec) + ' · ' + _tn('appr.words', words), false);
                 var pre = document.createElement('pre');
                 pre.className = 'apre' +
                     (payload.kind === 'command' ? ' mono' : '');
@@ -4725,7 +4863,7 @@
                     var more = document.createElement('button');
                     more.type = 'button';
                     more.className = 'amore';
-                    more.textContent = 'show full';
+                    more.textContent = _t('appr.show_full');
                     more.addEventListener('click', function () {
                         more.disabled = true;
                         api('/api/approvals/' + item.id + '/detail')
@@ -4744,7 +4882,7 @@
             }
 
             if (ctx.job_ref || ctx.incident_id || ctx.job_goal) {
-                var csec = askSection(item, 'ctx', 'Context', false);
+                var csec = askSection(item, 'ctx', _t('appr.sec.context'), false);
                 if (ctx.job_goal) {
                     var g = document.createElement('div');
                     g.className = 'actx goal';
@@ -4756,14 +4894,14 @@
                 facts.className = 'actx dim';
                 facts.textContent = [
                     ctx.job_ref ? ctx.job_ref : '',
-                    ctx.job_state ? 'state ' + ctx.job_state : '',
-                    ctx.legs ? 'legs ' + ctx.legs : ''
+                    ctx.job_state ? _t('appr.ctx.state', {s: ctx.job_state}) : '',
+                    ctx.legs ? _t('ajob.c.legs', {n: ctx.legs}) : ''
                 ].filter(Boolean).join(' · ');
                 if (facts.textContent) { csec.appendChild(facts); }
                 if (ctx.last_error) {
                     var er = document.createElement('div');
                     er.className = 'actx err';
-                    er.textContent = 'last error: ' + ctx.last_error;
+                    er.textContent = _t('appr.ctx.last_error', {err: ctx.last_error});
                     er.title = ctx.last_error;
                     csec.appendChild(er);
                 }
@@ -4779,18 +4917,18 @@
             }
 
             if (d.what || d.why || d.action_on_approve || d.action_on_deny) {
-                var wsec = askSection(item, 'what', 'What happens', false);
-                askLine(wsec, 'awhat', 'Request', d.what);
-                askLine(wsec, 'awhy', 'Why', d.why);
-                askLine(wsec, 'ayes', 'On approve', d.action_on_approve);
-                askLine(wsec, 'ano', 'On deny', d.action_on_deny);
+                var wsec = askSection(item, 'what', _t('appr.sec.what'), false);
+                askLine(wsec, 'awhat', _t('appr.l.request'), d.what);
+                askLine(wsec, 'awhy', _t('appr.l.why'), d.why);
+                askLine(wsec, 'ayes', _t('appr.l.on_approve'), d.action_on_approve);
+                askLine(wsec, 'ano', _t('appr.l.on_deny'), d.action_on_deny);
                 det.appendChild(wsec);
                 any = true;
             }
 
             if (d.risk && d.risk.length) {
                 var rsec = askSection(item, 'risk',
-                    'Risk · ' + d.risk.length, false);
+                    _t('appr.sec.risk', {n: d.risk.length}), false);
                 var rrow = document.createElement('div');
                 rrow.className = 'ar arisk';
                 d.risk.forEach(function (r) {
@@ -4807,7 +4945,7 @@
             if (any) { row.appendChild(det); }
         } else if (item.command) {
             // legacy ask (no structured detail): keep the raw command visible
-            var lsec = askSection(item, 'payload', 'Command', false);
+            var lsec = askSection(item, 'payload', _t('appr.sec.command'), false);
             var lpre = document.createElement('pre');
             lpre.className = 'apre mono';
             lpre.textContent = item.command;
@@ -4920,7 +5058,7 @@
         if (!shown) {
             var e = document.createElement('div');
             e.className = 'vagent-empty';
-            e.textContent = 'Nothing waiting for approval.';
+            e.textContent = _t('appr.empty');
             gateBody.appendChild(e);
         }
         // Pinned at the top of Work: it must take no room when it is empty.
@@ -4951,7 +5089,8 @@
             /* U2 I1: the shared hub gets the SAME list (one poller, U44);
                the Needs you panel reads it from there */
             if (window.VTHub) {
-                window.VTHub.put('agent.asks', stripAsks.map(function (a) {
+                window.VTHub.put("agent.asks",   // a hub key, not i18n (double quotes: test_i18n)
+                stripAsks.map(function (a) {
                     return {id: a.id, what: (a.detail && a.detail.what) || a.plain || a.command || '',
                             waiting_s: a.waiting_s, moves: !!askMoves(a)};
                 }));
@@ -4997,6 +5136,7 @@
     // ------------------------------------------------------- status strip
     /* One glance: battery, RTK, dock, motors, core.  Fed by the same events
        the blocks get; unknown fields say '–' rather than guessing. */
+    var paintStatusStrip = null;
     function installStatusStrip() {
         var strip = panel.querySelector('#vagent_status');
         if (!strip) { return; }
@@ -5016,22 +5156,23 @@
             var h = src.health;
             strip.textContent = '';
             var pct = st.battery_pct;
-            strip.appendChild(chip('bat', pct != null ? Math.round(pct) + ' %' : '–',
+            strip.appendChild(chip(_t('agent.st.bat'), pct != null ? Math.round(pct) + ' %' : '–',
                 pct == null ? '' : pct > 50 ? 'good' : pct > 20 ? 'warn' : 'bad'));
             var rtk = st.rtk && typeof st.rtk === 'object' ? st.rtk.fix : st.rtk;
             strip.appendChild(chip('RTK', rtk || '–',
                 rtk === 'fixed' ? 'good' : rtk === 'float' ? 'warn' :
                 rtk ? 'bad' : ''));
-            strip.appendChild(chip('dock', st.in_dock === true ? 'yes'
-                : st.in_dock === false ? 'no' : '–'));
-            strip.appendChild(chip('motors', st.motor_power === true ? 'on'
-                : st.motor_power === false ? 'off' : '–'));
+            strip.appendChild(chip(_t('agent.st.dock'), st.in_dock === true ? _t('agent.st.yes')
+                : st.in_dock === false ? _t('agent.st.no') : '–'));
+            strip.appendChild(chip(_t('agent.st.motors'), st.motor_power === true ? _t('agent.st.on')
+                : st.motor_power === false ? _t('agent.st.off') : '–'));
             var coreOk = !!(h && h.ok);
-            strip.appendChild(chip('core', coreOk ? 'ok' : '–',
+            strip.appendChild(chip(_t('agent.st.core'), coreOk ? 'ok' : '–',
                 coreOk ? 'good' : 'bad'));
         }
         document.addEventListener('vagent:state', paint);
         document.addEventListener('vagent:health', paint);
+        paintStatusStrip = paint;     // the language switch repaints it
         paint();
     }
 
@@ -5063,6 +5204,10 @@
        card lists the actions themselves rather than saying "allow movement".
        Two, not one, because one departure alone strands the robot outside:
        coming home is `dock.start`, and that is movement too. */
+    /* button / title / lines are i18n keys; the getters below hand callers
+       (agent_blocks.js renders the card) the text in the current language */
+    /* action ids in double quotes: they are ids of the core's lock, and
+       test_i18n reads every single-quoted area.word as an i18n key */
     var DOCK_GRANTS = [{
         /* 2026-10-18, the owner: „Chci dock unlock, který bude na cokoliv
            a zapne se zas až tím, že robot zajede do docku."  Still NAMED:
@@ -5073,19 +5218,19 @@
            back in it (v2/dock_relock).  12 h stays as the safety cap. */
         key: 'free',
         until_docked: true,
-        actions: ['dock.start', 'dock.undock', 'map.new', 'map.save',
-                  'motor.on', 'nav.execute_path', 'nav.goto_waypoint'],
+        actions: ["dock.start", "dock.undock", "map.new", "map.save",
+                  "motor.on", "nav.execute_path", "nav.goto_waypoint"],
         minutes: 720,
         max_runs: null,
         primary: true,
-        button: 'Free drive \u2014 anything until the robot is back in the dock\u2026',
-        title: 'You are about to allow free driving until the robot is back in the dock:',
+        button: 'agent.dock.free.button',
+        title: 'agent.dock.free.title',
         lines: [
-            ['Actions', 'every move the lock knows: dock.undock \u00b7 dock.start \u00b7 nav.goto_waypoint \u00b7 nav.execute_path (saved routes) \u00b7 motor.on \u00b7 map.new / map.save (test maps)'],
-            ['Not allowed', 'the mower blade \u2014 never, by any route'],
-            ['Uses', 'no limit'],
-            ['Locks', 'itself when the robot docks (or after 12 h). Unlocked while it stands in the dock? It waits until the robot leaves and comes back.'],
-            ['Signed by', 'you (robert), from this browser']
+            ['agent.dock.l.actions', 'agent.dock.free.actions'],
+            ['agent.dock.l.not', 'agent.dock.free.not'],
+            ['agent.dock.l.uses', 'agent.dock.free.uses'],
+            ['agent.dock.l.locks', 'agent.dock.free.locks'],
+            ['agent.dock.l.signed', 'agent.dock.free.signed']
         ]
     }, {
         /* 2026-10-18: the owner stands at the robot and wants the agent to
@@ -5096,48 +5241,56 @@
            counts as movement while a navigation goal is pending (B13); when
            nothing is pending it never spends a use. */
         key: 'test',
-        actions: ['dock.undock', 'nav.goto_waypoint', 'dock.start', 'motor.on'],
+        actions: ["dock.undock", "nav.goto_waypoint", "dock.start", "motor.on"],
         minutes: 30,
         max_runs: 8,
-        button: 'Test drive: undock + drive to waypoint + dock back…',
-        title: 'You are about to allow a test drive:',
+        button: 'agent.dock.test.button',
+        title: 'agent.dock.test.title',
         lines: [
-            ['Actions', 'dock.undock (leave) · nav.goto_waypoint (drive to a saved waypoint) · dock.start (drive back in) · motor.on (power, if needed)'],
-            ['Not allowed', 'saved routes (execute_path), the mower, anything else'],
-            ['Valid for', '30 minutes from now'],
-            ['Uses', 'up to 8 moves — one mission with a retry or two, then it is gone'],
-            ['Signed by', 'you (robert), from this browser']
+            ['agent.dock.l.actions', 'agent.dock.test.actions'],
+            ['agent.dock.l.not', 'agent.dock.test.not'],
+            ['agent.dock.l.valid', 'agent.dock.test.valid'],
+            ['agent.dock.l.uses', 'agent.dock.test.uses'],
+            ['agent.dock.l.signed', 'agent.dock.test.signed']
         ]
     }, {
         key: 'out',
-        actions: ['dock.undock'],
+        actions: ["dock.undock"],
         minutes: 15,
         max_runs: 1,
-        button: 'Undock only, once…',
-        title: 'You are about to allow:',
+        button: 'agent.dock.out.button',
+        title: 'agent.dock.out.title',
         lines: [
-            ['Actions', 'dock.undock — release the dock and drive away'],
-            ['Not allowed', 'driving to a waypoint or a route, the mower, docking back'],
-            ['Valid for', '15 minutes from now'],
-            ['Uses', '1 — the permission is gone the moment it is used'],
-            ['Signed by', 'you (robert), from this browser']
+            ['agent.dock.l.actions', 'agent.dock.out.actions'],
+            ['agent.dock.l.not', 'agent.dock.out.not'],
+            ['agent.dock.l.valid', 'agent.dock.out.valid'],
+            ['agent.dock.l.uses', 'agent.dock.out.uses'],
+            ['agent.dock.l.signed', 'agent.dock.out.signed']
         ]
     }, {
         key: 'round',
-        actions: ['dock.undock', 'dock.start'],
+        actions: ["dock.undock", "dock.start"],
         minutes: 30,
         max_runs: 2,
-        button: 'Undock and dock back…',
-        title: 'You are about to allow:',
+        button: 'agent.dock.round.button',
+        title: 'agent.dock.round.title',
         lines: [
-            ['Actions', 'dock.undock (leave) + dock.start (drive back in)'],
-            ['Not allowed', 'driving to a waypoint or a route, the mower, anything else'],
-            ['Valid for', '30 minutes from now'],
-            ['Uses', '2 — one departure and one return, then it is gone'],
-            ['Signed by', 'you (robert), from this browser']
+            ['agent.dock.l.actions', 'agent.dock.round.actions'],
+            ['agent.dock.l.not', 'agent.dock.round.not'],
+            ['agent.dock.l.valid', 'agent.dock.round.valid'],
+            ['agent.dock.l.uses', 'agent.dock.round.uses'],
+            ['agent.dock.l.signed', 'agent.dock.round.signed']
         ]
     }];
     DOCK_GRANTS.forEach(function (g) { g.ttl_s = g.minutes * 60; });
+    DOCK_GRANTS.forEach(function (g) {
+        var kb = g.button, kt = g.title, kl = g.lines;
+        Object.defineProperty(g, 'button', {enumerable: true, get: function () { return _t(kb); }});
+        Object.defineProperty(g, 'title', {enumerable: true, get: function () { return _t(kt); }});
+        Object.defineProperty(g, 'lines', {enumerable: true, get: function () {
+            return kl.map(function (pair) { return [_t(pair[0]), _t(pair[1])]; });
+        }});
+    });
 
     function dockRelease() { return dockState.release || null; }
 
@@ -5241,12 +5394,12 @@
                 if (!r.ok) {
                     return {ok: false, error: (d && d.error) || ('HTTP ' + r.status)};
                 }
-                return d || {ok: false, error: 'empty answer'};
+                return d || {ok: false, error: _t('agent.dock.err.empty')};
             });
         }, function (e) {
             if (timer) { clearTimeout(timer); }
             return {ok: false, error: (window.VTMock && VTMock.on)
-                ? 'mock mode: writes to the robot are blocked'
+                ? _t('agent.dock.err.mock')
                 : String((e && e.message) || e)};
         });
     }
@@ -5311,23 +5464,21 @@
         unlockedEl.textContent = '';
         var lab = document.createElement('span');
         lab.className = 'vs-lab';
-        lab.textContent = 'UNLOCKED';
+        lab.textContent = _t('agent.dock.bar.label');
         unlockedEl.appendChild(lab);
         var txt = document.createElement('span');
         txt.className = 'vs-txt';
         var n = dockUsesLeft(rel);
         txt.textContent = rel.until_docked
-            ? 'Unlocked until docked \u00b7 all moves \u00b7 at most ' +
-              mmss(dockLeft(rel)) + ' more'
-            : (rel.actions || []).join(', ') + ' · ' +
-              n + (n === 1 ? ' use' : ' uses') + ' left · ' +
-              mmss(dockLeft(rel)) + ' left';
+            ? _t('agent.dock.bar.free', {t: mmss(dockLeft(rel))})
+            : _tn('agent.dock.bar.uses', n, {actions: (rel.actions || []).join(', '),
+                                              t: mmss(dockLeft(rel))});
         unlockedEl.appendChild(txt);
         var back = document.createElement('button');
         back.type = 'button';
         back.className = 'vs-btn';
-        back.textContent = 'Lock again';
-        back.title = 'Take the permission back now';
+        back.textContent = _t('agent.dock.bar.lock');
+        back.title = _t('agent.dock.bar.lock_tip');
         back.addEventListener('click', function (ev) {
             ev.stopPropagation();
             back.disabled = true;
@@ -5369,7 +5520,9 @@
         var leg = job.leg || 0;
         var legs = job.legs || 0;
         if (!leg && !legs) { return ''; }
-        return 'leg ' + (leg || legs) + (legs && legs >= (leg || 0) ? '/' + legs : '');
+        return legs && legs >= (leg || 0)
+            ? _t('ajob.p.leg_of', {n: leg || legs, of: legs})
+            : _t('ajob.p.leg', {n: leg || legs});
     }
 
     /* The one thing worth a row of screen, or null. */
@@ -5382,14 +5535,14 @@
             var what = (a.detail && a.detail.what) || a.plain || a.command || '';
             if (askMoves(a)) {
                 return {kind: 'move', tab: 'work',
-                        label: 'MOVEMENT NEEDS YOUR YES',
+                        label: _t('appr.strip.move'),
                         text: cut(what, 40),
                         age: shortAge(a.waiting_s)};
             }
             return {kind: 'ask', tab: 'work',
                     label: stripAsks.length > 1
-                        ? stripAsks.length + ' approvals waiting'
-                        : 'Approval waiting',
+                        ? _t('appr.strip.many', {n: stripAsks.length})
+                        : _t('appr.strip.one'),
                     text: cut(what, 44),
                     age: shortAge(a.waiting_s)};
         }
@@ -5403,8 +5556,8 @@
         }
         if (blocked) {
             return {kind: 'blocked', tab: 'work', jobId: blocked.id,
-                    label: 'Work #' + blocked.id + (blocked.stalled && blocked.state !== 'blocked'
-                        ? ' stalled' : ' blocked'),
+                    label: _t(blocked.stalled && blocked.state !== 'blocked'
+                        ? 'ajob.strip.stalled' : 'ajob.strip.blocked', {id: blocked.id}),
                     text: cut(blocked.blocked || blocked.error || blocked.last ||
                               blocked.text, 44),
                     age: shortAge(blocked.elapsed_s)};
@@ -5416,7 +5569,7 @@
         }
         if (hot) {
             return {kind: 'finding', tab: 'findings',
-                    label: 'Finding',
+                    label: _t('agent.strip.finding'),
                     text: findingTitle(hot) + (hot.count > 1 ? ' · ' + hot.count + '×' : ''),
                     age: shortAge(hot.last_seen ? (Date.now() / 1000 - hot.last_seen) : null)};
         }
@@ -5425,7 +5578,7 @@
             return {kind: 'now', tab: 'work', jobId: running.id,
                     label: '',
                     text: cut((running.phase_title || running.last || running.text ||
-                               'working') + '', STRIP_CUT - 18),
+                               _t('ajob.strip.working')) + '', STRIP_CUT - 18),
                     meta: [legOf(running), shortAge(running.elapsed_s)]
                         .filter(Boolean).join(' · ')};
         }
@@ -5489,10 +5642,10 @@
             layoutBars();
             return;
         }
-        var by = panicSeen.by ? ' by ' + panicSeen.by : '';
-        var when = panicSeen.at ? ' · ' + shortAge(Date.now() / 1000 - panicSeen.at) + ' ago' : '';
-        var txt = 'STOP IS LATCHED' + by + when +
-            ' — the agent will not act until it is released.';
+        var by = panicSeen.by ? ' ' + _t('agent.panic.by', {who: panicSeen.by}) : '';
+        var when = panicSeen.at
+            ? ' · ' + _t('ajob.rel.ago', {t: shortAge(Date.now() / 1000 - panicSeen.at)}) : '';
+        var txt = _t('agent.panic.text', {by: by, when: when});
         if (panicEl.textContent !== txt) { panicEl.textContent = txt; }
         panicEl.style.display = '';
         layoutBars();
@@ -5532,7 +5685,7 @@
         stripEl.className = 'va-' + pick.kind;
         var lab = document.createElement('span');
         lab.className = 'vs-lab';
-        lab.textContent = pick.label || 'Now';
+        lab.textContent = pick.label || _t('agent.strip.now');
         stripEl.appendChild(lab);
         var txt = document.createElement('span');
         txt.className = 'vs-txt';
@@ -5546,7 +5699,7 @@
             stripEl.appendChild(m);
         }
         stripEl.title = (pick.label ? pick.label + ' — ' : '') + pick.text +
-            (right ? ' (' + right + ')' : '') + ' · click to open the agent panel';
+            (right ? ' (' + right + ')' : '') + ' · ' + _t('agent.strip.tip');
         stripEl.style.display = '';
         document.body.classList.add('vagent-strip-on');
         layoutBars();
@@ -5653,6 +5806,32 @@
         if (panelActive) { kickAll(); }
     }
 
+    // --------------------------------------------------- language switch
+    /* Settings › App › Language switches live (docs/I18N.md).  Text drawn
+       through lt() repaints itself (relangEls); what is drawn with _t() is
+       drawn again from the last data — job cards, approval cards, the
+       context bar, the shell strip, the dock bar.  Chat bubbles are not
+       redrawn: their text is the conversation (data); a UI line written as
+       a bubble (send failed, STOP) keeps the language it was drawn in. */
+    function relang() {
+        relangEls(document);
+        relangTabs();
+        if (syncPlaceholder) { syncPlaceholder(); }
+        applyAgentState();
+        paintConn();
+        if (paintStatusStrip) { paintStatusStrip(); }
+        jobCards = {};
+        jobsFp = null;
+        if (jobsListBox) { renderJobsPane(lastJobs, true); }
+        lastAskFp = null;
+        if (gateBody) { renderApprovals(lastAsks); }
+        paintCtx();
+        stripFp = '';
+        paintStrip();
+        paintUnlocked();
+        paintPanic();
+    }
+
     // ---------------------------------------------------------------- init
     function init() {
         panel.style.display = 'none';
@@ -5685,16 +5864,18 @@
             msgsEl.textContent = '';
             var e = document.createElement('div');
             e.className = 'vagent-empty';
-            e.appendChild(document.createTextNode(
-                'View cleared — history stays on the robot (/clear deletes it for real). '));
+            var ew = document.createElement('span');
+            lt(ew, 'chat.cleared');
+            e.appendChild(ew);
+            e.appendChild(document.createTextNode(' '));
             var undo = document.createElement('button');
             undo.type = 'button';
             undo.className = 'vagent-ref';
-            undo.textContent = 'Bring it back';
-            undo.title = 'Load the history again from the robot';
+            lt(undo, 'chat.cleared.undo');
+            lt(undo, 'chat.cleared.undo_tip', null, 'title');
             undo.addEventListener('click', function () {
                 undo.disabled = true;
-                undo.textContent = 'Loading…';
+                lt(undo, 'common.loading');
                 loadHistory();
             });
             e.appendChild(undo);
@@ -5710,12 +5891,11 @@
                 .then(function (d) {
                     openChatSection();
                     if (msgsEl) {
-                        turn('bot', 'vagent-err', (d && d.reply) || 'STOP accepted.', []);
+                        turn('bot', 'vagent-err', (d && d.reply) || _t('agent.stop.ok'), []);
                     }
                 }).catch(function () {
                     if (msgsEl) {
-                        turn('bot', 'vagent-err',
-                             'STOP was not delivered — the agent (/agent) is not responding!', []);
+                        turn('bot', 'vagent-err', _t('agent.stop.failed'), []);
                     }
                 });
         }
@@ -5723,11 +5903,11 @@
         // Built-in blocks. Approvals on top: a held command is a question the
         // robot cannot answer itself, so it outranks everything below it.
         var gateSum = gateBadge;
-        registerBlock({id: 'gate', title: 'Approvals', order: 10,
+        registerBlock({id: 'gate', title: 'Approvals', titleKey: 'appr.title', order: 10,
                        summaryExtra: gateSum,
                        render: function (el) { gateBody = el; }});
         // One Jobs tab: running work, schedules, failures and history together.
-        registerBlock({id: 'jobs', title: 'Jobs', order: 20,
+        registerBlock({id: 'jobs', title: 'Jobs', titleKey: 'ajob.title', order: 20,
                        summaryExtra: jobsBadge,
                        render: renderJobsTab,
                        poll: {every_ms: 8000, fn: function () {
@@ -5745,9 +5925,10 @@
                            if ((++unifiedIdle % 2) === 0) { pollUnified(); }
                        }},
                        onOpen: function () { pollUnified(); }});
-        registerBlock({id: 'chat', title: 'Chat', order: 30, render: renderChat});
+        registerBlock({id: 'chat', title: 'Chat', titleKey: 'chat.title', order: 30, render: renderChat});
         built = true;
         mountBlocks();
+        if (window.VTI18n && VTI18n.onChange) { VTI18n.onChange(relang); }
 
         document.addEventListener('keydown', function (ev) {
             if (ev.altKey && !ev.ctrlKey && !ev.metaKey &&

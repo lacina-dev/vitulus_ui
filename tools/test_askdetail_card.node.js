@@ -34,6 +34,24 @@ if (start < 0 || end < 0) {
 }
 const block = SRC.slice(start, end);
 
+/* i18n: the module's own words go through _t/_tn (VTI18n); the harness
+   answers from the English dictionary, so the assertions below still read
+   the English texts — what they test is the behaviour, not the words. */
+const EN = (function () {
+    const win = {};
+    new Function('window', fs.readFileSync(path.join(__dirname, '..', 'nodes', 'templates',
+        'assets', 'js', 'i18n', 'en.js'), 'utf8'))(win);
+    return win.VT_I18N_DICT.en;
+})();
+function fillVars(s, v) {
+    return v ? String(s).replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) : s;
+}
+function _t(k, v) { return fillVars(k in EN ? EN[k] : k, v); }
+function _tn(k, n, v) {
+    const f = (k + '.' + (n === 1 ? 'one' : 'other')) in EN ? (n === 1 ? 'one' : 'other') : 'other';
+    return _t(k + '.' + f, Object.assign({n: n}, v || {}));
+}
+
 function el(tag) {
     return {
         tag: tag, className: '', _text: '', title: '', type: '',
