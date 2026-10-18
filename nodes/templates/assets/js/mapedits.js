@@ -467,15 +467,18 @@ window.MapEdits = (function () {
     // obstacle/free/wall (see _finishEditsDraw) for backend compat — only the
     // visible label/hint text changes here. V2 adds the 'path' tool (manual path
     // drawing that lands in the same collection as robot-recorded paths).
+    // P5: icons from the app's icon font (line-awesome) instead of emoji; the
+    // tile colour lives in CSS (index.html "tool grid") keyed on data-tool, the
+    // `idle` class stays for the active/idle swap below.
     var TOOLS = [
-        { tool: 'off',           ico: '🖐️', label: 'Pan',            idle: 'btn-outline-light' },
-        { tool: 'waypoint',      ico: '📍',       label: 'Waypoint',       idle: 'btn-outline-info' },
-        { tool: 'path',          ico: '🛤️', label: 'Path',           idle: 'btn-outline-primary' },
-        { tool: 'edit_obstacle', ico: '⬛',             label: 'Obstacle (area)',idle: 'btn-outline-danger' },
-        { tool: 'edit_free',     ico: '⬜',             label: 'Free (clear area)', idle: 'btn-outline-success' },
-        { tool: 'edit_wall',     ico: '〰️',       label: 'Barrier (line)', idle: 'btn-outline-warning' },
-        { tool: 'edit_delete',   ico: '🗑️', label: 'Delete',         idle: 'btn-outline-secondary' },
-        { tool: 'geofence',      ico: '🚧',             label: 'Geofence',       idle: 'btn-outline-warning' },
+        { tool: 'off',           ico: '<i class="la la-hand-paper-o"></i>', label: 'Pan',               idle: 'btn-outline-light' },
+        { tool: 'waypoint',      ico: '<i class="la la-map-marker"></i>',   label: 'Waypoint',          idle: 'btn-outline-info' },
+        { tool: 'path',          ico: '<i class="la la-road"></i>',         label: 'Path',              idle: 'btn-outline-primary' },
+        { tool: 'edit_obstacle', ico: '<i class="la la-square"></i>',       label: 'Obstacle (area)',   idle: 'btn-outline-danger' },
+        { tool: 'edit_free',     ico: '<i class="la la-square-o"></i>',     label: 'Free (clear area)', idle: 'btn-outline-success' },
+        { tool: 'edit_wall',     ico: '<i class="la la-minus"></i>',        label: 'Barrier (line)',    idle: 'btn-outline-warning' },
+        { tool: 'edit_delete',   ico: '<i class="la la-trash"></i>',        label: 'Delete',            idle: 'btn-outline-secondary' },
+        { tool: 'geofence',      ico: '<i class="la la-shield"></i>',       label: 'Geofence',          idle: 'btn-outline-warning' },
     ];
 
     // =====================================================================
@@ -494,9 +497,8 @@ window.MapEdits = (function () {
     // --digest <digest>`, or `/geofence podepsat <digest>` in the agent chat) —
     // nothing this page can do arms a fence.
     //
-    // The prose below is Czech because every refusal reason arrives from that
-    // Czech API verbatim; an English frame around Czech errors would read worse
-    // than one language throughout this box.
+    // The frame text is English like the whole UI (owner rule); a refusal
+    // reason from the propose API is shown verbatim inside it.
     var _gfTimer = null;
     var _gfLast = null;         // last submitted ring (for the JSON export)
 
@@ -883,7 +885,7 @@ window.MapEdits = (function () {
         } else if (_tool === 'edit_delete') {
             _setHint('Click an edit (obstacle / free / wall) to delete it.');
         } else {
-            _setHint('Pick a tool above. 🖐️ Pan = drag and zoom the map.');
+            _setHint('Pick a tool above. Pan = drag and zoom the map.');
         }
     }
 
@@ -1062,7 +1064,7 @@ window.MapEdits = (function () {
     }
 
     // Paths list lives in the collapsible "Paths" section — rendered from the
-    // latest map_objects.paths. Per row: name (ellipsis), point count, 👁
+    // latest map_objects.paths. Per row: name (ellipsis), point count, eye
     // visibility toggle (per-path), Edit, Delete (double-click confirm).
     function _renderPathList() {
         var pl = document.getElementById('mapedit_path_list');
@@ -1079,7 +1081,7 @@ window.MapEdits = (function () {
                 '<span class="text-truncate vt-grow1 vt-min0 ' + (hidden ? 'vt-muted' : 'vt-sw-00d0a0') + '" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || '(unnamed)') + '</span>' +
                 '<span class="vt-w-xs vt-tar vt-muted">' + np + ' pts</span>' +
                 '<div class="btn-group btn-group-sm vt-ml2">' +
-                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="Show / hide this path"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '🚫' : '👁') + '</button>' +
+                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="Show / hide this path"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '<i class="la la-eye-slash"></i>' : '<i class="la la-eye"></i>') + '</button>' +
                 '<button class="btn btn-outline-info mapedit-path-edit" data-n="' + _escapeAttr(name) + '" type="button">Edit</button>' +
                 '<button class="btn btn-outline-danger mapedit-path-del" data-n="' + _escapeAttr(name) + '" type="button">Delete</button>' +
                 '</div></div>';

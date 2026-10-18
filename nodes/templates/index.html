@@ -338,7 +338,35 @@ body:not(.rp-joy-side) #joy_view {
   gap: 2px; min-height: 52px; padding: 4px 2px;
   font-size: 12px; line-height: 1.1;
 }
-#mapedit_tools .met-tool .met-ico { font-size: 20px; line-height: 1; }
+#mapedit_tools .met-tool .met-ico { font-size: 22px; line-height: 1; }
+/* P5: one tile look — neutral surface, the tool's colour only on its icon;
+   the active tool = accent tint + accent edge (the C frame's active state) */
+#mapedit_tools .met-tool.btn {
+  color: var(--vt-text); background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--vt-border); border-radius: var(--vt-r-ctl);
+}
+#mapedit_tools .met-tool.btn:hover { background: rgba(255, 255, 255, 0.07); border-color: var(--vt-border-strong); }
+#mapedit_tools .met-tool[data-tool="waypoint"] .met-ico,
+#mapedit_tools .met-tool[data-tool="path"] .met-ico { color: var(--vt-accent); }
+#mapedit_tools .met-tool[data-tool="edit_obstacle"] .met-ico { color: var(--vt-err); }
+#mapedit_tools .met-tool[data-tool="edit_free"] .met-ico { color: var(--vt-ok); }
+#mapedit_tools .met-tool[data-tool="edit_wall"] .met-ico,
+#mapedit_tools .met-tool[data-tool="geofence"] .met-ico { color: var(--vt-warn); }
+#mapedit_tools .met-tool[data-tool="edit_delete"] .met-ico,
+#mapedit_tools .met-tool[data-tool="off"] .met-ico { color: var(--vt-muted); }
+#mapedit_tools .met-tool.btn.active {
+  color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.14);
+  border-color: var(--vt-edge-info); box-shadow: inset 0 1px 0 var(--vt-edge-info);
+}
+#mapedit_tools .met-tool.btn.active .met-ico { color: var(--vt-accent); }
+#mapedit_tools .met-tool.btn:disabled { opacity: 0.4; }
+/* Show: chips are toggles — tonal accent when on, quiet outline when off */
+#mapedit_tools .mapedit-show-chip.btn-info {
+  color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.12); border: 1px solid var(--vt-edge-info);
+}
+#mapedit_tools .mapedit-show-chip.btn-outline-secondary {
+  color: var(--vt-muted); background: transparent; border: 1px solid var(--vt-border-strong);
+}
 /* Collapsible sections (native <details>) */
 #div_map_detail details.mapedit-sec {
   border: 1px solid var(--vt-border-strong);
@@ -1662,7 +1690,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <details class="mapedit-sec" data-editsec="paths">
   <summary>Paths</summary>
   <div class="mapedit-sec-body">
-    <div class="vt-fs-sm vt-muted vt-mb2">Activate the <b>Path</b> tool and click the map to draw one, or click an existing path to edit / delete it. Toggle per-path visibility with 👁.</div>
+    <div class="vt-fs-sm vt-muted vt-mb2">Activate the <b>Path</b> tool and click the map to draw one, or click an existing path to edit / delete it. Toggle per-path visibility with the eye button.</div>
     <div id="mapedit_path_list"></div>
   </div>
 </details>
@@ -1763,7 +1791,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 
 <!-- E. Sticky footer — U1: its button is moved into the drawer foot slot. -->
 <div class="mapedit-foot">
-  <button class="btn btn-warning w-100 fw-bold vt-fs-lg" id="btn_map_detail_close_footer" type="button">Close editor</button>
+  <button class="btn btn-primary w-100 fw-bold" id="btn_map_detail_close_footer" type="button">Close editor</button>
 </div>
 </div>
 
