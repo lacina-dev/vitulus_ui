@@ -992,6 +992,142 @@ if __name__ == '__main__':
             resp.headers["Cache-Control"] = "no-store"
             return resp
 
+        # -----------------------------------------------------------------
+        # Dock lock: the owner's click (Robert 2026-08-30: "Dokovy zamek muzu
+        # odemknout jen ja kliknutim v ui").  The agent writes a release
+        # (`dock_release` in its v2 db) ONLY when it can tell a person is
+        # behind the request: it came from loopback AND carries the token
+        # from ~/.vitulus/agent/ui_token (v2/webapi.py actor_proof).  The
+        # browser never sees that token; it is added HERE, and only for a
+        # same-origin JSON request of this page (the same guards as the field
+        # writes above).  The generic /agent/* proxy does NOT forward a token,
+        # so /agent/api/v2/dock POST stays 403 - this is the only door.
+        #   browser --POST /agent-dock/grant | /agent-dock/revoke/<id>--> webnode
+        #   webnode --POST 127.0.0.1:8088/api/v2/dock[/<id>/revoke]
+        #           + X-Vitulus-Token--> agent (checks owner, scope, limits)
+        # Every attempt goes to ~/.vitulus/ui_actions.jsonl (Agent > Activity).
+        AGENT_UI_TOKEN = os.path.expanduser("~/.vitulus/agent/ui_token")
+        # What the card may ask for; the agent checks the scope again.
+        DOCK_UNLOCKABLE = ("dock.undock", "dock.start", "nav.goto_waypoint",
+                           "nav.execute_path", "motor.on")
+
+        def _agent_ui_token():
+            """The token, created (0600) when it does not exist yet - no
+            manual step for the owner. None when it cannot be had."""
+            try:
+                with open(AGENT_UI_TOKEN) as f:
+                    tok = f.read().strip()
+                if tok:
+                    return tok
+            except OSError:
+                pass
+            try:
+                import base64
+                os.makedirs(os.path.dirname(AGENT_UI_TOKEN), exist_ok=True)
+                tok = base64.b64encode(os.urandom(32)).decode("ascii")
+                fd = os.open(AGENT_UI_TOKEN, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "w") as f:
+                    f.write(tok + "\n")
+                return tok
+            except FileExistsError:
+                try:
+                    with open(AGENT_UI_TOKEN) as f:
+                        return f.read().strip() or None
+                except OSError:
+                    return None
+            except OSError as exc:
+                rospy.logwarn("agent ui_token: %s" % exc)
+                return None
+
+        def _same_origin_json():
+            """None when this is a same-origin JSON write of this page, else
+            the (response, status) refusal."""
+            origin = (request.headers.get("Origin") or "").rstrip("/")
+            if origin != request.host_url.rstrip("/"):
+                return jsonify({"ok": False, "error": "refused: cross-origin request"}), 403
+            sfs = request.headers.get("Sec-Fetch-Site")
+            if sfs is not None and sfs != "same-origin":
+                return jsonify({"ok": False, "error": "refused: not same-origin"}), 403
+            if request.headers.get("X-Vitulus-UI") != "1" or not request.is_json:
+                return jsonify({"ok": False, "error": "JSON from the robot UI expected"}), 415
+            if (request.content_length or 0) > 4096:
+                return jsonify({"ok": False, "error": "body too large"}), 413
+            return None
+
+        def _dock_post(path, body, rec):
+            import urllib.request
+            import urllib.error
+            tok = _agent_ui_token()
+            if not tok:
+                rec.update(ok=False, status=503, message="no ui_token")
+                _ui_audit(rec)
+                return jsonify({"ok": False, "error": "the unlock token cannot be created (~/.vitulus/agent/ui_token)"}), 503
+            req = urllib.request.Request(
+                AGENT_UPSTREAM + path, method="POST",
+                data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json", "Accept": "application/json",
+                         "X-Vitulus-Token": tok})
+            try:
+                with urllib.request.urlopen(req, timeout=AGENT_TIMEOUT_S) as up:
+                    raw, st = up.read(), up.status
+            except urllib.error.HTTPError as exc:
+                raw, st = exc.read(), exc.code
+            except Exception as exc:
+                rec.update(ok=False, status=503, message="agent unreachable: %s" % exc)
+                _ui_audit(rec)
+                return jsonify({"ok": False, "error": "agent bridge unreachable: %s" % exc}), 503
+            try:
+                got = json.loads(raw.decode("utf-8") or "{}")
+            except ValueError:
+                got = {"ok": False, "error": raw[:200].decode("utf-8", "replace")}
+            ok = st == 200 and got.get("ok", True) is not False
+            rec.update(ok=ok, status=st, message=str(got.get("error") or "")[:300],
+                       receipt=got.get("id"))
+            _ui_audit(rec)
+            resp = jsonify(got)
+            resp.headers["Cache-Control"] = "no-store"
+            return resp, st
+
+        @app.route("/agent-dock/grant", methods=["POST"])
+        def agent_dock_grant():
+            bad = _same_origin_json()
+            if bad:
+                return bad
+            b = request.get_json(silent=True)
+            if not isinstance(b, dict):
+                return jsonify({"ok": False, "error": "JSON object expected"}), 400
+            acts = b.get("actions")
+            if not isinstance(acts, list) or not acts or \
+                    any(a not in DOCK_UNLOCKABLE for a in acts):
+                return jsonify({"ok": False, "error": "actions: a list out of %s"
+                                % ", ".join(DOCK_UNLOCKABLE)}), 400
+            try:
+                minutes = float(b.get("minutes"))
+                max_runs = int(b.get("max_runs"))
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "error": "minutes and max_runs: numbers"}), 400
+            if not (0 < minutes <= 720) or not (1 <= max_runs <= 20):
+                return jsonify({"ok": False, "error": "minutes 1-720, max_runs 1-20"}), 400
+            note = str(b.get("note") or "")[:300]
+            # by/channel are not the browser's to choose: this door is the
+            # owner's click in this UI and nothing else.
+            body = {"by": "robert", "channel": "ui", "actions": sorted(set(acts)),
+                    "minutes": minutes, "max_runs": max_runs, "note": note or None}
+            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-unlock",
+                   "ref": ",".join(body["actions"]), "author": "robert",
+                   "client": request.remote_addr}
+            return _dock_post("/api/v2/dock", body, rec)
+
+        @app.route("/agent-dock/revoke/<int:rel_id>", methods=["POST"])
+        def agent_dock_revoke(rel_id):
+            bad = _same_origin_json()
+            if bad:
+                return bad
+            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-relock",
+                   "ref": "dock_release:%d" % rel_id, "author": "robert",
+                   "client": request.remote_addr}
+            return _dock_post("/api/v2/dock/%d/revoke" % rel_id, {}, rec)
+
         server = ServerThread(app, host, port)
         server.start()
         rospy.loginfo("Initialising webnode node...")

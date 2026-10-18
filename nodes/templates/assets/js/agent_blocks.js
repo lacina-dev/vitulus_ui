@@ -282,6 +282,24 @@
     });
 
     document.addEventListener('vagent:dock', function () { drawDock(VA); });
+    /* „Open Dock lock" from a mission that waits for it: show the card and,
+       when a grant is named, its scope card straight away — the owner still
+       reads it and taps twice; nothing is granted by opening it. */
+    document.addEventListener('vagent:dock-open', function (ev) {
+      var key = ev && ev.detail && ev.detail.key;
+      var go = function () {
+        if (!dockBox || !VA.dock) { return; }
+        var st = VA.dock.state();
+        var rel = st.release;
+        var live = rel && VA.dock.left(rel) > 0 && VA.dock.usesLeft(rel) > 0;
+        var g = null;
+        VA.dock.grants().forEach(function (x) { if (x.key === key) { g = x; } });
+        if (g && !live && st.supported === true) { drawGrant(VA, g); }
+        else { drawDock(VA); }
+        try { dockBox.scrollIntoView({block: 'start', behavior: 'smooth'}); } catch (e) { /* ok */ }
+      };
+      VA.dock.poll(true).then(go, go);
+    });
 
     function dockRow(label, value) {
       var r = el('div', 'dk-r');
@@ -352,8 +370,11 @@
       dockBox.appendChild(el('div', 'dk-note',
         'The robot cannot leave the dock. Only you can allow it, only here, ' +
         'and only for the named moves below \u2014 one go at a time.'));
+      if (st.error) {
+        dockBox.appendChild(el('div', 'dk-err', 'Lock state: ' + st.error));
+      }
       VA.dock.grants().forEach(function (g) {
-        var open = el('button', 'dk-btn', g.button);
+        var open = el('button', 'dk-btn dk-grant' + (g.primary ? ' dk-primary' : ''), g.button);
         open.type = 'button';
         open.title = g.actions.join(' + ');
         open.addEventListener('click', function () { drawGrant(VA, g); });

@@ -1745,6 +1745,25 @@
         // Senses/selfcare/doctor reports carry meta.event too (so taskKind
         // says 'work'); what makes them an INCIDENT is the „hlášení:" title,
         // as opposed to „hlášení z práce (#N)" which is a job report.
+        /* A mission parked at the dock lock: the one thing it needs is the
+           owner's tap in the Dock lock card, so the bubble carries the way
+           there.  Once he unlocks, the mission carries on by itself. */
+        if (meta.event === 'awaiting_dock') {
+            var dbar = document.createElement('div');
+            dbar.className = 'vagent-actions';
+            var dgo = document.createElement('button');
+            dgo.type = 'button';
+            dgo.className = 'vagent-actbtn primary';
+            dgo.textContent = 'Open Dock lock';
+            dgo.title = 'Robot tab \u2192 Dock lock: read what it allows, tap twice';
+            dgo.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openDock(meta.dock_grant || 'test');
+            });
+            dbar.appendChild(dgo);
+            row.appendChild(dbar);
+            return;
+        }
         var isIncident = !!meta.incident_id || /^hlášení:/i.test(head) ||
             (kind === 'report' && /^(hlášení|vizita|nález|incident)/i.test(text));
         if (isIncident) {
@@ -5005,34 +5024,57 @@
        Two, not one, because one departure alone strands the robot outside:
        coming home is `dock.start`, and that is movement too. */
     var DOCK_GRANTS = [{
+        /* 2026-10-18: the owner stands at the robot and wants the agent to
+           do a test drive — undock, drive to a waypoint, wait, dock back.
+           Those are THREE moving actions in one mission, and each phase
+           spends one use (`ros_wire.guard`), so one tap has to cover all of
+           them with room for a retry.  `motor.on` is in the list because it
+           counts as movement while a navigation goal is pending (B13); when
+           nothing is pending it never spends a use. */
+        key: 'test',
+        actions: ['dock.undock', 'nav.goto_waypoint', 'dock.start', 'motor.on'],
+        minutes: 30,
+        max_runs: 8,
+        primary: true,
+        button: 'Test drive: undock + drive to waypoint + dock back…',
+        title: 'You are about to allow a test drive:',
+        lines: [
+            ['Actions', 'dock.undock (leave) · nav.goto_waypoint (drive to a saved waypoint) · dock.start (drive back in) · motor.on (power, if needed)'],
+            ['Not allowed', 'saved routes (execute_path), the mower, anything else'],
+            ['Valid for', '30 minutes from now'],
+            ['Uses', 'up to 8 moves — one mission with a retry or two, then it is gone'],
+            ['Signed by', 'you (robert), from this browser']
+        ]
+    }, {
         key: 'out',
         actions: ['dock.undock'],
-        ttl_s: 900,
+        minutes: 15,
         max_runs: 1,
-        button: 'Let it leave the dock, once\u2026',
+        button: 'Undock only, once…',
         title: 'You are about to allow:',
         lines: [
             ['Actions', 'dock.undock — release the dock and drive away'],
-            ['Not allowed', 'driving a saved route, the mower, docking back'],
+            ['Not allowed', 'driving to a waypoint or a route, the mower, docking back'],
             ['Valid for', '15 minutes from now'],
             ['Uses', '1 — the permission is gone the moment it is used'],
-            ['Signed by', 'you, from this browser']
+            ['Signed by', 'you (robert), from this browser']
         ]
     }, {
         key: 'round',
         actions: ['dock.undock', 'dock.start'],
-        ttl_s: 1800,
+        minutes: 30,
         max_runs: 2,
-        button: 'Let it leave and come back\u2026',
+        button: 'Undock and dock back…',
         title: 'You are about to allow:',
         lines: [
             ['Actions', 'dock.undock (leave) + dock.start (drive back in)'],
-            ['Not allowed', 'driving a saved route, the mower, anything else'],
+            ['Not allowed', 'driving to a waypoint or a route, the mower, anything else'],
             ['Valid for', '30 minutes from now'],
             ['Uses', '2 — one departure and one return, then it is gone'],
-            ['Signed by', 'you, from this browser']
+            ['Signed by', 'you (robert), from this browser']
         ]
     }];
+    DOCK_GRANTS.forEach(function (g) { g.ttl_s = g.minutes * 60; });
 
     function dockRelease() { return dockState.release || null; }
 
@@ -5057,19 +5099,37 @@
         paintUnlocked();
     }
 
+    /* The release the lock honours is the NEWEST valid row (ros_wire
+       `_db_release`), which is `active[0]` of GET /api/v2/dock.  `until` is
+       rebuilt from `left_s` on THIS browser's clock (the phone's clock is not
+       the robot's), so the countdown is honest even with a skewed clock. */
+    function dockFromV2(d) {
+        var a = (d && d.active && d.active[0]) || null;
+        if (!a) { return null; }
+        var at = (d.__at || Date.now()) / 1000;
+        return {id: a.id, row_id: a.id, actions: a.actions || [],
+                until: at + Math.max(0, +a.left_s || 0),
+                max_runs: a.max_runs, used: a.used || 0, by: a.by,
+                channel: a.channel, note: a.note};
+    }
+
     function pollDock(force) {
         // „not served yet" is a statement about a moment, not a verdict: the
         // endpoint can land while the page is open, so opening the tab asks
         // again even after a 404.
         if (dockState.supported === false && !force) { return Promise.resolve(); }
-        return api('/api/dock/lock').then(function (d) {
+        return api('/api/v2/dock').then(function (d) {
             if (!d || d.agent_down) { return; }
-            if (d.ok === false && /nenalezeno|not found|404/i.test(String(d.error || ''))) {
-                dockState.supported = false; announceDock(); return;
+            if (d.ok === false && !d.active) {
+                dockState.supported = /not found|404/i.test(String(d.error || ''))
+                    ? false : dockState.supported;
+                dockState.error = d.error || null;
+                announceDock(); return;
             }
             dockState.supported = true;
-            dockState.locked = d.locked !== false;
-            dockState.release = d.release || null;
+            dockState.error = null;
+            dockState.release = dockFromV2(d);
+            dockState.locked = !dockState.release;
             dockState.ts = Date.now();
             announceDock();
         }).catch(function (e) {
@@ -5080,23 +5140,45 @@
         });
     }
 
+    /* The webnode door that adds the owner's proof (webnode /agent-dock/*):
+       same origin, JSON, X-Vitulus-UI.  NOT api() — /agent/* forwards no
+       token, so the core would rightly answer 403 there. */
+    function dockWrite(path, body) {
+        var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = ctl ? setTimeout(function () { ctl.abort(); }, 15000) : null;
+        return fetch(path, {
+            method: 'POST', cache: 'no-store', credentials: 'same-origin',
+            signal: ctl ? ctl.signal : undefined,
+            headers: {'Content-Type': 'application/json', 'X-Vitulus-UI': '1'},
+            body: JSON.stringify(body || {})
+        }).then(function (r) {
+            if (timer) { clearTimeout(timer); }
+            return r.json().catch(function () { return null; }).then(function (d) {
+                if (!r.ok) {
+                    return {ok: false, error: (d && d.error) || ('HTTP ' + r.status)};
+                }
+                return d || {ok: false, error: 'empty answer'};
+            });
+        }, function (e) {
+            if (timer) { clearTimeout(timer); }
+            return {ok: false, error: (window.VTMock && VTMock.on)
+                ? 'mock mode: writes to the robot are blocked'
+                : String((e && e.message) || e)};
+        });
+    }
+
     /* The grant itself.  Never called without a second tap in the card. */
     function dockUnlock(grant, note) {
         grant = grant || DOCK_GRANTS[0];
-        return api('/api/dock/unlock', {body: {
+        return dockWrite('/agent-dock/grant', {
             actions: grant.actions,
-            ttl_s: grant.ttl_s,
+            minutes: grant.minutes,
             max_runs: grant.max_runs,
-            by: displayName || '',
-            author: author,
-            note: note || ('granted in the panel: ' + grant.actions.join(', '))
-        }, timeout_ms: 12000}).then(function (d) {
-            if (d && d.release) {
-                dockState.supported = true;
-                dockState.locked = false;
-                dockState.release = d.release;
-                dockState.ts = Date.now();
-                announceDock();
+            note: note || ('granted in the panel (' + grant.key + '): ' +
+                           grant.actions.join(', '))
+        }).then(function (d) {
+            if (d && d.ok !== false && d.id) {
+                return pollDock(true).then(function () { return d; });
             }
             return d;
         });
@@ -5104,14 +5186,25 @@
 
     function dockRelock() {
         var rel = dockRelease();
-        return api('/api/dock/lock', {body: {
-            row_id: rel && rel.row_id, by: displayName || '', author: author
-        }, timeout_ms: 12000}).then(function (d) {
-            dockState.locked = true;
-            dockState.release = null;
-            announceDock();
-            return d;
-        });
+        if (!rel || !rel.id) { return pollDock(true); }
+        return dockWrite('/agent-dock/revoke/' + encodeURIComponent(rel.id), {})
+            .then(function (d) {
+                if (!d || d.ok === false) {
+                    notify('report', 'Dock not locked again: ' + ((d && d.error) || '?'));
+                    throw new Error((d && d.error) || 'relock refused');
+                }
+                return pollDock(true).then(function () { return d; });
+            });
+    }
+
+    /* Open the Dock lock card (Robot tab) — from a mission that waits for it,
+       or from the UNLOCKED bar.  With `key`, go straight to that grant's
+       scope card so the owner reads it and taps twice. */
+    function openDock(key) {
+        openPanel();
+        activateTab('robot');
+        document.dispatchEvent(new CustomEvent('vagent:dock-open',
+            {detail: {key: key || null}}));
     }
 
     /* Always visible while anything is unlocked — the owner must never have
@@ -5637,6 +5730,7 @@
             state: function () { return dockState; },
             grants: function () { return DOCK_GRANTS; },
             unlock: dockUnlock,
+            open: openDock,
             relock: dockRelock,
             poll: pollDock,
             left: dockLeft,

@@ -2092,6 +2092,12 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
 }
 .dk-btn.dk-back { border-color: var(--bs-warning, #ffc107); color: var(--bs-warning, #ffc107); }
 .dk-err { font-size: 11.5px; color: var(--bs-danger, #dc3545); margin-top: 6px; }
+.dk-btn.dk-grant { display: block; width: 100%; text-align: left; }
+.dk-btn.dk-primary {
+    border-color: var(--bs-info, #0dcaf0);
+    color: var(--bs-info, #0dcaf0);
+    font-weight: 600;
+}
 @media (pointer: coarse) { .dk-btn { min-height: 40px; } }
 
 /* ============================== reasoning drawer (E8/6)
