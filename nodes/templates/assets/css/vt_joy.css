@@ -153,7 +153,7 @@
     --vt-joy-size: var(--vt-joy-deck, 150px);
     width: var(--vt-frame-col-w, 196px) !important;
     box-sizing: border-box;
-    padding: 20px 8px 10px;          /* room above for the speed labels on the rim */
+    padding: 22px 8px 8px;           /* room above for the speed name on the rim */
     border-radius: 0;
 }
 #joy_view.vt-joy-deck:not([style*="display: none"]) { display: flex !important; flex-direction: column; align-items: center; }
@@ -164,11 +164,12 @@
 .vt-joy-spdsel { pointer-events: auto; }
 .vt-joy-spd { cursor: pointer; }
 .vt-joy-spd-hit { fill: none; stroke: transparent; stroke-width: 16; }
-.vt-joy-spd-arc { fill: none; stroke: rgba(255, 255, 255, 0.14); stroke-width: 3; stroke-linecap: round; transition: stroke var(--vt-ease), stroke-width var(--vt-ease); }
+.vt-joy-spd-arc { fill: none; stroke: rgba(160, 200, 215, 0.42); stroke-width: 3.5; stroke-linecap: round; transition: stroke var(--vt-ease), stroke-width var(--vt-ease); }
 .vt-joy-spd-lbl { fill: var(--vt-accent); font: 700 7.5px var(--vt-font); letter-spacing: .1em; pointer-events: none; display: none; }
 .vt-joy-spd.sel .vt-joy-spd-lbl, .vt-joy-spd.pend .vt-joy-spd-lbl { display: block; }
-.vt-joy-spd:hover .vt-joy-spd-arc { stroke: rgba(255, 255, 255, 0.3); }
-.vt-joy-spd.sel .vt-joy-spd-arc { stroke: var(--vt-accent); stroke-width: 4; filter: drop-shadow(0 0 3px rgba(var(--vt-accent-rgb), 0.7)); }
+.vt-joy-spd:hover .vt-joy-spd-arc { stroke: rgba(var(--vt-accent-rgb), 0.55); }
+.vt-joy-spd:hover .vt-joy-spd-lbl { display: block; fill: var(--vt-text); }
+.vt-joy-spd.sel .vt-joy-spd-arc { stroke: var(--vt-accent); stroke-width: 5; filter: drop-shadow(0 0 3px rgba(var(--vt-accent-rgb), 0.7)); }
 .vt-joy-spd.sel .vt-joy-spd-lbl { fill: var(--vt-accent); }
 .vt-joy-spd.pend .vt-joy-spd-arc { animation: vt-joy-pend-arc 0.9s ease-in-out infinite; }
 @keyframes vt-joy-pend-arc { 50% { stroke: rgba(var(--vt-accent-rgb), 0.8); } }
@@ -176,7 +177,7 @@
 .vt-joy-spd:focus-visible .vt-joy-spd-arc { stroke: var(--vt-accent); }
 /* ---- corner keys: motors (right) and keyboard (left) ------------------- */
 .vt-joy-corner {
-    position: absolute; top: -14px; z-index: 3;
+    position: absolute; bottom: -2px; z-index: 3;   /* bottom corners: the top of the rim is the speed's */
     width: 34px; height: 34px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     border: 1px solid rgba(255, 255, 255, 0.10);
@@ -229,3 +230,7 @@
 @media (prefers-reduced-motion: reduce) {
     .vt-joy-knob, .vt-joy-pad, .vt-joy, .vt-joy-opt { transition: none; animation: none; }
 }
+
+/* hovering another speed shows ITS name in the one label spot, the lit one steps back */
+.vt-joy-spdsel:hover .vt-joy-spd.sel:not(:hover) .vt-joy-spd-lbl { display: none; }
+.vt-joy-spd.sel .vt-joy-spd-lbl { fill: var(--vt-accent); }

@@ -473,3 +473,10 @@ body.rp-log-top #div_log_view {
 .vt-locg-nav { display: flex; flex-direction: column; gap: 1px; font-size: 12px; line-height: 1.35; }
 .vt-locg-nav .vt-gx-r > b { white-space: normal; overflow-wrap: anywhere; }
 .vt-locg-hist { font-size: 11px; color: var(--vt-muted, #9aa4ad); overflow-wrap: anywhere; margin-top: 2px; }
+
+/* the reserved detail slot (Controls / Mower): same width, nothing to see */
+#right_panel .rp-sec > h5 .rp-dq-ph { visibility: hidden; pointer-events: none; }
+/* the one blade key */
+.rp-mbtn.rp-mblade { width: 26px; }
+#right_panel .rp-mot { padding: 0 3px; min-width: 0; display: inline-flex; align-items: center; justify-content: center; }
+#right_panel .rp-mot svg { display: block; }

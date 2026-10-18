@@ -185,6 +185,8 @@
 
     /* ---- right panel › GNSS receivers card (map_view.js GnssRx) */
     "help.q.gnss": "What the GNSS card says",
+    "help.q.drive": "What Controls and docking do",
+    "help.q.mower": "What the Mower section shows",
     "rdock.sec.gnss": "GNSS",
     "rdock.sec.mower": "Mower",
     "rdock.mower.blade": "Blade",

@@ -48,9 +48,10 @@ panel otevře) se celá posune do viditelné části; na klávesnici přepínaj�
 ![Spodní lišta: vlevo červený STOP, pak Joystick, Sledovat a Log](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: STOP · Joystick · Sledovat · Log")
 
 **Joystick** · **Sledovat** · **Log** (na telefonu s volnou mezerou uprostřed pro
-systémové gesto). **STOP** je kulatý červený „hřib" v **levém dolním rohu rámu**: je součástí
-rámu, pořád na obrazovce, nikdy ho neschová panel, log ani sheet, a je to jediné úplné
-zastavení ([Bezpečnost](safety.md#stop)) — na telefonu stojí ve stejném rohu, na palec.
+systémové gesto). **STOP** je kulatý červený „hřib" v **levém dolním rohu rámu**: na PC se tam
+spodní lišta zvedá do malého podstavce rámu a levý panel končí nad ním, takže STOP nic
+nezakrývá a nic nezakrývá jeho — panel, log ani sheet. Je to jediné úplné zastavení
+([Bezpečnost](safety.md#stop)); na telefonu sedí na levém konci lišty, na palec.
 **Sledovat** nechá pohled mapy sledovat robota.
 
 ## Pravý panel
@@ -157,7 +158,7 @@ se všemi vrstvami vypnutými nedělá nic.
 panel, ve stejném sloupci u pravé hrany, stojí na spodní liště (na telefonu na výšku pás přes
 celou šířku na spodní liště). Ovládání je součástí páčky:
 
-![Panel jízdy s očíslovanými značkami](../img/shot-joystick.webp "1 páčka (prstenec = strop rychlosti a stav) · 2 oblouky rychlosti Slow / Mid / Fast na obvodu · 3 klávesa motorů · 4 tečka klávesnice")
+![Panel jízdy s očíslovanými značkami](../img/shot-joystick.webp "1 páčka (prstenec = strop rychlosti a stav) · 2 oblouky rychlosti Slow / Mid / Fast na obvodu · 3 klávesa motorů · 4 klávesa klávesnice")
 
 1. **Páčka** — dopředu / dozadu = rychlost, do stran = zatáčení. Barva prstence je stav:
    zelená = volno, oranžová = robota drží někdo jiný (program, dokování, agent nebo gamepad;
@@ -165,10 +166,10 @@ celou šířku na spodní liště). Ovládání je součástí páčky:
 2. **Slow / Mid / Fast** — tři oblouky nahoře na obvodu jsou režim rychlosti robota pro
    joystick i navigaci ([Rychlost](routes.md#rychlost)). Svítí ten, co **hlásí robot**; klepnutí
    na jiný bliká, dokud to robot nepotvrdí. Najetí ukáže nejvyšší rychlost páčky (`max … m/s`).
-3. **⏻** (vpravo nahoře) — pojezdové motory, totéž co Nastavení › Motory: zelená = zapnuté,
+3. **Klávesa motorů** (vpravo dole, ozubené kolo s bleskem) — pojezdové motory, totéž co Nastavení › Motory: zelená = zapnuté,
    oranžová = vypnuté, podle robota; klepnutí přepne a bliká do potvrzení. Stránka motory
    sama nikdy nezapne.
-4. **Tečka** (vlevo nahoře) — jízda klávesnicí zap / vyp (**W A S D** nebo šipky, **Shift** =
+4. **Klávesa klávesnice** (vlevo dole) — jízda klávesnicí zap / vyp (**W A S D** nebo šipky, **Shift** =
    poloviční rychlost, nikdy při psaní do pole). Na dotykových obrazovkách se neukazuje.
 
 Jak se páčka chová:

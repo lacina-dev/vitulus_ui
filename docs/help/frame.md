@@ -49,8 +49,9 @@ opens) slides fully into view; with the keyboard **←** / **→** move between 
 
 **Joystick** · **Follow** · **Log** (on a phone with a free gap in the middle for the
 system gesture). The **STOP** is the round red mushroom in the **bottom-left corner of the frame**:
-it is part of the frame itself, always on screen, never hidden by a panel, the log or the sheet,
-and it is the one full stop ([Safety](safety.md#stop)) — on a phone it sits in the same corner,
+on a PC the bottom bar rises there into a small pedestal of the frame and the left panel ends on
+it, so the STOP never covers anything and nothing covers it — not a panel, the log or the sheet.
+It is the one full stop ([Safety](safety.md#stop)); on a phone it sits in the bar's left end,
 thumb-sized. **Follow** makes the map view follow the robot.
 
 ## The right panel
@@ -158,7 +159,7 @@ only while a layer is on and the camera is shown; with every layer off it does n
 right panel, in the same column at the right edge, standing on the bottom bar (on a phone
 held upright a band across the screen on the bottom bar). The controls are part of the stick:
 
-![The drive deck with numbered markers](img/shot-joystick.webp "1 the stick (the ring = speed cap and state) · 2 speed arcs Slow / Mid / Fast on the rim · 3 the motor key · 4 the keyboard dot")
+![The drive deck with numbered markers](img/shot-joystick.webp "1 the stick (the ring = speed cap and state) · 2 speed arcs Slow / Mid / Fast on the rim · 3 the motor key · 4 the keyboard key")
 
 1. **The stick** — forward / back = speed, sideways = turn. The ring's colour is the state:
    green = free, orange = someone else holds the robot (a program, docking, the agent or the
@@ -167,10 +168,10 @@ held upright a band across the screen on the bottom bar). The controls are part 
    for the joystick and navigation ([Speed](routes.md#speed)). The lit arc is what the
    **robot reports**; click another one and it blinks until the robot confirms it. Hover: the
    joystick's top speed (`max … m/s`).
-3. **⏻** (top right) — the drive motors, the same as Settings › Motors: green = on, orange =
+3. **The motor key** (bottom right, a gear with a bolt) — the drive motors, the same as Settings › Motors: green = on, orange =
    off, as the robot reports; a click switches them and blinks until confirmed. The page never
    switches the motors on by itself.
-4. **The dot** (top left) — keyboard driving on / off (**W A S D** or the arrows, **Shift** =
+4. **The keyboard key** (bottom left) — keyboard driving on / off (**W A S D** or the arrows, **Shift** =
    half speed, never while typing in a field). Not shown on touch screens.
 
 How the stick behaves:

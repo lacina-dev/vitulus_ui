@@ -332,6 +332,13 @@
             var lastCaret = h.querySelector('.rp-caret');
             if (lastCaret) { h.appendChild(lastCaret); }   // the caret stays last
             if (def.detail) { headDetail(h, def.detail); } // … right before "?" + caret
+            else if (def.drive || def.mower) {
+                /* no left-panel detail here: keep its place, so every head's
+                   tokens end in the same column (owner: a tidy right edge) */
+                var ph = el('span', 'rp-dq rp-dq-ph');
+                ph.setAttribute('aria-hidden', 'true');
+                h.insertBefore(ph, h.querySelector('.vth-q') || h.querySelector('.rp-caret') || null);
+            }
             if (def.camera) {
                 /* stream state = one dot (green live, amber starting /
                    waiting, grey off / paused); the word is its tooltip */
@@ -420,7 +427,9 @@
         });
         var mot = el('span', 'vt-chip vt-chip-sm rp-mot', w);
         mot.id = 'rp_motors';
-        mot.textContent = 'MOT';
+        /* the drive motors: the same gear-and-bolt glyph as the drive deck's
+           motor key, coloured by the robot's state (word in the tooltip) */
+        mot.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 3.2 9 1.5h-2l1 1.7Zm0 9.6-1 1.7h2l-1-1.7ZM3.2 8l-1.7-1v2l1.7-1Zm9.6 0 1.7 1v-2l-1.7 1ZM4.6 4.6 3.1 3.8l-.7.7.8 1.5 1.4-1.4Zm6.8 6.8 1.5.8.7-.7-.8-1.5-1.4 1.4Zm0-6.8 1.4 1.4.8-1.5-.7-.7-1.5.8ZM4.6 11.4l-1.4-1.4-.8 1.5.7.7 1.5-.8Z" fill="currentColor"/><circle cx="8" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8.4 5.6 6.9 8.3h1.3l-.6 2.1 1.6-2.8H7.9l.5-2Z" fill="currentColor"/></svg>';
         mot.dataset.state = 'off';
         var paint = function () {
             var src = document.querySelector('#joy_view .vt-joy-motors');
@@ -552,9 +561,11 @@
         var chip = el('span', 'vt-chip vt-chip-sm', w);
         chip.id = 'rp_mower_chip';
         chip.dataset.state = 'off';
-        var blade = tdot(w, 'rp-blade');
+        /* the blade key below carries the blade state (and its rpm in the
+           tooltip); these two stay detached for the code that paints them */
+        var blade = el('span', 'rp-tdot rp-blade');
         blade.id = 'rp_mower_blade';
-        var rpm = el('span', 'rp-tv', w);
+        var rpm = el('span', 'rp-tv');
         rpm.id = 'rp_mower_rpm';
         var tmp = el('span', 'rp-tv', w);
         tmp.id = 'rp_mower_temp';
@@ -636,14 +647,14 @@
        acts at once whenever the blade turns (rpm > 0 or RUN). The section —
        and so the buttons — only shows while the mower is on (not OFF/UNK). */
     function buildMowerCtl(w) {
-        var bs = el('button', 'rp-mbtn rp-mstart', w);
-        bs.type = 'button';
-        bs.id = 'rp_mower_start';
-        bs.textContent = '▶';
-        var bx = el('button', 'rp-mbtn rp-mstop', w);
-        bx.type = 'button';
-        bx.id = 'rp_mower_stop';
-        bx.textContent = '■';
+        /* ONE blade key (owner 2026-10-19: tidy head): ▶ green = may start
+           (first tap arms for 3 s, the second switches the blade on — the
+           key is small in a clickable head), ■ red = the blade turns, one tap
+           stops it at once, grey = not ready. Same calls as Settings › Mower
+           START / STOP MOTOR: mower.pub_mower_set_motor_on(true / false). */
+        var bk = el('button', 'rp-mbtn rp-mblade', w);
+        bk.type = 'button';
+        bk.id = 'rp_mower_blade_key';
         var armed = 0, armTimer = null, cur = {on: false, status: '', rpm: 0};
         var api = function () {
             var m = window.mower;
@@ -656,32 +667,32 @@
             if (st) { cur = st; }
             var ok = canStart(), run = spinning();
             if (!ok && armed) { disarm(); }
-            bs.disabled = !ok;
-            bs.dataset.state = ok ? (armed ? 'arm' : 'ok') : 'off';
-            setTip(bs, ok ? t(armed ? 'rdock.mower.start.arm' : 'rdock.mower.start.tip') :
-                (run ? t('rdock.mower.start.busy') : t('rdock.mower.start.notready', {s: cur.status || '—'})));
-            bx.disabled = !(run && api());
-            bx.dataset.state = run ? 'err' : 'off';
-            setTip(bx, t(run ? 'rdock.mower.stop.tip' : 'rdock.mower.stop.idle'));
+            var glyph = run ? '■' : '▶';
+            if (bk.textContent !== glyph) { bk.textContent = glyph; }
+            bk.disabled = !(run ? api() : ok);
+            bk.dataset.state = run ? 'err' : (ok ? (armed ? 'arm' : 'ok') : 'off');
+            var tip;
+            if (run) { tip = t('rdock.mower.stop.tip') + (cur.rpm ? ' · ' + Math.round(cur.rpm) + ' rpm' : ''); }
+            else if (ok) { tip = t(armed ? 'rdock.mower.start.arm' : 'rdock.mower.start.tip'); }
+            else { tip = t('rdock.mower.start.notready', {s: cur.status || '—'}); }
+            setTip(bk, tip);
         };
-        bs.addEventListener('click', function (ev) {
+        bk.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
+            var m = api();
+            if (!m) { paint(); return; }
+            if (spinning()) {
+                try { m.pub_mower_set_motor_on(false); } catch (e) { console.warn('[right_dock] blade off failed:', e); }
+                paint(); return;
+            }
             if (!canStart()) { paint(); return; }
             if (!armed) {
                 armed = 1;
                 armTimer = setTimeout(function () { disarm(); paint(); }, 3000);
-                paint();
-                return;
+                paint(); return;
             }
             disarm();
-            try { api().pub_mower_set_motor_on(true); } catch (e) { console.warn('[right_dock] blade on failed:', e); }
-            paint();
-        });
-        bx.addEventListener('click', function (ev) {
-            ev.stopPropagation(); ev.preventDefault();
-            var m = api();
-            if (!m) { paint(); return; }
-            try { m.pub_mower_set_motor_on(false); } catch (e) { console.warn('[right_dock] blade off failed:', e); }
+            try { m.pub_mower_set_motor_on(true); } catch (e) { console.warn('[right_dock] blade on failed:', e); }
             paint();
         });
         relang.push(function () { paint(); });

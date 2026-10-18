@@ -184,6 +184,8 @@
 
     /* ---- right panel › GNSS receivers card (map_view.js GnssRx) */
     "help.q.gnss": "Co říká karta GNSS",
+    "help.q.drive": "Co dělá Ovládání a dokování",
+    "help.q.mower": "Co ukazuje sekce Sekačka",
     "rdock.sec.gnss": "GNSS",
     "rdock.sec.mower": "Sekačka",
     "rdock.mower.blade": "Nůž",

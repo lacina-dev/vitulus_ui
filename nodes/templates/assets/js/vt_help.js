@@ -442,6 +442,14 @@
                     var bg = qBtn(null, 'help.q.gnss', function () { toggle('right/gnss'); });
                     hg.insertBefore(bg, hg.querySelector('.rp-caret') || null);
                 }
+                // Controls and Mower: the same "?" so every head ends alike
+                [['drive', 'help.q.drive', 'dock'], ['mower', 'help.q.mower', 'mowing']].forEach(function (d) {
+                    var hx = document.querySelector('#right_panel .rp-sec[data-sec="' + d[0] + '"] > h5');
+                    if (hx && !hx.querySelector('.vth-q')) {
+                        var bx = qBtn(null, d[1], function () { toggle(d[2]); });
+                        hx.insertBefore(bx, hx.querySelector('.rp-caret') || null);
+                    }
+                });
                 return;
             }
             if (++tries < 20) { setTimeout(rp, 500); }

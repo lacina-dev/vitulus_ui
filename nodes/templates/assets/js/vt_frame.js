@@ -171,6 +171,9 @@
         // when the open panel leaves it too little room it runs under the
         // panel instead (the panel then stands on it)
         var logLeft = cleft;
+        // the STOP pedestal holds the bottom-left corner: the small log starts after it
+        var ped = $('vt_c_ped');
+        if (ped && m !== 'sheet' && visible(ped)) { logLeft = Math.max(logLeft, Math.ceil(ped.getBoundingClientRect().right) + 4); }
         var wide = lh > 0 && m !== 'sheet' && occ > 0 && (W - occ - jw) < LOG_MIN_W;
         if (wide) { logLeft = 0; }
         setCls(body, 'vt-log-wide', wide);
@@ -442,7 +445,7 @@
         // tl/bl: the back meets the top / the bottom; tr: the top band turns
         // down into the right panel; jb: the joystick's foot on the bottom
         // ledge; lr: the full log's foot on the bottom bar (C frame 3)
-        ['tl', 'bl', 'tr', 'jb', 'lr', 'wt', 'wb'].forEach(function (k) {
+        ['tl', 'bl', 'tr', 'jb', 'lr', 'wt', 'wb', 'ped'].forEach(function (k) {   // ped = the STOP pedestal
             var c = document.createElement('div');
             c.id = 'vt_c_' + k;
             c.className = 'vt-c-corner';
