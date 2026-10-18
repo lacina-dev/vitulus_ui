@@ -4938,9 +4938,14 @@ class LayoutManager {
 }
 
 // Nav status: two compact panels.
-//  POSE  — what currently drives the position estimate (RTK / VO / LiDAR /
-//          WHEEL), the heading source (SAT/IMU), per-source availability chips
-//          (green=usable, grey=no, white outline=active) and bridge divergence.
+//  POSE  — who owns the position estimate (/nav_tf/loc_status), the heading
+//          source (SAT/IMU), live odometry chips VO / Li / Wh (2026-10-18:
+//          straight from /vo/odom, /licp/odom_cov, /mobile_base_controller/odom
+//          — the old /nav_tf/bridge_status is retired in navi_transform,
+//          ~bridge/compute_enable=False, so those chips stayed grey forever),
+//          FIX / PROB / ANC (anchor) and the lidar tracker (/gloc/track_status):
+//          standing by while GPS owns the pose, ACTIVE after ~5 s without fix,
+//          and the last correction it sent or why it held one back.
 //  GNSS  — RTK fix state, satellite count, position and heading accuracy.
 class Odom{
     constructor(ros) {
@@ -4951,9 +4956,9 @@ class Odom{
         this.span_odom_vo    = document.getElementById("span_odom_vo");
         this.span_odom_licp  = document.getElementById("span_odom_licp");
         this.span_odom_wheel = document.getElementById("span_odom_wheel");
-        this.span_odom_div   = document.getElementById("span_odom_div");
         this.span_odom_fix   = document.getElementById("span_odom_fix");
         this.span_odom_prob  = document.getElementById("span_odom_prob");
+        this._buildLocRows();
         // GNSS panel
         this.span_gnss_fix   = document.getElementById("span_gnss_fix");
         this.span_gnss_sats  = document.getElementById("span_gnss_sats");
@@ -4965,15 +4970,41 @@ class Odom{
         this.odom_status_topic = new ROSLIB.Topic({
             ros : ros, name : '/nav_tf/odom_status', messageType : 'vitulus_msgs/Navi_transform'
         });
-        // what drives the pose + source availability
-        this.bridge_status_topic = new ROSLIB.Topic({
-            ros : ros, name : '/nav_tf/bridge_status', messageType : 'std_msgs/String'
+        // live odometry sources (what the nav EKF fuses). Each callback only
+        // stamps the time + whether the source reports itself lost; tick()
+        // paints the chips once a second so a silent source turns red.
+        // rtabmap odometry signals tracking loss with covariance 9999 (VO in
+        // the dark does that all night); dock_idle pauses VO + licp in the dock.
+        this.src = {vo: {t: 0, lost: false}, licp: {t: 0, lost: false}, wheel: {t: 0, lost: false}};
+        this.odom_paused = false;
+        var lostOf = function (m) {
+            var p = m.pose && m.pose.covariance, w = m.twist && m.twist.covariance;
+            return !!((p && p[0] >= 9999) || (w && w[0] >= 9999));
+        };
+        [['vo', '/vo/odom'], ['licp', '/licp/odom_cov'], ['wheel', '/mobile_base_controller/odom']].forEach(function (d) {
+            new ROSLIB.Topic({
+                ros : ros, name : d[1], messageType : 'nav_msgs/Odometry', throttle_rate : 500, queue_length : 1
+            }).subscribe(function (m) { self.src[d[0]] = {t: Date.now(), lost: lostOf(m)}; });
         });
-        this.bridge_status_topic.subscribe(function (m) { self.process_bridge(m.data); });
-        // authoritative pose ownership (dock/gps/tracker/rtabmap/legacy/dr);
-        // once this arrives it takes over the span_odom_drive badge from the
-        // bridge_status heuristic below (see have_loc_status flag)
-        this.have_loc_status = false;
+        new ROSLIB.Topic({
+            ros : ros, name : '/dock_idle/status', messageType : 'std_msgs/String'
+        }).subscribe(function (m) {
+            try { self.odom_paused = !!JSON.parse(m.data).paused; } catch (e) {}
+        });
+        // lidar tracker (gloc_server, 5 Hz): engages only after the fix has
+        // been unusable for ~track_engage_after_s (default 5 s, anti-flap)
+        this.trk = null; this.trk_t = 0; this.trk_last = null;
+        this.trk_engage_s = 5;
+        try {
+            new ROSLIB.Param({ros: ros, name: '/gloc_server/track_engage_after_s'}).get(function (v) {
+                if (typeof v === 'number' && v > 0) self.trk_engage_s = v;
+            });
+        } catch (e) {}
+        new ROSLIB.Topic({
+            ros : ros, name : '/gloc/track_status', messageType : 'std_msgs/String', throttle_rate : 400
+        }).subscribe(function (m) { self.process_track(m.data); });
+        // authoritative pose ownership (dock/gps/tracker/rtabmap/legacy/dr)
+        this.loc = null; this.loc_t = 0;
         this.loc_status_topic = new ROSLIB.Topic({
             ros : ros, name : '/nav_tf/loc_status', messageType : 'std_msgs/String'
         });
@@ -4991,6 +5022,43 @@ class Odom{
             ros : ros, name : '/gnss_heading/navheading', messageType : 'sensor_msgs/Imu'
         });
         this.navheading_topic.subscribe(function (m) { self.process_navheading(m); });
+        setInterval(function () { self.tick(); }, 1000);
+        if (window.VTI18n && VTI18n.onChange) VTI18n.onChange(function () { self.tick(); });
+    }
+
+    // ANC chip + the two tracker rows, built here (not in index.html: the
+    // template is cached by the web node for its lifetime, JS is not). The
+    // dead bridge-divergence "Δ" (retired /nav_tf/bridge_status) goes away.
+    _buildLocRows() {
+        var row = this.span_odom_prob ? this.span_odom_prob.parentNode : null;
+        var div = document.getElementById("span_odom_div");
+        if (div && div.parentNode) div.parentNode.removeChild(div);
+        if (!row || document.getElementById("span_odom_anc")) {
+            this.span_odom_anc = document.getElementById("span_odom_anc");
+        } else {
+            var anc = document.createElement("span");
+            anc.id = "span_odom_anc";
+            anc.className = "no-event vt-chip vt-chip-sm";
+            anc.dataset.state = "off";
+            anc.textContent = "ANC";
+            row.appendChild(anc);
+            this.span_odom_anc = anc;
+            var mk = function (html) {
+                var d = document.createElement("div");
+                d.className = "vt-inline vt-aic vt-trk-row";
+                d.innerHTML = html;
+                return d;
+            };
+            var r1 = mk('<span class="no-event vt-fs-xs vt-accent" data-i18n="bar.trk">' + vtEsc(vtT('bar.trk')) +
+                '</span><span id="span_trk_state" class="no-event vt-chip vt-chip-sm" data-state="off">&mdash;</span>' +
+                '<span id="span_trk_note" class="no-event vt-trk-txt"></span>');
+            var r2 = mk('<span id="span_trk_last" class="no-event vt-trk-txt"></span>');
+            row.parentNode.insertBefore(r1, row.nextSibling);
+            row.parentNode.insertBefore(r2, r1.nextSibling);
+        }
+        this.span_trk_state = document.getElementById("span_trk_state");
+        this.span_trk_note  = document.getElementById("span_trk_note");
+        this.span_trk_last  = document.getElementById("span_trk_last");
     }
 
     // heading source SAT (RTK dual-antenna) vs IMU fallback.
@@ -5000,42 +5068,155 @@ class Odom{
         if (!this.span_odom_hdg) return;
         var sat = message.heading !== 0;
         this.span_odom_hdg.textContent = sat ? "SAT" : "IMU";
-        vtChip(this.span_odom_hdg, sat ? "ok" : "off");
+        // heading_ok (loc_status) = the fused heading is trusted; SAT without
+        // it means the antennas report a heading the arbiter does not accept yet
+        var hok = this.loc ? !!this.loc.heading_ok : true;
+        vtChip(this.span_odom_hdg, sat ? (hok ? "ok" : "warn") : "off");
+        this.span_odom_hdg.title = vtT('bar.hdg_tip') + ' · ' +
+            vtT(hok ? 'loc.hdg_ok' : 'loc.hdg_not_ok');
     }
 
-    _chip(el, m, active) {
-        if (!el) return;
-        var on = (m && m[1] === "1");
-        vtChip(el, on ? "ok" : "off", active);   // active = outline (vt-chip-active)
+    // freshest healthy odometry: the one that carries dead-reckoning
+    _bestOdom() {
+        var now = Date.now(), src = this.src;
+        var live = function (k) { return now - src[k].t < 2500 && !src[k].lost; };
+        return live('licp') ? "LICP" : (live('vo') ? "VO" : (live('wheel') ? "WHEEL" : ""));
     }
 
-    process_bridge(s) {
-        if (!s) return;
-        var g = /gps_good=(\d)/.exec(s), act = /active=(\w+)/.exec(s), dv = /shadow_div_m=([\d.]+)/.exec(s);
-        var fu = /fix_usable=(\d)/.exec(s);
-        var a = act ? act[1] : "";
-        // remembered for the DR badge: which odom source carries dead-reckoning
-        this.last_bridge_active = a;
-        // Ownership badge: loc_status is authoritative once it has arrived
-        // (gps_good here no longer means "pose ownership", it can be false
-        // at dock/during GPS probation even with a good fix). Keep this
-        // heuristic only as a fallback before the first loc_status message.
-        if (!this.have_loc_status && this.span_odom_drive) {
-            var label = (g && g[1] === "1") ? "RTK"
-                      : ({vo: "VO", licp: "LiDAR", wheel: "WHEEL"}[a] || (a ? a.toUpperCase() : "—"));
-            var color = label === "RTK" ? "#5cb85c" : (label === "WHEEL" ? "#d9534f" : "#f0ad4e");
-            // label stays the English id (compared above); WHEEL is shown translated
-            this.span_odom_drive.textContent = label === "WHEEL" ? vtT('mapview.odom.wheel') : label;
-            vtChip(this.span_odom_drive, color);
+    // VO / Li / Wh chips: green = live and tracking, orange = live but lost
+    // (lidar), grey = paused in the dock / camera dark / no VO, red = silent.
+    _paintSources() {
+        var now = Date.now(), self = this;
+        [['vo', this.span_odom_vo, 'bar.vo_tip'], ['licp', this.span_odom_licp, 'bar.licp_tip'],
+         ['wheel', this.span_odom_wheel, 'bar.wheel_tip']].forEach(function (d) {
+            var el = d[1];
+            if (!el) return;
+            var s = self.src[d[0]], age = now - s.t, st, why;
+            var pausable = d[0] !== 'wheel';
+            if (pausable && self.odom_paused) { st = "off"; why = 'loc.src.paused'; }
+            else if (!s.t || age > 2500) {
+                // VO missing is not an alarm (camera can be off); Li / Wh should always run
+                st = d[0] === 'vo' ? "off" : "err"; why = s.t ? 'loc.src.silent' : 'loc.src.none';
+            }
+            else if (s.lost) { st = d[0] === 'vo' ? "off" : "warn"; why = d[0] === 'vo' ? 'loc.src.vo_lost' : 'loc.src.lost'; }
+            else { st = "ok"; why = 'loc.src.ok'; }
+            vtChip(el, st);
+            el.title = vtT(d[2]) + ' · ' + vtT(why, {s: s.t ? Math.round(age / 1000) : '–'});
+        });
+    }
+
+    static ago(ms) {
+        var s = Math.max(0, Math.round(ms / 1000));
+        return s < 90 ? vtT('loc.ago_s', {s: s}) : vtT('loc.ago_m', {m: Math.round(s / 60)});
+    }
+
+    // /gloc/track_status: remember the last correction the tracker SENT; the
+    // rest of the message is painted by tick()
+    process_track(data) {
+        var o;
+        try { o = JSON.parse(data); } catch (e) { return; }
+        this.trk = o; this.trk_t = Date.now();
+        if (o.applied) {
+            var m = o.corr_m_sm != null ? o.corr_m_sm : o.corr_m;
+            var y = o.corr_yaw_deg_sm != null ? o.corr_yaw_deg_sm : o.corr_yaw_deg;
+            // navi_transform drops any tracker correction while the dock owns
+            // the pose (loc_status.dock_suppressing) — say so, not "applied"
+            var dockRej = !!(this.loc && (this.loc.dock_suppressing || this.loc.owner === 'dock'));
+            this.trk_last = {t: Date.now(), m: m, yaw: y, rej: dockRej ? 'dock_owns' : null,
+                             relock: o.state === 'relock'};
         }
-        this._chip(this.span_odom_vo,    /vo\[use=(\d)/.exec(s),    a === "vo");
-        this._chip(this.span_odom_licp,  /licp\[use=(\d)/.exec(s),  a === "licp");
-        this._chip(this.span_odom_wheel, /wheel\[use=(\d)/.exec(s), a === "wheel");
-        if (this.span_odom_div && dv) this.span_odom_div.textContent = "Δ" + parseFloat(dv[1]).toFixed(2);
-        // fix_usable fallback (only used if loc_status hasn't supplied it yet)
-        if (!this.have_loc_status && this.span_odom_fix && fu) {
-            var on = fu[1] === "1";
-            vtChip(this.span_odom_fix, on ? "ok" : "off");
+    }
+
+    // tracker line: who owns the pose, whether the tracker stands by or
+    // corrects, and the last correction (sent / held back + reason)
+    _paintTracker() {
+        var st = this.span_trk_state, note = this.span_trk_note, last = this.span_trk_last;
+        if (!st) return;
+        var now = Date.now(), o = this.trk, L = this.loc;
+        var stale = !o || now - this.trk_t > 3000;
+        var chip, txt, tone = "";
+        if (stale) {
+            chip = ["off", vtT('loc.trk.none')];
+            txt = vtT('loc.trk.none_tip');
+        } else if (o.state === 'gps_owns') {
+            chip = ["off", vtT('loc.trk.standby')];
+            txt = vtT('loc.trk.gps_owns', {s: this.trk_engage_s});
+        } else if (o.state === 'engage_delay') {
+            chip = ["warn", vtT('loc.trk.standby')];
+            var left = Math.max(0, this.trk_engage_s - (o.fix_lost_held_s || 0));
+            txt = vtT('loc.trk.engaging', {s: left.toFixed(0)});
+            tone = "warn";
+        } else if (o.state === 'rtabmap_owns') {
+            chip = ["off", vtT('loc.trk.standby')];
+            txt = vtT('loc.trk.rtab_owns');
+        } else if (o.docked || (L && L.owner === 'dock')) {
+            chip = ["off", vtT('loc.trk.standby')];
+            txt = vtT('loc.trk.dock_owns');
+        } else {
+            var lost = !!o.lost;
+            var bad = !o.applied && ['aligned', 'standstill', 'settling', 'ok'].indexOf(o.state) < 0;
+            chip = [lost ? "err" : (bad ? "warn" : "ok"), vtT('loc.trk.active')];
+            txt = o.applied ? vtT('loc.trk.correcting')
+                : vtT('loc.why.' + String(o.state).split(':')[0]);
+            if (/^loc\.why\./.test(txt)) txt = String(o.state);
+            if (o.rms != null) txt += ' · ' + vtT('loc.trk.rms', {cm: Math.round(o.rms * 100)});
+            if (lost) { txt += ' · ' + vtT('loc.trk.lost', {s: Math.round(o.lost_held_s || 0)}); tone = "err"; }
+            else if (bad) tone = "warn";
+        }
+        st.textContent = chip[1];
+        vtChip(st, chip[0]);
+        st.title = vtT('loc.trk.tip');
+        if (note) { note.textContent = txt; vtTone(note, tone); }
+        if (!last) return;
+        var t, ltone = "";
+        var n = (!stale && o.applied_count != null) ? o.applied_count : null;
+        var cnt = n != null ? ' · ' + vtT('loc.trk.count', {n: n}) : '';
+        if (this.trk_last) {
+            var c = this.trk_last;
+            var mag = vtT('loc.trk.mag', {m: (c.m != null ? c.m.toFixed(2) : '–'),
+                                          deg: (c.yaw != null ? c.yaw.toFixed(1) : '–')});
+            t = c.rej ? vtT('loc.trk.last_rej', {mag: mag, why: vtT('loc.why.dock_owns'), ago: Odom.ago(now - c.t)})
+                      : vtT(c.relock ? 'loc.trk.last_relock' : 'loc.trk.last_ok', {mag: mag, ago: Odom.ago(now - c.t)});
+            ltone = c.rej ? "warn" : "";
+        } else if (!stale && o.reject_reason && o.reject_reason !== 'gps_owns' && o.state !== 'gps_owns') {
+            var w = vtT('loc.why.' + String(o.reject_reason).split(':')[0]);
+            if (/^loc\.why\./.test(w)) w = String(o.reject_reason);
+            t = vtT('loc.trk.last_held', {why: w, n: o.reject_streak || 1});
+            ltone = "warn";
+        } else {
+            t = vtT('loc.trk.last_none');
+        }
+        // what the tracker would correct right now, while GPS owns the pose:
+        // a quiet cross-check that the map still matches
+        if (!stale && o.state === 'gps_owns' && o.corr_m != null) {
+            t += ' · ' + vtT('loc.trk.offset', {cm: Math.round(o.corr_m * 100)});
+        }
+        last.textContent = t + cnt;
+        vtTone(last, ltone);
+    }
+
+    _paintAnchor() {
+        var el = this.span_odom_anc, L = this.loc;
+        if (!el) return;
+        if (!L || Date.now() - this.loc_t > 3000) {
+            vtChip(el, "off"); el.title = vtT('bar.anc_tip') + ' · ' + vtT('loc.anc.none'); return;
+        }
+        var age = L.anchor_age_s, frozen = !!L.anchor_frozen, hf = !!L.heading_anchor_frozen;
+        var st = (frozen || hf) ? "warn" : (age == null ? "off" : "ok");
+        vtChip(el, st);
+        el.title = vtT('bar.anc_tip') + ' · ' + vtT(frozen ? 'loc.anc.frozen' : 'loc.anc.ok', {s: age == null ? '–' : (age < 10 ? age.toFixed(1) : Math.round(age))}) +
+            (L.heading_anchor_age_s != null ? ' · ' + vtT(hf ? 'loc.anc.hdg_frozen' : 'loc.anc.hdg', {
+                s: L.heading_anchor_age_s < 10 ? L.heading_anchor_age_s.toFixed(1) : Math.round(L.heading_anchor_age_s)}) : '');
+    }
+
+    tick() {
+        this._paintSources();
+        this._paintTracker();
+        this._paintAnchor();
+        // pose owner silent: do not keep showing a stale owner
+        if (this.span_odom_drive && this.loc_t && Date.now() - this.loc_t > 5000) {
+            this.span_odom_drive.textContent = "—";
+            vtChip(this.span_odom_drive, "off");
         }
     }
 
@@ -5043,7 +5224,7 @@ class Odom{
     process_loc_status(data) {
         var o;
         try { o = JSON.parse(data); } catch (e) { return; }
-        this.have_loc_status = true;
+        this.loc = o; this.loc_t = Date.now();
 
         if (this.span_odom_drive) {
             var labels = {
@@ -5059,10 +5240,8 @@ class Odom{
             // DR = unanchored, but show WHICH odometry carries it (wheel+IMU
             // always; VO/LiDAR when healthy) so "DR (LICP)" reads as "lidar
             // odometry dead-reckons, no absolute anchor" — not "lidar is dead".
-            if (o.owner === "dr" && this.last_bridge_active &&
-                    this.last_bridge_active !== "none") {
-                txt = "DR (" + this.last_bridge_active.toUpperCase() + ")";
-            }
+            var best = o.owner === "dr" ? this._bestOdom() : "";
+            if (best) txt = "DR (" + best + ")";
             this.span_odom_drive.textContent = txt;
             vtChip(this.span_odom_drive, lc[1]);
             this.span_odom_drive.title = vtT('mapview.odom.owner_tip');

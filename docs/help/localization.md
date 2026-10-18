@@ -24,7 +24,7 @@ The robot combines several sources into one position (the *pose*):
 
 ## Read the state (right panel › Navi)
 
-![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi: 1 Pose chip · 2 heading source (hdg) · 3 odometry chips VO / Li / Wh / FIX / PROB · 4 GNSS fix · 5 satellites · 6 position accuracy · 7 heading accuracy")
+![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi: 1 Pose chip · 2 heading source (hdg) · 3 odometry chips VO / Li / Wh / FIX / PROB / ANC and the lidar tracker line (Trk) · 4 GNSS fix · 5 satellites · 6 position accuracy · 7 heading accuracy")
 
 The first chip (1) says **who owns the pose now**:
 
@@ -37,9 +37,36 @@ The first chip (1) says **who owns the pose now**:
 | `EXT` | orange | An external or legacy source. |
 | `DEAD-RECKON` / `DR (…)` | red | No absolute anchor — the position drifts (the bracket says which odometry carries it, e.g. `DR (LICP)`). Drive with care, stop longer missions. |
 
-The small chips next to it: **VO / Li / Wh** = visual, lidar and wheel odometry (green = usable,
-outlined = in use), **FIX** = a usable raw RTK fix, **PROB** = the GPS fix has proven itself (see
-`RTK` above), **Δ** = how far the bridge estimate differs from the live pose, **hdg SAT / IMU** = heading from the two GPS antennas or from the IMU fallback.
+The small chips next to it:
+
+| Chip | Meaning |
+|---|---|
+| `VO` / `Li` / `Wh` | camera, lidar and wheel odometry — what the navigation filter fuses. Green = live and tracking; orange (`Li`) = running but lost; grey = paused in the dock (they wake up the moment undocking starts) — and for `VO` also "no visual tracking", which is normal in the dark; red (`Li`, `Wh`) = no message for more than ~2 s. Hover / long-press for the reason. |
+| `FIX` | a usable raw RTK fix (whoever owns the pose) |
+| `PROB` | the GPS fix has proven itself (see `RTK` above) |
+| `ANC` | the position anchor: green = fresh, orange = frozen (the pose runs on wheel odometry from the last anchor; also when the heading anchor freezes); the tooltip gives the ages |
+| `hdg SAT / IMU` | heading from the two GPS antennas or from the IMU fallback; orange `SAT` = the antennas report a heading the robot does not trust yet |
+
+### The lidar tracker line (`Trk`)
+
+The lidar tracker matches every scan against the site map. It **stands by while GPS owns the
+pose** and takes over only when the fix has been unusable for about 5 s (so a short RTK flicker
+does not hand over the pose).
+
+| Shown | Meaning |
+|---|---|
+| `STANDBY` · *GPS owns · takes over after 5 s without fix* | the normal state on open sky |
+| `STANDBY` · *fix lost · takes over in N s* (orange) | the fix just dropped; the tracker waits out the anti-flicker delay |
+| `STANDBY` · *dock owns the pose* / *RTAB-Map owns the pose* | another anchor has priority |
+| `ACTIVE` (green) · *correcting* / *aligned* / *standing still* | the tracker keeps the pose on the map; *match N cm* = how well the scan fits |
+| `ACTIVE` (orange) · a reason | the tracker is on but holds its correction back, e.g. *the map no longer matches here*, *poor match*, *one-sided geometry (corridor/wall)* |
+| `ACTIVE` (red) · *lost N s* | no good match for a while — it will try a full relocalisation |
+
+The second line is the **last correction**: *sent 0.07 m / 1.2° · 12 s ago*, *rejected — dock owns
+the pose* (the robot ignores tracker corrections while the dock anchors it), or *held back: reason
+(×N ticks)*; *N sent* counts all corrections since the tracker started. While GPS owns the pose
+the line also shows *map offset N cm* — how far the tracker would move the robot right now; a
+few centimetres means the map still fits.
 
 **GNSS** line:
 

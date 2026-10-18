@@ -23,7 +23,7 @@ Robot skládá jednu polohu (*pose*) z několika zdrojů:
 
 ## Jak číst stav (pravý panel › Navi)
 
-![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu")
+![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC a řádek lidarového trackeru (Trk) · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu")
 
 První čip (1) říká, **kdo teď určuje polohu**:
 
@@ -36,9 +36,34 @@ První čip (1) říká, **kdo teď určuje polohu**:
 | `EXT` | orange | Vnější nebo starší zdroj. |
 | `ODHAD` / `DR (…)` | red | Žádná pevná kotva — poloha ujíždí (v závorce je, která odometrie ji nese, např. `DR (LICP)`). Jezdi opatrně, delší mise zastav. |
 
-Malé čipy vedle: **VO / Li / Wh** = vizuální, lidarová a kolová odometrie (zelená = použitelná,
-orámovaná = právě používaná), **FIX** = použitelný surový RTK fix, **PROB** = GPS fix se osvědčil
-(viz `RTK` výše), **Δ** = o kolik se odhad můstku liší od živé polohy, **kurz SAT / IMU** = kurz ze dvou antén GPS, nebo náhradně z IMU.
+Malé čipy vedle:
+
+| Čip | Význam |
+|---|---|
+| `VO` / `Li` / `Wh` | odometrie z kamery, lidaru a kol — to, co skládá navigační filtr. Zelená = běží a sleduje; oranžová (`Li`) = běží, ale je ztracená; šedá = pozastavená v doku (rozběhne se hned, jak začne výjezd) — u `VO` také „kamera nesleduje", což je ve tmě normální; červená (`Li`, `Wh`) = déle než ~2 s žádná zpráva. Důvod ukáže najetí myší / dlouhé podržení. |
+| `FIX` | použitelný surový RTK fix (bez ohledu na to, kdo drží polohu) |
+| `PROB` | GPS fix se osvědčil (viz `RTK` výše) |
+| `ANC` | kotva polohy: zelená = čerstvá, oranžová = zamrzlá (poloha jede na odometrii kol od poslední kotvy; i když zamrzne kotva kurzu); stáří ukáže tooltip |
+| `kurz SAT / IMU` | kurz ze dvou antén GPS, nebo náhradně z IMU; oranžový `SAT` = antény hlásí kurz, kterému robot zatím nevěří |
+
+### Řádek lidarového trackeru (`Trk`)
+
+Lidarový tracker porovnává každý sken s mapou místa. **Čeká, dokud polohu drží GPS**, a převezme
+ji až po zhruba 5 s bez použitelného fixu (aby krátké zablikání RTK polohu nepřehazovalo).
+
+| Ukazuje | Význam |
+|---|---|
+| `ČEKÁ` · *polohu drží GPS · převezme po 5 s bez fixu* | běžný stav pod otevřeným nebem |
+| `ČEKÁ` · *fix ztracen · převezme za N s* (oranžová) | fix právě vypadl; tracker vyčkává ochrannou dobu |
+| `ČEKÁ` · *polohu drží dok* / *polohu drží RTAB-Map* | přednost má jiná kotva |
+| `AKTIVNÍ` (zelená) · *opravuje* / *sedí* / *stojí* | tracker drží polohu na mapě; *shoda N cm* = jak dobře sken sedí |
+| `AKTIVNÍ` (oranžová) · důvod | tracker běží, ale opravu zadržel, např. *mapa tady už nesedí*, *špatná shoda s mapou*, *jednostranná geometrie (chodba/zeď)* |
+| `AKTIVNÍ` (červená) · *ztracen N s* | dlouho žádná dobrá shoda — zkusí úplnou relokalizaci |
+
+Druhý řádek je **poslední oprava**: *odeslána 0.07 m / 1.2° · před 12 s*, *odmítnuta — polohu drží
+dok* (dokud robota kotví dok, opravy trackeru ignoruje), nebo *zadrženo: důvod (×N)*; *odesláno N*
+počítá všechny opravy od startu trackeru. Dokud drží polohu GPS, řádek ukazuje i *odchylku od
+mapy N cm* — o kolik by tracker robota právě posunul; pár centimetrů znamená, že mapa pořád sedí.
 
 Řádek **GNSS**:
 

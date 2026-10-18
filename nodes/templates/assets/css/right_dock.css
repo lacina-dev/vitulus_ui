@@ -314,3 +314,11 @@ body.rp-log-top #div_log_view {
 .vt-gx-more { align-self: flex-end; font-size: 9px; color: var(--vt-muted, #9aa4ad); }
 /* touch: the whole card is the tap target */
 @media (pointer: coarse) { .vt-gx { font-size: 11px; } .vt-gx-more { font-size: 10px; padding: 2px 0; } }
+
+/* ---- Navi › Pose: lidar tracker lines (map_view.js Odom, 2026-10-18).
+   The block grows with the two text rows instead of the old fixed 66 px;
+   the text wraps at 190 px instead of clipping. */
+#right_panel #div_odom { height: auto !important; row-gap: 1px; }
+.vt-trk-row { min-width: 0; gap: 1px 3px; flex-wrap: wrap; }
+.vt-trk-row > .vt-trk-txt { flex: 1 1 100%; }
+.vt-trk-txt { font-size: 10px; line-height: 1.25; color: var(--vt-muted, #9aa4ad); min-width: 0; overflow-wrap: anywhere; }
