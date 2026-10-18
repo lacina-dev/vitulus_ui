@@ -207,9 +207,15 @@ class CameraOverlay(object):
         self.tf_lis = None
         self.lut = turbo_lut()
 
+        # rospy fires these INSIDE its own topic locks.  Doing (un)register
+        # work in there deadlocked the node against the 2 s timer (live
+        # 18. 10.: three threads parked on self.lock, no overlay for an hour,
+        # no respawn because nothing crashed).  So only raise a flag here and
+        # let the timer do the plumbing.
         listener = rospy.SubscribeListener()
-        listener.peer_subscribe = lambda *a: self.reconcile()
-        listener.peer_unsubscribe = lambda *a: self.reconcile()
+        listener.peer_subscribe = lambda *a: self.poke()
+        listener.peer_unsubscribe = lambda *a: self.poke()
+        self.dirty = threading.Event()
 
         def pub(name, typ):
             return rospy.Publisher('/camera_overlay/' + name, typ, queue_size=1,
@@ -225,44 +231,58 @@ class CameraOverlay(object):
             Layer('depth', p('~depth', '/d435/aligned_depth_to_color/image_raw'), Image,
                   pub('depth', Image), self.on_depth),
         ]
-        # safety net for a missed (un)subscribe notification
-        rospy.Timer(rospy.Duration(2.0), lambda e: self.reconcile())
+        # the only place that (un)registers: a timer thread that holds no rospy
+        # lock; 0.5 s so a freshly opened panel waits at most that long
+        rospy.Timer(rospy.Duration(0.5), lambda e: self.reconcile())
         rospy.Timer(rospy.Duration(60.0), lambda e: self.report())
 
     # ---------------------------------------------------------- lazy plumbing
+    def poke(self):
+        self.dirty.set()
+
     def reconcile(self):
-        with self.lock:
-            any_points = False
-            for L in self.layers:
-                want = L.pub.get_num_connections() > 0
-                if want and L.sub is None:
-                    big = (2 ** 24) if L.in_type is not LaserScan else 65536
-                    # AnyMsg: a frame is deserialized only when the layer is
-                    # due (rate), the skipped 2/3 of a 15 Hz depth stream cost
-                    # no unpacking at all
-                    L.sub = rospy.Subscriber(L.in_topic, rospy.AnyMsg, self.on_raw, callback_args=L,
-                                             queue_size=1, buff_size=big)
-                    rospy.loginfo('camera_overlay: %s on (%s)', L.name, L.in_topic)
-                elif not want and L.sub is not None:
-                    L.sub.unregister()
-                    L.sub = None
-                    rospy.loginfo('camera_overlay: %s off', L.name)
-                if want and L.name != 'depth':
-                    any_points = True
-            if any_points and self.ci_sub is None:
-                self.ci_sub = rospy.Subscriber(self.ci_topic, CameraInfo, self.on_ci, queue_size=1)
-                self.tf_buf = tf2_ros.Buffer(rospy.Duration(5.0))
-                self.tf_lis = tf2_ros.TransformListener(self.tf_buf)
-            elif not any_points and self.ci_sub is not None:
-                self.ci_sub.unregister()
-                self.ci_sub = None
-                try:
-                    self.tf_lis.unregister()
-                except Exception:
-                    pass
-                self.tf_lis = None
-                self.tf_buf = None
-                self.intr = None
+        # non-blocking: if a previous pass is still running, the next tick
+        # will catch up; a stuck lock must never pile up timer threads
+        if not self.lock.acquire(False):
+            return
+        try:
+            self.dirty.clear()
+            self._reconcile_locked()
+        finally:
+            self.lock.release()
+
+    def _reconcile_locked(self):
+        any_points = False
+        for L in self.layers:
+            want = L.pub.get_num_connections() > 0
+            if want and L.sub is None:
+                big = (2 ** 24) if L.in_type is not LaserScan else 65536
+                # AnyMsg: a frame is deserialized only when the layer is
+                # due (rate), the skipped 2/3 of a 15 Hz depth stream cost
+                # no unpacking at all
+                L.sub = rospy.Subscriber(L.in_topic, rospy.AnyMsg, self.on_raw, callback_args=L,
+                                         queue_size=1, buff_size=big)
+                rospy.loginfo('camera_overlay: %s on (%s)', L.name, L.in_topic)
+            elif not want and L.sub is not None:
+                L.sub.unregister()
+                L.sub = None
+                rospy.loginfo('camera_overlay: %s off', L.name)
+            if want and L.name != 'depth':
+                any_points = True
+        if any_points and self.ci_sub is None:
+            self.ci_sub = rospy.Subscriber(self.ci_topic, CameraInfo, self.on_ci, queue_size=1)
+            self.tf_buf = tf2_ros.Buffer(rospy.Duration(5.0))
+            self.tf_lis = tf2_ros.TransformListener(self.tf_buf)
+        elif not any_points and self.ci_sub is not None:
+            self.ci_sub.unregister()
+            self.ci_sub = None
+            try:
+                self.tf_lis.unregister()
+            except Exception:
+                pass
+            self.tf_lis = None
+            self.tf_buf = None
+            self.intr = None
 
     def report(self):
         act = ['%s in %d out %d tf_fail %d' % (L.name, L.n_in, L.n_out, L.n_tf_fail)
