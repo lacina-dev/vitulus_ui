@@ -23,7 +23,7 @@ Robot skládá jednu polohu (*pose*) z několika zdrojů:
 
 ## Jak číst stav (pravý panel › Navi)
 
-![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC a řádek lidarového trackeru (Trk) · 4 GNSS fix · 5 satelity · 6 přesnost polohy · 7 přesnost kurzu")
+![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Pravý panel › Navi: 1 čip Poloha · 2 zdroj kurzu (kurz) · 3 čipy odometrie VO / Li / Wh / FIX / PROB / ANC · 4 řádek lidarového trackeru (Trk)")
 
 První čip (1) říká, **kdo teď určuje polohu**:
 
@@ -85,7 +85,11 @@ venkovní mapu doku).
 
 ## Přijímače GNSS (pravý panel › GNSS)
 
-Robot má **dva** přijímače GPS a sekce **GNSS** ukazuje oba vedle sebe:
+Robot má **dva** přijímače GPS a sekce **GNSS** ukazuje oba vedle sebe. Je to jediné místo pro
+GNSS v pravém panelu (staré řádky GNSS pod Navi zmizely). **Sbalená** — výchozí — to řekne jedním
+řádkem v názvu: fix Polohy, fix Kurzu, satelity použité pozičním přijímačem a stáří jeho korekcí,
+např. `RTK RTK 24sv·0.5s` (po najetí myší použité / viditelné); nádech sekce podle horšího z obou.
+Rozbal ji kliknutím na název a uvidíš kartu:
 
 - **Poloha** — RTK rover. Korekce (RTCM) dostává ze **základnové stanice**.
 - **Kurz** — druhá anténa. Korekce dostává z **pozičního přijímače** (*moving base*) a měří

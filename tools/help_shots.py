@@ -119,12 +119,19 @@ SHOTS = [
                 ('#status_div', '3', 'b'), ('#btn_help', '4', 'b'), ('#btn_needs', '5', 'b')]),
     dict(name='shot-status-icons', vp=DESK, scale=3, width=900, clip='#status_div', pad=4, marks=[]),
     # --- right panel (dock.md, routes.md, localization.md)
-    dict(name='shot-controls', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec:first-of-type', pad=2, md=15,
+    dict(name='shot-controls', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="drive"]', pad=2, md=15,
          marks=[('#div_status_speed .btn-group', '1', 't'), ('#div_status_speed-1', '2', 't'), ('#span_batt_pct', '3', 'b'),
                 ('#dock_btn_menu_dock', '4', 'b'), ('#dock_btn_menu_undock', '5', 'b'), ('#dock_btn_menu_stop', '6', 'b')]),
-    dict(name='shot-navi', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec:nth-of-type(2)', pad=2, md=15,
+    # 2026-10-18: the GNSS rows left Navi (one source: the GNSS section); Mower shows only while it is on
+    dict(name='shot-navi', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="state"]', pad=2, md=15,
          marks=[('#span_odom_drive', '1', 'r'), ('#span_odom_hdg', '2', 'l'), ('#span_odom_prob', '3', 'r'),
-                ('#span_gnss_fix', '4', 'r'), ('#span_gnss_sats', '5', 'l'), ('#span_gnss_pos', '6', 'r'), ('#span_gnss_hdg', '7', 'l')]),
+                ('#span_trk_state', '4', 'r')]),
+    dict(name='shot-rp-mower', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="mower"]', pad=2, md=15,
+         marks=[('#rp_mower_chip', '1', 'l'), ('#span_mower_panel_rpm', '2', 'b'), ('#span_mower_panel_height', '3', 'b'),
+                ('#span_mower_panel_temp', '4', 'b')]),
+    dict(name='shot-rp-gnss', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="gnss"] > h5', pad=2, md=15,
+         marks=[('#rp_gnss_sum .vt-chip:nth-of-type(1)', '1', 'b'), ('#rp_gnss_sum .vt-chip:nth-of-type(2)', '2', 'b'),
+                ('#rp_gnss_sum .rp-gsum-t', '3', 'b')]),
     # --- Map panel (mapping.md, dock.md, localization.md, routes.md)
     dict(name='shot-map-tab', vp=TALL, clip='#ui_drawer_head|#tab-map', steps=panel('#btn_map', 'tab-map'),
          marks=[('#active_map_name', '1', 'b'), ('#btn_map_detail_toggle', '2', 'r'), ('#mapv3_btn_deactivate', '3', 'r'),

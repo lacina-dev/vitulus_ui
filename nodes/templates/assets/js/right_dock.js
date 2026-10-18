@@ -4,11 +4,13 @@
  * roztroušené jako plovoucí panýlky, žije tady v jednom panelu ukotveném
  * k pravému hornímu rohu:
  *
- *   1. Pohyb a dok — rychlost (Slow/Mid/Fast), klávesnicový teleop,
- *      baterie + Dock/Undock/Stop
- *   2. Stav        — sekačka (když běží), Pose/VO/Li/Wh/FIX, GNSS, RtabMap
- *   3. Mapa        — follow (Map/robot) + název aktivní mapy
- *   4. Kamera      — malý živý náhled
+ *   0. Horní řádek — follow + název aktivní mapy (telefon: + tečky, baterie)
+ *   1. Controls    — rychlost (Slow/Mid/Fast), klávesnicový teleop,
+ *                    baterie + Dock/Undock/Stop
+ *   2. Mower       — jen když je sekačka zapnutá: stav, nůž rpm, výška, teplota
+ *   3. Navi        — Pose/VO/Li/Wh/FIX/PROB/ANC, tracker, RtabMap
+ *   4. GNSS        — karta obou přijímačů, sbaleně souhrnný řádek
+ *   5. Kamera      — malý živý náhled
  *
  * Prvky se REPARENTUJÍ i s id, takže je map_view.js dál obsluhuje beze změny
  * (nastavuje jim text i display). Výjimka je kamera: #div_camera_view vlastní
@@ -43,17 +45,30 @@
 
     /* Názvy sekcí anglicky (přání majitele) a KAŽDÁ sekce je sbalitelná —
        stav si drží každá zvlášť v localStorage, takže přežije reload. */
+    /* 2026-10-18 (majitel: „GNSS je tam dvakrát, sekačka je na špatném
+       místě"): shora Controls (tlačítka se nikdy neposouvají) → Mower (jen
+       když je sekačka zapnutá, hned pod ovládáním, ne schovaná v Navi) →
+       Navi (kdo drží polohu, odometrie, tracker, RtabMap) → GNSS (JEDEN zdroj
+       pravdy = karta přijímačů; sbaleno = souhrnný řádek v hlavičce, staré
+       řádky GNSS z Navi jsou pryč) → Camera. */
     var SECTIONS = [
         {id: 'drive', title: 'rdock.sec.drive',
          /* rychlost + klávesnicový teleop na JEDEN řádek (ušetřený řádek) */
          line: ['div_status_speed', 'div_status_speed-1'],
          movees: ['div_status_speed-2'], collapsible: true},
+        /* mower: status in the head chip, blade RPM / height / temperature
+           below; the section exists only while /mower/status is not OFF/UNK */
+        {id: 'mower', title: 'rdock.sec.mower', mower: true, collapsible: true},
         {id: 'state', title: 'rdock.sec.state',
-         movees: ['div_mower_info_panel', 'div_odom', 'div_gnss', 'div_rtabmap'],
+         movees: ['div_odom', 'div_rtabmap'],
          collapsible: true},
         /* GNSS: both F9P receivers side by side (Position | Heading) — fix,
-           satellites, RTCM corrections, warm-up and why not RTK yet */
-        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss_rx'], collapsible: true},
+           satellites, RTCM corrections, warm-up and why not RTK yet. Folded
+           by default: the head then carries the one-line summary. The old
+           /gnss/fix rows (#div_gnss) said the same thing again — hidden here
+           (kept in the DOM: map_view.js still writes into them). */
+        {id: 'gnss', title: 'rdock.sec.gnss', movees: ['div_gnss_rx', 'div_gnss'],
+         collapsible: true, folded: true, gsum: true},
         {id: 'camera', title: 'rdock.sec.camera', movees: [], camera: true, collapsible: true}
     ];
 
@@ -143,10 +158,11 @@
            sbaleno/rozbaleno; stav v localStorage, výchozí = sbaleno. */
         /* U1 kolo 3: stav polohy ve sbaleném řádku — dvě tečky, Pose (kdo
            drží polohu) a GNSS (fix), barva i text převzaté z čipů v sekci
-           Navi (#span_odom_drive, #span_gnss_fix), ať je jeden zdroj pravdy. */
+           Navi (#span_odom_drive) a z karty GNSS (buildGnssSum), ať je jeden
+           zdroj pravdy; třetí tečka = sekačka, jen když je zapnutá. */
         var loc = el('span', 'rp-sum-loc', topRow);
         loc.id = 'rp_sum_loc';
-        [['span_odom_drive', 'Pose', 'rdock.dot.pose'], ['span_gnss_fix', 'GNSS', null]].forEach(function (pair) {
+        [['span_odom_drive', 'Pose', 'rdock.dot.pose']].forEach(function (pair) {
             var src = document.getElementById(pair[0]);
             var dot = el('span', 'vt-dot rp-sum-dot', loc);
             dot.id = 'rp_sum_dot_' + pair[1].toLowerCase();
@@ -162,6 +178,15 @@
             new MutationObserver(copy).observe(src, {childList: true, characterData: true,
                 subtree: true, attributes: true, attributeFilter: ['data-state']});
         });
+        /* GNSS dot = the receivers card (one source of truth, see gnssSummary);
+           the mower dot shows only while the mower is on */
+        var gdot = el('span', 'vt-dot rp-sum-dot', loc);
+        gdot.id = 'rp_sum_dot_gnss';
+        gdot.dataset.state = 'off';
+        var mdot = el('span', 'vt-dot rp-sum-dot rp-sum-mower', loc);
+        mdot.id = 'rp_sum_dot_mower';
+        mdot.dataset.state = 'off';
+        mdot.style.display = 'none';
         var sum = el('span', 'rp-sum', topRow);
         sum.id = 'rp_sum_batt';
         /* C frame 3: on a phone the collapsed row carries the camera switch —
@@ -218,7 +243,7 @@
                 var lsKey = 'vitulus_rightpanel_sec_' + def.id;
                 h.classList.add('rp-click');
                 var caret = el('span', 'rp-caret', h);
-                var openSec = lsGet(lsKey) !== '0';
+                var openSec = def.folded ? lsGet(lsKey) === '1' : lsGet(lsKey) !== '0';
                 sec.classList.toggle('folded', !openSec);
                 caret.textContent = openSec ? '▾' : '▸';
                 h.addEventListener('click', function () {
@@ -242,7 +267,7 @@
                     moved++;
                 });
             }
-            def.movees.forEach(function (id) {
+            (def.movees || []).forEach(function (id) {
                 var e = document.getElementById(id);
                 if (!e) { return; }
                 neutralize(e);
@@ -259,6 +284,8 @@
                     moved++;
                 });
             }
+            if (def.mower) { moved = buildMower(sec, h, box); }
+            if (def.gsum) { buildGnssSum(sec, h); }
             if (def.camera) {
                 camState = el('span', 'rp-state', h);
                 /* C frame 3: one clear switch — Off (= folded, no stream) /
@@ -310,6 +337,135 @@
 
         document.body.appendChild(panel);
         handle.addEventListener('click', function () { setOpen(!isOpen()); });
+    }
+
+    // ------------------------------------------------------------ sekačka
+    /* The mower block (#div_mower_info_panel) is driven by map_view.js
+       (Mower.process): display none while OFF/UNK, its spans get text and
+       colour. Here: the status goes to the section head as a chip, RPM /
+       height / temperature into three labelled cells, and the whole section
+       (and the phone's dot) follows the block's display. */
+    function moverState(st) {
+        var c = (st && st.style && st.style.color) || '';
+        return c.indexOf('success') >= 0 ? 'ok' : (c.indexOf('danger') >= 0 ? 'err' : 'warn');
+    }
+    function buildMower(sec, h, box) {
+        var src = document.getElementById('div_mower_info_panel');
+        if (!src) { return 0; }
+        var chip = el('span', 'vt-chip vt-chip-sm rp-head-chip', h);
+        chip.id = 'rp_mower_chip';
+        chip.dataset.state = 'off';
+        var grid = el('div', 'rp-cells', box);
+        [['span_mower_panel_rpm', 'rdock.mower.blade'], ['span_mower_panel_height', 'rdock.mower.height'],
+         ['span_mower_panel_temp', 'rdock.mower.temp']].forEach(function (d) {
+            var v = document.getElementById(d[0]);
+            if (!v) { return; }
+            var cell = el('div', 'rp-cell', grid);
+            var k = el('span', 'rp-cell-k', cell);
+            k.textContent = t(d[1]);
+            tag(k, d[1]);
+            v.className = 'rp-cell-v';
+            cell.appendChild(v);
+        });
+        neutralize(src);
+        box.appendChild(src);                 // hidden (CSS), the visibility signal
+        /* the panel is not in the document yet while it is being built:
+           look up inside it, not via document.getElementById */
+        var st = src.querySelector('#span_mower_panel_status');
+        var mdot = panel.querySelector('#rp_sum_dot_mower');
+        var paint = function () {
+            var on = src.style.display !== 'none';
+            var txt = st ? (st.textContent || '').trim() : '';
+            var state = on ? moverState(st) : 'off';
+            if (chip.textContent !== txt) { chip.textContent = txt; }
+            if (chip.dataset.state !== state) { chip.dataset.state = state; }
+            if (sec.dataset.tone !== state) { sec.dataset.tone = state; }
+            var disp = on ? '' : 'none';
+            if (sec.style.display !== disp) { sec.style.display = disp; placeSoon(); }
+            if (mdot) {
+                mdot.style.display = disp;
+                mdot.dataset.state = state;
+                mdot.title = t('rdock.sec.mower') + ': ' + (txt || '—');
+                mdot.setAttribute('aria-label', mdot.title);
+            }
+        };
+        paint();
+        relang.push(paint);
+        new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style'],
+            childList: true, characterData: true, subtree: true});
+        return 1;
+    }
+
+    // ------------------------------------------------------- GNSS souhrn
+    /* One line for the folded GNSS section and the phone's dot, computed from
+       the same /gnss_status the card shows (window.gnss_rx, map_view.js):
+       "RTK RTK 25sv·0.5s" = Position fix, Heading fix, satellites
+       used and the correction age of the position receiver (the tooltip
+       adds used/visible). */
+    var RANK = {off: 0, ok: 1, warn: 2, err: 3};
+    function gnssSummary() {
+        var g = window.gnss_rx;
+        var d = g && g.last, fresh = d && (Date.now() - (g.last_at || 0)) < 5000;
+        if (!fresh || typeof GnssRx === 'undefined') { return null; }
+        var pos = d.rx && d.rx.gnss, hdg = d.rx && d.rx.gnss_heading;
+        var sp = GnssRx.fixState(pos), sh = GnssRx.fixState(hdg);
+        var sv = '—', corr = '', svUsed = null;
+        if (pos && pos.alive) {
+            var s = pos.sat, p = pos.pvt || {};
+            sv = s ? s.used + '/' + s.visible : (p.num_sv != null ? String(p.num_sv) : '—');
+            svUsed = s ? s.used : p.num_sv;
+            var a = pos.rtcm && pos.rtcm.last_age_s;
+            corr = a == null ? t('rdock.gnss.nocorr') : (a < 10 ? a.toFixed(1) : Math.round(a)) + 's';
+        }
+        var worst = RANK[sp] >= RANK[sh] ? sp : sh;
+        if (sp === 'off' && sh !== 'off') { worst = sh; }
+        return {pos: [GnssRx.fixText(pos), sp], hdg: [GnssRx.fixText(hdg), sh],
+                sv: sv, svUsed: svUsed, corr: corr, worst: worst, posState: sp};
+    }
+    function buildGnssSum(sec, h) {
+        var wrap = el('span', 'rp-gsum', h);
+        wrap.id = 'rp_gnss_sum';
+        var cp = el('span', 'vt-chip vt-chip-sm', wrap);
+        var ch = el('span', 'vt-chip vt-chip-sm', wrap);
+        var tx = el('span', 'rp-gsum-t', wrap);
+        var caret = h.querySelector('.rp-caret');
+        if (caret) { h.appendChild(caret); }   // the caret stays last
+        var gdot = panel.querySelector('#rp_sum_dot_gnss');
+        var last = '';
+        var paint = function () {
+            var m = gnssSummary();
+            var key = m ? [m.pos, m.hdg, m.sv, m.corr].join('|') : 'none';
+            var tip;
+            if (m) {
+                tip = t('gnssrx.pos') + ' ' + m.pos[0] + ' · ' + t('gnssrx.hdg') + ' ' + m.hdg[0] +
+                      ' · SV ' + m.sv + (m.corr ? ' · ' + t('gnssrx.r.corr') + ' ' + m.corr : '');
+            } else {
+                tip = t('rdock.gnss.nodata');
+            }
+            if (key !== last) {
+                last = key;
+                cp.textContent = m ? m.pos[0] : '—';
+                cp.dataset.state = m ? m.pos[1] : 'off';
+                ch.textContent = m ? m.hdg[0] : '—';
+                ch.dataset.state = m ? m.hdg[1] : 'off';
+                /* the head has ~50 px left: used satellites + correction age
+                   ("24sv·0.5s"); used/visible is in the tooltip and the card */
+                tx.textContent = m ? (m.svUsed != null ? m.svUsed + 'sv' : '—') + (m.corr ? '·' + m.corr : '') : '';
+                sec.dataset.tone = m ? m.worst : 'off';
+            }
+            if (wrap.title !== tip) { wrap.title = tip; }
+            if (gdot) {
+                var gs = m ? m.posState : 'off';
+                if (gdot.dataset.state !== gs) { gdot.dataset.state = gs; }
+                var gt = 'GNSS: ' + tip;
+                if (gdot.title !== gt) { gdot.title = gt; gdot.setAttribute('aria-label', gt); }
+            }
+        };
+        paint();
+        relang.push(function () { last = ''; paint(); });
+        var card = sec.querySelector('#div_gnss_rx') || document.getElementById('div_gnss_rx');
+        if (card) { new MutationObserver(paint).observe(card, {childList: true}); }
+        setInterval(paint, 2000);              // stale data → '—'
     }
 
     // ------------------------------------------------------- skrýt/zobrazit

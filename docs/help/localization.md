@@ -24,7 +24,7 @@ The robot combines several sources into one position (the *pose*):
 
 ## Read the state (right panel › Navi)
 
-![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi: 1 Pose chip · 2 heading source (hdg) · 3 odometry chips VO / Li / Wh / FIX / PROB / ANC and the lidar tracker line (Trk) · 4 GNSS fix · 5 satellites · 6 position accuracy · 7 heading accuracy")
+![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Right panel › Navi: 1 Pose chip · 2 heading source (hdg) · 3 odometry chips VO / Li / Wh / FIX / PROB / ANC · 4 the lidar tracker line (Trk)")
 
 The first chip (1) says **who owns the pose now**:
 
@@ -87,7 +87,11 @@ waits for both to be green** (docking only when it first has to load the outdoor
 
 ## GNSS receivers (right panel › GNSS)
 
-The robot has **two** GPS receivers and the **GNSS** section shows both side by side:
+The robot has **two** GPS receivers and the **GNSS** section shows both side by side. It is the
+one place for GNSS in the right panel (the old GNSS rows under Navi are gone). **Folded** — the
+default — its title row says it in one line: the Position fix, the Heading fix, the satellites the
+position receiver uses and the age of its corrections, e.g. `RTK RTK 24sv·0.5s` (hover for
+used / visible); the section is tinted by the worse of the two. Unfold it by its title for the card:
 
 - **Position** — the RTK rover. It gets its corrections (RTCM) from the **base station**.
 - **Heading** — the second antenna. It gets its corrections from the **position receiver**

@@ -276,6 +276,38 @@ body.rp-log-top #div_log_view {
     .rp-handle { width: 22px; height: 54px; line-height: 54px; }
 }
 
+/* ---- Section anatomy, 2026-10-18 (one source per fact): head = title ·
+   state chip / summary · ? · caret; state = a soft tint of the section (no
+   side stripe). Used by Mower and GNSS (right_dock.js sets data-tone). */
+#right_panel .rp-sec { border-radius: 8px; }
+#right_panel .rp-sec[data-tone="ok"]   { background: var(--vt-tint-ok); }
+#right_panel .rp-sec[data-tone="warn"] { background: var(--vt-tint-warn); }
+#right_panel .rp-sec[data-tone="err"]  { background: var(--vt-tint-err); }
+#right_panel .rp-sec > h5 { gap: 3px; min-width: 0; }
+#right_panel .rp-sec > h5 .rp-head-chip { margin-left: auto; white-space: nowrap; text-transform: none; letter-spacing: 0; }
+/* GNSS folded: "RTK RTK 25sv·0.5s" in the head; unfolded the card says it */
+.rp-gsum { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; min-width: 0;
+           text-transform: none; letter-spacing: 0; font-weight: 500; white-space: nowrap; overflow: hidden; }
+.rp-gsum .vt-chip { margin-left: 0 !important; }
+.rp-gsum-t { font-size: 10px; color: var(--vt-text, #e6e9ec); font-variant-numeric: tabular-nums;
+             overflow: hidden; text-overflow: ellipsis; margin-left: 2px; }
+#right_panel .rp-sec[data-sec="gnss"]:not(.folded) .rp-gsum { display: none; }
+/* folded, the summary takes the head's room; the "?" comes with the card */
+#right_panel .rp-sec[data-sec="gnss"].folded > h5 .vth-q { display: none; }
+/* the old /gnss/fix rows: same facts as the card — kept for map_view.js only */
+#right_panel #div_gnss { display: none !important; }
+/* RtabMap row: hidden while rtabmap is not running (map_view.js only toggles
+   visibility, which reserved an empty line in the panel) */
+#right_panel #div_rtabmap[style*="hidden"] { display: none !important; }
+/* Mower: three labelled cells, the status lives in the head chip */
+#right_panel #div_mower_info_panel { display: none !important; }
+.rp-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; width: 100%; }
+.rp-cell { display: flex; flex-direction: column; min-width: 0; padding: 2px 4px; border-radius: 4px;
+           background: rgba(255, 255, 255, 0.04); }
+.rp-cell-k { font-size: 9px; color: var(--vt-muted, #9aa4ad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-cell-v { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; margin: 0 !important; }
+@media (pointer: coarse) { .rp-cell-k { font-size: 10px; } .rp-cell-v { font-size: 13px; } }
+
 /* ---- GNSS: both receivers side by side (map_view.js GnssRx, 2026-10-18).
    One panel anatomy: rounded tiles, state = a soft tint (vt_tokens), no side
    stripe. Two columns even at 196 px; text wraps, never clips. */

@@ -12,6 +12,8 @@ keywords: [mower, blade, knife, cut height, height, rpm, remember, saved height,
 # Mowing unit
 
 Programs drive the mower by themselves. **Settings › Mower** is for checking and manual control.
+While the mower is switched on, the right panel shows a **Mower** section under Controls: the
+status, the blade RPM, the cut height and the temperature at a glance ([The right panel](frame.md#the-right-panel)).
 
 > [!CAUTION]
 > The blade is dangerous. Start it by hand only with the robot on the lawn, nobody near it, and
