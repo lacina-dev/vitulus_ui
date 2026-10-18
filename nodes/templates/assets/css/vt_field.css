@@ -658,3 +658,20 @@ a.vt-needs-btn {
     box-shadow: inset 0 0 0 1px var(--vt-edge-info);
     font-weight: 700;
 }
+
+/* ============ P7: log toolbar — active toggles are tonal (like .vt-sel),
+   not solid blocks; each level keeps its own colour */
+#div_log_toolbar .btn { border-radius: var(--vt-r-tag); }
+#div_log_toolbar .btn-outline-info.active,
+#div_log_toolbar .btn-outline-info:active {
+    color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.16); border-color: var(--vt-edge-info);
+}
+#div_log_toolbar .btn-outline-warning.active { color: var(--vt-warn); background: rgba(var(--vt-warn-rgb), 0.14); border-color: var(--vt-edge-warn); }
+#div_log_toolbar .btn-outline-danger.active  { color: var(--vt-err);  background: rgba(var(--vt-err-rgb), 0.16);  border-color: var(--vt-edge-err); }
+#div_log_toolbar .btn-outline-secondary.active { color: var(--vt-text); background: rgba(255, 255, 255, 0.08); border-color: var(--vt-border-strong); }
+#div_log_toolbar .form-control {
+    color: var(--vt-text); background-color: rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-tag);
+}
+#div_log_toolbar .form-control::placeholder { color: var(--vt-faint); }
+#div_log_toolbar .form-control:focus { border-color: var(--vt-edge-info); box-shadow: 0 0 0 0.15rem rgba(var(--vt-accent-rgb), 0.2); }

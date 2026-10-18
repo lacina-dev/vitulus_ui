@@ -4010,7 +4010,7 @@ function robotEventClassify(value, hintedSource) {
         severity = 'critical';
     } else if (/(warning|varov|slab|degrad|nedostup|unavailable|blocked|čeká na schválení|ztrác)/i.test(n)) {
         severity = 'warning';
-    } else if (/(obnoven|recovered|restored|connected|připojen|dokončen|hotovo|docked|v doku|nabito|charged|fix získán|fix acquired)/i.test(n)) {
+    } else if (/(obnoven|recovered|restored|connected|success|připojen|dokončen|hotovo|docked|v doku|nabito|charged|fix získán|fix acquired)/i.test(n)) {
         severity = 'good';
     }
     var source = hintedSource || 'Robot';
