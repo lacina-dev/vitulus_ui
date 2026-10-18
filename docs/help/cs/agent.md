@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a zámek doku.
 ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-zámek-doku, agent/models#modely, needs#čeká-na-tebe]
 related: [safety, dock, support]
-keywords: [model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master]
+keywords: [model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
 ---
 # Agent Vitulus
 
@@ -51,6 +51,59 @@ ok: Hlášení | hotovo, nebo proč ne
 
 Pokračovat a rušit jde jen těmito pevnými slovy — nikdy podle odhadu modelu. Karta mise má totéž
 jako tlačítka (**Pokračovat**, **Zrušit**) a **Navázat** předvyplní `pokračuj na N: `.
+
+## Když krok selže
+
+Agent to po prvním nezdaru nevzdá. **Změří, co se pokazilo**, a sám zkusí vhodnou jinou cestu;
+ty dostaneš jen krátké hlášení.
+
+```flow
+Krok selže | třeba nenašel cestu na TEST
+Změřit | hlášky doku, kódy navigace, GPS, supervisor
+Vybrat | nejlepší ještě nezkoušenou možnost
+Zkusit | a pak krok znovu
+warn: Nic nezbývá | robot venku → zpátky do doku
+bad: Ani to ne | stop, motory vypnout, ptá se tebe
+```
+
+Z čeho vychází: z vlastních hlášek dokovací sekvence (stejné, jaké ukazuje displej robota, např.
+*Navigation readiness timeout*, *Intensity timeout*), z výsledkových kódů navigace (*no path
+found*, *path blocked*, *robot stuck*, *oscillation*), ze stavu GPS/RTK, z baterie a ze
+supervisoru.
+
+| Co se stalo | Co agent zkusí (v tomhle pořadí, nejlepší první) |
+|---|---|
+| po výjezdu z doku chybí RTK | čeká na RTK nejvýš 10 min (displej *waiting RTK (2/10 min)*), pak pokračuje |
+| nenašla se cesta / navigace to vzdala | krátká pauza a nový plán; pak přes jiný pojmenovaný bod (z druhé strany) |
+| cesta je zablokovaná | počká 30 s, jestli překážka zmizí; pak přes jiný bod |
+| robot uvízl / kmitá | nový plán; přes jiný bod |
+| zajetí do doku selhalo (odrazka, jízda podle mapy) | zajede znovu před dok (UNDOCK) a dokuje odtamtud; pustí dokovací program znovu |
+| motory jsou vypnuté | zapne motory a zkusí to znovu |
+| robot je ještě v doku | nejdřív vyjede z doku |
+
+- Bod pro objížďku vybere [model světa](#co-agent-vidí) agenta (pojmenovaný bod, kam opravdu
+  dojede); bez něj agent zvolí nejkratší cestu kolem sám.
+- Každá možnost má odhad úspěchu; co na tomhle robotu už dřív pomohlo, má přednost (agent si
+  pamatuje výsledek každého pokusu, viz [Co se agent naučí](#co-se-agent-naučí)).
+- Meze: nejvýš 8 pokusů na misi, 4 na jeden krok, 30 min zkoušení. I každý pokus potřebuje zámek
+  doku a supervisor jako kterýkoli jiný pohyb. Jeden pohyb ze zámku doku si agent vždycky nechá
+  na cestu domů.
+- **Teprve když nic nezbývá** a robot je venku, **zajede zpátky do doku**; mise pak skončí jako
+  *nedoběhla* s důvodem. Když selže i zajetí do doku, robot zastaví, motory se vypnou a chat se
+  zeptá tebe (`pokračuj`, až to půjde dál).
+- **Nikdy se nezkouší znovu:** převzetí člověkem (gamepad, joystick), STOP, nůž a hranice polohy.
+  Mise počká na tebe.
+- Co robot zatím neumí (couvnout kousek zpět, vyčistit costmapy, dokovat jiným způsobem, cíl
+  kousek vedle bodu), založí agent jako **návrh nové schopnosti**; přidá se jen běžnou kontrolou,
+  nikdy za jízdy.
+
+### Co ukazuje displej robota
+
+Během mise ukazuje druhý řádek displeje robota, co agent dělá nebo na co čeká — krátce, anglicky,
+jen při změně (nejvýš jedna zpráva za pár sekund), například *Agent: driving to TEST*, *Agent:
+waiting RTK (2/10 min)*, *Agent: trying another way*, *Agent: returning to dock*, *Agent: waiting:
+owner unlock dock*, *Agent: need help - see app*. Totéž česky jde do chatu a do pruhu stavu
+agenta.
 
 ## Práce (schválení a úlohy)
 

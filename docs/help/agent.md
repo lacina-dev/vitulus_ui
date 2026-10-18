@@ -82,8 +82,10 @@ supervisor.
 | motors off | switches the motors on and tries again |
 | still in the dock | undocks first |
 
+- The waypoint for a detour comes from the agent's [world model](#what-the-agent-can-see) (a
+  named point it can actually reach); without it the agent picks the shortest way round itself.
 - Each alternative has an estimated chance; what helped before on this robot ranks higher (the
-  agent remembers the outcome of every attempt).
+  agent remembers the outcome of every attempt, see [What the agent learns](#what-the-agent-learns)).
 - Limits: at most 8 alternatives per mission, 4 per step, 30 min of trying. Every attempt still
   needs the dock lock and the supervisor, like any other move. One move of the dock lock is always
   kept for the way home.

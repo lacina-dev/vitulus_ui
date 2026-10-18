@@ -4,9 +4,9 @@ title: Řešení problémů
 group: When something is wrong
 order: 200
 icon: la-wrench
-summary: Robot nejede, není vidět mapa, GPS nechytá fix, zajetí do doku selže nebo se zruší, FAULT supervisoru, agent po restartu, UI nereaguje.
+summary: Robot nejede, není vidět mapa, GPS nechytá fix, zajetí do doku selže nebo se zruší, FAULT supervisoru, mise nedoběhla, agent po restartu, UI nereaguje.
 related: [safety, localization, dock, agent, support]
-keywords: [problém, problem, chyba, error, fault, nefunguje, not working, nejede, nehýbe se, does not move, uvízl, stuck, rozbité, broken, oprava, fix, pomoc, help, restart, obnovit, reload, rosbridge, dokování zrušeno, docking cancelled, stop sekačky, mower stop, znovu připojit, reconnect]
+keywords: [problém, problem, chyba, error, fault, nefunguje, not working, nejede, nehýbe se, does not move, uvízl, stuck, rozbité, broken, oprava, fix, pomoc, help, restart, obnovit, reload, rosbridge, dokování zrušeno, docking cancelled, stop sekačky, mower stop, znovu připojit, reconnect, mise nedoběhla, mission not finished, zpátky v doku, returned to dock, need help]
 ---
 # Řešení problémů
 
@@ -57,6 +57,9 @@ Projdi v tomhle pořadí:
 3. Volné nebe, pár minut trpělivosti, běžící základnová stanice.
 4. `FIX` bez `GBAS` = žádné korekce RTK.
 5. Pořád nic → nahraj *Forenzní záznam GNSS* (**Nastavení › Rosbag**) a nahlas to.
+6. V misi agenta čeká agent po nepovedeném výjezdu z doku na RTK sám (nejvýš 10 min, displej
+   píše *Agent: waiting RTK*); bez RTK zajede zpátky do doku
+   ([Když krok selže](agent.md#když-krok-selže)).
 
 ## Zajetí do doku selže
 
@@ -67,7 +70,8 @@ Projdi v tomhle pořadí:
 4. Odrazka se nenašla → očisti odrazku, dojeď s robotem pár metrů před dok čelem k němu a zkus
    to znovu. **Mapa › Dok › Dok podle odrazivosti** vyzkouší jen tuhle fázi.
 5. Nepovedená sekvence se sama neopakuje; stav *failed* = přerušeno, detektory vypnuté, cíl
-   zrušený.
+   zrušený. Mise agenta to ale zkusí znovu: zajede znovu před dok (UNDOCK) a dokuje odtamtud
+   ([Když krok selže](agent.md#když-krok-selže)).
 
 ## FAULT supervisoru
 
@@ -75,6 +79,16 @@ Chat agenta píše, že supervisor je ve FAULT. Opakovaně zastavuje robota, dok
 bezpečno; sám se uvolní, jakmile robot stojí aspoň 10 s s vypnutými motory i nožem. Zaparkovaná
 mise pak většinou pokračuje sama; když řízení převzal člověk, čeká na `pokračuj`. Podrobnosti:
 [FAULT supervisoru](agent.md#fault-supervisoru).
+
+## Mise agenta nedoběhla
+
+- *Robot je zpátky v doku, ale úloha nedoběhla*: agent zkusil své jiné možnosti, žádná nevyšla,
+  tak robota přivezl domů. Chat napíše příčinu a každý pokus (*Zotavení cestou*). Odstraň příčinu
+  (překážka, žádné RTK, bod na špatném místě) a zadej úkol znovu.
+- *Need help - see app* na displeji: selhalo i zajetí do doku; robot stojí s vypnutými motory.
+  Podívej se na něj, pak napiš `pokračuj` nebo ho domů dovez sám.
+- Mise čeká po převzetí, STOPu nebo kvůli noži: tohle agent nikdy sám znovu nezkouší — napiš
+  `pokračuj`, až bude bezpečno.
 
 ## Dokování se zrušilo bez důvodu
 
