@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master]
+keywords: [learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master]
 ---
 # Vitulus agent
 
@@ -129,6 +129,35 @@ verdict: fix now / later / monitor / ignore), **Resolve**, **Undo ignore**, and 
 Repairs by itself change only the agent's own code, never driving, mowing or safety (those are
 only proposed), and never while a mission runs. You get a short message *Problem · Reasoning ·
 Fix · Verification* with *Vrátit zpět* (revert) and *Příště ignorovat* (ignore next time).
+
+## What the agent learns
+
+Every mission is kept as an **episode**: the task, map, waypoint, time of day and light, rain,
+RTK, battery, CPU load and code version, every step that failed (with its failure class and the
+raw reason), what the agent tried next and whether it helped, how long each step took, and the
+end. From these it counts — simply and visibly, no black box:
+
+- **which recovery helps** for which failure, as a smoothed success rate with the counts it is
+  made of (*via waypoint X helped 3/3 here, 4/5 for this action*); a recovery tried 3× that never
+  helped is marked *don't repeat*;
+- **how long steps really take** (*undock after the map: median 150 s, max 170 s — keep the step
+  limit at least 255 s*);
+- **lessons** from its reflection — all of them, also those that no longer fit its short memory.
+
+Besides single recoveries it keeps whole **strategies**: which tools and steps solved a kind of
+situation, which one was decisive, which were useless, how long it took and what it cost (model
+calls, CPU). It recalls them by how **similar** the situation is — localization, GPS, obstacle,
+light, terrain; the place is only one of the features — so a way that worked on one map is tried
+on another, and a strategy that keeps failing stops being preferred. Ask `jak bys to řešil`
+(optionally with the problem, e.g. *…když je ztracená lokalizace*) to see what it would do and why.
+
+The result is the agent's **playbook**: the planner and the mission decider read it, and you can
+too — write `co ses naučil` or `/naucil` in **Chat** (the full playbook is the file
+`~/.vitulus/agent/playbook.md`).
+
+When the same failure keeps coming back and nothing it knows helps, the agent opens a **finding**
+for it by itself (**Findings**), and the usual path follows: analysis, and a repair through tests
+— never while a mission is running.
 
 ## Models
 
