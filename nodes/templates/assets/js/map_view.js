@@ -2101,9 +2101,59 @@ class JoyTeleop {
         this._speed_lin = 0.4;
         this._speed_ang = 1.3;
         this.joystickContainer = document.getElementById("joy_view");
+        /* 2026-10-18 (owner): the drive DECK — stick + speed + motors +
+           keyboard, small, in the right column on the big STOP. Speed and motors are functional and show
+           only what the robot reports (/navi_manager/speed via
+           MoveBaseControl, /base/motor_power_state via MotorControl); the
+           page never switches the motors on by itself. */
         this.joy = window.VTJoy.create(this.joystickContainer, {
-            onCommand: (lin, ang) => this.moveAction(lin, ang)
+            deck: true,
+            onCommand: (lin, ang) => this.moveAction(lin, ang),
+            onSpeed: (k) => {
+                const mbc = window.move_base_control;
+                if (!mbc) return;
+                if (k === 'slow') mbc.btn_speed_slow_onclick();
+                else if (k === 'moderate') mbc.btn_speed_moderate_onclick();
+                else if (k === 'fast') mbc.btn_speed_fast_onclick();
+            },
+            // the same /base/motor_power the Settings › Motors ON / OFF use
+            onMotors: (on) => {
+                const mc = window.motors_control;
+                if (!mc) return;
+                if (on) mc.motors_on(); else mc.motors_off();
+            }
+            // STOP: the big one at the foot of the right column (vt_frame.js #vt_stop_big)
         });
+        this._watchOwner(ros);
+    }
+
+    /* Who else has the robot right now — the stick is locked (amber) with
+       the reason; "Take over" unlocks it on purpose (a deflected stick then
+       cancels that task, as the mux always did). Read-only subscriptions. */
+    _watchOwner(ros) {
+        const st = {mux: null, busy: false, prog: '', dock: null, nav: false};
+        const paint = () => {
+            let k = null;
+            if (st.mux === 'ds4') k = 'ds4';
+            else if (st.mux === 'primitive') k = 'agent';
+            else if (st.dock === 1) k = 'undock';
+            else if (st.dock === 2) k = 'dock';
+            else if (st.busy || st.prog) k = 'program';
+            else if (st.nav) k = 'nav';
+            this.joy.setOwner(k, k ? vtT('joy.owner.' + k, {p: st.prog}) : '');
+        };
+        const sub = (name, type, fn, thr) => new ROSLIB.Topic({
+            ros: ros.ros, name: name, messageType: type, queue_length: 1, throttle_rate: thr || 0
+        }).subscribe((m) => { fn(m); paint(); });
+        sub('/cmd_vel_mux/active', 'std_msgs/String', (m) => { st.mux = m.data; });
+        sub('/mower_smach/busy', 'std_msgs/Bool', (m) => { st.busy = !!m.data; });
+        sub('/mower_smach/active_program', 'std_msgs/String', (m) => { st.prog = String(m.data || '').trim(); });
+        sub('/dock_smach/dock_status', 'std_msgs/Int8', (m) => { st.dock = Number(m.data); });
+        // a navigation goal being driven (MBF exe_path ACTIVE / PREEMPTING)
+        sub('/move_base_flex/exe_path/status', 'actionlib_msgs/GoalStatusArray', (m) => {
+            st.nav = (m.status_list || []).some((g) => g.status === 1 || g.status === 6);
+        }, 1000);
+        vtOnLang(paint);
     }
 
     moveAction(linear, angular) {
@@ -4560,8 +4610,9 @@ class MoveBaseControl {
         // (vt_joy.js) and publishes through the same /teleop/cmd_vel path; the old
         // KEYBOARDTELEOP published zeros at 10 Hz forever after the first key
         // and drove the robot while typing in a text field.
+        // 2026-10-18: the keyboard switch lives in the drive deck (vt_joy.js)
         this.checkbox_keyboard = document.getElementById('checkbox_keyboard_teleop');
-        this.checkbox_keyboard.checked = false;
+        if (this.checkbox_keyboard) this.checkbox_keyboard.checked = false;
 
         this.init();
     }
@@ -4583,6 +4634,10 @@ class MoveBaseControl {
         else if (speed === 'FAST') { fast = blue; label = 'FAST'; }
         else { return; }  // unknown value, leave UI untouched
         this.set_local_speed(label === 'MODERATE' ? 'moderate' : label.toLowerCase());
+        // the drive deck highlights ONLY what the robot reports
+        if (this.joy_teleop && this.joy_teleop.joy.setSpeedKey) {
+            this.joy_teleop.joy.setSpeedKey(label === 'MODERATE' ? 'moderate' : label.toLowerCase());
+        }
         vtSel(this.btn_menu_speed_low, low === blue);
         vtSel(this.btn_menu_speed_moderate, moderate === blue);
         vtSel(this.btn_menu_speed_fast, fast === blue);
@@ -7858,9 +7913,11 @@ window.initMapView = function () {
         update_status_bar_info(vtT("mapview.estop"));
     }
 
-    move_base_control.checkbox_keyboard.onclick = function() {
-        joy_teleop.joy.setKeyboard(!!this.checked);
-    };
+    if (move_base_control.checkbox_keyboard) {
+        move_base_control.checkbox_keyboard.onclick = function() {
+            joy_teleop.joy.setKeyboard(!!this.checked);
+        };
+    }
 
     // U2: opening the page no longer PUBLISHES "MEDIUM" (it reset the speed a
     // program or another browser had set); it follows /navi_manager/speed.
@@ -7884,15 +7941,13 @@ window.initMapView = function () {
     move_base_control.btn_menu_speed_low.onclick = function () {
         move_base_control.btn_speed_slow_onclick();
     };
-    move_base_control.btn_menu_speed_fast_sm.onclick = function () {
-        move_base_control.btn_speed_fast_onclick();
-    };
-    move_base_control.btn_menu_speed_moderate_sm.onclick = function () {
-        move_base_control.btn_speed_moderate_onclick();
-    };
-    move_base_control.btn_menu_speed_low_sm.onclick = function () {
-        move_base_control.btn_speed_slow_onclick();
-    };
+    // (the right panel's Slow / Mid / Fast moved into the drive deck)
+    [['btn_menu_speed_fast_sm', 'btn_speed_fast_onclick'],
+     ['btn_menu_speed_moderate_sm', 'btn_speed_moderate_onclick'],
+     ['btn_menu_speed_low_sm', 'btn_speed_slow_onclick']].forEach(function (d) {
+        var b = move_base_control[d[0]];
+        if (b) b.onclick = function () { move_base_control[d[1]](); };
+    });
 
 
     function resize() {

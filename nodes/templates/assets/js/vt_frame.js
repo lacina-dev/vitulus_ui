@@ -16,6 +16,7 @@
 
     var DOCK_MIN_W = 1024, DOCK_MIN_H = 500, SHEET_MAX_W = 576, LOG_MIN_W = 420;
     var SPINE = 12, SPINE_PHONE = 6;
+    var COL_W = 196, COL_MIN_W = 180;  // the right column (right panel width; right_dock.js PANEL_W)
     var JOY_BESIDE_MIN = 240;          // C frame 3: min. room for the right panel above the stick   // C frame: the back of the C when the panel is hidden
     var LS_LAST = 'vitulus_last_panel';
     var BTN_FOR = {marker: 'btn_marker', map: 'btn_map', program: 'btn_programs',
@@ -110,6 +111,23 @@
         // bottom bar zone
         var bm = $('div_bottom_menu');
         var bh = bm ? Math.max(0, H - bm.getBoundingClientRect().top) : 0;
+        // the drive deck + the big STOP (owner 2026-10-18): on a PC / landscape
+        // they are the RIGHT COLUMN's foot — the width of the right panel,
+        // STOP standing on the bottom bar, the deck on STOP; on a phone held
+        // upright (where the right panel is a row across the screen) the deck
+        // is a band across the screen on the bottom bar, the bottom of the C,
+        // and everything else ends on its top (STOP: the bottom bar's own)
+        var joy = $('joy_view');
+        var joyOn = visible(joy);
+        var band = joyOn && m === 'sheet' && joy.classList.contains('vt-joy-deck');
+        var rpEl = $('right_panel');
+        var colW = COL_W;
+        if (m !== 'sheet' && visible(rpEl)) { colW = Math.max(COL_MIN_W, W - rpEl.getBoundingClientRect().left); }
+        setVar('--vt-frame-col-w', px(colW));
+        var barH = bh;
+        if (band) { bh += joy.offsetHeight; }
+        setCls(body, 'vt-joy-band', band);
+        setVar('--vt-frame-bar-h', px(barH));
         setVar('--vt-frame-bottom', px(bh));
         // left panel
         var occ = 0;
@@ -139,10 +157,16 @@
         var logFull = logVis && log.classList.contains('log-expanded');
         var lh = (logVis && !logFull) ? log.offsetHeight : 0;
         setVar('--vt-frame-log-h', px(lh));
-        var joy = $('joy_view');
-        var joyOn = visible(joy);
         setCls(body, 'vt-joy-on', joyOn);
-        var jw = joyOn ? joy.offsetWidth : 0;
+        var stopEl = $('vt_stop_big');
+        var stopOn = visible(stopEl);
+        var stopH = stopOn ? stopEl.offsetHeight : 0;
+        setVar('--vt-frame-stop-h', px(stopH));
+        // the right column's foot: STOP (+ the deck on it)
+        var colOn = !band && (joyOn || stopOn);
+        var colH = colOn ? stopH + (joyOn ? joy.offsetHeight : 0) : 0;
+        setCls(body, 'vt-col-on', colOn);
+        var jw = colOn ? colW : 0;
         // the small log rises from the bottom bar, from the back of the C;
         // when the open panel leaves it too little room it runs under the
         // panel instead (the panel then stands on it)
@@ -153,13 +177,14 @@
         // the joystick stands on the bottom bar at the right edge, beside the
         // small log — or ON the log when the two would not fit side by side
         // (phone in portrait)
-        var joyOnLog = joyOn && lh > 0 && (W - logLeft - jw) < LOG_MIN_W;
+        var joyOnLog = colOn && lh > 0 && (W - logLeft - jw) < LOG_MIN_W;
         setCls(body, 'vt-joy-on-log', joyOnLog);
         setVar('--vt-frame-log-left', px(logLeft));
-        setVar('--vt-frame-log-right', px(joyOn && !joyOnLog ? jw : 0));
+        setVar('--vt-frame-log-right', px(colOn && !joyOnLog ? jw : 0));
         setVar('--vt-frame-joy-w', px(jw));
-        setVar('--vt-frame-joy-b', px(bh + (joyOnLog ? lh : 0)));
+        setVar('--vt-frame-joy-b', px(band ? barH : bh + (joyOnLog ? lh : 0)));
         setVar('--vt-frame-ledge', px(bh + lh));       // top of the bottom bar + small log
+        var colTop = H - (bh + (joyOnLog ? lh : 0)) - colH;
         setCls(body, 'vt-c-log', lh > 0);
 
         // right panel: hangs from the top band at the right edge
@@ -177,8 +202,8 @@
         // an unfolded right panel on a low window (landscape phone) would be
         // squeezed to a sliver above the stick: the stick then stands beside
         // the panel's column instead, and the column runs down to the ledge
-        var joyBeside = joyOn && rpOn && rpFull && m !== 'sheet' &&
-            (H - (bh + (joyOnLog ? lh : 0)) - joy.offsetHeight - top) < JOY_BESIDE_MIN;
+        var joyBeside = colOn && joyOn && rpOn && rpFull && m !== 'sheet' &&
+            (H - (bh + (joyOnLog ? lh : 0)) - colH - top) < JOY_BESIDE_MIN;
         setCls(body, 'vt-joy-beside-rp', joyBeside);
         setVar('--vt-frame-joy-r', px(joyBeside ? rpw : 0));
         setVar('--vt-frame-rp-w', px(rpw));
@@ -187,7 +212,7 @@
         // right panel / the joystick (never under them, never over the notices)
         var flr = 0;
         if (rpOn && m !== 'sheet') { flr = Math.max(flr, W - rp.getBoundingClientRect().left + 8); }
-        if (joyOn && m !== 'sheet') { flr = Math.max(flr, jw + 8); }   // phone: the stick stays on top of it
+        if (colOn && m !== 'sheet') { flr = Math.max(flr, jw + 8); }   // phone: the stick stays on top of it
         // P21 (desktop): below the right panel the full log reaches on to the
         // joystick (or the right edge) — an L: a notch the size of the right
         // panel is cut out of its top-right corner (clip-path in vt_panel.css),
@@ -198,27 +223,27 @@
             // seamless: the log meets the panel's column and the stick edge to
             // edge (same frame surface) — no 8 px seams of map in between
             var stepY = rpb - logTop;
-            var flrExt = joyOn ? jw : 0;
+            var flrExt = jw;
             var notch = (W - rp.getBoundingClientRect().left) - flrExt;
             if (stepY > 0 && notch > 0 && (H - bh) - rpb > 60) {
                 lshape = true;
                 flr = flrExt;
                 // P23: the map window left between the panel's foot and the
                 // stick gets the hollow's round inner corners (#vt_c_wt/_wb)
-                if (joyOn) {
+                if (colOn) {
                     setVar('--vt-win-top', px(rpb));
-                    setVar('--vt-win-bot', px(joy.getBoundingClientRect().top));
+                    setVar('--vt-win-bot', px(colTop));
                 }
                 setVar('--vt-log-step-y', px(stepY));
                 setVar('--vt-log-notch-w', px(notch));
             }
         }
         setCls(body, 'vt-c-logfull-l', lshape);
-        setCls(body, 'vt-c-logwin', lshape && joyOn);
+        setCls(body, 'vt-c-logwin', lshape && colOn);
         setVar('--vt-frame-logfull-r', px(flr));
         // P26: phone portrait, panel closed — the full log ends above the
         // stick instead of running under it
-        setVar('--vt-frame-joy-top', px(joyOn ? joy.getBoundingClientRect().top : H));
+        setVar('--vt-frame-joy-top', px(joyOn ? joy.getBoundingClientRect().top : (colOn ? colTop : H)));
         setCls(body, 'vt-c-logfull', logFull);
         setCls(body, 'vt-c-logfull-edge', logFull && flr === 0);
 
@@ -236,7 +261,7 @@
         if (m === 'sheet' && open && joyOn && drawer) {
             // the free band ends at the notices AND the right panel's row
             var avail = H - bh - Math.max(nb, rpb);
-            var jh = joy.offsetHeight || 150;
+            var jh = band ? 0 : (joy.offsetHeight || 150);   // the band is already in bh
             setVar('--vt-frame-sheet-max', px(Math.max(160, avail - jh - 24)));
             setVar('--vt-frame-sheet-h', px(drawer.offsetHeight));
         } else {
@@ -424,6 +449,25 @@
             c.setAttribute('aria-hidden', 'true');
             document.body.appendChild(c);
         });
+        // the big STOP (owner 2026-10-18): always on screen at the foot of the
+        // right column (PC / landscape), the same global stop as the bottom
+        // bar's STOP — it presses that button, nothing of its own
+        var st = document.createElement('button');
+        st.type = 'button';
+        st.id = 'vt_stop_big';
+        st.innerHTML = '<span class="vt-stop-ico" aria-hidden="true"></span><span class="vt-stop-lbl"></span>';
+        tag(st.querySelector('.vt-stop-lbl'), 'joy.stop');
+        st.title = tr('joy.stop.tip');
+        st.setAttribute('aria-label', tr('joy.stop.tip'));
+        tag(st, 'joy.stop.tip', 'title');
+        tag(st, 'joy.stop.tip', 'aria-label');
+        st.addEventListener('click', function (e) {
+            e.preventDefault();
+            try { if (window.joy_teleop && window.joy_teleop.joy) { window.joy_teleop.joy.release(); } } catch (err) { /* the stop below still runs */ }
+            var b = $('btn_stop_all');
+            if (b) { b.click(); }
+        });
+        document.body.appendChild(st);
         // large camera: the map shrinks into the right panel's camera slot;
         // this cover takes the clicks there (never a goal / marker click on
         // the tiny map) and swaps back
@@ -461,7 +505,7 @@
         if (fb) { fb.addEventListener('click', function () { setTimeout(schedule, 50); }); }
         if (window.ResizeObserver) {
             var ro = new ResizeObserver(schedule);
-            ['row_menu', 'div_bottom_menu', 'ui_drawer', 'right_panel', 'div_log_view'].forEach(function (id) {
+            ['row_menu', 'div_bottom_menu', 'ui_drawer', 'right_panel', 'div_log_view', 'joy_view'].forEach(function (id) {
                 if ($(id)) { ro.observe($(id)); }
             });
             // P20: the compact (landscape) panel head floats over the tab row —

@@ -969,6 +969,10 @@
         if (window.innerWidth < 576 && !frame) { placeLog(); }   // log under icons + notices
         var vw = window.innerWidth, vh = window.innerHeight;
         var joy = rectOf('joy_view');
+        /* the big STOP at the foot of the right column (vt_frame.js): the
+           panel ends above it like above the stick (the topmost of the two) */
+        var stp = rectOf('vt_stop_big');
+        if (stp && stp.top > 0 && !(joy && joy.top > 0 && joy.top < stp.top)) { joy = stp; }
         var bar = rectOf('div_bottom_menu');
         var bottomLimit = vh - 8;
         if (bar && bar.top > 0) { bottomLimit = bar.top - 6; }

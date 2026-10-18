@@ -49,7 +49,8 @@ opens) slides fully into view; with the keyboard **←** / **→** move between 
 
 **STOP** · **Joystick** · **Follow** · **Log** (on a phone with a free gap in the middle for the
 system gesture). **STOP** is always bottom left, never moves and never shrinks
-([Safety](safety.md#stop)). **Follow** makes the map view follow the robot.
+([Safety](safety.md#stop)); on a PC the same stop is also the big **STOP** at the foot of the
+right column ([below](#drive-by-hand-joystick)). **Follow** makes the map view follow the robot.
 
 ## The right panel
 
@@ -68,8 +69,7 @@ explanations lives in the left panel. **Mower**, **Navi** and **GNSS** therefore
 red = a fault or no data where there should be some · grey = off, paused or nothing to show.
 
 - **Controls** — title row: ⚡ (green = in the dock / charging), the battery %, `MOT` (motors:
-  green on, orange off, grey unknown). Below: speed **Slow / Mid / Fast**, keyboard driving and
-  **Dock / Undock / Stop** ([Dock and undock](dock.md)).
+  green on, orange off, grey unknown). Below: **Dock / Undock / Stop** ([Dock and undock](dock.md)).
 - **Mower** — only while the mower is switched on. Title row: the status chip (`READY`, `RUN`,
   `HEIGHT`, `ERR`…), a blade dot (green = spinning) with the RPM (`3.2k`), the temperature only
   when it is hot, and the blade buttons **▶ Start** / **■ Stop** — the same as Settings › Mower ›
@@ -101,7 +101,7 @@ fits on one screen, so the small camera picture is in view without scrolling (op
 may scroll). On a phone (upright or on its side) the right panel is a collapsed row (map, pose,
 GNSS, a mower dot while the mower is on, battery, camera, ▾) — ▾ unfolds it.
 
-![The Controls section of the right panel with numbered markers](img/shot-controls.webp "Controls: 1 speed Slow / Mid / Fast · 2 keyboard driving · 3 battery · 4 Dock · 5 Undock · 6 Stop (of the dock sequence)") ![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Navi, expanded: 1 who owns the pose · 2 heading source · 3 odometry dot · 4 detail icon to Map › Loc · 5 odometry chips (hover = what + number) · 6 tracker line")
+![The Controls section of the right panel with numbered markers](img/shot-controls.webp "Controls: 1 battery · 2 MOT (drive motors) · 3 Dock · 4 Undock · 5 Stop (of the dock sequence). Speed, motors and keyboard driving are in the drive deck.") ![The Navi section of the right panel with numbered markers](img/shot-navi.webp "Navi, expanded: 1 who owns the pose · 2 heading source · 3 odometry dot · 4 detail icon to Map › Loc · 5 odometry chips (hover = what + number) · 6 tracker line")
 
 ![The Mower section of the right panel with numbered markers](img/shot-rp-mower.webp "Mower (only while it is on), expanded: 1 status · 2 blade dot and RPM · 3 ▶ Start / ■ Stop of the blade · 4 Blade / Height / Temp") ![The GNSS section of the right panel with numbered markers](img/shot-rp-gnss.webp "GNSS, expanded: 1 Position fix · 2 Heading fix · 3 satellites used · 4 correction age · 5 detail icon to Map › Loc · 6 Position | Heading quick numbers")
 
@@ -153,17 +153,48 @@ only while a layer is on and the camera is shown; with every layer off it does n
 
 ## Drive by hand (joystick)
 
-**Joystick** in the bottom bar shows the stick in the bottom right of the map (on a phone it stays
-above an open sheet).
+**Joystick** in the bottom bar shows the **drive deck**: a small panel exactly as wide as the
+right panel, in the same column at the right edge, standing on the big **STOP** (on a phone
+held upright a band across the screen on the bottom bar). The stick with a narrow column of
+controls beside it:
 
-![The web joystick with numbered markers: speed mode, motor state, the stick and the speed readout](img/shot-joystick.webp "1 speed mode · 2 drive motors (here OFF — nothing moves) · 3 the stick · 4 the speed it sends")
+![The drive deck and the big STOP with numbered markers](img/shot-joystick.webp "1 the stick (the ring = speed cap and state) · 2 speed Slow / Mid / Fast · 3 drive motors · 4 keyboard driving · 5 the big STOP")
 
-- Push to drive: forward / back = speed, sideways = turn. Near the centre it is fine, at the rim
-  full speed (of Slow / Mid / Fast). **Let go = stop.**
-- It shows the speed mode and whether the drive motors are on — **with motors OFF nothing
-  moves** (switch them on in Settings › Motors).
-- Keyboard: tick the box next to the keyboard icon in the right panel's **Controls**, then
-  **W A S D** or the arrows, **Shift** = half speed. Never while typing in a field.
+1. **The stick** — forward / back = speed, sideways = turn.
+2. **Slow / Mid / Fast** — the robot's speed mode for the joystick and navigation
+   ([Speed](routes.md#speed)). The lit one is what the **robot reports**; a click blinks until
+   the robot confirms it. Hover: the joystick's top speed (`max … m/s`).
+3. **MOT ON / MOT OFF** — one toggle for the drive motors (the same as Settings › Motors): green
+   = on, grey = off, as the robot reports; click switches them. The page never switches the
+   motors on by itself.
+4. **Keys** — keyboard driving on / off (**W A S D** or the arrows, **Shift** = half speed, never
+   while typing in a field). Not shown on touch screens.
+5. **STOP** — see below.
+
+How the stick behaves:
+
+- A small **dead zone** in the middle (10 % of the radius), then a soft curve: small pushes are
+  fine and slow, the rim is full speed of the mode.
+- Pushed almost straight (within ±9°) it drives **exactly straight**; pushed almost sideways it
+  **turns on the spot** — the locked axis lights up.
+- The **ring** is the speed cap, coloured by state: **green** = free to drive; **amber** = a
+  mowing program, docking / undocking, a navigation goal, the agent or the DS4 gamepad has the
+  robot — the stick is locked (hover says who) and **Take over** in the stick unlocks it on
+  purpose (moving it then cancels that task); **grey** = motors off (locked) or unknown.
+- Two arcs show the command: the outer one the speed (top = forward, bottom = back), the inner
+  orange one the turn.
+- **Let go = stop.** The robot gets one softened command and then zero within 50 ms; the knob
+  springs back. Losing the touch, switching tab or window, or a dropped connection stops it at
+  once. It sends 20 commands a second while you hold it and nothing while you don't; when the
+  page stalls (a command more than 250 ms late) it stops by itself.
+- One finger drives; a second finger on the stick is ignored.
+- On a phone held upright the stick is on the right (thumb), speed and motors on its left with
+  one line of hint under them; an open panel (sheet) stands on the deck.
+
+**The big STOP** (PC, tablet, landscape phone) stands at the foot of the right column, always
+visible — with or without the joystick — and never covered by a panel. It is the same full stop
+as the bottom bar's STOP ([Safety](safety.md#stop)); it also lets go of the stick at once. On a
+phone held upright the bottom bar's STOP is the big one (56 px, bottom left under the thumb).
 
 > [!WARNING]
 > Pushing the joystick takes over from the software: it **cancels** the navigation goal, docking
@@ -175,8 +206,8 @@ above an open sheet).
 ![The log expanded over the map, with its toolbar and numbered markers](img/shot-log.webp "The expanded log: 1 Changes · 2 ROS · 3 Live · 4 Clear · 5 ▼ Collapse · 6 ? help")
 
 **Log** in the bottom bar shows the log as a strip above the bar. **▲** (expand) makes it fill
-the map area, **▼** (collapse) shrinks it back; **Log** again hides it. The joystick always stays
-above the small log.
+the map area, **▼** (collapse) shrinks it back; **Log** again hides it. With the joystick on,
+the small log stands on the drive deck.
 
 The full log has a toolbar:
 
@@ -192,4 +223,4 @@ The full log has a toolbar:
 | **Alt+P** | show / hide the left panel |
 | **Esc** | close the help; hide the left panel (not while typing, a dialog or the full log is open) |
 | **Alt+C** | camera small ↔ large |
-| **W A S D**, arrows | drive (with the keyboard box ticked in the right panel), **Shift** = half speed |
+| **W A S D**, arrows | drive (with **Keys** switched on in the drive deck), **Shift** = half speed |

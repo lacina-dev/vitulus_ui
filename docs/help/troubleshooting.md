@@ -16,13 +16,13 @@ Start with the **status icons** (anything red or grey?), the **status bar** unde
 
 ## The robot does not drive
 
-![The web joystick showing MOTORS OFF](img/shot-joystick.webp "The joystick says it first: MOTORS OFF (2) = nothing moves.")
+![The drive deck](img/shot-joystick.webp "The drive deck says it first: the ring is grey and the stick says *motors off*; MOT OFF (3) — click it to switch them on.")
 
 Check in this order:
 
 1. **Motors off?** After every start, restart and STOP the drive motors are OFF. The joystick
    shows it, the log says *Motors are OFF – turn motors on to move/dock*. →
-   **Settings › Motors › ON**.
+   **MOT OFF → ON** in the drive deck (or **Settings › Motors › ON**).
 2. **Did a person take over?** Moving the gamepad stick (or PS / L1 / R1) or the UI joystick
    cancels the goal, docking and a running program, and the software stays stopped after you let
    go ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)). → send the goal

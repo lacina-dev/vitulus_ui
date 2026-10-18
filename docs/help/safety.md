@@ -23,7 +23,8 @@ of the agent or a navigation goal tells it to.
 ![The bottom bar with the red STOP on the left](img/shot-bottom-bar.webp "STOP is the red button at the left end of the bottom bar — on a PC and a phone alike.")
 
 The red **STOP** button, always bottom left (same place and size on every screen), does all of
-this at once:
+this at once — and so does the big **STOP** at the foot of the right column on a PC, tablet or
+landscape phone (the same button; it also lets go of the joystick):
 
 1. cancels the navigation goal,
 2. switches the drive motors **off**,

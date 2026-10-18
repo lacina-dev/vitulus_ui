@@ -27,7 +27,7 @@ Robot je **v doku, když nabíječka dodává proud** (ikona napájení zelená,
 
 ## Výjezd z doku
 
-![Sekce Ovládání pravého panelu: rychlost, klávesnice, baterie a tlačítka Dock, Undock a Stop](../img/shot-controls.webp "Pravý panel › Ovládání: 4 Dock · 5 Undock · 6 Stop (přeruší sekvenci)")
+![Sekce Ovládání pravého panelu: baterie, motory a tlačítka Dock, Undock a Stop](../img/shot-controls.webp "Pravý panel › Ovládání: 3 Dock · 4 Undock · 5 Stop (přeruší sekvenci)")
 
 **Pravý panel › Ovládání › Undock** spustí uložený *program výjezdu z doku*:
 

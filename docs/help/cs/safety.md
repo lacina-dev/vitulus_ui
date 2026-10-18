@@ -23,7 +23,8 @@ agenta nebo cíl navigace.
 ![Spodní lišta s červeným STOP vlevo](../img/shot-bottom-bar.webp "STOP je červené tlačítko na levém konci spodní lišty — na PC i na telefonu.")
 
 Červené tlačítko **STOP**, vždy vlevo dole (na každé obrazovce stejné místo i velikost), udělá
-najednou všechno tohle:
+najednou všechno tohle — a stejně tak velký **STOP** u paty pravého sloupce na PC, tabletu nebo
+telefonu na šířku (je to totéž tlačítko; navíc pustí joystick):
 
 1. zruší cíl navigace,
 2. **vypne** pojezdové motory,

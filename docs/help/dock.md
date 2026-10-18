@@ -28,7 +28,7 @@ The robot counts as **docked when the charger supplies power** (supply icon gree
 
 ## Undock
 
-![The Controls section of the right panel: speed, keyboard, battery and the Dock, Undock and Stop buttons](img/shot-controls.webp "Right panel › Controls: 4 Dock · 5 Undock · 6 Stop (aborts the sequence)")
+![The Controls section of the right panel: battery, motors and the Dock, Undock and Stop buttons](img/shot-controls.webp "Right panel › Controls: 3 Dock · 4 Undock · 5 Stop (aborts the sequence)")
 
 **Right panel › Controls › Undock** runs the saved *undock program*:
 

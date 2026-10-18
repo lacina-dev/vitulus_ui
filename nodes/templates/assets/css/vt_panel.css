@@ -1878,3 +1878,110 @@ html body.vt-frame.vt-m-sheet.vt-joy-on:not(.vt-panel-open) #div_log_view.log-ex
        floating head sits on the tab row, not on the chips */
     body.vt-frame.vt-m-sheet #ui_drawer:not(.full) #vagent_panel > #vagent_tabs { order: -1; }
 }
+
+/* =========================================================================
+   Drive deck + big STOP (owner 2026-10-18, 2nd round: "small and economical,
+   the width of the top-right panel; STOP deserves a nice place").
+   PC / landscape: the RIGHT COLUMN's foot — #vt_stop_big stands on the
+   bottom bar (or on the small log, vt-joy-on-log) at the right edge, the
+   width of the right panel (--vt-frame-col-w); the deck stands on STOP; the
+   right panel ends above them (right_dock.js). vt_frame.js counts the column
+   like the old joystick (log right edge, full-log L, beside-the-panel).
+   Phone portrait: the deck is a band across the screen on the bottom bar
+   (vt-joy-band, part of --vt-frame-bottom); STOP is the bottom bar's own,
+   taller there (56 px).
+   ========================================================================= */
+html body.vt-frame:not(.vt-m-sheet) #vt_stop_big {
+    position: fixed;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    right: var(--vt-frame-joy-r, 0px);
+    bottom: var(--vt-frame-joy-b, 30px);
+    width: var(--vt-frame-col-w, 196px);
+    height: 64px;
+    box-sizing: border-box;
+    margin: 0; padding: 0;
+    border: 0;
+    /* the frame surface around a red key */
+    background:
+        linear-gradient(180deg, #e8474f, #c22a32) padding-box;
+    border-radius: var(--vt-frame-r) 0 0 0;
+    box-shadow: inset 0 0 0 4px var(--vt-frame-bg), inset 0 0 0 5px rgba(255, 255, 255, 0.10), inset 0 -10px 18px rgba(0, 0, 0, 0.18);
+    color: #fff;
+    font: 800 18px/1 var(--vt-font); letter-spacing: .12em;
+    cursor: pointer;
+    z-index: 9;
+}
+html body.vt-frame:not(.vt-m-sheet) #vt_stop_big:hover { filter: brightness(1.08); }
+html body.vt-frame:not(.vt-m-sheet) #vt_stop_big:active { filter: brightness(.92); }
+html body.vt-frame:not(.vt-m-sheet) #vt_stop_big:focus-visible { outline: 2px solid #fff; outline-offset: -8px; }
+#vt_stop_big .vt-stop-ico { width: 18px; height: 18px; border-radius: 3px; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+/* the deck stands on STOP: square top-left corner goes to the deck */
+html body.vt-frame.vt-joy-on:not(.vt-m-sheet) #vt_stop_big { border-radius: 0; }
+html body.vt-frame.vt-joy-on:not(.vt-m-sheet) #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-joy-deck.vt-joy-deck {
+    left: auto !important;
+    right: var(--vt-frame-joy-r, 0px) !important;
+    bottom: calc(var(--vt-frame-joy-b, 30px) + var(--vt-frame-stop-h, 0px)) !important;
+    width: var(--vt-frame-col-w, 196px) !important;
+}
+/* the concave corner at the column's foot (#vt_c_jb) now belongs to the column */
+body.vt-frame.vt-col-on:not(.vt-m-sheet) #vt_c_jb {
+    display: block;
+    left: calc(100vw - var(--vt-frame-joy-r, 0px) - var(--vt-frame-joy-w, 0px) - var(--vt-frame-r));
+    bottom: var(--vt-frame-ledge, 30px);
+    background: radial-gradient(circle at 0 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
+}
+:root { --vt-joy-deck: 120px; }
+@media (pointer: coarse) { :root { --vt-joy-deck: 124px; } }
+/* low windows (landscape phone): a lower deck and STOP */
+@media (max-height: 560px) {
+    :root { --vt-joy-deck: 100px; }
+    html body.vt-frame:not(.vt-m-sheet) #vt_stop_big { height: 56px; font-size: 16px; }
+    #joy_view.vt-joy-deck .vt-joy-opt { height: 24px; }
+    #joy_view.vt-joy-deck .vt-joy-motbtn { height: 26px; }
+}
+
+/* phone portrait: the deck = a band across the screen (it is as wide as the
+   right panel there, which is a row across the screen) */
+body.vt-frame.vt-m-sheet { --vt-joy-deck: 112px; }
+html body.vt-frame.vt-m-sheet.vt-joy-on #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-joy-deck.vt-joy-deck {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: var(--vt-frame-joy-b, 30px) !important;
+    width: auto !important;
+    border-radius: 0 !important;
+    background: var(--vt-frame-bg) !important;
+    box-shadow: inset 0 1px 0 rgba(var(--vt-ring-rgb), 0.45) !important;
+}
+body.vt-frame.vt-joy-on.vt-joy-band #vt_c_jb { display: none; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy.vt-joy-deck:not([style*="display: none"]) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "ctl pad" "hint pad";
+    grid-template-rows: auto auto;
+    align-content: center;
+    column-gap: 10px; row-gap: 4px;
+    padding: 6px 10px;
+}
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-padbox { grid-area: pad; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-ctl { grid-area: ctl; display: grid; grid-template-columns: 1fr; gap: 6px; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-spd { flex-direction: row; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-opt { flex: 1 1 0; height: 36px; border-top: 0; border-left: 1px solid rgba(255, 255, 255, 0.06); }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-opt:first-child { border-left: 0; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-opt.sel { box-shadow: inset 0 -2px 0 var(--vt-accent); }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-motbtn { height: 36px; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint {
+    grid-area: hint; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    color: var(--vt-muted); font-size: 10.5px; line-height: 1.3; min-height: 2.6em;
+}
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint[data-tone="warn"] { color: var(--vt-warn); }
+/* the sheet stands on the band (not the stick floating above the sheet) */
+html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-joy-deck.vt-joy-deck {
+    bottom: var(--vt-frame-joy-b, 30px) !important;
+    border-radius: 0 !important;
+}
+/* phone: the bottom bar's STOP is THE stop — at least 56 px, thumb-sized */
+@media (max-width: 575.98px) {
+    body.vt-frame.vt-m-sheet #div_bottom_menu { min-height: 56px; }
+    body.vt-frame.vt-m-sheet #div_bottom_menu #btn_stop_all { min-height: 56px; min-width: 84px; }
+    body.vt-frame.vt-m-sheet #div_bottom_menu #btn_stop_all svg { font-size: 26px !important; }
+}
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-kbsw { display: none; }

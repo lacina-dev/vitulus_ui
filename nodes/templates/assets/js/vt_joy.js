@@ -6,17 +6,22 @@
  *
  * Two shapes:
  *  - plain (IMU calibration, #joy_view_imu): status line + pad + readout;
- *  - DECK (owner 2026-10-18, the map's #joy_view, opts.deck): one band as
- *    wide as the top bar, standing on the bottom bar (vt_frame.js / vt_panel.css):
+ *  - DECK (owner 2026-10-18, the map's #joy_view, opts.deck): SMALL — the
+ *    width of the right panel's column (vt_frame.js), standing on the big
+ *    STOP (#vt_stop_big, vt_frame.js); on a phone held upright a band:
  *
- *   ┌ state · lin/ang · hint ┬ keyboard ┬ motors ┬ speed ┬ STOP ┬ (pad) ┐
- *   │ FREE  +0.32 −0.40      │ ⌨ [W]    │ ON|OFF │ S M F │  ■   │  ( ) │
- *   └────────────────────────┴ [A][S][D]┴────────┴───────┴──────┴──────┘
+ *   ┌──────────────┬──────┐
+ *   │   ( pad )    │ SLOW │   speed: lit = what the robot reports
+ *   │  ring = cap  │ MID  │
+ *   │  + state     │ FAST │
+ *   │              │●MOT  │   motors: one toggle, the robot's state
+ *   │              │○KEYS │   keyboard switch
+ *   └──────────────┴──────┘
  *
  *   the speed and motor controls are FUNCTIONAL (opts.onSpeed / onMotors)
  *   and only ever show what the ROBOT reports (setSpeedKey / setMotors);
- *   a click shows "pending" until the robot echoes it (4 s, then it falls
- *   back to the reported state). Motors are never switched on by the page.
+ *   a click blinks until the robot echoes it (4 s, then it falls back to
+ *   the reported state). Motors are never switched on by the page.
  *
  * Feel (numbers in the constants below):
  *  - radial dead zone 10 %, then an expo curve (60 % cubic): fine control
@@ -43,8 +48,7 @@
  *  - pointercancel, lost capture, window blur, hidden tab, a closed rosbridge
  *    (release()), a lock (motors off, owner) → zeros AT ONCE (no decay);
  *  - keyboard (W A S D / arrows, Shift = half) only while the keyboard switch
- *    is on and the focus is not in a text field; the on-screen keycaps are
- *    hold-to-drive buttons (touch) through the same path.
+ *    is on and the focus is not in a text field.
  *
  * window.VTJoy.create(el, opts) → { setSpeed(lin, ang, label), setSpeedKey(k),
  *   setMotors(on|null), setOwner(key|null, text), setKeyboard(on), release(),
@@ -146,82 +150,40 @@
         root.innerHTML = '';
 
         var head, chipSpeed, chipMotors, read, readLin, readAng, kbHint;
-        var stateChip, hint, takeBtn, kbToggle, caps = {}, motOn, motOff, spdBtns = {}, capTxt, stopBtn;
+        var hint, takeBtn, kbToggle, caps = {}, motOn, motOff, spdBtns = {};
         var padBox = root;
         if (deck) {
-            /* info: state chip · the live command · the hint / lock reason */
-            var info = el('div', 'vt-joy-sec vt-joy-info', root);
-            var row1 = el('div', 'vt-joy-row', info);
-            stateChip = el('span', 'vt-joy-chip vt-joy-state', row1);
-            read = el('span', 'vt-joy-read', row1);
-            readLin = el('span', 'vt-joy-num', read);
-            readAng = el('span', 'vt-joy-num', read);
-            var row2 = el('div', 'vt-joy-row vt-joy-hintrow', info);
-            hint = el('span', 'vt-joy-hint', row2);
-            hint.setAttribute('role', 'status');
-            hint.setAttribute('aria-live', 'polite');
-            takeBtn = el('button', 'vt-joy-btn vt-joy-take', row2);
-            takeBtn.type = 'button';
-            tagI(takeBtn, 'joy.take');
-            tagI(takeBtn, 'joy.take.tip', 'title');
-            takeBtn.hidden = true;
-
-            /* keyboard: switch + the WASD legend (hold-to-drive keycaps) */
-            var kb = el('div', 'vt-joy-sec vt-joy-kbd', root);
-            var kbCap = el('div', 'vt-joy-cap', kb);
-            kbToggle = el('button', 'vt-joy-kbsw', kbCap);
-            kbToggle.type = 'button';
-            kbToggle.setAttribute('aria-pressed', 'false');
-            kbToggle.innerHTML = '<span class="vt-joy-kbdot" aria-hidden="true"></span><span class="vt-joy-kblbl"></span>';
-            tagI(kbToggle.querySelector('.vt-joy-kblbl'), 'joy.kb.lbl');
-            tagI(kbToggle, 'joy.kb.tip', 'title');
-            var pad4 = el('div', 'vt-joy-keys', kb);
-            [['f', 'W', '▲', 'joy.key.f'], ['l', 'A', '◀', 'joy.key.l'], ['b', 'S', '▼', 'joy.key.b'], ['r', 'D', '▶', 'joy.key.r']].forEach(function (d) {
-                var c = el('button', 'vt-joy-key vt-joy-key-' + d[0], pad4);
-                c.type = 'button';
-                c.innerHTML = '<b>' + d[1] + '</b><i aria-hidden="true">' + d[2] + '</i>';
-                tagI(c, d[3], 'aria-label');
-                tagI(c, d[3], 'title');
-                caps[d[0]] = c;
-            });
-
-            /* motors: ON | OFF — reflects /base/motor_power_state */
-            var mot = el('div', 'vt-joy-sec vt-joy-mot', root);
-            var motCap = el('div', 'vt-joy-cap', mot);
-            chipMotors = el('span', 'vt-joy-motors', motCap);      // right_dock.js mirrors its data-state
-            tagI(el('span', 'vt-joy-caplbl', motCap), 'joy.motors.lbl');
-            var motSeg = el('div', 'vt-joy-seg', mot);
-            motOn = el('button', 'vt-joy-opt vt-joy-mot-on', motSeg);
-            motOff = el('button', 'vt-joy-opt vt-joy-mot-off', motSeg);
-            motOn.type = motOff.type = 'button';
-            tagI(motOn, 'joy.motors.btn_on');
-            tagI(motOff, 'joy.motors.btn_off');
-            tagI(motOn, 'joy.motors.on_tip', 'title');
-            tagI(motOff, 'joy.motors.off_tip', 'title');
-
-            /* speed: Slow | Mid | Fast — reflects /navi_manager/speed */
-            var spd = el('div', 'vt-joy-sec vt-joy-spd', root);
-            var spdCap = el('div', 'vt-joy-cap', spd);
-            tagI(el('span', 'vt-joy-caplbl', spdCap), 'joy.speed.lbl');
-            capTxt = el('span', 'vt-joy-captxt', spdCap);
-            var spdSeg = el('div', 'vt-joy-seg', spd);
+            /* owner 2026-10-18 (2nd round): SMALL — the width of the right
+               panel's column, the pad with a narrow column of controls beside
+               it: speed Slow / Mid / Fast (stacked), motors (one toggle), keys */
+            padBox = el('div', 'vt-joy-padbox', root);
+            var ctl = el('div', 'vt-joy-ctl', root);
+            var spdSeg = el('div', 'vt-joy-seg vt-joy-spd', ctl);
+            spdSeg.setAttribute('role', 'group');
+            tagI(spdSeg, 'joy.speed.lbl', 'aria-label');
             [['slow', 'joy.speed.slow'], ['moderate', 'joy.speed.mid'], ['fast', 'joy.speed.fast']].forEach(function (d) {
                 var b = el('button', 'vt-joy-opt', spdSeg);
                 b.type = 'button';
                 b.dataset.speed = d[0];
                 tagI(b, d[1]);
-                tagI(b, 'joy.speed.tip', 'title');
                 spdBtns[d[0]] = b;
             });
-
-            /* STOP: the same full stop as the bottom bar */
-            stopBtn = el('button', 'vt-joy-stop', root);
-            stopBtn.type = 'button';
-            stopBtn.innerHTML = '<span class="vt-joy-stopico" aria-hidden="true"></span><span class="vt-joy-stoplbl"></span>';
-            tagI(stopBtn.querySelector('.vt-joy-stoplbl'), 'joy.stop');
-            tagI(stopBtn, 'joy.stop.tip', 'title');
-
-            padBox = el('div', 'vt-joy-sec vt-joy-padbox', root);
+            motOn = el('button', 'vt-joy-motbtn', ctl);          // one toggle: ON <-> OFF
+            motOn.type = 'button';
+            chipMotors = el('span', 'vt-joy-motors', motOn);    // right_dock.js mirrors its data-state
+            motOff = el('span', 'vt-joy-motlbl', motOn);
+            kbToggle = el('button', 'vt-joy-kbsw', ctl);
+            kbToggle.type = 'button';
+            kbToggle.setAttribute('aria-pressed', 'false');
+            kbToggle.innerHTML = '<span class="vt-joy-kbdot" aria-hidden="true"></span><span class="vt-joy-kblbl"></span>';
+            tagI(kbToggle.querySelector('.vt-joy-kblbl'), 'joy.kb.lbl');
+            tagI(kbToggle, 'joy.kb.tip', 'title');
+            /* the one-line hint: phone only (elsewhere it is the pad's tooltip) */
+            hint = el('div', 'vt-joy-hint', root);
+            hint.setAttribute('role', 'status');
+            hint.setAttribute('aria-live', 'polite');
+            /* detached: the command readout is the arcs + aria-valuetext here */
+            readLin = el('span'); readAng = el('span');
         } else {
             head = el('div', 'vt-joy-head', root);
             chipSpeed = el('span', 'vt-joy-chip vt-joy-speed', head);
@@ -242,19 +204,28 @@
                         x2: (43 * Math.sin(rad)).toFixed(2), y2: (-43 * Math.cos(rad)).toFixed(2),
                         'class': big ? 'big' : ''}, ticks);
         }
-        var axV = sv('line', {'class': 'vt-joy-ax vt-joy-ax-v', x1: 0, y1: -34, x2: 0, y2: 34}, svg);
-        var axH = sv('line', {'class': 'vt-joy-ax vt-joy-ax-h', x1: -34, y1: 0, x2: 34, y2: 0}, svg);
+        sv('line', {'class': 'vt-joy-ax vt-joy-ax-v', x1: 0, y1: -34, x2: 0, y2: 34}, svg);
+        sv('line', {'class': 'vt-joy-ax vt-joy-ax-h', x1: -34, y1: 0, x2: 34, y2: 0}, svg);
         var chev = sv('g', {'class': 'vt-joy-chev'}, svg);
         ['M -4 -30 L 0 -34 L 4 -30', 'M -4 30 L 0 34 L 4 30', 'M -30 -4 L -34 0 L -30 4', 'M 30 -4 L 34 0 L 30 4'].forEach(function (d, i) {
             if (turnOnly && i < 2) { return; }
             sv('path', {d: d}, chev);
         });
         sv('circle', {'class': 'vt-joy-dz', r: (DEAD * 34).toFixed(2)}, svg);
-        var ring = sv('circle', {'class': 'vt-joy-ring', r: 46}, svg);
+        sv('circle', {'class': 'vt-joy-ring', r: 46}, svg);
         var arcLin = sv('path', {'class': 'vt-joy-arc vt-joy-arc-lin', d: ''}, svg);
         var arcAng = sv('path', {'class': 'vt-joy-arc vt-joy-arc-ang', d: ''}, svg);
         var knob = el('div', 'vt-joy-knob', pad);
         var lockEl = el('div', 'vt-joy-lockmsg', pad);
+        if (deck) {
+            takeBtn = el('button', 'vt-joy-take', pad);
+            takeBtn.type = 'button';
+            tagI(takeBtn, 'joy.take');
+            tagI(takeBtn, 'joy.take.tip', 'title');
+            takeBtn.hidden = true;
+            /* the take-over button must not start a drag on the pad */
+            takeBtn.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        }
         if (!deck) {
             read = el('div', 'vt-joy-read', root);
             readLin = el('span', 'vt-joy-num', read);
@@ -263,8 +234,6 @@
             kbHint.textContent = tr('joy.kb');
             if (window.VTI18n) { VTI18n.tag(kbHint, 'joy.kb'); }
         }
-        ring.setAttribute('aria-hidden', 'true');
-        void ring; void axV; void axH;
 
         /* ---- state */
         var pid = null;                     // the pointer that owns the stick
@@ -312,17 +281,6 @@
                 kbHint.hidden = !keyboardOn;
                 return;
             }
-            chipMotors.textContent = '';
-            chipMotors.title = motors === true ? tr('joy.motors.on') : (motors === false ? tr('joy.motors.off') : tr('joy.motors.unknown'));
-            /* state chip + hint */
-            var t = tone(), st;
-            if (lr === 'motors') { st = 'joy.st.motors'; }
-            else if (lr) { st = 'joy.st.owned'; }
-            else if (owner && takeover) { st = 'joy.st.takeover'; }
-            else if (motors === null) { st = 'joy.st.unknown'; }
-            else { st = held() ? 'joy.st.driving' : 'joy.st.free'; }
-            stateChip.textContent = tr(st);
-            stateChip.setAttribute('data-state', t === 'ok' ? 'ok' : (t === 'warn' ? 'warn' : 'off'));
             var h;
             if (staleNote) { h = tr('joy.hint.stale'); }
             else if (lr === 'motors') { h = tr('joy.hint.motors'); }
@@ -332,29 +290,30 @@
             else if (motors === null) { h = tr('joy.hint.unknown'); }
             else { h = tr(keyboardOn ? 'joy.hint.free_kb' : 'joy.hint.free'); }
             if (hint.textContent !== h) { hint.textContent = h; }
+            if (pad.title !== h) { pad.title = h; }
+            hint.setAttribute('data-tone', tone());
             takeBtn.hidden = lr !== 'owner';
             /* keyboard */
             kbToggle.classList.toggle('on', keyboardOn);
             kbToggle.setAttribute('aria-pressed', keyboardOn ? 'true' : 'false');
-            ['f', 'b', 'l', 'r'].forEach(function (k) {
-                caps[k].classList.toggle('down', !!(capKeys[k] || (keyboardOn && keys[k])));
-                caps[k].disabled = !!lr;
-            });
-            /* motors: the robot's state; a click shows pending until the echo */
-            var shown = motors;
-            motOn.classList.toggle('sel', shown === true);
-            motOff.classList.toggle('sel', shown === false);
-            motOn.classList.toggle('pend', motorPend === true && shown !== true);
-            motOff.classList.toggle('pend', motorPend === false && shown !== false);
-            motOn.setAttribute('aria-pressed', shown === true ? 'true' : 'false');
-            motOff.setAttribute('aria-pressed', shown === false ? 'true' : 'false');
+            /* motors: ONE toggle showing the robot's state; a click blinks
+               until the robot echoes it */
+            var mk = motors === true ? 'on' : (motors === false ? 'off' : 'unknown');
+            motOn.setAttribute('data-state', mk);
+            motOn.classList.toggle('pend', motorPend !== null && motorPend !== motors);
+            motOn.setAttribute('aria-pressed', motors === true ? 'true' : 'false');
+            var ml = tr('joy.mot.' + mk);
+            if (motOff.textContent !== ml) { motOff.textContent = ml; }
+            var mt = tr(motors === true ? 'joy.motors.off_tip' : (motors === false ? 'joy.motors.on_tip' : 'joy.motors.unknown_tip'));
+            if (motOn.title !== mt) { motOn.title = mt; }
             /* speed */
             Object.keys(spdBtns).forEach(function (k) {
                 spdBtns[k].classList.toggle('sel', speedKey === k);
                 spdBtns[k].classList.toggle('pend', speedPend === k && speedKey !== k);
                 spdBtns[k].setAttribute('aria-pressed', speedKey === k ? 'true' : 'false');
             });
-            capTxt.textContent = tr('joy.speed.cap', {v: speedLin.toFixed(2)});
+            var sc = tr('joy.speed.tip') + ' · ' + tr('joy.speed.cap', {v: speedLin.toFixed(2)});
+            Object.keys(spdBtns).forEach(function (k) { if (spdBtns[k].title !== sc) { spdBtns[k].title = sc; } });
         }
         function paintRead() {
             readLin.textContent = (oLin >= 0 ? '+' : '−') + Math.abs(oLin).toFixed(2) + ' m/s';
@@ -533,7 +492,6 @@
             var f = (capKeys.f || (keyboardOn && keys.f)) ? 1 : 0, b = (capKeys.b || (keyboardOn && keys.b)) ? 1 : 0;
             var l = (capKeys.l || (keyboardOn && keys.l)) ? 1 : 0, r = (capKeys.r || (keyboardOn && keys.r)) ? 1 : 0;
             ny = (f - b) * k;
-            nx = turnOnly ? 0 : 0;
             nx = (r - l) * k;
             if (turnOnly) { ny = 0; }
             /* keys are digital: full deflection = full speed, skip the curve */
@@ -596,16 +554,11 @@
                 if (opts.onKeyboard) { opts.onKeyboard(keyboardOn); }
             });
             motOn.addEventListener('click', function () {
-                if (motors === true || !opts.onMotors) { return; }
-                motorPend = true; motorPendT = Date.now();
-                opts.onMotors(true);
-                paintStatus();
-            });
-            motOff.addEventListener('click', function () {
-                if (!opts.onMotors) { return; }
-                hardStop();
-                motorPend = false; motorPendT = Date.now();
-                opts.onMotors(false);
+                if (!opts.onMotors || motors === null) { return; }   // unknown: nothing to toggle
+                var want = !motors;
+                if (!want) { hardStop(); }
+                motorPend = want; motorPendT = Date.now();
+                opts.onMotors(want);
                 paintStatus();
             });
             Object.keys(spdBtns).forEach(function (k) {
@@ -615,10 +568,6 @@
                     opts.onSpeed(k);
                     paintStatus();
                 });
-            });
-            stopBtn.addEventListener('click', function () {
-                hardStop();
-                if (opts.onStop) { opts.onStop(); }
             });
             takeBtn.addEventListener('click', function () {
                 takeover = true;

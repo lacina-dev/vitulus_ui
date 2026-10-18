@@ -105,10 +105,11 @@ SHOTS = [
          steps=[('click', '#btn_log'), ('wait', 600), ('click', '#btn_log_expand'), ('wait', 1000)],
          marks=[('#div_log_view .btn-outline-info:not(.log-iconbtn)', '1', 'b'), ('#div_log_view .btn-outline-info:not(.log-iconbtn):not(.active)', '2', 'b'),
                 ('#btn_log_pause', '3', 'b'), ('#btn_log_clear', '4', 'b'), ('#btn_log_collapse', '5', 'b'), ('.vth-q-log', '6', 'r')]),
-    dict(name='shot-joystick', vp=DESK, scale=2, width=320, clip='#joy_view', pad=4, md=18,
+    # 2026-10-18: the drive deck (right column, the width of the right panel) on the big STOP
+    dict(name='shot-joystick', vp=DESK, scale=3, width=420, clip='#joy_view|#vt_stop_big', pad=0, md=15,
          steps=[('click', '#btn_joy'), ('wait', 800)],
-         marks=[('.vt-joy-speed', '1', 'bl'), ('.vt-joy-head > :last-child', '2', 'br'), ('.vt-joy-pad', '3', 'c'),
-                ('#joy_view > :last-child', '4', 'l')]),
+         marks=[('#joy_view .vt-joy-pad', '1', 'l'), ('#joy_view .vt-joy-spd', '2', 't'), ('#joy_view .vt-joy-motbtn', '3', 'r'),
+                ('#joy_view .vt-joy-kbsw', '4', 'r'), ('#vt_stop_big', '5', 'l')]),
     dict(name='shot-camera-layers', vp=DESK, scale=2, width=400, clip='#right_panel section.rp-sec:last-of-type', pad=4, md=18,
          steps=[('click', '.vco-btn'), ('wait', 700)],
          marks=[('#right_panel .rp-cam-seg', '1', 't'), ('.vco-btn', '2', 'l'), ('.vco-chip:nth-of-type(1)', '3', 't'),
@@ -120,9 +121,9 @@ SHOTS = [
     dict(name='shot-status-icons', vp=DESK, scale=3, width=900, clip='#status_div', pad=4, marks=[]),
     # --- right panel (dock.md, routes.md, localization.md)
     dict(name='shot-controls', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="drive"]', pad=2, md=15,
-         marks=[('#div_status_speed .btn-group', '1', 't'), ('#div_status_speed-1', '2', 'b'), ('#span_batt_pct', '3', 'l'),
-                ('#dock_btn_menu_dock', '4', 'b'), ('#dock_btn_menu_undock', '5', 'b'), ('#dock_btn_menu_stop', '6', 'b')]),
-    # 2026-10-18 evening: three levels — head tokens, the expand (caret), "Detail ›" to Map › Loc
+         marks=[('#span_batt_pct', '1', 'l'), ('#rp_motors', '2', 'l'),
+                ('#dock_btn_menu_dock', '3', 'b'), ('#dock_btn_menu_undock', '4', 'b'), ('#dock_btn_menu_stop', '5', 'b')]),
+    # 2026-10-18 evening: three levels — head tokens, the expand (caret), the detail icon (before "?") to Map › Loc
     dict(name='shot-navi', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="state"]', pad=2, md=15,
          steps=[('click', '.rp-sec[data-sec="state"] > h5'), ('wait', 1500)],
          marks=[('#span_odom_drive', '1', 'b'), ('#span_odom_hdg', '2', 'b'), ('#rp_odo_dot', '3', 'b'),

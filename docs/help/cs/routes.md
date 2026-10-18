@@ -29,9 +29,10 @@ překážek a naplánuje znovu, než to vzdá.
 
 ## Rychlost
 
-![Sekce Ovládání pravého panelu](../img/shot-controls.webp "1 Slow / Mid / Fast v pravém panelu")
+![Panel jízdy](../img/shot-joystick.webp "2 Slow / Mid / Fast v panelu jízdy (Joystick ve spodní liště)")
 
-**Pravý panel › Ovládání › Slow / Mid / Fast** nastaví rychlost navigace i joysticku.
+**Panel jízdy › Rychlost › Slow / Mid / Fast** (Joystick ve spodní liště) nastaví rychlost navigace
+i joysticku; rozsvícené tlačítko je to, co hlásí robot.
 Robot si ji pamatuje i přes restart. Navigace:
 
 | | vpřed | vzad | otáčení |

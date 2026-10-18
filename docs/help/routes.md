@@ -29,10 +29,10 @@ its obstacle memory and plans again before it gives up.
 
 ## Speed
 
-![The Controls section of the right panel](img/shot-controls.webp "1 Slow / Mid / Fast in the right panel")
+![The drive deck](img/shot-joystick.webp "2 Slow / Mid / Fast in the drive deck (Joystick in the bottom bar)")
 
-**Right panel › Controls › Slow / Mid / Fast** sets the driving speed of navigation and of the
-joystick. It is remembered on the robot across restarts. Navigation:
+**Drive deck › Speed › Slow / Mid / Fast** (Joystick in the bottom bar) sets the driving speed of
+navigation and of the joystick; the lit button is what the robot reports. It is remembered on the robot across restarts. Navigation:
 
 | | forward | reverse | turn |
 |---|---|---|---|
