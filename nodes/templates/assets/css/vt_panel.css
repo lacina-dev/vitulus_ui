@@ -1241,6 +1241,9 @@ body.vt-frame.vt-m-sheet #ui_drawer.wide {
     box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
 }
 body.vt-frame.vt-m-sheet #ui_drawer_grip { background: var(--vt-frame-bg); border-radius: 0; }
+/* the sheet sits ON the measured bottom bar (not on the token height): no
+   strip of map between the sheet and the bar, whatever the bar's height */
+body.vt-frame.vt-m-sheet #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--drawer-log-clear, 0px)); }
 
 /* -- spine: the C's narrow back while the panel is hidden ----------------- */
 #vt_c_spine { display: none; }
@@ -1677,3 +1680,9 @@ body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-motors { min-width: 0; }
 html body.vt-frame.vt-m-sheet #joy_view.vt-joy.vt-joy { width: calc(var(--vt-joy-size) + 50px) !important; }
 body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-head { gap: 4px; }
 body.vt-frame.vt-m-sheet #joy_view.vt-joy .vt-joy-chip { padding: 0 5px; font-size: 10px; }
+/* landscape phone (≤ 480 px of height): the agent's status strip (BAT · RTK ·
+   DOCK · MOTORS · CORE — the same facts as the right panel's row and the dot
+   in the head) yields to the chat, which otherwise kept ~3 lines */
+@media (max-height: 480px) {
+    #vagent_status { display: none !important; }
+}
