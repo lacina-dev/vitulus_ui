@@ -16,6 +16,8 @@ Start with the **status icons** (anything red or grey?), the **status bar** unde
 
 ## The robot does not drive
 
+![The web joystick showing MOTORS OFF](img/shot-joystick.webp "The joystick says it first: MOTORS OFF (2) = nothing moves.")
+
 Check in this order:
 
 1. **Motors off?** After every start, restart and STOP the drive motors are OFF. The joystick

@@ -34,7 +34,7 @@ remembers which panel was open (also across a reload).
 **PC** (≥ 1024 px wide): the panel is a column, the map narrows next to it. **Tablet / phone on
 its side**: the column lies over the map. **Phone upright** (< 576 px): the panel is a sheet from
 the bottom (60 % of the height). On a phone (upright or on its side) a compact head puts
-STOP / ⤢ / ✕ at the end of the tab row; upright the title moves into the grip row.
+**?** / ⤢ / ✕ (in the Agent panel also its STOP) at the end of the tab row; upright the title moves into the grip row.
 
 ![The UI on a phone held upright, no panel open, with numbered markers](img/shot-phone.webp "Phone, no panel: 1 Needs you · 2 menu band · 3 status icons · 4 map · 5 right panel (one row, ▾ unfolds it) · 6 STOP · 7 Joystick, Follow, Log") ![The UI on a phone with the Map panel open as a sheet from the bottom, with numbered markers](img/shot-phone-sheet.webp "Phone, Map panel open: 1 title (drag the grip) · 2 tabs · 3 ? help · 4 ⤢ full screen · 5 ✕ close")
 

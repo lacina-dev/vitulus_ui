@@ -87,7 +87,7 @@ SHOTS = [
                 ('#right_panel', '5', 'b'), ('#btn_stop_all', '6', 't'), ('#btn_log', '7', 't')]),
     dict(name='shot-phone-sheet', vp=PHONE, scale=2, width=480, md=26,
          steps=[('click', '#btn_map'), ('wait', 1200)],
-         marks=[('#ui_drawer_grip', '1', 'r'), ('#div_menu_map a[href="#tab-map"]', '2', 'b'), ('#btn_ui_drawer_help', '3', 't'),
+         marks=[('#ui_drawer_grip', '1', 'c'), ('#div_menu_map a[href="#tab-map"]', '2', 'b'), ('#btn_ui_drawer_help', '3', 't'),
                 ('#btn_ui_drawer_full', '4', 't'), ('#btn_ui_drawer_close', '5', 't')]),
     # --- frame pieces (frame.md)
     dict(name='shot-bottom-bar', vp=(1000, 700), scale=2, width=900, clip='#div_bottom_menu', pad=0, marks=[]),
