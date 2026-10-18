@@ -5166,15 +5166,44 @@ class Diag {
                 diag_arr.push(element);
             }
         });
-        var diag_html_content = '';
-        diag_arr.forEach(function(item){
-            var diag_html_item = '<div>';
-            diag_html_item += '<span>' + item.name + ': </span> ';
-            if (item.level === 0){ diag_html_item += '<span style="color: var(--bs-success);">' + item.message + '</span>';};
-            if (item.level === 1){ diag_html_item += '<span style="color: var(--bs-warning);">' + item.message + '</span>';}
-            if (item.level === 2){ diag_html_item += '<span style="color: var(--bs-danger);">' + item.message + '</span>';}
-            diag_html_item += '</div>';
-            diag_html_content += diag_html_item;
+        // P10: one row per status — state dot · name · message — grouped by
+        // the part before ":" (sys_mon, gnss, d435/…), with a summary line on
+        // top. Stable alphabetical order: a status that changes level keeps
+        // its place (nothing jumps). Names/messages come from ROS → escaped.
+        var esc = function (t) {
+            return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+            });
+        };
+        var LV = {0: 'ok', 1: 'warn', 2: 'err', 3: 'off'};
+        var cnt = {ok: 0, warn: 0, err: 0, off: 0};
+        var groups = {};
+        diag_arr.forEach(function (item) {
+            var full = String(item.name || '');
+            var i = full.indexOf(':');
+            var g = i > 0 ? full.slice(0, i).trim() : 'other';
+            var n = i > 0 ? full.slice(i + 1).trim() : full;
+            var st = LV[item.level] || 'off';
+            cnt[st] += 1;
+            (groups[g] = groups[g] || []).push({n: n, m: item.message, st: st});
+        });
+        var sum = [];
+        if (cnt.err) sum.push('<span class="vt-diag-c" data-state="err">' + cnt.err + ' error' + (cnt.err > 1 ? 's' : '') + '</span>');
+        if (cnt.warn) sum.push('<span class="vt-diag-c" data-state="warn">' + cnt.warn + ' warning' + (cnt.warn > 1 ? 's' : '') + '</span>');
+        sum.push('<span class="vt-diag-c" data-state="ok">' + cnt.ok + ' OK</span>');
+        if (cnt.off) sum.push('<span class="vt-diag-c" data-state="off">' + cnt.off + ' stale</span>');
+        var diag_html_content = diag_arr.length
+            ? '<div class="vt-diag-sum">' + sum.join('') + '</div>'
+            : '<div class="vt-empty">Waiting for /diagnostics…</div>';
+        Object.keys(groups).sort().forEach(function (g) {
+            var rows = groups[g].sort(function (a, b) { return a.n.localeCompare(b.n); });
+            diag_html_content += '<div class="vt-diag-grp"><div class="vt-diag-gh">' + esc(g) + '</div>';
+            rows.forEach(function (r) {
+                diag_html_content += '<div class="vt-diag-row" data-state="' + r.st + '">' +
+                    '<span class="vt-diag-dot"></span><span class="vt-diag-n">' + esc(r.n) + '</span>' +
+                    '<span class="vt-diag-m">' + esc(r.m) + '</span></div>';
+            });
+            diag_html_content += '</div>';
         });
         this.div_diag_all.innerHTML = diag_html_content;
     }
