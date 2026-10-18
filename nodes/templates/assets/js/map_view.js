@@ -600,7 +600,7 @@ class ProgramZoneItemTemplate {
                     <button class="vt-iconbtn vt-iconbtn-sm vt-zone-del" type="button" title="Remove zone from program" onclick="programs.removeZoneFromProgram('${this.name}')"><i class="fa fa-remove text-danger"></i></button>
                 </div>
                 <dl class="vt-kv vt-kv-2">
-                    <dt>Cut height</dt><dd>${this.cut_height} cm</dd>
+                    <dt>Cut height</dt><dd>${this.cut_height} mm</dd>
                     <dt>RPM</dt><dd>${this.rpm}</dd>
                     <dt>Coverage angle</dt><dd>${this.coverage_angle}°</dd>
                     <dt>Path distance</dt><dd>${this.paths_distance} m</dd>
@@ -5553,7 +5553,9 @@ class Mower {
         }
 
         this.span_mower_direction.textContent = message.moto_dir;
-        this.span_mower_cut_height.textContent = message.current_height + "/" + message.max_height + " cm";
+        this.span_mower_cut_height.textContent = message.current_height + "/" + message.max_height + " mm";
+        // robot pracuje v mm (firmware CUTH, 20 až max_height); horní mez pole = skutečné maximum desky
+        if (this.input_mower_cut_height && message.max_height > 0) { this.input_mower_cut_height.max = message.max_height; }
         this.span_mower_rpm.textContent = message.moto_rpm + "/" + message.setpoint_rpm + " rpm";
         this.span_mower_temp.textContent = parseInt(message.temp) + "`C";
 
@@ -5564,7 +5566,7 @@ class Mower {
             } else {
                 this.div_mower_info_panel.style.display = 'inline-flex';
                 this.span_mower_panel_rpm.textContent = message.moto_rpm + " rpm";
-                this.span_mower_panel_height.textContent = message.current_height + " cm";
+                this.span_mower_panel_height.textContent = message.current_height + " mm";
                 this.span_mower_panel_temp.textContent = parseInt(message.temp) + "°C";
 
                 // Status text and color

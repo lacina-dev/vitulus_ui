@@ -21,7 +21,7 @@ Programs drive the mower by themselves. **Settings › Mower** is for checking a
 |---|---|
 | **ON / OFF** | mower power. The row shows the temperature and status: OFF, READY, RUN, CALIB, HEIGHT, ERR, BLOCKED, TEMP |
 | **Direction** | Left / Right — the blade's direction of rotation |
-| **Height** | current / max; type a value (10–90, in the unit shown next to it) and **Set** |
+| **Height** | current / max in **mm**; type a height in mm (20 up to the max, e.g. 45) and **Set** |
 | **RPM** | current / setpoint; type a value (500–4000) and **Set** |
 | **Home** | height calibration — the cutting height drives to its reference position |
 | **START MOTOR / STOP MOTOR** | starts / stops the blade |
@@ -29,6 +29,9 @@ Programs drive the mower by themselves. **Settings › Mower** is for checking a
 - The last height and RPM you set are remembered and applied again whenever the mower powers
   on; the blade itself always stays off at power-on.
 - Programs use the zone's or the program's cut height and RPM ([Programs](programs.md)).
+- **Cut height is always in millimetres** — here, in zones ([Map editor](map-editor.md)) and in
+  programs; the robot itself works in mm. 45 mm = 4.5 cm. The max is the top position of the
+  deck, where the blade parks after mowing.
 - Status **TEMP**: the mower is too hot — a running program returns to the dock.
 
 ## Commands

@@ -20,7 +20,8 @@ cut height and RPM for all of them. The **calendar** says *when*. Both are in **
 2. **Programs › Programs › New**: a **name**, add zones from the list (**Add zone**).
 3. **Speed**: Slow / Mid / Fast.
 4. **RPM** and **Cut height (mm)**, and **Override zone**: with it ticked, these two values
-   replace each zone's own cut height and RPM (both must be above 0).
+   replace each zone's own cut height and RPM (both must be above 0). The height is in
+   millimetres like everywhere in the UI, e.g. 50 = 5 cm.
 5. **Save**.
 
 ## Run it
@@ -49,7 +50,7 @@ The tag in the calendar's head says what the scheduler does now:
 |---|---|
 | **Active** | the scheduler will start programs (idle, waiting for the next event) |
 | **Held** | **Hold** is on — nothing starts from the calendar until you switch Hold off |
-| **Automation off** | the master controller is disabled by a parameter on the robot (`automation_enabled`) |
+| **Automation off** | the scheduler is switched off on the robot (`automation_enabled: false`, see [below](#automation-on--off)) — nothing starts by itself |
 | **Mowing** | a program runs now |
 | **Off dock** | the robot is out of the dock |
 | **Starting** | a program is being started |
@@ -57,9 +58,21 @@ The tag in the calendar's head says what the scheduler does now:
 The line under the tag is the scheduler's own status and the next run, for example
 *Idle (Wait 12m for …)*.
 
-> [!NOTE]
-> On this robot automation is currently configured **off** (`automation_enabled: false` in
-> `vitulus_planner/config/master_controller.yaml`), so the calendar shows *Automation off* and
-> starts nothing; programs run only by hand.
+### Automation on / off
+
+`automation_enabled` is the master switch of the scheduler (the master controller):
+
+- **on** (`true`): the calendar starts programs by itself and the robot sleeps / resumes on its
+  own (battery, rain, temperature, the night window — see [Why the robot waits](waiting.md));
+- **off** (`false`): the scheduler is passive — no automatic start and no automatic sleep;
+  programs run only when you start them by hand.
+
+How to tell: the calendar's tag says **Automation off** and the status line *Disabled* when it is
+off; any other tag (Active, Held, Mowing, …) means it is on.
+
+Where to change it: `automation_enabled` in `vitulus_planner/config/master_controller.yaml`. The
+controller reads it once when it starts, so the change applies after the robot stack (or the
+`master_controller` node) restarts. To pause the calendar for a while without touching the
+configuration, use **Hold**.
 
 Why a program does not start or stopped early: [Why the robot waits](waiting.md).
