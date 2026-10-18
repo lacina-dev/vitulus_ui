@@ -1784,3 +1784,8 @@ body.vt-frame.vt-c-logwin #vt_c_jb { display: none; }
         box-shadow: 0 -8px 0 var(--vt-frame-bg), 8px 0 0 var(--vt-frame-bg), -8px 0 0 var(--vt-frame-bg);
     }
 }
+/* P25: landscape phone — the map editor's foot (only "Close editor") yields
+   its 50 px to the editor body; ✕ in the head closes the editor the same way */
+@media (max-height: 480px) {
+    body.vt-frame #ui_drawer_foot:has(> #btn_map_detail_close_footer:only-child) { display: none !important; }
+}

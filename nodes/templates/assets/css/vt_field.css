@@ -949,3 +949,6 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
    red, height change / calibration amber, off muted) */
 #inputgroup_mower_on_off[data-state] #span_mower_status { color: var(--vt-st) !important; font-weight: 700; }
 #inputgroup_mower_on_off[data-state="off"] #span_mower_status { color: var(--vt-muted) !important; }
+/* P25: map editor list rows (zones, paths, waypoints): their Edit / Remove /
+   eye buttons use the panel's small type (were 11 px in 34 px buttons) */
+#div_map_detail .btn-group-sm > .btn { font-size: var(--vt-fs-sm); padding-left: 10px; padding-right: 10px; }
