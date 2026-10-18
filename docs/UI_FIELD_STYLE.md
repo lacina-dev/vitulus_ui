@@ -105,3 +105,24 @@ všech existujících kartách naráz bez zásahu do HTML.
   načítání jako skeleton / dýchající text místo červeného řádku, štítky nálezů
   tónované (ne plné bloky), řádky nálezů jako karty bez pruhu vlevo, nativní
   checkboxy v barvě akcentu a tmavém schématu.
+
+## 7. Noční kola P1–P11 (2026-10-18) — tlačítka, volby, formuláře
+
+- **Tlačítka ploše** (P11): motiv Slate kreslil každému `.btn` svislý
+  gradient, stín textu a černou hranu; teď jedna výplň, 1 px světlá hrana,
+  akcent na hover (jako `.btn` field dashboardu). Barvy variant zůstávají.
+- **Tónované akce** (P3, P10, P11): `success` / `warning` v těle panelu,
+  Activate v seznamu map, Cancel v patičce = jemná výplň + hrana v tónu,
+  plně až na hover. Plná zůstává jen destruktivní červená (STOP, STOP MOTOR)
+  a hlavní GO akce panelu (Send goal = akcentová, jako `.btn-go`).
+- **Vybraná volba skupiny** (P6): třída `.vt-sel` (akcentová výplň + hrana),
+  nastavuje ji `vtSel(btn, on)` v `map_view.js` — žádné inline barvy textu.
+- **Formuláře** (P3, P7, P10): checkbox = tmavá jamka / akcent když zapnuto
+  (i `.form-check-input`), posuvník = tmavá dráha + azurový jezdec, vstupy
+  vždy tmavé; řádky „popisek · hodnota · jednotka · vstup · akce“ mají pevné
+  sloupce (popisek 146 px, jednotka 40 px), dvojice voleb (ON | OFF) jsou
+  stejně široké.
+- **Karty i tam, kde chyběly** (P4, P10): Dock lock, stav robota, Diag
+  (souhrn + skupiny řádků tečka · název · zpráva, stabilní pořadí).
+- **Ikony** (P5): v editoru mapy line-awesome místo emoji; barva nástroje
+  jen na ikoně, aktivní nástroj v akcentu.
