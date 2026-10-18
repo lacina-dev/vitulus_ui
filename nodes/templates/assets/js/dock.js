@@ -59,6 +59,23 @@ function safeDOM(element, callback) {
     return null;
 }
 
+function dockT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+// set a translated text that follows a language switch (data-i18n)
+function dockTag(el, key) {
+    if (window.VTI18n) { VTI18n.tag(el, key); } else { el.textContent = key; }
+}
+// one translated <span> for an innerHTML status line (re-translated on a switch)
+function dockSpan(cls, key) {
+    return '<span class="' + cls + '" data-i18n="' + key + '">' + dockT(key) + '</span>';
+}
+// a form error: {key, vars, reason (another error)} → text in the current language
+function dockErrText(err) {
+    if (!err) { return ''; }
+    const v = Object.assign({}, err.vars || {});
+    if (err.reason) { v.reason = dockErrText(err.reason); }
+    return dockT(err.key, v);
+}
+
 class Dock {
     constructor(ros, tf_client, viewer) {
         // Store references for use in other methods
@@ -66,6 +83,7 @@ class Dock {
         this.ros = ros;
         this.tf_client = tf_client;
         this.currentMap = ""; // Add this to track the current map name
+        this._formErr = {};   // last form error per kind (re-translated on a language switch)
 
         // Initialize UI buttons
         this.predock_btn_by_map = document.getElementById("predock_btn_by_map");
@@ -331,6 +349,18 @@ class Dock {
         this.dock_seed_status_subscriber.subscribe(this.handleDockSeedStatus.bind(this));
 
         this.initializeButtons();
+
+        // language switch: redraw the texts drawn with dockT() that are not
+        // refreshed by a continuous topic (form errors, button tooltips)
+        if (window.VTI18n) {
+            VTI18n.onChange(() => {
+                ['dock', 'undock'].forEach((kind) => {
+                    const fe = this._formErr[kind];
+                    if (fe && fe.span && fe.span.isConnected) { fe.span.textContent = dockErrText(fe.err); }
+                    if (fe && fe.btn) { fe.btn.title = dockT('docking.err.see_tab', {text: dockErrText(fe.err)}); }
+                });
+            });
+        }
     }
 
     handleIsInDockConfirmed(message) {
@@ -353,32 +383,32 @@ class Dock {
             badgeText = '—';
             badgeColor = 'muted';
         } else if (s.last_seed_unconfirmed) {
-            badgeText = 'seeded (UNCONFIRMED)';
+            badgeText = dockT('docking.seed.unconfirmed');
             badgeColor = 'warn';
         } else if (s.seeded_this_episode) {
-            badgeText = 'seeded ✓';
+            badgeText = dockT('docking.seed.ok');
             badgeColor = 'ok';
         } else {
-            badgeText = 'waiting';
+            badgeText = dockT('docking.seed.waiting');
             badgeColor = 'muted';
         }
 
         let seedHtml = `
         <div>
-            <span>Seed: <span class="vt-strong vt-tone-${badgeColor}">${badgeText}</span></span>
+            <span>${dockT('docking.seed.label')} <span class="vt-strong vt-tone-${badgeColor}">${badgeText}</span></span>
         </div>
         `;
         if (s.docked_waypoint_present === false) {
             seedHtml += `
         <div>
-            <span class="vt-tone-err">docked waypoint MISSING</span>
+            <span class="vt-tone-err">${dockT('docking.seed.wp_missing')}</span>
         </div>
             `;
         }
         if (s.confirmed_age_s !== null && s.confirmed_age_s !== undefined) {
             seedHtml += `
         <div>
-            <span>confirmed ${s.confirmed_age_s.toFixed(0)}s ago</span>
+            <span>${dockT('docking.seed.confirmed_ago', {s: s.confirmed_age_s.toFixed(0)})}</span>
         </div>
             `;
         }
@@ -405,7 +435,7 @@ class Dock {
             const statusElement = document.createElement('div');
             statusElement.id = `mjpeg-status-${topic.replace(/\//g, '-')}`;
             statusElement.className = 'vt-overlay-badge';   // U1: look in vt_panel.css, state via data-state
-            statusElement.textContent = 'Connecting...';
+            dockTag(statusElement, 'docking.img.connecting');
             
             divElement.classList.add('vt-overlay-host');
             divElement.appendChild(statusElement);
@@ -423,12 +453,12 @@ class Dock {
                     topic: topic,
                     onLoad: () => {
                         DockLogger.debug(`MJPEG viewer connected for ${topic}`);
-                        statusElement.textContent = 'Connected';
+                        dockTag(statusElement, 'docking.img.connected');
                         statusElement.dataset.state = 'ok';
                     },
                     onError: (error) => {
                         DockLogger.error(`MJPEG viewer error for ${topic}:`, error);
-                        statusElement.textContent = 'Connection Error';
+                        dockTag(statusElement, 'docking.img.conn_error');
                         statusElement.dataset.state = 'err';
                     }
                 });
@@ -436,7 +466,7 @@ class Dock {
                 // Monitor for image updates
                 const observer = new MutationObserver((mutations) => {
                     mutations.forEach(() => {
-                        statusElement.textContent = 'Receiving';
+                        dockTag(statusElement, 'docking.img.receiving');
                         statusElement.dataset.state = 'ok';
                         
                         // Update last image time
@@ -457,7 +487,7 @@ class Dock {
                 // Check for stale images
                 intervalId = setInterval(() => {
                     if (viewer && viewer.lastImageTime && Date.now() - viewer.lastImageTime > 5000) {
-                        statusElement.textContent = 'No updates';
+                        dockTag(statusElement, 'docking.img.no_updates');
                         statusElement.dataset.state = 'warn';
                     }
                 }, 1000);
@@ -470,7 +500,7 @@ class Dock {
                 
             } catch (e) {
                 DockLogger.error(`Failed to create MJPEG viewer for ${topic}:`, e);
-                statusElement.textContent = 'Setup Error';
+                dockTag(statusElement, 'docking.img.setup_error');
                 statusElement.dataset.state = 'err';
                 
                 // Clear interval if it was created
@@ -524,36 +554,36 @@ class Dock {
 
     handleDockStatus(message) {
         // Convert status to human readable format
-        let dock_status = "INACTIVE";
+        let dock_status = dockT('docking.phase.inactive');
         if (message.docking_requested) {
             switch(message.navigation_phase) {
                 case 1:
-                    dock_status = "ALIGN";
+                    dock_status = dockT('docking.phase.align');
                     break;
                 case 2:
-                    dock_status = "APPROACH";
+                    dock_status = dockT('docking.phase.approach');
                     break;
                 case 3:
-                    dock_status = "ALIGN TO DOCK";
+                    dock_status = dockT('docking.phase.align_dock');
                     break;
                 case 4:
-                    dock_status = "FINAL APPROACH";
+                    dock_status = dockT('docking.phase.final');
                     break;
                 default:
-                    dock_status = "ACTIVE";
+                    dock_status = dockT('docking.phase.active');
             }
         }
 
         let statusHtml = `
         <div>
-            <span>Status: ${dock_status}</span>
+            <span>${dockT('docking.int.status', {status: dock_status})}</span>
         </div>
         <div>
 
-            <span>Collision Detected: ${message.collision_detected}</span>
+            <span>${dockT('docking.int.collision', {value: message.collision_detected})}</span>
         </div>
         <div>
-            <span>Dock: yaw: ${(message.dock_angle * 180 / Math.PI).toFixed(1)}°,</span>
+            <span>${dockT('docking.int.dock_yaw', {deg: (message.dock_angle * 180 / Math.PI).toFixed(1)})}</span>
         </div>
         <div>
             <span>x:${message.dock_x.toFixed(3)}, y:${message.dock_y.toFixed(3)}m </span>
@@ -585,29 +615,29 @@ class Dock {
         let mapStatusHtml = `
             <div >
                 <div>
-                    <span>Mode: ${message.status_mode}</span>
-                    <span>Scans: ${message.scan_count} / Points: ${message.total_points}</span>
-                    <span>Path points: ${message.path_points_count}</span>
+                    <span>${dockT('docking.map.mode', {mode: message.status_mode})}</span>
+                    <span>${dockT('docking.map.scans', {scans: message.scan_count, points: message.total_points})}</span>
+                    <span>${dockT('docking.map.path_points', {n: message.path_points_count})}</span>
                 </div>
                 <div>
-                    <span>Localization:</span>
-                    <span>Score: ${message.localization_score.toFixed(3)}</span>
-                    <span>Best: ${message.localization_best.toFixed(3)}</span>
-                    <span>Last update: ${message.localization_last_time.toFixed(2)}s</span>
+                    <span>${dockT('docking.map.loc')}</span>
+                    <span>${dockT('docking.map.score', {v: message.localization_score.toFixed(3)})}</span>
+                    <span>${dockT('docking.map.best', {v: message.localization_best.toFixed(3)})}</span>
+                    <span>${dockT('docking.map.last_update', {s: message.localization_last_time.toFixed(2)})}</span>
                 </div>
                 <div>
-                    <span>Robot position:</span>
+                    <span>${dockT('docking.map.robot_pos')}</span>
                     <span>X: ${message.robot_x.toFixed(3)} m</span>
                     <span>Y: ${message.robot_y.toFixed(3)} m</span>
-                    <span>Yaw: ${message.robot_yaw.toFixed(2)}°</span>
+                    <span>${dockT('docking.map.yaw', {deg: message.robot_yaw.toFixed(2)})}</span>
                 </div>
                 <div>
-                    <span>Navigation:</span>
+                    <span>${dockT('docking.map.nav')}</span>
                     <span>${message.nav_status}</span>
                     <span>(${message.nav_progress.toFixed(1)}%)</span>
-                    <span>Distance: ${message.distance_to_goal.toFixed(2)} m</span>
-                    <span>Est. time: ${message.estimated_time.toFixed(1)}s</span>
-                    ${message.nav_error ? `<span class="vt-tone-err">Error: ${message.nav_error}</span>` : ''}
+                    <span>${dockT('docking.map.distance', {m: message.distance_to_goal.toFixed(2)})}</span>
+                    <span>${dockT('docking.map.eta', {s: message.estimated_time.toFixed(1)})}</span>
+                    ${message.nav_error ? `<span class="vt-tone-err">${dockT('docking.map.error', {error: message.nav_error})}</span>` : ''}
                 </div>
             </div>
         `;
@@ -645,7 +675,7 @@ class Dock {
                     this.showDockMapAndMarkers();
                 }
                 vtTone(this.dock_label_enable_by_map, 'ok');
-                this.dock_label_enable_by_map.textContent = 'Dock Map Enabled';
+                dockTag(this.dock_label_enable_by_map, 'docking.map_enabled');
                 this.dock_check_enable_by_map.checked = true;
                 this.dockMapEnabled = true;
                 
@@ -663,7 +693,7 @@ class Dock {
                     this.hideDockMapAndMarkers();
                 }
                 vtTone(this.dock_label_enable_by_map, 'muted');
-                this.dock_label_enable_by_map.textContent = 'Dock Map Disabled';
+                dockTag(this.dock_label_enable_by_map, 'docking.map_disabled');
                 this.dock_check_enable_by_map.checked = false;
                 this.dockMapEnabled = false;
                 
@@ -690,7 +720,7 @@ class Dock {
                     this.showDockIntensityMarkers();
                 }
                 vtTone(this.dock_label_enable_by_intensity, 'ok');
-                this.dock_label_enable_by_intensity.textContent = 'Dock Intensity Enabled';
+                dockTag(this.dock_label_enable_by_intensity, 'docking.int_enabled');
                 this.dock_check_enable_by_intensity.checked = true;
                 this.dockIntensityEnabled = true;
                 
@@ -708,7 +738,7 @@ class Dock {
                     this.hideDockIntensityMarkers();
                 }
                 vtTone(this.dock_label_enable_by_intensity, 'muted');
-                this.dock_label_enable_by_intensity.textContent = 'Dock Intensity Disabled';
+                dockTag(this.dock_label_enable_by_intensity, 'docking.int_disabled');
                 this.dock_check_enable_by_intensity.checked = false;
                 this.dockIntensityEnabled = false;
                 
@@ -1155,7 +1185,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_dock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span class="vt-tone-info">Dock program started</span>';
+                    statusDiv.innerHTML = dockSpan('vt-tone-info', 'docking.prog.dock_started');
                 }
             });
         }
@@ -1198,7 +1228,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_dock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span class="vt-tone-ok">Dock program saved</span>';
+                    statusDiv.innerHTML = dockSpan('vt-tone-ok', 'docking.prog.dock_saved');
                 }
             });
         }
@@ -1239,7 +1269,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_predock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span class="vt-tone-info">Undock program started</span>';
+                    statusDiv.innerHTML = dockSpan('vt-tone-info', 'docking.prog.undock_started');
                 }
             });
         }
@@ -1282,7 +1312,7 @@ class Dock {
                 // Update status
                 const statusDiv = document.getElementById('program_predock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span class="vt-tone-ok">Undock program saved</span>';
+                    statusDiv.innerHTML = dockSpan('vt-tone-ok', 'docking.prog.undock_saved');
                 }
             });
         }
@@ -1318,7 +1348,7 @@ class Dock {
                 this.dockProgramPublisher.publish(dockProgramMsg);
                 const statusDiv = document.getElementById('program_dock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span class="vt-tone-info">Dock program started via menu</span>';
+                    statusDiv.innerHTML = dockSpan('vt-tone-info', 'docking.prog.dock_started_menu');
                 }
             });
         }
@@ -1353,7 +1383,7 @@ class Dock {
                 this.dockProgramPublisher.publish(undockProgramMsg);
                 const statusDiv = document.getElementById('program_predock_div_status');
                 if (statusDiv) {
-                    statusDiv.innerHTML = '<span class="vt-tone-info">Undock program started via menu</span>';
+                    statusDiv.innerHTML = dockSpan('vt-tone-info', 'docking.prog.undock_started_menu');
                 }
             });
         }
@@ -1368,11 +1398,11 @@ class Dock {
                 // Optionally, update a status somewhere
                 const dockStatusDiv = document.getElementById('program_dock_div_status');
                 if (dockStatusDiv) {
-                    dockStatusDiv.innerHTML = '<span class="vt-tone-err">Stop signal sent via menu</span>';
+                    dockStatusDiv.innerHTML = dockSpan('vt-tone-err', 'docking.prog.stop_sent_menu');
                 }
                 const undockStatusDiv = document.getElementById('program_predock_div_status');
                 if (undockStatusDiv) {
-                    undockStatusDiv.innerHTML = '<span class="vt-tone-err">Stop signal sent via menu</span>';
+                    undockStatusDiv.innerHTML = dockSpan('vt-tone-err', 'docking.prog.stop_sent_menu');
                 }
             });
         }
@@ -1398,7 +1428,7 @@ class Dock {
         // Show confirmation message to the user
         const statusElement = document.getElementById('dock-point-status');
         if (statusElement) {
-            statusElement.textContent = `Navigating to ${pointName} point`;
+            statusElement.textContent = dockT('docking.point.navigating', {point: pointName});
             vtTone(statusElement, 'info');
             setTimeout(() => {
                 statusElement.textContent = '';
@@ -1421,7 +1451,7 @@ class Dock {
         // Show confirmation message to the user
         const statusElement = document.getElementById('dock-point-status');
         if (statusElement) {
-            statusElement.textContent = `${pointName} point set at current robot position`;
+            statusElement.textContent = dockT('docking.point.set', {point: pointName});
             vtTone(statusElement, 'ok');
             setTimeout(() => {
                 statusElement.textContent = '';
@@ -1507,8 +1537,9 @@ class Dock {
         };
     }
 
-    // '' when the form holds a valid program of its kind, else an English
-    // message for the user.
+    // '' when the form holds a valid program of its kind, else an error
+    // {key, vars} for the user (dockErrText → text in the current language).
+    // Messages are matched as keys, never as text.
     _programFormError(kind) {
         const ids = this._programFormIds(kind);
         const el = (id) => document.getElementById(id);
@@ -1518,29 +1549,32 @@ class Dock {
         const path = el(ids.path) ? el(ids.path).value : '';
         const action = el(ids.action) ? el(ids.action).value : '';
         if (!useMap && !useDockMap && !useIntensity) {
-            return 'Enable at least one step (intensity action, lidar map path or map point).';
+            return {key: 'docking.err.no_step'};
         }
         if (kind === 'undock') {
-            if (useIntensity && action !== 'UNDOCK') return 'Undock program: intensity action must be UNDOCK.';
-            if (useDockMap && path !== 'UNDOCK' && path !== 'PREDOCK') return 'Undock program: lidar map path must be UNDOCK or PREDOCK.';
+            if (useIntensity && action !== 'UNDOCK') return {key: 'docking.err.undock_action'};
+            if (useDockMap && path !== 'UNDOCK' && path !== 'PREDOCK') return {key: 'docking.err.undock_path'};
             if (!((useIntensity && action === 'UNDOCK') || (useDockMap && path === 'UNDOCK'))) {
-                return 'Not an undock program: enable intensity action UNDOCK and/or lidar map path UNDOCK.';
+                return {key: 'docking.err.not_undock'};
             }
         } else {
-            if (useIntensity && action !== 'DOCK') return 'Dock program: intensity action must be DOCK.';
-            if (useDockMap && path !== 'PREDOCK' && path !== 'DOCK') return 'Dock program: lidar map path must be PREDOCK or DOCK.';
+            if (useIntensity && action !== 'DOCK') return {key: 'docking.err.dock_action'};
+            if (useDockMap && path !== 'PREDOCK' && path !== 'DOCK') return {key: 'docking.err.dock_path'};
         }
         return '';
     }
 
-    _showProgramFormError(kind, text, flashBtn) {
+    _showProgramFormError(kind, err, flashBtn) {
+        const text = dockErrText(err);
         const statusDiv = document.getElementById(this._programFormIds(kind).status);
+        const fe = this._formErr[kind] = {err: err, span: null, btn: (this._formErr[kind] || {}).btn || null};
         if (statusDiv) {
             statusDiv.innerHTML = '';
             const span = document.createElement('span');
             span.className = 'vt-tone-err';
             span.textContent = text;
             statusDiv.appendChild(span);
+            fe.span = span;
         }
         console.warn('[dock] ' + kind + ' program not sent: ' + text);
         // Bottom-bar buttons: the Dock tab (with the message above) may be
@@ -1552,12 +1586,13 @@ class Dock {
             try {
                 const sb = window.status_bar;
                 if (sb && sb.set_status_info_text) {
-                    sb.set_status_info_text((kind === 'undock' ? 'Undock' : 'Dock') + ' program invalid');
+                    sb.set_status_info_text(dockT(kind === 'undock' ? 'docking.bar.undock_invalid' : 'docking.bar.dock_invalid'));
                     clearTimeout(sb.info_timeout);
                     sb.info_timeout = setTimeout(() => sb.hide_status_info(), sb.timeout);
                 }
             } catch (e) { /* status bar not up yet */ }
-            flashBtn.title = text + ' (see the Dock tab)';
+            flashBtn.title = dockT('docking.err.see_tab', {text: text});
+            fe.btn = flashBtn;
             flashBtn.classList.remove('btn-primary'); flashBtn.classList.add('btn-danger');
             setTimeout(() => { flashBtn.classList.remove('btn-danger'); flashBtn.classList.add('btn-primary'); }, 2500);
         }
@@ -1568,21 +1603,25 @@ class Dock {
     // and tell the user instead of leaving a blank select.
     _applySavedProgramSelects(kind, message, pathSelect, actionSelect) {
         const has = (sel, v) => !!sel && Array.prototype.some.call(sel.options, (o) => o.value === v);
-        const bad = [];
+        let badPath = null, badAction = null;
         if (pathSelect) {
             if (has(pathSelect, message.path)) pathSelect.value = message.path;
-            else if (message.use_dock_map) bad.push('lidar map path ' + (message.path || '(empty)'));
+            else if (message.use_dock_map) badPath = message.path || dockT('docking.err.empty_value');
         }
         if (actionSelect) {
             if (has(actionSelect, message.action)) actionSelect.value = message.action;
-            else if (message.use_intensity) bad.push('intensity action ' + (message.action || '(empty)'));
+            else if (message.use_intensity) badAction = message.action || dockT('docking.err.empty_value');
         }
-        const err = bad.length ? ('uses ' + bad.join(' and ')) : this._programFormError(kind);
+        let err;
+        if (badPath !== null && badAction !== null) err = {key: 'docking.err.uses_both', vars: {path: badPath, action: badAction}};
+        else if (badPath !== null) err = {key: 'docking.err.uses_path', vars: {path: badPath}};
+        else if (badAction !== null) err = {key: 'docking.err.uses_action', vars: {action: badAction}};
+        else err = this._programFormError(kind);
         // An empty program (nothing saved yet on a new robot) is not worth a warning.
         const empty = !message.use_map && !message.use_dock_map && !message.use_intensity;
         if (err && !empty) {
-            this._showProgramFormError(kind, 'Saved ' + kind + ' program is not valid (' + err +
-                ') — review the form and Save it again.');
+            this._showProgramFormError(kind, {key: kind === 'undock' ? 'docking.err.saved_undock' : 'docking.err.saved_dock',
+                reason: err});
         }
     }
 

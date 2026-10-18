@@ -1,3 +1,5 @@
+function rainT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+
 class RainAlert {
     constructor(ros) {
         this.ico_rain_ok = document.getElementById("ico_rain_ok");
@@ -13,10 +15,15 @@ class RainAlert {
 
         this.hostname = location.hostname;
         
-        // Setup placeholder text
-        this.rain_map_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud"></i><p>Waiting for map image...</p></div>';
-        this.rain_forecast_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-sun"></i><p>Waiting for forecast image...</p></div>';
-        this.rain_div_report.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-info-circle"></i><p>Waiting for weather alerts...</p></div>';
+        // Setup placeholder text (tagged: follows a language switch)
+        this.rain_map_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud"></i><p data-i18n="rainui.wait_map">' + rainT('rainui.wait_map') + '</p></div>';
+        this.rain_forecast_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-sun"></i><p data-i18n="rainui.wait_forecast">' + rainT('rainui.wait_forecast') + '</p></div>';
+        this.rain_div_report.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-info-circle"></i><p data-i18n="rainui.wait_alerts">' + rainT('rainui.wait_alerts') + '</p></div>';
+        this.lastMessage = null;
+        // language switch: rebuild the report from the last message
+        if (window.VTI18n) {
+            VTI18n.onChange(() => { if (this.lastMessage) { this.updateReportDiv(this.lastMessage); } });
+        }
         
         // Subscribe to rain alert topic
         this.rain_alert_topic = new ROSLIB.Topic({
@@ -59,7 +66,8 @@ class RainAlert {
             const img = new Image();
             img.src = `http://${this.hostname}:8080/snapshot?topic=${topic}&t=${timestamp}`;
             img.className = 'vt-img vt-img-zoom';   // U1: vt_panel.css
-            img.title = 'Click to enlarge';
+            img.setAttribute('data-i18n-title', 'rainui.enlarge');
+            img.title = rainT('rainui.enlarge');
             img.addEventListener('click', () => this.openImageModal(topic));
             return img;
         };
@@ -79,7 +87,7 @@ class RainAlert {
             this.rain_map_div.appendChild(container);
         };
         mapImg.onerror = () => {
-            this.rain_map_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-slash"></i><p>Map image unavailable</p></div>';
+            this.rain_map_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-slash"></i><p data-i18n="rainui.map_unavailable">' + rainT('rainui.map_unavailable') + '</p></div>';
         };
 
         // Forecast image (2×2 grid, same pixel size as map)
@@ -92,7 +100,7 @@ class RainAlert {
             this.rain_forecast_div.appendChild(container);
         };
         forecastImg.onerror = () => {
-            this.rain_forecast_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-slash"></i><p>Forecast image unavailable</p></div>';
+            this.rain_forecast_div.innerHTML = '<div class="vt-empty vt-empty-big"><i class="bi bi-cloud-slash"></i><p data-i18n="rainui.forecast_unavailable">' + rainT('rainui.forecast_unavailable') + '</p></div>';
         };
     }
 
@@ -121,12 +129,14 @@ class RainAlert {
             console.warn("Received empty message in updateReportDiv");
             return;
         }
+        this.lastMessage = message;
         
         // Format the timestamp - check if header exists
-        let formattedTimestamp = "Unavailable";
+        const unavailable = rainT('rainui.unavailable');
+        let formattedTimestamp = unavailable;
         if (message.time) {
             const timestamp = new Date(message.time.secs * 1000 + message.time.nsecs / 1000000);
-            formattedTimestamp = timestamp.toLocaleString();
+            formattedTimestamp = timestamp.toLocaleString(window.VTI18n ? VTI18n.lang() : undefined);
         }
         
         // Generate status message - default values if properties are undefined
@@ -134,12 +144,12 @@ class RainAlert {
         const rainNow = message.rain_now !== undefined ? message.rain_now : 0;
         
         let statusMessage = rainAlert ? 
-            (rainNow > 0 ? "Rain currently detected!" : "Rain alert - precipitation expected soon!") : 
-            "No rain alerts at this time";
+            (rainNow > 0 ? rainT('rainui.status.raining') : rainT('rainui.status.expected')) : 
+            rainT('rainui.status.none');
             
         // Safely get coordinates with fallbacks - using correct field names: lat and lon
-        const latitude = message.lat !== undefined ? message.lat.toFixed(6) + "°" : "Unavailable";
-        const longitude = message.lon !== undefined ? message.lon.toFixed(6) + "°" : "Unavailable";
+        const latitude = message.lat !== undefined ? message.lat.toFixed(6) + "°" : unavailable;
+        const longitude = message.lon !== undefined ? message.lon.toFixed(6) + "°" : unavailable;
         
         // Create the timeline visualization
         const timeline = this.createTimelineVisualization(message);
@@ -149,31 +159,31 @@ class RainAlert {
             <div class="weather-report">
                 <table class="table table-sm">
                     <tr>
-                        <th>Status:</th>
+                        <th>${rainT('rainui.th.status')}</th>
                         <td><span class="${rainAlert ? (rainNow > 0 ? 'text-danger' : 'text-warning') : 'text-success'}">${statusMessage}</span></td>
                     </tr>
                     <tr>
-                        <th>Rain Alert:</th>
-                        <td>${rainAlert ? 'Yes' : 'No'}</td>
+                        <th>${rainT('rainui.th.alert')}</th>
+                        <td>${rainAlert ? rainT('common.yes') : rainT('common.no')}</td>
                     </tr>
                     <tr>
-                        <th>Current Rain:</th>
-                        <td>${rainNow > 0 ? 'Yes' : 'No'}</td>
+                        <th>${rainT('rainui.th.now')}</th>
+                        <td>${rainNow > 0 ? rainT('common.yes') : rainT('common.no')}</td>
                     </tr>
                     <tr>
-                        <th>Location:</th>
-                        <td>${message.location || 'Unavailable'}</td>
+                        <th>${rainT('rainui.th.location')}</th>
+                        <td>${message.location || unavailable}</td>
                     </tr>
                     <tr>
-                        <th>Latitude:</th>
+                        <th>${rainT('rainui.th.lat')}</th>
                         <td>${latitude}</td>
                     </tr>
                     <tr>
-                        <th>Longitude:</th>
+                        <th>${rainT('rainui.th.lon')}</th>
                         <td>${longitude}</td>
                     </tr>
                     <tr>
-                        <th>Report Time:</th>
+                        <th>${rainT('rainui.th.time')}</th>
                         <td>${formattedTimestamp}</td>
                     </tr>
                 </table>
@@ -225,14 +235,14 @@ class RainAlert {
         let timelineHTML = `
             <div class="timeline-container">
                 <div class="timeline-section">
-                    <div class="timeline-label">Past</div>
+                    <div class="timeline-label">${rainT('rainui.tl.past')}</div>
                     <div class="timeline-blocks">
                         ${this.createTimelineBlocks(pastStatuses, statusClasses, ['-60m', '-50m', '-40m', '-30m', '-20m', '-10m'])}
                     </div>
                 </div>
                 
                 <div class="timeline-section">
-                    <div class="timeline-label">Now</div>
+                    <div class="timeline-label">${rainT('rainui.tl.now')}</div>
                     <div class="timeline-blocks">
                         <div class="timeline-block-wrapper">
                             <div class="timeline-block ${statusClasses[currentStatus]}"></div>
@@ -242,7 +252,7 @@ class RainAlert {
                 </div>
                 
                 <div class="timeline-section">
-                    <div class="timeline-label">Forecast</div>
+                    <div class="timeline-label">${rainT('rainui.tl.forecast')}</div>
                     <div class="timeline-blocks">
                         ${this.createTimelineBlocks(forecastStatuses, statusClasses, ['+10m', '+20m', '+30m'])}
                     </div>

@@ -6,6 +6,10 @@
  *   - /scheduler/status        (subscribe, std_msgs/String)
  */
 
+function calT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+// short day names, Monday = 0 (the robot's days_of_week)
+function calDay(d) { return (d >= 0 && d <= 6) ? calT('calmgr.day.' + d) : '?'; }
+
 class CalendarManager {
     constructor(ros, programsInstance) {
         this.ros = ros;
@@ -68,12 +72,22 @@ class CalendarManager {
 
         // Subscribe to next-run info
         this.nextRunSub.subscribe((msg) => {
-            const el = document.getElementById('span_scheduler_next');
-            if (el) {
-                const v = msg.data || '';
-                el.textContent = (v && v !== 'None') ? ('Next: ' + v) : '';
-            }
+            this._nextRun = msg.data || '';
+            this._paintNext();
         });
+
+        // language switch: redraw what this module wrote
+        if (window.VTI18n) {
+            VTI18n.onChange(() => {
+                this.render();
+                this._paintState();
+                this._paintNext();
+                const sel = this.selProgram;
+                if (sel && sel.options.length === 1 && sel.options[0].value === '') {
+                    sel.options[0].textContent = calT('calmgr.no_programs');
+                }
+            });
+        }
 
         // Subscribe to inhibit status (reflect, don't echo back)
         this.inhibitStatusSub.subscribe((msg) => {
@@ -145,21 +159,29 @@ class CalendarManager {
          "Off-dock …"                 → "Off dock"        amber
          "Initialising"               → "Starting"        grey
          anything else ("Idle …")     → "Active"          green  */
+    _paintNext() {
+        const el = document.getElementById('span_scheduler_next');
+        if (el) {
+            const v = this._nextRun || '';
+            el.textContent = (v && v !== 'None') ? calT('calmgr.next', {when: v}) : '';
+        }
+    }
+
     _paintState() {
         const el = document.getElementById('span_scheduler_state');
         const card = document.getElementById('card_calendar');
         if (!el) return;
         const st = String(this._status || '');
         let label = '—', tone = 'off';
-        if (this._held || /^Inhibited/.test(st)) { label = 'Held'; tone = 'warn'; }
-        else if (/^Disabled/.test(st)) { label = 'Automation off'; tone = 'off'; }
-        else if (/^Mowing/.test(st)) { label = 'Mowing'; tone = 'info'; }
-        else if (/^Off-dock/.test(st)) { label = 'Off dock'; tone = 'warn'; }
-        else if (/^Initialising/.test(st)) { label = 'Starting'; tone = 'off'; }
-        else if (st) { label = 'Active'; tone = 'ok'; }
+        if (this._held || /^Inhibited/.test(st)) { label = calT('calmgr.state.held'); tone = 'warn'; }
+        else if (/^Disabled/.test(st)) { label = calT('calmgr.state.auto_off'); tone = 'off'; }
+        else if (/^Mowing/.test(st)) { label = calT('calmgr.state.mowing'); tone = 'info'; }
+        else if (/^Off-dock/.test(st)) { label = calT('calmgr.state.off_dock'); tone = 'warn'; }
+        else if (/^Initialising/.test(st)) { label = calT('calmgr.state.starting'); tone = 'off'; }
+        else if (st) { label = calT('calmgr.state.active'); tone = 'ok'; }
         el.textContent = label;
         el.dataset.state = tone;
-        el.title = st ? 'Scheduler: ' + st : '';
+        el.title = st ? calT('calmgr.state.tip', {status: st}) : '';
         if (card) {
             if (tone === 'off') { delete card.dataset.state; } else { card.dataset.state = tone; }
         }
@@ -170,10 +192,9 @@ class CalendarManager {
     render() {
         if (!this.containerEl) return;
         if (!this.events || this.events.length === 0) {
-            this.containerEl.innerHTML = '<div class="vt-empty">No calendar events yet.</div>';
+            this.containerEl.innerHTML = '<div class="vt-empty">' + calT('calmgr.empty') + '</div>';
             return;
         }
-        const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
         // Program names of the active map (null = list not received yet)
         const pl = this.programs && this.programs.program_list_msg && this.programs.program_list_msg.program_list;
         const known = (pl && pl.length) ? new Set(pl.map(p => p.name)) : null;
@@ -188,11 +209,11 @@ class CalendarManager {
             html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}${missing ? ' has-miss' : ''}">`;
             html += `<div class="form-check form-switch"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" ${enabled ? 'checked' : ''}></div>`;
             html += `<span class="vt-cal-name">${this._escHtml(ev.program_name)}</span>`;
-            if (missing) html += `<span class="vt-cal-miss" title="No program of this name on the active map - the event is skipped. Edit it and pick a program.">missing</span>`;
+            if (missing) html += `<span class="vt-cal-miss" title="${calT('calmgr.missing_tip')}">${calT('calmgr.missing')}</span>`;
             html += `<span class="vt-cal-time">${timeStr}</span>`;
             html += `<span class="vt-cal-rec">${recLabel}</span>`;
-            html += `<button class="btn btn-sm btn-outline-info cal-edit" data-id="${ev.id}">Edit</button>`;
-            html += `<button class="btn btn-sm btn-outline-danger cal-del" data-id="${ev.id}">Del</button>`;
+            html += `<button class="btn btn-sm btn-outline-info cal-edit" data-id="${ev.id}">${calT('common.edit')}</button>`;
+            html += `<button class="btn btn-sm btn-outline-danger cal-del" data-id="${ev.id}">${calT('calmgr.del')}</button>`;
             html += `</div>`;
         });
         this.containerEl.innerHTML = html;
@@ -210,17 +231,16 @@ class CalendarManager {
     }
 
     _recurrenceLabel(ev) {
-        const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
         switch (ev.recurrence) {
-            case 'none': return 'Once: ' + (ev.start_date || '?');
-            case 'daily': return 'Daily';
+            case 'none': return calT('calmgr.rec.once', {date: ev.start_date || '?'});
+            case 'daily': return calT('calmgr.rec.daily');
             case 'weekly':
                 if (ev.days_of_week && ev.days_of_week.length) {
-                    return ev.days_of_week.map(d => dayNames[d] || '?').join(', ');
+                    return ev.days_of_week.map(d => calDay(d)).join(', ');
                 }
-                return 'Weekly';
-            case 'monthly': return 'Monthly (day ' + (ev.day_of_month || '?') + ')';
-            case 'yearly': return 'Yearly (' + (ev.day_of_month || '?') + '/' + (ev.month || '?') + ')';
+                return calT('calmgr.rec.weekly');
+            case 'monthly': return calT('calmgr.rec.monthly', {day: ev.day_of_month || '?'});
+            case 'yearly': return calT('calmgr.rec.yearly', {day: ev.day_of_month || '?', month: ev.month || '?'});
             default: return ev.recurrence || '?';
         }
     }
@@ -285,7 +305,7 @@ class CalendarManager {
                 options += `<option value="${this._escHtml(name)}">${this._escHtml(name)}</option>`;
             });
         }
-        this.selProgram.innerHTML = options || '<option value="">No programs</option>';
+        this.selProgram.innerHTML = options || '<option value="">' + calT('calmgr.no_programs') + '</option>';
     }
 
     // ---- CRUD ----

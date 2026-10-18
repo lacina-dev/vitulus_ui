@@ -10,6 +10,7 @@
 
 // IIFE-scoped singletons populated by window.initImu (keeps them off `window`).
 var ros, imu_diag, viewer, viewer_grid, imu_markers, imu_yaws, imu_buttons, joy_teleop;
+function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
 
 class ROS {
     constructor() {
@@ -74,14 +75,14 @@ class ImuYaws {
         });
 
         this.subscribe = this.imu_yaws_topic.subscribe(function (message) {
-            span_imu_deg.innerHTML = "Imu: " + message.data[0].toFixed(2) + "°";
-            span_nav_deg.innerHTML = "Nav: " + message.data[1].toFixed(2) + "°";
-            span_mag_deg.innerHTML = "Mag: " + message.data[2].toFixed(2) + "°";
+            span_imu_deg.innerHTML = t('imucal.yaw.imu', {deg: message.data[0].toFixed(2)});
+            span_nav_deg.innerHTML = t('imucal.yaw.nav', {deg: message.data[1].toFixed(2)});
+            span_mag_deg.innerHTML = t('imucal.yaw.mag', {deg: message.data[2].toFixed(2)});
         });
         this.subscribe = this.rtk_yaws_topic.subscribe(function (message) {
-            span_rtk_deg.innerHTML = "RTK: " + message.data[1].toFixed(2) + "°";
-            span_imu_deg.innerHTML = "IMU: " + message.data[0].toFixed(2) + "°";
-            span_fuse_deg.innerHTML = "Fused: " + message.data[2].toFixed(2) + "°";
+            span_rtk_deg.innerHTML = t('imucal.yaw.rtk', {deg: message.data[1].toFixed(2)});
+            span_imu_deg.innerHTML = t('imucal.yaw.imu_rtk', {deg: message.data[0].toFixed(2)});
+            span_fuse_deg.innerHTML = t('imucal.yaw.fused', {deg: message.data[2].toFixed(2)});
         });
     }
 }
@@ -260,7 +261,7 @@ class JoyTeleop {
             : new ROSLIB.Topic({ros: ros.ros, name: "/cmd_vel",
                                 messageType: "geometry_msgs/Twist"});
         this.joy = window.VTJoy.create(document.getElementById("joy_view_imu"), {
-            turnOnly: true, speedLin: 0, speedAng: 1.2, label: 'TURN',
+            turnOnly: true, speedLin: 0, speedAng: 1.2, label: t('imucal.joy_turn'),
             onCommand: (lin, ang) => {
                 this.twist.linear.x = 0;
                 this.twist.angular.z = ang || 0;
@@ -268,6 +269,9 @@ class JoyTeleop {
             }
         });
         window.vtImuJoy = this.joy;      // map_view.js feeds it the motor state
+        if (window.VTI18n) {
+            VTI18n.onChange(() => { this.joy.setSpeed(0, 0, t('imucal.joy_turn')); });
+        }
     }
 }
 
