@@ -50,7 +50,7 @@
     'app.field.writes.on': 'povolena',
     'app.field.writes.off': 'vypnuta',
     'app.field.writes.unknown': 'neznámo',
-    'app.field.writes.hint': 'Zapíná se v Support kitu, ne tady: když jsou povolena, Needs you umí položky označit jako hotové, skrýt nebo připomenout.',
+    'app.field.writes.hint': 'Zapíná se v Support kitu, ne tady: když jsou povolena, panel Čeká na tebe umí položky označit jako hotové, skrýt nebo připomenout.',
     'app.field.dashboard': 'Otevřít dashboard podpory',
 
     'app.display.title': 'Zobrazení',
