@@ -27,6 +27,9 @@
     'use strict';
 
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tag(e, k, attr) { if (window.VTI18n) { VTI18n.tag(e, k, attr); } }
+    var relang = [];                      // re-paint after a language switch
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
     var LS_OPEN = 'vitulus_rightpanel_open';
@@ -41,14 +44,14 @@
     /* Názvy sekcí anglicky (přání majitele) a KAŽDÁ sekce je sbalitelná —
        stav si drží každá zvlášť v localStorage, takže přežije reload. */
     var SECTIONS = [
-        {id: 'drive', title: 'Controls',
+        {id: 'drive', title: 'rdock.sec.drive',
          /* rychlost + klávesnicový teleop na JEDEN řádek (ušetřený řádek) */
          line: ['div_status_speed', 'div_status_speed-1'],
          movees: ['div_status_speed-2'], collapsible: true},
-        {id: 'state', title: 'Navi',
+        {id: 'state', title: 'rdock.sec.state',
          movees: ['div_mower_info_panel', 'div_odom', 'div_gnss', 'div_rtabmap'],
          collapsible: true},
-        {id: 'camera', title: 'Camera', movees: [], camera: true, collapsible: true}
+        {id: 'camera', title: 'rdock.sec.camera', movees: [], camera: true, collapsible: true}
     ];
 
     var panel, handle, camState;
@@ -111,8 +114,10 @@
         handle = el('button', 'rp-handle');
         handle.type = 'button';
         handle.id = 'rp_handle';
-        handle.title = 'Show / hide the right panel';
-        handle.setAttribute('aria-label', 'Show / hide the right panel');
+        handle.title = t('rdock.handle');
+        handle.setAttribute('aria-label', t('rdock.handle'));
+        tag(handle, 'rdock.handle', 'title');
+        tag(handle, 'rdock.handle', 'aria-label');
         document.body.appendChild(handle);
 
         var body = el('div', 'rp-body', panel);
@@ -138,7 +143,7 @@
            Navi (#span_odom_drive, #span_gnss_fix), ať je jeden zdroj pravdy. */
         var loc = el('span', 'rp-sum-loc', topRow);
         loc.id = 'rp_sum_loc';
-        [['span_odom_drive', 'Pose'], ['span_gnss_fix', 'GNSS']].forEach(function (pair) {
+        [['span_odom_drive', 'Pose', 'rdock.dot.pose'], ['span_gnss_fix', 'GNSS', null]].forEach(function (pair) {
             var src = document.getElementById(pair[0]);
             var dot = el('span', 'vt-dot rp-sum-dot', loc);
             dot.id = 'rp_sum_dot_' + pair[1].toLowerCase();
@@ -146,10 +151,11 @@
             var copy = function () {
                 // U1 kolo 4: the chip carries its state in data-state (vtChip)
                 dot.dataset.state = src.dataset.state || 'off';
-                dot.title = pair[1] + ': ' + ((src.textContent || '').trim() || '—');
+                dot.title = (pair[2] ? t(pair[2]) : pair[1]) + ': ' + ((src.textContent || '').trim() || '—');
                 dot.setAttribute('aria-label', dot.title);
             };
             copy();
+            relang.push(copy);
             new MutationObserver(copy).observe(src, {childList: true, characterData: true,
                 subtree: true, attributes: true, attributeFilter: ['data-state']});
         });
@@ -161,8 +167,10 @@
         qcam.type = 'button';
         qcam.id = 'rp_sum_cam';
         qcam.innerHTML = '<i class="la la-video-camera"></i>';
-        qcam.title = 'Camera on / off (Alt+C)';
+        qcam.title = t('rdock.cam.toggle');
         qcam.setAttribute('aria-label', qcam.title);
+        tag(qcam, 'rdock.cam.toggle', 'title');
+        tag(qcam, 'rdock.cam.toggle', 'aria-label');
         qcam.addEventListener('click', function (ev) { ev.stopPropagation(); setCamLarge(!camLarge()); });
         var cbtn = el('button', 'rp-compact-btn', topRow);
         cbtn.type = 'button';
@@ -186,7 +194,8 @@
         var fico = document.getElementById('div_status_follow_ico');
         if (fico) {
             fico.classList.add('rp-click');
-            fico.title = 'Toggle follow (map / robot)';
+            fico.title = t('rdock.follow');
+            tag(fico, 'rdock.follow', 'title');
             fico.addEventListener('click', function () {
                 var b = document.getElementById('btn_follow');
                 if (b) { b.click(); }
@@ -197,7 +206,11 @@
             var sec = el('section', 'rp-sec', body);
             sec.setAttribute('data-sec', def.id);
             var h = el('h5', null, sec);
-            h.textContent = def.title;
+            /* the title in its own span: the h5 also holds the caret and the
+               camera switch, a tag on the h5 would wipe them */
+            var ht = el('span', 'rp-sec-title', h);
+            ht.textContent = t(def.title);
+            tag(ht, def.title);
             if (def.collapsible) {
                 var lsKey = 'vitulus_rightpanel_sec_' + def.id;
                 h.classList.add('rp-click');
@@ -250,16 +263,20 @@
                    place, the map comes here). Alt+C toggles small/large. */
                 var seg = el('span', 'rp-cam-seg', h);
                 seg.setAttribute('role', 'group');
-                seg.setAttribute('aria-label', 'Camera size');
-                [['off', 'Off', 'Hide the camera (stops the stream)'],
-                 ['small', 'S', 'Small camera in this panel (Alt+C)'],
-                 ['large', 'L', 'Large camera in place of the map (Alt+C)']].forEach(function (d) {
+                seg.setAttribute('aria-label', t('rdock.cam.size'));
+                tag(seg, 'rdock.cam.size', 'aria-label');
+                [['off', 'rdock.cam.off', 'rdock.cam.off.tip'],
+                 ['small', 'rdock.cam.small', 'rdock.cam.small.tip'],
+                 ['large', 'rdock.cam.large', 'rdock.cam.large.tip']].forEach(function (d) {
                     var b = el('button', 'rp-cam-opt', seg);
                     b.type = 'button';
                     b.setAttribute('data-cam', d[0]);
-                    b.textContent = d[1];
-                    b.title = d[2];
-                    b.setAttribute('aria-label', d[2]);
+                    b.textContent = t(d[1]);
+                    b.title = t(d[2]);
+                    b.setAttribute('aria-label', t(d[2]));
+                    tag(b, d[1]);
+                    tag(b, d[2], 'title');
+                    tag(b, d[2], 'aria-label');
                     b.addEventListener('click', function (ev) {
                         ev.stopPropagation();
                         var folded = sec.classList.contains('folded');
@@ -281,7 +298,8 @@
                    rezervované, ať výška neposkakuje. */
                 var off = el('div', 'rp-cam-off', box);
                 off.id = 'rp_cam_off';
-                off.textContent = 'no signal';
+                off.textContent = t('rdock.cam.nosignal');
+                tag(off, 'rdock.cam.nosignal');
                 moved = 1;
             }
             if (!moved) { sec.remove(); }
@@ -307,7 +325,7 @@
         var b = document.getElementById('rp_compact_btn');
         if (b) {
             b.textContent = c ? '▾' : '▴';
-            b.title = c ? 'Show controls, navi and camera' : 'Collapse to one row';
+            b.title = c ? t('rdock.compact.expand') : t('rdock.compact.collapse');
             b.setAttribute('aria-label', b.title);
             b.setAttribute('aria-expanded', c ? 'false' : 'true');
         }
@@ -593,7 +611,7 @@
             camAsked = camAsked || Date.now();
         }
         if (camState) {
-            var st = !on ? 'starting' : (frames() ? 'large' : 'waiting');
+            var st = !on ? t('rdock.cam.st.starting') : (frames() ? t('rdock.cam.st.large') : t('rdock.cam.st.waiting'));
             if (camState.textContent !== st) { camState.textContent = st; }
         }
         var slotOk = !narrow && !compact && !folded;
@@ -643,8 +661,8 @@
         setCls(document.body, 'vt-cam-paused', false);
 
         if (camState) {
-            camState.textContent = !on ? (autoPaused ? 'paused' : 'off')
-                : big ? 'large' : (frames() ? 'live' : 'waiting');
+            camState.textContent = !on ? (autoPaused ? t('rdock.cam.st.paused') : t('rdock.cam.st.off'))
+                : big ? t('rdock.cam.st.large') : (frames() ? t('rdock.cam.st.live') : t('rdock.cam.st.waiting'));
         }
         slot.style.display = eligible ? 'block' : 'none';
         slot.classList.toggle('idle', !on);
@@ -814,6 +832,13 @@
         placeLog();
         place();
         wireMapName();
+        if (window.VTI18n) {
+            VTI18n.onChange(function () {
+                relang.forEach(function (fn) { fn(); });
+                applyCompact();
+                paintCam();
+            });
+        }
 
         window.addEventListener('resize', function () { placeLog(); placeSoon(); });
         // web fonts / late layout change line heights after the first place()

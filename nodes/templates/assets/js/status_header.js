@@ -10,6 +10,8 @@
     window.__status_header_wired = true;
     var BREAK = 992;          // px; below this the strip stays where it was
     var moved = false;
+    function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tag(e, k, attr) { if (window.VTI18n) { VTI18n.tag(e, k, attr); } }
     var marker = null;        // remembers the original spot in #row_icons
 
     function els() {
@@ -51,24 +53,24 @@
        nodes are MOVED, never recreated: dashboard.js swaps their `src` by bare
        id, so the ids must survive and must not be duplicated. */
     var GROUPS = [
-        {id: 'sense', title: 'Connectivity, position & sensors',
+        {id: 'sense', title: 'status.group.sense',
          icons: ['ico_wifi', 'ico_gps', 'ico_gps_nav', 'ico_imu', 'ico_lidar', 'ico_camera']},
-        {id: 'drive', title: 'Drive & mower',
+        {id: 'drive', title: 'status.group.drive',
          icons: ['ico_fl_motor', 'ico_fr_motor', 'ico_rl_motor', 'ico_rr_motor', 'ico_mower']},
-        {id: 'therm', title: 'Temperatures & cooling',
+        {id: 'therm', title: 'status.group.therm',
          icons: ['ico_temp_pcb', 'ico_fan_pcb', 'ico_temp', 'ico_fan']},
-        {id: 'power', title: 'Power',
+        {id: 'power', title: 'status.group.power',
          icons: ['ico_supply', 'ico_batt']}
     ];
     var TITLES = {
-        ico_wifi: 'Wi-Fi', ico_gps: 'GPS fix', ico_gps_nav: 'GPS navigation',
-        ico_imu: 'IMU', ico_lidar: 'Lidar', ico_camera: 'Camera',
-        ico_mower: 'Mower', ico_fl_motor: 'Front-left motor',
-        ico_fr_motor: 'Front-right motor', ico_rl_motor: 'Rear-left motor',
-        ico_rr_motor: 'Rear-right motor', ico_temp_pcb: 'PCB temperature',
-        ico_fan_pcb: 'PCB fan', ico_temp: 'Ambient temperature',
-        ico_fan: 'External fan', ico_supply: 'Supply input',
-        ico_batt: 'Battery'
+        ico_wifi: 'status.ico.wifi', ico_gps: 'status.ico.gps', ico_gps_nav: 'status.ico.gps_nav',
+        ico_imu: 'status.ico.imu', ico_lidar: 'status.ico.lidar', ico_camera: 'status.ico.camera',
+        ico_mower: 'status.ico.mower', ico_fl_motor: 'status.ico.fl_motor',
+        ico_fr_motor: 'status.ico.fr_motor', ico_rl_motor: 'status.ico.rl_motor',
+        ico_rr_motor: 'status.ico.rr_motor', ico_temp_pcb: 'status.ico.temp_pcb',
+        ico_fan_pcb: 'status.ico.fan_pcb', ico_temp: 'status.ico.temp',
+        ico_fan: 'status.ico.fan', ico_supply: 'status.ico.supply',
+        ico_batt: 'status.ico.batt'
     };
 
     function groupIcons() {
@@ -79,11 +81,12 @@
             var box = document.createElement('span');
             box.className = 'sh-group';
             box.setAttribute('data-group', g.id);
-            box.title = g.title;
+            box.title = tr(g.title);
+            tag(box, g.title, 'title');
             g.icons.forEach(function (id) {
                 var img = document.getElementById(id);
                 if (!img) { return; }              // a missing icon is not fatal
-                if (!img.title && TITLES[id]) { img.title = TITLES[id]; }
+                if (!img.title && TITLES[id]) { img.title = tr(TITLES[id]); tag(img, TITLES[id], 'title'); }
                 box.appendChild(img);              // move, keep the same node
             });
             if (box.childNodes.length) { strip.appendChild(box); }
@@ -98,7 +101,7 @@
     var monitor = null;
     var monitorTimer = null;
 
-    function metricBox(label) {
+    function metricBox(label, key) {
         var box = document.createElement('span');
         box.className = 'sh-system-metric';
         box.dataset.metric = label.toLowerCase();
@@ -108,7 +111,8 @@
         value.textContent = '–';
         ring.appendChild(value);
         var name = document.createElement('small');
-        name.textContent = label;
+        name.textContent = key ? tr(key) : label;
+        if (key) { tag(name, key); }
         box.appendChild(ring);
         box.appendChild(name);
         return box;
@@ -133,17 +137,18 @@
             monitor = document.createElement('li');
             monitor.id = 'system_monitor_header';
             monitor.className = 'nav-item sh-system is-offline';
-            monitor.title = 'System Vitulus NUC';
+            monitor.title = tr('status.sys.title');
             var state = document.createElement('i');
             state.className = 'sh-system-state';
             monitor.appendChild(state);
-            ['CPU', 'MEM', 'DISK'].forEach(function (label) {
-                monitor.appendChild(metricBox(label));
+            [['CPU', null], ['MEM', 'status.sys.mem'], ['DISK', 'status.sys.disk']].forEach(function (m) {
+                monitor.appendChild(metricBox(m[0], m[1]));
             });
             var net = document.createElement('span');
             net.className = 'sh-system-net';
             net.dataset.metric = 'net';
             net.innerHTML = '<small>NET</small><b class="rx">↓ –</b><b class="tx">↑ –</b>';
+            tag(net.querySelector('small'), 'status.sys.net');
             monitor.appendChild(net);
         }
         monitor.classList.remove('sh-system-inline');   // legacy mode, gone
@@ -183,18 +188,19 @@
         var mem = data && data.mem || {};
         var disk = data && data.disk || {};
         var net = data && data.net || {};
-        setPercent('cpu', cpu.percent,
-            'CPU ' + (cpu.percent == null ? 'unavailable' : cpu.percent + '%') +
-            ' · load ' + (cpu.load_1m == null ? '–' : cpu.load_1m));
-        setPercent('mem', mem.percent, 'Memory ' + (mem.percent == null ? 'unavailable' : mem.percent + '%'));
-        setPercent('disk', disk.percent,
-            'Disk / ' + (disk.percent == null ? 'unavailable' : disk.percent + '%') +
-            ' · free ' + (disk.free_bytes == null ? '–' : formatRate(disk.free_bytes).replace('/s', '')));
+        var na = tr('status.sys.na');
+        setPercent('cpu', cpu.percent, tr('status.sys.cpu.tip', {
+            v: cpu.percent == null ? na : cpu.percent + '%',
+            load: cpu.load_1m == null ? '–' : cpu.load_1m}));
+        setPercent('mem', mem.percent, tr('status.sys.mem.tip', {v: mem.percent == null ? na : mem.percent + '%'}));
+        setPercent('disk', disk.percent, tr('status.sys.disk.tip', {
+            v: disk.percent == null ? na : disk.percent + '%',
+            free: disk.free_bytes == null ? '–' : formatRate(disk.free_bytes).replace('/s', '')}));
         var netBox = monitor.querySelector('[data-metric="net"]');
         netBox.querySelector('.rx').textContent = '↓ ' + formatRate(net.rx_bytes_s);
         netBox.querySelector('.tx').textContent = '↑ ' + formatRate(net.tx_bytes_s);
         monitor.classList.remove('is-offline');
-        monitor.title = 'System Vitulus NUC · updated ' + new Date((data.ts || Date.now() / 1000) * 1000).toLocaleTimeString();
+        monitor.title = tr('status.sys.updated', {time: new Date((data.ts || Date.now() / 1000) * 1000).toLocaleTimeString()});
     }
 
     function pollSystem() {
@@ -206,7 +212,7 @@
             if (!response.ok) { throw new Error('HTTP ' + response.status); }
             return response.json();
         }).then(paintSystem).catch(function () {
-            if (monitor) { monitor.classList.add('is-offline'); monitor.title = 'System telemetry unavailable'; }
+            if (monitor) { monitor.classList.add('is-offline'); monitor.title = tr('status.sys.offline'); }
         }).finally(function () {
             monitorTimer = window.setTimeout(pollSystem, 2000);
         });

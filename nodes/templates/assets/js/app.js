@@ -13,6 +13,9 @@
 (function () {
     'use strict';
 
+    function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tag(e, k, attr) { if (e && window.VTI18n) { VTI18n.tag(e, k, attr); } }
+
     // The former separate "Planner" section is gone: the map editor is now
     // integrated INTO the map view (top-down edit mode, controls in the map
     // menu — see mapeditor.js / initPlanner's integrated path).
@@ -238,7 +241,7 @@
         var on = !!fsElement();
         i.className = on ? 'la la-compress' : 'la la-expand';
         var a = document.getElementById('btn_fullscreen');
-        if (a) a.title = on ? 'Exit fullscreen' : 'Fullscreen';
+        if (a) a.title = on ? t('appjs.fs.exit') : t('appjs.fs');
     }
     function addFullscreenButton() {
         var ul = document.querySelector('#div_menu .navbar-nav');
@@ -261,6 +264,7 @@
             '<span class="d-lg-none">Fullscreen</span></a>';
         // Put it first so it sits left of Restart.
         ul.insertBefore(li, ul.firstChild);
+        tag(li.querySelector('span'), 'appjs.fs');
         li.querySelector('#btn_fullscreen').addEventListener('click', function (ev) {
             ev.preventDefault();
             if (fsElement()) { exitFs(); }
@@ -271,6 +275,7 @@
             document.addEventListener(evt, updateFsIcon);
         });
         updateFsIcon();
+        if (window.VTI18n) { VTI18n.onChange(updateFsIcon); }
     }
 
     // ---- App-shell lock: no pull-to-refresh / rubber-band; track viewport ---
@@ -346,8 +351,10 @@
         li.style.display = 'inline-flex';
         li.innerHTML = '<a class="nav-link" href="#" id="btn_robot_restart" ' +
             'title="Restart the whole robot (vitulus.service)">' +
-            '<i class="la la-power-off" style="margin-right:8px;font-size:18px;color:#e8643c;"></i>Restart</a>';
+            '<i class="la la-power-off" style="margin-right:8px;font-size:18px;color:#e8643c;"></i><span>Restart</span></a>';
         ul.appendChild(li);
+        tag(li.querySelector('#btn_robot_restart'), 'appjs.restart.tip', 'title');
+        tag(li.querySelector('#btn_robot_restart span'), 'appjs.restart');
         li.querySelector('#btn_robot_restart').addEventListener('click', function (ev) {
             ev.preventDefault();
             confirmRestart();
@@ -370,17 +377,14 @@
     }
 
     function confirmRestart() {
-        if (!window.confirm('Restart the whole robot now?\n\n' +
-            'All running robot programs will stop and the system will come back up in a minute or two.')) return;
+        if (!window.confirm(t('appjs.restart.confirm'))) return;
         var ov = restartOverlay();
-        ov.setText('Sending restart command…');
+        ov.setText(t('appjs.restart.sending'));
         fetch('/system/restart', { method: 'POST' })
             .then(function (r) { return r.json().catch(function () { return { ok: true }; }); })
             .then(function (d) {
                 if (d && d.ok === false) {
-                    ov.setText('Restart failed: ' + (d.error || 'unknown') +
-                        '\n\nIs the passwordless sudo rule installed?\n' +
-                        '(setup/vitulus-ui-sudoers → /etc/sudoers.d/vitulus-ui)');
+                    ov.setText(t('appjs.restart.failed', {err: d.error || t('common.unknown')}));
                     addCloseButton(ov);
                     return;
                 }
@@ -394,7 +398,7 @@
 
     function addCloseButton(ov) {
         var b = document.createElement('button');
-        b.textContent = 'Close';
+        b.textContent = t('common.close');
         b.className = 'btn btn-sm btn-light';
         b.style.marginTop = '16px';
         b.onclick = function () { ov.close(); };
@@ -406,11 +410,11 @@
         var t0 = Date.now();
         var iv = setInterval(function () {
             var secs = Math.round((Date.now() - t0) / 1000);
-            ov.setText('Robot is restarting… (' + secs + 's)\nThe page will reload automatically when it is back.');
+            ov.setText(t('appjs.restart.wait', {s: secs}));
             fetch('/?_=' + Date.now(), { cache: 'no-store' }).then(function (r) {
                 if (r && r.ok && secs > 5) {   // ignore the brief window before the old server dies
                     clearInterval(iv);
-                    ov.setText('Back online — reloading…');
+                    ov.setText(t('appjs.restart.back'));
                     setTimeout(function () { location.reload(); }, 900);
                 }
             }).catch(function () { /* still down — keep polling */ });

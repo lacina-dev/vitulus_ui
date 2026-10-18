@@ -22,12 +22,17 @@
     'use strict';
     var LS = 'vitulus_cam_overlay';
     var LAYERS = [
-        // id, label, colour (UI palette: accent / error / OK), tooltip
-        ['scan', 'Lidar', '#0dcaf0', 'Lidar scan (/scan) projected into the image'],
-        ['obstacles', 'Obstacles', '#ff5f6d', 'Obstacle points from the depth camera segmentation'],
-        ['free', 'Free', '#43d58b', 'Free ground points from the depth camera segmentation'],
-        ['depth', 'Depth', null, 'Depth image: red = near, blue = far, no colour = no depth']
+        // id, label key, colour (UI palette: accent / error / OK), tooltip key
+        ['scan', 'cam.layer.scan', '#0dcaf0', 'cam.layer.scan.tip'],
+        ['obstacles', 'cam.layer.obstacles', '#ff5f6d', 'cam.layer.obstacles.tip'],
+        ['free', 'cam.layer.free', '#43d58b', 'cam.layer.free.tip'],
+        ['depth', 'cam.layer.depth', null, 'cam.layer.depth.tip']
     ];
+    /* set the text / attribute now and follow every language switch */
+    function tag(e, k, attr) {
+        if (window.VTI18n) { VTI18n.tag(e, k, attr); }
+        else if (attr) { e.setAttribute(attr, k); } else { e.textContent = k; }
+    }
     var STALE_MS = 1500;          // a layer whose data stopped is not drawn
     var st = load();
     var host = null, wrap = null, ui = null, cnv = null, ctx = null, img = null, btn = null, menu = null;
@@ -78,8 +83,8 @@
         ui = el('div', 'vco-ui', host);
         btn = el('button', 'vco-btn', ui);
         btn.type = 'button';
-        btn.title = 'Overlays on the camera image: lidar, obstacles, free ground, depth';
-        btn.setAttribute('aria-label', 'Camera overlays');
+        tag(btn, 'cam.btn.tip', 'title');
+        tag(btn, 'cam.overlays', 'aria-label');
         btn.setAttribute('aria-haspopup', 'true');
         btn.setAttribute('aria-expanded', 'false');
         btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
@@ -89,7 +94,7 @@
 
         menu = el('div', 'vco-menu', ui);
         menu.setAttribute('role', 'group');
-        menu.setAttribute('aria-label', 'Camera overlays');
+        tag(menu, 'cam.overlays', 'aria-label');
         menu.style.display = 'none';
         ['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(function (t) {
             menu.addEventListener(t, stop, {passive: true});
@@ -99,24 +104,24 @@
             var b = el('button', 'vco-chip', row);
             b.type = 'button';
             b.setAttribute('data-layer', l[0]);
-            b.title = l[3];
+            tag(b, l[3], 'title');
             var dot = el('span', 'vco-dot', b);
             if (l[2]) { dot.style.background = l[2]; } else { dot.classList.add('vco-dot-depth'); }
-            el('span', '', b).textContent = l[1];
+            tag(el('span', '', b), l[1]);
             b.addEventListener('click', function (ev) { ev.stopPropagation(); set(l[0], !st[l[0]]); });
         });
         var op = el('label', 'vco-op', menu);
-        el('span', '', op).textContent = 'Opacity';
+        tag(el('span', '', op), 'cam.opacity');
         var rng = el('input', '', op);
         rng.type = 'range'; rng.min = '10'; rng.max = '100'; rng.step = '5';
         rng.value = String(Math.round(st.opacity * 100));
-        rng.setAttribute('aria-label', 'Overlay opacity');
+        tag(rng, 'cam.opacity.aria', 'aria-label');
         rng.addEventListener('input', function () { opacity(+rng.value / 100); });
         var hq = el('button', 'vco-help', op);
         hq.type = 'button';
         hq.textContent = '?';
-        hq.title = 'Help: camera overlays';
-        hq.setAttribute('aria-label', 'Help: camera overlays');
+        tag(hq, 'cam.help', 'title');
+        tag(hq, 'cam.help', 'aria-label');
         hq.addEventListener('click', function (ev) {
             ev.stopPropagation();
             toggleMenu(false);

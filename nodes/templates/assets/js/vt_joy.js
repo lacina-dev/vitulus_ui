@@ -39,6 +39,12 @@
     var ACC_ANG = 6.0;        // rad/s² — max change of the angular command
     var STOP_REPEAT = 3;      // zeros sent after a release
 
+    function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    /* speed words the callers pass (map_view.js: SLOW / MID / FAST,
+       imu_calibration.js: TURN) → their key; anything else is shown as is */
+    var SPEED_KEYS = { SLOW: 'joy.speed.slow', MID: 'joy.speed.mid', FAST: 'joy.speed.fast', TURN: 'joy.speed.turn' };
+    function speedText(label) { return SPEED_KEYS[label] ? tr(SPEED_KEYS[label]) : label; }
+
     function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
     function curve(r) {       // 0..1 -> 0..1 after the dead zone
         if (r <= DEAD) { return 0; }
@@ -81,8 +87,9 @@
         var chipMotors = el('span', 'vt-joy-chip vt-joy-motors', head);
         var pad = el('div', 'vt-joy-pad', root);
         pad.setAttribute('role', 'slider');
-        pad.setAttribute('aria-label', 'Drive joystick');
-        pad.setAttribute('aria-valuetext', 'stopped');
+        pad.setAttribute('aria-label', tr('joy.pad'));
+        pad.setAttribute('aria-valuetext', tr('joy.stopped'));
+        if (window.VTI18n) { VTI18n.tag(pad, 'joy.pad', 'aria-label'); }
         el('div', 'vt-joy-dead', pad);
         var vec = el('div', 'vt-joy-vec', pad);
         var knob = el('div', 'vt-joy-knob', pad);
@@ -90,7 +97,8 @@
         var readLin = el('span', 'vt-joy-num', read);
         var readAng = el('span', 'vt-joy-num', read);
         var kbHint = el('span', 'vt-joy-kb', read);
-        kbHint.textContent = 'keyboard  W A S D · Shift = half';
+        kbHint.textContent = tr('joy.kb');
+        if (window.VTI18n) { VTI18n.tag(kbHint, 'joy.kb'); }
 
         /* ---- state */
         var pid = null;                     // the pointer that owns the stick
@@ -103,8 +111,8 @@
         var keys = {};
 
         function paintStatus() {
-            chipSpeed.textContent = speedLabel;
-            chipMotors.textContent = motors === true ? 'MOTORS ON' : (motors === false ? 'MOTORS OFF' : 'MOTORS ?');
+            chipSpeed.textContent = speedText(speedLabel);
+            chipMotors.textContent = motors === true ? tr('joy.motors.on') : (motors === false ? tr('joy.motors.off') : tr('joy.motors.unknown'));
             chipMotors.setAttribute('data-state', motors === true ? 'ok' : (motors === false ? 'warn' : 'off'));
             root.classList.toggle('vt-joy-nomotors', motors === false);
             kbHint.hidden = !keyboardOn;
@@ -123,7 +131,7 @@
             var active = pid !== null || keyActive();
             root.setAttribute('data-state', active ? (motors === false ? 'warn' : 'info') : 'off');
             root.classList.toggle('vt-joy-live', active && r > DEAD);
-            pad.setAttribute('aria-valuetext', active ? ('lin ' + oLin.toFixed(2) + ', ang ' + oAng.toFixed(2)) : 'stopped');
+            pad.setAttribute('aria-valuetext', active ? tr('joy.value', {lin: oLin.toFixed(2), ang: oAng.toFixed(2)}) : tr('joy.stopped'));
         }
 
         /* stick -> target command */
@@ -251,6 +259,7 @@
         document.addEventListener('visibilitychange', function () { if (document.hidden) { stop(); } });
 
         paintStatus(); paintRead(); paintStick();
+        if (window.VTI18n) { VTI18n.onChange(function () { paintStatus(); paintStick(); }); }
 
         return {
             setSpeed: function (lin, ang, label) {

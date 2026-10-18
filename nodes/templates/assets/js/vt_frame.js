@@ -22,6 +22,8 @@
                    config: 'btn_settings', agent: 'btn_agent'};
 
     function $(id) { return document.getElementById(id); }
+    function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+    function tag(e, k, attr) { if (window.VTI18n) { VTI18n.tag(e, k, attr); } }
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
     // classList.toggle rewrites the class attribute (and fires the body-class
@@ -75,7 +77,7 @@
         var btn = $('btn_panel_toggle');
         if (btn) {
             setCls(btn, 'vt-on', open);
-            var bt = (open ? 'Hide panel' : 'Show panel') + ' (Alt+P)';
+            var bt = open ? tr('frame.panel.hide') : tr('frame.panel.show');
             if (btn.title !== bt) { btn.title = bt; }
             btn.setAttribute('aria-pressed', open ? 'true' : 'false');
         }
@@ -339,7 +341,8 @@
         b.type = 'button';
         b.id = 'btn_panel_toggle';
         b.className = 'btn btn-outline-info d-flex justify-content-center align-items-center all-events vt-panel-toggle';
-        b.setAttribute('aria-label', 'Show / hide panel');
+        b.setAttribute('aria-label', tr('frame.panel.toggle'));
+        tag(b, 'frame.panel.toggle', 'aria-label');
         b.innerHTML = '<i class="la la-columns"></i>';
         b.addEventListener('click', function (e) { e.preventDefault(); togglePanel(); });
         group.insertBefore(b, group.firstChild);
@@ -348,26 +351,36 @@
     // ------------------------------------------------ labels + states
     // One name per control, used for the tooltip, the screen-reader label and
     // (on a PC, vt_panel.css) the visible text next to the icon.
+    // [label key, tooltip key] — the label is shown by CSS (attr(data-label))
     var LABELS = {
-        btn_panel_toggle: ['Panel', 'Show / hide the left panel (Alt+P)'],
-        btn_marker: ['Marker', 'Marker — drag it on the map and send a navigation goal'],
-        btn_settings: ['Settings', 'Settings — motors, navi, power, mower, diag, rosbag, IMU'],
-        btn_map: ['Map', 'Map — maps, paths, points, dock, rain, localization'],
-        btn_programs: ['Programs', 'Mowing programs and calendar'],
-        btn_agent: ['Agent', null],
-        btn_stop_all: ['STOP', 'STOP — stop all motion'],
-        btn_camera_show: ['Camera', 'Show / hide the camera preview'],
-        btn_joy: ['Joystick', 'Show / hide the on-screen joystick'],
-        btn_follow: ['Follow', 'Camera follows the map / the robot'],
-        btn_log: ['Log', 'Show / hide the log (expand it from its own bar)']
+        btn_panel_toggle: ['frame.btn.panel', 'frame.btn.panel.tip'],
+        btn_marker: ['frame.btn.marker', 'frame.btn.marker.tip'],
+        btn_settings: ['frame.btn.settings', 'frame.btn.settings.tip'],
+        btn_map: ['frame.btn.map', 'frame.btn.map.tip'],
+        btn_programs: ['frame.btn.programs', 'frame.btn.programs.tip'],
+        btn_agent: ['frame.btn.agent', null],
+        btn_stop_all: ['frame.btn.stop', 'frame.btn.stop.tip'],
+        btn_camera_show: ['frame.btn.camera', 'frame.btn.camera.tip'],
+        btn_joy: ['frame.btn.joy', 'frame.btn.joy.tip'],
+        btn_follow: ['frame.btn.follow', 'frame.btn.follow.tip'],
+        btn_log: ['frame.btn.log', 'frame.btn.log.tip']
     };
-    function label() {
+    // what label() wrote itself (title / aria-label) is rewritten after a
+    // language switch; what another module set is left alone
+    var mine = {};
+    function label(relabel) {
         Object.keys(LABELS).forEach(function (id) {
             var b = $(id);
-            if (!b || b.dataset.label) { return; }
-            b.dataset.label = LABELS[id][0];
-            if (LABELS[id][1] && !b.title) { b.title = LABELS[id][1]; }
-            if (!b.getAttribute('aria-label')) { b.setAttribute('aria-label', b.title || LABELS[id][0]); }
+            if (!b || (b.dataset.label && !relabel)) { return; }
+            var m = mine[id] = mine[id] || {};
+            if (relabel && !m.label) { return; }
+            m.label = true;
+            b.dataset.label = tr(LABELS[id][0]);
+            if (LABELS[id][1] && (!b.title || m.title)) { b.title = tr(LABELS[id][1]); m.title = true; }
+            if (!b.getAttribute('aria-label') || m.aria) {
+                b.setAttribute('aria-label', m.title ? b.title : (b.title || tr(LABELS[id][0])));
+                m.aria = true;
+            }
         });
     }
     // bottom-bar toggles show whether their thing is on (the old .active
@@ -395,8 +408,10 @@
         var sp = document.createElement('button');
         sp.type = 'button';
         sp.id = 'vt_c_spine';
-        sp.setAttribute('aria-label', 'Show panel (Alt+P)');
-        sp.title = 'Show panel (Alt+P)';
+        sp.setAttribute('aria-label', tr('frame.panel.show'));
+        sp.title = tr('frame.panel.show');
+        tag(sp, 'frame.panel.show', 'title');
+        tag(sp, 'frame.panel.show', 'aria-label');
         sp.addEventListener('click', function (e) { e.preventDefault(); togglePanel(); });
         document.body.appendChild(sp);
         // tl/bl: the back meets the top / the bottom; tr: the top band turns
@@ -415,9 +430,12 @@
         var mm = document.createElement('button');
         mm.type = 'button';
         mm.id = 'vt_map_mini';
-        mm.title = 'Back to the map (Alt+C)';
-        mm.setAttribute('aria-label', 'Back to the map — small camera (Alt+C)');
-        mm.innerHTML = '<span><i class="la la-map"></i> Map</span>';
+        mm.title = tr('frame.mini.tip');
+        mm.setAttribute('aria-label', tr('frame.mini.aria'));
+        tag(mm, 'frame.mini.tip', 'title');
+        tag(mm, 'frame.mini.aria', 'aria-label');
+        mm.innerHTML = '<span><i class="la la-map"></i> <span class="vt-mini-lbl"></span></span>';
+        tag(mm.querySelector('.vt-mini-lbl'), 'frame.mini.map');
         mm.addEventListener('click', function (e) { e.preventDefault(); camSet(false); });
         document.body.appendChild(mm);
     }
@@ -427,6 +445,9 @@
         installToggle();
         label();
         update();
+        if (window.VTI18n) {
+            VTI18n.onChange(function () { label(true); update(); });
+        }
         window.addEventListener('resize', schedule);
         var watch = function (el, opts) { if (el) { new MutationObserver(schedule).observe(el, opts); } };
         watch($('ui_drawer'), {attributes: true, attributeFilter: ['class', 'style']});
