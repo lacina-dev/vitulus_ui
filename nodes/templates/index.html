@@ -90,6 +90,7 @@
 <script src="/assets/js/vt_help.js"></script>
 <script src="/assets/js/vt_support.js"></script>
 <script src="/assets/js/vt_app_settings.js"></script>
+<script src="/assets/js/vt_camera_settings.js"></script>
 <script src="/assets/js/vt_frame.js"></script>
 <script src="/assets/js/vt_cam_overlay.js"></script>
 <style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
@@ -685,6 +686,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <link rel="stylesheet" href="assets/css/vt_joy.css">
     <link rel="stylesheet" href="assets/css/vt_help.css">
     <link rel="stylesheet" href="assets/css/vt_cam_overlay.css">
+    <link rel="stylesheet" href="assets/css/vt_camera.css">
 </head>
 
 <body>
@@ -1471,6 +1473,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag">Diag</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag">Rosbag</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu">IMU</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_camera" data-i18n="settings.tab.camera">Camera</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_app" data-i18n="settings.tab.app">App</a></li>
                                         </ul>
                                         <div class="tab-content vt-tabs-host">
@@ -1659,6 +1662,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 </div>
 <!-- Settings › App: settings of this application (language, agent, support,
      display) — built by assets/js/vt_app_settings.js, texts in assets/js/i18n/ -->
+<!-- Settings › Camera: the D435 — device, depth accuracy + calibration wizard,
+     sensor settings, image layers — built by assets/js/vt_camera_settings.js
+     (robot side: node vitulus_ui/camera_calib) -->
+<div class="tab-pane fade" role="tabpanel" id="tab_camera"><div id="div_camera_settings"></div></div>
 <div class="tab-pane fade" role="tabpanel" id="tab_app"><div id="div_app_settings"></div></div>
 <div class="tab-pane" role="tabpanel" id="tab_imu"><div id="div_content_imu">
   <div class="vt-imu">

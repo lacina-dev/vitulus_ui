@@ -1,0 +1,1928 @@
+#!/usr/bin/env python3
+"""camera_calib — D435 depth accuracy check, self-calibration and settings.
+
+The robot's lidar is the tape measure: it measures walls to about a
+centimetre, so the D435 depth can be checked against it and the camera can
+be calibrated without the RealSense Viewer and without a person measuring.
+
+  check       live comparison depth - lidar on the same surfaces (~4 s,
+              camera keeps running). A stereo disparity bias grows with
+              z^2 (dz = z^2 * dd / (f * B)), so the result is the fit
+              depth - lidar = k * z^2, shown at 1 / 2 / 3 m.
+  watch       scene check for the calibration wizard (2 Hz while the UI
+              asks): a flat wall in the middle of the image, 0.6-2.0 m,
+              seen by the lidar, robot standing still.
+  calibrate   1. scene + check before (ROS)
+              2. ROS camera paused (/d435/enable false), the camera opened
+                 through librealsense (pyrealsense2)
+              3. backup of the calibration table from flash
+              4. on-chip calibration (depth noise) and tare (absolute
+                 distance; ground truth = the wall plane from the lidar,
+                 or a tape measure from the UI), both in the camera's RAM
+              5. ROS camera back, check after
+              6. better -> written to the camera (EEPROM), else the old
+                 table is put back (flash was never touched)
+  restore     the backup from before the last saved calibration -> EEPROM
+  factory     the camera's factory calibration -> EEPROM
+  set / reset_settings
+              live D435 settings (emitter, laser power, auto exposure,
+              white balance) through dynamic_reconfigure, remembered in
+              ~/.vitulus/camera/settings.json and applied again whenever the
+              camera (re)starts
+
+Never moves the robot. Calibration refuses while the robot moves or a mowing
+program runs; the camera is paused for about a minute (no camera obstacles).
+
+Topics (rosbridge friendly):
+  ~cmd     std_msgs/String  JSON {"cmd": "check" | "watch" | "calibrate" |
+                            "cancel" | "restore" | "factory" | "set" |
+                            "reset_settings", ...}
+  ~status  std_msgs/String  JSON, latched (see Node.status())
+"""
+import gc
+import json
+import math
+import os
+import threading
+import time
+import traceback
+
+import numpy as np
+import rospy
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import CameraInfo, Image, LaserScan
+from std_msgs.msg import Bool, String
+from tf2_msgs.msg import TFMessage
+
+STORE = os.path.expanduser('~/.vitulus/camera')
+BASELINE_M = 0.050                 # D435 stereo baseline
+
+# scene for tare / on-chip (wizard)
+SCENE_MIN_M, SCENE_MAX_M = 0.6, 2.0
+SCENE_MAX_ANGLE = 30.0             # wall normal vs optical axis [deg]
+SCENE_LIDAR_RMS = 0.015            # flatness of the wall in the lidar [m]
+SCENE_DEPTH_RMS_REL = 0.02         # flatness of the wall in depth [rel. to z]
+SCENE_FILL = 0.85                  # valid depth in the ROI
+ROI = (0.40, 0.60)                 # central 20 % of the image (librealsense ROI)
+
+# The calibration talks to the camera through its OWN pyrealsense2, matched to
+# the camera's firmware and kept apart from ~/.local (vitulus_bringup's T265
+# odometry uses that one). 24. 10. 2026: pip 2.50 against FW 05.14 failed in
+# set_calibration_table (hwmon 0x51 CALIBRECALC "Invalid Command") before it
+# kept the table, so nothing could be written; librealsense 2.53.1 (the release
+# of FW 05.14) catches exactly that and writes the table to flash. The raw
+# depth itself does not depend on the SDK version: the same wall read 1.212 m
+# with 2.50 (22:53) and 1.213 m with 2.53.1 (23:12) on the same table; the
+# 1.238 m at 23:13 was the new table written at 23:12.
+PYLIB = os.path.join(STORE, 'pylib')
+SDK_FOR_FW = {            # FW major.minor -> pip build of pyrealsense2 (cp38)
+    '05.14': '2.53.1.4623',
+    '05.13': '2.50.0.3812',
+}
+SDK_DEFAULT = '2.53.1.4623'
+
+# verdict of a check: bias at 2 m
+OK_2M, WARN_2M = 0.05, 0.12
+
+ONCHIP_JSON = json.dumps({'calib type': 0, 'speed': 2, 'scan parameter': 0,
+                          'adjust both sides': 0, 'white wall mode': 0, 'host assistance': 0})
+TARE_JSON = json.dumps({'average step count': 20, 'step count': 20, 'accuracy': 2,
+                        'scan parameter': 0, 'data sampling': 0, 'host assistance': 0, 'depth': 0})
+
+# UI key -> (dynamic_reconfigure server, parameter)
+SETTINGS = {
+    'depth_emitter': ('/d435/stereo_module', 'emitter_enabled'),
+    'depth_laser_power': ('/d435/stereo_module', 'laser_power'),
+    'depth_auto_exposure': ('/d435/stereo_module', 'enable_auto_exposure'),
+    'color_auto_exposure': ('/d435/rgb_camera', 'enable_auto_exposure'),
+    'color_auto_wb': ('/d435/rgb_camera', 'enable_auto_white_balance'),
+}
+
+
+# ------------------------------------------------------------------ math
+def quat_mat(x, y, z, w):
+    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                     [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                     [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+
+
+class StaticTF(object):
+    """The static TF tree from /tf_static (robot_state_publisher + driver).
+
+    Lidar, camera and their mounts are all static on the chassis, so nothing
+    here needs /tf (which would cost a subscription at its full rate)."""
+
+    def __init__(self):
+        self.p = {}
+        self.lock = threading.Lock()
+
+    def add(self, msg):
+        with self.lock:
+            for tr in msg.transforms:
+                q, t = tr.transform.rotation, tr.transform.translation
+                T = np.eye(4)
+                T[:3, :3] = quat_mat(q.x, q.y, q.z, q.w)
+                T[:3, 3] = (t.x, t.y, t.z)
+                self.p[tr.child_frame_id.lstrip('/')] = (tr.header.frame_id.lstrip('/'), T)
+
+    def to_root(self, frame):
+        frame = frame.lstrip('/')
+        T = np.eye(4)
+        with self.lock:
+            for _ in range(64):
+                if frame not in self.p:
+                    return frame, T
+                parent, A = self.p[frame]
+                T = A @ T
+                frame = parent
+        return frame, T
+
+    def T(self, target, source):
+        """target <- source (4x4), None if they do not share a root."""
+        rt, Tt = self.to_root(target)
+        rs, Ts = self.to_root(source)
+        if rt != rs:
+            return None
+        return np.linalg.inv(Tt) @ Ts
+
+
+def fit_bias(z, e):
+    """Robust fit depth - lidar = k * z^2 on same-surface pairs.
+
+    z: lidar distance along the optical axis, e: depth - lidar [m]. A first
+    loose gate accepts biases up to 0.15 z^2 (a 3 m wall 1.35 m off still
+    counts), the final gate is tight around the fitted curve."""
+    z = np.asarray(z, float)
+    e = np.asarray(e, float)
+    m = np.isfinite(e) & np.isfinite(z) & (z >= 0.4) & (z <= 6.0)
+    g = m & (np.abs(e) < 0.15 * z * z + 0.15)
+    if g.sum() < 20:
+        return None
+    far = g & (z > 0.8)
+    s = far if far.sum() >= 10 else g
+    k = float(np.median(e[s] / z[s] ** 2))
+    same = g
+    for _ in range(3):
+        same = m & (np.abs(e - k * z * z) < 0.04 * z + 0.04)
+        if same.sum() < 15:
+            return None
+        k = float(np.sum(e[same] * z[same] ** 2) / np.sum(z[same] ** 4))
+    bands = []
+    for lo, hi in ((0.4, 1.5), (1.5, 2.5), (2.5, 3.5), (3.5, 6.0)):
+        b = same & (z >= lo) & (z < hi)
+        if b.sum() >= 5:
+            bands.append({'lo': lo, 'hi': hi, 'n': int(b.sum()),
+                          'med': round(float(np.median(e[b])), 3),
+                          'z': round(float(np.median(z[b])), 2)})
+    zs = z[same]
+    return {'k': round(k, 5), 'n': int(same.sum()),
+            'z_min': round(float(zs.min()), 2), 'z_max': round(float(zs.max()), 2),
+            'b1': round(k, 3), 'b2': round(4 * k, 3), 'b3': round(9 * k, 3),
+            'bands': bands}
+
+
+def verdict(fit):
+    if not fit:
+        return 'no_data'
+    b2 = abs(fit['b2'])
+    if b2 <= OK_2M:
+        v = 'ok'
+    elif b2 <= WARN_2M:
+        v = 'warn'
+    else:
+        v = 'bad'
+    if fit['z_max'] < 1.4 and v == 'ok':
+        v = 'limited'          # only near walls seen: 2-3 m is extrapolated
+    return v
+
+
+def fit_line_2d(P):
+    """PCA line through 2D points: (centre, unit normal, rms residual)."""
+    c = P.mean(axis=0)
+    U, S, Vt = np.linalg.svd(P - c, full_matrices=False)
+    n = Vt[1]
+    res = (P - c) @ n
+    return c, n, float(np.sqrt(np.mean(res ** 2)))
+
+
+def fit_plane(P):
+    c = P.mean(axis=0)
+    U, S, Vt = np.linalg.svd(P - c, full_matrices=False)
+    n = Vt[2]
+    res = (P - c) @ n
+    return c, n, float(np.sqrt(np.mean(res ** 2)))
+
+
+def plane_z_roi(wall, T_base_cam, fx, fy, cx, cy, w, h, roi=ROI, grid=9):
+    """Mean optical-axis distance Z of a vertical wall over the central ROI.
+
+    wall = (c, n): a line in the base_link XY plane (the lidar's view of a
+    vertical wall); T_base_cam: base_link <- camera optical (the camera the
+    intrinsics belong to). Every ROI pixel ray is intersected with the wall;
+    with r = ((u-cx)/fx, (v-cy)/fy, 1) the ray parameter is the Z itself."""
+    c, n = wall
+    R, o = T_base_cam[:3, :3], T_base_cam[:3, 3]
+    us = np.linspace(roi[0] * w, roi[1] * w, grid)
+    vs = np.linspace(roi[0] * h, roi[1] * h, grid)
+    Z = []
+    for v in vs:
+        for u in us:
+            d = R @ np.array([(u - cx) / fx, (v - cy) / fy, 1.0])
+            den = n[0] * d[0] + n[1] * d[1]
+            if abs(den) < 1e-6:
+                continue
+            t = (n[0] * (c[0] - o[0]) + n[1] * (c[1] - o[1])) / den
+            if t > 0:
+                Z.append(t)
+    return float(np.mean(Z)) if Z else float('nan')
+
+
+def decide(before, after, sdk_before, sdk_after, gt):
+    """Keep the new calibration? -> (keep, reason key).
+
+    sdk_*: raw depth (no filters) over the ROI, gt: the true Z of the wall
+    there; before / after: fit_bias of the live check (may be None)."""
+    if not (np.isfinite(sdk_after) and np.isfinite(gt)):
+        return False, 'calib.res.no_measure'
+    tol = max(0.015, 0.01 * gt)
+    ea = abs(sdk_after - gt)
+    eb = abs(sdk_before - gt) if np.isfinite(sdk_before) else float('inf')
+    if ea > 1.5 * tol and ea >= eb:
+        return False, 'calib.res.not_better'
+    if ea > 3 * tol:
+        return False, 'calib.res.still_off'
+    if before and after and abs(after['b2']) > max(abs(before['b2']), OK_2M) + 0.01:
+        return False, 'calib.res.lidar_worse'
+    return True, 'calib.res.saved'
+
+
+def write_verified(ac, table, log=None):
+    """write a calibration table to the camera's flash and read it back.
+
+    set_calibration_table first (write_calibration writes what it was given);
+    on firmware without a RAM preview (FW 05.14: CALIBRECALC is refused) that
+    call may raise after keeping the table, which is only recorded. True =
+    the flash holds exactly `table` now."""
+    table = list(table)
+    try:
+        ac.set_calibration_table(table)
+    except Exception as ex:
+        if log is not None:
+            log['ram_error'] = str(ex)[:160]
+    ac.write_calibration()
+    return list(ac.get_calibration_table()) == table
+
+
+HEALTH_MIN = 0.25        # on-chip health below this = nothing to improve
+
+
+def tol_m(gt):
+    """the accuracy a calibrated camera must reach at the wall [m]"""
+    return max(0.015, 0.01 * gt)
+
+
+def tare_needed(sdk_before, gt, ros_before=float('nan'), gt_ros=float('nan')):
+    """the absolute distance is off (raw depth or the ROS depth at the wall)."""
+    bad = False
+    if np.isfinite(sdk_before) and np.isfinite(gt):
+        bad = bad or abs(sdk_before - gt) > tol_m(gt)
+    if np.isfinite(ros_before) and np.isfinite(gt_ros):
+        bad = bad or abs(ros_before - gt_ros) > tol_m(gt_ros)
+    return bad
+
+
+def onchip_useful(table, health, backup):
+    """write the on-chip result only when it changes something and its health
+    says the calibration can be improved (|h| >= 0.25; librealsense: below
+    0.25 = good)."""
+    if table is None or list(table) == list(backup):
+        return False
+    try:
+        h = float(health[0] if isinstance(health, (list, tuple)) else health)
+    except (TypeError, ValueError, IndexError):
+        return False
+    return np.isfinite(h) and abs(h) >= HEALTH_MIN
+
+
+def tare_where(onchip_table, need_tare, ram_ok):
+    """'skip' | 'here' (this session) | 'next' (own session after the on-chip
+    table is in flash and loaded by a reset).
+
+    Tare computes from the ACTIVE table. Where the firmware takes a table into
+    RAM (set_calibration_table passes) the on-chip result is active at once
+    and tare can follow in the same session; where it does not (FW 05.14), the
+    active table is the flash one, so tare over the on-chip result needs it
+    written and the camera reset first. Decided by what the camera does, not
+    by its version number."""
+    if not need_tare:
+        return 'skip'
+    if onchip_table is None or ram_ok:
+        return 'here'
+    return 'next'
+
+
+def sdk_installed(pylib=None):
+    """version of the pyrealsense2 in the node's own library dir (no import)."""
+    pylib = pylib or PYLIB
+    try:
+        for n in os.listdir(pylib):
+            if n.startswith('pyrealsense2-') and n.endswith('.dist-info'):
+                return n[len('pyrealsense2-'):-len('.dist-info')]
+    except OSError:
+        pass
+    return None
+
+
+def sdk_required(fw):
+    if not fw:
+        return None
+    return SDK_FOR_FW.get('.'.join(fw.split('.')[:2]), SDK_DEFAULT)
+
+
+def import_rs():
+    """pyrealsense2 from the node's own library dir, never from ~/.local."""
+    import sys as _sys
+    if PYLIB not in _sys.path:
+        _sys.path.insert(0, PYLIB)
+    import pyrealsense2 as rs
+    where = os.path.dirname(os.path.abspath(rs.__file__))
+    if not where.startswith(PYLIB):
+        raise StepError('calib.err.sdk_wrong', where=where)
+    return rs
+
+
+def jdump(path, obj):
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(obj, f, indent=1, sort_keys=True, default=float)
+    os.replace(tmp, path)
+
+
+def jload(path, default):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+class Cancelled(Exception):
+    pass
+
+
+class Refused(Exception):
+    def __init__(self, key, **args):
+        Exception.__init__(self, key)
+        self.key, self.args_ = key, args
+
+
+# ------------------------------------------------------------------ handover
+# The camera is shared by the ROS driver (librealsense of ros-noetic, RSUSB
+# backend: it claims the USB interfaces itself, so while it streams there is
+# no /dev/video node) and pyrealsense2 (pip, V4L backend: it needs the kernel's
+# uvcvideo nodes). 24. 10. 2026 the first calibration failed with "Cannot open
+# '/dev/video0'": after ~enable false the driver's error polling kept touching
+# the device, the kernel rebound uvcvideo 233 x in 2 min (/dev/video0-3 ->
+# 4-7), and an SDK exception kept the dead nodes open, so the driver could not
+# stream again. Hence a fixed state machine where every step VERIFIES its
+# result (no blind sleeps) and the wizard shows every step:
+#
+#   preflight  ROS depth >= 10 Hz, no uvcvideo rebinding (kernel log), nobody
+#              else holds the camera's /dev/video nodes, pyrealsense2 present,
+#              no pause left over
+#   pause      error polling off -> ~enable false -> depth stopped -> the
+#              camera's /dev/video nodes exist and stay unchanged for 2 s with
+#              no new uvcvideo bind
+#   sdk        ONE librealsense session (opens the device = the SDK sees it)
+#   release    this process holds no /dev/video or /dev/bus/usb file
+#   resume     ~enable true -> depth >= 10 Hz within 20 s, else the driver's
+#              reset service -> depth within 40 s, else a hard error; error
+#              polling back, pause flag removed
+
+class StepError(Exception):
+    def __init__(self, key, **args):
+        Exception.__init__(self, key)
+        self.key, self.args_ = key, args
+
+
+class Steps(object):
+    """the visible steps of a job: wait / run / ok / err / skip + time."""
+
+    def __init__(self, ids, on_change=None, clock=time.time):
+        self.items = [{'id': i, 's': 'wait'} for i in ids]
+        self.cb = on_change or (lambda: None)
+        self.clock = clock
+
+    def get(self, sid):
+        for it in self.items:
+            if it['id'] == sid:
+                return it
+        it = {'id': sid, 's': 'wait'}
+        self.items.append(it)
+        return it
+
+    def state(self, sid):
+        return self.get(sid)['s']
+
+    def run(self, sid, fn, *a):
+        it = self.get(sid)
+        it['s'], it['t0'] = 'run', self.clock()
+        it.pop('d', None)
+        self.cb()
+        try:
+            r = fn(*a)
+        except BaseException as ex:
+            it['s'] = 'err'
+            it['dt'] = round(self.clock() - it['t0'], 1)
+            it['d'] = getattr(ex, 'key', None) or ('calib.msg.cancelled' if isinstance(ex, Cancelled)
+                                                    else 'calib.err.exception')
+            if getattr(ex, 'args_', None):
+                it['a'] = ex.args_
+            if not getattr(ex, 'key', None) and not isinstance(ex, Cancelled):
+                it['e'] = str(ex)[:160]
+            self.cb()
+            raise
+        it['s'] = 'ok'
+        it['dt'] = round(self.clock() - it['t0'], 1)
+        self.cb()
+        return r
+
+    def note(self, sid, **kv):
+        self.get(sid).update(kv)
+        self.cb()
+
+    def insert_before(self, before, ids):
+        """add steps (in order) in front of an existing one"""
+        i = [it['id'] for it in self.items].index(before)
+        for k, sid in enumerate(ids):
+            self.items.insert(i + k, {'id': sid, 's': 'wait'})
+        self.cb()
+
+    def finish(self):
+        for it in self.items:
+            if it['s'] == 'wait':
+                it['s'] = 'skip'
+        self.cb()
+
+    def public(self):
+        out = []
+        for it in self.items:
+            o = {k: v for k, v in it.items() if k != 't0'}
+            out.append(o)
+        return out
+
+
+class Handover(object):
+    """ROS driver <-> librealsense, every transition verified (see above).
+
+    ops (the outside world, replaced by fakes in tools/test_camera_calib.py):
+      enable(bool)  polling_get() -> bool|None  polling_set(bool)  reset()
+      depth_hz() over the last 2 s   depth_age() s since the last depth
+      video_nodes() -> sorted names of the camera's /dev/video nodes
+      binds_since(t) -> uvcvideo binds in the kernel log since time t
+      foreign_holders() -> other processes with the camera's /dev/video open
+      sdk_problem() -> None | 'no_sdk' | 'sdk_mismatch'
+      held_by_self() -> open /dev/video|/dev/bus/usb paths
+      gc()  flag_get() -> dict|None  flag_set(dict)  flag_clear()
+      sdk_open() -> session (.close())  now()  sleep(s)
+    """
+    MIN_HZ = 10.0
+    STABLE_S = 2.0
+
+    def __init__(self, ops, steps):
+        self.ops, self.steps = ops, steps
+        self.paused = False
+
+    def wait(self, cond, timeout, dt=0.2):
+        t0 = self.ops.now()
+        while True:
+            if cond():
+                return True
+            if self.ops.now() - t0 >= timeout:
+                return False
+            self.ops.sleep(dt)
+
+    # -- 1. preflight
+    def problems(self):
+        o, p = self.ops, []
+        if o.flag_get() is not None:
+            p.append('flag')
+        if o.depth_hz() < self.MIN_HZ:
+            p.append('no_depth')
+        if o.binds_since(o.now() - 5.0) > 0:
+            p.append('rebinding')
+        if o.foreign_holders():
+            p.append('foreign')
+        sp = o.sdk_problem()
+        if sp:
+            p.append(sp)
+        return p
+
+    def preflight(self):
+        def run():
+            p = self.problems()
+            if p:
+                raise StepError('calib.err.preflight', problems=p)
+        return self.steps.run('preflight', run)
+
+    # -- 2. pause
+    def pause(self, sid='pause'):
+        def run():
+            o = self.ops
+            pol = None
+            try:
+                pol = o.polling_get()
+            except Exception:
+                pol = None
+            o.flag_set({'polling': pol, 't': o.now()})
+            self.paused = True
+            if pol:
+                o.polling_set(False)
+            t_pause = o.now()
+            try:
+                o.enable(False)
+            except Exception:
+                raise StepError('calib.err.no_enable')
+            if not self.wait(lambda: o.depth_age() > 1.0, 5.0):
+                raise StepError('calib.err.not_paused')
+            st = {'last': o.video_nodes(), 'since': o.now(), 'changes': 0}
+
+            def stable():
+                cur = o.video_nodes()
+                if cur != st['last']:
+                    st['last'], st['since'] = cur, o.now()
+                    st['changes'] += 1
+                    return False
+                return bool(cur) and o.now() - st['since'] >= self.STABLE_S and \
+                    o.binds_since(st['since']) == 0
+            if not self.wait(stable, 20.0):
+                raise StepError('calib.err.unstable', n=st['changes'],
+                                binds=o.binds_since(t_pause))
+            self.steps.note(sid, nodes=len(st['last']), changes=st['changes'])
+        return self.steps.run(sid, run)
+
+    # -- 3. one SDK session + release check
+    def session(self, work, sid='sdk', rel='release'):
+        def run():
+            sess = None
+            try:
+                sess = self.ops.sdk_open()
+                return work(sess)
+            except (Refused, Cancelled, StepError):
+                raise
+            except Exception as ex:
+                text = str(ex)[:200]
+                traceback.clear_frames(ex.__traceback__)
+                raise StepError('calib.err.sdk', e=text) from None
+            finally:
+                if sess is not None:
+                    sess.close()
+                sess = None
+                self.ops.gc()
+        try:
+            return self.steps.run(sid, run)
+        finally:
+            self.release(rel)
+
+    def release(self, sid='release'):
+        def run():
+            held = self.ops.held_by_self()
+            if held:
+                self.ops.gc()
+                held = self.ops.held_by_self()
+            if held:
+                raise StepError('calib.err.leak', n=len(held))
+        return self.steps.run(sid, run)
+
+    # -- 4. resume (also the "Restore the camera" button)
+    def resume(self, sid='resume', force_reset=False):
+        def run():
+            o = self.ops
+            flag = o.flag_get() or {}
+            ok = False
+            if not force_reset:
+                try:
+                    o.enable(True)
+                    t = o.now()
+                    ok = self.wait(lambda: o.depth_age() < 0.5 and o.depth_hz() >= self.MIN_HZ
+                                   and o.now() - t > 3.0, 20.0)
+                except Exception:
+                    ok = False
+            if not ok:
+                self.steps.note(sid, reset=True)
+                try:
+                    o.reset()
+                    t = o.now()
+                    ok = self.wait(lambda: o.depth_age() < 0.5 and o.depth_hz() >= self.MIN_HZ
+                                   and o.now() - t > 3.0, 40.0)
+                except Exception:
+                    ok = False
+            if not ok:
+                raise StepError('calib.err.camera_off')
+            if flag.get('polling') is not False:
+                try:
+                    o.polling_set(True)
+                except Exception:
+                    pass
+            o.flag_clear()
+            self.paused = False
+            self.steps.note(sid, hz=round(o.depth_hz(), 1))
+        return self.steps.run(sid, run)
+
+
+class RosOps(object):
+    """Handover ops on the robot (ROS services, dynamic_reconfigure, sysfs,
+    /proc, the kernel log, pyrealsense2)."""
+
+    def __init__(self, node):
+        self.n = node
+
+    def enable(self, on):
+        from std_srvs.srv import SetBool
+        name = self.n.cam_ns + '/enable'
+        rospy.wait_for_service(name, 5.0)
+        r = rospy.ServiceProxy(name, SetBool)(on)
+        if not r.success:
+            raise RuntimeError(r.message or 'enable %s failed' % on)
+
+    def polling_get(self):
+        cfg = self.n.dyn_client(self.n.cam_ns + '/stereo_module').get_configuration(timeout=3)
+        return bool(cfg.get('error_polling_enabled', True)) if cfg else None
+
+    def polling_set(self, v):
+        self.n.dyn_client(self.n.cam_ns + '/stereo_module').update_configuration(
+            {'error_polling_enabled': bool(v)})
+
+    def reset(self):
+        from std_srvs.srv import Empty
+        name = self.n.cam_ns + '/realsense2_camera/reset'
+        rospy.wait_for_service(name, 5.0)
+        rospy.ServiceProxy(name, Empty)()
+        self.n.dyn.clear()          # the driver's reconfigure servers come back new
+        self.n.reapply = True       # its settings come back from the launch: ours again
+
+    def depth_hz(self):
+        h = [x for x in list(self.n.hz['depth']) if time.time() - x <= 2.0]
+        return (len(h) - 1) / 2.0 if len(h) > 1 else 0.0
+
+    def depth_age(self):
+        return time.time() - self.n.last_cam if self.n.last_cam else 1e9
+
+    def video_nodes(self):
+        out = []
+        base = '/sys/class/video4linux'
+        try:
+            names = os.listdir(base)
+        except OSError:
+            return out
+        for v in names:
+            try:
+                with open(os.path.join(base, v, 'name')) as f:
+                    if 'RealSense' in f.read():
+                        out.append(v)
+            except OSError:
+                continue
+        return sorted(out)
+
+    def binds_since(self, t):
+        import subprocess
+        try:
+            r = subprocess.run(['journalctl', '-k', '-q', '--no-pager', '-o', 'cat',
+                                '--since', '@%d' % int(t)], capture_output=True, text=True, timeout=5)
+        except Exception:
+            return 0
+        return sum(1 for line in r.stdout.splitlines() if 'Found UVC' in line)
+
+    def foreign_holders(self):
+        nodes = set('/dev/' + v for v in self.video_nodes())
+        if not nodes:
+            return []
+        me, out = str(os.getpid()), []
+        for pid in os.listdir('/proc'):
+            if not pid.isdigit() or pid == me:
+                continue
+            try:
+                fds = os.listdir('/proc/%s/fd' % pid)
+            except OSError:
+                continue
+            for fd in fds:
+                try:
+                    if os.readlink('/proc/%s/fd/%s' % (pid, fd)) in nodes:
+                        with open('/proc/%s/comm' % pid) as f:
+                            out.append('%s(%s)' % (f.read().strip(), pid))
+                        break
+                except OSError:
+                    continue
+        return out
+
+    def sdk_problem(self):
+        sdk = self.n.sdk_state()
+        if not sdk.get('version'):
+            return 'no_sdk'
+        if sdk.get('required') and sdk['version'] != sdk['required']:
+            return 'sdk_mismatch'
+        return None
+
+    def held_by_self(self):
+        out = []
+        try:
+            fds = os.listdir('/proc/self/fd')
+        except OSError:
+            return out
+        for fd in fds:
+            try:
+                path = os.readlink('/proc/self/fd/' + fd)
+            except OSError:
+                continue
+            if path.startswith('/dev/video') or path.startswith('/dev/bus/usb'):
+                out.append(path)
+        return out
+
+    def gc(self):
+        gc.collect()
+
+    def flag_get(self):
+        if not os.path.exists(self.n.flag_path):
+            return None
+        v = jload(self.n.flag_path, {})
+        return v if isinstance(v, dict) else {}
+
+    def flag_set(self, d):
+        jdump(self.n.flag_path, d)
+
+    def flag_clear(self):
+        try:
+            os.unlink(self.n.flag_path)
+        except OSError:
+            pass
+
+    def sdk_open(self):
+        return SdkSession(self.n.device.get('serial'))
+
+    def now(self):
+        return time.time()
+
+    def sleep(self, s):
+        time.sleep(s)
+
+
+class SdkSession(object):
+    """one librealsense context on the D435 (pyrealsense2, imported lazily)."""
+
+    def __init__(self, want_serial):
+        rs = import_rs()
+        self.rs = rs
+        self.ctx = rs.context()
+        self.dev = self.ac = self.pipe = None
+        self.serial = None
+        for dev in self.ctx.query_devices():
+            try:
+                name = dev.get_info(rs.camera_info.name)
+                serial = dev.get_info(rs.camera_info.serial_number)
+            except Exception:
+                continue
+            if (want_serial and serial == want_serial) or (not want_serial and 'D4' in name):
+                self.dev, self.serial = dev, serial
+                break
+        if self.dev is None:
+            raise StepError('calib.err.no_device')
+        self.ac = self.dev.as_auto_calibrated_device()
+        if self.ac is None:
+            raise StepError('calib.err.no_autocal')
+
+    def start(self):
+        """depth 256x144 @ 90 (what on-chip / tare need) -> (scale, intrinsics)"""
+        rs = self.rs
+        cfg = rs.config()
+        cfg.enable_device(self.serial)
+        cfg.enable_stream(rs.stream.depth, 256, 144, rs.format.z16, 90)
+        self.pipe = rs.pipeline(self.ctx)
+        prof = self.pipe.start(cfg)
+        self.scale = prof.get_device().first_depth_sensor().get_depth_scale()
+        self.intr = prof.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+        prof = None
+        self.frames(30)
+        return self.scale, self.intr
+
+    def frames(self, n):
+        for _ in range(n):
+            self.pipe.wait_for_frames(5000)
+
+    def roi_z(self, frames=30):
+        """raw depth (no filters) over the central ROI, median of frames [m]."""
+        vals = []
+        for _ in range(frames):
+            f = self.pipe.wait_for_frames(5000).get_depth_frame()
+            a = np.asanyarray(f.get_data()).astype(np.float32) * self.scale
+            f = None
+            H, W = a.shape
+            r = a[int(ROI[0] * H):int(ROI[1] * H), int(ROI[0] * W):int(ROI[1] * W)]
+            r = r[r > 0.1]
+            if r.size > 20:
+                vals.append(float(np.median(r)))
+        return float(np.median(vals)) if vals else float('nan')
+
+    def stop(self):
+        if self.pipe is not None:
+            try:
+                self.pipe.stop()
+            except Exception:
+                pass
+        self.pipe = None
+
+    def close(self):
+        self.stop()
+        self.ac = self.dev = self.ctx = self.rs = None
+
+
+# ------------------------------------------------------------------ node
+class Node(object):
+    def __init__(self):
+        self.cam_ns = rospy.get_param('~camera', '/d435')
+        self.scan_topic = rospy.get_param('~scan', '/scan')
+        self.check_s = float(rospy.get_param('~check_seconds', 4.0))
+        os.makedirs(os.path.join(STORE, 'calib'), exist_ok=True)
+        self.state_path = os.path.join(STORE, 'state.json')
+        self.settings_path = os.path.join(STORE, 'settings.json')
+        self.flag_path = os.path.join(STORE, 'camera_paused_by_calib')
+        self.saved = jload(self.state_path, {})
+        st = jload(self.settings_path, {})
+        if 'overrides' not in st:          # file of an older draft: overrides only
+            st = {'overrides': st, 'defaults': {}}
+        self.overrides = st.get('overrides') or {}
+        # the launch values, captured the first time a key is seen untouched;
+        # kept on disk because dynamic_reconfigure rewrites the param server
+        self.defaults = st.get('defaults') or {}
+        self.current = {}
+        self.dyn = {}
+
+        self.lock = threading.RLock()
+        self.tf = StaticTF()
+        self.device = {}
+        self.sdk = None
+        self.state, self.phase, self.progress = 'idle', '', 0.0
+        self.msg_key, self.msg_args = '', {}
+        self.scene = None
+        self.check_live = None
+        self.watch_until = 0.0
+        self.cancel = False
+        self.job = None
+        self.moving_until = 0.0
+        self.busy = False
+        self.hz = {'color': [], 'depth': []}
+        self.last_cam = 0.0
+
+        self.scan = None
+        self.depth = None
+        self.depth_t = 0.0
+        self.cinfo = None
+        self.dinfo = None
+        self.sub_depth = None
+        self.sub_scan = None
+
+        self.pub = rospy.Publisher('~status', String, queue_size=2, latch=True)
+        rospy.Subscriber('/tf_static', TFMessage, self.tf.add, queue_size=10)
+        rospy.Subscriber(self.cam_ns + '/color/camera_info', CameraInfo, self.on_cinfo, queue_size=2)
+        rospy.Subscriber(self.cam_ns + '/aligned_depth_to_color/camera_info', CameraInfo,
+                         self.on_dcinfo, queue_size=2)
+        rospy.Subscriber(self.cam_ns + '/depth/camera_info', CameraInfo, self.on_dinfo, queue_size=2)
+        rospy.Subscriber('/mobile_base_controller/odom', Odometry, self.on_odom, queue_size=5)
+        rospy.Subscriber('/mower_smach/busy', Bool, self.on_busy, queue_size=2)
+        rospy.Subscriber('~cmd', String, self.on_cmd, queue_size=10)
+        rospy.on_shutdown(self.on_shutdown)
+
+        self.sdk_job = {}
+        self.reapply = False
+        self.steps = None
+        self.handover = None
+        self.cur_rec = None
+        self.camera_end = None
+        self.job_name = ''
+        self.preflight = None
+        if os.path.exists(self.flag_path):
+            # the node died while the camera was paused: give it back (verified)
+            rospy.logwarn('[camera_calib] camera was left paused by a calibration, resuming it')
+            threading.Thread(target=self.run_startup_resume, daemon=True).start()
+        threading.Thread(target=self.housekeeping, daemon=True).start()
+
+    # ------------------------------------------------------------ inputs
+    def on_cinfo(self, m):
+        self.cinfo = m
+        self._tick('color')
+
+    def on_dcinfo(self, m):
+        self._tick('depth')
+
+    def on_dinfo(self, m):
+        self.dinfo = m
+
+    def _tick(self, k):
+        now = time.time()
+        if k == 'depth':
+            if self.last_cam and now - self.last_cam > 5.0 and self.state != 'calibrating':
+                # camera came back after a gap (respawn / reconnect): settings again
+                threading.Thread(target=self.apply_overrides, daemon=True).start()
+            self.last_cam = now
+        h = self.hz[k]
+        h.append(now)
+        while h and now - h[0] > 5.0:
+            h.pop(0)
+
+    def on_odom(self, m):
+        t = m.twist.twist
+        if abs(t.linear.x) > 0.01 or abs(t.linear.y) > 0.01 or abs(t.angular.z) > 0.02:
+            self.moving_until = time.time() + 1.5
+
+    def on_busy(self, m):
+        self.busy = bool(m.data)
+
+    def on_scan(self, m):
+        self.scan = m
+
+    def on_depth(self, m):
+        now = time.time()
+        if now - self.depth_t < 0.2:        # at most 5 Hz of numpy work
+            return
+        if m.encoding not in ('16UC1', 'mono16'):
+            return
+        d = np.frombuffer(m.data, dtype='<u2' if not m.is_bigendian else '>u2')
+        self.depth = d.reshape(m.height, m.step // 2)[:, :m.width].astype(np.float32) / 1000.0
+        self.depth_t = now
+        if self.collect is not None:
+            self.collect_pairs()
+
+    collect = None
+
+    def streams(self, on):
+        """depth image + scan only while something measures."""
+        with self.lock:
+            if on and self.sub_depth is None:
+                self.sub_depth = rospy.Subscriber(self.cam_ns + '/aligned_depth_to_color/image_raw',
+                                                  Image, self.on_depth, queue_size=1, buff_size=2 ** 24)
+                self.sub_scan = rospy.Subscriber(self.scan_topic, LaserScan, self.on_scan, queue_size=1)
+            elif not on and self.sub_depth is not None:
+                self.sub_depth.unregister()
+                self.sub_scan.unregister()
+                self.sub_depth = self.sub_scan = None
+                self.depth = self.scan = None
+
+    def need_streams(self):
+        return self.collect is not None or time.time() < self.watch_until or self.state == 'calibrating'
+
+    # ------------------------------------------------------------ geometry
+    def frames(self):
+        if self.cinfo is None or self.scan is None:
+            return None
+        cam = self.cinfo.header.frame_id
+        Tcs = self.tf.T(cam, self.scan.header.frame_id)
+        Tbc = self.tf.T('base_link', cam)
+        if Tcs is None or Tbc is None:
+            return None
+        return Tcs, Tbc
+
+    def lidar_in_cam(self):
+        """lidar points: (P_cam Nx3, u, v, P_base Nx3)."""
+        fr = self.frames()
+        s = self.scan
+        if fr is None or s is None:
+            return None
+        Tcs, Tbc = fr
+        r = np.asarray(s.ranges, dtype=np.float64)
+        a = s.angle_min + np.arange(len(r)) * s.angle_increment
+        ok = np.isfinite(r) & (r > max(s.range_min, 0.1)) & (r < s.range_max)
+        P = np.c_[r[ok] * np.cos(a[ok]), r[ok] * np.sin(a[ok]), np.zeros(ok.sum())]
+        Pc = P @ Tcs[:3, :3].T + Tcs[:3, 3]
+        K = self.cinfo.K
+        fx, cx, fy, cy = K[0], K[2], K[4], K[5]
+        z = Pc[:, 2]
+        with np.errstate(all='ignore'):
+            u = fx * Pc[:, 0] / z + cx
+            v = fy * Pc[:, 1] / z + cy
+        Pb = Pc @ Tbc[:3, :3].T + Tbc[:3, 3]
+        return Pc, u, v, Pb
+
+    def depth_at(self, D, u, v, win=1):
+        H, W = D.shape
+        out = np.full(len(u), np.nan)
+        for i, (uu, vv) in enumerate(zip(u, v)):
+            ui, vi = int(round(uu)), int(round(vv))
+            if win <= ui < W - win and win <= vi < H - win:
+                p = D[vi - win:vi + win + 1, ui - win:ui + win + 1]
+                p = p[p > 0.05]
+                if p.size:
+                    out[i] = float(np.median(p))
+        return out
+
+    def collect_pairs(self):
+        D = self.depth
+        L = self.lidar_in_cam()
+        if D is None or L is None:
+            return
+        Pc, u, v, _ = L
+        H, W = D.shape
+        z = Pc[:, 2]
+        m = (z > 0.3) & (u >= 1) & (u < W - 1) & (v >= 1) & (v < H - 1)
+        d = self.depth_at(D, u[m], v[m])
+        self.collect[0].extend(z[m].tolist())
+        self.collect[1].extend((d - z[m]).tolist())
+
+    def measure(self, seconds=None):
+        """live check: depth - lidar over a few seconds -> fit dict (or None)."""
+        self.collect = ([], [])
+        self.streams(True)
+        t_end = time.time() + (seconds or self.check_s)
+        try:
+            while time.time() < t_end and not rospy.is_shutdown():
+                if self.cancel and self.phase in self.CANCELLABLE:
+                    raise Cancelled()
+                time.sleep(0.1)
+            z, e = self.collect
+        finally:
+            self.collect = None
+        fit = fit_bias(z, e)
+        if fit:
+            fit['v'] = verdict(fit)
+            fit['t'] = time.time()
+            fdepth = self.dinfo.K[0] if self.dinfo is not None else 383.0
+            fit['disp_px'] = round(fit['k'] * fdepth * BASELINE_M, 2)
+        return fit
+
+    def evaluate_scene(self):
+        """wizard: is there a wall for tare in the middle of the image?"""
+        sc = {'t': time.time(), 'reasons': [], 'ok': False}
+        if time.time() < self.moving_until:
+            sc['reasons'].append('moving')
+        if self.busy:
+            sc['reasons'].append('busy')
+        D, L = self.depth, self.lidar_in_cam()
+        if D is None or L is None or self.cinfo is None:
+            sc['reasons'].append('no_camera')
+            return sc
+        Pc, u, v, Pb = L
+        H, W = D.shape
+        z = Pc[:, 2]
+        cen = (z > 0.2) & (u > 0.30 * W) & (u < 0.70 * W)
+        sc['lidar_n'] = int(cen.sum())
+        wall = None
+        if cen.sum() < 12:
+            sc['reasons'].append('no_wall')
+        else:
+            c, n, rms = fit_line_2d(Pb[cen][:, :2])
+            # normal towards the camera
+            Tbc = self.frames()[1]
+            o = Tbc[:3, 3]
+            if n @ (o[:2] - c) < 0:
+                n = -n
+            ax = Tbc[:3, :3] @ np.array([0.0, 0.0, 1.0])
+            axh = ax[:2] / max(np.linalg.norm(ax[:2]), 1e-9)
+            ang = math.degrees(math.acos(min(1.0, abs(float(axh @ n)))))
+            K = self.cinfo.K
+            zc = plane_z_roi((c, n), Tbc, K[0], K[4], K[2], K[5], W, H)
+            sc.update({'lidar_rms': round(rms, 4), 'angle': round(ang, 1), 'dist': round(zc, 3)})
+            wall = (c, n)
+            if rms > SCENE_LIDAR_RMS:
+                sc['reasons'].append('not_flat')
+            if ang > SCENE_MAX_ANGLE:
+                sc['reasons'].append('angle')
+            if not np.isfinite(zc) or zc < SCENE_MIN_M:
+                sc['reasons'].append('too_close')
+            elif zc > SCENE_MAX_M:
+                sc['reasons'].append('too_far')
+        # the depth ROI: filled, flat, vertical (a wall, not the lawn)
+        r0, r1 = int(ROI[0] * H), int(ROI[1] * H)
+        c0, c1 = int(ROI[0] * W), int(ROI[1] * W)
+        R = D[r0:r1, c0:c1]
+        valid = R > 0.1
+        fill = float(valid.mean())
+        sc['fill'] = round(fill, 2)
+        if fill < SCENE_FILL:
+            sc['reasons'].append('not_filled')
+        if fill >= 0.5 and valid.sum() > 50:     # a plane of a few stray pixels says nothing
+            K = self.cinfo.K
+            vv, uu = np.nonzero(valid)
+            zz = R[valid]
+            step = max(1, len(zz) // 1500)
+            uu, vv, zz = (uu[::step] + c0), (vv[::step] + r0), zz[::step]
+            P = np.c_[(uu - K[2]) * zz / K[0], (vv - K[5]) * zz / K[4], zz]
+            pc, pn, prms = fit_plane(P)
+            Tbc = self.frames()[1]
+            nb = Tbc[:3, :3] @ pn
+            sc['depth_rms_rel'] = round(prms / max(float(np.median(zz)), 0.1), 4)
+            sc['depth_z'] = round(float(np.median(zz)), 3)
+            if sc['depth_rms_rel'] > SCENE_DEPTH_RMS_REL:
+                if 'not_flat' not in sc['reasons']:
+                    sc['reasons'].append('not_flat')
+            if abs(nb[2]) > 0.35:
+                sc['reasons'].append('not_vertical')
+        sc['ok'] = not sc['reasons']
+        self._wall = wall
+        return sc
+
+    _wall = None
+
+    # ------------------------------------------------------------ ROS camera
+    def device_info(self):
+        try:
+            from realsense2_camera.srv import DeviceInfo
+            name = self.cam_ns + '/realsense2_camera/device_info'
+            rospy.wait_for_service(name, 3.0)
+            r = rospy.ServiceProxy(name, DeviceInfo)()
+            self.device = {'name': r.device_name, 'serial': r.serial_number,
+                           'fw': r.firmware_version, 'usb': r.usb_type_descriptor}
+        except Exception:
+            pass
+        self.sdk = self.sdk_state()
+
+    def sdk_state(self):
+        """the calibration SDK: installed (own dir), required by the firmware."""
+        st = dict(self.sdk_job)
+        st['version'] = sdk_installed()
+        st['required'] = sdk_required(self.device.get('fw'))
+        st['ok'] = bool(st['version']) and (not st['required'] or st['version'] == st['required'])
+        return st
+
+    def ensure_sdk(self, force=False):
+        """install the pyrealsense2 the firmware needs into the node's own dir
+        (pip --target, atomic rename); runs by itself when it is missing or
+        does not match, so a fresh robot needs no manual step."""
+        import shutil
+        import subprocess
+        want = sdk_required(self.device.get('fw'))
+        if not want or (sdk_installed() == want and not force):
+            return True
+        if self.sdk_job.get('installing'):
+            return False
+        if 'pyrealsense2' in __import__('sys').modules:
+            rospy.logwarn('[camera_calib] pyrealsense2 already loaded, the new SDK needs a node restart')
+        self.sdk_job = {'installing': True}
+        self.publish()
+        tmp = PYLIB + '.new'
+        shutil.rmtree(tmp, ignore_errors=True)
+        try:
+            r = subprocess.run(['python3', '-m', 'pip', 'install', '--quiet', '--no-deps',
+                                '--disable-pip-version-check', '--target', tmp,
+                                'pyrealsense2==' + want], capture_output=True, text=True, timeout=600)
+            if r.returncode != 0 or sdk_installed(tmp) != want:
+                raise RuntimeError((r.stderr or r.stdout or 'pip failed').strip().splitlines()[-1][:160])
+            old = PYLIB + '.old'
+            shutil.rmtree(old, ignore_errors=True)
+            if os.path.exists(PYLIB):
+                os.rename(PYLIB, old)
+            os.rename(tmp, PYLIB)
+            shutil.rmtree(old, ignore_errors=True)
+            self.sdk_job = {}
+            rospy.loginfo('[camera_calib] calibration SDK pyrealsense2 %s installed in %s', want, PYLIB)
+            return True
+        except Exception as ex:
+            shutil.rmtree(tmp, ignore_errors=True)
+            self.sdk_job = {'error': str(ex)[:160]}
+            rospy.logerr('[camera_calib] cannot install pyrealsense2 %s: %s', want, ex)
+            return False
+        finally:
+            self.sdk = self.sdk_state()
+            self.publish()
+
+    def ros_roi_z(self, seconds=2.0):
+        """median ROS depth (aligned, filtered) over the central ROI [m]."""
+        self.streams(True)
+        vals, t0, last = [], time.time(), 0.0
+        while time.time() - t0 < seconds + 3.0 and len(vals) < int(seconds * 5):
+            D, t = self.depth, self.depth_t
+            if D is not None and t != last:
+                last = t
+                H, W = D.shape
+                R = D[int(ROI[0] * H):int(ROI[1] * H), int(ROI[0] * W):int(ROI[1] * W)]
+                R = R[R > 0.1]
+                if R.size > 50:
+                    vals.append(float(np.median(R)))
+            time.sleep(0.1)
+        return float(np.median(vals)) if vals else float('nan')
+
+    def wall_z_color(self, wall):
+        """the wall's true Z over the central ROI of the colour camera (the
+        frame of the aligned depth) [m]."""
+        fr = self.frames()
+        if wall is None or fr is None or self.cinfo is None:
+            return float('nan')
+        K = self.cinfo.K
+        return plane_z_roi(wall, fr[1], K[0], K[4], K[2], K[5], self.cinfo.width, self.cinfo.height)
+
+    # ------------------------------------------------------------ jobs
+    CANCELLABLE = ('check', 'scene', 'before', 'pause', 'measure', 'onchip', 'tare')
+
+    def set_phase(self, phase, progress, key='', **args):
+        if self.cancel and phase in self.CANCELLABLE:
+            raise Cancelled()
+        with self.lock:
+            self.phase, self.progress = phase, progress
+            if key:
+                self.msg_key, self.msg_args = key, args
+        self.publish()
+
+    def precheck(self):
+        if self.busy:
+            raise Refused('calib.err.busy')
+        if time.time() < self.moving_until:
+            raise Refused('calib.err.moving')
+        if not self.last_cam or time.time() - self.last_cam > 3.0:
+            raise Refused('calib.err.no_camera')
+
+    def run_check(self):
+        self.precheck()
+        self.set_phase('check', 0.2, 'calib.msg.checking')
+        fit = self.measure()
+        self.check_live = fit
+        if fit:
+            self.saved['check'] = fit
+            self.save_state()
+            self.set_phase('done', 1.0, 'calib.msg.checked')
+        else:
+            self.set_phase('done', 1.0, 'calib.msg.no_pairs')
+
+    # The firmware of our cameras (05.14) has no RAM preview of a calibration
+    # table (CALIBRECALC is refused): a new table only takes effect after it
+    # is written to flash and the camera is reset, and tare always computes
+    # from the ACTIVE table. Hence, every step verified:
+    #   before     ROS depth over the ROI vs the wall + the lidar check
+    #   session 1  backup, raw depth at the wall, on-chip (kept only when its
+    #              health says it can improve), tare where the active table
+    #              allows it (see tare_where), write + read back
+    #   resume     driver reset (hardware reset, loads the flash) -> 15 Hz
+    #   session 2  only when on-chip AND tare are needed on a FW without RAM
+    #              preview: tare over the written on-chip table, write + read
+    #              back, reset -> 15 Hz
+    #   after      the same two measurements -> decide; worse -> the backup
+    #              back (own session, read back, reset)
+    # Nothing to change (accurate, on-chip has nothing to improve) is a result,
+    # not an error: "the camera is accurate".
+    STEP_IDS = ('preflight', 'scene', 'before', 'pause', 'sdk', 'release', 'resume', 'after',
+                'tare_pause', 'tare_sdk', 'tare_release', 'tare_resume',
+                'revert_pause', 'revert_sdk', 'revert_release', 'revert_resume', 'reset')
+
+    def run_calibrate(self, gt_manual_m=None):
+        self.device_info()
+        if not self.sdk.get('ok'):
+            raise Refused('calib.err.no_sdk')
+        self.precheck()
+        H = self.new_job(['preflight', 'scene', 'before', 'pause', 'sdk', 'release', 'resume', 'after'])
+        rec = self.cur_rec = {'t': time.time(), 'serial': self.device.get('serial'),
+                              'fw': self.device.get('fw'), 'sdk': self.sdk.get('version'), 'written': False}
+        H.preflight()
+        self.set_phase('scene', 0.03, 'calib.msg.scene')
+        self.streams(True)
+        st = {}
+
+        def scene():
+            sc = None
+            t0 = time.time()
+            while time.time() - t0 < 6.0:
+                time.sleep(0.5)
+                sc = self.evaluate_scene()
+                if sc['ok']:
+                    break
+            if gt_manual_m:
+                sc['reasons'] = [r for r in sc['reasons'] if r not in ('no_wall', 'angle', 'too_far', 'too_close')]
+                sc['ok'] = not sc['reasons']
+            self.scene = sc
+            if not sc['ok']:
+                raise StepError('calib.err.scene', reasons=sc['reasons'])
+            st['wall'] = self._wall
+            st['Tbd'] = self.tf.T('base_link', self.dinfo.header.frame_id) if self.dinfo is not None else None
+            if not gt_manual_m and (st['wall'] is None or st['Tbd'] is None):
+                raise StepError('calib.err.scene', reasons=['no_wall'])
+            rec['scene'] = sc
+        self.steps.run('scene', scene)
+
+        def gt_color():
+            if gt_manual_m:
+                return float(gt_manual_m) + 0.0042
+            return self.wall_z_color(st['wall'])
+
+        def before():
+            self.set_phase('before', 0.08, 'calib.msg.before')
+            rec['before'] = self.measure()
+            rec['gt_ros'] = round(gt_color(), 4)
+            rec['ros_before'] = round(self.ros_roi_z(), 4)
+        self.steps.run('before', before)
+
+        def prog(lo, hi):
+            # librealsense callback: never raise from here
+            def cb(p):
+                try:
+                    self.progress = lo + (hi - lo) * float(p) / 100.0
+                    self.publish()
+                except Exception:
+                    pass
+            return cb
+
+        def write_checked(ss, table, fallback, sid):
+            """write + read back; mismatch -> fallback written back (verified)"""
+            self.set_phase('write', self.progress, 'calib.msg.write')
+            ok = write_verified(ss.ac, table, rec)
+            rec['written'] = True
+            if not ok:
+                rec['readback'] = 'mismatch'
+                self.set_phase('revert', self.progress, 'calib.msg.revert')
+                if write_verified(ss.ac, fallback, rec):
+                    if list(fallback) == st['backup']:
+                        rec['written'] = False
+                    raise StepError('calib.err.readback')
+                raise StepError('calib.err.flash_unknown')
+            rec['readback'] = 'ok'
+            self.steps.note(sid, readback='ok')
+            self.saved['last_backup'] = rec['backup']       # Restore previous works from here on
+
+        def run_tare(ss, base, lo, hi):
+            """tare over the active table -> new table or None (no change / failed)"""
+            self.set_phase('tare', lo, 'calib.msg.tare', gt=round(st['gt'], 3))
+            try:
+                r = ss.ac.run_tare_calibration(st['gt'] * 1000.0, TARE_JSON, prog(lo, hi), 30000)
+                t2 = list(r[0] if isinstance(r, tuple) else r)
+            except Exception as ex:
+                rec['tare_error'] = str(ex)[:160]
+                rospy.logwarn('[camera_calib] tare calibration failed: %s', rec['tare_error'])
+                return None, 'failed'
+            if t2 == list(base):
+                return None, 'nochange'
+            return t2, 'done'
+
+        self.set_phase('pause', 0.15, 'calib.msg.pause')
+        self.streams(False)
+        H.pause()
+        plan = {}
+
+        def work1(ss):
+            backup = list(ss.ac.get_calibration_table())
+            st['backup'] = backup
+            bdir = os.path.join(STORE, 'calib', ss.serial)
+            os.makedirs(bdir, exist_ok=True)
+            bfile = os.path.join(bdir, time.strftime('%Y%m%d-%H%M%S') + '-before.bin')
+            with open(bfile, 'wb') as f:
+                f.write(bytes(backup))
+            rec['serial'], rec['backup'] = ss.serial, bfile
+            self.set_phase('measure', 0.2, 'calib.msg.measure')
+            scale, intr = ss.start()
+            if gt_manual_m:
+                gt = float(gt_manual_m) + 0.0042     # depth zero is 4.2 mm behind the glass
+            else:
+                gt = plane_z_roi(st['wall'], st['Tbd'], intr.fx, intr.fy, intr.ppx, intr.ppy,
+                                 intr.width, intr.height)
+            st['gt'] = gt
+            rec['gt'] = round(gt, 4)
+            rec['gt_src'] = 'tape' if gt_manual_m else 'lidar'
+            rec['sdk_before'] = round(ss.roi_z(), 4)
+            need = tare_needed(rec['sdk_before'], gt, rec.get('ros_before', float('nan')),
+                               rec.get('gt_ros', float('nan')))
+            rec['err_sdk'] = round(rec['sdk_before'] - gt, 4)
+            # on-chip (depth noise)
+            self.set_phase('onchip', 0.3, 'calib.msg.onchip')
+            table_oc = None
+            try:
+                r = ss.ac.run_on_chip_calibration(ONCHIP_JSON, prog(0.3, 0.45), 30000)
+                table, health = (r[0], r[1]) if isinstance(r, tuple) else (r, None)
+                try:
+                    hv = health if not isinstance(health, (list, tuple)) else health[0]
+                    rec['onchip_health'] = round(float(hv), 3)
+                except (TypeError, ValueError, IndexError):
+                    pass
+                if onchip_useful(table, health, backup):
+                    table_oc = list(table)
+                    rec['onchip'] = 'used'
+                else:
+                    rec['onchip'] = 'skip'
+            except Exception as ex:
+                rec['onchip_error'] = str(ex)[:160]
+                rec['onchip'] = 'failed'
+                rospy.logwarn('[camera_calib] on-chip calibration failed: %s', rec['onchip_error'])
+            # does the firmware take the on-chip table into RAM (= active now)?
+            ram_ok = None
+            if table_oc is not None and need:
+                try:
+                    ss.ac.set_calibration_table(table_oc)
+                    ram_ok = True
+                except Exception as ex:
+                    ram_ok = False
+                    rec['ram_error'] = str(ex)[:160]
+            rec['ram_preview'] = ram_ok
+            where = tare_where(table_oc, need, ram_ok)
+            final = table_oc
+            if where == 'here':
+                t2, how = run_tare(ss, table_oc if table_oc is not None else backup, 0.45, 0.6)
+                rec['tare'] = how
+                if t2 is not None:
+                    final = t2
+            else:
+                rec['tare'] = where             # 'skip' or 'next'
+            self.steps.note('sdk', onchip=rec['onchip'], h=rec.get('onchip_health'),
+                            tare=rec['tare'], e=round(rec['err_sdk'] * 100, 1))
+            ss.stop()
+            if rec['onchip'] == 'failed' and rec['tare'] == 'failed':
+                raise StepError('calib.err.failed')
+            if final is None:
+                plan['nothing'] = True
+                return
+            write_checked(ss, final, backup, 'sdk')
+            plan['tare_next'] = rec['tare'] == 'next'
+        H.session(work1)
+        if plan.get('nothing'):
+            # nothing to change: the camera stays as it is (no write, no reset)
+            self.set_phase('resume', 0.8, 'calib.msg.resume')
+            H.resume()
+            rec['saved'] = False
+            if rec.get('tare') == 'failed':
+                raise StepError('calib.err.failed')
+            rec['result'] = 'calib.res.already_ok'
+            self.steps.get('after')['s'] = 'skip'
+            self.set_phase('done', 1.0, 'calib.res.already_ok')
+            return
+        self.set_phase('resume', 0.65, 'calib.msg.resume_reset')
+        H.resume(force_reset=True)          # a hardware reset loads the new table
+        if plan.get('tare_next'):
+            # tare over the on-chip table that is now active (written + reset)
+            self.steps.insert_before('after', ['tare_pause', 'tare_sdk', 'tare_release', 'tare_resume'])
+            self.set_phase('pause', 0.68, 'calib.msg.pause')
+            self.streams(False)
+            H.pause('tare_pause')
+
+            def work2(ss):
+                cur = list(ss.ac.get_calibration_table())
+                ss.start()
+                t2, how = run_tare(ss, cur, 0.7, 0.78)
+                rec['tare'] = how
+                ss.stop()
+                self.steps.note('tare_sdk', tare=how)
+                if t2 is None:
+                    return
+                write_checked(ss, t2, cur, 'tare_sdk')
+                plan['tare_written'] = True
+            H.session(work2, 'tare_sdk', 'tare_release')
+            self.set_phase('resume', 0.8, 'calib.msg.resume_reset')
+            H.resume('tare_resume', force_reset=bool(plan.get('tare_written')))
+
+        def after():
+            self.set_phase('after', 0.85, 'calib.msg.after')
+            rec['after'] = self.measure()
+            rec['ros_after'] = round(self.ros_roi_z(), 4)
+        self.steps.run('after', after)
+        keep, why = decide(rec.get('before'), rec.get('after'), rec.get('ros_before', float('nan')),
+                           rec.get('ros_after', float('nan')), rec.get('gt_ros', float('nan')))
+        rec['result'] = why
+        if keep:
+            rec['saved'] = True
+            if rec.get('after'):
+                self.saved['check'] = rec['after']
+                self.check_live = rec['after']
+            self.set_phase('done', 1.0, why)
+            return
+        # worse: the backup back into flash, verified, then reset again
+        for sid in ('revert_pause', 'revert_sdk', 'revert_release', 'revert_resume'):
+            self.steps.get(sid)
+        self.set_phase('revert', 0.9, 'calib.msg.revert')
+        self.streams(False)
+        H.pause('revert_pause')
+
+        def undo(ss):
+            if not write_verified(ss.ac, st['backup'], rec):
+                raise StepError('calib.err.flash_unknown')
+            rec['written'] = False
+        H.session(undo, 'revert_sdk', 'revert_release')
+        H.resume('revert_resume', force_reset=True)
+        rec['saved'] = False
+        self.set_phase('done', 1.0, why)
+
+    def run_restore(self, factory=False):
+        self.precheck()
+        self.device_info()
+        if not self.sdk.get('ok'):
+            raise Refused('calib.err.no_sdk')
+        path = self.saved.get('last_backup')
+        if not factory and not (path and os.path.exists(path)):
+            raise Refused('calib.err.no_backup')
+        H = self.new_job(['preflight', 'pause', 'sdk', 'release', 'resume'])
+        rec = self.cur_rec = {'t': time.time(), 'serial': self.device.get('serial'), 'written': False,
+                              'result': 'calib.res.factory' if factory else 'calib.res.restored'}
+        H.preflight()
+        self.set_phase('pause', 0.2, 'calib.msg.pause')
+        self.streams(False)
+        H.pause()
+
+        def work(ss):
+            # keep what is in flash now, so the restore itself can be undone
+            cur = list(ss.ac.get_calibration_table())
+            bdir = os.path.join(STORE, 'calib', ss.serial)
+            os.makedirs(bdir, exist_ok=True)
+            rec['backup'] = os.path.join(bdir, time.strftime('%Y%m%d-%H%M%S') +
+                                         ('-before-factory.bin' if factory else '-before-restore.bin'))
+            with open(rec['backup'], 'wb') as f:
+                f.write(bytes(cur))
+            self.set_phase('write', 0.5, 'calib.msg.write')
+            if factory:
+                ss.ac.reset_to_factory_calibration()
+                rec['written'] = True
+                rec['readback'] = 'changed' if list(ss.ac.get_calibration_table()) != cur else 'same'
+            else:
+                with open(path, 'rb') as f:
+                    table = list(f.read())
+                ok = write_verified(ss.ac, table, rec)
+                rec['written'] = True
+                if not ok:
+                    rec['readback'] = 'mismatch'
+                    if write_verified(ss.ac, cur, rec):
+                        rec['written'] = False
+                        raise StepError('calib.err.readback')
+                    raise StepError('calib.err.flash_unknown')
+                rec['readback'] = 'ok'
+            rec['saved'] = True
+        H.session(work)
+        self.set_phase('resume', 0.8, 'calib.msg.resume_reset')
+        H.resume(force_reset=True)
+        self.saved['last_backup'] = rec['backup']
+        self.set_phase('done', 1.0, rec['result'])
+
+    def run_write_test(self):
+        """maintenance, not in the UI: the write path with NO change — read the
+        table, write the very same bytes, read back == it, reset, 15 Hz."""
+        self.device_info()
+        if not self.sdk.get('ok'):
+            raise Refused('calib.err.no_sdk')
+        self.precheck()
+        H = self.new_job(['preflight', 'pause', 'sdk', 'release', 'resume'])
+        rec = self.cur_rec = {'t': time.time(), 'write_test': True, 'written': False,
+                              'result': 'calib.res.write_test_ok'}
+        H.preflight()
+        self.set_phase('pause', 0.2, 'calib.msg.pause')
+        self.streams(False)
+        H.pause()
+
+        def work(ss):
+            table = list(ss.ac.get_calibration_table())
+            bdir = os.path.join(STORE, 'calib', ss.serial)
+            os.makedirs(bdir, exist_ok=True)
+            rec['backup'] = os.path.join(bdir, time.strftime('%Y%m%d-%H%M%S') + '-write-test.bin')
+            with open(rec['backup'], 'wb') as f:
+                f.write(bytes(table))
+            rec['table_len'] = len(table)
+            self.set_phase('write', 0.5, 'calib.msg.write')
+            ok = write_verified(ss.ac, table, rec)
+            rec['written'] = True
+            rec['readback'] = 'ok' if ok else 'mismatch'
+            if not ok:
+                raise StepError('calib.err.readback')
+        H.session(work)
+        self.set_phase('resume', 0.8, 'calib.msg.resume_reset')
+        H.resume(force_reset=True)
+        self.set_phase('done', 1.0, rec['result'])
+
+    def run_dry(self):
+        """diagnostics, writes nothing: the same handover with a 3 s stream and
+        a read of the calibration table. Result in status.last (dry: true)."""
+        self.device_info()
+        if not self.sdk.get('ok'):
+            raise Refused('calib.err.no_sdk')
+        self.precheck()
+        H = self.new_job(['preflight', 'pause', 'sdk', 'release', 'resume'])
+        rec = self.cur_rec = {'t': time.time(), 'dry': True, 'written': False, 'result': 'calib.res.dry_ok'}
+        H.preflight()
+        self.set_phase('pause', 0.2, 'calib.msg.pause')
+        self.streams(False)
+        H.pause()
+
+        def work(ss):
+            self.set_phase('measure', 0.5, 'calib.msg.measure')
+            ss.start()
+            t1 = time.time()
+            n = 0
+            while time.time() - t1 < 3.0:
+                ss.pipe.wait_for_frames(5000)
+                n += 1
+            rec['fps'] = round(n / (time.time() - t1), 1)
+            table = bytes(ss.ac.get_calibration_table())
+            rec['table_len'] = len(table)
+            rec['table_sha1'] = __import__('hashlib').sha1(table).hexdigest()[:12]
+        H.session(work)
+        self.set_phase('resume', 0.8, 'calib.msg.resume')
+        H.resume()
+        self.set_phase('done', 1.0, rec['result'])
+
+    def run_recover(self):
+        """the "Restore the camera" button: driver reset, verified."""
+        H = self.new_job(['reset'])
+        self.cur_rec = None
+        self.set_phase('resume', 0.5, 'calib.msg.recover')
+        H.resume('reset', force_reset=True)
+        self.set_phase('done', 1.0, 'calib.msg.recovered')
+
+    def new_job(self, ids):
+        self.steps = Steps(ids, self.publish)
+        self.handover = Handover(RosOps(self), self.steps)
+        return self.handover
+
+    def start_job(self, name, fn, *a):
+        with self.lock:
+            if self.job is not None and self.job.is_alive():
+                self.msg_key, self.msg_args = 'calib.err.running', {}
+                self.publish()
+                return
+            self.cancel = False
+            self.state = 'checking' if name == 'check' else 'calibrating'
+            self.job_name = name
+            self.msg_key, self.msg_args = '', {}
+            self.cur_rec = None
+            if name != 'check':
+                self.steps = None
+                self.handover = None
+
+            def run():
+                err = None
+                try:
+                    fn(*a)
+                except Cancelled:
+                    err = ('calib.msg.cancelled', {})
+                except (Refused, StepError) as ex:
+                    err = (ex.key, dict(ex.args_))
+                except Exception as ex:
+                    rospy.logerr('[camera_calib] %s failed: %s', name, ex)
+                    err = ('calib.err.exception', {'e': str(ex)[:160]})
+                    traceback.clear_frames(ex.__traceback__)
+                finally:
+                    H = self.handover
+                    if H is not None and H.paused:
+                        # every exit path gives the camera back, verified; after a
+                        # flash write through a reset, which loads the flash
+                        try:
+                            H.resume(force_reset=bool(self.cur_rec and self.cur_rec.get('written')))
+                        except Exception:
+                            pass
+                    if H is not None and self.steps is not None:
+                        self.steps.finish()
+                    rec = self.cur_rec
+                    cam = None
+                    if name != 'check':
+                        ops = RosOps(self)
+                        cam = {'ok': ops.depth_hz() >= Handover.MIN_HZ and ops.flag_get() is None,
+                               'hz': round(ops.depth_hz(), 1)}
+                        self.camera_end = cam
+                    if err:
+                        args = dict(err[1])
+                        if cam is not None:
+                            args['cam'] = 'back' if cam['ok'] else 'off'
+                            args['written'] = bool(rec and rec.get('written'))
+                        self.msg_key, self.msg_args = err[0], args
+                        if rec is not None:
+                            rec['result'] = err[0]
+                            rec['error_args'] = args
+                    if rec is not None:
+                        rec['camera'] = cam
+                        rec['steps'] = self.steps.public() if self.steps else []
+                        hist = self.saved.get('history', [])
+                        hist.insert(0, {k: v for k, v in rec.items() if k != 'steps'})
+                        self.saved['history'] = hist[:10]
+                        self.saved['last'] = rec
+                        self.save_state()
+                    self.state = 'idle'
+                    self.phase = 'done'
+                    self.cancel = False
+                    if not self.need_streams():
+                        self.streams(False)
+                    self.publish()
+            self.job = threading.Thread(target=run, daemon=True)
+            self.job.start()
+        self.publish()
+
+    # ------------------------------------------------------------ settings
+    def dyn_client(self, server):
+        if server not in self.dyn:
+            import dynamic_reconfigure.client
+            self.dyn[server] = dynamic_reconfigure.client.Client(server, timeout=5)
+        return self.dyn[server]
+
+    def read_settings(self):
+        cur = {}
+        for key, (server, param) in SETTINGS.items():
+            try:
+                cfg = self.dyn_client(server).get_configuration(timeout=3)
+                if cfg and param in cfg:
+                    cur[key] = cfg[param]
+            except Exception:
+                self.dyn.pop(server, None)
+        if cur:
+            new = False
+            for k, v in cur.items():
+                if k not in self.defaults and k not in self.overrides:
+                    self.defaults[k] = v
+                    new = True
+            self.current = cur
+            if new:
+                self.save_settings()
+        return cur
+
+    def save_settings(self):
+        try:
+            jdump(self.settings_path, {'overrides': self.overrides, 'defaults': self.defaults})
+        except Exception as ex:
+            rospy.logwarn('[camera_calib] cannot save %s: %s', self.settings_path, ex)
+
+    def apply_settings(self, values):
+        by_server = {}
+        for key, val in values.items():
+            if key in SETTINGS:
+                server, param = SETTINGS[key]
+                by_server.setdefault(server, {})[param] = val
+        for server, cfg in by_server.items():
+            try:
+                self.dyn_client(server).update_configuration(cfg)
+            except Exception as ex:
+                rospy.logwarn('[camera_calib] %s update failed: %s', server, ex)
+                self.dyn.pop(server, None)
+
+    def apply_overrides(self):
+        time.sleep(2.0)
+        self.read_settings()
+        if self.overrides:
+            self.apply_settings(self.overrides)
+            self.read_settings()
+        self.publish()
+
+    def cmd_set(self, values):
+        clean = {}
+        for k, v in (values or {}).items():
+            if k == 'depth_laser_power':
+                clean[k] = float(min(360.0, max(0.0, float(v))))
+            elif k == 'depth_emitter':
+                clean[k] = int(v)
+            elif k in SETTINGS:
+                clean[k] = bool(v)
+        if not clean:
+            return
+        self.read_settings()
+        self.apply_settings(clean)
+        for k, v in clean.items():
+            if k in self.defaults and self.defaults[k] == v:
+                self.overrides.pop(k, None)
+            else:
+                self.overrides[k] = v
+        self.save_settings()
+        self.read_settings()
+        self.publish()
+
+    def cmd_reset_settings(self):
+        self.read_settings()
+        if self.defaults:
+            self.apply_settings(self.defaults)
+        self.overrides = {}
+        self.save_settings()
+        self.read_settings()
+        self.publish()
+
+    # ------------------------------------------------------------ commands
+    def on_cmd(self, msg):
+        try:
+            c = json.loads(msg.data or '{}')
+        except ValueError:
+            c = {'cmd': msg.data.strip()}
+        cmd = c.get('cmd')
+        if cmd == 'check':
+            self.start_job('check', self.run_check)
+        elif cmd == 'calibrate':
+            gt = c.get('gt_m')
+            try:
+                gt = float(gt) if gt not in (None, '') else None
+            except (TypeError, ValueError):
+                gt = None
+            if gt is not None and not (0.3 <= gt <= 3.0):
+                gt = None
+            self.start_job('calibrate', self.run_calibrate, gt)
+        elif cmd == 'restore':
+            self.start_job('restore', self.run_restore, False)
+        elif cmd == 'factory':
+            self.start_job('factory', self.run_restore, True)
+        elif cmd == 'dry':
+            self.start_job('dry', self.run_dry)
+        elif cmd == 'write_test':
+            self.start_job('write_test', self.run_write_test)
+        elif cmd == 'install_sdk':
+            threading.Thread(target=self.ensure_sdk, kwargs={'force': True}, daemon=True).start()
+        elif cmd == 'recover':
+            self.start_job('recover', self.run_recover)
+        elif cmd == 'cancel':
+            self.cancel = True
+        elif cmd == 'watch':
+            self.watch_until = time.time() + (60.0 if c.get('on', True) else 0.0)
+            if c.get('on', True):
+                self.streams(True)
+        elif cmd == 'set':
+            threading.Thread(target=self.cmd_set, args=(c.get('values'),), daemon=True).start()
+        elif cmd == 'reset_settings':
+            threading.Thread(target=self.cmd_reset_settings, daemon=True).start()
+        elif cmd == 'refresh':
+            threading.Thread(target=self.refresh, daemon=True).start()
+
+    def refresh(self):
+        self.device_info()
+        self.read_settings()
+        self.publish()
+
+    # ------------------------------------------------------------ status
+    def save_state(self):
+        try:
+            jdump(self.state_path, self.saved)
+        except Exception as ex:
+            rospy.logwarn('[camera_calib] cannot save %s: %s', self.state_path, ex)
+
+    def hz_of(self, k):
+        h = self.hz[k]
+        if len(h) < 2 or time.time() - h[-1] > 2.0:
+            return 0.0
+        return round((len(h) - 1) / max(h[-1] - h[0], 1e-3), 1)
+
+    def status(self):
+        last = self.saved.get('last')
+        return {
+            'v': 1, 't': time.time(),
+            'device': self.device, 'sdk': self.sdk_state() if self.device else (self.sdk or {}),
+            'streams': {'color_hz': self.hz_of('color'), 'depth_hz': self.hz_of('depth')},
+            'state': self.state, 'phase': self.phase, 'progress': round(self.progress, 3),
+            'msg': self.msg_key, 'msg_args': self.msg_args,
+            'moving': time.time() < self.moving_until, 'busy': self.busy,
+            'check': self.saved.get('check'),
+            'scene': self.scene if (time.time() < self.watch_until or self.state == 'calibrating') else None,
+            'last': last,
+            'job': self.job_name,
+            'steps': self.steps.public() if self.steps else None,
+            'camera_end': self.camera_end,
+            'preflight': self.preflight if (time.time() < self.watch_until and self.state == 'idle') else None,
+            'history': [{'t': h.get('t'), 'result': h.get('result'), 'saved': h.get('saved'),
+                         'b2_before': (h.get('before') or {}).get('b2'),
+                         'b2_after': (h.get('after') or {}).get('b2')}
+                        for h in self.saved.get('history', [])],
+            'can_restore': bool(self.saved.get('last_backup') and os.path.exists(self.saved['last_backup'])),
+            'settings': self.current, 'defaults': self.defaults, 'overrides': self.overrides,
+        }
+
+    def publish(self):
+        try:
+            self.pub.publish(String(data=json.dumps(self.status(), default=float)))
+        except Exception as ex:
+            rospy.logwarn_throttle(30, '[camera_calib] status: %s' % ex)
+
+    def housekeeping(self):
+        time.sleep(3.0)
+        self.device_info()
+        self.apply_overrides()
+        if self.device.get('fw') and not self.sdk.get('ok'):
+            threading.Thread(target=self.ensure_sdk, daemon=True).start()
+        n = 0
+        while not rospy.is_shutdown():
+            watching = time.time() < self.watch_until
+            if self.reapply and self.state == 'idle' and time.time() - self.last_cam < 1.0:
+                self.reapply = False
+                threading.Thread(target=self.apply_overrides, daemon=True).start()
+            if self.state == 'idle' and self.collect is None:
+                if watching:
+                    self.streams(True)
+                    self.scene = self.evaluate_scene()
+                    if n % 4 == 0:
+                        self.update_preflight()
+                elif self.sub_depth is not None and not self.need_streams():
+                    self.streams(False)
+                    self.scene = None
+            if watching or self.state != 'idle' or n % 10 == 0:
+                self.publish()
+            n += 1
+            time.sleep(0.5)
+
+    def update_preflight(self):
+        """wizard step 1: the handover preflight, live (every ~2 s while watched)."""
+        try:
+            ops = RosOps(self)
+            probs = Handover(ops, Steps([])).problems()
+            self.preflight = {'t': time.time(), 'problems': probs,
+                              'foreign': ops.foreign_holders() if 'foreign' in probs else [],
+                              'hz': round(ops.depth_hz(), 1)}
+        except Exception as ex:
+            rospy.logwarn_throttle(30, '[camera_calib] preflight: %s' % ex)
+
+    def run_startup_resume(self):
+        time.sleep(3.0)
+        self.start_job('recover', self.run_startup_job)
+
+    def run_startup_job(self):
+        H = self.new_job(['resume'])
+        H.paused = False
+        self.set_phase('resume', 0.5, 'calib.msg.resume')
+        H.resume()
+        self.set_phase('done', 1.0, 'calib.msg.recovered')
+
+    def on_shutdown(self):
+        if os.path.exists(self.flag_path):
+            # no time to verify here; the next start resumes (verified) from the flag
+            try:
+                RosOps(self).enable(True)
+            except Exception:
+                pass
+
+
+if __name__ == '__main__':
+    rospy.init_node('camera_calib')
+    Node()
+    rospy.spin()

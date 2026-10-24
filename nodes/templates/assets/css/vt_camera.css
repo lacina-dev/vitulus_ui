@@ -1,0 +1,70 @@
+/* vt_camera.css — Settings › Camera (vt_camera_settings.js): the parts the
+ * panel anatomy (vt_panel.css) does not have — calibration wizard, preview
+ * with the calibration area, checklist, progress. Everything scoped to the tab. */
+#div_camera_settings .vt-warn-text { color: var(--vt-warn); }
+#div_camera_settings .vt-link { color: var(--vt-accent); text-decoration: underline; cursor: pointer; }
+#div_camera_settings .vt-cam-actions { display: flex; flex-wrap: wrap; gap: var(--vt-gap-2); }
+#div_camera_settings .vt-cam-actions > .btn { flex: 1 1 8em; min-height: 36px; }
+#div_camera_settings .vt-cam-adv { margin-top: var(--vt-gap-2); }
+#div_camera_settings .vt-cam-adv > summary { color: var(--vt-muted); }
+#div_camera_settings .vt-cam-hist { margin: 2px 0 var(--vt-gap-2); padding-left: 1.1em; font-size: var(--vt-fs-sm); }
+#div_camera_settings .vt-cam-busy { color: var(--vt-accent); }
+#div_camera_settings .vt-cam-range { display: flex; align-items: center; gap: var(--vt-gap-2); }
+#div_camera_settings .vt-cam-val { min-width: 4.5em; text-align: right; font-variant-numeric: tabular-nums; }
+#div_camera_settings .vt-cam-layers > .btn { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#div_camera_settings .vt-cam-rec { padding: 0 var(--vt-gap-2); }
+
+/* wizard */
+#div_camera_settings .vt-cam-step { display: flex; align-items: center; gap: var(--vt-gap-2); font-weight: 600; margin: 2px 0 var(--vt-gap-2); }
+#div_camera_settings .vt-cam-stepn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.6em; height: 1.6em; border-radius: 50%;
+    background: var(--vt-accent); color: #111; font-size: var(--vt-fs-sm);
+}
+#div_camera_settings .vt-cam-howto { margin: 0 0 var(--vt-gap-2); padding-left: 1.2em; font-size: var(--vt-fs-sm); }
+#div_camera_settings .vt-cam-howto li + li { margin-top: 2px; }
+#div_camera_settings .vt-cam-preview {
+    position: relative; width: 100%; max-width: 360px; aspect-ratio: 4 / 3; margin: 0 auto 4px;
+    border-radius: var(--vt-r-ctl, 8px); overflow: hidden; background: #000;
+}
+#div_camera_settings .vt-cam-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* the central 20 % the camera calibrates on (librealsense ROI) */
+#div_camera_settings .vt-cam-roi {
+    position: absolute; left: 40%; top: 40%; width: 20%; height: 20%;
+    border: 2px solid var(--vt-accent); border-radius: 3px;
+    box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.25);
+}
+#div_camera_settings .vt-cam-nosig-text {
+    display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
+    color: var(--vt-muted); font-size: var(--vt-fs-sm); text-align: center; padding: 1em;
+}
+#div_camera_settings .vt-cam-nosig .vt-cam-nosig-text { display: flex; }
+#div_camera_settings .vt-cam-nosig img { visibility: hidden; }
+#div_camera_settings .vt-cam-checklist { list-style: none; margin: var(--vt-gap-2) 0; padding: 0; font-size: var(--vt-fs-sm); }
+#div_camera_settings .vt-cam-checklist li { display: flex; gap: 6px; align-items: flex-start; padding: 2px 0; }
+#div_camera_settings .vt-cam-checklist i { flex: 0 0 auto; margin-top: 2px; }
+#div_camera_settings .vt-cam-ok i { color: var(--vt-ok); }
+#div_camera_settings .vt-cam-no i { color: var(--vt-err); }
+#div_camera_settings .vt-cam-no { color: var(--vt-text); }
+#div_camera_settings .vt-cam-phases { margin: 0 0 var(--vt-gap-2); padding-left: 1.4em; font-size: var(--vt-fs-sm); }
+#div_camera_settings .vt-cam-phases .vt-cam-done { color: var(--vt-ok); }
+#div_camera_settings .vt-cam-phases .vt-cam-now { color: var(--vt-accent); font-weight: 600; }
+#div_camera_settings .vt-cam-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+#div_camera_settings .vt-cam-fill { height: 100%; background: var(--vt-accent); transition: width 0.4s ease; }
+#div_camera_settings .vt-cam-prog { margin: var(--vt-gap-2) 0; }
+#div_camera_settings .vt-cam-result { font-weight: 600; margin-bottom: var(--vt-gap-2); }
+#div_camera_settings .vt-err-text { color: var(--vt-err); }
+
+/* the verified steps of a camera handover / calibration (status.steps) */
+#div_camera_settings .vt-cam-steps { list-style: none; margin: var(--vt-gap-2) 0; padding: 0; font-size: var(--vt-fs-sm); }
+#div_camera_settings .vt-cam-steps li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 3px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+#div_camera_settings .vt-cam-steps li:last-child { border-bottom: 0; }
+#div_camera_settings .vt-cam-steps i { flex: 0 0 1.1em; text-align: center; }
+#div_camera_settings .vt-cam-stepd { flex: 1 1 100%; padding-left: calc(1.1em + 6px); color: var(--vt-muted); }
+#div_camera_settings .vt-cam-dt { color: var(--vt-muted); font-variant-numeric: tabular-nums; }
+#div_camera_settings .vt-cam-st-wait, #div_camera_settings .vt-cam-st-skip { color: var(--vt-muted); }
+#div_camera_settings .vt-cam-st-run { color: var(--vt-accent); font-weight: 600; }
+#div_camera_settings .vt-cam-st-ok i { color: var(--vt-ok); }
+#div_camera_settings .vt-cam-st-err i, #div_camera_settings .vt-cam-st-err .vt-cam-stepd { color: var(--vt-err); }
+#div_camera_settings .vt-cam-err { margin: var(--vt-gap-2) 0; display: flex; flex-direction: column; gap: 2px; }
+#div_camera_settings .vt-cam-detail { font-size: 0.85em; color: var(--vt-muted); word-break: break-word; }

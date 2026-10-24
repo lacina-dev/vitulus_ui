@@ -20,6 +20,12 @@
     <param name="max_points" value="3000"/>
   </node>
 
+  <!-- 2026-10-24: Settings › Camera — D435 depth check against the lidar,
+       self-calibration (on-chip + tare, ground truth from the lidar) and the
+       remembered sensor settings. Idle = camera_info only; depth + scan only
+       while the UI checks / runs the wizard. Never moves the robot. -->
+  <node pkg="vitulus_ui" type="camera_calib" name="camera_calib" respawn="true" respawn_delay="5" output="log"/>
+
   <!-- Caches the transient /nextion/log_info status strip into a persistent,
        size-rotated JSONL log and republishes recent history over ROS (latched)
        for the WebUI. Runs independently of the web frontend. -->

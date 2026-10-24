@@ -4,10 +4,10 @@ title: Settings
 group: Using the UI
 order: 120
 icon: la-cog
-summary: Motors, Navi, Power, Mower, Diag, Rosbag, IMU and App (language, agent, support, display) — what each tab is for.
+summary: Motors, Navi, Power, Mower, Diag, Rosbag, IMU, Camera and App (language, agent, support, display) — what each tab is for.
 ui: [config, config/motors#motors, config/lidar#navi, config/power#power, config/diag#diag, config/rosbag#rosbag, config/imu#imu, config/app#app]
 related: [safety, mowing, status-icons]
-keywords: [settings, app, language, czech, čeština, jazyk, english, display, motors, torque, navi, lidar, power, battery, charge, sleep, diagnostics, diag, rosbag, recording, bag, imu, calibration]
+keywords: [settings, app, language, czech, čeština, jazyk, english, display, motors, torque, navi, lidar, power, battery, charge, sleep, diagnostics, diag, rosbag, recording, bag, imu, calibration, camera, d435]
 ---
 # Settings
 
@@ -70,6 +70,13 @@ Bags take a lot of disk space; delete what you no longer need.
 Calibration of the inertial sensor: **Remove DCD**, **Reset IMU**, **Run**, **Save**, and the
 heading from the IMU, navigation, magnetometer, RTK and fusion. A small stick lets the robot only
 rotate in place during the calibration. Meant for service.
+
+## Camera
+
+Everything about the depth camera (D435): whether it streams, how accurate its depth is
+(**Check** compares it with the lidar), **Calibrate…** — a wizard that calibrates the camera
+against a wall without moving the robot — the sensor settings and the image layers. Details:
+[Camera (D435)](camera.md).
 
 ## App
 

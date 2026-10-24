@@ -4,10 +4,10 @@ title: Nastavení
 group: Using the UI
 order: 120
 icon: la-cog
-summary: Motory, Navi, Napájení, Sekačka, Diag, Rosbag, IMU a Aplikace (jazyk, agent, podpora, zobrazení) — k čemu je která záložka.
+summary: Motory, Navi, Napájení, Sekačka, Diag, Rosbag, IMU, Kamera a Aplikace (jazyk, agent, podpora, zobrazení) — k čemu je která záložka.
 ui: [config, config/motors#motory, config/lidar#navi, config/power#napájení, config/diag#diag, config/rosbag#rosbag, config/imu#imu, config/app#aplikace]
 related: [safety, mowing, status-icons]
-keywords: [nastavení, settings, aplikace, app, jazyk, language, čeština, angličtina, english, zobrazení, motory, motors, moment, torque, navi, navigace, lidar, napájení, power, baterie, nabíjení, spánek, sleep, diagnostika, diag, rosbag, nahrávání, bag, imu, kalibrace]
+keywords: [nastavení, settings, aplikace, app, jazyk, language, čeština, angličtina, english, zobrazení, motory, motors, moment, torque, navi, navigace, lidar, napájení, power, baterie, nabíjení, spánek, sleep, diagnostika, diag, rosbag, nahrávání, bag, imu, kalibrace, kamera, d435, camera]
 ---
 # Nastavení
 
@@ -73,6 +73,13 @@ Bagy zabírají hodně místa na disku; mazej, co už nepotřebuješ.
 Kalibrace inerciálního senzoru: **Odstranit DCD**, **Reset IMU**, **Run**, **Uložit** a
 kurz podle IMU, navigace, magnetometru, RTK a fúze. Malá páčka nechá robota během kalibrace jen
 otáčet na místě. Určeno pro servis.
+
+## Kamera
+
+Všechno o hloubkové kameře (D435): jestli běží, jak přesnou má hloubku (**Zkontrolovat**
+ji porovná s lidarem), **Kalibrovat…** — průvodce, který kameru zkalibruje proti stěně bez
+pohybu robota — nastavení snímače a vrstvy v obraze. Podrobnosti:
+[Kamera (D435)](camera.md).
 
 ## Aplikace
 
