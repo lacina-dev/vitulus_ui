@@ -4,9 +4,9 @@ title: Troubleshooting
 group: When something is wrong
 order: 200
 icon: la-wrench
-summary: The robot does not drive, no map, no GPS fix, docking fails or is cancelled, supervisor FAULT, a mission did not finish, the agent after a restart, the UI does not respond.
+summary: The robot does not drive, no map, no GPS fix, docking fails or is cancelled, supervisor FAULT, a mission did not finish, the agent after a restart, the UI does not respond, where the logs of the nodes are.
 related: [safety, localization, dock, agent, support]
-keywords: [problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge, docking cancelled, mower stop, reconnect, mission not finished, returned to dock, need help]
+keywords: [problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge, docking cancelled, mower stop, reconnect, mission not finished, returned to dock, need help, log, logs, node log, stdout, rosout, journal, journalctl]
 ---
 # Troubleshooting
 
@@ -115,6 +115,24 @@ mission](agent.md#robot-restart-during-a-mission)).
 4. The agent panel says the agent is not running on this robot or is not responding → the
    agent restarts by itself after a crash; wait a minute. Still the same → report it.
 5. For maintainers: the web node is restarted with `tools/restart_webnode` (never `kill -9`).
+
+## Where the logs of the robot's nodes are
+
+For maintainers and the agent, on the robot (SSH). Every ROS node writes into its own file in the
+directory of the current run, `~/.ros/log/latest/`:
+
+- `<node>-N-stdout.log` — what the node printed (its INFO messages, `print`). The name follows the
+  node's namespace and name, e.g. `d435-realsense2_camera_manager-12-stdout.log` or
+  `mower-node_mower-26-stdout.log`. Follow one with
+  `tail -f ~/.ros/log/latest/navi_man-*-stdout.log`.
+- `rosout.log` — the messages of **all** nodes in one file, every line with the node's name; the
+  quickest way to find who reported an error: `grep -i error ~/.ros/log/latest/rosout.log`.
+- `<node>-N.log` — the internal log of Python nodes; `roslaunch-*.log` — starts, crashes and
+  respawns of nodes.
+- The service journal (`journalctl -u vitulus`) is only for the start of the stack; it also gets
+  the nodes' warnings and errors (stderr), but without node names — look into the files above.
+- An older run: `ls -t ~/.ros/log/` lists the run directories, newest first. Old runs are cleaned
+  up daily (older than 7 days, the whole directory kept under 500 MB).
 
 ## Something else
 

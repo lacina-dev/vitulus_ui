@@ -4,9 +4,9 @@ title: Řešení problémů
 group: When something is wrong
 order: 200
 icon: la-wrench
-summary: Robot nejede, není vidět mapa, GPS nechytá fix, zajetí do doku selže nebo se zruší, FAULT supervisoru, mise nedoběhla, agent po restartu, UI nereaguje.
+summary: Robot nejede, není vidět mapa, GPS nechytá fix, zajetí do doku selže nebo se zruší, FAULT supervisoru, mise nedoběhla, agent po restartu, UI nereaguje, kde jsou logy uzlů.
 related: [safety, localization, dock, agent, support]
-keywords: [problém, problem, chyba, error, fault, nefunguje, not working, nejede, nehýbe se, does not move, uvízl, stuck, rozbité, broken, oprava, fix, pomoc, help, restart, obnovit, reload, rosbridge, dokování zrušeno, docking cancelled, stop sekačky, mower stop, znovu připojit, reconnect, mise nedoběhla, mission not finished, zpátky v doku, returned to dock, need help]
+keywords: [problém, problem, chyba, error, fault, nefunguje, not working, nejede, nehýbe se, does not move, uvízl, stuck, rozbité, broken, oprava, fix, pomoc, help, restart, obnovit, reload, rosbridge, dokování zrušeno, docking cancelled, stop sekačky, mower stop, znovu připojit, reconnect, mise nedoběhla, mission not finished, zpátky v doku, returned to dock, need help, log, logy, log uzlu, node log, stdout, rosout, journal, journalctl]
 ---
 # Řešení problémů
 
@@ -115,6 +115,23 @@ Po restartu softwaru robota se agent sám za pár sekund znovu připojí; mise, 
 4. Panel agenta hlásí, že agent na tomhle robotu neběží nebo neodpovídá → po pádu se agent
    restartuje sám; počkej minutu. Pořád stejné → nahlas to.
 5. Pro správce: webový uzel se restartuje přes `tools/restart_webnode` (nikdy `kill -9`).
+
+## Kde jsou logy uzlů robota
+
+Pro správce a agenta, na robotu (SSH). Každý ROS uzel píše do vlastního souboru v adresáři
+aktuálního běhu, `~/.ros/log/latest/`:
+
+- `<uzel>-N-stdout.log` — co uzel vypsal (jeho zprávy INFO, `print`). Jméno podle jmenného
+  prostoru a jména uzlu, např. `d435-realsense2_camera_manager-12-stdout.log` nebo
+  `mower-node_mower-26-stdout.log`. Sledovat průběžně:
+  `tail -f ~/.ros/log/latest/navi_man-*-stdout.log`.
+- `rosout.log` — zprávy **všech** uzlů v jednom souboru, u každého řádku jméno uzlu; nejrychlejší
+  cesta, jak zjistit, kdo hlásil chybu: `grep -i error ~/.ros/log/latest/rosout.log`.
+- `<uzel>-N.log` — vnitřní log Python uzlů; `roslaunch-*.log` — starty, pády a respawny uzlů.
+- Journal služby (`journalctl -u vitulus`) je jen pro start stacku; dostane i varování a chyby
+  uzlů (stderr), ale bez jmen uzlů — dívej se do souborů výš.
+- Starší běh: `ls -t ~/.ros/log/` vypíše adresáře běhů, nejnovější první. Staré běhy se denně
+  uklízí (starší než 7 dní, celý adresář pod 500 MB).
 
 ## Něco jiného
 
