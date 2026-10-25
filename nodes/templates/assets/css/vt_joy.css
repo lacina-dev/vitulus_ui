@@ -2,8 +2,8 @@
  *
  * Two shapes of one component:
  *  - plain (#joy_view_imu, IMU calibration): status line, pad, readout;
- *  - DECK (#joy_view on the map, owner 2026-10-18): one band as wide as the
- *    top bar — info · keyboard · motors · speed · STOP · pad.
+ *  - DECK (#joy_view on the map, owner 2026-10-25): the RING — one round
+ *    control (speed slider, capsule, pad, Motors / Keys, ?), see below.
  * The pad: SVG ticks / chevrons / axis lines, the rim ring = the active speed
  * cap coloured by state (green free, amber someone else has the robot, grey
  * motors off / unknown), two command arcs (outer = speed, inner = turn), the
@@ -145,110 +145,111 @@
 .vt-joy-kb[hidden] { display: none; }
 
 /* ================================================================ DECK ====
-   owner 2026-10-18: the width of the right panel's column (vt_frame.js
-   --vt-frame-col-w). owner 2026-10-25: every control SAYS what it is —
-     Speed  0.40 m/s  MID   ?        the stick's top speed + the robot's mode
-     [−] ▂▃▄▅▆▇█ [+]                 7 fine levels, rising bars
-     slow | mid | fast               the robot's modes (= navigation speed)
-            ( pad )
-     [⌨ Keys •]  [⚙ Motors OFF]      labelled buttons
-     hint line                       what to do now
-   Phone upright (vt_panel.css): a band — controls left, pad right. */
+   owner 2026-10-25, variant C2 "the whole ring": ONE round control, the
+   RING (vt_joy.js buildRing) — 7 thick speed segments over the upper 2/3
+   (− / + on the seams, Slow · Mid · Fast outside them), the capsule with the value above the
+   pad, Motors and Keys in the gap at the bottom, ? in the corner, a bezel
+   with a soft light. Its diameter: --vt-ring-d (PC 184 px; phone 150 px,
+   vt_panel.css). PC / landscape: the foot of the right column (the width
+   of the right panel); phone upright: a band — a short text left, the ring
+   right (vt_panel.css). */
 #joy_view.vt-joy.vt-joy-deck {
-    --vt-joy-size: var(--vt-joy-deck, 150px);
+    --vt-ring-d: 184px;
     width: var(--vt-frame-col-w, 196px) !important;
     box-sizing: border-box;
-    padding: 7px 8px 6px;
+    padding: 4px 2px 4px;
     border-radius: 0;
+    -webkit-tap-highlight-color: transparent;
 }
 #joy_view.vt-joy-deck:not([style*="display: none"]) { display: flex !important; flex-direction: column; align-items: center; }
-.vt-joy-padbox { position: relative; display: flex; justify-content: center; width: 100%; overflow: visible; }
-#joy_view.vt-joy-deck .vt-joy-pad { overflow: visible; }
+#joy_view.vt-joy-deck :focus { outline: none; }
+#joy_view.vt-joy-deck * { -webkit-tap-highlight-color: transparent; }
+.vt-joy-side { display: none; }
+.vt-joy-ringbox { position: relative; flex: none; }
+/* the pad: an invisible round hit area over the ring's centre (the SVG draws it) */
+#joy_view.vt-joy-deck .vt-joy-pad {
+    position: absolute; margin: 0; border-radius: 50%;
+    background: none; box-shadow: none; overflow: visible;
+}
+.vt-joy-deck.vt-joy-nudge .vt-joy-pad { animation: none; }
+.vt-joy-deck.vt-joy-nudge .vt-joy-ringbox { animation: vt-joy-nudge .32s ease; }
+
+/* ---- the ring (SVG) ---- */
+svg.vt-ring { display: block; overflow: visible; touch-action: none; user-select: none; -webkit-user-select: none; }
+svg.vt-ring [tabindex] { outline: none; cursor: pointer; }
+svg.vt-ring .vt-ring-bezel { stroke: #4a5660; stroke-width: 1; }
+svg.vt-ring .vt-ring-padbg { fill: #2b3238; stroke: var(--vt-border-strong, #3a4650); }
+svg.vt-ring .vt-ring-padin { fill: #333c44; pointer-events: none; }
+/* the state: the pad's edge (green free / amber someone else / grey motors off or unknown) */
+svg.vt-ring .vt-ring-edge { fill: none; stroke: var(--vt-ring); stroke-opacity: .7; stroke-width: 2; pointer-events: none; transition: stroke var(--vt-ease); }
+svg.vt-ring .vt-ring-ax { stroke-width: 1.5; stroke-dasharray: 2 3; opacity: 0; pointer-events: none; transition: opacity .12s linear; }
+svg.vt-ring .vt-ring-cmd { fill: none; stroke-linecap: round; pointer-events: none; }
+svg.vt-ring .vt-ring-arrow { font: 10px var(--vt-font); pointer-events: none; transition: fill .15s linear; }
+svg.vt-ring .vt-ring-halo { fill: none; stroke-width: 2.5; opacity: 0; pointer-events: none; }
+svg.vt-ring .vt-ring-knob { stroke: #0008; stroke-width: 1; pointer-events: none; }
+svg.vt-ring .vt-ring-knob, svg.vt-ring .vt-ring-halo {
+    /* return to centre: a short spring, the command is already 0 by then */
+    transition: transform .14s cubic-bezier(.3, 1.4, .5, 1);
+}
+.vt-joy-held svg.vt-ring .vt-ring-knob, .vt-joy-held svg.vt-ring .vt-ring-halo,
+.vt-joy[data-state="info"] svg.vt-ring .vt-ring-knob, .vt-joy[data-state="info"] svg.vt-ring .vt-ring-halo { transition: none; }  /* 1:1 with the finger / keys */
+.vt-joy-locked svg.vt-ring .vt-ring-knob { opacity: .6; }
+.vt-joy-dim svg.vt-ring .vt-ring-arrow { opacity: .8; }
+/* the speed segments */
+svg.vt-ring .vt-ring-seg { stroke: none; cursor: pointer; transition: fill .15s linear; }
+svg.vt-ring .vt-ring-spd:hover .vt-ring-seg { filter: brightness(1.15); }
+svg.vt-ring .vt-ring-seg.want { animation: vt-ring-pend-seg .9s ease-in-out infinite; }
+@keyframes vt-ring-pend-seg { 50% { fill: #ffffff; fill-opacity: .7; } }
+svg.vt-ring .vt-ring-hit { fill: none; stroke: transparent; cursor: pointer; touch-action: none; }
+svg.vt-ring .vt-ring-lbl { fill: var(--vt-muted); font: 500 8.5px var(--vt-font); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: fill .15s linear; }
+svg.vt-ring .vt-ring-lbl:hover { fill: var(--vt-text); }
+svg.vt-ring .vt-ring-lbl.on { fill: var(--vt-accent); font-weight: 700; }
+svg.vt-ring .vt-ring-lbl.pend { animation: vt-ring-pend-lbl .9s ease-in-out infinite; }
+@keyframes vt-ring-pend { 50% { opacity: .25; } }
+@keyframes vt-ring-pend-lbl { 50% { fill: #fff; } }
+/* − / + and ? */
+svg.vt-ring .vt-ring-btnbg { fill: #2f383f; stroke: var(--vt-accent); stroke-width: 1.2; transition: fill .12s linear; }
+svg.vt-ring .vt-ring-btnsym { fill: none; stroke: var(--vt-accent); stroke-width: 1.8; stroke-linecap: round; }
+svg.vt-ring .vt-ring-btn:hover .vt-ring-btnbg { fill: #36424b; }
+svg.vt-ring .vt-ring-btn:active .vt-ring-btnbg { fill: rgba(var(--vt-accent-rgb), .25); }
+svg.vt-ring .vt-ring-btn.dis { cursor: default; opacity: .35; }
+svg.vt-ring .vt-ring-qbg { fill: transparent; stroke: var(--vt-border-strong, #3a4650); }
+svg.vt-ring .vt-ring-qt { fill: var(--vt-muted); font: 700 10px var(--vt-font); }
+svg.vt-ring .vt-ring-q:hover .vt-ring-qbg { stroke: rgba(var(--vt-accent-rgb), .6); }
+svg.vt-ring .vt-ring-q:hover .vt-ring-qt { fill: #fff; }
+/* the capsule: value + SPEED · MODE */
+svg.vt-ring .vt-ring-cap { fill: #151b20ee; stroke-width: 1.2; pointer-events: none; transition: stroke .15s linear; }
+svg.vt-ring .vt-ring-capv { fill: var(--vt-text); font: 700 10.5px var(--vt-font); font-variant-numeric: tabular-nums; pointer-events: none; }
+svg.vt-ring .vt-ring-capu { fill: var(--vt-muted); font: 500 6.6px var(--vt-font); letter-spacing: .05em; pointer-events: none; }
+/* Motors / Keys: the gap at the bottom */
+svg.vt-ring .vt-ring-sectbg { fill: #2f383f; stroke: #4a5660; stroke-width: .8; transition: fill .15s linear; }
+svg.vt-ring .vt-ring-sect { color: var(--vt-faint); }
+svg.vt-ring .vt-ring-ico { pointer-events: none; overflow: visible; }
+svg.vt-ring .vt-ring-sect.on .vt-ring-ico, svg.vt-ring .vt-ring-sect[data-state="on"] .vt-ring-ico,
+svg.vt-ring .vt-ring-sect[data-state="off"] .vt-ring-ico { filter: drop-shadow(0 0 3px currentColor); }
+svg.vt-ring .vt-ring-sect:hover .vt-ring-sectbg { filter: brightness(1.2); }
+svg.vt-ring .vt-ring-sect[data-k="kb"].on { color: var(--vt-accent); }
+svg.vt-ring .vt-ring-sect[data-k="kb"].on .vt-ring-sectbg { fill: rgba(var(--vt-accent-rgb), .28); }
+svg.vt-ring .vt-ring-sect[data-state="off"] { color: var(--vt-warn); }
+svg.vt-ring .vt-ring-sect[data-state="off"] .vt-ring-sectbg { fill: rgba(var(--vt-warn-rgb), .18); }
+svg.vt-ring .vt-ring-sect[data-state="on"] { color: var(--vt-ok); }
+svg.vt-ring .vt-ring-sect[data-state="on"] .vt-ring-sectbg { fill: rgba(var(--vt-ok-rgb), .25); }
+svg.vt-ring .vt-ring-sect[data-state="unknown"] { color: var(--vt-faint); cursor: default; }
+svg.vt-ring .vt-ring-sect.pend .vt-ring-sectbg { animation: vt-ring-pend-sect .9s ease-in-out infinite; }
+@keyframes vt-ring-pend-sect { 50% { fill: rgba(var(--vt-accent-rgb), .3); } }
+/* keyboard focus only (never after a click / tap): a soft cyan outline in the control's shape */
+svg.vt-ring .vt-ring-fr { fill: none; stroke: var(--vt-accent); stroke-width: 1.5; opacity: 0; pointer-events: none; }
+svg.vt-ring .vt-ring-sect .vt-ring-fr { stroke-width: 3; }
+svg.vt-ring [tabindex]:focus-visible .vt-ring-fr { opacity: .9; }
+/* the press ripple */
+@keyframes vt-ring-ripple { from { r: 6px; opacity: .8; stroke-width: 3; } to { r: 40px; opacity: 0; stroke-width: .5; } }
+svg.vt-ring .vt-ring-ripple { fill: none; animation: vt-ring-ripple .55s ease-out forwards; }
+
+/* ---- the hint line: only what the ring cannot show -------------------- */
 .vt-joy-hint { display: none; }
-/* ---- speed: name · value · mode, − bars +, the mode bands -------------- */
-.vt-joy-spdbox { width: 100%; margin-bottom: 6px; }
-.vt-joy-spdhead { display: flex; align-items: baseline; gap: 6px; min-height: 18px; }
-.vt-joy-spdname { color: var(--vt-muted); font: 700 10px/1 var(--vt-font); letter-spacing: .08em; text-transform: uppercase; }
-.vt-joy-spdval { color: var(--vt-text); font: 700 14px/1 var(--vt-font); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.vt-joy-spdmode {
-    display: none;                    /* the lit band under the bars says the mode; low windows show this chip instead */
-    margin-left: auto; padding: 2px 6px; border-radius: var(--vt-r-tag);
-    border: 1px solid var(--vt-edge-info); background: var(--vt-glow-info); color: var(--vt-accent);
-    font: 800 9.5px/1.1 var(--vt-font); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
-}
-.vt-joy-spdmode[data-mode="unknown"] { color: var(--vt-faint); border-color: var(--vt-border-strong); background: transparent; }
-.vt-joy-helpbtn {
-    flex: none; margin-left: auto; align-self: center; width: 18px; height: 18px; padding: 0; border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.16); background: transparent; color: var(--vt-muted);
-    font: 700 10.5px/1 var(--vt-font); cursor: pointer;
-}
-.vt-joy-helpbtn:hover { color: #fff; border-color: rgba(var(--vt-accent-rgb), 0.6); }
-.vt-joy-spdrow { display: flex; align-items: stretch; gap: 5px; margin-top: 5px; }
-.vt-joy-spdstep {
-    flex: none; width: 26px; padding: 0; display: flex; align-items: center; justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--vt-r-ctl);
-    background: rgba(255, 255, 255, 0.05); color: var(--vt-text); cursor: pointer;
-    transition: background var(--vt-ease), color var(--vt-ease);
-}
-.vt-joy-spdstep svg { width: 12px; height: 12px; }
-.vt-joy-spdstep:hover { background: rgba(var(--vt-accent-rgb), 0.16); border-color: var(--vt-edge-info); }
-.vt-joy-spdstep:disabled { opacity: .35; cursor: default; background: transparent; }
-/* the bars: rising like a signal meter; lit up to the level, the level
-   itself brightest; a wanted level of another mode blinks */
-.vt-joy-spdbar {
-    flex: 1; min-width: 0; height: 26px; display: flex; align-items: flex-end; gap: 3px;
-    padding: 3px 4px; box-sizing: border-box; border-radius: var(--vt-r-ctl);
-    background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
-    cursor: pointer; touch-action: none;
-}
-.vt-joy-spdbar:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
-.vt-joy-seg {
-    flex: 1; height: var(--h, 50%); border-radius: 2px;
-    background: rgba(255, 255, 255, 0.13);
-    transition: background .12s linear, box-shadow .12s linear;
-}
-.vt-joy-seg.on { background: rgba(var(--vt-accent-rgb), 0.55); }
-.vt-joy-seg.cur { background: var(--vt-accent); box-shadow: 0 0 6px rgba(var(--vt-accent-rgb), 0.75); }
-.vt-joy-seg.pre { background: #fff; }
-.vt-joy-seg.want { animation: vt-joy-pend-seg 0.9s ease-in-out infinite; }
-@keyframes vt-joy-pend-seg { 50% { background: #fff; } }
-.vt-joy-spdbar:hover .vt-joy-seg:not(.on) { background: rgba(255, 255, 255, 0.2); }
-.vt-joy-spdbands { display: flex; gap: 3px; margin: 3px 31px 0; }
-.vt-joy-mband { cursor: pointer;
-    flex: 1 1 0; min-width: 0; text-align: center; padding-top: 2px;
-    border-top: 2px solid rgba(255, 255, 255, 0.10);
-    color: var(--vt-faint); font: 700 9.5px/1.1 var(--vt-font);
-    white-space: nowrap; overflow: visible;     /* a long word may reach past its band (Czech "Středně") */
-}
-.vt-joy-mband.sel { color: var(--vt-accent); border-top-color: var(--vt-accent); }
-.vt-joy-mband.pend { animation: vt-joy-pend-band 0.9s ease-in-out infinite; }
-@keyframes vt-joy-pend-band { 50% { color: #fff; border-top-color: #fff; } }
-/* ---- labelled buttons under the pad: keys (left), motors (right) -------- */
-.vt-joy-ctlrow { display: flex; gap: 6px; width: 100%; margin-top: 6px; }
-.vt-joy-ctl {
-    position: relative; flex: 1 1 0; min-width: 0; height: 28px; padding: 0 6px;
-    display: flex; align-items: center; justify-content: center; gap: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--vt-r-ctl);
-    background: rgba(255, 255, 255, 0.05); color: var(--vt-muted);
-    font: 700 10.5px/1 var(--vt-font); letter-spacing: .02em; white-space: nowrap; cursor: pointer;
-    transition: background var(--vt-ease), color var(--vt-ease), box-shadow var(--vt-ease);
-}
-.vt-joy-ctl svg { width: 15px; height: 15px; flex: none; }
-.vt-joy-ctllbl { overflow: hidden; text-overflow: ellipsis; }
-.vt-joy-ctl:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
-.vt-joy-kbsw { flex: 0 0 auto; }
-.vt-joy-motbtn .vt-joy-motors { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.vt-joy-motbtn[data-state="on"] { color: #0b1a12; background: var(--vt-ok); border-color: var(--vt-ok); box-shadow: 0 0 10px rgba(var(--vt-ok-rgb), 0.45); }
-.vt-joy-motbtn[data-state="off"] { color: var(--vt-warn); border-color: var(--vt-edge-warn); background: var(--vt-glow-warn); }
-.vt-joy-motbtn[data-state="unknown"] { cursor: default; opacity: .6; }
-.vt-joy-motbtn.pend { animation: vt-joy-pend 0.9s ease-in-out infinite; }
-@keyframes vt-joy-pend { 50% { background: rgba(var(--vt-accent-rgb), 0.22); } }
-/* keyboard: lit (accent) while the keys drive */
-.vt-joy-kbsw.on { color: var(--vt-accent); border-color: var(--vt-edge-info); background: var(--vt-glow-info); }
-/* ---- the hint line: what to do now --------------------------------------- */
-#joy_view.vt-joy-deck .vt-joy-hint {
+#joy_view.vt-joy-deck .vt-joy-hint:not([hidden]) {
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    width: 100%; margin-top: 5px; text-align: center;
+    width: 100%; margin: 2px 0 2px; padding: 0 6px; box-sizing: border-box; text-align: center;
     color: var(--vt-muted); font-size: 10px; line-height: 1.3;
 }
 #joy_view.vt-joy-deck .vt-joy-hint[data-tone="warn"] { color: var(--vt-warn); }
@@ -281,25 +282,14 @@
 }
 .vt-joy-take:hover { background: rgba(var(--vt-warn-rgb), 0.22); }
 .vt-joy-take[hidden] { display: none; }
-.vt-joy-deck .vt-joy-locked .vt-joy-lockmsg, .vt-joy-deck.vt-joy-locked .vt-joy-lockmsg { top: 14%; }
+.vt-joy-deck.vt-joy-locked .vt-joy-lockmsg { top: 22%; }
 .vt-joy-deck button:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
-/* touch: taller controls, the keyboard button and its line go (no keyboard there) */
-@media (pointer: coarse) {
-    .vt-joy-ctl { height: 34px; }
-    .vt-joy-spdbar { height: 32px; }
-    .vt-joy-spdstep { width: 34px; }
-    .vt-joy-spdbands { margin-left: 39px; margin-right: 39px; }
-    .vt-joy-deck .vt-joy-kbsw, .vt-joy-intro-kb { display: none; }
-}
-/* low windows (a landscape phone): the bands and the hint go, the head is the value */
+/* touch: no keyboard (the Keys sector is not built there, nor its line in the card) */
+@media (pointer: coarse) { .vt-joy-intro-kb { display: none; } }
+/* low windows (a landscape phone): the ring is 150 px, the hint goes */
 @media (max-height: 560px) {
-    .vt-joy-spdbands { display: none; }
-    .vt-joy-spdmode { display: inline-block; }
-    .vt-joy-spdmode + .vt-joy-helpbtn { margin-left: 0; }
-    #joy_view.vt-joy-deck .vt-joy-hint { display: none; }
-    .vt-joy-spdbox { margin-bottom: 4px; }
-    .vt-joy-ctlrow { margin-top: 4px; }
-    .vt-joy-ctl { height: 28px; }
+    #joy_view.vt-joy.vt-joy-deck { --vt-ring-d: 150px; }
+    #joy_view.vt-joy-deck .vt-joy-hint:not([hidden]) { display: none; }
 }
 
 /* the STOP mushroom (vt_frame.js #vt_stop_big): styled and placed by vt_panel.css */
@@ -307,4 +297,6 @@
 #right_panel .rp-line:empty { display: none; }
 @media (prefers-reduced-motion: reduce) {
     .vt-joy-knob, .vt-joy-pad, .vt-joy, .vt-joy-opt { transition: none; animation: none; }
+    #joy_view.vt-joy-deck *, svg.vt-ring * { transition: none !important; animation: none !important; }
+    svg.vt-ring .vt-ring-ripple { display: none; }
 }

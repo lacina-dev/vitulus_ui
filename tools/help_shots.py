@@ -105,14 +105,14 @@ SHOTS = [
          steps=[('click', '#btn_log'), ('wait', 600), ('click', '#btn_log_expand'), ('wait', 1000)],
          marks=[('#div_log_view .btn-outline-info:not(.log-iconbtn)', '1', 'b'), ('#div_log_view .btn-outline-info:not(.log-iconbtn):not(.active)', '2', 'b'),
                 ('#btn_log_pause', '3', 'b'), ('#btn_log_clear', '4', 'b'), ('#btn_log_collapse', '5', 'b'), ('.vth-q-log', '6', 'r')]),
-    # 2026-10-25: the drive deck (right column, the width of the right panel): labelled speed
-    # (value · mode · − bars + · Slow / Mid / Fast), the stick, Keys and Motors buttons, the hint
+    # 2026-10-25: the drive deck = the ring (variant C2, right column): capsule, speed segments,
+    # Slow / Mid / Fast, the stick, Keys / Motors icons, ?, − / +
     dict(name='shot-joystick', vp=DESK, scale=3, width=420, clip='#joy_view', pad=0, md=15,
          steps=[('click', '#btn_joy'), ('wait', 800),
                 ('js', "const ok = document.querySelector('#joy_view .vt-joy-intro-ok'); if (ok && ok.offsetParent) ok.click(); return '';"), ('wait', 300)],
-         marks=[('#joy_view .vt-joy-spdval', '1', 't'), ('#joy_view .vt-joy-spdstep:last-child', '2', 'r'),
-                ('#joy_view .vt-joy-spdbands', '3', 'l'), ('#joy_view .vt-joy-pad', '4', 'l'), ('#joy_view .vt-joy-kbsw', '5', 'l'),
-                ('#joy_view .vt-joy-motbtn', '6', 'r'), ('#joy_view .vt-joy-helpbtn', '7', 't')]),
+         marks=[('#joy_view .vt-ring-cap', '1', 'r'), ('#joy_view .vt-ring-seg:nth-of-type(4)', '2', 't'),
+                ('#joy_view .vt-ring-lbl[data-mode="fast"]', '3', 'tr'), ('#joy_view .vt-ring-knob', '4', 'c'), ('#joy_view [data-k="kb"]', '5', 'bl'),
+                ('#joy_view [data-k="mot"]', '6', 'br'), ('#joy_view [data-k="help"]', '7', 'r'), ('#joy_view [data-k="minus"]', '8', 'l')]),
     dict(name='shot-camera-layers', vp=DESK, scale=2, width=400, clip='#right_panel section.rp-sec:last-of-type', pad=4, md=18,
          steps=[('click', '.vco-btn'), ('wait', 700)],
          marks=[('#right_panel .rp-cam-seg', '1', 't'), ('.vco-btn', '2', 'l'), ('.vco-chip:nth-of-type(1)', '3', 't'),

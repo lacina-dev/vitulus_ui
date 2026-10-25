@@ -104,7 +104,7 @@ vejde na jednu obrazovku, takže malý obraz kamery je vidět bez posouvání (p
 může posouvat). Na telefonu (na výšku i na šířku) je pravý panel sbalený do jednoho řádku (mapa,
 poloha, GNSS, tečka sekačky, když je zapnutá, baterie, kamera, ▾) — ▾ ho rozbalí.
 
-![Sekce Ovládání pravého panelu s očíslovanými značkami](../img/shot-controls.webp "Ovládání: 1 baterie · 2 MOT (pojezdové motory) · 3 Dock · 4 Undock · 5 Stop (sekvence doku). Rychlost, motory a jízda klávesnicí jsou v panelu jízdy.") ![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Navi rozbalené: 1 kdo drží polohu · 2 zdroj kurzu · 3 tečka odometrie · 4 ikona detailu do Mapa › Loc · 5 čipy odometrie (najetí = co to je + číslo) · 6 řádek trackeru")
+![Sekce Ovládání pravého panelu s očíslovanými značkami](../img/shot-controls.webp "Ovládání: 1 baterie · 2 MOT (pojezdové motory) · 3 Dock · 4 Undock · 5 Stop (sekvence doku). Rychlost, motory a jízda klávesnicí jsou v prstenci jízdy.") ![Sekce Navi pravého panelu s očíslovanými značkami](../img/shot-navi.webp "Navi rozbalené: 1 kdo drží polohu · 2 zdroj kurzu · 3 tečka odometrie · 4 ikona detailu do Mapa › Loc · 5 čipy odometrie (najetí = co to je + číslo) · 6 řádek trackeru")
 
 ![Sekce Sekačka pravého panelu s očíslovanými značkami](../img/shot-rp-mower.webp "Sekačka (jen když je zapnutá) rozbalená: 1 stav · 2 tečka nože a otáčky · 3 ▶ Start / ■ Stop nože · 4 Nůž / Výška / Teplota") ![Sekce GNSS pravého panelu s očíslovanými značkami](../img/shot-rp-gnss.webp "GNSS rozbalené: 1 fix Polohy · 2 fix Kurzu · 3 použité satelity · 4 stáří korekcí · 5 ikona detailu do Mapa › Loc · 6 rychlá čísla Poloha | Kurz")
 
@@ -155,57 +155,64 @@ se všemi vrstvami vypnutými nedělá nic.
 
 ## Ruční jízda (joystick)
 
-**Joystick** ve spodní liště ukáže **panel jízdy**: panel přesně tak široký jako pravý
-panel, ve stejném sloupci u pravé hrany, stojí na spodní liště (na telefonu na výšku pás přes
-celou šířku na spodní liště). Každý ovládací prvek říká, co je:
+**Joystick** ve spodní liště ukáže **prstenec jízdy**: jeden kruhový ovladač v patě pravého
+sloupce (široký jako pravý panel, 184 px), stojí na spodní liště. Na telefonu na výšku je to pás
+přes celou šířku na spodní liště — vlevo krátký text, vpravo pod palcem prstenec (150 px); na
+telefonu na šířku má prstenec také 150 px.
 
-![Panel jízdy s očíslovanými značkami](../img/shot-joystick.webp "1 nejvyšší rychlost páčky · 2 − / + a sloupce rychlosti · 3 Pomalu / Středně / Rychle = režim robota · 4 páčka · 5 Klávesy · 6 Motory · 7 ? jak to funguje")
+![Prstenec jízdy s očíslovanými značkami](../img/shot-joystick.webp "1 kapsle: nejvyšší rychlost a režim · 2 sedm dílků rychlosti · 3 Pomalu / Středně / Rychle = režim robota · 4 páčka · 5 Klávesy (ikona) · 6 Motory (ikona) · 7 ? jak to funguje · 8 − / +")
 
-1. **Rychlost** (horní řádek) — nejvyšší rychlost joysticku právě teď v m/s: na okraji páčky jede
-   robot takhle rychle (vpřed i vzad).
-2. **− / + a sloupce** — 7 kroků od 0,10 do 0,75 m/s, čím vyšší sloupec, tím rychleji. Klikni nebo
-   klepni na sloupec (nebo po nich táhni), použij **− / +**, kolečko myši nad sloupci, šipky, když
-   mají sloupce fokus, nebo **+ / −** na klávesnici, když jsou zapnuté **Klávesy**.
-3. **Pomalu / Středně / Rychle** pod sloupci — režimy rychlosti robota (`/navi_manager/speed`);
+1. **Kapsle** nad páčkou — nejvyšší rychlost joysticku právě teď v m/s (na okraji páčky jede robot
+   takhle rychle, vpřed i vzad) a režim rychlosti robota.
+2. **Dílky rychlosti** — horní dvě třetiny prstence: 7 kroků od 0,10 do 0,75 m/s, rozsvícené po
+   aktuální (chladná azurová = pomalu → teplá oranžová = rychle), aktuální září. Klikni nebo klepni
+   na dílek, táhni po prstenci (krok se vezme, když pustíš), kolečko myši nad ním, šipky, když má
+   fokus, nebo **+ / −** na klávesnici, když jsou zapnuté **Klávesy**.
+3. **Pomalu / Středně / Rychle** podél dílků — režimy rychlosti robota (`/navi_manager/speed`);
    podle nich jede i navigace ([Rychlost](routes.md#rychlost)). Rozsvícený je režim, který **hlásí
-   robot**; každý pokrývá své sloupce; klik = ten režim jeho vlastní rychlostí. Krok **uvnitř** současného režimu změní
-   jen joystick (hned, nic se neposílá). Krok **jiného** režimu nejdřív požádá robota o ten režim:
-   bliká, dokud ho robot nepotvrdí (a pak tou rychlostí jezdí i navigace). Krok si pamatuje tento
-   prohlížeč; když režim přepne robot sám (program, jiný prohlížeč), panel ho následuje.
-4. **Páčka** — dopředu / dozadu = rychlost, do stran = zatáčení. Barva prstence je stav:
+   robot**; klik = ten režim jeho vlastní rychlostí. Krok **uvnitř** současného režimu změní jen
+   joystick (hned, nic se neposílá). Krok **jiného** režimu nejdřív požádá robota o ten režim:
+   dílek i režim blikají, dokud ho robot nepotvrdí (a pak tou rychlostí jezdí i navigace). Krok si
+   pamatuje tento prohlížeč; když režim přepne robot sám (program, jiný prohlížeč), prstenec ho
+   následuje.
+4. **Páčka** uprostřed — dopředu / dozadu = rychlost, do stran = zatáčení. Její okraj je stav:
    zelená = volno, oranžová = robota drží někdo jiný (program, dokování, agent nebo gamepad;
-   objeví se **Převzít**), šedá = motory vypnuté.
-5. **Klávesy** — jízda klávesnicí zap / vyp (**W A S D** nebo šipky, **Shift** = poloviční
-   rychlost, **+ / −** = rychlost; nikdy při psaní do pole); svítí, když je zapnutá. Na dotykových
-   obrazovkách se neukazuje.
-6. **Motory ZAP / VYP** — pojezdové motory, totéž co Nastavení › Motory: zelená = zapnuté,
-   oranžová = vypnuté, podle robota; klepnutí přepne a bliká do potvrzení. Stránka motory sama
-   nikdy nezapne (po každém startu jsou vypnuté).
-7. **?** — krátká karta, jak řídit. Ukáže se i sama, když se panel jízdy v prohlížeči otevře
-   poprvé; **Rozumím** ji schová.
+   objeví se **Převzít**), šedá = motory vypnuté nebo neznámé.
+5. **Klávesy** (ikona klávesnice, vlevo dole) — jízda klávesnicí: **azurová = zapnuto**, šedá =
+   vypnuto (**W A S D** nebo šipky, **Shift** = poloviční rychlost, **+ / −** = rychlost; nikdy při
+   psaní do pole). Na dotykových obrazovkách není — ikona motoru pak zabere celý spodek.
+6. **Motory** (ikona ozubeného kola, vpravo dole) — pojezdové motory, totéž co Nastavení › Motory:
+   **oranžová = vypnuté**, **zelená = zapnuté**, šedá = neznámo, podle robota; klepnutí přepne a
+   bliká do potvrzení. Stránka motory sama nikdy nezapne (po každém startu jsou vypnuté).
+7. **?** — krátká karta „Řízení ručně“ (vysvětlí i ikony). Ukáže se i sama, když se prstenec v
+   prohlížeči otevře poprvé; **Rozumím** ji schová.
+8. **− / +** na švech vedle dílků — o krok pomaleji / rychleji.
 
-Pod tlačítky se řádek objeví, jen když jízdě brání něco, co tlačítka neukazují (robota drží někdo jiný, jede gamepad DS4, data jsou zastaralá). Jestli jsou motory zapnuté, ukazuje barva tlačítka Motory; nad páčkou se ukáže tip.
+Ikony jsou bez textu: co jsou, řekne najetí myší (nebo čtečka obrazovky). Pod prstencem se řádek
+objeví, jen když jízdě brání něco, co prstenec neukazuje (robota drží někdo jiný, jede gamepad
+DS4, data jsou zastaralá).
 
 Jak se páčka chová:
 
 - Uprostřed malá **mrtvá zóna** (10 % poloměru), pak měkká křivka: malé vychýlení jede jemně
-  a pomalu, okraj = plná rychlost režimu.
+  a pomalu, okraj = plná rychlost kroku.
 - Skoro rovně (do ±9°) jede **přesně rovně**, skoro do strany se **otáčí na místě** — zamčená osa
-  se rozsvítí.
-- **Prstenec** je strop rychlosti a má barvu stavu: **zelená** = volno, jeď; **jantarová** =
-  robota má program sekání, dokování / výjezd z doku, navigační cíl, agent nebo gamepad DS4 —
-  páčka je zamčená (najetí řekne kdo) a **Převzít** v páčce ji záměrně odemkne (pohyb pak tu
-  úlohu zruší); **šedá** = motory vypnuté (zamčeno) nebo neznámé.
-- Dva oblouky ukazují povel: vnější rychlost (nahoře = vpřed, dole = vzad), vnitřní oranžový
-  zatáčení.
+  se rozsvítí barvou směru.
+- Povel je vidět: knoflík jde za prstem (nebo klávesami); **vnější oblouk** je rychlost (nahoře =
+  vpřed, azurová → zelená podle síly; dole = vzad, oranžová), **vnitřní oblouk** zatáčení (fialový,
+  na stranu otáčení) — čím silnější povel, tím delší a tlustší, se září; barevné světlo pod
+  knoflíkem ukazuje směr, kolem knoflíku svítí svatozář, šipky ▲▼◀▶ se obarví, stisk udělá vlnku.
+  S nezapnutými motory jsou barvy ztlumené.
+- **Jantarový okraj** = robota má program sekání, dokování / výjezd z doku, navigační cíl, agent
+  nebo gamepad DS4 — páčka je zamčená (najetí řekne kdo) a **Převzít** v páčce ji záměrně odemkne
+  (pohyb pak tu úlohu zruší); **šedý** = motory vypnuté (zamčeno) nebo neznámé.
 - **Pustíš = stop.** Robot dostane jeden zmírněný povel a do 50 ms nulu; knoflík odpruží zpět.
   Ztráta dotyku, přepnutí záložky nebo okna či výpadek spojení zastaví hned. Dokud držíš, posílá
   20 povelů za sekundu, jinak nic; když se stránka zasekne (povel o víc než 250 ms pozdě), sama
   zastaví.
 - Řídí jeden prst; druhý prst na páčce se nevnímá.
-- Na telefonu na výšku je páčka vpravo (palec), rychlost a motory vlevo od ní a pod nimi řádek
-  nápovědy; otevřený panel (sheet) stojí na panelu jízdy. Na telefonu na šířku je panel nižší:
-  řádek Pomalu / Středně / Rychle a nápověda se vynechají (režim je pak v rámečku nahoře).
+- Po kliknutí nebo klepnutí kolem prvku nezůstane rámeček; při pohybu klávesou **Tab** se ukáže
+  tenké azurové orámování ve tvaru prvku. Se systémovým *omezením pohybu* prstenec neanimuje.
 
 **Velký STOP** — červený hřib v levém dolním rohu (na spodní liště, na telefonu na výšku v liště)
 — je vždy vidět, s joystickem i bez něj, a žádný panel ho nepřekryje. Je to úplné zastavení
@@ -222,7 +229,7 @@ Jak se páčka chová:
 
 **Log** ve spodní liště ukáže log jako pruh nad lištou. **▲** (rozbalit) ho roztáhne přes plochu
 mapy, **▼** (sbalit) ho vrátí zpět; další **Log** ho skryje. Se zapnutým joystickem stojí
-malý log na panelu jízdy.
+malý log na prstenci jízdy.
 
 Rozbalený log má lištu nástrojů:
 
@@ -238,4 +245,4 @@ Rozbalený log má lištu nástrojů:
 | **Alt+P** | zobrazit / skrýt levý panel |
 | **Esc** | zavřít nápovědu; skrýt levý panel (ne při psaní, v dialogu ani s rozbaleným logem) |
 | **Alt+C** | kamera malá ↔ velká |
-| **W A S D**, šipky | jízda (se zapnutými **Klávesami** v panelu jízdy), **Shift** = poloviční rychlost, **+ / −** = rychlost |
+| **W A S D**, šipky | jízda (se zapnutými **Klávesami** v prstenci jízdy), **Shift** = poloviční rychlost, **+ / −** = rychlost |

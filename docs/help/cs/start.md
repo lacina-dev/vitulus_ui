@@ -27,7 +27,7 @@ stejná stránka na PC, tabletu i telefonu.
 4. **Mapa** — robot (oranžově), jeho trasa a vrstvy mapy.
 5. **Pravý panel** — baterie, **Dock** / **Undock**, stav lokalizace a kamera.
 6. **Log** — co robot dělal a hlásil ([víc](frame.md#log)).
-7. **Joystick** — panel jízdy: páčka, rychlost, motory, klávesy — na velkém STOP ([víc](frame.md#ruční-jízda-joystick)).
+7. **Joystick** — prstenec jízdy: páčka, rychlost, motory, klávesy — v patě pravého sloupce ([víc](frame.md#ruční-jízda-joystick)).
 8. **STOP** — vždy vlevo dole. Zastaví veškerý pohyb ([Bezpečnost](safety.md)).
 
 ## Robot

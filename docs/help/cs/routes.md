@@ -29,11 +29,11 @@ překážek a naplánuje znovu, než to vzdá.
 
 ## Rychlost
 
-![Panel jízdy](../img/shot-joystick.webp "1 nejvyšší rychlost joysticku · 2 − / + a sloupce · 3 Pomalu / Středně / Rychle = režim robota")
+![Prstenec jízdy](../img/shot-joystick.webp "1 nejvyšší rychlost joysticku a režim · 2 sedm dílků rychlosti · 3 Pomalu / Středně / Rychle = režim robota · 8 − / +")
 
 Robot má tři **režimy rychlosti** — Pomalu, Středně, Rychle (`/navi_manager/speed`). Režim určuje
 rychlost navigace (trasy, body, programy) a robot si ho pamatuje i přes restart. Přepíná se v
-**panelu jízdy** (Joystick ve spodní liště): **Pomalu / Středně / Rychle** pod sloupci rychlosti —
+**prstenci jízdy** (Joystick ve spodní liště): **Pomalu / Středně / Rychle** podél dílků rychlosti —
 rozsvícený je režim, který hlásí robot, klik ho přepne. Navigace:
 
 | | vpřed | vzad | otáčení |
@@ -42,7 +42,7 @@ rozsvícený je režim, který hlásí robot, klik ho přepne. Navigace:
 | Středně | 0,4 m/s | 0,25 m/s | 0,9 rad/s |
 | Rychle | 0,75 m/s | 0,5 m/s | 1,5 rad/s |
 
-Joystick má uvnitř režimů 7 jemnějších kroků (sloupce; horní řádek ukazuje krok v m/s):
+Joystick má uvnitř režimů 7 jemnějších kroků (dílky prstence; kapsle nad páčkou ukazuje krok v m/s):
 
 | krok | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---|---|---|---|---|---|---|

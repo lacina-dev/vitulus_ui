@@ -2015,16 +2015,11 @@ body.vt-frame.vt-col-on:not(.vt-m-sheet) #vt_c_jb {
     bottom: var(--vt-frame-ledge, 30px);
     background: radial-gradient(circle at 0 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
 }
-:root { --vt-joy-deck: 150px; }
-@media (pointer: coarse) { :root { --vt-joy-deck: 150px; } }
-/* low windows (landscape phone): a lower deck and STOP */
-@media (max-height: 560px) {
-    :root { --vt-joy-deck: 100px; }
-}
+/* the ring's diameter (vt_joy.js builds it for this size): 184 px on a PC,
+   150 px on a phone (upright: the band; landscape: vt_joy.css max-height) */
+body.vt-frame.vt-m-sheet #joy_view.vt-joy.vt-joy-deck { --vt-ring-d: 150px; }
 
-/* phone portrait: the deck = a band across the screen (it is as wide as the
-   right panel there, which is a row across the screen) */
-body.vt-frame.vt-m-sheet { --vt-joy-deck: 128px; }
+/* phone portrait: the deck = a band across the screen on the bottom bar */
 html body.vt-frame.vt-m-sheet.vt-joy-on #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-joy-deck.vt-joy-deck {
     left: 0 !important;
     right: 0 !important;
@@ -2035,20 +2030,25 @@ html body.vt-frame.vt-m-sheet.vt-joy-on #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-j
     box-shadow: inset 0 1px 0 rgba(var(--vt-ring-rgb), 0.45) !important;
 }
 body.vt-frame.vt-joy-on.vt-joy-band #vt_c_jb { display: none; }
-/* 2026-10-25: the band = the controls on the left (speed, motors, hint),
-   the stick on the right under the thumb */
+/* 2026-10-25: the band = a short text on the left, the ring on the right
+   under the thumb */
 body.vt-frame.vt-m-sheet #joy_view.vt-joy.vt-joy-deck:not([style*="display: none"]) {
     display: grid !important; grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "spd pad" "ctl pad" "hint pad";
-    grid-template-rows: auto auto 1fr; column-gap: 12px; align-items: start;
-    padding: 8px 10px 8px;
+    grid-template-areas: "side ring" "hint ring";
+    grid-template-rows: auto 1fr; column-gap: 10px; align-items: center;
+    padding: 3px 6px 3px 14px;
 }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-spdbox { grid-area: spd; margin-bottom: 0; }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-padbox { grid-area: pad; align-self: center; }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-ctlrow { grid-area: ctl; }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint {
-    grid-area: hint; text-align: left; font-size: 10.5px; min-height: 2.6em;
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-side {
+    grid-area: side; display: flex; flex-direction: column; gap: 3px; align-self: end;
+    color: var(--vt-muted); font-size: 11px; line-height: 1.4;
 }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-side-t { font: 700 12px/1.2 'Bitter', var(--vt-font); color: var(--vt-text); }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-side-tip[hidden] { display: none; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-ringbox { grid-area: ring; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint:not([hidden]) {
+    grid-area: hint; align-self: start; text-align: left; font-size: 10.5px; padding: 0; margin-top: 3px;
+}
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint[hidden] { display: block; visibility: hidden; grid-area: hint; }
 /* the sheet stands on the band (not the stick floating above the sheet) */
 html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-joy-deck.vt-joy-deck {
     bottom: var(--vt-frame-joy-b, 30px) !important;
@@ -2058,7 +2058,6 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt
 @media (max-width: 575.98px) {
     body.vt-frame.vt-m-sheet #div_bottom_menu { min-height: 56px; }
 }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-kbsw { display: none; }
 
 /* =========================================================================
    UTM frame (vt_georef.js, vitulus-field#32, 2026-10-25): the Map › Loc card,

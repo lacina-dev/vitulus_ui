@@ -29,12 +29,12 @@ its obstacle memory and plans again before it gives up.
 
 ## Speed
 
-![The drive deck](img/shot-joystick.webp "1 the joystick's top speed · 2 − / + and the bars · 3 Slow / Mid / Fast = the robot's mode")
+![The drive ring](img/shot-joystick.webp "1 the joystick's top speed and mode · 2 the 7 speed segments · 3 Slow / Mid / Fast = the robot's mode · 8 − / +")
 
 The robot has three **speed modes** — Slow, Mid, Fast (`/navi_manager/speed`). The mode sets the
 speed of navigation (routes, points, programs) and is remembered on the robot across restarts.
-You switch it in the **drive deck** (Joystick in the bottom bar): **Slow / Mid / Fast** under the
-speed bars — the lit one is the mode the robot reports, a click switches it. Navigation:
+You switch it in the **drive ring** (Joystick in the bottom bar): **Slow / Mid / Fast** along the
+speed segments — the lit one is the mode the robot reports, a click switches it. Navigation:
 
 | | forward | reverse | turn |
 |---|---|---|---|
@@ -42,7 +42,7 @@ speed bars — the lit one is the mode the robot reports, a click switches it. N
 | Mid | 0.4 m/s | 0.25 m/s | 0.9 rad/s |
 | Fast | 0.75 m/s | 0.5 m/s | 1.5 rad/s |
 
-The joystick has 7 finer steps inside the modes (the bars; the top line shows the step in m/s):
+The joystick has 7 finer steps inside the modes (the segments of the ring; the capsule above the stick shows the step in m/s):
 
 | step | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---|---|---|---|---|---|---|

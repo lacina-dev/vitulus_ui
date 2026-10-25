@@ -6,40 +6,45 @@
  *
  * Two shapes:
  *  - plain (IMU calibration, #joy_view_imu): status line + pad + readout;
- *  - DECK (the map's #joy_view, opts.deck): the width of the right panel's
- *    column (vt_frame.js); on a phone held upright a band (controls left,
- *    pad right). owner 2026-10-25: every control says what it is:
+ *  - DECK (the map's #joy_view, opts.deck): ONE round control, the RING
+ *    (owner 2026-10-25, variant C2 "the whole ring"), in the foot of the
+ *    right column (vt_frame.js); on a phone held upright a band (a short
+ *    text left, the ring right):
  *
- *   ┌──────────────────────────────┐
- *   │ SPEED 0.40 m/s            ?  │  the stick's top speed (low window: + mode chip)
- *   │ [−] ▂▃▄▅▆▇█ [+]              │  7 levels (LEVELS), click / drag / wheel /
- *   │   slow | mid | fast          │  arrows / + − keys; bands = the modes, lit = robot's
- *   │          ( pad )             │  ring = cap + state
- *   │ [⌨ Keys]     [⚙ Motors OFF]  │  labelled buttons
- *   │ hint: what to do now         │
- *   └──────────────────────────────┘  + a first-use card ("?" brings it back)
+ *          Slow ·  Mid  · Fast              the robot's modes outside the segments (lit = reported)
+ *        ▰▰▰▰▰▰▰ over the upper 2/3   [?]   7 speed segments: click / drag along /
+ *           ( 0.25 m/s     )                wheel / arrows / + − keys
+ *           ( SPEED · SLOW )                the capsule: the level and the mode
+ *      (−)      ( pad )      (+)            the stick; its edge = the state; − / + on the seams
+ *           [⚙]        [⌨]                  the lower 1/3: Motors / Keys (icons; colour = state)
  *
  *   the mode and the motors only ever show what the ROBOT reports
  *   (setSpeedKey / setMotors); a level of another mode / a motor click
  *   blinks until the robot echoes it (4 s, then it falls back to the
  *   reported state). A level inside the reported mode only changes the
  *   stick's cap (no message). Motors are never switched on by the page.
+ *   The ring's geometry is built for its real size (CSS --vt-ring-d: 184 px
+ *   on a PC, 150 px on a phone) and rebuilt when that changes.
  *
  * Feel (numbers in the constants below):
  *  - radial dead zone 10 %, then an expo curve (60 % cubic): fine control
  *    near the centre, full speed (of the active level's cap) at the rim;
  *  - axis lock: within ±9° of an axis the command is pure straight or pure
- *    rotate-on-the-spot (the locked axis lights up);
+ *    rotate-on-the-spot (the locked axis lights up in the direction's colour);
  *  - acceleration cap (1.6 m/s², 6 rad/s²; slowing down 3× faster);
  *  - release = a short decay, not a hard jump: the first command after the
  *    release is 35 % of the last one, the next one (≤ 50 ms later) is ZERO,
  *    then two more zeros and silence; the knob springs back (CSS);
- *  - the rim ring is the active speed cap, coloured by state: green = free,
- *    amber = a program / docking / the gamepad / the agent has the robot
- *    (stick locked, the reason is shown, "Take over" unlocks it on purpose),
- *    grey = drive motors off (stick locked, hint) or unknown;
- *  - two arcs show the current command: the outer one the speed (top =
- *    forward, bottom = back), the inner one the turn (to the turning side);
+ *  - the pad's edge is the state: green = free, amber = a program / docking /
+ *    the gamepad / the agent has the robot (stick locked, the reason is
+ *    shown, "Take over" unlocks it on purpose), grey = drive motors off
+ *    (stick locked) or unknown;
+ *  - the command, playful (deck): the outer arc = speed (top = forward,
+ *    cyan → green with strength; bottom = back, orange), the inner arc =
+ *    turn (violet, to the turning side), width and length by the command,
+ *    a glow; a coloured light under the knob in the driving direction, a
+ *    halo round the knob, the arrows ▲▼◀▶ light up, a ripple on press;
+ *    motors not on = the colours are dimmed;
  *  - haptics (navigator.vibrate): leaving the dead zone, the rim, an axis lock,
  *    the release.
  * Safety:
@@ -87,8 +92,16 @@
         {lin: 0.55, ang: 1.4, mode: 'fast'},
         {lin: 0.75, ang: 1.5, mode: 'fast', def: true}
     ];
+    var MODES = ['slow', 'moderate', 'fast'];
     var LS_LEVEL = 'vitulus_joy_speed_level';
     var LS_INTRO = 'vitulus_joy_intro_seen';
+    /* the ring (deck): colours of the command (the mock-up the owner chose) */
+    var C_FWD0 = [13, 202, 240], C_FWD1 = [67, 213, 139];   // forward: cyan → green
+    var C_BACK = '#ffab45', C_TURN = '#b18cff';             // back: orange, turn: violet
+    var C_SLOW = [13, 202, 240], C_FAST = [255, 171, 69];   // speed: cool → warm
+    var TRAVEL = 0.6;                                       // knob travel (× the pad radius)
+    var DEG = Math.PI / 180;
+    var uidN = 0;
 
     function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
     function tagI(e, k, attr) { if (window.VTI18n) { VTI18n.tag(e, k, attr); } else if (!attr) { e.textContent = k; } }
@@ -145,6 +158,32 @@
         var sweep = a1 > a0 ? 1 : 0;
         return 'M ' + p(a0) + ' A ' + r + ' ' + r + ' 0 ' + large + ' ' + sweep + ' ' + p(a1);
     }
+    /* the ring's geometry: screen angles in radians (0 = right, clockwise) */
+    function pol(cx, cy, r, a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+    function fx(p) { return p[0].toFixed(2) + ' ' + p[1].toFixed(2); }
+    function rArc(cx, cy, r, a0, a1) {
+        var large = (a1 - a0) > Math.PI ? 1 : 0;
+        return 'M' + fx(pol(cx, cy, r, a0)) + ' A' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 ' + large + ' 1 ' + fx(pol(cx, cy, r, a1));
+    }
+    function rSector(cx, cy, r0, r1, a0, a1) {
+        var L = (a1 - a0) > Math.PI ? 1 : 0;
+        return 'M' + fx(pol(cx, cy, r1, a0)) + ' A' + r1 + ' ' + r1 + ' 0 ' + L + ' 1 ' + fx(pol(cx, cy, r1, a1)) +
+               ' L' + fx(pol(cx, cy, r0, a1)) + ' A' + r0 + ' ' + r0 + ' 0 ' + L + ' 0 ' + fx(pol(cx, cy, r0, a0)) + ' Z';
+    }
+    function mix(c0, c1, f) {
+        f = clamp(f, 0, 1);
+        return 'rgb(' + c0.map(function (v, k) { return Math.round(v + (c1[k] - v) * f); }).join(',') + ')';
+    }
+    function reducedMotion() {
+        try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+    }
+    function coarsePointer() {
+        try { return window.matchMedia('(pointer: coarse)').matches; } catch (e) { return false; }
+    }
+    /* the drive motor (gear + bolt) and the keyboard: the same glyphs as the
+       right panel's motor chip (right_dock.js), 16 × 16 */
+    var ICON_MOT = '<path d="M8 3.2 9 1.5h-2l1 1.7Zm0 9.6-1 1.7h2l-1-1.7ZM3.2 8l-1.7-1v2l1.7-1Zm9.6 0 1.7 1v-2l-1.7 1ZM4.6 4.6 3.1 3.8l-.7.7.8 1.5 1.4-1.4Zm6.8 6.8 1.5.8.7-.7-.8-1.5-1.4 1.4Zm0-6.8 1.4 1.4.8-1.5-.7-.7-1.5.8ZM4.6 11.4l-1.4-1.4-.8 1.5.7.7 1.5-.8Z" fill="currentColor"/><circle cx="8" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8.4 5.6 6.9 8.3h1.3l-.6 2.1 1.6-2.8H7.9l.5-2Z" fill="currentColor"/>';
+    var ICON_KB = '<rect x="1" y="4" width="14" height="8.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.2 6.3h1.4M6.2 6.3h1.4M9.2 6.3h1.4M12.2 6.3h.8M3.2 8.6h1.4M6.2 8.6h3.8M11.2 8.6h1.8M4.2 10.8h7.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/>';
 
     function create(root, opts) {
         opts = opts || {};
@@ -190,80 +229,28 @@
         root.innerHTML = '';
 
         var head, chipSpeed, chipMotors, read, readLin, readAng, kbHint;
-        var hint, takeBtn, kbToggle, caps = {}, motOn, motOff;
-        var spdBox, spdVal, spdMode, spdBar, spdMinus, spdPlus, spdSegs = [], spdBands = {};
-        var helpBtn, intro, introOk, preview = null;
+        var hint, takeBtn, side, sideTip, ringBox, intro, introOk, preview = null;
+        var svg = null, knob = null, arcLin = null, arcAng = null;
+        var ring = null;                    // deck: the ring's SVG parts (buildRing)
         var padBox = root;
         if (deck) {
-            /* owner 2026-10-25: the speed must be SEEN to be switchable — a
-               labelled row above the pad (name · m/s · mode, − [bars] +, the
-               Slow / Mid / Fast bands under the bars) instead of three big
-               arcs of the rim; motors and keys = labelled buttons under the
-               pad; one hint line; a first-use card ("?" shows it again) */
-            spdBox = el('div', 'vt-joy-spdbox', root);
-            var sh = el('div', 'vt-joy-spdhead', spdBox);
-            var shl = el('span', 'vt-joy-spdname', sh);
-            tagI(shl, 'joy.d.speed');
-            spdVal = el('span', 'vt-joy-spdval', sh);
-            spdMode = el('span', 'vt-joy-spdmode', sh);
-            helpBtn = el('button', 'vt-joy-helpbtn', sh);
-            helpBtn.type = 'button';
-            helpBtn.textContent = '?';
-            tagI(helpBtn, 'joy.d.help.tip', 'title');
-            tagI(helpBtn, 'joy.d.help.tip', 'aria-label');
-            var sr = el('div', 'vt-joy-spdrow', spdBox);
-            spdMinus = el('button', 'vt-joy-spdstep', sr);
-            spdMinus.type = 'button';
-            spdMinus.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-            tagI(spdMinus, 'joy.d.slower', 'title');
-            tagI(spdMinus, 'joy.d.slower', 'aria-label');
-            spdBar = el('div', 'vt-joy-spdbar', sr);
-            spdBar.setAttribute('role', 'slider');
-            spdBar.setAttribute('tabindex', '0');
-            spdBar.setAttribute('aria-valuemin', '1');
-            spdBar.setAttribute('aria-valuemax', String(levels.length));
-            tagI(spdBar, 'joy.d.speed', 'aria-label');
-            levels.forEach(function (lv, i) {
-                var seg = el('span', 'vt-joy-seg', spdBar);
-                seg.setAttribute('data-mode', lv.mode);
-                /* rising bars: the taller, the faster (height ∝ m/s) */
-                seg.style.setProperty('--h', Math.round(30 + 70 * lv.lin / levels[levels.length - 1].lin) + '%');
-                spdSegs.push(seg);
-            });
-            spdPlus = el('button', 'vt-joy-spdstep', sr);
-            spdPlus.type = 'button';
-            spdPlus.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6h7M6 2.5v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-            tagI(spdPlus, 'joy.d.faster', 'title');
-            tagI(spdPlus, 'joy.d.faster', 'aria-label');
-            var bands = el('div', 'vt-joy-spdbands', spdBox);
-            ['slow', 'moderate', 'fast'].forEach(function (m) {
-                var n = levels.filter(function (lv) { return lv.mode === m; }).length;
-                if (!n) { return; }
-                var b = el('span', 'vt-joy-mband', bands);
-                b.setAttribute('data-mode', m);
-                b.style.flexGrow = String(n);
-                tagI(b, 'joy.d.mode.' + m);
-                b.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
-                spdBands[m] = b;
-            });
-            padBox = el('div', 'vt-joy-padbox', root);
-            var ctl = el('div', 'vt-joy-ctlrow', root);
-            kbToggle = el('button', 'vt-joy-kbsw vt-joy-ctl', ctl);
-            kbToggle.type = 'button';
-            kbToggle.setAttribute('aria-pressed', 'false');
-            kbToggle.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="4" width="14" height="8.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.2 6.3h1.4M6.2 6.3h1.4M9.2 6.3h1.4M12.2 6.3h.8M3.2 8.6h1.4M6.2 8.6h3.8M11.2 8.6h1.8M4.2 10.8h7.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span class="vt-joy-ctllbl vt-joy-kblbl"></span>';
-            tagI(kbToggle.querySelector('.vt-joy-kblbl'), 'joy.kb.lbl');
-            tagI(kbToggle, 'joy.d.kb.tip', 'title');
-            motOn = el('button', 'vt-joy-motbtn vt-joy-ctl', ctl);   // one toggle: ON <-> OFF
-            motOn.type = 'button';
-            /* a drive motor: a gear with a bolt, then "Motors ON / OFF" */
-            motOn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2 9 1.5h-2l1 1.7Zm0 9.6-1 1.7h2l-1-1.7ZM3.2 8l-1.7-1v2l1.7-1Zm9.6 0 1.7 1v-2l-1.7 1ZM4.6 4.6 3.1 3.8l-.7.7.8 1.5 1.4-1.4Zm6.8 6.8 1.5.8.7-.7-.8-1.5-1.4 1.4Zm0-6.8 1.4 1.4.8-1.5-.7-.7-1.5.8ZM4.6 11.4l-1.4-1.4-.8 1.5.7.7 1.5-.8Z" fill="currentColor"/><circle cx="8" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8.4 5.6 6.9 8.3h1.3l-.6 2.1 1.6-2.8H7.9l.5-2Z" fill="currentColor"/></svg>';
-            chipMotors = el('span', 'vt-joy-motors', motOn);    // right_dock.js mirrors its data-state
-            motOff = el('span', 'vt-joy-ctllbl vt-joy-motlbl', motOn);
-            /* the hint line: what to do now (the same text = the pad's tooltip) */
+            /* phone upright: a short text left of the ring (CSS shows it) */
+            side = el('div', 'vt-joy-side', root);
+            var stt = el('div', 'vt-joy-side-t', side);
+            tagI(stt, 'joy.d.intro.title');
+            sideTip = el('div', 'vt-joy-side-tip', side);
+            tagI(sideTip, 'joy.d.side');
+            ringBox = el('div', 'vt-joy-ringbox', root);
+            padBox = ringBox;
+            /* the hint line: only what the ring cannot show (another owner,
+               the DS4 pad, stale data); the same text = the pad's tooltip */
             hint = el('div', 'vt-joy-hint', root);
             hint.setAttribute('role', 'status');
             hint.setAttribute('aria-live', 'polite');
+            hint.hidden = true;
+            /* right_dock.js mirrors the motors' data-state (ok / warn / off) */
+            chipMotors = el('span', 'vt-joy-motors', root);
+            chipMotors.hidden = true;
             /* the first-use card (over the deck; "?" brings it back) */
             intro = el('div', 'vt-joy-intro', root);
             intro.hidden = true;
@@ -278,7 +265,7 @@
             introOk = el('button', 'vt-joy-intro-ok', intro);
             introOk.type = 'button';
             tagI(introOk, 'joy.d.intro.ok');
-            [motOn, kbToggle, helpBtn, spdMinus, spdPlus, spdBar, intro].forEach(function (b) { b.addEventListener('pointerdown', function (e) { e.stopPropagation(); }); });
+            intro.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
             /* detached: the command readout is the arcs + aria-valuetext here */
             readLin = el('span'); readAng = el('span');
         } else {
@@ -291,28 +278,30 @@
         pad.setAttribute('aria-label', tr('joy.pad'));
         pad.setAttribute('aria-valuetext', tr('joy.stopped'));
         if (window.VTI18n) { VTI18n.tag(pad, 'joy.pad', 'aria-label'); }
-        /* the drawing: ticks, chevrons, the cap ring, the command arcs */
-        var svg = sv('svg', {'class': 'vt-joy-svg', viewBox: '-50 -50 100 100', 'aria-hidden': 'true'}, pad);
-        sv('circle', {'class': 'vt-joy-track', r: 46}, svg);
-        var ticks = sv('g', {'class': 'vt-joy-ticks'}, svg);
-        for (var a = 0; a < 360; a += 30) {
-            var big = a % 90 === 0, rad = a * Math.PI / 180, r0 = big ? 37 : 40;
-            sv('line', {x1: (r0 * Math.sin(rad)).toFixed(2), y1: (-r0 * Math.cos(rad)).toFixed(2),
-                        x2: (43 * Math.sin(rad)).toFixed(2), y2: (-43 * Math.cos(rad)).toFixed(2),
-                        'class': big ? 'big' : ''}, ticks);
+        if (!deck) {
+            /* the drawing: ticks, chevrons, the cap ring, the command arcs */
+            svg = sv('svg', {'class': 'vt-joy-svg', viewBox: '-50 -50 100 100', 'aria-hidden': 'true'}, pad);
+            sv('circle', {'class': 'vt-joy-track', r: 46}, svg);
+            var ticks = sv('g', {'class': 'vt-joy-ticks'}, svg);
+            for (var a = 0; a < 360; a += 30) {
+                var big = a % 90 === 0, rad = a * Math.PI / 180, r0 = big ? 37 : 40;
+                sv('line', {x1: (r0 * Math.sin(rad)).toFixed(2), y1: (-r0 * Math.cos(rad)).toFixed(2),
+                            x2: (43 * Math.sin(rad)).toFixed(2), y2: (-43 * Math.cos(rad)).toFixed(2),
+                            'class': big ? 'big' : ''}, ticks);
+            }
+            sv('line', {'class': 'vt-joy-ax vt-joy-ax-v', x1: 0, y1: -34, x2: 0, y2: 34}, svg);
+            sv('line', {'class': 'vt-joy-ax vt-joy-ax-h', x1: -34, y1: 0, x2: 34, y2: 0}, svg);
+            var chev = sv('g', {'class': 'vt-joy-chev'}, svg);
+            ['M -4 -30 L 0 -34 L 4 -30', 'M -4 30 L 0 34 L 4 30', 'M -30 -4 L -34 0 L -30 4', 'M 30 -4 L 34 0 L 30 4'].forEach(function (d, i) {
+                if (turnOnly && i < 2) { return; }
+                sv('path', {d: d}, chev);
+            });
+            sv('circle', {'class': 'vt-joy-dz', r: (DEAD * 34).toFixed(2)}, svg);
+            sv('circle', {'class': 'vt-joy-ring', r: 46}, svg);
+            arcLin = sv('path', {'class': 'vt-joy-arc vt-joy-arc-lin', d: ''}, svg);
+            arcAng = sv('path', {'class': 'vt-joy-arc vt-joy-arc-ang', d: ''}, svg);
+            knob = el('div', 'vt-joy-knob', pad);
         }
-        sv('line', {'class': 'vt-joy-ax vt-joy-ax-v', x1: 0, y1: -34, x2: 0, y2: 34}, svg);
-        sv('line', {'class': 'vt-joy-ax vt-joy-ax-h', x1: -34, y1: 0, x2: 34, y2: 0}, svg);
-        var chev = sv('g', {'class': 'vt-joy-chev'}, svg);
-        ['M -4 -30 L 0 -34 L 4 -30', 'M -4 30 L 0 34 L 4 30', 'M -30 -4 L -34 0 L -30 4', 'M 30 -4 L 34 0 L 30 4'].forEach(function (d, i) {
-            if (turnOnly && i < 2) { return; }
-            sv('path', {d: d}, chev);
-        });
-        sv('circle', {'class': 'vt-joy-dz', r: (DEAD * 34).toFixed(2)}, svg);
-        sv('circle', {'class': 'vt-joy-ring', r: 46}, svg);
-        var arcLin = sv('path', {'class': 'vt-joy-arc vt-joy-arc-lin', d: ''}, svg);
-        var arcAng = sv('path', {'class': 'vt-joy-arc vt-joy-arc-ang', d: ''}, svg);
-        var knob = el('div', 'vt-joy-knob', pad);
         var lockEl = el('div', 'vt-joy-lockmsg', pad);
         if (deck) {
             takeBtn = el('button', 'vt-joy-take', pad);
@@ -361,6 +350,374 @@
         }
         function held() { return pid !== null || keyActive(); }
 
+        /* ================================================== the RING (deck) */
+        /* its diameter: CSS --vt-ring-d (vt_joy.css / vt_panel.css) */
+        function ringSize() {
+            var v = 0;
+            try { v = parseFloat(getComputedStyle(root).getPropertyValue('--vt-ring-d')); } catch (e) { v = 0; }
+            return (v > 80 && v < 400) ? Math.round(v) : 184;
+        }
+        function heat(i) {
+            var f = levels.length > 1 ? i / (levels.length - 1) : 0;
+            f = f * f * (3 - 2 * f);
+            return mix(C_SLOW, C_FAST, f);
+        }
+        function ctl(parent, cls, k, labelKey) {
+            var g = sv('g', {'class': cls, 'data-k': k, tabindex: 0, role: 'button', focusable: 'true'}, parent);
+            if (labelKey) { g.setAttribute('aria-label', tr(labelKey)); }
+            g.vtTitle = sv('title', {}, g);
+            g.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+            return g;
+        }
+        function onActivate(g, fn) {
+            g.addEventListener('click', function (e) { e.preventDefault(); fn(); });
+            g.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) { fn(); } }
+            });
+        }
+        function setTitle(g, t) { if (g.vtTitle.textContent !== t) { g.vtTitle.textContent = t; } }
+        function buildRing(force) {
+            var D = ringSize(), coarse = coarsePointer();
+            if (ring && !force && ring.D === D && ring.coarse === coarse) { return; }
+            var fk = null;
+            if (ring && document.activeElement && ring.svg.contains(document.activeElement)) {
+                fk = document.activeElement.getAttribute('data-k');
+            }
+            if (ring) { ring.svg.parentNode.removeChild(ring.svg); }
+            uidN += 1;
+            var u = 'vtr' + uidN + '_';
+            var W = D + 8, H = D + 8, x0 = W / 2, y0 = H / 2, Rr = D / 2 - 2;
+            var padR = Rr * 0.56, knobR = padR * 0.34, ringR = Rr - 16;   // the labels fit inside the bezel
+            var g = {D: D, coarse: coarse, W: W, cx: x0, cy: y0, R: Rr, padR: padR, knobR: knobR, ringR: ringR};
+            var s = sv('svg', {'class': 'vt-ring', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'group'});
+            s.setAttribute('aria-label', tr('joy.d.ring'));
+            g.svg = s;
+            var defs = sv('defs', {}, s);
+            var bz = sv('radialGradient', {id: u + 'bz', cx: '50%', cy: '38%', r: '62%'}, defs);
+            sv('stop', {offset: '0', 'stop-color': '#3a444d'}, bz); sv('stop', {offset: '.7', 'stop-color': '#262e35'}, bz); sv('stop', {offset: '1', 'stop-color': '#1b2126'}, bz);
+            var gl = sv('filter', {id: u + 'gl', x: '-30%', y: '-30%', width: '160%', height: '160%'}, defs);
+            sv('feGaussianBlur', {stdDeviation: 2.2, result: 'b'}, gl);
+            var fm = sv('feMerge', {}, gl); sv('feMergeNode', {'in': 'b'}, fm); sv('feMergeNode', {'in': 'SourceGraphic'}, fm);
+            var gs = sv('radialGradient', {id: u + 'gs', cx: '50%', cy: '0%', r: '100%'}, defs);
+            sv('stop', {offset: '0', 'stop-color': '#ffffff', 'stop-opacity': '.18'}, gs); sv('stop', {offset: '1', 'stop-color': '#ffffff', 'stop-opacity': '0'}, gs);
+            var kg = sv('radialGradient', {id: u + 'kg', cx: '40%', cy: '35%'}, defs);
+            sv('stop', {offset: '0', 'stop-color': '#5d6870'}, kg); sv('stop', {offset: '1', 'stop-color': '#3a434a'}, kg);
+            var cp = sv('clipPath', {id: u + 'pc'}, defs); sv('circle', {cx: x0, cy: y0, r: padR * 0.82}, cp);
+            var spg = sv('radialGradient', {id: u + 'sp'}, defs);
+            g.sp0 = sv('stop', {offset: '0', 'stop-color': '#0dcaf0', 'stop-opacity': '0'}, spg);
+            g.sp1 = sv('stop', {offset: '1', 'stop-color': '#0dcaf0', 'stop-opacity': '0'}, spg);
+            var glow = 'url(#' + u + 'gl)';
+            /* the bezel (lunette) with a soft light from above */
+            sv('circle', {cx: x0, cy: y0 + 2, r: Rr, fill: '#0008', filter: glow, 'class': 'vt-ring-shadow'}, s);
+            sv('circle', {cx: x0, cy: y0, r: Rr, fill: 'url(#' + u + 'bz)', 'class': 'vt-ring-bezel'}, s);
+            sv('circle', {cx: x0, cy: y0, r: Rr - 1.5, fill: 'url(#' + u + 'gs)', 'pointer-events': 'none'}, s);
+            /* the pad: its edge = the state (CSS --vt-ring by data-tone) */
+            sv('circle', {'class': 'vt-ring-padbg', cx: x0, cy: y0, r: padR}, s);
+            sv('circle', {'class': 'vt-ring-edge', cx: x0, cy: y0, r: padR - 1}, s);
+            sv('circle', {'class': 'vt-ring-padin', cx: x0, cy: y0, r: padR * 0.82}, s);
+            g.axV = sv('line', {'class': 'vt-ring-ax', x1: x0, y1: y0 - padR * 0.78, x2: x0, y2: y0 + padR * 0.78, filter: glow}, s);
+            g.axH = sv('line', {'class': 'vt-ring-ax', x1: x0 - padR * 0.78, y1: y0, x2: x0 + padR * 0.78, y2: y0, filter: glow}, s);
+            g.spot = sv('circle', {cx: x0, cy: y0, r: padR * 0.75, fill: 'url(#' + u + 'sp)', 'clip-path': 'url(#' + u + 'pc)', 'pointer-events': 'none'}, s);
+            g.arcSp = sv('path', {'class': 'vt-ring-cmd', filter: glow}, s);
+            g.arcTu = sv('path', {'class': 'vt-ring-cmd', filter: glow, stroke: C_TURN}, s);
+            g.arr = {};
+            [['▲', 0, -1, 'f'], ['▼', 0, 1, 'b'], ['◀', -1, 0, 'l'], ['▶', 1, 0, 'r']].forEach(function (a) {
+                if (turnOnly && (a[3] === 'f' || a[3] === 'b')) { return; }
+                var t = sv('text', {'class': 'vt-ring-arrow', x: x0 + a[1] * padR * 0.72, y: y0 + a[2] * padR * 0.72 + 3.5, 'text-anchor': 'middle'}, s);
+                t.textContent = a[0];
+                g.arr[a[3]] = t;
+            });
+            g.halo = sv('circle', {'class': 'vt-ring-halo', cx: x0, cy: y0, r: knobR + 3, filter: glow}, s);
+            g.knob = sv('circle', {'class': 'vt-ring-knob', cx: x0, cy: y0, r: knobR, fill: 'url(#' + u + 'kg)'}, s);
+            g.ripples = sv('g', {'pointer-events': 'none'}, s);
+
+            /* ---- the speed ring (owner 2026-10-25, variant C2 "the whole
+               ring"): the upper ~2/3 of the circle = 7 thick segments, lit up
+               to the level (cool → warm), the level itself full and glowing;
+               click a segment or drag along the ring (preview, picked on
+               release), the wheel, the arrows while it has the focus */
+            var A0 = 150 * DEG, A1 = 390 * DEG, span = A1 - A0, NL = levels.length;
+            var thick = 12, gap = 2.2 * DEG;
+            g.segA = function (k) { return A0 + span * (k + 0.5) / NL; };
+            var spd = sv('g', {'class': 'vt-ring-spd', 'data-k': 'spd', tabindex: 0, role: 'slider', focusable: 'true',
+                               'aria-valuemin': '1', 'aria-valuemax': String(NL)}, s);
+            spd.setAttribute('aria-label', tr('joy.d.speed'));
+            g.spd = spd;
+            g.spdTitle = sv('title', {}, spd);
+            sv('path', {'class': 'vt-ring-fr', d: rSector(x0, y0, ringR - thick / 2 - 2.5, ringR + thick / 2 + 2.5, A0 - 1 * DEG, A1 + 1 * DEG)}, spd);
+            g.segs = [];
+            for (var i = 0; i < NL; i++) {
+                var b0 = A0 + span * i / NL + gap / 2, b1 = A0 + span * (i + 1) / NL - gap / 2;
+                g.segs.push(sv('path', {'class': 'vt-ring-seg', d: rSector(x0, y0, ringR - thick / 2, ringR + thick / 2, b0, b1)}, spd));
+            }
+            g.glow = glow;
+            var hit = sv('path', {'class': 'vt-ring-hit', d: rArc(x0, y0, ringR, A0, A1)}, spd);
+            hit.style.strokeWidth = (thick + 10) + 'px';
+            g.levelAt = function (ev) {
+                var b = s.getBoundingClientRect(), k = W / (b.width || W);
+                var x = (ev.clientX - b.left) * k - x0, y = (ev.clientY - b.top) * k - y0;
+                var an = Math.atan2(y, x);
+                while (an < A0 - 30 * DEG) { an += 2 * Math.PI; }
+                return clamp(Math.floor((an - A0) / span * NL), 0, NL - 1);
+            };
+            /* the modes outside the segments: Slow · Mid · Fast (lit = the robot's) */
+            g.lbls = {};
+            MODES.forEach(function (m, mi) {
+                var ix = [];
+                levels.forEach(function (lv, j) { if (lv.mode === m) { ix.push(j); } });
+                if (!ix.length) { return; }
+                var am = A0 + span * ((ix[0] + ix[ix.length - 1] + 1) / 2 - 0.5) / NL;
+                var id = u + 'mp' + mi;
+                sv('path', {id: id, d: rArc(x0, y0, ringR + thick / 2 + 2, am - 25 * DEG, am + 25 * DEG), fill: 'none'}, defs);
+                var t = sv('text', {'class': 'vt-ring-lbl', 'data-mode': m, 'text-anchor': 'middle'}, s);
+                var tp = sv('textPath', {href: '#' + id, startOffset: '50%'}, t);
+                tp.textContent = tr('joy.d.mode.' + m);
+                t.vtTitle = sv('title', {}, t);
+                t.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+                t.addEventListener('click', function () { chooseLevel(defaultLevel(m)); });
+                g.lbls[m] = t;
+            });
+            /* − / + round buttons */
+            var stepBtn = function (k, a, sym, labelKey) {
+                var b = ctl(s, 'vt-ring-btn', k, labelKey);
+                var p = pol(x0, y0, ringR, a);
+                sv('circle', {'class': 'vt-ring-fr', cx: p[0], cy: p[1], r: 12.5}, b);
+                sv('circle', {'class': 'vt-ring-btnbg', cx: p[0], cy: p[1], r: 10}, b);
+                var path = sym === '+' ? 'M-4 0h8M0 -4v8' : 'M-4 0h8';
+                sv('path', {'class': 'vt-ring-btnsym', d: path, transform: 'translate(' + p[0].toFixed(2) + ' ' + p[1].toFixed(2) + ')'}, b);
+                return b;
+            };
+            /* on the seams between the segments and the bottom sectors */
+            g.minus = stepBtn('minus', A0 - 6 * DEG, '−', 'joy.d.slower');
+            g.plus = stepBtn('plus', A1 + 6 * DEG, '+', 'joy.d.faster');
+            onActivate(g.minus, function () { stepLevel(-1); });
+            onActivate(g.plus, function () { stepLevel(1); });
+            /* the gap at the bottom: Motors (right), Keys (left; not on touch) */
+            var c0 = A1 + 16 * DEG - 2 * Math.PI, c1 = A0 - 16 * DEG, mid = (c0 + c1) / 2;
+            var sector = function (k, sa0, sa1, icon, labelKey) {
+                var b = ctl(s, 'vt-ring-sect', k, labelKey);
+                var d = rSector(x0, y0, padR + 3, Rr, sa0, sa1);
+                sv('path', {'class': 'vt-ring-fr', d: d}, b);
+                sv('path', {'class': 'vt-ring-sectbg', d: d}, b);
+                var am = (sa0 + sa1) / 2, rm = (padR + Rr) / 2 + 1, lp = pol(x0, y0, rm, am);
+                /* owner 2026-10-25: icons only — the colour is the state, the
+                   words are in aria-label / the tooltip and the "?" card */
+                var isz = D >= 170 ? 18 : 16;
+                var ic = sv('svg', {'class': 'vt-ring-ico', x: (lp[0] - isz / 2).toFixed(2), y: (lp[1] - isz / 2).toFixed(2), width: isz, height: isz, viewBox: '0 0 16 16'}, b);
+                ic.innerHTML = icon;
+                return b;
+            };
+            if (coarse) {
+                g.mot = sector('mot', c0, c1, ICON_MOT, null);
+                g.kb = null;
+            } else {
+                g.mot = sector('mot', c0, mid - 1.5 * DEG, ICON_MOT, null);
+                g.kb = sector('kb', mid + 1.5 * DEG, c1, ICON_KB, 'joy.kb.lbl');
+                onActivate(g.kb, function () {
+                    api.setKeyboard(!keyboardOn);
+                    if (opts.onKeyboard) { opts.onKeyboard(keyboardOn); }
+                });
+            }
+            onActivate(g.mot, function () {
+                if (!opts.onMotors || motors === null) { return; }   // unknown: nothing to toggle
+                var wantOn = !motors;
+                if (!wantOn) { hardStop(); }
+                motorPend = wantOn; motorPendT = Date.now();
+                opts.onMotors(wantOn);
+                paintStatus();
+            });
+            /* the capsule above the pad: "0.25 m/s · SPEED · SLOW" */
+            var capH = 22;
+            g.capY = y0 - padR - 14;
+            g.cap = sv('rect', {'class': 'vt-ring-cap', x: x0 - 32, y: g.capY, width: 64, height: capH, rx: capH / 2}, s);
+            g.capV = sv('text', {'class': 'vt-ring-capv', x: x0, y: g.capY + 10.5, 'text-anchor': 'middle'}, s);
+            g.capU = sv('text', {'class': 'vt-ring-capu', x: x0, y: g.capY + 18.5, 'text-anchor': 'middle'}, s);
+            /* ? in the corner: the card "Driving by hand" */
+            g.help = ctl(s, 'vt-ring-btn vt-ring-q', 'help', 'joy.d.help.tip');
+            var qx = x0 + Rr - 7, qy = y0 - Rr + 7;
+            sv('circle', {'class': 'vt-ring-fr', cx: qx, cy: qy, r: 10.5}, g.help);
+            sv('circle', {'class': 'vt-ring-qbg', cx: qx, cy: qy, r: 8}, g.help);
+            var qt = sv('text', {'class': 'vt-ring-qt', x: qx, y: qy + 3.6, 'text-anchor': 'middle'}, g.help);
+            qt.textContent = '?';
+            setTitle(g.help, tr('joy.d.help.tip'));
+            onActivate(g.help, function () { intro.hidden = !intro.hidden; if (!intro.hidden) { introOk.focus(); } });
+
+            /* ---- slider input: drag / click (preview, picked on release),
+               the wheel, the keys while it has the focus */
+            var barPid = null;
+            hit.addEventListener('pointerdown', function (e) {
+                e.stopPropagation();
+                if (barPid !== null) { return; }
+                if (e.pointerType === 'mouse' && e.button !== 0) { return; }
+                e.preventDefault();
+                barPid = e.pointerId;
+                try { hit.setPointerCapture(barPid); } catch (err) { /* old browser */ }
+                preview = g.levelAt(e);
+                paintStatus();
+            });
+            hit.addEventListener('pointermove', function (e) {
+                if (e.pointerId !== barPid) { return; }
+                var p = g.levelAt(e);
+                if (p !== preview) { preview = p; buzz(3); paintStatus(); }
+            });
+            var barEnd = function (e) {
+                if (e.pointerId !== barPid) { return; }
+                barPid = null;
+                var p = preview;
+                preview = null;
+                if (e.type === 'pointerup' && p !== null) { chooseLevel(p); } else { paintStatus(); }
+            };
+            hit.addEventListener('pointerup', barEnd);
+            hit.addEventListener('pointercancel', barEnd);
+            hit.addEventListener('lostpointercapture', function (e) { if (e.pointerId === barPid) { barPid = null; preview = null; paintStatus(); } });
+            var wheelAt = 0;
+            spd.addEventListener('wheel', function (e) {
+                e.preventDefault();
+                var now = Date.now();
+                if (now - wheelAt < 180 || !e.deltaY) { return; }   // one notch = one step
+                wheelAt = now;
+                stepLevel(e.deltaY < 0 ? 1 : -1);
+            }, {passive: false});
+            spd.addEventListener('keydown', function (e) {
+                var d = {ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 1, PageDown: -1}[e.key];
+                if (e.key === 'Home') { d = -99; } else if (e.key === 'End') { d = 99; }
+                var n = /^[1-9]$/.test(e.key) ? parseInt(e.key, 10) : 0;
+                if (!d && !(n && n <= levels.length)) { return; }
+                e.preventDefault();
+                e.stopPropagation();            // the slider's arrows never drive
+                if (n) { chooseLevel(n - 1); } else { stepLevel(d); }
+            });
+
+            ringBox.insertBefore(s, pad);
+            ringBox.style.width = W + 'px';
+            ringBox.style.height = H + 'px';
+            pad.style.left = (x0 - padR).toFixed(1) + 'px';
+            pad.style.top = (y0 - padR).toFixed(1) + 'px';
+            pad.style.width = pad.style.height = (2 * padR).toFixed(1) + 'px';
+            ring = g;
+            ringStatic();
+            ringFx();
+            if (fk) { var f = s.querySelector('[data-k="' + fk + '"]'); if (f) { f.focus({preventScroll: true}); } }
+        }
+        /* speed, modes, buttons, capsule — what changes with the state */
+        function ringStatic() {
+            var g = ring;
+            if (!g) { return; }
+            var shown = preview !== null ? preview : level;
+            g.segs.forEach(function (p, i) {
+                var on = i <= shown;
+                p.setAttribute('fill', on ? heat(i) : '#343e46');
+                p.setAttribute('fill-opacity', on ? (i === shown ? 1 : 0.78) : 1);
+                if (i === shown) { p.setAttribute('filter', g.glow); } else { p.removeAttribute('filter'); }
+                p.classList.toggle('want', want !== null && i === want && i !== shown);
+            });
+            g.spd.classList.toggle('pend', want !== null);
+            var showMode = preview !== null ? levels[preview].mode : speedKey;
+            var mtxt = showMode ? tr('joy.d.mode.' + showMode) : '?';
+            Object.keys(g.lbls).forEach(function (m) {
+                var t = g.lbls[m];
+                t.classList.toggle('on', speedKey === m);
+                t.classList.toggle('pend', want !== null && levels[want].mode === m && speedKey !== m);
+                var tp = t.firstChild, word = tr('joy.d.mode.' + m);
+                if (tp.textContent !== word) { tp.textContent = word; }
+                var tt = tr('joy.d.band.tip', {mode: word, v: navSpeed(m).toFixed(2)});
+                if (t.vtTitle.textContent !== tt) { t.vtTitle.textContent = tt; }
+            });
+            var lv = levels[shown];
+            var vtxt = lv.lin.toFixed(2) + ' m/s';
+            g.spd.setAttribute('aria-valuenow', String(shown + 1));
+            g.spd.setAttribute('aria-valuetext', vtxt + ', ' + mtxt);
+            var bt = tr('joy.d.bar.tip', {v: vtxt, a: lv.ang.toFixed(1), mode: mtxt});
+            if (g.spdTitle.textContent !== bt) { g.spdTitle.textContent = bt; }
+            var cur = want !== null ? want : level;
+            [[g.minus, cur <= 0], [g.plus, cur >= levels.length - 1]].forEach(function (x) {
+                x[0].classList.toggle('dis', x[1]);
+                x[0].setAttribute('aria-disabled', x[1] ? 'true' : 'false');
+            });
+            /* the capsule: value + "SPEED · MODE", as wide as its text */
+            if (g.capV.textContent !== vtxt) { g.capV.textContent = vtxt; }
+            var ut = (tr('joy.d.speed') + ' · ' + mtxt).toUpperCase();
+            if (g.capU.textContent !== ut) { g.capU.textContent = ut; }
+            var tw = 0;
+            try { tw = Math.max(g.capV.getComputedTextLength(), g.capU.getComputedTextLength()); } catch (e) { tw = 0; }
+            if (!tw) { tw = ut.length * 4.9; }
+            var cw = Math.min(g.padR * 2 + 16, Math.max(56, tw + 16));
+            g.cap.setAttribute('x', (g.cx - cw / 2).toFixed(2));
+            g.cap.setAttribute('width', cw.toFixed(2));
+            g.cap.setAttribute('stroke', heat(shown));
+            /* keys */
+            if (g.kb) {
+                g.kb.classList.toggle('on', keyboardOn);
+                g.kb.setAttribute('aria-pressed', keyboardOn ? 'true' : 'false');
+                g.kb.setAttribute('aria-label', tr('joy.kb.lbl') + ' ' + tr(keyboardOn ? 'joy.mot.on' : 'joy.mot.off'));
+                setTitle(g.kb, tr('joy.d.kb.tip'));
+            }
+            /* motors: the robot's state; a click blinks until the echo */
+            var mk = motors === true ? 'on' : (motors === false ? 'off' : 'unknown');
+            g.mot.setAttribute('data-state', mk);
+            g.mot.classList.toggle('pend', motorPend !== null && motorPend !== motors);
+            g.mot.setAttribute('aria-pressed', motors === true ? 'true' : 'false');
+            g.mot.setAttribute('aria-disabled', motors === null ? 'true' : 'false');
+            var ml = tr('joy.d.mot.' + mk);
+            g.mot.setAttribute('aria-label', ml);
+            setTitle(g.mot, tr(motors === true ? 'joy.motors.off_tip' : (motors === false ? 'joy.motors.on_tip' : 'joy.motors.unknown_tip')));
+        }
+        /* the command, drawn: knob, light, halo, arcs, arrows, axis lock */
+        function ringFx() {
+            var g = ring;
+            if (!g) { return; }
+            var dim = motors === true ? 1 : 0.45;
+            var mag = Math.min(1, Math.hypot(nx, ny));
+            var fl = speedLin > 0 ? clamp(Math.abs(oLin) / speedLin, 0, 1) : 0;
+            var fa = speedAng > 0 ? clamp(Math.abs(oAng) / speedAng, 0, 1) : 0;
+            var fwd = mix(C_FWD0, C_FWD1, Math.max(fl, Math.max(0, ny)));
+            var dirCol = ny < -0.02 ? C_BACK : (Math.abs(nx) > Math.abs(ny) ? C_TURN : fwd);
+            var T = g.padR * TRAVEL;
+            var tf = 'translate(' + (nx * T).toFixed(1) + 'px,' + (-ny * T).toFixed(1) + 'px)';
+            g.knob.style.transform = tf;
+            g.halo.style.transform = tf;
+            g.halo.setAttribute('stroke', dirCol);
+            g.halo.setAttribute('r', (g.knobR + 3 + mag * 4).toFixed(2));
+            g.halo.setAttribute('opacity', ((mag > 0.02 ? 0.35 + mag * 0.65 : 0) * dim).toFixed(3));
+            g.spot.setAttribute('cx', (g.cx + nx * T).toFixed(1));
+            g.spot.setAttribute('cy', (g.cy - ny * T).toFixed(1));
+            g.sp0.setAttribute('stop-color', dirCol);
+            g.sp1.setAttribute('stop-color', dirCol);
+            g.sp0.setAttribute('stop-opacity', (mag * 0.55 * dim).toFixed(3));
+            /* outer arc = speed: top forward, bottom back */
+            var c = oLin < 0 ? 90 * DEG : -90 * DEG, w = fl * 80 * DEG;
+            g.arcSp.setAttribute('stroke', oLin < 0 ? C_BACK : fwd);
+            g.arcSp.setAttribute('stroke-width', (3 + fl * 4).toFixed(2));
+            g.arcSp.setAttribute('opacity', dim);
+            g.arcSp.setAttribute('d', fl > 0.005 ? rArc(g.cx, g.cy, g.padR * 0.92, c - w, c + w) : '');
+            /* inner arc = turn, from the top to the turning side (right = −z) */
+            var t0 = -90 * DEG, t1 = t0 + (oAng < 0 ? 1 : -1) * fa * 90 * DEG;
+            g.arcTu.setAttribute('stroke-width', (2.5 + fa * 3).toFixed(2));
+            g.arcTu.setAttribute('opacity', dim);
+            g.arcTu.setAttribute('d', fa > 0.005 ? rArc(g.cx, g.cy, g.padR * 0.74, Math.min(t0, t1), Math.max(t0, t1)) : '');
+            /* the arrows light up in the direction's colour */
+            var lit = {f: Math.max(0, ny), b: Math.max(0, -ny), r: Math.max(0, nx), l: Math.max(0, -nx)};
+            Object.keys(g.arr).forEach(function (k) {
+                var v = lit[k], on = v > 0.05;
+                g.arr[k].setAttribute('fill', on ? (k === 'f' ? fwd : (k === 'b' ? C_BACK : C_TURN)) : '#6f7a83');
+                g.arr[k].setAttribute('opacity', on ? ((0.5 + v * 0.5) * (motors === true ? 1 : 0.7)).toFixed(3) : 1);
+            });
+            /* the locked axis lights up in the direction's colour */
+            var lk = held() ? lastLock : '';
+            g.axV.setAttribute('stroke', ny < 0 ? C_BACK : fwd);
+            g.axV.setAttribute('opacity', lk === 'v' ? (0.95 * dim).toFixed(3) : 0);
+            g.axH.setAttribute('stroke', C_TURN);
+            g.axH.setAttribute('opacity', lk === 'h' ? (0.95 * dim).toFixed(3) : 0);
+        }
+        function ripple(e) {
+            var g = ring;
+            if (!g || reducedMotion()) { return; }
+            var b = g.svg.getBoundingClientRect(), k = g.W / (b.width || g.W);
+            var rp = sv('circle', {'class': 'vt-ring-ripple', cx: ((e.clientX - b.left) * k).toFixed(1), cy: ((e.clientY - b.top) * k).toFixed(1), r: 6,
+                                   stroke: lockReason() ? '#9fb0ba' : (motors === true ? '#7ff0c0' : '#9fb0ba')}, g.ripples);
+            setTimeout(function () { if (rp.parentNode) { rp.parentNode.removeChild(rp); } }, 600);
+        }
+
         function paintStatus() {
             var now = Date.now();
             if (speedPend && now - speedPendT > PENDING_MS) { speedPend = null; }
@@ -368,11 +725,12 @@
             var ms = motors === true ? 'ok' : (motors === false ? 'warn' : 'off');
             chipMotors.setAttribute('data-state', ms);
             root.classList.toggle('vt-joy-nomotors', motors === false);
+            root.classList.toggle('vt-joy-dim', motors !== true);
             root.setAttribute('data-tone', tone());
             var lr = lockReason();
             root.classList.toggle('vt-joy-locked', !!lr);
             // the word in the pad only when someone else holds the robot; a
-            // grey ring already says "motors off" (owner: colour, not text)
+            // grey edge already says "motors off" (owner: colour, not text)
             lockEl.textContent = (lr && lr !== 'motors') ? tr('joy.lock.owner_short') : '';
             if (!deck) {
                 chipSpeed.textContent = speedText(speedLabel);
@@ -388,58 +746,19 @@
             else if (owner && takeover) { h = tr('joy.hint.takeover', {who: ownerText}); }
             else if (motors === null) { h = tr('joy.hint.unknown'); }
             else { h = tr(keyboardOn ? 'joy.d.hint.free_kb' : 'joy.d.hint.free'); }
-            /* the line shows only what the buttons cannot (stale data, DS4,
+            /* the line shows only what the ring cannot (stale data, DS4,
                another owner); motors and "free" stay in the pad's tooltip */
             var rare = !!(staleNote || lr === 'ds4' || lr === 'owner' || (owner && takeover));
             var shown = rare ? h : '';
             if (hint.textContent !== shown) { hint.textContent = shown; }
             hint.hidden = !rare;
+            sideTip.hidden = rare;              // phone band: the hint takes the tip's place
             if (pad.title !== h) { pad.title = h; }
             hint.setAttribute('data-tone', tone());
             takeBtn.hidden = lr !== 'owner';
-            /* keyboard */
-            kbToggle.classList.toggle('on', keyboardOn);
-            kbToggle.setAttribute('aria-pressed', keyboardOn ? 'true' : 'false');
-            /* motors: ONE toggle showing the robot's state; a click blinks
-               until the robot echoes it */
-            var mk = motors === true ? 'on' : (motors === false ? 'off' : 'unknown');
-            motOn.setAttribute('data-state', mk);
-            motOn.classList.toggle('pend', motorPend !== null && motorPend !== motors);
-            motOn.setAttribute('aria-pressed', motors === true ? 'true' : 'false');
-            var ml = tr('joy.d.mot.' + mk);
-            if (motOff.textContent !== ml) { motOff.textContent = ml; }
-            var mt = tr(motors === true ? 'joy.motors.off_tip' : (motors === false ? 'joy.motors.on_tip' : 'joy.motors.unknown_tip'));
-            if (motOn.title !== mt) { motOn.title = mt; }
-            /* speed: the level the stick drives with; a wanted level of
-               another mode blinks until the robot reports that mode */
             if (want !== null && now - wantT > PENDING_MS) { want = null; }
-            var lv = levels[level];
-            var vtxt = lv.lin.toFixed(2) + ' m/s';
-            if (spdVal.textContent !== vtxt) { spdVal.textContent = vtxt; }
-            var shownMode = speedKey || null;
-            var mtxt = shownMode ? tr('joy.d.mode.' + shownMode) : '?';
-            if (spdMode.textContent !== mtxt) { spdMode.textContent = mtxt; }
-            spdMode.setAttribute('data-mode', shownMode || 'unknown');
-            spdBox.classList.toggle('pend', want !== null);
-            spdSegs.forEach(function (seg, i) {
-                seg.classList.toggle('on', i <= level);
-                seg.classList.toggle('cur', i === level);
-                seg.classList.toggle('want', want !== null && i === want);
-                seg.classList.toggle('pre', preview !== null && i === preview);
-            });
-            Object.keys(spdBands).forEach(function (m) {
-                spdBands[m].classList.toggle('sel', speedKey === m);
-                spdBands[m].classList.toggle('pend', want !== null && levels[want].mode === m && speedKey !== m);
-                var navv = navSpeed(m);
-                var bt = tr('joy.d.band.tip', {mode: tr('joy.d.mode.' + m), v: navv.toFixed(2)});
-                if (spdBands[m].title !== bt) { spdBands[m].title = bt; }
-            });
-            spdBar.setAttribute('aria-valuenow', String(level + 1));
-            spdBar.setAttribute('aria-valuetext', vtxt + ', ' + mtxt);
-            var bt2 = tr('joy.d.bar.tip', {v: vtxt, a: lv.ang.toFixed(1), mode: mtxt});
-            if (spdBar.title !== bt2) { spdBar.title = bt2; }
-            spdMinus.disabled = (want !== null ? want : level) <= 0;
-            spdPlus.disabled = (want !== null ? want : level) >= levels.length - 1;
+            ringStatic();
+            ringFx();
             /* first use: the card, once the deck is on screen */
             if (!introSeen && intro.hidden && root.offsetWidth > 0) { intro.hidden = false; }
         }
@@ -454,7 +773,7 @@
             speedLin = levels[i].lin; speedAng = levels[i].ang;
             if (held()) { computeTargetOrKeys(); }
         }
-        /* a person picked level i (bar, − / +, keys) */
+        /* a person picked level i (arc, − / +, keys) */
         function chooseLevel(i) {
             i = clamp(i, 0, levels.length - 1);
             var m = levels[i].mode;
@@ -473,6 +792,7 @@
         function paintRead() {
             readLin.textContent = (oLin >= 0 ? '+' : '−') + Math.abs(oLin).toFixed(2) + ' m/s';
             readAng.textContent = (oAng >= 0 ? '+' : '−') + Math.abs(oAng).toFixed(2) + ' rad/s';
+            if (deck) { ringFx(); return; }
             /* the command arcs: speed on the outer ring (top = forward,
                bottom = back), turn on the inner one (to the turning side) */
             var fl = speedLin > 0 ? clamp(Math.abs(oLin) / speedLin, 0, 1) : 0;
@@ -484,8 +804,10 @@
         }
         function paintStick() {
             var r = Math.min(1, Math.hypot(nx, ny));
-            var kx = nx * R, ky = -ny * R;
-            knob.style.transform = 'translate(' + kx.toFixed(1) + 'px,' + ky.toFixed(1) + 'px)';
+            if (knob) {
+                var kx = nx * R, ky = -ny * R;
+                knob.style.transform = 'translate(' + kx.toFixed(1) + 'px,' + ky.toFixed(1) + 'px)';
+            }
             pad.style.setProperty('--vt-joy-mag', r.toFixed(3));
             var active = held();
             root.setAttribute('data-state', active ? (motors === false ? 'warn' : 'info') : 'off');
@@ -495,6 +817,7 @@
             root.classList.toggle('vt-joy-lock-v', lk === 'v');
             root.classList.toggle('vt-joy-lock-h', lk === 'h');
             pad.setAttribute('aria-valuetext', active ? tr('joy.value', {lin: oLin.toFixed(2), ang: oAng.toFixed(2)}) : tr('joy.stopped'));
+            if (deck) { ringFx(); }
         }
 
         /* stick -> target command */
@@ -591,7 +914,8 @@
         function measure() {
             var b = pad.getBoundingClientRect();
             cx = b.left + b.width / 2; cy = b.top + b.height / 2;
-            R = Math.max(10, b.width / 2 - knob.offsetWidth / 2 - 2);
+            if (deck) { R = Math.max(10, b.width / 2 * TRAVEL); }
+            else { R = Math.max(10, b.width / 2 - knob.offsetWidth / 2 - 2); }
         }
         function track(e) {
             var dx = (e.clientX - cx) / R, dy = (cy - e.clientY) / R;
@@ -612,6 +936,7 @@
             if (pid !== null) { return; }                 // a second finger: ignored
             if (e.pointerType === 'mouse' && e.button !== 0) { return; }
             e.preventDefault();
+            if (deck) { ripple(e); }
             if (lockReason()) { nudgeLock(); return; }
             keys = {}; capKeys = {};                      // the stick wins over the keys
             pid = e.pointerId;
@@ -640,7 +965,7 @@
         pad.addEventListener('lostpointercapture', function (e) { if (e.pointerId === pid) { softRelease(); } });
         pad.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
-        /* ---- keyboard + keycaps: the same command path */
+        /* ---- keyboard: the same command path */
         var KEYMAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
         function fromKeys() {
             var k = shiftHeld ? 0.5 : 1;
@@ -677,32 +1002,6 @@
             shiftHeld = e.shiftKey;
             if (keyActive()) { fromKeys(); paintStatus(); } else { softRelease(); }
         });
-        Object.keys(caps).forEach(function (k) {
-            var c = caps[k], cid = null;
-            c.addEventListener('pointerdown', function (e) {
-                if (cid !== null || pid !== null) { return; }
-                if (e.pointerType === 'mouse' && e.button !== 0) { return; }
-                e.preventDefault();
-                if (lockReason()) { nudgeLock(); return; }
-                cid = e.pointerId;
-                try { c.setPointerCapture(cid); } catch (err) { /* old browser */ }
-                capKeys[k] = true; shiftHeld = false;
-                fromKeys(); engage(); paintStatus();
-            });
-            var up = function (e) {
-                if (e.pointerId !== cid) { return; }
-                cid = null;
-                if (!capKeys[k]) { return; }
-                capKeys[k] = false;
-                if (e.type === 'pointercancel') { hardStop(); return; }
-                if (keyActive()) { fromKeys(); paintStatus(); } else { softRelease(); }
-            };
-            c.addEventListener('pointerup', up);
-            c.addEventListener('pointercancel', up);
-            c.addEventListener('lostpointercapture', up);
-            c.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-            c.addEventListener('click', function (e) { e.preventDefault(); });   // no keyboard "click" drive
-        });
 
         /* ---- anything that takes the hand away stops the robot at once */
         window.addEventListener('blur', function () { if (phase !== 'idle' || held()) { hardStop(); } });
@@ -711,73 +1010,6 @@
 
         /* ---- deck controls */
         if (deck) {
-            kbToggle.addEventListener('click', function () {
-                api.setKeyboard(!keyboardOn);
-                if (opts.onKeyboard) { opts.onKeyboard(keyboardOn); }
-            });
-            motOn.addEventListener('click', function () {
-                if (!opts.onMotors || motors === null) { return; }   // unknown: nothing to toggle
-                var want = !motors;
-                if (!want) { hardStop(); }
-                motorPend = want; motorPendT = Date.now();
-                opts.onMotors(want);
-                paintStatus();
-            });
-            /* speed: − / +, the bars (tap / click / drag along them, the
-               wheel), the keys when the bar has the focus */
-            spdMinus.addEventListener('click', function () { stepLevel(-1); });
-            spdPlus.addEventListener('click', function () { stepLevel(1); });
-            var barPid = null;
-            var segAt = function (x) {
-                var b = spdBar.getBoundingClientRect();
-                return clamp(Math.floor((x - b.left) / b.width * levels.length), 0, levels.length - 1);
-            };
-            spdBar.addEventListener('pointerdown', function (e) {
-                if (barPid !== null) { return; }
-                if (e.pointerType === 'mouse' && e.button !== 0) { return; }
-                e.preventDefault();
-                barPid = e.pointerId;
-                try { spdBar.setPointerCapture(barPid); } catch (err) { /* old browser */ }
-                preview = segAt(e.clientX);
-                paintStatus();
-            });
-            spdBar.addEventListener('pointermove', function (e) {
-                if (e.pointerId !== barPid) { return; }
-                var p = segAt(e.clientX);
-                if (p !== preview) { preview = p; paintStatus(); }
-            });
-            var barEnd = function (e) {
-                if (e.pointerId !== barPid) { return; }
-                barPid = null;
-                var p = preview;
-                preview = null;
-                if (e.type === 'pointerup' && p !== null) { chooseLevel(p); } else { paintStatus(); }
-            };
-            spdBar.addEventListener('pointerup', barEnd);
-            spdBar.addEventListener('pointercancel', barEnd);
-            spdBar.addEventListener('lostpointercapture', function (e) { if (e.pointerId === barPid) { barPid = null; preview = null; paintStatus(); } });
-            var wheelAt = 0;
-            spdBar.addEventListener('wheel', function (e) {
-                e.preventDefault();
-                var now = Date.now();
-                if (now - wheelAt < 180 || !e.deltaY) { return; }   // one notch = one step
-                wheelAt = now;
-                stepLevel(e.deltaY < 0 ? 1 : -1);
-            }, {passive: false});
-            spdBar.addEventListener('keydown', function (e) {
-                var d = {ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 1, PageDown: -1}[e.key];
-                if (e.key === 'Home') { d = -99; } else if (e.key === 'End') { d = 99; }
-                var n = /^[1-9]$/.test(e.key) ? parseInt(e.key, 10) : 0;
-                if (!d && !(n && n <= levels.length)) { return; }
-                e.preventDefault();
-                e.stopPropagation();            // the bar's arrows never drive
-                if (n) { chooseLevel(n - 1); } else { stepLevel(d); }
-            });
-            /* a mode's name under the bars = that mode at its own speed */
-            Object.keys(spdBands).forEach(function (m) {
-                spdBands[m].addEventListener('click', function () { chooseLevel(defaultLevel(m)); });
-            });
-            helpBtn.addEventListener('click', function () { intro.hidden = !intro.hidden; if (!intro.hidden) { introOk.focus(); } });
             introOk.addEventListener('click', function () {
                 intro.hidden = true; introSeen = true;
                 try { localStorage.setItem(LS_INTRO, '1'); } catch (e) { /* ignore */ }
@@ -787,11 +1019,21 @@
                 buzz(10);
                 paintStatus(); paintStick();
             });
-            setInterval(function () { if (want !== null || motorPend !== null || (!introSeen && intro.hidden)) { paintStatus(); } }, 1000);
+            buildRing(true);
+            /* the ring's size follows the frame (PC 184 px, phone 150 px) */
+            var sizeT = null;
+            window.addEventListener('resize', function () {
+                if (sizeT) { clearTimeout(sizeT); }
+                sizeT = setTimeout(function () { sizeT = null; buildRing(false); }, 80);
+            });
+            setInterval(function () {
+                buildRing(false);
+                if (want !== null || motorPend !== null || (!introSeen && intro.hidden)) { paintStatus(); }
+            }, 1000);
         }
 
         paintStatus(); paintRead(); paintStick();
-        if (window.VTI18n) { VTI18n.onChange(function () { paintStatus(); paintStick(); }); }
+        if (window.VTI18n) { VTI18n.onChange(function () { if (deck) { buildRing(true); } paintStatus(); paintStick(); }); }
 
         var api = {
             setSpeed: function (lin, ang, label) {
@@ -842,7 +1084,8 @@
             state: function () {
                 return { active: held(), lin: oLin, ang: oAng, nx: nx, ny: ny, sending: !!timer,
                          phase: phase, lock: lockReason(), tone: tone(), motors: motors,
-                         speedKey: speedKey, level: level, want: want, capLin: speedLin, capAng: speedAng, owner: owner, takeover: takeover, keyboard: keyboardOn };
+                         speedKey: speedKey, level: level, want: want, capLin: speedLin, capAng: speedAng, owner: owner, takeover: takeover, keyboard: keyboardOn,
+                         ring: ring ? ring.D : 0 };
             }
         };
         function computeTargetOrKeys() { if (pid !== null) { computeTarget(); } else { fromKeys(); } }

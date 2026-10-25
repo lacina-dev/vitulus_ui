@@ -27,7 +27,7 @@ the same page on a PC, a tablet and a phone.
 4. **Map** — the robot (orange), its path, the map layers.
 5. **Right panel** — battery, Dock / Undock, the localization state and the camera.
 6. **Log** — what the robot did and said ([more](frame.md#log)).
-7. **Joystick** — the drive deck: stick, speed, motors, keys — on the big STOP ([more](frame.md#drive-by-hand-joystick)).
+7. **Joystick** — the drive ring: stick, speed, motors, keys — at the foot of the right column ([more](frame.md#drive-by-hand-joystick)).
 8. **STOP** — always bottom left. Stops all motion ([Safety](safety.md)).
 
 ## The robot

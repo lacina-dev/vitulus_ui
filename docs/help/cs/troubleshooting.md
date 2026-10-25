@@ -16,13 +16,13 @@ Začni **stavovými ikonami** (svítí něco červeně nebo šedě?), **stavový
 
 ## Robot nejede
 
-![Panel jízdy](../img/shot-joystick.webp "Panel jízdy to řekne první: prstenec je šedý a páčka hlásí *motory vyp.*; MOT VYP (3) — kliknutím je zapneš.")
+![Prstenec jízdy](../img/shot-joystick.webp "Prstenec jízdy to řekne první: okraj páčky je šedý a ikona motoru (6) oranžová — kliknutím je zapneš.")
 
 Projdi v tomhle pořadí:
 
 1. **Vypnuté motory?** Po každém startu, restartu a STOPu jsou pojezdové motory VYPNUTÉ. Ukazuje to
    joystick a log píše *Motors are OFF – turn motors on to move/dock*. →
-   **MOT VYP → ZAP** v panelu jízdy (nebo **Nastavení › Motory › ON**).
+   oranžová **ikona motoru** v prstenci jízdy (zelená = zapnuté) (nebo **Nastavení › Motory › ON**).
 2. **Převzal řízení člověk?** Pohyb páčkou gamepadu (nebo PS / L1 / R1) nebo joystickem v UI
    zruší cíl, zajetí do doku i běžící program a software zůstane zastavený i po puštění
    ([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)). → pošli cíl
