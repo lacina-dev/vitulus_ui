@@ -169,9 +169,18 @@
     /* "Start with the agent" / "talk it over": the prepared sentence goes
        into the issue's thread on the field and the agent takes it from there.
        A thread that is not an issue (an item thread) opens on the dashboard. */
+    /* the dashboard takes "ask" from the robot UI since kit 0.9.52 */
+    function askOn() {
+        var e = window.VTHub && VTHub.get('field.home');
+        var v = e && e.data && ((e.data.footer || {}).kit_version || (e.data.meta || {}).kit_version);
+        var m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || ''));
+        if (!m) { return false; }
+        var n = [Number(m[1]), Number(m[2]), Number(m[3])];
+        return n[0] > 0 || n[1] > 9 || (n[1] === 9 && n[2] >= 52);
+    }
     function askButton(thread, text, label, primary, box, msgEl, key, link) {
         if (!text) { return null; }
-        if (!THREAD_RE.test(String(thread || '')) || !writesOn()) {
+        if (!THREAD_RE.test(String(thread || '')) || !writesOn() || !askOn()) {
             return linkBtn(label, dash(link || (THREAD_RE.test(String(thread || '')) ? '#/issue/' + thread : '#/')),
                 primary ? 'vt-fv-go' : '');
         }

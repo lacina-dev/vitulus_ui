@@ -345,5 +345,6 @@ dashboardu Podpory:
 Každé tlačítko, které zapisuje, chce **dvě kliknutí do 5 s** a je podepsané tvým jménem (zeptá se
 jednou na zařízení); jde přes webový uzel robota do dashboardu s jednorázovým tokenem vázaným na
 kartu a text, který jsi viděl. Agentovi odsud jde poslat jen věta, kterou field sám připravil, a
-volba, která by pohnula robotem, se tady nikdy nenabízí. Schválení akce hlídače (např. vydání)
+(s kitem fieldu starším než 0.9.52 **Začít s agentem** a **probrat s agentem** otevřou issue na
+dashboardu) a volba, která by pohnula robotem, se tady nikdy nenabízí. Schválení akce hlídače (např. vydání)
 zůstává na dashboardu: **Schválit v Podpoře**.

@@ -348,5 +348,6 @@ same language as the Support dashboard's home page:
 Every button that writes takes **two clicks within 5 s** and is signed with your name (asked once
 per device); it goes through the robot's web node to the dashboard with a single-use token bound
 to the card and the text you saw. Only sentences the field itself prepared can be sent to the
-agent from here, and an option that moves the robot is never offered here. Approving a watcher
+agent from here (with a field kit older than 0.9.52 **Start with the agent** and **talk it over**
+open the issue on the dashboard instead), and an option that moves the robot is never offered here. Approving a watcher
 action (e.g. a release) stays on the dashboard: **Approve in Support**.
