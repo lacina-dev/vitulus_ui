@@ -122,6 +122,10 @@ zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kd
 
 Dosahy jsou ty, které mapovač opravdu používá (jeho posuvníky), ne maximum senzorů.
 
+**Plán agenta** (jantarový ◆) ukazuje, co agent plánuje pro běžící misi — body, trasy a plochy,
+které si nakreslil do mapy; objeví se a zmizí sám, viz
+[Agent Vitulus › Plán agenta na mapě](agent.md#plán-agenta-na-mapě).
+
 **Zobrazení (vrstvy)** nastaví jejich krytí, barvy značky robota, zdroj leteckého snímku
 (satelit / ČÚZK / OSM), přiblížení a posun zarovnání (uložený na robotu pro každou mapu a zdroj
 dlaždic), srážkový radar a ukáže stav terénu (DEM). **Vymazat costmapy** zapomene překážky,

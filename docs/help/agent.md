@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
+keywords: [agent's plan, plan on the map, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
 ---
 # Vitulus agent
 
@@ -141,6 +141,22 @@ dej go na bod TEST a počkej tam na signál
   home. A person on the controls always wins.
 - Every step is recorded (*~/.vitulus/agent/operator/*); the mission card shows the steps, the
   model's latency and the tool calls used.
+
+### The agent's plan on the map
+
+When the operator plans a drive to a place that is not a saved point or route — *the far end of
+zone B*, *around zone A*, *2 m behind the dock* — it does not guess coordinates. It **looks at the
+map** (a picture with a metre grid and axis numbers, zones, points, routes, the robot and the dock),
+**draws its plan into it** (points, routes, areas, arrows with short labels like *b1 goal*),
+**checks every point** (free or in an obstacle, in which zone, reachable from the robot, how long
+the way is — a point in an obstacle is replaced by the nearest free one) and shows you the picture
+in **Chat**.
+
+When it starts, the same plan appears on **your live map** as the layer **Agent's plan**
+(Map › Layers, amber ◆; warnings red, helper lines blue). A card in the bottom-left corner of the
+map says which mission it belongs to: **Show** moves the map onto the plan, **Clear** removes it
+from your view (the agent keeps its plan). A fresh plan brings the map forward once per mission
+(a large camera view steps back). The plan disappears by itself when the mission ends.
 
 ## When a step fails
 

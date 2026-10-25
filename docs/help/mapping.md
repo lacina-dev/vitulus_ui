@@ -123,6 +123,10 @@ It switches on by itself when a recording starts and off when it ends (tick it b
 
 The ranges are the ones the mapper really uses (its sliders), not the sensors' maximum.
 
+**Agent's plan** (amber ◆) shows what the agent plans for its running mission — points, routes and
+areas it drew into the map; it appears and disappears by itself, see
+[Vitulus agent › The agent's plan on the map](agent.md#the-agents-plan-on-the-map).
+
 **Display (layers)** sets their opacity, the robot marker colours, the aerial photo source
 (satellite / ČÚZK / OSM), zoom and an alignment nudge (saved on the robot for each map and tile
 source), the rain radar, and shows the terrain (DEM) status. **Clear costmaps** forgets the obstacles the robot currently remembers — it does not

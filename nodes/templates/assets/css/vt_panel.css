@@ -2215,6 +2215,48 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt
     .vt-utm-rose svg { width: 46px; height: 46px; }
 }
 
+/* Agent's plan on the map (vt_agent_plan.js): the card sits in the bottom-left
+   corner of the map hollow (free since the big STOP moved top-right), the
+   labels follow the camera.  Colours = the plan's styles: amber plan, red
+   warning, blue helper (same as the agent's map picture). */
+.vt-sw-aplan { color: #ffb000; }
+.vt-aplan-card {
+    position: fixed; z-index: 4;
+    left: calc(var(--vt-frame-cleft, 0px) + 10px);
+    bottom: calc(var(--vt-frame-cbottom, 40px) + 10px);
+    max-width: min(320px, calc(100vw - var(--vt-frame-cleft, 0px) - var(--vt-frame-rp-w, 0px) - 30px));
+    background: rgba(20, 24, 28, 0.82); color: var(--vt-text, #dee2e6);
+    border: 1px solid rgba(255, 176, 0, 0.45); border-radius: 12px;
+    padding: 6px 8px 7px; font-size: 12px; line-height: 1.3;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.vt-aplan-head { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.vt-aplan-dot { color: #ffb000; }
+.vt-aplan-title { font-weight: 600; }
+.vt-aplan-mission { color: var(--vt-muted, #9aa4ad); overflow: hidden; text-overflow: ellipsis; }
+.vt-aplan-sub { color: var(--vt-muted, #9aa4ad); margin: 2px 0 5px; overflow-wrap: anywhere; }
+.vt-aplan-btns { display: flex; gap: 6px; }
+.vt-aplan-btn {
+    min-height: 32px; padding: 2px 12px; border-radius: 8px; font-size: 12px;
+    background: var(--vt-surface-3, #37434d); color: var(--vt-text, #dee2e6);
+    border: 1px solid var(--vt-border-strong, rgba(255, 255, 255, 0.18));
+}
+.vt-aplan-btn:hover { background: #44525e; color: #fff; }
+.vt-aplan-clear { border-color: rgba(255, 70, 70, 0.5); }
+.vt-aplan-labels { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.vt-aplan-tag {
+    position: absolute; left: 0; top: 0; white-space: nowrap;
+    font: 600 12px/1.2 var(--vt-font, Roboto, sans-serif);
+    padding: 1px 5px; border-radius: 6px; background: rgba(0, 0, 0, 0.72);
+    color: #ffb000; border: 1px solid rgba(255, 176, 0, 0.55);
+}
+.vt-aplan-tag.vt-aplan-warn { color: #ff6b6b; border-color: rgba(255, 70, 70, 0.6); }
+.vt-aplan-tag.vt-aplan-info { color: #78c8ff; border-color: rgba(120, 200, 255, 0.55); }
+@media (max-width: 575.98px) {
+    .vt-aplan-card { left: calc(var(--vt-frame-cleft, 0px) + 6px); padding: 5px 7px 6px; }
+    .vt-aplan-tag { font-size: 11px; }
+}
+
 /* 2026-10-25: landscape phone / small tablet — the status strip (32 px row,
    vt_field.css) and the notice band hang into the narrow hollow right where
    the compass rose sits (vt_georef.js); the rose steps below both instead of
