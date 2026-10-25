@@ -1,7 +1,8 @@
 /* status_header.js — the robot status icon strip (#status_div, the green
    pictograms: wifi/gps/imu/lidar/camera/mower/motors/temps/supply/batt)
    lives at the top of the map view on small screens, but on a wide viewport
-   it moves into the page header, between the rain icon and the menu button.
+   it moves into the page header, before the menu button.  The rain alert
+   (#ico_rain, rain_alert.js) is its first group since 2026-10-25.
    The strip is the SAME element either way (dashboard.js updates the <img>
    nodes by id; moving a node keeps those references valid). */
 (function () {
@@ -53,6 +54,7 @@
        nodes are MOVED, never recreated: dashboard.js swaps their `src` by bare
        id, so the ids must survive and must not be duplicated. */
     var GROUPS = [
+        {id: 'weather', title: 'status.group.weather', icons: ['ico_rain']},
         {id: 'sense', title: 'status.group.sense',
          icons: ['ico_wifi', 'ico_gps', 'ico_gps_nav', 'ico_imu', 'ico_lidar', 'ico_camera']},
         {id: 'drive', title: 'status.group.drive',

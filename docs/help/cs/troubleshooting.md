@@ -106,8 +106,8 @@ Po restartu softwaru robota se agent sám za pár sekund znovu připojí; mise, 
 
 ## UI nereaguje
 
-1. Obnov stránku. Šedé ikony a *ODPOJENO* v navbaru = stránka ztratila spojení s robotem —
-   klikni na ten text (*Klikni pro nové připojení*) a připojí se hned.
+1. Obnov stránku. Šedé ikony, červená tečka vedle loga a *Bez spojení s robotem* v pásu hlášek =
+   stránka ztratila spojení s robotem — klikni na tečku a připojí se hned.
 2. Když nefunguje žádné tlačítko, spadl websocketový most robota (rosbridge) → restartuj stack
    robota: položka **Restart** v menu navbaru (restartuje službu robota; motory pak budou
    VYPNUTÉ).

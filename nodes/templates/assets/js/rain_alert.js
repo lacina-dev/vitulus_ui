@@ -47,15 +47,50 @@ class RainAlert {
         this.refreshTimer = setInterval(() => this.updateImages(), 30000); // 30 seconds
     }
     
+    /* The rain alert is one of the status icons (#status_div, weather group —
+       status_header.js) since 2026-10-25. Click / Enter / Space: refresh the
+       radar images and open them (left panel › Map › Rain). */
     addClickEventListeners() {
-        this.ico_rain_ok.addEventListener('click', () => this.handleIconClick('ok'));
-        this.ico_rain_warn.addEventListener('click', () => this.handleIconClick('warn'));
-        this.ico_rain_danger.addEventListener('click', () => this.handleIconClick('danger'));
+        this.ico_rain = document.getElementById("ico_rain");
+        this.rain_state = null;
+        this.setRainTitle();
+        if (window.VTI18n) { VTI18n.onChange(() => this.setRainTitle()); }
+        if (!this.ico_rain) { return; }
+        this.ico_rain.addEventListener('click', (e) => { e.preventDefault(); this.handleIconClick(this.rain_state); });
+        this.ico_rain.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.handleIconClick(this.rain_state); }
+        });
     }
-    
+
+    setRainTitle() {
+        if (!this.ico_rain) { return; }
+        var key = {ok: 'rainui.ico.ok', warn: 'rainui.ico.warn', danger: 'rainui.ico.danger'}[this.rain_state] || 'rainui.ico.none';
+        var txt = rainT(key) + ' — ' + rainT('rainui.ico.click');
+        this.ico_rain.title = txt;
+        this.ico_rain.setAttribute('aria-label', txt);
+    }
+
+    openRadar() {
+        var mm = window.map_menu;
+        try {
+            var shown = mm && mm.current_submenu === 'map' && mm.row_submenu_visible &&
+                document.body.classList.contains('vt-panel-open');
+            if (mm && mm.show_map_panel && !shown) { mm.show_map_panel(); }
+        } catch (e) {}
+        setTimeout(function () {
+            var a = document.querySelector('a[href="#tab-rain"]');
+            if (!a) { return; }
+            try {
+                if (window.bootstrap && bootstrap.Tab) { bootstrap.Tab.getOrCreateInstance(a).show(); }
+                else { a.click(); }
+            } catch (e) { a.click(); }
+        }, 80);
+    }
+
     handleIconClick(status) {
-        // Refresh images when icon is clicked
+        // Refresh the radar images and show them
         this.updateImages();
+        this.openRadar();
     }
     
     updateImages() {
@@ -379,21 +414,10 @@ class RainAlert {
     }
     
     rain_alert_data(message){
-        if (message.rain_alert){
-            this.ico_rain_ok.style.setProperty('display', 'none');
-            this.ico_rain_warn.style.setProperty('display', 'block');
-            this.ico_rain_danger.style.setProperty('display', 'none');
-            
-            if (message.rain_now > 0){
-                this.ico_rain_ok.style.setProperty('display', 'none');
-                this.ico_rain_warn.style.setProperty('display', 'none');
-                this.ico_rain_danger.style.setProperty('display', 'block');
-            }
-        }
-        else {
-            this.ico_rain_ok.style.setProperty('display', 'block');
-            this.ico_rain_warn.style.setProperty('display', 'none');
-            this.ico_rain_danger.style.setProperty('display', 'none');
-        }
+        var state = message.rain_alert ? (message.rain_now > 0 ? 'danger' : 'warn') : 'ok';
+        this.ico_rain_ok.style.setProperty('display', state === 'ok' ? 'block' : 'none');
+        this.ico_rain_warn.style.setProperty('display', state === 'warn' ? 'block' : 'none');
+        this.ico_rain_danger.style.setProperty('display', state === 'danger' ? 'block' : 'none');
+        if (this.rain_state !== state) { this.rain_state = state; this.setRainTitle(); }
     }
 }

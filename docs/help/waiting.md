@@ -78,8 +78,8 @@ back, then the robot goes to an emergency sleep.
 
 ## Weather (Map › Rain)
 
-The cloud icons in the navbar show the rain alert: OK, rain expected, raining now (click it to
-refresh). **Map › Rain** has the **weather report** (status, alert, current rain, place, time and
+The cloud icon (the first status icon in the navbar) shows the rain alert: OK, rain expected,
+raining now (click it to refresh the radar and open this tab). **Map › Rain** has the **weather report** (status, alert, current rain, place, time and
 a timeline of past and forecast steps: OK / WARN / ALERT / RAIN / UNAVAILABLE), the **rain now**
 radar image and the **forecast** (+10 / 20 / 30 min). The images refresh every 30 s.
 

@@ -90,6 +90,26 @@ mezi lištami). Přepínač: tlačítko ◧ vlevo v pásu menu (`#btn_panel_togg
 Znovuotevření vrátí poslední panel (`vitulus_last_panel`); stav otevřeného
 panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 
+## Navbar (horní lišta, owner 2026-10-25)
+
+Zleva doprava, stejně na PC i telefonu:
+
+| Místo | Obsah | Poznámka |
+|---|---|---|
+| vlevo | logo VITULUS + **tečka spojení** (`#conn_status`, `data-state`) | bez textu a bez nadpisu pohledu („Map view“ zrušen); zelená = spojeno, oranžová pulzující = připojuji (s `prefers-reduced-motion` bez pulzu), červená = bez spojení; slova jen v `title` + `aria-label` (en/cs, `mapview.conn.*`); klik / Enter = hned znovu připojit (`ConnectionStatus`, map_view.js) |
+| střed (PC ≥ 992 px) | **řada stavových ikon** (`#status_div`, status_header.js): skupiny počasí · senzory · pojezd · teploty · napájení | počasí = ikona deště `#ico_rain` (jediná viditelná z `#ico_rain_ok/warn/danger`, barva = stav, 16 px jako ostatní; bez dat skupina není vidět); klik / Enter = obnoví radar a otevře levý panel › Map › Rain (rain_alert.js) |
+| vpravo | ? · zvonek · monitor počítače · Fullscreen / Restart (pod lg v ☰) | beze změny |
+
+Pod 992 px řada ikon (včetně počasí) visí z horní lišty nad mapou (telefon na
+výšku: dva řádky po 32 px, vejde se); na šířku s otevřeným panelem ukazuje jen
+ikony, které hlásí problém (déšť se čeká / prší ano, „bez deště“ ne).
+
+**Výpadek spojení** ohlásí i pás hlášek (`#span_status_info` třída
+`vt-notice-conn`, červená hrana, text `mapview.conn.lost`) — jakmile spojení
+spadne (nebo selže první pokus), zůstane do obnovení (10s časovač StatusBar ji
+neschová), po připojení zmizí. Na nízkém okně (telefon na šířku, navbar
+skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
+
 ## Matice: kde je která oblast
 
 ### PC (`vt-m-dock`)

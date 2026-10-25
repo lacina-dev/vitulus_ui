@@ -77,8 +77,8 @@ tak, aby byl robot vzhůru na další naplánovaný program. Když program skon�
 
 ## Počasí (Mapa › Déšť)
 
-Ikony mraků v navbaru ukazují výstrahu deště: v pořádku, déšť se čeká, právě prší (kliknutím
-obnovíš). **Mapa › Déšť** má **Zprávu o počasí** (stav, výstraha, aktuální déšť, místo, čas
+Ikona mráčku (první ikona stavu v navbaru) ukazuje výstrahu deště: v pořádku, déšť se čeká,
+právě prší (kliknutím obnovíš radar a otevřeš tuhle záložku). **Mapa › Déšť** má **Zprávu o počasí** (stav, výstraha, aktuální déšť, místo, čas
 a časovou osu minulých a předpovězených kroků: OK / WARN / ALERT / RAIN / UNAVAILABLE), radarový
 snímek **Déšť teď** a **Předpověď** (+10 / 20 / 30 min). Snímky se obnovují každých 30 s.
 

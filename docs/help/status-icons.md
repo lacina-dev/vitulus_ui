@@ -26,11 +26,11 @@ The accent colour (cyan) is not a state: it marks links, the active tab and what
 
 ## The icons in the navbar
 
-![The navbar on a PC with numbered markers](img/shot-navbar.webp "1 connection to the robot · 2 rain alert · 3 status icons · 4 ? help · 5 Needs you (the bell)")
+![The navbar on a PC with numbered markers](img/shot-navbar.webp "1 connection dot · 2 weather (rain alert) · 3 status icons · 4 ? help · 5 Needs you (the bell)")
 
-![The status icons close up: sensing, driving, temperature and power groups](img/shot-status-icons.webp "The four groups, left to right: sensing · driving · temperature · power")
+![The status icons close up: sensing, driving, temperature and power groups](img/shot-status-icons.webp "The groups, left to right: weather · sensing · driving · temperature · power")
 
-On a PC they sit in the navbar in four groups (sensing · driving · temperature · power); on a
+On a PC they sit in the navbar in groups (weather · sensing · driving · temperature · power); on a
 narrow screen in a strip under the menu. Hover an icon for its name.
 
 | Icon | What | Green | Orange | Red | Grey |
@@ -50,9 +50,14 @@ narrow screen in a strip under the menu. Hover an icon for its name.
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_supply_green.png) | Charger supply | online (= docked) | — | fail | none |
 | ![](../../nodes/templates/assets/img/robot_icons/Nextion_ico_batt_full.png) | Battery | full · ¾ · ½ · ¼ · empty; with a flash while charging | | | no data |
 
-The **cloud** icon next to the logo is the rain alert ([Weather](waiting.md#weather-map--rain)),
-the **connection** text left of it (**ONLINE** / **CONNECTING** / **OFFLINE**) says whether the page
-is connected to the robot — click it to reconnect right away.
+The **cloud** — the first status icon — is the weather ([Weather](waiting.md#weather-map--rain)):
+green = no rain expected, orange = rain expected, red = raining now; no icon = no weather data
+yet. Click it to see the rain radar (**Map › Rain**).
+
+The **dot** next to the logo is the connection of this page to the robot: green connected,
+orange (pulsing) connecting, red no connection — hover it for the words, click it to reconnect
+right away. When the connection drops, the notice band under the menu also says
+*No connection to the robot · reconnecting…* until it is back.
 
 > [!TIP]
 > All icons grey? The page is not connected, or the robot stack is (re)starting — wait a minute,

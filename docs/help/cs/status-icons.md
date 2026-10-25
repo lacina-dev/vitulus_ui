@@ -26,11 +26,11 @@ Barva akcentu (azurová) není stav: označuje odkazy, aktivní záložku a to, 
 
 ## Ikony v navbaru
 
-![Navbar na PC s očíslovanými značkami](../img/shot-navbar.webp "1 spojení s robotem · 2 upozornění na déšť · 3 ikony stavu · 4 ? nápověda · 5 Čeká na tebe (zvonek)")
+![Navbar na PC s očíslovanými značkami](../img/shot-navbar.webp "1 tečka spojení · 2 počasí (výstraha deště) · 3 ikony stavu · 4 ? nápověda · 5 Čeká na tebe (zvonek)")
 
-![Ikony stavu zblízka: skupiny senzory, pojezd, teplota a napájení](../img/shot-status-icons.webp "Čtyři skupiny zleva doprava: senzory · pojezd · teplota · napájení")
+![Ikony stavu zblízka: skupiny senzory, pojezd, teplota a napájení](../img/shot-status-icons.webp "Skupiny zleva doprava: počasí · senzory · pojezd · teplota · napájení")
 
-Na PC jsou v navbaru ve čtyřech skupinách (připojení a senzory · pojezd a sekačka · teploty ·
+Na PC jsou v navbaru ve skupinách (počasí · připojení a senzory · pojezd a sekačka · teploty ·
 napájení); na úzké obrazovce v pruhu pod menu. Když na ikonu najedeš myší, ukáže svůj název.
 
 | Ikona | Co | Zelená | Oranžová | Červená | Šedá |
@@ -50,9 +50,14 @@ napájení); na úzké obrazovce v pruhu pod menu. Když na ikonu najedeš myš�
 | ![](../../../nodes/templates/assets/img/robot_icons/Nextion_ico_supply_green.png) | Napájecí vstup (nabíječka) | připojeno (= v doku) | — | porucha | nic |
 | ![](../../../nodes/templates/assets/img/robot_icons/Nextion_ico_batt_full.png) | Baterie | plná · ¾ · ½ · ¼ · prázdná; při nabíjení s bleskem | | | bez dat |
 
-Ikona **mráčku** vedle loga je upozornění na déšť ([Počasí](waiting.md#počasí-mapa--déšť)),
-text **spojení** vlevo od něj (**SPOJENO** / **PŘIPOJUJI** / **ODPOJENO**) říká, jestli je stránka
-připojená k robotu — kliknutím se hned připojí znovu.
+**Mráček** — první ikona stavu — je počasí ([Počasí](waiting.md#počasí-mapa--déšť)): zelený =
+déšť se nečeká, oranžový = čeká se déšť, červený = právě prší; žádná ikona = zatím bez dat
+o počasí. Kliknutím uvidíš radar deště (**Mapa › Déšť**).
+
+**Tečka** vedle loga je spojení této stránky s robotem: zelená spojeno, oranžová (pulzuje)
+připojuje se, červená bez spojení — po najetí myší ukáže slova, kliknutím se hned připojí znovu.
+Když spojení spadne, napíše to i pás hlášek pod menu (*Bez spojení s robotem · připojuji
+znovu…*), dokud se neobnoví.
 
 > [!TIP]
 > Všechny ikony šedé? Stránka není připojená, nebo software robota (znovu) startuje — počkej

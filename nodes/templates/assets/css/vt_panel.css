@@ -1057,18 +1057,42 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
    and partly READS it (camera border/padding/width are parsed). */
 .vt-navbar { background: var(--vt-navbar); padding: 3px 0; position: absolute; width: 100vw; }
 .vt-brand { display: flex; padding: 2px; border-right-style: none; }
-.vt-brand-title { margin-left: 9px; }
 .vt-navlist { color: rgba(40, 43, 48, 0.99); }
 .vt-navbar-toggler { height: 36px; border-width: 0; }
+/* Connection UI <-> robot (2026-10-25, owner): no text, a small dot next to
+   the logo — green online, orange pulsing while connecting, red offline.
+   The words live in title + aria-label (map_view.js ConnectionStatus); an
+   outage also says so in the notice band. The hit area stays 24 px. */
 .vt-conn {
-    display: inline-flex; align-items: center; gap: 5px; padding: 0 6px; margin: 0 0 4px 6px;
-    font-size: var(--vt-fs-xs); font-weight: bold; line-height: 1; white-space: nowrap;
-    color: var(--vt-warn); background: transparent; border: none;
-    transition: color 0.25s; cursor: pointer; user-select: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; margin: 0 0 1px 4px; padding: 0;
+    border-radius: 50%; cursor: pointer; user-select: none; flex: 0 0 auto;
+    --vt-conn-c: var(--vt-warn);
 }
-.vt-conn-ico { font-size: 15px; vertical-align: middle; }
-.vt-rain-ico { margin: 0 0 6px 8px; font-size: 17.2px; }
-#ico_rain_ok { margin-left: 6px; }
+.vt-conn[data-state="connected"]    { --vt-conn-c: var(--vt-ok); }
+.vt-conn[data-state="disconnected"] { --vt-conn-c: var(--bs-danger, #dc3545); }
+/* the outage line in the notice band (ConnectionStatus): red edge, so it
+   reads as "the page lost the robot", not as a robot message */
+.vt-notice.vt-notice-conn { border-color: var(--bs-danger, #dc3545); color: #ffd9dc; }
+.vt-conn:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 0; }
+.vt-conn-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--vt-conn-c);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, .35), 0 0 6px var(--vt-conn-c);
+    transition: background-color .25s, box-shadow .25s;
+}
+.vt-conn[data-state="connecting"] .vt-conn-dot { animation: vt-conn-pulse 1.1s ease-in-out infinite; }
+@keyframes vt-conn-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .35; transform: scale(.75); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .vt-conn[data-state="connecting"] .vt-conn-dot { animation: none; }
+}
+/* the rain alert is one of the status icons (#status_div, status_header.js
+   weather group); sizing in status_header.css / vt_field.css */
+.vt-rain { display: inline-flex; align-items: center; cursor: pointer; }
+.vt-rain:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; border-radius: 3px; }
 #ico_rain_danger { color: #e8112d !important; }
 
 .vt-bottom-bar { display: block; width: 100%; z-index: 1; }

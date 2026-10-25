@@ -17,6 +17,17 @@ joystick grow out of the same frame.
 
 ![The C frame of the UI](img/frame.svg)
 
+## The top bar
+
+Left to right: the **VITULUS** logo with a small **connection dot** — green = the page is
+connected to the robot, orange (pulsing) = connecting, red = no connection; hover it for the
+words, click it to reconnect right away. When the connection drops, a line in the notice band
+under the menu says so until it is back. Then the **status icons**, the first one is the
+**weather** (click = rain radar) — see [Status icons](status-icons.md). On the right **?** help,
+the bell (**Needs you**) and the computer monitor. On a narrow screen the status icons hang under
+the menu band; on a phone on its side the navbar is hidden (the menu band stays) and a lost
+connection shows only in the notice band.
+
 ## The left panel
 
 The menu band opens one tool at a time in the left panel: **Marker**, **Settings**, **Map**,

@@ -1027,51 +1027,83 @@ class ROS {
 
 
 /**
- * Visual connection-status indicator (top-right pill).
- * States: connected (green), connecting (orange), disconnected (red).
- * Listens to custom DOM events emitted by the ROS class.
+ * Connection UI <-> robot: a small dot next to the logo (#conn_status, 2026-10-25).
+ * States: connected (green), connecting (orange, pulsing), disconnected (red);
+ * the words are the dot's title + aria-label. Listens to the custom DOM events
+ * emitted by the ROS class. Once the link was up (or the first attempt failed),
+ * an outage also shows a line in the notice band (#span_status_info) until the
+ * link is back — a dot alone is easy to miss, and on a low window (phone on
+ * its side) the navbar with the dot is hidden.
  */
 class ConnectionStatus {
     constructor(ros) {
         this.ros = ros;
         this.el = document.getElementById('conn_status');
-        this.icon = document.getElementById('conn_status_icon');
-        this.text = document.getElementById('conn_status_text');
-        if (!this.el) return;
+        this.outage = false;      // notice band line shown by us
         var self = this;
         document.addEventListener('rosconnected',    function() { self.set('connected'); });
         document.addEventListener('rosconnecting',   function() { self.set('connecting'); });
         document.addEventListener('rosdisconnected', function() { self.set('disconnected'); });
+        vtOnLang(function () { self.set(self._state); });
+        if (this.el) {
+            // click / Enter / Space = reconnect right away
+            var go = function (e) {
+                if (e) { e.preventDefault(); e.stopPropagation(); }
+                if (self.ros.state !== 'connected') {
+                    if (self.ros._reconnect_timer) { clearTimeout(self.ros._reconnect_timer); self.ros._reconnect_timer = null; }
+                    self.ros._reconnect_delay = 500;
+                    self.ros._scheduleReconnect();
+                }
+            };
+            this.el.addEventListener('click', go);
+            this.el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { go(e); }
+            });
+        }
         // Apply current state immediately (page may load already-connected)
         this.set(ros && ros.state ? ros.state : 'connecting');
-        // Allow click to force an immediate reconnect attempt
-        this.el.style.cursor = 'pointer';
-        vtTag(this.el, 'mapview.conn.reconnect', 'title');
-        vtOnLang(function () { self.set(self._state); });
-        this.el.addEventListener('click', function() {
-            if (self.ros.state !== 'connected') {
-                if (self.ros._reconnect_timer) { clearTimeout(self.ros._reconnect_timer); self.ros._reconnect_timer = null; }
-                self.ros._reconnect_delay = 500;
-                self.ros._scheduleReconnect();
-            }
-        });
     }
     set(state) {
-        if (!this.el) return;
+        state = state || 'connecting';
+        var was = this._state;
         this._state = state;
-        var conf = {
-            connected:    {color: 'var(--bs-success)', txt: vtT('mapview.conn.online'), icon: 'la la-wifi',    pulse: false},
-            connecting:   {color: 'var(--bs-warning)', txt: vtT('mapview.conn.connecting'),   icon: 'la la-wifi',    pulse: true},
-            disconnected: {color: 'var(--bs-danger)',  txt: vtT('mapview.conn.offline'), icon: 'la la-wifi',   pulse: false}
-        };
-        var c = conf[state] || conf.disconnected;
-        this.el.style.color = c.color;
-        if (this.text) this.text.textContent = c.txt;
-        if (this.icon) {
-            this.icon.className = c.icon;
-            this.icon.style.color = c.color;
-            this.icon.style.animation = c.pulse ? 'vitulus-spin 1s linear infinite' : 'none';
+        if (state === 'disconnected' || (state === 'connecting' && (was === 'connected' || this.outage))) {
+            this.showOutage();
+        } else if (state === 'connected') {
+            this.clearOutage();
         }
+        if (!this.el) return;
+        var key = {connected: 'mapview.conn.online', connecting: 'mapview.conn.connecting',
+                   disconnected: 'mapview.conn.offline'}[state] || 'mapview.conn.offline';
+        var txt = vtT(key);
+        if (state !== 'connected') { txt += ' — ' + vtT('mapview.conn.reconnect'); }
+        this.el.setAttribute('data-state', state);
+        this.el.title = txt;
+        this.el.setAttribute('aria-label', txt);
+    }
+    // the notice band line; the band's own 10 s timer (StatusBar) must not
+    // take it away while the link is still down
+    showOutage() {
+        var info = document.getElementById('span_status_info');
+        if (!info) return;
+        var sb = window.status_bar;
+        if (sb && sb.info_timeout) { clearTimeout(sb.info_timeout); sb.info_timeout = null; }
+        var txt = vtT('mapview.conn.lost');
+        if (info.textContent !== txt) { info.textContent = txt; }
+        info.style.display = 'inline';
+        info.classList.add('vt-notice-conn');
+        this._txt = txt;
+        this.outage = true;
+    }
+    clearOutage() {
+        if (!this.outage) return;
+        this.outage = false;
+        var info = document.getElementById('span_status_info');
+        if (!info) return;
+        info.classList.remove('vt-notice-conn');
+        if (info.textContent !== this._txt) return;   // someone else's line now
+        info.style.display = 'none';
+        info.textContent = ' ';
     }
 }
 
@@ -4822,11 +4854,16 @@ class StatusBar {
        je maličkost; výjimka, která z konzole udělá nečitelný sloupec, ne. */
     set_status_info_text(text) {
         if (!this.span_status_info) { return; }
+        this.span_status_info.classList.remove('vt-notice-conn');   // a new line replaces the outage line
         this.span_status_info.innerText = text;
         this.span_status_info.style.display = "inline";
     }
+    // NB: also called unbound from setTimeout (this = window, where the id is
+    // a global too). The outage line (ConnectionStatus) stays until the link
+    // is back — an older 10 s timer must not take it away.
     hide_status_info() {
         if (!this.span_status_info) { return; }
+        if (this.span_status_info.classList.contains('vt-notice-conn')) { return; }
         this.span_status_info.style.display = "none";
         this.span_status_info.innerText = " ";
     }

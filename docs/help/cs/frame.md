@@ -17,6 +17,16 @@ rámu.
 
 ![Rám C uživatelského rozhraní](../img/frame.svg)
 
+## Horní lišta
+
+Zleva doprava: logo **VITULUS** s malou **tečkou spojení** — zelená = stránka je spojená
+s robotem, oranžová (pulzuje) = připojuje se, červená = bez spojení; po najetí myší ukáže slova,
+kliknutím se hned připojí znovu. Když spojení spadne, řekne to i řádek v pásu hlášek pod menu,
+dokud se neobnoví. Pak **ikony stavu**, první je **počasí** (klik = radar deště) — viz [Ikony
+stavu](status-icons.md). Vpravo **?** nápověda, zvonek (**Čeká na tebe**) a monitor počítače. Na
+úzké obrazovce visí ikony stavu pod pásem menu; na telefonu na šířku je navbar skrytý (pás menu
+zůstává) a výpadek spojení ukáže jen pás hlášek.
+
 ## Levý panel
 
 Pás menu otevírá v levém panelu vždy jeden nástroj: **Značka**, **Nastavení**, **Mapa**,

@@ -305,10 +305,8 @@
 @media (max-width: 575.98px) { .vt-needs-btn { flex: 1 1 100%; justify-content: center; } }
 .vt-pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .vt-skel-short { width: 45%; }
-/* phone: the navbar must stay one row (brand · bell · menu). The view title
-   "Map view" is the only view there is — it yields its 70 px to the bell. */
+/* phone: the navbar must stay one row (brand + connection dot · bell · menu) */
 @media (max-width: 440px) {
-    #div_menu:has(#btn_needs) .vt-brand-title { display: none; }
     .vt-needs-bell { margin: 0 4px; padding: 0 6px; }
 }
 /* the bell inside the menu band (navbar hidden on a low window) */
@@ -880,10 +878,16 @@ a.vt-needs-btn {
 #status_div.sh-strip img[src*="_orange"], #status_div.sh-strip img[src*="_red"],
 #status_div.sh-strip img[src*="batt_14"], #status_div.sh-strip img[src*="battCHARGE_14"],
 #status_div.sh-strip img[src*="_empty"] { filter: none; opacity: 1; }
+/* the rain alert (#ico_rain, weather group, status_header.js) is a status
+   icon like the others: same 16 px box, its colour = its state (green OK,
+   orange rain expected, red raining); no data yet = the group is not shown */
+#status_div.sh-strip .vt-rain svg { width: 16px; height: 16px; margin: 0; }
+#status_div.sh-strip .sh-group[data-group="weather"]:not(:has(svg:not([style*="none"]))) { display: none; }
 @media (max-width: 575.98px) {
     #status_div.sh-strip { column-gap: 8px; }
     #status_div.sh-strip .sh-group { gap: 2px; }
     #status_div.sh-strip img { width: 13px !important; height: 13px !important; }
+    #status_div.sh-strip .vt-rain svg { width: 14px; height: 14px; }
 }
 /* landscape phone / small tablet: the strip floats over the map — it hangs
    from the menu band as a small protrusion of the C (frame surface, square
@@ -907,8 +911,9 @@ body.vt-frame.vt-m-overlay #status_div.sh-strip:not(.in-header) {
    strip then shows only what needs attention (warning / fault); the quiet
    OK and no-data icons step back until the panel closes */
 body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip img:is([src*="_green"], [src*="_grey"], [src*="_disabled"], [src*="batt_full"], [src*="battCHARGE_full"], [src*="batt_34"], [src*="battCHARGE_34"], [src*="batt_half"], [src*="battCHARGE_half"]) { display: none !important; }
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip #ico_rain_ok { display: none !important; }
 body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip { column-gap: 6px; }
-body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*="_orange"], img[src*="_red"], img[src*="_14"], img[src*="_empty"])) { display: none !important; }
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*="_orange"], img[src*="_red"], img[src*="_14"], img[src*="_empty"], #ico_rain_warn:not([style*="none"]), #ico_rain_danger:not([style*="none"]))) { display: none !important; }
 
 /* P19: a narrow full log (landscape phone with the panel open, ~170–400 px)
    keeps its toolbar on ONE row (scrolls sideways) and drops the date — the
