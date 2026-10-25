@@ -88,7 +88,8 @@ def panel(btn, tab=None, more=()):
 SHOTS = [
     # --- the whole screen (start.md) and the phone (frame.md)
     dict(name='shot-desktop', vp=DESK, scale=1, width=1200, md=26,
-         steps=[('click', '#btn_map'), ('click', '#btn_log'), ('click', '#btn_joy'), ('wait', 1500), ('js', ZOOM_OUT)],
+         steps=[('click', '#btn_map'), ('click', '#btn_log'), ('click', '#btn_joy'), ('wait', 1500), ('js', ZOOM_OUT),
+                ('js', "const ok = document.querySelector('#joy_view .vt-joy-intro-ok'); if (ok && ok.offsetParent) ok.click(); return '';"), ('wait', 300)],
          marks=[('#status_div', '1', 'b'), ('#btn_marker', '2', 'r'),
                 ('#ui_drawer_head', '3', 'c'), ('#map_view', '4', 'c'), ('#rp_body', '5', 'bl'),
                 ('#div_log_view', '6', 'tr'), ('#joy_view', '7', 'l'), ('#vt_stop_big', '8', 'r')]),
@@ -100,7 +101,8 @@ SHOTS = [
          marks=[('#ui_drawer_grip', '1', 'c'), ('#div_menu_map a[href="#tab-map"]', '2', 'b'), ('#btn_ui_drawer_help', '3', 't'),
                 ('#btn_ui_drawer_full', '4', 't'), ('#btn_ui_drawer_close', '5', 't')]),
     # --- frame pieces (frame.md)
-    dict(name='shot-bottom-bar', vp=(1000, 700), scale=2, width=900, clip='#div_bottom_menu', pad=0, marks=[]),
+    # 2026-10-25: Log · Follow · Joystick — pad 14 keeps the Joystick tab rising out of the bar
+    dict(name='shot-bottom-bar', vp=(1000, 700), scale=2, width=900, clip='#div_bottom_menu', pad=14, marks=[]),
     dict(name='shot-log', vp=DESK, scale=2, width=900, clip='#div_log_view', pad=0, trim=(820, 300), md=18,
          steps=[('click', '#btn_log'), ('wait', 600), ('click', '#btn_log_expand'), ('wait', 1000)],
          marks=[('#div_log_view .btn-outline-info:not(.log-iconbtn)', '1', 'b'), ('#div_log_view .btn-outline-info:not(.log-iconbtn):not(.active)', '2', 'b'),

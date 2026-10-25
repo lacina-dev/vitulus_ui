@@ -1026,6 +1026,13 @@
                 bottomLimit = (lr && lr.height > 0) ? lr.top : (bar && bar.top > 0 ? bar.top : vh);
             } else if (joy && joy.top > 0) { bottomLimit = Math.min(bottomLimit, joy.top - FRAME_GAP + 6); }
             if (!beside) { bottomLimit = Math.min(bottomLimit, (bar && bar.top > 0 ? bar.top : vh) - FRAME_GAP + 6); }
+            /* the closed Joystick tab rises out of the bar under the column
+               (vt_frame.js vt-joy-tab): the panel keeps the same gap above it */
+            var tab = document.getElementById('btn_joy');
+            if (tab && bar && bar.top > 0 && document.body.classList.contains('vt-joy-tab')) {
+                var th = parseFloat(getComputedStyle(tab, '::before').height) || 0;
+                bottomLimit = Math.min(bottomLimit, bar.top - th - FRAME_GAP + 6);
+            }
         }
         /* Joystick: dokud je panel zavřený, drží si svůj roh a panel se mu
            vyhne. S otevřeným panelem se joystick posune VEDLE něj (viz
@@ -1516,6 +1523,12 @@
             new MutationObserver(place)
                 .observe(joy, {attributes: true, attributeFilter: ['style']});
         }
+        /* the Joystick tab (vt_frame.js vt-joy-tab) comes and goes after the
+           stick's own change: place again only when that flag flips */
+        new MutationObserver(function (recs) {
+            var was = recs.length && / vt-joy-tab /.test(' ' + (recs[0].oldValue || '') + ' ');
+            if (was !== document.body.classList.contains('vt-joy-tab')) { placeSoon(); }
+        }).observe(document.body, {attributes: true, attributeFilter: ['class'], attributeOldValue: true});
         var drawer = document.getElementById('ui_drawer');
         if (drawer) {
             new MutationObserver(function () {

@@ -71,10 +71,20 @@ pravého panelu a v liště logu otevře nápovědu k tomu, co je otevřené (pa
 
 | | PC | Telefon (na výšku i na šířku, dotyk) |
 |---|---|---|
-| Pořadí | STOP · Joystick · Follow · Log | STOP · Joystick · *volné místo 84 px* · Follow · Log |
+| Pořadí (2026-10-25: Log a Joystick prohozené) | STOP · Log · Follow · **Joystick** | STOP · Log · *volné místo 84 px* · Follow · **Joystick** |
+| Joystick = ouško panelu jízdy | na pravém konci, šířka a poloha = pravý sloupec / panel jízdy (`--vt-frame-col-w`; s panelem jízdy vedle rozbaleného pravého panelu posunuté o `--vt-frame-joy-r`) | na výšku: pravý konec lišty pod prstencem pásu jízdy, 104 px; na šířku: jako PC (pod panelem jízdy). Na dotyku drží Follow + Joystick pravou polovinu, takže mezera 84 px zůstává uprostřed (s panelem jízdy vedle pravého panelu jde Follow doleva k Logu a mezera je hned vedle ouška) |
 | Poloha | spodní okraj | **úplně dole u spodní hrany**, tlačítka nad `env(safe-area-inset-bottom)`; střed volný pro systémové tlačítko / gesto Androidu a Chromu |
 | STOP | vlevo dole, 20 % šířky | totéž — **vždy stejné místo a velikost, nikdy se nezmenšuje ani neposouvá** |
 | Kamera | v pravém panelu (sekce Camera) | v pravém panelu: ▾ rozbalí sbalený řádek, sekce Camera |
+
+**Ouško Joystick** (owner 2026-10-25: „Joystick bude u joysticku a bude s ním
+jakoby spojený“): tlačítko Joystick je úchyt panelu jízdy, ne samostatná krabička.
+
+| Stav | Vzhled |
+|---|---|
+| panel jízdy zavřený | ouško vystupuje 12 px (`--vt-joy-tab-h`) z lišty: plocha rámu, konvexní roh vlevo nahoře, konkávní přechod do lišty vlevo, ostrý roh u pravé hrany stránky, uprostřed úchyt (pruh akcentu 28 × 3 px), u popisku **▴** = otevře panel nad sebou; pravý panel končí nad ním se stejnou mezerou jako nad lištou (right_dock.js) |
+| panel jízdy otevřený | panel stojí na oušku, jeden sloupec až ke spodní hraně bez švu (žádná hrana akcentu mezi nimi), ouško jemně podsvícené, **▾** = zavřít; `aria-expanded` + `aria-controls="joy_view"` |
+| ouško nevystupuje | když na tom místě leží jiná část rámu: malý / celý log, sheet panelu na telefonu, panel přes celou šířku, nápověda — třída `vt-joy-tab` na `<body>` (vt_frame.js), nápověda přes `:has(#vt_help.open)` |
 
 ## Režimy (třída na `<body>`)
 
@@ -125,7 +135,7 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 | Log malý | výběžek spodní lišty od panelu po joystick (nebo pravou hranu) | od hřbetu po joystick / pravou hranu |
 | Log celý | ze spodní lišty do dutiny pod hlášky, vlevo od panelu; **tvar L (P21)**: vedle pravého panelu končí u jeho hrany, pod ním pokračuje až k joysticku (bez joysticku k pravé hraně) — log, pravý panel a joystick jsou jedna plocha rámu, otevřené zůstává jen okno mapy mezi spodkem pravého panelu a joystickem | totéž od hřbetu |
 | Log skrytý | — (tlačítko ≡ ve spodní liště) | — |
-| Joystick | stojí na spodní liště u pravé hrany vedle malého logu | totéž |
+| Joystick | stojí na spodní liště u pravé hrany vedle malého logu, pod ním ouško Joystick | totéž |
 | Kamera large | dutina vlevo od pravého panelu, mapa ve slotu pravého panelu | totéž |
 | Spodní lišta | celá šířka | totéž |
 

@@ -398,7 +398,7 @@
     "frame.btn.camera": "Camera",
     "frame.btn.camera.tip": "Show / hide the camera preview",
     "frame.btn.joy": "Joystick",
-    "frame.btn.joy.tip": "Show / hide the on-screen joystick",
+    "frame.btn.joy.tip": "Open / close the drive panel above (on-screen joystick)",
     "frame.btn.follow": "Follow",
     "frame.btn.follow.tip": "Camera follows the map / the robot",
     "frame.btn.log": "Log",

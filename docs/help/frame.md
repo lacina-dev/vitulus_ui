@@ -53,14 +53,15 @@ scrolls sideways: a **‹** / **›** at the edge shows there are more — click
 over the row or swipe it with a finger. The tab you pick (and the open one, whenever the panel
 opens) slides fully into view; with the keyboard **←** / **→** move between tabs.
 
-![The UI on a phone held upright, no panel open, with numbered markers](img/shot-phone.webp "Phone, no panel: 1 Needs you · 2 menu band · 3 status icons · 4 map · 5 right panel (one row, ▾ unfolds it) · 6 STOP · 7 Joystick, Follow, Log") ![The UI on a phone with the Map panel open as a sheet from the bottom, with numbered markers](img/shot-phone-sheet.webp "Phone, Map panel open: 1 title (drag the grip) · 2 tabs · 3 ? help · 4 ⤢ full screen · 5 ✕ close")
+![The UI on a phone held upright, no panel open, with numbered markers](img/shot-phone.webp "Phone, no panel: 1 Needs you · 2 menu band · 3 status icons · 4 map · 5 right panel (one row, ▾ unfolds it) · 6 STOP · 7 Log, Follow, Joystick") ![The UI on a phone with the Map panel open as a sheet from the bottom, with numbered markers](img/shot-phone-sheet.webp "Phone, Map panel open: 1 title (drag the grip) · 2 tabs · 3 ? help · 4 ⤢ full screen · 5 ✕ close")
 
 ## The bottom bar
 
-![The bottom bar: the red STOP on the left, then Joystick, Follow and Log](img/shot-bottom-bar.webp "The bottom bar on a PC, left to right: STOP · Joystick · Follow · Log")
+![The bottom bar: the red STOP on the left, then Log, Follow and the Joystick tab on the right](img/shot-bottom-bar.webp "The bottom bar on a PC, left to right: STOP · Log · Follow · Joystick")
 
-**Joystick** · **Follow** · **Log** (on a phone with a free gap in the middle for the
-system gesture). The **STOP** is the round red mushroom in the **bottom-left corner of the frame**:
+**Log** · **Follow** · **Joystick** (on a phone with a free gap in the middle for the
+system gesture). **Joystick** sits at the right end, right under the drive panel it opens —
+see [Drive by hand](#drive-by-hand-joystick). The **STOP** is the round red mushroom in the **bottom-left corner of the frame**:
 on a PC the frame flows in one smooth arc round the STOP and on into the bottom bar — with the
 left panel closed from the panel's free left edge, with it open from the edge of the panel's
 content, which bends round the STOP, so the STOP never covers anything and nothing covers it — not a panel, the log or the sheet.
@@ -168,10 +169,14 @@ only while a layer is on and the camera is shown; with every layer off it does n
 
 ## Drive by hand (joystick)
 
-**Joystick** in the bottom bar shows the **drive ring**: one round control at the foot of the
-right column (as wide as the right panel, 184 px), standing on the bottom bar. On a phone held
+**Joystick** at the right end of the bottom bar is the **tab of the drive panel**: it sits right
+under it, as wide as the right column. Closed, the tab rises a little out of the bar with a grip
+and an **▴** — it opens the panel above it; open, the panel stands on the tab as one piece
+(the tab lit, **▾** closes it). The panel is the **drive ring**: one round control at the foot of
+the right column (as wide as the right panel, 184 px), standing on the bottom bar. On a phone held
 upright it is a band across the screen on the bottom bar — a short text on the left, the ring
-(150 px) on the right under the thumb; on a landscape phone the ring is 150 px too.
+(150 px) on the right under the thumb, the Joystick tab right below it; on a landscape phone the
+ring is 150 px too.
 
 ![The drive ring with numbered markers](img/shot-joystick.webp "1 the capsule: top speed and mode · 2 the 7 speed segments · 3 Slow / Mid / Fast = the robot's mode · 4 the stick · 5 Keys (icon) · 6 Motors (icon) · 7 ? how it works · 8 − / +")
 
@@ -242,9 +247,9 @@ panel. It is the full stop ([Safety](safety.md#stop)); it also lets go of the st
 
 ![The log expanded over the map, with its toolbar and numbered markers](img/shot-log.webp "The expanded log: 1 Changes · 2 ROS · 3 Live · 4 Clear · 5 ▼ Collapse · 6 ? help")
 
-**Log** in the bottom bar shows the log as a strip above the bar. **▲** (expand) makes it fill
-the map area, **▼** (collapse) shrinks it back; **Log** again hides it. With the joystick on,
-the small log stands on the drive ring.
+**Log** at the left of the bottom bar shows the log as a strip above the bar. **▲** (expand) makes it fill
+the map area, **▼** (collapse) shrinks it back; **Log** again hides it. With the drive panel open,
+the small log ends beside it.
 
 The full log has a toolbar:
 

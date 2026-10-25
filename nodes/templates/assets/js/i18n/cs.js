@@ -397,7 +397,7 @@
     "frame.btn.camera": "Kamera",
     "frame.btn.camera.tip": "Zobrazit / skrýt náhled kamery",
     "frame.btn.joy": "Joystick",
-    "frame.btn.joy.tip": "Zobrazit / skrýt joystick na obrazovce",
+    "frame.btn.joy.tip": "Otevřít / zavřít panel jízdy nad tlačítkem (joystick na obrazovce)",
     "frame.btn.follow": "Sledovat",
     "frame.btn.follow.tip": "Pohled sleduje mapu / robota",
     "frame.btn.log": "Log",

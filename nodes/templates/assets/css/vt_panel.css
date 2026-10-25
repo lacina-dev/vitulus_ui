@@ -1404,8 +1404,9 @@ body.vt-frame .vt-c-corner { display: block; }
    - STOP is ALWAYS the same: bottom-left, 20 % of the width (as before) —
      never smaller, never moved.
    - On a phone the bar sits at the very bottom edge and leaves a free gap in
-     the middle for the system home button / gesture pill: STOP + Joystick on
-     the left, Follow + Log on the right. No gap on a PC. */
+     the middle for the system home button / gesture pill: STOP + Log on the
+     left, Follow + Joystick on the right (2026-10-25: Joystick under the
+     drive panel, see "the drive panel's tab" below). No gap on a PC. */
 :root { --vt-bar-gap: 0px; }
 @media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
     :root { --vt-bar-gap: 84px; }
@@ -1414,13 +1415,87 @@ body.vt-frame #btn_camera_show { display: none !important; }
 body.vt-frame #div_bottom_menu .btn-group { display: flex !important; }
 body.vt-frame #div_bottom_menu .btn-group > .btn { flex: 1 1 0; min-width: 0; }
 body.vt-frame #div_bottom_menu #btn_stop_all { flex: 0 0 20%; }
-body.vt-frame #div_bottom_menu #btn_joy { margin-right: var(--vt-bar-gap); }
+body.vt-frame #div_bottom_menu #btn_log { margin-right: var(--vt-bar-gap); }
 @media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
     body.vt-frame #div_bottom_menu {
         bottom: 0 !important;
         background: var(--vt-frame-bg);
         padding-bottom: var(--safe-bottom, 0px);
     }
+}
+
+/* ===== Joystick = the drive panel's tab (owner 2026-10-25) ================
+   "Swap Log and Joystick, and Joystick goes with the joystick, joined to
+   it": the bar reads Log · Follow · Joystick and the Joystick button is the
+   TAB of the drive panel — right under it, as wide as the right column
+   (--vt-frame-col-w; under the deck also when it stands beside the unfolded
+   right panel, --vt-frame-joy-r).
+   - closed: the tab rises a little out of the bar (frame surface, convex
+     top-left corner, the C's concave fillet where it meets the bar — like
+     the other protrusions) and its chevron points up = "opens the panel
+     above"; vt_frame.js sets vt-joy-tab only where nothing of the frame
+     lies on that spot (log, sheet, full-width panel); the right panel ends
+     above it (right_dock.js);
+   - open: the deck stands on it — one column down to the page edge, no
+     seam (no accent edge between them), a light wash, the chevron down;
+   - phone upright: the band's ring sits on the right, so the tab is the
+     bar's right end too (narrower). On touch screens the gesture gap stays
+     centred: Follow + Joystick fill the right half. */
+:root { --vt-joy-tab-h: 12px; }
+body.vt-frame { --vt-joy-tab-w: var(--vt-frame-col-w, 196px); }
+body.vt-frame.vt-m-sheet { --vt-joy-tab-w: 104px; }
+body.vt-frame #div_bottom_menu #btn_joy {
+    flex: 0 0 var(--vt-joy-tab-w);
+    margin-right: var(--vt-frame-joy-r, 0px);
+    position: relative;
+    overflow: visible;
+}
+@media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
+    body.vt-frame #div_bottom_menu #btn_follow {
+        flex: 0 0 max(48px, calc(50vw - var(--vt-bar-gap) / 2 - var(--vt-joy-tab-w) - var(--vt-frame-joy-r, 0px)));
+    }
+    /* the deck beside the unfolded right panel takes most of the right half:
+       Follow joins Log on the left, the gap stays next to the tab */
+    body.vt-frame.vt-joy-beside-rp #div_bottom_menu #btn_log { margin-right: 0; }
+    body.vt-frame.vt-joy-beside-rp #div_bottom_menu #btn_follow { flex: 1 1 0; margin-right: var(--vt-bar-gap); }
+}
+/* the tab: a strip of frame surface above the button, the fillet on its
+   left and a grip in its middle (the sheet's "pull me up" sign) */
+body.vt-frame #div_bottom_menu #btn_joy::before {
+    content: "";
+    position: absolute;
+    left: calc(-1 * var(--vt-joy-tab-h)); right: 0; bottom: 100%;
+    height: var(--vt-joy-tab-h);
+    background:
+        linear-gradient(rgba(var(--vt-accent-rgb), 0.55), rgba(var(--vt-accent-rgb), 0.55))
+            calc(50% + var(--vt-joy-tab-h) / 2) 5px / 28px 3px no-repeat,
+        radial-gradient(circle at 0 0, transparent calc(var(--vt-joy-tab-h) - 0.6px), var(--vt-frame-bg) var(--vt-joy-tab-h))
+            0 0 / var(--vt-joy-tab-h) 100% no-repeat,
+        radial-gradient(circle at 100% 100%, var(--vt-frame-bg) calc(var(--vt-joy-tab-h) - 0.6px), transparent var(--vt-joy-tab-h))
+            var(--vt-joy-tab-h) 0 / var(--vt-joy-tab-h) 100% no-repeat,
+        linear-gradient(var(--vt-frame-bg), var(--vt-frame-bg))
+            calc(2 * var(--vt-joy-tab-h)) 0 / calc(100% - 2 * var(--vt-joy-tab-h)) 100% no-repeat;
+    pointer-events: none;
+    display: none;
+}
+body.vt-frame.vt-joy-tab #div_bottom_menu #btn_joy::before { display: block; }
+body.vt-frame.vt-joy-tab:has(#vt_help.open) #div_bottom_menu #btn_joy::before { display: none; }
+/* the chevron: up = opens the panel above, down = closes it */
+#div_bottom_menu #btn_joy > .vt-joy-tab-chev {
+    order: 2;
+    font-size: 15px; font-weight: 400;
+    margin-left: 3px;
+    opacity: 0.7;
+    transition: transform .15s ease;
+}
+body.vt-frame.vt-m-dock #div_bottom_menu #btn_joy::after { order: 1; }
+#div_bottom_menu #btn_joy.vt-on > .vt-joy-tab-chev { transform: rotate(180deg); }
+body:not(.vt-frame) #div_bottom_menu #btn_joy > .vt-joy-tab-chev { display: none; }
+/* open: the deck and its tab are one column — a wash, no seam */
+html body.vt-frame #div_bottom_menu #btn_joy.btn.vt-on {
+    background: rgba(var(--vt-accent-rgb), 0.12);
+    box-shadow: none;
+    color: #fff;
 }
 
 /* ===== C frame 2 (owner 2026-10-18) ======================================

@@ -194,6 +194,12 @@
         setVar('--vt-frame-ledge', px(bh + lh));       // top of the bottom bar + small log
         var colTop = H - (bh + (joyOnLog ? lh : 0)) - colH;
         setCls(body, 'vt-c-log', lh > 0);
+        // the Joystick button is the drive panel's TAB (owner 2026-10-25): with
+        // the panel closed it rises a little out of the bar under the right
+        // column — only where nothing of the frame lies on that spot (small or
+        // full log, the phone's sheet, a full-width panel; the help pane: CSS)
+        var tab = !joyOn && lh === 0 && !logFull && !full && !(m === 'sheet' && open);
+        setCls(body, 'vt-joy-tab', tab);
 
         // right panel: hangs from the top band at the right edge
         var rp = $('right_panel');
@@ -510,6 +516,8 @@
             setCls(b, 'vt-on', on[id]);
             var ap = on[id] ? 'true' : 'false';
             if (b.getAttribute('aria-pressed') !== ap) { b.setAttribute('aria-pressed', ap); }
+            // the Joystick tab opens the drive panel above it (aria-controls="joy_view")
+            if (id === 'btn_joy' && b.getAttribute('aria-expanded') !== ap) { b.setAttribute('aria-expanded', ap); }
         });
     }
 

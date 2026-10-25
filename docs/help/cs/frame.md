@@ -52,14 +52,15 @@ i jeho STOP) jsou na konci řádku záložek; na výšku se název přesune do �
 otoč kolečkem myši nad řádkem nebo ho posuň prstem. Vybraná záložka (i ta otevřená, kdykoli se
 panel otevře) se celá posune do viditelné části; na klávesnici přepínají záložky **←** / **→**.
 
-![UI na telefonu na výšku, bez otevřeného panelu, s očíslovanými značkami](../img/shot-phone.webp "Telefon, žádný panel: 1 Čeká na tebe · 2 pás menu · 3 ikony stavu · 4 mapa · 5 pravý panel (jeden řádek, ▾ ho rozbalí) · 6 STOP · 7 Joystick, Sledovat, Log") ![UI na telefonu s panelem Mapa otevřeným jako sheet zdola, s očíslovanými značkami](../img/shot-phone-sheet.webp "Telefon, otevřený panel Mapa: 1 název (táhni za úchyt) · 2 záložky · 3 ? nápověda · 4 ⤢ celá obrazovka · 5 ✕ zavřít")
+![UI na telefonu na výšku, bez otevřeného panelu, s očíslovanými značkami](../img/shot-phone.webp "Telefon, žádný panel: 1 Čeká na tebe · 2 pás menu · 3 ikony stavu · 4 mapa · 5 pravý panel (jeden řádek, ▾ ho rozbalí) · 6 STOP · 7 Log, Sledovat, Joystick") ![UI na telefonu s panelem Mapa otevřeným jako sheet zdola, s očíslovanými značkami](../img/shot-phone-sheet.webp "Telefon, otevřený panel Mapa: 1 název (táhni za úchyt) · 2 záložky · 3 ? nápověda · 4 ⤢ celá obrazovka · 5 ✕ zavřít")
 
 ## Spodní lišta
 
-![Spodní lišta: vlevo červený STOP, pak Joystick, Sledovat a Log](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: STOP · Joystick · Sledovat · Log")
+![Spodní lišta: vlevo červený STOP, pak Log, Sledovat a vpravo ouško Joystick](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: STOP · Log · Sledovat · Joystick")
 
-**Joystick** · **Sledovat** · **Log** (na telefonu s volnou mezerou uprostřed pro
-systémové gesto). **STOP** je kulatý červený „hřib" v **levém dolním rohu rámu**: na PC ho rám plynule
+**Log** · **Sledovat** · **Joystick** (na telefonu s volnou mezerou uprostřed pro
+systémové gesto). **Joystick** sedí na pravém konci, přímo pod panelem jízdy, který otevírá —
+viz [Ruční jízda](#ruční-jízda-joystick). **STOP** je kulatý červený „hřib" v **levém dolním rohu rámu**: na PC ho rám plynule
 obtéká obloukem a navazuje na spodní lištu — se zavřeným levým panelem od jeho volného okraje,
 s otevřeným od okraje obsahu panelu, který se kolem STOP ohýbá, takže STOP nic
 nezakrývá a nic nezakrývá jeho — panel, log ani sheet. Je to jediné úplné zastavení
@@ -166,9 +167,12 @@ se všemi vrstvami vypnutými nedělá nic.
 
 ## Ruční jízda (joystick)
 
-**Joystick** ve spodní liště ukáže **prstenec jízdy**: jeden kruhový ovladač v patě pravého
-sloupce (široký jako pravý panel, 184 px), stojí na spodní liště. Na telefonu na výšku je to pás
-přes celou šířku na spodní liště — vlevo krátký text, vpravo pod palcem prstenec (150 px); na
+**Joystick** na pravém konci spodní lišty je **ouško panelu jízdy**: sedí přímo pod ním, široké
+jako pravý sloupec. Zavřené ouško trochu vystupuje z lišty, má úchyt a **▴** — otevře panel nad
+sebou; otevřený panel stojí na oušku jako jeden kus (ouško svítí, **▾** panel zavře). Panel je
+**prstenec jízdy**: jeden kruhový ovladač v patě pravého sloupce (široký jako pravý panel,
+184 px), stojí na spodní liště. Na telefonu na výšku je to pás přes celou šířku na spodní liště —
+vlevo krátký text, vpravo pod palcem prstenec (150 px) a hned pod ním ouško Joystick; na
 telefonu na šířku má prstenec také 150 px.
 
 ![Prstenec jízdy s očíslovanými značkami](../img/shot-joystick.webp "1 kapsle: nejvyšší rychlost a režim · 2 sedm dílků rychlosti · 3 Pomalu / Středně / Rychle = režim robota · 4 páčka · 5 Klávesy (ikona) · 6 Motory (ikona) · 7 ? jak to funguje · 8 − / +")
@@ -238,9 +242,9 @@ Jak se páčka chová:
 
 ![Log rozbalený přes mapu, s lištou nástrojů a očíslovanými značkami](../img/shot-log.webp "Rozbalený log: 1 Změny · 2 ROS · 3 Živě · 4 Vymazat · 5 ▼ Sbalit · 6 ? nápověda")
 
-**Log** ve spodní liště ukáže log jako pruh nad lištou. **▲** (rozbalit) ho roztáhne přes plochu
-mapy, **▼** (sbalit) ho vrátí zpět; další **Log** ho skryje. Se zapnutým joystickem stojí
-malý log na prstenci jízdy.
+**Log** vlevo ve spodní liště ukáže log jako pruh nad lištou. **▲** (rozbalit) ho roztáhne přes plochu
+mapy, **▼** (sbalit) ho vrátí zpět; další **Log** ho skryje. S otevřeným panelem jízdy končí
+malý log vedle něj.
 
 Rozbalený log má lištu nástrojů:
 
