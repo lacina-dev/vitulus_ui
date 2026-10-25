@@ -83,22 +83,21 @@
             btn.setAttribute('aria-pressed', open ? 'true' : 'false');
         }
 
-        // navbar: hidden by LayoutManager on low windows (landscape phone) —
-        // the agent bars (#vagent_bars) must then start at the top, not under
-        // a navbar that is not there (they used to cover the menu row)
+        // navbar: always on screen since the header variant A (vt_header.js);
+        // on a low window it is the one header row and the map runs under it
         var nav = $('div_menu'), sp = $('menu_spacer');
         var navB = visible(nav) ? (visible(sp) ? sp.getBoundingClientRect().bottom
                                                 : nav.getBoundingClientRect().bottom) : 0;
         setVar('--vt-frame-nav-b', px(navB));
-        // top band: bottom edge of the menu row
+        // top band: the header (vt_header.js) — navbar + menu band on a PC,
+        // the one header row on a low window (the menu band is inside it)
         var rm = $('row_menu');
-        var top = rm ? rm.getBoundingClientRect().bottom : 0;
-        // the big round STOP (owner 2026-10-25) heads the right column in the
-        // top-right corner: on a PC / landscape the top band is at least as
-        // tall as its bezel (the menu row grows a pad above its buttons), so
-        // the right panel starts under it; the band's rows keep its corner
-        // free (--vt-stop-zone). Phone upright: the navbar's right end.
-        top = placeStop(m, rm, top);
+        var top = Math.max(navB, rm ? rm.getBoundingClientRect().bottom : 0);
+        // the big round STOP (owner 2026-10-25) sits in the top-right corner
+        // in its collar; the right column starts under the header and under
+        // the collar (--vt-frame-col-top), the band's rows keep the corner
+        // free (--vt-stop-zone) — placeStop
+        var colTop = placeStop(m, top);
         // notice band
         var info = $('span_status_info');
         var row = info && info.closest ? info.closest('.vt-notice-row') : null;
@@ -111,6 +110,7 @@
             if (row && visible(row)) { top = Math.max(top, row.getBoundingClientRect().bottom); }
         }
         setVar('--vt-frame-top', px(top));
+        setVar('--vt-frame-col-top', px(m === 'sheet' ? top : Math.max(top, colTop)));
         var nb = top;
         if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
         setVar('--vt-frame-notice-b', px(nb));
@@ -130,9 +130,6 @@
         var colW = COL_W;
         if (m !== 'sheet' && visible(rpEl)) { colW = Math.max(COL_MIN_W, W - rpEl.getBoundingClientRect().left); }
         setVar('--vt-frame-col-w', px(colW));
-        // the STOP's corner of the top band: the column's width (phone
-        // upright: placeStop, the bezel's width)
-        if (m !== 'sheet') { setVar('--vt-stop-zone', px(colW)); }
         var barH = bh;
         if (band) { bh += joy.offsetHeight; }
         setCls(body, 'vt-joy-band', band);
@@ -309,8 +306,9 @@
             }, 230);   // after the drawer's 0.2 s slide
         }
         // the right panel hangs from the top band: re-place it when that moves
-        if (top !== lastTop) {
-            lastTop = top;
+        var tk = top + '|' + colTop;
+        if (tk !== lastTop) {
+            lastTop = tk;
             if (window.VtRightDock) { window.VtRightDock.place(); }
         }
     }
@@ -321,36 +319,64 @@
     // the C (phone portrait: a band across the top, at most half the hollow),
     // so the map stays visible beside / below it.
     var STREAM_MAX_W = 640;
-    /* The big STOP's place (owner 2026-10-25: variant A's corner, the round mushroom).
-       PC / landscape: the head of the right column — a round mushroom
-       centred over the right panel's width (--vt-frame-col-w, CSS), in the
-       top-right corner; when the top band is lower than its bezel, the menu
-       row grows a pad (--vt-stop-pad) so the band ends STOP_GAP under it and the right panel, the left panel
-       and the hollow all start below it. --vt-stop-zone: the corner the
-       band's rows (navbar, agent bars, menu row) keep free (set in update()).
-       Phone upright: the navbar's right end (CSS); the corner the rows keep
-       free is the bezel's width + a margin, and the menu row keeps it too
-       only when the bezel reaches into it (no agent strip: vt-stop-menu).
-       Measured on the bezel (.vt-estop-plate), not on the cap.
-       Returns the top band's bottom edge. */
-    var STOP_GAP = 4, stopPad = 0;
-    function placeStop(m, rm, top) {
+    /* The big STOP (owner 2026-10-25, 2nd round): the round red mushroom in
+       the very top-right corner of the window, a small margin from both
+       edges, set into a COLLAR of the frame's colour (.vt-estop-plate: a disc
+       of the frame surface round the cap, --vt-estop-rim). The header rows
+       run up to it from the left and end in it (they keep --vt-stop-zone
+       free): on a PC the header (80 px) is as tall as the collar, so the
+       band simply ends in the corner; on a low window (one 44 px row) the
+       collar hangs below the row — with the right panel out, the column's
+       head (#vt_c_head) is frame surface down to the collar's foot; without
+       it, a fillet (#vt_stop_fillet, SVG) joins the row and the collar in
+       one curve. The right column starts under both (--vt-frame-col-top).
+       Phone upright: the same corner; the navbar and the menu band (frame
+       surface) hold the collar, the menu band keeps its corner free only
+       where the collar reaches into it (vt-stop-menu).
+       Returns the collar's foot (page y). */
+    function placeStop(m, top) {
         var st = $('vt_stop_big');
-        var pl = st ? (st.querySelector('.vt-estop-plate') || st) : null;
-        if (m === 'sheet' || !st || !rm) {
-            if (stopPad) { stopPad = 0; setVar('--vt-stop-pad', '0px'); top = rm ? rm.getBoundingClientRect().bottom : top; }
-            if (m === 'sheet' && pl && rm) {
-                var pr = pl.getBoundingClientRect();
-                setVar('--vt-stop-zone', px(window.innerWidth - pr.left + 6));
-                setCls(document.body, 'vt-stop-menu', pr.bottom + 2 > rm.getBoundingClientRect().top);
-            }
-            return top;
-        }
-        setCls(document.body, 'vt-stop-menu', false);
-        var base = top - stopPad;                       // the band without the pad
-        var need = Math.max(0, Math.ceil(pl.getBoundingClientRect().bottom + STOP_GAP - base));
-        if (need !== stopPad) { stopPad = need; setVar('--vt-stop-pad', px(need)); }
-        return base + stopPad;
+        var body = document.body;
+        if (!st) { return top; }
+        var r = st.getBoundingClientRect();
+        if (!r.width) { return top; }
+        var ring = parseFloat(getComputedStyle(st).getPropertyValue('--vt-estop-rim')) || 0;
+        var R = r.width / 2 + ring;
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        var foot = Math.ceil(cy + R);
+        setVar('--vt-stop-zone', px(window.innerWidth - (cx - R) + 6));
+        setVar('--vt-collar-r', px(R));
+        var rm = $('row_menu');
+        setCls(body, 'vt-stop-menu', m === 'sheet' && !!rm && foot > rm.getBoundingClientRect().top + 1);
+        var bulge = m !== 'sheet' && foot > top + 1;
+        setCls(body, 'vt-stop-bulge', bulge);
+        drawFillet(bulge ? top : null, cx, cy, R);
+        return bulge ? foot : top;
+    }
+    /* the curve from the header row's lower edge (y = B) into the collar: a
+       fillet circle (radius F) tangent to the row and to the collar, then the
+       collar's lower arc to its foot and the window's right edge */
+    var FILLET = 10;
+    function drawFillet(B, cx, cy, R) {
+        var svg = $('vt_stop_fillet');
+        if (!svg) { return; }
+        if (B === null || cy + R <= B) { svg.style.display = 'none'; return; }
+        var W = window.innerWidth, F = FILLET;
+        var fy = B + F, d = R + F, dy = fy - cy;
+        if (d <= Math.abs(dy)) { svg.style.display = 'none'; return; }
+        var fx = cx - Math.sqrt(d * d - dy * dy);
+        var t2x = fx + (cx - fx) * F / d, t2y = fy + (cy - fy) * F / d;
+        var foot = cy + R, h = Math.ceil(foot + 1);
+        var f = function (v) { return (Math.round(v * 100) / 100).toString(); };
+        var path = 'M' + f(fx) + ',' + f(B) + ' A' + F + ',' + F + ' 0 0 1 ' + f(t2x) + ',' + f(t2y) +
+                   ' A' + f(R) + ',' + f(R) + ' 0 0 0 ' + f(cx) + ',' + f(foot) +
+                   ' L' + W + ',' + f(foot) + ' L' + W + ',' + f(B - 1) + ' L' + f(fx) + ',' + f(B - 1) + ' Z';
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + h);
+        svg.setAttribute('width', W);
+        svg.setAttribute('height', h);
+        var p = svg.firstChild;
+        if (p.getAttribute('d') !== path) { p.setAttribute('d', path); }
+        svg.style.display = '';
     }
 
     function placeCamLarge(m, cleft, nb, rpb, rpw, rpFull, ledge, W, H) {
@@ -502,6 +528,19 @@
         // tl/bl: the back meets the top / the bottom; tr: the top band turns
         // down into the right panel; jb: the joystick's foot on the bottom
         // ledge; lr: the full log's foot on the bottom bar (C frame 3)
+        // the right column's head under a low header row (STOP collar) and
+        // the fillet from the row into the collar (placeStop)
+        var hd = document.createElement('div');
+        hd.id = 'vt_c_head';
+        hd.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(hd);
+        var NS = 'http://www.w3.org/2000/svg';
+        var fl = document.createElementNS(NS, 'svg');
+        fl.id = 'vt_stop_fillet';
+        fl.setAttribute('aria-hidden', 'true');
+        fl.style.display = 'none';
+        fl.appendChild(document.createElementNS(NS, 'path'));
+        document.body.appendChild(fl);
         ['tl', 'bl', 'tr', 'jb', 'lr', 'wt', 'wb'].forEach(function (k) {
             var c = document.createElement('div');
             c.id = 'vt_c_' + k;
@@ -548,6 +587,8 @@
     // the full stop: release the stick, then press the (hidden) bar STOP —
     // map_view.js btn_stop_all.onclick publishes every stop
     function stopNow() {
+        // ?mock: the publishes below are swallowed and counted by vt_mock.js
+        if (window.VTMock && window.VTMock.on) { try { console.info('[VTMock] STOP pressed - logged only, nothing sent'); } catch (e) { /* no console */ } }
         try { if (window.joy_teleop && window.joy_teleop.joy) { window.joy_teleop.joy.release(); } } catch (err) { /* the stop below still runs */ }
         var b = $('btn_stop_all');
         if (b) { b.click(); }

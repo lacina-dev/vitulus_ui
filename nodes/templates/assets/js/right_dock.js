@@ -999,6 +999,13 @@
     }
 
     // ------------------------------------------------------------ pozice
+    /* the right column starts under the header AND under the STOP's collar
+       (vt_frame.js --vt-frame-col-top; on a low window the collar hangs
+       below the one header row) */
+    function colTopVar() {
+        var c = frameVar('--vt-frame-col-top');
+        return c !== null ? c : frameVar('--vt-frame-top');
+    }
     function place() {
         if (!panel) { return; }
         applyCompact();
@@ -1056,7 +1063,7 @@
                    nothing to pull out, no handle (it would sit under STOP) */
                 handle.style.display = (vw < 576 || drawer.classList.contains('full')) ? 'none' : '';
                 handle.style.right = '0px';
-                var hft = frame ? frameVar('--vt-frame-top') : null;
+                var hft = frame ? colTopVar() : null;
                 handle.style.top = Math.round(hft !== null ? hft + 24 : 56) + 'px';
             }
             return;
@@ -1076,7 +1083,7 @@
                phone it is part of the band above), so nothing slides under.
                The big STOP heads the column: vt_frame.js keeps the top band at
                least as low as its foot, so the panel starts under it. */
-            var ft = frameVar('--vt-frame-top');
+            var ft = colTopVar();
             top = (ft !== null) ? ft : 42;
         } else if (vw < 576) {
             /* shora: ikonky → log → panel */

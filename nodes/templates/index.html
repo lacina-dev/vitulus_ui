@@ -93,6 +93,7 @@
 <script src="/assets/js/vt_app_settings.js"></script>
 <script src="/assets/js/vt_camera_settings.js"></script>
 <script src="/assets/js/vt_frame.js"></script>
+<script src="/assets/js/vt_header.js"></script>
 <script src="/assets/js/vt_cam_overlay.js"></script>
 <script src="/assets/js/vt_georef.js"></script>
 <script src="/assets/js/vt_agent_plan.js"></script>
@@ -221,7 +222,7 @@
 :root {
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --navbar-h: 42px;
+    --navbar-h: 44px;   /* vt_header.js: 44 PC + landscape row, 52 phone upright */
 }
 html, body {
     /* Height: fixed-viewport with graceful fallbacks. 100% -> 100vh -> 100dvh.
@@ -690,6 +691,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <link rel="stylesheet" href="assets/css/vt_help.css">
     <link rel="stylesheet" href="assets/css/vt_cam_overlay.css">
     <link rel="stylesheet" href="assets/css/vt_camera.css">
+    <link rel="stylesheet" href="assets/css/vt_header.css">
 </head>
 
 <body>
@@ -762,14 +764,16 @@ ul.nav-tabs.drawer-pills .nav-link.active {
             </div>
         </div>
     </div>
-    <nav class="navbar navbar-expand-lg vt-navbar vt-block" id="div_menu">
-        <div class="container-fluid"><a class="navbar-brand d-flex flex-grow-1 align-items-end vt-brand" href="#"><img src="assets/img/vitulusShape.svg" width="114" height="27"><span id="conn_status" class="vt-conn" data-state="connecting" role="button" tabindex="0" title="Connecting to the robot…" aria-label="Connecting to the robot…"><span class="vt-conn-dot" aria-hidden="true"></span></span></a><button data-bs-toggle="collapse" class="navbar-toggler vt-navbar-toggler" data-bs-target="#navcol-1" id="btn_navbar_toggler"><span class="visually-hidden" data-i18n="nav.toggle">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
-            <div class="collapse navbar-collapse d-lg-flex justify-content-lg-end" id="navcol-1">
-                <ul class="navbar-nav vt-navlist">
-                    
-                    
-                    
-                </ul>
+    <nav class="navbar vt-navbar vt-block vt-hdr" id="div_menu">
+        <!-- Header = three zones (owner 2026-10-25, variant A, docs/UI_LAYOUT.md "Navbar"):
+             left   logo + connection dot (fixed width), status icons from a fixed x;
+             right  system monitor in fixed slots · ? · bell · Restart · ⋯ (vt_header.js);
+             the big round STOP sits in the top-right corner (vt_frame.js), the rows end at it.
+             Other modules add their buttons before #btn_navbar_toggler (help, bell);
+             the order on screen is CSS `order` (vt_header.css), not the DOM order. -->
+        <div class="container-fluid vt-hdr-row"><a class="navbar-brand vt-brand" href="#"><img src="assets/img/vitulusShape.svg" width="114" height="27" alt="VITULUS"><span id="conn_status" class="vt-conn" data-state="connecting" role="button" tabindex="0" title="Connecting to the robot…" aria-label="Connecting to the robot…"><span class="vt-conn-dot" aria-hidden="true"></span></span></a><span class="vt-hdr-fill" aria-hidden="true"></span><button data-bs-toggle="collapse" class="navbar-toggler vt-navbar-toggler" data-bs-target="#navcol-1" id="btn_navbar_toggler" hidden><span class="visually-hidden" data-i18n="nav.toggle">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse" id="navcol-1" hidden>
+                <ul class="navbar-nav vt-navlist"></ul>
             </div>
         </div>
     </nav>
@@ -795,8 +799,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                 </svg></button><button class="btn btn-outline-info vt-tbar-last d-flex justify-content-center align-items-center" id="btn_joy" type="button" aria-controls="joy_view" aria-expanded="false"><i class="material-icons vt-fs-xl vt-strong">games</i><i class="material-icons vt-joy-tab-chev" aria-hidden="true">expand_less</i></button></div>
     </div>
     <div id="div_container">
-        <div id="menu_spacer" style="height: var(--navbar-h, 42px);"></div>
-        <div id="div_content" style="height: calc(100vh - 42px);">
+        <div id="menu_spacer" style="height: var(--navbar-h, 44px);"></div>
+        <div id="div_content" style="height: calc(100vh - var(--navbar-h, 44px));">
             <div class="no-event vt-menu-overlay">
                 <div class="row g-0 all-events" id="row_menu">
                     <div class="col">

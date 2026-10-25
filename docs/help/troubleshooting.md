@@ -114,7 +114,7 @@ mission](agent.md#robot-restart-during-a-mission)).
 1. Reload the page. Grey icons, a red dot next to the logo and *No connection to the robot* in
    the notice band = the page lost the robot — click the dot to reconnect at once.
 2. If every button is dead, the robot's websocket bridge (rosbridge) is down → restart the robot
-   stack: the **Restart** item in the navbar menu (it restarts the robot's service; motors are OFF
+   stack: the **Restart** icon in the top bar — the power symbol left of **⋯** (it restarts the robot's service; motors are OFF
    afterwards).
 3. The page loads but a panel is broken after an update → hard reload (Ctrl+Shift+R).
 4. The agent panel says the agent is not running on this robot or is not responding → the

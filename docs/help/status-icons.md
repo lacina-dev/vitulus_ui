@@ -26,12 +26,15 @@ The accent colour (cyan) is not a state: it marks links, the active tab and what
 
 ## The icons in the navbar
 
-![The navbar on a PC with numbered markers](img/shot-navbar.webp "1 connection dot · 2 weather (rain alert) · 3 status icons · 4 ? help · 5 Needs you (the bell)")
+![The navbar on a PC with numbered markers](img/shot-navbar.webp "1 connection dot · 2 status icons (the first is the weather) · 3 computer (CPU · RAM · ↓ ↑) · 4 ? help · 5 Needs you (the bell) · 6 Restart · 7 ⋯ more · 8 STOP")
 
 ![The status icons close up: sensing, driving, temperature and power groups](img/shot-status-icons.webp "The groups, left to right: weather · sensing · driving · temperature · power")
 
-On a PC they sit in the navbar in groups (weather · sensing · driving · temperature · power); on a
-narrow screen in a strip under the menu. Hover an icon for its name.
+They sit in the navbar right after the logo, always at the same place, in groups (weather ·
+sensing · driving · temperature · power); on a phone held upright in their own row under the menu.
+On a narrow window (under 1100 px) and on a phone on its side each group shows **one icon — the
+worst one of the group** (red before orange before green before grey); hover it for the group, the
+full row comes back on a wider window. Hover an icon for its name.
 
 | Icon | What | Green | Orange | Red | Grey |
 |---|---|---|---|---|---|
@@ -65,7 +68,15 @@ right away. When the connection drops, the notice band under the menu also says
 
 ## The computer monitor
 
-At the start of the navbar's right group (on a narrow screen under the menu button **☰**) four
-small gauges show the robot's computer (NUC): **CPU**, **MEM** (memory), **DISK** and **NET**
-(download ↓ / upload ↑). A gauge is green below 75 %, orange from 75 % and red from 90 %; grey
-when the computer's data is not available. Hover it for details.
+On the right of the navbar the robot's computer (NUC) in fixed places: **CPU** and **RAM** in %,
+then the network — **↓** download and **↑** upload with their unit (B/s, kB/s, MB/s). The numbers
+are smoothed over a few seconds, so the block stays calm and never changes its width. A number
+turns **orange** only when it needs a look: the CPU when its **average over 30 s** is 90 % or more
+(red from 97 %), RAM from 90 % (red 97 %) — a short spike does not colour anything. Click the block
+for a **card** with rings CPU · RAM · DISK, the network, the 30-s average and the load, and a link
+to **Settings › Diag**.
+
+Narrower windows: under 1600 px only download ↓; under 1366 px the block is one **chip** (an icon
+in the colour of the worst of CPU, RAM and disk) — click it for the same card. On a phone the
+computer is in **⋯** (a small dot on ⋯ when it needs a look). Grey = the computer's data is not
+available.

@@ -28,7 +28,7 @@ the same page on a PC, a tablet and a phone.
 5. **Right panel** — battery, Dock / Undock, the localization state and the camera.
 6. **Log** — what the robot did and said ([more](frame.md#log)).
 7. **Joystick** — the drive ring: stick, speed, motors, keys — at the foot of the right column ([more](frame.md#drive-by-hand-joystick)).
-8. **STOP** — always top right, heading the right column (**Esc** does the same). Stops all motion ([Safety](safety.md)).
+8. **STOP** — always in the top-right corner (**Esc** does the same). Stops all motion ([Safety](safety.md)).
 
 ## The robot
 

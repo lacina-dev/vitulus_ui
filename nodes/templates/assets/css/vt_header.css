@@ -1,0 +1,420 @@
+/* vt_header.css — the header of the robot UI (owner 2026-10-25, variant A
+   "three zones"; vt_header.js sets the layout classes; docs/UI_LAYOUT.md
+   "Navbar").
+     PC          navbar 44 + menu band 36 = 80 px
+                 [logo · dot | 172 px] [status icons from x = 184]  …  [system 266 px] | ? · bell · Restart · ⋯ ) STOP
+     phone up    navbar 52 + menu 44 + icons 28 + notices 28 = 152 px
+     low window  one row of 44 px: dot · panel buttons | icons per group … bell · Restart · ⋯ ) STOP
+   Nothing grows to "share the rest": the left zone has a fixed width and the
+   right zone fixed slots, so the icons and the system block never move when a
+   number changes, and the row never wraps (narrowing classes take things
+   away instead). Loaded last: wins over the older header rules. */
+
+/* ---------------------------------------------------------------- navbar */
+html body #div_menu.vt-hdr {
+    display: block !important;           /* LayoutManager used to hide it on a low window */
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    width: auto;
+    height: calc(var(--navbar-h, 44px) + var(--safe-top, 0px));
+    margin: 0;
+    padding: var(--safe-top, 0px) 0 0 0;
+    border: 0;
+    box-shadow: none;
+    background: var(--vt-frame-bg, #282b30);
+    z-index: 1200;
+}
+html body #div_menu.vt-hdr > .vt-hdr-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: 100%;
+    max-width: none;
+    height: var(--navbar-h, 44px);
+    margin: 0;
+    /* the right end is the STOP's collar (vt_frame.js --vt-stop-zone) */
+    padding: 0 var(--vt-stop-zone, 92px) 0 12px;
+    overflow: hidden;                     /* never two lines */
+    box-sizing: border-box;
+}
+#div_menu .vt-hdr-row > * { flex: 0 0 auto; }
+/* the order on screen (modules add their buttons wherever, CSS places them) */
+#div_menu .vt-hdr-row > .vt-brand              { order: 1; }
+#div_menu .vt-hdr-row > #row_menu              { order: 2; }
+#div_menu .vt-hdr-row > #status_div            { order: 3; }
+#div_menu .vt-hdr-row > .vt-hdr-fill           { order: 4; flex: 1 1 0; min-width: 0; }
+#div_menu .vt-hdr-row > #system_monitor_header { order: 5; }
+#div_menu .vt-hdr-row > #btn_sys_chip          { order: 5; }
+#div_menu .vt-hdr-row > .vt-hdr-vdiv           { order: 6; }
+#div_menu .vt-hdr-row > #btn_help              { order: 7; }
+#div_menu .vt-hdr-row > #btn_needs             { order: 8; }
+#div_menu .vt-hdr-row > #btn_robot_restart     { order: 9; }
+#div_menu .vt-hdr-row > #btn_hdr_more          { order: 10; }
+#div_menu .vt-hdr-row > #btn_navbar_toggler,
+#div_menu .vt-hdr-row > #navcol-1 { display: none !important; }
+
+/* left zone: logo + connection dot, a fixed 172 px — the icons start at 184 */
+html body #div_menu .vt-hdr-row > .vt-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 172px;
+    flex: 0 0 172px;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+    min-width: 0;
+}
+#div_menu .vt-brand img { display: block; width: 114px; height: 27px; flex: 0 0 auto; }
+#div_menu .vt-brand .vt-conn { margin: 0; }
+#div_menu .vt-hdr-row > #status_div.in-header { height: 100%; align-self: stretch; }
+
+/* the divider between the system and the tools */
+.vt-hdr-vdiv { width: 1px; height: 20px; margin: 0 10px; background: rgba(255, 255, 255, 0.10); }
+
+/* tool buttons: ? · bell · Restart · ⋯ (and the system chip) — 40 × 36 icons */
+html body #div_menu .vt-hdr-tb {
+    display: inline-grid;
+    place-items: center;
+    position: relative;
+    width: 40px; min-width: 40px; height: 36px;
+    margin: 0; padding: 0;
+    border: 0 !important;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+    color: #b9c6ce;
+    font: 700 15px/1 var(--vt-font, 'Roboto', sans-serif);
+    cursor: pointer;
+}
+html body #div_menu .vt-hdr-tb svg { display: block; width: 20px; height: 20px; }
+html body #div_menu .vt-hdr-tb:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+html body #div_menu .vt-hdr-tb:focus-visible { outline: 2px solid var(--vt-accent) !important; outline-offset: -2px; }
+html body #div_menu .vt-hdr-tb:is(.vt-on, [aria-expanded="true"]) {
+    background: rgba(var(--vt-accent-rgb), 0.16);
+    color: #fff;
+    box-shadow: inset 0 -2px 0 var(--vt-accent);
+    border-radius: 8px 8px 0 0;
+}
+html body #div_menu .vt-hdr-restart { color: #d9825f; }
+html body #div_menu .vt-hdr-restart:hover { color: #ff9a74; }
+
+/* the bell: the count is a badge on the icon, absolutely placed — the button
+   keeps its width whatever the number */
+html body #div_menu #btn_needs.vt-hdr-tb svg { width: 19px; height: 19px; }
+html body #div_menu #btn_needs.vt-hdr-tb[data-state="warn"],
+html body #div_menu #btn_needs.vt-hdr-tb[data-state="err"] { color: var(--vt-st); background: transparent; }
+html body #div_menu #btn_needs.vt-hdr-tb[data-state="warn"]:hover,
+html body #div_menu #btn_needs.vt-hdr-tb[data-state="err"]:hover { background: rgba(255, 255, 255, 0.07); }
+html body #div_menu #btn_needs .vt-needs-n {
+    position: absolute;
+    top: 3px; left: 22px;
+    min-width: 16px; height: 14px;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: var(--vt-st, var(--vt-warn));
+    color: #10181d;
+    font: 700 10px/14px var(--vt-font, 'Roboto', sans-serif);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    pointer-events: none;
+}
+html body #div_menu #btn_needs .vt-needs-n:empty { display: none; }
+html body #div_menu #btn_needs[data-state="off"] .vt-needs-n { background: var(--vt-muted); }
+
+/* ⋯ : a dot when the robot's computer needs a look (phone / low window,
+   where the numbers live in this menu) */
+.vt-hdr-more-dot { display: none; }
+body:is(.vt-h-ph, .vt-h-row) #btn_hdr_more:is([data-sys="warn"], [data-sys="err"]) .vt-hdr-more-dot {
+    display: block;
+    position: absolute; top: 7px; right: 8px;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--vt-warn);
+}
+body:is(.vt-h-ph, .vt-h-row) #btn_hdr_more[data-sys="err"] .vt-hdr-more-dot { background: var(--vt-err); }
+
+/* -------------------------------------------- the system monitor (PC) */
+/* the fixed-slot block (status_header.css) or, narrower, the chip */
+#div_menu #btn_sys_chip { display: none; }
+body.vt-h-w1600 #div_menu #system_monitor_header { width: 186px; }
+body.vt-h-w1600 #div_menu #system_monitor_header .sh-net-tx { display: none; }
+body.vt-h-w1366 #div_menu #system_monitor_header { display: none; }
+body.vt-h-w1366 #div_menu #btn_sys_chip { display: inline-grid; }
+body:is(.vt-h-ph, .vt-h-row) #div_menu :is(#system_monitor_header, #btn_sys_chip, .vt-hdr-vdiv) { display: none !important; }
+#system_monitor_header.sh-sys { padding: 0; }
+#system_monitor_header.sh-sys:hover,
+#system_monitor_header.sh-sys[aria-expanded="true"] { box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.06); }
+#system_monitor_header.sh-sys:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 4px; }
+
+/* ? lives in ⋯ on a phone and on a low window */
+body:is(.vt-h-ph, .vt-h-row) #div_menu #btn_help { display: none !important; }
+
+/* --------------------------------------------------- the menu band (PC) */
+html body.vt-frame #row_menu { margin-top: 0 !important; }   /* agent_chat.js layoutBars: the bars no longer push it */
+html body.vt-frame.vt-h-pc #row_menu {
+    flex-wrap: nowrap;
+    height: 36px;
+    padding: 0 var(--vt-stop-zone, 92px) 0 0 !important;
+    background: var(--vt-frame-bg);
+}
+html body.vt-frame.vt-h-pc #row_menu > .col { flex: 0 0 auto; width: auto; max-width: none; padding: 0; }
+html body.vt-frame.vt-h-pc #row_menu .btn-group {
+    display: flex !important;
+    flex-wrap: nowrap;
+    width: auto !important;
+    height: 36px;
+}
+/* buttons in their natural width, from the left (not stretched over the band) */
+html body.vt-frame.vt-h-pc #row_menu .btn-group > .btn {
+    flex: 0 0 auto !important;
+    height: 36px;
+    min-width: 44px;
+    padding: 0 12px !important;
+}
+/* < 1280 px: icons only (the name is the tooltip) */
+html body.vt-frame.vt-h-w1280 #row_menu .btn-group > .btn { width: 44px; padding: 0 !important; }
+html body.vt-frame.vt-h-w1280 #row_menu .btn[data-label]::after { content: none !important; display: none !important; }
+/* the band's lower corner follows the STOP's collar when no right panel
+   hangs below it (the band and the collar are one shape) */
+html body.vt-frame.vt-h-pc:not(.vt-c-rp) #row_menu { border-bottom-right-radius: var(--vt-collar-r, 40px); }
+
+/* ------------------------------------------ low window: one header row */
+html body.vt-h-row #div_menu .vt-hdr-row { padding-left: 10px; }
+html body.vt-h-row #div_menu .vt-hdr-row > .vt-brand { width: auto; flex: 0 0 auto; gap: 0; }
+html body.vt-h-row #div_menu .vt-brand img { display: none; }
+html body.vt-frame.vt-h-row #div_menu #row_menu {
+    display: flex;
+    flex-wrap: nowrap;
+    width: auto;
+    height: 44px;
+    margin: 0 9px 0 4px !important;
+    padding: 0 6px 0 0 !important;
+    background: transparent;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.10);      /* the divider before the icons */
+}
+html body.vt-frame.vt-h-row #div_menu #row_menu > .col { flex: 0 0 auto; width: auto; padding: 0; }
+html body.vt-frame.vt-h-row #div_menu #row_menu .btn-group { display: flex !important; width: auto !important; height: 44px; background: transparent !important; }
+html body.vt-frame.vt-h-row #div_menu #row_menu .btn-group > .btn {
+    flex: 0 0 auto !important;
+    width: 40px; min-width: 40px;
+    height: 44px;
+    padding: 0 !important;
+}
+html body.vt-frame.vt-h-row #div_menu #row_menu .btn[data-label]::after { content: none !important; display: none !important; }
+html body.vt-h-row #div_menu .vt-hdr-tb { width: 40px; min-width: 40px; height: 44px; border-radius: 8px; }
+html body.vt-h-row #div_menu #btn_needs .vt-needs-n { top: 6px; }
+
+/* -------------------------------------------------- phone held upright */
+html body.vt-h-ph #div_menu .vt-hdr-row { padding-left: 14px; }
+html body.vt-h-ph #div_menu .vt-hdr-row > .vt-brand { width: auto; flex: 0 0 auto; }
+html body.vt-h-ph #div_menu .vt-hdr-tb { width: 44px; min-width: 44px; height: 44px; }
+html body.vt-h-ph #div_menu #btn_needs .vt-needs-n { top: 7px; left: 24px; }
+html body.vt-frame.vt-h-ph #row_menu { height: 44px; }
+html body.vt-frame.vt-h-ph #row_menu .btn-group { height: 44px; }
+html body.vt-frame.vt-h-ph #row_menu .btn-group > .btn { flex: 1 1 0 !important; height: 44px; min-width: 0; padding: 0 !important; }
+/* icons: one row of 28 px, notices: one row of 28 px — fixed, so nothing below moves */
+html body.vt-frame.vt-h-ph #row_icons { height: 28px; overflow: hidden; }
+html body.vt-frame.vt-h-ph #status_div.sh-strip:not(.in-header) {
+    height: 28px; max-height: 28px;
+    flex-wrap: nowrap;
+    column-gap: 9px;
+}
+html body.vt-frame.vt-h-ph .vt-notice-row {
+    height: 28px;
+    align-items: center;
+    flex-wrap: nowrap;
+    padding: 0 8px;
+    overflow: hidden;
+}
+html body.vt-frame.vt-h-ph.vagent-strip-on .vt-notice-row { padding-left: 166px; }
+
+/* ------------------------------------- notices: one line, in fixed slots */
+/* the robot's notice is one line with an ellipsis (the full text is its
+   tooltip, vt_header.js) — it never wraps and never pushes anything */
+html body.vt-frame .vt-notice-row .vt-notice-col {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    width: auto;
+    padding: 0;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+html body.vt-frame .vt-notice-row .vt-notice {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    line-height: 22px;
+    padding: 0 12px;
+    border-radius: 6px;
+    background: rgba(40, 43, 48, 0.92);
+    border: 0;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 2px 8px rgba(0, 0, 0, 0.35);
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: auto;
+}
+html body.vt-frame .vt-notice-row .vt-notice.vt-notice-conn { box-shadow: 0 0 0 1px var(--bs-danger, #dc3545), 0 2px 8px rgba(0, 0, 0, 0.35); }
+html body.vt-frame.vt-h-ph .vt-notice-row .vt-notice { box-shadow: none; background: transparent; padding: 0 4px; }
+html body.vt-frame.vt-h-ph .vt-notice-row .vt-notice.vt-notice-conn { color: #ffd9dc; }
+/* PC / low window: an overlay in the top of the hollow — the agent on the
+   left (max 230 px), the notice in the middle — that nothing makes room
+   for: when one appears the map does not move */
+html body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
+    position: fixed;
+    top: calc(var(--vt-frame-top, 80px) + 5px);
+    height: 24px;
+    left: calc(var(--vt-frame-cleft, 12px) + 254px);
+    right: calc(var(--vt-frame-rp-w, 0px) + 14px +
+                clamp(0px, 100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px) - 980px, 240px));
+    padding: 0 !important;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 4;
+    pointer-events: none;
+}
+html body.vt-frame.vt-c-rp:not(.vt-m-sheet) .vt-notice-row { padding: 0 !important; }
+/* the rows the strip used to hang from are not used outside the phone */
+html body.vt-frame:not(.vt-m-sheet) #row_icons { display: none !important; }
+
+/* the agent's bars (agent_chat.js #vagent_bars: STOP latch, dock unlocked,
+   the one "needs you" line) — pills in the left slot of the same overlay */
+html body.vt-frame #vagent_bars {
+    position: fixed;
+    top: calc(var(--vt-frame-top, 80px) + 5px) !important;
+    left: calc(var(--vt-frame-cleft, 12px) + 14px);
+    right: auto;
+    width: max-content;
+    max-width: calc(100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px) - 40px);
+    padding: 0 !important;
+    background: transparent !important;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    z-index: 1031;
+    pointer-events: none;
+}
+html body.vt-frame #vagent_bars > * { pointer-events: auto; }
+html body.vt-frame #vagent_bars #vagent_strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 24px;
+    max-width: 230px;
+    padding: 0 10px 0 3px;
+    border: 0 !important;
+    border-radius: 6px;
+    background: rgba(40, 43, 48, 0.94) !important;
+    box-shadow: 0 0 0 1px var(--vt-st-edge, rgba(255, 255, 255, 0.12)), 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+    font-size: 12px;
+    color: var(--vt-text);
+}
+html body.vt-frame #vagent_bars #vagent_strip[style*="none"] { display: none; }
+html body.vt-frame #vagent_bars #vagent_strip .vs-lab { font-size: 10px; padding: 3px 5px; }
+html body.vt-frame #vagent_bars #vagent_strip .vs-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+html body.vt-frame #vagent_bars #vagent_strip .vs-meta { display: none; }   /* in the tooltip */
+html body.vt-frame #vagent_bars #vagent_strip.va-move { background: var(--bs-danger, #dc3545) !important; color: #fff; }
+html body.vt-frame #vagent_bars :is(#vagent_unlocked, #vagent_panic) {
+    min-height: 24px;
+    max-width: 230px;                     /* the slot: the full text is the tooltip */
+    border-radius: 6px;
+    border: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    padding: 2px 6px 2px 4px;
+}
+html body.vt-frame #vagent_bars :is(#vagent_unlocked, #vagent_panic)[style*="none"] { display: none !important; }
+html body.vt-frame #vagent_bars #vagent_panic { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
+html body.vt-frame #vagent_bars #vagent_unlocked .vs-txt { min-width: 0; }
+/* phone upright: the left slot of the notices row (part of the top frame) */
+html body.vt-frame.vt-h-ph #vagent_bars {
+    top: calc(var(--safe-top, 0px) + var(--navbar-h, 52px) + 44px + 28px + 3px) !important;
+    left: 8px;
+    max-width: calc(100vw - 16px);
+}
+/* one row inside the 28-px band: the pills shrink (ellipsis), never spill */
+html body.vt-frame.vt-h-ph #vagent_bars {
+    flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 6px;
+    width: calc(100vw - 16px); max-width: calc(100vw - 16px); overflow: hidden;
+}
+html body.vt-frame.vt-h-ph #vagent_bars > * { flex: 0 1 auto; min-width: 0; }
+html body.vt-frame.vt-h-ph #vagent_bars #vagent_strip { height: 22px; max-width: 150px; }
+html body.vt-frame.vt-h-ph #vagent_bars :is(#vagent_unlocked, #vagent_panic) { max-width: 180px; min-height: 22px; }
+html body.vt-frame.vt-h-ph #vagent_bars #vagent_unlocked { flex: 0 0 auto; }
+html body.vt-frame.vt-h-ph #vagent_bars #vagent_unlocked .vs-txt { display: none; }
+
+/* the compass rose steps below the overlay row */
+html body.vt-frame:not(.vt-m-sheet) .vt-utm-rose { top: calc(var(--vt-frame-top, 80px) + 38px); }
+
+/* --------------------------------------------------------- the ⋯ menu */
+.vt-hdr-menu {
+    position: fixed;
+    z-index: 10040;                       /* above panels, under the STOP */
+    width: 248px;
+    overflow-y: auto;
+    padding: 6px;
+    border-radius: 12px;
+    background: #2f343a;
+    --vt-hdr-menu-bg: #2f343a;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 24px rgba(0, 0, 0, 0.45);
+    color: var(--vt-text);
+    font: 400 13px/1.3 var(--vt-font, 'Roboto', sans-serif);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.vt-hdr-menu[hidden] { display: none; }
+.vt-hdr-mhead { padding: 6px 8px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); margin-bottom: 2px; }
+.vt-hdr-mhead img { display: block; }
+.vt-hdr-mi,
+.vt-hdr-mlang {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--vt-text);
+    font: inherit;
+    text-align: left;
+    width: 100%;
+}
+.vt-hdr-mi { cursor: pointer; }
+.vt-hdr-mi:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.vt-hdr-mi:focus-visible, .vt-hdr-segb:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; }
+.vt-hdr-mi-ico { flex: 0 0 20px; width: 20px; height: 20px; color: #b9c6ce; display: grid; place-items: center; }
+.vt-hdr-mi-ico svg { width: 18px; height: 18px; display: block; }
+.vt-hdr-mi-l { flex: 1 1 auto; min-width: 0; }
+.vt-hdr-seg { display: inline-flex; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.05); }
+.vt-hdr-segb {
+    min-width: 38px; height: 28px; padding: 0 8px;
+    border: 0; background: transparent; color: var(--vt-muted);
+    font: 600 11px/28px var(--vt-font, 'Roboto', sans-serif); letter-spacing: .05em; cursor: pointer;
+}
+.vt-hdr-segb:hover { color: #fff; }
+.vt-hdr-segb[aria-pressed="true"] { color: #fff; background: rgba(var(--vt-accent-rgb), 0.24); box-shadow: inset 0 -2px 0 var(--vt-accent); }
+.vt-hdr-msys { margin-top: 2px; padding: 6px 4px 2px; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+@media (pointer: coarse) {
+    .vt-hdr-mi, .vt-hdr-mlang { min-height: 44px; }
+    .vt-hdr-segb { height: 34px; line-height: 34px; min-width: 44px; }
+}
+/* …and below both pills when the agent shows two (dock unlocked / STOP latch) */
+html body.vt-frame:not(.vt-m-sheet):has(#vagent_bars > :is(#vagent_unlocked, #vagent_panic):not([style*="none"])).vagent-strip-on .vt-utm-rose {
+    top: calc(var(--vt-frame-top, 80px) + 66px);
+}
+/* the weather group keeps its slot before its first data (no icon yet):
+   the groups after it do not jump when the forecast arrives */
+html body #status_div.sh-strip.in-header .sh-group[data-group="weather"]:not(:has(svg:not([style*="none"]))) {
+    display: inline-flex !important;
+    visibility: hidden;
+    min-width: 16px;
+}

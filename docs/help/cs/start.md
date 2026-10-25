@@ -28,7 +28,7 @@ stejná stránka na PC, tabletu i telefonu.
 5. **Pravý panel** — baterie, **Dock** / **Undock**, stav lokalizace a kamera.
 6. **Log** — co robot dělal a hlásil ([víc](frame.md#log)).
 7. **Joystick** — prstenec jízdy: páčka, rychlost, motory, klávesy — v patě pravého sloupce ([víc](frame.md#ruční-jízda-joystick)).
-8. **STOP** — vždy vpravo nahoře v hlavě pravého sloupce (totéž udělá **Esc**). Zastaví veškerý pohyb ([Bezpečnost](safety.md)).
+8. **STOP** — vždy v pravém horním rohu (totéž udělá **Esc**). Zastaví veškerý pohyb ([Bezpečnost](safety.md)).
 
 ## Robot
 

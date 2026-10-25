@@ -20,11 +20,11 @@ agenta nebo cíl navigace.
 
 ## STOP
 
-![Pravý horní roh UI na PC: velký kulatý červený STOP v hlavě pravého sloupce, pravý panel začíná pod ním](../img/shot-stop.webp "STOP je velké kulaté červené tlačítko v pravém horním rohu. Na telefonu na výšku sedí na pravém konci horní lišty.")
+![Pravý horní roh UI na PC: velký kulatý červený STOP přímo v rohu v objímce barvy rámu, horní lišta do ní vbíhá, pravý panel začíná pod ním](../img/shot-stop.webp "STOP je velké kulaté červené tlačítko v pravém horním rohu. Na telefonu na výšku sedí na pravém konci horní lišty.")
 
-Velké kulaté červené tlačítko **STOP** (hřib: červená hlava v tmavé objímce) je vždy v **pravém horním rohu**: na PC, tabletu a telefonu na
-šířku stojí v hlavě pravého sloupce (pravý panel začíná pod ním), na telefonu na výšku sedí na
-pravém konci horní lišty. Je vidět ve všech stavech — s otevřeným panelem i přes celou obrazovku,
+Velké kulaté červené tlačítko **STOP** (hřib: červená hlava v objímce barvy rámu) je vždy přímo v **pravém horním rohu** okna;
+horní lišta do něj vbíhá zleva a pravý panel začíná pod ním (na telefonu na výšku je to pravý
+konec horní lišty). Je vidět ve všech stavech — s otevřeným panelem i přes celou obrazovku,
 s logem, velkou kamerou, editorem mapy, nápovědou i agentem — a nic ho nezakryje. Klávesa **Esc**
 udělá totéž, vždy (i při psaní nebo v otevřeném dialogu). Najednou udělá všechno tohle a navíc
 pustí joystick:

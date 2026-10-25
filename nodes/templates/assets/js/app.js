@@ -192,6 +192,8 @@
         });
         addFullscreenButton();
         addRestartButton();
+        window.VTApp = {fsSupported: fsSupported, isFs: function () { return !!fsElement(); },
+                        toggleFs: toggleFs, restart: confirmRestart};
         wireImuTab();
         wireTabPersistence();
         lockAppShell();
@@ -235,47 +237,33 @@
                  document.mozCancelFullScreen || document.msExitFullscreen;
         if (fn) { try { return fn.call(document); } catch (e) { /* ignore */ } }
     }
-    function updateFsIcon() {
-        var i = document.getElementById('btn_fullscreen_icon');
-        if (!i) return;
-        var on = !!fsElement();
-        i.className = on ? 'la la-compress' : 'la la-expand';
-        var a = document.getElementById('btn_fullscreen');
-        if (a) a.title = on ? t('appjs.fs.exit') : t('appjs.fs');
-    }
-    function addFullscreenButton() {
-        var ul = document.querySelector('#div_menu .navbar-nav');
-        if (!ul || document.getElementById('btn_fullscreen')) return;
+    /* Fullscreen and Restart live in the header (owner 2026-10-25, header
+       variant A): vt_header.js puts Fullscreen into the ⋯ menu and Restart as
+       an icon next to it; this file keeps the behaviour (Fullscreen API with
+       vendor prefixes, the restart confirmation + overlay) and offers it as
+       window.VTApp. */
+    function fsSupported() {
         // Fullscreen API is unavailable in some standalone/PWA contexts (already
-        // fullscreen) — hide the button there so it isn't a dead control.
+        // fullscreen) — no item there, so it is never a dead control.
         var root = document.documentElement;
         var supported = !!(root.requestFullscreen || root.webkitRequestFullscreen ||
                            root.mozRequestFullScreen || root.msRequestFullscreen);
         var standalone = window.matchMedia &&
             (window.matchMedia('(display-mode: fullscreen)').matches ||
              window.matchMedia('(display-mode: standalone)').matches);
-        if (!supported || standalone) return;
-        var li = document.createElement('li');
-        li.className = 'nav-item d-inline-flex align-items-center';
-        li.style.display = 'inline-flex';
-        li.innerHTML = '<a class="nav-link" href="#" id="btn_fullscreen" title="Fullscreen">' +
-            '<i id="btn_fullscreen_icon" class="la la-expand" ' +
-            'style="margin-right:8px;font-size:18px;color:#f17d22;"></i>' +
-            '<span class="d-lg-none">Fullscreen</span></a>';
-        // Put it first so it sits left of Restart.
-        ul.insertBefore(li, ul.firstChild);
-        tag(li.querySelector('span'), 'appjs.fs');
-        li.querySelector('#btn_fullscreen').addEventListener('click', function (ev) {
-            ev.preventDefault();
-            if (fsElement()) { exitFs(); }
-            else { requestFs(document.documentElement); }
-        });
+        return supported && !standalone;
+    }
+    function toggleFs() {
+        if (fsElement()) { exitFs(); }
+        else { requestFs(document.documentElement); }
+    }
+    function addFullscreenButton() {
         ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange',
          'MSFullscreenChange'].forEach(function (evt) {
-            document.addEventListener(evt, updateFsIcon);
+            document.addEventListener(evt, function () {
+                document.dispatchEvent(new CustomEvent('vt:fullscreen', {detail: {on: !!fsElement()}}));
+            });
         });
-        updateFsIcon();
-        if (window.VTI18n) { VTI18n.onChange(updateFsIcon); }
     }
 
     // ---- App-shell lock: no pull-to-refresh / rubber-band; track viewport ---
@@ -342,24 +330,9 @@
         }, { passive: false });
     }
 
-    // ---- "Restart robot" button (POST /system/restart on the web server) ----
-    function addRestartButton() {
-        var ul = document.querySelector('#div_menu .navbar-nav');
-        if (!ul || document.getElementById('btn_robot_restart')) return;
-        var li = document.createElement('li');
-        li.className = 'nav-item d-inline-flex align-items-center';
-        li.style.display = 'inline-flex';
-        li.innerHTML = '<a class="nav-link" href="#" id="btn_robot_restart" ' +
-            'title="Restart the whole robot (vitulus.service)">' +
-            '<i class="la la-power-off" style="margin-right:8px;font-size:18px;color:#e8643c;"></i><span>Restart</span></a>';
-        ul.appendChild(li);
-        tag(li.querySelector('#btn_robot_restart'), 'appjs.restart.tip', 'title');
-        tag(li.querySelector('#btn_robot_restart span'), 'appjs.restart');
-        li.querySelector('#btn_robot_restart').addEventListener('click', function (ev) {
-            ev.preventDefault();
-            confirmRestart();
-        });
-    }
+    // ---- "Restart robot" (POST /system/restart on the web server) ----------
+    // The button itself is the header's power icon (vt_header.js #btn_robot_restart).
+    function addRestartButton() { /* vt_header.js builds the icon */ }
 
     function restartOverlay() {
         var el = document.createElement('div');

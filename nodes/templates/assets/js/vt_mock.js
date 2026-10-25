@@ -13,13 +13,20 @@
  * depend on how a panel builds its messages. Loaded right after roslib.js and
  * before any page script opens a connection.
  *
- * window.VTMock = { on, sent: [...last 200 blocked messages], last(topic) }
+ * window.VTMock = { on, sent: [...last 200 blocked messages], last(topic),
+ *                   blocks(method, url) -> true = blocked (logged), do not send }
  */
 (function () {
     'use strict';
     var on = false;
     try { on = new URLSearchParams(location.search).has('mock'); } catch (e) { on = false; }
-    window.VTMock = { on: on, sent: [], last: function () { return null; } };
+    window.VTMock = { on: on, sent: [], last: function () { return null; },
+                      /* second lock for the writes that matter most (the
+                         agent's /agent/api/* - its STOP, chat commands - the
+                         dock door /agent-dock/* and the field door
+                         /field/act/*): callers ask before they send.
+                         true = blocked here (logged + counted), do not send. */
+                      blocks: function () { return false; } };
     if (!on) { return; }
 
     var ALLOW = { subscribe: 1, unsubscribe: 1 };
@@ -100,6 +107,12 @@
 
     /* 2) HTTP: only GET/HEAD leave the page */
     function safeMethod(x) { x = String(x || 'GET').toUpperCase(); return x === 'GET' || x === 'HEAD'; }
+    window.VTMock.blocks = function (method, url) {
+        if (safeMethod(method)) { return false; }
+        record({ op: 'http ' + String(method).toUpperCase(), topic: String(url) });
+        try { console.info('[VTMock] ' + String(method).toUpperCase() + ' ' + url + ' - blocked, nothing sent'); } catch (e) { /* no console */ }
+        return true;
+    };
     if (window.fetch) {
         var f = window.fetch;
         window.fetch = function (input, init) {

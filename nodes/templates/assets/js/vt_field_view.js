@@ -119,6 +119,12 @@
             return;
         }
         msgEl.removeAttribute('data-state');
+        // ?mock: the field door is never written to (logged by vt_mock.js)
+        if (window.VTMock && window.VTMock.blocks('POST', '/field/act/' + action)) {
+            msgEl.setAttribute('data-state', 'warn');
+            msgEl.textContent = 'MOCK: ' + t('needs.not_done', { err: 'POST /field/act/' + action + ' blocked' });
+            return;
+        }
         msgEl.textContent = t('needs.sending');
         fetch('/field/act/' + action, {
             method: 'POST', credentials: 'same-origin',

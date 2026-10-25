@@ -26,12 +26,15 @@ Barva akcentu (azurová) není stav: označuje odkazy, aktivní záložku a to, 
 
 ## Ikony v navbaru
 
-![Navbar na PC s očíslovanými značkami](../img/shot-navbar.webp "1 tečka spojení · 2 počasí (výstraha deště) · 3 ikony stavu · 4 ? nápověda · 5 Čeká na tebe (zvonek)")
+![Navbar na PC s očíslovanými značkami](../img/shot-navbar.webp "1 tečka spojení · 2 ikony stavu (první je počasí) · 3 počítač (CPU · RAM · ↓ ↑) · 4 ? nápověda · 5 Čeká na tebe (zvonek) · 6 Restart · 7 ⋯ další · 8 STOP")
 
 ![Ikony stavu zblízka: skupiny senzory, pojezd, teplota a napájení](../img/shot-status-icons.webp "Skupiny zleva doprava: počasí · senzory · pojezd · teplota · napájení")
 
-Na PC jsou v navbaru ve skupinách (počasí · připojení a senzory · pojezd a sekačka · teploty ·
-napájení); na úzké obrazovce v pruhu pod menu. Když na ikonu najedeš myší, ukáže svůj název.
+Jsou v navbaru hned za logem, vždy na stejném místě, ve skupinách (počasí · připojení a senzory ·
+pojezd a sekačka · teploty · napájení); na telefonu na výšku ve vlastním řádku pod menu. V užším
+okně (pod 1100 px) a na telefonu na šířku ukazuje každá skupina **jednu ikonu — tu nejhorší ze
+skupiny** (červená před oranžovou před zelenou před šedou); po najetí myší řekne název skupiny,
+v širším okně se vrátí celá řada. Když na ikonu najedeš myší, ukáže svůj název.
 
 | Ikona | Co | Zelená | Oranžová | Červená | Šedá |
 |---|---|---|---|---|---|
@@ -65,7 +68,13 @@ znovu…*), dokud se neobnoví.
 
 ## Monitor počítače
 
-Na začátku pravé skupiny navbaru (na úzké obrazovce pod tlačítkem menu **☰**) ukazují čtyři malé
-budíky počítač robota (NUC): **CPU**, **RAM** (paměť), **DISK** a **SÍŤ** (stahování ↓ / odesílání
-↑). Budík je zelený pod 75 %, oranžový od 75 % a červený od 90 %; šedý, když data počítače nejsou
-dostupná. Po najetí myší ukáže podrobnosti.
+Vpravo v navbaru je počítač robota (NUC) na pevných místech: **CPU** a **RAM** v %, pak síť —
+**↓** stahování a **↑** odesílání s jednotkou (B/s, kB/s, MB/s). Čísla jsou vyhlazená přes pár
+sekund, takže blok je klidný a nikdy nemění šířku. Číslo **zoranžoví**, jen když je potřeba se
+podívat: CPU, když je jeho **průměr za 30 s** 90 % a víc (červená od 97 %), RAM od 90 % (červená
+97 %) — krátká špička nic nezabarví. Klik na blok otevře **kartu** s kruhy CPU · RAM · DISK, sítí,
+průměrem za 30 s a zátěží a s odkazem do **Settings › Diag**.
+
+Užší okna: pod 1600 px jen stahování ↓; pod 1366 px je blok jeden **čip** (ikona v barvě nejhoršího
+z CPU, RAM a disku) — klik otevře stejnou kartu. Na telefonu je počítač v **⋯** (když je potřeba se
+podívat, má ⋯ malou tečku). Šedá = data počítače nejsou dostupná.

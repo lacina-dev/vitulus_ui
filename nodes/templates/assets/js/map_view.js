@@ -4954,7 +4954,7 @@ class LayoutManager {
         var height = document.getElementById("div_container").offsetHeight;
         this.div_menu.style.display = 'block';
         this.menu_spacer.style.display = 'block';
-        this.div_content.style.setProperty('height', 'calc(100vh - 42px)');
+        this.div_content.style.setProperty('height', 'calc(100vh - var(--navbar-h, 44px))');
         this.div_bottom_menu.style.setProperty('margin-top', 'calc(100vh - 29px)');
         this.div_camera_view.style.height = '120px';
         this.div_camera_view.style.width = '160px';
@@ -4982,16 +4982,20 @@ class LayoutManager {
         // console.log("Landscape orientation");
         var width = document.getElementById("div_container").offsetWidth;
         var height = document.getElementById("div_container").offsetHeight;
-        if (height < 600) {
-            this.div_menu.style.display = 'none';
+        // The navbar is never hidden any more (owner 2026-10-25, header variant
+        // A): on a low window (phone on its side, vt_header.js "row" layout,
+        // height < 500) it is the ONE header row — tap targets, menu, icons,
+        // bell, ⋯ — and it floats over the top of the map like the menu band
+        // used to, so the map keeps the full height there (no spacer).
+        this.div_menu.style.display = 'block';
+        if (window.innerHeight < 500 && window.innerWidth >= 576) {
             this.menu_spacer.style.display = 'none';
             this.div_content.style.setProperty('height', '100vh');
             this.map_view.style.setProperty('height', '100vh');
         }
         else {
-            this.div_menu.style.display = 'block';
             this.menu_spacer.style.display = 'block';
-            this.div_content.style.setProperty('height', 'calc(100vh - 42px)');
+            this.div_content.style.setProperty('height', 'calc(100vh - var(--navbar-h, 44px))');
         }
 
         this.div_bottom_menu.style.setProperty('margin-top', 'calc(100vh - 29px)');

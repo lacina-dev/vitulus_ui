@@ -2038,36 +2038,37 @@ html body.vt-frame.vt-m-sheet.vt-joy-on:not(.vt-panel-open) #div_log_view.log-ex
    Phone portrait: the deck is a band across the screen on the bottom bar
    (vt-joy-band, part of --vt-frame-bottom).
    ========================================================================= */
-/* ===== the emergency STOP (owner 2026-10-25: round again, top right) ======
-   "STOP round as it was": the red MUSHROOM of 2026-10-18/19 (a round cap in
-   a dark bezel set into the frame) in the place of variant A — the top-right
-   corner, heading the RIGHT COLUMN.
-   PC / landscape: centred over the right column (--vt-frame-col-w), set into
-   the top band's frame surface. vt_frame.js placeStop keeps the band at
-   least as low as the bezel's foot (a pad above the menu row's buttons,
-   --vt-stop-pad), so the right panel, the left panel and the hollow all
-   start under it; the band's rows keep the column's corner free
-   (--vt-stop-zone = the column's width).
-   Phone upright: the same mushroom at the navbar's right end, as big as the
-   navbar + the agent strip allow (58 px); the rows it reaches keep its
-   corner free (--vt-stop-zone = the bezel + a margin; the menu row only
-   when the bezel reaches into it, vt-stop-menu).
-   Always on screen: above the panels, the log, the help, dialogs and
-   picture zooms. The same global stop as #btn_stop_all (hidden; vt_frame.js
-   presses it), also Esc. */
+/* ===== the emergency STOP (owner 2026-10-25: round, top-right corner) =====
+   The red MUSHROOM (a round cap) in the very top-right corner of the window,
+   a small margin from both edges, set into a COLLAR of the frame's colour
+   (.vt-estop-plate: a disc of the frame surface round the cap, --vt-estop-rim
+   wide — the collar's outer edge touches the window's top and right edges).
+   The header rows run up to it from the left and end in it (they keep
+   --vt-stop-zone free, vt_frame.js placeStop):
+     PC          cap 68 px, collar 80 px = the header (navbar 44 + menu 36):
+                 the band simply ends in the corner; with the right panel
+                 folded away the band's lower corner follows the collar;
+     low window  cap 54 px (window ≤ 560 px high); on the one 44 px header
+                 row the collar hangs below the row — the right column's head
+                 (#vt_c_head) or a fillet (#vt_stop_fillet) joins them;
+     phone up    cap 58 px in the navbar's corner, the menu band holds the
+                 rest of the collar (it keeps the corner free, vt-stop-menu).
+   The right column starts under the header and the collar
+   (--vt-frame-col-top). Always on screen: above the panels, the log, the
+   help, dialogs and picture zooms. The same global stop as #btn_stop_all
+   (hidden; vt_frame.js presses it), also Esc. */
 :root {
     --vt-estop-cap: 68px;                /* the red cap = the button */
-    --vt-estop-rim: 5px;                 /* the dark bezel round it */
-    --vt-estop-top: 10px;                /* page top -> the cap */
+    --vt-estop-rim: 6px;                 /* the collar (frame surface) round it */
 }
-@media (max-height: 560px) { :root { --vt-estop-cap: 54px; --vt-estop-rim: 4px; --vt-estop-top: 8px; } }
-body.vt-frame.vt-m-sheet { --vt-estop-cap: 58px; --vt-estop-rim: 4px; --vt-estop-top: 8px; }
+@media (max-height: 560px) { :root { --vt-estop-cap: 54px; --vt-estop-rim: 5px; } }
+body.vt-frame.vt-m-sheet { --vt-estop-cap: 58px; --vt-estop-rim: 4px; }
 
 /* the mushroom: the button IS the cap (nothing around it is clickable) */
 html body.vt-frame #vt_stop_big {
     position: fixed;
-    top: calc(var(--safe-top, 0px) + var(--vt-estop-top));
-    right: max(calc((var(--vt-frame-col-w, 196px) - var(--vt-estop-cap)) / 2), env(safe-area-inset-right, 0px) + var(--vt-estop-rim) + 4px);
+    top: calc(var(--safe-top, 0px) + var(--vt-estop-rim));
+    right: calc(env(safe-area-inset-right, 0px) + var(--vt-estop-rim));
     left: auto; bottom: auto;
     width: var(--vt-estop-cap); height: var(--vt-estop-cap);
     display: flex; align-items: center; justify-content: center;
@@ -2077,17 +2078,19 @@ html body.vt-frame #vt_stop_big {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
 }
-#vt_stop_big .vt-estop-plate {            /* the bezel: a dark ring set into the frame */
+#vt_stop_big .vt-estop-plate {            /* the collar: frame surface round the cap */
     position: absolute; inset: calc(-1 * var(--vt-estop-rim)); border-radius: 50%;
-    background: radial-gradient(circle at 50% 40%, #1d2024 60%, #15171a 100%);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    background: var(--vt-frame-bg, #282b30);
+    /* the cap sits in a shallow round recess of the frame */
+    box-shadow: inset 0 0 0 calc(var(--vt-estop-rim) - 2px) var(--vt-frame-bg, #282b30),
+                inset 0 0 0 var(--vt-estop-rim) rgba(0, 0, 0, 0.32);
 }
 #vt_stop_big .vt-estop-cap {
     position: relative; width: 100%; height: 100%; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     background: radial-gradient(circle at 36% 30%, #ff7a80 0%, #e63b44 42%, #b51d26 100%);
     box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.35), inset 0 -6px 12px rgba(0, 0, 0, 0.35),
-                0 3px 0 #7a1017, 0 5px 10px rgba(0, 0, 0, 0.55);
+                0 3px 0 #7a1017, 0 4px 8px rgba(0, 0, 0, 0.5);
     color: #fff; font: 800 14px/1 var(--vt-font); letter-spacing: .14em;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
     transition: transform .08s ease, box-shadow .08s ease, filter .12s ease;
@@ -2101,22 +2104,31 @@ html body.vt-frame #vt_stop_big.vt-pressed .vt-estop-cap {
     box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.25), inset 0 -4px 8px rgba(0, 0, 0, 0.4), 0 0 0 #7a1017, 0 2px 5px rgba(0, 0, 0, 0.5);
 }
 html body.vt-frame #vt_stop_big:focus-visible { outline: none; }
-html body.vt-frame #vt_stop_big:focus-visible .vt-estop-cap { outline: 2px solid #fff; outline-offset: 7px; }
+html body.vt-frame #vt_stop_big:focus-visible .vt-estop-cap { outline: 2px solid #fff; outline-offset: 3px; }
 @media (max-height: 560px) { #vt_stop_big .vt-estop-cap { font-size: 12px; letter-spacing: .1em; } }
-body.vt-frame.vt-m-sheet #vt_stop_big { right: calc(var(--vt-estop-rim) + 6px); }
 body.vt-frame.vt-m-sheet #vt_stop_big .vt-estop-cap { font-size: 12px; letter-spacing: .1em; }
 
-/* the band's rows keep the STOP's corner free; the menu row grows the pad
-   that makes the band as tall as the STOP (buttons stay at its map edge) */
-html body.vt-frame #div_menu > .container-fluid { padding-right: var(--vt-stop-zone, 0px); }
-html body.vt-frame #vagent_bars { padding-right: var(--vt-stop-zone, 0px); }
-html body.vt-frame:not(.vt-m-sheet) #row_menu {
-    padding-right: var(--vt-stop-zone, 0px);
-    padding-top: var(--vt-stop-pad, 0px);
-    background: var(--vt-frame-bg);
-}
-/* phone upright, no agent strip: the bezel reaches into the menu row */
+/* the header rows keep the STOP's corner free (vt_header.css places them) */
 html body.vt-frame.vt-m-sheet.vt-stop-menu #row_menu { padding-right: var(--vt-stop-zone, 0px); }
+
+/* low window: the right column's head under the one header row, down to the
+   collar's foot (frame surface; the concave corner #vt_c_tr joins it to the
+   row), and the fillet from the row into the collar when the panel is away */
+#vt_c_head { display: none; }
+body.vt-frame.vt-stop-bulge.vt-c-rp:not(.vt-m-sheet) #vt_c_head {
+    display: block;
+    position: fixed;
+    top: 0; right: 0;
+    width: var(--vt-frame-rp-w, 196px);
+    height: var(--vt-frame-col-top, 64px);
+    background: var(--vt-frame-bg);
+    z-index: 1001;
+    pointer-events: none;
+}
+#vt_stop_fillet { position: fixed; left: 0; top: 0; z-index: 1001; pointer-events: none; }
+#vt_stop_fillet path { fill: var(--vt-frame-bg, #282b30); }
+body.vt-frame.vt-c-rp #vt_stop_fillet,
+body.vt-frame.vt-m-sheet #vt_stop_fillet { display: none !important; }
 
 /* the bar's own STOP stays hidden: the big one is the only STOP on screen
    (it presses this one; map_view.js publishes the stops) */

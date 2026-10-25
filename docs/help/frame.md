@@ -7,26 +7,53 @@ icon: la-columns
 summary: The C frame — left panel, top and bottom bar, right panel, log, joystick, camera and its overlays, phone vs PC.
 ui: [frame, log#log, drive#drive-by-hand-joystick, camera#camera]
 related: [start, status-icons, settings]
-keywords: [frame, layout, panel, hide, full screen, expand, sheet, bottom bar, right panel, log, joystick, keyboard, wasd, camera, follow, phone, mobile, desktop, shortcut, alt+p, esc, overlay, lidar, depth, obstacles, free, point cloud, opacity]
+keywords: [frame, layout, header, top bar, navbar, restart, more, language, fullscreen, panel, hide, full screen, expand, sheet, bottom bar, right panel, log, joystick, keyboard, wasd, camera, follow, phone, mobile, desktop, shortcut, alt+p, esc, overlay, lidar, depth, obstacles, free, point cloud, opacity]
 ---
 # The screen
 
-The UI is one frame in the shape of a **C** around the map: the top band (navbar, agent strip,
-menu band), the left panel and the bottom bar are one surface. The right panel, the log and the
+The UI is one frame in the shape of a **C** around the map: the top band (navbar and menu
+band), the left panel and the bottom bar are one surface. The right panel, the log and the
 joystick grow out of the same frame.
 
 ![The C frame of the UI](img/frame.svg)
 
 ## The top bar
 
-Left to right: the **VITULUS** logo with a small **connection dot** — green = the page is
-connected to the robot, orange (pulsing) = connecting, red = no connection; hover it for the
-words, click it to reconnect right away. When the connection drops, a line in the notice band
-under the menu says so until it is back. Then the **status icons**, the first one is the
-**weather** (click = rain radar) — see [Status icons](status-icons.md). On the right **?** help,
-the bell (**Needs you**) and the computer monitor. On a narrow screen the status icons hang under
-the menu band; on a phone on its side the navbar is hidden (the menu band stays) and a lost
-connection shows only in the notice band.
+![The top bar on a PC with numbered markers](img/shot-navbar.webp "PC: 1 connection dot · 2 status icons · 3 computer (CPU · RAM · ↓ ↑) · 4 ? help · 5 Needs you (the bell) · 6 Restart · 7 ⋯ more · 8 STOP")
+
+On a PC the top bar is two rows: the **navbar** and under it the **menu band**. It has three zones
+that never move — when a number changes or a notice appears, nothing in the bar shifts and it
+never wraps onto a second line:
+
+- **Left** — the **VITULUS** logo with a small **connection dot** (green = the page is connected
+  to the robot, orange pulsing = connecting, red = no connection; hover it for the words, click it
+  to reconnect right away). Right after it the **status icons**, the first one is the **weather**
+  (click = rain radar) — see [Status icons](status-icons.md).
+- **Right** — the robot's **computer** (CPU · RAM · download ↓ · upload ↑, click = a card with
+  more), then **?** help, the bell (**Needs you**, the number on it counts what waits for you),
+  **Restart** (the power icon — restarts the whole robot after you confirm) and **⋯** more:
+  **Fullscreen** and the **language** (EN / CS, the same choice as Settings › App).
+- **The corner** — the round **STOP** (below); the bar runs into it from the left.
+
+The **menu band** under it opens the panels: **Panel**, **Marker**, **Settings**, **Map**,
+**Programs**, **Agent**, **Support** — buttons as wide as their name, from the left.
+
+**Notices** float in the top of the map, so the map does not move when one appears: on the left
+the agent's line (e.g. *FINDING · 5 to read*, click = the agent panel), in the middle the robot's
+notice (*Waiting for dock cmd*, a lost connection…) on one line — hover it for the whole text.
+
+**A narrower window** takes things away instead of squeezing them: under 1600 px the computer
+shows only download ↓, under 1366 px it is one **chip** (its colour = the worst of CPU, RAM and
+disk; click = the card with the numbers), under 1280 px the menu band shows icons only (the name is
+the tooltip), under 1100 px each icon group shows one icon — the worst one of the group. The logo,
+the dot, ?, the bell, ⋯ and STOP are always there.
+
+**Phone upright**: the navbar (logo, dot, bell, Restart, ⋯, STOP), the menu band, a row of status
+icons and a row of notices. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
+the panel buttons · one icon per status group · bell · Restart · ⋯ — the logo, ? and the computer
+are in **⋯**, STOP is in the corner above the right panel.
+
+![The one header row on a phone on its side, with numbered markers](img/shot-phone-land.webp "Phone on its side: 1 connection dot · 2 the panel buttons · 3 status icons (one per group) · 4 Needs you · 5 Restart · 6 ⋯ more · 7 STOP")
 
 ## The left panel
 
@@ -55,7 +82,7 @@ scrolls sideways: a **‹** / **›** at the edge shows there are more — click
 over the row or swipe it with a finger. The tab you pick (and the open one, whenever the panel
 opens) slides fully into view; with the keyboard **←** / **→** move between tabs.
 
-![The UI on a phone held upright, no panel open, with numbered markers](img/shot-phone.webp "Phone, no panel: 1 Needs you · 2 menu band · 3 status icons · 4 map · 5 right panel (one row, ▾ unfolds it) · 6 STOP · 7 Log, Follow, Joystick") ![The UI on a phone with the Map panel open as a sheet from the bottom, with numbered markers](img/shot-phone-sheet.webp "Phone, Map panel open: 1 title (drag the grip) · 2 tabs · 3 ? help · 4 ⤢ full screen · 5 ✕ close")
+![The UI on a phone held upright, no panel open, with numbered markers](img/shot-phone.webp "Phone, no panel: 1 Needs you · 2 menu band · 3 status icons · 4 map · 5 right panel (one row, ▾ unfolds it) · 6 STOP · 7 Log, Follow, Joystick · 8 ⋯ more (help, computer, fullscreen, language)") ![The UI on a phone with the Map panel open as a sheet from the bottom, with numbered markers](img/shot-phone-sheet.webp "Phone, Map panel open: 1 title (drag the grip) · 2 tabs · 3 ? help · 4 ⤢ full screen · 5 ✕ close")
 
 ## The bottom bar
 
@@ -72,17 +99,18 @@ panel's foot stay free. **Follow** makes the map view follow the robot.
 
 ## STOP in the top-right corner
 
-![The top-right corner on a PC: the round STOP heads the right column](img/shot-stop.webp "PC: the round STOP heads the right column, the right panel starts under it.")
+![The top-right corner on a PC: the round STOP in its collar, the top bar runs into it](img/shot-stop.webp "PC: the round STOP sits in the very corner, in a collar of the frame; the top bar runs into it, the right panel starts under it.")
 
-The big red **STOP** is a round **mushroom** — a red cap in a dark bezel set into the frame — and
-it heads the **right column**: on a PC, tablet or landscape phone it stands in the top-right
-corner above the middle of the right panel (68 px; on a low window 54 px), the right panel starts
-under it, the top bar's icons and menu end before its corner. On a phone held upright it sits at
-the right end of the top bar, as big as the top bar allows (58 px), so the bottom bar and the
-drive band stay free for the thumbs. It is on screen in every state (a panel open or full screen, the log, the large camera,
-the map editor, the help, the agent) and never covers anything. **Esc** does the same. It is the
-one full stop ([Safety](safety.md#stop)); the agent panel's own STOP is a different thing (it
-stops the agent's mission).
+The big red **STOP** is a round **mushroom** in the very **top-right corner** of the window, a few
+pixels from both edges. Round it is a **collar** in the frame's colour, and the top bar runs into
+that collar from the left — the bar and the STOP are one shape. On a PC it is 68 px (54 px on a low
+window) and the top bar is as tall as its collar; the right panel starts under both. On a phone on
+its side the collar hangs a little below the one header row and the right panel starts under it;
+on a phone held upright it sits at the right end of the navbar (58 px), so the bottom bar and the
+drive band stay free for the thumbs. It is on screen in every state (a panel open or full screen,
+the log, the large camera, the map editor, the help, the agent) and never covers anything. **Esc**
+does the same. It is the one full stop ([Safety](safety.md#stop)); the agent panel's own STOP is a
+different thing (it stops the agent's mission).
 
 ## The right panel
 
@@ -250,7 +278,7 @@ How the stick behaves:
 - Clicking or tapping a control leaves no frame around it; moving with **Tab** shows a thin cyan
   outline in the control's shape. With *reduce motion* set in the system the ring does not animate.
 
-**The big round STOP** — top right, heading the right column (on a phone held upright at the right end
+**The big round STOP** — in the very top-right corner (on a phone held upright at the right end
 of the top bar), or **Esc** — is always visible, with or without the joystick, and never covered
 by a panel. It is the full stop ([Safety](safety.md#stop)); it also lets go of the stick at once.
 

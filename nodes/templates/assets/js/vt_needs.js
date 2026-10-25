@@ -116,23 +116,16 @@
         bell.addEventListener('click', toggle);
         toggler.parentNode.insertBefore(bell, toggler);
     }
-    /* a low window (phone in landscape) hides the navbar: the bell then
-       moves to the end of the menu band, so it is reachable in every pose */
+    /* the navbar is on screen in every pose since the header variant A
+       (owner 2026-10-25; on a low window it is the one header row), so the
+       bell always stays there — its place in the row is CSS (vt_header.css) */
     function placeBell() {
         if (!bell) { return; }
-        var nav = document.getElementById('div_menu');
-        var navShown = nav && nav.offsetParent !== null && getComputedStyle(nav).display !== 'none';
-        var group = document.querySelector('#row_menu .btn-group');
         var toggler = document.getElementById('btn_navbar_toggler');
-        if (!navShown && group) {
-            if (bell.parentNode !== group) {
-                group.appendChild(bell);
-                bell.classList.add('btn', 'btn-outline-info', 'vt-needs-inrow');
-            }
-        } else if (toggler && bell.parentNode !== toggler.parentNode) {
+        if (toggler && bell.parentNode !== toggler.parentNode) {
             toggler.parentNode.insertBefore(bell, toggler);
-            bell.classList.remove('btn', 'btn-outline-info', 'vt-needs-inrow');
         }
+        bell.classList.remove('btn', 'btn-outline-info', 'vt-needs-inrow');
     }
     function paintBell(m) {
         if (!bell) { return; }

@@ -435,6 +435,12 @@
         if (agentUp === false && path !== '/api/health') {
             return Promise.resolve({ ok: false, agent_down: true });
         }
+        // ?mock: no write ever reaches the agent (its STOP latch, chat
+        // commands, approvals) - logged and counted by vt_mock.js
+        var mockMethod = opts.method || (opts.body !== undefined ? 'POST' : 'GET');
+        if (window.VTMock && window.VTMock.blocks(mockMethod, AGENT_HTTP + path)) {
+            return Promise.resolve({ ok: false, mock: true, error: 'blocked in ?mock' });
+        }
         var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var timer = ctl ? setTimeout(function () { ctl.abort(); }, opts.timeout_ms || 8000) : null;
         var init = {cache: 'no-store', signal: ctl ? ctl.signal : undefined};
@@ -5566,6 +5572,9 @@
        same origin, JSON, X-Vitulus-UI.  NOT api() — /agent/* forwards no
        token, so the core would rightly answer 403 there. */
     function dockWrite(path, body) {
+        if (window.VTMock && window.VTMock.blocks('POST', path)) {   // ?mock: never unlock / relock
+            return Promise.reject(new Error('blocked in ?mock'));
+        }
         var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var timer = ctl ? setTimeout(function () { ctl.abort(); }, 15000) : null;
         return fetch(path, {

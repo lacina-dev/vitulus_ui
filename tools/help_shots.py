@@ -94,14 +94,18 @@ SHOTS = [
                 ('#ui_drawer_head', '3', 'c'), ('#map_view', '4', 'c'), ('#rp_body', '5', 'bl'),
                 ('#div_log_view', '6', 'tr'), ('#joy_view', '7', 'l'), ('#vt_stop_big', '8', 'l')]),
     dict(name='shot-phone', vp=PHONE, scale=2, width=480, md=26,
-         marks=[('#btn_needs', '1', 'l'), ('#btn_panel_toggle', '2', 'b'), ('#status_div', '3', 'r'), ('#map_view', '4', 'c'),
-                ('#right_panel', '5', 'b'), ('#vt_stop_big', '6', 'bl'), ('#btn_log', '7', 't')]),
+         marks=[('#btn_needs', '1', 'b'), ('#btn_panel_toggle', '2', 'b'), ('#status_div', '3', 'r'), ('#map_view', '4', 'c'),
+                ('#right_panel', '5', 'b'), ('#vt_stop_big', '6', 'bl'), ('#btn_log', '7', 't'), ('#btn_hdr_more', '8', 'b')]),
+    # 2026-10-25 header variant A: a phone on its side = ONE header row (frame.md "The top bar")
+    dict(name='shot-phone-land', vp=(844, 390), scale=2, width=844, clip=[0, 0, 844, 132], pad=0, md=22,
+         marks=[('#conn_status', '1', 'b'), ('#btn_panel_toggle', '2', 'b'), ('#status_div', '3', 'b'), ('#btn_needs', '4', 'b'),
+                ('#btn_robot_restart', '5', 'b'), ('#btn_hdr_more', '6', 'b'), ('#vt_stop_big', '7', 'bl')]),
     dict(name='shot-phone-sheet', vp=PHONE, scale=2, width=480, md=26,
          steps=[('click', '#btn_map'), ('wait', 1200)],
          marks=[('#ui_drawer_grip', '1', 'c'), ('#div_menu_map a[href="#tab-map"]', '2', 'b'), ('#btn_ui_drawer_help', '3', 't'),
                 ('#btn_ui_drawer_full', '4', 't'), ('#btn_ui_drawer_close', '5', 't')]),
     # --- frame pieces (frame.md)
-    # the big STOP heading the right column, top right (safety.md, frame.md)
+    # the big STOP in the top-right corner, in its collar; the header runs into it (safety.md, frame.md)
     dict(name='shot-stop', vp=DESK, scale=2, width=560, clip=[DESK[0] - 470, 0, 470, 210], pad=0, marks=[]),
     # 2026-10-25: Log · Follow · Joystick — pad 14 keeps the Joystick tab rising out of the bar
     dict(name='shot-bottom-bar', vp=(1000, 700), scale=2, width=900, clip='#div_bottom_menu', pad=14, marks=[]),
@@ -122,9 +126,11 @@ SHOTS = [
          marks=[('#right_panel .rp-cam-seg', '1', 't'), ('.vco-btn', '2', 'l'), ('.vco-chip:nth-of-type(1)', '3', 't'),
                 ('.vco-chip:nth-of-type(2)', '4', 't'), ('.vco-chip:nth-of-type(3)', '5', 'b'), ('.vco-chip:nth-of-type(4)', '6', 'b'),
                 ('.vco-op input', '7', 'b')]),
-    dict(name='shot-navbar', vp=DESK, scale=2, width=1000, clip=[0, 0, 910, 40], pad=0, md=16,
-         marks=[('#conn_status', '1', 'b'), ('#ico_rain', '2', 'b'),
-                ('#status_div', '3', 'b'), ('#btn_help', '4', 'b'), ('#btn_needs', '5', 'b')]),
+    # 2026-10-25 header variant A: the whole top bar — logo + dot · icons · computer · ? · bell · Restart · ⋯ · STOP
+    dict(name='shot-navbar', vp=(1920, 900), scale=1.5, width=1400, clip=[0, 0, 1920, 84], pad=0, md=18,
+         marks=[('#conn_status', '1', 'b'), ('#status_div', '2', 'b'), ('#system_monitor_header', '3', 'b'),
+                ('#btn_help', '4', 'b'), ('#btn_needs', '5', 'b'), ('#btn_robot_restart', '6', 'b'), ('#btn_hdr_more', '7', 'b'),
+                ('#vt_stop_big', '8', 'l')]),
     dict(name='shot-status-icons', vp=DESK, scale=3, width=900, clip='#status_div', pad=4, marks=[]),
     # --- right panel (dock.md, routes.md, localization.md)
     dict(name='shot-controls', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="drive"]', pad=2, md=15,

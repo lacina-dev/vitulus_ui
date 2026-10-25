@@ -8,7 +8,7 @@ panel, log, joystick a velká kamera jsou **výběžky rámu** (C frame 3, níž
 
 ## Tvar rámu: „C“ (owner 2026-10-18)
 
-Horní lišta (navbar + pás agenta + pás menu), levý sloupec a spodní lišta
+Horní lišta (navbar + pás menu), levý sloupec a spodní lišta
 jsou **jeden tvar v jedné barvě** (`--vt-frame-bg`), otevřený doprava k mapě.
 Vnější rohy u okrajů stránky jsou ostré; dva vnitřní rohy, kde sloupec
 přechází do horní a spodní lišty, jsou konkávně zaoblené (`--vt-frame-r`,
@@ -84,10 +84,10 @@ Agent (`#vagent_stop`) je jiná věc — zastaví misi agenta.
 
 | | PC / na šířku (`vt-m-dock`, `vt-m-overlay`) | Telefon na výšku (`vt-m-sheet`) |
 |---|---|---|
-| Velikost | hlava `--vt-estop-cap` 68 px, objímka `--vt-estop-rim` 5 px (okno ≤ 560 px: 54 / 4 px) | 58 px, objímka 4 px — co nejvíc, co se vejde do navbaru + pásu agenta; dotyková plocha = celá hlava (≥ 44 px) |
-| Poloha | vpravo nahoře, hlava 10 px od horní hrany (nízké okno 8 px), **vodorovně na středu sloupce pravého panelu** (`--vt-frame-col-w`) | pravý konec navbaru, 8 px od horní hrany, objímka 6 px od pravé hrany |
-| Napojení | objímka zapuštěná do plochy horní lišty; horní lišta je vždy aspoň tak vysoká jako pata objímky + 4 px — chybí-li výška (bez pásu agenta), pás menu dostane nad tlačítky polštář `--vt-stop-pad` (barva rámu), takže pravý panel, levý panel i dutina začínají pod STOPem | objímka v ploše navbaru a pásu agenta |
-| Co uhne | řádky horní lišty (navbar, pás agenta, pás menu) nechávají roh volný: `padding-right: --vt-stop-zone` (= šířka sloupce) | navbar a pás agenta `padding-right: --vt-stop-zone` (= objímka + 6 px, placeStop); pás menu jen když do něj objímka zasáhne (bez pásu agenta, `vt-stop-menu`) |
+| Velikost | hlava `--vt-estop-cap` 68 px, objímka `--vt-estop-rim` 6 px (okno ≤ 560 px: 54 / 5 px) | 58 px, objímka 4 px; dotyková plocha = celá hlava (≥ 44 px) |
+| Poloha | **přímo v pravém horním rohu okna**: hlava `--vt-estop-rim` od horní i pravé hrany, vnější hrana objímky se dotýká obou hran | totéž (pravý konec navbaru) |
+| Napojení | objímka = disk v barvě rámu (`.vt-estop-plate`, mělký kruhový výřez kolem hlavy); horní lišta do ní vbíhá zleva jako jeden tvar. PC: lišta (80 px) je vysoká jako objímka — bez pravého panelu se dolní roh pásu menu stáčí podle objímky. Nízké okno (řádek 44 px): objímka visí pod řádek; s pravým panelem hlava sloupce `#vt_c_head` (plocha rámu do paty objímky, konkávní roh `#vt_c_tr` u řádku), bez něj zaoblený přechod `#vt_stop_fillet` (SVG, placeStop). Pravý sloupec začíná pod hlavičkou i objímkou (`--vt-frame-col-top`, right_dock.js) | objímka v ploše navbaru a pásu menu |
+| Co uhne | řádky horní lišty (navbar, pás menu) nechávají roh volný: `padding-right: --vt-stop-zone` (= objímka + 6 px, placeStop) | navbar; pás menu jen když do něj objímka zasáhne (`vt-stop-menu`) |
 | Spodek | levý panel i hřbet jdou až ke spodní hraně, spodní lišta začíná za nimi (sekce níž) | spodní lišta a pás jízdy volné pro palce |
 
 ### Spodní lišta (část C)
@@ -124,26 +124,59 @@ mezi lištami). Přepínač: tlačítko ◧ vlevo v pásu menu (`#btn_panel_togg
 Znovuotevření vrátí poslední panel (`vitulus_last_panel`); stav otevřeného
 panelu přežije reload (`vitulus_open_panel`, beze změny z dřívějška).
 
-## Navbar (horní lišta, owner 2026-10-25)
+## Navbar (horní lišta, owner 2026-10-25, varianta A „Tři zóny“)
 
-Zleva doprava, stejně na PC i telefonu:
+`vt_header.js` + `vt_header.css` (třídy na `<body>`, `--navbar-h`), čísla
+`status_header.js` + `status_header.css`. Zásada: **žádné `flex-grow` dělení
+zbylého místa, které posouvá střed** — levá zóna má pevnou šířku, pravá pevné
+sloty, takže se při změně čísel nic nehýbe (naměřeno 0,0 px) a lišta se nikdy
+nezalomí (`flex-wrap: nowrap`, užší okno věci ubírá).
+
+| Rozložení | Třída | Výška | Obsah |
+|---|---|---|---|
+| PC / tablet | `vt-h-pc` | navbar 44 + pás menu 36 = 80 px | vlevo logo + tečka (pevně 172 px), ikony stavu od x = 184 · vpravo systém v pevných slotech · ? · zvonek · Restart · ⋯, konec v objímce STOPu |
+| telefon na výšku (< 576 px) | `vt-h-ph` | navbar 52 + menu 44 + ikony 28 + hlášky 28 = 152 px | navbar: logo, tečka, zvonek, Restart, ⋯, STOP; ? a systém v ⋯ |
+| nízké okno (výška < 500, telefon na šířku) | `vt-h-row` | jeden řádek 44 px | tečka · tlačítka panelů (`#row_menu` se přestěhuje do navbaru) · ikony po skupinách · zvonek · Restart · ⋯; logo, ? a systém v ⋯; STOP v rohu nad pravým sloupcem |
 
 | Místo | Obsah | Poznámka |
 |---|---|---|
-| vlevo | logo VITULUS + **tečka spojení** (`#conn_status`, `data-state`) | bez textu a bez nadpisu pohledu („Map view“ zrušen); zelená = spojeno, oranžová pulzující = připojuji (s `prefers-reduced-motion` bez pulzu), červená = bez spojení; slova jen v `title` + `aria-label` (en/cs, `mapview.conn.*`); klik / Enter = hned znovu připojit (`ConnectionStatus`, map_view.js) |
-| střed (PC ≥ 992 px) | **řada stavových ikon** (`#status_div`, status_header.js): skupiny počasí · senzory · pojezd · teploty · napájení | počasí = ikona deště `#ico_rain` (jediná viditelná z `#ico_rain_ok/warn/danger`, barva = stav, 16 px jako ostatní; bez dat skupina není vidět); klik / Enter = obnoví radar a otevře levý panel › Map › Rain (rain_alert.js) |
-| vpravo | ? · zvonek · monitor počítače · Fullscreen / Restart (pod lg v ☰), za nimi roh velkého STOPu | posunou se před STOP (`--vt-stop-zone`) |
+| vlevo | logo VITULUS + **tečka spojení** (`#conn_status`, `data-state`), zóna pevně 172 px | zelená = spojeno, oranžová pulzující = připojuji, červená = bez spojení; slova jen v `title` + `aria-label` (en/cs, `mapview.conn.*`); klik / Enter = hned znovu připojit (`ConnectionStatus`, map_view.js) |
+| střed | **řada stavových ikon** (`#status_div`, status_header.js) od pevného x: skupiny počasí · senzory · pojezd · teploty · napájení | počasí = `#ico_rain` (klik = radar, rain_alert.js); `vt-h-sum` (< 1100 px a nízké okno): 1 ikona za skupinu = nejhorší (`.sh-rep`: červená > oranžová > zelená > šedá) |
+| vpravo | **systém** `#system_monitor_header` (CPU · RAM · ↓ ↑) · `.vt-hdr-vdiv` · ? `#btn_help` · zvonek `#btn_needs` · Restart `#btn_robot_restart` (jen ikona, potvrzení `appjs.restart.confirm`) · ⋯ `#btn_hdr_more` | pořadí dělá CSS `order`, ne DOM (moduly vkládají tlačítka před `#btn_navbar_toggler`, který je skrytý); řádek nechává volný roh STOPu (`padding-right: --vt-stop-zone`) |
+| ⋯ menu `#vt_hdr_menu` | Fullscreen (`VTApp.toggleFs`, jen kde je Fullscreen API), jazyk EN / CS (`VTI18n.setLang`, totéž co Settings › App); na telefonu a nízkém okně i ? (`VTSupport.help`) a systém (`VTSys.section()`), na nízkém okně navíc logo | malá tečka na ⋯ (telefon, nízké okno), když systém hlásí jantar / červenou |
 
-Pod 992 px řada ikon (včetně počasí) visí z horní lišty nad mapou (telefon na
-výšku: přes celou šířku, prázdné boční sloupce řady skryté, takže se ikony vejdou
-do jednoho řádku i na 360 px; kdyby ne, zalomí se do dvou v rámci 32 px); na šířku s otevřeným panelem ukazuje jen
-ikony, které hlásí problém (déšť se čeká / prší ano, „bez deště“ ne).
+**Systém v pevných slotech**: Roboto `tabular-nums`; procenta ve slotu 3ch + „%“;
+síť: hodnota ve slotu 3ch (8.4 · 88 · 317) + jednotka v boxu 2,9em; vyhlazení
+EMA τ ≈ 6 s (vzorek /api/system každé 2 s); jednotka s hysterezí (nahoru při
+1000, dolů pod 900). Blok má pevnou šířku 266 px (`vt-h-w1600`: 186 px, jen ↓).
+Barvy jen když je potřeba: CPU podle **průměru za 30 s** (≥ 90 % jantar, ≥ 97 %
+červená), RAM / disk podle hodnoty (≥ 90 / ≥ 97 %). Klik = karta `#sh_sys_card`
+(kruhy CPU · RAM · DISK, síť, průměr, zátěž, odkaz Settings › Diag).
+
+**Zúžení** (jen PC, nic se nezalamuje): `vt-h-w1600` < 1600 síť jen ↓ ·
+`vt-h-w1366` < 1366 systém jako čip `#btn_sys_chip` (barva nejhorší z CPU / RAM /
+disk, klik = karta) · `vt-h-w1280` < 1280 pás menu jen ikony (44 px, název v
+tooltipu) · `vt-h-w1100` < 1100 ikony po 1 za skupinu. Logo, tečka, ?, zvonek, ⋯
+a STOP se neskrývají nikdy.
+
+**Pás menu** (PC): tlačítka přirozené šířky zleva (`flex: 0 0 auto`), ne
+roztažená přes lištu; bez pravého panelu se dolní pravý roh pásu stáčí podle
+objímky STOPu (`--vt-collar-r`).
+
+**Hlášky = jeden překryv** v horní části dutiny (PC, nízké okno), který nic
+neodsouvá: vlevo agent (`#vagent_bars`: pás `#vagent_strip`, odemčený dok,
+STOP latch — pilulky max 230 px, celý text v tooltipu), uprostřed hláška robota
+(`.vt-notice-row`, jeden řádek s elipsou, celý text v `title`) v pevném slotu
+(od `cleft + 254 px`, symetricky když je dutina ≥ 1220 px). `layoutBars`
+(agent_chat.js) už pás menu neposouvá (`margin-top: 0 !important`), mapa ani
+pravý panel se při objevení pásu agenta nepohnou. Telefon na výšku: řádek
+hlášek 28 px je součást horní lišty (agent vlevo, hláška vedle).
 
 **Výpadek spojení** ohlásí i pás hlášek (`#span_status_info` třída
 `vt-notice-conn`, červená hrana, text `mapview.conn.lost`) — jakmile spojení
-spadne (nebo selže první pokus), zůstane do obnovení (10s časovač StatusBar ji
-neschová), po připojení zmizí. Na nízkém okně (telefon na šířku, navbar
-skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
+spadne (nebo selže první pokus), zůstane do obnovení, po připojení zmizí.
+Navbar je vidět ve všech polohách (LayoutManager ho už neschovává; na nízkém
+okně je to jediný řádek hlavičky a mapa pod ním běží celou výškou).
 
 ## Matice: kde je která oblast
 
@@ -151,8 +184,8 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 
 | Oblast | Panel zobrazený | Panel skrytý |
 |---|---|---|
-| Horní lišta | navbar 42 px + pás menu, celá šířka | totéž |
-| Hlášky (`#span_status_info`) | vlastní pás pod menu, vycentrovaný mezi levým a pravým panelem | vycentrovaný mezi hřbetem a pravým panelem |
+| Horní lišta | navbar 44 px + pás menu 36 px = 80 px, celá šířka, končí v objímce STOPu | totéž |
+| Hlášky (`#span_status_info`, `#vagent_bars`) | překryv v horní části dutiny (agent vlevo, hláška v pevném slotu), nic neodsouvá | totéž od hřbetu |
 | Levý panel | sloupec 480 px od pásu menu **až ke spodní hraně okna** (spodní lišta začíná za ním), sdílené hrany, bez stínu | hřbet 12 px až ke spodní hraně |
 | Mapa | vpravo od panelu (plátno se zúží) | celá plocha mezi lištami |
 | Pravý stavový panel | výběžek z horní lišty u pravé hrany (hned pod pásem menu a pod STOPem, který je hlavou sloupce), konec nad logem / joystickem | totéž |
@@ -167,8 +200,8 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 
 | Oblast | Panel zobrazený | Panel skrytý |
 |---|---|---|
-| Horní lišta | při výšce < 600 px jen pás menu (navbar skrytý, jako dřív) | totéž |
-| Hlášky | pás pod menu, vycentrovaný vpravo od panelu | přes celou šířku |
+| Horní lišta | při výšce < 500 px jeden řádek 44 px (`vt-h-row`: tečka · panely · ikony po skupinách · zvonek · Restart · ⋯); vyšší okno jako PC | totéž |
+| Hlášky | překryv v horní části dutiny vpravo od panelu (agent vlevo, hláška v pevném slotu) | totéž od hřbetu |
 | Levý panel | sloupec přes mapu, min(420 px, 52 % šířky), od pásu menu až ke spodní hraně (spodní lišta začíná za ním, bez mezery pro gesto), stín vpravo | hřbet až ke spodní hraně, lišta za ním |
 | Hlavička panelu (výška ≤ 480 px) | panely se záložkami (Settings, Map, Programs, Agent, Support): akce hlavičky (STOP agenta, ⤢, ✕) sedí na pravém konci řádku záložek, titulek a meta ustoupí (P20); Marker a editor mapy mají hlavičku beze změny; řádek záložek drží při rolování nahoře (P24); editor mapy na šířku skryje patičku Close editor, zavírá ✕ v hlavičce (P25) | — |
 | Mapa | celá plocha (panel ji částečně kryje) | celá plocha |
@@ -182,8 +215,8 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 
 | Oblast | Panel zobrazený (sheet) | Panel skrytý |
 |---|---|---|
-| Horní lišta | navbar + pás menu | totéž |
-| Ikonky + hlášky | součást horní lišty (plocha rámu), pod pásem menu | totéž |
+| Horní lišta | navbar 52 + pás menu 44 | totéž |
+| Ikonky + hlášky | součást horní lišty (plocha rámu), pod pásem menu: ikony 28 px v jednom řádku, hlášky 28 px (agent vlevo + hláška s elipsou) — celkem 152 px | totéž |
 | Pravý stavový panel | — (při otevřeném sheetu ustoupí) | sbalený řádek visí z horní lišty u pravé hrany (📷 = large kamera, ▾ rozbalí) |
 | Levý panel | sheet od spodní lišty, 60 % výšky (celá výška ⤢) | — |
 | Hlavička panelu | panely se záložkami: STOP agenta, ⤢, ✕ na pravém konci řádku záložek, titulek panelu v řádku úchytu sheetu vlevo (P27); Marker a editor mapy beze změny | — |

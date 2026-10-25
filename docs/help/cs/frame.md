@@ -11,7 +11,7 @@ keywords: [rám, rozvržení, panel, skrýt, celá obrazovka, rozbalit, sheet, s
 ---
 # Obrazovka
 
-UI tvoří jeden rám ve tvaru písmene **C** kolem mapy: horní pás (navbar, lišta agenta, pás menu),
+UI tvoří jeden rám ve tvaru písmene **C** kolem mapy: horní pás (navbar a pás menu),
 levý panel a spodní lišta jsou jedna plocha. Pravý panel, log a joystick vyrůstají ze stejného
 rámu.
 
@@ -19,13 +19,39 @@ rámu.
 
 ## Horní lišta
 
-Zleva doprava: logo **VITULUS** s malou **tečkou spojení** — zelená = stránka je spojená
-s robotem, oranžová (pulzuje) = připojuje se, červená = bez spojení; po najetí myší ukáže slova,
-kliknutím se hned připojí znovu. Když spojení spadne, řekne to i řádek v pásu hlášek pod menu,
-dokud se neobnoví. Pak **ikony stavu**, první je **počasí** (klik = radar deště) — viz [Ikony
-stavu](status-icons.md). Vpravo **?** nápověda, zvonek (**Čeká na tebe**) a monitor počítače. Na
-úzké obrazovce visí ikony stavu pod pásem menu; na telefonu na šířku je navbar skrytý (pás menu
-zůstává) a výpadek spojení ukáže jen pás hlášek.
+![Horní lišta na PC s očíslovanými značkami](../img/shot-navbar.webp "PC: 1 tečka spojení · 2 ikony stavu · 3 počítač (CPU · RAM · ↓ ↑) · 4 ? nápověda · 5 Čeká na tebe (zvonek) · 6 Restart · 7 ⋯ další · 8 STOP")
+
+Na PC má horní lišta dva řádky: **navbar** a pod ním **pás menu**. Má tři zóny, které se nehýbou —
+když se změní číslo nebo se objeví hláška, nic v liště neuskočí a nikdy se nezalomí na druhý řádek:
+
+- **Vlevo** — logo **VITULUS** s malou **tečkou spojení** (zelená = stránka je spojená s robotem,
+  oranžová pulzující = připojuje se, červená = bez spojení; po najetí myší ukáže slova, kliknutím
+  se hned připojí znovu). Hned za ním **ikony stavu**, první je **počasí** (klik = radar deště) —
+  viz [Ikony stavu](status-icons.md).
+- **Vpravo** — **počítač** robota (CPU · RAM · stahování ↓ · odesílání ↑, klik = karta s dalšími
+  čísly), pak **?** nápověda, zvonek (**Čeká na tebe**, číslo na něm počítá, co na tebe čeká),
+  **Restart** (ikona vypínače — po potvrzení restartuje celého robota) a **⋯** další:
+  **Celá obrazovka** a **jazyk** (EN / CS, stejná volba jako Settings › App).
+- **Roh** — kulatý **STOP** (níž); lišta do něj vbíhá zleva.
+
+**Pás menu** pod ní otevírá panely: **Panel**, **Marker**, **Settings**, **Map**, **Programs**,
+**Agent**, **Support** — tlačítka široká podle názvu, zleva.
+
+**Hlášky** plavou v horní části mapy, takže se mapa při jejich objevení nepohne: vlevo řádek
+agenta (např. *NÁLEZ · 5 k přečtení*, klik = panel agenta), uprostřed hláška robota (*Waiting for
+dock cmd*, výpadek spojení…) na jednom řádku — celý text ukáže po najetí myší.
+
+**Užší okno** věci ubírá, nemačká je: pod 1600 px ukazuje počítač jen stahování ↓, pod 1366 px je
+to jeden **čip** (barva = nejhorší z CPU, RAM a disku; klik = karta s čísly), pod 1280 px má pás
+menu jen ikony (název je v bublině), pod 1100 px ukazuje každá skupina ikon jen jednu ikonu —
+tu nejhorší ze skupiny. Logo, tečka, ?, zvonek, ⋯ a STOP jsou tam vždycky.
+
+**Telefon na výšku**: navbar (logo, tečka, zvonek, Restart, ⋯, STOP), pás menu, řádek ikon stavu
+a řádek hlášek. ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
+panelů · jedna ikona za skupinu stavu · zvonek · Restart · ⋯ — logo, ? a počítač jsou v **⋯**, STOP
+je v rohu nad pravým panelem.
+
+![Jeden řádek hlavičky na telefonu na šířku, s očíslovanými značkami](../img/shot-phone-land.webp "Telefon na šířku: 1 tečka spojení · 2 tlačítka panelů · 3 ikony stavu (jedna za skupinu) · 4 Čeká na tebe · 5 Restart · 6 ⋯ další · 7 STOP")
 
 ## Levý panel
 
@@ -53,7 +79,7 @@ i jeho STOP) jsou na konci řádku záložek; na výšku se název přesune do �
 otoč kolečkem myši nad řádkem nebo ho posuň prstem. Vybraná záložka (i ta otevřená, kdykoli se
 panel otevře) se celá posune do viditelné části; na klávesnici přepínají záložky **←** / **→**.
 
-![UI na telefonu na výšku, bez otevřeného panelu, s očíslovanými značkami](../img/shot-phone.webp "Telefon, žádný panel: 1 Čeká na tebe · 2 pás menu · 3 ikony stavu · 4 mapa · 5 pravý panel (jeden řádek, ▾ ho rozbalí) · 6 STOP · 7 Log, Sledovat, Joystick") ![UI na telefonu s panelem Mapa otevřeným jako sheet zdola, s očíslovanými značkami](../img/shot-phone-sheet.webp "Telefon, otevřený panel Mapa: 1 název (táhni za úchyt) · 2 záložky · 3 ? nápověda · 4 ⤢ celá obrazovka · 5 ✕ zavřít")
+![UI na telefonu na výšku, bez otevřeného panelu, s očíslovanými značkami](../img/shot-phone.webp "Telefon, žádný panel: 1 Čeká na tebe · 2 pás menu · 3 ikony stavu · 4 mapa · 5 pravý panel (jeden řádek, ▾ ho rozbalí) · 6 STOP · 7 Log, Sledovat, Joystick · 8 ⋯ další (nápověda, počítač, celá obrazovka, jazyk)") ![UI na telefonu s panelem Mapa otevřeným jako sheet zdola, s očíslovanými značkami](../img/shot-phone-sheet.webp "Telefon, otevřený panel Mapa: 1 název (táhni za úchyt) · 2 záložky · 3 ? nápověda · 4 ⤢ celá obrazovka · 5 ✕ zavřít")
 
 ## Spodní lišta
 
@@ -70,16 +96,17 @@ horním rohu (níž), takže spodní lišta, pás jízdy i spodek levého panelu
 
 ## STOP v pravém horním rohu
 
-![Pravý horní roh na PC: kulatý STOP v hlavě pravého sloupce](../img/shot-stop.webp "PC: kulatý STOP v hlavě pravého sloupce, pravý panel začíná pod ním.")
+![Pravý horní roh na PC: kulatý STOP v objímce, horní lišta do něj vbíhá](../img/shot-stop.webp "PC: kulatý STOP sedí přímo v rohu, v objímce barvy rámu; horní lišta do ní vbíhá, pravý panel začíná pod ní.")
 
-Velký červený **STOP** je kulatý **hřib** — červená hlava v tmavé objímce zapuštěné do rámu — a
-stojí v **hlavě pravého sloupce**: na PC, tabletu a telefonu na šířku v pravém horním rohu nad
-středem pravého panelu (68 px, v nízkém okně 54 px), pravý panel začíná pod ním, ikony a menu
-horní lišty končí před jeho rohem. Na telefonu na výšku sedí na pravém konci horní lišty, tak
-velký, jak horní lišta dovolí (58 px), takže spodní lišta a pás jízdy zůstávají volné pro palce. Je vidět ve
-všech stavech (otevřený panel i přes celou obrazovku, log, velká kamera, editor mapy, nápověda,
-agent) a nic nezakrývá. Totéž udělá **Esc**. Je to jediné úplné zastavení
-([Bezpečnost](safety.md#stop)); vlastní STOP panelu Agent je jiná věc (zastaví misi agenta).
+Velký červený **STOP** je kulatý **hřib** přímo v **pravém horním rohu** okna, pár pixelů od obou
+okrajů. Kolem něj je **objímka** v barvě rámu a horní lišta do ní zleva vbíhá — lišta a STOP jsou
+jeden tvar. Na PC má 68 px (v nízkém okně 54 px) a horní lišta je stejně vysoká jako jeho objímka;
+pravý panel začíná pod nimi. Na telefonu na šířku objímka trochu přesahuje pod jediný řádek
+hlavičky a pravý panel začíná pod ní; na telefonu na výšku sedí na pravém konci navbaru (58 px),
+takže spodní lišta a pás jízdy zůstávají volné pro palce. Je vidět ve všech stavech (otevřený panel
+i přes celou obrazovku, log, velká kamera, editor mapy, nápověda, agent) a nic nezakrývá. Totéž
+udělá **Esc**. Je to jediné úplné zastavení ([Bezpečnost](safety.md#stop)); vlastní STOP panelu
+Agent je jiná věc (zastaví misi agenta).
 
 ## Pravý panel
 
@@ -243,7 +270,7 @@ Jak se páčka chová:
 - Po kliknutí nebo klepnutí kolem prvku nezůstane rámeček; při pohybu klávesou **Tab** se ukáže
   tenké azurové orámování ve tvaru prvku. Se systémovým *omezením pohybu* prstenec neanimuje.
 
-**Velký kulatý STOP** — vpravo nahoře v hlavě pravého sloupce (na telefonu na výšku na pravém konci
+**Velký kulatý STOP** — přímo v pravém horním rohu (na telefonu na výšku na pravém konci
 horní lišty), nebo **Esc** — je vždy vidět, s joystickem i bez něj, a žádný panel ho nepřekryje.
 Je to úplné zastavení ([Bezpečnost](safety.md#stop)); navíc hned pustí páčku.
 
