@@ -7,7 +7,7 @@ icon: la-crosshairs
 summary: Jak robot ví, kde je — RTK, mapa, dok — a co znamenají jednotlivé stavy.
 ui: [right/state, right/gnss#přijímače-gnss-pravý-panel--gnss, map/gloc#záložka-loc-globální-lokalizace-lidarem]
 related: [mapping, dock, troubleshooting, status-icons]
-keywords: [lokalizace, poloha, kurz, gps, gnss, rtk, fix, float, odhad, tracker, odometrie, relokalizace, lidar, gloc, pose, dead reckoning, heading, localize, relocalize]
+keywords: [lokalizace, poloha, kurz, gps, gnss, rtk, fix, float, odhad, tracker, odometrie, relokalizace, lidar, gloc, pose, dead reckoning, heading, localize, relocalize, utm, datum, konvergence, skutečný sever, odchylka, mřížka]
 ---
 # Lokalizace a GPS
 
@@ -136,6 +136,42 @@ a RTK. Dalším klepnutím je schováš.
    mise by měly na RTK počkat.
 
 Viz také [Řešení problémů › GPS](troubleshooting.md#gps-nechytá-fix).
+
+## Rámec UTM a mapa vs GPS (Mapa › Loc › Rámec UTM)
+
+GPS dává polohu v **síti UTM** (zóna, východní a severní souřadnice v metrech). Mapa místa je
+v této síti ukotvená svým **datumem**: bod 0,0 mapy v UTM a natočení mapy v síti. Mapa sama (i
+odometrie) míří na **skutečný sever**; síť UTM je vůči skutečnému severu pootočená o
+**konvergenci poledníků** — u středního poledníku zóny skoro nic (15° v. d. v zóně 33: −0,07°
+na 14,9° v. d.), na okraji zóny asi 2°. Karta **Rámec UTM** v **Mapa › Loc** (hned pod Detail
+lokalizace) ukazuje:
+
+| Řádek | Význam |
+|---|---|
+| Zóna | zóna UTM + šířkový pás, např. `33U (33N)` |
+| Počátek mapy | bod 0,0 mapy v UTM (E / N, metry) |
+| Natočení mapy v síti | natočení mapy vůči síti UTM podle datumu |
+| Konvergence poledníků | o kolik je samotná síť v počátku mapy pootočená vůči skutečnému severu |
+| Mapa vs skutečný sever | natočení minus konvergence — má být ~0; oranžově, když není (zkontrolujte datum mapy) |
+
+Věta pod tím to říká slovy i s tím, co by natočení stálo bez korekce (robot přes něj převádí GPS
+od vydání field-2026.10.25): start 20 m od doku by posunul mapu o `2 · sin(|natočení| / 2) · 20 m`
+(2,6 cm při −0,07°, 0,7 m při 2°).
+
+**Mapa vs GPS** je živá odchylka mezi anténou GPS robota na mapě a polohou z GPS převedenou do
+mapy přes datum: zelená ≤ 5 cm, oranžová ≤ 15 cm, výš červená. Měří se jen, když polohu drží GPS
+(RTK fix, prověřený); jinak karta řekne proč — *v doku* (polohu drží dok, normální stav), *GPS
+bez fixu*, *GPS bez RTK fixu*, *GPS zatím polohu nedrží*. Stejné číslo je řádek **Mapa–GPS**
+v rozbalení pravého panelu › Navi (klik otevře kartu).
+
+Na mapě:
+
+- **Kompas** (levý horní roh mapy, jen u mapy s datumem): oranžová šipka = skutečný sever,
+  čárkované **G** = sever sítě UTM; číslo je úhel mezi nimi. Otáčí se s pohledem.
+- Vrstva **Mřížka UTM** (Mapa › Vrstvy): čáry UTM po 10 m (po 100 m výraznější) nakreslené do
+  mapy — natočení mapy v síti je vidět na čarách. Pamatuje si ji každé zařízení zvlášť.
+- Když odchylka přeroste oranžovou mez, poloha z GPS se ukáže jako kroužek vedle robota
+  s čárkovanou spojnicí k anténě.
 
 ## Záložka Loc (globální lokalizace lidarem)
 

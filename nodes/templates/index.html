@@ -93,6 +93,7 @@
 <script src="/assets/js/vt_camera_settings.js"></script>
 <script src="/assets/js/vt_frame.js"></script>
 <script src="/assets/js/vt_cam_overlay.js"></script>
+<script src="/assets/js/vt_georef.js"></script>
 <style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
 <style>/* attention pulse: Programs > Reset while the mission SM is Stopped / TERMINAL ERROR */
 @keyframes vitulus-attn { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,193,7,0.9); } 50% { box-shadow: 0 0 0 5px rgba(255,193,7,0); } }
@@ -870,6 +871,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <div class="form-check form-check-inline" title="Aerial / satellite tiles (MapProxy)" data-i18n-title="mapt.layer.aerial_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label vt-fs-sm" for="mapv3_chk_aerial"><span data-i18n="mapt.layer.aerial">Aerial</span> <span class="vt-sw-8fd14f">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="&#268;HM&Uacute; rain radar overlay" data-i18n-title="mapt.layer.rain_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label vt-fs-sm" for="mapv3_chk_rain"><span data-i18n="mapt.layer.rain">Rain</span> <span class="vt-sw-0000fc">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Sensing — what the lidar and the camera are observing right now (the mapper's ranges): violet = lidar (stronger up to an obstacle it hits, faint = free up to the range limit), yellow = camera view cone; the faint fill = area already observed in this recording. On while a recording runs." data-i18n-title="mapt.layer.sensing_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_sensing"><label class="form-check-label vt-fs-sm" for="mapv3_chk_sensing"><span data-i18n="mapt.layer.sensing">Sensing</span> <span class="vt-sw-b388ff">&#9632;</span><span class="vt-sw-ffd23f">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="UTM grid lines every 10 m (every 100 m stronger) turned into the map frame — shows how the map sits in the UTM grid; with a large map-vs-GPS deviation also the GPS position next to the robot" data-i18n-title="utm.layer_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_utmgrid"><label class="form-check-label vt-fs-sm" for="mapv3_chk_utmgrid"><span data-i18n="utm.layer">UTM grid</span> <span class="vt-sw-utm">&#9638;</span></label></div>
                                         </div>
 
                                         <!-- SECTION: Map recording (2026-08-16 UI redo: every button says what

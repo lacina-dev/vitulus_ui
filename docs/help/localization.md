@@ -7,7 +7,7 @@ icon: la-crosshairs
 summary: How the robot knows where it is — RTK, the map, the dock — and what the states mean.
 ui: [right/state, right/gnss#gnss-receivers-right-panel--gnss, map/gloc#the-loc-tab-lidar-global-localization]
 related: [mapping, dock, troubleshooting, status-icons]
-keywords: [gps, gnss, rtk, fix, float, pose, tracker, dead reckoning, heading, localize, relocalize, gloc]
+keywords: [gps, gnss, rtk, fix, float, pose, tracker, dead reckoning, heading, localize, relocalize, gloc, utm, datum, convergence, true north, grid north, deviation]
 ---
 # Localization and GPS
 
@@ -140,6 +140,44 @@ its first fix, float and RTK after start. Tap again to hide them.
    precisely; long missions should wait for RTK.
 
 See also [Troubleshooting › GPS](troubleshooting.md#gps-does-not-fix).
+
+## The UTM frame and map vs GPS (Map › Loc › UTM frame)
+
+GPS gives positions in the **UTM grid** (zone, easting, northing in metres). The site map is
+anchored in that grid by its **datum**: the map's 0,0 in UTM and the map's rotation in the grid.
+The map itself (and odometry) points at **true north**; the UTM grid is turned against true north
+by the **meridian convergence** — almost nothing near the zone's central meridian (15° E in zone
+33: −0.07° at 14.9° E), about 2° at its edge. The card **UTM frame** in **Map › Loc** (right
+below Localization detail) shows:
+
+| Row | Meaning |
+|---|---|
+| Zone | UTM zone + latitude band, e.g. `33U (33N)` |
+| Map origin | the map's 0,0 in UTM (E / N, metres) |
+| Map rotation in the grid | the datum's rotation of the map against the UTM grid |
+| Meridian convergence | how much the grid itself is turned against true north at the map origin |
+| Map vs true north | rotation minus convergence — should be ~0; orange when it is not (re-check the map's datum) |
+
+The sentence below says it in words, with what the rotation would cost without the correction
+(the robot converts GPS through it since field-2026.10.25): a start 20 m from the dock would
+shift the map by `2 · sin(|rotation| / 2) · 20 m` (2.6 cm at −0.07°, 0.7 m at 2°).
+
+**Map vs GPS** is the live deviation between the robot's GPS antenna on the map and the GPS
+position converted into the map through the datum: green ≤ 5 cm, orange ≤ 15 cm, red above. It is
+measured only while GPS holds the pose (RTK fixed and proven); otherwise the card says why —
+*in the dock* (the dock holds the pose, normal), *no GPS fix*, *GPS without RTK fix*, *GPS does
+not hold the pose yet*. The same number is the **Map–GPS** line in the right panel › Navi expand
+(click it to open the card).
+
+On the map:
+
+- **Compass** (top-left corner of the map, only with a map that has a datum): the orange arrow
+  is true north, the dashed **G** the UTM grid north; the number is the angle between them. It
+  turns with the view.
+- Layer **UTM grid** (Map › Layers): UTM lines every 10 m (every 100 m stronger) drawn in the
+  map — the rotation of the map in the grid is visible on the lines. Remembered per device.
+- When the deviation is above the orange limit, the GPS position shows as a ring next to the
+  robot with a dashed line to the antenna.
 
 ## The Loc tab (lidar global localization)
 

@@ -2048,3 +2048,37 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt
     body.vt-frame.vt-m-sheet #div_bottom_menu { min-height: 56px; }
 }
 body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-kbsw { display: none; }
+
+/* =========================================================================
+   UTM frame (vt_georef.js, vitulus-field#32, 2026-10-25): the Map › Loc card,
+   the compass rose in the hollow's top-left corner and the UTM grid swatch.
+   ========================================================================= */
+.vt-sw-utm { color: #ffb74d; }
+.vt-utm-card .vt-utm-kv { margin-top: 2px; }
+.vt-utm-say { font-size: var(--vt-fs-sm, 12px); line-height: 1.35; margin-top: 6px; }
+.vt-utm-dev { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; margin-top: 6px;
+              padding-top: 6px; border-top: 1px solid var(--vt-border, rgba(255, 255, 255, 0.08)); }
+.vt-utm-dev-k { color: var(--vt-muted); font-size: var(--vt-fs); }
+.vt-utm-dev-v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; margin-left: auto; }
+.vt-utm-dev-why { flex-basis: 100%; text-align: right; font-size: var(--vt-fs-sm, 12px); }
+.vt-utm-rose {
+    position: fixed; z-index: 4; pointer-events: auto; user-select: none;
+    left: calc(var(--vt-frame-cleft, 0px) + 10px);
+    top: calc(var(--vt-frame-top, 72px) + 10px);
+    width: 60px; display: flex; flex-direction: column; align-items: center;
+    background: rgba(20, 24, 28, 0.55); border-radius: 12px; padding: 3px 2px 2px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.vt-utm-rose svg { display: block; overflow: visible; }
+.vt-utm-rose-ring { fill: none; stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
+.vt-utm-rose-tick { stroke: rgba(255, 255, 255, 0.35); stroke-width: 1; }
+.vt-utm-rose-true path { fill: #ff7100; }
+.vt-utm-rose-true path.vt-utm-rose-s { fill: rgba(255, 255, 255, 0.35); }
+.vt-utm-rose-n { fill: #ff7100; font: 700 8px var(--vt-font, Roboto, sans-serif); }
+.vt-utm-rose-grid line { stroke: #ffb74d; stroke-width: 1.4; stroke-dasharray: 3 2; }
+.vt-utm-rose-lbl { fill: #ffb74d; font: 600 7px var(--vt-font, Roboto, sans-serif); }
+.vt-utm-rose-t { font-size: 9px; color: var(--vt-muted, #9aa4ad); font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 575.98px) {
+    .vt-utm-rose { width: 50px; left: calc(var(--vt-frame-cleft, 0px) + 6px); }
+    .vt-utm-rose svg { width: 46px; height: 46px; }
+}

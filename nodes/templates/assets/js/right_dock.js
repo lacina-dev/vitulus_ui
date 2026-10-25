@@ -522,10 +522,36 @@
             setTip(chip, t('loc.trk.tip') + (nt ? ': ' + nt : ''));
             setTip(line, (nt ? nt + ' · ' : '') + lt);
         };
-        sec.onUnfold = paint;
-        paint();
-        relang.push(paint);
-        setInterval(paint, 1000);
+        /* quick number "Map vs GPS" (vt_georef.js, #32): the deviation in cm
+           coloured ≤ 5 / ≤ 15 / above, or why it cannot be measured; click =
+           left panel › Map › Loc › UTM frame */
+        var gl = el('div', 'rp-trk1 rp-geo1', box);
+        gl.setAttribute('role', 'button');
+        gl.tabIndex = 0;
+        var gk = el('span', 'rp-trk1-k', gl);
+        var gv = el('span', 'vt-chip vt-chip-sm', gl);
+        gv.dataset.state = 'off';
+        var gw = el('span', 'rp-trk1-t', gl);
+        var openGeo = function (ev) { ev.stopPropagation(); ev.preventDefault(); openLocTab('loc_utm_card'); };
+        gl.addEventListener('click', openGeo);
+        gl.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { openGeo(ev); } });
+        var paintGeo = function () {
+            if (sec.classList.contains('folded')) { return; }
+            var k = t('rdock.geo.k');
+            if (gk.textContent !== k) { gk.textContent = k; }
+            var q = window.VtGeoref ? window.VtGeoref.quick() : null;
+            var txt = q ? q.text : '—', st = q ? q.state : 'off';
+            if (gv.textContent !== txt) { gv.textContent = txt; }
+            if (gv.dataset.state !== st) { gv.dataset.state = st; }
+            var why = q ? q.why : '';
+            if (gw.textContent !== why) { gw.textContent = why; }
+            setTip(gl, (q ? q.tip : t('rdock.geo.k')) + '\n' + t('rdock.geo.tip'));
+        };
+        var paintAll = function () { paint(); paintGeo(); };
+        sec.onUnfold = paintAll;
+        paintAll();
+        relang.push(paintAll);
+        setInterval(paintAll, 1000);
     }
 
     // ------------------------------------------------------------ sekačka

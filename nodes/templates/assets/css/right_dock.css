@@ -480,3 +480,6 @@ body.rp-log-top #div_log_view {
 .rp-mbtn.rp-mblade { width: 26px; }
 #right_panel .rp-mot { padding: 0 3px; min-width: 0; display: inline-flex; align-items: center; justify-content: center; }
 #right_panel .rp-mot svg { display: block; }
+/* Navi expand: the quick number "Map vs GPS" (vt_georef.js) — a link to Map › Loc */
+.rp-geo1 { cursor: pointer; }
+.rp-geo1:hover .rp-trk1-k, .rp-geo1:focus-visible .rp-trk1-k { text-decoration: underline; }

@@ -113,6 +113,7 @@ var MapLayerOrder = {
                      // layers are shown at once.
     SENSING_COVER: 22, // Sensing layer: faint "already observed" swath of
                      // the running recording (MapSensing in mapping.js)
+    UTMGRID:   24,   // UTM grid layer (vt_georef.js): 10 m UTM lines in the map frame
     SENSING:   25,   // Sensing layer: live lidar scan polygon + camera cone
     DOCK:      30,
     RAIN:     999,
