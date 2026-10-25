@@ -7164,6 +7164,22 @@ class Programs {
     _programShown() {
         return this.map_menu.btn_menu_program_show.dataset.shown === '1';
     }
+    // Agent (operátor, 2026-10-25) ukazuje zónu: obrys a cesty zóny z plánovače
+    // stejnou cestou jako „Ukázat" u programu — pseudo-program s jedinou zónou
+    // na /web_plan/program_to_show_marker.  Druhé „Ukázat"/„Skrýt" ho schová.
+    show_zone(name) {
+        const z = (this.available_zones || []).find((x) => x.name === name);
+        if (!z) return false;
+        Object.keys(this.paths_visualization.markerArrayClient.markers).forEach((key) => {
+            this.paths_visualization.markerArrayClient.removeMarker(key);
+        });
+        this.program_to_show_marker_Topic.publish(new ROSLIB.Message({
+            name: 'agent:' + name, map_name: this.active_map_data, zone_list: [z]
+        }));
+        this._setShowBtn(true);
+        return true;
+    }
+
     _setShowBtn(shown) {
         const b = this.map_menu.btn_menu_program_show;
         b.dataset.shown = shown ? '1' : '0';
@@ -7678,6 +7694,29 @@ window.initMapView = function () {
 
     programs = new Programs(ros.ros, map_menu, paths_visualization);
     programs.reload_planner_data();
+
+    /**
+     *  Agent ukazuje na mapě (operátor, 2026-10-25): zpráva chatu nese
+     *  meta.ui_show {kind: zone|waypoint|path|layer, name}.  Mapa udělá totéž,
+     *  co tlačítka Ukázat — bod a trasu nakreslí navi_manager, zónu plánovač.
+     *  Jen čerstvé zprávy (≤ 2 min, ne historie po načtení) a každá jednou.
+     */
+    (function () {
+        const done = {};
+        document.addEventListener('vagent:task', (ev) => {
+            const task = ev && ev.detail;
+            const show = task && task.meta && task.meta.ui_show;
+            if (!show || !show.name || done[task.id]) return;
+            done[task.id] = true;
+            const ts = Number(task.reply_ts || task.ts || 0);
+            if (ts && Date.now() / 1000 - ts > 120) return;
+            try {
+                if (show.kind === 'zone') programs.show_zone(show.name);
+                else if (show.kind === 'waypoint') map_menu.point_clicked_show(show.name);
+                else if (show.kind === 'path') map_menu.path_clicked_show(show.name);
+            } catch (e) { /* zobrazení je pohodlí — chyba nesmí shodit chat */ }
+        });
+    })();
 
     /**
      *  Calendar Manager (scheduler calendar events)

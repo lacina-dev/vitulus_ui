@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a zámek doku.
 ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-zámek-doku, agent/models#modely, needs#čeká-na-tebe]
 related: [safety, dock, support]
-keywords: [model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
+keywords: [operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
 ---
 # Agent Vitulus
 
@@ -98,6 +98,43 @@ robota (po vyjetí čeká dock_smach na RTK u bodu *UNDOCK*), mise po zhruba min
 co čeká, a pak nejvýš každé 3 minuty. Mimo misi je zpráva, která robotovi říká, ať se hýbe
 (*jeď*, *dojeď*, *vrať se*, *otoč se*, *posekej*…), vždycky mise — *dojeď do zóny A* projede
 trasu té zóny (*ZONA_A_Path*) — nikdy jen odpověď.
+
+### Operátor: model řídí krok po kroku
+
+Zadání, které není čistá rutinní jízda (*vyjet / bod / trasa / počkat / do doku*) — a každý
+pokyn typu *pípni 2×*, *zobraz zónu A*, *počkej tam na signál* — vede **operátor**: model
+(Sonnet, záložně Haiku), který přečte, co jsi napsal, vybere si **skilly** robota — všechno, co
+umí UI a registr akcí agenta — a provádí je **krok po kroku, jako bys to dělal ty v UI**: *jeď na
+bod*, *projeď trasu*, *spusť program*, *zobraz zónu na mapě*, *otoč se*, *couvni*, *vyfoť*,
+*počkej*, *počkej na RTK*, *počkej na můj signál*, *pípni*, *napiš na displej*. Každý výsledek
+ověří, než řekne *hotovo*.
+
+```
+jeď po trase ZONA_A_Path, pak počkej na RTK fix a vyfoť to
+zobraz zónu A
+otoč se 3× doprava a jednou doleva, pak 2× pípni
+dej go na bod TEST a počkej tam na signál
+```
+
+- **Stejné brány jako každá mise.** Každý krok jde přes registr akcí, podepsaný seznam povolených
+  akcí, zámek doku (výjezd potřebuje tvoje odemčení, návrat domů nikdy), supervisor a aktuační
+  token. Nůž se točí jen v uloženém programu po tvém odemčení **Mow**. Když krok neprojde, operátor
+  jednou větou řekne proč a co můžeš udělat. Skilly, které UI má, ale ještě jsi je nepodepsal, jsou
+  vedené jako *čeká na podpis*.
+- **Vstoupit můžeš kdykoli.** Každá zpráva během mise jde do **téhož rozhovoru** s modelem: uvidí
+  ji ve výsledku aktuálního kroku (jízda dojede, čekání se přeruší hned) a změní postup. *Počkej
+  tam na signál* ho nechá stát a čekat — tvoje další zpráva (*jeď*, *hotovo*) je signál. Stejně
+  odpovídáš na jeho otázky.
+- **Zrušení a návrat domů zůstávají pevná slova** (*zruš to*, *jeď domů*) — vyřeší je jádro bez
+  modelu, viz tabulka výše.
+- **Zobrazení na mapě.** *Zobraz zónu A* / *ukaž bod TEST* / *ukaž trasu …* nakreslí zónu, bod
+  nebo trasu na tvoji živou mapu, stejně jako tlačítka **Ukázat**.
+- **Rozpočet a bezpečnost.** Nejvýš ~40 volání nástrojů a 15 tahů modelu na misi (a denní strop —
+  model jede na předplatném, které sdílíte). Když model neodpoví, selže nebo mu dojde rozpočet,
+  robot **stojí**; je-li venku a do 5 minut nenapíšeš, vrátí se do doku. Otázka bez odpovědi do
+  15 minut (venku) ho taky pošle domů. Člověk u ovládání vždy vyhrává.
+- Každý krok se zapisuje (*~/.vitulus/agent/operator/*); karta mise ukazuje kroky, latenci modelu
+  a spotřebovaná volání.
 
 ## Když krok selže
 

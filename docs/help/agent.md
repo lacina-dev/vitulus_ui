@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
+keywords: [operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
 ---
 # Vitulus agent
 
@@ -102,6 +102,45 @@ waits inside the robot for long (after the undock dock_smach waits for RTK at th
 3 minutes after that. Outside a mission, a message that tells the robot to move (*jeď*, *dojeď*,
 *vrať se*, *otoč se*, *posekej*…) is always a mission — *dojeď do zóny A* drives the route of that
 zone (*ZONA_A_Path*) — never just a reply.
+
+### The operator: a model drives step by step
+
+A task that is not a plain routine drive (*undock / waypoint / route / wait / dock*) — and every
+instruction like *pípni 2×*, *zobraz zónu A*, *počkej tam na signál* — is led by the
+**operator**: a model (Sonnet, Haiku as a fallback) that reads what you wrote, picks the robot's
+**skills** — everything the UI can do and the agent's action registry knows — and carries them
+out **one step at a time, like you would in the UI**: *go to this point*, *drive this route*,
+*run a program*, *show a zone on the map*, *rotate*, *back up*, *take a photo*, *wait*, *wait for
+RTK*, *wait for your signal*, *beep*, *write on the display*. It checks every result before it
+says *done*.
+
+```
+jeď po trase ZONA_A_Path, pak počkej na RTK fix a vyfoť to
+zobraz zónu A
+otoč se 3× doprava a jednou doleva, pak 2× pípni
+dej go na bod TEST a počkej tam na signál
+```
+
+- **Same gates as every mission.** Each step goes through the action registry, the signed list of
+  allowed actions, the dock lock (leaving the dock needs your unlock; going home never does), the
+  supervisor and the actuation token. The blade turns only in a saved program after your **Mow**
+  unlock. When a step is refused the operator says why in one sentence and what you can do.
+  Skills the UI has but you have not signed yet are listed as *waiting for signature*.
+- **Step in at any time.** Every message during the mission goes into **the same conversation**
+  with the model: it sees it in the result of the current step (a drive runs to its end, a wait is
+  interrupted at once) and changes course. *Počkej tam na signál* makes it stand and wait — your
+  next message (*jeď*, *hotovo*) is the signal. Answer its questions the same way.
+- **Cancel and go home stay fixed words** (*zruš to*, *jeď domů*) — the core handles them without
+  the model, see the table above.
+- **Showing on the map.** *Zobraz zónu A* / *ukaž bod TEST* / *ukaž trasu …* draw the zone, the
+  point or the route on your live map, the same as the **Show** buttons.
+- **Budget and safety.** At most ~40 tool calls and 15 model turns per mission (and a daily cap —
+  the model runs on the subscription you share). When the model does not answer, fails or runs out
+  of budget the robot **stands**; when it is outside and you do not write within 5 minutes it
+  drives back to the dock. A question you do not answer within 15 minutes (outside) also sends it
+  home. A person on the controls always wins.
+- Every step is recorded (*~/.vitulus/agent/operator/*); the mission card shows the steps, the
+  model's latency and the tool calls used.
 
 ## When a step fails
 
