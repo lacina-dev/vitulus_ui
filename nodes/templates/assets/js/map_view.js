@@ -5549,9 +5549,11 @@ class GnssRx{
     reasonText(o) {
         var p = o.pvt || {}, r = o.rtcm || {}, s = o.sat || {};
         var age = r.last_age_s != null ? r.last_age_s.toFixed(1) : "—";
+        var cn = {G: "GPS", R: "GLONASS", E: "Galileo", C: "BeiDou", J: "QZSS"};
         return vtT('gnssrx.why.' + o.reason, {
             s: age, n: (s.used != null ? s.used : p.num_sv),
-            cr: (s.carrier_corr != null ? s.carrier_corr : "—")
+            cr: (s.carrier_corr != null ? s.carrier_corr : "—"),
+            m: (o.mb_missing || []).map(function (g) { return cn[g] || g; }).join(" + ") || "—"
         });
     }
 
@@ -5559,7 +5561,7 @@ class GnssRx{
     note(o, title) {
         if (!o) return "";
         if (o.rtk) return "";
-        var st = !o.alive ? "err" : (o.reason === "float" || o.reason === "pos_not_rtk" ? "warn" : "err");
+        var st = !o.alive ? "err" : (o.reason === "float" || o.reason === "pos_not_rtk" || o.reason === "mb_const" ? "warn" : "err");
         var wait = o.up_s != null ? vtT('gnssrx.wait', {t: GnssRx.dur(o.up_s)}) : "";
         var typ = o.typical_rtk_s != null
             ? " · " + vtT('gnssrx.typical', {m: Math.max(1, Math.round(o.typical_rtk_s / 60)), n: o.typical_n}) : "";

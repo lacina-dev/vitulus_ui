@@ -315,6 +315,7 @@
     "gnssrx.why.mb_incomplete": "moving-base proud neúplný (chybí pozorování nebo poloha základny)",
     "gnssrx.why.few_sv": "málo satelitů ({n}) — pomůže volné nebe",
     "gnssrx.why.pos_not_rtk": "float — poziční přijímač ještě nemá RTK",
+    "gnssrx.why.mb_const": "moving-base proud nenese {m} — RTK kurz jen z {cr} SV, po vyjetí z doku pomalý (nastavení přijímače)",
     "gnssrx.why.float": "float — korekce OK ({s} s), {n} sat., řeší ambiguity (normální zahřívání)",
     "gnssrx.d.const": "použité/viditelné: {v}",
     "gnssrx.d.carrier": "satelity s fázovou korekcí: {n}",

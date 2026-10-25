@@ -116,6 +116,7 @@ Když přijímač **nemá RTK**, řádek pod sloupci řekne, jak dlouho čeká, 
 | *korekce jsou staré* / *nepoužívá je* | spojení ztrácí zprávy — zkontroluj rádio |
 | *málo satelitů* | popojeď pod volné nebe |
 | *float — poziční přijímač ještě nemá RTK* | počkej, až zezelená Poloha |
+| *moving-base proud nenese GLONASS + BeiDou* | poziční přijímač posílá přijímači kurzu korekce jen pro část viditelných satelitů, takže RTK kurz po vyjetí z doku trvá minuty. Je to nastavení přijímače (`rosrun vitulus_gnss f9p_mb_stream.py` ho zkontroluje; doplnění chybějících konstelací se udělá jednou se souhlasem ownera) |
 | *float — korekce OK, řeší ambiguity* | normální zahřívání; stačí čekat |
 
 *po startu obvykle ~N min* je medián doby do RTK z dřívějších startů toho přijímače (po rebootu

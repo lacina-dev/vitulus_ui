@@ -316,6 +316,7 @@
     "gnssrx.why.mb_incomplete": "moving-base stream incomplete (base observations or position missing)",
     "gnssrx.why.few_sv": "few satellites ({n}) — open sky helps",
     "gnssrx.why.pos_not_rtk": "float — position receiver not RTK yet",
+    "gnssrx.why.mb_const": "moving-base stream lacks {m} — RTK heading from only {cr} SV, slow after leaving the dock (receiver setting)",
     "gnssrx.why.float": "float — corrections OK ({s} s), {n} SV, resolving ambiguities (normal warm-up)",
     "gnssrx.d.const": "used/visible: {v}",
     "gnssrx.d.carrier": "SV with carrier corrections: {n}",

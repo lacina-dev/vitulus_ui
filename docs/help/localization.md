@@ -120,6 +120,7 @@ When a receiver is **not RTK**, a line under the columns says how long it has wa
 | *corrections stale* / *not used* | the link is dropping messages — check the radio |
 | *few satellites* | drive into open sky |
 | *float — position receiver not RTK yet* | wait for Position to turn green first |
+| *moving-base stream lacks GLONASS + BeiDou* | the position receiver sends the heading receiver corrections for only part of the satellites it sees, so the RTK heading takes minutes after leaving the dock. It is a receiver setting (`rosrun vitulus_gnss f9p_mb_stream.py` checks it; adding the missing constellations is done once with the owner's OK) |
 | *float — corrections OK, resolving ambiguities* | the normal warm-up; just wait |
 
 *after a start usually ~N min* is the median time to RTK from earlier starts of that receiver
