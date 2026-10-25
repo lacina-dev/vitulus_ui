@@ -866,14 +866,17 @@ class MappingV3 {
     //
     // GEOREF: the /map frame is anchored to the served site datum (fetched from
     // webnode /api/datum): map origin = (utm_e, utm_n) in UTM 33N, map rotated
-    // by yaw_rad vs UTM grid north. We place the whole tile set in a group that
-    // carries the -yaw rotation, and inside it position each tile plane by a
-    // LOCAL flat-earth conversion around the datum's origin_lat/origin_lon
-    // (sub-cm over ~100 m). For a map point the UTM offset from datum is
-    // R(+yaw)*(x,y); we express that offset as metres east/north, convert to
-    // lat/lon via metres-per-degree at the origin, then to XYZ tiles. Each
-    // tile's geographic bounds convert back to map metres the same way (inverse),
-    // giving an axis-aligned plane in the group's (pre-yaw) frame.
+    // by yaw_rad vs UTM grid north. UTM grid north is itself turned from TRUE
+    // north by the grid convergence (vitulus-field#32: 2.01 deg at the west edge
+    // of zone 33, 0.07 deg near 15 E), and the tiles below are laid out in
+    // true east/north metres — so the group carries -(yaw_rad - convergence),
+    // the map's rotation vs TRUE north (_mapTrueYaw), and inside it each tile
+    // plane is positioned by a LOCAL flat-earth conversion around the datum's
+    // origin_lat/origin_lon (sub-cm over ~100 m). For a map point the true
+    // east/north offset from the origin is R(+trueYaw)*(x,y); convert to lat/lon
+    // via metres-per-degree at the origin, then to XYZ tiles. Each tile's
+    // geographic bounds convert back the same way (inverse), giving an
+    // axis-aligned plane in the group's (pre-rotation) frame.
     //
     // Every step is try/catch-wrapped and images load async with crossOrigin;
     // a bad tile skips itself and NEVER touches the ROS3D render loop.
@@ -1309,6 +1312,22 @@ class MappingV3 {
         return { mLat, mLon };
     }
 
+    // The map's rotation vs TRUE north (rad, CCW) from the site datum:
+    // yaw_rad is the rotation vs UTM GRID north, and grid north differs from
+    // true north by the grid convergence  gamma = atan(tan(lon - lon0) * sin(lat))
+    // (lon0 = central meridian of the zone). On the robot the map frame is
+    // true-north ENU, so this is ~0 and yaw_rad ~= gamma (#32).
+    _mapTrueYaw(d) {
+        const yaw = d.yaw_rad || 0.0;
+        if (d.origin_lat == null || d.origin_lon == null) { return yaw; }
+        const zone = d.utm_zone || 33;
+        const lon0 = zone * 6 - 183;
+        const phi = d.origin_lat * Math.PI / 180.0;
+        const dl = (d.origin_lon - lon0) * Math.PI / 180.0;
+        const gamma = Math.atan(Math.tan(dl) * Math.sin(phi));
+        return yaw - gamma;
+    }
+
     // WGS84 lon/lat -> slippy XYZ tile coords (fractional) at zoom z.
     _lonLatToTile(lon, lat, z) {
         const n = Math.pow(2, z);
@@ -1410,10 +1429,10 @@ class MappingV3 {
             const group = this._ensureAerialGroup();
             if (!T || !group) { status(() => mapT('mapping.not_ready_3d'), true); return; }
 
-            // group carries the -yaw rotation: map = R(-yaw)*(UTM offset), so a
-            // plane laid out in UTM-aligned metres inside the group ends up in
-            // the map frame. Rotation about +z.
-            const yaw = d.yaw_rad || 0.0;
+            // group carries the -trueYaw rotation: map = R(-trueYaw)*(true
+            // east/north offset), so a plane laid out in true-north metres
+            // inside the group ends up in the map frame. Rotation about +z.
+            const yaw = this._mapTrueYaw(d);
             group.rotation.z = -yaw;
             group.visible = true;
             // re-assert the alignment offset on every rebuild (the group is
@@ -1440,7 +1459,7 @@ class MappingV3 {
             });
 
             // (2) COVERAGE — follow the current viewport. Take the 4 view corners
-            // (map metres, +margin), rotate map->UTM-aligned east/north (R(+yaw)),
+            // (map metres, +margin), rotate map->true east/north (R(+trueYaw)),
             // and cover their bounding box. Fall back to a square of the manual
             // area around the origin if the camera can't be read (stub viewer).
             const yaw2 = yaw;
@@ -1525,7 +1544,7 @@ class MappingV3 {
             const newMeshes = [];
             const opacity = this.in_aerial_opacity ?
                             parseFloat(this.in_aerial_opacity.value) : 1.0;
-            // convert a lon/lat back to UTM-aligned metres (inverse of above).
+            // convert a lon/lat back to true east/north metres (inverse of above).
             const lonLatToXY = (lon, lat) => ({
                 x: (lon - d.origin_lon) * mLon,
                 y: (lat - d.origin_lat) * mLat,
@@ -2086,8 +2105,8 @@ class MappingV3 {
             const halfKm = this._rainHalfKm();
             const sideM = 2.0 * halfKm * 1000.0;
 
-            // group carries -yaw so a UTM-aligned plane lands in the map frame.
-            group.rotation.z = -(d.yaw_rad || 0.0);
+            // group carries -trueYaw so a true-north plane lands in the map frame.
+            group.rotation.z = -this._mapTrueYaw(d);
             group.visible = true;
 
             // radar centre in map-aligned metres. If the ČHMÚ config centre

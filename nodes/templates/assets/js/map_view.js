@@ -7325,9 +7325,10 @@ window.initMapView = function () {
     // Guarantee a conventional top-down map view on a fresh load: camera looks
     // straight DOWN (-Z) from above the /map origin, with the world +Y axis
     // pointing UP on screen and +X pointing RIGHT. That is geometrically
-    // north-up / east-right because the /map frame is UTM-grid aligned (within
-    // ~0.1°): the aerial + rain layers place UTM north -> +Y and UTM east -> +X
-    // (see mapping.js georef — group carries -yaw, N->y, E->x). There is NO
+    // north-up / east-right because the /map frame is true-north ENU (its datum
+    // yaw vs the UTM grid is just the grid convergence, #32): the aerial + rain
+    // layers place true north -> +Y and east -> +X (see mapping.js georef —
+    // group carries -(yaw_rad - convergence), N->y, E->x). There is NO
     // persisted camera state (nothing in localStorage restores azimuth/zoom), so
     // this simply pins the startup pose; the user can still orbit freely after,
     // and this runs BEFORE TfClient so its captured map_cam_* (used by the
