@@ -392,6 +392,9 @@ red when it is urgent or the robot would move. It counts **only what waits for y
 agents handle themselves, calm notes and information never light it up. The panel speaks the
 same language as the Support dashboard's home page:
 
+![Needs you with the three kinds of cards](img/shot-needs.webp "1 the state in one sentence · 2 the kind of the card, how long it waits, the issue · 3 the recommended option · 4 what happens next · 5 one step at a time · 6 what changes, for whom, the risk")
+
+
 - **The state in one sentence** on top — *3 things wait for you. The agents handle 1 thing
   themselves, Mac tests 7 fixes.* (green *Nothing is needed from you.* when nothing waits) — and
   one line per robot (you and the other side, e.g. *Has the newest release, the robot runs on

@@ -383,6 +383,9 @@ když je to naléhavé nebo by se robot pohnul. Počítá **jen to, co čeká na
 vyřeší sami, klidné poznámky a informace ho nerozsvítí. Panel mluví stejně jako úvodní stránka
 dashboardu Podpory:
 
+![Čeká na tebe se třemi druhy karet](../img/shot-needs.webp "1 stav jednou větou · 2 druh karty, jak dlouho čeká, issue · 3 doporučená možnost · 4 co bude dál · 5 jeden krok po druhém · 6 co se změní, koho se týká, riziko")
+
+
 - **Stav jednou větou** nahoře — *Na tobě čekají 3 věci. Agenti řeší 1 věc sami, Mac testuje
   7 oprav.* (zeleně *Nic po tobě nechceme.*, když nic nečeká) — a řádek pro každého robota (ty
   a druhá strana, např. *Má nejnovější vydání, robot na něm jede.*). Verze, časy stacku a podobná

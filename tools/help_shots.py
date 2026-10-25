@@ -51,7 +51,7 @@ PHONE = (390, 844)
 
 # Selectors the script may click (DOM .click()): menu, tabs, section heads,
 # view switches. Anything that could command the robot is not here.
-CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|agent|support|log|joy|panel_toggle|help)'
+CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|agent|support|log|joy|panel_toggle|help|needs)'
                       r'|a\[href="#tab[-_][\w-]+"\]|#btn_ui_drawer_(help|full)|#btn_log_expand|#btn_map_detail_toggle|#div_menu_program_items_row|#btn_calendar_add|\.vth-|#vt_help|\[data-tab=|'
                       r'#rp_|\.rp-|\.vco-btn|\.vt-sec|summary|details|\.vagent-tab|\.vt-support-tab|\.cam-|#cam_|\.vtcam)')
 
@@ -206,6 +206,12 @@ SHOTS = [
                 ('#vagent_tabs', '3', 'b'), ('#vagent_panel textarea, #vagent_panel input[type=text]', '4', 't'), ('#vagent_quick', '5', 'ri')]),
     dict(name='shot-support', vp=DESK, demo=True, clip='#ui_drawer_head|#ui_drawer_body', trim=(2000, 300),
          steps=panel('#btn_support', None, [('wait', 2500)]), marks=[]),
+    dict(name='shot-needs', vp=TALL, demo=True, clip='#ui_drawer_head|#ui_drawer_body', trim=(2000, 1500),
+         steps=[('js', "try{localStorage.setItem('vitulus_ui_author','Demo')}catch(e){};var s=document.getElementById('vt_stop_big');if(s){s.style.visibility='hidden'}"),
+                ('click', '#btn_needs'), ('wait', 2500)],
+         marks=[('.vt-fv-hero', '1', 'ri'), ('.vt-ask-k-decide .vt-ask-type', '2', 'r'), ('.vt-ask-k-decide .vt-ask-opt', '3', 'ri'),
+                ('.vt-ask-k-decide .vt-ask-next', '4', 'ri'), ('.vt-ask-k-steps .vt-ask-step', '5', 'ri'),
+                ('.vt-ask-k-approve .vt-ask-facts', '6', 'ri')]),
     dict(name='shot-help', vp=DESK, scale=1, width=1200, md=26,
          steps=panel('#btn_map', 'tab-dock', [('click', '#btn_ui_drawer_help'), ('wait', 1500)]),
          marks=[('#btn_ui_drawer_help', '1', 'b'), ('.vth-search', '2', 'b'), ('.vth-toc', '3', 'l'), ('.vth-close', '4', 'b')]),
@@ -275,6 +281,57 @@ def _demo_issues():
 DEMO_EMPTY_ATTENTION = dict(count=0, oldest_since=None, high=0, items=[], you_issues=[], working=0, mine=0, acks=[], ctx={})
 
 
+def _demo_iso(min_ago):
+    return time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(time.time() - 60 * min_ago))
+
+
+def _demo_asks():
+    """Needs you: one card of each kind (kit 0.9.52 `ask`), invented and neutral."""
+    dec = dict(v=1, type='decide', id='turn:12', issue=12, kind='turn', label='Decision', thread='12', since=_demo_iso(95),
+               title='How to check the camera on the tablet (#12)',
+               why='The tester sees "waiting for signal" on the tablet; on a PC the camera works.', motion=False,
+               decide=dict(question='Which way should the agent check it?',
+                           options=[dict(idx=0, label='The agent adds a camera log, the tester only opens the page', rec=True, motion=False,
+                                         changes=True, what='The agent makes the change and releases it; the tester opens the camera once.', steps=[]),
+                                    dict(idx=1, label='Wait for the next tablet update', rec=False, motion=False, changes=False,
+                                         what='Nothing changes; the agent asks again in a week.', steps=[])],
+                           pick=dict(pid='p12demo', sha='0a1b2c3d4e'), rec_why='The fastest way: the tester sets nothing up.',
+                           discuss=dict(thread='12', label='None fits, talk it over with the agent',
+                                        text='None of the variants for #12 fits, let us talk it over.')),
+               next='After the click the agent does it and shows the result here.', tech='', open='#/issue/12')
+    stp = dict(v=1, type='steps', id='human-step:hs-0123456789ab', issue=14, kind='human-step', label='Task with steps', thread='14',
+               since=_demo_iso(20), title='Retest the dock lock (#14)', why='Only a person on site can do this - the agent guides you.',
+               motion=False, steps=dict(steps=[dict(k=1, id='R1', do='Open Settings > Dock on the phone', see='the dock lock is shown as Locked', motion=False),
+                                               dict(k=2, id='R2', do='Open the lock for 10 minutes', see='the lock shows the time left', motion=False)],
+                                        actions=[dict(kind='step-done', step='hs-0123456789ab', issue=14, label='Done')], say=''),
+               next='After each step click Done, or Does not work - the agent follows up at once.', tech='', open='#/issue/14')
+    app = dict(v=1, type='approve', id='approve:demo01', issue=None, kind='approve', label='Approval', thread='general', since=_demo_iso(40),
+               title='Release a new change for the tester', why='The change reaches the tester\'s robot - you let it go.', motion=False,
+               approve=dict(change='Release a new change for the tester', for_whom='the tester', risk='It does not move the robot and can be undone.',
+                            what='You approve releasing 2 changes (vitulus_ui) - the tester gets them on the robot; the list is below.',
+                            actions=[dict(kind='approve', id='demo01', sha='0', label='Approve'), dict(kind='dismiss', id='demo01', sha='0', label='Reject')],
+                            list=[dict(head='vitulus_ui · master · 2 changes', lines=['Help: the dock lock in pictures', 'Camera: reconnect after a network change'],
+                                       more='', carried=[])]),
+               next='Approve: the agent releases the change and the tester gets it by itself. Reject: nothing is released.', tech='', open='#/attention')
+    return [dec, stp, app]
+
+
+def _demo_home():
+    asks = _demo_asks()
+    items = [dict(key=a['id'], issue=a['issue'], title=a['title'], kind='do', since=a['since'], thread=a['thread'],
+                  link=a['open'], ask=a, type=a['type'], actions=[], options=[]) for a in asks]
+    return dict(role='owner', meta=dict(kit_version='0.9.54'), footer=dict(kit_version='0.9.54', release='field-demo-1', watch=dict(available=True, fresh=True)),
+                stav=[dict(login='owner', name='You', role='owner', me=True, tone='ok', say='The robot runs; everything is saved.',
+                           facts=[dict(k='release', v='field-demo-1')], news=[]),
+                      dict(login='tester', name='Tester', role='tester', me=False, tone='ok', say='Has the newest release, the robot runs on it.',
+                           facts=[dict(k='release', v='field-demo-1')], news=[])],
+                todo=dict(v=1, role='owner', names=dict(you='You', peer='Tester', peer_gen='Tester'),
+                          mine=dict(who='you', items=items, more=0, notes=[]), peer=dict(who='peer', name='Tester', items=[], more=0, notes=[])),
+                turn=dict(counts=dict(you=2, agent=1, field=0, verify=2, them=0), who={'15': 'agent'}, names=dict(them='Tester')),
+                issues=dict(us=[dict(number=15, title='Map tiles load slowly', status_text='agent prepares a fix')]),
+                velin=dict(sides=[], stage_of={}, stages={}), gh_access=dict(level='ok'), fleet=dict(self={}), blocks=[], flow_sent=[])
+
+
 def demo_answer(path, query):
     """The invented answer for a GET path, or None (read live)."""
     if path == '/agent/api/tasks':
@@ -284,6 +341,14 @@ def demo_answer(path, query):
         return _demo_issues()
     if path == '/field/api/attention':
         return DEMO_EMPTY_ATTENTION
+    if path == '/field/api/home':
+        return _demo_home()
+    if path == '/field/api/activity/current':
+        return dict(busy=[dict(slot='run', issue=15, text='The agent fixes #15: map tiles', text_en='The agent fixes #15: map tiles',
+                               started=_demo_iso(3))], state='busy', level='info', signal=dict(state='connected'),
+                    agents=dict(runs=[], others=[]))
+    if path == '/field/ui_actions':
+        return dict(ok=True, writes=True, ask=True, actions=[])
     if path == '/agent/api/v2/approvals':
         return dict(approvals=[], ts=time.time())
     return None

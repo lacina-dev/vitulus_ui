@@ -111,10 +111,10 @@ The help should *show* what it talks about. Two kinds:
   `camera-overlays.svg`).
 - **No real conversations in the help:** always shoot with `--demo`. The Agent chat, the Support
   issues and Needs you then show invented, neutral content (an English test drive with its
-  phases, two made-up reports) — the browser answers those GET requests itself (`DEMO` /
+  phases, two made-up reports, one Needs you card of each kind with an invented home page) — the browser answers those GET requests itself (`DEMO` /
   `install_demo` in the script, a Playwright route; the page's service worker is blocked so it
   cannot fetch past it), nothing goes to a server. Shots marked `demo=True` (`shot-agent`,
-  `shot-support`) are skipped without `--demo`. A new shot of a panel with messages, reports,
+  `shot-support`, `shot-needs`) are skipped without `--demo`. A new shot of a panel with messages, reports,
   names, e-mails or addresses gets `demo=True` and its data in `demo_answer()`. Look at every
   picture before committing.
 - Size: WebP (quality ~82) or SVG, at most 400 kB per file (the test checks); 2× pixels for small
