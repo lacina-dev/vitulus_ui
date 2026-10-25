@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [agent's plan, plan on the map, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
+keywords: [agent's plan, plan on the map, around a zone, point by point, outline, measured position, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
 ---
 # Vitulus agent
 
@@ -164,19 +164,31 @@ dej go na bod TEST a počkej tam na signál
 
 ### The agent's plan on the map
 
-When the operator plans a drive to a place that is not a saved point or route — *the far end of
-zone B*, *around zone A*, *2 m behind the dock* — it does not guess coordinates. It **looks at the
-map** (a picture with a metre grid and axis numbers, zones, points, routes, the robot and the dock),
-**draws its plan into it** (points, routes, areas, arrows with short labels like *b1 goal*),
-**checks every point** (free or in an obstacle, in which zone, reachable from the robot, how long
-the way is — a point in an obstacle is replaced by the nearest free one) and shows you the picture
-in **Chat**.
+Whenever the operator plans a drive or looks for a goal or a way — anything other than *go to
+point TEST* or *drive route X*: *the far end of zone B*, *around zone A*, *2 m behind the dock*, a
+detour — it does not guess coordinates. It **looks at the map** (a picture with a metre grid and
+axis numbers, zones, points, routes, the robot and the dock), **draws its plan into it** (points,
+routes, areas, arrows with short labels like *b1 goal*), **checks every point** (free or in an
+obstacle, in which zone, reachable from the robot, how long the way is — a point in an obstacle is
+replaced by the nearest free one) and shows you the picture of the plan in **Chat** before the
+robot moves. A saved route named after a zone is checked on the map first — it does not have to go
+around that zone.
 
 When it starts, the same plan appears on **your live map** as the layer **Agent's plan**
-(Map › Layers, amber ◆; warnings red, helper lines blue). A card in the bottom-left corner of the
-map says which mission it belongs to: **Show** moves the map onto the plan, **Clear** removes it
-from your view (the agent keeps its plan). A fresh plan brings the map forward once per mission
-(a large camera view steps back). The plan disappears by itself when the mission ends.
+(Map › Layers, amber ◆; warnings red, helper lines blue). If the agent changes the plan on the
+way, the map gets the new version before the next move; a free map point the agent drives to is
+always on the map first. A card in the bottom-left corner of the map says which mission it belongs
+to: **Show** moves the map onto the plan, **Clear** removes it from your view (the agent keeps its
+plan). A fresh plan brings the map forward once per mission (a large camera view steps back). The
+plan disappears by itself when the mission ends — also when it stops.
+
+- **Around a zone**: the agent takes the zone's outline half a metre inside, turns it into a few
+  points (corners, long edges split, the last point back at the start), checks each one and drives
+  them one by one. Chat counts them: *Step 2, point 3/8 (outline of zone A): driving to x 11.4,
+  y −4.6.*
+- **After arriving** the agent compares where the robot really is with the plan (position, distance
+  from the goal, which zone) and tells you — it never says *the farthest point*, *inside the zone*
+  or *went around it* without that measurement.
 
 ## When a step fails
 

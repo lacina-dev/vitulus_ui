@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a zámek doku.
 ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-zámek-doku, agent/models#modely, needs#čeká-na-tebe]
 related: [safety, dock, support]
-keywords: [stop odvolávám, zruš stop, zrušit stop, zastav, plán agenta, plan agenta, plán na mapě, skica, souřadnice, nejvzdálenější bod, kolem zóny, objeď zónu, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
+keywords: [stop odvolávám, zruš stop, zrušit stop, zastav, plán agenta, plan agenta, plán na mapě, objetí zóny, obvod zóny, bod po bodu, změřená poloha, skica, souřadnice, nejvzdálenější bod, kolem zóny, objeď zónu, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
 ---
 # Agent Vitulus
 
@@ -156,18 +156,29 @@ dej go na bod TEST a počkej tam na signál
 
 ### Plán agenta na mapě
 
-Když operátor plánuje jízdu na místo, které není uložený bod ani trasa — *nejvzdálenější část
-zóny B*, *kolem zóny A*, *2 m za dok* — souřadnice nehádá. **Podívá se na mapu** (obrázek
-s metrovou mřížkou a čísly os, zónami, body, trasami, robotem a dokem), **nakreslí do ní plán**
-(body, trasy, plochy, šipky s krátkými popisky jako *b1 cíl*), **ověří každý bod** (volno, nebo
-překážka, v jaké zóně, jestli je dosažitelný od robota, jak dlouhá je cesta — bod v překážce
-nahradí nejbližším volným) a obrázek ti ukáže v **Chatu**.
+Kdykoli operátor plánuje jízdu nebo hledá cíl či cestu — cokoli jiného než *jeď na bod TEST*
+nebo *jeď po trase X*: *nejvzdálenější část zóny B*, *kolem zóny A*, *2 m za dok*, objížďka —
+souřadnice nehádá. **Podívá se na mapu** (obrázek s metrovou mřížkou a čísly os, zónami, body,
+trasami, robotem a dokem), **nakreslí do ní plán** (body, trasy, plochy, šipky s krátkými popisky
+jako *b1 cíl*), **ověří každý bod** (volno, nebo překážka, v jaké zóně, jestli je dosažitelný od
+robota, jak dlouhá je cesta — bod v překážce nahradí nejbližším volným) a obrázek plánu ti ukáže
+v **Chatu** dřív, než se robot pohne. Uloženou trasu se jménem zóny si nejdřív ověří v mapě —
+kolem té zóny vést nemusí.
 
 Při spuštění se tentýž plán objeví na **tvé živé mapě** jako vrstva **Plán agenta**
-(Mapa › Vrstvy, jantarový ◆; varování červeně, pomocné čáry modře). Karta v levém dolním rohu
-mapy říká, ke které misi patří: **Ukázat** posune mapu na plán, **Smazat** ho odebere z tvého
-zobrazení (agent svůj plán má dál). Čerstvý plán jednou za misi vytáhne mapu dopředu (velký obraz
-kamery ustoupí). Když mise skončí, plán zmizí sám.
+(Mapa › Vrstvy, jantarový ◆; varování červeně, pomocné čáry modře). Když agent plán cestou
+změní, mapa dostane novou verzi před dalším pohybem; volný bod v mapě, na který agent jede, je
+na mapě vždycky dřív. Karta v levém dolním rohu mapy říká, ke které misi patří: **Ukázat** posune
+mapu na plán, **Smazat** ho odebere z tvého zobrazení (agent svůj plán má dál). Čerstvý plán
+jednou za misi vytáhne mapu dopředu (velký obraz kamery ustoupí). Když mise skončí — i když se
+zastaví — plán zmizí sám.
+
+- **Kolem zóny**: agent vezme obrys zóny půl metru uvnitř, udělá z něj pár bodů (rohy, dlouhé
+  hrany rozdělené, poslední bod zpátky na začátku), každý ověří a projede je jeden po druhém.
+  Chat je čísluje: *Krok 2, bod 3/8 (obvod zóny A): jedu na x 11,36, y −4,61.*
+- **Po dojetí** agent porovná, kde robot opravdu je, s plánem (poloha, vzdálenost od cíle, v jaké
+  zóně) a řekne ti to — *nejvzdálenější místo*, *uvnitř zóny* ani *objel jsem* nikdy neřekne bez
+  toho změření.
 
 ## Když krok selže
 
