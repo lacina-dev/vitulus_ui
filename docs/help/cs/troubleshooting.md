@@ -69,9 +69,13 @@ Projdi v tomhle pořadí:
    *v doku*.
 4. Odrazka se nenašla → očisti odrazku, dojeď s robotem pár metrů před dok čelem k němu a zkus
    to znovu. **Mapa › Dock › Dok podle odrazivosti** vyzkouší jen tuhle fázi.
-5. Nepovedená sekvence se sama neopakuje; stav *failed* = přerušeno, detektory vypnuté, cíl
-   zrušený. Mise agenta to ale zkusí znovu: zajede znovu před dok (UNDOCK) a dokuje odtamtud
-   ([Když krok selže](agent.md#když-krok-selže)).
+5. Sekvence to zkusí sama znovu: uvízlou nebo neodpovídající fázi odrazky restartuje až 2× (s mapou
+   znovu od bodu DOCK), stavový řádek ukáže *Docking retry 1/2: <důvod>*. Teprve potom stav
+   *failed* = přerušeno (*Docking aborted: <důvod>*), detektory vypnuté, cíl zrušený
+   ([Když to selže](dock.md#když-to-selže)). Mise agenta to navíc zkusí znovu: zajede znovu před
+   dok (UNDOCK) a dokuje odtamtud ([Když krok selže](agent.md#když-krok-selže)).
+6. *stalled … collision gate* → lidar vidí něco do ~1,5 cm od robota; podívej se kolem něj a
+   překážku odstraň.
 
 ## FAULT supervisoru
 

@@ -68,9 +68,14 @@ Check in this order:
    finished *while docked*.
 4. Reflector not found → clean the reflector, drive the robot to a few metres in front of the dock
    facing it, try again. **Map › Dock › Dock by intensity** tests this stage alone.
-5. A failed sequence does not retry by itself; status *failed* = aborted, detectors off, goal
-   cancelled. An agent mission does retry: it drives in front of the dock (UNDOCK) again and
-   docks from there ([When a step fails](agent.md#when-a-step-fails)).
+5. The sequence retries by itself: a stalled or not responding intensity stage is restarted up to
+   2× (with a map from the DOCK point again), the status bar shows *Docking retry 1/2: <reason>*.
+   Only then status *failed* = aborted (*Docking aborted: <reason>*), detectors off, goal
+   cancelled ([When it fails](dock.md#when-it-fails)). An agent mission retries on top of that:
+   it drives in front of the dock (UNDOCK) again and docks from there
+   ([When a step fails](agent.md#when-a-step-fails)).
+6. *stalled … collision gate* → the lidar sees something within ~1.5 cm of the robot; look around
+   it and remove the obstacle.
 
 ## Supervisor FAULT
 

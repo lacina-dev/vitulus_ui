@@ -108,11 +108,35 @@ něj.
 
 ## Když to selže
 
-Automatické opakování není: při timeoutu nebo chybě skončí sekvence jako *aborted*, detektory se
-vypnou a navigace se zruší. Motory zůstanou, jak byly.
+Robot si nejdřív pomůže sám a ve stavovém řádku vždycky řekne, co se děje — nikdy jen potichu
+nestojí.
+
+```flow
+Kontrola doku | než začne hledat odrazku a než se rozjede, ověří řízení dokování, filtr odrazky z lidaru a motory
+Hlídá postup | při couvání do doku (i při výjezdu) hlídá, že vzdálenost ubývá
+warn: Uvízl | 15 s bez postupu → zastaví a řekne proč
+Znovu | restartuje řízení dokování a zkusí to znovu; s mapou nejdřív zajede zpátky na bod DOCK (nejvýš 2×)
+err: Přerušeno | teprve potom: *Docking aborted: …* s důvodem
+```
+
+Co uvidíš ve stavovém řádku:
+
+| Hláška | Co robot dělá |
+|---|---|
+| *Dock check: waiting for …* | část dokování ještě není připravená (pár sekund po Dock je to normální); po 15 s jednou restartuje řízení dokování |
+| *Dock check failed: …* | ani po restartu nenaběhla → následuje opakování níže |
+| *Docking stalled: no progress for 15 s (… m to go): …* | robot zastavil; důvod říká proč — např. *collision gate* (lidar vidí něco těsně u robota), *dock reflector not visible* (odrazka není vidět), *drive motors are off* (motory vypnuté) |
+| *Docking motion held: collision gate …* (log) | něco je do ~1,5 cm od robota; čeká místo tlačení |
+| *Docking retry 1/2: …* | restartuje řízení a zkusí to sám znovu |
+| *Docking aborted: …* | po 2 opakováních to vzdá: detektory se vypnou, navigace se zruší, motory zůstanou, jak byly |
+
+Když při opakování nabíječka dává proud, počítá se to jako zadokováno. *Motors are OFF* se
+neopakuje — dokování motory samo nezapíná.
 
 > [!TIP]
 > - *Motors are OFF* → zapni motory a stiskni znovu **Dock**.
+> - *Docking aborted: stalled … collision gate* → podívej se kolem robota: něco stojí těsně u něj
+>   (hračka, hadice, sloupek). Odstraň to a stiskni **Dock**.
 > - *Map has no DOCK/UNDOCK point* → nastav bod (viz výše).
 > - Visí na *Waiting for RTK fix* → podívej se na ikony GPS a na
 >   [stav lokalizace](localization.md); pomůže volné nebe, základnová stanice musí běžet.

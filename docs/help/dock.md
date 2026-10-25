@@ -108,11 +108,35 @@ lock** is opened only by the owner, in **Agent › Robot › Dock lock**, for a 
 
 ## When it fails
 
-There are no automatic retries: on a timeout or error the sequence goes to *aborted*, the
-detectors are switched off and the navigation is cancelled. The motors stay as they were.
+The robot first helps itself, and it always says what is going on in the status bar — it never
+just stands there.
+
+```flow
+Dock check | before it looks for the reflector and before it starts to move, the robot checks the docking controller, the lidar reflector filter and the motors
+Watch progress | while reversing in (and driving out) it watches that the distance keeps shrinking
+warn: Stalled | 15 s without progress → it stops and says why
+Retry | restarts the docking controller and tries again; with a map it first drives back to the DOCK point (at most 2×)
+err: Aborted | only then: *Docking aborted: …* with the reason
+```
+
+What you can see in the status bar:
+
+| Message | What the robot does |
+|---|---|
+| *Dock check: waiting for …* | a part of the docking is not ready yet (normal for a few seconds after Dock); after 15 s it restarts the docking controller once |
+| *Dock check failed: …* | the part did not come up even after the restart → the retry below |
+| *Docking stalled: no progress for 15 s (… m to go): …* | the robot stopped; the reason says why — e.g. *collision gate* (the lidar sees something right next to the robot), *dock reflector not visible*, *drive motors are off* |
+| *Docking motion held: collision gate …* (log) | something is within ~1.5 cm of the robot; it waits instead of pushing |
+| *Docking retry 1/2: …* | it restarts the controller and tries again by itself |
+| *Docking aborted: …* | after 2 retries it gives up: the detectors are switched off, the navigation is cancelled, the motors stay as they were |
+
+If the charger supplies power during a retry, the robot counts as docked. *Motors are OFF* is
+never retried — docking does not switch the motors on.
 
 > [!TIP]
 > - *Motors are OFF* → switch them on, press Dock again.
+> - *Docking aborted: stalled … collision gate* → look around the robot: something stands right
+>   next to it (a toy, a hose, a post). Remove it and press Dock.
 > - *Map has no DOCK/UNDOCK point* → set the point (above).
 > - Stuck at *Waiting for RTK fix* → look at the GPS icons and the
 >   [localization state](localization.md); open sky helps, the base station must run.
