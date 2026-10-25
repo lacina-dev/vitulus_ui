@@ -2371,8 +2371,14 @@
             });
         });
         var scopeBtn = el.querySelector('#vagent_scope');
+        /* 2026-10-25: an icon, not the word — "all" here next to the
+           filter pill "All" read as the same thing twice; the tooltip says
+           what is shown and what a click does */
         function paintScope() {
-            lt(scopeBtn, scope === 'all' ? 'chat.scope.all' : 'chat.scope.mine');
+            var all = scope === 'all';
+            scopeBtn.innerHTML = '<i class="la ' + (all ? 'la-users' : 'la-user') + '" aria-hidden="true"></i>';
+            lt(scopeBtn, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'title');
+            lt(scopeBtn, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'aria-label');
         }
         scopeBtn.addEventListener('click', function () {
             scope = scope === 'all' ? 'mine' : 'all';

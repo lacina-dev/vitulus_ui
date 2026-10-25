@@ -41,6 +41,10 @@ Běh | krok za krokem, po každém hlášení
 ok: Hlášení | hotovo, nebo proč ne
 ```
 
+Nad konverzací filtrují pilulky **Vše / Chat / Hlášení / Úlohy**, co vidíš; ikona lidí na konci
+řádku přepíná mezi celou konverzací ze všech zařízení (dva lidé) a jen tímhle prohlížečem (jeden
+člověk).
+
 ### Pokračovat a zrušit
 
 | Napíšeš | Co se stane |

@@ -449,7 +449,7 @@ body.rp-log-top #div_log_view {
 .rp-cell-v[data-state="err"]  { color: var(--vt-err); }
 .rp-mprog { font-size: 10px; color: var(--vt-text, #e6e9ec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Navi expand: one tracker line */
-.rp-trk1 { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.rp-trk1 { display: flex; align-items: center; gap: 3px; min-width: 0; max-width: 100%; }   /* column flex parent: without max-width the line overflowed the panel and the ellipsis never kicked in */
 .rp-trk1-k { font-size: 10px; color: var(--vt-accent, #0dcaf0); flex: 0 0 auto; }
 .rp-trk1 .vt-chip { margin-left: 0; flex: 0 0 auto; }
 .rp-trk1-t { font-size: 10px; color: var(--vt-muted, #9aa4ad); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

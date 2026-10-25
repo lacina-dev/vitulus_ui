@@ -42,6 +42,10 @@ Run | step by step, a report after each
 ok: Report | done, or why not
 ```
 
+Above the conversation, the pills **All / Chat / Reports / Jobs** filter what you see; the people
+icon at the end of that row switches between the whole conversation from every device (two
+people) and this browser only (one person).
+
 ### Continue and cancel
 
 | You write | What happens |

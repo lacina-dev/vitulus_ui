@@ -569,7 +569,11 @@ ul.nav-tabs.drawer-pills, #vagent_tabs { position: relative; }
     ul.nav-tabs.drawer-pills .nav-link, .vagent-tab { min-height: var(--vt-touch); }
     .vt-iconbtn, #btn_ui_drawer_full, #btn_ui_drawer_close,
     #vagent_head_right button { width: var(--vt-touch); min-width: var(--vt-touch) !important; height: var(--vt-touch) !important; }
+    /* …but the agent's STOP keeps its word: a square 44 px clipped "STOP" */
+    #vagent_head_right #vagent_stop { width: auto; flex: 0 0 auto; }
 }
+/* chat scope toggle (agent_chat.js paintScope): one / two people icon */
+#vagent_scope .la { font-size: 18px; line-height: 1; vertical-align: middle; }
 
 /* ------------------------------------------- panel bodies: Bootstrap bits */
 /* buttons, inputs, groups inside any panel take the panel radii (via the
