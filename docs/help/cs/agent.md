@@ -127,12 +127,29 @@ dej go na bod TEST a počkej tam na signál
   odpovídáš na jeho otázky.
 - **Zrušení a návrat domů zůstávají pevná slova** (*zruš to*, *jeď domů*) — vyřeší je jádro bez
   modelu, viz tabulka výše.
+- **Říká, co dělá.** Nejdřív očíslovaný plán, pak každý krok, který hýbe robotem, dostane
+  jednu větu na začátku (*Krok 2: jedu po trase ZONA_B_Path.*) a jednu na konci (*Trasa
+  ZONA_B_Path hotová (70 s).*, nebo co se nepovedlo a proč) — ty věty píše jádro, takže jsou tam,
+  i když model mlčí. Před rozhodnutím operátor jednou větou řekne proč (*uložená trasa u zóny B jen
+  končí, objedu ji po rozích*) a na konci krátce shrne. Otázka, kterou ti položí, svítí v **Čeká na
+  tebe**.
+- **Zámek doku bez psaní.** Když krok potřebuje odemčený výjezd, jádro pošle obvyklé hlášení
+  *čeká na tvoje odemčení* se správnou předvolbou (*Jen výjezd z doku* pro výjezd, *Sekání* pro
+  program) a pod ním tlačítko **Otevřít zámek doku**; mise svítí v **Čeká na tebe**. Jakmile
+  odemkneš, chat napíše *Dok je odemčený (ui#N) — vyjíždím z doku.* a tentýž krok se rozjede sám.
+- **Zná tvar tvých zón.** Operátor čte zóny, trasy a body z mapy místa (obrys, střed, rozměry,
+  nejvzdálenější roh od robota nebo doku, bod kousek uvnitř zóny, okruh kolem ní, které uložené
+  trasy vedou podél jejího okraje) a obrázek mapy si umí sám prohlédnout. *Jeď do nejvzdálenější
+  části zóny B* nebo *objeď zónu B* proto funguje, i když kolem té zóny žádná uložená trasa nevede.
 - **Zobrazení na mapě.** *Zobraz zónu A* / *ukaž bod TEST* / *ukaž trasu …* nakreslí zónu, bod
   nebo trasu na tvoji živou mapu, stejně jako tlačítka **Ukázat**.
 - **Rozpočet a bezpečnost.** Nejvýš ~40 volání nástrojů a 15 tahů modelu na misi (a denní strop —
   model jede na předplatném, které sdílíte). Když model neodpoví, selže nebo mu dojde rozpočet,
   robot **stojí**; je-li venku a do 5 minut nenapíšeš, vrátí se do doku. Otázka bez odpovědi do
-  15 minut (venku) ho taky pošle domů. Člověk u ovládání vždy vyhrává.
+  15 minut (venku) ho taky pošle domů. Člověk u ovládání vždy vyhrává. Dokud platí **STOP**,
+  operátor nikam nejede, ani domů: čeká dál na tvoji odpověď, a když nepřijde, jednou řekne, že
+  platí STOP a jak ho zrušit (*/stop pokracuj*). *Pokračuj #N* naváže na misi operátora v tomtéž
+  rozhovoru — i na takovou, která se zastavila nebo skončila.
 - Každý krok se zapisuje (*~/.vitulus/agent/operator/*); karta mise ukazuje kroky, latenci modelu
   a spotřebovaná volání.
 

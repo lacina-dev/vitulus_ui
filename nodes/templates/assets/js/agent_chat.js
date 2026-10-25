@@ -1915,8 +1915,12 @@
            A mission that stands and waits for the owner gets one button,
            Continue, which says „pokračuj #N" to THAT mission. */
         if (meta.mission_job) {
+            /* operator_stopped / operator_timeout: an operator mission that
+               stopped waiting (no answer, STOP standing) carries on in the
+               same conversation on „pokračuj #N" (2026-10-25, #254). */
             var parkedEv = {awaiting_supervisor: 1, blocked: 1, parked_for_human: 1,
-                            dock_wait_over: 1, supervisor_wait_over: 1};
+                            dock_wait_over: 1, supervisor_wait_over: 1,
+                            operator_stopped: 1, operator_timeout: 1};
             if (!parkedEv[meta.event]) { return; }
             var mid = meta.mission_job;
             var mbar = document.createElement('div');

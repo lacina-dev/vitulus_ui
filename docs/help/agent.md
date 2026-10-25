@@ -132,13 +132,32 @@ dej go na bod TEST a počkej tam na signál
   next message (*jeď*, *hotovo*) is the signal. Answer its questions the same way.
 - **Cancel and go home stay fixed words** (*zruš to*, *jeď domů*) — the core handles them without
   the model, see the table above.
+- **It tells you what it does.** First a numbered plan, then every step that moves the robot gets
+  one line when it starts (*Krok 2: jedu po trase ZONA_B_Path.*) and one when it ends (*Trasa
+  ZONA_B_Path hotová (70 s).*, or what failed and why) — these lines come from the core, so they
+  are there even when the model is quiet. Before a decision the operator says in one sentence why
+  (*the saved route only ends at zone B, so I drive around its corners*), and it ends with a short
+  summary. A question it asks you lights up in **Needs you**.
+- **Dock lock without typing.** When a step needs the dock exit unlocked, the core posts the usual
+  *waits for your unlock* report with the right preset (*Undock only* for leaving the dock, *Mow*
+  for a program) and the **Open Dock lock** button under it; the mission shows in **Needs you**.
+  The moment you unlock, the chat says *Dok je odemčený (ui#N) — vyjíždím z doku.* and the same
+  step runs by itself.
+- **It knows the shape of your zones.** The operator reads the zones, routes and points of the
+  site map (polygon, centre, size, the farthest corner from the robot or the dock, a point just
+  inside the zone, a loop around it, which saved routes run along its edge) and can look at the
+  map picture itself. *Jeď do nejvzdálenější části zóny B* or *objeď zónu B* therefore work even
+  when no saved route goes around that zone.
 - **Showing on the map.** *Zobraz zónu A* / *ukaž bod TEST* / *ukaž trasu …* draw the zone, the
   point or the route on your live map, the same as the **Show** buttons.
 - **Budget and safety.** At most ~40 tool calls and 15 model turns per mission (and a daily cap —
   the model runs on the subscription you share). When the model does not answer, fails or runs out
   of budget the robot **stands**; when it is outside and you do not write within 5 minutes it
   drives back to the dock. A question you do not answer within 15 minutes (outside) also sends it
-  home. A person on the controls always wins.
+  home. A person on the controls always wins. While a **STOP** stands the operator does not drive
+  anywhere, not even home: it keeps waiting for your answer and, if none comes, says once that the
+  STOP is on and how to release it (*/stop pokracuj*). *Pokračuj #N* carries on an operator
+  mission in the same conversation — also one that stopped or ended.
 - Every step is recorded (*~/.vitulus/agent/operator/*); the mission card shows the steps, the
   model's latency and the tool calls used.
 
