@@ -916,10 +916,56 @@ if __name__ == '__main__':
             ctx.check_hostname = False      # loopback; the cert names the LAN addresses
             return ctx
 
-        @app.route("/field/api/<path:subpath>", methods=["GET"])
-        def field_api(subpath):
+        # Slow answers (2026-10-25): /api/home composes the whole overview and
+        # takes 20-30 s on a loaded robot, longer than a browser poll should
+        # wait. Every GET runs upstream in its own thread (90 s); the request
+        # waits FIELD_WAIT_S and, when the dashboard is still busy, gets the
+        # last good answer (header X-Field-Age: seconds) - the fresh one lands
+        # in the cache for the next poll. One upstream call per URL at a time.
+        FIELD_SLOW_TIMEOUT_S = 90.0
+        FIELD_WAIT_S = 8.0
+        FIELD_FIRST_WAIT_S = 45.0    # nothing cached yet: wait longer once
+        FIELD_CACHE_MAX = 48
+        _field_cache = {}            # url -> {"body", "status", "ctype", "t"}
+        _field_inflight = {}         # url -> threading.Event
+        _field_lock = threading.Lock()
+
+        def _field_fetch(url, done):
             import urllib.request
             import urllib.error
+            got = None
+            try:
+                req = urllib.request.Request(url, headers={"Accept": "application/json"}, method="GET")
+                ctx = _field_ssl_context() if url.startswith("https:") else None
+                with urllib.request.urlopen(req, timeout=FIELD_SLOW_TIMEOUT_S, context=ctx) as up:
+                    got = {"body": up.read(), "status": up.status,
+                           "ctype": up.headers.get("Content-Type", "application/json")}
+            except urllib.error.HTTPError as exc:
+                got = {"body": exc.read(), "status": exc.code, "ctype": "application/json"}
+            except Exception as exc:
+                got = {"error": "field dashboard unreachable: %s" % exc}
+            got["t"] = time.time()
+            with _field_lock:
+                _field_inflight.pop(url, None)
+                if got.get("status") == 200:
+                    _field_cache[url] = got
+                    if len(_field_cache) > FIELD_CACHE_MAX:
+                        for k in sorted(_field_cache, key=lambda k: _field_cache[k]["t"])[:len(_field_cache) - FIELD_CACHE_MAX]:
+                            _field_cache.pop(k, None)
+                else:
+                    _field_cache["!" + url] = got
+            done.set()
+
+        def _field_answer(got, age=None):
+            resp = app.response_class(got["body"], status=got["status"], mimetype=None)
+            resp.headers["Content-Type"] = got["ctype"]
+            resp.headers["Cache-Control"] = "no-store"
+            if age is not None:
+                resp.headers["X-Field-Age"] = str(int(age))
+            return resp
+
+        @app.route("/field/api/<path:subpath>", methods=["GET"])
+        def field_api(subpath):
             sub = subpath.strip("/")
             if not FIELD_GET_RE.match(sub):
                 return jsonify({"ok": False, "error": "not on the read-only list"}), 404
@@ -927,20 +973,26 @@ if __name__ == '__main__':
             if not FIELD_QUERY_RE.match(query):
                 return jsonify({"ok": False, "error": "bad query"}), 400
             url = FIELD_UPSTREAM + "/api/" + sub + ("?" + query if query else "")
-            req = urllib.request.Request(url, headers={"Accept": "application/json"}, method="GET")
-            try:
-                ctx = _field_ssl_context() if url.startswith("https:") else None
-                with urllib.request.urlopen(req, timeout=FIELD_TIMEOUT_S, context=ctx) as up:
-                    body, status = up.read(), up.status
-                    ctype = up.headers.get("Content-Type", "application/json")
-            except urllib.error.HTTPError as exc:
-                body, status, ctype = exc.read(), exc.code, "application/json"
-            except Exception as exc:
-                return jsonify({"ok": False, "error": "field dashboard unreachable: %s" % exc}), 503
-            resp = app.response_class(body, status=status, mimetype=None)
-            resp.headers["Content-Type"] = ctype
-            resp.headers["Cache-Control"] = "no-store"
-            return resp
+            with _field_lock:
+                cached = _field_cache.get(url)
+                done = _field_inflight.get(url)
+                if done is None:
+                    done = threading.Event()
+                    _field_inflight[url] = done
+                    _field_cache.pop("!" + url, None)
+                    threading.Thread(target=_field_fetch, args=(url, done), daemon=True).start()
+            done.wait(FIELD_WAIT_S if cached else FIELD_FIRST_WAIT_S)
+            with _field_lock:
+                fresh = _field_cache.get(url)
+                failed = _field_cache.get("!" + url)
+            if fresh is not None and fresh is not cached:
+                return _field_answer(fresh)
+            if failed and failed.get("status") and (cached is None or failed["status"] < 500):
+                return _field_answer(failed)
+            if cached is not None:
+                return _field_answer(cached, time.time() - cached["t"])
+            err = (failed or {}).get("error") or "field dashboard did not answer within %d s" % FIELD_FIRST_WAIT_S
+            return jsonify({"ok": False, "error": err}), 503
 
         # -----------------------------------------------------------------
         # Field writes (U2, I5 of docs/UI_INTEGRATION_PLAN.md; kit 0.9.38
@@ -969,6 +1021,10 @@ if __name__ == '__main__':
             "remind": "/api/attention/remind",
             "finding-accept": "/api/findings/accept",
             "finding-dismiss": "/api/findings/dismiss",
+            # kit 0.9.52: "Začít s agentem" / "probrat s agentem" - one of the
+            # sentences the field itself prepared goes into the issue's thread
+            # (the dashboard checks the text is one it offers now)
+            "ask": "/api/thread/",
         }
         UI_ACTIONS_LOG = os.path.expanduser("~/.vitulus/ui_actions.jsonl")
         UI_KEY_FILE = os.path.expanduser(os.environ.get(
@@ -1004,6 +1060,13 @@ if __name__ == '__main__':
                 if isinstance(issue, bool) or not isinstance(issue, int) or not 0 < issue < 1000000:
                     return None, "issue: a number"
                 return {"issue": issue}, "issue:%d" % issue
+            if action == "ask":
+                thread, text = str(b.get("thread") or ""), str(b.get("text") or "").strip()
+                if not _re.match(r"^(general|[1-9][0-9]{0,5})$", thread):
+                    return None, "thread: an issue number or general"
+                if not text or len(text) > 500 or _re.search(r"[\x00-\x08\x0b-\x1f]", text):
+                    return None, "text: the prepared sentence (1-500 chars)"
+                return {"text": text}, "thread:" + thread
             if action in ("finding-accept", "finding-dismiss"):
                 fid = str(b.get("id") or "")
                 if not _re.match(r"^[0-9a-f]{12}$", fid):
@@ -1068,6 +1131,8 @@ if __name__ == '__main__':
             body, ref = _field_body(action, b)
             if body is None:
                 return jsonify({"ok": False, "error": ref}), 400
+            if action == "ask":
+                path = path + ref.split(":", 1)[1]
             rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": action, "ref": ref,
                    "author": author, "client": request.remote_addr}
             try:
