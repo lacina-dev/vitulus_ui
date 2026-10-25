@@ -441,6 +441,7 @@
     "joy.hint.takeover": "Převzato od: {who}. Pohyb pákou to zruší.",
     "joy.hint.unknown": "Stav motorů neznámý (chybí /base/motor_power_state).",
     "joy.hint.stale": "Zastaveno: stránka se zasekla (opožděný povel) — zatlač znovu.",
+    "joy.hint.stale_keys": "Stránka se zasekla (opožděný povel): robot na chvíli zastavil, držená klávesa jede dál.",
     "joy.owner.program": "Program sekání {p}",
     "joy.owner.dock": "Dokování",
     "joy.owner.undock": "Vyjíždění z doku",

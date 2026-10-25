@@ -442,6 +442,7 @@
     "joy.hint.takeover": "Taken over from: {who}. Moving the stick cancels it.",
     "joy.hint.unknown": "Motor state unknown (no /base/motor_power_state).",
     "joy.hint.stale": "Stopped: the page stalled (late command) — push again.",
+    "joy.hint.stale_keys": "The page stalled (late command): the robot stopped for a moment, the held key drives on.",
     "joy.owner.program": "Mowing program {p}",
     "joy.owner.dock": "Docking",
     "joy.owner.undock": "Undocking",
