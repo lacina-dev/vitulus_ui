@@ -101,7 +101,8 @@ Zleva doprava, stejně na PC i telefonu:
 | vpravo | ? · zvonek · monitor počítače · Fullscreen / Restart (pod lg v ☰) | beze změny |
 
 Pod 992 px řada ikon (včetně počasí) visí z horní lišty nad mapou (telefon na
-výšku: dva řádky po 32 px, vejde se); na šířku s otevřeným panelem ukazuje jen
+výšku: přes celou šířku, prázdné boční sloupce řady skryté, takže se ikony vejdou
+do jednoho řádku i na 360 px; kdyby ne, zalomí se do dvou v rámci 32 px); na šířku s otevřeným panelem ukazuje jen
 ikony, které hlásí problém (déšť se čeká / prší ano, „bez deště“ ne).
 
 **Výpadek spojení** ohlásí i pás hlášek (`#span_status_info` třída

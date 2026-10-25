@@ -2147,3 +2147,10 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt
 html body.vt-frame.vt-m-overlay .vt-utm-rose {
     top: calc(max(var(--vt-frame-top, 72px) + 32px, var(--vt-frame-notice-b, 0px)) + 10px);
 }
+
+/* 2026-10-25: phone upright — the two side columns of the status row are
+   empty (their content moved into the right panel long ago) but still took
+   65 px, so the last icon group (power) dropped onto a second line alone.
+   The strip gets the full width and stays one line. */
+body.vt-frame.vt-m-sheet #row_icons > .col-1:empty { display: none; }
+body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max-width: 100%; }
