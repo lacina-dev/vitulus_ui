@@ -79,6 +79,12 @@ robot už venku); není-li supervisor ještě READY, rozjede se sama, jakmile bu
 která čeká na tebe, má jedno tlačítko **Pokračovat** (pošle `pokračuj #N`); karta mise má
 **Pokračovat** a **Zrušit**.
 
+**Zaseknutá mise v doku se uklidí sama.** Mise, která 15 min stojí *zaseknutá* (čeká na tebe),
+zatímco robot změřeně stojí v doku, a stojí na kroku, který sám není dokovací (vyjetí čekající na
+tvoje odemčení nebo návrat domů zůstává), se zruší s řádkem v chatu – nic se nehýbe. Pak jde
+spustit nová mise a field smí restartovat programy robota. `pokračuj` ji do 2 h pořád rozjede.
+Nastavení: `stuck_in_dock_cleanup_s` v `missions.yaml` (0 = vypnuto).
+
 ### Během mise: zrušit, vstoupit, zeptat se
 
 Když mise běží (nebo čeká), **každá zpráva z chatu patří do ní** — žádná vedle ní nespouští

@@ -82,6 +82,13 @@ skipped when the robot is already out); if the supervisor is not READY yet, it s
 the moment it is. A mission report that waits for you has one button, **Continue** (sends
 `pokračuj #N`); the mission card has **Resume** and **Cancel**.
 
+**A stuck mission in the dock is cleaned up by itself.** A mission that stays *stuck* (waits for
+you) for 15 min while the robot stands measured in the dock, at a step that is not itself a dock
+step (undock waiting for your unlock, a return home stays), is cancelled with a line in the chat
+— nothing moves. Then a new mission can start and field may restart the robot's programs.
+`pokračuj` still restarts it within 2 h. Setting: `stuck_in_dock_cleanup_s` in `missions.yaml`
+(0 = off).
+
 ### During a mission: cancel, step in, ask
 
 While a mission runs (or waits), **every chat message belongs to it** — none starts an action of
