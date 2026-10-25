@@ -254,6 +254,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         transform: translateY(calc(100% + var(--vt-frame-bottom, 40px) + 80px));
     }
     #ui_drawer.open { transform: translateY(0); }
+    /* Marker (map_view.js open_drawer): the sheet as tall as its content */
+    #ui_drawer.vt-fit:not(.full) { height: auto; }
     #ui_drawer.full {
         top: var(--vt-drawer-top, 96px) !important;
         height: auto;
@@ -784,6 +786,9 @@ ul.nav-tabs.drawer-pills, #vagent_tabs { position: relative; }
 .vt-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--vt-gap-2); }
 .vt-list-head { justify-content: space-between; }
 .vt-list-head .vt-label { margin: 0; }
+/* Programs: once New program has moved to the panel foot, the head row is a
+   third "Programs" under the title and the tab — no row at all then */
+#tab_programs .vt-list-head:not(:has(.btn)) { display: none; }
 .vt-end-slot:empty { display: none; }
 button.vt-prog-card {
     display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
@@ -1172,6 +1177,11 @@ body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
     padding-left: var(--vt-frame-left, 0px);
     padding-right: var(--vt-frame-rp-w, 0px);
 }
+/* …and clear of the right panel's handle (▸, a sibling left of the panel):
+   in a narrow landscape hollow the handle cut the notice's last words off */
+body.vt-frame.vt-c-rp:not(.vt-m-sheet) .vt-notice-row {
+    padding-right: calc(var(--vt-frame-rp-w, 0px) + 44px);
+}
 
 
 /* ---- the panel toggle in the menu band ---------------------------------- */
@@ -1184,6 +1194,15 @@ body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
 body.vt-frame #vagent_bars { top: max(var(--vt-frame-nav-b, 42px), var(--safe-top, 0px)); }
 
 #btn_agent.vagent-btn { position: relative; }
+/* the unread badge sits on the icon's top-right corner (a notification dot),
+   not in the far corner of the wide menu cell where it read as unrelated;
+   the negative margins keep the icon + label from shifting when it appears */
+#btn_agent.vagent-btn #vagent_badge {
+    position: relative; top: -9px; right: auto;
+    margin: 0 -9px 0 -6px;
+    z-index: 1;
+    box-shadow: 0 0 0 2px var(--vt-frame-bg, #282b30);
+}
 
 /* ============================== U1 kolo 6: frame polish (labels, states, focus, motion) */
 /* text labels next to the icons in the two bars — on a PC there is room,
@@ -2115,4 +2134,12 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt
 @media (max-width: 575.98px) {
     .vt-utm-rose { width: 50px; left: calc(var(--vt-frame-cleft, 0px) + 6px); }
     .vt-utm-rose svg { width: 46px; height: 46px; }
+}
+
+/* 2026-10-25: landscape phone / small tablet — the status strip (32 px row,
+   vt_field.css) and the notice band hang into the narrow hollow right where
+   the compass rose sits (vt_georef.js); the rose steps below both instead of
+   being drawn over. On a PC / portrait phone they never meet. */
+html body.vt-frame.vt-m-overlay .vt-utm-rose {
+    top: calc(max(var(--vt-frame-top, 72px) + 32px, var(--vt-frame-notice-b, 0px)) + 10px);
 }

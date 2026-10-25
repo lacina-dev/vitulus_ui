@@ -30,7 +30,8 @@ zůstává) a výpadek spojení ukáže jen pás hlášek.
 ## Levý panel
 
 Pás menu otevírá v levém panelu vždy jeden nástroj: **Značka**, **Nastavení**, **Mapa**,
-**Programy**, **Agent**, **Podpora**. Otevřený svítí.
+**Programy**, **Agent**, **Podpora**. Otevřený svítí. Červené číslo na ikoně Agenta počítá
+zprávy agenta, které jsi ještě neviděl.
 
 | Co | PC | Telefon |
 |---|---|---|

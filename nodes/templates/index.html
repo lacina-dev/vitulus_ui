@@ -839,7 +839,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                  octomap/band mapping retired) was removed 2026-10-18 (P26) -->
                                         </div>
                                         <!-- second overview line: recording state (filled by mapping.js) -->
-                                        <div id="mapv3_hdr_session" class="vt-fs-sm vt-mt1 vt-mr0 vt-mb1 vt-ml0 vt-dim">&mdash;</div>
+                                        <div id="mapv3_hdr_session" class="vt-fs-sm vt-mt1 vt-mr0 vt-mb1 vt-ml0 vt-dim" hidden>&mdash;</div>
                                         <!-- 2026-08-16 UI redo v2 (field feedback): Saved maps moved UP right
                                              under the status header — first WHAT EXISTS and what is active,
                                              then recording a new one. IDs unchanged (mapping.js innerHTML). -->
@@ -1482,60 +1482,60 @@ ul.nav-tabs.drawer-pills .nav-link.active {
       <div class="vt-card-head"><span class="vt-card-title" id="span_motors" data-i18n="cfg.tab.motors">Motors</span><span class="vt-end" data-i18n="cfg.motors.sub">power &amp; torque</span></div>
       <div class="vt-row">
         <div class="btn-group btn-group-sm vt-switch" role="group" id="btngroup_motors_on_off"><button class="btn btn-primary fw-bold" id="btn_motors_on" type="button"><span data-i18n="common.on">ON</span>&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_motors_off" type="button"><span data-i18n="common.off">OFF</span>&nbsp;<i class="la la-close vt-i-err"></i></button></div>
-        <div class="input-group input-group-sm vt-field vt-grow"><span class="input-group-text" data-i18n="cfg.motors.torque">Torque</span><span class="text-info input-group-text vt-val" id="span_motor_torque">&nbsp;</span><span class="input-group-text">Nm</span><input class="form-control" type="number" id="input_motor_torque" min="0" max="24" step="1"><button class="btn btn-primary" id="btn_motor_torque" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field vt-grow"><span class="input-group-text" data-i18n="cfg.motors.torque">Torque</span><span class="text-info input-group-text vt-val" id="span_motor_torque">&nbsp;</span><span class="input-group-text">Nm</span><input class="form-control" type="number" id="input_motor_torque" min="0" max="24" step="1" placeholder="0–24"><button class="btn btn-primary" id="btn_motor_torque" type="button" data-i18n="common.save">Save</button></div>
       </div>
     </div>
     <div class="vt-grid2">
       <div class="vt-card vt-motor">
         <div class="vt-card-head"><img class="vt-ico" id="ico_fl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLF_grey.png" alt=""><span class="vt-card-title" data-i18n="cfg.motors.fl">Front left</span></div>
         <dl class="vt-kv">
-          <dt>Id</dt><dd><span id="span_motor1_id">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor1_status">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor1_torque">&nbsp;</span> Nm</dd>
-          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor1_temp">&nbsp;</span> °C</dd>
-          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor1_velocity">&nbsp;</span> m/s</dd>
-          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor1_position">&nbsp;</span> m</dd>
-          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor1_volts">&nbsp;</span> V</dd>
-          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor1_mode">&nbsp;</span></dd>
+          <dt>Id</dt><dd><span id="span_motor1_id">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor1_status">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor1_torque">&ndash;</span> Nm</dd>
+          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor1_temp">&ndash;</span> °C</dd>
+          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor1_velocity">&ndash;</span> m/s</dd>
+          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor1_position">&ndash;</span> m</dd>
+          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor1_volts">&ndash;</span> V</dd>
+          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor1_mode">&ndash;</span></dd>
         </dl>
       </div>
       <div class="vt-card vt-motor">
         <div class="vt-card-head"><img class="vt-ico" id="ico_fr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRF_grey.png" alt=""><span class="vt-card-title" data-i18n="cfg.motors.fr">Front right</span></div>
         <dl class="vt-kv">
-          <dt>Id</dt><dd><span id="span_motor2_id">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor2_status">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor2_torque">&nbsp;</span> Nm</dd>
-          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor2_temp">&nbsp;</span> °C</dd>
-          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor2_velocity">&nbsp;</span> m/s</dd>
-          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor2_position">&nbsp;</span> m</dd>
-          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor2_volts">&nbsp;</span> V</dd>
-          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor2_mode">&nbsp;</span></dd>
+          <dt>Id</dt><dd><span id="span_motor2_id">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor2_status">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor2_torque">&ndash;</span> Nm</dd>
+          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor2_temp">&ndash;</span> °C</dd>
+          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor2_velocity">&ndash;</span> m/s</dd>
+          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor2_position">&ndash;</span> m</dd>
+          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor2_volts">&ndash;</span> V</dd>
+          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor2_mode">&ndash;</span></dd>
         </dl>
       </div>
       <div class="vt-card vt-motor">
         <div class="vt-card-head"><img class="vt-ico" id="ico_rl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLR_grey.png" alt=""><span class="vt-card-title" data-i18n="cfg.motors.rl">Rear left</span></div>
         <dl class="vt-kv">
-          <dt>Id</dt><dd><span id="span_motor3_id">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor3_status">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor3_torque">&nbsp;</span> Nm</dd>
-          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor3_temp">&nbsp;</span> °C</dd>
-          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor3_velocity">&nbsp;</span> m/s</dd>
-          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor3_position">&nbsp;</span> m</dd>
-          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor3_volts">&nbsp;</span> V</dd>
-          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor3_mode">&nbsp;</span></dd>
+          <dt>Id</dt><dd><span id="span_motor3_id">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor3_status">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor3_torque">&ndash;</span> Nm</dd>
+          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor3_temp">&ndash;</span> °C</dd>
+          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor3_velocity">&ndash;</span> m/s</dd>
+          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor3_position">&ndash;</span> m</dd>
+          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor3_volts">&ndash;</span> V</dd>
+          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor3_mode">&ndash;</span></dd>
         </dl>
       </div>
       <div class="vt-card vt-motor">
         <div class="vt-card-head"><img class="vt-ico" id="ico_rr_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorRR_grey.png" alt=""><span class="vt-card-title" data-i18n="cfg.motors.rr">Rear right</span></div>
         <dl class="vt-kv">
-          <dt>Id</dt><dd><span id="span_motor4_id">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor4_status">&nbsp;</span></dd>
-          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor4_torque">&nbsp;</span> Nm</dd>
-          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor4_temp">&nbsp;</span> °C</dd>
-          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor4_velocity">&nbsp;</span> m/s</dd>
-          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor4_position">&nbsp;</span> m</dd>
-          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor4_volts">&nbsp;</span> V</dd>
-          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor4_mode">&nbsp;</span></dd>
+          <dt>Id</dt><dd><span id="span_motor4_id">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.m_status">Status</dt><dd><span id="span_motor4_status">&ndash;</span></dd>
+          <dt data-i18n="cfg.motors.torque">Torque</dt><dd><span id="span_motor4_torque">&ndash;</span> Nm</dd>
+          <dt data-i18n="cfg.motors.m_temp">Temp</dt><dd><span id="span_motor4_temp">&ndash;</span> °C</dd>
+          <dt data-i18n="cfg.motors.m_velocity">Velocity</dt><dd><span id="span_motor4_velocity">&ndash;</span> m/s</dd>
+          <dt data-i18n="cfg.motors.m_position">Position</dt><dd><span id="span_motor4_position">&ndash;</span> m</dd>
+          <dt data-i18n="cfg.motors.m_volts">Volts</dt><dd><span id="span_motor4_volts">&ndash;</span> V</dd>
+          <dt data-i18n="cfg.motors.m_mode">Mode</dt><dd><span id="span_motor4_mode">&ndash;</span></dd>
         </dl>
       </div>
     </div>
@@ -1587,22 +1587,22 @@ ul.nav-tabs.drawer-pills .nav-link.active {
       <div class="vt-fields">
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.motor_out">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button" data-i18n="common.on">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button" data-i18n="common.off">OFF</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.mower_out">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button" data-i18n="common.on">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button" data-i18n="common.off">OFF</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.run_charge">Run charge</span><span class="text-info input-group-text vt-val" id="span_run_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_charge" min="500" max="4000" step="100"><button class="btn btn-primary" id="btn_run_charge" type="button" data-i18n="common.save">Save</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.run_cutoff">Run cutoff</span><span class="text-info input-group-text vt-val" id="span_run_cutoff">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_cutoff" min="300" max="2000" step="100"><button class="btn btn-primary" id="btn_run_cutoff" type="button" data-i18n="common.save">Save</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_charge">Standby charge</span><span class="text-info input-group-text vt-val" id="span_standby_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_standby_charge" min="500" max="4000" step="100"><button class="btn btn-primary" id="btn_standby_charge" type="button" data-i18n="common.save">Save</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_cutoff">Standby cutoff</span><span class="text-info input-group-text vt-val" id="span_standby_cutoff">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_standby_cutoff" min="300" max="2000" step="100"><button class="btn btn-primary" id="btn_standby_cutoff" type="button" data-i18n="common.save">Save</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.pcb_temp">PCB temp limit</span><span class="text-info input-group-text vt-val" id="span_pcb_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_pcb_temp" min="20" max="45" step="1"><button class="btn btn-primary" id="btn_pcb_temp" type="button" data-i18n="common.save">Save</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.ext_temp">External temp limit</span><span class="text-info input-group-text vt-val" id="span_ext_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_ext_temp" min="20" max="45" step="1"><button class="btn btn-primary" id="btn_ext_temp" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.run_charge">Run charge</span><span class="text-info input-group-text vt-val" id="span_run_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_charge" min="500" max="4000" step="100" placeholder="500–4000"><button class="btn btn-primary" id="btn_run_charge" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.run_cutoff">Run cutoff</span><span class="text-info input-group-text vt-val" id="span_run_cutoff">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_cutoff" min="300" max="2000" step="100" placeholder="300–2000"><button class="btn btn-primary" id="btn_run_cutoff" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_charge">Standby charge</span><span class="text-info input-group-text vt-val" id="span_standby_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_standby_charge" min="500" max="4000" step="100" placeholder="500–4000"><button class="btn btn-primary" id="btn_standby_charge" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_cutoff">Standby cutoff</span><span class="text-info input-group-text vt-val" id="span_standby_cutoff">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_standby_cutoff" min="300" max="2000" step="100" placeholder="300–2000"><button class="btn btn-primary" id="btn_standby_cutoff" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.pcb_temp">PCB temp limit</span><span class="text-info input-group-text vt-val" id="span_pcb_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_pcb_temp" min="20" max="45" step="1" placeholder="20–45"><button class="btn btn-primary" id="btn_pcb_temp" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.ext_temp">External temp limit</span><span class="text-info input-group-text vt-val" id="span_ext_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_ext_temp" min="20" max="45" step="1" placeholder="20–45"><button class="btn btn-primary" id="btn_ext_temp" type="button" data-i18n="common.save">Save</button></div>
       </div>
     </div>
     <div class="vt-card">
       <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.power.sleep">Sleep control</span></div>
       <div class="vt-fields">
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_time_min">Sleep time</span><span class="text-info input-group-text vt-val" id="span_sleep_time_min">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_time_min" min="1" max="1440" step="1"><button class="btn btn-primary" id="btn_sleep_time_save" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_time_min">Sleep time</span><span class="text-info input-group-text vt-val" id="span_sleep_time_min">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_time_min" min="1" max="1440" step="1" placeholder="1–1440"><button class="btn btn-primary" id="btn_sleep_time_save" type="button" data-i18n="common.save">Save</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_now">Sleep now</span><button class="btn btn-warning" id="btn_sleep_timed" type="button" data-i18n="cfg.power.timed">Timed</button><button class="btn btn-warning" id="btn_sleep_until_charged" type="button" data-i18n="cfg.power.until_charged">Until charged</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_delay">Standby delay</span><span class="text-info input-group-text vt-val" id="span_standby_delay">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_standby_delay" min="0" max="60" step="1"><button class="btn btn-primary" id="btn_standby_delay" type="button" data-i18n="common.save">Save</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_charged_offset">Charged offset</span><span class="text-info input-group-text vt-val" id="span_sleep_charged_offset">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_charged_offset" min="0" max="60" step="1"><button class="btn btn-primary" id="btn_sleep_charged_offset" type="button" data-i18n="common.save">Save</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_timeout_discharging">Discharge timeout</span><span class="text-info input-group-text vt-val" id="span_standby_timeout_discharging">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_standby_timeout_discharging" min="0" max="1440" step="1"><button class="btn btn-primary" id="btn_standby_timeout_discharging" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_delay">Standby delay</span><span class="text-info input-group-text vt-val" id="span_standby_delay">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_standby_delay" min="0" max="60" step="1" placeholder="0–60"><button class="btn btn-primary" id="btn_standby_delay" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_charged_offset">Charged offset</span><span class="text-info input-group-text vt-val" id="span_sleep_charged_offset">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_charged_offset" min="0" max="60" step="1" placeholder="0–60"><button class="btn btn-primary" id="btn_sleep_charged_offset" type="button" data-i18n="common.save">Save</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_timeout_discharging">Discharge timeout</span><span class="text-info input-group-text vt-val" id="span_standby_timeout_discharging">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_standby_timeout_discharging" min="0" max="1440" step="1" placeholder="0–1440"><button class="btn btn-primary" id="btn_standby_timeout_discharging" type="button" data-i18n="common.save">Save</button></div>
       </div>
     </div>
   </div>
@@ -1615,7 +1615,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_mower_on_off"><button class="btn btn-primary fw-bold" id="btn_mower_on" type="button"><span data-i18n="common.on">ON</span>&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_mower_off" type="button"><span data-i18n="common.off">OFF</span>&nbsp;<i class="la la-close vt-i-err"></i></button><span class="text-info input-group-text form-control vt-val" id="span_mower_temp">0˚C</span><span class="text-info input-group-text form-control vt-val" id="span_mower_status">UNK</span></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.direction">Direction</span><span class="text-info input-group-text form-control vt-val" id="span_mower_direction">UNK</span><button class="btn btn-primary" id="btn_mower_left" type="button" data-i18n="cfg.mower.left">Left</button><button class="btn btn-primary" id="btn_mower_right" type="button" data-i18n="cfg.mower.right">Right</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.height">Height</span><span class="text-info input-group-text form-control vt-val" id="span_mower_cut_height">0/0 mm</span><input class="form-control" type="number" id="input_mower_cut_height" min="20" max="80" step="1" placeholder="mm" title="Blade height in mm (20 to the deck maximum)" data-i18n-title="cfg.mower.height_tip"><button class="btn btn-primary" id="btn_mower_set_height" type="button" data-i18n="common.set">Set</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="prog.rpm">RPM</span><span class="text-info input-group-text form-control vt-val" id="span_mower_rpm">0/0 rpm</span><input class="form-control" type="number" id="input_mower_rpm" min="500" max="4000"><button class="btn btn-primary" id="btn_mower_set_rpm" type="button" data-i18n="common.set">Set</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="prog.rpm">RPM</span><span class="text-info input-group-text form-control vt-val" id="span_mower_rpm">0/0 rpm</span><input class="form-control" type="number" id="input_mower_rpm" min="500" max="4000" placeholder="500–4000"><button class="btn btn-primary" id="btn_mower_set_rpm" type="button" data-i18n="common.set">Set</button></div>
         <div class="vt-hint" id="div_mower_saved" hidden></div>
         <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-primary btn-sm" id="btn_mower_home" type="button" data-i18n="cfg.mower.home">Home</button><button class="btn btn-primary btn-sm" id="btn_mower_calibration" type="button" style="display: none;" data-i18n="cfg.mower.calib">Height calibration</button></div>
         <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-success btn-sm fw-bold" id="btn_mower_start_motor" type="button" data-i18n="cfg.mower.start_motor">START MOTOR</button><button class="btn btn-danger fw-bold" id="btn_mower_stop_motor" type="button" data-i18n="cfg.mower.stop_motor">STOP MOTOR</button></div>

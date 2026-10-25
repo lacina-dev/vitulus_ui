@@ -23,6 +23,9 @@ should be able to see the robot or the camera. **Cancel navigation** or **STOP**
 3. Turn it with the **Heading** slider to the direction the robot should end in.
 4. Press **Send goal**.
 
+On a phone held upright the Marker sheet is only as tall as its content, so most of the screen
+stays map to tap and drag on.
+
 When it finds no path the planner tries up to three times; when the drive itself fails it clears
 its obstacle memory and plans again before it gives up.
 **Cancel navigation** stops the drive (the log says *Goal canceled*; the motors stay on).

@@ -21,9 +21,10 @@ aplikaci samotnou. **?** v hlavičce panelu skočí na záložku, kterou máš o
 - **ON / OFF** — napájení čtyř pojezdových motorů. **Po každém startu jsou vypnuté**
   ([Bezpečnost](safety.md#po-každém-startu-jsou-motory-vypnuté)); zapni je tady, než budeš jezdit
   ručně nebo dokovat. Barva tlačítka sleduje skutečný stav motorů.
-- **Moment** (0–24 Nm) a **Uložit** — omezení momentu motorů.
+- **Moment** (0–24 Nm) a **Uložit** — omezení momentu motorů. Prázdné číselné pole ukazuje
+  povolený rozsah (tady i v Napájení).
 - Jedna karta na kolo (**Přední levý**, **Přední pravý**, **Zadní levý**, **Zadní pravý**): id,
-  stav, moment, teplota, rychlost, poloha, napětí, režim. Ikony kol v navbaru ukazují jejich
+  stav, moment, teplota, rychlost, poloha, napětí, režim (– = od motoru zatím nepřišla data). Ikony kol v navbaru ukazují jejich
   stav: zelená OK, oranžová teplé, červená horké, šedá vypnuto.
 
 ## Navi

@@ -649,6 +649,7 @@ class MappingV3 {
         this._wireDoubleClickDelete(btnDeact, () => {
             this.pub_serve.publish(new ROSLIB.Message({data: 'none'}));
             if (this.el_serving) {
+                this.el_serving.hidden = false;
                 this._say(this.el_serving, () => mapT('mapping.serving.deactivating'));
                 vtTone(this.el_serving, '');
             }
@@ -2591,8 +2592,16 @@ class MappingV3 {
                 vtTone(hdr, '');
                 this._directLayerForced = false;
             }
+            // 2026-10-25: the line speaks only while a recording runs — idle,
+            // "No map recording" was a permanent line of nothing (the map card
+            // carries the RECORDING chip when there is one)
+            hdr.hidden = !s.running;
         }
         if (this.el_serving) {
+            // 2026-10-25: a normally served map is already named in the header
+            // ("Active map: …") — repeating "active: …" next to Saved maps was
+            // noise; the line speaks only for none / failed / (de)activating
+            this.el_serving.hidden = !s.serve_error && !!s.serving;
             if (s.serve_error) {
                 // REPORT 2(b): show WHY a serve was rejected instead of the UI
                 // silently staying on the old map. Cleared on the next success.
@@ -2762,6 +2771,7 @@ class MappingV3 {
         this.input_site.value = ref.split('/')[0];
         this.pub_serve.publish(new ROSLIB.Message({data: ref}));
         if (this.el_serving) {
+            this.el_serving.hidden = false;
             this._say(this.el_serving, () => mapT('mapping.serving.activating', {ref: ref}));
             vtTone(this.el_serving, '');
         }

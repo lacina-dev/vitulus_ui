@@ -21,10 +21,11 @@ application itself. The **?** in the panel head jumps to the tab you have open.
 - **ON / OFF** — power of the four drive motors. **They are OFF after every start**
   ([Safety](safety.md#motors-are-off-after-every-start)); switch them on here before you drive
   by hand or dock. The button's colour follows the real motor state.
-- **Torque** (0–24 Nm) and **Save** — the motors' torque limit.
+- **Torque** (0–24 Nm) and **Save** — the motors' torque limit. An empty number field shows the
+  allowed range (here and in Power).
 - One card per wheel (front / rear, left / right): id, status, torque, temperature, velocity,
-  position, voltage, mode. The wheel icons in the navbar mirror their state: green OK, orange
-  warm, red hot, grey off.
+  position, voltage, mode (– = no data from that motor yet). The wheel icons in the navbar
+  mirror their state: green OK, orange warm, red hot, grey off.
 
 ## Navi
 

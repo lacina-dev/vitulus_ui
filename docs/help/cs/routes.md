@@ -23,6 +23,9 @@ a robota nebo obraz z kamery bys měl vidět. **Zrušit navigaci** nebo **STOP**
 3. Posuvníkem **Kurz** ji natoč tím směrem, kterým má robot nakonec stát.
 4. Stiskni **Odeslat cíl**.
 
+Na telefonu na výšku je sheet Značky jen tak vysoký, jak potřebuje, takže většinu obrazovky
+zabírá mapa, na kterou ťukáš a po které značku táhneš.
+
 Když plánovač nenajde cestu, zkusí to až třikrát; když selže samotná jízda, smaže si paměť
 překážek a naplánuje znovu, než to vzdá.
 **Zrušit navigaci** jízdu zastaví (v logu je *Goal canceled*; motory zůstanou zapnuté).

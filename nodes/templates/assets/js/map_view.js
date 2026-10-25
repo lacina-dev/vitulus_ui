@@ -3464,6 +3464,10 @@ class MapMenu {
             else this.ui_drawer.classList.remove('wide');
             if (key === 'editor') this.ui_drawer.classList.add('editor');
             else this.ui_drawer.classList.remove('editor');
+            // 2026-10-25: Marker is a hint, a slider and two buttons — on a
+            // phone its sheet fits its content (vt_panel.css .vt-fit) so the
+            // map above, where the marker is dragged, keeps most of the screen
+            this.ui_drawer.classList.toggle('vt-fit', key === 'marker');
             this.ui_drawer.setAttribute('aria-hidden', 'false');
         }
         if (this.ui_drawer_title) {

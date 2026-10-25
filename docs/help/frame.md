@@ -31,7 +31,8 @@ connection shows only in the notice band.
 ## The left panel
 
 The menu band opens one tool at a time in the left panel: **Marker**, **Settings**, **Map**,
-**Programs**, **Agent**, **Support**. The open one is lit.
+**Programs**, **Agent**, **Support**. The open one is lit. A red number on the Agent icon counts
+the agent's messages you have not seen yet.
 
 | Do | PC | Phone |
 |---|---|---|

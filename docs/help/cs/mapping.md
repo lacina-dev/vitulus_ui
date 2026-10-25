@@ -34,7 +34,9 @@ s GPS i s leteckým snímkem.
 ![Mapa › Mapa s očíslovanými značkami](../img/shot-map-tab.webp "1 aktivní mapa · 2 Upravit mapu · 3 Deaktivovat · 4 karta aktivní mapy · 5 Aktivovat jinou mapu · 6 smazat mapu · 7 vrstvy na mapě · 8 Nahrávání mapy · 9 Zobrazení (vrstvy)")
 
 **Mapa › Mapa** ukazuje nahoře *Aktivní mapa: název* a pod tím kartu pro každou uloženou mapu
-se štítky (*aktivní*, *nahrává se*, *bez relace*), plochou, počtem relací a programů. Kliknutím
+se štítky (*aktivní*, *nahrává se*, *bez relace*), plochou, počtem relací a programů. Řádek pod
+aktivní mapou se ozve, jen když je co říct: běží nahrávání, aktivace selhala nebo právě probíhá,
+nebo není aktivní žádná mapa. Kliknutím
 na kartu mapu ukážeš ve 3D pohledu a otevřeš její vrstvy (viz níž).
 
 - **Aktivovat** — robot se od teď lokalizuje a jezdí podle této mapy.

@@ -35,7 +35,9 @@ coordinates, so a map stays aligned with GPS and the aerial photo.
 ![Map › Map with numbered markers](img/shot-map-tab.webp "1 the active map · 2 Edit map · 3 Deactivate · 4 the active map's card · 5 Activate another map · 6 delete a map · 7 layers on the map · 8 Map recording · 9 Display (layers)")
 
 **Map › Map** shows *Active map: name* at the top, and one card per saved map with chips
-(*active*, *recording*, *no session*), its area, the number of sessions and programs.
+(*active*, *recording*, *no session*), its area, the number of sessions and programs. A line
+under the active map speaks only when there is something to say: a recording that runs, an
+activation that failed or is under way, or no active map at all.
 
 Click a card to show that map in the 3D view and open its layers (below).
 
