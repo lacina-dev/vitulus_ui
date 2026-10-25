@@ -27,10 +27,18 @@ Napiš do **Chatu** normální řečí, co chceš. Jednoduchá jízda se hned st
 udělej undock, dojeď na TEST, počkej 10 s a vrať se do doku
 ```
 
-Mise je očíslovaná úloha (**#N**) z kroků: *vyjet z doku*, *dojet na pojmenovaný bod*, *počkat*
-(nejvýš 10 min), *zajet do doku*. Plán se zkontroluje dřív, než se cokoli pohne (body musí být na
-aktivní mapě), a agent se pak ozve po každém kroku. Cokoli složitějšího (fotky, mapy, trasy,
-podmínky) jde nejdřív do jeho plánovače. **Nůž agent nikdy sám nezapne** — mise smí jen spustit
+Mise je očíslovaná úloha (**#N**) z kroků: *vyjet z doku*, *dojet na pojmenovaný bod*, *projet
+uloženou trasu* (*po trase ZonaA*, *projeď trasu ZONA_A_Path* — mezery, podtržítka ani koncovka
+*_Path* nevadí), *počkat* (*počkej 10 s*, *minutu počkej*, *půl minuty*, nejvýš 10 min), *zajet
+do doku*. Plán se zkontroluje dřív, než se cokoli pohne (body a trasy musí být na aktivní mapě).
+Chat odpoví **jednou krátkou zprávou** — číslo a plán, např. *Mise #240: 1) vyjet z doku
+2) trasa ZONA_A_Path 3) počkat 60 s 4) do doku. Jedu.* — pak jedna věta po každém kroku, a když
+stojí, *proč* a co udělat. Cokoli složitějšího (fotky, mapy, podmínky, opakování) jde nejdřív do
+jeho plánovače.
+
+Plán obsahuje **jen to, co jsi chtěl**: kroky, které se jen dívají (*změřit stav*, *počkat na
+RTK*, *kde jsem*, *shrnutí*…), se vyřadí, pokud o ně zadání nežádá (*zjisti polohu*, *vyfoť*,
+*řekni mi*…). RTK, motory a stav robota si agent za jízdy hlídá sám. **Nůž agent nikdy sám nezapne** — mise smí jen spustit
 uložený program sekání po tvém odemčení ([Programy sekání](#programy-sekání)).
 
 Návrat rozumí běžným slovům — *zadokuj*, *zadockuj*, *dokuj*, *zaparkuj se do doku*, *vrať se
@@ -57,12 +65,19 @@ Nad konverzací filtrují pilulky **Vše / Chat / Hlášení / Úlohy**, co vid�
 | Napíšeš | Co se stane |
 |---|---|
 | `pokračuj` (nebo *jeď dál*, *dokonči to*, *odblokuj*…) | naváže nejnovější zaparkovanou misi; nejnovější zrušenou / selhanou (do 2 h) pustí znovu od kroku, kde skončila |
+| `pokračuj v úkolu zóna A` / `pokračuj v misi …` | naváže zastavenou misi, jejíž zadání slova obsahuje (*zóna A* ↔ *ZonaA*, *ZONA_A_Path*); sedí-li dvě, zeptá se kterou |
 | `pokračuj na 223` / `pokračuj misi #223` | naváže misi #223; `pokračuj na 223: …` k ní přidá informace |
+| `proveď plán z práce #223` / `spusť misi #223` | tatáž mise #223: stojí-li, naváže; běží-li, řekne krok; doběhla-li, řekne *hotovo* |
+| `znovu #223` / `zopakuj #223` | doběhlou misi #223 pustí znovu od prvního kroku — tatáž mise, žádná nová |
 | `zruš misi #223` (nebo *zrušit job 223*, *stop mise 223*) | zruší #223 hned — běžící krok skončí, robot zastaví, další krok nezačne |
 | `zruš to` | zruší právě běžící úlohu |
 
-Pokračovat a rušit jde jen těmito pevnými slovy — nikdy podle odhadu modelu. Karta mise má totéž
-jako tlačítka (**Pokračovat**, **Zrušit**) a **Navázat** předvyplní `pokračuj na N: `.
+Pokračovat a rušit jde jen těmito pevnými slovy — nikdy podle odhadu modelu, a **pokračování
+nikdy nezaloží novou misi**: když nic nestojí, chat to řekne a jmenuje poslední misi. Mise
+zastavená převzetím pokračuje na `pokračuj` od kroku, kde stála (vyjetí se přeskočí, když je
+robot už venku); není-li supervisor ještě READY, rozjede se sama, jakmile bude. Hlášení mise,
+která čeká na tebe, má jedno tlačítko **Pokračovat** (pošle `pokračuj #N`); karta mise má
+**Pokračovat** a **Zrušit**.
 
 ## Když krok selže
 

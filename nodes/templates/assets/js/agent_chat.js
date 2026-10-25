@@ -1909,6 +1909,32 @@
             row.appendChild(dbar);
             return;
         }
+        /* Mission reports (2026-10-25, owner: „no Execute that starts who
+           knows what"): a mission is one piece of work.  No Execute / Follow
+           up under its reports — those started brand-new missions (#242).
+           A mission that stands and waits for the owner gets one button,
+           Continue, which says „pokračuj #N" to THAT mission. */
+        if (meta.mission_job) {
+            var parkedEv = {awaiting_supervisor: 1, blocked: 1, parked_for_human: 1,
+                            dock_wait_over: 1, supervisor_wait_over: 1};
+            if (!parkedEv[meta.event]) { return; }
+            var mid = meta.mission_job;
+            var mbar = document.createElement('div');
+            mbar.className = 'vagent-actions';
+            var mgo = document.createElement('button');
+            mgo.type = 'button';
+            mgo.className = 'vagent-actbtn primary';
+            lt(mgo, 'chat.flow.resume');
+            lt(mgo, 'chat.flow.execute_tip', {cmd: 'pokra\u010duj #' + mid}, 'title');
+            mgo.addEventListener('click', function (e) {
+                e.stopPropagation();
+                submitText('pokra\u010duj #' + mid, {job_id: mid, action: 'resume'});
+                openChatSection();
+            });
+            mbar.appendChild(mgo);
+            row.appendChild(mbar);
+            return;
+        }
         var isIncident = !!meta.incident_id || /^hlášení:/i.test(head) ||
             (kind === 'report' && /^(hlášení|vizita|nález|incident)/i.test(text));
         if (isIncident) {

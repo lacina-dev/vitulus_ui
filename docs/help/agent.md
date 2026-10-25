@@ -28,10 +28,19 @@ away, for example:
 udělej undock, dojeď na TEST, počkej 10 s a vrať se do doku
 ```
 
-A mission is a numbered job (**#N**) of steps: *undock*, *drive to a named waypoint*, *wait*
-(up to 10 min), *dock*. The plan is checked before anything moves (the waypoints must exist on the
-active map), then the agent reports after each step. Anything more complex (photos, maps, routes,
-conditions) goes to its planner first. **The blade is never switched on by the agent itself** — a
+A mission is a numbered job (**#N**) of steps: *undock*, *drive to a named waypoint*, *drive a
+saved route* (*po trase ZonaA*, *projeď trasu ZONA_A_Path* — spaces, underscores and the *_Path*
+ending do not matter), *wait* (*počkej 10 s*, *minutu počkej*, *půl minuty*, up to 10 min),
+*dock*. The plan is checked before anything moves (the waypoints and routes must exist on the
+active map). The chat answers with **one short message** — the number and the plan, e.g.
+*Mise #240: 1) vyjet z doku 2) trasa ZONA_A_Path 3) počkat 60 s 4) do doku. Jedu.* — then one
+line per step, and when it stands, *why* and what to do. Anything more complex (photos, maps,
+conditions, repeats) goes to its planner first.
+
+The plan holds **only what you asked for**: steps that just look around (*measure the state*,
+*wait for RTK*, *where am I*, *summary*…) are dropped unless your task asks for them (*zjisti
+polohu*, *vyfoť*, *řekni mi*…). RTK, motors and the robot's state are the agent's own business
+while it drives. **The blade is never switched on by the agent itself** — a
 mission may only run a saved mowing program after your unlock ([Mowing programs](#mowing-programs)).
 
 The way back is understood in the usual words — *zadokuj*, *zadockuj*, *dokuj*, *zaparkuj se do
@@ -59,12 +68,19 @@ people) and this browser only (one person).
 | You write | What happens |
 |---|---|
 | `pokračuj` (or *jeď dál*, *dokonči to*, *odblokuj*…) | resumes the newest parked mission; also restarts the newest cancelled / failed one (within 2 h) from the step where it stopped |
+| `pokračuj v úkolu zóna A` / `pokračuj v misi …` | resumes the stopped mission whose task matches the words (*zóna A* ↔ *ZonaA*, *ZONA_A_Path*); two matches → it asks which one |
 | `pokračuj na 223` / `pokračuj misi #223` | resumes mission #223; `pokračuj na 223: …` adds information |
+| `proveď plán z práce #223` / `spusť misi #223` | the same mission #223: resumes it if it stands, says the step if it runs, says *done* if it finished |
+| `znovu #223` / `zopakuj #223` | runs finished mission #223 again from its first step — the same mission, no new one |
 | `zruš misi #223` (or *zrušit job 223*, *stop mise 223*) | cancels #223 at once — a running step ends, the robot is stopped, no further step starts |
 | `zruš to` | cancels the current job |
 
-Only these fixed words continue or cancel — never a model's guess. The mission card has the same
-as buttons (**Resume**, **Cancel**), and **Follow up** pre-fills `pokračuj na N: `.
+Only these fixed words continue or cancel — never a model's guess, and **a continuation never
+starts a new mission**: when nothing stands, the chat says so and names the last mission. A
+mission stopped by a takeover continues on `pokračuj` from the step where it stood (an undock is
+skipped when the robot is already out); if the supervisor is not READY yet, it starts by itself
+the moment it is. A mission report that waits for you has one button, **Continue** (sends
+`pokračuj #N`); the mission card has **Resume** and **Cancel**.
 
 ## When a step fails
 
