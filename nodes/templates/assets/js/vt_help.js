@@ -425,8 +425,13 @@
         if (tb && !tb.querySelector('.vth-q')) {
             var lb = qBtn(null, 'help.q.log', function () { toggle('log'); });
             lb.classList.add('vth-q-log');
+            /* into the button row itself (2026-10-25): as a sibling of the row
+               it fell onto a line of its own on a phone (a 40 px band with a
+               lone "?"); in the row it ends the bar after the counter */
+            var row = tb.querySelector('.log-toolbar-row');
             var ex = $('btn_log_expand');
-            if (ex && ex.parentNode === tb) { tb.insertBefore(lb, ex); } else { tb.appendChild(lb); }
+            if (row) { row.appendChild(lb); }
+            else if (ex && ex.parentNode === tb) { tb.insertBefore(lb, ex); } else { tb.appendChild(lb); }
         }
         // the right panel's Navi section: what the localization chips mean
         var tries = 0;
