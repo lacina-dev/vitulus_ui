@@ -38,7 +38,7 @@ uzavřou.
 | Malý log | vyrůstá ze spodní lišty od hřbetu C po joystick / pravou hranu; tlačítko Expand uvnitř pruhu vpravo nahoře | roh hřbetu `#vt_c_bl` sedí nad logem |
 | Celý log | roste ze spodní lišty do dutiny pod pásem hlášek, vedle pravého panelu / joysticku (8 px mezera) | konvexní vpravo nahoře, konkávní pata vpravo (`#vt_c_lr`) |
 | Joystick | stojí na spodní liště u pravé hrany vedle malého logu; když by se vedle sebe nevešly (< 420 px na log), stojí NA logu (telefon na výšku); když by rozbalenému pravému panelu nad ním zbylo < 240 px (telefon na šířku), stojí vedle sloupce pravého panelu a panel sahá až k logu | konvexní vlevo nahoře, konkávní pata vlevo (`#vt_c_jb`) |
-| Joystick = panel jízdy + velký STOP (2026-10-18, kolo 2) | **přednost před řádky výše i níže**: PC / na šířku = **pata pravého sloupce** — `#vt_stop_big` (64 px, vždy vidět) stojí na spodní liště (na malém logu při `vt-joy-on-log`) u pravé hrany, šířka = pravý panel (`--vt-frame-col-w`), panel jízdy = **prstenec** (2026-10-25, varianta C2 „Celý prstenec“, `vt_joy.js` buildRing): jeden kruhový ovladač o průměru `--vt-ring-d` (PC 184 px → panel 196 × 200 px; telefon na šířku 150 px → ~166 px), horní ~2/3 = 7 dílků rychlosti (azurová → oranžová), − / + na švech, Pomalu/Středně/Rychle podél dílků (svítí režim robota), kapsle „0.25 m/s · RYCHLOST · POMALU“ nad páčkou, spodní ~1/3 = ikony Motory (oranžová VYP / zelená ZAP / šedá neznámo) a Klávesy (azurová ZAP; na dotyku není a Motory zaberou celý spodek), ? v rohu = karta „Řízení ručně“; stav = okraj páčky; řádek pod prstencem jen ve výjimečných stavech) stojí na spodní liště; vt_frame.js počítá sloupec (`vt-col-on`, výška STOP + panel) jako dřív joystick (pravý okraj logu, L-log, vedle sloupce pravého panelu), right_dock.js končí pravý panel nad horním z nich. Telefon na výšku = pás přes celou šířku na spodní liště (`vt-joy-band`, započtený do `--vt-frame-bottom`, sheet stojí na něm): vlevo krátký text (název + tip, ve výjimečném stavu místo tipu hláška), vpravo prstenec 150 px, pás ~164 px; STOP = ten ze spodní lišty | konvexní vlevo nahoře, konkávní pata vlevo (`#vt_c_jb`, `vt-col-on`) |
+| Joystick = panel jízdy (2026-10-18, kolo 2) | **přednost před řádky výše i níže**: PC / na šířku = **pata pravého sloupce** — stojí na spodní liště (na malém logu při `vt-joy-on-log`) u pravé hrany, šířka = pravý panel (`--vt-frame-col-w`), panel jízdy = **prstenec** (2026-10-25, varianta C2 „Celý prstenec“, `vt_joy.js` buildRing): jeden kruhový ovladač o průměru `--vt-ring-d` (PC 184 px → panel 196 × 200 px; telefon na šířku 150 px → ~166 px), horní ~2/3 = 7 dílků rychlosti (azurová → oranžová), − / + na švech, Pomalu/Středně/Rychle podél dílků (svítí režim robota), kapsle „0.25 m/s · RYCHLOST · POMALU“ nad páčkou, spodní ~1/3 = ikony Motory (oranžová VYP / zelená ZAP / šedá neznámo) a Klávesy (azurová ZAP; na dotyku není a Motory zaberou celý spodek), ? v rohu = karta „Řízení ručně“; stav = okraj páčky; řádek pod prstencem jen ve výjimečných stavech) stojí na spodní liště; vt_frame.js počítá sloupec (`vt-col-on`, výška panelu jízdy) jako dřív joystick (pravý okraj logu, L-log, vedle sloupce pravého panelu), right_dock.js končí pravý panel nad ním. Telefon na výšku = pás přes celou šířku na spodní liště (`vt-joy-band`, započtený do `--vt-frame-bottom`, sheet stojí na něm): vlevo krátký text (název + tip, ve výjimečném stavu místo tipu hláška), vpravo prstenec 150 px, pás ~164 px | konvexní vlevo nahoře, konkávní pata vlevo (`#vt_c_jb`, `vt-col-on`) |
 | Levý panel s logem | když vedle otevřeného panelu zbývá logu < 420 px, log vede pod panelem od levé hrany a panel stojí na něm (`vt-log-wide`) | — |
 
 ### Kamera (C frame 3)
@@ -64,17 +64,36 @@ pravého panelu a v liště logu otevře nápovědu k tomu, co je otevřené (pa
 | | PC / na šířku | Telefon na výšku |
 |---|---|---|
 | Poloha | výběžek u pravé hrany od pásu menu ke spodní liště / malému logu (nad joystickem končí nad ním), přes pravý panel; z 9 (pod lištami) | sheet nad spodní lištou (72 % výšky, úchyt = celá výška), z 1001 nad sheetem panelu |
-| Zavření | ✕, Esc (Esc zavře nejdřív nápovědu, panel zůstane) | ✕ |
+| Zavření | ✕, Esc (zavře nápovědu a zároveň je to STOP, panel zůstane) | ✕ |
 | Nikdy | neotevře se sama, nemá backdrop — mapa i panel jdou dál ovládat | totéž |
+
+### Velký STOP (owner 2026-10-25, varianta A)
+
+Jeden velký červený **STOP** (`#vt_stop_big`, vt_frame.js) v **pravém horním
+rohu, v hlavě pravého sloupce**. Totéž tlačítko na všech obrazovkách, vždy na
+stejném místě, nikdy nic nezakrývá a nic nezakrývá jeho (z-index 10050: nad
+panely, logem, nápovědou, dialogy i zvětšeným obrázkem). Stiskne skrytý
+`#btn_stop_all` (map_view.js publikuje všechna zastavení, `docs/STOP_PATHS.md`
+ve vitulus_agent) a pustí páčku; **Esc** udělá totéž vždy (capture fáze, i při
+psaní a v dialogu; nápověda / obrázek / dialog Esc dostanou dál). Mezerník STOP
+není (nikdy nebyl). STOP panelu Agent (`#vagent_stop`) je jiná věc — zastaví
+misi agenta.
+
+| | PC / na šířku (`vt-m-dock`, `vt-m-overlay`) | Telefon na výšku (`vt-m-sheet`) |
+|---|---|---|
+| Poloha | vpravo nahoře, 5 px od horní a 6 px od pravé hrany; šířka = sloupec pravého panelu − 12 px (`--vt-frame-col-w`), výška `--vt-stop-h` 66 px (okno ≤ 560 px: 54 px) | pravý konec navbaru, 84 × 36 px, dotyková plocha 44 px (`::before`) |
+| Napojení | zapuštěný do plochy horní lišty (tmavá objímka); horní lišta je vždy aspoň tak vysoká jako STOP + 4 px — chybí-li výška, pás menu dostane nad tlačítky polštář `--vt-stop-pad` (barva rámu), takže pravý panel, levý panel i dutina začínají pod STOPem | — |
+| Co uhne | řádky horní lišty (navbar, pás agenta, pás menu) nechávají roh volný: `padding-right: --vt-stop-zone` (= šířka sloupce) | navbar `padding-right: 100px` |
+| Spodek | levý panel jde až ke spodní liště, spodní lišta má celou šířku (podstavec, obtékání a odsazení lišty kvůli STOPu zrušené) | spodní lišta a pás jízdy volné pro palce |
 
 ### Spodní lišta (část C)
 
 | | PC | Telefon (na výšku i na šířku, dotyk) |
 |---|---|---|
-| Pořadí (2026-10-25: Log a Joystick prohozené) | STOP · Log · Follow · **Joystick** | STOP · Log · *volné místo 84 px* · Follow · **Joystick** |
+| Pořadí (2026-10-25: Log a Joystick prohozené) | Log · Follow · **Joystick** | Log · *volné místo 84 px* · Follow · **Joystick** |
 | Joystick = ouško panelu jízdy | na pravém konci, šířka a poloha = pravý sloupec / panel jízdy (`--vt-frame-col-w`; s panelem jízdy vedle rozbaleného pravého panelu posunuté o `--vt-frame-joy-r`) | na výšku: pravý konec lišty pod prstencem pásu jízdy, 104 px; na šířku: jako PC (pod panelem jízdy). Na dotyku drží Follow + Joystick pravou polovinu, takže mezera 84 px zůstává uprostřed (s panelem jízdy vedle pravého panelu jde Follow doleva k Logu a mezera je hned vedle ouška) |
 | Poloha | spodní okraj | **úplně dole u spodní hrany**, tlačítka nad `env(safe-area-inset-bottom)`; střed volný pro systémové tlačítko / gesto Androidu a Chromu |
-| STOP | vlevo dole, 20 % šířky | totéž — **vždy stejné místo a velikost, nikdy se nezmenšuje ani neposouvá** |
+| STOP | v liště není — velký STOP je v pravém horním rohu (sekce výš); `#btn_stop_all` zůstává skrytý jako jeho obsluha | totéž |
 | Kamera | v pravém panelu (sekce Camera) | v pravém panelu: ▾ rozbalí sbalený řádek, sekce Camera |
 
 **Ouško Joystick** (owner 2026-10-25: „Joystick bude u joysticku a bude s ním
@@ -108,7 +127,7 @@ Zleva doprava, stejně na PC i telefonu:
 |---|---|---|
 | vlevo | logo VITULUS + **tečka spojení** (`#conn_status`, `data-state`) | bez textu a bez nadpisu pohledu („Map view“ zrušen); zelená = spojeno, oranžová pulzující = připojuji (s `prefers-reduced-motion` bez pulzu), červená = bez spojení; slova jen v `title` + `aria-label` (en/cs, `mapview.conn.*`); klik / Enter = hned znovu připojit (`ConnectionStatus`, map_view.js) |
 | střed (PC ≥ 992 px) | **řada stavových ikon** (`#status_div`, status_header.js): skupiny počasí · senzory · pojezd · teploty · napájení | počasí = ikona deště `#ico_rain` (jediná viditelná z `#ico_rain_ok/warn/danger`, barva = stav, 16 px jako ostatní; bez dat skupina není vidět); klik / Enter = obnoví radar a otevře levý panel › Map › Rain (rain_alert.js) |
-| vpravo | ? · zvonek · monitor počítače · Fullscreen / Restart (pod lg v ☰) | beze změny |
+| vpravo | ? · zvonek · monitor počítače · Fullscreen / Restart (pod lg v ☰), za nimi roh velkého STOPu | posunou se před STOP (`--vt-stop-zone`) |
 
 Pod 992 px řada ikon (včetně počasí) visí z horní lišty nad mapou (telefon na
 výšku: přes celou šířku, prázdné boční sloupce řady skryté, takže se ikony vejdou
@@ -131,7 +150,7 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 | Hlášky (`#span_status_info`) | vlastní pás pod menu, vycentrovaný mezi levým a pravým panelem | vycentrovaný mezi hřbetem a pravým panelem |
 | Levý panel | sloupec 480 px od pásu menu ke spodní liště, sdílené hrany, bez stínu | — |
 | Mapa | vpravo od panelu (plátno se zúží) | celá plocha mezi lištami |
-| Pravý stavový panel | výběžek z horní lišty u pravé hrany (hned pod pásem menu), konec nad logem / joystickem | totéž |
+| Pravý stavový panel | výběžek z horní lišty u pravé hrany (hned pod pásem menu a pod STOPem, který je hlavou sloupce), konec nad logem / joystickem | totéž |
 | Log malý | výběžek spodní lišty od panelu po joystick (nebo pravou hranu) | od hřbetu po joystick / pravou hranu |
 | Log celý | ze spodní lišty do dutiny pod hlášky, vlevo od panelu; **tvar L (P21)**: vedle pravého panelu končí u jeho hrany, pod ním pokračuje až k joysticku (bez joysticku k pravé hraně) — log, pravý panel a joystick jsou jedna plocha rámu, otevřené zůstává jen okno mapy mezi spodkem pravého panelu a joystickem | totéž od hřbetu |
 | Log skrytý | — (tlačítko ≡ ve spodní liště) | — |
@@ -173,7 +192,7 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 
 | Ovládání | PC | Telefon |
 |---|---|---|
-| Zobrazit / skrýt panel | ◧ Panel v pásu menu, **Alt+P**, **Esc** (skrýt; ne při psaní, otevřeném modálu nebo celém logu), ✕ | ◧, ✕, tah sheetu dolů |
+| Zobrazit / skrýt panel | ◧ Panel v pásu menu, **Alt+P**, ✕ (Esc už panel neskrývá — Esc = STOP) | ◧, ✕, tah sheetu dolů |
 | Popisky tlačítek | ikona + text v pásu menu i spodní liště | jen ikona; název v `aria-label` / tooltipu |
 | Stav přepínačů | aktivní panel, zapnutá kamera / joystick / log / sledování robota = podsvícené tlačítko (`vt-on`, `aria-pressed`) | totéž |
 | Fokus z klávesnice | jeden viditelný prstenec (`:focus-visible`, barva akcentu) v liště, panelu, pravém panelu i logu | — |
@@ -183,7 +202,7 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 
 - Hlášky a ovládání (lišty, panel, pravý panel) **nic nepřekrývá** — log ani
   v celé velikosti, ani velká kamera (začíná pod pásem hlášek); STOP vždy
-  vlevo dole; zapnutý joystick je vždy nahoře (z 9) a dosažitelný; vrstvy: lišty a pás menu/hlášek (z 10) > panel (1000,
+  vpravo nahoře v hlavě pravého sloupce (telefon na výšku: pravý konec navbaru); zapnutý joystick je vždy nahoře (z 9) a dosažitelný; vrstvy: lišty a pás menu/hlášek (z 10) > panel (1000,
   ale mimo lišty) > pravý panel (5) / log (8) mimo sebe navzájem.
 - Log má 3 stavy: skrytý ↔ malý (≡ ve spodní liště) a malý ↔ celý (úchyt
   „Expand“ / „Collapse“ v liště logu); stav si pamatuje (`vitulus_hud_log`,
@@ -195,7 +214,8 @@ skrytý) je tečka schovaná a výpadek hlásí právě tenhle pás.
 
 | Proměnná | Význam |
 |---|---|
-| `--vt-frame-top` | spodní hrana pásu menu (px od horní hrany okna) |
+| `--vt-frame-top` | spodní hrana pásu menu (px od horní hrany okna), aspoň pata STOPu + 4 px |
+| `--vt-stop-pad` / `--vt-stop-zone` | polštář nad tlačítky pásu menu, aby byla horní lišta vysoká jako STOP / roh horní lišty, který řádky nechávají STOPu (šířka sloupce; telefon na výšku 0) |
 | `--vt-frame-notice-b` | spodní hrana pásu hlášek (nebo `--vt-frame-top`, když je prázdný) |
 | `--vt-frame-bottom` | výška zóny spodní lišty (od spodní hrany okna) |
 | `--vt-frame-left` | šířka obsazená levým panelem v režimu dock/overlay (0 = skrytý) |

@@ -92,15 +92,17 @@ SHOTS = [
                 ('js', "const ok = document.querySelector('#joy_view .vt-joy-intro-ok'); if (ok && ok.offsetParent) ok.click(); return '';"), ('wait', 300)],
          marks=[('#status_div', '1', 'b'), ('#btn_marker', '2', 'r'),
                 ('#ui_drawer_head', '3', 'c'), ('#map_view', '4', 'c'), ('#rp_body', '5', 'bl'),
-                ('#div_log_view', '6', 'tr'), ('#joy_view', '7', 'l'), ('#vt_stop_big', '8', 'r')]),
+                ('#div_log_view', '6', 'tr'), ('#joy_view', '7', 'l'), ('#vt_stop_big', '8', 'l')]),
     dict(name='shot-phone', vp=PHONE, scale=2, width=480, md=26,
          marks=[('#btn_needs', '1', 'l'), ('#btn_panel_toggle', '2', 'b'), ('#status_div', '3', 'r'), ('#map_view', '4', 'c'),
-                ('#right_panel', '5', 'b'), ('#vt_stop_big', '6', 't'), ('#btn_log', '7', 't')]),
+                ('#right_panel', '5', 'b'), ('#vt_stop_big', '6', 'b'), ('#btn_log', '7', 't')]),
     dict(name='shot-phone-sheet', vp=PHONE, scale=2, width=480, md=26,
          steps=[('click', '#btn_map'), ('wait', 1200)],
          marks=[('#ui_drawer_grip', '1', 'c'), ('#div_menu_map a[href="#tab-map"]', '2', 'b'), ('#btn_ui_drawer_help', '3', 't'),
                 ('#btn_ui_drawer_full', '4', 't'), ('#btn_ui_drawer_close', '5', 't')]),
     # --- frame pieces (frame.md)
+    # the big STOP heading the right column, top right (safety.md, frame.md)
+    dict(name='shot-stop', vp=DESK, scale=2, width=560, clip=[DESK[0] - 470, 0, 470, 210], pad=0, marks=[]),
     # 2026-10-25: Log · Follow · Joystick — pad 14 keeps the Joystick tab rising out of the bar
     dict(name='shot-bottom-bar', vp=(1000, 700), scale=2, width=900, clip='#div_bottom_menu', pad=14, marks=[]),
     dict(name='shot-log', vp=DESK, scale=2, width=900, clip='#div_log_view', pad=0, trim=(820, 300), md=18,
@@ -209,7 +211,7 @@ SHOTS = [
     dict(name='shot-support', vp=DESK, demo=True, clip='#ui_drawer_head|#ui_drawer_body', trim=(2000, 300),
          steps=panel('#btn_support', None, [('wait', 2500)]), marks=[]),
     dict(name='shot-needs', vp=TALL, demo=True, clip='#ui_drawer_head|#ui_drawer_body', trim=(2000, 1500),
-         steps=[('js', "try{localStorage.setItem('vitulus_ui_author','Demo')}catch(e){};var s=document.getElementById('vt_stop_big');if(s){s.style.visibility='hidden'}"),
+         steps=[('js', "try{localStorage.setItem('vitulus_ui_author','Demo')}catch(e){}; return '';"),
                 ('click', '#btn_needs'), ('wait', 2500)],
          marks=[('.vt-fv-hero', '1', 'ri'), ('.vt-ask-k-decide .vt-ask-type', '2', 'r'), ('.vt-ask-k-decide .vt-ask-opt', '3', 'ri'),
                 ('.vt-ask-k-decide .vt-ask-next', '4', 'ri'), ('.vt-ask-k-steps .vt-ask-step', '5', 'ri'),

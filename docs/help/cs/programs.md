@@ -62,7 +62,7 @@ Když program běží, nad seznamem programů je karta **Běží** s jeho názve
 Běžící program se zastaví při kterékoli z těchto věcí — vždy do stavu *Zastaveno*, nůž vypnutý:
 
 - **Stop** v Programech (na kartě Běží nebo na kartě programu),
-- červené **STOP** vlevo dole (vypne i pojezdové motory — [Bezpečnost](safety.md#stop)),
+- červené **STOP** vpravo nahoře nebo **Esc** (vypne i pojezdové motory — [Bezpečnost](safety.md#stop)),
 - převzetí ovládání gamepadem nebo webovým joystickem
   ([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)).
 

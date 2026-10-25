@@ -20,11 +20,14 @@ of the agent or a navigation goal tells it to.
 
 ## STOP
 
-![The bottom bar with the red STOP on the left](img/shot-bottom-bar.webp "STOP is the red button at the left end of the bottom bar — on a PC and a phone alike.")
+![The top-right corner of the UI on a PC: the big red STOP heads the right column, the right panel starts under it](img/shot-stop.webp "STOP is the big red button in the top-right corner. On a phone held upright it sits at the right end of the top bar.")
 
-The red **STOP** button, always bottom left (same place and size on every screen), does all of
-this at once — and so does the big **STOP** at the foot of the right column on a PC, tablet or
-landscape phone (the same button; it also lets go of the joystick):
+The big red **STOP** button is always in the **top-right corner**: on a PC, tablet or landscape
+phone it heads the right column (the right panel starts under it), on a phone held upright it sits
+at the right end of the top bar. It is on screen in every state — with a panel open or full screen,
+the log, the large camera, the map editor, the help or the agent — and nothing covers it. The
+**Esc** key does the same, always (also while you type or a dialog is open). It does all of this
+at once, and lets go of the joystick:
 
 1. cancels the navigation goal,
 2. switches the drive motors **off**,

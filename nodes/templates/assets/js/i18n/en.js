@@ -435,7 +435,7 @@
     "joy.motors.on_tip": "Drive motors OFF (as the robot reports) — click to switch them on (/base/motor_power)",
     "joy.motors.off_tip": "Drive motors ON (as the robot reports) — click to switch them off; the wheels go limp, nothing drives",
     "joy.stop": "STOP",
-    "joy.stop.tip": "STOP — the full stop (the same as STOP in the bottom bar): cancels navigation, programs and docking, stops the blade and switches the drive motors off",
+    "joy.stop.tip": "STOP (Esc) — the full stop: cancels navigation, programs and docking, stops the blade and switches the drive motors off",
     "joy.lock.owner_short": "locked",
     "joy.hint.ds4": "The DS4 gamepad has the wheels — it always wins.",
     "joy.hint.owner": "{who} has the robot. Take over to drive — that cancels it.",
@@ -2907,7 +2907,7 @@
     "joy.d.intro.speed": "Speed: tap a segment or drag along the ring, or − / + (0.10–0.75 m/s). Slow / Mid / Fast = the robot's mode, navigation drives by it too.",
     "joy.d.intro.stick": "Push the stick to drive. Let go = stop.",
     "joy.d.intro.keys": "Keyboard icon: cyan = the keys drive (W A S D / arrows, + / − = speed), grey = off.",
-    "joy.d.intro.stop": "Emergency: the red STOP in the corner.",
+    "joy.d.intro.stop": "Emergency: the red STOP top right (or Esc).",
     "joy.d.intro.ok": "Got it",
     /* ---- @end joy */
 };

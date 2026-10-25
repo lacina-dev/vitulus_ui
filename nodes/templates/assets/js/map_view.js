@@ -2135,7 +2135,7 @@ class JoyTeleop {
         this._speed_ang = 1.3;
         this.joystickContainer = document.getElementById("joy_view");
         /* 2026-10-18 (owner): the drive DECK — stick + speed + motors +
-           keyboard, small, in the right column on the big STOP. Speed and motors are functional and show
+           keyboard, small, at the foot of the right column. Speed and motors are functional and show
            only what the robot reports (/navi_manager/speed via
            MoveBaseControl, /base/motor_power_state via MotorControl); the
            page never switches the motors on by itself. */
@@ -2155,7 +2155,7 @@ class JoyTeleop {
                 if (!mc) return;
                 if (on) mc.motors_on(); else mc.motors_off();
             }
-            // STOP: the big one at the foot of the right column (vt_frame.js #vt_stop_big)
+            // STOP: the big one heading the right column, top-right (vt_frame.js #vt_stop_big)
         });
         this._watchOwner(ros);
     }

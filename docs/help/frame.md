@@ -36,7 +36,7 @@ the agent's messages you have not seen yet.
 
 | Do | PC | Phone |
 |---|---|---|
-| hide / show the panel | **Panel** in the menu band, **Alt+P**, **Esc** (hide), **✕** | **Panel**, **✕**, drag the sheet down |
+| hide / show the panel | **Panel** in the menu band, **Alt+P**, **✕** | **Panel**, **✕**, drag the sheet down |
 | full screen | **⤢** in the head | drag the sheet up / tap its grip |
 | help for it | **?** in the head | **?** in the head |
 
@@ -57,16 +57,26 @@ opens) slides fully into view; with the keyboard **←** / **→** move between 
 
 ## The bottom bar
 
-![The bottom bar: the red STOP on the left, then Log, Follow and the Joystick tab on the right](img/shot-bottom-bar.webp "The bottom bar on a PC, left to right: STOP · Log · Follow · Joystick")
+![The bottom bar: Log, Follow and the Joystick tab on the right](img/shot-bottom-bar.webp "The bottom bar on a PC, left to right: Log · Follow · Joystick")
 
 **Log** · **Follow** · **Joystick** (on a phone with a free gap in the middle for the
 system gesture). **Joystick** sits at the right end, right under the drive panel it opens —
-see [Drive by hand](#drive-by-hand-joystick). The **STOP** is the round red mushroom in the **bottom-left corner of the frame**:
-on a PC the frame flows in one smooth arc round the STOP and on into the bottom bar — with the
-left panel closed from the panel's free left edge, with it open from the edge of the panel's
-content, which bends round the STOP, so the STOP never covers anything and nothing covers it — not a panel, the log or the sheet.
-It is the one full stop ([Safety](safety.md#stop)); on a phone it sits in the bar's left end,
-thumb-sized. **Follow** makes the map view follow the robot.
+see [Drive by hand](#drive-by-hand-joystick). The bar has no STOP: the one big **STOP** is in the
+top-right corner (below), so the bottom bar, the drive band and the left panel's foot stay free.
+**Follow** makes the map view follow the robot.
+
+## STOP in the top-right corner
+
+![The top-right corner on a PC: the big STOP heads the right column](img/shot-stop.webp "PC: STOP heads the right column, the right panel starts under it.")
+
+The big red **STOP** heads the **right column**: on a PC, tablet or landscape phone it stands in
+the top-right corner, the width of the right panel, set into the top bar — the right panel starts
+under it, the top bar's icons and menu end before it. On a phone held upright it sits at the right
+end of the top bar (a thumb-sized target), so the bottom bar and the drive band stay free for the
+thumbs. It is on screen in every state (a panel open or full screen, the log, the large camera,
+the map editor, the help, the agent) and never covers anything. **Esc** does the same. It is the
+one full stop ([Safety](safety.md#stop)); the agent panel's own STOP is a different thing (it
+stops the agent's mission).
 
 ## The right panel
 
@@ -234,9 +244,9 @@ How the stick behaves:
 - Clicking or tapping a control leaves no frame around it; moving with **Tab** shows a thin cyan
   outline in the control's shape. With *reduce motion* set in the system the ring does not animate.
 
-**The big STOP** — the red mushroom in the bottom left corner (on the bottom bar, on a phone held
-upright in the bar) — is always visible, with or without the joystick, and never covered by a
-panel. It is the full stop ([Safety](safety.md#stop)); it also lets go of the stick at once.
+**The big STOP** — top right, heading the right column (on a phone held upright at the right end
+of the top bar), or **Esc** — is always visible, with or without the joystick, and never covered
+by a panel. It is the full stop ([Safety](safety.md#stop)); it also lets go of the stick at once.
 
 > [!WARNING]
 > Pushing the joystick takes over from the software: it **cancels** the navigation goal, docking
@@ -263,6 +273,6 @@ The full log has a toolbar:
 | Key | Does |
 |---|---|
 | **Alt+P** | show / hide the left panel |
-| **Esc** | close the help; hide the left panel (not while typing, a dialog or the full log is open) |
+| **Esc** | **STOP** — always, also while typing or with a dialog open (it still closes the help / a picture too) |
 | **Alt+C** | camera small ↔ large |
 | **W A S D**, arrows | drive (with **Keys** switched on in the drive ring), **Shift** = half speed, **+ / −** = speed |

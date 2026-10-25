@@ -276,7 +276,7 @@ zastaví — supervisor programu pošle stop a nůž vypne. Nůž agent sám nik
 Červený **STOP** v hlavičce panelu agenta (dvě klepnutí) zastaví, co agent spustil — supervisor
 robot zastaví zhruba do 1,5 s. **Zůstane zajištěný**: agent odmítá všechny akce a pruh hlásí
 *STOP JE ZAJIŠTĚNÝ*, dokud nenapíšeš `/stop pokracuj`. Není to STOP robota — to je červený STOP
-vlevo dole ([Bezpečnost](safety.md#stop)).
+vpravo nahoře ([Bezpečnost](safety.md#stop)).
 
 ### FAULT supervisoru
 

@@ -434,7 +434,7 @@
     "joy.motors.on_tip": "Pojezdové motory VYPNUTÉ (jak hlásí robot) — kliknutím je zapneš (/base/motor_power)",
     "joy.motors.off_tip": "Pojezdové motory ZAPNUTÉ (jak hlásí robot) — kliknutím je vypneš; kola povolí, nic nejede",
     "joy.stop": "STOP",
-    "joy.stop.tip": "STOP — úplné zastavení (totéž co STOP ve spodní liště): zruší navigaci, programy i dokování, zastaví nůž a vypne pojezdové motory",
+    "joy.stop.tip": "STOP (Esc) — úplné zastavení: zruší navigaci, programy i dokování, zastaví nůž a vypne pojezdové motory",
     "joy.lock.owner_short": "zamčeno",
     "joy.hint.ds4": "Kola má gamepad DS4 — ten vyhrává vždy.",
     "joy.hint.owner": "Robota má {who}. Pro jízdu převezmi — tím se zruší.",
@@ -2982,7 +2982,7 @@
     "joy.d.intro.speed": "Rychlost: klepni na dílek nebo táhni po prstenci, nebo − / + (0,10–0,75 m/s). Pomalu / Středně / Rychle = režim robota, jede podle něj i navigace.",
     "joy.d.intro.stick": "Zatlač páku a jeď. Pustíš = stop.",
     "joy.d.intro.keys": "Ikona klávesnice: azurová = řídí klávesy (W A S D / šipky, + / − = rychlost), šedá = vypnuto.",
-    "joy.d.intro.stop": "Nouze: červený STOP v rohu.",
+    "joy.d.intro.stop": "Nouze: červený STOP vpravo nahoře (nebo Esc).",
     "joy.d.intro.ok": "Rozumím",
     /* ---- @end joy */
 };

@@ -93,6 +93,12 @@
         // top band: bottom edge of the menu row
         var rm = $('row_menu');
         var top = rm ? rm.getBoundingClientRect().bottom : 0;
+        // the big STOP (owner 2026-10-25, variant A) heads the right column in
+        // the top-right corner: on a PC / landscape the top band is at least
+        // as tall as the STOP (the menu row grows a pad above its buttons), so
+        // the right panel starts under it; the band's rows keep its corner
+        // free (--vt-stop-zone). Phone upright: it sits in the navbar.
+        top = placeStop(m, rm, top);
         // notice band
         var info = $('span_status_info');
         var row = info && info.closest ? info.closest('.vt-notice-row') : null;
@@ -111,12 +117,12 @@
         // bottom bar zone
         var bm = $('div_bottom_menu');
         var bh = bm ? Math.max(0, H - bm.getBoundingClientRect().top) : 0;
-        // the drive deck + the big STOP (owner 2026-10-18): on a PC / landscape
-        // they are the RIGHT COLUMN's foot — the width of the right panel,
-        // STOP standing on the bottom bar, the deck on STOP; on a phone held
-        // upright (where the right panel is a row across the screen) the deck
-        // is a band across the screen on the bottom bar, the bottom of the C,
-        // and everything else ends on its top (STOP: the bottom bar's own)
+        // the drive deck (owner 2026-10-18): on a PC / landscape it is the
+        // RIGHT COLUMN's foot — the width of the right panel, standing on the
+        // bottom bar (the big STOP heads the column, placeStop); on a phone
+        // held upright (where the right panel is a row across the screen) the
+        // deck is a band across the screen on the bottom bar, the bottom of
+        // the C, and everything else ends on its top
         var joy = $('joy_view');
         var joyOn = visible(joy);
         var band = joyOn && m === 'sheet' && joy.classList.contains('vt-joy-deck');
@@ -124,6 +130,8 @@
         var colW = COL_W;
         if (m !== 'sheet' && visible(rpEl)) { colW = Math.max(COL_MIN_W, W - rpEl.getBoundingClientRect().left); }
         setVar('--vt-frame-col-w', px(colW));
+        // the STOP's corner of the top band (its width: the column's, CSS)
+        setVar('--vt-stop-zone', px(m === 'sheet' ? 0 : colW));
         var barH = bh;
         if (band) { bh += joy.offsetHeight; }
         setCls(body, 'vt-joy-band', band);
@@ -158,10 +166,6 @@
         var lh = (logVis && !logFull) ? log.offsetHeight : 0;
         setVar('--vt-frame-log-h', px(lh));
         setCls(body, 'vt-joy-on', joyOn);
-        // the STOP mushroom sits in the bottom-left corner of the C, not in
-        // the right column: the deck stands straight on the bottom bar
-        var stopH = 0;
-        setVar('--vt-frame-stop-h', px(stopH));
         // the right column's foot: the deck
         var colOn = !band && joyOn;
         var colH = colOn ? joy.offsetHeight : 0;
@@ -171,14 +175,6 @@
         // when the open panel leaves it too little room it runs under the
         // panel instead (the panel then stands on it)
         var logLeft = cleft;
-        // the STOP pedestal holds the bottom-left corner: the small log starts after it
-        var ped = $('vt_c_ped');
-        if (ped && m !== 'sheet' && visible(ped)) { logLeft = Math.max(logLeft, Math.ceil(ped.getBoundingClientRect().right) + 4); }
-        // panel closed: the frame flows around the STOP — the spine runs into
-        // a ring round the button and on into the bottom bar (placeStopRing)
-        var ringR = placeStopRing(m !== 'sheet' && occ === 0, spine, W, H);
-        placeStopNotch(m !== 'sheet' && occ > 0);
-        if (ringR > 0) { logLeft = Math.max(logLeft, Math.ceil(ringR) + 4); }
         var wide = lh > 0 && m !== 'sheet' && occ > 0 && (W - occ - jw) < LOG_MIN_W;
         if (wide) { logLeft = 0; }
         setCls(body, 'vt-log-wide', wide);
@@ -309,83 +305,26 @@
     // the C (phone portrait: a band across the top, at most half the hollow),
     // so the map stays visible beside / below it.
     var STREAM_MAX_W = 640;
-    /* The STOP's ring of frame (owner 2026-10-19): the free left edge (the
-       spine, x = S) bends in a concave arc into a circle round the STOP and
-       leaves it in another concave arc into the bottom bar's top (y = Yb).
-       Fillets are tangent to both — one smooth outline, no corners. Returns
-       the x where the outline meets the bar (0 = not drawn). */
-    function placeStopRing(on, S, W, H) {
-        var svg = $('vt_c_stopbg'), st = $('vt_stop_big'), bar = $('div_bottom_menu');
-        if (!svg || !st || !bar) { return 0; }
-        var r = st.getBoundingClientRect(), b = bar.getBoundingClientRect();
-        if (!on || !r.width || !b.height) {
-            svg.style.display = 'none';
-            document.body.classList.remove('vt-stopring');
-            setVar('--vt-estop-x', '0px');
-            return 0;
+    /* The big STOP's place (owner 2026-10-25, variant A of the mock-up).
+       PC / landscape: the head of the right column — the width of the right
+       panel (--vt-frame-col-w, CSS), in the top-right corner; when the top
+       band is lower than the STOP, the menu row grows a pad (--vt-stop-pad)
+       so the band ends STOP_GAP under it and the right panel, the left panel
+       and the hollow all start below it. --vt-stop-zone: the corner the
+       band's rows (navbar, agent bars, menu row) keep free (set in update()).
+       Phone upright: the navbar's right end (CSS); nothing to measure.
+       Returns the top band's bottom edge. */
+    var STOP_GAP = 4, stopPad = 0;
+    function placeStop(m, rm, top) {
+        var st = $('vt_stop_big');
+        if (m === 'sheet' || !st || !rm) {
+            if (stopPad) { stopPad = 0; setVar('--vt-stop-pad', '0px'); top = rm ? rm.getBoundingClientRect().bottom : top; }
+            return top;
         }
-        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        var R = r.width / 2 + 9, f = 12, Yb = b.top;
-        S = Math.max(0, S || 0);
-        // fillet spine -> circle (above the circle, right of the spine)
-        var dx1 = S + f - cx, k1 = (R + f) * (R + f) - dx1 * dx1;
-        // fillet circle -> bar (right of the circle, above the bar)
-        var dy2 = Yb - f - cy, k2 = (R + f) * (R + f) - dy2 * dy2;
-        if (k1 <= 0 || k2 <= 0) { svg.style.display = 'none'; return 0; }
-        var f1x = S + f, f1y = cy - Math.sqrt(k1);
-        var f2x = cx + Math.sqrt(k2), f2y = Yb - f;
-        var p1x = cx + R * (f1x - cx) / (R + f), p1y = cy + R * (f1y - cy) / (R + f);
-        var p2x = cx + R * (f2x - cx) / (R + f), p2y = cy + R * (f2y - cy) / (R + f);
-        var a1 = Math.atan2(p1y - cy, p1x - cx), a2 = Math.atan2(p2y - cy, p2x - cx);
-        var sweep = a2 - a1; while (sweep < 0) { sweep += 2 * Math.PI; }
-        var n = function (v) { return v.toFixed(2); };
-        var d = 'M 0 ' + n(H) + ' L 0 ' + n(f1y - 1) + ' L ' + n(S) + ' ' + n(f1y - 1) +
-            ' L ' + n(S) + ' ' + n(f1y) +
-            ' A ' + f + ' ' + f + ' 0 0 0 ' + n(p1x) + ' ' + n(p1y) +
-            ' A ' + n(R) + ' ' + n(R) + ' 0 ' + (sweep > Math.PI ? 1 : 0) + ' 1 ' + n(p2x) + ' ' + n(p2y) +
-            ' A ' + f + ' ' + f + ' 0 0 0 ' + n(f2x) + ' ' + n(Yb) +
-            ' L ' + n(f2x) + ' ' + n(H) + ' Z';
-        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-        svg.firstChild.setAttribute('d', d);
-        svg.style.display = 'block';
-        document.body.classList.add('vt-stopring');
-        setVar('--vt-estop-x', px(Math.ceil(f2x)));
-        return f2x;
-    }
-
-    /* Panel open (owner's sketch 2026-10-19): the panel runs down to the bar
-       and its CONTENT flows round the STOP — the content's left edge bends
-       in a concave arc into a circle round the button and out in another
-       arc onto the bottom. A clip-path on the scrolling body (or on the foot,
-       when the panel has one) cuts that notch; the frame shows in it. */
-    function placeStopNotch(on) {
-        var st = $('vt_stop_big'), body = $('ui_drawer_body'), foot = $('ui_drawer_foot');
-        [body, foot].forEach(function (e) { if (e) { e.style.clipPath = ''; } });
-        document.body.classList.toggle('vt-stopnotch', !!on);
-        if (!on || !st || !body) { return; }
-        var tgt = (foot && foot.offsetHeight > 0) ? foot : body;
-        var r = st.getBoundingClientRect(), b = tgt.getBoundingClientRect();
-        if (!r.width || !b.height) { return; }
-        var cx = r.left + r.width / 2 - b.left, cy = r.top + r.height / 2 - b.top;
-        var R = r.width / 2 + 9, f = 14, w = b.width, h = b.height;
-        var S = 0, Yb = h;
-        var dx1 = S + f - cx, k1 = (R + f) * (R + f) - dx1 * dx1;
-        var dy2 = Yb - f - cy, k2 = (R + f) * (R + f) - dy2 * dy2;
-        if (k1 <= 0 || k2 <= 0 || cy - Math.sqrt(k1) > h) { return; }   // the STOP is not at its foot
-        var f1x = S + f, f1y = cy - Math.sqrt(k1);
-        var f2x = cx + Math.sqrt(k2), f2y = Yb - f;
-        var p1x = cx + R * (f1x - cx) / (R + f), p1y = cy + R * (f1y - cy) / (R + f);
-        var p2x = cx + R * (f2x - cx) / (R + f), p2y = cy + R * (f2y - cy) / (R + f);
-        var a1 = Math.atan2(p1y - cy, p1x - cx), a2 = Math.atan2(p2y - cy, p2x - cx);
-        var sweep = a2 - a1; while (sweep < 0) { sweep += 2 * Math.PI; }
-        var n = function (v) { return v.toFixed(2); };
-        var d = 'M 0 0 L ' + n(w) + ' 0 L ' + n(w) + ' ' + n(h) + ' L ' + n(f2x) + ' ' + n(h) +
-            ' A ' + f + ' ' + f + ' 0 0 1 ' + n(p2x) + ' ' + n(p2y) +
-            ' A ' + n(R) + ' ' + n(R) + ' 0 ' + (sweep > Math.PI ? 1 : 0) + ' 0 ' + n(p1x) + ' ' + n(p1y) +
-            ' A ' + f + ' ' + f + ' 0 0 1 0 ' + n(f1y) + ' Z';
-        tgt.style.clipPath = "path('" + d + "')";
-        // the end of the content scrolls clear of the notch
-        setVar('--vt-notch-h', px(Math.ceil(h - f1y) + 6));
+        var base = top - stopPad;                       // the band without the pad
+        var need = Math.max(0, Math.ceil(st.getBoundingClientRect().bottom + STOP_GAP - base));
+        if (need !== stopPad) { stopPad = need; setVar('--vt-stop-pad', px(need)); }
+        return base + stopPad;
     }
 
     function placeCamLarge(m, cleft, nb, rpb, rpw, rpFull, ledge, W, H) {
@@ -537,42 +476,32 @@
         // tl/bl: the back meets the top / the bottom; tr: the top band turns
         // down into the right panel; jb: the joystick's foot on the bottom
         // ledge; lr: the full log's foot on the bottom bar (C frame 3)
-        ['tl', 'bl', 'tr', 'jb', 'lr', 'wt', 'wb', 'ped'].forEach(function (k) {   // ped = the STOP pedestal
+        ['tl', 'bl', 'tr', 'jb', 'lr', 'wt', 'wb'].forEach(function (k) {
             var c = document.createElement('div');
             c.id = 'vt_c_' + k;
             c.className = 'vt-c-corner';
             c.setAttribute('aria-hidden', 'true');
             document.body.appendChild(c);
         });
-        // the emergency STOP (owner 2026-10-18, 3rd round): one round
-        // mushroom in the bottom-left corner of the C — part of the frame's
-        // surface, always on screen, never hidden by a panel or the log;
-        // the same global stop as the bottom bar's STOP — it presses that
-        // button, nothing of its own (docs/STOP_PATHS.md in vitulus_agent)
+        // the emergency STOP (owner 2026-10-25, variant A): one big red
+        // button heading the right column in the top-right corner (phone
+        // upright: the navbar's right end) — always on screen, above every
+        // panel, the log, the help and dialogs; the same global stop as
+        // #btn_stop_all (hidden, map_view.js) — it presses that button,
+        // nothing of its own (docs/STOP_PATHS.md in vitulus_agent). Esc too.
         var st = document.createElement('button');
         st.type = 'button';
         st.id = 'vt_stop_big';
         st.className = 'vt-estop';
-        st.innerHTML = '<span class="vt-estop-plate" aria-hidden="true"></span>' +
-                       '<span class="vt-estop-cap" aria-hidden="true"><span class="vt-stop-lbl"></span></span>';
+        st.innerHTML = '<span class="vt-estop-sq" aria-hidden="true"></span><span class="vt-stop-lbl" aria-hidden="true"></span>';
         tag(st.querySelector('.vt-stop-lbl'), 'joy.stop');
         st.title = tr('joy.stop.tip');
         st.setAttribute('aria-label', tr('joy.stop.tip'));
         tag(st, 'joy.stop.tip', 'title');
         tag(st, 'joy.stop.tip', 'aria-label');
-        st.addEventListener('click', function (e) {
-            e.preventDefault();
-            try { if (window.joy_teleop && window.joy_teleop.joy) { window.joy_teleop.joy.release(); } } catch (err) { /* the stop below still runs */ }
-            var b = $('btn_stop_all');
-            if (b) { b.click(); }
-        });
+        st.setAttribute('aria-keyshortcuts', 'Escape');
+        st.addEventListener('click', function (e) { e.preventDefault(); stopNow(); });
         document.body.appendChild(st);
-        // the frame's ring round the STOP (panel closed): one SVG path
-        var rg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        rg.id = 'vt_c_stopbg';
-        rg.setAttribute('aria-hidden', 'true');
-        rg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'path'));
-        document.body.appendChild(rg);
         // large camera: the map shrinks into the right panel's camera slot;
         // this cover takes the clicks there (never a goal / marker click on
         // the tiny map) and swaps back
@@ -587,6 +516,14 @@
         tag(mm.querySelector('.vt-mini-lbl'), 'frame.mini.map');
         mm.addEventListener('click', function (e) { e.preventDefault(); camSet(false); });
         document.body.appendChild(mm);
+    }
+
+    // the full stop: release the stick, then press the (hidden) bar STOP —
+    // map_view.js btn_stop_all.onclick publishes every stop
+    function stopNow() {
+        try { if (window.joy_teleop && window.joy_teleop.joy) { window.joy_teleop.joy.release(); } } catch (err) { /* the stop below still runs */ }
+        var b = $('btn_stop_all');
+        if (b) { b.click(); }
     }
 
     function init() {
@@ -652,18 +589,19 @@
                 togglePanel();
                 return;
             }
-            // Esc hides the panel — unless the user is typing, a modal or the
-            // full log is up (Esc belongs to them then)
-            if (ev.key === 'Escape' && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
-                var t = ev.target, tag = t && t.tagName;
-                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) { return; }
-                if (document.querySelector('.modal.show')) { return; }
-                var lg = $('div_log_view');
-                if (lg && lg.classList.contains('log-expanded')) { return; }
-                var d = $('ui_drawer');
-                if (d && d.classList.contains('open')) { ev.preventDefault(); togglePanel(); }
-            }
         });
+        // Esc = STOP, always (owner 2026-10-25): typing, a dialog, the help or
+        // the full log do not matter — they still get their Esc (close), the
+        // robot stops as well. Capture phase, so nothing can swallow it.
+        window.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Escape' || ev.repeat) { return; }
+            var st = $('vt_stop_big');
+            if (st) {
+                st.classList.add('vt-pressed');
+                setTimeout(function () { st.classList.remove('vt-pressed'); }, 220);
+            }
+            stopNow();
+        }, true);
         hookCamera(0);
         // right_dock.js builds the right panel after load; re-measure then
         setTimeout(schedule, 500);

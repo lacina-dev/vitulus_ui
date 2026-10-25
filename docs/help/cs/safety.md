@@ -20,11 +20,14 @@ agenta nebo cíl navigace.
 
 ## STOP
 
-![Spodní lišta s červeným STOP vlevo](../img/shot-bottom-bar.webp "STOP je červené tlačítko na levém konci spodní lišty — na PC i na telefonu.")
+![Pravý horní roh UI na PC: velký červený STOP v hlavě pravého sloupce, pravý panel začíná pod ním](../img/shot-stop.webp "STOP je velké červené tlačítko v pravém horním rohu. Na telefonu na výšku sedí na pravém konci horní lišty.")
 
-Červené tlačítko **STOP**, vždy vlevo dole (na každé obrazovce stejné místo i velikost), udělá
-najednou všechno tohle — a stejně tak velký **STOP** u paty pravého sloupce na PC, tabletu nebo
-telefonu na šířku (je to totéž tlačítko; navíc pustí joystick):
+Velké červené tlačítko **STOP** je vždy v **pravém horním rohu**: na PC, tabletu a telefonu na
+šířku stojí v hlavě pravého sloupce (pravý panel začíná pod ním), na telefonu na výšku sedí na
+pravém konci horní lišty. Je vidět ve všech stavech — s otevřeným panelem i přes celou obrazovku,
+s logem, velkou kamerou, editorem mapy, nápovědou i agentem — a nic ho nezakryje. Klávesa **Esc**
+udělá totéž, vždy (i při psaní nebo v otevřeném dialogu). Najednou udělá všechno tohle a navíc
+pustí joystick:
 
 1. zruší cíl navigace,
 2. **vypne** pojezdové motory,

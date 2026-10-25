@@ -1006,10 +1006,6 @@
         if (window.innerWidth < 576 && !frame) { placeLog(); }   // log under icons + notices
         var vw = window.innerWidth, vh = window.innerHeight;
         var joy = rectOf('joy_view');
-        /* the big STOP at the foot of the right column (vt_frame.js): the
-           panel ends above it like above the stick (the topmost of the two) */
-        var stp = rectOf('vt_stop_big');
-        if (stp && stp.top > 0 && !(joy && joy.top > 0 && joy.top < stp.top)) { joy = stp; }
         var bar = rectOf('div_bottom_menu');
         var bottomLimit = vh - 8;
         if (bar && bar.top > 0) { bottomLimit = bar.top - 6; }
@@ -1056,9 +1052,12 @@
                576 px je 100vw). Jinak by panel nešlo vytáhnout — přesně to se
                dělo, když drawer uvázl v půlce a `free` spadlo pod 150 px. */
             if (handle) {
-                handle.style.display = (vw < 576) ? 'none' : '';
+                /* a full-width (⤢) panel leaves no room for this one either:
+                   nothing to pull out, no handle (it would sit under STOP) */
+                handle.style.display = (vw < 576 || drawer.classList.contains('full')) ? 'none' : '';
                 handle.style.right = '0px';
-                handle.style.top = Math.round(Math.max(46, 56)) + 'px';
+                var hft = frame ? frameVar('--vt-frame-top') : null;
+                handle.style.top = Math.round(hft !== null ? hft + 24 : 56) + 'px';
             }
             return;
         }
@@ -1074,7 +1073,9 @@
         if (frame) {
             /* straight from the top band — no gap, it is the same surface. The
                notice band is centred between the left and the right panel (on a
-               phone it is part of the band above), so nothing slides under. */
+               phone it is part of the band above), so nothing slides under.
+               The big STOP heads the column: vt_frame.js keeps the top band at
+               least as low as its foot, so the panel starts under it. */
             var ft = frameVar('--vt-frame-top');
             top = (ft !== null) ? ft : 42;
         } else if (vw < 576) {

@@ -35,7 +35,7 @@ zprávy agenta, které jsi ještě neviděl.
 
 | Co | PC | Telefon |
 |---|---|---|
-| skrýt / zobrazit panel | **Panel** v pásu menu, **Alt+P**, **Esc** (skrýt), **✕** | **Panel**, **✕**, stáhnout sheet dolů |
+| skrýt / zobrazit panel | **Panel** v pásu menu, **Alt+P**, **✕** | **Panel**, **✕**, stáhnout sheet dolů |
 | celá obrazovka | **⤢** v hlavičce | vytáhnout sheet nahoru / ťuknout na úchyt |
 | nápověda k němu | **?** v hlavičce | **?** v hlavičce |
 
@@ -56,16 +56,25 @@ panel otevře) se celá posune do viditelné části; na klávesnici přepínaj�
 
 ## Spodní lišta
 
-![Spodní lišta: vlevo červený STOP, pak Log, Sledovat a vpravo ouško Joystick](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: STOP · Log · Sledovat · Joystick")
+![Spodní lišta: Log, Sledovat a vpravo ouško Joystick](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: Log · Sledovat · Joystick")
 
 **Log** · **Sledovat** · **Joystick** (na telefonu s volnou mezerou uprostřed pro
 systémové gesto). **Joystick** sedí na pravém konci, přímo pod panelem jízdy, který otevírá —
-viz [Ruční jízda](#ruční-jízda-joystick). **STOP** je kulatý červený „hřib" v **levém dolním rohu rámu**: na PC ho rám plynule
-obtéká obloukem a navazuje na spodní lištu — se zavřeným levým panelem od jeho volného okraje,
-s otevřeným od okraje obsahu panelu, který se kolem STOP ohýbá, takže STOP nic
-nezakrývá a nic nezakrývá jeho — panel, log ani sheet. Je to jediné úplné zastavení
-([Bezpečnost](safety.md#stop)); na telefonu sedí na levém konci lišty, na palec.
+viz [Ruční jízda](#ruční-jízda-joystick). STOP v liště není: jediný velký **STOP** je v pravém
+horním rohu (níž), takže spodní lišta, pás jízdy i spodek levého panelu zůstávají volné.
 **Sledovat** nechá pohled mapy sledovat robota.
+
+## STOP v pravém horním rohu
+
+![Pravý horní roh na PC: velký STOP v hlavě pravého sloupce](../img/shot-stop.webp "PC: STOP v hlavě pravého sloupce, pravý panel začíná pod ním.")
+
+Velký červený **STOP** stojí v **hlavě pravého sloupce**: na PC, tabletu a telefonu na šířku
+v pravém horním rohu, široký jako pravý panel, zapuštěný do horní lišty — pravý panel začíná pod
+ním, ikony a menu horní lišty končí před ním. Na telefonu na výšku sedí na pravém konci horní
+lišty (cíl velký na palec), takže spodní lišta a pás jízdy zůstávají volné pro palce. Je vidět ve
+všech stavech (otevřený panel i přes celou obrazovku, log, velká kamera, editor mapy, nápověda,
+agent) a nic nezakrývá. Totéž udělá **Esc**. Je to jediné úplné zastavení
+([Bezpečnost](safety.md#stop)); vlastní STOP panelu Agent je jiná věc (zastaví misi agenta).
 
 ## Pravý panel
 
@@ -229,9 +238,9 @@ Jak se páčka chová:
 - Po kliknutí nebo klepnutí kolem prvku nezůstane rámeček; při pohybu klávesou **Tab** se ukáže
   tenké azurové orámování ve tvaru prvku. Se systémovým *omezením pohybu* prstenec neanimuje.
 
-**Velký STOP** — červený hřib v levém dolním rohu (na spodní liště, na telefonu na výšku v liště)
-— je vždy vidět, s joystickem i bez něj, a žádný panel ho nepřekryje. Je to úplné zastavení
-([Bezpečnost](safety.md#stop)); navíc hned pustí páčku.
+**Velký STOP** — vpravo nahoře v hlavě pravého sloupce (na telefonu na výšku na pravém konci
+horní lišty), nebo **Esc** — je vždy vidět, s joystickem i bez něj, a žádný panel ho nepřekryje.
+Je to úplné zastavení ([Bezpečnost](safety.md#stop)); navíc hned pustí páčku.
 
 > [!WARNING]
 > Pohyb joystickem převezme řízení od softwaru: **zruší** cíl navigace, dokování i běžící
@@ -258,6 +267,6 @@ Rozbalený log má lištu nástrojů:
 | Klávesa | Co dělá |
 |---|---|
 | **Alt+P** | zobrazit / skrýt levý panel |
-| **Esc** | zavřít nápovědu; skrýt levý panel (ne při psaní, v dialogu ani s rozbaleným logem) |
+| **Esc** | **STOP** — vždy, i při psaní nebo v otevřeném dialogu (nápovědu / obrázek přitom i zavře) |
 | **Alt+C** | kamera malá ↔ velká |
 | **W A S D**, šipky | jízda (se zapnutými **Klávesami** v prstenci jízdy), **Shift** = poloviční rychlost, **+ / −** = rychlost |

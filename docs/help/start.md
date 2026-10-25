@@ -28,7 +28,7 @@ the same page on a PC, a tablet and a phone.
 5. **Right panel** — battery, Dock / Undock, the localization state and the camera.
 6. **Log** — what the robot did and said ([more](frame.md#log)).
 7. **Joystick** — the drive ring: stick, speed, motors, keys — at the foot of the right column ([more](frame.md#drive-by-hand-joystick)).
-8. **STOP** — always bottom left. Stops all motion ([Safety](safety.md)).
+8. **STOP** — always top right, heading the right column (**Esc** does the same). Stops all motion ([Safety](safety.md)).
 
 ## The robot
 
@@ -80,8 +80,9 @@ something on purpose: [Why the robot waits](waiting.md).
   **Support › Help**.
 - Type into **Search help** — it looks in every topic, with or without diacritics.
 - Links like [Troubleshooting](troubleshooting.md) jump between topics, **‹** goes back,
-  **Esc** or **✕** closes the help. The map and the panel stay usable while help is open.
-- **Click a picture** to see it bigger; a click or **Esc** closes it again. The numbers in a
+  **✕** closes the help (**Esc** too, but Esc is also **STOP** — the robot stops). The map and
+  the panel stay usable while help is open.
+- **Click a picture** to see it bigger; a click closes it again. The numbers in a
   picture match the numbered list next to it.
 
 > [!NOTE]

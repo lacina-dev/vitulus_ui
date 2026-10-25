@@ -60,7 +60,7 @@ a **Stop** button — whichever program (or none) is open below. After a Stop it
 A running program stops on any of these — always into *Stopped*, the blade off:
 
 - **Stop** in Programs (the Running card or the program's card),
-- the red **STOP** bottom left (it also switches the drive motors off — [Safety](safety.md#stop)),
+- the red **STOP** top right or **Esc** (it also switches the drive motors off — [Safety](safety.md#stop)),
 - taking over with the gamepad or the web joystick ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)).
 
 ```flow

@@ -18,7 +18,7 @@ draws exactly these files. Nothing of the help text lives in JavaScript — neve
 
 The pane sits on the right edge of the C frame (over the right panel, ending above the log and the
 joystick) on a PC and a landscape phone, and is a sheet on a phone held upright. It opens only when
-someone asks; Esc / ✕ closes it.
+someone asks; ✕ closes it (Esc too — Esc is also the STOP, always).
 
 ## A topic file
 

@@ -284,7 +284,7 @@ never switches the blade on by itself.
 The red **STOP** in the agent panel's head (two taps) stops what the agent started — the
 supervisor stops the robot within about 1.5 s. It **latches**: the agent refuses all actions,
 and a banner says *STOP IS LATCHED*, until you write `/stop pokracuj`. It is not the robot STOP —
-that is the red STOP bottom left ([Safety](safety.md#stop)).
+that is the big red STOP top right ([Safety](safety.md#stop)).
 
 ### Supervisor FAULT
 

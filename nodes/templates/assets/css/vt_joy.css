@@ -292,7 +292,7 @@ svg.vt-ring .vt-ring-ripple { fill: none; animation: vt-ring-ripple .55s ease-ou
     #joy_view.vt-joy-deck .vt-joy-hint:not([hidden]) { display: none; }
 }
 
-/* the STOP mushroom (vt_frame.js #vt_stop_big): styled and placed by vt_panel.css */
+/* the big STOP (vt_frame.js #vt_stop_big): styled and placed by vt_panel.css (top-right, heading the right column) */
 /* the right panel's Controls row whose speed + keyboard moved here */
 #right_panel .rp-line:empty { display: none; }
 @media (prefers-reduced-motion: reduce) {

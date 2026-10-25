@@ -28,7 +28,7 @@ stejná stránka na PC, tabletu i telefonu.
 5. **Pravý panel** — baterie, **Dock** / **Undock**, stav lokalizace a kamera.
 6. **Log** — co robot dělal a hlásil ([víc](frame.md#log)).
 7. **Joystick** — prstenec jízdy: páčka, rychlost, motory, klávesy — v patě pravého sloupce ([víc](frame.md#ruční-jízda-joystick)).
-8. **STOP** — vždy vlevo dole. Zastaví veškerý pohyb ([Bezpečnost](safety.md)).
+8. **STOP** — vždy vpravo nahoře v hlavě pravého sloupce (totéž udělá **Esc**). Zastaví veškerý pohyb ([Bezpečnost](safety.md)).
 
 ## Robot
 
@@ -79,8 +79,9 @@ Programy spouští kalendář sám (když je zapnutá automatika a není zapnut�
   **Podpora › Nápověda**.
 - Piš do **Hledat v nápovědě** — hledá ve všech tématech, s diakritikou i bez ní.
 - Odkazy jako [Řešení problémů](troubleshooting.md) přeskakují mezi tématy, **‹** jde zpět,
-  **Esc** nebo **✕** nápovědu zavře. Mapa i panel jdou používat i s otevřenou nápovědou.
-- **Klikni na obrázek** a zvětší se; kliknutí nebo **Esc** ho zase zavře. Čísla v obrázku
+  **✕** nápovědu zavře (**Esc** taky, jenže Esc je zároveň **STOP** — robot zastaví). Mapa
+  i panel jdou používat i s otevřenou nápovědou.
+- **Klikni na obrázek** a zvětší se; kliknutí ho zase zavře. Čísla v obrázku
   odpovídají očíslovanému seznamu vedle něj.
 
 > [!NOTE]
