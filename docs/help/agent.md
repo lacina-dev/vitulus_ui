@@ -234,8 +234,10 @@ supervisor.
   the motors go off and the chat asks you (`pokračuj` when it can go on).
 - **Never retried:** a person taking over (gamepad, joystick), the STOP, the blade and a position
   bound. The mission waits for you.
-- What the robot still cannot do is filed as a **proposed new capability**; it is added only
-  through the normal review, never during a drive.
+- What the robot still cannot do becomes a **new capability** after the mission: knowledge
+  (a procedure, a skill, a note) the agent learns **by itself**; only a new write on the robot
+  waits for your **Allow / Deny** — see [New capabilities](#new-capabilities). Never during a
+  drive.
 
 ### What the robot's display says
 
@@ -465,6 +467,27 @@ When the same failure keeps coming back and nothing it knows helps, the agent op
 for it by itself (**Findings**), and the usual path follows: analysis, and a repair through tests
 — never while a mission is running.
 
+### New capabilities
+
+After a job or a mission the agent asks itself what it was missing, and the core decides —
+by what the proposal **does**, never by a word in it:
+
+- **Knowledge** — a procedure (a Hermes skill, e.g. *the farthest place in a zone*), a note for
+  its memory, a lesson. It **only uses actions the agent already has** (undock, drive a path,
+  go to a point) or only reads the robot, so the agent saves it and uses it **by itself**. In the
+  chat it is one quiet line *Naučil jsem se: …* — no badge, no question.
+- **A new write on the robot** — a program that would publish to a topic, call a service or send
+  a navigation goal **outside the action registry**. That the agent may never give itself
+  (AGENT.md §5.2), so it becomes a card **New capability** with **Allow** / **Deny** — in the
+  chat bubble, in **Agent › Work** and on the **Needs you** card. The card says what it is, what
+  exactly it would do on the robot, why the agent wants it and what it recommends (*deny: the
+  action X already does that*, *think it over: it could move the robot*, *allow: it moves
+  nothing*). **Allow** signs it in your name and the agent may use it; **Deny** (two taps)
+  archives it with the reason and the agent does not ask again. Auto-approve never decides
+  these. `/allow N` / `/deny N` or `/caps sign <id>` still work.
+- Anything about the **blade or the safety layer** is refused outright — there is nothing to
+  allow.
+
 ## What the agent can see
 
 Before it decides anything, the agent builds one **world model** from all the robot's sensors and
@@ -514,7 +537,9 @@ same language as the Support dashboard's home page:
     to do and the way there (e.g. *Open GitHub tokens*). The field counts them the same way.
   - **Robot agent** — approvals, and agent work only a person can unblock (dock lock, parked
     mission, missing site setup, safety stop) — the same card as the field's (what, **Why you**,
-    **What happens next**, a small *robot agent* tag); decide them in **Agent › Work**.
+    **What happens next**, a small *robot agent* tag); decide them in **Agent › Work**. A **New
+    capability** card has **Allow** / **Deny** right on it (see
+    [New capabilities](#new-capabilities)).
   - **Support** — every card the field asks you is one of **three types**, in one anatomy:
     type · *waits 2 h* · #N → the whole title → **Why you** (one sentence) → the body → **What
     happens next** (what each button does and who does it) → *For agents: technical details*

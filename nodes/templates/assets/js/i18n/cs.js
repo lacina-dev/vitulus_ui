@@ -1013,6 +1013,15 @@
     "fv.ask.fail": "Nejde",
     "fv.ask.back": "Zpět",
     "fv.ask.all_done": "Všechny kroky hotové",
+    "needs.cap.type": "Nová schopnost",
+    "needs.cap.why": "Nový zápis na robota, který si agent sám dát nesmí (AGENT.md §5.2) — rozhoduješ ty.",
+    "needs.cap.next": "Povolit = podepsáno tvým jménem a agent ji smí používat; Zamítnout = archiv, už se nezeptá.",
+    "needs.cap.allow": "Povolit",
+    "needs.cap.deny": "Zamítnout",
+    "needs.cap.deny_really": "Zamítnout — opravdu?",
+    "needs.cap.rec.allow": "doporučuji povolit",
+    "needs.cap.rec.deny": "doporučuji zamítnout",
+    "needs.cap.rec.think": "zvaž",
     /* ---- @end support */
 
     /* ---- @frag mapping: Map tab: recording, sessions, layers, obstacles, presets, aerial/rain, combined map; Loc tab (mapping.js, gloc.js) */
@@ -2717,6 +2726,14 @@
     "appr.title": "Schválení",
     "ajob.title": "Úlohy",
     "chat.title": "Chat",
+    "appr.kind.capability": "Nová schopnost",
+    "appr.sec.capability": "Schopnost",
+    "chat.cap.allow": "Povolit",
+    "chat.cap.allow_tip": "Podepíše schopnost tvým jménem; agent ji od teď smí používat (totéž co /allow {id})",
+    "chat.cap.deny": "Zamítnout",
+    "chat.cap.deny_tip": "Návrh archivuje s důvodem; agent se na něj už neptá (totéž co /deny {id})",
+    "chat.cap.deny_really": "Zamítnout — opravdu?",
+    "chat.cap.decided": "Už rozhodnuto (nebo vypršelo) — viz Agent › Práce.",
     /* ---- @end chat */
 
     /* ---- @frag camera: Settings › Camera, depth calibration wizard (vt_camera_settings.js; messages of node camera_calib) */

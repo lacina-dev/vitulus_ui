@@ -255,7 +255,53 @@
         return agentAsk(x.code === 'safety' ? 'err' : 'warn', head, sinceSec(x.since),
             main.charAt(0).toUpperCase() + main.slice(1), t('needs.agent.why_work'), sub, null, agentBtn(x.ref), t('needs.agent.next_work'));
     }
+    /* a new capability (a new write on the robot the agent may not give
+       itself): decided right here — Allow signs it in your name, Deny (two
+       taps) archives it; the same /api/approvals/decide as Agent › Work */
+    function capButtons(x) {
+        var box = el('span', 'vt-needs-capbtns');
+        var yes = el('button', 'btn btn-info vt-needs-btn', t('needs.cap.allow'));
+        var no = el('button', 'btn btn-outline-secondary vt-needs-btn', t('needs.cap.deny'));
+        var out = el('span', 'vt-needs-sub');
+        yes.type = no.type = 'button';
+        function send(allow) {
+            yes.disabled = no.disabled = true;
+            out.textContent = t('needs.sending');
+            if (!window.VAgent || !VAgent.decideApproval) { out.textContent = t('needs.err'); return; }
+            VAgent.decideApproval(x.id, allow).then(function (res) {
+                no.classList.remove('vt-armed');
+                out.textContent = (res.ok ? '✓ ' : '✕ ') + res.text;
+                if (!res.ok) { yes.disabled = no.disabled = false; }
+            });
+        }
+        yes.addEventListener('click', function () { send(true); });
+        var timer = null;
+        no.addEventListener('click', function () {
+            if (!no.classList.contains('vt-armed')) {
+                no.classList.add('vt-armed');
+                no.textContent = t('needs.cap.deny_really');
+                timer = setTimeout(function () {
+                    no.classList.remove('vt-armed');
+                    no.textContent = t('needs.cap.deny');
+                    render();
+                }, 6000);
+                return;
+            }
+            if (timer) { clearTimeout(timer); }
+            send(false);
+        });
+        box.appendChild(yes);
+        box.appendChild(no);
+        box.appendChild(out);
+        return box;
+    }
     function askCard(x) {
+        if (x.kind === 'capability') {
+            return agentAsk(x.moves ? 'err' : 'warn', t('needs.cap.type'), x.waiting_s,
+                x.what || t('needs.card.ask'), t('needs.cap.why'), null,
+                x.recommend ? [[t('needs.cap.rec.' + x.recommend), x.recommend === 'deny' ? 'warn' : 'info']] : null,
+                capButtons(x), t('needs.cap.next'));
+        }
         return agentAsk(x.moves ? 'err' : 'warn', t('fv.ask.t.approve'), x.waiting_s,
             x.what || t('needs.card.ask'), x.moves ? t('needs.agent.why_motion') : t('needs.agent.why_ask'), null,
             x.moves ? [[t('fv.ask.motion'), 'warn']] : null, agentBtn(), t('needs.agent.next_ask'));

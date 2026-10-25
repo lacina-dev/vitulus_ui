@@ -224,8 +224,9 @@ supervisoru.
   zeptá tebe (`pokračuj`, až to půjde dál).
 - **Nikdy se nezkouší znovu:** převzetí člověkem (gamepad, joystick), STOP, nůž a hranice polohy.
   Mise počká na tebe.
-- Co robot ještě neumí, založí agent jako **návrh nové schopnosti**; přidá se jen běžnou
-  kontrolou, nikdy za jízdy.
+- Co robot ještě neumí, z toho po misi vznikne **nová schopnost**: znalost (postup, dovednost,
+  poznámku) se agent naučí **sám**; jen nový zápis na robota čeká na tvoje **Povolit /
+  Zamítnout** — viz [Nové schopnosti](#nové-schopnosti). Nikdy za jízdy.
 
 ### Co ukazuje displej robota
 
@@ -451,6 +452,26 @@ můžeš i ty — napiš do **Chatu** `co ses naučil` nebo `/naucil` (celá př
 Když se stejné selhání pořád vrací a nic, co agent zná, nepomáhá, založí si na něj sám **nález**
 (**Nálezy**) a dál jde obvyklá cesta: rozbor a oprava přes testy — nikdy, když běží mise.
 
+### Nové schopnosti
+
+Po práci nebo misi se agent sám sebe zeptá, co mu chybělo, a jádro rozhodne — podle toho, co
+návrh **dělá**, nikdy podle slova v textu:
+
+- **Znalost** — postup (dovednost Hermese, třeba *nejvzdálenější místo v zóně*), poznámka do
+  paměti, poučení. **Používá jen akce, které agent už má** (vyjetí z doku, jízda po trase, jízda
+  na bod), nebo robota jen čte, takže si ji agent uloží a používá **sám**. V chatu je to jedna
+  tichá věta *Naučil jsem se: …* — bez odznaku a bez otázky.
+- **Nový zápis na robota** — program, který by sám publikoval na topic, volal službu nebo posílal
+  navigační cíl **mimo registr akcí**. Ten si agent nikdy dát nesmí (AGENT.md §5.2), takže z něj
+  je karta **Nová schopnost** s tlačítky **Povolit** / **Zamítnout** — v bublině chatu,
+  v **Agent › Práce** i na kartě **Čeká na tebe**. Karta řekne, co to je, co přesně by to na
+  robotu dělalo, proč to agent chce a co doporučuje (*zamítnout: totéž už dělá akce X*, *zvaž:
+  mohlo by to pohnout robotem*, *povolit: nic tím nehýbe*). **Povolit** ji podepíše tvým jménem
+  a agent ji smí používat; **Zamítnout** (dvě klepnutí) ji s důvodem archivuje a agent se už
+  neptá. Auto-approve o nich nikdy nerozhoduje. Fungují i `/allow N` / `/deny N` nebo
+  `/caps sign <id>`.
+- Cokoli kolem **nože nebo bezpečnostní vrstvy** se odmítá rovnou — není co povolit.
+
 ## Co agent vidí
 
 Než cokoli rozhodne, poskládá agent jeden **model světa** ze všech senzorů a dat robota: lidar a
@@ -499,6 +520,8 @@ dashboardu Podpory:
   - **Agent robota** — schválení a práce agenta, kterou odblokuje jen člověk (zámek doku,
     zaparkovaná mise, chybí nastavení místa, bezpečnostní stop) — stejná karta jako u fieldu (co,
     **Proč ty**, **Co bude dál**, malý štítek *agent robota*); rozhoduješ je v **Agent › Práce**.
+    Karta **Nová schopnost** má **Povolit** / **Zamítnout** přímo na sobě (viz
+    [Nové schopnosti](#nové-schopnosti)).
   - **Podpora** — každá karta, na kterou se tě field ptá, je jeden ze **tří druhů**, v jedné
     anatomii: druh · *čeká 2 h* · #N → celý nadpis → **Proč ty** (jedna věta) → tělo → **Co bude
     dál** (co udělá které tlačítko a kdo to udělá) → *Pro agenty: technické podrobnosti* (sbalené). **Detail** (#N) otevře issue v **Podpoře** (níž).

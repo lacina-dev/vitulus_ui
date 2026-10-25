@@ -992,6 +992,15 @@
     "fv.ask.fail": "Does not work",
     "fv.ask.back": "Back",
     "fv.ask.all_done": "All steps done",
+    "needs.cap.type": "New capability",
+    "needs.cap.why": "A new write on the robot that the agent may not give itself (AGENT.md §5.2) — you decide.",
+    "needs.cap.next": "Allow = signed in your name and the agent may use it; Deny = archived, never asked again.",
+    "needs.cap.allow": "Allow",
+    "needs.cap.deny": "Deny",
+    "needs.cap.deny_really": "Deny — really?",
+    "needs.cap.rec.allow": "recommended: allow",
+    "needs.cap.rec.deny": "recommended: deny",
+    "needs.cap.rec.think": "think it over",
     /* ---- @end support */
 
     /* ---- @frag mapping: Map tab: recording, sessions, layers, obstacles, presets, aerial/rain, combined map; Loc tab (mapping.js, gloc.js) */
@@ -2642,6 +2651,14 @@
     "appr.title": "Approvals",
     "ajob.title": "Jobs",
     "chat.title": "Chat",
+    "appr.kind.capability": "New capability",
+    "appr.sec.capability": "Capability",
+    "chat.cap.allow": "Allow",
+    "chat.cap.allow_tip": "Signs the capability in your name; the agent may use it from now on (same as /allow {id})",
+    "chat.cap.deny": "Deny",
+    "chat.cap.deny_tip": "Archives the proposal with the reason; the agent does not ask again (same as /deny {id})",
+    "chat.cap.deny_really": "Deny — really?",
+    "chat.cap.decided": "Already decided (or expired) — see Agent › Work.",
     /* ---- @end chat */
 
     /* ---- @frag camera: Settings › Camera, depth calibration wizard (vt_camera_settings.js; messages of node camera_calib) */

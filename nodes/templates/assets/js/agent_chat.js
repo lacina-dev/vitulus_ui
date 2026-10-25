@@ -1899,6 +1899,62 @@
         /* A mission parked at the dock lock: the one thing it needs is the
            owner's tap in the Dock lock card, so the bubble carries the way
            there.  Once he unlocks, the mission carries on by itself. */
+        /* A new capability waits for the owner (grow.py → shellgate CAP_TOOL,
+           2026-10-25: „ne /caps sign, ale tlačítkem").  The bubble carries
+           Allow / Deny itself; once decided (here, in Work, Needs you or by
+           /allow) the buttons give way to the outcome. */
+        if (meta.cap_request) {
+            var cid = meta.cap_request;
+            var cbar = document.createElement('div');
+            cbar.className = 'vagent-actions vagent-cap';
+            var cyes = document.createElement('button');
+            cyes.type = 'button';
+            cyes.className = 'vagent-actbtn primary';
+            lt(cyes, 'chat.cap.allow');
+            lt(cyes, 'chat.cap.allow_tip', {id: cid}, 'title');
+            var cno = document.createElement('button');
+            cno.type = 'button';
+            cno.className = 'vagent-actbtn';
+            lt(cno, 'chat.cap.deny');
+            lt(cno, 'chat.cap.deny_tip', {id: cid}, 'title');
+            var cout = document.createElement('span');
+            cout.className = 'vagent-cap-out';
+            var settle = function (res) {
+                cyes.remove(); cno.remove();
+                cout.textContent = (res.ok ? '✓ ' : '✕ ') + res.text;
+            };
+            var send = function (allow) {
+                cyes.disabled = true; cno.disabled = true;
+                decideApproval(cid, allow).then(function (res) {
+                    if (res.ok) { settle(res); return; }
+                    cyes.disabled = false; cno.disabled = false;
+                    cout.textContent = '✕ ' + res.text;
+                });
+            };
+            cyes.addEventListener('click', function (e) { e.stopPropagation(); send(true); });
+            var cArmed = false, cTimer = null;
+            cno.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (!cArmed) {                    // one tap more, like the strip
+                    cArmed = true;
+                    lt(cno, 'chat.cap.deny_really');
+                    cTimer = setTimeout(function () { cArmed = false; lt(cno, 'chat.cap.deny'); }, 6000);
+                    return;
+                }
+                if (cTimer) { clearTimeout(cTimer); }
+                send(false);
+            });
+            if (approvalsSeen && !stripAsks.some(function (a) { return a.id === cid; })
+                    && !decidedAsks[cid]) {
+                lt(cout, 'chat.cap.decided');     // decided elsewhere, or expired
+            } else {
+                cbar.appendChild(cyes);
+                cbar.appendChild(cno);
+            }
+            cbar.appendChild(cout);
+            row.appendChild(cbar);
+            return;
+        }
         if (meta.event === 'awaiting_dock') {
             var dbar = document.createElement('div');
             dbar.className = 'vagent-actions';
@@ -4588,6 +4644,24 @@
             });
     }
 
+    /* Allow / Deny from outside the Work strip — the chat bubble of a new
+       capability and the Needs you card.  The SAME endpoint and the same
+       human check as the strip (shellgate.web_decision); resolves to
+       {ok, text}, never rejects. */
+    function decideApproval(id, allow) {
+        var body = {id: id, decision: allow ? 'allow' : 'deny', by: author};
+        return api('/api/approvals/decide', {body: body, keep_error_body: true})
+            .then(function (d) {
+                var good = !!(d && d.ok);
+                if (good) { decidedAsks[id] = 1; }
+                pollApprovals();
+                return {ok: good, text: good ? [d.message, d.note].filter(Boolean).join(' ')
+                    : ((d && d.error) || _t('appr.err.not_accepted'))};
+            }).catch(function (err) {
+                return {ok: false, text: decideError(err)};
+            });
+    }
+
     /* One sentence for a decision that did not go through — the agent's own
        words whenever it said any, our guess only when it said nothing. */
     function decideError(err) {
@@ -4627,10 +4701,14 @@
     var ASK_KIND = {
         plan:    {chip: 'appr.kind.plan',    icon: '▤', cls: 'k-plan',   sec: 'appr.sec.plan'},
         command: {chip: 'appr.kind.command', icon: '❯', cls: 'k-cmd',    sec: 'appr.sec.command'},
-        resume:  {chip: 'appr.kind.resume',  icon: '▶', cls: 'k-resume', sec: 'appr.sec.brief'}
+        resume:  {chip: 'appr.kind.resume',  icon: '▶', cls: 'k-resume', sec: 'appr.sec.brief'},
+        /* a new capability the agent may not give itself (a new write on the
+           robot, AGENT.md §5.2): Allow signs it in the owner's name, Deny
+           archives it — the core decides what it is (shellgate CAP_TOOL) */
+        capability: {chip: 'appr.kind.capability', icon: '✦', cls: 'k-cap', sec: 'appr.sec.capability'}
     };
     /* waiting work (a plan, a parked job) outranks a held one-off command */
-    var ASK_RANK = {plan: 0, resume: 1, command: 2};
+    var ASK_RANK = {plan: 0, resume: 1, capability: 1, command: 2};
 
     function askKind(item) {
         var p = ((item.detail || {}).payload) || {};
@@ -5235,13 +5313,16 @@
     function pollApprovals() {
         return api('/api/approvals').then(function (d) {
             stripAsks = (d && d.approvals) || [];
+            approvalsSeen = true;
             /* U2 I1: the shared hub gets the SAME list (one poller, U44);
                the Needs you panel reads it from there */
             if (window.VTHub) {
                 window.VTHub.put("agent.asks",   // a hub key, not i18n (double quotes: test_i18n)
                 stripAsks.map(function (a) {
                     return {id: a.id, what: (a.detail && a.detail.what) || a.plain || a.command || '',
-                            waiting_s: a.waiting_s, moves: !!askMoves(a)};
+                            waiting_s: a.waiting_s, moves: !!askMoves(a),
+                            kind: askKind(a), capability: a.capability || null,
+                            recommend: ((a.detail || {}).payload || {}).recommend || null};
                 }));
             }
             /* Work that needs a HUMAN and is not an approval (a mission
@@ -5693,6 +5774,7 @@
        nothing on the page moves.  The "now bar" (4) is the quiet one: verb +
        object + leg n/m + time, hard-cut to 60 characters. */
     var stripEl = null, stripText = null, stripFindings = [], stripAsks = [];
+    var approvalsSeen = false;   // the first /api/approvals answer has arrived
     var stripReadN;              // v2 „Read this" count (undefined = older core)
     var stripFp = '';
     var STRIP_CUT = 60;
@@ -6215,6 +6297,8 @@
         /* U2: the Needs you panel asks for the approvals once when it opens
            (the same single poller, U44, no second loop) */
         pollApprovals: function () { return pollApprovals(); },
+        /* Allow / Deny one ask from anywhere (Needs you); {ok, text} */
+        decideApproval: decideApproval,
         api: api,
         num: num,                     // every number says where it came from
         auditNumbers: auditNumbers,   // …and the panel can be asked to prove it

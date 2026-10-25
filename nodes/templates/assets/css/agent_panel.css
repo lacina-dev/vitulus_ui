@@ -886,6 +886,8 @@
 .vagent-actbtn.danger { border-color: var(--bs-danger, #dc3545); color: #f1868f; background: rgba(220, 53, 69, 0.14); }
 .vagent-actbtn.done { border-style: dashed; opacity: 0.75; }
 .vagent-actbtn:disabled { opacity: 0.5; cursor: default; }
+/* a new capability's Allow / Deny right in the chat bubble (grow.py card) */
+.vagent-cap .vagent-cap-out { font-size: 11px; color: var(--bs-secondary-color, #adb5bd); }
 .vagent-assigned { font-size: 11px; color: var(--bs-success, #198754); }
 .vagent-turn.vagent-me .vagent-actions { display: none; }
 
@@ -1634,6 +1636,7 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
 .vagent-ask.k-plan   { border-left-color: var(--bs-info, #6ec6ff); }
 .vagent-ask.k-cmd    { border-left-color: var(--bs-warning, #ffc44d); }
 .vagent-ask.k-resume { border-left-color: #b48cff; }
+.vagent-ask.k-cap    { border-left-color: #6ee7b7; }
 
 /* ---- 1. header strip ---- */
 .vagent-ask .ah {
@@ -1649,6 +1652,7 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
 .vagent-ask.k-plan   .akind { background: rgba(110, 198, 255, 0.16); color: var(--bs-info, #6ec6ff); }
 .vagent-ask.k-cmd    .akind { background: rgba(255, 196, 77, 0.16); color: var(--bs-warning, #ffc44d); }
 .vagent-ask.k-resume .akind { background: rgba(180, 140, 255, 0.16); color: #c4a8ff; }
+.vagent-ask.k-cap    .akind { background: rgba(110, 231, 183, 0.14); color: #6ee7b7; }
 .vagent-ask .ahp {
     margin-left: auto; display: flex; gap: 4px;
     min-width: 0; overflow: hidden;

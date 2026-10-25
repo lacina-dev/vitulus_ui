@@ -403,6 +403,33 @@ async function main() {
         !('executor' in posted[0]));
     await sleep(5);
 
+    // ---- 8b. a new capability (grow.py → shellgate CAP_TOOL, 2026-10-25) --
+    posted = [];
+    const capAsk = {id: 77, command: 'podepsat schopnost primitive.blikni',
+        tool: 'capability', rule: 'cap:sign', capability: 'primitive.blikni',
+        asker: 'růst schopností', waiting_s: 30, left_text: '7 d',
+        detail: {what: 'Nový zápis na robota (T0 primitivum), který zatím v ' +
+                       'registru akcí není: blikni',
+                 why: 'neumím blikat', action_on_approve: 'Podepíšu ji.',
+                 action_on_deny: 'Archivuju ji.',
+                 payload: {kind: 'capability', capability: 'primitive.blikni',
+                           recommend: 'allow', text: 'Co to je: …'},
+                 context: {}, risk: ['nový zápis na robota'], executors: [],
+                 recommended: null}};
+    ok('capability kind', w.askKind(capAsk) === 'capability');
+    w.renderApprovals([capAsk]);
+    const cap = gate.children[0];
+    ok('capability card has its own chip', cap.text().indexOf('New capability') >= 0
+        && cls(cap).indexOf('k-cap') >= 0);
+    ok('capability card says what it is',
+        cap.text().indexOf('Nový zápis na robota') >= 0);
+    ok('capability card has no executor buttons',
+        cap.querySelectorAll().filter(b => cls(b).indexOf('aeb') >= 0).length === 0);
+    cap.querySelectorAll().find(b => b._text === 'Approve').handlers.click();
+    ok('capability approve posts allow for its id', posted.length === 1
+        && posted[0].id === 77 && posted[0].decision === 'allow');
+    await sleep(5);
+
     // ---- 9. outcome banner, then the empty state -------------------------
     w.renderApprovals([]);
     ok('decision outcome banner shows first',

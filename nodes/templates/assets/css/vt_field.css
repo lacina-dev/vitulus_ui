@@ -406,6 +406,9 @@ a.vt-needs-btn {
     padding: 0 8px;
 }
 .vt-needs-acts > .vt-needs-btn ~ .vt-needs-btn:hover { background: rgba(var(--vt-accent-rgb), 0.10); color: #fff; }
+/* a new capability: Allow / Deny on the Needs you card itself */
+.vt-needs-capbtns { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--vt-gap-2); }
+.vt-needs-capbtns .vt-needs-btn.vt-armed { border-color: var(--bs-danger, #dc3545); color: #f1868f; }
 @media (pointer: coarse) { .vt-needs-btn, a.vt-needs-btn { min-height: var(--vt-touch); } }
 @media (max-width: 575.98px) {
     .vt-needs-btn { flex: 0 1 auto; }
