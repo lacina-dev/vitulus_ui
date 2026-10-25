@@ -392,9 +392,14 @@ red when it is urgent or the robot would move. It counts **only what waits for y
 agents handle themselves, calm notes and information never light it up. The panel speaks the
 same language as the Support dashboard's home page:
 
-- **How we stand** — one row per robot (you and the other side): a dot, **one sentence** (e.g.
-  *Has the newest release, the robot runs on it.*) and the key facts (release, stack since, kit).
-- **On you** — one list of everything you have to do:
+- **The state in one sentence** on top — *3 things wait for you. The agents handle 1 thing
+  themselves, Mac tests 7 fixes.* (green *Nothing is needed from you.* when nothing waits) — and
+  one line per robot (you and the other side, e.g. *Has the newest release, the robot runs on
+  it.*). Versions, stack times and similar facts are folded under *Details for agents*.
+- **On you** — one list of everything you have to do; its count is the bell's number:
+  - **Warnings only a person solves** — the GitHub token expires or does not work, field does not
+    run, Signal is off, the other side is silent or stuck, this robot is behind — each with what
+    to do and the way there (e.g. *Open GitHub tokens*). The field counts them the same way.
   - **Robot agent** — approvals, and agent work only a person can unblock (dock lock, parked
     mission, missing site setup, safety stop), each with one sentence what and why; decide them
     in **Agent › Work**.
@@ -415,8 +420,12 @@ same language as the Support dashboard's home page:
     next step (this device remembers where you are), the last **Done** tells the field; **Does
     not work** opens the card on the dashboard so the agent follows up; **Back**. Without
     written steps: **Start with the agent**.
-  - calm notes under the list (e.g. *Mac waits for you on #8 too*) — grey, not counted.
-- **⟨Mac⟩ has to do** — folded: what the other side is on, so you see who has the ball. Never
+  - calm notes (e.g. *Mac waits for you on #8 too*) — folded under *For information (N)*, not
+    counted.
+- **The agents are working on** — what runs right now (the agent fixing #61 with its clock, the
+  watcher waiting to restart the robot when it is idle, the other side's agent, *Mac tests 7 fixes
+  at the robot*). Never counted; a number opens the issue in **Support**.
+- **Waiting on ⟨Mac⟩** — folded: what the other side is on, so you see who has the ball. Never
   counted in the bell.
 
 Every button that writes takes **two clicks within 5 s** and is signed with your name (asked once

@@ -1211,3 +1211,27 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
     .vt-ask-facts { grid-template-columns: 1fr; gap: 0; }
     .vt-ask-facts dd { margin-bottom: 4px; }
 }
+/* ---- the field's Domů in Needs you (VTField.hero / alerts / agents): the state in one
+   sentence on top, the sides one line each, their facts folded for agents */
+.vt-fv-hero { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--vt-gap-3); }
+.vt-fv-hsay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; line-height: 1.35; }
+.vt-fv-hsay .vt-sdot { align-self: center; }
+.vt-fv-hsay > b { font-family: var(--vt-font-head); font-size: var(--vt-fs-lg); font-weight: 600; color: var(--vt-text); }
+.vt-fv-hbusy { font-size: var(--vt-fs); color: var(--vt-muted); }
+.vt-fv-hsides { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.vt-fv-hside { display: flex; align-items: baseline; gap: 8px; font-size: var(--vt-fs); line-height: 1.4; color: var(--vt-text); }
+.vt-fv-hside .vt-sdot { flex: 0 0 auto; align-self: center; }
+.vt-fv-hside[data-state="ok"] { --vt-st: var(--vt-ok); --vt-st-glow: var(--vt-glow-ok); }
+.vt-fv-hside[data-state="warn"] { --vt-st: var(--vt-warn); --vt-st-glow: var(--vt-glow-warn); }
+.vt-fv-hside[data-state="err"] { --vt-st: var(--vt-err); --vt-st-glow: var(--vt-glow-err); }
+.vt-fv-hss { min-width: 0; overflow-wrap: anywhere; }
+.vt-fv-htech .vt-fv-facts { margin: 4px 0 0; }
+.vt-fv-alert { display: flex; flex-direction: column; gap: 6px; }
+.vt-fv-agents .vt-acts { margin: 0; }
+.vt-act.vt-fv-arow { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+.vt-fv-arow .vt-fv-tag { justify-self: start; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-fv-arow .vt-act-txt { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; padding: 4px 0; }
+.vt-fv-arow .vt-act-txt a.vt-fv-n { margin-left: 0; color: var(--vt-accent); text-decoration: none; }
+.vt-fv-arow .vt-act-txt a.vt-fv-alink { color: var(--vt-text); text-decoration: none; }
+.vt-fv-arow .vt-act-txt a.vt-fv-alink:hover { color: var(--vt-accent); text-decoration: underline; }
+.vt-fv-nfold .vt-fv-notes { margin-top: 4px; }

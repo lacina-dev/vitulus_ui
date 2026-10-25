@@ -86,7 +86,8 @@ const hub = {};
 const sent = [];
 const timers = [];
 const window = {
-    VTI18n: { t: (k, v) => String(k in EN ? EN[k] : k).replace(/\{(\w+)\}/g, (m, n) => (v && n in v ? String(v[n]) : m)) },
+    VTI18n: { t: (k, v) => String(k in EN ? EN[k] : k).replace(/\{(\w+)\}/g, (m, n) => (v && n in v ? String(v[n]) : m)),
+              lang: () => 'en' },
     VTHub: { get: k => hub[k] || null, refresh() {} }
 };
 function fetch(url, init) {
@@ -98,6 +99,7 @@ new Function('window', 'VTI18n', 'VTHub', 'document', 'localStorage', 'fetch', '
     fs.readFileSync(path.join(JS, 'vt_field_view.js'), 'utf8'))(
     window, window.VTI18n, window.VTHub, document, localStorage, fetch, location,
     (fn) => { timers.push(fn); return timers.length; }, () => {});
+window.VTI18n.tn = (k, n, v) => window.VTI18n.t(k + '.' + (n === 1 ? 'one' : 'other'), Object.assign({ n: n }, v || {}));
 const F = window.VTField;
 ok(F && typeof F.ask === 'function', 'VTField.ask exists');
 
@@ -186,6 +188,37 @@ ok(sent.length === 1 && sent[0].url === '/field/act/done' && sent[0].body.step =
 const fail = lis[1].byClass('vt-ask-fail')[0];
 ok(fail && fail.tagName === 'A' && /#\/issue\/8$/.test(fail.href), 'steps: "Does not work" opens the dashboard card of #8');
 ok(lis[1].byClass('vt-ask-back').length === 1, 'steps: Back on the second step');
+
+/* ---------------------------------------------------------------- home: warnings, agents, the sentence */
+const H0 = { stav: [{ login: 'lacina-dev', me: true, name: 'Robert', tone: 'ok', say: 'Robot runs.' },
+                    { login: 'maciii', name: 'Mac', tone: 'ok', say: 'Has the newest release.' }],
+             turn: { counts: { agent: 1, field: 1, verify: 7, them: 1 }, who: { '61': 'agent', '63': 'you' }, names: { them: 'Mac' } },
+             todo: { names: { peer: 'Mac' } },
+             issues: { us: [{ number: 61, title: '[report] Lidar drops after start', status_text: 'agent prepares a fix' }, { number: 63, title: 'Keyboard' }] },
+             velin: { sides: [{ login: 'lacina-dev', me: true, state: 'ok' }, { login: 'maciii', state: 'waiting' }] },
+             gh_access: { level: 'ok' }, fleet: { self: { banner: null } }, blocks: [] };
+ok(F.alerts(H0, { state: 'idle', level: 'info', signal: { state: 'connected' } }).length === 0, 'home: all fine -> no warning (nothing counted)');
+const H1 = JSON.parse(JSON.stringify(H0));
+H1.gh_access = { level: 'warn', title: 'Token expires', line: 'Renew it.', url: 'https://github.com/settings/personal-access-tokens' };
+H1.velin.sides[1].state = 'stale';
+H1.fleet.self.banner = 'This robot is behind';
+const al = F.alerts(H1, { state: 'off', level: 'info', signal: { state: 'off' } });
+ok(al.map(a => a.key).join(',') === 'gh,watch,signal,side-maciii,fleet', 'home: the field bubble\'s warnings (GitHub, field off, Signal off, other side silent, behind)');
+ok(al.filter(a => a.tone === 'bad').map(a => a.key).join(',') === 'watch', 'home: field not running is the red one');
+ok(al[0].href === 'https://github.com/settings/personal-access-tokens' && /Mac is silent/.test(al[3].title), 'home: GitHub link only to the token settings; the side by its name');
+const evil = JSON.parse(JSON.stringify(H1)); evil.gh_access.url = 'https://evil.example/';
+ok(/:8790\/#\/trust$/.test(F.alerts(evil, null)[0].href), 'home: a foreign URL never becomes a link (the dashboard instead)');
+const rows = F.agentRows(Object.assign({}, H0, { blocks: [{ id: 'b1', blocked: true, kind: 'restart-stack' }] }),
+    { busy: [{ slot: 'tick' }, { slot: 'run', issue: 61, text: 'fixes #61', started: new Date().toISOString() }],
+      agents: { others: [{ login: 'maciii', text: 'verifies #56 · step 2/3', issue: 56 }, { login: 'maciii', agent: false, text: 'kit step' }] } });
+ok(rows.map(r => r.k.split('-')[0]).join(',') === 'b,w,o,pv' && rows[0].n === 61,
+   'agents: run (no tick), the watcher\'s wait, the other side\'s agent (not a kit step), Mac verifying; #61 not twice');
+ok(rows[2].text === 'verifies #56' && rows[3].text === 'tests 7 fixes at the robot', 'agents: the peer row is one short line');
+const hero = F.hero(H0, 5, false);
+ok(/^5 things wait for you\./.test(txt(hero.byClass('vt-fv-hsay')[0])) && hero.getAttribute('data-state') === 'warn', 'hero: "5 things wait for you." amber');
+ok(/The agents handle 2 things themselves, Mac tests 7 fixes and has 1 thing more on the move\./.test(txt(hero.byClass('vt-fv-hbusy')[0])), 'hero: what the agents and the other side do');
+ok(F.hero(H0, 0, false).getAttribute('data-state') === 'ok' && /Nothing is needed/.test(txt(F.hero(H0, 0, false))), 'hero: nothing -> green, "Nothing is needed from you."');
+ok(hero.byClass('vt-fv-hside').length === 2 && hero.byClass('vt-fv-htech').length === 0, 'hero: one line per side; no facts -> no fold');
 
 /* ---------------------------------------------------------------- texts */
 ['fv.ask.t.decide', 'fv.ask.t.approve', 'fv.ask.t.steps', 'fv.ask.why', 'fv.ask.next', 'fv.ask.approve_in_support'].forEach(k => {

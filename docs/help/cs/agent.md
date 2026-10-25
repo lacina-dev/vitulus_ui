@@ -383,9 +383,14 @@ když je to naléhavé nebo by se robot pohnul. Počítá **jen to, co čeká na
 vyřeší sami, klidné poznámky a informace ho nerozsvítí. Panel mluví stejně jako úvodní stránka
 dashboardu Podpory:
 
-- **Jak na tom jsme** — řádek pro každého robota (ty a druhá strana): tečka, **jedna věta**
-  (např. *Má nejnovější vydání, robot na něm jede.*) a hlavní fakta (vydání, stack od, kit).
-- **Na tobě** — jeden seznam všeho, co máš udělat:
+- **Stav jednou větou** nahoře — *Na tobě čekají 3 věci. Agenti řeší 1 věc sami, Mac testuje
+  7 oprav.* (zeleně *Nic po tobě nechceme.*, když nic nečeká) — a řádek pro každého robota (ty
+  a druhá strana, např. *Má nejnovější vydání, robot na něm jede.*). Verze, časy stacku a podobná
+  fakta jsou sbalené v *Podrobnosti pro agenty*.
+- **Na tobě** — jeden seznam všeho, co máš udělat; jeho počet je číslo na zvonku:
+  - **Upozornění, která vyřeší jen člověk** — token GitHubu vyprší nebo nefunguje, field neběží,
+    Signál je vypnutý, druhá strana se neozývá nebo stojí, tenhle robot je pozadu — u každého co
+    udělat a cesta tam (např. *Otevřít tokeny GitHubu*). Field je počítá stejně.
   - **Agent robota** — schválení a práce agenta, kterou odblokuje jen člověk (zámek doku,
     zaparkovaná mise, chybí nastavení místa, bezpečnostní stop), každá s jednou větou co a proč;
     rozhoduješ je v **Agent › Práce**.
@@ -404,8 +409,12 @@ dashboardu Podpory:
     další krok (zařízení si pamatuje, kde jsi), poslední **Hotovo** to řekne fieldu; **Nejde**
     otevře kartu na dashboardu, ať agent naváže; **Zpět**. Bez rozepsaných kroků **Začít
     s agentem**.
-  - klidné poznámky pod seznamem (např. *Mac na tebe čeká i u #8*) — šedě, nepočítají se.
-- **⟨Mac⟩ má udělat** — sbalené: na čem je druhá strana, ať vidíš, kdo je na tahu. Do zvonku se
+  - klidné poznámky (např. *Mac na tebe čeká i u #8*) — sbalené v *Pro informaci (N)*, nepočítají
+    se.
+- **Agenti teď řeší** — co právě běží (agent opravuje #61 i s časem, hlídač čeká s restartem
+  robota, až bude v klidu, agent druhé strany, *Mac testuje 7 oprav u robota*). Nikdy se nepočítá;
+  číslo otevře issue v **Podpoře**.
+- **Čeká se na ⟨Maca⟩** — sbalené: na čem je druhá strana, ať vidíš, kdo je na tahu. Do zvonku se
   nikdy nepočítá.
 
 Každé tlačítko, které zapisuje, chce **dvě kliknutí do 5 s** a je podepsané tvým jménem (zeptá se

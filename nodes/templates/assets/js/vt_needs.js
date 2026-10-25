@@ -86,12 +86,19 @@
            without calm info (urgency low) stands in for the count */
         var f = mine || ((field && field.data && field.data.items) || []).filter(waitsOnMe);
         var fieldN = mine ? mine.length + (todo.mine.more || 0) : f.length;
+        /* the warnings only a person solves (GitHub token, field not running,
+           Signal off, the other side silent / stuck, this side behind) — the
+           field's menu bubble counts them too (kit 0.9.54 hmAlertList) */
+        var now = (H && H.get("field.now")) || null;
+        var cur = now && now.data;
+        var al = hd && window.VTField && VTField.alerts ? VTField.alerts(hd, cur) : [];
         var urgent = a.some(function (x) { return x.moves; }) ||
             w.some(function (x) { return x.code === 'safety'; }) ||
+            al.some(function (x) { return x.tone === 'bad'; }) ||
             ((field && field.data && field.data.items) || []).some(function (x) { return x.urgency === 'high'; });
-        return { asks: a, work: w, field: f, todo: todo, stav: hd && hd.stav, home: home,
-                 fieldEntry: field, askEntry: asks, fieldN: fieldN,
-                 n: a.length + w.length + fieldN, urgent: urgent };
+        return { asks: a, work: w, field: f, todo: todo, stav: hd && hd.stav, home: home, hd: hd, cur: cur,
+                 fieldEntry: field, askEntry: asks, fieldN: fieldN, alerts: al,
+                 n: a.length + w.length + fieldN + al.length, urgent: urgent };
     }
 
     /* ------------------------------------------------------------- bell */
@@ -255,12 +262,14 @@
         if (!window.VTField) { return; }
         if (m.todo && m.todo.role) { VTField.setRole(m.todo.role); }
 
-        /* how we stand: both sides, one sentence each */
-        if (m.stav && m.stav.length) { root.appendChild(VTField.state(m.stav)); }
+        /* the state in one sentence (what waits on you, what the agents and the
+           other side do), both sides one line each, their facts folded */
+        if (m.hd) { root.appendChild(VTField.hero(m.hd, m.n, m.urgent)); }
         else if (!m.home) { root.appendChild(el('span', 'vt-skel')); }
 
-        /* on you: the robot agent's asks + the field's tasks */
+        /* on you: the warnings, the robot agent's asks, the field's asks */
         var on = [];
+        m.alerts.forEach(function (x) { on.push(VTField.alertCard(x)); });
         m.work.forEach(function (x) { on.push(workCard(x)); });
         m.asks.forEach(function (x) { on.push(askCard(x)); });
         var nr = nameRow();
@@ -281,7 +290,7 @@
         if (m.todo && m.todo.mine.more) {
             on.push(VTField.linkBtn(t('fv.more_n', { n: m.todo.mine.more }), supportUrl('#/attention')));
         }
-        var nt = m.todo && VTField.notes(m.todo.mine.notes, openIssue);
+        var nt = m.todo && VTField.notes(m.todo.mine.notes, openIssue, 'notes:mine');   // folded, like the field's Domů
         if (nt) { on.push(nt); }
         if ((m.home && !m.home.ok) || (m.fieldEntry && !m.fieldEntry.ok)) {
             on.push(el('p', 'vt-empty', (m.home && m.home.data) || (m.fieldEntry && m.fieldEntry.data) ?
@@ -290,6 +299,12 @@
         var onTitle = t('fv.on_you');
         root.appendChild(group('mine', onTitle, m.n, on));
 
+        /* what the agents are on right now (never counted) */
+        if (m.hd) {
+            var rows = VTField.agentRows(m.hd, m.cur);
+            root.appendChild(group('agents', t('fv.agents'), rows.length, [VTField.agents(m.hd, m.cur, openIssue)]));
+        }
+
         /* what the other side is on: folded, never counted */
         if (m.todo && m.todo.peer) {
             var P = m.todo.peer, names = m.todo.names || {};
@@ -297,7 +312,7 @@
             if (!pc.length) { pc.push(el('p', 'vt-empty', t('fv.empty_peer', { name: names.peer || P.name || '?' }))); }
             var pn = VTField.notes(P.notes, openIssue);
             if (pn) { pc.push(pn); }
-            root.appendChild(group('peer', t('fv.peer_has', { name: names.peer || P.name || '?' }),
+            root.appendChild(group('peer', t('fv.peer_wait', { name: names.peer_gen || names.peer || P.name || '?' }),
                 (P.items || []).length + (P.more || 0), pc, false));
         }
         var foot = el('div', 'vt-needs-acts vt-fv-foot');
@@ -440,6 +455,9 @@
         /* the field's own words for people: stav + todo (one poller, shared
            with Support › Releases / Signal) */
         VTHub.on("field.home", render);
+        /* what runs now + the watcher / Signal state (the field's 5 s "busy") */
+        VTHub.on("field.now", render);
+        VTHub.poll("field.now", '/field/api/activity/current', 15000);
         VTHub.poll("field.home", '/field/api/home', HOME_EVERY);
         VTHub.on("ui.actions", render);
         VTHub.poll("ui.actions", '/field/ui_actions?limit=50', 60000);   // I5: switch + audit

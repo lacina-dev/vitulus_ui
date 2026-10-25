@@ -391,9 +391,20 @@
         box.appendChild(msg);
         return box;
     }
-    function notes(list, onIssue) {
+    function notes(list, onIssue, foldKey) {
         if (!list || !list.length) { return null; }
         var w = el('div', 'vt-fv-notes');
+        if (foldKey) {
+            var d = fold(el('details', 'vt-ask-tech vt-fv-nfold'), foldKey, false);
+            d.appendChild(el('summary', null, t('fv.notes_n', { n: list.length })));
+            d.appendChild(w);
+            fillNotes(w, list, onIssue);
+            return d;
+        }
+        fillNotes(w, list, onIssue);
+        return w;
+    }
+    function fillNotes(w, list, onIssue) {
         list.forEach(function (n) {
             var p = el('p', 'vt-fv-note', (n.text || '') + ' ');
             if (n.issue && onIssue) {
@@ -409,6 +420,225 @@
             w.appendChild(p);
         });
         return w;
+    }
+
+    /* ------------------------------------------------------- home */
+    /* The field's Domů in the robot UI (kit 0.9.52 home2, dash/app.js hmHeroHtml /
+       hmAlerts / hmAgentsHtml): ONE sentence of state on top, the warnings only a
+       person solves (counted like the field's menu bubble), the agents' work. */
+    function tn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
+    function lang() { return window.VTI18n ? VTI18n.lang() : 'en'; }
+    function curText(o) {
+        if (!o) { return ''; }
+        return String((lang() === 'en' && o.text_en) ? o.text_en : (o.text || o.text_en || ''))
+            .replace(/\b(Krok|krok|Step|step)\s+[0-9a-f]{12}(:?)\s*/g, function (_m, k, c) { return c ? k + ': ' : k + ' '; });
+    }
+    function issueShort(s) {
+        return String(s || '').replace(/^\s*\[[a-z-]+\]\s*/i, '').replace(/\s*\((?:motion|pohyb)\s*:\s*\w+\)/gi, '');
+    }
+    var GH_URL_RE = /^https:\/\/github\.com\/settings\/(personal-access-tokens|tokens)$/;
+    /* [{key, tone: warn|bad, title, why, steps, say, href, label}] — the SAME list
+       the field counts in its menu bubble (hmAlertList), less the dashboard's
+       own "trust this robot on this device" (it is about the dashboard's TLS in
+       that browser, not about the robot UI) */
+    function alerts(h, cur) {
+        var out = [];
+        h = h || {};
+        var g = h.gh_access;
+        if (g && (g.level === 'bad' || g.level === 'warn')) {
+            out.push({ key: 'gh', tone: g.level === 'bad' ? 'bad' : 'warn', title: g.title || t('fv.a.gh'), why: g.line || '',
+                       steps: g.steps || [], href: GH_URL_RE.test(g.url || '') ? g.url : dash('#/trust'),
+                       label: GH_URL_RE.test(g.url || '') ? t('fv.a.gh_open') : t('fv.a.in_support') });
+        }
+        if (cur && (cur.state === 'off' || cur.level === 'error')) {
+            out.push({ key: 'watch', tone: 'bad', title: t(cur.state === 'off' ? 'fv.a.watch_off' : 'fv.a.watch_err'),
+                       why: curText(cur) || t('fv.a.watch_why'), say: t('fv.a.watch_say'), href: dash('#/activity'), label: t('fv.a.in_support') });
+        }
+        var sg = cur && cur.signal;
+        if (sg && (sg.state === 'off' || sg.state === 'stopped')) {
+            out.push({ key: 'signal', tone: 'warn', title: t('fv.a.signal'), why: t('fv.a.signal_why'), href: dash('#/signal'), label: t('fv.a.in_support') });
+        }
+        ((h.velin || {}).sides || []).forEach(function (s) {
+            if (s.me || !/^(stale|stuck)$/.test(s.state || '')) { return; }
+            var card = (h.stav || []).filter(function (x) { return String(x.login || '').toLowerCase() === String(s.login || '').toLowerCase(); })[0] || {};
+            out.push({ key: 'side-' + s.login, tone: s.state === 'stuck' ? 'bad' : 'warn',
+                       title: t(s.state === 'stuck' ? 'fv.a.side_stuck' : 'fv.a.side_stale', { name: card.name || s.login || '?' }),
+                       why: card.say || '', href: dash('#/fleet'), label: t('fv.a.in_support') });
+        });
+        var me = (h.fleet || {}).self;
+        if (me && me.banner) {
+            out.push({ key: 'fleet', tone: 'warn', title: me.banner, why: me.action && me.action.title ? me.action.title : '',
+                       href: dash('#/fleet'), label: t('fv.a.update_in_support') });
+        }
+        return out;
+    }
+    function alertCard(a) {
+        var c = el('div', 'vt-card vt-fv-alert');
+        c.setAttribute('data-state', a.tone === 'bad' ? 'err' : 'warn');
+        c.dataset.key = 'al-' + a.key;
+        c.appendChild(el('h4', 'vt-ask-title', a.title));
+        if (a.why) { c.appendChild(el('p', 'vt-ask-why', a.why)); }
+        if ((a.steps || []).length) {
+            var ol = el('ol', 'vt-ask-msteps');
+            a.steps.forEach(function (s) { ol.appendChild(el('li', null, s)); });
+            c.appendChild(ol);
+        }
+        if (a.say) {
+            var sa = el('div', 'vt-fv-say-agent', t('fv.say_you') + ' ');
+            sa.appendChild(el('q', null, a.say));
+            c.appendChild(sa);
+        }
+        if (a.href) {
+            var r = el('div', 'vt-needs-acts vt-fv-acts');
+            r.appendChild(linkBtn(a.label || t('fv.a.in_support'), a.href, 'vt-fv-go'));
+            c.appendChild(r);
+        }
+        return c;
+    }
+    /* the busy half of the sentence: "the agents handle 2 things themselves, Mac tests 7 fixes" */
+    function busyText(h) {
+        var c = (h.turn && h.turn.counts) || null, nm = (h.turn && h.turn.names) || {}, parts = [];
+        if (!c) { return ''; }
+        var ag = (c.agent || 0) + (c.field || 0);
+        if (ag) { parts.push(tn('fv.hero.agents', ag)); }
+        var peer = (h.todo && h.todo.names && h.todo.names.peer) || nm.them || '';
+        var fixes = c.verify ? tn('fv.n_fixes', c.verify) : '', things = c.them ? tn('fv.n_things', c.them) : '';
+        if (c.verify && c.them) { parts.push(t('fv.hero.peer_both', { name: peer, fixes: fixes, things: things })); }
+        else if (c.verify) { parts.push(t('fv.hero.peer_test', { name: peer, fixes: fixes })); }
+        else if (c.them) { parts.push(t('fv.hero.peer_them', { name: peer, things: things })); }
+        return parts.join(', ');
+    }
+    /* the hero: one sentence (n = everything on the bell), the sides one line each,
+       their key facts folded "for agents" */
+    function hero(h, n, bad) {
+        h = h || {};
+        var stav = h.stav || [];
+        var tone = bad || stav.some(function (c) { return c.tone === 'bad'; }) ? 'err' : (n ? 'warn' : 'ok');
+        var box = el('section', 'vt-card vt-fv-hero');
+        box.setAttribute('data-state', tone);
+        box.setAttribute('role', 'status');
+        var say = el('p', 'vt-fv-hsay');
+        say.appendChild(el('span', 'vt-sdot'));
+        say.appendChild(el('b', null, n ? tn('fv.hero.you_n', n) : t('fv.hero.none')));
+        var busy = busyText(h);
+        if (busy) { say.appendChild(el('span', 'vt-fv-hbusy', ' ' + busy.charAt(0).toUpperCase() + busy.slice(1) + '.')); }
+        box.appendChild(say);
+        if (stav.length) {
+            var ul = el('ul', 'vt-fv-hsides');
+            stav.forEach(function (c) {
+                if (c.me && c.role) { setRole(c.role); }
+                var li = el('li', 'vt-fv-hside');
+                li.setAttribute('data-state', { ok: 'ok', warn: 'warn', bad: 'err' }[c.tone] || 'off');
+                li.appendChild(el('span', 'vt-sdot'));
+                var tg = tag({ k: c.me ? 'you' : 'peer', t: c.me ? t('fv.you') : (c.name || c.login) }, true);
+                if (tg) { li.appendChild(tg); }
+                li.appendChild(el('span', 'vt-fv-hss', c.say || ''));
+                ul.appendChild(li);
+            });
+            box.appendChild(ul);
+            var facts = stav.map(function (c) {
+                var fs = (c.facts || []).filter(function (f) { return f && f.v; });
+                if (!fs.length && !(c.news || []).length) { return null; }
+                var p = el('p', 'vt-fv-facts');
+                p.appendChild(el('b', null, (c.me ? t('fv.you') : (c.name || c.login || '?')) + ': '));
+                fs.forEach(function (f, i) {
+                    var s = el('span', null, (i ? ' · ' : '') + f.k + ' ');
+                    s.appendChild(el('b', f.tone === 'warn' ? 'vt-fv-warn' : null, f.v));
+                    p.appendChild(s);
+                });
+                if ((c.news || []).length) {
+                    p.appendChild(el('span', null, ' · ' + t('fv.news') + ' ' +
+                        c.news.map(function (x) { return x.title + ' (#' + Number(x.n) + ')'; }).join(', ')));
+                }
+                return p;
+            }).filter(Boolean);
+            if (facts.length) {
+                var d = el('details', 'vt-ask-tech vt-fv-htech');
+                d.open = lsGet('vitulus_fv_htech') === '1';
+                d.addEventListener('toggle', function () { lsSet('vitulus_fv_htech', d.open ? '1' : '0'); });
+                d.appendChild(el('summary', null, t('fv.hero.tech')));
+                facts.forEach(function (p) { d.appendChild(p); });
+                box.appendChild(d);
+            }
+        }
+        return box;
+    }
+    /* "The agents are working on": [{who, name, text, n, st, started}] (hmAgentRows) */
+    function agentRows(h, cur) {
+        var rows = [], seen = {};
+        h = h || {};
+        ((cur && cur.busy) || []).forEach(function (b) {
+            if (b.slot === 'tick') { return; }
+            rows.push({ who: b.slot === 'run' ? 'agent' : 'watch', text: curText(b), n: b.issue || null, started: b.started, k: 'b-' + (b.action_id || b.started || b.slot) });
+            if (b.issue) { seen[b.issue] = 1; }
+        });
+        (h.blocks || []).forEach(function (b) {
+            if (!b.blocked || !/^(restart-stack|build)$/.test(b.kind || '')) { return; }
+            rows.push({ who: 'watch', text: t(b.kind === 'build' ? 'fv.w.build' : 'fv.w.restart'), st: t('fv.w.idle'), k: 'w-' + b.id });
+        });
+        var tw = (h.turn && h.turn.who) || {}, g = h.issues || {};
+        (g.us || []).concat(g.other || []).forEach(function (r) {
+            var w = tw[String(r.number)];
+            if (seen[r.number] || (w !== 'agent' && w !== 'field')) { return; }
+            seen[r.number] = 1;
+            rows.push({ who: 'agent', text: issueShort(r.title), n: r.number, st: r.status_text || '', k: 'i-' + r.number });
+        });
+        (((cur && cur.agents) || {}).others || []).forEach(function (o, i) {
+            if (o.agent === false) { return; }
+            var card = (h.stav || []).filter(function (x) { return String(x.login || '').toLowerCase() === String(o.login || '').toLowerCase(); })[0];
+            rows.push({ who: 'peer', name: (card && card.name) || o.login || o.robot, text: String(o.text || t('fv.agents.working')).split(' · ')[0],
+                        n: o.issue || null, k: 'o-' + i });
+        });
+        var c = (h.turn && h.turn.counts) || {}, peer = (h.todo && h.todo.names && h.todo.names.peer) || ((h.turn && h.turn.names) || {}).them || '';
+        if (c.verify) { rows.push({ who: 'peer', name: peer, text: t('fv.r.verify', { fixes: tn('fv.n_fixes', c.verify) }), k: 'pv' }); }
+        return rows;
+    }
+    function clock(started) {
+        var x = Date.parse(started || '');
+        if (isNaN(x)) { return ''; }
+        var s = Math.max(0, Math.floor((Date.now() - x) / 1000)), hh = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+        s = s % 60;
+        return (hh ? hh + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+    var AGENTS_MAX = 6;
+    function agents(h, cur, onIssue) {
+        var rows = agentRows(h, cur);
+        var wrap = el('div', 'vt-fv-agents');
+        if (!rows.length) {
+            wrap.appendChild(el('p', 'vt-empty-ok', t('fv.agents.idle')));
+            return wrap;
+        }
+        var ul = el('ul', 'vt-acts');
+        rows.slice(0, AGENTS_MAX).forEach(function (r) {
+            var li = el('li', 'vt-act vt-fv-arow' + (r.started ? ' vt-busy' : ''));
+            li.setAttribute('data-state', r.who === 'peer' ? 'info' : (r.who === 'watch' ? 'off' : 'brand'));
+            li.dataset.k = r.k;
+            li.appendChild(el('span', 'vt-sdot'));
+            var who = r.who === 'peer' ? { k: 'peer', t: r.name || '?' } : (r.who === 'watch' ? { k: 'field', t: t('fv.who.watch') } : { k: 'agent', t: t('fv.who.agent') });
+            var tg = tag(who, true);
+            if (tg) { li.appendChild(tg); }
+            var tx = el('span', 'vt-act-txt');
+            if (r.n) {
+                /* the issue opens in Support; its number once, not "#61 … #61 …" */
+                var hasN = String(r.text || '').indexOf('#' + Number(r.n)) >= 0;
+                var a = el('a', hasN ? 'vt-fv-alink' : 'vt-fv-n', hasN ? (r.text || '') : '#' + Number(r.n));
+                a.href = '#';
+                a.title = t('fv.detail');
+                a.addEventListener('click', function (e) { e.preventDefault(); if (onIssue) { onIssue(Number(r.n)); } });
+                tx.appendChild(a);
+                if (!hasN) { tx.appendChild(document.createTextNode(' ' + (r.text || ''))); }
+            } else {
+                tx.appendChild(document.createTextNode(r.text || ''));
+            }
+            li.appendChild(tx);
+            li.appendChild(el('span', 'vt-act-time', r.started ? clock(r.started) : (r.st || '')));
+            ul.appendChild(li);
+        });
+        wrap.appendChild(ul);
+        if (rows.length > AGENTS_MAX) {
+            wrap.appendChild(el('p', 'vt-fv-note', t('fv.more_n', { n: rows.length - AGENTS_MAX })));
+        }
+        return wrap;
     }
 
     /* ---------------------------------------------------------- asks */
@@ -429,6 +659,12 @@
                 the dashboard's card), Back.
        `it` = a todo item of /api/home or an attention item, both with `ask`. */
     var LS_STEP = 'vitulus_ask_step.';
+    var folds = {};                          // key -> open (a poll redraws the list)
+    function fold(d, key, defOpen) {
+        d.open = key in folds ? folds[key] : !!defOpen;
+        d.addEventListener('toggle', function () { folds[key] = d.open; });
+        return d;
+    }
     function ageText(since) {
         if (!since) { return ''; }
         var ms = typeof since === 'number' ? (since > 1e12 ? since : since * 1000) : Date.parse(since);
@@ -541,10 +777,10 @@
     }
     /* the change list of a release ("Co se mění"): per repo a head line and
        the commit subjects, newest first (kit 0.9.53 flow change lines) */
-    function changeList(list, open) {
+    function changeList(list, open, key) {
         if (!list || !list.length) { return null; }
         var d = el('details', 'vt-ask-changes');
-        d.open = open !== false;
+        if (key) { fold(d, key, open !== false); } else { d.open = open !== false; }
         d.appendChild(el('summary', null, t('fv.ask.changes')));
         list.forEach(function (c) {
             if (c.head) { d.appendChild(el('div', 'vt-ask-chead', c.head)); }
@@ -566,7 +802,7 @@
             rows.forEach(function (r) { dl.appendChild(el('dt', null, t(r[0]))); dl.appendChild(el('dd', null, r[1])); });
             wrap.appendChild(dl);
         }
-        var cl = changeList(ap.list, true);
+        var cl = changeList(ap.list, true, 'ch:' + (it.key || a.id));
         if (cl) { wrap.appendChild(cl); }
         var acts = el('div', 'vt-needs-acts vt-fv-acts');
         var all = (ap.actions || []).filter(Boolean);
@@ -694,7 +930,7 @@
         }
         box.appendChild(msg);
         if (a.tech) {
-            var tech = el('details', 'vt-ask-tech');
+            var tech = fold(el('details', 'vt-ask-tech'), 'tech:' + key, false);
             tech.appendChild(el('summary', null, t('fv.ask.tech')));
             tech.appendChild(el('pre', null, a.tech));
             box.appendChild(tech);
@@ -831,7 +1067,7 @@
     }
 
     window.VTField = {
-        state: state, task: task, ask: ask, changeList: changeList, notes: notes, issue: issue, tag: tag, setRole: setRole,
+        state: state, hero: hero, alerts: alerts, alertCard: alertCard, agents: agents, agentRows: agentRows, task: task, ask: ask, changeList: changeList, notes: notes, issue: issue, tag: tag, setRole: setRole,
         author: author, writesOn: writesOn, dash: dash, linkBtn: linkBtn, btn: btn, isDone: isDone
     };
 })();
