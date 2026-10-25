@@ -230,6 +230,8 @@
         var pane = panes.releases; if (!pane) { return; }
         pane.textContent = '';
         waitOr(VTHub.get("field.home"), function (d) {
+            var la = d.alt && window.VTI18n && VTI18n.lang && d.alt[VTI18n.lang()];   // the viewer's language (ui-doors)
+            if (la) { d = Object.assign({}, d, la); }
             var f = d.footer || {}, w = f.watch || {}, out = [];
             var sent = (d.flow_sent || []).filter(function (r) { return r && (r.tag || r.title); });
             var names = (d.todo && d.todo.names) || {};
