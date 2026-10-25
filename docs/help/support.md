@@ -41,9 +41,12 @@ about the issue — you send it) and **Timeline** (Agent › Activity filtered t
 
 **Detail** shows the issue for people, as on the dashboard's issue page:
 
-- the title, **who reported it and when** (and which issue it follows);
+- the title and **Where it stands** — one sentence, the phase and **whose move** it is;
+- **who reported it and when** (and which issue it follows);
 - the **phases** — Reported → Cause → Fix released → Verified → Done — each with **who** did it
   and **when**; the current one is orange;
+- the **question card** when the issue asks you something — the same Decision / Approval / Task
+  with steps card as in [Needs you](agent.md#needs-you);
 - **Problem · Cause · Fix** in one sentence each;
 - **What to do** — whose turn it is, the sentence to tell your agent, the steps or variants, and
   **Start with the agent** (two clicks: the sentence goes to your agent in the issue's thread);

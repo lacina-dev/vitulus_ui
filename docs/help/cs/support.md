@@ -41,9 +41,12 @@ zprávy o hlášení — odešleš ji ty) a **Časová osa** (Agent › Aktivita
 
 **Detail** ukáže hlášení pro lidi, stejně jako stránka issue na dashboardu:
 
-- název, **kdo a kdy to nahlásil** (a na které issue navazuje);
+- název a **Kde to stojí** — jedna věta, fáze a **kdo je na tahu**;
+- **kdo a kdy to nahlásil** (a na které issue navazuje);
 - **fáze** — Nahlášeno → Příčina → Oprava vydaná → Ověření → Hotovo — u každé **kdo** ji udělal
   a **kdy**; ta aktuální je oranžová;
+- **karta otázky**, když se tě issue na něco ptá — stejná karta Rozhodnutí / Schválení / Úkol
+  s kroky jako v [Čeká na tebe](agent.md#čeká-na-tebe);
 - **Problém · Příčina · Oprava**, každé jednou větou;
 - **Co udělat** — kdo je na tahu, věta pro tvého agenta, kroky nebo varianty a **Začít s
   agentem** (dvě kliknutí: věta odejde tvému agentovi do vlákna issue);

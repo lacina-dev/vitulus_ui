@@ -1239,3 +1239,8 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
 .vt-sup-relhero .vt-sup-forpeer { margin: 0; }
 .vt-sup-sent .vt-ask-changes { margin-top: 6px; }
 .vt-sup-why { font-size: var(--vt-fs-xs); }
+/* Support › issue detail: where it stands + whose move (human.now) */
+.vt-fv-now { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.vt-fv-nowh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.vt-fv-nowh .vt-fv-k { margin: 0; }
+.vt-fv-nowt { margin: 0; font-size: var(--vt-fs-md); line-height: 1.4; color: var(--vt-text); overflow-wrap: anywhere; }

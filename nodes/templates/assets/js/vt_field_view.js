@@ -948,6 +948,28 @@
         }
         var top = el('div', 'vt-fv-ihead');
         top.appendChild(el('h3', 'vt-fv-ih', h.title || ('#' + n)));
+        /* where it stands, in one sentence, and whose move it is (kit 0.9.52 human.now) */
+        var nw = h.now;
+        if (nw && (nw.text || nw.phase)) {
+            var nb = el('div', 'vt-card vt-fv-now');
+            nb.setAttribute('data-state', nw.closed ? 'ok' : (nw.who && nw.who.k === 'you' ? 'warn' : 'info'));
+            var nh = el('div', 'vt-fv-nowh');
+            nh.appendChild(el('span', 'vt-fv-k', t('fv.i.where')));
+            if (nw.phase) { nh.appendChild(el('span', 'vt-pill', nw.phase)); }
+            nb.appendChild(nh);
+            if (nw.text) { nb.appendChild(el('p', 'vt-fv-nowt', nw.text)); }
+            var turn = el('div', 'vt-fv-from');
+            if (nw.closed) {
+                turn.appendChild(el('span', null, t('fv.i.closed')));
+            } else if (nw.who && nw.who.t) {
+                var tw = el('span', null, t('fv.i.turn') + ' ');
+                var tg0 = tag(nw.who, true);
+                if (tg0) { tw.appendChild(tg0); }
+                turn.appendChild(tw);
+            }
+            if (turn.children.length) { nb.appendChild(turn); }
+            top.appendChild(nb);
+        }
         var o = h.origin || {};
         var orig = el('div', 'vt-fv-origin');
         orig.appendChild(el('span', null, t('fv.i.reported')));
@@ -982,6 +1004,13 @@
             ph.appendChild(li);
         });
         art.appendChild(ph);
+
+        /* what this issue asks you: the same card as in Needs you (kit 0.9.52 human.asks) */
+        (h.asks || []).forEach(function (a) {
+            if (!a || !a.type || a.agent_work) { return; }
+            art.appendChild(ask({ key: a.id, id: a.id, issue: a.issue || n, since: a.since, thread: a.thread, ask: a },
+                { onIssue: onIssue }));
+        });
 
         var bx = h.boxes || {};
         var three = el('div', 'vt-fv-three');

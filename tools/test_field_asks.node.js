@@ -220,6 +220,20 @@ ok(/The agents handle 2 things themselves, Mac tests 7 fixes and has 1 thing mor
 ok(F.hero(H0, 0, false).getAttribute('data-state') === 'ok' && /Nothing is needed/.test(txt(F.hero(H0, 0, false))), 'hero: nothing -> green, "Nothing is needed from you."');
 ok(hero.byClass('vt-fv-hside').length === 2 && hero.byClass('vt-fv-htech').length === 0, 'hero: one line per side; no facts -> no fold');
 
+/* ---------------------------------------------------------------- issue detail */
+const HI = { title: 'Keyboard drive stalls on Mac', origin: { who: { k: 'peer', t: 'Mac' }, when: '13:43', refs: [] },
+             now: { text: 'Driving with the keyboard still stalls.', phase: 'Fix released', who: { k: 'peer', t: 'Mac' }, closed: false },
+             phases: [{ name: 'Reported', state: 'done' }, { name: 'Fix released', state: 'now' }], boxes: {}, log: [],
+             asks: [dec.ask, Object.assign({}, dec.ask, { id: 'x', agent_work: 'git' })] };
+const art = F.issue(HI, 63, () => {});
+const nowB = art.byClass('vt-fv-now')[0];
+ok(nowB && /Driving with the keyboard still stalls/.test(txt(nowB)) && /Whose move:/.test(txt(nowB)) && /Fix released/.test(txt(nowB)),
+   'issue: where it stands in one sentence, the phase and whose move');
+ok(art.byClass('vt-ask').length === 1, 'issue: the ask card of the issue (an "agent is on it" ask is not a card)');
+const kidsI = art.children.map(k => k.className.split(' ')[0]);
+ok(kidsI.indexOf('vt-fv-phases') < kidsI.indexOf('vt-card'), 'issue: the card right after the phases');
+ok(/Closed/.test(txt(F.issue(Object.assign({}, HI, { asks: [], now: { text: 'Done.', closed: true } }), 63).byClass('vt-fv-now')[0])), 'issue: closed says so');
+
 /* ---------------------------------------------------------------- texts */
 ['fv.ask.t.decide', 'fv.ask.t.approve', 'fv.ask.t.steps', 'fv.ask.why', 'fv.ask.next', 'fv.ask.approve_in_support'].forEach(k => {
     ok(k in EN, 'en: ' + k);
