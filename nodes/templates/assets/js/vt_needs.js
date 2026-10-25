@@ -56,6 +56,18 @@
     }
 
     /* ------------------------------------------------------------ model */
+    /* an attention item that waits for this side's person — the field's own
+       rule (dash/app.js attnIsInfo / attnState): information (kind live,
+       info: true) waits for nobody, the agent's own job ("the agent is on
+       it", ask.agent_work) and what is already being done are not counted */
+    function waitsOnMe(x) {
+        if (!x || x.info === true || x.kind === 'live' || x.kind === 'info') { return false; }
+        var a = x.ask;
+        if (a && a.agent_work) { return false; }
+        var pk = ((x.plain || {}).pick || {}).state || '';
+        if (/^(queued|working)$/.test(pk)) { return false; }
+        return a ? true : x.urgency !== 'low';
+    }
     function model() {
         var H = window.VTHub;
         var asks = (H && H.get("agent.asks")) || null;
@@ -72,9 +84,7 @@
         var mine = todo ? (todo.mine.items || []) : null;
         /* before /api/home answers (it is the slow one): the attention list
            without calm info (urgency low) stands in for the count */
-        var f = mine || ((field && field.data && field.data.items) || []).filter(function (x) {
-            return x.urgency !== 'low';
-        });
+        var f = mine || ((field && field.data && field.data.items) || []).filter(waitsOnMe);
         var fieldN = mine ? mine.length + (todo.mine.more || 0) : f.length;
         var urgent = a.some(function (x) { return x.moves; }) ||
             w.some(function (x) { return x.code === 'safety'; }) ||
@@ -220,6 +230,9 @@
     }
     /* before /api/home answers: the attention item as a plain card */
     function attCard(x) {
+        if (x.ask && x.ask.type && window.VTField && VTField.ask) {
+            return VTField.ask(x, { onIssue: openIssue });
+        }
         var p = x.plain || {};
         return card(x.urgency === 'high' ? 'err' : 'warn', { title: p.headline || x.title || '', end: age(sinceSec(x.since)) },
             null, p.explain || x.why || '', x.issue ? [['#' + x.issue, 'info']] : null,
@@ -253,7 +266,10 @@
         var nr = nameRow();
         if (nr && m.fieldN) { on.push(nr); }
         if (m.todo) {
-            m.todo.mine.items.forEach(function (it) { on.push(VTField.task(it, { mine: true, onIssue: openIssue })); });
+            m.todo.mine.items.forEach(function (it) {
+                on.push(it.ask && it.ask.type ? VTField.ask(it, { onIssue: openIssue }) :
+                    VTField.task(it, { mine: true, onIssue: openIssue }));
+            });
         } else {
             m.field.forEach(function (x) { on.push(attCard(x)); });
             if (!m.fieldEntry && !m.home) { on.push(el('span', 'vt-skel vt-skel-short')); }

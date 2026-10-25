@@ -389,20 +389,29 @@ dashboardu Podpory:
   - **Agent robota** — schválení a práce agenta, kterou odblokuje jen člověk (zámek doku,
     zaparkovaná mise, chybí nastavení místa, bezpečnostní stop), každá s jednou větou co a proč;
     rozhoduješ je v **Agent › Práce**.
-  - **Úkoly Podpory** — u každého co, proč, kdo to nahlásil, kdo připravil varianty a kdo na tebe
-    čeká od kdy. **Rozhodnutí** ukáže 2–3 **varianty zadání** od agenta s vybranou doporučenou:
-    **Potvrdit: …** pošle tvou volbu a agent ji provede; **Žádná nesedí, probrat s agentem** pošle
-    tu větu tvému agentovi do vlákna issue. **Krok** začíná agentem — *Začni tím, že řekneš svému
-    agentovi: „…“* — a **Začít s agentem** pošle přesně tu větu; agent kroky provede a ozve se.
-    **Hotovo** a **Skrýt na 24 h**, kde je karta nabízí. **Detail** otevře issue v **Podpoře**
-    (níž).
+  - **Podpora** — každá karta, na kterou se tě field ptá, je jeden ze **tří druhů**, v jedné
+    anatomii: druh · *čeká 2 h* · #N → celý nadpis → **Proč ty** (jedna věta) → tělo → **Co bude
+    dál** (co udělá které tlačítko a kdo to udělá) → *Pro agenty: technické podrobnosti* (sbalené). **Detail** (#N) otevře issue v **Podpoře** (níž).
+  - **Rozhodnutí** — otázka a 2–3 **možnosti od agenta jako velká tlačítka** (co se stane a pro
+    koho; doporučená první a vyplněná). První klik ji připraví (*Opravdu? …*), druhý pošle tvou
+    volbu a agent ji provede. Možnost, která **hýbe robotem, nikdy není tlačítko** — ukáže kroky
+    a dělá se u robota s rukou na STOP. **Proč doporučeno** a **Žádná nesedí, probrat s agentem**.
+  - **Schválení** — **Co se změní · Koho se týká · Riziko**; u vydání i přesně co schvaluješ
+    (*13 změn …*) a seznam změn commit po commitu. Nález (*Povolit / Zakázat*) rozhodneš tady;
+    akce hlídače, vydání nebo sloučení má své pojistky na dashboardu: **Schválit nebo zamítnout
+    v Podpoře** otevře tu kartu.
+  - **Úkol s kroky** — **jeden krok po druhém**: *Udělej* a *Měl bys vidět*; **Hotovo** ukáže
+    další krok (zařízení si pamatuje, kde jsi), poslední **Hotovo** to řekne fieldu; **Nejde**
+    otevře kartu na dashboardu, ať agent naváže; **Zpět**. Bez rozepsaných kroků **Začít
+    s agentem**.
   - klidné poznámky pod seznamem (např. *Mac na tebe čeká i u #8*) — šedě, nepočítají se.
 - **⟨Mac⟩ má udělat** — sbalené: na čem je druhá strana, ať vidíš, kdo je na tahu. Do zvonku se
   nikdy nepočítá.
 
 Každé tlačítko, které zapisuje, chce **dvě kliknutí do 5 s** a je podepsané tvým jménem (zeptá se
 jednou na zařízení); jde přes webový uzel robota do dashboardu s jednorázovým tokenem vázaným na
-kartu a text, který jsi viděl. Agentovi odsud jde poslat jen věta, kterou field sám připravil, a
-(s kitem fieldu starším než 0.9.52 **Začít s agentem** a **probrat s agentem** otevřou issue na
-dashboardu) a volba, která by pohnula robotem, se tady nikdy nenabízí. Schválení akce hlídače (např. vydání)
-zůstává na dashboardu: **Schválit v Podpoře**.
+kartu a text, který jsi viděl. Agentovi odsud jde poslat jen věta, kterou field sám připravil — a
+jen když ji kit fieldu z UI robota přijímá (webový uzel se dashboardu ptá každých 10 minut; jinak
+**Začít s agentem** a **probrat s agentem** otevřou issue na dashboardu) — a volba, která by pohnula
+robotem, se tady nikdy nenabízí. Schválení akce hlídače (např. vydání) zůstává na dashboardu:
+**Schválit nebo zamítnout v Podpoře**.

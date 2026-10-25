@@ -1137,3 +1137,77 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
     .vt-fv-phases { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .vt-fv-ph-done .vt-fv-pn::before { content: "✓"; margin-right: 3px; }
 }
+/* ---- asks (kit 0.9.52): ONE card for everything a person is asked — decide /
+   approve / steps (vt_field_view.js VTField.ask, the dashboard's askCardHtml):
+   type · waits · #N → title → Why you → body → What happens next → For agents */
+.vt-ask { display: flex; flex-direction: column; gap: 6px; }
+.vt-ask-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vt-ask-type {
+    display: inline-flex; align-items: center; gap: 6px; padding: 1px 6px; border-radius: var(--vt-r-tag);
+    font-size: var(--vt-fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--vt-st); background: var(--vt-st-glow); border: 1px solid var(--vt-st-edge);
+}
+.vt-ask-type::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.vt-ask-meta { margin-left: auto; display: inline-flex; align-items: baseline; gap: 8px; font-size: var(--vt-fs-sm); color: var(--vt-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vt-ask-meta a.vt-fv-n { margin-left: 0; color: var(--vt-accent); text-decoration: none; }
+.vt-ask-meta a.vt-fv-n:hover { text-decoration: underline; }
+.vt-ask-title { margin: 0; font-family: var(--vt-font-head); font-size: var(--vt-fs-md); font-weight: 600; line-height: 1.3; color: var(--vt-text); overflow-wrap: anywhere; }
+.vt-ask-why { margin: 0; font-size: var(--vt-fs); line-height: 1.4; color: var(--vt-text); opacity: .92; overflow-wrap: anywhere; }
+.vt-ask-why b, .vt-ask-next b, .vt-ask-sdo b, .vt-ask-ssee b { color: var(--vt-muted); font-weight: 600; }
+.vt-ask .vt-pills { margin: 0; }
+.vt-ask-body { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.vt-ask-q { margin: 0; font-size: var(--vt-fs); font-weight: 600; line-height: 1.4; color: var(--vt-text); overflow-wrap: anywhere; }
+.vt-ask-hint, .vt-ask-recwhy { margin: 0; font-size: var(--vt-fs-sm); line-height: 1.4; color: var(--vt-muted); }
+/* the options: big buttons, label + what happens; the recommended one first and filled */
+.vt-ask-opts { display: flex; flex-direction: column; gap: 6px; }
+.vt-ask-opt.btn, a.vt-ask-opt.btn {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+    min-height: 44px; padding: 8px 12px; text-align: left; white-space: normal;
+    border-radius: var(--vt-r-ctl); border: 1px solid var(--vt-border-strong);
+    background: rgba(255, 255, 255, .04); color: var(--vt-text);
+}
+.vt-ask-opt.btn:hover { border-color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), .08); color: #fff; }
+.vt-ask-opt.btn.vt-decide-rec { color: #10181d; background: var(--vt-accent); border-color: var(--vt-accent); }
+.vt-ask-opt.btn.vt-decide-rec .vt-ask-ow { color: #10181d; opacity: .8; }
+.vt-ask-opt.btn.vt-decide-rec .vt-fv-rec { color: #10181d; background: rgba(255, 255, 255, .35); border-color: rgba(16, 24, 29, .25); }
+.vt-ask-opt.btn.vt-armed { color: #1c2329; background: var(--vt-warn); border-color: var(--vt-warn); font-weight: 700; justify-content: center; }
+.vt-ask-ol { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--vt-fs); font-weight: 600; line-height: 1.35; }
+.vt-ask-ow { font-size: var(--vt-fs-sm); line-height: 1.4; color: var(--vt-muted); font-weight: 400; }
+.vt-ask-opt-motion {
+    display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; border-radius: var(--vt-r-ctl);
+    border: 1px dashed var(--vt-edge-warn); background: var(--vt-glow-warn);
+}
+.vt-ask-msteps { margin: 2px 0 0; padding-left: 20px; font-size: var(--vt-fs-sm); color: var(--vt-text); }
+.vt-ask-only { font-style: italic; }
+.vt-ask-discuss { margin-top: 0; }
+/* approve: what changes / for whom / risk */
+.vt-ask-facts { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0; font-size: var(--vt-fs); line-height: 1.4; }
+.vt-ask-facts dt { color: var(--vt-muted); font-weight: 600; }
+.vt-ask-facts dd { margin: 0; color: var(--vt-text); overflow-wrap: anywhere; }
+.vt-ask-changes { border: 1px solid var(--vt-border); border-radius: var(--vt-r-ctl); padding: 6px 10px; background: rgba(255, 255, 255, .02); }
+.vt-ask-changes > summary { cursor: pointer; font-size: var(--vt-fs-sm); font-weight: 600; color: var(--vt-text); }
+.vt-ask-chead { margin-top: 6px; font-size: var(--vt-fs-xs); font-weight: 600; color: var(--vt-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.vt-ask-clines { margin: 2px 0 0; padding-left: 18px; font-size: var(--vt-fs-sm); line-height: 1.4; color: var(--vt-text); }
+.vt-ask-clines li { overflow-wrap: anywhere; }
+.vt-ask-cmore { list-style: none; margin-left: -18px; color: var(--vt-muted); }
+.vt-ask-carried { margin-top: 2px; font-size: var(--vt-fs-xs); color: var(--vt-muted); }
+/* steps: one at a time */
+.vt-ask-steps { list-style: none; margin: 0; padding: 0; }
+.vt-ask-step { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: var(--vt-r-ctl); border: 1px solid var(--vt-border); background: rgba(255, 255, 255, .02); }
+.vt-ask-sn { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: var(--vt-fs-xs); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--vt-muted); }
+.vt-ask-sdo { font-size: var(--vt-fs); line-height: 1.4; color: var(--vt-text); overflow-wrap: anywhere; }
+.vt-ask-ssee { font-size: var(--vt-fs-sm); line-height: 1.4; color: var(--vt-text); opacity: .9; overflow-wrap: anywhere; }
+.vt-ask-alldone { font-size: var(--vt-fs-sm); color: var(--vt-ok); }
+.vt-fv-acts .vt-ask-fail, .vt-fv-acts .vt-ask-back { border-color: transparent !important; background: transparent !important; color: var(--vt-muted) !important; }
+.vt-fv-acts .vt-ask-fail:hover, .vt-fv-acts .vt-ask-back:hover { color: var(--vt-text) !important; text-decoration: underline; }
+/* what happens next + the technical fold */
+.vt-ask-next { margin: 2px 0 0; padding-top: 6px; border-top: 1px solid var(--vt-border); font-size: var(--vt-fs-sm); line-height: 1.45; color: var(--vt-text); }
+.vt-ask-next::before { content: "→ "; color: var(--vt-accent); font-weight: 700; }
+.vt-ask-tech > summary { cursor: pointer; font-size: var(--vt-fs-xs); color: var(--vt-muted); }
+.vt-ask-tech pre { margin: 4px 0 0; max-height: 160px; overflow: auto; white-space: pre-wrap; font-size: var(--vt-fs-xs); color: var(--vt-muted); }
+.vt-ask .vt-decide-msg:empty { display: none; }
+.vt-ask.vt-needs-done { gap: 2px; }
+@media (max-width: 575.98px) {
+    .vt-ask-facts { grid-template-columns: 1fr; gap: 0; }
+    .vt-ask-facts dd { margin-bottom: 4px; }
+}

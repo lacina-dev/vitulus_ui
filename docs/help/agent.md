@@ -398,13 +398,23 @@ same language as the Support dashboard's home page:
   - **Robot agent** — approvals, and agent work only a person can unblock (dock lock, parked
     mission, missing site setup, safety stop), each with one sentence what and why; decide them
     in **Agent › Work**.
-  - **Support tasks** — each says what, why, who reported it, who prepared the variants and who
-    waits for you since when. A **decision** shows the agent's 2–3 **variants** with the
-    recommended one chosen: **Confirm: …** sends your choice and the agent carries it out; **None
-    fits, talk it over with the agent** sends that sentence to your agent in the issue's thread.
-    A **step** starts with your agent — *Start by telling your agent: „…“* — and **Start with
-    the agent** sends exactly that sentence; the agent does the steps and reports back. **Done**,
-    **Hide 24 h** where the card offers them. **Detail** opens the issue in **Support** (below).
+  - **Support** — every card the field asks you is one of **three types**, in one anatomy:
+    type · *waits 2 h* · #N → the whole title → **Why you** (one sentence) → the body → **What
+    happens next** (what each button does and who does it) → *For agents: technical details*
+    (folded). **Detail** (#N) opens the issue in **Support** (below).
+  - **Decision** — the question and the agent's 2–3 **options as big buttons** (what happens and
+    for whom; the recommended one first and filled). A click arms it (*Sure? …*), the second
+    click sends your choice and the agent carries it out. An option that **moves the robot is
+    never a button** — it shows its steps and is done at the robot, hand on STOP. **Why
+    recommended**, and **None fits, talk it over with the agent**.
+  - **Approval** — **What changes · Concerns · Risk**; for a release also exactly what you
+    approve (*13 changes …*) and the change list commit by commit. A finding (*Allow / Forbid*)
+    is decided here; a watcher action, a release or a merge has its guards on the dashboard:
+    **Approve or reject in Support** opens that card.
+  - **Task with steps** — **one step at a time**: *Do* and *You should see*; **Done** shows the
+    next step (this device remembers where you are), the last **Done** tells the field; **Does
+    not work** opens the card on the dashboard so the agent follows up; **Back**. Without
+    written steps: **Start with the agent**.
   - calm notes under the list (e.g. *Mac waits for you on #8 too*) — grey, not counted.
 - **⟨Mac⟩ has to do** — folded: what the other side is on, so you see who has the ball. Never
   counted in the bell.
@@ -412,6 +422,7 @@ same language as the Support dashboard's home page:
 Every button that writes takes **two clicks within 5 s** and is signed with your name (asked once
 per device); it goes through the robot's web node to the dashboard with a single-use token bound
 to the card and the text you saw. Only sentences the field itself prepared can be sent to the
-agent from here (with a field kit older than 0.9.52 **Start with the agent** and **talk it over**
-open the issue on the dashboard instead), and an option that moves the robot is never offered here. Approving a watcher
-action (e.g. a release) stays on the dashboard: **Approve in Support**.
+agent from here — and only when the field kit takes it from the robot UI (the web node asks the
+dashboard every 10 minutes; otherwise **Start with the agent** and **talk it over** open the issue
+on the dashboard) — and an option that moves the robot is never offered here. Approving a watcher
+action (e.g. a release) stays on the dashboard: **Approve or reject in Support**.

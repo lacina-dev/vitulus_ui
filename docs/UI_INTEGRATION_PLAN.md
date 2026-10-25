@@ -179,6 +179,18 @@ dnes polluje sám; převede se na hub).
   poslední dobrou odpověď pomalých GET (`/api/home` 20–30 s při zátěži) a vrací ji s
   `X-Field-Age`, čerstvá doběhne na pozadí.
 
+- **Karty otázek (2026-10-25, kit 0.9.52+ `ask`, `VTField.ask`):** co field člověku položí, je
+  v Na tobě jedna ze tří karet jako na dashboardu (`tools/_asks.py`, `askCardHtml`): druh · čeká ·
+  #N → nadpis → Proč ty → tělo → Co bude dál → Pro agenty (sbalené). *Rozhodnutí* = možnosti
+  jako velká tlačítka (dvě kliknutí → `pick`; možnost s pohybem nikdy tlačítko), *Schválení* =
+  Co se změní / Koho se týká / Riziko + seznam změn vydání; nález se rozhodne tady, akce
+  hlídače / vydání / sloučení na kartě dashboardu („Schválit nebo zamítnout v Podpoře“), *Úkol
+  s kroky* = krok po kroku, poslední Hotovo = `done`, Nejde = karta na dashboardu. Zvonek počítá
+  jako field: bez informací (`live`, `info`), bez práce agenta (`ask.agent_work`). Dveře `ask`
+  (věta do vlákna) nejsou podle verze kitu: webnode se dashboardu ptá požadavkem, který odmítne
+  vždy (bez autora: 400 = dveře jsou, 403 „not an action" = nejsou), a hlásí `ask` v
+  `/field/ui_actions`. Test: `tools/test_field_asks.node.js`.
+
 ## I5 — zápisy z UI robota (owner 2026-10-18: a) „ať je to integrované“)
 
 **Implementováno** (větev `ui-field-writes` + kit `kit-ui-writes`, 0.9.38): webnode

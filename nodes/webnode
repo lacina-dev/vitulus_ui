@@ -1183,9 +1183,49 @@ if __name__ == '__main__':
                         pass
             except OSError:
                 pass
-            resp = jsonify({"ok": True, "writes": FIELD_WRITES, "actions": rows})
+            resp = jsonify({"ok": True, "writes": FIELD_WRITES, "ask": _field_ask_door(),
+                            "actions": rows})
             resp.headers["Cache-Control"] = "no-store"
             return resp
+
+        # Does the dashboard take "ask" (a sentence the field prepared, into a
+        # thread) from the robot UI? Not a version question: the door came on
+        # a side branch of kit 0.9.52 and main's 0.9.52 has none, so a button
+        # gated on the version armed and then failed ("not an action of the
+        # robot UI"). The webnode asks the dashboard instead, once per 10 min,
+        # with a token request it refuses EITHER way - no author: 400 when the
+        # door knows /api/thread/, 403 "not an action" when it does not.
+        # Nothing is issued or written. None = not known yet / no key / down.
+        FIELD_ASK_TTL_S = 600.0
+        _field_ask = {"t": 0.0, "v": None, "busy": False}
+
+        def _field_ask_probe():
+            v = None
+            try:
+                with open(UI_KEY_FILE) as f:
+                    key = f.read().strip()
+                st, got = _dash_post("/api/ui/token", json.dumps(
+                    {"action": "/api/thread/general", "author": ""}).encode("utf-8"),
+                    {"X-Vitulus-UI-Key": key})
+                err = str((got or {}).get("error") or "")
+                if st == 400:
+                    v = True
+                elif st == 403 and "not an action" in err:
+                    v = False
+            except Exception:
+                v = None
+            with _field_lock:
+                _field_ask.update(t=time.time(), v=v, busy=False)
+
+        def _field_ask_door():
+            if not FIELD_WRITES:
+                return False
+            with _field_lock:
+                ttl = FIELD_ASK_TTL_S if _field_ask["v"] is not None else 60.0
+                if time.time() - _field_ask["t"] > ttl and not _field_ask["busy"]:
+                    _field_ask["busy"] = True
+                    threading.Thread(target=_field_ask_probe, daemon=True).start()
+                return _field_ask["v"]
 
         # -----------------------------------------------------------------
         # Dock lock: the owner's click (Robert 2026-08-30: "Dokovy zamek muzu

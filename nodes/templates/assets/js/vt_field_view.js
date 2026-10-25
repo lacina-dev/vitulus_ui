@@ -150,16 +150,22 @@
         b.type = 'button';
         if (title) { b.title = title; }
         var timer = null;
+        /* a button with rich content (an option: label + what happens) gets its
+           children back after "Sure? …" (b._rich = the nodes) */
+        function restore() {
+            if (b._rich) { b.textContent = ''; b._rich.forEach(function (k) { b.appendChild(k); }); }
+            else { b.textContent = b.dataset.label || label; }
+        }
         b.addEventListener('click', function () {
             if (!b.classList.contains('vt-armed')) {
                 b.classList.add('vt-armed');
                 b.textContent = t('needs.sure', { label: b.dataset.label || label });
-                timer = setTimeout(function () { b.classList.remove('vt-armed'); b.textContent = b.dataset.label || label; }, 5000);
+                timer = setTimeout(function () { b.classList.remove('vt-armed'); restore(); }, 5000);
                 return;
             }
             clearTimeout(timer);
             b.classList.remove('vt-armed');
-            b.textContent = b.dataset.label || label;
+            restore();
             b.disabled = true;
             onSend();
             setTimeout(function () { b.disabled = false; }, 3000);
@@ -168,15 +174,14 @@
     }
     /* "Start with the agent" / "talk it over": the prepared sentence goes
        into the issue's thread on the field and the agent takes it from there.
-       A thread that is not an issue (an item thread) opens on the dashboard. */
-    /* the dashboard takes "ask" from the robot UI since kit 0.9.52 */
+       A thread that is not an issue (an item thread) opens on the dashboard.
+       Whether the dashboard takes it from the robot UI is not a version
+       number (the door came in on a side branch of kit 0.9.52, main's 0.9.52
+       has no door): the webnode asks the dashboard once in a while with a
+       request it refuses either way and reports `ask` in /field/ui_actions. */
     function askOn() {
-        var e = window.VTHub && VTHub.get('field.home');
-        var v = e && e.data && ((e.data.footer || {}).kit_version || (e.data.meta || {}).kit_version);
-        var m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || ''));
-        if (!m) { return false; }
-        var n = [Number(m[1]), Number(m[2]), Number(m[3])];
-        return n[0] > 0 || n[1] > 9 || (n[1] === 9 && n[2] >= 52);
+        var e = window.VTHub && VTHub.get('ui.actions');
+        return !!(e && e.data && e.data.ask === true);
     }
     function askButton(thread, text, label, primary, box, msgEl, key, link) {
         if (!text) { return null; }
@@ -406,6 +411,297 @@
         return w;
     }
 
+    /* ---------------------------------------------------------- asks */
+    /* ONE card for everything a person is asked (kit 0.9.52, tools/_asks.py; the
+       dashboard's askCardHtml): three types in one anatomy —
+         type label · waits · #N  →  title (wraps, never cut)  →  Why you  →
+         body of the type  →  What happens next  →  For agents (folded)
+       decide   the question, the prepared options as big buttons (recommended
+                first and marked; an option that moves the robot is never a
+                button — its steps are shown, a person does them at the robot),
+                "Why recommended", "None fits, talk it over with the agent";
+       approve  what changes / for whom / risk (+ the release's change list) and
+                the buttons: those the robot UI may write (finding, remind, hide)
+                here, a watcher approval / merge / task on the dashboard's own
+                card (its guards) — "Approve or reject in Support";
+       steps    one step at a time: Do / You should see, Done (next step; the
+                last one is the item's own Done), Does not work (the agent on
+                the dashboard's card), Back.
+       `it` = a todo item of /api/home or an attention item, both with `ask`. */
+    var LS_STEP = 'vitulus_ask_step.';
+    function ageText(since) {
+        if (!since) { return ''; }
+        var ms = typeof since === 'number' ? (since > 1e12 ? since : since * 1000) : Date.parse(since);
+        if (isNaN(ms)) { return ''; }
+        var s = Math.max(0, (Date.now() - ms) / 1000);
+        if (s < 3600) { return Math.max(1, Math.round(s / 60)) + ' min'; }
+        if (s < 86400) { return Math.round(s / 3600) + ' h'; }
+        return Math.round(s / 86400) + ' d';
+    }
+    /* the dashboard page that has this card with its own buttons */
+    function writePage(a, it) {
+        var n = a.issue || it.issue;
+        return n ? '#/issue/' + Number(n) : '#/attention';
+    }
+    function stepOf(id, n) {
+        var k = Number(lsGet(LS_STEP + id) || 0) || 0;
+        return Math.max(0, Math.min(k, Math.max(0, n - 1)));
+    }
+    var WRITABLE = { 'finding-accept': 1, 'finding-dismiss': 1, 'remind': 1, 'snooze': 1, 'step-done': 1 };
+    /* the item's own buttons the robot UI may press (two clicks, signed) */
+    function directButtons(acts, it, box, msgEl, primaryFirst) {
+        var out = [];
+        (acts || []).forEach(function (a) {
+            if (!a || !WRITABLE[a.kind] || !writesOn()) { return; }
+            var cls = primaryFirst && !out.length ? 'vt-decide-rec' : '';
+            var label = a.label || '';
+            if (a.kind === 'step-done' && a.step) {
+                out.push(armButton(label && label !== 'Hotovo' ? label : t('common.done'), cls, function () {
+                    send('done', { step: a.step, issue: a.issue ? Number(a.issue) : null },
+                        shownById('human-step:' + a.step) || shownByAct(function (x) { return x.kind === 'step-done' && x.step === a.step; }),
+                        box, msgEl, it.key);
+                }, t('fv.done.tip')));
+            } else if (a.kind === 'remind' && a.issue) {
+                out.push(armButton(label || t('needs.remind'), cls, function () {
+                    send('remind', { issue: Number(a.issue) },
+                        shownByAct(function (x) { return x.kind === 'remind' && String(x.issue) === String(a.issue); }), box, msgEl, it.key);
+                }, t('needs.remind.tip')));
+            } else if ((a.kind === 'finding-accept' || a.kind === 'finding-dismiss') && a.fid) {
+                var acc = a.kind === 'finding-accept';
+                out.push(armButton(label || (acc ? t('needs.accept') : t('needs.dismiss')), cls, function () {
+                    send(a.kind, { id: a.fid },
+                        shownByAct(function (x) { return (x.kind === 'finding-accept' || x.kind === 'finding-dismiss') && x.fid === a.fid; }), box, msgEl, it.key);
+                }));
+            } else if (a.kind === 'snooze' && a.aid) {
+                out.push(armButton(t('needs.hide24'), '', function () {
+                    send('snooze', { id: a.aid },
+                        shownByAct(function (x) { return x.kind === 'snooze' && x.aid === a.aid; }), box, msgEl, it.key);
+                }));
+            }
+        });
+        return out;
+    }
+    function askDecide(a, it, box, msgEl) {
+        var d = a.decide || {}, p = d.pick || {}, wrap = el('div', 'vt-ask-body');
+        var opts = (d.options || []).slice().sort(function (x, y) { return (y.rec ? 1 : 0) - (x.rec ? 1 : 0); });
+        if (d.question && d.question !== a.title) { wrap.appendChild(el('p', 'vt-ask-q', d.question)); }
+        var canPick = writesOn() && p.pid && /^[0-9a-f]{6,64}$/.test(p.sha || '');
+        if (opts.length) {
+            var g = el('div', 'vt-ask-opts');
+            g.setAttribute('role', 'group');
+            opts.forEach(function (o, k) {
+                var lab = el('span', 'vt-ask-ol', o.label || '');
+                if (o.rec) { lab.appendChild(el('span', 'vt-fv-rec', t('fv.rec'))); }
+                if (o.motion) {
+                    /* never a button: a person does it at the robot, hand on STOP */
+                    var m = el('div', 'vt-ask-opt vt-ask-opt-motion');
+                    lab.appendChild(el('span', 'vt-fv-motion', t('fv.ask.motion_badge')));
+                    m.appendChild(lab);
+                    if (o.what) { m.appendChild(el('span', 'vt-ask-ow', o.what)); }
+                    if ((o.steps || []).length) {
+                        var ol = el('ol', 'vt-ask-msteps');
+                        o.steps.forEach(function (s) { ol.appendChild(el('li', null, s)); });
+                        m.appendChild(ol);
+                    }
+                    m.appendChild(el('span', 'vt-ask-ow vt-ask-only', t('fv.ask.motion_only')));
+                    g.appendChild(m);
+                    return;
+                }
+                var primary = k === 0 && o.rec;
+                var b = canPick ?
+                    armButton(o.label || '', 'vt-ask-opt' + (primary ? ' vt-decide-rec' : ''), function () {
+                        send('pick', { pid: p.pid, opt: Number(o.idx), sha: p.sha }, shownByPid(p.pid), box, msgEl, it.key);
+                    }, t('fv.confirm.tip')) :
+                    linkBtn('', dash(writePage(a, it)), 'vt-ask-opt vt-decide-btn' + (primary ? ' vt-decide-rec' : ''));
+                if (!canPick) { b.title = t('fv.decide_in_support'); }
+                b.textContent = '';
+                b.appendChild(lab);
+                if (o.what) { b.appendChild(el('span', 'vt-ask-ow', o.what)); }
+                b._rich = Array.prototype.slice.call(b.childNodes);
+                g.appendChild(b);
+            });
+            wrap.appendChild(g);
+            if (!canPick) { wrap.appendChild(el('p', 'vt-ask-hint', t('fv.ask.pick_on_dash'))); }
+        } else {
+            /* a question without prepared answers: answered on the dashboard */
+            var acts0 = el('div', 'vt-needs-acts vt-fv-acts');
+            acts0.appendChild(linkBtn(t('fv.ask.answer_in_support'), dash(writePage(a, it)), 'vt-fv-go'));
+            wrap.appendChild(acts0);
+        }
+        if (d.rec_why) { wrap.appendChild(el('p', 'vt-ask-recwhy', t('fv.ask.rec_why', { why: d.rec_why }))); }
+        var ds = d.discuss || {};
+        var db = askButton(it.thread || ds.thread || a.thread || it.issue || 'general', it.discuss || ds.text,
+            t('fv.discuss'), false, box, msgEl, it.key, writePage(a, it));
+        if (db) {
+            var r = el('div', 'vt-needs-acts vt-fv-acts vt-ask-discuss');
+            r.appendChild(db);
+            wrap.appendChild(r);
+        }
+        return wrap;
+    }
+    /* the change list of a release ("Co se mění"): per repo a head line and
+       the commit subjects, newest first (kit 0.9.53 flow change lines) */
+    function changeList(list, open) {
+        if (!list || !list.length) { return null; }
+        var d = el('details', 'vt-ask-changes');
+        d.open = open !== false;
+        d.appendChild(el('summary', null, t('fv.ask.changes')));
+        list.forEach(function (c) {
+            if (c.head) { d.appendChild(el('div', 'vt-ask-chead', c.head)); }
+            var ul = el('ul', 'vt-ask-clines');
+            (c.lines || []).forEach(function (x) { ul.appendChild(el('li', null, x)); });
+            if (c.more) { ul.appendChild(el('li', 'vt-ask-cmore', c.more)); }
+            d.appendChild(ul);
+            (c.carried || []).forEach(function (x) { d.appendChild(el('div', 'vt-ask-carried', '↳ ' + x)); });
+        });
+        return d;
+    }
+    function askApprove(a, it, box, msgEl) {
+        var ap = a.approve || {}, wrap = el('div', 'vt-ask-body');
+        if (ap.what) { wrap.appendChild(el('p', 'vt-ask-q', ap.what)); }
+        var rows = [['fv.ask.change', ap.change !== a.title ? ap.change : ''], ['fv.ask.for', ap.for_whom], ['fv.ask.risk', ap.risk]]
+            .filter(function (r) { return r[1]; });
+        if (rows.length) {
+            var dl = el('dl', 'vt-ask-facts');
+            rows.forEach(function (r) { dl.appendChild(el('dt', null, t(r[0]))); dl.appendChild(el('dd', null, r[1])); });
+            wrap.appendChild(dl);
+        }
+        var cl = changeList(ap.list, true);
+        if (cl) { wrap.appendChild(cl); }
+        var acts = el('div', 'vt-needs-acts vt-fv-acts');
+        var all = (ap.actions || []).filter(Boolean);
+        var direct = directButtons(all, it, box, msgEl, true);
+        /* a watcher approval, merge or task stays on the dashboard's own card */
+        if (!all.length || direct.length < all.length) {
+            acts.appendChild(linkBtn(t('fv.ask.approve_in_support'), dash(writePage(a, it)), 'vt-fv-go'));
+            direct.forEach(function (b) { b.classList.remove('vt-decide-rec'); });
+        }
+        direct.forEach(function (b) { acts.appendChild(b); });
+        wrap.appendChild(acts);
+        return wrap;
+    }
+    function askSteps(a, it, box, msgEl) {
+        var sp = a.steps || {}, steps = sp.steps || [], n = steps.length, id = String(a.id || it.key || '');
+        var wrap = el('div', 'vt-ask-body');
+        var say = it.say || sp.say;
+        var thread = it.thread || a.thread || it.issue || 'general';
+        if (!n) {
+            wrap.appendChild(el('p', 'vt-ask-q', t('fv.ask.no_steps')));
+            var r0 = el('div', 'vt-needs-acts vt-fv-acts');
+            var st0 = askButton(thread, say, t('fv.start'), true, box, msgEl, it.key, writePage(a, it));
+            if (st0) { r0.appendChild(st0); }
+            directButtons(sp.actions, it, box, msgEl, !st0).forEach(function (b) { r0.appendChild(b); });
+            if (r0.children.length) { wrap.appendChild(r0); }
+            return wrap;
+        }
+        var ol = el('ol', 'vt-ask-steps');
+        function show(k) {
+            lsSet(LS_STEP + id, String(k));
+            Array.prototype.forEach.call(ol.children, function (li, j) {
+                li.hidden = j !== k;
+            });
+        }
+        steps.forEach(function (s, k) {
+            var li = el('li', 'vt-ask-step');
+            var sn = el('div', 'vt-ask-sn', t('fv.ask.step_n', { k: k + 1, n: n }));
+            if (s.motion) { sn.appendChild(el('span', 'vt-fv-motion', t('fv.ask.motion_badge'))); }
+            li.appendChild(sn);
+            var dd = el('div', 'vt-ask-sdo');
+            dd.appendChild(el('b', null, t('fv.ask.do') + ': '));
+            dd.appendChild(document.createTextNode(s.do || ''));
+            li.appendChild(dd);
+            if (s.see) {
+                var se = el('div', 'vt-ask-ssee');
+                se.appendChild(el('b', null, t('fv.ask.see') + ': '));
+                se.appendChild(document.createTextNode(s.see));
+                li.appendChild(se);
+            }
+            var row = el('div', 'vt-needs-acts vt-fv-acts');
+            if (k < n - 1) {
+                row.appendChild(btn(t('common.done'), function () { show(k + 1); }, 'vt-fv-go'));
+            } else {
+                var last = directButtons(sp.actions, it, box, msgEl, true);
+                if (last.length) { last.forEach(function (b) { row.appendChild(b); }); }
+                else { row.appendChild(el('span', 'vt-ask-alldone', t('fv.ask.all_done'))); }
+            }
+            /* "does not work": the field agent follows up — on the dashboard's card */
+            row.appendChild(linkBtn(t('fv.ask.fail'), dash(writePage(a, it)), 'vt-ask-fail'));
+            if (k > 0) { row.appendChild(btn(t('fv.ask.back'), function () { show(k - 1); }, 'vt-ask-back')); }
+            li.appendChild(row);
+            ol.appendChild(li);
+        });
+        wrap.appendChild(ol);
+        show(stepOf(id, n));
+        return wrap;
+    }
+    /* opts: {onIssue(n)} */
+    function ask(it, opts) {
+        opts = opts || {};
+        var a = it.ask || {};
+        var key = String(it.key || it.id || a.id || '');
+        if (it.key !== key) { it = Object.assign({}, it, { key: key }); }
+        var box = el('div', 'vt-card vt-fv-task vt-ask vt-ask-k-' + (a.type || 'x'));
+        box.setAttribute('data-state', it.urgent || it.urgency === 'high' ? 'err' : 'warn');
+        box.dataset.key = key;
+        var head = el('div', 'vt-ask-h');
+        head.appendChild(el('span', 'vt-ask-type vt-ask-type-' + (a.type || 'x'), t('fv.ask.t.' + a.type)));
+        var meta = el('span', 'vt-ask-meta');
+        var ag = ageText(a.since || it.since);
+        if (ag) { meta.appendChild(el('span', 'vt-ask-age', t('fv.ask.waits', { age: ag }))); }
+        var n = a.issue || it.issue;
+        if (n && opts.onIssue) {
+            var nb = el('a', 'vt-fv-n', '#' + Number(n));
+            nb.href = '#';
+            nb.title = t('fv.detail');
+            nb.addEventListener('click', function (e) { e.preventDefault(); opts.onIssue(Number(n)); });
+            meta.appendChild(nb);
+        } else if (n) {
+            meta.appendChild(el('span', 'vt-fv-n', '#' + Number(n)));
+        }
+        head.appendChild(meta);
+        box.appendChild(head);
+        box.appendChild(el('h4', 'vt-ask-title', a.title || it.title || ''));
+        var msg = el('div', 'vt-decide-msg');
+        msg.setAttribute('aria-live', 'polite');
+        var dn = isDone(key);
+        if (dn) {
+            box.classList.add('vt-needs-done');
+            msg.setAttribute('data-state', 'ok');
+            msg.textContent = dn.msg;
+            box.appendChild(msg);
+            return box;
+        }
+        if (a.why) {
+            var w = el('p', 'vt-ask-why');
+            w.appendChild(el('b', null, t('fv.ask.why') + ': '));
+            w.appendChild(document.createTextNode(a.why));
+            box.appendChild(w);
+        }
+        if (a.motion) {
+            var pl = el('div', 'vt-pills');
+            var pm = el('span', 'vt-pill', t('fv.ask.motion'));
+            pm.setAttribute('data-state', 'warn');
+            pl.appendChild(pm);
+            box.appendChild(pl);
+        }
+        box.appendChild(a.type === 'decide' ? askDecide(a, it, box, msg) :
+            a.type === 'approve' ? askApprove(a, it, box, msg) : askSteps(a, it, box, msg));
+        if (a.next) {
+            var nx = el('p', 'vt-ask-next');
+            nx.appendChild(el('b', null, t('fv.ask.next') + ': '));
+            nx.appendChild(document.createTextNode(a.next));
+            box.appendChild(nx);
+        }
+        box.appendChild(msg);
+        if (a.tech) {
+            var tech = el('details', 'vt-ask-tech');
+            tech.appendChild(el('summary', null, t('fv.ask.tech')));
+            tech.appendChild(el('pre', null, a.tech));
+            box.appendChild(tech);
+        }
+        return box;
+    }
+
     /* --------------------------------------------------------- issue */
     function issue(h, n, onIssue) {
         var art = el('article', 'vt-fv-issue');
@@ -535,7 +831,7 @@
     }
 
     window.VTField = {
-        state: state, task: task, notes: notes, issue: issue, tag: tag, setRole: setRole,
+        state: state, task: task, ask: ask, changeList: changeList, notes: notes, issue: issue, tag: tag, setRole: setRole,
         author: author, writesOn: writesOn, dash: dash, linkBtn: linkBtn, btn: btn, isDone: isDone
     };
 })();
