@@ -45,7 +45,8 @@
  * Safety:
  *  - fixed rate 20 Hz while held, silent while idle (never a zero on load);
  *  - watchdog: a tick that comes > 250 ms late (frozen / throttled tab)
- *    means the command is stale → zeros at once, the stick lets go;
+ *    means the command is stale → zeros at once, the stick lets go; a held
+ *    key (no keyup yet) drives on from zero with the next tick;
  *  - ONE pointer owns the stick (pointer capture); other fingers ignored;
  *  - pointercancel, lost capture, window blur, hidden tab, a closed rosbridge
  *    (release()), a lock (motors off, owner) → zeros AT ONCE (no decay);
@@ -340,7 +341,7 @@
         var oLin = 0, oAng = 0;             // output after the rate limit
         var timer = null, phase = 'idle', zerosLeft = 0, lastT = 0;
         var wasOut = false, wasRim = false, rimAt = 0, lastLock = '';
-        var keys = {}, capKeys = {}, shiftHeld = false, staleNote = false;
+        var keys = {}, capKeys = {}, shiftHeld = false, staleNote = false, staleAt = 0;
 
         /* why the stick may not drive right now ('' = it may) */
         function lockReason() {
@@ -381,7 +382,7 @@
                 return;
             }
             var h;
-            if (staleNote) { h = tr('joy.hint.stale'); }
+            if (staleNote) { h = tr(staleNote === 'keys' ? 'joy.hint.stale_keys' : 'joy.hint.stale'); }
             else if (lr === 'motors') { h = tr('joy.d.hint.motors'); }
             else if (lr === 'ds4') { h = tr('joy.hint.ds4'); }
             else if (lr === 'owner') { h = tr('joy.hint.owner', {who: ownerText}); }
@@ -519,8 +520,23 @@
             var now = Date.now();
             if (phase === 'drive') {
                 if (lastT && now - lastT > STALE_MS) {        // watchdog: stale
+                    staleAt = now;
+                    setTimeout(function () { if (Date.now() - staleAt >= 3900) { staleNote = false; paintStatus(); } }, 4000);
+                    if (pid === null && keyActive() && !lockReason()) {
+                        /* keys and keycaps report their own release (keyup,
+                           pointerup, blur), so a key without one is still
+                           held: zero AT ONCE (the wheels already stopped on
+                           the controller's cmd_vel_timeout) and drive on from
+                           zero with the next tick. Forgetting the keys here
+                           left a held key dead (no autorepeat) or restarting
+                           at 0.08 m/s after every stall (vitulus-field#63). */
+                        staleNote = 'keys';
+                        oLin = 0; oAng = 0; lastT = now;
+                        send(0, 0);
+                        paintStatus();
+                        return;
+                    }
                     staleNote = true;
-                    setTimeout(function () { staleNote = false; paintStatus(); }, 4000);
                     hardStop();
                     return;
                 }
