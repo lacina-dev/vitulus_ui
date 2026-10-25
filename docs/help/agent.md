@@ -103,8 +103,8 @@ supervisor.
 - Each alternative has an estimated chance; what helped before on this robot ranks higher (the
   agent remembers the outcome of every attempt, see [What the agent learns](#what-the-agent-learns)).
 - Limits: at most 8 alternatives per mission, 4 per step, 30 min of trying. Every attempt still
-  needs the dock lock and the supervisor, like any other move. One move of the dock lock is always
-  kept for the way home.
+  needs the supervisor, like any other move (and the dock lock only while the robot is in the
+  dock). The way home never needs an unlock.
 - **Only when nothing is left** and the robot is outside does it **drive back to the dock**; the
   mission then ends as *not finished* with the reason. When even docking fails, the robot stops,
   the motors go off and the chat asks you (`pokračuj` when it can go on).
@@ -146,9 +146,13 @@ raise the badge, and on Discord they arrive without a phone notification.
 
 ### Dock lock
 
-By default the agent **cannot move the robot out of the dock** — every moving action (undock,
-dock, drive to a waypoint or a point, drive a path, direct driving, a mowing program) needs the
-owner's click here. Stopping always works.
+By default the agent **cannot move the robot out of the dock** — the lock guards **leaving the
+dock only**: the undock, and any move while the robot stands in the dock (or its dock state cannot
+be measured), need the owner's click here. **Driving back to the dock is always allowed**, and
+once the robot is measurably outside (`is_in_dock` false or dock state UNDOCKED) driving to
+waypoints, points, paths and direct driving need no further unlock — the supervisor still guards
+every move. A mowing program needs its own unlock (**Mow** or **Free drive**) even outside.
+Stopping always works.
 
 1. Pick a preset and read its scope: *Actions*, *Not allowed*, *Valid for*, *Uses*,
    *Signed by*.
@@ -170,7 +174,8 @@ owner's click here. Stopping always works.
    takes any unlock back at once.
 
 A mission that needs the lock parks itself; its chat message names the preset it needs (a drive
-to a waypoint and back = **Test drive**) and has **Open Dock lock**, which opens that preset
+out of the dock to a waypoint and back = **Undock only, once** — the rest of the drive and the way
+home need no unlock) and has **Open Dock lock**, which opens that preset
 straight away. After you unlock, the mission continues by itself — no need to write `pokračuj`
 (after 2 h of waiting only `pokračuj` restarts it). An unlock you made up to 15 min before the
 mission parked counts too.
@@ -180,8 +185,8 @@ mission parked counts too.
   unlocked and what is missing. **Open Dock lock** then shows the needed preset with the note
   *Unlocked now: …* — unlocking it replaces the narrower one. The live card also offers the wider
   presets.
-- An unlock with too few uses left for the rest of the mission (it would run out before the way
-  home) does not start it; the chat says how many are left and how many it needs.
+- An unlock with too few uses left for what the mission does in the dock does not start it; the
+  chat says how many are left and how many it needs.
 - Writing *dok je odemčený* / *odemkl jsem* while a mission waits is answered from the lock itself:
   either the mission starts (the reply says so once it is moving), or what is still missing.
 
@@ -195,10 +200,10 @@ lock for moves), then **measures** the result — a reply never claims success w
 
 | Action | What it does | Safeguards |
 |---|---|---|
-| `dock.undock` / `dock.start` | the robot's own saved undock / dock program | dock lock · supervisor · measured dock state |
+| `dock.undock` / `dock.start` | the robot's own saved undock / dock program | undock: dock lock · dock: always allowed · supervisor · measured dock state |
 | `dock.start_modality` | dock with the saved program by map or by reflector only | as above |
-| `nav.goto_waypoint` / `nav.execute_path` | drive to a saved waypoint / along a saved route | name must exist · dock lock · supervisor · navigation result |
-| `nav.goto_xy` | drive to a point on the map (x, y, heading) | the world model must find a reachable path first · dock lock · supervisor |
+| `nav.goto_waypoint` / `nav.execute_path` | drive to a saved waypoint / along a saved route | name must exist · dock lock only while in the dock · supervisor · navigation result |
+| `nav.goto_xy` | drive to a point on the map (x, y, heading) | the world model must find a reachable path first · dock lock only while in the dock · supervisor |
 | `nav.goto_offset` | a point up to 1 m next to a saved waypoint | as above |
 | `nav.backup` | back off 5–50 cm | direct driving rules below |
 | `drive.straight` / `drive.rotate` / `drive.velocity` | drive straight up to ±2 m, turn up to ±360°, or a speed for at most 5 s | direct driving rules below |

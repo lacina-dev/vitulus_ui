@@ -100,9 +100,9 @@ supervisoru.
   dojede); bez něj agent zvolí nejkratší cestu kolem sám.
 - Každá možnost má odhad úspěchu; co na tomhle robotu už dřív pomohlo, má přednost (agent si
   pamatuje výsledek každého pokusu, viz [Co se agent naučí](#co-se-agent-naučí)).
-- Meze: nejvýš 8 pokusů na misi, 4 na jeden krok, 30 min zkoušení. I každý pokus potřebuje zámek
-  doku a supervisor jako kterýkoli jiný pohyb. Jeden pohyb ze zámku doku si agent vždycky nechá
-  na cestu domů.
+- Meze: nejvýš 8 pokusů na misi, 4 na jeden krok, 30 min zkoušení. I každý pokus potřebuje
+  supervisor jako kterýkoli jiný pohyb (a zámek doku, jen když robot stojí v doku). Cesta domů
+  odemčení nikdy nepotřebuje.
 - **Teprve když nic nezbývá** a robot je venku, **zajede zpátky do doku**; mise pak skončí jako
   *nedoběhla* s důvodem. Když selže i zajetí do doku, robot zastaví, motory se vypnou a chat se
   zeptá tebe (`pokračuj`, až to půjde dál).
@@ -144,9 +144,12 @@ nezvednou odznak, a na Discord přijdou bez upozornění na telefonu.
 
 ### Zámek doku
 
-Agent **sám s robotem z doku nevyjede** — každá akce s pohybem (vyjet z doku, zajet do doku,
-dojet na bod nebo místo v mapě, projet trasu, přímé řízení, program sekání) potřebuje kliknutí
-majitele tady. Zastavit jde vždycky.
+Agent **sám s robotem z doku nevyjede** — zámek hlídá **jen výjezd z doku**: vyjetí a každý
+pohyb, když robot stojí v doku (nebo se stav doku nedá změřit), potřebuje kliknutí majitele tady.
+**Návrat do doku je vždy povolený** a když je robot změřeně venku (`is_in_dock` false nebo stav
+doku UNDOCKED), jízda na body, místa v mapě, po trasách i přímé řízení už další odemčení
+nepotřebují — každý pohyb dál hlídá supervisor. Program sekání potřebuje vlastní odemčení
+(**Sekání** nebo **Volná jízda**) i venku. Zastavit jde vždycky.
 
 1. Vyber předvolbu a přečti si její rozsah: *Akce*, *Nepovoleno*, *Platí*, *Použití*,
    *Podepsal*.
@@ -168,7 +171,8 @@ majitele tady. Zastavit jde vždycky.
    zamknout** — to každé odemčení hned vezme zpět.
 
 Mise, která zámek potřebuje, se sama zaparkuje; její zpráva v chatu řekne, kterou předvolbu
-potřebuje (jízda na bod a zpět = **Zkušební jízda**), a má **Otevřít zámek doku**, které tu
+potřebuje (výjezd z doku na bod a zpět = **Jen výjezd z doku, jednou** — zbytek jízdy i cesta
+domů odemčení nepotřebují), a má **Otevřít zámek doku**, které tu
 předvolbu rovnou otevře. Po odemčení mise pokračuje sama — `pokračuj` psát netřeba (po 2 h čekání
 ji znovu rozjede jen `pokračuj`). Počítá se i odemčení z posledních 15 min před zaparkováním mise.
 
@@ -176,8 +180,8 @@ ji znovu rozjede jen `pokračuj`). Počítá se i odemčení z posledních 15 mi
   a mise potřebuje víc, zpráva mise, `pokračuj` i *dok je odemčený* řeknou přesně, co je odemčené
   a co chybí. **Otevřít zámek doku** pak ukáže potřebnou předvolbu s poznámkou *Teď odemčeno: …* —
   jejím odemčením se užší nahradí. Karta s živým odemčením nabízí i širší předvolby.
-- Odemčení, kterému zbývá méně použití, než zbytek mise spotřebuje (došlo by před návratem domů),
-  misi nespustí; chat řekne, kolik zbývá a kolik je potřeba.
+- Odemčení, kterému zbývá méně použití, než mise spotřebuje v doku, misi nespustí; chat řekne,
+  kolik zbývá a kolik je potřeba.
 - Na *dok je odemčený* / *odemkl jsem* při čekající misi odpovídá sám zámek: buď se mise rozjede
   (odpověď to řekne, až opravdu jede), nebo řekne, co ještě chybí.
 
@@ -191,10 +195,10 @@ pak **změří** — odpověď nikdy netvrdí úspěch bez důkazu.
 
 | Akce | Co dělá | Pojistky |
 |---|---|---|
-| `dock.undock` / `dock.start` | robotův vlastní uložený program výjezdu / zajetí do doku | zámek doku · supervisor · změřený stav doku |
+| `dock.undock` / `dock.start` | robotův vlastní uložený program výjezdu / zajetí do doku | výjezd: zámek doku · zajetí: vždy povoleno · supervisor · změřený stav doku |
 | `dock.start_modality` | zajetí uloženým programem podle mapy, nebo jen podle odrazky | jako výše |
-| `nav.goto_waypoint` / `nav.execute_path` | jízda na uložený bod / po uložené trase | jméno musí existovat · zámek doku · supervisor · výsledek navigace |
-| `nav.goto_xy` | jízda na místo v mapě (x, y, natočení) | model světa musí nejdřív najít dosažitelnou cestu · zámek doku · supervisor |
+| `nav.goto_waypoint` / `nav.execute_path` | jízda na uložený bod / po uložené trase | jméno musí existovat · zámek doku jen v doku · supervisor · výsledek navigace |
+| `nav.goto_xy` | jízda na místo v mapě (x, y, natočení) | model světa musí nejdřív najít dosažitelnou cestu · zámek doku jen v doku · supervisor |
 | `nav.goto_offset` | místo nejvýš 1 m vedle uloženého bodu | jako výše |
 | `nav.backup` | couvnout o 5–50 cm | pravidla přímého řízení níže |
 | `drive.straight` / `drive.rotate` / `drive.velocity` | jet rovně nejvýš ±2 m, otočit se nejvýš o ±360°, nebo rychlost nejvýš na 5 s | pravidla přímého řízení níže |
