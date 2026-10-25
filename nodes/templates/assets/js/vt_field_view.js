@@ -777,11 +777,11 @@
     }
     /* the change list of a release ("Co se mění"): per repo a head line and
        the commit subjects, newest first (kit 0.9.53 flow change lines) */
-    function changeList(list, open, key) {
+    function changeList(list, open, key, label) {
         if (!list || !list.length) { return null; }
         var d = el('details', 'vt-ask-changes');
         if (key) { fold(d, key, open !== false); } else { d.open = open !== false; }
-        d.appendChild(el('summary', null, t('fv.ask.changes')));
+        d.appendChild(el('summary', null, label || t('fv.ask.changes')));
         list.forEach(function (c) {
             if (c.head) { d.appendChild(el('div', 'vt-ask-chead', c.head)); }
             var ul = el('ul', 'vt-ask-clines');

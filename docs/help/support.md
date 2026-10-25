@@ -54,7 +54,14 @@ the **Issues** tab goes back to the list.
 
 ### Releases
 
-The kit version, whether the watcher is fresh, and what waits for a **retest** on this robot.
+- On top one sentence: *The newest release field-… went out 2 h ago.* and how many released fixes
+  wait for a test by the other side. The kit version and the watcher's last check are folded
+  under *Details for agents*.
+- **Sent to ⟨Mac⟩** — the three newest releases: what the other side gets in one sentence (*Mac
+  gets 13 changes (vitulus_ui) by itself, without a click. Then a build and a stack restart – the
+  watcher does it once the robot is idle.*) and, folded, **What changes**: per repository the
+  branch, who and when, and the commit subjects, newest first. Older releases under **Older (N)**.
+- **Released, waiting for a test** — the issues whose fix went out and waits for a retest.
 
 ### Signal
 

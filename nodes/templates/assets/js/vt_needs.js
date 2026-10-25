@@ -312,7 +312,7 @@
             if (!pc.length) { pc.push(el('p', 'vt-empty', t('fv.empty_peer', { name: names.peer || P.name || '?' }))); }
             var pn = VTField.notes(P.notes, openIssue);
             if (pn) { pc.push(pn); }
-            root.appendChild(group('peer', t('fv.peer_wait', { name: names.peer_gen || names.peer || P.name || '?' }),
+            root.appendChild(group('peer', t('fv.peer_wait', { name: (window.VTI18n && VTI18n.lang() === 'cs' && names.peer_gen) || names.peer || P.name || '?' }),
                 (P.items || []).length + (P.more || 0), pc, false));
         }
         var foot = el('div', 'vt-needs-acts vt-fv-foot');

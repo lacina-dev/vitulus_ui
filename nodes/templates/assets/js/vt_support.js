@@ -207,17 +207,70 @@
     }
 
     /* ------------------------------------------------------- Releases */
+    /* What went out and what it changes (kit 0.9.53 "Odesláno", flow_sent of
+       /api/home): the newest release in one sentence on top, then each sent
+       release with what the other side gets ("Mac dostane 13 změn … sám") and
+       its change list commit by commit (folded); 3 newest, the rest under
+       "Older". Then what waits for a retest, and the kit / watcher facts
+       folded for agents. */
+    var SENT_SHOWN = 3;
+    function sentCard(r, k) {
+        var nCh = 0;
+        (r.changes || []).forEach(function (c) { nCh += (c.lines || []).length; });
+        var c = card('off', r.tag || r.title || '', ago(r.at), r.for_tester || r.title || '', null,
+            (r.issues || []).map(function (n) { return ['#' + Number(n), 'info']; }));
+        c.classList.add('vt-sup-sent');
+        var cl = window.VTField && VTField.changeList(r.changes, false, 'sent:' + (r.tag || k), t('support.rel.changes'));
+        /* the watcher's own line (repo@sha, auto.release_own) is for agents: inside the fold */
+        if (cl && r.why) { cl.appendChild(el('div', 'vt-needs-sub vt-sup-why', r.why)); }
+        if (cl) { c.appendChild(cl); }
+        return c;
+    }
     function renderReleases() {
         var pane = panes.releases; if (!pane) { return; }
         pane.textContent = '';
         waitOr(VTHub.get("field.home"), function (d) {
             var f = d.footer || {}, w = f.watch || {}, out = [];
-            out.push(card('info', t('support.rel.kit'), f.release || '',
-                t('support.rel.kit_version', { v: f.kit_version || '?' }),
-                w.available ? (w.result ? t('support.rel.watcher_result', { ago: ago(w.last_tick), result: w.result })
-                                        : t('support.rel.watcher', { ago: ago(w.last_tick) })) : t('support.rel.no_watcher'),
-                [[w.fresh ? t('support.rel.fresh') : t('support.rel.stale'), w.fresh ? 'ok' : 'warn']],
-                [linkBtn(t('support.rel.history'), dash('#/history'))]));
+            var sent = (d.flow_sent || []).filter(function (r) { return r && (r.tag || r.title); });
+            var names = (d.todo && d.todo.names) || {};
+            /* the one sentence: the newest release, when, for whom */
+            var top = sent[0];
+            var hs = el('section', 'vt-card vt-fv-hero vt-sup-relhero');
+            hs.setAttribute('data-state', w.available && !w.fresh ? 'warn' : 'ok');
+            var say = el('p', 'vt-fv-hsay');
+            say.appendChild(el('span', 'vt-sdot'));
+            say.appendChild(el('b', null, top ? t('support.rel.last', { tag: top.tag || '', ago: ago(top.at) }) :
+                (f.release ? t('support.rel.last_tag', { tag: f.release }) : t('support.rel.none_sent'))));
+            hs.appendChild(say);
+            var stage0 = (d.velin && d.velin.stage_of) || {};
+            var nWait = Object.keys(stage0).filter(function (n) { return stage0[n] === 'released' || stage0[n] === 'test'; }).length;
+            if (nWait) { hs.appendChild(el('p', 'vt-fv-hbusy vt-sup-forpeer', VTI18n.tn('support.rel.waiting_n', nWait, { name: (VTI18n.lang() === 'cs' && names.peer_gen) || names.peer || '?' }))); }
+            var tech = el('details', 'vt-ask-tech vt-fv-htech');
+            tech.appendChild(el('summary', null, t('fv.hero.tech')));
+            tech.appendChild(el('p', 'vt-fv-facts', t('support.rel.kit_version', { v: f.kit_version || '?' }) + ' · ' +
+                (w.available ? (w.result ? t('support.rel.watcher_result', { ago: ago(w.last_tick), result: w.result })
+                                         : t('support.rel.watcher', { ago: ago(w.last_tick) })) : t('support.rel.no_watcher')) +
+                ' · ' + (w.fresh ? t('support.rel.fresh') : t('support.rel.stale'))));
+            hs.appendChild(tech);
+            out.push(hs);
+
+            /* Sent: what each release brings the other side */
+            out.push(el('div', 'vt-act-day', t('support.rel.sent', { name: names.peer || '' }).replace(/\s+$/, '')));
+            if (!sent.length) { out.push(el('p', 'vt-empty', t('support.rel.none_sent'))); }
+            sent.slice(0, SENT_SHOWN).forEach(function (r, k) { out.push(sentCard(r, k)); });
+            if (sent.length > SENT_SHOWN) {
+                var older = el('details', 'drawer-sec vt-needs-grp vt-sup-older');
+                var sm = el('summary');
+                sm.appendChild(el('span', 'vt-needs-gt', t('support.rel.older')));
+                sm.appendChild(el('span', 'vt-needs-gn', String(sent.length - SENT_SHOWN)));
+                older.appendChild(sm);
+                var ob = el('div', 'drawer-sec-body vt-stack');
+                sent.slice(SENT_SHOWN).forEach(function (r, k) { ob.appendChild(sentCard(r, k + SENT_SHOWN)); });
+                older.appendChild(ob);
+                out.push(older);
+            }
+
+            /* released, waiting for a retest */
             var stage = (d.velin && d.velin.stage_of) || {};
             var waiting = Object.keys(stage).filter(function (n) { return stage[n] === 'released' || stage[n] === 'test'; });
             var iss = {};
@@ -235,6 +288,9 @@
             var st = (d.velin && d.velin.stages) || {};
             var pills = Object.keys(st).filter(function (k) { return st[k]; }).map(function (k) { return [stageLabel(k) + ' ' + st[k]]; });
             if (pills.length) { out.push(card('off', t('support.rel.loop'), t('support.rel.open', { n: d.velin.open || 0 }), null, null, pills)); }
+            var foot = el('div', 'vt-needs-acts vt-fv-foot');
+            foot.appendChild(linkBtn(t('support.rel.history'), dash('#/history')));
+            out.push(foot);
             return out;
         }).forEach(function (x) { pane.appendChild(x); });
     }

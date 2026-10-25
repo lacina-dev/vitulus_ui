@@ -54,7 +54,14 @@ záložka **Hlášení** vrátí seznam.
 
 ### Vydání
 
-Verze kitu, jestli je hlídač aktuální, a co na tomto robotu čeká na **nový test**.
+- Nahoře jedna věta: *Nejnovější vydání field-… odešlo před 2 h.* a kolik vydaných oprav čeká na
+  test u druhé strany. Verze kitu a poslední kontrola hlídače jsou sbalené v *Podrobnosti pro
+  agenty*.
+- **Odesláno pro ⟨Maca⟩** — tři nejnovější vydání: co druhá strana dostane, jednou větou (*Mac
+  dostane 13 změn (vitulus_ui) sám, bez kliknutí. Pak build a restart stacku – hlídač to udělá
+  sám, až bude robot v klidu.*) a sbaleně **Co se mění**: za každé repo větev, kdo a kdy a předměty
+  commitů od nejnovějšího. Starší vydání pod **Starší (N)**.
+- **Vydáno, čeká na test** — issues, jejichž oprava odešla a čeká na nový test.
 
 ### Signál
 

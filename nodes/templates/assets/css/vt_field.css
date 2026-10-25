@@ -1235,3 +1235,7 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
 .vt-fv-arow .vt-act-txt a.vt-fv-alink { color: var(--vt-text); text-decoration: none; }
 .vt-fv-arow .vt-act-txt a.vt-fv-alink:hover { color: var(--vt-accent); text-decoration: underline; }
 .vt-fv-nfold .vt-fv-notes { margin-top: 4px; }
+/* Support › Releases: what went out, for whom, what it changes */
+.vt-sup-relhero .vt-sup-forpeer { margin: 0; }
+.vt-sup-sent .vt-ask-changes { margin-top: 6px; }
+.vt-sup-why { font-size: var(--vt-fs-xs); }
