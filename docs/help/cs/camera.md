@@ -7,7 +7,7 @@ icon: la-camera
 summary: Nastavení › Kamera — kontrola hloubky proti lidaru, kalibrace kamery jedním tlačítkem s průvodcem, nastavení snímače a vrstvy v obraze.
 ui: [config/camera]
 related: [settings, frame, mapping, troubleshooting]
-keywords: [předání, obnovit kameru, usb, reset ovladače, kamera, d435, realsense, hloubka, přesnost, kalibrace, kalibrovat, tare, on-chip, lidar, překážky daleko, vzdálenost, chyba, emitor, laser, expozice, vyvážení bílé, vrstvy, vrátit, tovární, camera, depth, calibration]
+keywords: [/dev/video, uvcvideo, secure boot, librealsense2-dkms, předání, obnovit kameru, usb, reset ovladače, kamera, d435, realsense, hloubka, přesnost, kalibrace, kalibrovat, tare, on-chip, lidar, překážky daleko, vzdálenost, chyba, emitor, laser, expozice, vyvážení bílé, vrstvy, vrátit, tovární, camera, depth, calibration]
 ---
 # Kamera (D435)
 
@@ -90,7 +90,7 @@ napřímo. Předání je pevná posloupnost; průvodce ukazuje každý krok s je
 ok / chyba) a časem a **každý krok ověří svůj výsledek, než začne další**:
 
 ```flow
-Připraveno | ROS kamera běží, USB se nepřipojuje dokola, nikdo jiný ji nedrží, nic není pozastavené
+Připraveno | ROS kamera běží, USB se nepřipojuje dokola, nikdo jiný ji nedrží, nic není pozastavené, ovladač kamery pro /dev/video je načtený
 Pauza | ROS kamera pozastavená, USB zařízení kamery 2 s ustálená
 Relace | jedna kalibrační relace: záloha, on-chip, tare, zápis do kamery, zpětné čtení
 Uvolněno | kalibrace už z kamery nic nedrží
@@ -104,6 +104,21 @@ a zapíšou zpět zálohu, zpětně přečtenou a ověřenou.
 - **Připraveno** je i součástí kroku 1 průvodce (*Předání kamery*). Červený řádek tam blokuje
   **Spustit**; u *USB se připojuje dokola*, *bez hloubky* a *pozastavená z dřívějška* se ukáže
   **Obnovit kameru** (reset ovladače kamery a čekání, až zase poteče hloubka — asi 20–40 s).
+- **/dev/video**: ROS kamera mluví s kamerou napřímo přes USB, kalibrace přes systémový ovladač
+  kamery (`uvcvideo`, zařízení `/dev/video`). Dokud ROS kamera běží, `/dev/video` neexistuje — to
+  je v pořádku; zařízení se objeví, když se ROS kamera pozastaví. Když se ovladač nemůže načíst
+  vůbec, svítí červeně řádek *Kalibrace nemá přístup ke kameře přes /dev/video*, řekne proč
+  a ukáže **jeden příkaz, který to opraví** — průvodce pak kameru vůbec nepozastaví. Obvyklá
+  příčina je **Secure Boot** spolu s balíkem `librealsense2-dkms`: jeho ovladač není podepsaný
+  klíčem, kterému počítač věří, Secure Boot ho nepustí, a protože nahrazuje systémový ovladač,
+  nenačte se žádný. Oprava ten balík odebere; pak se načte systémový podepsaný ovladač (umí
+  hloubkové formáty D435 i kalibrační příkazy) a ROS kamery se to netýká:
+
+  ```
+  sudo apt-get remove -y librealsense2-dkms && sudo modprobe uvcvideo
+  ```
+
+  Pak průvodce zavři a otevři znovu; řádek zezelená.
 - **Zpět**: když se obraz do 20 s nevrátí, robot sám resetuje ovladač kamery a čeká až 40 s.
   Teprve pak hlásí, že se kamera nevrátila.
 - Firmware kamery neumí kalibraci vyzkoušet před uložením: nová kalibrace začne platit až po
@@ -136,6 +151,8 @@ streamem a nic nezapíše — rychlé ověření, že předání na tomhle robot
 - **„Po pozastavení se kamera dál znovu připojovala na USB"** — kamera je vrácená; počkej minutu
   (řádek *Kamera je na USB stabilní* zezelená) a zkus to znovu. Když se to opakuje, zkontroluj
   USB kabel a konektor kamery.
+- **„Po pozastavení se kamera vůbec neobjevila jako /dev/video"** — chybí ovladač kamery;
+  krok 1 průvodce (řádek *… přes /dev/video*) řekne proč a jak to opravit.
 - **„Kameru nešlo použít pro kalibraci"** — malý řádek *Detail* říká, co hlásila knihovna
   kamery; nic se nezapsalo. **Test předání kamery** ukáže, který krok selhává.
 - **Chybí knihovna pro kalibraci** — kontrola funguje, kalibrace potřebuje na robotu

@@ -133,6 +133,10 @@
             box.appendChild(el('div', 'vt-app-hint', t(args.written ? 'calib.cam.written' : 'calib.cam.not_written')));
         }
         if (args.e) { box.appendChild(el('div', 'vt-cam-detail', t('calib.detail') + ': ' + args.e)); }
+        if (args.v4l_cmd) {
+            box.appendChild(el('div', 'vt-cam-detail', t('calib.v4l.cause.' + args.v4l_cause) + ' ' + t('calib.v4l.fix')));
+            box.appendChild(el('code', 'vt-cam-cmd', args.v4l_cmd));
+        }
         return box;
     }
     /* the verified steps of the running / last job (status.steps) */
@@ -502,6 +506,18 @@
                     var bad = P.indexOf(k) >= 0;
                     item2(!bad, t((bad ? 'calib.pre.' : 'calib.pre_ok.') + k, va));
                 });
+                // the kernel camera driver: without it no /dev/video ever comes (#57)
+                var v4l = P.indexOf('no_v4l') >= 0;
+                item2(!v4l, t(v4l ? 'calib.pre.no_v4l' : 'calib.pre_ok.no_v4l'));
+                if (v4l && pre.v4l) {
+                    var vl = el('li', 'vt-cam-li-btn');
+                    vl.appendChild(el('div', 'vt-cam-detail', t('calib.v4l.cause.' + pre.v4l.cause)));
+                    vl.appendChild(el('div', 'vt-cam-detail', t('calib.v4l.fix')));
+                    var code = el('code', 'vt-cam-cmd', pre.v4l.cmd);
+                    vl.appendChild(code);
+                    vl.appendChild(el('div', 'vt-cam-detail', t('calib.v4l.after')));
+                    pu.appendChild(vl);
+                }
                 // the calibration library, matched to the camera firmware
                 var sk = P.indexOf('sdk_mismatch') >= 0 ? 'sdk_mismatch' : P.indexOf('no_sdk') >= 0 ? 'no_sdk' : null;
                 item2(!sk, sk ? (sdk.installing ? t('calib.sdk.installing') : t('calib.pre.' + sk, va)) : t('calib.pre_ok.no_sdk', va));

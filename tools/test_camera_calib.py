@@ -112,6 +112,8 @@ class FakeOps(object):
         self.leak = False
         self.sdk_raises = False
         self.foreign = []
+        self.v4l = None                # v4l_problem(): no uvcvideo (#57)
+        self.no_nodes = False          # /dev/video never appears after the pause
         self.binds = []
         self.open_sessions = 0
         self.resets = 0
@@ -163,6 +165,8 @@ class FakeOps(object):
 
     # kernel / sysfs / proc
     def video_nodes(self):
+        if self.no_nodes:
+            return []
         if self.nodes_at is None or self.t < self.nodes_at:
             return []
         if self.unstable:
@@ -178,6 +182,9 @@ class FakeOps(object):
 
     def sdk_problem(self):
         return getattr(self, 'sdk_prob', None)
+
+    def v4l_problem(self):
+        return self.v4l
 
     def held_by_self(self):
         return ['/dev/video0 (deleted)'] if self.leak else []
@@ -281,6 +288,46 @@ except cc.Cancelled:
 H.resume()
 check('cancel inside the session -> released, resumed',
       st.state('sdk') == 'err' and st.get('sdk')['d'] == 'calib.msg.cancelled' and st.state('resume') == 'ok')
+
+# no /dev/video at all (vitulus-field#57, Mac): Secure Boot on, the
+# librealsense2-dkms uvcvideo refused by lockdown -> uvcvideo never loads
+MAC = {'kernel': '5.15.0-139-generic', 'uvc_loaded': False, 'camera_usb': True, 'secure_boot': True,
+       'module': '/lib/modules/5.15.0-139-generic/updates/dkms/uvcvideo.ko', 'module_signer': None,
+       'stock': True, 'refused': 48}
+d = cc.v4l_diagnose(MAC)
+check('v4l: SB on + dkms uvcvideo not loaded -> sb_dkms, remove the package, load the kernel one',
+      d and d['cause'] == 'sb_dkms' and d['cmd'] == 'sudo apt-get remove -y librealsense2-dkms && sudo modprobe uvcvideo', str(d))
+d = cc.v4l_diagnose(dict(MAC, stock=False))
+check('v4l: sb_dkms without the kernel module -> linux-modules-extra too',
+      d and d['cause'] == 'sb_dkms' and 'linux-modules-extra-5.15.0-139-generic' in d['cmd'], str(d))
+check('v4l: uvcvideo loaded (our robot, ROS on RSUSB, no /dev/video while streaming) -> fine',
+      cc.v4l_diagnose(dict(MAC, uvc_loaded=True)) is None)
+check('v4l: no RealSense on USB -> not this check', cc.v4l_diagnose(dict(MAC, camera_usb=False)) is None)
+d = cc.v4l_diagnose(dict(MAC, secure_boot=False, refused=0))
+check('v4l: SB off, dkms module just not loaded -> modprobe', d and d['cause'] == 'not_loaded' and d['cmd'] == 'sudo modprobe uvcvideo', str(d))
+d = cc.v4l_diagnose(dict(MAC, secure_boot=False, refused=0, module=None, stock=False))
+check('v4l: no uvcvideo for the kernel -> no_module', d and d['cause'] == 'no_module', str(d))
+f = cc.v4l_facts()
+check('v4l_facts runs on this machine', isinstance(f, dict) and 'uvc_loaded' in f, str(f))
+
+V = cc.v4l_diagnose(MAC)
+o = FakeOps(v4l=V, no_nodes=True)
+check('preflight: no uvcvideo -> no_v4l', cc.Handover(o, cc.Steps([])).problems() == ['no_v4l'])
+st = cc.Steps(['preflight', 'pause', 'sdk', 'release', 'resume'], clock=o.now)
+H = cc.Handover(o, st)
+try:
+    H.preflight()
+    pe = None
+except cc.StepError as ex:
+    pe = ex
+check('preflight: no_v4l refuses with the cause and the command, the ROS camera is never paused',
+      pe is not None and pe.key == 'calib.err.preflight' and pe.args_.get('v4l_cause') == 'sb_dkms'
+      and pe.args_.get('v4l_cmd') == V['cmd'] and ('enable', False) not in o.calls and not H.paused,
+      '%s %s' % (pe and pe.key, o.calls))
+o = FakeOps(no_nodes=True)
+err, s, _ = job(o)
+check('pause: /dev/video never appears (no preflight warning) -> no_nodes, not "reconnecting", camera back',
+      err == 'calib.err.no_nodes' and s['resume'] == 'ok' and o.flag is None, '%s %s' % (err, s))
 
 o = FakeOps(sdk_prob='sdk_mismatch')
 check('preflight: SDK not matching the FW -> sdk_mismatch', cc.Handover(o, cc.Steps([])).problems() == ['sdk_mismatch'])
@@ -392,6 +439,8 @@ for r in probs:
     need |= {'calib.pre.' + r, 'calib.pre_short.' + r}
 for ph in set(_re.findall(r"set_phase\('(\w+)'", node_src)) - {'done', 'check'}:
     need.add('calib.ph.' + ph)
+need |= {'calib.v4l.cause.' + c for c in ('sb_dkms', 'no_module', 'not_loaded')} | \
+    {'calib.v4l.fix', 'calib.v4l.after', 'calib.pre_ok.no_v4l'}
 miss_en = sorted(k for k in need if k not in EN)
 miss_cs = sorted(k for k in need if k not in CS)
 check('node keys have English (%d keys)' % len(need), not miss_en, ', '.join(miss_en))

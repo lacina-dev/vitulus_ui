@@ -376,6 +376,112 @@ class Refused(Exception):
         self.key, self.args_ = key, args
 
 
+# ------------------------------------------------------------------ kernel driver
+# The calibration's pyrealsense2 (pip) is a V4L build (v4l_uvc_device): it opens
+# the camera only through the /dev/video nodes of the kernel's uvcvideo. The ROS
+# driver (ros-noetic librealsense 2.50) is an RSUSB build (rs_uvc_device, libusb)
+# and needs no uvcvideo at all - so a robot can stream in ROS and still have no
+# way to calibrate. 25. 10. 2026 (vitulus-field#57, Mac): Secure Boot on, the
+# librealsense2-dkms uvcvideo.ko in /lib/modules/<kernel>/updates/dkms (preferred
+# over the kernel's own, but not signed with a key the firmware trusts) refused
+# by lockdown at every plug -> uvcvideo never loads -> no /dev/video after the
+# pause -> calib.err.unstable after 20 s. The kernel's own uvcvideo (signed by
+# Canonical, linux-modules-extra) knows the D4xx formats (Z16, Y8I, Y12I, INZI)
+# and the D4xx metadata, and the camera's calibration commands go through the
+# UVC extension unit (UVCIOC_CTRL_QUERY), which every uvcvideo has. Hence:
+# uvcvideo not loaded while the camera is on USB = a preflight problem with the
+# cause and the one command that fixes it, before anything is paused.
+D4XX_PRODUCTS = {'0ad1', '0ad2', '0ad3', '0ad4', '0ad6', '0af6', '0afe', '0aff', '0b00',
+                 '0b01', '0b03', '0b07', '0b3a', '0b5c', '0b64', '0b68'}
+SECUREBOOT_VAR = '/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c'
+
+
+def _run_out(cmd, timeout=5):
+    import subprocess
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout
+    except Exception:
+        return -1, ''
+
+
+def v4l_facts():
+    """what decides whether the calibration gets /dev/video (sysfs, modinfo, the
+    kernel log; no root needed)."""
+    rel = os.uname().release
+    f = {'kernel': rel, 'uvc_loaded': os.path.isdir('/sys/module/uvcvideo'), 'camera_usb': False}
+    base = '/sys/bus/usb/devices'
+    try:
+        for d in os.listdir(base):
+            try:
+                with open(os.path.join(base, d, 'idVendor')) as fv, \
+                        open(os.path.join(base, d, 'idProduct')) as fp:
+                    if fv.read().strip() == '8086' and fp.read().strip() in D4XX_PRODUCTS:
+                        f['camera_usb'] = True
+            except OSError:
+                continue
+    except OSError:
+        pass
+    if f['uvc_loaded'] or not f['camera_usb']:
+        return f
+    try:
+        with open(SECUREBOOT_VAR, 'rb') as fs:
+            raw = fs.read()
+        f['secure_boot'] = bool(raw) and raw[-1] == 1
+    except OSError:
+        rc, out = _run_out(['mokutil', '--sb-state'])
+        f['secure_boot'] = 'enabled' in out.lower() if rc == 0 else None
+    modinfo = next((p for p in ('/sbin/modinfo', '/usr/sbin/modinfo') if os.path.exists(p)), 'modinfo')
+    rc, out = _run_out([modinfo, '-F', 'filename', 'uvcvideo'])
+    f['module'] = out.strip().splitlines()[0] if rc == 0 and out.strip() else None
+    rc, out = _run_out([modinfo, '-F', 'signer', 'uvcvideo'])
+    f['module_signer'] = out.strip() or None
+    stock = '/lib/modules/%s/kernel/drivers/media/usb/uvc/' % rel
+    try:
+        f['stock'] = any(n.startswith('uvcvideo.ko') for n in os.listdir(stock))
+    except OSError:
+        f['stock'] = False
+    rc, out = _run_out(['journalctl', '-k', '-b', '-q', '--no-pager', '-o', 'cat'], timeout=8)
+    f['refused'] = sum(1 for line in out.splitlines() if 'unsigned module loading is restricted' in line
+                       or 'Key was rejected' in line)
+    return f
+
+
+def v4l_diagnose(f):
+    """None = the calibration can get /dev/video, else {cause, cmd}:
+      sb_dkms     Secure Boot + the librealsense2-dkms uvcvideo -> remove the
+                  package, the kernel's own (signed) uvcvideo loads instead
+      no_module   no uvcvideo for this kernel at all -> linux-modules-extra
+      not_loaded  a usable uvcvideo, just not loaded -> modprobe"""
+    if f.get('uvc_loaded') or not f.get('camera_usb'):
+        return None
+    extra = 'sudo apt-get install -y linux-modules-extra-%s' % f.get('kernel', '$(uname -r)')
+    load = 'sudo modprobe uvcvideo'
+    dkms = '/updates/dkms/' in (f.get('module') or '')
+    if dkms and (f.get('secure_boot') or f.get('refused')):
+        cmd = 'sudo apt-get remove -y librealsense2-dkms && ' + \
+            ('' if f.get('stock') else extra + ' && ') + load
+        return {'cause': 'sb_dkms', 'cmd': cmd}
+    if not f.get('module') and not f.get('stock'):
+        return {'cause': 'no_module', 'cmd': extra + ' && ' + load}
+    return {'cause': 'not_loaded', 'cmd': load}
+
+
+_V4L_CACHE = {'t': 0.0, 'v': None}
+
+
+def v4l_problem(ttl=5.0):
+    """v4l_diagnose(v4l_facts()), at most every ttl s (the wizard asks every 2 s)."""
+    now = time.time()
+    if now - _V4L_CACHE['t'] >= ttl:
+        try:
+            _V4L_CACHE['v'] = v4l_diagnose(v4l_facts())
+        except Exception:
+            _V4L_CACHE['v'] = None
+        _V4L_CACHE['t'] = now
+    return _V4L_CACHE['v']
+
+
 # ------------------------------------------------------------------ handover
 # The camera is shared by the ROS driver (librealsense of ros-noetic, RSUSB
 # backend: it claims the USB interfaces itself, so while it streams there is
@@ -389,7 +495,8 @@ class Refused(Exception):
 #
 #   preflight  ROS depth >= 10 Hz, no uvcvideo rebinding (kernel log), nobody
 #              else holds the camera's /dev/video nodes, pyrealsense2 present,
-#              no pause left over
+#              no pause left over, uvcvideo loaded (else no /dev/video ever
+#              comes after the pause, see v4l_diagnose)
 #   pause      error polling off -> ~enable false -> depth stopped -> the
 #              camera's /dev/video nodes exist and stay unchanged for 2 s with
 #              no new uvcvideo bind
@@ -482,6 +589,7 @@ class Handover(object):
       binds_since(t) -> uvcvideo binds in the kernel log since time t
       foreign_holders() -> other processes with the camera's /dev/video open
       sdk_problem() -> None | 'no_sdk' | 'sdk_mismatch'
+      v4l_problem() -> None | {cause, cmd}: no uvcvideo = no /dev/video ever
       held_by_self() -> open /dev/video|/dev/bus/usb paths
       gc()  flag_get() -> dict|None  flag_set(dict)  flag_clear()
       sdk_open() -> session (.close())  now()  sleep(s)
@@ -516,13 +624,19 @@ class Handover(object):
         sp = o.sdk_problem()
         if sp:
             p.append(sp)
+        if o.v4l_problem():
+            p.append('no_v4l')
         return p
 
     def preflight(self):
         def run():
             p = self.problems()
             if p:
-                raise StepError('calib.err.preflight', problems=p)
+                extra = {}
+                v = self.ops.v4l_problem() if 'no_v4l' in p else None
+                if v:
+                    extra = {'v4l_cause': v['cause'], 'v4l_cmd': v['cmd']}
+                raise StepError('calib.err.preflight', problems=p, **extra)
         return self.steps.run('preflight', run)
 
     # -- 2. pause
@@ -556,6 +670,9 @@ class Handover(object):
                 return bool(cur) and o.now() - st['since'] >= self.STABLE_S and \
                     o.binds_since(st['since']) == 0
             if not self.wait(stable, 20.0):
+                if not st['last'] and not st['changes']:
+                    # never a /dev/video node: not "reconnecting" but no kernel driver
+                    raise StepError('calib.err.no_nodes')
                 raise StepError('calib.err.unstable', n=st['changes'],
                                 binds=o.binds_since(t_pause))
             self.steps.note(sid, nodes=len(st['last']), changes=st['changes'])
@@ -714,6 +831,9 @@ class RosOps(object):
                 except OSError:
                     continue
         return out
+
+    def v4l_problem(self):
+        return v4l_problem()
 
     def sdk_problem(self):
         sdk = self.n.sdk_state()
@@ -1898,6 +2018,7 @@ class Node(object):
             probs = Handover(ops, Steps([])).problems()
             self.preflight = {'t': time.time(), 'problems': probs,
                               'foreign': ops.foreign_holders() if 'foreign' in probs else [],
+                              'v4l': ops.v4l_problem() if 'no_v4l' in probs else None,
                               'hz': round(ops.depth_hz(), 1)}
         except Exception as ex:
             rospy.logwarn_throttle(30, '[camera_calib] preflight: %s' % ex)

@@ -7,7 +7,7 @@ icon: la-camera
 summary: Settings › Camera — check the depth against the lidar, calibrate the camera with one button and a wizard, the sensor settings and the image layers.
 ui: [config/camera]
 related: [settings, frame, mapping, troubleshooting]
-keywords: [handover, restore the camera, usb, driver reset, camera, d435, realsense, depth, accuracy, calibration, calibrate, tare, on-chip, lidar, obstacles too far, distance, error, emitter, laser, exposure, white balance, layers, restore, factory]
+keywords: [/dev/video, uvcvideo, secure boot, librealsense2-dkms, handover, restore the camera, usb, driver reset, camera, d435, realsense, depth, accuracy, calibration, calibrate, tare, on-chip, lidar, obstacles too far, distance, error, emitter, laser, exposure, white balance, layers, restore, factory]
 ---
 # Camera (D435)
 
@@ -94,7 +94,7 @@ step with its state (waiting / running / ok / error) and time, and **each step c
 result before the next one starts**:
 
 ```flow
-Ready | the ROS camera streams, no USB reconnecting, nobody else holds it, nothing paused
+Ready | the ROS camera streams, no USB reconnecting, nobody else holds it, nothing paused, the camera driver for /dev/video is there
 Pause | ROS camera paused, the camera's USB devices settled for 2 s
 Session | one calibration session: backup, on-chip, tare, write into the camera, read back
 Released | the calibration holds nothing of the camera any more
@@ -108,6 +108,22 @@ write the backup back, read back and verified.
 - **Ready** is also part of step 1 of the wizard (*Camera handover*). A red line there blocks
   **Start**; *USB reconnecting*, *no depth* and *paused from before* show **Restore the camera**
   (a reset of the camera driver, then it waits until depth streams again — about 20–40 s).
+- **/dev/video**: the ROS camera talks to the camera over USB directly, the calibration through
+  the system's camera driver (`uvcvideo`, the `/dev/video` devices). While the ROS camera
+  streams there is no `/dev/video` — that is normal; the devices appear when the ROS camera
+  pauses. When the driver cannot load at all, the line *Calibration cannot reach the camera
+  through /dev/video* is red, says why and shows **the one command that fixes it** — the
+  wizard then does not pause the camera at all. The usual cause is **Secure Boot** together with
+  the package `librealsense2-dkms`: its driver is not signed with a key the computer trusts,
+  Secure Boot refuses it, and because it replaces the system's own driver, none loads. The fix
+  removes that package; the system's own signed driver then loads (it knows the D435 depth
+  formats and the calibration commands), and the ROS camera is not affected:
+
+  ```
+  sudo apt-get remove -y librealsense2-dkms && sudo modprobe uvcvideo
+  ```
+
+  Then close and open the wizard again; the line turns green.
 - **Back**: when the image does not return in 20 s, the robot resets the camera driver by itself
   and waits up to 40 s more. Only then does it report that the camera did not come back.
 - The camera's firmware cannot try a calibration out before saving it: a new calibration only
@@ -142,6 +158,8 @@ stream and writes nothing — a quick way to see that the handover works on this
 - **"After the pause the camera kept reconnecting on USB"** — the camera was given back; wait a
   minute (the line *The camera is stable on USB* turns green) and try again. If it repeats,
   check the USB cable and connector of the camera.
+- **"After the pause the camera never appeared as /dev/video"** — the camera driver is
+  missing; step 1 of the wizard (line *… through /dev/video*) says why and how to fix it.
 - **"The camera could not be used for the calibration"** — the small *Detail* line says what
   the camera library reported; nothing was written. **Test camera handover** shows which step
   fails.
