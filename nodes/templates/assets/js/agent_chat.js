@@ -5838,6 +5838,26 @@
        the report's "POŽADAVKY NA JÁDRO"), so this reads whatever exists —
        state.panic first, then /api/panic — and stays silent otherwise. */
     var panicEl = null, barsEl = null, panicSeen = null, panicProbe = true;
+    var panicTxtEl = null, panicBtnEl = null;
+
+    /* 25. 10. 2026 (mise #253): the latch kept the robot outside because
+       nothing on screen said how to let go.  The banner carries the way out —
+       one tap posts `/stop pokracuj` into the chat as the owner, so the
+       answer lands in the conversation like any other.  The latch is still
+       the human's to lift: the button only sends his words. */
+    function releasePanic(ev) {
+        if (ev) { ev.stopPropagation(); }
+        if (!panicBtnEl || panicBtnEl.disabled) { return; }
+        var btn = panicBtnEl;
+        btn.disabled = true;
+        try {
+            submitText('/stop pokracuj');      // the chat bubble + its answer
+        } catch (e) {
+            api('/api/task', {body: {text: '/stop pokracuj'}}).catch(function () {});
+        }
+        setTimeout(pollPanic, 1500);
+        setTimeout(function () { btn.disabled = false; }, 6000);
+    }
 
     function paintPanic() {
         if (!panicEl) { return; }
@@ -5845,6 +5865,7 @@
         if (!on) {
             panicEl.style.display = 'none';
             panicEl.textContent = '';
+            panicTxtEl = panicBtnEl = null;
             layoutBars();
             return;
         }
@@ -5852,7 +5873,21 @@
         var when = panicSeen.at
             ? ' · ' + _t('ajob.rel.ago', {t: shortAge(Date.now() / 1000 - panicSeen.at)}) : '';
         var txt = _t('agent.panic.text', {by: by, when: when});
-        if (panicEl.textContent !== txt) { panicEl.textContent = txt; }
+        if (!panicTxtEl || !panicBtnEl) {
+            panicEl.textContent = '';
+            panicTxtEl = document.createElement('span');
+            panicTxtEl.className = 'vs-txt';
+            panicEl.appendChild(panicTxtEl);
+            panicBtnEl = document.createElement('button');
+            panicBtnEl.type = 'button';
+            panicBtnEl.className = 'vs-btn';
+            panicBtnEl.textContent = _t('agent.panic.release');
+            panicBtnEl.title = _t('agent.panic.release_tip');
+            panicBtnEl.addEventListener('click', releasePanic);
+            panicEl.appendChild(panicBtnEl);
+        }
+        if (panicTxtEl.textContent !== txt) { panicTxtEl.textContent = txt; }
+        panicEl.title = txt;
         panicEl.style.display = '';
         layoutBars();
     }

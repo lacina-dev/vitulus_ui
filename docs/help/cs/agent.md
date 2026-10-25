@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a zámek doku.
 ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-zámek-doku, agent/models#modely, needs#čeká-na-tebe]
 related: [safety, dock, support]
-keywords: [plán agenta, plan agenta, plán na mapě, skica, souřadnice, nejvzdálenější bod, kolem zóny, objeď zónu, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
+keywords: [stop odvolávám, zruš stop, zrušit stop, zastav, plán agenta, plan agenta, plán na mapě, skica, souřadnice, nejvzdálenější bod, kolem zóny, objeď zónu, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
 ---
 # Agent Vitulus
 
@@ -87,6 +87,7 @@ vlastní akci.
 | Napíšeš | Co se stane |
 |---|---|
 | `zruš to`, `přestaň`, `konec`, `nech toho`, `zruš misi` | zruší misi hned: běžící krok dostane brzdu (*dock.stop*, zrušení trasy / cíle, zastavení přímé jízdy nebo programu sekání) a supervisor robota zastaví |
+| `zastav`, `stop`, `stůj` | totéž — **zastaví tuhle misi** (brzda + zrušení) a řekne to jednou větou; agent se **nezamkne**, další pokyn (*vrať se do doku*) udělá hned a *pokračuj* na zastavenou misi naváže |
 | `zruš to a vrať se do doku`, `jeď domů`, `jeď rovnou do doku` | zabrzdí krok, zbytek plánu zahodí a zadokuje; mise skončí jako zrušená s robotem v doku |
 | `zruš sekání a jeď na TEST` | zruší misi a zbytek věty vezme jako nové zadání |
 | cokoli jiného (*najeď na bod UNDOCK a počkej tam na GPS, pak pokračuj*, *čekáš na špatném místě*, *přeskoč čekání*, *co děláš?*) | přečte to model s kontextem mise (zadání, hotové kroky, na co teď čeká, živý stav, akce, které smí použít) a buď odpoví, nebo krok zabrzdí a **vloží kroky před zbytek plánu** — pak mise pokračuje |
@@ -148,7 +149,7 @@ dej go na bod TEST a počkej tam na signál
   robot **stojí**; je-li venku a do 5 minut nenapíšeš, vrátí se do doku. Otázka bez odpovědi do
   15 minut (venku) ho taky pošle domů. Člověk u ovládání vždy vyhrává. Dokud platí **STOP**,
   operátor nikam nejede, ani domů: čeká dál na tvoji odpověď, a když nepřijde, jednou řekne, že
-  platí STOP a jak ho zrušit (*/stop pokracuj*). *Pokračuj #N* naváže na misi operátora v tomtéž
+  platí STOP a jak ho zrušit (*stop odvolávám*). *Pokračuj #N* naváže na misi operátora v tomtéž
   rozhovoru — i na takovou, která se zastavila nebo skončila.
 - Každý krok se zapisuje (*~/.vitulus/agent/operator/*); karta mise ukazuje kroky, latenci modelu
   a spotřebovaná volání.
@@ -344,8 +345,29 @@ zastaví — supervisor programu pošle stop a nůž vypne. Nůž agent sám nik
 
 Červený **STOP** v hlavičce panelu agenta (dvě klepnutí) zastaví, co agent spustil — supervisor
 robot zastaví zhruba do 1,5 s. **Zůstane zajištěný**: agent odmítá všechny akce a pruh hlásí
-*STOP JE ZAJIŠTĚNÝ*, dokud nenapíšeš `/stop pokracuj`. Není to STOP robota — to je červený STOP
+*STOP JE ZAJIŠTĚNÝ*, dokud ho neuvolníš. Není to STOP robota — to je červený STOP
 vpravo nahoře ([Bezpečnost](safety.md#stop)).
+
+Co se zajistí a co ne:
+
+- **Zajistí se:** červený STOP, `/stop` a holé *stop* / *zastav*, když **žádná** mise neběží (jen
+  tak se dosáhne i na jednorázový manévr a práci na pozadí).
+- **Nezajistí se:** *zastav* / *stop* / *stůj* **během mise** zastaví jen tu misi (viz tabulka
+  výš) — agent dál udělá, co mu řekneš.
+
+Jak ho uvolnit — cokoli z tohohle, s diakritikou i bez:
+
+- ťukni **Zrušit STOP** v červeném pruhu;
+- napiš *stop odvolávám*, *zruš stop*, *odvolej stop* nebo `/stop pokracuj`; zbytek věty se hned
+  vykoná (*pokračuj, stop odvolávám* naváže na zastavenou misi, *zruš stop a vrať se do doku*
+  jede domů);
+- napiš *pokračuj* — když STOP platí, uvolní ho a naváže na to, co čekalo;
+- napiš *vrať se do doku* (*zadokuj*, *jeď domů*) — **návrat domů je vždy povolený**: STOP uvolní
+  a zadokuje. Supervisor, dokový zámek (hlídá jen výjezd) a převzetí ovladačem platí dál. Vlastní
+  návrat agenta (mise, které vypršelo čekání) STOP neuvolní — to je tvoje rozhodnutí.
+
+Dokud platí, každá odmítnutá akce to řekne jednou větou: *platí STOP z 23:41 — napiš
+„stop odvolávám" (nebo ťukni Zrušit STOP)*.
 
 ### FAULT supervisoru
 

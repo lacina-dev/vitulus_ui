@@ -222,7 +222,30 @@
     }
     /* one sentence: WHAT you are asked to do and WHY (ajob.attn.<code>);
        the core's own Czech sentence is the sub-line — it is evidence */
+    /* a latched STOP (mise #253): the card carries the way out — the same
+       words the owner would type, posted into the chat as him */
+    function stopBtn() {
+        var b = el('button', 'btn btn-outline-danger vt-needs-btn', t('agent.panic.release'));
+        b.type = 'button';
+        b.title = t('agent.panic.release_tip');
+        b.addEventListener('click', function () {
+            b.disabled = true;
+            try {
+                if (window.VAgent && VAgent.submitText) { VAgent.submitText('/stop pokracuj'); }
+                else if (window.VAgent && VAgent.api) {
+                    VAgent.api('/api/task', { body: { text: '/stop pokracuj' } });
+                }
+            } catch (e) { b.disabled = false; return; }
+            setTimeout(function () { b.disabled = false; }, 6000);
+        });
+        return b;
+    }
     function workCard(x) {
+        if (x.code === 'stop_latched') {
+            return agentAsk('err', t('needs.work.stop_latched'), sinceSec(x.since),
+                t('ajob.attn.stop_latched'), t('needs.agent.why_stop'), x.why || null, null,
+                stopBtn(), t('needs.agent.next_stop'));
+        }
         var key = 'needs.work.' + x.code, head = t(key);
         if (head === key) { head = t('needs.work.other'); }
         var main = t('ajob.attn.' + x.code, { ref: x.ref });

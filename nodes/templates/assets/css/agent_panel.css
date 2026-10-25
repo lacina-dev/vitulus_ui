@@ -1870,6 +1870,28 @@ details.vagent-group > div { display: flex; flex-direction: column; gap: 6px; }
     text-align: center;
 }
 @media (pointer: coarse) { #vagent_panic { min-height: 32px; font-size: 13px; } }
+/* The way out sits in the banner itself (mise #253): text shrinks with an
+   ellipsis (full text is the tooltip), the button never does. */
+#vagent_panic .vs-txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#vagent_panic .vs-btn {
+    flex: 0 0 auto;
+    border: 1px solid #fff;
+    background: transparent;
+    color: #fff;
+    border-radius: 5px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+#vagent_panic .vs-btn:hover { background: rgba(255, 255, 255, .18); }
+#vagent_panic .vs-btn:disabled { opacity: .55; cursor: default; }
+@media (pointer: coarse) { #vagent_panic .vs-btn { min-height: 28px; } }
+html body.vt-frame #vagent_bars #vagent_panic:not([style*="none"]) {
+    display: flex; align-items: center; gap: 6px; max-width: 300px;
+}
+html body.vt-frame.vt-h-ph #vagent_bars #vagent_panic:not([style*="none"]) { max-width: 230px; }
 #vagent_strip {
     display: flex;
     align-items: center;

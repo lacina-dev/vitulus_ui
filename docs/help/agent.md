@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [agent's plan, plan on the map, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
+keywords: [agent's plan, plan on the map, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
 ---
 # Vitulus agent
 
@@ -90,6 +90,7 @@ its own next to it.
 | You write | What happens |
 |---|---|
 | `zruš to`, `přestaň`, `konec`, `nech toho`, `zruš misi` | cancels the mission at once: the running step gets a brake (*dock.stop*, cancel of the route / goal, stop of a direct drive or a mowing program) and the supervisor stops the robot |
+| `zastav`, `stop`, `stůj` | the same — **stops this mission** (brake + cancel) in one sentence; the agent is **not** locked, your next order (*vrať se do doku*) runs at once, and *pokračuj* carries the stopped mission on |
 | `zruš to a vrať se do doku`, `jeď domů`, `jeď rovnou do doku` | brakes the step, drops the rest of the plan and docks; the mission ends as cancelled with the robot in the dock |
 | `zruš sekání a jeď na TEST` | cancels the mission and takes the rest of the sentence as a new task |
 | anything else (*najeď na bod UNDOCK a počkej tam na GPS, pak pokračuj*, *čekáš na špatném místě*, *přeskoč čekání*, *co děláš?*) | a model reads it with the mission's context (task, finished steps, what it waits for now, live state, the actions it may use) and either answers, or brakes the step and **inserts steps before the rest of the plan** — then the mission carries on |
@@ -156,7 +157,7 @@ dej go na bod TEST a počkej tam na signál
   drives back to the dock. A question you do not answer within 15 minutes (outside) also sends it
   home. A person on the controls always wins. While a **STOP** stands the operator does not drive
   anywhere, not even home: it keeps waiting for your answer and, if none comes, says once that the
-  STOP is on and how to release it (*/stop pokracuj*). *Pokračuj #N* carries on an operator
+  STOP is on and how to release it (*stop odvolávám*). *Pokračuj #N* carries on an operator
   mission in the same conversation — also one that stopped or ended.
 - Every step is recorded (*~/.vitulus/agent/operator/*); the mission card shows the steps, the
   model's latency and the tool calls used.
@@ -357,8 +358,30 @@ never switches the blade on by itself.
 
 The red **STOP** in the agent panel's head (two taps) stops what the agent started — the
 supervisor stops the robot within about 1.5 s. It **latches**: the agent refuses all actions,
-and a banner says *STOP IS LATCHED*, until you write `/stop pokracuj`. It is not the robot STOP —
+and a banner says *STOP IS LATCHED*, until you release it. It is not the robot STOP —
 that is the big red STOP top right ([Safety](safety.md#stop)).
+
+What latches and what does not:
+
+- **Latches:** the red STOP, `/stop`, and a bare *stop* / *zastav* typed while **no** mission
+  runs (that is the only way to reach a one-off manoeuvre and background work).
+- **Does not latch:** *zastav* / *stop* / *stůj* **during a mission** stops just that mission
+  (see the table above) — the agent stays free to do what you say next.
+
+How to release it — any of these, with or without diacritics:
+
+- tap **Release STOP** in the red banner;
+- write *stop odvolávám*, *zruš stop*, *odvolej stop* or `/stop pokracuj`; the rest of the
+  sentence runs right away (*pokračuj, stop odvolávám* carries on the stopped mission, *zruš stop
+  a vrať se do doku* drives home);
+- write *pokračuj* — while the STOP stands it releases it and carries on what waited;
+- write *vrať se do doku* (*zadokuj*, *jeď domů*) — **going home is always allowed**: it releases
+  the STOP and docks. The supervisor, the dock lock (it guards only leaving the dock) and taking
+  over with the gamepad still apply. The agent's own return home (a mission whose wait ran out)
+  does *not* release it — that is your decision.
+
+While it stands, every refused action says so in one sentence: *platí STOP z 23:41 — napiš
+„stop odvolávám" (nebo ťukni Zrušit STOP)*.
 
 ### Supervisor FAULT
 
