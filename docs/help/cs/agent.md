@@ -79,6 +79,26 @@ robot už venku); není-li supervisor ještě READY, rozjede se sama, jakmile bu
 která čeká na tebe, má jedno tlačítko **Pokračovat** (pošle `pokračuj #N`); karta mise má
 **Pokračovat** a **Zrušit**.
 
+### Během mise: zrušit, vstoupit, zeptat se
+
+Když mise běží (nebo čeká), **každá zpráva z chatu patří do ní** — žádná vedle ní nespouští
+vlastní akci.
+
+| Napíšeš | Co se stane |
+|---|---|
+| `zruš to`, `přestaň`, `konec`, `nech toho`, `zruš misi` | zruší misi hned: běžící krok dostane brzdu (*dock.stop*, zrušení trasy / cíle, zastavení přímé jízdy nebo programu sekání) a supervisor robota zastaví |
+| `zruš to a vrať se do doku`, `jeď domů`, `jeď rovnou do doku` | zabrzdí krok, zbytek plánu zahodí a zadokuje; mise skončí jako zrušená s robotem v doku |
+| `zruš sekání a jeď na TEST` | zruší misi a zbytek věty vezme jako nové zadání |
+| cokoli jiného (*najeď na bod UNDOCK a počkej tam na GPS, pak pokračuj*, *čekáš na špatném místě*, *přeskoč čekání*, *co děláš?*) | přečte to model s kontextem mise (zadání, hotové kroky, na co teď čeká, živý stav, akce, které smí použít) a buď odpoví, nebo krok zabrzdí a **vloží kroky před zbytek plánu** — pak mise pokračuje |
+
+Zrušení a *domů* jsou pevná slova a fungují, i když žádný model neodpovídá. Vložené kroky se
+kontrolují stejně jako plán (registr, jména waypointů, žádný nůž); když model neodpoví nebo jeho
+kroky kontrolou neprojdou, mise jede dál beze změny a chat to řekne. Když krok dlouho čeká uvnitř
+robota (po vyjetí čeká dock_smach na RTK u bodu *UNDOCK*), mise po zhruba minutě jednou řekne, na
+co čeká, a pak nejvýš každé 3 minuty. Mimo misi je zpráva, která robotovi říká, ať se hýbe
+(*jeď*, *dojeď*, *vrať se*, *otoč se*, *posekej*…), vždycky mise — *dojeď do zóny A* projede
+trasu té zóny (*ZONA_A_Path*) — nikdy jen odpověď.
+
 ## Když krok selže
 
 Agent to po prvním nezdaru nevzdá. **Změří, co se pokazilo**, a sám zkusí vhodnou jinou cestu;

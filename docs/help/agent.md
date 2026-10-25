@@ -82,6 +82,27 @@ skipped when the robot is already out); if the supervisor is not READY yet, it s
 the moment it is. A mission report that waits for you has one button, **Continue** (sends
 `pokračuj #N`); the mission card has **Resume** and **Cancel**.
 
+### During a mission: cancel, step in, ask
+
+While a mission runs (or waits), **every chat message belongs to it** — none starts an action of
+its own next to it.
+
+| You write | What happens |
+|---|---|
+| `zruš to`, `přestaň`, `konec`, `nech toho`, `zruš misi` | cancels the mission at once: the running step gets a brake (*dock.stop*, cancel of the route / goal, stop of a direct drive or a mowing program) and the supervisor stops the robot |
+| `zruš to a vrať se do doku`, `jeď domů`, `jeď rovnou do doku` | brakes the step, drops the rest of the plan and docks; the mission ends as cancelled with the robot in the dock |
+| `zruš sekání a jeď na TEST` | cancels the mission and takes the rest of the sentence as a new task |
+| anything else (*najeď na bod UNDOCK a počkej tam na GPS, pak pokračuj*, *čekáš na špatném místě*, *přeskoč čekání*, *co děláš?*) | a model reads it with the mission's context (task, finished steps, what it waits for now, live state, the actions it may use) and either answers, or brakes the step and **inserts steps before the rest of the plan** — then the mission carries on |
+
+Cancel and *go home* are fixed words and work even with every model down. Inserted steps are
+checked exactly like a plan (registry, waypoint names, no blade); when the model does not answer
+or its steps fail the check, the mission carries on unchanged and the chat says so. When a step
+waits inside the robot for long (after the undock dock_smach waits for RTK at the point
+*UNDOCK*), the mission says once after about a minute what it waits for, and at most every
+3 minutes after that. Outside a mission, a message that tells the robot to move (*jeď*, *dojeď*,
+*vrať se*, *otoč se*, *posekej*…) is always a mission — *dojeď do zóny A* drives the route of that
+zone (*ZONA_A_Path*) — never just a reply.
+
 ## When a step fails
 
 The agent does not give up after the first failure. It **measures what went wrong** and tries a
