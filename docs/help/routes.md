@@ -29,10 +29,12 @@ its obstacle memory and plans again before it gives up.
 
 ## Speed
 
-![The drive deck](img/shot-joystick.webp "2 Slow / Mid / Fast in the drive deck (Joystick in the bottom bar)")
+![The drive deck](img/shot-joystick.webp "1 the joystick's top speed · 2 − / + and the bars · 3 Slow / Mid / Fast = the robot's mode")
 
-**Drive deck › Speed › Slow / Mid / Fast** (Joystick in the bottom bar) sets the driving speed of
-navigation and of the joystick; the lit button is what the robot reports. It is remembered on the robot across restarts. Navigation:
+The robot has three **speed modes** — Slow, Mid, Fast (`/navi_manager/speed`). The mode sets the
+speed of navigation (routes, points, programs) and is remembered on the robot across restarts.
+You switch it in the **drive deck** (Joystick in the bottom bar): **Slow / Mid / Fast** under the
+speed bars — the lit one is the mode the robot reports, a click switches it. Navigation:
 
 | | forward | reverse | turn |
 |---|---|---|---|
@@ -40,8 +42,17 @@ navigation and of the joystick; the lit button is what the robot reports. It is 
 | Mid | 0.4 m/s | 0.25 m/s | 0.9 rad/s |
 | Fast | 0.75 m/s | 0.5 m/s | 1.5 rad/s |
 
-The joystick drives with the same forward speed (also in reverse) and turns at 0.6 / 1.3 /
-1.5 rad/s.
+The joystick has 7 finer steps inside the modes (the bars; the top line shows the step in m/s):
+
+| step | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|
+| top speed (m/s, also in reverse) | 0.10 | 0.18 | **0.25** | 0.32 | **0.40** | 0.55 | **0.75** |
+| turn (rad/s) | 0.4 | 0.5 | 0.6 | 1.0 | 1.3 | 1.4 | 1.5 |
+| mode | Slow | Slow | Slow | Mid | Mid | Fast | Fast |
+
+The **bold** step is the mode's own (= its navigation speed); it is used when the mode is switched
+from outside (a program, another browser). The wheels themselves are limited to 1.4 m/s and
+1.75 rad/s (`mobile_base_controller`); the UI never asks for more than 0.75 m/s.
 
 ## Points
 

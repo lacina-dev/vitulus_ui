@@ -158,22 +158,35 @@ only while a layer is on and the camera is shown; with every layer off it does n
 
 **Joystick** in the bottom bar shows the **drive deck**: a panel exactly as wide as the
 right panel, in the same column at the right edge, standing on the bottom bar (on a phone
-held upright a band across the screen on the bottom bar). The controls are part of the stick:
+held upright a band across the screen on the bottom bar). Every control says what it is:
 
-![The drive deck with numbered markers](img/shot-joystick.webp "1 the stick (the ring = speed cap and state) · 2 speed arcs Slow / Mid / Fast on the rim · 3 the motor key · 4 the keyboard key")
+![The drive deck with numbered markers](img/shot-joystick.webp "1 the stick's top speed · 2 − / + and the speed bars · 3 Slow / Mid / Fast = the robot's mode · 4 the stick · 5 Keys · 6 Motors · 7 ? how it works")
 
-1. **The stick** — forward / back = speed, sideways = turn. The ring's colour is the state:
+1. **Speed** (top line) — the joystick's top speed right now in m/s: at the rim of the stick the
+   robot goes this fast (forward and back).
+2. **− / + and the bars** — 7 steps from 0.10 to 0.75 m/s, the taller the bar the faster. Click or
+   tap a bar (or drag along them), use **− / +**, the mouse wheel over the bars, the arrows when the
+   bars have the focus, or **+ / −** on the keyboard while **Keys** is on.
+3. **Slow / Mid / Fast** under the bars — the robot's speed modes (`/navi_manager/speed`); navigation
+   drives by them too ([Speed](routes.md#speed)). The lit one is the mode the **robot reports**; each
+   covers its own bars; a click = that mode at its own speed. A step **inside** the current mode changes only
+   the joystick (at once, nothing is sent). A step of **another** mode first asks the robot for
+   that mode: it blinks until the robot confirms it (and then navigation drives at that mode's
+   speed too). The step is remembered in this browser; when the robot switches the mode itself (a
+   program, another browser) the deck follows it.
+4. **The stick** — forward / back = speed, sideways = turn. The ring's colour is the state:
    green = free, orange = someone else holds the robot (a program, docking, the agent or the
    gamepad; **Take over** appears), grey = motors off.
-2. **Slow / Mid / Fast** — the three arcs on the top of the rim are the robot's speed mode
-   for the joystick and navigation ([Speed](routes.md#speed)). The lit arc is what the
-   **robot reports**; click another one and it blinks until the robot confirms it. Hover: the
-   joystick's top speed (`max … m/s`).
-3. **The motor key** (bottom right, a gear with a bolt) — the drive motors, the same as Settings › Motors: green = on, orange =
+5. **Keys** — keyboard driving on / off (**W A S D** or the arrows, **Shift** = half speed,
+   **+ / −** = speed; never while typing in a field); lit while it is on. Not shown on touch
+   screens.
+6. **Motors ON / OFF** — the drive motors, the same as Settings › Motors: green = on, orange =
    off, as the robot reports; a click switches them and blinks until confirmed. The page never
-   switches the motors on by itself.
-4. **The keyboard key** (bottom left) — keyboard driving on / off (**W A S D** or the arrows, **Shift** =
-   half speed, never while typing in a field). Not shown on touch screens.
+   switches the motors on by itself (they are off after every start).
+7. **?** — a short card how to drive. It also shows by itself the first time the deck opens in a
+   browser; **Got it** hides it.
+
+Under the buttons one line says what to do now (motors off, who holds the robot, how to drive).
 
 How the stick behaves:
 
@@ -193,12 +206,13 @@ How the stick behaves:
   page stalls (a command more than 250 ms late) it stops by itself.
 - One finger drives; a second finger on the stick is ignored.
 - On a phone held upright the stick is on the right (thumb), speed and motors on its left with
-  one line of hint under them; an open panel (sheet) stands on the deck.
+  the hint line under them; an open panel (sheet) stands on the deck. On a landscape phone the
+  deck is lower: the Slow / Mid / Fast line and the hint are left out (the mode is then framed in
+  the top line).
 
-**The big STOP** (PC, tablet, landscape phone) stands at the foot of the right column, always
-visible — with or without the joystick — and never covered by a panel. It is the same full stop
-as the bottom bar's STOP ([Safety](safety.md#stop)); it also lets go of the stick at once. On a
-phone held upright the bottom bar's STOP is the big one (56 px, bottom left under the thumb).
+**The big STOP** — the red mushroom in the bottom left corner (on the bottom bar, on a phone held
+upright in the bar) — is always visible, with or without the joystick, and never covered by a
+panel. It is the full stop ([Safety](safety.md#stop)); it also lets go of the stick at once.
 
 > [!WARNING]
 > Pushing the joystick takes over from the software: it **cancels** the navigation goal, docking
@@ -227,4 +241,4 @@ The full log has a toolbar:
 | **Alt+P** | show / hide the left panel |
 | **Esc** | close the help; hide the left panel (not while typing, a dialog or the full log is open) |
 | **Alt+C** | camera small ↔ large |
-| **W A S D**, arrows | drive (with **Keys** switched on in the drive deck), **Shift** = half speed |
+| **W A S D**, arrows | drive (with **Keys** switched on in the drive deck), **Shift** = half speed, **+ / −** = speed |

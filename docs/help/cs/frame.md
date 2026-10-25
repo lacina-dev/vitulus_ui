@@ -157,21 +157,34 @@ se všemi vrstvami vypnutými nedělá nic.
 
 **Joystick** ve spodní liště ukáže **panel jízdy**: panel přesně tak široký jako pravý
 panel, ve stejném sloupci u pravé hrany, stojí na spodní liště (na telefonu na výšku pás přes
-celou šířku na spodní liště). Ovládání je součástí páčky:
+celou šířku na spodní liště). Každý ovládací prvek říká, co je:
 
-![Panel jízdy s očíslovanými značkami](../img/shot-joystick.webp "1 páčka (prstenec = strop rychlosti a stav) · 2 oblouky rychlosti Slow / Mid / Fast na obvodu · 3 klávesa motorů · 4 klávesa klávesnice")
+![Panel jízdy s očíslovanými značkami](../img/shot-joystick.webp "1 nejvyšší rychlost páčky · 2 − / + a sloupce rychlosti · 3 Pomalu / Středně / Rychle = režim robota · 4 páčka · 5 Klávesy · 6 Motory · 7 ? jak to funguje")
 
-1. **Páčka** — dopředu / dozadu = rychlost, do stran = zatáčení. Barva prstence je stav:
+1. **Rychlost** (horní řádek) — nejvyšší rychlost joysticku právě teď v m/s: na okraji páčky jede
+   robot takhle rychle (vpřed i vzad).
+2. **− / + a sloupce** — 7 kroků od 0,10 do 0,75 m/s, čím vyšší sloupec, tím rychleji. Klikni nebo
+   klepni na sloupec (nebo po nich táhni), použij **− / +**, kolečko myši nad sloupci, šipky, když
+   mají sloupce fokus, nebo **+ / −** na klávesnici, když jsou zapnuté **Klávesy**.
+3. **Pomalu / Středně / Rychle** pod sloupci — režimy rychlosti robota (`/navi_manager/speed`);
+   podle nich jede i navigace ([Rychlost](routes.md#rychlost)). Rozsvícený je režim, který **hlásí
+   robot**; každý pokrývá své sloupce; klik = ten režim jeho vlastní rychlostí. Krok **uvnitř** současného režimu změní
+   jen joystick (hned, nic se neposílá). Krok **jiného** režimu nejdřív požádá robota o ten režim:
+   bliká, dokud ho robot nepotvrdí (a pak tou rychlostí jezdí i navigace). Krok si pamatuje tento
+   prohlížeč; když režim přepne robot sám (program, jiný prohlížeč), panel ho následuje.
+4. **Páčka** — dopředu / dozadu = rychlost, do stran = zatáčení. Barva prstence je stav:
    zelená = volno, oranžová = robota drží někdo jiný (program, dokování, agent nebo gamepad;
    objeví se **Převzít**), šedá = motory vypnuté.
-2. **Slow / Mid / Fast** — tři oblouky nahoře na obvodu jsou režim rychlosti robota pro
-   joystick i navigaci ([Rychlost](routes.md#rychlost)). Svítí ten, co **hlásí robot**; klepnutí
-   na jiný bliká, dokud to robot nepotvrdí. Najetí ukáže nejvyšší rychlost páčky (`max … m/s`).
-3. **Klávesa motorů** (vpravo dole, ozubené kolo s bleskem) — pojezdové motory, totéž co Nastavení › Motory: zelená = zapnuté,
-   oranžová = vypnuté, podle robota; klepnutí přepne a bliká do potvrzení. Stránka motory
-   sama nikdy nezapne.
-4. **Klávesa klávesnice** (vlevo dole) — jízda klávesnicí zap / vyp (**W A S D** nebo šipky, **Shift** =
-   poloviční rychlost, nikdy při psaní do pole). Na dotykových obrazovkách se neukazuje.
+5. **Klávesy** — jízda klávesnicí zap / vyp (**W A S D** nebo šipky, **Shift** = poloviční
+   rychlost, **+ / −** = rychlost; nikdy při psaní do pole); svítí, když je zapnutá. Na dotykových
+   obrazovkách se neukazuje.
+6. **Motory ZAP / VYP** — pojezdové motory, totéž co Nastavení › Motory: zelená = zapnuté,
+   oranžová = vypnuté, podle robota; klepnutí přepne a bliká do potvrzení. Stránka motory sama
+   nikdy nezapne (po každém startu jsou vypnuté).
+7. **?** — krátká karta, jak řídit. Ukáže se i sama, když se panel jízdy v prohlížeči otevře
+   poprvé; **Rozumím** ji schová.
+
+Pod tlačítky jeden řádek říká, co teď dělat (motory vypnuté, kdo drží robota, jak jet).
 
 Jak se páčka chová:
 
@@ -190,13 +203,13 @@ Jak se páčka chová:
   20 povelů za sekundu, jinak nic; když se stránka zasekne (povel o víc než 250 ms pozdě), sama
   zastaví.
 - Řídí jeden prst; druhý prst na páčce se nevnímá.
-- Na telefonu na výšku je páčka vpravo (palec), rychlost a motory vlevo od ní a pod nimi jeden
-  řádek nápovědy; otevřený panel (sheet) stojí na panelu jízdy.
+- Na telefonu na výšku je páčka vpravo (palec), rychlost a motory vlevo od ní a pod nimi řádek
+  nápovědy; otevřený panel (sheet) stojí na panelu jízdy. Na telefonu na šířku je panel nižší:
+  řádek Pomalu / Středně / Rychle a nápověda se vynechají (režim je pak v rámečku nahoře).
 
-**Velký STOP** (PC, tablet, telefon na šířku) stojí u paty pravého sloupce, vždy vidět — s
-joystickem i bez něj — a žádný panel ho nepřekryje. Je to stejné úplné zastavení jako STOP ve
-spodní liště ([Bezpečnost](safety.md#stop)); navíc hned pustí páčku. Na telefonu na výšku je tím
-velkým STOP ten ve spodní liště (56 px, vlevo dole pod palcem).
+**Velký STOP** — červený hřib v levém dolním rohu (na spodní liště, na telefonu na výšku v liště)
+— je vždy vidět, s joystickem i bez něj, a žádný panel ho nepřekryje. Je to úplné zastavení
+([Bezpečnost](safety.md#stop)); navíc hned pustí páčku.
 
 > [!WARNING]
 > Pohyb joystickem převezme řízení od softwaru: **zruší** cíl navigace, dokování i běžící
@@ -225,4 +238,4 @@ Rozbalený log má lištu nástrojů:
 | **Alt+P** | zobrazit / skrýt levý panel |
 | **Esc** | zavřít nápovědu; skrýt levý panel (ne při psaní, v dialogu ani s rozbaleným logem) |
 | **Alt+C** | kamera malá ↔ velká |
-| **W A S D**, šipky | jízda (se zapnutými **Klávesami** v panelu jízdy), **Shift** = poloviční rychlost |
+| **W A S D**, šipky | jízda (se zapnutými **Klávesami** v panelu jízdy), **Shift** = poloviční rychlost, **+ / −** = rychlost |

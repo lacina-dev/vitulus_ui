@@ -248,7 +248,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         border-bottom: 0;
         border-radius: var(--vt-r-panel) var(--vt-r-panel) 0 0;
         box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.55);
-        transform: translateY(calc(100% + 80px));
+        /* closed = fully below the screen, also when it stands on the drive
+           band (--vt-frame-bottom grows by the band; +80 px alone let the
+           closed sheet's head cover the band) */
+        transform: translateY(calc(100% + var(--vt-frame-bottom, 40px) + 80px));
     }
     #ui_drawer.open { transform: translateY(0); }
     #ui_drawer.full {
@@ -2012,11 +2015,11 @@ body.vt-frame.vt-col-on:not(.vt-m-sheet) #vt_c_jb {
     bottom: var(--vt-frame-ledge, 30px);
     background: radial-gradient(circle at 0 0, transparent calc(var(--vt-frame-r) - 0.6px), var(--vt-frame-bg) var(--vt-frame-r));
 }
-:root { --vt-joy-deck: 162px; }
-@media (pointer: coarse) { :root { --vt-joy-deck: 162px; } }
+:root { --vt-joy-deck: 150px; }
+@media (pointer: coarse) { :root { --vt-joy-deck: 150px; } }
 /* low windows (landscape phone): a lower deck and STOP */
 @media (max-height: 560px) {
-    :root { --vt-joy-deck: 110px; }
+    :root { --vt-joy-deck: 100px; }
 }
 
 /* phone portrait: the deck = a band across the screen (it is as wide as the
@@ -2032,12 +2035,20 @@ html body.vt-frame.vt-m-sheet.vt-joy-on #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-j
     box-shadow: inset 0 1px 0 rgba(var(--vt-ring-rgb), 0.45) !important;
 }
 body.vt-frame.vt-joy-on.vt-joy-band #vt_c_jb { display: none; }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy.vt-joy-deck:not([style*="display: none"]) { display: flex !important; flex-direction: column; align-items: center; padding: 18px 8px 8px; }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint {
-    grid-area: hint; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    color: var(--vt-muted); font-size: 10.5px; line-height: 1.3; min-height: 2.6em;
+/* 2026-10-25: the band = the controls on the left (speed, motors, hint),
+   the stick on the right under the thumb */
+body.vt-frame.vt-m-sheet #joy_view.vt-joy.vt-joy-deck:not([style*="display: none"]) {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "spd pad" "ctl pad" "hint pad";
+    grid-template-rows: auto auto 1fr; column-gap: 12px; align-items: start;
+    padding: 8px 10px 8px;
 }
-body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint[data-tone="warn"] { color: var(--vt-warn); }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-spdbox { grid-area: spd; margin-bottom: 0; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-padbox { grid-area: pad; align-self: center; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-ctlrow { grid-area: ctl; }
+body.vt-frame.vt-m-sheet #joy_view.vt-joy-deck .vt-joy-hint {
+    grid-area: hint; text-align: left; font-size: 10.5px; min-height: 2.6em;
+}
 /* the sheet stands on the band (not the stick floating above the sheet) */
 html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt-joy-deck.vt-joy-deck.vt-joy-deck {
     bottom: var(--vt-frame-joy-b, 30px) !important;
