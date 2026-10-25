@@ -1025,6 +1025,11 @@ if __name__ == '__main__':
             # sentences the field itself prepared goes into the issue's thread
             # (the dashboard checks the text is one it offers now)
             "ask": "/api/thread/",
+            # ui-doors (Robert 2026-10-26): approve / dismiss a watcher action or a
+            # release - the dashboard binds the token to THAT card's prompt sha and
+            # refuses any action with robot motion
+            "approve": "/api/watch/approve",
+            "dismiss": "/api/watch/dismiss",
         }
         UI_ACTIONS_LOG = os.path.expanduser("~/.vitulus/ui_actions.jsonl")
         UI_KEY_FILE = os.path.expanduser(os.environ.get(
@@ -1067,6 +1072,16 @@ if __name__ == '__main__':
                 if not text or len(text) > 500 or _re.search(r"[\x00-\x08\x0b-\x1f]", text):
                     return None, "text: the prepared sentence (1-500 chars)"
                 return {"text": text}, "thread:" + thread
+            if action in ("approve", "dismiss"):
+                aid = str(b.get("id") or "")
+                if not _re.match(r"^[0-9a-f]{12}$", aid):
+                    return None, "action id (12 hex) expected"
+                if action == "dismiss":
+                    return {"id": aid}, "action:" + aid
+                psha = str(b.get("prompt_sha256") or "")
+                if not _re.match(r"^[0-9a-f]{64}$", psha):
+                    return None, "prompt_sha256 of the card expected"
+                return {"id": aid, "prompt_sha256": psha}, "action:" + aid
             if action in ("finding-accept", "finding-dismiss"):
                 fid = str(b.get("id") or "")
                 if not _re.match(r"^[0-9a-f]{12}$", fid):
@@ -1183,49 +1198,57 @@ if __name__ == '__main__':
                         pass
             except OSError:
                 pass
-            resp = jsonify({"ok": True, "writes": FIELD_WRITES, "ask": _field_ask_door(),
-                            "actions": rows})
+            doors = _field_doors()
+            resp = jsonify({"ok": True, "writes": FIELD_WRITES, "ask": doors.get("ask"),
+                            "approve": doors.get("approve"), "actions": rows})
             resp.headers["Cache-Control"] = "no-store"
             return resp
 
-        # Does the dashboard take "ask" (a sentence the field prepared, into a
-        # thread) from the robot UI? Not a version question: the door came on
-        # a side branch of kit 0.9.52 and main's 0.9.52 has none, so a button
-        # gated on the version armed and then failed ("not an action of the
-        # robot UI"). The webnode asks the dashboard instead, once per 10 min,
-        # with a token request it refuses EITHER way - no author: 400 when the
-        # door knows /api/thread/, 403 "not an action" when it does not.
-        # Nothing is issued or written. None = not known yet / no key / down.
-        FIELD_ASK_TTL_S = 600.0
-        _field_ask = {"t": 0.0, "v": None, "busy": False}
+        # Which doors of the robot UI does the dashboard have? Not a version
+        # question: "ask" (a sentence the field prepared, into a thread) came on a
+        # side branch of kit 0.9.52 and main's 0.9.52 had none, so a button gated
+        # on the version armed and then failed ("not an action of the robot UI");
+        # "approve" (watcher actions, releases) came with ui-doors. The webnode
+        # asks the dashboard instead, once per 10 min, with a token request it
+        # refuses EITHER way - no author: 400 when the door knows the action, 403
+        # "not an action" when it does not. Nothing is issued or written.
+        # None = not known yet / no key / dashboard down.
+        FIELD_DOOR_TTL_S = 600.0
+        FIELD_DOORS = {"ask": "/api/thread/general", "approve": "/api/watch/approve"}
+        _field_door = {"t": 0.0, "v": {}, "busy": False}
 
-        def _field_ask_probe():
-            v = None
+        def _field_doors_probe():
+            v = {}
             try:
                 with open(UI_KEY_FILE) as f:
                     key = f.read().strip()
-                st, got = _dash_post("/api/ui/token", json.dumps(
-                    {"action": "/api/thread/general", "author": ""}).encode("utf-8"),
-                    {"X-Vitulus-UI-Key": key})
-                err = str((got or {}).get("error") or "")
-                if st == 400:
-                    v = True
-                elif st == 403 and "not an action" in err:
-                    v = False
-            except Exception:
-                v = None
+            except OSError:
+                key = None
+            for name, path in FIELD_DOORS.items():
+                if key is None:
+                    v[name] = None
+                    continue
+                try:
+                    st, got = _dash_post("/api/ui/token", json.dumps(
+                        {"action": path, "author": ""}).encode("utf-8"),
+                        {"X-Vitulus-UI-Key": key})
+                    err = str((got or {}).get("error") or "")
+                    v[name] = True if st == 400 else (False if st == 403 and "not an action" in err else None)
+                except Exception:
+                    v[name] = None
             with _field_lock:
-                _field_ask.update(t=time.time(), v=v, busy=False)
+                _field_door.update(t=time.time(), v=v, busy=False)
 
-        def _field_ask_door():
+        def _field_doors():
             if not FIELD_WRITES:
-                return False
+                return {k: False for k in FIELD_DOORS}
             with _field_lock:
-                ttl = FIELD_ASK_TTL_S if _field_ask["v"] is not None else 60.0
-                if time.time() - _field_ask["t"] > ttl and not _field_ask["busy"]:
-                    _field_ask["busy"] = True
-                    threading.Thread(target=_field_ask_probe, daemon=True).start()
-                return _field_ask["v"]
+                known = _field_door["v"] and all(x is not None for x in _field_door["v"].values())
+                ttl = FIELD_DOOR_TTL_S if known else 60.0
+                if time.time() - _field_door["t"] > ttl and not _field_door["busy"]:
+                    _field_door["busy"] = True
+                    threading.Thread(target=_field_doors_probe, daemon=True).start()
+                return dict(_field_door["v"])
 
         # -----------------------------------------------------------------
         # Dock lock: the owner's click (Robert 2026-08-30: "Dokovy zamek muzu

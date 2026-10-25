@@ -530,13 +530,15 @@ dashboardu Podpory:
     volbu a agent ji provede. Možnost, která **hýbe robotem, nikdy není tlačítko** — ukáže kroky
     a dělá se u robota s rukou na STOP. **Proč doporučeno** a **Žádná nesedí, probrat s agentem**.
   - **Schválení** — **Co se změní · Koho se týká · Riziko**; u vydání i přesně co schvaluješ
-    (*13 změn …*) a seznam změn commit po commitu. Nález (*Povolit / Zakázat*) rozhodneš tady;
-    akce hlídače, vydání nebo sloučení má své pojistky na dashboardu: **Schválit nebo zamítnout
-    v Podpoře** otevře tu kartu.
+    (*13 změn …*) a seznam změn commit po commitu. **Schválit / Zamítnout** přímo tady — nález,
+    akci hlídače, vydání (dvě kliknutí, vázané přesně na tuhle kartu). Akci, která **hýbe
+    robotem**, nikdy: ta zůstává na dashboardu u člověka u robota (**Schválit nebo zamítnout
+    v Podpoře** otevře tu kartu; stejně tak s kitem fieldu, který schválení z UI robota ještě
+    nebere, a u sloučení nebo úkolu).
   - **Úkol s kroky** — **jeden krok po druhém**: *Udělej* a *Měl bys vidět*; **Hotovo** ukáže
     další krok (zařízení si pamatuje, kde jsi), poslední **Hotovo** to řekne fieldu; **Nejde**
-    otevře kartu na dashboardu, ať agent naváže; **Zpět**. Bez rozepsaných kroků **Začít
-    s agentem**.
+    (dvě kliknutí) pošle agentovi připravenou větu kroku (*Krok R1 nejde: …*) a agent naváže;
+    **Zpět**. Bez rozepsaných kroků **Začít s agentem**.
   - klidné poznámky (např. *Mac na tebe čeká i u #8*) — sbalené v *Pro informaci (N)*, nepočítají
     se.
 - **Agenti teď řeší** — co právě běží (agent opravuje #61 i s časem, hlídač čeká s restartem
@@ -550,5 +552,6 @@ jednou na zařízení); jde přes webový uzel robota do dashboardu s jednorázo
 kartu a text, který jsi viděl. Agentovi odsud jde poslat jen věta, kterou field sám připravil — a
 jen když ji kit fieldu z UI robota přijímá (webový uzel se dashboardu ptá každých 10 minut; jinak
 **Začít s agentem** a **probrat s agentem** otevřou issue na dashboardu) — a volba, která by pohnula
-robotem, se tady nikdy nenabízí. Schválení akce hlídače (např. vydání) zůstává na dashboardu:
-**Schválit nebo zamítnout v Podpoře**.
+robotem, se tady nikdy nenabízí. Akce hlídače s pohybem robota zůstává na dashboardu: **Schválit
+nebo zamítnout v Podpoře**. Texty fieldu jsou v jazyce UI (en / cs) — kit posílá oba; co agent
+napsal sám, zůstává, jak to napsal.

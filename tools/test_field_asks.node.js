@@ -189,6 +189,43 @@ const fail = lis[1].byClass('vt-ask-fail')[0];
 ok(fail && fail.tagName === 'A' && /#\/issue\/8$/.test(fail.href), 'steps: "Does not work" opens the dashboard card of #8');
 ok(lis[1].byClass('vt-ask-back').length === 1, 'steps: Back on the second step');
 
+/* ---------------------------------------------------------------- ui-doors */
+function setDoors(ask, approve) { hub['ui.actions'] = { ok: true, data: { ok: true, writes: true, ask: ask, approve: approve, actions: [] } }; }
+setDoors(true, true);
+c = F.ask(rel, {});
+let ra = c.byClass('vt-fv-acts')[0].children;
+ok(ra.length === 2 && ra.every(b => b.tagName === 'BUTTON') && txt(ra[0]) === 'Approve' && txt(ra[1]) === 'Reject',
+   'approve door: the release card has Approve + Reject here, no detour to Support');
+const relAct = rel.ask.approve.actions.filter(x => x.kind === 'approve')[0];
+sent.length = 0; ra[0].click(); ra[0].click();
+ok(sent.length === 1 && sent[0].url === '/field/act/approve' && sent[0].body.id === relAct.id && sent[0].body.prompt_sha256 === relAct.sha,
+   'approve door: two clicks send the action id and the prompt sha of THIS card');
+ok(sent[0].body.shown === FX.attention.items.filter(i => i.id === rel.key)[0].title, 'approve door: bound to the title the dashboard shows');
+sent.length = 0; ra[1].click(); ra[1].click();
+ok(sent.length === 1 && sent[0].url === '/field/act/dismiss' && JSON.stringify(Object.keys(sent[0].body).sort()) === '["author","id","shown"]',
+   'approve door: Reject sends only the id');
+const relMove = JSON.parse(JSON.stringify(rel)); relMove.ask.motion = true;
+ra = F.ask(relMove, {}).byClass('vt-fv-acts')[0].children;
+ok(ra.length === 1 && ra[0].tagName === 'A', 'approve door: an action with robot motion stays on the dashboard');
+setDoors(true, false);
+ra = F.ask(rel, {}).byClass('vt-fv-acts')[0].children;
+ok(ra.length === 1 && ra[0].tagName === 'A', 'approve door missing (older kit): the link to the card, as before');
+setDoors(true, true);
+delete store['vitulus_ask_step.' + st.ask.id];
+c = F.ask(st, {});
+const nf = c.byClass('vt-ask-fail')[0];
+ok(nf.tagName === 'BUTTON', '"Does not work": a button when the ask door is there');
+sent.length = 0; nf.click(); nf.click();
+ok(sent.length === 1 && sent[0].url === '/field/act/ask' && sent[0].body.thread === String(st.ask.thread) &&
+   sent[0].body.text === st.ask.steps.steps[0].fail, '"Does not work": sends the step\'s own prepared sentence to the agent');
+setDoors(false, false);
+ok(F.ask(st, {}).byClass('vt-ask-fail')[0].tagName === 'A', '"Does not work": a link to the dashboard without the door');
+/* the viewer's language */
+window.VTI18n.lang = () => 'cs';
+ok(F.inLang({ x: 'en' }, { cs: { x: 'cs' } }).x === 'cs' && F.inLang({ x: 'en' }, null).x === 'en', 'language: the alt text for the viewer, else the base');
+ok(F.askOf({ ask: { title: 'A' }, ask_alt: { cs: { title: 'Á' } } }).title === 'Á', 'language: an attention item\'s ask in the viewer\'s language');
+window.VTI18n.lang = () => 'en';
+
 /* ---------------------------------------------------------------- home: warnings, agents, the sentence */
 const H0 = { stav: [{ login: 'lacina-dev', me: true, name: 'Robert', tone: 'ok', say: 'Robot runs.' },
                     { login: 'maciii', name: 'Mac', tone: 'ok', say: 'Has the newest release.' }],

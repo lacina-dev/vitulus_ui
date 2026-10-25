@@ -191,6 +191,13 @@ dnes polluje sám; převede se na hub).
   vždy (bez autora: 400 = dveře jsou, 403 „not an action" = nejsou), a hlásí `ask` v
   `/field/ui_actions`. Test: `tools/test_field_asks.node.js`.
 
+- **Dveře ui-doors (2026-10-26, Robert ano na všechny čtyři body):** z UI robota jde poslat
+  i *Nejde* u kroku (věta `ask.steps.steps[].fail`, dveře `ask`) a **Schválit / Zamítnout** akci
+  hlídače nebo vydání (`/field/act/approve|dismiss` → dashboard `/api/watch/approve|dismiss`, tělo
+  `{id, prompt_sha256}` té karty; akce s pohybem robota nikdy — dashboard odmítne, UI ji nenabídne).
+  Webnode zjišťuje dveře `ask` a `approve` stejnou sondou (`/field/ui_actions` → `ask`, `approve`).
+  Texty fieldu v jazyce diváka: `home.alt[lang]` (stav, todo), `ask_alt[lang]`, `human_alt[lang]`.
+
 ## I5 — zápisy z UI robota (owner 2026-10-18: a) „ať je to integrované“)
 
 **Implementováno** (větev `ui-field-writes` + kit `kit-ui-writes`, 0.9.38): webnode

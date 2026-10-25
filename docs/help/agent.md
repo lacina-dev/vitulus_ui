@@ -550,13 +550,15 @@ same language as the Support dashboard's home page:
     never a button** — it shows its steps and is done at the robot, hand on STOP. **Why
     recommended**, and **None fits, talk it over with the agent**.
   - **Approval** — **What changes · Concerns · Risk**; for a release also exactly what you
-    approve (*13 changes …*) and the change list commit by commit. A finding (*Allow / Forbid*)
-    is decided here; a watcher action, a release or a merge has its guards on the dashboard:
-    **Approve or reject in Support** opens that card.
+    approve (*13 changes …*) and the change list commit by commit. **Approve / Reject** right
+    here — a finding, a watcher action, a release (two clicks, bound to exactly this card). An
+    action that **moves the robot** never: it stays on the dashboard, a person at the robot
+    (**Approve or reject in Support** opens that card; also with a field kit that does not take
+    approvals from the robot UI yet, and for a merge or a task).
   - **Task with steps** — **one step at a time**: *Do* and *You should see*; **Done** shows the
     next step (this device remembers where you are), the last **Done** tells the field; **Does
-    not work** opens the card on the dashboard so the agent follows up; **Back**. Without
-    written steps: **Start with the agent**.
+    not work** (two clicks) sends the step's prepared sentence (*Step R1 does not work: …*) to the
+    agent, who follows up; **Back**. Without written steps: **Start with the agent**.
   - calm notes (e.g. *Mac waits for you on #8 too*) — folded under *For information (N)*, not
     counted.
 - **The agents are working on** — what runs right now (the agent fixing #61 with its clock, the
@@ -571,4 +573,6 @@ to the card and the text you saw. Only sentences the field itself prepared can b
 agent from here — and only when the field kit takes it from the robot UI (the web node asks the
 dashboard every 10 minutes; otherwise **Start with the agent** and **talk it over** open the issue
 on the dashboard) — and an option that moves the robot is never offered here. Approving a watcher
-action (e.g. a release) stays on the dashboard: **Approve or reject in Support**.
+action that moves the robot stays on the dashboard: **Approve or reject in Support**. The field's
+texts follow the UI language (en / cs) — the kit sends both; what an agent wrote itself stays as
+written.

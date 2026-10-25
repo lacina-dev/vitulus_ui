@@ -189,6 +189,19 @@
         var e = window.VTHub && VTHub.get('ui.actions');
         return !!(e && e.data && e.data.ask === true);
     }
+    /* ui-doors: Approve / Reject a watcher action or a release from here */
+    function approveOn() {
+        var e = window.VTHub && VTHub.get('ui.actions');
+        return !!(e && e.data && e.data.approve === true);
+    }
+    /* the field's texts in the viewer's language (ui-doors: the dashboard sends the
+       other language as alt / ask_alt / human_alt; what an agent wrote stays) */
+    function uiLang() { return window.VTI18n && VTI18n.lang ? VTI18n.lang() : 'en'; }
+    function inLang(base, altMap) {
+        var l = uiLang();
+        return (altMap && altMap[l]) || base;
+    }
+    function askOf(x) { return x ? inLang(x.ask, x.ask_alt) : null; }
     function askButton(thread, text, label, primary, box, msgEl, key, link) {
         if (!text) { return null; }
         if (!THREAD_RE.test(String(thread || '')) || !writesOn() || !askOn()) {
@@ -690,11 +703,18 @@
         return Math.max(0, Math.min(k, Math.max(0, n - 1)));
     }
     var WRITABLE = { 'finding-accept': 1, 'finding-dismiss': 1, 'remind': 1, 'snooze': 1, 'step-done': 1 };
+    /* a watcher action / release: Approve / Reject here when the dashboard has the door
+       and nothing moves the robot (the dashboard refuses motion anyway) */
+    function writable(x, a) {
+        if (WRITABLE[x.kind]) { return true; }
+        return (x.kind === 'approve' || x.kind === 'dismiss') && approveOn() && !(a && a.motion) &&
+            /^[0-9a-f]{12}$/.test(String(x.id || '')) && (x.kind === 'dismiss' || /^[0-9a-f]{64}$/.test(String(x.sha || '')));
+    }
     /* the item's own buttons the robot UI may press (two clicks, signed) */
-    function directButtons(acts, it, box, msgEl, primaryFirst) {
+    function directButtons(acts, it, box, msgEl, primaryFirst, ask0) {
         var out = [];
         (acts || []).forEach(function (a) {
-            if (!a || !WRITABLE[a.kind] || !writesOn()) { return; }
+            if (!a || !writable(a, ask0) || !writesOn()) { return; }
             var cls = primaryFirst && !out.length ? 'vt-decide-rec' : '';
             var label = a.label || '';
             if (a.kind === 'step-done' && a.step) {
@@ -714,6 +734,12 @@
                     send(a.kind, { id: a.fid },
                         shownByAct(function (x) { return (x.kind === 'finding-accept' || x.kind === 'finding-dismiss') && x.fid === a.fid; }), box, msgEl, it.key);
                 }));
+            } else if (a.kind === 'approve' || a.kind === 'dismiss') {
+                var ap = a.kind === 'approve';
+                var shown = shownById(it.key) || shownByAct(function (x) { return x.kind === a.kind && x.id === a.id; });
+                out.push(armButton(ap ? t('fv.ask.approve') : t('fv.ask.reject'), ap ? cls : '', function () {
+                    send(a.kind, ap ? { id: a.id, prompt_sha256: a.sha } : { id: a.id }, shown, box, msgEl, it.key);
+                }, ap ? t('fv.ask.approve_tip') : t('fv.ask.reject_tip')));
             } else if (a.kind === 'snooze' && a.aid) {
                 out.push(armButton(t('needs.hide24'), '', function () {
                     send('snooze', { id: a.aid },
@@ -812,9 +838,9 @@
         if (cl) { wrap.appendChild(cl); }
         var acts = el('div', 'vt-needs-acts vt-fv-acts');
         var all = (ap.actions || []).filter(Boolean);
-        var direct = directButtons(all, it, box, msgEl, true);
+        var direct = directButtons(all, it, box, msgEl, true, a);
         /* a watcher approval, merge or task stays on the dashboard's own card */
-        if (!all.length || direct.length < all.length) {
+        if (!all.length || direct.length < all.filter(function (x) { return x.kind !== 'tick'; }).length) {
             acts.appendChild(linkBtn(t('fv.ask.approve_in_support'), dash(writePage(a, it)), 'vt-fv-go'));
             direct.forEach(function (b) { b.classList.remove('vt-decide-rec'); });
         }
@@ -866,8 +892,14 @@
                 if (last.length) { last.forEach(function (b) { row.appendChild(b); }); }
                 else { row.appendChild(el('span', 'vt-ask-alldone', t('fv.ask.all_done'))); }
             }
-            /* "does not work": the field agent follows up — on the dashboard's card */
-            row.appendChild(linkBtn(t('fv.ask.fail'), dash(writePage(a, it)), 'vt-ask-fail'));
+            /* "does not work": its prepared sentence goes straight to the field agent
+               (ui-doors: "Krok R1 nejde: …"), else the dashboard's card */
+            var fb = s.fail && !s.motion && askOn() && THREAD_RE.test(String(thread)) ?
+                armButton(t('fv.ask.fail'), 'vt-ask-fail', function () {
+                    send('ask', { thread: String(thread), text: s.fail }, s.fail, box, msgEl, it.key);
+                }, t('fv.ask.tip', { text: s.fail })) :
+                linkBtn(t('fv.ask.fail'), dash(writePage(a, it)), 'vt-ask-fail');
+            row.appendChild(fb);
             if (k > 0) { row.appendChild(btn(t('fv.ask.back'), function () { show(k - 1); }, 'vt-ask-back')); }
             li.appendChild(row);
             ol.appendChild(li);
@@ -1102,6 +1134,7 @@
     }
 
     window.VTField = {
+        askOf: askOf, inLang: inLang, approveOn: approveOn,
         state: state, hero: hero, alerts: alerts, alertCard: alertCard, agents: agents, agentRows: agentRows, task: task, ask: ask, changeList: changeList, notes: notes, issue: issue, tag: tag, setRole: setRole,
         author: author, writesOn: writesOn, dash: dash, linkBtn: linkBtn, btn: btn, isDone: isDone
     };

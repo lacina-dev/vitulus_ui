@@ -1,5 +1,5 @@
 {
- "_comment": "Invented field data for tools/test_field_asks.node.js, built by the field kit's own tools/_asks.py + _overview.py (kit 0.9.54): /api/home todo.mine.items with `ask` (decide / steps / approve x2) and the /api/attention items behind them.",
+ "_comment": "Invented field data for tools/test_field_asks.node.js, built by the field kit's own tools/_asks.py + _overview.py (kit ui-doors): /api/home todo.mine.items with `ask` (decide / steps / approve x2) and the /api/attention items behind them; `alt_cs` = the same todo in Czech (home.alt).",
  "todo": {
   "role": "owner",
   "names": {
@@ -15,7 +15,7 @@
      "key": "turn:63",
      "issue": 63,
      "kind": "decide",
-     "since": "2026-10-25T19:06:32+01:00",
+     "since": "2026-10-25T22:35:47+01:00",
      "why": "Mac hlásí, že šipky na jeho klávesnici robota neřídí; u tebe fungují.",
      "link": "#/issue/63",
      "thread": "63",
@@ -70,7 +70,7 @@
       "why": "Mac hlásí, že šipky na jeho klávesnici robota neřídí; u tebe fungují.",
       "motion": true,
       "thread": "63",
-      "since": "2026-10-25T19:06:32+01:00",
+      "since": "2026-10-25T22:35:47+01:00",
       "decide": {
        "question": "Jak to chceš ověřit?",
        "options": [
@@ -127,7 +127,7 @@
      "key": "human-step:hs-0123456789ab",
      "issue": 8,
      "kind": "robot",
-     "since": "2026-10-25T20:56:32+01:00",
+     "since": "2026-10-26T00:25:47+01:00",
      "why": "",
      "link": "#/issue/8",
      "thread": "8",
@@ -160,7 +160,7 @@
       "why": "Only a person on site can do this - the agent guides you.",
       "motion": false,
       "thread": "8",
-      "since": "2026-10-25T20:56:32+01:00",
+      "since": "2026-10-26T00:25:47+01:00",
       "steps": {
        "steps": [
         {
@@ -168,14 +168,16 @@
          "id": "R1",
          "do": "Otevři UI robota v Safari a přejdi na Kamera",
          "see": "obraz do 5 s, žádné „waiting for signal“",
-         "motion": false
+         "motion": false,
+         "fail": "Step R1 does not work: Otevři UI robota v Safari a přejdi na Kamera"
         },
         {
          "k": 2,
          "id": "R2",
          "do": "Otoč iPad na šířku",
          "see": "obraz zůstane a přizpůsobí se",
-         "motion": false
+         "motion": false,
+         "fail": "Step R2 does not work: Otoč iPad na šířku"
         }
        ],
        "actions": [
@@ -204,7 +206,7 @@
      "key": "finding:a1b2c3d4e5f6",
      "issue": null,
      "kind": "do",
-     "since": "2026-10-25T16:16:32+01:00",
+     "since": "2026-10-25T19:45:47+01:00",
      "why": "The new version does not run without a restart.",
      "link": "#/attention",
      "thread": "general",
@@ -234,7 +236,7 @@
       "why": "The agent may not start this on its own - you decide.",
       "motion": false,
       "thread": "general",
-      "since": "2026-10-25T16:16:32+01:00",
+      "since": "2026-10-25T19:45:47+01:00",
       "approve": {
        "change": "Agent smí sám restartovat kameru, když zamrzne",
        "for_whom": "only you",
@@ -264,7 +266,7 @@
      "key": "approve:6dc4846f1942",
      "issue": null,
      "kind": "do",
-     "since": "2026-10-25T20:21:32+01:00",
+     "since": "2026-10-25T23:50:47+01:00",
      "why": "",
      "link": "#/attention",
      "thread": "general",
@@ -272,13 +274,13 @@
       {
        "kind": "approve",
        "id": "6dc4846f1942",
-       "sha": "0e765f",
+       "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
        "label": "Schválit"
       },
       {
        "kind": "dismiss",
        "id": "6dc4846f1942",
-       "sha": "0e765f",
+       "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
        "label": "Zamítnout"
       }
      ],
@@ -296,7 +298,7 @@
       "why": "Vlastní úpravy jdou samy, ale tahle mění logiku jízdy – proto se ptám.",
       "motion": false,
       "thread": "general",
-      "since": "2026-10-25T20:21:32+01:00",
+      "since": "2026-10-25T23:50:47+01:00",
       "approve": {
        "change": "Release a new change for Mac",
        "for_whom": "Mac",
@@ -305,13 +307,13 @@
         {
          "kind": "approve",
          "id": "6dc4846f1942",
-         "sha": "0e765f",
+         "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
          "label": "Schválit"
         },
         {
          "kind": "dismiss",
          "id": "6dc4846f1942",
-         "sha": "0e765f",
+         "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
          "label": "Zamítnout"
         }
        ],
@@ -347,13 +349,364 @@
    ]
   }
  },
+ "alt_cs": {
+  "todo": {
+   "role": "owner",
+   "names": {
+    "you": "Ty",
+    "peer": "Mac",
+    "peer_gen": "Maca"
+   },
+   "mine": {
+    "who": "you",
+    "name": "Robert",
+    "items": [
+     {
+      "key": "turn:63",
+      "issue": 63,
+      "kind": "decide",
+      "since": "2026-10-25T22:35:47+01:00",
+      "why": "Mac hlásí, že šipky na jeho klávesnici robota neřídí; u tebe fungují.",
+      "link": "#/issue/63",
+      "thread": "63",
+      "actions": [],
+      "from": [
+       {
+        "what": "prepared",
+        "who": "owner_agent"
+       }
+      ],
+      "options": [
+       {
+        "idx": 0,
+        "label": "Agent přidá do UI záznam kláves a Mac jen zkusí šipky",
+        "desc": "Agent udělá změnu a vydá ji; Mac jednou zmáčkne šipky, výsledek přijde sám.",
+        "rec": true,
+        "changes": true,
+        "motion": false
+       },
+       {
+        "idx": 1,
+        "label": "Počkat, až Mac zkusí jiný prohlížeč",
+        "desc": "Nic se nemění; agent napíše Macovi, ať zkusí Chrome.",
+        "rec": false,
+        "changes": false,
+        "motion": false
+       },
+       {
+        "idx": 2,
+        "label": "Projet to s Macem po telefonu u robota",
+        "desc": "Robot pojede – jen člověk u robota s rukou na STOP.",
+        "rec": false,
+        "changes": false,
+        "motion": true
+       }
+      ],
+      "pick": {
+       "pid": "p63a1b2c3",
+       "sha": "9f2c4d1a7b"
+      },
+      "title": "Jak dál s klávesnicí u Maca (#63)",
+      "question": "Jak to chceš ověřit?",
+      "discuss": "Žádná z variant u #63 mi nesedí, probereme to.",
+      "ask": {
+       "v": 1,
+       "type": "decide",
+       "id": "turn:63",
+       "issue": 63,
+       "kind": "turn",
+       "label": "Rozhodnutí",
+       "title": "Jak dál s klávesnicí u Maca (#63)",
+       "why": "Mac hlásí, že šipky na jeho klávesnici robota neřídí; u tebe fungují.",
+       "motion": true,
+       "thread": "63",
+       "since": "2026-10-25T22:35:47+01:00",
+       "decide": {
+        "question": "Jak to chceš ověřit?",
+        "options": [
+         {
+          "idx": 0,
+          "label": "Agent přidá do UI záznam kláves a Mac jen zkusí šipky",
+          "what": "Agent udělá změnu a vydá ji; Mac jednou zmáčkne šipky, výsledek přijde sám.",
+          "rec": true,
+          "motion": false,
+          "changes": true,
+          "steps": []
+         },
+         {
+          "idx": 1,
+          "label": "Počkat, až Mac zkusí jiný prohlížeč",
+          "what": "Nic se nemění; agent napíše Macovi, ať zkusí Chrome.",
+          "rec": false,
+          "motion": false,
+          "changes": false,
+          "steps": []
+         },
+         {
+          "idx": 2,
+          "label": "Projet to s Macem po telefonu u robota",
+          "what": "Robot pojede – jen člověk u robota s rukou na STOP.",
+          "rec": false,
+          "motion": true,
+          "changes": false,
+          "steps": [
+           "Mac otevře UI a zapne motory",
+           "Šipkou nahoru popojede 1 m",
+           "Pustí šipku – robot zastaví"
+          ]
+         }
+        ],
+        "pick": {
+         "pid": "p63a1b2c3",
+         "sha": "9f2c4d1a7b"
+        },
+        "rec_why": "Nejrychlejší: Mac nic nenastavuje, agent si vše přečte z logu.",
+        "discuss": {
+         "thread": "63",
+         "label": "Žádná nesedí, probrat s agentem",
+         "text": "Žádná z variant u #63 mi nesedí, probereme to."
+        }
+       },
+       "next": "Po kliknutí to agent udělá a výsledek ti ukáže tady.",
+       "tech": "",
+       "open": "#/issue/63"
+      },
+      "type": "decide"
+     },
+     {
+      "key": "human-step:hs-0123456789ab",
+      "issue": 8,
+      "kind": "robot",
+      "since": "2026-10-26T00:25:47+01:00",
+      "why": "",
+      "link": "#/issue/8",
+      "thread": "8",
+      "actions": [
+       {
+        "kind": "step-done",
+        "step": "hs-0123456789ab",
+        "issue": 8,
+        "label": "Hotovo"
+       },
+       {
+        "kind": "snooze",
+        "aid": "human-step:hs-0123456789ab",
+        "label": "Skrýt na 24 h"
+       }
+      ],
+      "from": [],
+      "options": [],
+      "pick": null,
+      "title": "Ověř kameru na iPadu (#8)",
+      "say": "Jdu ověřit opravu #8.",
+      "ask": {
+       "v": 1,
+       "type": "steps",
+       "id": "human-step:hs-0123456789ab",
+       "issue": 8,
+       "kind": "human-step",
+       "label": "Úkol s kroky",
+       "title": "Ověř kameru na iPadu (#8)",
+       "why": "Tohle udělá jen člověk na místě – agent tě provede.",
+       "motion": false,
+       "thread": "8",
+       "since": "2026-10-26T00:25:47+01:00",
+       "steps": {
+        "steps": [
+         {
+          "k": 1,
+          "id": "R1",
+          "do": "Otevři UI robota v Safari a přejdi na Kamera",
+          "see": "obraz do 5 s, žádné „waiting for signal“",
+          "motion": false,
+          "fail": "Krok R1 nejde: Otevři UI robota v Safari a přejdi na Kamera"
+         },
+         {
+          "k": 2,
+          "id": "R2",
+          "do": "Otoč iPad na šířku",
+          "see": "obraz zůstane a přizpůsobí se",
+          "motion": false,
+          "fail": "Krok R2 nejde: Otoč iPad na šířku"
+         }
+        ],
+        "actions": [
+         {
+          "kind": "step-done",
+          "step": "hs-0123456789ab",
+          "issue": 8,
+          "label": "Hotovo"
+         },
+         {
+          "kind": "snooze",
+          "aid": "human-step:hs-0123456789ab",
+          "label": "Skrýt na 24 h"
+         }
+        ],
+        "say": "",
+        "fail": "Krok %(k)s nejde: %(do)s"
+       },
+       "next": "Po každém kroku klikni Hotovo, nebo Nejde – agent hned naváže.",
+       "tech": "log: ~/.vitulus/field/step-8.log",
+       "open": "#/issue/8"
+      },
+      "type": "steps"
+     },
+     {
+      "key": "finding:a1b2c3d4e5f6",
+      "issue": null,
+      "kind": "do",
+      "since": "2026-10-25T19:45:47+01:00",
+      "why": "Bez restartu nová verze nepoběží.",
+      "link": "#/attention",
+      "thread": "general",
+      "actions": [
+       {
+        "kind": "finding-accept",
+        "fid": "a1b2c3d4e5f6",
+        "label": "Povolit"
+       },
+       {
+        "kind": "finding-dismiss",
+        "fid": "a1b2c3d4e5f6",
+        "label": "Zakázat"
+       }
+      ],
+      "from": [],
+      "options": [],
+      "title": "Agent smí sám restartovat kameru, když zamrzne",
+      "ask": {
+       "v": 1,
+       "type": "approve",
+       "id": "finding:a1b2c3d4e5f6",
+       "issue": null,
+       "kind": "finding",
+       "label": "Schválení",
+       "title": "Agent smí sám restartovat kameru, když zamrzne",
+       "why": "Tohle agent sám spustit nesmí – rozhoduješ ty.",
+       "motion": false,
+       "thread": "general",
+       "since": "2026-10-25T19:45:47+01:00",
+       "approve": {
+        "change": "Agent smí sám restartovat kameru, když zamrzne",
+        "for_whom": "jen tebe",
+        "risk": "Robotem to nehýbe a jde to vrátit.",
+        "actions": [
+         {
+          "kind": "finding-accept",
+          "fid": "a1b2c3d4e5f6",
+          "label": "Povolit"
+         },
+         {
+          "kind": "finding-dismiss",
+          "fid": "a1b2c3d4e5f6",
+          "label": "Zakázat"
+         }
+        ],
+        "what": "",
+        "list": []
+       },
+       "next": "Schválit: agent to příště smí sám. Zamítnout: zůstane zakázané.",
+       "tech": "",
+       "open": "#/attention"
+      },
+      "type": "approve"
+     },
+     {
+      "key": "approve:6dc4846f1942",
+      "issue": null,
+      "kind": "do",
+      "since": "2026-10-25T23:50:47+01:00",
+      "why": "",
+      "link": "#/attention",
+      "thread": "general",
+      "actions": [
+       {
+        "kind": "approve",
+        "id": "6dc4846f1942",
+        "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
+        "label": "Schválit"
+       },
+       {
+        "kind": "dismiss",
+        "id": "6dc4846f1942",
+        "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
+        "label": "Zamítnout"
+       }
+      ],
+      "from": [],
+      "options": [],
+      "title": "Vydat novou změnu pro Mac",
+      "ask": {
+       "v": 1,
+       "type": "approve",
+       "id": "approve:6dc4846f1942",
+       "issue": null,
+       "kind": "approve",
+       "label": "Schválení",
+       "title": "Vydat novou změnu pro Mac",
+       "why": "Vlastní úpravy jdou samy, ale tahle mění logiku jízdy – proto se ptám.",
+       "motion": false,
+       "thread": "general",
+       "since": "2026-10-25T23:50:47+01:00",
+       "approve": {
+        "change": "Vydat novou změnu pro Mac",
+        "for_whom": "Mac",
+        "risk": "Robotem to nehýbe a jde to vrátit.",
+        "actions": [
+         {
+          "kind": "approve",
+          "id": "6dc4846f1942",
+          "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
+          "label": "Schválit"
+         },
+         {
+          "kind": "dismiss",
+          "id": "6dc4846f1942",
+          "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
+          "label": "Zamítnout"
+         }
+        ],
+        "what": "Schvaluješ vydání 13 změn (vitulus_ui) – Mac je dostane na svůj robot; seznam níž.",
+        "list": [
+         {
+          "head": "vitulus_ui · master · Robert Lacina · 25. 10. 15:16–18:54 · 13 změn",
+          "lines": [
+           "Chat: pod hlášením mise žádné Execute — mise, která stojí, má jen Pokračovat",
+           "Nápověda Dok (en/cs): co robot udělá sám, když dokování uvízne",
+           "Dock lock: Open Dock lock otevře potřebnou předvolbu",
+           "Telefon na výšku: stavové ikony v jednom řádku přes celou šířku"
+          ],
+          "more": "a 9 dalších",
+          "carried": []
+         }
+        ]
+       },
+       "next": "Schválit: agent změny zkontroluje a vydá, Mac je dostane sám a nic dalšího neděláš. Zamítnout: nic se nevydá, Mac zůstane na posledním vydání.",
+       "tech": "",
+       "open": "#/attention"
+      },
+      "type": "approve"
+     }
+    ],
+    "more": 0,
+    "notes": [
+     {
+      "issue": null,
+      "text": "Živý checkout vitulus_ui má vlastní commity – tenhle robot zůstává na 7d4fe",
+      "link": "#/fleet"
+     }
+    ]
+   }
+  }
+ },
  "attention": {
   "items": [
    {
     "id": "turn:63",
     "kind": "turn",
     "issue": 63,
-    "since": "2026-10-25T19:06:32+01:00",
+    "since": "2026-10-25T22:35:47+01:00",
     "urgency": "normal",
     "title": "Na tahu jsi ty: #63 Klávesnice u Maca nejede šipkami",
     "link": "#/issue/63",
@@ -406,7 +759,7 @@
      "why": "Mac hlásí, že šipky na jeho klávesnici robota neřídí; u tebe fungují.",
      "motion": true,
      "thread": "63",
-     "since": "2026-10-25T19:06:32+01:00",
+     "since": "2026-10-25T22:35:47+01:00",
      "decide": {
       "question": "Jak to chceš ověřit?",
       "options": [
@@ -462,7 +815,7 @@
     "id": "approve:6dc4846f1942",
     "kind": "approve",
     "akind": "release",
-    "since": "2026-10-25T20:21:32+01:00",
+    "since": "2026-10-25T23:50:47+01:00",
     "urgency": "normal",
     "title": "Vydat: vitulus_ui@9d77704",
     "link": "#/attention",
@@ -488,13 +841,13 @@
      {
       "kind": "approve",
       "id": "6dc4846f1942",
-      "sha": "0e765f",
+      "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
       "label": "Schválit"
      },
      {
       "kind": "dismiss",
       "id": "6dc4846f1942",
-      "sha": "0e765f",
+      "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
       "label": "Zamítnout"
      }
     ],
@@ -509,7 +862,7 @@
      "why": "Vlastní úpravy jdou samy, ale tahle mění logiku jízdy – proto se ptám.",
      "motion": false,
      "thread": "general",
-     "since": "2026-10-25T20:21:32+01:00",
+     "since": "2026-10-25T23:50:47+01:00",
      "approve": {
       "change": "Release a new change for Mac",
       "for_whom": "Mac",
@@ -518,13 +871,13 @@
        {
         "kind": "approve",
         "id": "6dc4846f1942",
-        "sha": "0e765f",
+        "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
         "label": "Schválit"
        },
        {
         "kind": "dismiss",
         "id": "6dc4846f1942",
-        "sha": "0e765f",
+        "sha": "0e765f568b77e26cc5ad1d7bc1170b9630c377d7fca327aa256ae56f6ba968e5",
         "label": "Zamítnout"
        }
       ],
@@ -552,7 +905,7 @@
     "id": "human-step:hs-0123456789ab",
     "kind": "human-step",
     "issue": 8,
-    "since": "2026-10-25T20:56:32+01:00",
+    "since": "2026-10-26T00:25:47+01:00",
     "urgency": "normal",
     "title": "Ověř kameru na iPadu (#8)",
     "link": "#/issue/8",
@@ -589,7 +942,7 @@
      "why": "Only a person on site can do this - the agent guides you.",
      "motion": false,
      "thread": "8",
-     "since": "2026-10-25T20:56:32+01:00",
+     "since": "2026-10-26T00:25:47+01:00",
      "steps": {
       "steps": [
        {
@@ -597,14 +950,16 @@
         "id": "R1",
         "do": "Otevři UI robota v Safari a přejdi na Kamera",
         "see": "obraz do 5 s, žádné „waiting for signal“",
-        "motion": false
+        "motion": false,
+        "fail": "Step R1 does not work: Otevři UI robota v Safari a přejdi na Kamera"
        },
        {
         "k": 2,
         "id": "R2",
         "do": "Otoč iPad na šířku",
         "see": "obraz zůstane a přizpůsobí se",
-        "motion": false
+        "motion": false,
+        "fail": "Step R2 does not work: Otoč iPad na šířku"
        }
       ],
       "actions": [
@@ -631,7 +986,7 @@
    {
     "id": "finding:a1b2c3d4e5f6",
     "kind": "finding",
-    "since": "2026-10-25T16:16:32+01:00",
+    "since": "2026-10-25T19:45:47+01:00",
     "urgency": "low",
     "title": "Agent smí sám restartovat kameru, když zamrzne",
     "link": "#/attention",
@@ -658,7 +1013,7 @@
      "why": "The agent may not start this on its own - you decide.",
      "motion": false,
      "thread": "general",
-     "since": "2026-10-25T16:16:32+01:00",
+     "since": "2026-10-25T19:45:47+01:00",
      "approve": {
       "change": "Agent smí sám restartovat kameru, když zamrzne",
       "for_whom": "only you",
@@ -688,7 +1043,7 @@
     "kind": "live",
     "info": true,
     "urgency": "low",
-    "since": "2026-10-25T19:46:32+01:00",
+    "since": "2026-10-25T23:15:47+01:00",
     "title": "Živý checkout vitulus_ui má vlastní commity – tenhle robot zůstává na 7d4fe",
     "link": "#/fleet",
     "actions": []

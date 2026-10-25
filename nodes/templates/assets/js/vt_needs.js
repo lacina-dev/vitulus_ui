@@ -80,6 +80,10 @@
         var a = (asks && asks.data) || [];
         var w = (needs && needs.data) || [];
         var hd = home && home.data;
+        /* the field's words in the viewer's language (ui-doors: home.alt[lang] = the same
+           stav / todo composed in the other language) */
+        var hl = hd && hd.alt && window.VTI18n && VTI18n.lang && hd.alt[VTI18n.lang()];
+        if (hl) { hd = Object.assign({}, hd, hl); }
         var todo = hd && hd.todo && hd.todo.mine ? hd.todo : null;
         var mine = todo ? (todo.mine.items || []) : null;
         /* before /api/home answers (it is the slow one): the attention list
@@ -341,7 +345,7 @@
     /* before /api/home answers: the attention item as a plain card */
     function attCard(x) {
         if (x.ask && x.ask.type && window.VTField && VTField.ask) {
-            return VTField.ask(x, { onIssue: openIssue });
+            return VTField.ask(Object.assign({}, x, { ask: VTField.askOf(x) }), { onIssue: openIssue });
         }
         var p = x.plain || {};
         return card(x.urgency === 'high' ? 'err' : 'warn', { title: p.headline || x.title || '', end: age(sinceSec(x.since)) },

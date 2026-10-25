@@ -169,7 +169,7 @@
         waitOr(e, function (d) {
             if (d && d.meta && d.meta.role && window.VTField) { VTField.setRole(d.meta.role); }
             else if (d && d.role && window.VTField) { VTField.setRole(d.role); }
-            return [VTField.issue(d && d.human, detailN, showDetail)];
+            return [VTField.issue(d && VTField.inLang(d.human, d.human_alt), detailN, showDetail)];   // the viewer's language (ui-doors)
         }).forEach(function (x) { pane.appendChild(x); });
     }
     function renderIssues() {
