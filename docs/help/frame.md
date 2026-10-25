@@ -41,7 +41,9 @@ the agent's messages you have not seen yet.
 | help for it | **?** in the head | **?** in the head |
 
 A hidden panel leaves a thin spine on the left edge — click it to bring the panel back. The UI
-remembers which panel was open (also across a reload).
+remembers which panel was open (also across a reload). On a PC, tablet or phone on its side the
+panel (or the spine) runs **all the way down to the bottom edge**; the bottom bar starts right
+after it.
 
 **PC** (≥ 1024 px wide): the panel is a column, the map narrows next to it. **Tablet / phone on
 its side**: the column lies over the map. **Phone upright** (< 576 px): the panel is a sheet from
@@ -60,20 +62,24 @@ opens) slides fully into view; with the keyboard **←** / **→** move between 
 ![The bottom bar: Log, Follow and the Joystick tab on the right](img/shot-bottom-bar.webp "The bottom bar on a PC, left to right: Log · Follow · Joystick")
 
 **Log** · **Follow** · **Joystick** (on a phone with a free gap in the middle for the
-system gesture). **Joystick** sits at the right end, right under the drive panel it opens —
-see [Drive by hand](#drive-by-hand-joystick). The bar has no STOP: the one big **STOP** is in the
-top-right corner (below), so the bottom bar, the drive band and the left panel's foot stay free.
-**Follow** makes the map view follow the robot.
+system gesture). On a PC, tablet or phone on its side the bar **starts after the left panel**
+(after the thin spine when the panel is hidden): **Log** is right beside the panel, the panel runs
+down past the bar to the bottom edge. A full-screen panel and the phone's sheet (upright) stand on
+the bar, which then spans the whole width. **Joystick** sits at the right end, right under the
+drive panel it opens — see [Drive by hand](#drive-by-hand-joystick). The bar has no STOP: the one
+big **STOP** is in the top-right corner (below), so the bottom bar, the drive band and the left
+panel's foot stay free. **Follow** makes the map view follow the robot.
 
 ## STOP in the top-right corner
 
-![The top-right corner on a PC: the big STOP heads the right column](img/shot-stop.webp "PC: STOP heads the right column, the right panel starts under it.")
+![The top-right corner on a PC: the round STOP heads the right column](img/shot-stop.webp "PC: the round STOP heads the right column, the right panel starts under it.")
 
-The big red **STOP** heads the **right column**: on a PC, tablet or landscape phone it stands in
-the top-right corner, the width of the right panel, set into the top bar — the right panel starts
-under it, the top bar's icons and menu end before it. On a phone held upright it sits at the right
-end of the top bar (a thumb-sized target), so the bottom bar and the drive band stay free for the
-thumbs. It is on screen in every state (a panel open or full screen, the log, the large camera,
+The big red **STOP** is a round **mushroom** — a red cap in a dark bezel set into the frame — and
+it heads the **right column**: on a PC, tablet or landscape phone it stands in the top-right
+corner above the middle of the right panel (68 px; on a low window 54 px), the right panel starts
+under it, the top bar's icons and menu end before its corner. On a phone held upright it sits at
+the right end of the top bar, as big as the top bar allows (58 px), so the bottom bar and the
+drive band stay free for the thumbs. It is on screen in every state (a panel open or full screen, the log, the large camera,
 the map editor, the help, the agent) and never covers anything. **Esc** does the same. It is the
 one full stop ([Safety](safety.md#stop)); the agent panel's own STOP is a different thing (it
 stops the agent's mission).
@@ -244,7 +250,7 @@ How the stick behaves:
 - Clicking or tapping a control leaves no frame around it; moving with **Tab** shows a thin cyan
   outline in the control's shape. With *reduce motion* set in the system the ring does not animate.
 
-**The big STOP** — top right, heading the right column (on a phone held upright at the right end
+**The big round STOP** — top right, heading the right column (on a phone held upright at the right end
 of the top bar), or **Esc** — is always visible, with or without the joystick, and never covered
 by a panel. It is the full stop ([Safety](safety.md#stop)); it also lets go of the stick at once.
 
@@ -257,7 +263,7 @@ by a panel. It is the full stop ([Safety](safety.md#stop)); it also lets go of t
 
 ![The log expanded over the map, with its toolbar and numbered markers](img/shot-log.webp "The expanded log: 1 Changes · 2 ROS · 3 Live · 4 Clear · 5 ▼ Collapse · 6 ? help")
 
-**Log** at the left of the bottom bar shows the log as a strip above the bar. **▲** (expand) makes it fill
+**Log** at the left of the bottom bar (right beside the left panel) shows the log as a strip above the bar, beside the panel. **▲** (expand) makes it fill
 the map area, **▼** (collapse) shrinks it back; **Log** again hides it. With the drive panel open,
 the small log ends beside it.
 

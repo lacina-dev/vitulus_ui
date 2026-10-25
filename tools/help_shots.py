@@ -95,7 +95,7 @@ SHOTS = [
                 ('#div_log_view', '6', 'tr'), ('#joy_view', '7', 'l'), ('#vt_stop_big', '8', 'l')]),
     dict(name='shot-phone', vp=PHONE, scale=2, width=480, md=26,
          marks=[('#btn_needs', '1', 'l'), ('#btn_panel_toggle', '2', 'b'), ('#status_div', '3', 'r'), ('#map_view', '4', 'c'),
-                ('#right_panel', '5', 'b'), ('#vt_stop_big', '6', 'b'), ('#btn_log', '7', 't')]),
+                ('#right_panel', '5', 'b'), ('#vt_stop_big', '6', 'bl'), ('#btn_log', '7', 't')]),
     dict(name='shot-phone-sheet', vp=PHONE, scale=2, width=480, md=26,
          steps=[('click', '#btn_map'), ('wait', 1200)],
          marks=[('#ui_drawer_grip', '1', 'c'), ('#div_menu_map a[href="#tab-map"]', '2', 'b'), ('#btn_ui_drawer_help', '3', 't'),

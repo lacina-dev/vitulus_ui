@@ -20,9 +20,9 @@ of the agent or a navigation goal tells it to.
 
 ## STOP
 
-![The top-right corner of the UI on a PC: the big red STOP heads the right column, the right panel starts under it](img/shot-stop.webp "STOP is the big red button in the top-right corner. On a phone held upright it sits at the right end of the top bar.")
+![The top-right corner of the UI on a PC: the big round red STOP heads the right column, the right panel starts under it](img/shot-stop.webp "STOP is the big round red button in the top-right corner. On a phone held upright it sits at the right end of the top bar.")
 
-The big red **STOP** button is always in the **top-right corner**: on a PC, tablet or landscape
+The big round red **STOP** button (a mushroom: a red cap in a dark bezel) is always in the **top-right corner**: on a PC, tablet or landscape
 phone it heads the right column (the right panel starts under it), on a phone held upright it sits
 at the right end of the top bar. It is on screen in every state — with a panel open or full screen,
 the log, the large camera, the map editor, the help or the agent — and nothing covers it. The

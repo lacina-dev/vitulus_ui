@@ -40,7 +40,8 @@ zprávy agenta, které jsi ještě neviděl.
 | nápověda k němu | **?** v hlavičce | **?** v hlavičce |
 
 Skrytý panel nechá na levém okraji tenký hřbet — klikni na něj a panel se vrátí. UI si pamatuje,
-který panel byl otevřený (i po načtení stránky znovu).
+který panel byl otevřený (i po načtení stránky znovu). Na PC, tabletu a telefonu na šířku vede
+panel (nebo hřbet) **až dolů ke spodní hraně**; spodní lišta začíná hned za ním.
 
 **PC** (šířka ≥ 1024 px): panel je sloupec, mapa se vedle něj zúží. **Tablet / telefon na
 šířku**: sloupec leží přes mapu. **Telefon na výšku** (< 576 px): panel je sheet vysouvaný zdola
@@ -59,19 +60,23 @@ panel otevře) se celá posune do viditelné části; na klávesnici přepínaj�
 ![Spodní lišta: Log, Sledovat a vpravo ouško Joystick](../img/shot-bottom-bar.webp "Spodní lišta na PC zleva doprava: Log · Sledovat · Joystick")
 
 **Log** · **Sledovat** · **Joystick** (na telefonu s volnou mezerou uprostřed pro
-systémové gesto). **Joystick** sedí na pravém konci, přímo pod panelem jízdy, který otevírá —
+systémové gesto). Na PC, tabletu a telefonu na šířku lišta **začíná až za levým panelem** (se
+skrytým panelem za tenkým hřbetem): **Log** stojí hned vedle panelu, panel jde kolem lišty až ke
+spodní hraně. Panel přes celou obrazovku a sheet telefonu na výšku stojí na liště, ta má pak celou
+šířku. **Joystick** sedí na pravém konci, přímo pod panelem jízdy, který otevírá —
 viz [Ruční jízda](#ruční-jízda-joystick). STOP v liště není: jediný velký **STOP** je v pravém
 horním rohu (níž), takže spodní lišta, pás jízdy i spodek levého panelu zůstávají volné.
 **Sledovat** nechá pohled mapy sledovat robota.
 
 ## STOP v pravém horním rohu
 
-![Pravý horní roh na PC: velký STOP v hlavě pravého sloupce](../img/shot-stop.webp "PC: STOP v hlavě pravého sloupce, pravý panel začíná pod ním.")
+![Pravý horní roh na PC: kulatý STOP v hlavě pravého sloupce](../img/shot-stop.webp "PC: kulatý STOP v hlavě pravého sloupce, pravý panel začíná pod ním.")
 
-Velký červený **STOP** stojí v **hlavě pravého sloupce**: na PC, tabletu a telefonu na šířku
-v pravém horním rohu, široký jako pravý panel, zapuštěný do horní lišty — pravý panel začíná pod
-ním, ikony a menu horní lišty končí před ním. Na telefonu na výšku sedí na pravém konci horní
-lišty (cíl velký na palec), takže spodní lišta a pás jízdy zůstávají volné pro palce. Je vidět ve
+Velký červený **STOP** je kulatý **hřib** — červená hlava v tmavé objímce zapuštěné do rámu — a
+stojí v **hlavě pravého sloupce**: na PC, tabletu a telefonu na šířku v pravém horním rohu nad
+středem pravého panelu (68 px, v nízkém okně 54 px), pravý panel začíná pod ním, ikony a menu
+horní lišty končí před jeho rohem. Na telefonu na výšku sedí na pravém konci horní lišty, tak
+velký, jak horní lišta dovolí (58 px), takže spodní lišta a pás jízdy zůstávají volné pro palce. Je vidět ve
 všech stavech (otevřený panel i přes celou obrazovku, log, velká kamera, editor mapy, nápověda,
 agent) a nic nezakrývá. Totéž udělá **Esc**. Je to jediné úplné zastavení
 ([Bezpečnost](safety.md#stop)); vlastní STOP panelu Agent je jiná věc (zastaví misi agenta).
@@ -238,7 +243,7 @@ Jak se páčka chová:
 - Po kliknutí nebo klepnutí kolem prvku nezůstane rámeček; při pohybu klávesou **Tab** se ukáže
   tenké azurové orámování ve tvaru prvku. Se systémovým *omezením pohybu* prstenec neanimuje.
 
-**Velký STOP** — vpravo nahoře v hlavě pravého sloupce (na telefonu na výšku na pravém konci
+**Velký kulatý STOP** — vpravo nahoře v hlavě pravého sloupce (na telefonu na výšku na pravém konci
 horní lišty), nebo **Esc** — je vždy vidět, s joystickem i bez něj, a žádný panel ho nepřekryje.
 Je to úplné zastavení ([Bezpečnost](safety.md#stop)); navíc hned pustí páčku.
 
@@ -251,7 +256,7 @@ Je to úplné zastavení ([Bezpečnost](safety.md#stop)); navíc hned pustí pá
 
 ![Log rozbalený přes mapu, s lištou nástrojů a očíslovanými značkami](../img/shot-log.webp "Rozbalený log: 1 Změny · 2 ROS · 3 Živě · 4 Vymazat · 5 ▼ Sbalit · 6 ? nápověda")
 
-**Log** vlevo ve spodní liště ukáže log jako pruh nad lištou. **▲** (rozbalit) ho roztáhne přes plochu
+**Log** vlevo ve spodní liště (hned vedle levého panelu) ukáže log jako pruh nad lištou, vedle panelu. **▲** (rozbalit) ho roztáhne přes plochu
 mapy, **▼** (sbalit) ho vrátí zpět; další **Log** ho skryje. S otevřeným panelem jízdy končí
 malý log vedle něj.
 

@@ -1424,6 +1424,29 @@ body.vt-frame #div_bottom_menu #btn_log { margin-right: var(--vt-bar-gap); }
     }
 }
 
+/* ===== the back of the C runs down to the page edge (owner 2026-10-25) ====
+   "Log should start only after the left panel and the panel go all the way
+   down": on a PC / landscape (vt-c-backdown, vt_frame.js) the open left
+   panel — or the spine when it is hidden — reaches the bottom edge and the
+   bottom bar starts after it (--vt-frame-bar-left): Log is its first button,
+   right beside the panel. A full-width (⤢) panel and the phone's sheet stand
+   on the bar as before (the bar keeps the whole width there). */
+html body.vt-frame.vt-c-backdown #div_bottom_menu { left: var(--vt-frame-bar-left, 0px); right: 0; width: auto !important; }
+html body.vt-frame.vt-c-backdown #ui_drawer:not(.full) {
+    bottom: 0 !important;
+    padding-bottom: var(--safe-bottom, 0px);
+}
+html body.vt-frame.vt-c-backdown.vt-c-spine #vt_c_spine { bottom: 0; }
+/* touch: an open panel on a landscape phone reaches past the middle of the
+   screen — the gesture lies over the panel's foot then, the bar needs no gap */
+html body.vt-frame.vt-bar-nogap.vt-bar-nogap #div_bottom_menu #btn_log { margin-right: 0; }
+html body.vt-frame.vt-bar-nogap.vt-bar-nogap #div_bottom_menu #btn_follow { flex: 1 1 0; margin-right: 0; }
+/* ?mock (dev only): the badge sits on the seam between Log and Follow, not on a label */
+html body.vt-frame.vt-m-dock.vt-c-backdown .vt-mock-badge,
+html body.vt-frame.vt-bar-nogap .vt-mock-badge {
+    left: calc(var(--vt-frame-bar-left, 0px) + (100vw - var(--vt-frame-bar-left, 0px) - var(--vt-joy-tab-w, 196px)) / 2);
+}
+
 /* ===== Joystick = the drive panel's tab (owner 2026-10-25) ================
    "Swap Log and Joystick, and Joystick goes with the joystick, joined to
    it": the bar reads Log · Follow · Joystick and the Joystick button is the
@@ -1693,9 +1716,8 @@ html body.vt-frame #div_log_view #btn_log_expand:focus-visible { color: var(--vt
 @media (pointer: coarse) {
     html body.vt-frame #div_log_view #btn_log_expand { width: 44px; height: 30px; line-height: 30px; top: 2px; }
 }
-/* the log-wide case: the left panel stands on the log (the log is the bottom
-   of the C there) */
-body.vt-frame.vt-log-wide:not(.vt-m-sheet) #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--vt-frame-log-h, 0px)); }
+/* (the log-wide case — the log under the panel — is gone: the panel runs
+   down to the page edge and the log always stands beside it, 2026-10-25) */
 
 /* -- full log: grows from the bottom bar into the hollow ------------------ */
 html body.vt-frame #div_log_view.log-expanded {
@@ -2016,82 +2038,85 @@ html body.vt-frame.vt-m-sheet.vt-joy-on:not(.vt-panel-open) #div_log_view.log-ex
    Phone portrait: the deck is a band across the screen on the bottom bar
    (vt-joy-band, part of --vt-frame-bottom).
    ========================================================================= */
-/* ===== the emergency STOP (owner 2026-10-25, variant A) ===================
-   PC / landscape: one big red button heading the RIGHT COLUMN in the
-   top-right corner — the column's width (--vt-frame-col-w), set into the top
-   band's frame surface. vt_frame.js placeStop keeps the band at least as low
-   as its foot (a pad above the menu row's buttons, --vt-stop-pad), so the
-   right panel, the left panel and the hollow all start under it; the band's
-   rows keep its corner free (--vt-stop-zone). The left panel has its whole
-   foot, the bottom bar its whole width.
-   Phone upright: the navbar's right end (a thumb-sized target); the bottom
-   bar and the drive band stay free for the thumbs.
+/* ===== the emergency STOP (owner 2026-10-25: round again, top right) ======
+   "STOP round as it was": the red MUSHROOM of 2026-10-18/19 (a round cap in
+   a dark bezel set into the frame) in the place of variant A — the top-right
+   corner, heading the RIGHT COLUMN.
+   PC / landscape: centred over the right column (--vt-frame-col-w), set into
+   the top band's frame surface. vt_frame.js placeStop keeps the band at
+   least as low as the bezel's foot (a pad above the menu row's buttons,
+   --vt-stop-pad), so the right panel, the left panel and the hollow all
+   start under it; the band's rows keep the column's corner free
+   (--vt-stop-zone = the column's width).
+   Phone upright: the same mushroom at the navbar's right end, as big as the
+   navbar + the agent strip allow (58 px); the rows it reaches keep its
+   corner free (--vt-stop-zone = the bezel + a margin; the menu row only
+   when the bezel reaches into it, vt-stop-menu).
    Always on screen: above the panels, the log, the help, dialogs and
    picture zooms. The same global stop as #btn_stop_all (hidden; vt_frame.js
    presses it), also Esc. */
-:root { --vt-stop-h: 66px; --vt-stop-gap: 5px; }
-@media (max-height: 560px) { :root { --vt-stop-h: 54px; --vt-stop-gap: 4px; } }
+:root {
+    --vt-estop-cap: 68px;                /* the red cap = the button */
+    --vt-estop-rim: 5px;                 /* the dark bezel round it */
+    --vt-estop-top: 10px;                /* page top -> the cap */
+}
+@media (max-height: 560px) { :root { --vt-estop-cap: 54px; --vt-estop-rim: 4px; --vt-estop-top: 8px; } }
+body.vt-frame.vt-m-sheet { --vt-estop-cap: 58px; --vt-estop-rim: 4px; --vt-estop-top: 8px; }
 
+/* the mushroom: the button IS the cap (nothing around it is clickable) */
 html body.vt-frame #vt_stop_big {
     position: fixed;
-    top: calc(var(--safe-top, 0px) + var(--vt-stop-gap));
-    right: max(6px, env(safe-area-inset-right, 0px));
+    top: calc(var(--safe-top, 0px) + var(--vt-estop-top));
+    right: max(calc((var(--vt-frame-col-w, 196px) - var(--vt-estop-cap)) / 2), env(safe-area-inset-right, 0px) + var(--vt-estop-rim) + 4px);
     left: auto; bottom: auto;
-    width: calc(var(--vt-frame-col-w, 196px) - 12px);
-    height: var(--vt-stop-h);
-    display: flex; align-items: center; justify-content: center; gap: 12px;
-    margin: 0; padding: 0 12px; border: 0;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #f2414b 0%, #d4222c 55%, #b0161f 100%);
-    /* set into the frame: a dark recess round it, a lit top edge, a pressed-in foot */
-    box-shadow: 0 0 0 3px #1c1f23, 0 0 0 4px rgba(255, 255, 255, 0.05),
-                inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -4px 0 rgba(0, 0, 0, 0.22);
-    color: #fff; font: 800 22px/1 var(--vt-font); letter-spacing: .14em;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
-    cursor: pointer;
+    width: var(--vt-estop-cap); height: var(--vt-estop-cap);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0; padding: 0; border: 0; border-radius: 50%;
+    background: transparent; cursor: pointer;
     z-index: 10050;                         /* above panels, log, help, dialogs, lightboxes */
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    transition: transform .08s ease, filter .12s ease, box-shadow .08s ease;
 }
-#vt_stop_big .vt-estop-sq {                /* the ■ */
-    flex: none; width: .78em; height: .78em; border-radius: 3px;
-    background: #fff; box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+#vt_stop_big .vt-estop-plate {            /* the bezel: a dark ring set into the frame */
+    position: absolute; inset: calc(-1 * var(--vt-estop-rim)); border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #1d2024 60%, #15171a 100%);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+#vt_stop_big .vt-estop-cap {
+    position: relative; width: 100%; height: 100%; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 36% 30%, #ff7a80 0%, #e63b44 42%, #b51d26 100%);
+    box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.35), inset 0 -6px 12px rgba(0, 0, 0, 0.35),
+                0 3px 0 #7a1017, 0 5px 10px rgba(0, 0, 0, 0.55);
+    color: #fff; font: 800 14px/1 var(--vt-font); letter-spacing: .14em;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+    transition: transform .08s ease, box-shadow .08s ease, filter .12s ease;
 }
 #vt_stop_big .vt-stop-lbl { padding-left: .14em; }   /* letter-spacing balance */
-html body.vt-frame #vt_stop_big:hover { filter: brightness(1.08); }
-html body.vt-frame #vt_stop_big:active,
-html body.vt-frame #vt_stop_big.vt-pressed {
-    transform: translateY(2px);
-    filter: brightness(0.92);
-    box-shadow: 0 0 0 3px #1c1f23, 0 0 0 4px rgba(255, 255, 255, 0.05),
-                inset 0 2px 4px rgba(0, 0, 0, 0.35);
+html body.vt-frame #vt_stop_big:hover .vt-estop-cap { filter: brightness(1.08); }
+html body.vt-frame #vt_stop_big:active .vt-estop-cap,
+html body.vt-frame #vt_stop_big.vt-pressed .vt-estop-cap {
+    transform: translateY(3px);
+    filter: brightness(0.94);
+    box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.25), inset 0 -4px 8px rgba(0, 0, 0, 0.4), 0 0 0 #7a1017, 0 2px 5px rgba(0, 0, 0, 0.5);
 }
-html body.vt-frame #vt_stop_big:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
-@media (max-height: 560px) { html body.vt-frame #vt_stop_big { font-size: 18px; } }
+html body.vt-frame #vt_stop_big:focus-visible { outline: none; }
+html body.vt-frame #vt_stop_big:focus-visible .vt-estop-cap { outline: 2px solid #fff; outline-offset: 7px; }
+@media (max-height: 560px) { #vt_stop_big .vt-estop-cap { font-size: 12px; letter-spacing: .1em; } }
+body.vt-frame.vt-m-sheet #vt_stop_big { right: calc(var(--vt-estop-rim) + 6px); }
+body.vt-frame.vt-m-sheet #vt_stop_big .vt-estop-cap { font-size: 12px; letter-spacing: .1em; }
 
 /* the band's rows keep the STOP's corner free; the menu row grows the pad
    that makes the band as tall as the STOP (buttons stay at its map edge) */
-html body.vt-frame:not(.vt-m-sheet) #div_menu > .container-fluid { padding-right: var(--vt-stop-zone, 0px); }
-html body.vt-frame:not(.vt-m-sheet) #vagent_bars { padding-right: var(--vt-stop-zone, 0px); }
+html body.vt-frame #div_menu > .container-fluid { padding-right: var(--vt-stop-zone, 0px); }
+html body.vt-frame #vagent_bars { padding-right: var(--vt-stop-zone, 0px); }
 html body.vt-frame:not(.vt-m-sheet) #row_menu {
     padding-right: var(--vt-stop-zone, 0px);
     padding-top: var(--vt-stop-pad, 0px);
     background: var(--vt-frame-bg);
 }
-
-/* phone upright: the STOP at the navbar's right end */
-html body.vt-frame.vt-m-sheet #vt_stop_big {
-    top: calc(var(--safe-top, 0px) + 5px);
-    right: 8px;
-    width: 84px; height: 36px;
-    gap: 7px; padding: 0 8px; border-radius: 10px;
-    font-size: 15px; letter-spacing: .1em;
-}
-html body.vt-frame.vt-m-sheet #vt_stop_big::before {   /* a thumb-sized target (≥ 44 px) */
-    content: ""; position: absolute; inset: -5px -4px;
-}
-html body.vt-frame.vt-m-sheet #div_menu > .container-fluid { padding-right: 100px; }
+/* phone upright, no agent strip: the bezel reaches into the menu row */
+html body.vt-frame.vt-m-sheet.vt-stop-menu #row_menu { padding-right: var(--vt-stop-zone, 0px); }
 
 /* the bar's own STOP stays hidden: the big one is the only STOP on screen
    (it presses this one; map_view.js publishes the stops) */

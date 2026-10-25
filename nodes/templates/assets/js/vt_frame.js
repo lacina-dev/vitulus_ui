@@ -93,11 +93,11 @@
         // top band: bottom edge of the menu row
         var rm = $('row_menu');
         var top = rm ? rm.getBoundingClientRect().bottom : 0;
-        // the big STOP (owner 2026-10-25, variant A) heads the right column in
-        // the top-right corner: on a PC / landscape the top band is at least
-        // as tall as the STOP (the menu row grows a pad above its buttons), so
+        // the big round STOP (owner 2026-10-25) heads the right column in the
+        // top-right corner: on a PC / landscape the top band is at least as
+        // tall as its bezel (the menu row grows a pad above its buttons), so
         // the right panel starts under it; the band's rows keep its corner
-        // free (--vt-stop-zone). Phone upright: it sits in the navbar.
+        // free (--vt-stop-zone). Phone upright: the navbar's right end.
         top = placeStop(m, rm, top);
         // notice band
         var info = $('span_status_info');
@@ -130,8 +130,9 @@
         var colW = COL_W;
         if (m !== 'sheet' && visible(rpEl)) { colW = Math.max(COL_MIN_W, W - rpEl.getBoundingClientRect().left); }
         setVar('--vt-frame-col-w', px(colW));
-        // the STOP's corner of the top band (its width: the column's, CSS)
-        setVar('--vt-stop-zone', px(m === 'sheet' ? 0 : colW));
+        // the STOP's corner of the top band: the column's width (phone
+        // upright: placeStop, the bezel's width)
+        if (m !== 'sheet') { setVar('--vt-stop-zone', px(colW)); }
         var barH = bh;
         if (band) { bh += joy.offsetHeight; }
         setCls(body, 'vt-joy-band', band);
@@ -155,6 +156,21 @@
         setCls(body, 'vt-c-spine', spine > 0);
         var dock = (m === 'dock') ? cleft : 0;
         setVar('--vt-frame-dock', px(dock));
+        // the back of the C runs down to the page's bottom edge (owner
+        // 2026-10-25: "Log starts after the left panel and the panel goes all
+        // the way down"): on a PC / landscape the bottom bar starts after the
+        // open panel or after the spine — Log is its first button. A
+        // full-width panel and the phone's sheet stand on the bar instead
+        // (the bar keeps the whole width there).
+        var barLeft = (m !== 'sheet' && !full) ? cleft : 0;
+        setVar('--vt-frame-bar-left', px(barLeft));
+        setCls(body, 'vt-c-backdown', m !== 'sheet' && !full);
+        // touch: the free gap for the system gesture stays under the middle of
+        // the screen — only when the middle lies over the bar (an open panel
+        // on a landscape phone reaches past it: no gap, the panel's foot is
+        // under the gesture then)
+        var gap = parseFloat(getComputedStyle(root).getPropertyValue('--vt-bar-gap')) || 0;
+        setCls(body, 'vt-bar-nogap', gap > 0 && barLeft > 0 && W / 2 - barLeft < 140);
 
         // ---- C frame 3: the protrusions (docs/UI_LAYOUT.md) ---------------
         // Their sizes come from CSS (log height, joystick size), their places
@@ -174,10 +190,10 @@
         // the small log rises from the bottom bar, from the back of the C;
         // when the open panel leaves it too little room it runs under the
         // panel instead (the panel then stands on it)
+        // (2026-10-25: the panel runs down to the page edge, so the log always
+        // stands beside it — never under it; when it is short of room the
+        // deck stands on the log instead, below)
         var logLeft = cleft;
-        var wide = lh > 0 && m !== 'sheet' && occ > 0 && (W - occ - jw) < LOG_MIN_W;
-        if (wide) { logLeft = 0; }
-        setCls(body, 'vt-log-wide', wide);
         // the joystick stands on the bottom bar at the right edge, beside the
         // small log — or ON the log when the two would not fit side by side
         // (phone in portrait)
@@ -305,24 +321,34 @@
     // the C (phone portrait: a band across the top, at most half the hollow),
     // so the map stays visible beside / below it.
     var STREAM_MAX_W = 640;
-    /* The big STOP's place (owner 2026-10-25, variant A of the mock-up).
-       PC / landscape: the head of the right column — the width of the right
-       panel (--vt-frame-col-w, CSS), in the top-right corner; when the top
-       band is lower than the STOP, the menu row grows a pad (--vt-stop-pad)
-       so the band ends STOP_GAP under it and the right panel, the left panel
+    /* The big STOP's place (owner 2026-10-25: variant A's corner, the round mushroom).
+       PC / landscape: the head of the right column — a round mushroom
+       centred over the right panel's width (--vt-frame-col-w, CSS), in the
+       top-right corner; when the top band is lower than its bezel, the menu
+       row grows a pad (--vt-stop-pad) so the band ends STOP_GAP under it and the right panel, the left panel
        and the hollow all start below it. --vt-stop-zone: the corner the
        band's rows (navbar, agent bars, menu row) keep free (set in update()).
-       Phone upright: the navbar's right end (CSS); nothing to measure.
+       Phone upright: the navbar's right end (CSS); the corner the rows keep
+       free is the bezel's width + a margin, and the menu row keeps it too
+       only when the bezel reaches into it (no agent strip: vt-stop-menu).
+       Measured on the bezel (.vt-estop-plate), not on the cap.
        Returns the top band's bottom edge. */
     var STOP_GAP = 4, stopPad = 0;
     function placeStop(m, rm, top) {
         var st = $('vt_stop_big');
+        var pl = st ? (st.querySelector('.vt-estop-plate') || st) : null;
         if (m === 'sheet' || !st || !rm) {
             if (stopPad) { stopPad = 0; setVar('--vt-stop-pad', '0px'); top = rm ? rm.getBoundingClientRect().bottom : top; }
+            if (m === 'sheet' && pl && rm) {
+                var pr = pl.getBoundingClientRect();
+                setVar('--vt-stop-zone', px(window.innerWidth - pr.left + 6));
+                setCls(document.body, 'vt-stop-menu', pr.bottom + 2 > rm.getBoundingClientRect().top);
+            }
             return top;
         }
+        setCls(document.body, 'vt-stop-menu', false);
         var base = top - stopPad;                       // the band without the pad
-        var need = Math.max(0, Math.ceil(st.getBoundingClientRect().bottom + STOP_GAP - base));
+        var need = Math.max(0, Math.ceil(pl.getBoundingClientRect().bottom + STOP_GAP - base));
         if (need !== stopPad) { stopPad = need; setVar('--vt-stop-pad', px(need)); }
         return base + stopPad;
     }
@@ -483,9 +509,9 @@
             c.setAttribute('aria-hidden', 'true');
             document.body.appendChild(c);
         });
-        // the emergency STOP (owner 2026-10-25, variant A): one big red
-        // button heading the right column in the top-right corner (phone
-        // upright: the navbar's right end) — always on screen, above every
+        // the emergency STOP (owner 2026-10-25: round again, top right): the
+        // red mushroom (cap in a dark bezel) heading the right column in the
+        // top-right corner (phone upright: the navbar's right end) — always on screen, above every
         // panel, the log, the help and dialogs; the same global stop as
         // #btn_stop_all (hidden, map_view.js) — it presses that button,
         // nothing of its own (docs/STOP_PATHS.md in vitulus_agent). Esc too.
@@ -493,7 +519,8 @@
         st.type = 'button';
         st.id = 'vt_stop_big';
         st.className = 'vt-estop';
-        st.innerHTML = '<span class="vt-estop-sq" aria-hidden="true"></span><span class="vt-stop-lbl" aria-hidden="true"></span>';
+        st.innerHTML = '<span class="vt-estop-plate" aria-hidden="true"></span>' +
+                       '<span class="vt-estop-cap" aria-hidden="true"><span class="vt-stop-lbl"></span></span>';
         tag(st.querySelector('.vt-stop-lbl'), 'joy.stop');
         st.title = tr('joy.stop.tip');
         st.setAttribute('aria-label', tr('joy.stop.tip'));
