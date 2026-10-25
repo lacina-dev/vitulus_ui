@@ -27,8 +27,8 @@ ok: Zavřeno | hotovo
 
 ## Panel Podpora
 
-Otevři **Podpora** (tlačítko vedle **Agent** v pásu menu). Panel jen čte; rozhoduje se na
-dashboardu. Má záložky **Hlášení**, **Vydání**, **Signál** a **Nápověda** (témata této
+Otevři **Podpora** (tlačítko vedle **Agent** v pásu menu). Co čeká na tebe, je ve zvonku
+([Čeká na tebe](agent.md#čeká-na-tebe)); tenhle panel je přehled smyčky. Má záložky **Hlášení**, **Vydání**, **Signál** a **Nápověda** (témata této
 nápovědy).
 
 ![Panel Podpora se záložkami a první kartou hlášení](../img/shot-support.webp "Podpora › Hlášení: záložky Hlášení · Vydání · Signál · Nápověda, pod nimi jedna karta na každé otevřené hlášení")
@@ -36,8 +36,21 @@ nápovědy).
 ### Hlášení
 
 Otevřená hlášení s fází smyčky, závažností a s tím, **kdo je na tahu**. Každá karta má
-**Otevřít v Podpoře**, **Zeptat se agenta** (otevře chat agenta s návrhem zprávy o hlášení —
-odešleš ji ty) a **Časová osa** (Agent › Aktivita jen pro toto hlášení).
+**Detail**, **Otevřít v Podpoře**, **Zeptat se agenta** (otevře chat agenta robota s návrhem
+zprávy o hlášení — odešleš ji ty) a **Časová osa** (Agent › Aktivita jen pro toto hlášení).
+
+**Detail** ukáže hlášení pro lidi, stejně jako stránka issue na dashboardu:
+
+- název, **kdo a kdy to nahlásil** (a na které issue navazuje);
+- **fáze** — Nahlášeno → Příčina → Oprava vydaná → Ověření → Hotovo — u každé **kdo** ji udělal
+  a **kdy**; ta aktuální je oranžová;
+- **Problém · Příčina · Oprava**, každé jednou větou;
+- **Co udělat** — kdo je na tahu, věta pro tvého agenta, kroky nebo varianty a **Začít s
+  agentem** (dvě kliknutí: věta odejde tvému agentovi do vlákna issue);
+- **Kdo co dělal** — historie, nejnovější nahoře.
+
+Technický protokol pro agenty zůstává na dashboardu (tlačítko na konci). **← Hlášení** nebo
+záložka **Hlášení** vrátí seznam.
 
 ### Vydání
 

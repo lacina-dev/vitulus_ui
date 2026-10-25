@@ -168,6 +168,17 @@ dnes polluje sám; převede se na hub).
   Activity jsou odkazy: událost kitu s issue → Support › Issues se zvýrazněnou
   kartou, agentní nález → Agent › Findings, job → zvýrazněný v Agent › Work.
 
+- **Jazyk fieldu (2026-10-25, `assets/js/vt_field_view.js`):** zvonek a panel Needs you
+  mluví jako úvodní stránka fieldu (kit 0.9.43+, `tools/_overview.py`): *Jak na tom jsme*
+  (`/api/home` `stav`, jedna věta za stranu), *Na tobě* (`todo.mine` + agent robota; varianty
+  rozhodnutí s doporučenou, Potvrdit = `pick`, Žádná nesedí / Začít s agentem = `ask` do vlákna
+  issue, Hotovo / Skrýt), *<druhá strana> má udělat* (sbalené, nepočítá se). Zvonek počítá jen
+  `todo.mine` + agentní schválení/práci (dřív celé `/api/attention` včetně klidných informací).
+  Support › Issues › **Detail** = lidský blok issue (`/api/issue/N` `human`). Akce `ask` webnodu
+  potřebuje kit 0.9.52 (dashboard pustí jen větu, kterou k vláknu sám nabízí). Webnode drží
+  poslední dobrou odpověď pomalých GET (`/api/home` 20–30 s při zátěži) a vrací ji s
+  `X-Field-Age`, čerstvá doběhne na pozadí.
+
 ## I5 — zápisy z UI robota (owner 2026-10-18: a) „ať je to integrované“)
 
 **Implementováno** (větev `ui-field-writes` + kit `kit-ui-writes`, 0.9.38): webnode

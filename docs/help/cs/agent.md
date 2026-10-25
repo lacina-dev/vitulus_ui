@@ -321,12 +321,29 @@ Který AI model co pro agenta dělá (chat, plánování, rozbor) — jen pro in
 ## Čeká na tebe
 
 **Zvonek** v navbaru je tichý, když nic nečeká, oranžový s počtem, když něco čeká, a červený,
-když je to naléhavé nebo by se robot pohnul. Otevře jeden seznam všeho, co čeká na člověka:
+když je to naléhavé nebo by se robot pohnul. Počítá **jen to, co čeká na tebe** — co agenti
+vyřeší sami, klidné poznámky a informace ho nerozsvítí. Panel mluví stejně jako úvodní stránka
+dashboardu Podpory:
 
-- **Agent robota** — schválení a práce agenta, kterou odblokuje jen člověk (zámek doku,
-  zaparkovaná mise, chybí nastavení místa, bezpečnostní stop), každá s jednou větou co a proč;
-  rozhoduješ je v **Agent › Práce**.
-- **Podpora** — na co čeká podpůrný kit. Ty jde rozhodnout přímo v seznamu: **Hotovo**, volba
-  z karty, **Skrýt na 24 h**, **Připomenout**, **Přijmout / Zamítnout** nález. Dvě kliknutí do
-  5 s; každé rozhodnutí je podepsané tvým jménem. Volba, která by pohnula robotem, se tady nikdy
-  nenabízí.
+- **Jak na tom jsme** — řádek pro každého robota (ty a druhá strana): tečka, **jedna věta**
+  (např. *Má nejnovější vydání, robot na něm jede.*) a hlavní fakta (vydání, stack od, kit).
+- **Na tobě** — jeden seznam všeho, co máš udělat:
+  - **Agent robota** — schválení a práce agenta, kterou odblokuje jen člověk (zámek doku,
+    zaparkovaná mise, chybí nastavení místa, bezpečnostní stop), každá s jednou větou co a proč;
+    rozhoduješ je v **Agent › Práce**.
+  - **Úkoly Podpory** — u každého co, proč, kdo to nahlásil, kdo připravil varianty a kdo na tebe
+    čeká od kdy. **Rozhodnutí** ukáže 2–3 **varianty zadání** od agenta s vybranou doporučenou:
+    **Potvrdit: …** pošle tvou volbu a agent ji provede; **Žádná nesedí, probrat s agentem** pošle
+    tu větu tvému agentovi do vlákna issue. **Krok** začíná agentem — *Začni tím, že řekneš svému
+    agentovi: „…“* — a **Začít s agentem** pošle přesně tu větu; agent kroky provede a ozve se.
+    **Hotovo** a **Skrýt na 24 h**, kde je karta nabízí. **Detail** otevře issue v **Podpoře**
+    (níž).
+  - klidné poznámky pod seznamem (např. *Mac na tebe čeká i u #8*) — šedě, nepočítají se.
+- **⟨Mac⟩ má udělat** — sbalené: na čem je druhá strana, ať vidíš, kdo je na tahu. Do zvonku se
+  nikdy nepočítá.
+
+Každé tlačítko, které zapisuje, chce **dvě kliknutí do 5 s** a je podepsané tvým jménem (zeptá se
+jednou na zařízení); jde přes webový uzel robota do dashboardu s jednorázovým tokenem vázaným na
+kartu a text, který jsi viděl. Agentovi odsud jde poslat jen věta, kterou field sám připravil, a
+volba, která by pohnula robotem, se tady nikdy nenabízí. Schválení akce hlídače (např. vydání)
+zůstává na dashboardu: **Schválit v Podpoře**.

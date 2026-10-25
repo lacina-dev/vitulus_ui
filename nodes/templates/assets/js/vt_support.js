@@ -120,7 +120,11 @@
     }
     /* I6: an issue links to the dashboard, the agent chat and its timeline */
     function issueActs(n, title) {
-        var acts = [linkBtn(t('support.open'), dash('#/issue/' + n))];
+        var acts = [];
+        if (window.VTField) {
+            acts.push(VTField.btn(t('fv.detail'), function () { showDetail(n); }, 'vt-fv-go'));
+        }
+        acts.push(linkBtn(t('support.open'), dash('#/issue/' + n)));
         if (window.VTLinks) {
             acts.push(VTLinks.button(t('support.ask'), function () {
                 VTLinks.askAgent(title ? t('support.ask.draft_title', { n: n, title: title }) : t('support.ask.draft', { n: n }));
@@ -130,9 +134,48 @@
         }
         return acts;
     }
+    /* the issue's human block (/api/issue human): where it started, the
+       phases with who / when, Problem / Cause / Fix, what to do (starting with
+       the agent), who did what — the protocol stays on the dashboard */
+    var detailN = null, detailKey = null;
+    function showDetail(n) {
+        n = Number(String(n).replace(/\D/g, ''));
+        if (!n) { return; }
+        if (detailKey && window.VTHub) { VTHub.stop(detailKey); }
+        detailN = n;
+        detailKey = 'field.issue.' + n;
+        if (window.VTHub) {
+            VTHub.on(detailKey, function () { if (active && tab === 'issues' && detailN === n) { render(); } });
+            VTHub.poll(detailKey, '/field/api/issue/' + n, 60000);
+        }
+        if (!active || tab !== 'issues') { open('issues'); } else { render(); }
+        var body = document.getElementById('ui_drawer_body');
+        if (body) { body.scrollTop = 0; }
+    }
+    function closeDetail() {
+        if (detailKey && window.VTHub) { VTHub.stop(detailKey); }
+        detailN = null; detailKey = null;
+        render();
+    }
+    function renderDetail(pane) {
+        var bar = el('div', 'vt-fv-back');
+        var back = el('button', 'btn btn-outline-info vt-needs-btn', t('fv.back'));
+        back.type = 'button';
+        back.addEventListener('click', closeDetail);
+        bar.appendChild(back);
+        bar.appendChild(el('span', 'vt-fv-n', '#' + detailN));
+        pane.appendChild(bar);
+        var e = window.VTHub && VTHub.get(detailKey);
+        waitOr(e, function (d) {
+            if (d && d.meta && d.meta.role && window.VTField) { VTField.setRole(d.meta.role); }
+            else if (d && d.role && window.VTField) { VTField.setRole(d.role); }
+            return [VTField.issue(d && d.human, detailN, showDetail)];
+        }).forEach(function (x) { pane.appendChild(x); });
+    }
     function renderIssues() {
         var pane = panes.issues; if (!pane) { return; }
         pane.textContent = '';
+        if (detailN && window.VTField) { renderDetail(pane); return; }
         waitOr(VTHub.get("field.issues"), function (d) {
             var all = d.issues || [];
             var open = all.filter(function (i) { return i.state !== 'CLOSED'; });
@@ -254,12 +297,14 @@
     function startData() {
         if (!window.VTHub) { return; }
         VTHub.poll("field.issues", '/field/api/issues', 60000);
-        VTHub.poll("field.home", '/field/api/home', 60000);
+        /* field.home is polled all the time by vt_needs.js (the bell) */
+        VTHub.poll("field.home", '/field/api/home', 45000);
+        if (detailKey) { VTHub.poll(detailKey, '/field/api/issue/' + detailN, 60000); }
     }
     function stopData() {
         if (!window.VTHub) { return; }
         VTHub.stop("field.issues");
-        VTHub.stop("field.home");
+        if (detailKey) { VTHub.stop(detailKey); }
     }
 
     function build() {
@@ -273,7 +318,11 @@
             var a = el('a', 'nav-link', t(tb[1]));
             if (window.VTI18n) { VTI18n.tag(a, tb[1]); }   // follows every language switch
             a.href = '#'; a.setAttribute('role', 'tab');
-            a.addEventListener('click', function (e) { e.preventDefault(); showTab(tb[0]); });
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (tb[0] === 'issues' && tab === 'issues' && detailN) { closeDetail(); return; }
+                showTab(tb[0]);
+            });
             li.appendChild(a); ul.appendChild(li);
             tabLinks[tb[0]] = a;
         });
@@ -428,7 +477,9 @@
         window.VTSupport = { open: open, close: function () { deactivate(true); }, toggle: toggle, help: openHelp,
             tab: function () { return active ? tab : null; },
             /* I6: open Issues and point at card #n (survives the refresh that follows opening) */
+            showIssueDetail: showDetail,
             showIssue: function (n) {
+                if (detailN) { closeDetail(); }
                 hlIssue = String(n).replace(/\D/g, ''); hlUntil = Date.now() + 4000; hlScrolled = false;
                 open('issues');
             } };

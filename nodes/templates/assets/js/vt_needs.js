@@ -1,27 +1,31 @@
 /* vt_needs.js — "Needs you": ONE place for everything that waits for a
- * human (U2, I1 of docs/UI_INTEGRATION_PLAN.md).
+ * human (U2, I1 of docs/UI_INTEGRATION_PLAN.md; field language 2026-10-25).
  *
  *  - a bell in the navbar, always in the same slot (left of the menu
  *    toggler): quiet when nothing waits, amber + count when something does,
- *    red when something is urgent / would move the robot;
+ *    red when something is urgent / would move the robot. It counts ONLY
+ *    what waits for a person (alert-only-when-needed): the robot agent's
+ *    approvals and parked work, and the field's "Na tobě" (todo.mine of
+ *    /api/home) — never calm notes, info or what the agents handle;
  *  - a panel in the shared left drawer (desktop column, phone bottom sheet)
- *    with two groups of cards in the field look (vt_field.css):
- *      Robot agent — approvals of the robot's agent (from agent_chat.js,
- *                    the same list the agent strip shows; no second poller),
- *      Support     — the field kit's "Potřebuje tě" (/field/api/attention,
- *                    read-only proxy in webnode).
+ *    that speaks the field's language (vt_field_view.js):
+ *      How we stand — both sides in one sentence each       (/api/home stav)
+ *      On you       — the robot agent's asks + the field's tasks: decisions
+ *                     with the agent's variants (Confirm / talk it over),
+ *                     steps that start with the agent ("Start with the
+ *                     agent"), Done / Hide; Detail opens the issue's human
+ *                     block in Support                          (/api/home todo)
+ *      <peer> has to do — folded, quiet: what the other side is on
  *
- * Read-only in this phase: deciding happens where the guards are — agent
- * approvals in Agent › Work, field items on the Support dashboard (its page
- * token + same-origin checks must not be bypassed). Each card says so and
- * links there.
+ * Field writes go through the webnode door /field/act/* (vt_field_view.js);
+ * agent approvals are decided in Agent › Work.
  */
 (function () {
     'use strict';
     function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
     function tn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
     var drawerTitle = '';   // the text this panel put into #ui_drawer_title
-    var FIELD_EVERY = 30000;
+    var FIELD_EVERY = 30000, HOME_EVERY = 45000;
     var panel = null, active = false, bell = null, bellN = null;
     var openGroups = {};
 
@@ -47,27 +51,37 @@
         return isNaN(t) ? null : (Date.now() - t) / 1000;
     }
     function supportUrl(link) {
-        var l = (typeof link === 'string' && /^#\/[A-Za-z0-9/_-]*$/.test(link)) ? link : '#/attention';
+        var l = (typeof link === 'string' && /^#\/[A-Za-z0-9/_.:-]*$/.test(link)) ? link : '#/';
         return 'https://' + location.hostname + ':8790/' + l;
     }
 
     /* ------------------------------------------------------------ model */
     function model() {
-        var asks = (window.VTHub && VTHub.get("agent.asks")) || null;
-        var field = (window.VTHub && VTHub.get("field.attention")) || null;
+        var H = window.VTHub;
+        var asks = (H && H.get("agent.asks")) || null;
+        var field = (H && H.get("field.attention")) || null;
+        var home = (H && H.get("field.home")) || null;
         /* agent work that needs a person and is not an approval — the core
            decides (attention.py: dock lock, parked mission, a failure only a
            human can fix); everything the agent handles itself stays out */
-        var needs = (window.VTHub && VTHub.get("agent.needs")) || null;
+        var needs = (H && H.get("agent.needs")) || null;
         var a = (asks && asks.data) || [];
         var w = (needs && needs.data) || [];
-        var f = (field && field.data && field.data.items) || [];
+        var hd = home && home.data;
+        var todo = hd && hd.todo && hd.todo.mine ? hd.todo : null;
+        var mine = todo ? (todo.mine.items || []) : null;
+        /* before /api/home answers (it is the slow one): the attention list
+           without calm info (urgency low) stands in for the count */
+        var f = mine || ((field && field.data && field.data.items) || []).filter(function (x) {
+            return x.urgency !== 'low';
+        });
+        var fieldN = mine ? mine.length + (todo.mine.more || 0) : f.length;
         var urgent = a.some(function (x) { return x.moves; }) ||
             w.some(function (x) { return x.code === 'safety'; }) ||
-            f.some(function (x) { return x.urgency === 'high'; }) ||
-            !!(field && field.data && field.data.high);
-        return { asks: a, work: w, field: f, fieldEntry: field, askEntry: asks,
-                 n: a.length + w.length + f.length, urgent: urgent };
+            ((field && field.data && field.data.items) || []).some(function (x) { return x.urgency === 'high'; });
+        return { asks: a, work: w, field: f, todo: todo, stav: hd && hd.stav, home: home,
+                 fieldEntry: field, askEntry: asks, fieldN: fieldN,
+                 n: a.length + w.length + fieldN, urgent: urgent };
     }
 
     /* ------------------------------------------------------------- bell */
@@ -138,11 +152,6 @@
         }
         return c;
     }
-    function linkBtn(label, href) {
-        var b = el('a', 'btn btn-outline-info vt-needs-btn', label);
-        b.href = href; b.target = '_blank'; b.rel = 'noopener';
-        return b;
-    }
     function agentBtn(ref) {
         var b = el('button', 'btn btn-outline-info vt-needs-btn', t('needs.review_agent'));
         b.type = 'button';
@@ -168,17 +177,25 @@
         if (x.detail) { sub += ' — ' + x.detail; }
         return card(x.code === 'safety' ? 'err' : 'warn',
             { title: head, end: age(sinceSec(x.since)) },
-            main, sub, [[t('needs.chip.agent')]], [agentBtn(x.ref)]);
+            main, sub, [[t('needs.chip.robot_agent')]], [agentBtn(x.ref)]);
     }
-    function group(key, title, count, body) {
+    function askCard(x) {
+        return card(x.moves ? 'err' : 'warn',
+            { title: x.moves ? t('needs.card.motion') : t('needs.card.approval'), end: age(x.waiting_s) },
+            x.what || t('needs.card.ask'), null,
+            [[t('needs.chip.robot_agent')], x.moves ? [t('needs.chip.moves'), 'err'] : null].filter(Boolean),
+            [agentBtn()]);
+    }
+    function group(key, title, count, body, defOpen) {
         var d = el('details', 'drawer-sec vt-needs-grp');
-        d.open = openGroups[key] !== false;
+        d.open = openGroups[key] === undefined ? defOpen !== false : openGroups[key] !== false;
+        d.dataset.grp = key;
         var s = el('summary');
         s.appendChild(el('span', 'vt-needs-gt', title));
         s.appendChild(el('span', 'vt-needs-gn', String(count)));
         d.appendChild(s);
         var b = el('div', 'drawer-sec-body vt-stack');
-        body.forEach(function (x) { b.appendChild(x); });
+        body.forEach(function (x) { if (x) { b.appendChild(x); } });
         d.appendChild(b);
         d.addEventListener('toggle', function () {
             openGroups[key] = d.open;
@@ -186,207 +203,91 @@
         });
         return d;
     }
-
-    /* I6: a field item also links to the agent chat and to its issue */
-    /* ---------------------------------------- I5: decide from the robot UI
-       (kit 0.9.38 "Zápisy z UI robota"): Done, a card option WITHOUT motion,
-       Hide 24 h, Remind, Accept / Dismiss a finding. Two clicks (the first
-       arms, the second sends within 5 s); the webnode asks the dashboard for
-       a single-use token bound to this card and the text shown here, and the
-       dashboard runs its own endpoint. Nothing else is writable from here. */
-    var LS_UI_AUTHOR = 'vitulus_ui_author';
-    function author() {
-        var a = lsGet('vitulus_agent_author') || lsGet(LS_UI_AUTHOR) || '';
-        return String(a).replace(/^"|"$/g, '').trim().slice(0, 60);
-    }
-    function writesOn() {
-        var e = window.VTHub && VTHub.get("ui.actions");
-        return !!(e && e.data && e.data.writes);
-    }
-    function send(action, payload, shown, cardEl, msgEl) {
-        var who = author();
-        if (!who) {
-            msgEl.setAttribute('data-state', 'warn');
-            msgEl.textContent = t('needs.sign_first');
-            return;
-        }
-        msgEl.removeAttribute('data-state');
-        msgEl.textContent = t('needs.sending');
-        var body = JSON.stringify(Object.assign({ author: who, shown: shown }, payload));
-        fetch('/field/act/' + action, {
-            method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', 'X-Vitulus-UI': '1' }, body: body
-        }).then(function (r) {
-            return r.json().catch(function () { return {}; }).then(function (j) { return [r.ok, j]; });
-        }).then(function (res) {
-            var ok = res[0] && res[1].ok !== false;
-            msgEl.setAttribute('data-state', ok ? 'ok' : 'err');
-            msgEl.textContent = ok ? (res[1].message ? t('needs.sent.msg', { msg: res[1].message }) : t('needs.sent')) :
-                t('needs.not_done', { err: res[1].error || res[1].message || t('needs.err') });
-            if (ok) {
-                cardEl.classList.add('vt-needs-done');
-                if (window.VTHub) { VTHub.refresh("field.attention"); VTHub.refresh("ui.actions"); }
-            }
-        }, function (e) {
-            msgEl.setAttribute('data-state', 'err');
-            msgEl.textContent = t('needs.not_done', { err: e && e.message || e });
-        });
-    }
-    function armButton(label, cls, onSend, title) {
-        var b = el('button', 'btn vt-needs-btn vt-decide-btn ' + (cls || ''), label);
-        b.type = 'button';
-        if (title) { b.title = title; }
-        var timer = null;
-        b.addEventListener('click', function () {
-            if (!b.classList.contains('vt-armed')) {
-                b.classList.add('vt-armed');
-                b.textContent = t('needs.sure', { label: label });
-                timer = setTimeout(function () { b.classList.remove('vt-armed'); b.textContent = label; }, 5000);
-                return;
-            }
-            clearTimeout(timer);
-            b.classList.remove('vt-armed');
-            b.textContent = label;
-            b.disabled = true;
-            onSend();
-            setTimeout(function () { b.disabled = false; }, 3000);
-        });
-        return b;
-    }
-    function decideRow(x, p, cardEl) {
-        if (!writesOn()) { return null; }
-        var row = el('div', 'vt-decide');
-        var btns = el('div', 'vt-decide-btns');
-        var msg = el('div', 'vt-decide-msg');
-        msg.setAttribute('aria-live', 'polite');
-        var shown = p.headline || x.title || '';
-        (p.options || []).forEach(function (o, i) {
-            if (!o || !o.changes_something) { return; }
-            if (o.motion) {
-                btns.appendChild(el('span', 'vt-pill vt-decide-motion', t('needs.motion_pill', { label: o.label || t('needs.option') })));
-                return;
-            }
-            if (!p.pid || !p.sha) { return; }
-            btns.appendChild(armButton(o.label || t('needs.option_n', { n: i + 1 }), o.recommended ? 'vt-decide-rec' : '',
-                function () { send('pick', { pid: p.pid, opt: i, sha: p.sha }, shown, cardEl, msg); },
-                o.what_happens || ''));
-        });
-        (x.actions || []).forEach(function (a) {
-            if (!a || !a.kind) { return; }
-            if (a.kind === 'step-done' && a.step) {
-                btns.appendChild(armButton(a.label && a.label !== 'Hotovo' ? a.label : t('common.done'), 'vt-decide-rec', function () {
-                    send('done', { step: a.step, issue: a.issue ? Number(a.issue) : null }, shown, cardEl, msg);
-                }));
-            } else if (a.kind === 'snooze' && a.aid) {
-                btns.appendChild(armButton(t('needs.hide24'), '', function () { send('snooze', { id: a.aid }, shown, cardEl, msg); }));
-            } else if (a.kind === 'remind' && a.issue) {
-                btns.appendChild(armButton(t('needs.remind'), '', function () { send('remind', { issue: Number(a.issue) }, shown, cardEl, msg); },
-                    t('needs.remind.tip')));
-            } else if ((a.kind === 'finding-accept' || a.kind === 'finding-dismiss') && a.fid) {
-                var acc = a.kind === 'finding-accept';
-                btns.appendChild(armButton(acc ? t('needs.accept') : t('needs.dismiss'), acc ? 'vt-decide-rec' : '', function () {
-                    send(a.kind, { id: a.fid }, shown, cardEl, msg);
-                }));
-            }
-        });
-        if (!btns.children.length) { return null; }
-        row.appendChild(btns);
-        row.appendChild(msg);
-        return row;
-    }
     function nameRow() {
-        if (author() || !writesOn()) { return null; }
+        if (!window.VTField || VTField.author() || !VTField.writesOn()) { return null; }
         var r = el('div', 'vt-card vt-needs-name');
         r.setAttribute('data-state', 'info');
         r.appendChild(el('div', 'vt-needs-sub', t('needs.name.hint')));
         var inp = el('input', 'form-control');
         inp.type = 'text'; inp.maxLength = 60; inp.placeholder = t('needs.name.placeholder');
-        inp.addEventListener('change', function () { lsSet(LS_UI_AUTHOR, inp.value.trim()); render(); });
+        inp.addEventListener('change', function () { lsSet('vitulus_ui_author', inp.value.trim()); render(); });
         r.appendChild(inp);
         return r;
     }
-
-    function fieldActs(x, p) {
-        var acts = [linkBtn(t('needs.open_support'), supportUrl(x.link))];
-        if (window.VTLinks) {
-            acts.push(VTLinks.button(t('needs.ask'), function () {
-                var hl = p.headline || x.title || '';
-                VTLinks.askAgent(x.issue ? t('needs.ask.draft_issue', { n: x.issue, title: hl })
-                                         : t('needs.ask.draft', { title: hl }));
-            }, t('needs.ask.tip')));
-            if (x.issue && window.VTSupport) {
-                acts.push(VTLinks.button(t('needs.issue_n', { n: x.issue }), function () { VTLinks.openIssue(x.issue); }));
-            }
-        }
-        return acts;
+    function openIssue(n) {
+        if (window.VTSupport && VTSupport.showIssueDetail) { VTSupport.showIssueDetail(n); }
+        else if (window.VTLinks) { VTLinks.openIssue(n); }
     }
+    /* before /api/home answers: the attention item as a plain card */
+    function attCard(x) {
+        var p = x.plain || {};
+        return card(x.urgency === 'high' ? 'err' : 'warn', { title: p.headline || x.title || '', end: age(sinceSec(x.since)) },
+            null, p.explain || x.why || '', x.issue ? [['#' + x.issue, 'info']] : null,
+            [VTField.linkBtn(t('needs.open_support'), supportUrl(x.link))]);
+    }
+
     function render() {
         var m = model();
         paintBell(m);
         if (!panel || !active) { return; }
         var meta = document.getElementById('vt_needs_meta');
-        if (meta) {
-            meta.textContent = m.n ? tn('needs.waiting', m.n) : t('needs.nothing_waits');
-        }
+        if (meta) { meta.textContent = m.n ? tn('needs.waiting', m.n) : t('needs.nothing_waits'); }
         var root = panel.querySelector('.vt-needs-body');
+        // keep the reader's place: a poll must not throw the list back to the top
+        var sc = root.closest('#ui_drawer_body') || root.parentNode;
+        var keepTop = sc ? sc.scrollTop : 0;
+        // an armed button or a picked variant is a person in the middle of a click
+        if (root.querySelector('.vt-armed')) { return; }
         root.textContent = '';
+        if (!window.VTField) { return; }
+        if (m.todo && m.todo.role) { VTField.setRole(m.todo.role); }
 
-        // P22: all clear = ONE good-news line; the two groups keep their place
-        // (header + 0) but no longer repeat "nothing here" twice below it
-        var allClear = !m.n && m.fieldEntry && m.fieldEntry.ok && !!m.askEntry;
-        if (allClear) {
-            root.appendChild(el('p', 'vt-empty-ok', t('needs.all_clear')));
-        }
+        /* how we stand: both sides, one sentence each */
+        if (m.stav && m.stav.length) { root.appendChild(VTField.state(m.stav)); }
+        else if (!m.home) { root.appendChild(el('span', 'vt-skel')); }
 
-        /* robot agent */
-        var ac = m.work.map(workCard).concat(m.asks.map(function (x) {
-            return card(x.moves ? 'err' : 'warn',
-                { title: x.moves ? t('needs.card.motion') : t('needs.card.approval'), end: age(x.waiting_s) },
-                x.what || t('needs.card.ask'), null,
-                [[t('needs.chip.agent')], x.moves ? [t('needs.chip.moves'), 'err'] : null].filter(Boolean),
-                [agentBtn()]);
-        }));
-        if (!m.askEntry && !m.work.length) {
-            ac = [el('p', 'vt-empty', t('needs.wait_agent'))];
-        } else if (!ac.length) {
-            ac = allClear ? [] : [el('p', 'vt-empty', t('needs.no_approvals'))];
-        }
-        root.appendChild(group('agent', t('needs.grp.agent'), m.asks.length + m.work.length, ac));
-
-        /* field kit */
-        var fc;
-        if (!m.fieldEntry) {
-            fc = [el('span', 'vt-skel'), el('span', 'vt-skel vt-skel-short')];
-        } else if (!m.fieldEntry.ok && !m.field.length) {
-            fc = [el('p', 'vt-empty', t('needs.field.unreachable', { err: m.fieldEntry.err || t('needs.err') }))];
-        } else {
-            fc = m.field.map(function (x) {
-                var p = x.plain || {};
-                var rec = (p.options || []).filter(function (o) { return o.recommended; })[0];
-                var chips = [[x.kind || t('needs.chip.item')]];
-                if (x.issue) { chips.push(['#' + x.issue, 'info']); }
-                if (x.urgency === 'high') { chips.push([t('needs.chip.urgent'), 'err']); }
-                if (rec && rec.motion) { chips.push([t('needs.chip.motion'), 'warn']); }
-                var KIND = { 'human-step': 'human_step', decision: 'decision', approve: 'approve',
-                             finding: 'finding', test: 'test', reply: 'reply' };
-                var c = card(x.urgency === 'high' ? 'err' : 'warn',
-                    { title: t(Object.prototype.hasOwnProperty.call(KIND, x.kind) ? 'needs.kind.' + KIND[x.kind] : 'needs.kind.support'),
-                      end: age(sinceSec(x.since)) },
-                    p.headline || x.title || '', p.explain || x.why || '',
-                    chips.concat(rec ? [[t('needs.chip.recommended', { label: (rec.label || '').slice(0, 60) }), 'ok']] : []),
-                    fieldActs(x, p));
-                var dr = decideRow(x, p, c);
-                if (dr) { c.insertBefore(dr, c.querySelector('.vt-needs-acts')); }
-                return c;
-            });
-            if (!fc.length) { fc = allClear ? [] : [el('p', 'vt-empty', t('needs.field.none'))]; }
-            if (!m.fieldEntry.ok) {
-                fc.unshift(el('p', 'vt-empty', t('needs.field.stale')));
-            }
-        }
+        /* on you: the robot agent's asks + the field's tasks */
+        var on = [];
+        m.work.forEach(function (x) { on.push(workCard(x)); });
+        m.asks.forEach(function (x) { on.push(askCard(x)); });
         var nr = nameRow();
-        if (nr && m.field.length) { fc.unshift(nr); }
-        root.appendChild(group('field', t('needs.grp.field'), m.field.length, fc));
+        if (nr && m.fieldN) { on.push(nr); }
+        if (m.todo) {
+            m.todo.mine.items.forEach(function (it) { on.push(VTField.task(it, { mine: true, onIssue: openIssue })); });
+        } else {
+            m.field.forEach(function (x) { on.push(attCard(x)); });
+            if (!m.fieldEntry && !m.home) { on.push(el('span', 'vt-skel vt-skel-short')); }
+        }
+        if (!on.length) {
+            var known = (m.home && m.home.ok) || (m.fieldEntry && m.fieldEntry.ok);
+            on.push(el('p', known ? 'vt-empty-ok' : 'vt-empty', known ? t('needs.all_clear') : t('needs.wait_field')));
+        }
+        if (m.todo && m.todo.mine.more) {
+            on.push(VTField.linkBtn(t('fv.more_n', { n: m.todo.mine.more }), supportUrl('#/attention')));
+        }
+        var nt = m.todo && VTField.notes(m.todo.mine.notes, openIssue);
+        if (nt) { on.push(nt); }
+        if ((m.home && !m.home.ok) || (m.fieldEntry && !m.fieldEntry.ok)) {
+            on.push(el('p', 'vt-empty', (m.home && m.home.data) || (m.fieldEntry && m.fieldEntry.data) ?
+                t('needs.field.stale') : t('needs.field.unreachable', { err: (m.home && m.home.err) || (m.fieldEntry && m.fieldEntry.err) || t('needs.err') })));
+        }
+        var onTitle = t('fv.on_you');
+        root.appendChild(group('mine', onTitle, m.n, on));
+
+        /* what the other side is on: folded, never counted */
+        if (m.todo && m.todo.peer) {
+            var P = m.todo.peer, names = m.todo.names || {};
+            var pc = (P.items || []).map(function (it) { return VTField.task(it, { mine: false, onIssue: openIssue }); });
+            if (!pc.length) { pc.push(el('p', 'vt-empty', t('fv.empty_peer', { name: names.peer || P.name || '?' }))); }
+            var pn = VTField.notes(P.notes, openIssue);
+            if (pn) { pc.push(pn); }
+            root.appendChild(group('peer', t('fv.peer_has', { name: names.peer || P.name || '?' }),
+                (P.items || []).length + (P.more || 0), pc, false));
+        }
+        var foot = el('div', 'vt-needs-acts vt-fv-foot');
+        foot.appendChild(VTField.linkBtn(t('fv.open_dash'), supportUrl('#/')));
+        root.appendChild(foot);
+        if (sc) { sc.scrollTop = keepTop; }
     }
 
     function build() {
@@ -431,7 +332,7 @@
         if (bd) { bd.style.display = window.innerWidth < 576 ? 'block' : 'none'; }
         active = true;
         lsSet('vitulus_needs_open', '1');
-        if (window.VTHub) { VTHub.refresh("field.attention"); }
+        if (window.VTHub) { VTHub.refresh("field.attention"); VTHub.refresh("field.home"); }
         if (!VTHub.get("agent.asks") && window.VAgent && VAgent.pollApprovals) {
             try { VAgent.pollApprovals(); } catch (e) { /* agent down */ }
         }
@@ -520,6 +421,10 @@
         VTHub.on("agent.needs", render);
         VTHub.on("field.attention", render);
         VTHub.poll("field.attention", '/field/api/attention', FIELD_EVERY);
+        /* the field's own words for people: stav + todo (one poller, shared
+           with Support › Releases / Signal) */
+        VTHub.on("field.home", render);
+        VTHub.poll("field.home", '/field/api/home', HOME_EVERY);
         VTHub.on("ui.actions", render);
         VTHub.poll("ui.actions", '/field/ui_actions?limit=50', 60000);   // I5: switch + audit
         setInterval(function () { if (active) { render(); } }, 30000);   // ages tick

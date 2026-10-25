@@ -324,13 +324,29 @@ Which AI model does what for the agent (chat, planning, analysis) — informatio
 ## Needs you
 
 The **bell** in the navbar is quiet when nothing waits, orange with a count when something does,
-red when it is urgent or the robot would move. It opens one list of everything that waits for a
-person:
+red when it is urgent or the robot would move. It counts **only what waits for you** — what the
+agents handle themselves, calm notes and information never light it up. The panel speaks the
+same language as the Support dashboard's home page:
 
-- **Robot agent** — approvals, and agent work only a person can unblock (dock lock, parked
-  mission, missing site setup, safety stop), each with one sentence what and why; decide them in
-  **Agent › Work**.
-- **Support** — what the field support kit waits for. These can be decided right in the list:
-  **Done**, an option of the card, **Hide 24 h**, **Remind**, **Accept / Dismiss** a finding. Two
-  clicks within 5 s; each decision is signed with your name. An option that moves the robot is
-  never offered here.
+- **How we stand** — one row per robot (you and the other side): a dot, **one sentence** (e.g.
+  *Has the newest release, the robot runs on it.*) and the key facts (release, stack since, kit).
+- **On you** — one list of everything you have to do:
+  - **Robot agent** — approvals, and agent work only a person can unblock (dock lock, parked
+    mission, missing site setup, safety stop), each with one sentence what and why; decide them
+    in **Agent › Work**.
+  - **Support tasks** — each says what, why, who reported it, who prepared the variants and who
+    waits for you since when. A **decision** shows the agent's 2–3 **variants** with the
+    recommended one chosen: **Confirm: …** sends your choice and the agent carries it out; **None
+    fits, talk it over with the agent** sends that sentence to your agent in the issue's thread.
+    A **step** starts with your agent — *Start by telling your agent: „…“* — and **Start with
+    the agent** sends exactly that sentence; the agent does the steps and reports back. **Done**,
+    **Hide 24 h** where the card offers them. **Detail** opens the issue in **Support** (below).
+  - calm notes under the list (e.g. *Mac waits for you on #8 too*) — grey, not counted.
+- **⟨Mac⟩ has to do** — folded: what the other side is on, so you see who has the ball. Never
+  counted in the bell.
+
+Every button that writes takes **two clicks within 5 s** and is signed with your name (asked once
+per device); it goes through the robot's web node to the dashboard with a single-use token bound
+to the card and the text you saw. Only sentences the field itself prepared can be sent to the
+agent from here, and an option that moves the robot is never offered here. Approving a watcher
+action (e.g. a release) stays on the dashboard: **Approve in Support**.

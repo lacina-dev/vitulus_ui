@@ -27,8 +27,8 @@ ok: Closed | done
 
 ## The Support panel
 
-Open **Support** (the button next to **Agent** in the menu band). It only reads; decisions are
-made on the dashboard. Its tabs: **Issues**, **Releases**, **Signal** and **Help** (the topics of
+Open **Support** (the button next to **Agent** in the menu band). What waits for you is in the
+bell ([Needs you](agent.md#needs-you)); this panel is the overview of the loop. Its tabs: **Issues**, **Releases**, **Signal** and **Help** (the topics of
 this help).
 
 ![The Support panel with its tabs and the first issue card](img/shot-support.webp "Support › Issues: tabs Issues · Releases · Signal · Help, then one card per open report")
@@ -36,8 +36,21 @@ this help).
 ### Issues
 
 Open reports with their stage in the loop, severity and **whose turn** it is. Each card has
-**Open in Support**, **Ask the agent** (opens the agent chat with a draft about the issue — you
-send it) and **Timeline** (Agent › Activity filtered to the issue).
+**Detail**, **Open in Support**, **Ask the agent** (opens the robot agent's chat with a draft
+about the issue — you send it) and **Timeline** (Agent › Activity filtered to the issue).
+
+**Detail** shows the issue for people, as on the dashboard's issue page:
+
+- the title, **who reported it and when** (and which issue it follows);
+- the **phases** — Reported → Cause → Fix released → Verified → Done — each with **who** did it
+  and **when**; the current one is orange;
+- **Problem · Cause · Fix** in one sentence each;
+- **What to do** — whose turn it is, the sentence to tell your agent, the steps or variants, and
+  **Start with the agent** (two clicks: the sentence goes to your agent in the issue's thread);
+- **Who did what** — the history, newest first.
+
+The technical protocol for agents stays on the dashboard (the button at the end). **← Issues** or
+the **Issues** tab goes back to the list.
 
 ### Releases
 
