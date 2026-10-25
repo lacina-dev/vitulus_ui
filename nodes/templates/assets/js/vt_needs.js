@@ -183,6 +183,50 @@
         });
         return b;
     }
+    /* the robot agent's asks in the SAME anatomy as the field's cards
+       (vt_field.css .vt-ask): type · waits → title → Why you → button →
+       What happens next; the source is a small "robot agent" tag */
+    function agentAsk(state, type, since, title, why, sub, chips, btn, next) {
+        var c = el('div', 'vt-card vt-fv-task vt-ask vt-ask-k-agent');
+        c.setAttribute('data-state', state);
+        var h = el('div', 'vt-ask-h');
+        h.appendChild(el('span', 'vt-ask-type', type));
+        var tg = window.VTField && VTField.tag({ k: 'agent', t: t('needs.chip.robot_agent') }, true);
+        if (tg) { h.appendChild(tg); }
+        var meta = el('span', 'vt-ask-meta');
+        var ag = age(since);
+        if (ag) { meta.appendChild(el('span', 'vt-ask-age', t('fv.ask.waits', { age: ag }))); }
+        h.appendChild(meta);
+        c.appendChild(h);
+        c.appendChild(el('h4', 'vt-ask-title', title));
+        if (why) {
+            var w = el('p', 'vt-ask-why');
+            w.appendChild(el('b', null, t('fv.ask.why') + ': '));
+            w.appendChild(document.createTextNode(why));
+            c.appendChild(w);
+        }
+        if (sub) { c.appendChild(el('div', 'vt-needs-sub', sub)); }
+        if (chips && chips.length) {
+            var p = el('div', 'vt-pills');
+            chips.forEach(function (x) {
+                var sp = el('span', 'vt-pill', x[0]);
+                if (x[1]) { sp.setAttribute('data-state', x[1]); }
+                p.appendChild(sp);
+            });
+            c.appendChild(p);
+        }
+        var a = el('div', 'vt-needs-acts vt-fv-acts');
+        btn.classList.add('vt-fv-go');
+        a.appendChild(btn);
+        c.appendChild(a);
+        if (next) {
+            var nx = el('p', 'vt-ask-next');
+            nx.appendChild(el('b', null, t('fv.ask.next') + ': '));
+            nx.appendChild(document.createTextNode(next));
+            c.appendChild(nx);
+        }
+        return c;
+    }
     /* one sentence: WHAT you are asked to do and WHY (ajob.attn.<code>);
        the core's own Czech sentence is the sub-line — it is evidence */
     function workCard(x) {
@@ -192,16 +236,13 @@
         if (main === 'ajob.attn.' + x.code) { main = x.why || ''; }
         var sub = '#' + String(x.ref || '').replace(/^[js]:/, '') + ' ' + (x.title || '');
         if (x.detail) { sub += ' — ' + x.detail; }
-        return card(x.code === 'safety' ? 'err' : 'warn',
-            { title: head, end: age(sinceSec(x.since)) },
-            main, sub, [[t('needs.chip.robot_agent')]], [agentBtn(x.ref)]);
+        return agentAsk(x.code === 'safety' ? 'err' : 'warn', head, sinceSec(x.since),
+            main.charAt(0).toUpperCase() + main.slice(1), t('needs.agent.why_work'), sub, null, agentBtn(x.ref), t('needs.agent.next_work'));
     }
     function askCard(x) {
-        return card(x.moves ? 'err' : 'warn',
-            { title: x.moves ? t('needs.card.motion') : t('needs.card.approval'), end: age(x.waiting_s) },
-            x.what || t('needs.card.ask'), null,
-            [[t('needs.chip.robot_agent')], x.moves ? [t('needs.chip.moves'), 'err'] : null].filter(Boolean),
-            [agentBtn()]);
+        return agentAsk(x.moves ? 'err' : 'warn', t('fv.ask.t.approve'), x.waiting_s,
+            x.what || t('needs.card.ask'), x.moves ? t('needs.agent.why_motion') : t('needs.agent.why_ask'), null,
+            x.moves ? [[t('fv.ask.motion'), 'warn']] : null, agentBtn(), t('needs.agent.next_ask'));
     }
     function group(key, title, count, body, defOpen) {
         var d = el('details', 'drawer-sec vt-needs-grp');

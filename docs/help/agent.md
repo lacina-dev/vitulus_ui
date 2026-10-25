@@ -404,8 +404,8 @@ same language as the Support dashboard's home page:
     run, Signal is off, the other side is silent or stuck, this robot is behind — each with what
     to do and the way there (e.g. *Open GitHub tokens*). The field counts them the same way.
   - **Robot agent** — approvals, and agent work only a person can unblock (dock lock, parked
-    mission, missing site setup, safety stop), each with one sentence what and why; decide them
-    in **Agent › Work**.
+    mission, missing site setup, safety stop) — the same card as the field's (what, **Why you**,
+    **What happens next**, a small *robot agent* tag); decide them in **Agent › Work**.
   - **Support** — every card the field asks you is one of **three types**, in one anatomy:
     type · *waits 2 h* · #N → the whole title → **Why you** (one sentence) → the body → **What
     happens next** (what each button does and who does it) → *For agents: technical details*

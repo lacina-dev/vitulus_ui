@@ -395,8 +395,8 @@ dashboardu Podpory:
     Signál je vypnutý, druhá strana se neozývá nebo stojí, tenhle robot je pozadu — u každého co
     udělat a cesta tam (např. *Otevřít tokeny GitHubu*). Field je počítá stejně.
   - **Agent robota** — schválení a práce agenta, kterou odblokuje jen člověk (zámek doku,
-    zaparkovaná mise, chybí nastavení místa, bezpečnostní stop), každá s jednou větou co a proč;
-    rozhoduješ je v **Agent › Práce**.
+    zaparkovaná mise, chybí nastavení místa, bezpečnostní stop) — stejná karta jako u fieldu (co,
+    **Proč ty**, **Co bude dál**, malý štítek *agent robota*); rozhoduješ je v **Agent › Práce**.
   - **Podpora** — každá karta, na kterou se tě field ptá, je jeden ze **tří druhů**, v jedné
     anatomii: druh · *čeká 2 h* · #N → celý nadpis → **Proč ty** (jedna věta) → tělo → **Co bude
     dál** (co udělá které tlačítko a kdo to udělá) → *Pro agenty: technické podrobnosti* (sbalené). **Detail** (#N) otevře issue v **Podpoře** (níž).
