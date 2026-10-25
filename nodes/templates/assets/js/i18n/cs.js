@@ -1233,6 +1233,8 @@
     "blocks.dock.not_unlocked": "Neodemčeno: {err}",
     "blocks.dock.core_refused": "jádro to odmítlo",
     "blocks.dock.not_unlocked_404": "Neodemčeno: tento agent zatím odemykání neumí.",
+    "blocks.dock.replaces": "Teď odemčeno: {actions} — na to, co čeká, to nestačí. Odemčení této předvolby ho nahradí (platí vždy nejnovější odemčení).",
+    "blocks.dock.wider": "Potřebuješ víc? Širší předvolba toto odemčení nahradí:",
     "bmodel.role.coder": "Práce s kódem",
     "bmodel.role.chat": "Odpovědi v chatu",
     "bmodel.role.robot": "Řízení robota",

@@ -295,7 +295,21 @@
        ne sloveso: kterou akci, jak dlouho, kolikrát, kdo to podepisuje.
        Jednorázové svolení, druhé klepnutí na potvrzení, po použití zaniká.
        Vynucuje to jádro (v2/ros_wire), tohle je jen lidská půlka. */
-    var dockBox = null, dockTick = null, dockGrantOpen = false;
+    var dockBox = null, dockTick = null, dockGrantOpen = false, dockGrantOver = null;
+
+    /* Does the live release already give everything grant `g` gives?  The
+       lock honours only the NEWEST valid release (ros_wire), so a narrower
+       one („out") in front of a waiting test drive must be replaceable from
+       here — 25. 10. 2026, mission #238 waited on „out" with no way to
+       unlock the test drive except „Lock again" first. */
+    function dockCovers(VA, rel, g) {
+      if (!rel || !g) { return false; }
+      var have = rel.actions || [];
+      var all = g.actions.every(function (a) { return have.indexOf(a) >= 0; });
+      if (!all) { return false; }
+      if (g.until_docked) { return !!rel.until_docked; }
+      return VA.dock.usesLeft(rel) >= (g.max_runs || 1) || !!rel.until_docked;
+    }
 
     VA.registerBlock({
       id: 'dock', title: T('blocks.title.dock'), titleKey: 'blocks.title.dock', order: 5,
@@ -316,7 +330,9 @@
         var live = rel && VA.dock.left(rel) > 0 && VA.dock.usesLeft(rel) > 0;
         var g = null;
         VA.dock.grants().forEach(function (x) { if (x.key === key) { g = x; } });
-        if (g && !live && st.supported === true) { drawGrant(VA, g); }
+        if (g && st.supported === true && (!live || !dockCovers(VA, rel, g))) {
+          drawGrant(VA, g, live ? rel : null);
+        }
         else { drawDock(VA); }
         try { dockBox.scrollIntoView({block: 'start', behavior: 'smooth'}); } catch (e) { /* ok */ }
       };
@@ -339,7 +355,8 @@
          not pull the card out from under him — caught in the browser doing
          exactly that.  The scope panel stays until he decides or cancels;
          a release appearing (or the endpoint going away) still wins. */
-      if (dockGrantOpen && !live && st.supported === true) { return; }
+      if (dockGrantOpen && st.supported === true &&
+          (!live || (dockGrantOver && rel.id === dockGrantOver))) { return; }
       if (dockTick) { clearInterval(dockTick); dockTick = null; }
       dockBox.textContent = '';
 
@@ -408,6 +425,22 @@
           VA.dock.relock().catch(function () { back.disabled = false; });
         });
         dockBox.appendChild(back);
+        /* A wider preset replaces this one (the newest release wins). */
+        var wider = VA.dock.grants().filter(function (g) {
+          return !dockCovers(VA, rel, g) && rel.actions &&
+            g.actions.length > rel.actions.length && rel.actions.every(
+              function (a) { return g.actions.indexOf(a) >= 0; });
+        });
+        if (wider.length) {
+          dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.wider')));
+          wider.forEach(function (g) {
+            var w = el('button', 'dk-btn dk-grant', g.button);
+            w.type = 'button';
+            w.title = g.actions.join(' + ');
+            w.addEventListener('click', function () { drawGrant(VA, g, rel); });
+            dockBox.appendChild(w);
+          });
+        }
         // the countdown is display only; the core decides when it is over
         dockTick = setInterval(function () {
           var l = VA.dock.left(rel);
@@ -439,12 +472,19 @@
     /* The scope, written out.  The owner should see WHAT he is allowing,
        not just a verb — so every field of the grant is on the card before
        the button that gives it. */
-    function drawGrant(VA, g) {
+    function drawGrant(VA, g, over) {
       dockGrantOpen = true;
+      dockGrantOver = over ? over.id : null;
+      if (dockTick) { clearInterval(dockTick); dockTick = null; }
       dockBox.textContent = '';
       var head = el('div', 'dk-h');
-      head.appendChild(el('span', 'dk-pill shut', T('blocks.dock.locked')));
+      head.appendChild(el('span', 'dk-pill ' + (over ? 'open' : 'shut'),
+                          over ? T('blocks.dock.unlocked') : T('blocks.dock.locked')));
       dockBox.appendChild(head);
+      if (over) {
+        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.replaces',
+          {actions: (over.actions || []).join(', ')})));
+      }
       dockBox.appendChild(el('div', 'dk-title', g.title));
       g.lines.forEach(function (pair) {
         dockBox.appendChild(dockRow(pair[0], pair[1]));
@@ -486,6 +526,7 @@
             return;
           }
           dockGrantOpen = false;
+          dockGrantOver = null;
           drawDock(VA);
         }).catch(function (e) {
           yes.disabled = false;
@@ -500,7 +541,9 @@
       row.appendChild(yes);
       var no = el('button', 'dk-btn', T('common.cancel'));
       no.type = 'button';
-      no.addEventListener('click', function () { dockGrantOpen = false; drawDock(VA); });
+      no.addEventListener('click', function () {
+        dockGrantOpen = false; dockGrantOver = null; drawDock(VA);
+      });
       row.appendChild(no);
       dockBox.appendChild(row);
     }

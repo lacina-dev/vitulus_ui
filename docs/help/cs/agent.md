@@ -33,6 +33,13 @@ aktivní mapě), a agent se pak ozve po každém kroku. Cokoli složitějšího 
 podmínky) jde nejdřív do jeho plánovače. **Nůž agent nikdy sám nezapne** — mise smí jen spustit
 uložený program sekání po tvém odemčení ([Programy sekání](#programy-sekání)).
 
+Návrat rozumí běžným slovům — *zadokuj*, *zadockuj*, *dokuj*, *zaparkuj se do doku*, *vrať se
+(do doku / domů)*, *a zpátky* — a ohlášený plán vždycky vypíše všechny kroky včetně zadokování.
+Každý plán (jednoduchý i z plánovače) se porovná s tím, co jsi napsal: body ve tvém pořadí, návrat
+do doku, čekání, sekání. Plán, který krok vynechá, se naplánuje znovu; když ani to, mise se
+nespustí a chat řekne, co nesedí. Slovo, kterému jednoduchá cesta nerozumí, pošle úkol plánovači —
+nezahodí se.
+
 ```flow
 Napíšeš | „dojeď na TEST a zpátky"
 Plán + kontrola | body existují, akce jsou povolené
@@ -160,9 +167,21 @@ majitele tady. Zastavit jde vždycky.
 3. Dokud je otevřeno, karta ukazuje *ODEMČENO*, *Zbývá použití*, *Vyprší za* a **Znovu
    zamknout** — to každé odemčení hned vezme zpět.
 
-Mise, která zámek potřebuje, se sama zaparkuje; její zpráva v chatu má **Otevřít zámek doku**.
-Po odemčení mise pokračuje sama (po 2 h čekání ji znovu rozjede jen `pokračuj`). Zámek platí jen
-pro agenta, ne pro tvoje tlačítka a joystick.
+Mise, která zámek potřebuje, se sama zaparkuje; její zpráva v chatu řekne, kterou předvolbu
+potřebuje (jízda na bod a zpět = **Zkušební jízda**), a má **Otevřít zámek doku**, které tu
+předvolbu rovnou otevře. Po odemčení mise pokračuje sama — `pokračuj` psát netřeba (po 2 h čekání
+ji znovu rozjede jen `pokračuj`). Počítá se i odemčení z posledních 15 min před zaparkováním mise.
+
+- **Platí vždy nejnovější odemčení.** Když je odemčené něco užšího (např. *Jen výjezd z doku*)
+  a mise potřebuje víc, zpráva mise, `pokračuj` i *dok je odemčený* řeknou přesně, co je odemčené
+  a co chybí. **Otevřít zámek doku** pak ukáže potřebnou předvolbu s poznámkou *Teď odemčeno: …* —
+  jejím odemčením se užší nahradí. Karta s živým odemčením nabízí i širší předvolby.
+- Odemčení, kterému zbývá méně použití, než zbytek mise spotřebuje (došlo by před návratem domů),
+  misi nespustí; chat řekne, kolik zbývá a kolik je potřeba.
+- Na *dok je odemčený* / *odemkl jsem* při čekající misi odpovídá sám zámek: buď se mise rozjede
+  (odpověď to řekne, až opravdu jede), nebo řekne, co ještě chybí.
+
+Zámek platí jen pro agenta, ne pro tvoje tlačítka a joystick.
 
 ## Co agent smí
 

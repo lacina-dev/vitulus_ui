@@ -1202,6 +1202,8 @@
     "blocks.dock.not_unlocked": "Not unlocked: {err}",
     "blocks.dock.core_refused": "the core refused it",
     "blocks.dock.not_unlocked_404": "Not unlocked: this agent does not serve the unlock endpoint yet.",
+    "blocks.dock.replaces": "Unlocked now: {actions} — not enough for what is waiting. Unlocking this preset replaces it (the newest unlock is the one that counts).",
+    "blocks.dock.wider": "Need more? A wider preset replaces this unlock:",
     "bmodel.role.coder": "Working with code",
     "bmodel.role.chat": "Answering in chat",
     "bmodel.role.robot": "Driving the robot",

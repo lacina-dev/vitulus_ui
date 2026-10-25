@@ -34,6 +34,14 @@ active map), then the agent reports after each step. Anything more complex (phot
 conditions) goes to its planner first. **The blade is never switched on by the agent itself** — a
 mission may only run a saved mowing program after your unlock ([Mowing programs](#mowing-programs)).
 
+The way back is understood in the usual words — *zadokuj*, *zadockuj*, *dokuj*, *zaparkuj se do
+doku*, *vrať se (do doku / domů)*, *a zpátky* — and the announced plan always lists every step,
+the docking included. Every plan (simple or from the planner) is checked against what you wrote:
+the waypoints in your order, the way back to the dock, a wait, mowing. A plan that leaves a step
+out is planned again; if even that fails, the mission does not start and the chat says what does
+not match. A word the simple path does not understand sends the task to the planner instead of
+being dropped.
+
 ```flow
 You write | "drive to TEST and back"
 Plan + check | waypoints exist, actions allowed
@@ -161,9 +169,23 @@ owner's click here. Stopping always works.
 3. While open the card shows *UNLOCKED*, *Uses left*, *Expires in* and **Lock again** — which
    takes any unlock back at once.
 
-A mission that needs the lock parks itself; its chat message has **Open Dock lock**. After you
-unlock, the mission continues by itself (after 2 h of waiting only `pokračuj` restarts it). The
-lock governs the agent only, not your own buttons and joystick.
+A mission that needs the lock parks itself; its chat message names the preset it needs (a drive
+to a waypoint and back = **Test drive**) and has **Open Dock lock**, which opens that preset
+straight away. After you unlock, the mission continues by itself — no need to write `pokračuj`
+(after 2 h of waiting only `pokračuj` restarts it). An unlock you made up to 15 min before the
+mission parked counts too.
+
+- **Only the newest unlock counts.** When a narrower one is live (e.g. *Undock only*) and the
+  mission needs more, the mission message, `pokračuj` and *dok je odemčený* all say exactly what is
+  unlocked and what is missing. **Open Dock lock** then shows the needed preset with the note
+  *Unlocked now: …* — unlocking it replaces the narrower one. The live card also offers the wider
+  presets.
+- An unlock with too few uses left for the rest of the mission (it would run out before the way
+  home) does not start it; the chat says how many are left and how many it needs.
+- Writing *dok je odemčený* / *odemkl jsem* while a mission waits is answered from the lock itself:
+  either the mission starts (the reply says so once it is moving), or what is still missing.
+
+The lock governs the agent only, not your own buttons and joystick.
 
 ## What the agent may do
 
