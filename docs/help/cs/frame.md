@@ -184,7 +184,7 @@ celou šířku na spodní liště). Každý ovládací prvek říká, co je:
 7. **?** — krátká karta, jak řídit. Ukáže se i sama, když se panel jízdy v prohlížeči otevře
    poprvé; **Rozumím** ji schová.
 
-Pod tlačítky jeden řádek říká, co teď dělat (motory vypnuté, kdo drží robota, jak jet).
+Pod tlačítky se řádek objeví, jen když jízdě brání něco, co tlačítka neukazují (robota drží někdo jiný, jede gamepad DS4, data jsou zastaralá). Jestli jsou motory zapnuté, ukazuje barva tlačítka Motory; nad páčkou se ukáže tip.
 
 Jak se páčka chová:
 

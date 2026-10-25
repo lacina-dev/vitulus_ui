@@ -388,7 +388,12 @@
             else if (owner && takeover) { h = tr('joy.hint.takeover', {who: ownerText}); }
             else if (motors === null) { h = tr('joy.hint.unknown'); }
             else { h = tr(keyboardOn ? 'joy.d.hint.free_kb' : 'joy.d.hint.free'); }
-            if (hint.textContent !== h) { hint.textContent = h; }
+            /* the line shows only what the buttons cannot (stale data, DS4,
+               another owner); motors and "free" stay in the pad's tooltip */
+            var rare = !!(staleNote || lr === 'ds4' || lr === 'owner' || (owner && takeover));
+            var shown = rare ? h : '';
+            if (hint.textContent !== shown) { hint.textContent = shown; }
+            hint.hidden = !rare;
             if (pad.title !== h) { pad.title = h; }
             hint.setAttribute('data-tone', tone());
             takeBtn.hidden = lr !== 'owner';

@@ -186,7 +186,7 @@ held upright a band across the screen on the bottom bar). Every control says wha
 7. **?** — a short card how to drive. It also shows by itself the first time the deck opens in a
    browser; **Got it** hides it.
 
-Under the buttons one line says what to do now (motors off, who holds the robot, how to drive).
+Under the buttons a line appears only when something blocks driving that the buttons do not show (another owner holds the robot, the DS4 pad drives, the data is stale). Whether the motors are on is the colour of the Motors button; hover the stick for a hint.
 
 How the stick behaves:
 
