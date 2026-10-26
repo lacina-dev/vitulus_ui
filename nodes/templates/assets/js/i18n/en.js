@@ -474,6 +474,8 @@
     "cam.layer.obstacles.tip": "Obstacle points from the depth camera segmentation",
     "cam.layer.free": "Free",
     "cam.layer.free.tip": "Free ground points from the depth camera segmentation",
+    "cam.layer.rest": "Rest",
+    "cam.layer.rest.tip": "Points that are neither free nor obstacle: tall grass, slopes, isolated points, things above the robot",
     "cam.layer.depth": "Depth",
     "cam.layer.depth.tip": "Depth image: red = near, blue = far, no colour = no depth",
     "cam.btn.tip": "Overlays on the camera image: lidar, obstacles, free ground, depth",

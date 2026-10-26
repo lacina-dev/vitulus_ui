@@ -26,6 +26,7 @@
         ['scan', 'cam.layer.scan', '#0dcaf0', 'cam.layer.scan.tip'],
         ['obstacles', 'cam.layer.obstacles', '#ff5f6d', 'cam.layer.obstacles.tip'],
         ['free', 'cam.layer.free', '#43d58b', 'cam.layer.free.tip'],
+        ['rest', 'cam.layer.rest', '#ffffff', 'cam.layer.rest.tip'],
         ['depth', 'cam.layer.depth', null, 'cam.layer.depth.tip']
     ];
     /* set the text / attribute now and follow every language switch */
@@ -39,7 +40,7 @@
     var subs = {}, data = {}, rafId = 0, lastBox = '';
 
     function load() {
-        var s = {scan: false, obstacles: false, free: false, depth: false, opacity: 0.75};
+        var s = {scan: false, obstacles: false, free: false, rest: false, depth: false, opacity: 0.75};
         try {
             var j = JSON.parse(localStorage.getItem(LS) || '{}');
             LAYERS.forEach(function (l) { if (typeof j[l[0]] === 'boolean') { s[l[0]] = j[l[0]]; } });
@@ -204,7 +205,7 @@
     function sync() {
         if (!build()) { return; }
         var live = camActive();
-        ['scan', 'obstacles', 'free'].forEach(function (l) {
+        ['scan', 'obstacles', 'free', 'rest'].forEach(function (l) {
             if (live && st[l]) { subscribe(l); } else { unsubscribe(l); }
         });
         var wantDepth = live && st.depth;
@@ -258,8 +259,9 @@
         if (cnv.width !== cw || cnv.height !== ch) { cnv.width = cw; cnv.height = ch; }
         ctx.clearRect(0, 0, cw, ch);
         var now = Date.now();
-        // free under obstacles under lidar
-        [['free', '#43d58b', 0.8], ['obstacles', '#ff5f6d', 1.0], ['scan', '#0dcaf0', 1.2]].forEach(function (L) {
+        // rest under free under obstacles under lidar
+        [['rest', '#ffffff', 0.8], ['free', '#43d58b', 0.8], ['obstacles', '#ff5f6d', 1.0],
+            ['scan', '#0dcaf0', 1.2]].forEach(function (L) {
             var d = data[L[0]];
             if (!st[L[0]] || !d || now - d.t > STALE_MS || !d.w || !d.h) { return; }
             var sx = cw / d.w, sy = ch / d.h;
