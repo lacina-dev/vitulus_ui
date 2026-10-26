@@ -37,7 +37,7 @@
 
     var CANCELLABLE = ['check', 'scene', 'before', 'pause', 'measure', 'onchip', 'tare'];
     var LAYERS = [['scan', 'cam.layer.scan'], ['obstacles', 'cam.layer.obstacles'],
-        ['free', 'cam.layer.free'], ['depth', 'cam.layer.depth']];
+        ['free', 'cam.layer.free'], ['rest', 'cam.layer.rest'], ['depth', 'cam.layer.depth']];
 
     var host = null, pane = null, st = null, rosRef = null, sub = null, pubT = null;
     var shown = false, wiz = null, snapTimer = 0, watchTimer = 0, armed = {};
