@@ -473,6 +473,8 @@
     "cam.layer.obstacles.tip": "Body překážek ze segmentace hloubkové kamery",
     "cam.layer.free": "Volno",
     "cam.layer.free.tip": "Body volné země ze segmentace hloubkové kamery",
+    "cam.layer.rest": "Zbytek",
+    "cam.layer.rest.tip": "Body, které nejsou ani volno, ani překážka: vysoká tráva, svahy, osamělé body, věci nad robotem",
     "cam.layer.depth": "Hloubka",
     "cam.layer.depth.tip": "Hloubkový obraz: červená = blízko, modrá = daleko, bez barvy = bez hloubky",
     "cam.btn.tip": "Překryvy obrazu kamery: lidar, překážky, volná země, hloubka",

@@ -8,6 +8,8 @@ display, any of:
   /camera_overlay/scan       the lidar (/scan)
   /camera_overlay/obstacles  the obstacle cloud of the obstacle segmentation
   /camera_overlay/free       the ground ("free") cloud of the same segmentation
+  /camera_overlay/rest       the rest of that segmentation: neither ground nor obstacle
+                             (vitulus_depth_obstacles /rest_cloud)
   /camera_overlay/depth      the aligned depth image, colour-mapped (bgr8,
                              streamed by web_video_server like the camera)
 
@@ -228,6 +230,8 @@ class CameraOverlay(object):
                   pub('obstacles', UInt8MultiArray), self.on_cloud),
             Layer('free', p('~free', '/ground_cloud'), PointCloud2,
                   pub('free', UInt8MultiArray), self.on_cloud),
+            Layer('rest', p('~rest', '/rest_cloud'), PointCloud2,
+                  pub('rest', UInt8MultiArray), self.on_cloud),
             Layer('depth', p('~depth', '/d435/aligned_depth_to_color/image_raw'), Image,
                   pub('depth', Image), self.on_depth),
         ]
