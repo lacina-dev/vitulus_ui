@@ -21,8 +21,10 @@ Tabs: **Chat** · **Work** · **Activity** · **Findings** · **Robot** · **Mod
 
 ## Give a task
 
-Type into **Chat** what you want, in plain words. A simple drive becomes a **mission** straight
-away, for example:
+Type into **Chat** what you want, in plain words — a question, a task, or just *ano* to the
+agent's last question. **The whole chat is one conversation with one brain**
+([One conversation](#one-conversation-one-brain)): the operator remembers what you wrote and what
+it asked, and a task becomes a **mission**, for example:
 
 ```
 udělej undock, dojeď na TEST, počkej 10 s a vrať se do doku
@@ -62,6 +64,42 @@ ok: Report | done, or why not
 Above the conversation, the pills **All / Chat / Reports / Jobs** filter what you see; the people
 icon at the end of that row switches between the whole conversation from every device (two
 people) and this browser only (one person).
+
+### One conversation, one brain
+
+Every message you write — on this page or on Discord — goes to **the same conversation** with the
+operator (one Claude session that carries on). It sees your previous messages and its own
+questions, so **short answers work**: *ano*, *ne*, *jo*, *1*, *2*, *to první* are read as the
+answer to what it asked or proposed last — never as a new task without context. It decides by
+itself what a message is:
+
+- **a question** (*jak je na tom baterka?*, *co děláš?*, *co ses naučil?*) — it looks it up with
+  its read-only tools (robot state, logs, a topic, what it learned) and answers; nothing moves,
+  no mission is created;
+- **a task** — it writes a numbered plan and carries it out as a mission (job #N, **Needs you**,
+  cancel, the dock lock — everything below still holds);
+- **a continuation or a change** of the current task — it carries on in the same mission.
+
+```
+vyjeď z doku jen pomocí intensity, otoč se o 360° doprava a vrať se do doku
+→ Plán: 1. vyjedu z doku jen po odrazce, 2. otočím se o 360° doprava, 3. vrátím se do doku.
+→ (dock locked: report with Open Dock lock → you unlock "Undock only")
+→ Dok je odemčený (ui#N) — vyjíždím z doku po odrazce (intensity). … Krok 3: jedu do doku.
+```
+
+What stays **fixed words, without the model**: cancel and *go home* (*zruš to*, *jeď domů*,
+*vrať se do doku*), releasing the STOP (*stop odvolávám*, `/stop pokracuj`), slash commands, and
+*dok je odemčený* — that one is **measured on the lock**: the reply says what is unlocked (which
+preset, how many uses, until when). A mission waiting at the lock carries on by itself; with
+nothing waiting it just says so (it asks only when it proposed something before), and it never
+starts a mission. What the core says on its own (steps, the lock, waiting, results, STOP) is
+written into the conversation too, so the operator knows what happened. The conversation starts a
+fresh session with a short summary after 24 turns, 6 h of silence or when it grows too long.
+
+The switch is `route` in `config/operator/operator.yaml`: `all` (default) = one conversation;
+`non_template` = the earlier behaviour (only non-routine missions go to the operator, the rest to
+the core's tables and the chat model). `template_fast: true` lets routine drives run from the
+template without the model (their reports still land in the conversation).
 
 ### Continue and cancel
 
@@ -113,9 +151,9 @@ zone (*ZONA_A_Path*) — never just a reply.
 
 ### The operator: a model drives step by step
 
-A task that is not a plain routine drive (*undock / waypoint / route / wait / dock*) — and every
+Every task — routine drives (*undock / waypoint / route / wait / dock*) included, and every
 instruction like *pípni 2×*, *zobraz zónu A*, *počkej tam na signál* — is led by the
-**operator**: a model (Sonnet, Haiku as a fallback) that reads what you wrote, picks the robot's
+**operator** in [one conversation](#one-conversation-one-brain): a model (Sonnet, Haiku as a fallback) that reads what you wrote, picks the robot's
 **skills** — everything the UI can do and the agent's action registry knows — and carries them
 out **one step at a time, like you would in the UI**: *go to this point*, *drive this route*,
 *run a program*, *show a zone on the map*, *rotate*, *back up*, *take a photo*, *wait*, *wait for
@@ -335,6 +373,7 @@ lock for moves), then **measures** the result — a reply never claims success w
 |---|---|---|
 | `dock.undock` / `dock.start` | the robot's own saved undock / dock program | undock: dock lock · dock: always allowed · supervisor · measured dock state |
 | `dock.start_modality` | dock with the saved program by map or by reflector only | as above |
+| `dock.undock_modality` | leave the dock with the saved undock program by reflector only (*po odrazce*, `intensity` — just the back-out, no drive to the UNDOCK point, no GPS wait), by map, or both | like `dock.undock`: needs the dock unlock (*Undock only* covers it), also outside · supervisor · measured dock state |
 | `nav.goto_waypoint` / `nav.execute_path` | drive to a saved waypoint / along a saved route | name must exist · dock lock only while in the dock · supervisor · navigation result |
 | `nav.goto_xy` | drive to a point on the map (x, y, heading) | the world model must find a reachable path first · dock lock only while in the dock · supervisor |
 | `nav.goto_offset` | a point up to 1 m next to a saved waypoint | as above |

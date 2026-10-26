@@ -1272,7 +1272,10 @@ if __name__ == '__main__':
         # docking by another modality and SAVED mowing programs are moves as
         # well.  The blade itself is never an action (no set_motor_on /
         # set_power anywhere): only a saved program spins it.
-        DOCK_UNLOCKABLE = ("dock.undock", "dock.start", "dock.start_modality",
+        # 2026-10-26 (owner: undock by reflector only): dock.undock_modality is
+        # the saved undock program by another modality - leaving the dock.
+        DOCK_UNLOCKABLE = ("dock.undock", "dock.undock_modality",
+                           "dock.start", "dock.start_modality",
                            "nav.goto_waypoint", "nav.execute_path",
                            "nav.goto_xy", "nav.goto_offset", "nav.backup",
                            "drive.straight", "drive.rotate", "drive.velocity",

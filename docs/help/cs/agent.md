@@ -21,7 +21,10 @@ Záložky: **Chat** · **Práce** · **Aktivita** · **Nálezy** · **Robot** ·
 
 ## Zadat úkol
 
-Napiš do **Chatu** normální řečí, co chceš. Jednoduchá jízda se hned stane **misí**, třeba:
+Napiš do **Chatu** normální řečí, co chceš — dotaz, úkol, nebo jen *ano* na poslední otázku
+agenta. **Celý chat je jeden rozhovor s jedním mozkem**
+([Jeden rozhovor](#jeden-rozhovor-jeden-mozek)): operátor si pamatuje, co jsi napsal i na co se
+ptal, a z úkolu je **mise**, třeba:
 
 ```
 udělej undock, dojeď na TEST, počkej 10 s a vrať se do doku
@@ -59,6 +62,41 @@ ok: Hlášení | hotovo, nebo proč ne
 Nad konverzací filtrují pilulky **Vše / Chat / Hlášení / Úlohy**, co vidíš; ikona lidí na konci
 řádku přepíná mezi celou konverzací ze všech zařízení (dva lidé) a jen tímhle prohlížečem (jeden
 člověk).
+
+### Jeden rozhovor, jeden mozek
+
+Každá zpráva, kterou napíšeš — tady i na Discordu — jde do **téhož rozhovoru** s operátorem
+(jedna Claude session, která pokračuje). Vidí tvoje předchozí zprávy i své vlastní otázky, takže
+**krátké odpovědi fungují**: *ano*, *ne*, *jo*, *1*, *2*, *to první* bere jako odpověď na to, na
+co se naposledy ptal nebo co navrhl — nikdy jako nové zadání bez souvislosti. Sám rozhodne, co
+zpráva je:
+
+- **dotaz** (*jak je na tom baterka?*, *co děláš?*, *co ses naučil?*) — zjistí to svými nástroji
+  jen pro čtení (stav robota, logy, topic, co se naučil) a odpoví; nic se nehýbe, žádná mise
+  nevznikne;
+- **úkol** — napíše očíslovaný plán a provede ho jako misi (úloha #N, **Čeká na tebe**, zrušení,
+  zámek doku — všechno níž platí dál);
+- **pokračování nebo změna** rozdělaného úkolu — naváže v téže misi.
+
+```
+vyjeď z doku jen pomocí intensity, otoč se o 360° doprava a vrať se do doku
+→ Plán: 1. vyjedu z doku jen po odrazce, 2. otočím se o 360° doprava, 3. vrátím se do doku.
+→ (dok zamčený: hlášení s Open Dock lock → odemkneš „Undock only")
+→ Dok je odemčený (ui#N) — vyjíždím z doku po odrazce (intensity). … Krok 3: jedu do doku.
+```
+
+**Pevná slova bez modelu** zůstávají: zrušení a *domů* (*zruš to*, *jeď domů*, *vrať se do
+doku*), uvolnění STOPu (*stop odvolávám*, `/stop pokracuj`), lomítkové příkazy a *dok je
+odemčený* — to se **měří na zámku**: odpověď řekne, co je odemčeno (předvolba, kolik použití, do
+kdy). Mise, která na zámek čeká, pokračuje sama; když nic nečeká, jen to řekne (zeptá se, jen když
+předtím něco navrhl), a misi nikdy nezaloží. Co jádro hlásí samo (kroky, zámek, čekání,
+výsledky, STOP), se zapisuje do rozhovoru taky, aby operátor věděl, co se stalo. Po 24 tazích,
+6 h ticha nebo když rozhovor příliš naroste, začne nová session s krátkým shrnutím.
+
+Přepínač je `route` v `config/operator/operator.yaml`: `all` (výchozí) = jeden rozhovor;
+`non_template` = dřívější chování (operátor jen nerutinním misím, zbytek pevné tabulky jádra
+a chatový model). `template_fast: true` nechá rutinní jízdy jet ze šablony bez modelu (jejich
+hlášení jdou do rozhovoru taky).
 
 ### Pokračovat a zrušit
 
@@ -108,8 +146,9 @@ trasu té zóny (*ZONA_A_Path*) — nikdy jen odpověď.
 
 ### Operátor: model řídí krok po kroku
 
-Zadání, které není čistá rutinní jízda (*vyjet / bod / trasa / počkat / do doku*) — a každý
-pokyn typu *pípni 2×*, *zobraz zónu A*, *počkej tam na signál* — vede **operátor**: model
+Každé zadání — i rutinní jízdy (*vyjet / bod / trasa / počkat / do doku*) a každý pokyn typu
+*pípni 2×*, *zobraz zónu A*, *počkej tam na signál* — vede **operátor** v
+[jednom rozhovoru](#jeden-rozhovor-jeden-mozek): model
 (Sonnet, záložně Haiku), který přečte, co jsi napsal, vybere si **skilly** robota — všechno, co
 umí UI a registr akcí agenta — a provádí je **krok po kroku, jako bys to dělal ty v UI**: *jeď na
 bod*, *projeď trasu*, *spusť program*, *zobraz zónu na mapě*, *otoč se*, *couvni*, *vyfoť*,
@@ -320,6 +359,7 @@ pak **změří** — odpověď nikdy netvrdí úspěch bez důkazu.
 |---|---|---|
 | `dock.undock` / `dock.start` | robotův vlastní uložený program výjezdu / zajetí do doku | výjezd: zámek doku · zajetí: vždy povoleno · supervisor · změřený stav doku |
 | `dock.start_modality` | zajetí uloženým programem podle mapy, nebo jen podle odrazky | jako výše |
+| `dock.undock_modality` | výjezd z doku uloženým programem jen po odrazce (*po odrazce*, `intensity` — jen vycouvání, bez jízdy na bod UNDOCK a bez čekání na GPS), podle mapy, nebo obojím | jako `dock.undock`: potřebuje odemčení doku (pokryje ho *Undock only*), i venku · supervisor · změřený stav doku |
 | `nav.goto_waypoint` / `nav.execute_path` | jízda na uložený bod / po uložené trase | jméno musí existovat · zámek doku jen v doku · supervisor · výsledek navigace |
 | `nav.goto_xy` | jízda na místo v mapě (x, y, natočení) | model světa musí nejdřív najít dosažitelnou cestu · zámek doku jen v doku · supervisor |
 | `nav.goto_offset` | místo nejvýš 1 m vedle uloženého bodu | jako výše |
