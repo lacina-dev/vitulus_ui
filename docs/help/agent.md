@@ -173,9 +173,13 @@ dej go na bod TEST a počkej tam na signál
   unlock. When a step is refused the operator says why in one sentence and what you can do.
   Skills the UI has but you have not signed yet are listed as *waiting for signature*.
 - **Step in at any time.** Every message during the mission goes into **the same conversation**
-  with the model: it sees it in the result of the current step (a drive runs to its end, a wait is
-  interrupted at once) and changes course. *Počkej tam na signál* makes it stand and wait — your
-  next message (*jeď*, *hotovo*) is the signal. Answer its questions the same way.
+  with the model. A wait is interrupted at once; during a drive the agent weighs the message
+  straight away and answers. When finishing the step makes no sense any more (it is driving to
+  the dock and should go somewhere else first), **it stops the step and works the task into the
+  rest of the plan** — *jeď ještě do zóny A* on the way to the dock means zone A and then the dock,
+  with no docking and unlocking in between. A question, or a task that can wait, lets the step
+  finish. *Počkej tam na signál* makes it stand and wait — your next message (*jeď*, *hotovo*) is
+  the signal. Answer its questions the same way.
 - **Cancel and go home stay fixed words** (*zruš to*, *jeď domů*) — the core handles them without
   the model, see the table above.
 - **It tells you what it does.** First a numbered plan, then every step that moves the robot gets
@@ -207,6 +211,22 @@ dej go na bod TEST a počkej tam na signál
 - Every step is recorded (*~/.vitulus/agent/operator/*); the mission card shows the steps, the
   model's latency and the tool calls used.
 
+### Objects on the map
+
+The agent knows what is named on the map: **Waypoint**, **Path**, **Zone**, **Barrier**,
+**Obstacle** and **Free area**. Refer to them by name ("go to Point 1", "what is the fence
+barrier?"). If a zone and a waypoint share a name, it asks which one you mean. After a rename
+in the map editor, the new name applies immediately. It cannot rename or change objects itself.
+
+- A **Barrier** is a line of a given width the robot must not cross; an **Obstacle** is an area
+  it must not enter. The planner routes around them and the point check names them. The agent
+  will not start a saved path across them.
+- A **Free area** overrides a false obstacle from mapping. A later edit in the list overrides an
+  earlier one.
+- Direct driving (drive straight, back up) only watches the lidar and does not see a virtual
+  barrier. The agent has to check the map first.
+- DOCK, UNDOCK and docked are reserved waypoints.
+
 ### The agent's plan on the map
 
 Whenever the operator plans a drive or looks for a goal or a way — anything other than *go to
@@ -234,6 +254,13 @@ plan disappears by itself when the mission ends — also when it stops.
 - **After arriving** the agent compares where the robot really is with the plan (position, distance
   from the goal, which zone) and tells you — it never says *the farthest point*, *inside the zone*
   or *went around it* without that measurement.
+
+### Position reports
+
+*Podle odhadu, bez RTK* (by estimate, no RTK) means navigation has no GPS anchor and is running on
+wheels and IMU; the offset from the goal then says nothing about where the robot physically is.
+*Z doku jsem vyjel, ale…* (I left the dock, but…) means the robot is outside and only the wait for
+RTK did not finish.
 
 ## When a step fails
 
@@ -299,6 +326,12 @@ The same in Czech goes to the chat and to the agent's status strip.
 **Approve** / **Deny**. If the robot would move, the card says
 *THE ROBOT WOULD MOVE — only you may allow this* and the button needs a second tap.
 
+### Journey and the morning report
+
+Journey milestones count what the robot measurably did, whoever started it. A failed attempt does
+not count; a manoeuvre that timed out after leaving the dock does. The morning report counts every
+undock and return, including those not announced.
+
 ### Only what needs you lights up
 
 Each job card says in one line who is on it: **You:** (lit, it waits for you — unlock the dock,
@@ -316,6 +349,11 @@ raise the badge, and on Discord they arrive without a phone notification.
 **Robot** shows the live state, the robot tools and the **Dock lock** card.
 
 ### Dock lock
+
+Unlocking the dock tells the robot to go: the mission continues by itself, no further message
+needed. An unlock is spent only when the robot really leaves the dock; if the undock fails and the
+robot stays docked, the same unlock covers the retry (until it expires). STOP, cancelling or taking
+over does spend it.
 
 By default the agent **cannot move the robot out of the dock** — the lock guards **leaving the
 dock only**: the undock, and any move while the robot stands in the dock (or its dock state cannot
@@ -520,8 +558,10 @@ by what the proposal **does**, never by a word in it:
 
 - **Knowledge** — a procedure (a Hermes skill, e.g. *the farthest place in a zone*), a note for
   its memory, a lesson. It **only uses actions the agent already has** (undock, drive a path,
-  go to a point) or only reads the robot, so the agent saves it and uses it **by itself**. In the
-  chat it is one quiet line *Naučil jsem se: …* — no badge, no question.
+  go to a point) or only reads the robot, so the agent saves it and uses it **by itself**. A skill
+  is not posted in the chat, the record is in the growth log; a note is one quiet line *Naučil
+  jsem se: …*. No skill is built from a mission that ended with a failed step or a drive without
+  RTK.
 - **A new write on the robot** — a program that would publish to a topic, call a service or send
   a navigation goal **outside the action registry**. That the agent may never give itself
   (AGENT.md §5.2), so it becomes a card **New capability** with **Allow** / **Deny** — in the

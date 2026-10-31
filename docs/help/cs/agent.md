@@ -167,10 +167,13 @@ dej go na bod TEST a počkej tam na signál
   token. Nůž se točí jen v uloženém programu po tvém odemčení **Mow**. Když krok neprojde, operátor
   jednou větou řekne proč a co můžeš udělat. Skilly, které UI má, ale ještě jsi je nepodepsal, jsou
   vedené jako *čeká na podpis*.
-- **Vstoupit můžeš kdykoli.** Každá zpráva během mise jde do **téhož rozhovoru** s modelem: uvidí
-  ji ve výsledku aktuálního kroku (jízda dojede, čekání se přeruší hned) a změní postup. *Počkej
-  tam na signál* ho nechá stát a čekat — tvoje další zpráva (*jeď*, *hotovo*) je signál. Stejně
-  odpovídáš na jeho otázky.
+- **Vstoupit můžeš kdykoli.** Každá zpráva během mise jde do **téhož rozhovoru** s modelem.
+  Čekání se přeruší hned; při jízdě agent zprávu hned vyhodnotí a odpoví. Když kvůli ní nemá
+  smysl krok dokončit (jede do doku a má ještě někam dojet), **krok zastaví a zapracuje úkol do
+  zbytku plánu** — třeba *jeď ještě do zóny A* při cestě do doku znamená zóna A a pak dok, bez
+  zajetí do doku a nového odemykání. Dotaz nebo úkol, který počká, nechá krok doběhnout.
+  *Počkej tam na signál* ho nechá stát a čekat — tvoje další zpráva (*jeď*, *hotovo*) je signál.
+  Stejně odpovídáš na jeho otázky.
 - **Zrušení a návrat domů zůstávají pevná slova** (*zruš to*, *jeď domů*) — vyřeší je jádro bez
   modelu, viz tabulka výše.
 - **Říká, co dělá.** Nejdřív očíslovaný plán, pak každý krok, který hýbe robotem, dostane
@@ -199,6 +202,22 @@ dej go na bod TEST a počkej tam na signál
 - Každý krok se zapisuje (*~/.vitulus/agent/operator/*); karta mise ukazuje kroky, latenci modelu
   a spotřebovaná volání.
 
+### Objekty v mapě
+
+Agent zná, co je v mapě pojmenované: **Bod**, **Trasa**, **Zóna**, **Bariéra**, **Překážka**
+a **Volné místo**. Mluv o nich jménem („jeď k Bod 1", „co je Bariéra u plotu?"). Když se stejně
+jmenuje třeba zóna i bod, zeptá se, který myslíš. Po přejmenování v editoru mapy platí nové
+jméno hned. Sám přejmenovávat ani měnit objekty neumí.
+
+- **Bariéra** je čára dané šířky, kterou robot nesmí překročit; **Překážka** plocha, kterou
+  nesmí projet. Plánovač je obejde a kontrola bodů je jmenuje. Uloženou trasu přes ně agent
+  nespustí.
+- **Volné místo** přebije falešnou překážku z mapování. Pozdější úprava v seznamu přebije
+  dřívější.
+- Přímé řízení (jeď rovně, couvni) hlídá jen lidar a virtuální bariéru nevidí. Agent si to
+  musí ověřit v mapě.
+- DOCK, UNDOCK a docked jsou rezervované body.
+
 ### Plán agenta na mapě
 
 Kdykoli operátor plánuje jízdu nebo hledá cíl či cestu — cokoli jiného než *jeď na bod TEST*
@@ -224,6 +243,12 @@ zastaví — plán zmizí sám.
 - **Po dojetí** agent porovná, kde robot opravdu je, s plánem (poloha, vzdálenost od cíle, v jaké
   zóně) a řekne ti to — *nejvzdálenější místo*, *uvnitř zóny* ani *objel jsem* nikdy neřekne bez
   toho změření.
+
+### Hlášení polohy
+
+*Podle odhadu, bez RTK* znamená, že navigace nemá kotvu z GPS a jede podle kol a IMU; odchylka od
+cíle pak neříká, kde robot fyzicky stojí. *Z doku jsem vyjel, ale…* znamená, že robot je venku a
+nedoběhlo jen čekání na RTK.
 
 ## Když krok selže
 
@@ -288,6 +313,12 @@ kartu *Mise / jízda*. Když agent chce udělat něco, k čemu je potřeba člov
 **Schválit** / **Zamítnout**. Kdyby se robot pohnul, karta píše
 *ROBOT BY SE POHNUL — povolit to smíš jen ty* a tlačítko potřebuje druhé klepnutí.
 
+### Cesta a ranní hlášení
+
+Milníky cesty počítají, co robot měřitelně udělal, ať to spustil kdokoli. Nepovedený pokus se
+nepočítá, manévr, který vypršel až po opuštění doku, ano. Ranní hlášení počítá všechna vyjetí a
+návraty, i ty neohlášené.
+
 ### Svítí jen to, co potřebuje tebe
 
 Každá karta úlohy jedním řádkem řekne, kdo je na tahu: **Ty:** (svítí, čeká na tebe — odemknout
@@ -305,6 +336,10 @@ nezvednou odznak, a na Discord přijdou bez upozornění na telefonu.
 **Robot** ukazuje živý stav, nástroje robota a kartu **Zámek doku**.
 
 ### Zámek doku
+
+Odemčením doku říkáš, že robot má jet: mise pokračuje sama, nic dalšího psát netřeba. Odemčení se
+spotřebuje až skutečným opuštěním doku; když výjezd selže a robot zůstane v doku, stejné odemčení
+platí i pro další pokus (do vypršení). STOP, zrušení nebo převzetí ho spotřebuje.
 
 Agent **sám s robotem z doku nevyjede** — zámek hlídá **jen výjezd z doku**: vyjetí a každý
 pohyb, když robot stojí v doku (nebo se stav doku nedá změřit), potřebuje kliknutí majitele tady.
@@ -505,8 +540,9 @@ návrh **dělá**, nikdy podle slova v textu:
 
 - **Znalost** — postup (dovednost Hermese, třeba *nejvzdálenější místo v zóně*), poznámka do
   paměti, poučení. **Používá jen akce, které agent už má** (vyjetí z doku, jízda po trase, jízda
-  na bod), nebo robota jen čte, takže si ji agent uloží a používá **sám**. V chatu je to jedna
-  tichá věta *Naučil jsem se: …* — bez odznaku a bez otázky.
+  na bod), nebo robota jen čte, takže si ji agent uloží a používá **sám**. Dovednost do chatu
+  nepíše, záznam je v růstovém deníku; poznámka je v chatu jedna tichá věta *Naučil jsem se: …*.
+  Dovednost nevznikne z mise, která skončila selhaným krokem nebo jízdou bez RTK.
 - **Nový zápis na robota** — program, který by sám publikoval na topic, volal službu nebo posílal
   navigační cíl **mimo registr akcí**. Ten si agent nikdy dát nesmí (AGENT.md §5.2), takže z něj
   je karta **Nová schopnost** s tlačítky **Povolit** / **Zamítnout** — v bublině chatu,
