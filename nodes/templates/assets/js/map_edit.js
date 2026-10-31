@@ -448,7 +448,8 @@ window.initPlanner = function(opts) {
     btn_new_zone.onclick = function () {
         _zoneSaveClear(); _zoneSaveStatus('', '');
         div_zone_template.setAttribute('style', zone_template_style_attr);
-        input_zone_template_name.value = "Zone";
+        input_zone_template_name.value = MapEdits.nextName('zone', _zoneNames());
+        input_zone_template_name.readOnly = false;
         input_zone_template_rpm.value = 3300;
         input_zone_template_cut_height.value = 45;
         input_zone_template_border_path.value = 2;
@@ -495,6 +496,14 @@ window.initPlanner = function(opts) {
 
     // Save zone
     btn_zone_template_save.onclick = function () {
+        var zoneName = input_zone_template_name.value.trim();
+        // An edited zone keeps its read-only name; a new one must not replace another.
+        var nameBad = input_zone_template_name.readOnly ? null
+            : MapEdits.nameProblem(zoneName, _zoneNames());
+        if (nameBad) {
+            _zoneSaveStatus({ k: 'medits.name.err.' + nameBad, v: { name: zoneName } }, 'text-warning');
+            return;
+        }
         // console.log(polygon.pointContainer.children.length);
         if (polygon.pointContainer.children.length > 0) {
             var points = [];
@@ -518,7 +527,7 @@ window.initPlanner = function(opts) {
                 header: {
                     frame_id: "map"
                 },
-                name: input_zone_template_name.value,
+                name: zoneName,
                 area: 0,
                 type: 'normal',
                 cut_height: parseInt(input_zone_template_cut_height.value),
@@ -662,7 +671,26 @@ window.initPlanner = function(opts) {
         last_zone_msg = message;
         render_zone_list(message);
     });
+    function _zoneNames() { return current_zone_list.map(function (z) { return z.name; }); }
+    window.mapEditZoneNames = _zoneNames;   // map_edit.js loads before mapedits.js
+    function _esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+        });
+    }
+    // Names can hold any character, so the row buttons read theirs from data-n.
+    div_zone_list.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-zone-act]');
+        if (!b) return;
+        var n = b.getAttribute('data-n'), act = b.getAttribute('data-zone-act');
+        if (act === 'edit') editZone(n);
+        else if (act === 'remove') removeZone(n);
+        else MapEdits.startRename(b.closest('.vt-sep'), 'zone', n, function () {
+            if (last_zone_msg) render_zone_list(last_zone_msg);
+        });
+    });
     function render_zone_list(message) {
+        if (MapEdits.isRenaming('zone')) return;
         var html_zone_list = '';
         for (let zone in message.zone_list) {
             // console.log(message.zone_list[zone]);
@@ -672,14 +700,15 @@ window.initPlanner = function(opts) {
             let zone_height = message.zone_list[zone].cut_height;
             let zone_rpm = message.zone_list[zone].rpm;
             html_zone_list += `
-                <div class="d-flex align-items-center" style="border-bottom: 1px solid #3a3f44;padding: 3px 2px;font-size: 12px;">
-                    <span class="text-info text-truncate" style="flex: 1 1 auto;min-width: 0;" title="${zone_name}">${zone_name}</span>
+                <div class="d-flex align-items-center vt-sep" style="border-bottom: 1px solid #3a3f44;padding: 3px 2px;font-size: 12px;">
+                    <span class="text-info text-truncate" style="flex: 1 1 auto;min-width: 0;" title="${_esc(zone_name)}">${_esc(zone_name)}</span>
                     <span class="text-light text-end" style="width: 48px;">${zone_height}mm</span>
                     <span class="text-light text-end" style="width: 58px;">${zone_rpm}rpm</span>
                     <span class="text-light text-end" style="width: 50px;">${zone_area}m&sup2;</span>
                     <div class="btn-group btn-group-sm" role="group" style="margin-left: 6px;">
-                        <button id="btn_zone_edit" class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="editZone(&#39;${zone_name}&#39;)">${t('common.edit')}</button>
-                        <button id="btn_zone_remove" class="btn btn-outline-danger" type="button" style="font-size: 11px;padding: 1px 8px;" onclick="removeZone(&#39;${zone_name}&#39;)">${t('common.remove')}</button>
+                        <button class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" data-zone-act="rename" data-n="${_esc(zone_name)}" title="${_esc(t('common.rename'))}" aria-label="${_esc(t('common.rename'))}"><i class="la la-pencil"></i></button>
+                        <button class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" data-zone-act="edit" data-n="${_esc(zone_name)}">${t('common.edit')}</button>
+                        <button class="btn btn-outline-danger" type="button" style="font-size: 11px;padding: 1px 8px;" data-zone-act="remove" data-n="${_esc(zone_name)}">${t('common.remove')}</button>
                     </div>
                 </div>
             `;
@@ -711,6 +740,7 @@ window.initPlanner = function(opts) {
                     polygon.addPoint(zone.polygon.polygon.points[point]);
                 }
                 input_zone_template_name.value = zone.name;
+                input_zone_template_name.readOnly = true;
                 input_zone_template_rpm.value = zone.rpm;
                 input_zone_template_cut_height.value = zone.cut_height;
                 input_zone_template_border_path.value = zone.border_paths;

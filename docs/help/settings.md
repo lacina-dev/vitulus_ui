@@ -43,8 +43,9 @@ application itself. The **?** in the panel head jumps to the tab you have open.
 - **Outputs & limits** — motor and mower output ON / OFF, charge and cut-off currents for run and
   standby, board and external temperature limits. Change only if you know why.
 - **Sleep control** — sleep time, **Sleep now** (Timed / Until charged), standby delay, charged
-  offset, discharge timeout. The scheduler uses sleep while it waits
-  ([Why the robot waits](waiting.md)).
+  offset, discharge timeout. **Sleep now** cuts the power without shutting the system down; the
+  scheduler shuts down first and sets the standby delay to 3 minutes
+  ([How the robot sleeps](waiting.md#how-the-robot-sleeps)).
 
 ## Mower
 

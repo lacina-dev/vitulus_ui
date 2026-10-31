@@ -102,18 +102,32 @@ Událost se spustí do 15 minut po svém čase, jednou za den.
 | Štítek | Význam |
 |---|---|
 | **Aktivní** | plánovač bude spouštět programy (nečinný, čeká na další událost) |
+| **Čeká** | nedokončený program na něco čeká: nabití, sucho, další pokus; řádek pod štítkem říká na co a co přijde potom |
+| **Obsazeno** | robota používá někdo jiný (běžící program, dokování, ruční jízda, agent) nebo ho drží hlídač GPS; kalendář počká a dožene to a robot neusne |
+| **Chce Reset** | mise byla zastavená nebo skončila chybou; nic nepojede, dokud nestiskneš **Reset** |
 | **Pozastaveno** | je zapnuté **Pozdržet** — z kalendáře se nic nespustí, dokud ho nevypneš |
-| **Automatika vypnuta** | plánovač je na robotu vypnutý (`automation_enabled: false`, viz [níž](#automatika-zapnutá--vypnutá)) — sám nic nespustí |
+| **Automatika vypnuta** | **Automatické sekání** je vypnuté, viz [níž](#automatika-zapnutá--vypnutá) — sám nic nespustí ani neusne |
 | **Sekání** | právě běží program |
-| **Mimo dok** | program skončil mimo dok — plánovač čeká, až se robot vrátí (nejvýš 20 minut, pak robota uspí) |
+| **Mimo dok** | robot není v doku; červeně, když je program nedokončený: naváže, až bude robot zpátky v doku |
 | **Spouštím** | plánovač sám startuje (první chvíle po startu robota) |
 
-Řádek pod štítkem je vlastní stav plánovače a příští spuštění, třeba
-*Idle (Wait 12m for …)*, nebo *Mowing (Stopped - press Reset)*, když naplánovaný program čeká
-na Reset.
+Řádek pod štítkem říká totéž jednou větou, s příštím spuštěním a u nedokončeného programu i s tím,
+kde naváže. Po najetí na štítek uvidíš surový stav plánovače. Problémy, které už skončily, ale máš
+o nich vědět (propadlá událost, vzdaný běh), zůstanou pod tím řádkem, dokud je nedáš **Smazat**.
 
 Událost, jejíž program na aktivní mapě není (smazaný, přejmenovaný nebo vytvořený na jiné mapě),
-má označení **chybí**; plánovač ji ten den přeskočí. Otevři ji přes **Upravit** a vyber program.
+má označení **chybí**; plánovač ji chvíli zkouší a pak ji nahlásí. Otevři ji přes **Upravit** a
+vyber program. Událost mimo povolené okno (07:00–21:00) má označení **mimo okno**: spustí se až po
+otevření okna, pokud je to ještě v čase pro dohnání.
+
+### Když se událost nestihne spustit
+
+Událost, která se nemohla spustit (robot byl obsazený, spal, stack neběžel, posunul se čas), platí
+ještě **4 hodiny** a spustí se, jakmile to půjde, v okně a s aspoň 30 minutami okna před sebou.
+Potom se nahlásí jako propadlá. Událost nikdy neběží za den dvakrát a za proběhlou se počítá až
+ve chvíli, kdy robot opravdu prošel kontrolami před startem, takže odmítnutí kvůli dešti ji neztratí.
+Když je jich na řadě víc, běží jedna po druhé. Nedokončený program má přednost: nová událost na něj
+počká, kvůli ní se nezahodí.
 
 ### Pozdržet
 
@@ -124,19 +138,18 @@ vypnutí Pozdržet ho plánovač obnoví jako obvykle.
 
 ### Automatika zapnutá / vypnutá
 
-`automation_enabled` je hlavní vypínač plánovače (master controlleru):
+**Automatické sekání** v kartě kalendáře je jediný přepínač pro všechno automatické: starty
+z kalendáře, spánek, navazování. Je uložený na robotu a přežije restart; nový robot ho má
+**vypnutý**.
 
-- **zapnutá** (`true`): kalendář spouští programy sám a robot se sám uspává a probouzí
-  (baterie, déšť, teplota, noční okno — viz [Proč robot čeká](waiting.md));
-- **vypnutá** (`false`): plánovač je pasivní — žádné automatické spuštění ani uspání;
-  programy běží jen, když je spustíš ručně.
+- **zapnuto**: kalendář spouští programy sám a robot se sám uspává a navazuje (baterie, déšť,
+  teplota, noční okno — viz [Proč robot čeká](waiting.md)). Zapnutí zároveň ruší **Pozdržet** a
+  události počítá od teď: nic z doby, kdy byl vypnutý, se nedohání;
+- **vypnuto**: plánovač je pasivní — žádné automatické spuštění ani uspání; programy běží jen, když
+  je spustíš ručně. Program, který je zrovna venku, zůstane běžet, ale plánovač ho přestane sledovat;
+  místo pro **Resume** zůstává.
 
-Jak to poznáš: když je vypnutá, štítek kalendáře ukazuje **Automatika vypnuta** a řádek stavu
-*Disabled*; jakýkoli jiný štítek (Aktivní, Pozastaveno, Sekání, …) znamená, že je zapnutá.
-
-Kde se mění: `automation_enabled` ve `vitulus_planner/config/master_controller.yaml`. Controller
-ho čte jen při startu, takže změna platí až po restartu stacku robota (nebo uzlu
-`master_controller`). Když chceš kalendář jen na chvíli zastavit a nesahat do konfigurace,
-použij **Pozdržet**.
+Skripty a agent můžou použít `/scheduler/set_enabled` (topic `std_msgs/Bool`, služba
+`std_srvs/SetBool`); `/scheduler/enabled` říká aktuální stav.
 
 Proč se program nespustil nebo skončil dřív: [Proč robot čeká](waiting.md).

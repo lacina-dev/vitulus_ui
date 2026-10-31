@@ -26,13 +26,25 @@ vrátí do panelu Mapa.
 | **Bod** | klikni, kam ho dát, napiš název a kurz (0–359,5°, oranžová šipka), **Uložit**. Kliknutím na existující tečku ji vybereš a pak ji přesuneš nebo smažeš |
 | **Trasa** | naklikej body a pak **Dokončit**. Kliknutím na existující trasu ji upravíš nebo smažeš |
 | **Překážka (plocha)** | aspoň 3 body, **Dokončit** — tam robot nepojede |
-| **Volno (vyčistit)** | označí plochu jako sjízdnou (odstraní falešnou překážku) |
+| **Volné místo (vyčistit)** | označí plochu jako sjízdnou (odstraní falešnou překážku) |
 | **Bariéra (čára)** | virtuální čára, kterou robot nesmí přejet; šířka 0,02–2 m (výchozí 0,10) |
 | **Smazat** | kliknutím na úpravu (překážku, volno, bariéru) ji odstraníš |
 | **Geofence** | naklikej obvod a pak **Odeslat návrh** — viz níž |
 
 **Zobrazit:** zapíná a vypíná vrstvy editoru: body, trasy, úpravy, zóny. Uložené úpravy se do
 mapy a do tras zón promítnou během několika sekund.
+
+## Názvy
+
+Každý objekt má název: překážka, volné místo, bariéra, bod, trasa i zóna. Nový objekt ho dostane
+sám (**Překážka 1**, **Volné místo 2**, **Bod 1**…) a před uložením ho můžeš přepsat. Později ho
+změníš tužkou ✎ v řádku objektu.
+
+- Název musí být v rámci typu jedinečný, nejvýš 60 znaků. Mezery a diakritika nevadí.
+- Přejmenovaná zóna zůstává ve svých programech. Nejde přejmenovat, dokud běží mise, která ji používá.
+- **DOCK**, **UNDOCK** a **docked** své názvy nemění.
+- Agent objekty zná podle těchto názvů, takže dobrý název (*Bazén*, *Plot u sousedů*) pak používáš
+  ty i agent.
 
 ## Body DOCK a UNDOCK
 

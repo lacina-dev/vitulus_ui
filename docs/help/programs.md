@@ -99,18 +99,33 @@ The tag in the calendar's head says what the scheduler does now:
 | Tag | Meaning |
 |---|---|
 | **Active** | the scheduler will start programs (idle, waiting for the next event) |
+| **Waiting** | an unfinished program waits for something it can name: charge, dry weather, a retry; the line under the tag says what, and what comes after it |
+| **Busy** | someone else uses the robot (a running program, docking, a person driving, the agent) or the GPS watchdog holds it; the calendar waits and catches up, and the robot does not go to sleep |
+| **Needs Reset** | the mission was stopped or ended with an error; nothing runs until **Reset** |
 | **Held** | **Hold** is on — nothing starts from the calendar until you switch Hold off |
-| **Automation off** | the scheduler is switched off on the robot (`automation_enabled: false`, see [below](#automation-on--off)) — nothing starts by itself |
+| **Automation off** | **Automatic mowing** is off, see [below](#automation-on--off) — nothing starts by itself and the robot does not sleep by itself |
 | **Mowing** | a program runs now |
-| **Off dock** | a program ended away from the dock — the scheduler waits for the robot to come back (up to 20 minutes, then it puts the robot to sleep) |
+| **Off dock** | the robot is away from the dock; red when a program is unfinished: it continues when the robot is back in the dock |
 | **Starting** | the scheduler itself is starting (the first seconds after the robot stack starts) |
 
-The line under the tag is the scheduler's own status and the next run, for example
-*Idle (Wait 12m for …)*, or *Mowing (Stopped - press Reset)* while a scheduled program waits
-for Reset.
+The line under the tag says the same in one sentence, with the next run and, for an unfinished
+program, where it continues. Hold the pointer over the tag for the scheduler's raw status.
+Problems that are over but you should know about (a missed event, a run given up) stay listed
+under that line until you **Clear** them.
 
 An event whose program is not on the active map (deleted, renamed, or made on another map) shows
-**missing**; the scheduler skips it for that day. **Edit** it and pick a program.
+**missing**; the scheduler retries it for a while and then reports it. **Edit** it and pick a
+program. An event outside the allowed window (07:00–21:00) shows **outside window**: it can start
+only when the window opens, within the catch-up time below.
+
+### When an event cannot start on time
+
+An event that could not start (the robot was busy, asleep, the stack was down, the clock moved)
+stays due for **4 hours** and starts as soon as it can, in the window and with at least 30 minutes
+of the window left. After that it is reported as missed. An event never runs twice in a day, and
+it counts as run only when the robot really got past the start checks, so one refused for rain is
+not lost. When several are due they run one after another. An unfinished program goes first: a new
+event waits for it, it is not dropped for the new one.
 
 ### Hold
 
@@ -121,19 +136,19 @@ on; when you switch Hold off, the scheduler resumes it as usual.
 
 ### Automation on / off
 
-`automation_enabled` is the master switch of the scheduler (the master controller):
+**Automatic mowing** in the calendar card is the one switch for everything automatic: calendar
+starts, sleeping, resuming. It is stored on the robot and survives a restart; a new robot has it
+**off**.
 
-- **on** (`true`): the calendar starts programs by itself and the robot sleeps / resumes on its
-  own (battery, rain, temperature, the night window — see [Why the robot waits](waiting.md));
-- **off** (`false`): the scheduler is passive — no automatic start and no automatic sleep;
-  programs run only when you start them by hand.
+- **on**: the calendar starts programs by itself and the robot sleeps / resumes on its own
+  (battery, rain, temperature, the night window — see [Why the robot waits](waiting.md)).
+  Switching it on also releases **Hold**, and it counts events from now: nothing from the time it
+  was off is caught up;
+- **off**: the scheduler is passive — no automatic start and no automatic sleep; programs run only
+  when you start them by hand. A program that is out at that moment is left alone and is not
+  followed any more; its checkpoint stays for **Resume**.
 
-How to tell: the calendar's tag says **Automation off** and the status line *Disabled* when it is
-off; any other tag (Active, Held, Mowing, …) means it is on.
-
-Where to change it: `automation_enabled` in `vitulus_planner/config/master_controller.yaml`. The
-controller reads it once when it starts, so the change applies after the robot stack (or the
-`master_controller` node) restarts. To pause the calendar for a while without touching the
-configuration, use **Hold**.
+Scripts and the agent can use `/scheduler/set_enabled` (`std_msgs/Bool` topic, `std_srvs/SetBool`
+service); `/scheduler/enabled` says the current state.
 
 Why a program does not start or stopped early: [Why the robot waits](waiting.md).

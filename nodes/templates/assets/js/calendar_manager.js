@@ -4,6 +4,10 @@
  *   - /scheduler/set_calendar  (publish, std_msgs/String with JSON)
  *   - /scheduler/calendar      (subscribe, std_msgs/String with JSON)
  *   - /scheduler/status        (subscribe, std_msgs/String)
+ *   - /scheduler/set_enabled   (publish, std_msgs/Bool: the one automation switch)
+ *   - /scheduler/enabled       (subscribe, std_msgs/Bool, latched)
+ *   - /scheduler/report        (subscribe, std_msgs/String, JSON: state as codes)
+ *   - /scheduler/clear_issues  (publish, std_msgs/Bool)
  */
 
 function calT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
@@ -49,8 +53,31 @@ class CalendarManager {
             messageType: 'std_msgs/Bool'
         });
 
+        this.enabledPub = new ROSLIB.Topic({
+            ros: ros,
+            name: '/scheduler/set_enabled',
+            messageType: 'std_msgs/Bool'
+        });
+        this.enabledSub = new ROSLIB.Topic({
+            ros: ros,
+            name: '/scheduler/enabled',
+            messageType: 'std_msgs/Bool'
+        });
+        this.reportSub = new ROSLIB.Topic({
+            ros: ros,
+            name: '/scheduler/report',
+            messageType: 'std_msgs/String'
+        });
+        this.clearIssuesPub = new ROSLIB.Topic({
+            ros: ros,
+            name: '/scheduler/clear_issues',
+            messageType: 'std_msgs/Bool'
+        });
+
         this.calendarPub.advertise();
         this.inhibitPub.advertise();
+        this.enabledPub.advertise();
+        this.clearIssuesPub.advertise();
 
         // Subscribe to current calendar from master_controller
         this.calendarSub.subscribe((msg) => {
@@ -62,12 +89,30 @@ class CalendarManager {
             this.render();
         });
 
-        // Subscribe to scheduler status
+        // Subscribe to scheduler status (raw line: tooltip only once the
+        // report tells the same thing as a sentence)
         this.statusSub.subscribe((msg) => {
-            const el = document.getElementById('span_scheduler_status');
             this._status = msg.data || '';
-            if (el) el.textContent = this._status;
             this._paintState();
+        });
+
+        // The switch shows what the robot says, never just the click.
+        this.enabledSub.subscribe((msg) => {
+            this._enabled = !!msg.data;
+            const el = document.getElementById('chk_scheduler_enabled');
+            if (el) el.checked = this._enabled;
+            this._paintState();
+        });
+
+        this.reportSub.subscribe((msg) => {
+            try {
+                this._report = JSON.parse(msg.data);
+            } catch (e) {
+                this._report = null;
+            }
+            this._paintState();
+            this._paintIssues();
+            this.render();
         });
 
         // Subscribe to next-run info
@@ -81,6 +126,7 @@ class CalendarManager {
             VTI18n.onChange(() => {
                 this.render();
                 this._paintState();
+                this._paintIssues();
                 this._paintNext();
                 const sel = this.selProgram;
                 if (sel && sel.options.length === 1 && sel.options[0].value === '') {
@@ -130,6 +176,9 @@ class CalendarManager {
         this.btnSave.addEventListener('click', () => this._saveEvent());
         this.btnCancel.addEventListener('click', () => this._hideForm());
 
+        this.inputHour.addEventListener('input', () => this._checkWindowHint());
+        this.inputMinute.addEventListener('input', () => this._checkWindowHint());
+
         // Recurrence change shows/hides fields
         this.selRecurrence.addEventListener('change', () => this._updateFormFields());
 
@@ -141,6 +190,17 @@ class CalendarManager {
             });
         });
 
+        // The one automation switch. The state comes back on /scheduler/enabled;
+        // until then the click must not look like a fact.
+        const enabledEl = document.getElementById('chk_scheduler_enabled');
+        if (enabledEl) {
+            enabledEl.addEventListener('change', () => {
+                const want = enabledEl.checked;
+                enabledEl.checked = !!this._enabled;
+                this.enabledPub.publish(new ROSLIB.Message({ data: want }));
+            });
+        }
+
         // Inhibit toggle -> publish to master_controller
         const inhibitEl = document.getElementById('chk_scheduler_inhibit');
         if (inhibitEl) {
@@ -151,40 +211,120 @@ class CalendarManager {
         }
     }
 
-    /* P15: one unambiguous state in the card head, with a tone — the raw
-       master_controller status stays on the line below it.
-         Hold on (inhibit)            → "Held"            amber
-         "Disabled" (param off)       → "Automation off"  grey
-         "Mowing"                     → "Mowing"          accent
-         "Off-dock …"                 → "Off dock"        amber
-         "Initialising"               → "Starting"        grey
-         anything else ("Idle …")     → "Active"          green  */
+    /* One unambiguous state in the card head, with a tone, and one sentence
+       under it. Both come from /scheduler/report (codes, translated here); the
+       raw master_controller line stays as the tooltip. */
     _paintNext() {
         const el = document.getElementById('span_scheduler_next');
         if (el) {
-            const v = this._nextRun || '';
+            const rep = this._report;
+            let v = this._nextRun || '';
+            if (rep) {
+                // "2026-06-10T08:00" -> "10. 6. 08:00": local time of the robot
+                const m = rep.next && /^\d+-(\d+)-(\d+)T(.+)$/.exec(rep.next.at);
+                v = (rep.enabled && m)
+                    ? `${rep.next.program} ${Number(m[2])}. ${Number(m[1])}. ${m[3]}` : '';
+            }
             el.textContent = (v && v !== 'None') ? calT('calmgr.next', {when: v}) : '';
         }
+    }
+
+    /* tag + tone per report code; a blocked robot must never read as "Active" */
+    _codeLook(code) {
+        if (code === 'off') return ['auto_off', 'off'];
+        if (code === 'held') return ['held', 'warn'];
+        if (code === 'mowing' || code === 'starting') return ['mowing', 'info'];
+        if (code === 'init' || code === 'boot_grace' || code === 'wait_programs'
+            || code === 'wait_mission') return ['starting', 'off'];
+        if (code === 'blocked_stopped' || code === 'blocked_terminal') return ['needs_reset', 'err'];
+        if (code === 'run_off_dock' || code === 'off_dock_stuck') return ['off_dock', 'err'];
+        if (code === 'off_dock') return ['off_dock', 'warn'];
+        if (code === 'sleep_prepare' || code === 'sleep_cut') return ['sleeping', 'off'];
+        if (code === 'not_in_dock') return ['off_dock', 'warn'];
+        if (/^blocked_/.test(code)) return ['busy', 'warn'];
+        if (/^waiting_(battery|weather|temp|gps|critical|rejected)$/.test(code)) return ['waiting', 'info'];
+        return ['active', 'ok'];
+    }
+
+    _sentence(rep) {
+        const d = Object.assign({}, rep.detail || {});
+        if (d.left_s !== undefined) d.min = Math.ceil(d.left_s / 60);
+        if (d.program === undefined) d.program = (rep.run && rep.run.program) || '';
+        const key = 'calmgr.code.' + rep.code;
+        const text = calT(key, d);
+        if (text === key) return rep.status || '';
+        const run = rep.run;
+        if (run && run.checkpoint && rep.code !== 'mowing') {
+            const cp = /^failed: on_path-(.+)-(\d+)-(\d+)$/.exec(run.checkpoint);
+            if (cp) {
+                return text + ' ' + calT('calmgr.resume_at', {zone: cp[1], path: Number(cp[2]) + 1});
+            }
+        }
+        return text;
     }
 
     _paintState() {
         const el = document.getElementById('span_scheduler_state');
         const card = document.getElementById('card_calendar');
+        const line = document.getElementById('span_scheduler_status');
         if (!el) return;
         const st = String(this._status || '');
-        let label = '—', tone = 'off';
-        if (this._held || /^Inhibited/.test(st)) { label = calT('calmgr.state.held'); tone = 'warn'; }
-        else if (/^Disabled/.test(st)) { label = calT('calmgr.state.auto_off'); tone = 'off'; }
-        else if (/^Mowing/.test(st)) { label = calT('calmgr.state.mowing'); tone = 'info'; }
-        else if (/^Off-dock/.test(st)) { label = calT('calmgr.state.off_dock'); tone = 'warn'; }
-        else if (/^Initialising/.test(st)) { label = calT('calmgr.state.starting'); tone = 'off'; }
-        else if (st) { label = calT('calmgr.state.active'); tone = 'ok'; }
+        const rep = this._report;
+        let label = '—', tone = 'off', sentence = st;
+        if (rep) {
+            const look = this._codeLook(rep.code);
+            label = calT('calmgr.state.' + look[0]);
+            tone = look[1];
+            sentence = this._sentence(rep);
+        } else if (this._enabled === false) {
+            label = calT('calmgr.state.auto_off');
+            sentence = calT('calmgr.code.off');
+        } else if (st) {
+            // an older master_controller without the report
+            label = calT('calmgr.state.active');
+            tone = 'ok';
+        }
         el.textContent = label;
         el.dataset.state = tone;
         el.title = st ? calT('calmgr.state.tip', {status: st}) : '';
+        // Why it does not sleep is quiet information, in the tooltip of the line.
+        const block = rep && rep.sleep && rep.sleep.block;
+        if (line) {
+            line.textContent = sentence;
+            line.title = block ? calT('calmgr.why_awake', {why: block}) : '';
+        }
         if (card) {
             if (tone === 'off') { delete card.dataset.state; } else { card.dataset.state = tone; }
         }
+        this._paintNext();
+    }
+
+    /* What went wrong and is not visible any more: stays until cleared. */
+    _paintIssues() {
+        const box = document.getElementById('div_scheduler_issues');
+        if (!box) return;
+        const issues = (this._report && this._report.issues) || [];
+        if (!issues.length) {
+            box.style.display = 'none';
+            box.innerHTML = '';
+            return;
+        }
+        let html = '';
+        issues.slice().reverse().forEach((i) => {
+            const d = Object.assign({program: i.program || ''}, i.detail || {});
+            if (d.slot) d.slot = String(d.slot).replace('T', ' ');
+            const key = 'calmgr.issue.' + i.code;
+            let text = calT(key, d);
+            if (text === key) text = i.code + ' ' + (i.program || '');
+            const why = d.blocked_by ? calT('calmgr.code.' + d.blocked_by) : '';
+            html += `<div class="vt-cal-issue" title="${this._escHtml(why)}">${this._escHtml(text)}</div>`;
+        });
+        html += `<button class="btn btn-sm btn-outline-secondary" type="button" id="btn_scheduler_issues_clear">${calT('calmgr.issues_clear')}</button>`;
+        box.innerHTML = html;
+        box.style.display = '';
+        document.getElementById('btn_scheduler_issues_clear').addEventListener('click', () => {
+            this.clearIssuesPub.publish(new ROSLIB.Message({ data: true }));
+        });
     }
 
     // ---- rendering ----
@@ -206,10 +346,12 @@ class CalendarManager {
             const timeStr = ev.start_time || '??:??';
             // U1: one row look (vt_panel.css .vt-cal-row); disabled = dimmed
             const missing = known && !known.has(ev.program_name);
-            html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}${missing ? ' has-miss' : ''}">`;
+            const outside = !!(this._report && (this._report.outside_window || []).includes(ev.id));
+            html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}${(missing || outside) ? ' has-miss' : ''}">`;
             html += `<div class="form-check form-switch"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" ${enabled ? 'checked' : ''}></div>`;
             html += `<span class="vt-cal-name">${this._escHtml(ev.program_name)}</span>`;
             if (missing) html += `<span class="vt-cal-miss" title="${calT('calmgr.missing_tip')}">${calT('calmgr.missing')}</span>`;
+            if (outside) html += `<span class="vt-cal-miss" title="${calT('calmgr.outside_tip', this._report.window || {})}">${calT('calmgr.outside')}</span>`;
             html += `<span class="vt-cal-time">${timeStr}</span>`;
             html += `<span class="vt-cal-rec">${recLabel}</span>`;
             html += `<button class="btn btn-sm btn-outline-info cal-edit" data-id="${ev.id}">${calT('common.edit')}</button>`;
@@ -275,7 +417,7 @@ class CalendarManager {
             this.selRecurrence.value = 'weekly';
             this._updateFormFields();
             this.divDays.querySelectorAll('button[data-day]').forEach(btn => this._setDayBtnActive(btn, false));
-            this.inputDate.value = new Date().toISOString().split('T')[0];
+            this.inputDate.value = this._localDate();
             this.inputDom.value = 1;
             this.inputMonth.value = 1;
         }
@@ -286,6 +428,33 @@ class CalendarManager {
     _hideForm() {
         this.formEl.style.display = 'none';
         this.editingId = null;
+        this._formHint('');
+    }
+
+    _formHint(text) {
+        const el = document.getElementById('div_cal_hint');
+        if (!el) return;
+        el.textContent = text;
+        el.style.display = text ? '' : 'none';
+    }
+
+    /* A time the allowed window never contains: say it before it is saved. */
+    _checkWindowHint() {
+        const w = this._report && this._report.window;
+        if (!w) { this._formHint(''); return; }
+        const h = Math.max(0, Math.min(23, parseInt(this.inputHour.value, 10) || 0));
+        const m = Math.max(0, Math.min(59, parseInt(this.inputMinute.value, 10) || 0));
+        const t = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        const inside = (w.start <= w.end) ? (t >= w.start && t <= w.end)
+            : (t >= w.start || t <= w.end);
+        this._formHint(inside ? '' : calT('calmgr.outside_tip', w));
+    }
+
+    /* The robot's calendar is local time; toISOString() is the UTC date. */
+    _localDate() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+            + '-' + String(d.getDate()).padStart(2, '0');
     }
 
     _updateFormFields() {
@@ -328,13 +497,18 @@ class CalendarManager {
 
         // Recurrence-specific fields
         if (recurrence === 'none') {
-            ev.start_date = this.inputDate.value || new Date().toISOString().split('T')[0];
+            ev.start_date = this.inputDate.value || this._localDate();
         }
         if (recurrence === 'weekly') {
             const days = [];
             this.divDays.querySelectorAll('button[data-day]').forEach(btn => {
                 if (btn.dataset.active === 'true') days.push(parseInt(btn.dataset.day, 10));
             });
+            if (!days.length) {
+                // Weekly without a day never runs: not a calendar entry.
+                this._formHint(calT('calmgr.no_days'));
+                return;
+            }
             ev.days_of_week = days;
         }
         if (recurrence === 'monthly' || recurrence === 'yearly') {

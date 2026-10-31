@@ -26,13 +26,25 @@ returns to the Map panel.
 | **Waypoint** | click to place, type a name and a heading (0–359.5°, an orange arrow), **Save**. Click an existing dot to select it, then move or delete it |
 | **Path** | click points, then **Finish**. Click an existing path to edit or delete it |
 | **Obstacle (area)** | at least 3 points, **Finish** — the robot will not drive there |
-| **Free (clear area)** | marks an area as drivable (removes a false obstacle) |
+| **Free area (clear)** | marks an area as drivable (removes a false obstacle) |
 | **Barrier (line)** | a virtual line the robot must not cross; width 0.02–2 m (default 0.10) |
 | **Delete** | click an edit (obstacle, free area, barrier) to remove it |
 | **Geofence** | click the perimeter, then **Send proposal** — see below |
 
 **Show** switches the editor layers on and off: waypoints, paths, edits, zones. Saved edits
 update the map and the zone paths within a few seconds.
+
+## Names
+
+Every object has a name: obstacle, free area, barrier, waypoint, path and zone. A new object gets
+one automatically (**Obstacle 1**, **Free area 2**, **Waypoint 1**…), and you can type your own
+before saving. The ✎ pencil in the object's row renames it later.
+
+- A name must be unique within its type, up to 60 characters. Spaces and accents are fine.
+- A renamed zone stays in its programs. It cannot be renamed while a mission that uses it is running.
+- **DOCK**, **UNDOCK** and **docked** keep their names.
+- The agent knows objects by these names, so a good name (*Pool*, *Fence by the neighbours*) is
+  what you and the agent will both use.
 
 ## Waypoints DOCK and UNDOCK
 

@@ -213,11 +213,12 @@ window.MapEdits = (function () {
     var _mapObjLayer = null; // MapObjectsLayer (V3: waypoint/path overlay groups)
     var _tool = 'off';
     var _built = false;
-    var _wpN = 1;            // wp_<n> suggestion counter
-    var _pathN = 1;          // path_<n> suggestion counter
     var _pendingMoveName = null;
     var _clickState = null;  // raw click detector
     var _wpNames = [];       // known waypoint names (from map_point_str_list)
+    var _renaming = null;    // {kind, from, to, row, redraw, timer}: the row being renamed
+    var _renameTopics = {};  // kind -> rename publisher
+    var _renameResult = null;
 
     // waypoint topics (navi_manager) — kept next to the tool that uses them.
     var _pub_wp_at = null, _pub_wp_remove = null, _sub_wp_list = null;
@@ -667,13 +668,17 @@ window.MapEdits = (function () {
             '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1"' + _ti('medits.tool_context') + '</div>' +
             '<div class="vt-box">' +
             '  <div id="mapedit_hint" class="vt-fs-sm vt-accent vt-minh-line"></div>' +
+            '  <div id="mapedit_edit_name_wrap" class="vt-mt2" style="display: none;">' +
+            '    <span class="vt-fs-sm vt-block vt-mb1"' + _ti('common.name') + '</span>' +
+            '    <input class="form-control form-control-sm vt-w-lg" id="mapedit_edit_name" type="text" maxlength="60" value="">' +
+            '  </div>' +
             '  <div id="mapedit_wall_wrap" class="vt-mt2" style="display: none;">' +
             '    <span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.wall_width') + '</span>' +
             '    <div class="input-group input-group-sm vt-w-md"><input class="form-control" id="mapedit_wall_w" type="number" min="0.02" max="2" step="0.05" value="0.10"><span class="input-group-text">m</span></div>' +
             '  </div>' +
             '  <div id="mapedit_path_wrap" class="vt-mt2" style="display: none;">' +
             '    <span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.path_name') + '</span>' +
-            '    <input class="form-control form-control-sm vt-w-lg" id="mapedit_path_name" type="text" value="">' +
+            '    <input class="form-control form-control-sm vt-w-lg" id="mapedit_path_name" type="text" maxlength="60" value="">' +
             '  </div>' +
             '  <div id="mapedit_gf_wrap" class="vt-mt2" style="display: none;">' +
             '    <div id="mapedit_gf_live" class="vt-fs-sm vt-mb2"></div>' +
@@ -846,6 +851,8 @@ window.MapEdits = (function () {
         if (gw) gw.style.display = (mode === 'geofence') ? '' : 'none';
         var ww = document.getElementById('mapedit_wall_wrap');
         if (ww) ww.style.display = (mode === 'edit_wall') ? '' : 'none';
+        var en = document.getElementById('mapedit_edit_name_wrap');
+        if (en) en.style.display = EDIT_KIND[mode] ? '' : 'none';
         var pw = document.getElementById('mapedit_path_wrap');
         if (pw) pw.style.display = (mode === 'path') ? '' : 'none';
     }
@@ -900,9 +907,11 @@ window.MapEdits = (function () {
                 _setHint('medits.hint.geofence');
             } else if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');
-                if (pn && !pn.value.trim()) pn.value = 'path_' + _pathN;
+                if (pn) { pn.value = nextName('path', _names('path')); pn.readOnly = false; }
                 _setHint('medits.hint.path');
             } else {
+                var nm = document.getElementById('mapedit_edit_name');
+                if (nm) nm.value = nextName(EDIT_KIND[_tool], _names('edit'));
                 _setHint(_tool === 'edit_wall'
                     ? 'medits.hint.wall'
                     : (_tool === 'edit_obstacle' ? 'medits.hint.obstacle' : 'medits.hint.free'));
@@ -925,10 +934,14 @@ window.MapEdits = (function () {
         var pts = [];
         var ch = P.pointContainer.children || [];
         for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]); // store y=-rosY -> map y
-        var kind = (_tool === 'edit_obstacle') ? 'obstacle' : (_tool === 'edit_free') ? 'free' : 'wall';
+        var kind = EDIT_KIND[_tool];
         var minPts = (kind === 'wall') ? 2 : 3;
         if (pts.length < minPts) { _setHint('medits.hint.need_pts.' + kind, { n: minPts }); return; }
-        var spec = { kind: kind, points: pts };
+        var ne = document.getElementById('mapedit_edit_name');
+        var name = (ne && ne.value ? ne.value : '').trim() || nextName(kind, _names('edit'));
+        var bad = nameProblem(name, _names('edit'));
+        if (bad) { _setHint('medits.name.err.' + bad, { name: name }); return; }
+        var spec = { kind: kind, points: pts, name: name };
         if (kind === 'wall') {
             var wi = document.getElementById('mapedit_wall_w');
             spec.width_m = wi ? (parseFloat(wi.value) || 0.10) : 0.10;
@@ -949,10 +962,12 @@ window.MapEdits = (function () {
         for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]); // ros y -> map y
         if (pts.length < 2) { _setHint('medits.hint.path_need2'); return; }
         var pn = document.getElementById('mapedit_path_name');
-        var name = (pn && pn.value ? pn.value : '').trim() || ('path_' + _pathN);
+        var name = (pn && pn.value ? pn.value : '').trim() || nextName('path', _names('path'));
+        // Re-saving an edited path keeps its (read-only) name on purpose.
+        var bad = (pn && pn.readOnly) ? null : nameProblem(name, _names('path'));
+        if (bad) { _setHint('medits.name.err.' + bad, { name: name }); return; }
         if (!_pub_path_at) { _setHint('medits.hint.path_pub'); return; }
         _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: name, points: pts }) }));
-        _pathN++;
         _setHint('medits.hint.path_saved', { name: name, n: pts.length });
         _setTool('off');
     }
@@ -1064,7 +1079,7 @@ window.MapEdits = (function () {
         for (var i = 0; i < pts.length; i++) seed.push({ x: pts[i][0], y: -pts[i][1] });
         P.pointContainer.children = seed;       // setter -> _redraw()
         var pn = document.getElementById('mapedit_path_name');
-        if (pn) pn.value = path.name || '';
+        if (pn) { pn.value = path.name || ''; pn.readOnly = true; }
         _setHint('medits.hint.path_editing', { name: path.name || '', n: seed.length });
     }
 
@@ -1100,7 +1115,7 @@ window.MapEdits = (function () {
     // visibility toggle (per-path), Edit, Delete (double-click confirm).
     function _renderPathList() {
         var pl = document.getElementById('mapedit_path_list');
-        if (!pl) return;
+        if (!pl || (_renaming && _renaming.kind === 'path')) return;
         var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
         if (!paths.length) { pl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_paths') + '</div>'; return; }
         var html = '';
@@ -1114,11 +1129,13 @@ window.MapEdits = (function () {
                 '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>' +
                 '<div class="btn-group btn-group-sm vt-ml2">' +
                 '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="' + _escapeAttr(t('medits.path_vis')) + '"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '<i class="la la-eye-slash"></i>' : '<i class="la la-eye"></i>') + '</button>' +
+                '<button class="btn btn-outline-info mapedit-ren" data-n="' + _escapeAttr(name) + '" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>' +
                 '<button class="btn btn-outline-info mapedit-path-edit" data-n="' + _escapeAttr(name) + '" type="button"' + _ti('common.edit') + '</button>' +
                 '<button class="btn btn-outline-danger mapedit-path-del" data-n="' + _escapeAttr(name) + '" type="button"' + _ti('common.delete') + '</button>' +
                 '</div></div>';
         }
         pl.innerHTML = html;
+        _wireRename(pl, 'path', _renderPathList);
         // visibility toggle
         pl.querySelectorAll('.mapedit-path-vis').forEach(function (b) {
             b.addEventListener('click', function () {
@@ -1174,11 +1191,9 @@ window.MapEdits = (function () {
             if (hit) { _selectWaypoint(hit); return; }
         }
         // Otherwise place a NEW waypoint at the clicked spot.
-        var name = 'wp_' + _wpN;
-        _showWpInput(name, false, function (finalName, yawDeg) {
+        _showWpInput(nextName('waypoint', _names('waypoint')), false, function (finalName, yawDeg) {
             var yaw = (yawDeg || 0) * Math.PI / 180;
             _publishWaypointAt(finalName, world.x, world.y, yaw);
-            _wpN++;
             _setHint('medits.hint.wp_saved', { name: finalName });
         }, world, 0);
     }
@@ -1271,7 +1286,7 @@ window.MapEdits = (function () {
         host.innerHTML =
             '<div class="vt-sep-dashed">' +
             '<div class="vt-fs-sm vt-mb1"' + _ti('medits.wp_name') + '</div>' +
-            '<input class="form-control form-control-sm" id="mapedit_wp_name" type="text" value="' + _escapeAttr(name) + '"' + (lockName ? ' readonly' : '') + '>' +
+            '<input class="form-control form-control-sm" id="mapedit_wp_name" type="text" maxlength="60" value="' + _escapeAttr(name) + '"' + (lockName ? ' readonly' : '') + '>' +
             '<div class="vt-fs-sm vt-mt2 vt-mr0 vt-mb1 vt-ml0 vt-flex vt-aic vt-gap6"><span' + _ti('medits.heading') + '</span>' +
             ' <input id="mapedit_wp_yawn" class="form-control form-control-sm vt-w-sm vt-pad-s" type="number" min="0" max="359.5" step="0.5" value="' + y0 + '">°' +
             ' <span class="vt-dim vt-fs-xs"' + _ti('medits.heading_hint') + '</span></div>' +
@@ -1296,6 +1311,8 @@ window.MapEdits = (function () {
         host.querySelector('#mapedit_wp_save').addEventListener('click', function () {
             var nm = (host.querySelector('#mapedit_wp_name').value || '').trim();
             if (!nm) { host.querySelector('#mapedit_wp_name').focus(); return; }
+            var bad = lockName ? null : nameProblem(nm, _names('waypoint'));
+            if (bad) { _setHint('medits.name.err.' + bad, { name: nm }); return; }
             var v = parseFloat(yawn.value);
             _hideWpInput();
             onSave(nm, isFinite(v) ? ((v % 360) + 360) % 360 : 0);
@@ -1316,7 +1333,7 @@ window.MapEdits = (function () {
     // time. "Move" activates the waypoint tool then arms a move.
     function _renderWpList() {
         var wl = document.getElementById('mapedit_wp_list');
-        if (!wl) return;
+        if (!wl || (_renaming && _renaming.kind === 'waypoint')) return;
         if (!_wpNames.length) { wl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_wps') + '</div>'; return; }
         var html = '';
         for (var i = 0; i < _wpNames.length; i++) {
@@ -1324,11 +1341,13 @@ window.MapEdits = (function () {
             html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
                 '<span class="text-info text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>' +
                 '<div class="btn-group btn-group-sm vt-ml2">' +
+                (isReserved(n) ? '' : '<button class="btn btn-outline-info mapedit-ren" data-n="' + _escapeAttr(n) + '" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>') +
                 '<button class="btn btn-outline-info mapedit-wp-move" data-n="' + _escapeAttr(n) + '" type="button"' + _ti('medits.move') + '</button>' +
                 '<button class="btn btn-outline-danger mapedit-wp-del" data-n="' + _escapeAttr(n) + '" type="button"' + _ti('common.delete') + '</button>' +
                 '</div></div>';
         }
         wl.innerHTML = html;
+        _wireRename(wl, 'waypoint', _renderWpList);
         wl.querySelectorAll('.mapedit-wp-move').forEach(function (b) {
             b.addEventListener('click', function () {
                 if (_tool !== 'waypoint') _setTool('waypoint');
@@ -1350,7 +1369,7 @@ window.MapEdits = (function () {
     // section. Refreshed whenever the latched edit_list changes (onListChange).
     function _renderEditList() {
         var el = document.getElementById('mapedit_edit_list');
-        if (!el) return;
+        if (!el || (_renaming && _renaming.kind === 'edit')) return;
         var edits = (_layer && _layer.edits) ? _layer.edits : [];
         if (!edits.length) { el.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_edits') + '</div>'; return; }
         var LBL = { obstacle: t('medits.kind.obstacle'), free: t('medits.kind.free'), wall: t('medits.kind.wall') };
@@ -1363,15 +1382,145 @@ window.MapEdits = (function () {
                 '<span class="text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || t('medits.unnamed')) + '</span>' +
                 '<span class="text-light vt-w-sm">' + _escapeHtml(kind) + '</span>' +
                 '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>' +
-                '<button class="btn btn-outline-danger btn-sm mapedit-edit-del vt-ml2" data-n="' + _escapeAttr(e.name || '') + '" type="button"' + _ti('common.delete') + '</button>' +
-                '</div>';
+                '<div class="btn-group btn-group-sm vt-ml2">' +
+                '<button class="btn btn-outline-info mapedit-ren" data-n="' + _escapeAttr((e.name || '')) + '" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>' +
+                '<button class="btn btn-outline-danger mapedit-edit-del" data-n="' + _escapeAttr(e.name || '') + '" type="button"' + _ti('common.delete') + '</button>' +
+                '</div></div>';
         }
         el.innerHTML = html;
+        _wireRename(el, 'edit', _renderEditList);
         el.querySelectorAll('.mapedit-edit-del').forEach(function (b) {
             b.addEventListener('click', function () {
                 var n = b.getAttribute('data-n');
                 if (_layer) _layer.removeEdit(n);
                 _setHint('medits.hint.edit_deleted', { name: n });
+            });
+        });
+    }
+
+    // =====================================================================
+    // NAMES — every map object has one. Rules mirror vitulus_mapping/objnames.py;
+    // the owner node decides, this only avoids a pointless round trip.
+    // =====================================================================
+    var EDIT_KIND = { edit_obstacle: 'obstacle', edit_free: 'free', edit_wall: 'wall' };
+    var NAME_MAX = 60;
+    var RESERVED = ['dock', 'undock', 'docked'];
+    var RENAME_TOPIC = { edit: '/mapping_manager/rename_edit', waypoint: '/navi_manager/rename_point',
+                         path: '/navi_manager/rename_path', zone: '/web_plan/rename_zone' };
+    var RENAME_TIMEOUT_MS = 6000;
+
+    function _fold(s) { return String(s).toLowerCase(); }
+    function isReserved(name) { return RESERVED.indexOf(_fold(name)) >= 0; }
+
+    function nameProblem(name, existing, current) {
+        if (!name) return 'empty';
+        if (name.length > NAME_MAX) return 'too_long';
+        if (name === '*' || name.indexOf('|||') >= 0 || /[\x00-\x1f\x7f]/.test(name)) return 'bad_chars';
+        if (isReserved(name)) return 'reserved';
+        var skip = (current != null) ? _fold(current) : null, f = _fold(name);
+        for (var i = 0; i < existing.length; i++) {
+            var e = _fold(existing[i]);
+            if (e === f && e !== skip) return 'exists';
+        }
+        return null;
+    }
+
+    // Lowest free "<Type> <n>", in the UI language.
+    function nextName(kind, existing) {
+        var base = t('medits.default.' + kind), n = 1;
+        while (nameProblem(base + ' ' + n, existing)) n++;
+        return base + ' ' + n;
+    }
+
+    function _names(kind) {
+        if (kind === 'waypoint') return _wpNames;
+        if (kind === 'path') return ((_mapObjLayer && _mapObjLayer.paths) || []).map(function (p) { return p.name || ''; });
+        if (kind === 'zone') return window.mapEditZoneNames ? window.mapEditZoneNames() : [];
+        return ((_layer && _layer.edits) || []).map(function (e) { return e.name || ''; });
+    }
+
+    function _renameDone() {
+        var r = _renaming;
+        if (!r) return;
+        if (r.timer) clearTimeout(r.timer);
+        _renaming = null;
+        r.redraw();
+    }
+    function _renameSay(key, v) {
+        if (!_renaming) return;
+        var r = _renaming, err = r.row.querySelector('.mapedit-ren-err');
+        if (r.timer) { clearTimeout(r.timer); r.timer = null; }
+        r.to = null;
+        r.row.querySelector('.mapedit-ren-save').disabled = false;
+        if (err) err.textContent = t(key, v);
+    }
+    function _onRenameResult(msg) {
+        var res;
+        try { res = JSON.parse(msg.data); } catch (e) { return; }
+        var r = _renaming;
+        if (!r || !res || res.kind !== r.kind || res.from !== r.from || res.to !== r.to) return;
+        if (!res.ok) { _renameSay('medits.name.err.' + res.code, { name: res.to }); return; }
+        if (res.kind === 'path' && _mapObjLayer && _mapObjLayer.isPathHidden(res.from)) {
+            _mapObjLayer.setPathHidden(res.from, false);
+            _mapObjLayer.setPathHidden(res.to, true);
+        }
+        if (res.kind === 'waypoint' && _pendingMoveName === res.from) _pendingMoveName = res.to;
+        _renameDone();
+        _setHint('medits.hint.renamed', { from: res.from, to: res.to });
+    }
+    function _renameTopic(kind) {
+        var ros = rosOf();
+        if (!ros) return null;
+        if (!_renameResult) {
+            _renameResult = new ROSLIB.Topic({ ros: ros, name: '/map_objects/rename_result', messageType: 'std_msgs/String' });
+            _renameResult.subscribe(_onRenameResult);
+        }
+        if (!_renameTopics[kind]) {
+            _renameTopics[kind] = new ROSLIB.Topic({ ros: ros, name: RENAME_TOPIC[kind], messageType: 'std_msgs/String' });
+            _renameTopics[kind].advertise();
+        }
+        return _renameTopics[kind];
+    }
+    function _renameSubmit() {
+        var r = _renaming;
+        if (!r || r.to) return;
+        var to = r.row.querySelector('.mapedit-ren-input').value.trim();
+        if (to === r.from) { _renameDone(); return; }
+        var bad = nameProblem(to, _names(r.kind), r.from);
+        if (bad) { _renameSay('medits.name.err.' + bad, { name: to }); return; }
+        var topic = _renameTopic(r.kind);
+        if (!topic) { _renameSay('medits.name.err.timeout'); return; }
+        r.to = to;
+        r.row.querySelector('.mapedit-ren-save').disabled = true;
+        r.timer = setTimeout(function () { _renameSay('medits.name.err.timeout'); }, RENAME_TIMEOUT_MS);
+        topic.publish(new ROSLIB.Message({ data: JSON.stringify({ from: r.from, to: to }) }));
+    }
+    // Turn a list row into a name field. Its list stops redrawing until done:
+    // the latched lists come again at any moment and would wipe the typing.
+    function startRename(row, kind, name, redraw) {
+        _renameDone();
+        _renaming = { kind: kind, from: name, to: null, row: row, redraw: redraw, timer: null };
+        row.className = 'vt-sep vt-fs-sm';
+        row.innerHTML =
+            '<div class="d-flex align-items-center vt-gap6">' +
+            '<input class="form-control form-control-sm mapedit-ren-input vt-grow1 vt-min0" type="text" maxlength="' + NAME_MAX + '" value="' + _escapeAttr(name) + '">' +
+            '<button class="btn btn-success btn-sm mapedit-ren-save" type="button"' + _ti('common.save') + '</button>' +
+            '<button class="btn btn-warning btn-sm mapedit-ren-cancel" type="button"' + _ti('common.cancel') + '</button>' +
+            '</div><div class="mapedit-ren-err vt-fs-xs text-warning" role="alert"></div>';
+        var input = row.querySelector('.mapedit-ren-input');
+        input.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter') { ev.preventDefault(); _renameSubmit(); }
+            else if (ev.key === 'Escape') { _renameDone(); }
+        });
+        row.querySelector('.mapedit-ren-save').addEventListener('click', _renameSubmit);
+        row.querySelector('.mapedit-ren-cancel').addEventListener('click', _renameDone);
+        input.focus(); input.select();
+    }
+    function isRenaming(kind) { return !!(_renaming && _renaming.kind === kind); }
+    function _wireRename(root, kind, redraw) {
+        root.querySelectorAll('.mapedit-ren').forEach(function (b) {
+            b.addEventListener('click', function () {
+                startRename(b.closest('.vt-sep'), kind, b.getAttribute('data-n'), redraw);
             });
         });
     }
@@ -1417,6 +1566,10 @@ window.MapEdits = (function () {
         onEnter: onEnter,
         onExit: onExit,
         setTool: _setTool,
+        nextName: nextName,
+        nameProblem: nameProblem,
+        startRename: startRename,
+        isRenaming: isRenaming,
         // exposed for diagnostics/tests
         _layer: function () { return _layer; },
         EditMaskLayer: EditMaskLayer,

@@ -6,7 +6,7 @@ order: 200
 icon: la-wrench
 summary: Robot nejede, není vidět mapa, GPS nechytá fix, zajetí do doku selže nebo se zruší, FAULT supervisoru, mise nedoběhla, agent po restartu, UI nereaguje, kde jsou logy uzlů.
 related: [safety, localization, dock, agent, support]
-keywords: [problém, problem, chyba, error, fault, nefunguje, not working, nejede, nehýbe se, does not move, uvízl, stuck, rozbité, broken, oprava, fix, pomoc, help, restart, obnovit, reload, rosbridge, dokování zrušeno, docking cancelled, stop sekačky, mower stop, znovu připojit, reconnect, mise nedoběhla, mission not finished, zpátky v doku, returned to dock, need help, log, logy, log uzlu, node log, stdout, rosout, journal, journalctl]
+keywords: [ovladač gps, porucha gps, blokace gps, robot stojí, gnss watchdog, problém, problem, chyba, error, fault, nefunguje, not working, nejede, nehýbe se, does not move, uvízl, stuck, rozbité, broken, oprava, fix, pomoc, help, restart, obnovit, reload, rosbridge, dokování zrušeno, docking cancelled, stop sekačky, mower stop, znovu připojit, reconnect, mise nedoběhla, mission not finished, zpátky v doku, returned to dock, need help, log, logy, log uzlu, node log, stdout, rosout, journal, journalctl]
 ---
 # Řešení problémů
 
@@ -23,6 +23,9 @@ Projdi v tomhle pořadí:
 1. **Vypnuté motory?** Po každém startu, restartu a STOPu jsou pojezdové motory VYPNUTÉ. Ukazuje to
    joystick a log píše *Motors are OFF – turn motors on to move/dock*. →
    oranžová **ikona motoru** v prstenci jízdy (zelená = zapnuté) (nebo **Nastavení › Motory › ON**).
+   Po vypnutí se motory znovu zapnou nejdřív za 2 s, takže rychlé vypnutí a zapnutí jim neublíží.
+   Když po zapnutí neodpoví, robot sám vypne a znovu zapne napájení, až třikrát. Pokud se to
+   nepovede, motory zůstanou vypnuté a log napíše, který motor mlčí.
 2. **Převzal řízení člověk?** Pohyb páčkou gamepadu (nebo PS / L1 / R1) nebo joystickem v UI
    zruší cíl, zajetí do doku i běžící program a software zůstane zastavený i po puštění
    ([Bezpečnost](safety.md#gamepad-ds4-a-joystick-mají-přednost-před-softwarem)). → pošli cíl
@@ -60,6 +63,26 @@ Projdi v tomhle pořadí:
 6. V misi agenta čeká agent po nepovedeném výjezdu z doku na RTK sám (nejvýš 10 min, displej
    píše *Agent: waiting RTK*); bez RTK zajede zpátky do doku
    ([Když krok selže](agent.md#když-krok-selže)).
+
+## Robot zastavil: porucha ovladače GPS
+
+Ovladač GPS může přestat fungovat, i když je přijímač v pořádku. Robot to pozná sám:
+15 s žádná data z ovladače, špatně nastavený port nebo jeho chyby zaplavující log.
+Slabý signál porucha není: v doku ani pod střechou se nic neděje.
+
+1. **Robot nejdřív zastaví** a nic automatického s ním nesmí pohnout: ani mise, navigace,
+   dokování, ani agent. Zastaví i nůž.
+2. Restartuje se dotčený ovladač (nejvýš 3× za hodinu).
+3. **Čeká na opravu:** RTK, heading a ustálená poloha. Karta GNSS ukazuje *Robot stojí…*.
+4. Rozjede se nůž a mise **pokračuje tam, kde stála**.
+
+Čekání nemá časový limit. Po 5 minutách nebo po vyčerpání restartů robot pípne a napíše, že tě
+potřebuje; stát ale zůstává. **Ovladač a joystick fungují celou dobu**: v nouzi ho odvez ručně.
+Převzetí jako obvykle ukončí misi; když už není v čem pokračovat, robot se uvolní, jakmile ovladače
+zase publikují. Přímá jízda a jednorázové *jeď na bod* se neobnovují: skončí a po opravě je
+zopakuje agent nebo ty. V klidu nebo v doku se jen restartuje ovladač.
+
+Vypnuté, dokud se neaktivuje: `rosparam set /gnss_watchdog/enabled true`.
 
 ## Zajetí do doku selže
 

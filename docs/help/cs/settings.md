@@ -45,8 +45,9 @@ Záložka navigace:
 - **Výstupy a limity** — výstup motorů a sekačky **ON / OFF**, nabíjecí a vypínací proudy pro
   běh a pohotovost, limit teploty desky (PCB) a vnější teploty. Měň jen, když víš proč.
 - **Řízení spánku** — **Doba spánku**, **Uspat teď** (**Na čas** / **Do nabití**), **Prodleva
-  pohotovosti**, **Posun po nabití**, **Limit vybíjení**. Plánovač spánek používá, když čeká
-  ([Proč robot čeká](waiting.md)).
+  pohotovosti**, **Posun po nabití**, **Limit vybíjení**. **Uspat teď** odpojí napájení bez
+  vypnutí systému; plánovač systém nejdřív vypne a prodlevu pohotovosti nastaví na 3 minuty
+  ([Jak robot spí](waiting.md#jak-robot-spí)).
 
 ## Sekačka
 

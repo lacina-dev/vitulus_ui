@@ -66,6 +66,7 @@ Every drive command passes one priority switch on the robot (the *cmd_vel mux*):
 |---|---|---|
 | 1 | **DS4 gamepad** | a stick is moved (or PS / L1 / R1 pressed) |
 | 2 | **Joystick in the UI** (and the keyboard drive) | it is pushed |
+| 2½ | **GPS hold** (the robot stopped for a [GPS driver fault](troubleshooting.md#the-robot-stopped-gps-driver-fault)) | always below the people, above all software: nothing automatic drives until the GPS is fixed |
 | 3 | **The agent's direct driving** — drive straight, turn, back off (`drive.*`, `nav.backup`) | nobody is driving by hand; while it drives, navigation waits |
 | 4 | **The software** — navigation, a program, docking / undocking, an agent mission | nobody else is driving |
 

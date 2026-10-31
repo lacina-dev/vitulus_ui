@@ -66,6 +66,7 @@ Každý příkaz k jízdě prochází na robotu jedním přepínačem priorit (*
 |---|---|---|
 | 1 | **Gamepad DS4** | se pohne páčkou (nebo stiskneš PS / L1 / R1) |
 | 2 | **Joystick v UI** (i jízda klávesnicí) | se s ním hýbe |
+| 2½ | **Blokace GPS** (robot zastavil kvůli [poruše ovladače GPS](troubleshooting.md#robot-zastavil-porucha-ovladače-gps)) | vždy pod lidmi, nad veškerým softwarem: nic automatického nejede, dokud se GPS neopraví |
 | 3 | **Přímé řízení agenta** — jeď rovně, otoč se, couvni (`drive.*`, `nav.backup`) | nikdo neřídí ručně; dokud jede, navigace čeká |
 | 4 | **Software** — navigace, program, zajíždění do doku / výjezd, mise agenta | nikdo jiný neřídí |
 

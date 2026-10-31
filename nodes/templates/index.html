@@ -1397,7 +1397,14 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <label class="form-check-label" for="chk_scheduler_inhibit" data-i18n="prog.hold">Hold</label>
                                         </div>
                                     </div>
+                                    <div class="vt-cal-master">
+                                        <div class="form-check form-switch vt-switch-inline" title="One switch for the whole automatic mowing: calendar starts, sleeping, resuming" data-i18n-title="prog.auto_tip">
+                                            <input class="form-check-input" type="checkbox" id="chk_scheduler_enabled">
+                                            <label class="form-check-label" for="chk_scheduler_enabled" data-i18n="prog.auto">Automatic mowing</label>
+                                        </div>
+                                    </div>
                                     <div class="vt-cal-line"><span id="span_scheduler_status" class="vt-muted"></span><span class="vt-ok-text" id="span_scheduler_next"></span></div>
+                                    <div id="div_scheduler_issues" class="vt-cal-issues" style="display:none;"></div>
                                     <div id="div_calendar_events" class="vt-list"></div>
                                     <div class="vt-row vt-card-actions"><button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button" data-i18n="prog.add_event">+ Add event</button></div>
                                 </div>
@@ -1452,6 +1459,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <input class="form-control form-control-sm vt-num-in" type="number" id="input_cal_month" min="1" max="12" value="1">
                                         </div>
                                     </div>
+                                    <div id="div_cal_hint" class="vt-cal-issues" style="display:none;"></div>
                                     <div class="vt-row vt-card-actions">
                                         <button class="btn btn-sm btn-success" id="btn_cal_save" type="button" data-i18n="common.save">Save</button>
                                         <button class="btn btn-sm btn-secondary" id="btn_cal_cancel" type="button" data-i18n="common.cancel">Cancel</button>

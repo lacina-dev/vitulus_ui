@@ -5479,6 +5479,17 @@ class GnssRx{
             try { self.last = JSON.parse(m.data); self.last_at = Date.now(); } catch (e) { return; }
             self.render();
         });
+        // gnss_watchdog: the robot stands because of a GPS driver fault
+        this.wd = null;
+        this.wd_at = 0;
+        this.wd_topic = new ROSLIB.Topic({
+            ros : ros, name : '/gnss_watchdog/status', messageType : 'std_msgs/String',
+            throttle_rate : 900
+        });
+        this.wd_topic.subscribe(function (m) {
+            try { self.wd = JSON.parse(m.data); self.wd_at = Date.now(); } catch (e) { return; }
+            self.render();
+        });
         // stale data / no aggregator yet → say so instead of freezing
         setInterval(function () { if (Date.now() - self.last_at > 5000) self.render(); }, 3000);
         if (window.VTI18n && VTI18n.onChange) VTI18n.onChange(function () { self.render(); });
@@ -5607,13 +5618,24 @@ class GnssRx{
             L.map(function (x) { return '<div>' + vtEsc(x) + '</div>'; }).join("") + '</div>';
     }
 
+    // one line while the watchdog holds the robot, nothing otherwise
+    holdLine() {
+        var w = this.wd;
+        if (!w || w.state !== 'HOLD' || Date.now() - this.wd_at > 5000) return '';
+        var key = w.escalated ? 'gnssrx.hold.person'
+            : ({fix: 'gnssrx.hold.fix', stabilizing: 'gnssrx.hold.fix', blade: 'gnssrx.hold.blade'}[w.phase]
+               || 'gnssrx.hold.driver');
+        return '<div class="vt-gx-r"><b class="vt-tone-' + (w.escalated ? 'err' : 'warn') + '">' +
+            vtEsc(vtT(key, {t: GnssRx.dur(w.held_s)})) + '</b></div>';
+    }
+
     // right panel › GNSS expand: the two columns, quick rows only
     quick() {
         var d = this.last, fresh = d && (Date.now() - this.last_at) < 5000;
         if (!fresh) return '<div class="vt-gx-note" data-state="off">' +
             vtEsc(vtT(d ? 'gnssrx.stale' : 'gnssrx.nodata')) + '</div>';
         var pos = d.rx && d.rx.gnss, hdg = d.rx && d.rx.gnss_heading;
-        return '<div class="vt-gx-cols">' + this.col('gnss', pos, vtT('gnssrx.pos'), true) +
+        return this.holdLine() + '<div class="vt-gx-cols">' + this.col('gnss', pos, vtT('gnssrx.pos'), true) +
             this.col('gnss_heading', hdg, vtT('gnssrx.hdg'), true) + '</div>';
     }
 
@@ -5627,7 +5649,7 @@ class GnssRx{
         }
         var pos = d.rx && d.rx.gnss, hdg = d.rx && d.rx.gnss_heading;
         var tp = vtT('gnssrx.pos'), th = vtT('gnssrx.hdg');
-        var h = '<div class="vt-gx-cols">' + this.col('gnss', pos, tp) + this.col('gnss_heading', hdg, th) + '</div>';
+        var h = this.holdLine() + '<div class="vt-gx-cols">' + this.col('gnss', pos, tp) + this.col('gnss_heading', hdg, th) + '</div>';
         h += this.note(pos, tp) + this.note(hdg, th);
         if (this.open) h += this.detail(pos, tp) + this.detail(hdg, th);
         h += '<div class="vt-gx-more">' + vtEsc(vtT(this.open ? 'gnssrx.less' : 'gnssrx.more')) + '</div>';

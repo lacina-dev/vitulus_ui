@@ -853,6 +853,12 @@ a.vt-needs-btn {
 }
 .vt-cal-state[data-state="off"] { color: var(--vt-muted); border-color: var(--vt-border-strong); }
 #card_calendar .vt-card-head .form-switch { margin-left: 8px; }
+.vt-cal-master { display: flex; align-items: center; min-height: 28px; margin: -2px 0 var(--vt-gap-1, 4px); }
+.vt-cal-master .form-switch { margin-left: 0; }
+.vt-cal-master .form-check-label { font-weight: 600; }
+.vt-cal-issues { display: flex; flex-direction: column; gap: 4px; margin: 0 0 var(--vt-gap-2); font-size: var(--vt-fs-sm); color: var(--vt-warn); }
+.vt-cal-issue { overflow-wrap: anywhere; }
+.vt-cal-issues button { align-self: flex-start; }
 .vt-cal-line { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--vt-fs-sm); margin: -2px 0 var(--vt-gap-2); min-height: 1.2em; }
 
 /* ============ P18: the status icon strip reads as part of the C frame

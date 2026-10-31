@@ -6,7 +6,7 @@ order: 200
 icon: la-wrench
 summary: The robot does not drive, no map, no GPS fix, docking fails or is cancelled, supervisor FAULT, a mission did not finish, the agent after a restart, the UI does not respond, where the logs of the nodes are.
 related: [safety, localization, dock, agent, support]
-keywords: [problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge, docking cancelled, mower stop, reconnect, mission not finished, returned to dock, need help, log, logs, node log, stdout, rosout, journal, journalctl]
+keywords: [gps driver, driver fault, gps hold, robot stopped, gnss watchdog, problem, error, fault, not working, does not move, stuck, broken, fix, help, restart, reload, rosbridge, docking cancelled, mower stop, reconnect, mission not finished, returned to dock, need help, log, logs, node log, stdout, rosout, journal, journalctl]
 ---
 # Troubleshooting
 
@@ -23,6 +23,9 @@ Check in this order:
 1. **Motors off?** After every start, restart and STOP the drive motors are OFF. The joystick
    shows it, the log says *Motors are OFF – turn motors on to move/dock*. →
    the orange **motor icon** in the drive ring (green = on) (or **Settings › Motors › ON**).
+   After an off the motors come back on no sooner than 2 s later, so a quick off and on does not
+   hurt them. If they do not answer after power-on, the robot cycles their power by itself, up to
+   three times. If that fails they stay off and the log says which motor is silent.
 2. **Did a person take over?** Moving the gamepad stick (or PS / L1 / R1) or the UI joystick
    cancels the goal, docking and a running program, and the software stays stopped after you let
    go ([Safety](safety.md#the-gamepad-ds4-and-the-joystick-beat-the-software)). → send the goal
@@ -59,6 +62,28 @@ Check in this order:
 6. In an agent mission the agent waits for RTK by itself after a failed undock (up to 10 min, the
    display says *Agent: waiting RTK*); without RTK it drives back to the dock
    ([When a step fails](agent.md#when-a-step-fails)).
+
+## The robot stopped: GPS driver fault
+
+A GPS driver can stop working while the receiver is fine. The robot notices by itself:
+no data from a driver for 15 s, a port in a wrong state, or its errors flooding the log.
+Poor signal is not a fault: in the dock or under the roof nothing happens.
+
+1. **The robot stops first** and nothing automatic may move it: no mission, navigation,
+   docking or agent. The blade stops too.
+2. The affected driver restarts (at most 3× an hour).
+3. **It waits for the fix:** RTK, heading and position stable. The GNSS card shows
+   *Robot stopped…*.
+4. The blade spins up again and the mission **continues from where it stopped**.
+
+There is no time limit on the wait. After 5 minutes, or at the restart limit, the robot beeps
+and writes that it needs you; it still stays stopped. The **gamepad and the joystick work
+all the time**: drive it by hand if needed. Taking over ends the mission as usual; with nothing
+left to continue the robot is released as soon as the drivers publish again. Direct driving and a
+single *go to point* are not resumed: they end, and the agent or you repeat them after the fix.
+Standing idle or in the dock, only the driver restarts.
+
+Off by default until activated: `rosparam set /gnss_watchdog/enabled true`.
 
 ## Docking fails
 
