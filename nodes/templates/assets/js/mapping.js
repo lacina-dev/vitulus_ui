@@ -2366,6 +2366,9 @@ class MappingV3 {
         // vitulus-field#46: the active map's name for the Programs panel
         // (map_view.js) — a new program belongs to it. '' = no map is active.
         window.vitulusServedSite = (s.serving && s.serving.site) ? s.serving.site : '';
+        // vitulus-field#46: Programs lists the programs of every map.
+        window.vitulusSites = Array.isArray(s.sites) ? s.sites : [];
+        window.dispatchEvent(new Event('vitulus-sites'));
         // vitulus_ui R2 (2026-07-18) + R3 (2026-07-19): the served site raster IS
         // the displayed base map, so every registered active-map display (Map-tab
         // header + the mini status-bar panel over the 3D view) shows

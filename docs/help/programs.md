@@ -11,7 +11,7 @@ keywords: [program, programs, calendar, schedule, hold, held, active, automation
 ---
 # Programs and calendar
 
-A **program** says *what* to mow: a list of zones of the active map, the speed, and optionally one
+A **program** says *what* to mow: a list of zones of its map, the speed, and optionally one
 cut height and RPM for all of them. The **calendar** says *when*. Both are in **Programs**.
 
 ![Programs › Programs with a program open, numbered markers](img/shot-programs.webp "1 the program list (click one to open it; **New program** is at the bottom of the panel) · 2 Run · 3 Resume · 4 Show / Hide · 5 Stop · 6 Reset · 7 Save · 8 Delete")
@@ -100,8 +100,35 @@ refused with *Start rejected: motors are OFF*. To end the program instead, **Res
 > After a Stop or an error the mission waits for **Reset** — Run and Resume are ignored until
 > then, and the UI says *…press Reset first*.
 
-If the planner refuses something (no zones, a zone no longer on the map, no active map, the
-program is running), the reason appears under the buttons of the program's card.
+If the planner refuses something (no zones, a zone no longer on the map, the program is
+running), the reason appears under the buttons of the program's card.
+
+## Programs of other maps
+
+**Programs** lists the programs of **all** maps, each with the name of its map, for example
+*B1Test (BACK)*. Programs of a map that is not on are run from their card:
+
+1. Open the program and press **Run** or **Resume**. The card says *Loading map …*.
+2. The robot loads the program's map **in the dock**, checks that the zones, the programs, the
+   navigation and its position on that map are ready, and only then leaves the dock.
+3. The map stays on after the program ends.
+
+A program of the map that is on starts straight away, nothing is reloaded. The calendar and the
+agent start programs of other maps the same way. **Stop** during the loading cancels the start.
+
+The map only changes in the dock with nothing running. If that is not the case, or the map cannot
+be loaded, the robot does not leave the dock and the card says why:
+
+| The card says | What to do |
+|---|---|
+| *can only be loaded in the dock* | bring the robot to the dock and press **Run** again |
+| *while a program is running* / *waits for Reset* | **Stop** or **Reset** first |
+| *did not become active / were not ready / did not take over* | the map has a problem: open it in **Map** and look at what it is missing, then **Run** again |
+| *is … m from that map's dock* | the map's `docked` point is wrong: dock the robot and save it again |
+| *has no DOCK point* | add the point, the robot could not get home without it |
+| *is on several maps* | open the right one in the list and press **Run** there |
+
+To **edit** a program of another map, activate that map first: its card here is read-only.
 
 ## The calendar
 
@@ -132,8 +159,10 @@ program, where it continues. Hold the pointer over the tag for the scheduler's r
 Problems that are over but you should know about (a missed event, a run given up) stay listed
 under that line until you **Clear** them.
 
-An event whose program is not on the active map (deleted, renamed, or made on another map) shows
-**missing**; the scheduler retries it for a while and then reports it. **Edit** it and pick a
+An event can use a program of any map: the form lists them all with the map name, and at its time
+the map loads in the dock before the robot leaves ([Programs of other maps](#programs-of-other-maps)).
+An event whose program is on no map (deleted, renamed) shows **missing**; the scheduler retries it
+for a while and then reports it. **Edit** it and pick a
 program. An event outside the allowed window (07:00–21:00) shows **outside window**: it can start
 only when the window opens, within the catch-up time below.
 

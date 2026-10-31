@@ -643,7 +643,7 @@ class ProgramZoneItemTemplate {
 class ProgramListItemTemplate {
     // U1 kolo 3: a program is a card tinted by its LAST RUN (ok / stopped /
     // failed / never run) — the click opens its detail, as before.
-    constructor(item, id) {
+    constructor(item, id, mapName) {
         this.program = id;
         this.name = item.name;
         this.length = item.length;
@@ -655,8 +655,24 @@ class ProgramListItemTemplate {
         const res = vtEsc(this.last_result || vtT('mapview.prog.never_run'));
         this.element =  `
             <button onclick="programs.show_program(${this.program})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
-                <span class="vt-prog-name">${vtEsc(this.name)}</span>
+                <span class="vt-prog-name">${vtEsc(this.name)}${mapName ? ` <span class="vt-prog-map">(${vtEsc(mapName)})</span>` : ''}</span>
                 <span class="vt-prog-meta">${this.area} m² · ${this.last_duration || 0} min · <span class="vt-prog-res">${res}</span></span>
+            </button>
+            `;
+    }
+}
+
+
+// vitulus-field#46: a program of another map. Same card, same detail; Run loads
+// its map in the dock first.
+class ForeignProgramItemTemplate {
+    constructor(item, id) {
+        const st = vtResultState(item.last_result || '');
+        const res = vtEsc(item.last_result || vtT('mapview.prog.never_run'));
+        this.element = `
+            <button onclick="programs.show_foreign(${id})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
+                <span class="vt-prog-name">${vtEsc(item.name)} <span class="vt-prog-map">(${vtEsc(item.site)})</span></span>
+                <span class="vt-prog-meta">${item.area || 0} m² · ${item.last_duration_minutes || 0} min · <span class="vt-prog-res">${res}</span></span>
             </button>
             `;
     }
@@ -6881,6 +6897,15 @@ class Programs {
             ros: ros, name: '/navi_manager/active_map', messageType: 'std_msgs/String'
         });
         this.active_map_data_Topic.subscribe((m) => { this.active_map_data = m.data; });
+        // vitulus-field#46: programs of the other maps + what became of a start
+        // that had to load its map first.
+        this.foreign_programs = [];
+        this._foreignSig = '';
+        window.addEventListener('vitulus-sites', () => this._onSites());
+        this.start_state_Topic = new ROSLIB.Topic({
+            ros: ros, name: '/web_plan/program_start_state', messageType: 'std_msgs/String'
+        });
+        this.start_state_Topic.subscribe((m) => this._onStartState(m.data));
         vtOnLang(() => this._relang());
         this.init();
     }
@@ -6891,6 +6916,7 @@ class Programs {
         try {
             this.draw_program_list();
             if (this.selected_program) this._renderProgramZones();
+            if (this._startState) this._paintStartState();
             if (this._editing_new) this.map_menu.span_menu_program_name.innerText = vtT('mapview.prog.new_name');
             this._paintRunning();
             if (this.smach_blocked && this.smach_blocked_key) {
@@ -6934,9 +6960,103 @@ class Programs {
         });
         if (cur) sel.value = cur;
     }
+    // ---- programs of the other maps (vitulus-field#46) ----------------------
+    _onSites() {
+        const served = window.vitulusServedSite || '';
+        const legacy = (this.active_map_data || '').indexOf('***env*') !== -1;
+        const out = [];
+        if (!legacy) {
+            (window.vitulusSites || []).forEach((s) => {
+                if (s.name === served) return;
+                const info = s.programs_info || (s.programs || []).map((n) => ({name: n}));
+                info.forEach((p) => out.push(Object.assign({}, p, {site: s.name})));
+            });
+        }
+        out.sort((a, b) => a.site.localeCompare(b.site) || a.name.localeCompare(b.name));
+        const sig = JSON.stringify([served, out]);
+        if (sig === this._foreignSig) return;
+        this._foreignSig = sig;
+        this.foreign_programs = out;
+        this.draw_program_list();
+        try { if (typeof calendarManager !== 'undefined' && calendarManager) calendarManager.render(); }
+        catch (e) { console.warn('[programs] calendar refresh failed:', e); }
+    }
+    // Every program of every map: [{site, name}] (site '' = legacy navi map).
+    allPrograms() {
+        const served = window.vitulusServedSite || '';
+        const own = ((this.program_list_msg && this.program_list_msg.program_list) || [])
+            .map((p) => ({site: (p.map_name || '').indexOf('***env*') !== -1 ? '' : served, name: p.name}));
+        return own.concat(this.foreign_programs.map((p) => ({site: p.site, name: p.name})));
+    }
+    _ownMapName(program) {
+        const legacy = (program.map_name || '').indexOf('***env*') !== -1;
+        return legacy ? '' : (window.vitulusServedSite || '');
+    }
+    show_foreign(id) {
+        const p = this.foreign_programs[id];
+        if (!p) return;
+        uiPrefSet('vitulus_sel_program', p.name);
+        this._setShowBtn(false);
+        const m = this.map_menu;
+        m.span_menu_program_name.innerText = p.name;
+        m.span_menu_program_length.innerText = p.length || 0;
+        m.span_menu_program_area.innerText = p.area || 0;
+        m.span_menu_program_duration.innerText = p.last_duration_minutes || 0;
+        m.span_menu_program_env.innerText = '—';
+        m.span_menu_program_map.innerText = p.site;
+        if (p.last_result) {
+            m.span_menu_program_last_result.removeAttribute('data-i18n');
+            m.span_menu_program_last_result.innerText = p.last_result;
+        } else {
+            vtTag(m.span_menu_program_last_result, 'mapview.prog.never_run');
+        }
+        m.div_menu_program_detail_row.dataset.state = vtResultState(p.last_result);
+        m.inp_program_rpm.value = p.rpm || 0;
+        m.inp_program_cut_height.value = p.cut_height || 0;
+        this._setSpeedButtons(p.speed || 'mid');
+        this.selected_program = Object.assign({}, p, {foreign: true, zone_list: []});
+        this._editing_new = false;
+        this._markNew();
+        if (m.inp_program_name) m.inp_program_name.value = p.name;
+        this._renderProgramZones();
+        m.div_menu_program_detail_row.style.display = 'flex';
+    }
+    _onStartState(text) {
+        try { this._startState = JSON.parse(text); }
+        catch (e) { return; }
+        // Latched: a start from before this page was opened is history.
+        if (!this._startStateSeen) {
+            this._startStateSeen = true;
+            if ((Date.now() / 1000 - (this._startState.t || 0)) > 30) { this._startState = null; return; }
+        }
+        this._paintStartState();
+    }
+    _paintStartState() {
+        const st = this._startState;
+        if (!st) return;
+        if (st.state === 'switching') {
+            this._setRunMsg(vtT('mapview.prog.mapgate.loading', {site: st.site || '', program: st.program || ''}));
+        } else if (st.state === 'failed') {
+            const key = 'mapview.prog.mapgate.' + st.code;
+            const text = vtT(key, Object.assign({site: st.site || '', program: st.program || ''}, st.params || {}));
+            this._flashRunMsg(text === key ? (st.text_en || st.code) : text);
+        } else {
+            this._setRunMsg(this.smach_blocked ? this.smach_blocked_text : '');
+        }
+    }
+    // What goes on the select topics: another map's program names its map.
+    _programRef(name) {
+        const p = this.selected_program;
+        return (p && p.foreign && p.name === name) ? (p.site + '|||' + name) : name;
+    }
     _renderProgramZones() {
         var c = this.map_menu.row_menu_program_detail_zones;
         if (!c) return;
+        if (this.selected_program && this.selected_program.foreign) {
+            const names = this.selected_program.zone_names || [];
+            c.innerHTML = '<div class="vt-empty">' + vtEsc(names.join(', ') || vtT('mapview.prog.no_zones')) + '</div>';
+            return;
+        }
         var zones = (this.selected_program && this.selected_program.zone_list) || [];
         if (!zones.length) {
             c.innerHTML = '<div class="vt-empty">' + vtEsc(vtT('mapview.prog.no_zones')) + '</div>';
@@ -7060,6 +7180,7 @@ class Programs {
     _markNew() {
         const r = this.map_menu && this.map_menu.div_menu_program_detail_row;
         if (r) r.classList.toggle('is-new', !!this._editing_new);
+        if (r) r.classList.toggle('is-foreign', !!(this.selected_program && this.selected_program.foreign));
     }
     newProgram() {
         var mapName = this._mapForNewProgram();
@@ -7215,8 +7336,12 @@ class Programs {
     }
     draw_program_list() {
         let prog_list = [];
-        this.program_list_msg.program_list.forEach(async (program, index) => {
-            prog_list.push(new ProgramListItemTemplate(program, index));
+        const own = (this.program_list_msg && this.program_list_msg.program_list) || [];
+        own.forEach((program, index) => {
+            prog_list.push(new ProgramListItemTemplate(program, index, this._ownMapName(program)));
+        });
+        this.foreign_programs.forEach((program, index) => {
+            prog_list.push(new ForeignProgramItemTemplate(program, index));
         });
         this.program_list = prog_list;
         this.map_menu.div_menu_program_items_row.innerHTML = this.get_html();
@@ -7286,7 +7411,7 @@ class Programs {
     }
     saveProgram(){
         const prg = this.selected_program;
-        if (!prg) return;
+        if (!prg || prg.foreign) return;
         const speed = this.map_menu.btn_program_speed_slow.classList.contains('btn-secondary') ? 'slow'
             : this.map_menu.btn_program_speed_fast.classList.contains('btn-secondary') ? 'fast' : 'mid';
         const updated = Object.assign({}, prg, {
@@ -7404,7 +7529,7 @@ class Programs {
     runProgram(program_name) {
         if (this._runBlocked()) return;
         const msg = new ROSLIB.Message({
-            data: program_name,
+            data: this._programRef(program_name),
         });
         this.topic_program_select.publish(msg);
         // console.log(msg);
@@ -7413,7 +7538,7 @@ class Programs {
     resumeProgram(program_name) {
         if (this._runBlocked()) return;
         const msg = new ROSLIB.Message({
-            data: program_name,
+            data: this._programRef(program_name),
         });
         this.topic_program_resume.publish(msg);
         // console.log(msg);

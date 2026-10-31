@@ -233,7 +233,7 @@ class CalendarManager {
     _codeLook(code) {
         if (code === 'off') return ['auto_off', 'off'];
         if (code === 'held') return ['held', 'warn'];
-        if (code === 'mowing' || code === 'starting') return ['mowing', 'info'];
+        if (code === 'mowing' || code === 'starting' || code === 'loading_map') return ['mowing', 'info'];
         if (code === 'init' || code === 'boot_grace' || code === 'wait_programs'
             || code === 'wait_mission') return ['starting', 'off'];
         if (code === 'blocked_stopped' || code === 'blocked_terminal') return ['needs_reset', 'err'];
@@ -314,6 +314,11 @@ class CalendarManager {
             const d = Object.assign({program: i.program || ''}, i.detail || {});
             if (d.slot) d.slot = String(d.slot).replace('T', ' ');
             const key = 'calmgr.issue.' + i.code;
+            if (/^map:/.test(d.reason || '')) {
+                const code = d.reason.slice(4);
+                const why = (typeof vtT === 'function') ? vtT('mapview.prog.mapgate.' + code, {program: d.program, site: ''}) : code;
+                d.reason = why === 'mapview.prog.mapgate.' + code ? code : why;
+            }
             let text = calT(key, d);
             if (text === key) text = i.code + ' ' + (i.program || '');
             const why = d.blocked_by ? calT('calmgr.code.' + d.blocked_by) : '';
@@ -336,8 +341,9 @@ class CalendarManager {
             return;
         }
         // Program names of the active map (null = list not received yet)
-        const pl = this.programs && this.programs.program_list_msg && this.programs.program_list_msg.program_list;
-        const known = (pl && pl.length) ? new Set(pl.map(p => p.name)) : null;
+        const all = (this.programs && this.programs.allPrograms) ? this.programs.allPrograms() : [];
+        const known = all.length ? new Set(all.map(p => p.name)) : null;
+        const knownAt = new Set(all.map(p => p.site + '|||' + p.name));
         let html = '';
         this.events.forEach((ev) => {
             const enabled = ev.enabled !== false;
@@ -345,11 +351,12 @@ class CalendarManager {
             const recLabel = this._recurrenceLabel(ev);
             const timeStr = ev.start_time || '??:??';
             // U1: one row look (vt_panel.css .vt-cal-row); disabled = dimmed
-            const missing = known && !known.has(ev.program_name);
+            const missing = known && !(ev.site ? knownAt.has(ev.site + '|||' + ev.program_name)
+                                               : known.has(ev.program_name));
             const outside = !!(this._report && (this._report.outside_window || []).includes(ev.id));
             html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}${(missing || outside) ? ' has-miss' : ''}">`;
             html += `<div class="form-check form-switch"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" ${enabled ? 'checked' : ''}></div>`;
-            html += `<span class="vt-cal-name">${this._escHtml(ev.program_name)}</span>`;
+            html += `<span class="vt-cal-name">${this._escHtml(ev.program_name)}${ev.site ? ' (' + this._escHtml(ev.site) + ')' : ''}</span>`;
             if (missing) html += `<span class="vt-cal-miss" title="${calT('calmgr.missing_tip')}">${calT('calmgr.missing')}</span>`;
             if (outside) html += `<span class="vt-cal-miss" title="${calT('calmgr.outside_tip', this._report.window || {})}">${calT('calmgr.outside')}</span>`;
             html += `<span class="vt-cal-time">${timeStr}</span>`;
@@ -396,7 +403,7 @@ class CalendarManager {
         if (eventId) {
             const ev = this.events.find(e => e.id === eventId);
             if (!ev) return;
-            this.selProgram.value = ev.program_name;
+            this.selProgram.value = this._eventValue(ev);
             const hm = (ev.start_time || '08:00').split(':');
             this.inputHour.value = parseInt(hm[0], 10);
             this.inputMinute.value = (hm[1] || '00').padStart(2, '0');
@@ -467,14 +474,26 @@ class CalendarManager {
 
     _populateProgramSelect() {
         // Build options from the loaded programs list
+        // (vitulus-field#46: of every map, the slot keeps which map it means)
         let options = '';
-        if (this.programs && this.programs.program_list_msg && this.programs.program_list_msg.program_list) {
-            this.programs.program_list_msg.program_list.forEach(p => {
+        if (this.programs && this.programs.allPrograms) {
+            this.programs.allPrograms().forEach(p => {
                 const name = p.name || '';
-                options += `<option value="${this._escHtml(name)}">${this._escHtml(name)}</option>`;
+                const value = p.site ? p.site + '|||' + name : name;
+                const label = p.site ? name + ' (' + p.site + ')' : name;
+                options += `<option value="${this._escHtml(value)}">${this._escHtml(label)}</option>`;
             });
         }
         this.selProgram.innerHTML = options || '<option value="">' + calT('calmgr.no_programs') + '</option>';
+    }
+
+    // Option of an event. An event from before maps were named in it takes the
+    // first option of that program name.
+    _eventValue(ev) {
+        if (ev.site) return ev.site + '|||' + ev.program_name;
+        const hit = Array.from(this.selProgram.options).find(
+            o => o.value === ev.program_name || o.value.endsWith('|||' + ev.program_name));
+        return hit ? hit.value : ev.program_name;
     }
 
     // ---- CRUD ----
@@ -483,13 +502,17 @@ class CalendarManager {
         const hour = Math.max(0, Math.min(23, parseInt(this.inputHour.value, 10) || 0));
         const minute = Math.max(0, Math.min(59, parseInt(this.inputMinute.value, 10) || 0));
         const start_time = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
-        const program_name = this.selProgram.value;
-        if (!program_name) return;
+        const picked = this.selProgram.value;
+        if (!picked) return;
+        const cut = picked.indexOf('|||');
+        const program_name = cut < 0 ? picked : picked.slice(cut + 3);
+        const site = cut < 0 ? '' : picked.slice(0, cut);
 
         const recurrence = this.selRecurrence.value;
         let ev = {
             id: this.editingId || this._uuid(),
             program_name: program_name,
+            site: site,
             enabled: true,
             recurrence: recurrence,
             start_time: start_time

@@ -11,7 +11,7 @@ keywords: [program, programy, kalendář, calendar, plán, schedule, pozdržet, 
 ---
 # Programy a kalendář
 
-**Program** říká, *co* sekat: seznam zón aktivní mapy, rychlost a volitelně jednu výšku sekání
+**Program** říká, *co* sekat: seznam zón své mapy, rychlost a volitelně jednu výšku sekání
 a otáčky pro všechny zóny. **Kalendář** říká, *kdy*. Obojí najdeš v **Programy**.
 
 ![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů (kliknutím ho otevřeš; **Nový program** je dole v panelu) · 2 Run · 3 Resume · 4 Show / Hide · 5 Stop · 6 Reset · 7 Uložit · 8 Smazat")
@@ -102,8 +102,35 @@ odmítne hláškou *Start rejected: motors are OFF*. Když chceš program místo
 > Po zastavení nebo chybě mise čeká na **Reset** — **Run** a **Resume** se do té doby
 > ignorují a UI napíše *Mise je zastavená — nejdřív stiskni Reset*.
 
-Když plánovač něco odmítne (žádné zóny, zóna už na mapě není, žádná aktivní mapa, program běží),
-důvod se ukáže pod tlačítky na kartě programu.
+Když plánovač něco odmítne (žádné zóny, zóna už na mapě není, program běží), důvod se ukáže pod
+tlačítky na kartě programu.
+
+## Programy jiných map
+
+**Programy** ukazují programy **všech** map, každý se jménem své mapy, například *B1Test (BACK)*.
+Program mapy, která není zapnutá, spustíš z jeho karty:
+
+1. Otevři program a stiskni **Run** nebo **Resume**. Karta napíše *Načítám mapu …*.
+2. Robot načte mapu programu **v doku**, ověří, že jsou připravené zóny, programy, navigace i jeho
+   poloha na té mapě, a teprve pak vyjede z doku.
+3. Mapa zůstane zapnutá i po skončení programu.
+
+Program zapnuté mapy se spustí hned, nic se nenačítá znovu. Kalendář i agent spouštějí programy
+jiných map stejně. **Stop** během načítání spuštění zruší.
+
+Mapa se mění jen v doku a když nic neběží. Když to neplatí nebo mapa nejde načíst, robot z doku
+nevyjede a karta napíše proč:
+
+| Karta napíše | Co udělat |
+|---|---|
+| *jde načíst jen v doku* | dojeď do doku a stiskni **Run** znovu |
+| *když běží program* / *čeká na Reset* | nejdřív **Stop** nebo **Reset** |
+| *se nezapnula / nebyly připravené / nepřevzala* | mapa má problém: otevři ji v **Mapa**, podívej se, co jí chybí, a dej **Run** znovu |
+| *je … m od doku té mapy* | bod `docked` té mapy je špatně: zadokuj robota a ulož ho znovu |
+| *nemá bod DOCK* | přidej ho, bez něj by se robot nevrátil domů |
+| *je na více mapách* | otevři v seznamu ten správný a stiskni **Run** tam |
+
+Když chceš program jiné mapy **upravit**, nejdřív zapni jeho mapu: tady je jeho karta jen pro čtení.
 
 ## Kalendář
 
@@ -133,8 +160,10 @@ Událost se spustí do 15 minut po svém čase, jednou za den.
 kde naváže. Po najetí na štítek uvidíš surový stav plánovače. Problémy, které už skončily, ale máš
 o nich vědět (propadlá událost, vzdaný běh), zůstanou pod tím řádkem, dokud je nedáš **Smazat**.
 
-Událost, jejíž program na aktivní mapě není (smazaný, přejmenovaný nebo vytvořený na jiné mapě),
-má označení **chybí**; plánovač ji chvíli zkouší a pak ji nahlásí. Otevři ji přes **Upravit** a
+Událost může použít program libovolné mapy: formulář je ukazuje všechny se jménem mapy a v daný čas
+se mapa načte v doku, než robot vyjede ([Programy jiných map](#programy-jiných-map)). Událost,
+jejíž program není na žádné mapě (smazaný, přejmenovaný), má označení **chybí**; plánovač ji chvíli
+zkouší a pak ji nahlásí. Otevři ji přes **Upravit** a
 vyber program. Událost mimo povolené okno (07:00–21:00) má označení **mimo okno**: spustí se až po
 otevření okna, pokud je to ještě v čase pro dohnání.
 

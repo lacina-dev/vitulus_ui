@@ -938,6 +938,14 @@ body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*=
 /* ============ P22: Programs › a NEW program: no robot actions until it is
    saved (an unsaved program cannot run); name field gets air before the facts */
 #div_menu_program_detail_row.is-new .vt-prog-action { display: none; }
+/* vitulus-field#46: a program of another map runs from here; it is edited on its own map */
+.vt-prog-map { opacity: .7; font-weight: 400; }
+.vt-prog-foreign-note { display: none; }
+#div_menu_program_detail_row.is-foreign .vt-prog-foreign-note { display: block; }
+#div_menu_program_detail_row.is-foreign .vt-form { opacity: .6; pointer-events: none; }
+#div_menu_program_detail_row.is-foreign .vt-card-actions,
+#div_menu_program_detail_row.is-foreign #btn_menu_program_show,
+#div_menu_program_detail_row.is-foreign .vt-row:has(#sel_program_add_zone) { display: none; }
 #div_menu_program_detail_row.is-new .vt-kv { opacity: .6; }
 #div_menu_program_detail_row .vt-form { margin-bottom: var(--vt-gap-2); }
 /* Needs you: an empty group shows its header (title · 0) only */
