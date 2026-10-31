@@ -374,7 +374,8 @@ Stopping always works.
      plus what the mission's recovery needs (back off, turn, a detour point, dock by another
      modality); 45 min, up to 12 moves; no saved routes, no mowing.
    - **Mow: run a saved mowing program** — starts or resumes a saved program, the same as
-     **Run** / **Resume** on the program card; 60 min to start, up to 3 starts. See
+     **Run** / **Resume** on the program card, of any map (the robot loads the program's map
+     in the dock first); 60 min to start, up to 3 starts. See
      [Mowing programs](#mowing-programs).
    - **Undock only, once** — 15 min, 1 use.
    - **Undock and dock back** — 30 min, 2 uses.

@@ -359,7 +359,8 @@ nepotřebují — každý pohyb dál hlídá supervisor. Program sekání spušt
      potřeba) a k tomu, co potřebuje zotavení mise (couvnout, otočit se, bod objížďky, dokovat
      jinou modalitou); 45 min, nejvýš 12 pohybů; žádné uložené trasy, žádné sekání.
    - **Sekání: spustit uložený program sekání** — spustí nebo obnoví uložený program stejně jako
-     **Run** / **Resume** na kartě programu; 60 min na spuštění, nejvýš 3 spuštění. Viz
+     **Run** / **Resume** na kartě programu, a to kterékoli mapy (mapu programu si robot nejdřív
+     načte v doku); 60 min na spuštění, nejvýš 3 spuštění. Viz
      [Programy sekání](#programy-sekání).
    - **Jen výjezd z doku, jednou** — 15 min, 1 použití.
    - **Vyjet z doku a zajet zpět** — 30 min, 2 použití.
