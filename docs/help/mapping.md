@@ -6,7 +6,7 @@ order: 50
 icon: la-map
 summary: Record a new map, extend one, activate it, layers and the combined map.
 ui: [map, map/map]
-related: [map-editor, routes, localization, dock]
+related: [map-editor, routes, localization, dock, lidar]
 keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, terrain, session, save, sensing, lidar, camera, coverage, field of view]
 ---
 # Maps and mapping
@@ -80,6 +80,8 @@ While recording:
   robot goes back to a saved map (click twice).
 - **Environment preset** and *Advanced sensing tuning* — obstacle detection settings, live; only
   while recording.
+  The lidar's own settings are not here any more: the tuning shows them read-only, they are set
+  in [Settings › Lidar](lidar.md).
 - *Localization while recording* — how the robot localizes during this recording.
 
 ## Extend a map
@@ -121,7 +123,29 @@ It switches on by itself when a recording starts and off when it ends (tick it b
   Places without it have not been seen yet — drive there to fill the map. It starts empty with
   each recording and after **Erase & keep recording**.
 
-The ranges are the ones the mapper really uses (its sliders), not the sensors' maximum.
+The ranges are the ones the mapper really uses (its settings), not the sensors' maximum.
+
+### Lidar range and Camera range
+
+**Sensing** is what the sensors see now. **Lidar range** and **Camera range** are two layers with
+the limits: how far each sensor sees and how far the robot really uses it. They work all the time,
+with or without a recording, each has its own tick and the browser remembers it.
+
+![The map with both range layers around the robot and the card with the numbers](img/shot-ranges.webp "Lidar range (violet) and Camera range (yellow)")
+
+- **Dashed** — what the sensor sees (lidar 16 m, camera the raw depth view up to the driver's cut).
+- **Solid** — mapping. **Double** — navigation. The numbers stand on the rings; a label that would
+  cover another one hides, the card top left has them all.
+- **Short dashes in the camera's view** — where it starts to see the ground: it does not see the
+  ground right in front of the robot.
+- **Red sector** — the lidar has something right next to it there (closer than 0.4 m in almost
+  every scan), for example the walls of the dock.
+
+The card shows the real values. When a value is lower than what is set, it says who cut it, for
+example *5.0 m: the driver (set 6.0 m)*. Without a recording the mapping values are what the
+**next** recording on the active map will use — each map keeps its own, so they may be far from
+the defaults. The lidar's settings are in [Settings › Lidar](lidar.md), the camera's in
+[Settings › Camera](camera.md).
 
 **Agent's plan** (amber ◆) shows what the agent plans for its running mission — points, routes and
 areas it drew into the map; it appears and disappears by itself, see

@@ -45,7 +45,7 @@ it first (a stopped program can be deleted).
 |---|---|
 | **Run** | starts the program from the beginning — the robot undocks and mows |
 | **Resume** | continues an unfinished program from the zone / path where it stopped |
-| **Show / Hide** | draws the program's paths on the map |
+| **Show / Hide** | draws the program's paths on the map; a running program is drawn by itself, see [below](#paths-on-the-map) |
 | **Stop** | stops the mission: the drive goal is cancelled, the blade stops, the robot stands where it is — *Stopped* |
 | **Reset** | clears a *STOPPED* or *TERMINAL ERROR* state |
 
@@ -54,6 +54,25 @@ a **Stop** button — whichever program (or none) is open below. After a Stop it
 **Stopped** with **Reset**.
 
 ![The Running card: the program's name, its state and Stop](img/shot-program-running.webp "Running — the name, what the mission does now, Stop") ![The Stopped card: the state and Reset](img/shot-program-stopped.webp "Stopped — Reset first, then Run or Resume")
+
+### Paths on the map
+
+While a program runs, its paths are on the map by themselves, however it was started (Run,
+Resume, the calendar, the agent), also on a phone that connects later. They go away when the
+program ends: done, Stop, an error, or the dock after a return for battery or weather.
+
+| On the map | Meaning |
+|---|---|
+| thin line around the zone | the zone border; each zone has its own colour |
+| thick line in the zone colour | passes along the border still to do |
+| thinner line in the zone colour | the fill still to do |
+| grey line | already mowed (updates about once a minute); the running card shows the percentage |
+
+- **Hide** on a running program holds for this run only: **Show** brings it back and the next
+  run shows it again. It applies to everyone looking at the map.
+- A program shown by hand before the run: if it is the same program, it goes away with the run;
+  another program waits and comes back after the run.
+- **Show** of another program during a run is drawn on top of the running one.
 
 ### Interrupt and continue
 

@@ -124,7 +124,7 @@ může vrátit.
 - Zapnutí **napájení** sekačky nůž nespustí; jen znovu nastaví poslední výšku a otáčky.
 - **STOP** vždy zastaví i nůž.
 - Agent nůž sám nikdy nezapne — taková akce neexistuje. Smí jen spustit **uložený program
-  sekání** po tvém odemčení (**Sekání** nebo **Volná jízda** v zámku doku); jeho supervisor
+  sekání**, z doku po tvém odemčení (**Sekání** nebo **Volná jízda** v zámku doku); jeho supervisor
   snese otáčky nože jen dokud ten program běží a při STOP, převzetí nebo ztrátě heartbeatu ho
   zastaví ([Agent](agent.md#programy-sekání)).
 - Bezpečnostní node sekačku vypne sám (nůž i napájení sekačky), když se robot nakloní o víc než

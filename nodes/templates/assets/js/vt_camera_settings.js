@@ -5,6 +5,8 @@
  *                   wizard (Calibrate…), history, restore / factory
  *   Sensor          emitter, laser power, auto exposure, white balance —
  *                   remembered on the robot, applied whenever the camera starts
+ *   Obstacle detection  everything of the depth segmentation (free / obstacles /
+ *                   rest), per profile: Navigation, Mapping — live, kept on the robot
  *   Image layers    the camera overlays (same as the menu on the image)
  *
  * The robot does the work: node vitulus_ui/camera_calib.
@@ -12,6 +14,14 @@
  *                         while this tab is on screen
  *   /camera_calib/cmd     std_msgs/String JSON {cmd: check | watch | calibrate |
  *                         cancel | restore | factory | set | reset_settings | refresh}
+ *
+ * The detection card talks to the node vitulus_depth_obstacles/depth_obstacles,
+ * only while this tab is on screen:
+ *   /depth_obstacles/config  std_msgs/String JSON (latched) — values, defaults,
+ *                            changed keys, limits, the answer to the last change
+ *   /depth_obstacles/set     std_msgs/String JSON {cmd: set | reset, id, profile,
+ *                            values, reset | keys}; all of a message or nothing
+ *   /depth_obstacles/stats   diagnostic_msgs/DiagnosticStatus — points and times
  *
  * Wizard (inside the Depth accuracy card, no modal): 1 prepare the scene
  * (instructions, live snapshot with the calibration area, live checklist from
@@ -42,6 +52,14 @@
     var host = null, pane = null, st = null, rosRef = null, sub = null, pubT = null;
     var shown = false, wiz = null, snapTimer = 0, watchTimer = 0, armed = {};
     var parts = {};
+    /* the detection card. open: sections unfolded; touched: key → last time the
+       user moved it (the echo of the robot leaves those alone); pend: values
+       waiting for the debounce; wait: a change the node has not answered yet */
+    var sg = { cfg: null, stats: null, rxStats: 0, prof: 'nav', drawn: null, rows: {}, secs: {},
+        open: { distance: true, height: true }, touched: {}, pend: {}, timer: 0, wait: null, n: 0,
+        msg: null, pub: null, subCfg: null, subStats: null, armed: 0 };
+    var SEG_DEBOUNCE = 300, SEG_HOLD = 3000, SEG_RETRY = 2500, SEG_STALE = 15000;
+    var SEG_GROUPS = ['distance', 'height', 'ground', 'noise', 'clusters', 'performance'];
 
     /* ------------------------------------------------------------ ROS */
     function rosOf() { return (window.ros && window.ros.ros) || null; }
@@ -52,6 +70,8 @@
             unsub();
             rosRef = r;
             pubT = new ROSLIB.Topic({ ros: r, name: '/camera_calib/cmd', messageType: 'std_msgs/String' });
+            sg.pub = new ROSLIB.Topic({ ros: r, name: '/depth_obstacles/set', messageType: 'std_msgs/String' });
+            sg.pub.advertise();   // a first change must not race the advertisement
         }
         return true;
     }
@@ -70,6 +90,9 @@
     function unsub() {
         if (sub) { try { sub.unsubscribe(onStatus); } catch (e) {} }
         sub = null;
+        if (sg.subCfg) { try { sg.subCfg.unsubscribe(onSegConfig); } catch (e) {} }
+        if (sg.subStats) { try { sg.subStats.unsubscribe(onSegStats); } catch (e) {} }
+        sg.subCfg = sg.subStats = null;
     }
     function subscribe(on) {
         if (on) {
@@ -79,6 +102,12 @@
             sub.subscribe(onStatus);
             lastRx = Date.now();
             send({ cmd: 'refresh' });
+            sg.subCfg = new ROSLIB.Topic({ ros: rosRef, name: '/depth_obstacles/config',
+                messageType: 'std_msgs/String', queue_length: 1 });
+            sg.subCfg.subscribe(onSegConfig);
+            sg.subStats = new ROSLIB.Topic({ ros: rosRef, name: '/depth_obstacles/stats',
+                messageType: 'diagnostic_msgs/DiagnosticStatus', queue_length: 1 });
+            sg.subStats.subscribe(onSegStats);
         } else {
             unsub();
         }
@@ -200,8 +229,10 @@
         parts.dev = card('device', 'camset.dev.title');
         parts.acc = card('accuracy', 'camset.acc.title');
         parts.sen = card('sensor', 'camset.sen.title');
+        parts.seg = card('detection', 'camset.seg.title');
         parts.lay = card('layers', 'camset.lay.title');
-        [parts.dev, parts.acc, parts.sen, parts.lay].forEach(function (p) { stack.appendChild(p.card); });
+        sg.drawn = null;
+        [parts.dev, parts.acc, parts.sen, parts.seg, parts.lay].forEach(function (p) { stack.appendChild(p.card); });
         var rec = el('div', 'vt-app-hint vt-cam-rec');
         rec.appendChild(el('span', null, t('camset.rec.hint') + ' '));
         var a = el('a', 'vt-link', t('camset.rec.open'));
@@ -726,6 +757,352 @@
         parts.senReset.disabled = !n || running();
     }
 
+    /* ------------------------------------------------------------ detection */
+    function segProfile() {
+        var ps = (sg.cfg && sg.cfg.profiles) || [];
+        for (var i = 0; i < ps.length; i++) { if (ps[i].name === sg.prof) { return ps[i]; } }
+        return ps[0] || null;
+    }
+    function segDef(key) {
+        var d = ((sg.cfg && sg.cfg.schema) || []).filter(function (x) { return x.key === key; });
+        return d[0] || null;
+    }
+    function segLimits(def, p) {
+        var l = p.safety ? def.safe : def.free;
+        return { min: l[0], max: l[1], off: def.off !== undefined && (p.safety ? def.off_safe : def.off_free) };
+    }
+    function segDecimals(def) {
+        if (def.type !== 'double') { return 0; }
+        return def.step >= 1 ? 0 : def.step >= 0.1 ? 1 : 2;
+    }
+    function segNum(def, v) { return def ? Number(v).toFixed(segDecimals(def)) : String(v); }
+    function segUnit(def) {
+        return !def.unit ? '' : t('camset.seg.unit.' + def.unit);
+    }
+    function segWith(def, v) {
+        var u = def ? segUnit(def) : '';
+        return segNum(def, v) + (u ? ' ' + u : '');
+    }
+    function segName(key) { return t('camset.seg.p.' + key); }
+
+    /* what the robot answered: the first reason in words; never a raw code */
+    function segErrorText(e) {
+        var def = e.key ? segDef(e.key) : null;
+        var a = { name: e.key ? segName(e.key) : '', value: def ? segWith(def, e.value) : String(Math.round(e.value * 100) / 100),
+            min: def ? segWith(def, e.a) : String(e.a), max: def ? segWith(def, e.b) : String(e.b),
+            other: e.other && segDef(e.other) ? segName(e.other) : (e.other || '') };
+        var key = 'camset.seg.err.' + e.code;
+        if (e.code === 'load') { a.max = Math.round(e.a) + ' ms'; a.value = Math.round(e.value) + ' ms'; }
+        if (e.code === 'no_divide') { a.min = String(e.a); a.max = String(e.b); }
+        var out = t(key, a);
+        return out === key ? t('camset.seg.err.other', { code: e.code }) : out;
+    }
+    function onSegConfig(m) {
+        try { sg.cfg = JSON.parse(m.data); } catch (e) { return; }
+        var l = sg.cfg.last;
+        if (l && sg.wait && l.id === sg.wait.id) {
+            // refused: the controls go back to what the robot runs on, at once
+            Object.keys(sg.wait.keys).forEach(function (k) { if (!l.ok) { delete sg.touched[k]; } });
+            sg.msg = { ok: l.ok, errors: l.errors || [], changed: l.changed || [], t: Date.now() };
+            sg.wait = null;
+        }
+        renderSeg();
+    }
+    function onSegStats(m) {
+        var o = {};
+        (m.values || []).forEach(function (v) { o[v.key] = v.value; });
+        o._level = m.level;
+        sg.stats = o;
+        sg.rxStats = Date.now();
+        renderSeg();
+    }
+    function segPublish(obj) {
+        if (!ensure() || !sg.pub) { return; }
+        sg.pub.publish(new ROSLIB.Message({ data: JSON.stringify(obj) }));
+    }
+    function segSend(obj, keys) {
+        sg.n += 1;
+        obj.id = (Date.now() % 1000000000) + '-' + sg.n;
+        obj.profile = sg.prof;
+        sg.wait = { id: obj.id, obj: obj, keys: keys, t: Date.now(), tries: 1 };
+        sg.msg = null;
+        segPublish(obj);
+    }
+    function segFlush() {
+        if (sg.timer) { clearTimeout(sg.timer); sg.timer = 0; }
+        var keys = Object.keys(sg.pend);
+        if (!keys.length) { return; }
+        var values = sg.pend, marks = {};
+        keys.forEach(function (k) { marks[k] = 1; });
+        sg.pend = {};
+        segSend({ cmd: 'set', values: values }, marks);
+    }
+    /* one message per pause of the hand: the node applies it as one change */
+    function segQueue(key, value) {
+        sg.pend[key] = value;
+        sg.touched[key] = Date.now();
+        if (sg.timer) { clearTimeout(sg.timer); }
+        sg.timer = setTimeout(segFlush, SEG_DEBOUNCE);
+    }
+    function segResetKey(key) {
+        delete sg.pend[key];
+        delete sg.touched[key];
+        var marks = {};
+        marks[key] = 1;
+        segSend({ cmd: 'reset', keys: [key] }, marks);
+    }
+    /* no answer: once more (a page that just connected), then say so */
+    function segWatchdog() {
+        var w = sg.wait;
+        if (!w || Date.now() - w.t < SEG_RETRY) { return; }
+        if (w.tries < 2) { w.tries += 1; w.t = Date.now(); segPublish(w.obj); return; }
+        Object.keys(w.keys).forEach(function (k) { delete sg.touched[k]; });
+        sg.wait = null;
+        sg.msg = { ok: false, errors: [{ code: 'no_answer', key: '' }], changed: [], t: Date.now() };
+        renderSeg();
+    }
+
+    function segRow(def, p) {
+        var lim = segLimits(def, p);
+        var box = el('div', 'vt-cam-seg-row');
+        var head = el('div', 'vt-cam-seg-head');
+        var lab = el('span', 'vt-label vt-grow', segName(def.key));
+        head.appendChild(lab);
+        var state = el('span', 'vt-cam-seg-state');
+        head.appendChild(state);
+        var undo = el('button', 'btn btn-sm btn-outline-secondary vt-cam-seg-undo');
+        undo.type = 'button';
+        undo.title = t('camset.seg.reset_one');
+        undo.setAttribute('aria-label', t('camset.seg.reset_one') + ': ' + segName(def.key));
+        undo.appendChild(el('i', 'la la-undo'));
+        undo.addEventListener('click', function () { segResetKey(def.key); });
+        head.appendChild(undo);
+        box.appendChild(head);
+        var row = { def: def, state: state, undo: undo, box: box, sync: null };
+        if (def.type === 'bool' || (def.choices && def.choices.length)) {
+            var opts = def.type === 'bool' ? [[true, t('common.on')], [false, t('common.off')]]
+                : def.choices.map(function (c) { return [c, String(c)]; });
+            var g = el('div', 'btn-group btn-group-sm vt-seg');
+            g.setAttribute('role', 'group');
+            g.setAttribute('aria-label', segName(def.key));
+            opts.forEach(function (o) {
+                var b = el('button', 'btn btn-primary', o[1]);
+                b.type = 'button';
+                b.setAttribute('data-v', JSON.stringify(o[0]));
+                b.addEventListener('click', function () { segQueue(def.key, o[0]); row.show(o[0]); });
+                g.appendChild(b);
+            });
+            box.appendChild(g);
+            row.show = function (v) {
+                Array.prototype.forEach.call(g.children, function (b) {
+                    var on = b.getAttribute('data-v') === JSON.stringify(v);
+                    b.classList.toggle('vt-sel', on);
+                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+            };
+            row.enable = function (on) { Array.prototype.forEach.call(g.children, function (b) { b.disabled = !on; }); };
+        } else {
+            var line = el('div', 'vt-row vt-cam-range');
+            var r = el('input', 'form-range vt-grow');
+            r.type = 'range'; r.min = lim.min; r.max = lim.max; r.step = def.step;
+            r.setAttribute('aria-label', segName(def.key));
+            line.appendChild(r);
+            var g2 = el('div', 'input-group input-group-sm vt-cam-seg-num');
+            var n = el('input', 'form-control');
+            n.type = 'number'; n.min = lim.min; n.max = lim.max; n.step = def.step;
+            n.inputMode = def.type === 'int' ? 'numeric' : 'decimal';
+            n.setAttribute('aria-label', segName(def.key));
+            g2.appendChild(n);
+            if (def.unit) { g2.appendChild(el('span', 'input-group-text', segUnit(def))); }
+            line.appendChild(g2);
+            var offBtn = null, lastOn = null;
+            var isOff = function (v) { return def.off !== undefined && Number(v) === def.off; };
+            var parseNum = function (s) { return def.type === 'int' ? parseInt(s, 10) : parseFloat(String(s).replace(',', '.')); };
+            r.addEventListener('input', function () {
+                n.value = segNum(def, r.value);
+                segQueue(def.key, parseNum(r.value));
+            });
+            n.addEventListener('change', function () {
+                var v = parseNum(n.value);
+                if (!isFinite(v)) { delete sg.touched[def.key]; renderSeg(); return; }
+                r.value = v;
+                segQueue(def.key, v);
+            });
+            box.appendChild(line);
+            if (lim.off) {
+                offBtn = el('button', 'btn btn-sm btn-primary vt-cam-seg-off', t('camset.seg.off'));
+                offBtn.type = 'button';
+                offBtn.addEventListener('click', function () {
+                    var off = offBtn.classList.contains('vt-sel');
+                    // switching on: where it was, else the value nearest to no effect
+                    var v = !off ? def.off : lastOn !== null ? lastOn : Math.min(lim.max, Math.max(lim.min, 0));
+                    segQueue(def.key, v);
+                    row.show(v);
+                });
+                line.appendChild(offBtn);
+            }
+            row.show = function (v) {
+                var off = isOff(v);
+                if (!off) { lastOn = Number(v); r.value = v; }
+                r.disabled = n.disabled = off;
+                if (document.activeElement !== n) { n.value = off ? '' : segNum(def, v); }
+                n.placeholder = off ? t('camset.seg.off') : '';
+                if (offBtn) {
+                    offBtn.classList.toggle('vt-sel', off);
+                    offBtn.setAttribute('aria-pressed', off ? 'true' : 'false');
+                }
+            };
+            row.enable = function (on) {
+                r.disabled = n.disabled = !on || (offBtn !== null && offBtn.classList.contains('vt-sel'));
+                if (offBtn) { offBtn.disabled = !on; }
+            };
+            row.typing = function () { return document.activeElement === n; };
+        }
+        box.appendChild(el('div', 'vt-app-hint vt-cam-seg-hint', t('camset.seg.h.' + def.key)));
+        return row;
+    }
+    function buildSeg(p) {
+        var c = parts.seg, b = c.body;
+        b.textContent = '';
+        sg.rows = {}; sg.secs = {};
+        sg.drawn = p ? p.name + '|' + sg.cfg.schema.length + '|' + p.safety : 'none';
+        parts.segBar = null;
+        if (!p) {
+            b.appendChild(el('div', 'vt-app-hint', t('camset.seg.no_node_hint')));
+            return;
+        }
+        var g = el('div', 'btn-group btn-group-sm vt-seg');
+        g.setAttribute('role', 'group');
+        g.setAttribute('aria-label', t('camset.seg.profile'));
+        sg.cfg.profiles.forEach(function (pr) {
+            var key = 'camset.seg.prof.' + pr.name;
+            var txt = t(key);
+            var x = el('button', 'btn btn-primary' + (pr.name === p.name ? ' vt-sel' : ''), txt === key ? pr.name : txt);
+            x.type = 'button';
+            x.setAttribute('aria-pressed', pr.name === p.name ? 'true' : 'false');
+            x.addEventListener('click', function () {
+                if (pr.name === sg.prof) { return; }
+                segFlush();
+                sg.prof = pr.name;
+                sg.msg = null;
+                renderSeg();
+            });
+            g.appendChild(x);
+        });
+        b.appendChild(g);
+        b.appendChild(el('div', 'vt-app-hint ' + (p.safety ? 'vt-warn-text' : ''), t(p.safety ? 'camset.seg.nav_warn' : 'camset.seg.wide_hint')));
+        parts.segLive = el('dl', 'vt-kv vt-kv-2');
+        b.appendChild(parts.segLive);
+        parts.segNote = el('div', 'vt-app-hint');
+        b.appendChild(parts.segNote);
+        parts.segMsg = el('div', 'vt-app-hint');
+        parts.segMsg.setAttribute('role', 'status');
+        parts.segMsg.setAttribute('aria-live', 'polite');
+        b.appendChild(parts.segMsg);
+        SEG_GROUPS.forEach(function (grp) {
+            var defs = sg.cfg.schema.filter(function (d) { return d.group === grp; });
+            if (!defs.length) { return; }
+            var det = el('details', 'vt-cam-adv vt-cam-seg-sec');
+            if (sg.open[grp]) { det.open = true; }
+            det.addEventListener('toggle', function () { sg.open[grp] = det.open; });
+            var sum = el('summary', 'vt-fs-sm vt-pointer', t('camset.seg.group.' + grp));
+            det.appendChild(sum);
+            sg.secs[grp] = { sum: sum, keys: defs.map(function (d) { return d.key; }), name: t('camset.seg.group.' + grp) };
+            var items = el('div', 'vt-app-items');
+            defs.forEach(function (d) {
+                var row = segRow(d, p);
+                sg.rows[d.key] = row;
+                items.appendChild(row.box);
+            });
+            det.appendChild(items);
+            b.appendChild(det);
+        });
+        var act = el('div', 'vt-row vt-card-actions vt-cam-actions');
+        parts.segReset = btn('btn-outline-secondary', 'camset.seg.reset_all', function () {
+            if (sg.armed && Date.now() - sg.armed < 4000) {
+                sg.armed = 0;
+                sg.pend = {};
+                sg.touched = {};
+                segSend({ cmd: 'reset' }, {});
+            } else {
+                sg.armed = Date.now();
+                setTimeout(function () { sg.armed = 0; renderSeg(); }, 4100);
+            }
+            renderSeg();
+        });
+        act.appendChild(parts.segReset);
+        b.appendChild(act);
+    }
+    function segPts(s, key) {
+        if (!s || s[key] === undefined) { return '—'; }
+        return String(Math.round(parseFloat(s[key])));
+    }
+    function renderSeg() {
+        var c = parts.seg;
+        if (!c) { return; }
+        var live = sg.cfg && Date.now() - sg.rxStats < SEG_STALE;
+        var p = segProfile();
+        if (p) { sg.prof = p.name; }
+        if (sg.drawn !== (p ? p.name + '|' + sg.cfg.schema.length + '|' + p.safety : 'none')) { buildSeg(p); }
+        if (!p) {
+            c.card.setAttribute('data-state', 'off');
+            c.end.textContent = t('camset.dev.no_node');
+            return;
+        }
+        // the values, except where the hand is
+        var now = Date.now(), ch = {};
+        (p.changed || []).forEach(function (k) { ch[k] = 1; });
+        Object.keys(sg.rows).forEach(function (k) {
+            var r = sg.rows[k], held = sg.pend[k] !== undefined || (sg.touched[k] && now - sg.touched[k] < SEG_HOLD);
+            if (sg.touched[k] && !held) { delete sg.touched[k]; }
+            if (!held && !(r.typing && r.typing())) { r.show(p.values[k]); }
+            r.enable(!!live);
+            r.state.textContent = t(ch[k] ? 'camset.seg.changed' : 'camset.seg.default', { v: segWith(r.def, p.defaults[k]) });
+            r.state.classList.toggle('vt-cam-seg-chg', !!ch[k]);
+            r.undo.style.display = ch[k] ? '' : 'none';
+            r.undo.disabled = !live;
+        });
+        Object.keys(sg.secs).forEach(function (g) {
+            var s = sg.secs[g], n = s.keys.filter(function (k) { return ch[k]; }).length;
+            s.sum.textContent = s.name + (n ? ' • ' + n : '');
+        });
+        // feedback of the running node
+        var st0 = sg.stats, pre = p.name + '.';
+        var frames = st0 && parseFloat(st0[pre + 'frames']) > 0;
+        var ms = st0 ? parseFloat(st0.frame_ms_avg) : NaN, budget = st0 && st0.frame_budget_ms ? parseFloat(st0.frame_budget_ms) : sg.cfg.budget_ms;
+        var over = isFinite(ms) && ms > budget;
+        var dl = parts.segLive;
+        dl.textContent = '';
+        kv(dl, 'camset.seg.live.free', frames ? segPts(st0, pre + 'ground_pts_avg') : '—');
+        kv(dl, 'camset.seg.live.obstacles', frames ? segPts(st0, pre + 'obstacle_pts_avg') : '—');
+        kv(dl, 'camset.seg.live.rest', frames && st0[pre + 'rest_active'] === '1' ? segPts(st0, pre + 'rest_pts_avg') : '—');
+        kv(dl, 'camset.seg.live.time', isFinite(ms) && ms > 0 ? ms.toFixed(1) + ' / ' + Math.round(budget) + ' ms' : '—', over ? 'vt-warn-text' : null);
+        var note = !live ? t('camset.seg.no_stats') : over ? t('camset.seg.over_budget') : !frames ? t('camset.seg.idle') : '';
+        if (sg.cfg.store_error) { note = (note ? note + ' ' : '') + t('camset.seg.store_err', { e: sg.cfg.store_error }); }
+        parts.segNote.textContent = note;
+        parts.segNote.classList.toggle('vt-warn-text', !!(over || sg.cfg.store_error));
+        // the answer to the last change
+        var m = sg.msg, box = parts.segMsg;
+        box.className = 'vt-app-hint';
+        box.textContent = '';
+        if (sg.wait || Object.keys(sg.pend).length) {
+            box.textContent = t('camset.seg.applying');
+        } else if (m && !m.ok) {
+            box.classList.add('vt-err-text');
+            box.textContent = m.errors.map(segErrorText).join(' ');
+        } else if (m && now - m.t < 6000) {
+            box.classList.add('vt-ok-text');
+            box.textContent = t(m.changed.length ? 'camset.seg.applied' : 'camset.seg.nothing', { n: m.changed.length });
+        }
+        var n = (p.changed || []).length;
+        parts.segReset.textContent = t(sg.armed ? 'calib.confirm' : 'camset.seg.reset_all');
+        parts.segReset.disabled = !n || !live;
+        if (over || sg.cfg.store_error) { c.card.setAttribute('data-state', 'warn'); }
+        else if (live) { c.card.setAttribute('data-state', 'ok'); }
+        else { c.card.setAttribute('data-state', 'off'); }
+        c.end.textContent = (n ? t('camset.seg.changed_n', { n: n }) : t('camset.sen.default'));
+    }
+
     /* ------------------------------------------------------------ layers */
     function renderLayers() {
         var p = parts.lay, O = window.VTCamOverlay;
@@ -763,6 +1140,7 @@
         renderDevice();
         renderAccuracy();
         renderSensor();
+        renderSeg();
         if (!parts.layDrawn) { renderLayers(); parts.layDrawn = true; }
     }
 
@@ -781,6 +1159,7 @@
             subscribe(true);
             if (wiz && wiz.step === 1) { send({ cmd: 'watch', on: true }); }
         }
+        if (vis) { segWatchdog(); renderSeg(); }
     }
 
     function init() {
@@ -794,7 +1173,7 @@
         document.addEventListener('visibilitychange', poll);
         if (I && I.onChange) { I.onChange(function () { build(); }); }
     }
-    window.VTCameraSettings = { status: function () { return st; }, send: send, _wiz: function () { return wiz; } };
+    window.VTCameraSettings = { status: function () { return st; }, send: send, _wiz: function () { return wiz; }, _seg: function () { return sg; } };
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 0); }); }
     else { setTimeout(init, 0); }
 })();

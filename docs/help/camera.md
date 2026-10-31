@@ -4,16 +4,16 @@ title: Camera (D435) — accuracy and calibration
 group: Robot
 order: 70
 icon: la-camera
-summary: Settings › Camera — check the depth against the lidar, calibrate the camera with one button and a wizard, the sensor settings and the image layers.
+summary: Settings › Camera — check the depth against the lidar, calibrate the camera with one button and a wizard, the sensor settings, what counts as an obstacle or free ground, and the image layers.
 ui: [config/camera]
 related: [settings, frame, mapping, troubleshooting]
-keywords: [/dev/video, uvcvideo, secure boot, librealsense2-dkms, handover, restore the camera, usb, driver reset, camera, d435, realsense, depth, accuracy, calibration, calibrate, tare, on-chip, lidar, obstacles too far, distance, error, emitter, laser, exposure, white balance, layers, restore, factory]
+keywords: [obstacles, free, rest, ground, segmentation, max_depth, obstacle detection, detekce překážek, /dev/video, uvcvideo, secure boot, librealsense2-dkms, handover, restore the camera, usb, driver reset, camera, d435, realsense, depth, accuracy, calibration, calibrate, tare, on-chip, lidar, obstacles too far, distance, error, emitter, laser, exposure, white balance, layers, restore, factory]
 ---
 # Camera (D435)
 
 **Settings › Camera** has everything about the robot's depth camera (Intel RealSense D435):
-whether it runs, how accurate its depth is, its calibration, the sensor settings and the layers
-drawn over its image.
+whether it runs, how accurate its depth is, its calibration, the sensor settings, what counts as
+an obstacle, and the layers drawn over its image.
 
 ## Why accuracy matters
 
@@ -184,6 +184,81 @@ Live settings of the camera: **IR projector** (the pattern that helps the depth 
 surfaces), **Laser power**, **Depth auto exposure**, **Colour auto exposure**, **Colour auto white
 balance**. A change applies at once and is remembered on the robot — it is set again whenever the
 camera starts. **•** marks a setting changed from the default; **Defaults** puts them all back.
+
+## Obstacle detection
+
+The camera's depth image becomes three groups of points: **free** ground, **obstacles** and the
+**rest** (neither of the two). The **Obstacle detection** card sets how, while the robot runs: a
+change applies from the next camera frame, without a restart and without a gap, and the robot
+remembers it (on the robot in `~/.vitulus/depth_obstacles/settings.json`, it survives a restart).
+
+- **Navigation / Mapping** — two independent sets. **Navigation** is what the robot sees while
+  it drives. **Mapping** is used only while a map is recorded.
+- Slider or number, the unit next to it. Each line says *default* or *changed · default …*; the
+  arrow puts that one value back, **Defaults for this profile** (two clicks) all of them.
+- **Free / Obstacle / Rest points** and **Time per frame** are live, averaged over the last two
+  seconds, and of the selected profile. The time is against the limit (50 ms; the camera gives a
+  frame every 66 ms). Turn on the layers Obstacles, Free and Rest to see the result in the image.
+- A profile nobody uses computes nothing (Mapping when no map is recorded): the numbers show —,
+  a change applies when it starts.
+
+> [!WARNING]
+> **Navigation changes what the robot sees while it drives.** The robot therefore refuses a
+> change that would blind it, and says why:
+>
+> - tighter limits than Mapping: it always looks at least 1.5 m ahead, the heights cannot be
+>   switched off, the ground cannot swallow walls;
+> - after each change it runs a **reference scene** through the new settings: flat ground and a
+>   box 30 cm high, 1.3 m ahead. When it would not see the box, or would not take the ground for
+>   free, the change is refused and nothing changes;
+> - a change that would take longer than the limit per frame for both profiles together is
+>   refused too.
+>
+> The reference scene is a simple one. Thin or dark things can disappear even when it passes:
+> after a change of Navigation look at the layers, and test it standing still first.
+
+The camera driver cuts depth at 5 m (`clip_distance` in `d435.launch`), so **Farthest depth**
+adds nothing beyond that. Stereo depth accuracy drops steeply with distance.
+
+The costmap has its own limits: from `/obstacles_cloud` it takes 3.5 m and 0.05–0.5 m of height
+(`global_costmap_params.yaml`). A larger **Farthest depth** or **Highest obstacle** in Navigation
+is seen in the image, but does not reach the costmap.
+
+### What each setting does
+
+| Section | Setting | What it does | Navigation | Mapping |
+|---|---|---|---|---|
+| Distance | Nearest depth | points closer to the camera are dropped at the very start | 0–0.6 m | 0–2 m |
+| Distance | Farthest depth | how far the camera looks; farther = earlier warning, more noise | 1.5–6 m | 0.5–6 m |
+| Distance | Nearest distance | as *Nearest depth*, in a straight line from the camera, just before the segmentation | 0–0.6 m | 0–2 m |
+| Distance | Farthest distance | as *Farthest depth*, in a straight line; the shorter of the two wins | 1.5–6 m | 0.5–6 m |
+| Height | Lowest point | points below it (holes, reflections) are dropped, Rest | −1 to −0.05 m, or off | −1 to 0.3 m, or off |
+| Height | Ground height | how high the ground may reach; above it obstacles start | 0.05–0.3 m | 0.02–0.6 m, or off |
+| Height | Obstacle floor | off = obstacles start at the ground height; a value above it ignores everything lower | 0–0.3 m, or off | 0–1 m, or off |
+| Height | Highest obstacle | points above it (branches) are no obstacle, Rest | 0.3–1.5 m | 0.2–4 m, or off |
+| Angles and ground | Steepest ground | a surface tilted more is not ground; too much = walls look like ground | 10–50° | 5–85° |
+| Angles and ground | Ground by slope | ground from the slope of surfaces; off = only from the height (faster, worse on slopes) | on / off | on / off |
+| Angles and ground | Points for the slope | neighbouring points that decide the slope; more = calmer, slower | 5–50 | 3–100 |
+| Angles and ground | Turn normals up | 0 = off; above 0 a surface under the camera facing down is turned up (noisy far ground) | 0–0.95 | 0–0.95 |
+| Angles and ground | Flat obstacles | a flat thing above the ground is an obstacle; matters only with the ground height off | on / off | on / off |
+| Noise filtering | Point grid | points thinned to one per cell; smaller = more detail, more time | 0.02–0.15 m | 0.01–0.3 m, or off |
+| Noise filtering | Segmentation grid | the same in the robot frame, before ground and obstacles are split | 0.02–0.15 m | 0.01–0.3 m |
+| Noise filtering | Grid before the split | off = the grid above is skipped; slower, rarely better | on / off | on / off |
+| Noise filtering | Noise radius | a point needs neighbours within this distance, else it is noise | 0.05–0.5 m, or off | 0.02–1 m, or off |
+| Noise filtering | Noise neighbours | how many; more = less noise, thin things disappear | 1–15 | 1–50 |
+| Clusters | Cluster reach | points closer than this are one object; larger than the grid | 0.05–0.5 m | 0.02–1 m |
+| Clusters | Smallest cluster | a smaller group is no obstacle, Rest; more = fewer false obstacles, small things disappear | 1–30 | 1–500 |
+| Performance | Every n-th pixel | 1, 2, 4, 8 or 16; smaller = more detail, much more time | same | same |
+| Performance | Threads | threads for the slope; the same result, only the time differs | 1–4 | 1–4 |
+
+The limits are also relations: *nearest* below *farthest*, the ground below the obstacles, the
+cluster reach above the grid. A change that breaks one is refused as a whole, with the reason
+under the numbers.
+
+**Typical cases** — *the lawn shows as obstacles*: raise **Ground height** a little, or
+**Smallest cluster**. *Low things are missed*: lower **Ground height**. *Single false points*:
+raise **Noise neighbours** or **Smallest cluster**. *A slope shows as an obstacle*: raise **Steepest
+ground**.
 
 ## Image layers
 

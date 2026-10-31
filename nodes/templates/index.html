@@ -92,6 +92,8 @@
 <script src="/assets/js/vt_support.js"></script>
 <script src="/assets/js/vt_app_settings.js"></script>
 <script src="/assets/js/vt_camera_settings.js"></script>
+<script src="/assets/js/vt_sensor_ranges.js"></script>
+<script src="/assets/js/vt_lidar_settings.js"></script>
 <script src="/assets/js/vt_frame.js"></script>
 <script src="/assets/js/vt_header.js"></script>
 <script src="/assets/js/vt_cam_overlay.js"></script>
@@ -691,6 +693,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <link rel="stylesheet" href="assets/css/vt_help.css">
     <link rel="stylesheet" href="assets/css/vt_cam_overlay.css">
     <link rel="stylesheet" href="assets/css/vt_camera.css">
+    <link rel="stylesheet" href="assets/css/vt_lidar.css">
     <link rel="stylesheet" href="assets/css/vt_header.css">
 </head>
 
@@ -966,11 +969,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                      sliders are for field fine-tuning. Same IDs and wiring. -->
                                                 <details class="map-adv vt-mt2">
                                                 <summary class="vt-fs-sm vt-pointer" title="Live sensing sliders (sources, camera filter, evidence model) — applied instantly to the running recording." data-i18n-title="mapt.adv.tip" data-i18n="mapt.adv.title">Advanced sensing tuning</summary>
-                                                <div class="vt-mt1">
-                                                    <span title="Use the lidar scan as a direct-mapper source" data-i18n-title="mapt.adv.use_lidar_tip"><input class="form-check-input mt-0 vt-mt0 vt-mr1 vt-mb0 vt-ml0" type="checkbox" id="mapv3_direct_use_lidar" checked><span class="vt-fs-sm" data-i18n="mapt.adv.use_lidar">Lidar range</span></span>
-                                                    <span id="mapv3_direct_lidar_range_val" class="vt-fs-sm vt-dim vt-fr">&mdash;</span>
-                                                    <input type="range" id="mapv3_direct_lidar_range" data-i18n-title="mapt.adv.lidar_range_tip" min="0.5" max="16" step="0.5" value="8" class="vt-w100" title="Lidar max range (m) for the direct mapper — applied live">
-                                                </div>
+                                                <div class="vt-mt1 vt-fs-sm vt-lid-sum" id="mapv3_lidar_summary"><span data-role="text" class="vt-dim">&mdash;</span><a href="#" data-i18n="lidarset.sum.link">Set in Settings › Lidar</a></div>
                                                 <div class="vt-mt1">
                                                     <span title="Use camera-detected obstacles as a direct-mapper source" data-i18n-title="mapt.adv.use_cam_obstacle_tip"><input class="form-check-input mt-0 vt-mt0 vt-mr1 vt-mb0 vt-ml0" type="checkbox" id="mapv3_direct_use_cam_obstacle" checked><span class="vt-fs-sm" data-i18n="mapt.adv.use_cam_obstacle">Cam obstacle range</span></span>
                                                     <span id="mapv3_direct_obstacle_range_val" class="vt-fs-sm vt-dim vt-fr">&mdash;</span>
@@ -980,9 +979,6 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <span title="Use camera free-space (ground seen = free evidence) as a direct-mapper source" data-i18n-title="mapt.adv.use_cam_free_tip"><input class="form-check-input mt-0 vt-mt0 vt-mr1 vt-mb0 vt-ml0" type="checkbox" id="mapv3_direct_use_cam_free"><span class="vt-fs-sm" data-i18n="mapt.adv.use_cam_free">Cam free range</span></span>
                                                     <span id="mapv3_direct_free_range_val" class="vt-fs-sm vt-dim vt-fr">&mdash;</span>
                                                     <input type="range" id="mapv3_direct_free_range" data-i18n-title="mapt.adv.free_range_tip" min="0.5" max="4" step="0.1" value="2.8" class="vt-w100" title="Camera free-space max range (m) — applied live">
-                                                </div>
-                                                <div class="form-check vt-mt1" title="Treat a lidar ray with no return (max range / no obstacle hit) as evidence of FREE space along its length, not just unknown" data-i18n-title="mapt.adv.nohit_tip">
-                                                    <input class="form-check-input" type="checkbox" id="mapv3_direct_free_no_hit"><label class="form-check-label vt-fs-sm" for="mapv3_direct_free_no_hit" data-i18n="mapt.adv.nohit">No-hit ray free</label>
                                                 </div>
 
                                                 <div class="vt-fs-sm vt-mt2 vt-mb0" title="What counts as a camera obstacle. Heights are metres above base_link. Applied live." data-i18n-title="mapt.adv.camf_tip" data-i18n="mapt.adv.camf">Camera obstacle filter</div>
@@ -995,8 +991,6 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <input type="range" id="mapv3_direct_min_cluster" min="1" max="20" step="1" value="1" class="vt-w100">
                                                     <div class="vt-fs-sm vt-mt1" title="Connect radius for the blob filter — points closer than this belong to the same blob" data-i18n-title="mapt.adv.cluster_radius_tip"><span data-i18n="mapt.adv.cluster_radius">Blob radius</span> <span id="mapv3_direct_cluster_radius_val" class="vt-dim">&mdash;</span></div>
                                                     <input type="range" id="mapv3_direct_cluster_radius" min="0.05" max="0.5" step="0.05" value="0.15" class="vt-w100">
-                                                    <div class="vt-fs-sm vt-mt1" title="Lidar weak-return gate: a return weaker than this counts as neither obstacle nor free (unknown). Raise in tall grass to ignore weak grass echoes; 0 = off." data-i18n-title="mapt.adv.lidar_min_int_tip"><span data-i18n="mapt.adv.lidar_min_int">Lidar min intensity</span> <span id="mapv3_direct_lidar_min_int_val" class="vt-dim">&mdash;</span></div>
-                                                    <input type="range" id="mapv3_direct_lidar_min_int" min="0" max="60" step="1" value="0" class="vt-w100">
                                                 </div>
 
                                                 <div class="vt-fs-sm vt-mt2 vt-mb0" title="How fast obstacle/free evidence accumulates and when a cell renders occupied." data-i18n-title="mapt.adv.evid_tip" data-i18n="mapt.adv.evid">Evidence model</div>
@@ -1483,6 +1477,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag">Rosbag</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu">IMU</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_camera" data-i18n="settings.tab.camera">Camera</a></li>
+                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rplidar" data-i18n="settings.tab.lidar">Lidar</a></li>
                                             <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_app" data-i18n="settings.tab.app">App</a></li>
                                         </ul>
                                         <div class="tab-content vt-tabs-host">
@@ -1675,6 +1670,11 @@ ul.nav-tabs.drawer-pills .nav-link.active {
      sensor settings, image layers — built by assets/js/vt_camera_settings.js
      (robot side: node vitulus_ui/camera_calib) -->
 <div class="tab-pane fade" role="tabpanel" id="tab_camera"><div id="div_camera_settings"></div></div>
+<!-- Settings › Lidar: the rplidar — device, data flow, this scan, the mapper's lidar
+     settings (the only place for them), the weak-return filter — built by
+     assets/js/vt_lidar_settings.js (robot side: /api/sensor_limits). The pane is not
+     #tab_lidar: that one is the older Navi tab. -->
+<div class="tab-pane fade" role="tabpanel" id="tab_rplidar"><div id="div_lidar_settings"></div></div>
 <div class="tab-pane fade" role="tabpanel" id="tab_app"><div id="div_app_settings"></div></div>
 <div class="tab-pane" role="tabpanel" id="tab_imu"><div id="div_content_imu">
   <div class="vt-imu">

@@ -1,0 +1,83 @@
+/* vt_lidar.css — Settings › Lidar (vt_lidar_settings.js) and the legend of the map
+ * layers Lidar / Camera range (vt_sensor_ranges.js). The panel anatomy comes from
+ * vt_panel.css; rows and sliders match Settings › Camera. */
+#div_lidar_settings .vt-lid-body { display: flex; flex-direction: column; gap: var(--vt-gap-2); }
+#div_lidar_settings .vt-warn-text { color: var(--vt-warn); }
+#div_lidar_settings .vt-err-text { color: var(--vt-err); }
+#div_lidar_settings .vt-lid-actions { display: flex; flex-wrap: wrap; gap: var(--vt-gap-2); }
+#div_lidar_settings .vt-lid-actions > .btn { flex: 1 1 8em; min-height: 36px; }
+
+/* the chain */
+#div_lidar_settings .vt-lid-stage { padding: var(--vt-gap-1) 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+#div_lidar_settings .vt-lid-stage:last-of-type { border-bottom: 0; }
+#div_lidar_settings .vt-lid-stage-top { display: flex; align-items: baseline; gap: var(--vt-gap-2); }
+#div_lidar_settings .vt-lid-topic { flex: 1 1 auto; min-width: 0; color: var(--vt-text); background: none; padding: 0; font-size: 0.9em; overflow-wrap: anywhere; }
+#div_lidar_settings .vt-lid-hz { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: var(--vt-text); }
+#div_lidar_settings .vt-lid-who { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+#div_lidar_settings .vt-lid-who:empty { display: none; }
+#div_lidar_settings .vt-lid-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 999px; font-size: 0.8em; color: var(--vt-muted); border: 1px solid var(--vt-border-strong); }
+#div_lidar_settings .vt-lid-safe { color: var(--vt-warn); border-color: var(--vt-warn); }
+
+/* histograms: one series, the count on the bar */
+#div_lidar_settings .vt-lid-bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; }
+#div_lidar_settings .vt-lid-col { display: flex; flex-direction: column; min-width: 0; }
+#div_lidar_settings .vt-lid-well { position: relative; height: 72px; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; border-bottom: 1px solid var(--vt-border-strong); }
+#div_lidar_settings .vt-lid-fill { background: #b388ff; border-radius: 4px 4px 0 0; margin: 0 2px; }
+#div_lidar_settings .vt-lid-fill.vt-lid-dim { background: var(--vt-warn); opacity: 0.75; }
+#div_lidar_settings .vt-lid-val { text-align: center; font-size: 0.72em; color: var(--vt-muted); font-variant-numeric: tabular-nums; line-height: 1.3; }
+#div_lidar_settings .vt-lid-tick { text-align: center; font-size: 0.72em; color: var(--vt-muted); white-space: nowrap; padding-top: 2px; }
+
+/* top view */
+#div_lidar_settings .vt-lid-view { display: flex; flex-direction: column; gap: var(--vt-gap-2); align-items: center; margin-top: var(--vt-gap-2); }
+#div_lidar_settings .vt-lid-canvas { width: 100%; max-width: 360px; aspect-ratio: 1 / 1; border-radius: var(--vt-r-ctl, 8px); background: rgba(0, 0, 0, 0.28); }
+#div_lidar_settings .vt-lid-scale { max-width: 360px; }
+#div_lidar_settings .vt-lid-scale > .btn { min-height: 36px; }
+
+/* settings */
+#div_lidar_settings .vt-lid-row-head { display: flex; align-items: baseline; gap: var(--vt-gap-2); min-height: 24px; }
+#div_lidar_settings .vt-lid-row-head .vt-label { margin-bottom: 0; }
+#div_lidar_settings .vt-lid-src { font-size: 0.85em; color: var(--vt-accent); white-space: nowrap; }
+#div_lidar_settings .vt-lid-row .vt-seg > .btn { min-height: 36px; }
+#div_lidar_settings .vt-lid-range { display: flex; align-items: center; gap: var(--vt-gap-2); }
+#div_lidar_settings .vt-lid-range .form-range { min-width: 0; flex: 1 1 0; }
+#div_lidar_settings .vt-lid-range .form-range:enabled::-webkit-slider-thumb { background-color: var(--vt-accent); }
+#div_lidar_settings .vt-lid-range .form-range:enabled::-moz-range-thumb { background-color: var(--vt-accent); }
+#div_lidar_settings .vt-lid-num { flex: 0 0 auto; flex-wrap: nowrap; width: 6.6em; }
+#div_lidar_settings .vt-lid-num > input { min-height: 36px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; background-color: var(--vt-bg); border-color: var(--vt-border-strong); color: var(--vt-text); }
+#div_lidar_settings .vt-lid-num > .input-group-text { background: var(--vt-surface-3); border-color: var(--vt-border-strong); color: var(--vt-muted); padding-left: 6px; padding-right: 6px; }
+#div_lidar_settings .vt-lid-fval { min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Map › Advanced: read-only summary, the link leads to the only place to set it */
+.vt-lid-sum { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+.vt-lid-sum a { color: var(--vt-accent); text-decoration: underline; cursor: pointer; }
+
+/* legend on the map */
+.vt-rng-card {
+    position: fixed; z-index: 4;
+    left: calc(var(--vt-frame-cleft, 0px) + 10px);
+    top: calc(var(--vt-frame-ctop, 82px) + 8px);
+    width: min(290px, calc(100vw - var(--vt-frame-cleft, 0px) - var(--vt-frame-rp-w, 0px) - 30px));
+    max-height: calc(100vh - var(--vt-frame-ctop, 82px) - var(--vt-frame-cbottom, 40px) - 30px); overflow-y: auto;
+    background: rgba(20, 24, 28, 0.84); color: var(--vt-text, #dee2e6);
+    border: 1px solid var(--vt-border-strong, #444); border-radius: 12px;
+    padding: 0 8px; font-size: 12px; line-height: 1.35;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.vt-rng-head { display: flex; align-items: center; width: 100%; min-height: 36px; padding: 0; gap: 6px; background: none; border: 0; color: inherit; font-weight: 600; text-align: left; }
+.vt-rng-title { flex: 1 1 auto; }
+.vt-rng-arrow { color: var(--vt-muted, #9aa4ad); }
+.vt-rng-body { padding-bottom: 7px; }
+.vt-rng-sec { display: flex; align-items: baseline; gap: 5px; margin-top: 4px; padding-top: 3px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; }
+.vt-rng-sec .vt-rng-v { margin-left: auto; font-weight: 400; }
+.vt-rng-link { color: inherit; text-decoration: underline dotted; }
+.vt-rng-row { display: flex; justify-content: space-between; gap: 8px; }
+.vt-rng-k { color: var(--vt-muted, #9aa4ad); }
+.vt-rng-v { font-variant-numeric: tabular-nums; text-align: right; }
+.vt-rng-why { color: var(--vt-muted, #9aa4ad); font-size: 11px; overflow-wrap: anywhere; }
+.vt-rng-warn { color: var(--vt-warn, #ffb74d); }
+/* phone: the header takes the top, the legend sits above the bottom bar (and above
+   the agent's plan card when that one is shown) and is folded by default */
+@media (max-width: 700px) {
+    .vt-rng-card { top: auto; bottom: calc(var(--vt-frame-cbottom, 40px) + 10px); max-height: 55vh; }
+    body:has(#vt_aplan_card:not([style*="none"])) .vt-rng-card { bottom: calc(var(--vt-frame-cbottom, 40px) + 96px); }
+}

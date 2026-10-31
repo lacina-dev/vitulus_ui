@@ -47,7 +47,7 @@ neotevřeš přes **Upravit** a nevybereš jiný program. Běžící program sma
 |---|---|
 | **Run** | spustí program od začátku — robot vyjede z doku a seká |
 | **Resume** | pokračuje v nedokončeném programu od zóny / trasy, kde skončil |
-| **Ukázat / Skrýt** | vykreslí trasy programu na mapu |
+| **Ukázat / Skrýt** | vykreslí trasy programu na mapu; běžící program se vykreslí sám, viz [níže](#dráhy-na-mapě) |
 | **Stop** | zastaví misi: cíl jízdy se zruší, nůž se zastaví, robot zůstane stát, kde je — *Zastaveno* |
 | **Reset** | smaže stav *STOPPED* nebo *TERMINAL ERROR* |
 
@@ -56,6 +56,24 @@ Když program běží, nad seznamem programů je karta **Běží** s jeho názve
 **Zastaveno** s tlačítkem **Reset**.
 
 ![Karta Běží: název programu, jeho stav a Stop](../img/shot-program-running.webp "Běží — název, co mise právě dělá, Stop") ![Karta Zastaveno: stav a Reset](../img/shot-program-stopped.webp "Zastaveno — nejdřív Reset, pak Run nebo Resume")
+
+### Dráhy na mapě
+
+Když program běží, jeho dráhy jsou na mapě samy, ať ho spustil kdokoli (Run, Resume, kalendář,
+agent), i v telefonu, který se připojí později. Zmizí, když program skončí: hotovo, Stop, chyba,
+nebo dojezd do doku po návratu kvůli baterii či počasí.
+
+| Na mapě | Význam |
+|---|---|
+| tenká čára kolem zóny | hranice zóny, každá zóna má svou barvu |
+| silná čára v barvě zóny | přejezdy podél hranice, které zbývají |
+| slabší čára v barvě zóny | výplň, která zbývá |
+| šedá čára | už posekané (obnovuje se zhruba jednou za minutu), procenta jsou v kartě běžícího programu |
+
+- **Skrýt** u běžícího programu platí jen pro tento běh: **Ukázat** dráhy vrátí a další běh je
+  ukáže zase. Platí pro všechny, kdo se na mapu dívají.
+- Program ukázaný ručně před během: stejný program zmizí s během, jiný počká a po běhu se vrátí.
+- **Ukázat** jiného programu za běhu se vykreslí přes běžící.
 
 ### Přerušit a pokračovat
 

@@ -4,15 +4,16 @@ title: Kamera (D435) — přesnost a kalibrace
 group: Robot
 order: 70
 icon: la-camera
-summary: Nastavení › Kamera — kontrola hloubky proti lidaru, kalibrace kamery jedním tlačítkem s průvodcem, nastavení snímače a vrstvy v obraze.
+summary: Nastavení › Kamera — kontrola hloubky proti lidaru, kalibrace kamery jedním tlačítkem s průvodcem, nastavení snímače, co je překážka a co volno, a vrstvy v obraze.
 ui: [config/camera]
 related: [settings, frame, mapping, troubleshooting]
-keywords: [/dev/video, uvcvideo, secure boot, librealsense2-dkms, předání, obnovit kameru, usb, reset ovladače, kamera, d435, realsense, hloubka, přesnost, kalibrace, kalibrovat, tare, on-chip, lidar, překážky daleko, vzdálenost, chyba, emitor, laser, expozice, vyvážení bílé, vrstvy, vrátit, tovární, camera, depth, calibration]
+keywords: [obstacles, free, rest, ground, segmentation, max_depth, obstacle detection, detekce překážek, /dev/video, uvcvideo, secure boot, librealsense2-dkms, předání, obnovit kameru, usb, reset ovladače, kamera, d435, realsense, hloubka, přesnost, kalibrace, kalibrovat, tare, on-chip, lidar, překážky daleko, vzdálenost, chyba, emitor, laser, expozice, vyvážení bílé, vrstvy, vrátit, tovární, camera, depth, calibration]
 ---
 # Kamera (D435)
 
 **Nastavení › Kamera** obsahuje všechno o hloubkové kameře robota (Intel RealSense D435): jestli
-běží, jak přesnou má hloubku, její kalibraci, nastavení snímače a vrstvy kreslené přes obraz.
+běží, jak přesnou má hloubku, její kalibraci, nastavení snímače, co se počítá jako překážka, a
+vrstvy kreslené přes obraz.
 
 ## Proč na přesnosti záleží
 
@@ -176,6 +177,79 @@ modrá = pozastavená kvůli kalibraci, červená = bez obrazu.
 **Výkon laseru**, **Auto expozice hloubky**, **Auto expozice barvy**, **Auto vyvážení bílé**.
 Změna platí hned a robot si ji pamatuje — nastaví se znovu při každém startu kamery. **•** značí
 nastavení změněné proti výchozímu; **Výchozí** vrátí všechno zpět.
+
+## Detekce překážek
+
+Hloubkový obraz kamery se rozdělí na tři skupiny bodů: **volno** (zem), **překážky** a **zbytek**
+(ani jedno, ani druhé). Karta **Detekce překážek** určuje jak, a to za běhu robota: změna platí od
+dalšího snímku kamery, bez restartu a bez výpadku, a robot si ji pamatuje (na robotu v
+`~/.vitulus/depth_obstacles/settings.json`, přežije restart).
+
+- **Navigace / Mapování** — dvě nezávislé sady. **Navigace** je to, co robot vidí za jízdy.
+  **Mapování** se používá jen při nahrávání mapy.
+- Posuvník nebo číslo, vedle jednotka. U každého řádku je *výchozí* nebo *změněno · výchozí …*;
+  šipka vrátí tu jednu hodnotu, **Výchozí pro tento profil** (dvě kliknutí) všechny.
+- **Body volno / překážky / zbytek** a **Čas na snímek** jsou živé, průměr za poslední dvě sekundy
+  a za vybraný profil. Čas je proti limitu (50 ms; kamera dává snímek každých 66 ms). Zapni vrstvy
+  Překážky, Volno a Zbytek a výsledek uvidíš přímo v obraze.
+- Profil, který nikdo nepoužívá, nic nepočítá (Mapování, když se nenahrává): čísla ukazují — a
+  změna začne platit, až se rozběhne.
+
+> [!WARNING]
+> **Navigace mění to, co robot vidí za jízdy.** Proto robot změnu, po které by oslepl, odmítne
+> a řekne proč:
+>
+> - přísnější meze než Mapování: vždy vidí aspoň 1,5 m dopředu, výšky nejde vypnout, zem nesmí
+>   spolknout stěny;
+> - po každé změně protáhne novým nastavením **referenční scénu**: rovnou zem a krabici 30 cm
+>   vysokou 1,3 m před sebou. Když by krabici neviděl, nebo by zem nebral jako volnou, změnu
+>   odmítne a nic se nezmění;
+> - odmítne i změnu, po které by oba profily dohromady trvaly na snímek déle, než je limit.
+>
+> Referenční scéna je jednoduchá. Tenké nebo tmavé věci mohou zmizet, i když projde: po změně
+> Navigace se dívej na vrstvy a nejdřív to zkus na místě.
+
+Ovladač kamery uřezává hloubku na 5 m (`clip_distance` v `d435.launch`), dál **Nejvzdálenější
+hloubka** nic nepřidá. Přesnost stereo hloubky s dálkou prudce klesá.
+
+Costmapa má vlastní meze: z `/obstacles_cloud` bere 3,5 m a výšku 0,05–0,5 m
+(`global_costmap_params.yaml`). Větší **Nejvzdálenější hloubka** nebo **Nejvyšší překážka** v Navigaci
+je vidět v obraze, ale do costmapy nedojde.
+
+### Co které nastavení dělá
+
+| Sekce | Nastavení | Co dělá | Navigace | Mapování |
+|---|---|---|---|---|
+| Vzdálenost | Nejbližší hloubka | body blíž ke kameře se zahodí hned na začátku | 0–0,6 m | 0–2 m |
+| Vzdálenost | Nejvzdálenější hloubka | jak daleko kamera vidí; dál = dřívější varování, víc šumu | 1,5–6 m | 0,5–6 m |
+| Vzdálenost | Nejbližší vzdálenost | jako *Nejbližší hloubka*, ale vzdušnou čarou od kamery, těsně před dělením | 0–0,6 m | 0–2 m |
+| Vzdálenost | Nejvzdálenější vzdálenost | jako *Nejvzdálenější hloubka*, vzdušnou čarou; platí kratší z obou | 1,5–6 m | 0,5–6 m |
+| Výška | Nejnižší bod | body níž (díry, odrazy) se zahodí, Zbytek | −1 až −0,05 m nebo vyp. | −1 až 0,3 m nebo vyp. |
+| Výška | Výška země | kam až může sahat zem; nad ní začínají překážky | 0,05–0,3 m | 0,02–0,6 m nebo vyp. |
+| Výška | Spodek překážek | vyp. = překážky začínají na výšce země; hodnota nad ní ignoruje všechno nižší | 0–0,3 m nebo vyp. | 0–1 m nebo vyp. |
+| Výška | Nejvyšší překážka | body nad ní (větve) nejsou překážka, Zbytek | 0,3–1,5 m | 0,2–4 m nebo vyp. |
+| Úhly a podlaha | Největší sklon země | plocha nakloněná víc není zem; moc = stěny vypadají jako zem | 10–50° | 5–85° |
+| Úhly a podlaha | Zem podle sklonu | zem podle sklonu ploch; vyp. = jen podle výšky (rychlejší, na svahu horší) | zap. / vyp. | zap. / vyp. |
+| Úhly a podlaha | Body na sklon | sousední body, které určí sklon; víc = klidnější, pomalejší | 5–50 | 3–100 |
+| Úhly a podlaha | Otáčet normály nahoru | 0 = vyp.; nad 0 se plocha pod kamerou mířící dolů otočí nahoru (zašuměná zem v dálce) | 0–0,95 | 0–0,95 |
+| Úhly a podlaha | Ploché překážky | plochá věc nad zemí je překážka; rozhoduje jen při vypnuté výšce země | zap. / vyp. | zap. / vyp. |
+| Filtrování šumu | Mřížka bodů | body se proředí na jeden v buňce; menší = víc detailů, víc času | 0,02–0,15 m | 0,01–0,3 m nebo vyp. |
+| Filtrování šumu | Mřížka dělení | totéž v rámu robota, před dělením na zem a překážky | 0,02–0,15 m | 0,01–0,3 m |
+| Filtrování šumu | Mřížka před dělením | vyp. = mřížka výše se přeskočí; pomalejší, málokdy lepší | zap. / vyp. | zap. / vyp. |
+| Filtrování šumu | Dosah filtru šumu | bod musí mít sousedy v této vzdálenosti, jinak je to šum | 0,05–0,5 m nebo vyp. | 0,02–1 m nebo vyp. |
+| Filtrování šumu | Sousedé filtru šumu | kolik sousedů; víc = méně šumu, tenké věci zmizí | 1–15 | 1–50 |
+| Shluky | Dosah shluku | body blíž jsou jeden předmět; větší než mřížka | 0,05–0,5 m | 0,02–1 m |
+| Shluky | Nejmenší shluk | menší skupina není překážka, Zbytek; víc = méně falešných překážek, malé věci zmizí | 1–30 | 1–500 |
+| Výkon | Každý n-tý pixel | 1, 2, 4, 8 nebo 16; menší = víc detailů, mnohem víc času | stejné | stejné |
+| Výkon | Vlákna | vlákna na sklon; výsledek stejný, liší se jen čas | 1–4 | 1–4 |
+
+Mezemi jsou i vztahy: *nejbližší* pod *nejvzdálenější*, zem pod překážkami, dosah shluku nad
+mřížkou. Změna, která některý poruší, se odmítne celá, s důvodem pod čísly.
+
+**Typické případy** — *trávník se ukazuje jako překážky*: trochu zvedni **Výšku země** nebo
+**Nejmenší shluk**. *Nízké věci se nevidí*: sniž **Výšku země**. *Jednotlivé falešné body*: zvedni
+**Sousedy filtru šumu** nebo **Nejmenší shluk**. *Svah se ukazuje jako překážka*: zvedni **Největší
+sklon země**.
 
 ## Vrstvy v obraze
 

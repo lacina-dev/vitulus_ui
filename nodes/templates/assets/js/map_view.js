@@ -116,6 +116,8 @@ var MapLayerOrder = {
     UTMGRID:   24,   // UTM grid layer (vt_georef.js): 10 m UTM lines in the map frame
     SENSING:   25,   // Sensing layer: live lidar scan polygon + camera cone
     DOCK:      30,
+    PROGRAM:   40,   // program paths (liftMarkerArrayClient): above every map,
+                     // under the robot (55).
     RAIN:     999,
     BEACON:   1000,  // far-zoom location "you are here" pin (mapping.js) — sits
                      // above the rain overlay so it is never occluded.
@@ -1667,7 +1669,7 @@ class PathsPointsVisualization {
           tfClient: tf_client,
           topic: "/web_plan/program_marker",
         });
-        liftMarkerArrayClient(this.markerArrayClient);
+        liftMarkerArrayClient(this.markerArrayClient, true);
         this.mapPath = new ROS3D.Path({
             ros : ros,
             tfClient: tf_client,
@@ -1684,17 +1686,99 @@ class PathsPointsVisualization {
 // hidden under the map. Lift every marker above the layers after each update
 // (ROS3D resets the marker pose on update, so this runs on every 'change').
 const MARKER_LIFT_Z = 0.6;
-function liftMarkerArrayClient(client) {
+function liftMarkerArrayClient(client, ribbons) {
     const lift = () => {
         Object.keys(client.markers).forEach((key) => {
             const marker = client.markers[key].children[0];
-            if (marker) marker.position.z = MARKER_LIFT_Z;
+            if (!marker) return;
+            marker.position.z = MARKER_LIFT_Z;
+            if (ribbons) lineMarkerToRibbon(marker);
         });
     };
     client.on('change', lift);
     lift();
 }
 window.liftMarkerArrayClient = liftMarkerArrayClient;
+
+// WebGL draws a LINE_LIST 1 px wide whatever its scale says, too thin to read on
+// a phone or from far away. The ROS3D marker (of its own THREE) gets a flat
+// ribbon instead: scale.x metres wide close up, never under scale.y screen pixels.
+const PATH_RIBBON_VERTEX = `
+    attribute vec2 corner;
+    uniform float widthM;
+    uniform float widthPx;
+    uniform float viewH;
+    void main() {
+        vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        float metresPerPx = 2.0 * clip.w / (projectionMatrix[1][1] * viewH);
+        vec2 shift = corner * 0.5 * max(widthM, widthPx * metresPerPx);
+        gl_Position = projectionMatrix * modelViewMatrix
+            * vec4(position.xy + shift, position.z, 1.0);
+    }`;
+const PATH_RIBBON_FRAGMENT = `
+    uniform vec3 color;
+    uniform float opacity;
+    void main() { gl_FragColor = vec4(color, opacity); }`;
+
+function lineMarkerToRibbon(marker) {
+    const line = marker.children[0];
+    if (!line || !line.isLineSegments || !line.geometry.vertices) return;
+    const T = ROS3D.THREE;
+    const v = line.geometry.vertices;
+    const position = new Float32Array(v.length * 9);
+    const corner = new Float32Array(v.length * 6);
+    let n = 0;
+    const put = (p, x, y) => {
+        position.set([p.x, p.y, p.z], n * 3);
+        corner.set([x, y], n * 2);
+        n++;
+    };
+    for (let i = 0; i + 1 < v.length; i += 2) {
+        const a = v[i], b = v[i + 1];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        if (!len) continue;
+        const dx = (b.x - a.x) / len, dy = (b.y - a.y) / len;
+        // two triangles; the ends go half a width out so that corners close
+        put(a, -dx - dy, -dy + dx);
+        put(a, -dx + dy, -dy - dx);
+        put(b, dx - dy, dy + dx);
+        put(b, dx - dy, dy + dx);
+        put(a, -dx + dy, -dy - dx);
+        put(b, dx + dy, dy - dx);
+    }
+    const geometry = new T.BufferGeometry();
+    geometry.addAttribute('position', new T.BufferAttribute(position.subarray(0, n * 3), 3));
+    geometry.addAttribute('corner', new T.BufferAttribute(corner.subarray(0, n * 2), 2));
+    const c = marker.msgColor;
+    const material = new T.ShaderMaterial({
+        uniforms: {
+            color: { value: new T.Color(c.r, c.g, c.b) },
+            opacity: { value: c.a },
+            widthM: { value: marker.msgScale[0] },
+            widthPx: { value: marker.msgScale[1] || 2 },
+            viewH: { value: 1 },
+        },
+        vertexShader: PATH_RIBBON_VERTEX,
+        fragmentShader: PATH_RIBBON_FRAGMENT,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: T.DoubleSide,
+    });
+    const mesh = new T.Mesh(geometry, material);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = MapLayerOrder.PROGRAM + marker.msgScale[1];  // outline on top
+    mesh.onBeforeRender = (renderer) => {
+        const height = renderer.domElement.clientHeight || 1;
+        if (material.uniforms.viewH.value !== height) {
+            material.uniforms.viewH.value = height;
+            material.uniformsNeedUpdate = true;
+        }
+    };
+    marker.remove(line);
+    line.geometry.dispose();
+    marker.add(mesh);
+}
 
 
 class IconStatus {
@@ -6721,6 +6805,25 @@ class Programs {
             this.mission_program = (message.data || '').trim();
             this._paintRunning();
         });
+        // What the planner really draws (latched JSON, run_path.py): the running
+        // program by itself, so the Show button follows this and not its clicks.
+        this.marker_state = null;
+        this.run_path_show_Topic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/web_plan/run_path_show',
+            messageType : 'std_msgs/Bool'
+        });
+        this.marker_state_Topic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/web_plan/program_marker_state',
+            messageType : 'std_msgs/String'
+        });
+        this.marker_state_Topic.subscribe((message) => {
+            try { this.marker_state = JSON.parse(message.data); }
+            catch (e) { console.warn('[programs] bad marker state:', e); return; }
+            this._syncShowBtn();
+            this._paintRunning();
+        });
         // The planner answers program saves / deletes / starts only on its log
         // ("Program 'X' NOT saved: ..."): show those lines in the program card.
         this.planner_log_Topic = new ROSLIB.Topic({
@@ -6889,11 +6992,19 @@ class Programs {
         const n = document.getElementById('span_program_running_name');
         if (n) n.textContent = name || '';
         const s = document.getElementById('span_program_running_status');
-        if (s) s.textContent = waits ? vtT('mapview.prog.run.waits', {status: st}) : st;
+        if (s) s.textContent = waits ? vtT('mapview.prog.run.waits', {status: st}) : st + this._runPathNote(name);
         const stop = document.getElementById('btn_program_running_stop');
         if (stop) stop.style.display = busy ? '' : 'none';
         const reset = document.getElementById('btn_program_running_reset');
         if (reset) reset.style.display = waits ? '' : 'none';
+    }
+    // the running card: how far the run is on the map, or that it is hidden
+    _runPathNote(name) {
+        const ms = this.marker_state;
+        if (!ms || ms.run !== name) return '';
+        if (!ms.run_visible) return ' · ' + vtT('mapview.prog.run.path_hidden');
+        if (!ms.total_m) return '';
+        return ' · ' + vtT('mapview.prog.run.path_done', {pct: Math.round(100 * ms.done_m / ms.total_m)});
     }
     _flashRunMsg(text) {
         this._setRunMsg(text);
@@ -7060,6 +7171,7 @@ class Programs {
         this.reload_planner_data_Topic.advertise();
         this.republish_Topic.advertise();
         this.program_to_show_marker_Topic.advertise();
+        this.run_path_show_Topic.advertise();
         this.topic_program_select.advertise();
         this.topic_program_resume.advertise();
         this.topic_program_new.advertise();
@@ -7122,7 +7234,7 @@ class Programs {
         // settings-persistence: remember the selection (by raw name) so a
         // reload re-selects the same program once the list arrives again.
         uiPrefSet('vitulus_sel_program', program.name);
-        this._setShowBtn(false);
+        const previous = this.selected_program;
         const legacy = (program.map_name || '').indexOf('***env*') !== -1;
         const shownName = legacy ? program.name.split(' (')[0] : program.name;
         this.map_menu.span_menu_program_name.innerText = shownName;
@@ -7154,10 +7266,14 @@ class Programs {
         if (this.map_menu.inp_program_name) this.map_menu.inp_program_name.value = shownName;
         this._renderProgramZones();
         this._ensureZones();
-        //remove all markers
-        Object.keys(this.paths_visualization.markerArrayClient.markers).forEach((key) => {
-            this.paths_visualization.markerArrayClient.removeMarker(key);
-        });
+        // Another program picked: a manual Show goes, the planner draws the rest
+        // (the running program stays). Not on the restore after a page load.
+        const ms = this.marker_state;
+        if (previous && previous.name !== program.name && ms && ms.manual) {
+            this.program_to_show_marker_Topic.publish(new ROSLIB.Message({ name: 'none' }));
+        }
+        this._setShowBtn(false);
+        this._syncShowBtn();
 
         this.map_menu.div_menu_program_detail_row.style.display = "flex";
     }
@@ -7213,7 +7329,21 @@ class Programs {
         b.dataset.shown = shown ? '1' : '0';
         vtTag(b, shown ? 'common.hide' : 'common.show');
     }
+    // The button of the selected program says what the planner really draws. An
+    // agent's zone has no program of its own: its Hide is on any program.
+    _syncShowBtn() {
+        const ms = this.marker_state, prg = this.selected_program;
+        if (!ms || !prg) return;
+        this._setShowBtn((ms.run === prg.name && ms.run_visible)
+            || ms.manual === prg.name || ms.manual.indexOf('agent:') === 0);
+    }
     show_program_in_map(){
+        // The running program: Hide holds for this run, the next run shows again.
+        const ms = this.marker_state;
+        if (ms && this.selected_program && ms.run === this.selected_program.name && !ms.manual) {
+            this.run_path_show_Topic.publish(new ROSLIB.Message({ data: !ms.run_visible }));
+            return;
+        }
         if (!this._programShown()){
             Object.keys(this.paths_visualization.markerArrayClient.markers).forEach((key) => {
                 this.paths_visualization.markerArrayClient.removeMarker(key);

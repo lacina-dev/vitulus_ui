@@ -124,7 +124,7 @@ the battery output and the computer (the hardest stop; the UI goes away too). Ho
   and RPM.
 - **STOP** always stops the blade too.
 - The agent never switches the blade on by itself — there is no such action. It may only run a
-  **saved mowing program** after your unlock (**Mow** or **Free drive** in the dock lock); its
+  **saved mowing program**, from the dock after your unlock (**Mow** or **Free drive** in the dock lock); its
   supervisor accepts blade RPM only while that program runs and stops it on STOP, a takeover or a
   lost heartbeat ([Agent](agent.md#mowing-programs)).
 - The safety node switches the mower off by itself (blade and mower power) when the robot tilts

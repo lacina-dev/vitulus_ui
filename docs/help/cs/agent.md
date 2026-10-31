@@ -42,7 +42,7 @@ jeho plánovače.
 Plán obsahuje **jen to, co jsi chtěl**: kroky, které se jen dívají (*změřit stav*, *počkat na
 RTK*, *kde jsem*, *shrnutí*…), se vyřadí, pokud o ně zadání nežádá (*zjisti polohu*, *vyfoť*,
 *řekni mi*…). RTK, motory a stav robota si agent za jízdy hlídá sám. **Nůž agent nikdy sám nezapne** — mise smí jen spustit
-uložený program sekání po tvém odemčení ([Programy sekání](#programy-sekání)).
+uložený program sekání: z doku po tvém odemčení, venku na tvůj pokyn ([Programy sekání](#programy-sekání)).
 
 Návrat rozumí běžným slovům — *zadokuj*, *zadockuj*, *dokuj*, *zaparkuj se do doku*, *vrať se
 (do doku / domů)*, *a zpátky* — a ohlášený plán vždycky vypíše všechny kroky včetně zadokování.
@@ -164,7 +164,7 @@ dej go na bod TEST a počkej tam na signál
 
 - **Stejné brány jako každá mise.** Každý krok jde přes registr akcí, podepsaný seznam povolených
   akcí, zámek doku (výjezd potřebuje tvoje odemčení, návrat domů nikdy), supervisor a aktuační
-  token. Nůž se točí jen v uloženém programu po tvém odemčení **Mow**. Když krok neprojde, operátor
+  token. Nůž se točí jen v uloženém programu. Když krok neprojde, operátor
   jednou větou řekne proč a co můžeš udělat. Skilly, které UI má, ale ještě jsi je nepodepsal, jsou
   vedené jako *čeká na podpis*.
 - **Vstoupit můžeš kdykoli.** Každá zpráva během mise jde do **téhož rozhovoru** s modelem.
@@ -345,8 +345,8 @@ Agent **sám s robotem z doku nevyjede** — zámek hlídá **jen výjezd z doku
 pohyb, když robot stojí v doku (nebo se stav doku nedá změřit), potřebuje kliknutí majitele tady.
 **Návrat do doku je vždy povolený** a když je robot změřeně venku (`is_in_dock` false nebo stav
 doku UNDOCKED), jízda na body, místa v mapě, po trasách i přímé řízení už další odemčení
-nepotřebují — každý pohyb dál hlídá supervisor. Program sekání potřebuje vlastní odemčení
-(**Sekání** nebo **Volná jízda**) i venku. Zastavit jde vždycky.
+nepotřebují — každý pohyb dál hlídá supervisor. Program sekání spuštěný z doku potřebuje odemčení
+(**Sekání** nebo **Volná jízda**); změřeně venku žádné nechce, stačí tvůj pokyn. Zastavit jde vždycky.
 
 1. Vyber předvolbu a přečti si její rozsah: *Akce*, *Nepovoleno*, *Platí*, *Použití*,
    *Podepsal*.
@@ -426,8 +426,12 @@ a sám zastaví — akce skončí jako *přerušená* s důvodem — když:
 
 Agent smí spustit jen **uložený program sekání**, stejně jako **Run** / **Resume** na kartě
 programu. Program sám vyjede z doku, poseká své zóny a vrátí se do doku. Spuštění a obnovení
-potřebuje tvoje odemčení (**Sekání** nebo **Volná jízda**); zastavit a resetovat program jde
+z doku potřebuje tvoje odemčení (**Sekání** nebo **Volná jízda**), jedno odemčení platí pro celou misi, venku žádné nechce; zastavit a resetovat program jde
 vždycky.
+
+Řekni *posekej zónu A*: agent sám vybere nejvhodnější uložený program podle jména, zóny nebo mapy,
+i s překlepem. Když to není jasné, položí jednu krátkou otázku. Programy neupravuje ani nezakládá.
+Zastavený automat si resetuje sám, a když prší, řekne ti to.
 
 Dokud program běží, hlídá ho supervisor jako *běh sekání*: otáčky nože čeká **jen dokud sekací
 automat robota hlásí, že běží právě tenhle program**; otáčky v kteroukoli jinou chvíli zastaví

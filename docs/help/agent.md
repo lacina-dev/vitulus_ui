@@ -43,7 +43,7 @@ The plan holds **only what you asked for**: steps that just look around (*measur
 *wait for RTK*, *where am I*, *summary*…) are dropped unless your task asks for them (*zjisti
 polohu*, *vyfoť*, *řekni mi*…). RTK, motors and the robot's state are the agent's own business
 while it drives. **The blade is never switched on by the agent itself** — a
-mission may only run a saved mowing program after your unlock ([Mowing programs](#mowing-programs)).
+mission may only run a saved mowing program: from the dock after your unlock, outside on your order ([Mowing programs](#mowing-programs)).
 
 The way back is understood in the usual words — *zadokuj*, *zadockuj*, *dokuj*, *zaparkuj se do
 doku*, *vrať se (do doku / domů)*, *a zpátky* — and the announced plan always lists every step,
@@ -360,7 +360,7 @@ dock only**: the undock, and any move while the robot stands in the dock (or its
 be measured), need the owner's click here. **Driving back to the dock is always allowed**, and
 once the robot is measurably outside (`is_in_dock` false or dock state UNDOCKED) driving to
 waypoints, points, paths and direct driving need no further unlock — the supervisor still guards
-every move. A mowing program needs its own unlock (**Mow** or **Free drive**) even outside.
+every move. A mowing program started from the dock needs its unlock (**Mow** or **Free drive**); measured outside it needs none, your order is enough.
 Stopping always works.
 
 1. Pick a preset and read its scope: *Actions*, *Not allowed*, *Valid for*, *Uses*,
@@ -444,7 +444,9 @@ measures the distance and the angle from its odometry, ramps the speed (at most 
 
 The agent may run only a **saved mowing program**, the same way the program card's **Run** /
 **Resume** does. The program undocks, mows its zones and docks back by itself. Starting or
-resuming needs your unlock (**Mow** or **Free drive**); stopping and resetting it always works.
+resuming from the dock needs your unlock (**Mow** or **Free drive**), one unlock covers the whole mission; outside it needs none. Stopping and resetting it always works.
+
+Say *mow zone A*: the agent picks the best saved program by name, zone or map, typos included. If it is unclear, it asks one short question. It never edits or creates programs. It resets a stopped mower by itself and tells you if it rains.
 
 While the program runs, the supervisor watches it as a *mowing run*: blade RPM is expected **only
 while the robot's mowing program reports exactly that program running**; RPM at any other time

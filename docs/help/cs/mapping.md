@@ -6,7 +6,7 @@ order: 50
 icon: la-map
 summary: Nahrát novou mapu, rozšířit ji, aktivovat, vrstvy a souhrnná mapa.
 ui: [map, map/map]
-related: [map-editor, routes, localization, dock]
+related: [map-editor, routes, localization, dock, lidar]
 keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole]
 ---
 # Mapy a mapování
@@ -78,6 +78,8 @@ Během nahrávání:
   uloženou mapu (klikni dvakrát).
 - **Předvolba prostředí** a *Pokročilé ladění snímání* — nastavení detekce překážek, platí hned;
   jen během nahrávání.
+  Vlastní nastavení lidaru už tady není: ladění ho jen ukazuje, nastavuje se v
+  [Nastavení › Lidar](lidar.md).
 - *Lokalizace při nahrávání* — jak se robot během tohoto nahrávání lokalizuje.
 
 ## Rozšířit mapu
@@ -120,7 +122,27 @@ zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kd
   robot ještě nebyl — zajeď tam a mapa se doplní. S každým nahráváním a po **Smazat a nahrávat dál** začíná
   prázdná.
 
-Dosahy jsou ty, které mapovač opravdu používá (jeho posuvníky), ne maximum senzorů.
+Dosahy jsou ty, které mapovač opravdu používá (jeho nastavení), ne maximum senzorů.
+
+### Dosah lidaru a Dosah kamery
+
+**Snímání** je to, co senzory vidí právě teď. **Dosah lidaru** a **Dosah kamery** jsou dvě vrstvy
+s mezemi: jak daleko který senzor vidí a kam ho robot opravdu používá. Fungují pořád, s nahráváním
+i bez něj, každá má své zaškrtnutí a prohlížeč si ho pamatuje.
+
+![Mapa s oběma vrstvami dosahu kolem robota a karta s čísly](../img/shot-ranges.webp "Dosah lidaru (fialově) a Dosah kamery (žlutě)")
+
+- **Čárkovaně** — co vidí senzor (lidar 16 m, kamera surový záběr hloubky po řez ovladače).
+- **Plně** — mapování. **Dvojitě** — navigace. Čísla stojí na kružnicích; popisek, který by
+  zakryl jiný, se schová, všechna čísla jsou v kartě vlevo nahoře.
+- **Krátké čárky v záběru kamery** — odkud začíná vidět zem: přímo před robotem zem nevidí.
+- **Červený sektor** — lidar tam má něco těsně u sebe (blíž než 0,4 m skoro v každém skenu),
+  třeba stěny doku.
+
+Karta ukazuje skutečné hodnoty. Když je hodnota menší, než je nastaveno, řekne, kdo ji uřízl,
+například *5,0 m: ovladač (nastaveno 6,0 m)*. Bez nahrávání jsou hodnoty mapování to, co použije
+**příští** nahrávání na aktivní mapě — každá mapa má svoje, takže můžou být daleko od výchozích.
+Nastavení lidaru je v [Nastavení › Lidar](lidar.md), kamery v [Nastavení › Kamera](camera.md).
 
 **Plán agenta** (jantarový ◆) ukazuje, co agent plánuje pro běžící misi — body, trasy a plochy,
 které si nakreslil do mapy; objeví se a zmizí sám, viz
