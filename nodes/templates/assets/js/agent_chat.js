@@ -1099,6 +1099,7 @@
         var d = drawerEls();
         if (!d.drawer || !d.body) { return; }
         var mm = window.map_menu;
+        if (mm && mm.editor_holds && mm.editor_holds()) { return; }   // unsaved map edit
         if (mm && typeof mm.close_drawer === 'function') {
             try { mm.close_drawer(); } catch (e) {}   // hide Marker/Map/… panels
         }

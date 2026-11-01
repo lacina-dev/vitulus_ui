@@ -579,7 +579,8 @@ window.MapEditor = (function () {
 
     // Called by map_view's hide_all_submenu_divs() when switching to another menu
     // (marker/settings/programs/...) — leave the map editor cleanly. (Closing the
-    // Map menu itself does NOT close the detail panel; it is independent.)
+    // Map menu itself does NOT close the detail panel; it is independent.) Unsaved
+    // work was asked about before getting here: map_view's editor_holds().
     function exitIfActive() { hideDetail(); }
 
     return {

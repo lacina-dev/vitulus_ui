@@ -58,10 +58,11 @@ Vrcholy vybraného objektu se objeví hned:
 
 K robotu nejde nic, dokud nedáš **Uložit**, které se objeví s první změnou. **Zpět** vrací po krocích
 (z klávesnice Ctrl+Z), **Zrušit** vrátí uložený tvar. Dokud je změna otevřená, ostatní objekty
-a nástroje čekají, až ji uložíš nebo zrušíš. Zavření editoru s neuloženou změnou chce druhé
-stisknutí a změnu pak zahodí.
+a nástroje čekají, až ji uložíš nebo zrušíš. Zavření editoru s neuloženou změnou nebo přechod do
+jiného panelu chce druhé stisknutí a změnu pak zahodí.
 
 Obrys, který se kříží sám se sebou, uložit nejde. Plocha má aspoň 3 vrcholy, čára 2.
+Trasa nahraná jízdou si drží natočení: směr čáry dostanou jen změněné vrcholy a jejich sousedé.
 **Smazat** v kartě odstraní celý objekt: stiskni ho dvakrát.
 
 ## Názvy

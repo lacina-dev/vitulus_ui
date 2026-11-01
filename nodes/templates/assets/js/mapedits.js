@@ -1014,6 +1014,7 @@ window.MapEdits = (function () {
     function _teardownTool() {
         // detach + clear the shared polygon if we were drawing edits
         var P = sharedPolygon();
+        _closeArmed = 0;
         if (_tool === 'zone' && window.mapEditZoneApi) window.mapEditZoneApi.close();
         if (P) { P.openLine = false; P.showMids = false; P.minPoints = 0; P.onChange = null; }
         if (P && P.attached && _ov) {
@@ -1240,6 +1241,34 @@ window.MapEdits = (function () {
         }
         return false;
     }
+    // Headings for a reshaped path. A recorded path carries the robot's real
+    // heading per pose, which the drawn line cannot give back. Those stay, except
+    // where the line changed: a pose moved or added, and the neighbours of such a
+    // pose, take the direction of their segment (save_path_at's rule for a drawn
+    // path: towards the next point, the last pose along its segment).
+    function pathYaws(orig, yaws, pts) {
+        var EPS = 1e-6, at = [], from = 0, i, k;
+        for (i = 0; i < pts.length; i++) {
+            at[i] = -1;
+            for (k = from; k < orig.length; k++) {
+                if (Math.abs(orig[k][0] - pts[i][0]) < EPS && Math.abs(orig[k][1] - pts[i][1]) < EPS) {
+                    at[i] = k; from = k + 1;
+                    break;
+                }
+            }
+        }
+        function dir(a, b) { return (a[0] === b[0] && a[1] === b[1]) ? null : Math.atan2(b[1] - a[1], b[0] - a[0]); }
+        var out = [], n = pts.length;
+        for (i = 0; i < n; i++) {
+            var same = at[i] >= 0 && (i === 0 || at[i - 1] === at[i] - 1) && (i === n - 1 || at[i + 1] === at[i] + 1);
+            if (same) { out.push(yaws[at[i]]); continue; }
+            var y = i < n - 1 ? dir(pts[i], pts[i + 1]) : null;
+            if (y === null && i > 0) y = dir(pts[i - 1], pts[i]);
+            out.push(y !== null ? y : (i > 0 ? out[i - 1] : 0));
+        }
+        return out;
+    }
+
     function _area(pts) {
         var total = 0;
         for (var i = 0; i < pts.length; i++) {
@@ -1373,12 +1402,14 @@ window.MapEdits = (function () {
         P.onChange = _onShapeChange;
         _draft = { kind: kind, name: o.name, orig: pts.map(function (p) { return [p[0], p[1]]; }),
                    width: o.width_m, widthNow: o.width_m, yaw: o.yaw, yawNow: o.yaw,
+                   yaws: o.yaws ? o.yaws.slice() : null,
                    editKind: o.kind, formDirty: false, saving: false, timer: null };
         if (kind === 'waypoint') _showYawPreview(o.x, o.y, o.yaw || 0);
     }
     function _endShape() {
         var P = sharedPolygon(), d = _draft;
         _draft = null;
+        _closeArmed = 0;
         if (d && d.timer) clearTimeout(d.timer);
         if (P) { P.onChange = null; P.openLine = false; P.showMids = false; P.minPoints = 0; }
         if (d && d.kind === 'zone') window.mapEditZoneApi.close();
@@ -1401,6 +1432,7 @@ window.MapEdits = (function () {
     function _shapeProblem() {
         var d = _draft, P = sharedPolygon(), pts = _curPts();
         if (pts.length < ((P && P.minPoints) || 0)) return 'medits.shape.too_few';
+        if (d.kind === 'path' && !(d.yaws && d.yaws.length === d.orig.length)) return 'medits.shape.no_yaws';
         var closed = d.kind === 'zone' || (d.kind === 'edit' && d.editKind !== 'wall');
         if (closed && _crosses(pts)) return 'medits.shape.crosses';
         return null;
@@ -1432,7 +1464,8 @@ window.MapEdits = (function () {
         if (d.kind === 'edit') {
             _layer.saveEdit({ kind: d.editKind, name: d.name, points: pts, width_m: d.widthNow });
         } else if (d.kind === 'path') {
-            _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: d.name, points: pts }) }));
+            d.targetYaws = pathYaws(d.orig, d.yaws, pts);
+            _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: d.name, points: pts, yaws: d.targetYaws }) }));
         } else {
             _publishWaypointAt(d.name, pts[0][0], pts[0][1], d.yawNow || 0);
         }
@@ -1457,6 +1490,11 @@ window.MapEdits = (function () {
         if (!_samePts(_ptsOf(d.kind, o), d.target)) return false;
         if (d.kind === 'edit' && d.editKind === 'wall' && o.width_m !== d.widthNow) return false;
         if (d.kind === 'waypoint' && _angleOff(o.yaw || 0, d.yawNow || 0) > 0.01) return false;
+        if (d.kind === 'path') {
+            var ny = o.yaws || [];
+            if (ny.length !== d.targetYaws.length) return false;
+            for (var i = 0; i < ny.length; i++) if (_angleOff(ny[i], d.targetYaws[i]) > 1e-6) return false;
+        }
         return true;
     }
 
@@ -1659,13 +1697,23 @@ window.MapEdits = (function () {
         if (yes) d.classList.add('vt-fit');
         else if (d.classList.contains('editor')) d.classList.remove('vt-fit');
     }
-    // Closing the editor with unsaved changes takes a second press.
+    // Leaving the editor with unsaved work takes a second press, whichever way
+    // out it is. Calls right after the first belong to the same press: one
+    // click can pass through two ways out (the frame's panel toggle does).
     var _closeArmed = 0;
+    var CLOSE_SAME_PRESS_MS = 300, CLOSE_AGAIN_MS = 4000;
+    function _unsaved() {
+        return _dirty() || !!_wpInput || (_isDraw(_tool) && _curPts().length > 0);
+    }
     function holdClose() {
-        if (!_dirty()) return false;
-        var now = Date.now();
-        if (now - _closeArmed < 4000) return false;
-        _closeArmed = now;
+        if (!_unsaved()) return false;
+        var since = Date.now() - _closeArmed;
+        if (since < CLOSE_SAME_PRESS_MS) return true;
+        if (since < CLOSE_AGAIN_MS) return false;
+        _closeArmed = Date.now();
+        _compact(true);
+        var body = document.getElementById('ui_drawer_body');
+        if (body) body.scrollTop = 0;
         _setHint('medits.sel.close_again');
         return true;
     }
@@ -2054,7 +2102,7 @@ window.MapEdits = (function () {
         _state: function () {
             var P = sharedPolygon();
             return { tool: _tool, sel: _sel, dirty: _dirty(), saving: !!(_draft && _draft.saving),
-                     pts: _curPts(), selected: P ? P.selected : -1, canUndo: !!(P && P.canUndo()),
+                     pts: _curPts(), yaws: _draft ? _draft.yaws : null, selected: P ? P.selected : -1, canUndo: !!(P && P.canUndo()),
                      zones: _zoneLayer ? _zoneLayer.zones.map(function (z) { return z.name; }) : [],
                      hint: (document.getElementById('mapedit_hint') || {}).textContent };
         },

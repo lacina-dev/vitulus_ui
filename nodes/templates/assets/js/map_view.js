@@ -3663,9 +3663,17 @@ class MapMenu {
         uiPrefDel('vitulus_open_panel');   // closed -> nothing to restore
     }
 
+    // Every way out of the map editor asks here first: with unsaved work the
+    // first press only warns, the panel stays (MapEdits.holdClose). The panels
+    // that replace the drawer (Agent, Needs, Support) ask too, before they open.
+    editor_holds() {
+        return !!(window.MapEdits && window.MapEdits.holdClose && window.MapEdits.holdClose());
+    }
+
     // Full close: hide every panel (also exits the map editor) and slide out.
     // Used by the drawer chrome ✕ and the backdrop tap.
     close_drawer() {
+        if (this.editor_holds()) return;
         this.hide_all_submenu_divs();
         this._drawer_slide_out();
         this.current_submenu = 'none';
@@ -3679,6 +3687,7 @@ class MapMenu {
     // Force-show the Map panel in the drawer (used when leaving the editor back to
     // the Map panel it was launched from).
     show_map_panel() {
+        if (this.editor_holds()) return;
         this.hide_all_submenu_divs();
         this.current_submenu = 'map';
         this.div_menu_map.style.display = "block";
@@ -3771,6 +3780,7 @@ class MapMenu {
     // }
 
     btn_programs_onclick(interactive_markers) {
+        if (this.editor_holds()) return;
         if (this.current_submenu !== 'program') {
             this.hide_all_submenu_divs();
             this.row_submenu.style.display = "none";
@@ -3796,6 +3806,7 @@ class MapMenu {
     }
 
     btn_map_onclick(interactive_markers) {
+        if (this.editor_holds()) return;
         if (this.current_submenu !== 'map') {
             this.hide_all_submenu_divs();
             this.row_submenu.style.display = "none";
@@ -3825,6 +3836,7 @@ class MapMenu {
     }
 
     btn_config_onclick(interactive_markers) {
+        if (this.editor_holds()) return;
         if (this.current_submenu !== 'config') {
             this.hide_all_submenu_divs();
             this.row_submenu.style.display = "none";
@@ -3854,6 +3866,7 @@ class MapMenu {
 
 
     btn_marker_onclick(interactive_markers) {
+        if (this.editor_holds()) return;
         if (this.current_submenu !== 'marker') {
             this.hide_all_submenu_divs();
             this.row_submenu.style.display = "none";

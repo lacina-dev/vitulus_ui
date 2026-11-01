@@ -445,6 +445,7 @@
         var title = document.getElementById('ui_drawer_title');
         if (!d || !body) { return; }
         var mm = window.map_menu;
+        if (mm && mm.editor_holds && mm.editor_holds()) { return; }   // unsaved map edit
         if (window.VAgent && VAgent.isVisible && VAgent.isVisible()) { try { VAgent.close(); } catch (e) { /* ok */ } }
         if (mm && typeof mm.close_drawer === 'function') { try { mm.close_drawer(); } catch (e) { /* ok */ } }
         if (panel.parentNode !== body) { body.appendChild(panel); }

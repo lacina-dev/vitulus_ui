@@ -60,9 +60,11 @@ The points of the selected object appear at once:
 Nothing reaches the robot until you press **Save**, which appears with the first change. **Undo**
 goes back step by step (Ctrl+Z with a keyboard), **Cancel** returns to the saved shape. While a
 change is open, other objects and tools wait until you save or cancel. Closing the editor with a
-change asks for a second press and then discards it.
+change, or leaving for another panel, asks for a second press and then discards it.
 
 An outline that crosses itself cannot be saved. A polygon keeps at least 3 points, a line 2.
+A path recorded by driving keeps its headings: only the points you changed and their neighbours
+take the direction of the line.
 The card's **Delete** removes the whole object: press it twice.
 
 ## Names

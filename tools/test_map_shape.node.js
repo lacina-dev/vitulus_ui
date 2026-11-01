@@ -14,7 +14,8 @@
  *   - gestures: tap, pan, vertex drag, new vertex by tap and by drag, pinch,
  *     a second finger takes the drag back, a cancelled drag is taken back,
  *     shift+click, the fatter touch target, wheel direction,
- *   - a crossing outline is recognised and a plain one is not.
+ *   - a crossing outline is recognised and a plain one is not,
+ *   - a reshaped path keeps the headings of the poses it did not touch.
  */
 'use strict';
 const fs = require('fs');
@@ -211,6 +212,42 @@ check('a triangle does not cross', crosses([[0, 0], [2, 0], [1, 2]]), false);
 check('a concave ring does not cross', crosses([[0, 0], [4, 0], [4, 4], [2, 1], [0, 4]]), false);
 check('a bowtie crosses', crosses([[0, 0], [2, 2], [2, 0], [0, 2]]), true);
 check('a pentagon with a vertex pulled through crosses', crosses([[6, 2], [0, 0], [4, 0], [4, 4], [0, 4]]), true);
+
+// ---- headings of a reshaped path
+function sliceFn(name) {
+    const from = ME.indexOf('function ' + name + '(');
+    let n = 0;
+    for (let j = ME.indexOf('{', from); j < ME.length; j++) {
+        if (ME[j] === '{') { n++; }
+        if (ME[j] === '}') { n--; if (!n) { return ME.slice(from, j + 1); } }
+    }
+    throw new Error(name);
+}
+const pathYaws = new Function(sliceFn('pathYaws') + '\nreturn pathYaws;')();
+const LINE = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0]];
+const REC = [0.11, 0.22, 0.33, 0.44, 0.55, 0.66];     // recorded: not the line's direction
+const moved = LINE.map(p => p.slice()); moved[2] = [2, 1];
+const up45 = Math.PI / 4, down45 = -Math.PI / 4;
+check('unchanged path keeps every heading', pathYaws(LINE, REC, LINE), REC);
+check('a moved point changes itself and its neighbours only', pathYaws(LINE, REC, moved),
+      [0.11, up45, down45, 0, 0.55, 0.66]);
+const added = [[0, 0], [1, 0], [2, 0], [2.5, 1], [3, 0], [4, 0], [5, 0]];
+check('an added point: itself and both neighbours',
+      pathYaws(LINE, REC, added).map(y => +y.toFixed(3)),
+      [0.11, 0.22, 1.107, -1.107, 0, 0.55, 0.66]);
+check('a removed point: its two neighbours',
+      pathYaws(LINE, REC, [[0, 0], [1, 0], [3, 0], [4, 0], [5, 0]]), [0.11, 0, 0, 0.55, 0.66]);
+const lastMoved = LINE.map(p => p.slice()); lastMoved[5] = [4, 1];
+check('last point moved: along its segment, neighbour towards it',
+      pathYaws(LINE, REC, lastMoved).map(y => +y.toFixed(3)), [0.11, 0.22, 0.33, 0.44, 1.571, 1.571]);
+const firstMoved = LINE.map(p => p.slice()); firstMoved[0] = [0, 1];
+check('first point moved', pathYaws(LINE, REC, firstMoved), [down45, 0, 0.33, 0.44, 0.55, 0.66]);
+const standing = [[0, 0], [0, 0], [1, 0], [2, 0]];    // the robot stood still while recording
+check('a standing pose keeps its heading', pathYaws(standing, [1, 2, 3, 4], standing), [1, 2, 3, 4]);
+const dup = [[0, 0], [0, 0], [1, 1], [2, 0]];
+check('no direction on a zero segment: the one before',
+      pathYaws(standing, [1, 2, 3, 4], dup).map(y => +y.toFixed(3)), [1, 0.785, -0.785, -0.785]);
+check('result always matches the points', pathYaws(LINE, REC, added).length, added.length);
 
 if (failed) { console.log(failed + ' check(s) FAILED'); process.exit(1); }
 console.log('all checks passed');
