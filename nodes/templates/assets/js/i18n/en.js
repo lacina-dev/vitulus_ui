@@ -1265,6 +1265,7 @@
     "mapview.prog.mapgate.timeout_navi": "Navigation did not take over map {site} within {timeout} s — the robot stays in the dock",
     "mapview.prog.mapgate.pose_mismatch": "After loading map {site} the robot is {error} m from that map's dock — check its docked point",
     "mapview.prog.mapgate.no_dock_point": "Map {site} has no DOCK point, the robot could not get home — add it first",
+    "mapview.prog.mapgate.no_docked_point": "Map {site} has no docked point, the robot cannot place itself on it in the dock — dock it on that map and save the point first",
     "mapview.prog.mapgate.cancelled": "Start of {program} cancelled",
     "mapview.prog.mapgate.program_unusable": "Program {program} cannot run: {detail}",
     "calmgr.code.loading_map": "Loading the map of {program}.",

@@ -126,6 +126,7 @@ be loaded, the robot does not leave the dock and the card says why:
 | *did not become active / were not ready / did not take over* | the map has a problem: open it in **Map** and look at what it is missing, then **Run** again |
 | *is … m from that map's dock* | the map's `docked` point is wrong: dock the robot and save it again |
 | *has no DOCK point* | add the point, the robot could not get home without it |
+| *has no docked point* | dock the robot on that map and save the point, without it the robot cannot place itself on the map |
 | *is on several maps* | open the right one in the list and press **Run** there |
 
 To **edit** a program of another map, activate that map first: its card here is read-only.

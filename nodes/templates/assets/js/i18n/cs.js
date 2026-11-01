@@ -1296,6 +1296,7 @@
     "mapview.prog.mapgate.timeout_navi": "Navigace nepřevzala mapu {site} do {timeout} s, robot zůstává v doku",
     "mapview.prog.mapgate.pose_mismatch": "Po načtení mapy {site} je robot {error} m od doku té mapy, zkontroluj její bod docked",
     "mapview.prog.mapgate.no_dock_point": "Mapa {site} nemá bod DOCK, robot by se nevrátil domů, nejdřív ho přidej",
+    "mapview.prog.mapgate.no_docked_point": "Mapa {site} nemá bod docked, robot se na ní v doku neumístí, zadokuj ho na té mapě a bod ulož",
     "mapview.prog.mapgate.cancelled": "Spuštění programu {program} zrušeno",
     "mapview.prog.mapgate.program_unusable": "Program {program} nejde spustit: {detail}",
     "calmgr.code.loading_map": "Načítám mapu programu {program}.",

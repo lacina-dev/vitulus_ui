@@ -6854,6 +6854,10 @@ class Programs {
         // 2026-09-20: the served site changed -> the program shown in the map
         // belongs to the previous site (event dispatched by mapping.js).
         document.addEventListener('vitulus:served-site-changed', () => {
+            // vitulus-field#46: the map this card's Run is loading. The card
+            // stays: it says how the load goes and holds Stop.
+            const st = this._startState, p = this.selected_program;
+            if (st && st.state === 'switching' && p && p.foreign && p.name === st.program) return;
             try { this.clearShownProgram(); }
             catch (e) { console.warn('[programs] clear on site change failed:', e); }
         });

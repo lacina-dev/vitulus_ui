@@ -128,6 +128,7 @@ nevyjede a karta napíše proč:
 | *se nezapnula / nebyly připravené / nepřevzala* | mapa má problém: otevři ji v **Mapa**, podívej se, co jí chybí, a dej **Run** znovu |
 | *je … m od doku té mapy* | bod `docked` té mapy je špatně: zadokuj robota a ulož ho znovu |
 | *nemá bod DOCK* | přidej ho, bez něj by se robot nevrátil domů |
+| *nemá bod docked* | zadokuj robota na té mapě a bod ulož, bez něj se robot na mapě neumístí |
 | *je na více mapách* | otevři v seznamu ten správný a stiskni **Run** tam |
 
 Když chceš program jiné mapy **upravit**, nejdřív zapni jeho mapu: tady je jeho karta jen pro čtení.
