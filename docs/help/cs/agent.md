@@ -434,6 +434,16 @@ vždycky.
 i s překlepem. Když to není jasné, položí jednu krátkou otázku. Programy neupravuje ani nezakládá.
 Zastavený automat si resetuje sám, a když prší, řekne ti to.
 
+Řekni *posekej zónu A a po ní Test* nebo *zóny A, B a C*: je to jeden běh. Po programu se nůž
+zastaví a zvedne, robot jede rovnou na další program a zadokuje až po posledním, stačí jedno
+odemčení. V chatu uvidíš *Zóna A hotová, jedu do Test*. Programy se nemění a každý má svůj
+výsledek. Program jiné mapy se vynechá a agent řekne proč, ostatní jedou (změna mapy potřebuje
+dok). Pod startovní mezí baterie (40 %) další program nezačne a robot jede domů. Zastavení, déšť,
+slabá baterie nebo chyba řetěz ukončí jako jindy a agent řekne, co
+doběhlo a co zbývá; *pokračuj* odtud naváže. Deska sekačky zůstává mezi programy zapnutá. Když
+přechodná chyba zastaví další program, agent zopakuje jen zbytek: hotové programy zůstanou
+uznané a znovu se nesekají.
+
 Dokud program běží, hlídá ho supervisor jako *běh sekání*: otáčky nože čeká **jen dokud sekací
 automat robota hlásí, že běží právě tenhle program**; otáčky v kteroukoli jinou chvíli zastaví
 všechno jako dřív. STOP, tvoje převzetí, ztracený heartbeat agenta nebo časový limit robot dál

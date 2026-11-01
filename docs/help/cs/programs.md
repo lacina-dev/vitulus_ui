@@ -7,7 +7,7 @@ icon: la-calendar
 summary: Co a kdy sekat — programy (vytvořit, upravit, smazat), Run / Resume / Stop / Reset, kalendář a Pozdržet.
 ui: [program, program/programs, program/calendar#kalendář]
 related: [map-editor, mowing, waiting]
-keywords: [program, programy, kalendář, calendar, plán, schedule, pozdržet, hold, pozastaveno, held, aktivní, active, automatika vypnuta, automation off, spustit, run, pokračovat, resume, zastavit, stop, reset, přepsat zóny, override zone, smazat, delete, přejmenovat, rename, běží, running, chybí, missing, přerušit, interrupt, pauza]
+keywords: [chain, several programs, one after another, řetěz, víc programů, program, programy, kalendář, calendar, plán, schedule, pozdržet, hold, pozastaveno, held, aktivní, active, automatika vypnuta, automation off, spustit, run, pokračovat, resume, zastavit, stop, reset, přepsat zóny, override zone, smazat, delete, přejmenovat, rename, běží, running, chybí, missing, přerušit, interrupt, pauza]
 ---
 # Programy a kalendář
 
@@ -74,6 +74,13 @@ nebo dojezd do doku po návratu kvůli baterii či počasí.
   ukáže zase. Platí pro všechny, kdo se na mapu dívají.
 - Program ukázaný ručně před během: stejný program zmizí s během, jiný počká a po běhu se vrátí.
 - **Ukázat** jiného programu za běhu se vykreslí přes běžící.
+
+### Víc programů za sebou
+
+Řekni agentovi *posekej zónu A a po ní Test*: robot poseká programy jeden po druhém bez dokování
+a zadokuje až po posledním. Každý program je během svého běhu na kartě Běží i na mapě a má své
+místo pro Resume. Run tady v panelu i kalendář spouští vždy jeden program a po něm dokují. Víc
+v [Programech sekání](agent.md#programy-sekání).
 
 ### Přerušit a pokračovat
 

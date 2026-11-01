@@ -449,6 +449,16 @@ resuming from the dock needs your unlock (**Mow** or **Free drive**), one unlock
 
 Say *mow zone A*: the agent picks the best saved program by name, zone or map, typos included. If it is unclear, it asks one short question. It never edits or creates programs. It resets a stopped mower by itself and tells you if it rains.
 
+Say *mow zone A and then Test*, or *zones A, B and C*: one run. After a program the blade stops
+and rises, the robot drives straight to the next program and docks only after the last one, on
+one unlock. The chat says *Zone A done, going to Test*. The programs stay as they are, each with
+its own result. A program of another map is left out and the agent says why, the rest runs (a
+change of map takes the dock). Below the start limit of the battery (40 %) the next program does
+not begin and the robot goes home. Stopped, rain, a low battery or an error end the chain the usual
+way and the agent says what is done and what remains; *pokračuj* (continue) goes on from there.
+The mower board stays on between programs. If a passing error stops the next program, the agent
+repeats only the rest: finished programs stay counted and are not mowed again.
+
 While the program runs, the supervisor watches it as a *mowing run*: blade RPM is expected **only
 while the robot's mowing program reports exactly that program running**; RPM at any other time
 stops everything as before. STOP, your takeover, a lost agent heartbeat or the time limit still

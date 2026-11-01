@@ -7,7 +7,7 @@ icon: la-calendar
 summary: What to mow and when — programs (make, edit, delete), Run / Resume / Stop / Reset, the calendar and Hold.
 ui: [program, program/programs, program/calendar#the-calendar]
 related: [map-editor, mowing, waiting]
-keywords: [program, programs, calendar, schedule, hold, held, active, automation off, run, resume, stop, reset, override zone, delete, remove, rename, running, missing, interrupt, pause]
+keywords: [chain, several programs, one after another, řetěz, víc programů, program, programs, calendar, schedule, hold, held, active, automation off, run, resume, stop, reset, override zone, delete, remove, rename, running, missing, interrupt, pause]
 ---
 # Programs and calendar
 
@@ -73,6 +73,13 @@ program ends: done, Stop, an error, or the dock after a return for battery or we
 - A program shown by hand before the run: if it is the same program, it goes away with the run;
   another program waits and comes back after the run.
 - **Show** of another program during a run is drawn on top of the running one.
+
+### Several programs in a row
+
+Tell the agent *mow zone A and then Test*: the robot mows the programs one after the other without
+docking in between and docks after the last one. Each program shows on the Running card and on the
+map while it runs and keeps its own Resume point. Run from this panel and the calendar always start
+one program and dock after it. Details in [Mowing programs](agent.md#mowing-programs).
 
 ### Interrupt and continue
 
