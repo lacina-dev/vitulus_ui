@@ -59,19 +59,16 @@ někdo zvenku (program, jiný prohlížeč). Samotná kola jsou omezená na 1,4 
 
 ## Body
 
-![Mapa › záložka Bod s očíslovanými značkami](../img/shot-point-tab.webp "Mapa › Bod: 1 název · 2 Přidat · 3 Smazat body") ![Mapa › záložka Trasa s očíslovanými značkami](../img/shot-path-tab.webp "Mapa › Trasa: 1 název · 2 Nová · 3 Nová auto · 4 Stop auto · 5 Smazat trasy")
+![Mapa › záložka Bod s očíslovanými značkami](../img/shot-point-tab.webp "Mapa › Bod: 1 dojet · 2 Ukázat · 3 Smazat body") ![Mapa › záložka Trasa s očíslovanými značkami](../img/shot-path-tab.webp "Mapa › Trasa: 1 projet · 2 Ukázat · 3 Smazat trasy")
 
 **Mapa › Bod** ukazuje uložené body: tlačítko se značkou na začátku řádku na bod dojede,
-**Ukázat** ho ukáže na mapě, **✕** ho odebere. Napiš název a stiskni **Přidat** — uloží se
-současná poloha robota jako nový bod; **Smazat body** smaže všechny body mapy. **Zrušit navigaci**
-jízdu zastaví.
+**Ukázat** ho ukáže na mapě, **Smazat body** ukázané skryje. **Zrušit navigaci** jízdu zastaví.
+Nové body, přejmenování a mazání jsou v [editoru mapy](map-editor.md).
 
 ## Trasy
 
 **Mapa › Trasa** ukazuje uložené trasy: tlačítko se šipkou na začátku řádku trasu projede,
-**Přidat** k ní přidá současnou polohu robota jako další bod, **Ukázat** ji ukáže, **✕** ji odebere.
-Nahrání nové: napiš název a pak **Nová** (začne v současné poloze, body přidáváš za jízdy) nebo
-**Nová auto** (nahrává sama za jízdy; **Stop auto** ji ukončí). **Smazat trasy** smaže všechny
-trasy mapy. **Zrušit navigaci** jízdu zastaví.
+**Ukázat** ji ukáže, **Smazat trasy** ukázanou skryje. **Zrušit navigaci** jízdu zastaví.
 
-Trasy a body jde nakreslit i v [editoru mapy](map-editor.md).
+Nahrávání, kreslení, stopa jízdou a mazání jsou v [editoru mapy](map-editor.md): **Záznam na místě
+robota** má **Nová** a **Nová auto** jako dřív.

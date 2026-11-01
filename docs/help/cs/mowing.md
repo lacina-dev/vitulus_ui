@@ -7,7 +7,7 @@ icon: la-cut
 summary: Napájení sekačky, nůž, výška sekání a otáčky v Nastavení › Sekačka.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
+keywords: [zátěž sekání, zátěž, stopa, teplota, přetížení, minulé běhy, sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
 ---
 # Sekací ústrojí
 
@@ -49,6 +49,40 @@ STOP MOTOR tady; kliknutím na název se rozbalí
   kam se nůž po sekání zaparkuje.
 - Stav **TEMP**: sekačka je moc horká — nůž se vypne (znovu se dá spustit, až vychladne) a běžící
   program se vrátí do doku.
+
+## Zátěž sekání v mapě
+
+Vrstva **Zátěž sekání** (záložka Mapa, Vrstvy, a panel Vrstvy v editoru) kreslí stopu za robotem, živě
+při sekání a později pro kterýkoli z posledních 30 běhů. Zapne se sama, když běží program, dokud si ji
+nenastavíš sám; pak platí tvoje volba.
+
+- **Barva** ukazuje vždy jednu věc, vybíráš ji v **Barva ukazuje**: Zátěž, Rychlost, Sklon, Teplota,
+  Přesnost, Stáří RTCM nebo Pokles otáček. Legenda dává skutečné hodnoty.
+- **Šířka** říká, co robot dělal. Plný pruh široký jako žací ústrojí: sekání. Užší: rozběh nebo čekání.
+  Tenká čára: nůž vypnutý. Fialová: zastaveno pravidlem bez nože. Růžová: zablokováno, bílá: přehřátý
+  motor.
+- **Zastávky a události** jsou malé ikony: zablokování, přetížení, záchrana, couvnutí, objížďka,
+  zastavení na místě, bez postupu, nové okno trasy, varování teploty, výpadek RTCM, ztráta a návrat
+  RTK. Když se tlačí, zůstanou ty
+  nejhorší; ostatní uvidíš po přiblížení.
+- **Klepnutí na stopu** ukáže krátkou kartu: nůž, jízda, poloha, napájení a úloha v tu chvíli. S myší
+  stačí najet, ukážou se první čísla.
+- **Běh** vybere minulý běh, pod ním jsou součty: čas sekání, přejezdy, zastávky, zátěž, špička
+  teploty, energie.
+
+Zátěž 100 % je bod, kdy firmware sekačky vypne motor: proud motoru na limitu (1,54 A) nebo otáčky na
+čtvrtině nastavených, co je blíž. Nůž naprázdno ukazuje asi 10 %. Teplota se zapisuje syrově, takže
+jediná chybná hodnota zůstane vidět: jeden vzorek v jinak chladném běhu je špička čidla, pomalý růst
+je skutečné zahřívání.
+
+- **Přesnost** je hAcc, o kolik se přijímač podle sebe může mýlit: asi 1,4 cm v RTK fix, 2,7 cm ve
+  float, metry bez korekcí. Třída fixu je v kartě a jako značka tam, kde se změní.
+- **Stáří RTCM** je čas od poslední korekce ze základny. Kmitá mezi 0 a 1 s, 3 s se počítají jako
+  výpadek a zůstane po nich značka. Rychlost zpráv, satelity a pDOP jsou v kartě.
+- **Pokles otáček** říká, o kolik nůž klesl pod nastavené otáčky. Řízení motoru je drží skoro pořád do
+  2 ot./min, takže škála je jemná: ukáže už pár otáček. Skutečnou trávu lépe ukáže Zátěž.
+
+Běhy nahrané dřív, než se Přesnost a RTCM zapisovaly, je ukážou šedě, bez dat.
 
 ## Zastavení
 

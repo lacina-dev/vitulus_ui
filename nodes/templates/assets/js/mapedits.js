@@ -1,16 +1,21 @@
 // mapedits.js — WP-D2 interactive map editor tools for vitulus_ui.
 //
 // Adds, on top of the existing in-view planner editor (mapeditor.js overlay +
-// map_edit.js zone/polygon flows), a toolbar in #div_map_detail that drives:
-//   - Select            -> pick any visible object on the map or in its list;
-//                          the selection card holds its name, shape and delete
-//   - Waypoint tool     -> /navi_manager/save_waypoint_at + /remove_point
-//   - Obstacle / Free   -> /mapping_manager/save_edit  (polygon draw, reused)
-//   - Wall              -> /mapping_manager/save_edit  (polyline draw, width_m)
-//   - Delete edit       -> /mapping_manager/remove_edit (click hit-test)
-//   - Clear all edits   -> /mapping_manager/remove_edit "*"
+// map_edit.js zone/polygon flows), the tool bar over the map and the inspector:
+//   - Select            -> pick any visible object on the map or in the list;
+//                          the inspector holds its name, meaning, rules, status
+//                          and actions, the same anatomy for every type
+//   - Meaning           -> /map_objects/op (place, landmark, nogo, slow, noblade,
+//                          corridor; docs/MAP_OBJECTS.md in vitulus_mapping)
+//   - Map fixes         -> /mapping_manager/save_edit (obstacle, free, barrier)
+//   - Waypoint, Path    -> /navi_manager/save_waypoint_at, save_path_at
 //   - Zone              -> map_edit.js zone flow (form, confirmation)
-//   - Exit editor
+//   - Measure, Trace by driving, snap: nothing here commands the robot
+//   - Delete            -> at once, with an undo toast, on the selection
+//
+// map_objects_server may not be running: the owners' lists stay the source of
+// what exists, the server adds ids, meaning, history and the new types. Without
+// it the editor is what it was and a delete is undone by saving the object back.
 //
 // The mapping_manager EDITS topic layer is deliberately isolated in the
 // EditMaskLayer class below (the ONLY place that knows the save_edit/remove_edit
@@ -26,7 +31,7 @@
 window.MapEdits = (function () {
     'use strict';
 
-    var T = window.THREE;
+    var T = window.THREE, MO = window.VTMapObjects, Panel = window.MapEditPanel;
 
     // i18n (docs/I18N.md). Static parts of the panel carry data-i18n (VTI18n
     // re-translates them on a switch by itself); what is drawn from data (the
@@ -62,7 +67,7 @@ window.MapEdits = (function () {
             tex.needsUpdate = true;
             var mat = new T.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true });
             var spr = new T.Sprite(mat);
-            spr.userData.label = { w: cv.width, h: cv.height, x: x, y: y, extent: extent || 0 };
+            spr.userData.label = { w: cv.width, h: cv.height, x: x, y: y, extent: extent || 0, prio: 3 };
             spr.renderOrder = order;
             return spr;
         } catch (e) { return null; }
@@ -175,9 +180,10 @@ window.MapEdits = (function () {
                 if (pts.length && e.name) {
                     var c = _center(pts);
                     var lb = _makeLabel(e.name, c[0], c[1], order + 3, '#ffffff', _extent(pts));
-                    if (lb) this.group.add(lb);
+                    if (lb) { lb.userData.label.prio = 4; this.group.add(lb); }
                 }
             }
+            _rescaleLabels(true);
             if (this.overlay) this.overlay.markDirty();
         }
         _addPolygon(pts, col, order) {
@@ -269,8 +275,11 @@ window.MapEdits = (function () {
 
     // V3: overlay-group visibility toggles, persisted in localStorage (default ON).
     var SHOW_KEYS = { waypoints: 'vitulus_editor_show_waypoints', paths: 'vitulus_editor_show_paths',
-                      edits: 'vitulus_editor_show_edits', zones: 'vitulus_editor_show_zones' };
-    var _show = { waypoints: true, paths: true, edits: true, zones: true };
+                      edits: 'vitulus_editor_show_edits', zones: 'vitulus_editor_show_zones',
+                      places: 'vitulus_editor_show_places', coverage: 'vitulus_editor_show_coverage',
+                      gnss: 'vitulus_editor_show_gnss', slope: 'vitulus_editor_show_slope' };
+    var _show = { waypoints: true, paths: true, edits: true, zones: true, places: true,
+                  coverage: false, gnss: false, slope: false };
     function _loadShow() {
         for (var k in SHOW_KEYS) {
             try { var v = localStorage.getItem(SHOW_KEYS[k]); if (v !== null) _show[k] = (v === '1'); } catch (e) {}
@@ -304,7 +313,7 @@ window.MapEdits = (function () {
         _sub_wp_list = new ROSLIB.Topic({ ros: ros, name: '/navi_manager/map_point_str_list', messageType: 'vitulus_msgs/StringList' });
         _sub_wp_list.subscribe(function (msg) {
             _wpNames = (msg && msg.string_list) ? msg.string_list.slice() : [];
-            _renderWpList();
+            _renderList();
         });
     }
 
@@ -397,7 +406,7 @@ window.MapEdits = (function () {
                 this.pathGroup.add(line);
                 var mid = pts[Math.floor(pts.length / 2)];
                 var plb = _makeLabel(this.paths[p].name || '', mid[0], mid[1], order + 3, '#00d0a0', _extent(pts));
-                if (plb) this.pathGroup.add(plb);
+                if (plb) { plb.userData.label.prio = 5; this.pathGroup.add(plb); }
             }
             // waypoints — dot + heading arrow + text label, one group each so
             // the size can follow the zoom (_rescaleLabels)
@@ -433,8 +442,13 @@ window.MapEdits = (function () {
                 }
                 this.wpGroup.add(g);
                 var label = _makeLabel(w.name || '', w.x, w.y, order + 2, '#7f9dff', 0);
-                if (label) { label.userData.label.beside = true; this.wpGroup.add(label); }
+                if (label) {
+                    label.userData.label.beside = true;
+                    label.userData.label.prio = MO.isProtectedName(w.name) ? 1 : 3;
+                    this.wpGroup.add(label);
+                }
             }
+            _rescaleLabels(true);
             if (this.overlay) this.overlay.markDirty();
         }
         destroy() {
@@ -485,12 +499,13 @@ window.MapEdits = (function () {
                 this.group.add(line);
                 var c = _center(pts);
                 var lb = _makeLabel(zones[i].name, c[0], c[1], EDITS_ORDER() + 3, '#6fe3ff', _extent(pts));
-                if (lb) this.group.add(lb);
+                if (lb) { lb.userData.label.prio = 1; this.group.add(lb); }
             }
             _rescaleLabels(true);
         }
     }
     var _zoneLayer = null;
+    var _ml = null;          // MapEditLayers.Layers: objects with meaning, world layers, snap ring
 
     // Constant size on screen for what lives in map metres. Runs each overlay
     // frame, does its work only when the zoom changed.
@@ -501,7 +516,9 @@ window.MapEdits = (function () {
         if (!force && Math.abs(pxm - _lastPxm) < _lastPxm * 0.004) return;
         _lastPxm = pxm;
         var groups = [_layer && _layer.group, _zoneLayer && _zoneLayer.group,
-                      _mapObjLayer && _mapObjLayer.wpGroup, _mapObjLayer && _mapObjLayer.pathGroup];
+                      _mapObjLayer && _mapObjLayer.wpGroup, _mapObjLayer && _mapObjLayer.pathGroup,
+                      _ml && _ml.group, _ml && _ml.sugg];
+        var labels = [];
         var wpScale = Math.max(1, WP_MIN_PX / (WP_R * pxm));
         groups.forEach(function (g) {
             if (!g) return;
@@ -518,8 +535,16 @@ window.MapEdits = (function () {
                     o.position.set(l.x, l.y, 0);
                 }
                 o.visible = !l.extent || l.extent * pxm >= LABEL_MIN_PX;
+                if (o.visible && g.visible !== false) {
+                    labels.push({ x: o.position.x * pxm, y: o.position.y * pxm, w: l.w * LABEL_PX, h: l.h * LABEL_PX,
+                                  prio: l.prio, order: labels.length, spr: o });
+                }
             });
         });
+        // Fewer words and no overlap: rules and zones first, paths last.
+        var kept = MO.declutter(labels, 2);
+        labels.forEach(function (it) { it.spr.visible = false; });
+        kept.forEach(function (it) { it.spr.visible = true; });
         var P = sharedPolygon();
         if (P && P.attached) P._updateVertexScale();
     }
@@ -532,7 +557,7 @@ window.MapEdits = (function () {
         if (!ros) { console.warn('[mapedits] no ros connection yet'); }
         if (ros && !_layer) {
             _layer = new EditMaskLayer(ros, overlay);
-            _layer.onListChange = function () { _renderEditList(); _onData(); };
+            _layer.onListChange = function () { _renderList(); _onData(); };
         } else if (_layer) {
             // overlay may have been rebuilt — re-attach the render group
             try { if (_layer.group.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_layer.group); } catch (e) {}
@@ -540,7 +565,7 @@ window.MapEdits = (function () {
         // V3: map-objects overlay (waypoint dots + path polylines).
         if (ros && !_mapObjLayer) {
             _mapObjLayer = new MapObjectsLayer(ros, overlay);
-            _mapObjLayer.onChange = function () { _renderPathList(); _renderWpList(); _onData(); };
+            _mapObjLayer.onChange = function () { _renderList(); _onData(); };
         } else if (_mapObjLayer) {
             try {
                 if (_mapObjLayer.wpGroup.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_mapObjLayer.wpGroup);
@@ -549,17 +574,26 @@ window.MapEdits = (function () {
         }
         if (!_zoneLayer) _zoneLayer = new ZoneLayer(overlay);
         else if (_zoneLayer.group.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_zoneLayer.group);
+        if (!_ml) {
+            _ml = new MapEditLayers.Layers(overlay, {
+                makeLabel: _makeLabel, order: EDITS_ORDER,
+                rescale: function () { _rescaleLabels(true); },
+            });
+        } else _ml.attach(overlay);
         if (ros) {
+            MO.start(ros);
             _ensureWpTopics(ros);
             // advertised up front: a publish right after advertise can be lost
             Object.keys(RENAME_TOPIC).forEach(_renameTopic);
         }
         _loadShow();
         _buildToolbar();
+        _showBar(true);
         _zoneData();
-        _renderEditList();
-        _renderWpList();
-        _renderPathList();
+        _onObjects('objects');
+        _onObjects('history');
+        _onObjects('suggestions');
+        _renderList();
         _applyAllShow();
         _setTool('off');
         _rescaleLabels(true);
@@ -571,6 +605,10 @@ window.MapEdits = (function () {
         _setToolButtonsActive('off');
         _hideWpInput();
         _compact(false);
+        _showBar(false);
+        ['coverage', 'gnss', 'slope'].forEach(_dropWorld);
+        Panel.hideToast();
+        if (window.VTMapRules) VTMapRules.refresh();
         // V3: the Zones chip toggles LIVE-scene program/zone markers; restore them
         // so closing the editor never leaves the normal map view with zones hidden.
         // (The overlay layers live under overlayGroup, which the overlay hides
@@ -581,27 +619,34 @@ window.MapEdits = (function () {
     // ---- toolbar UI ----
     function _panel() { return document.getElementById('div_map_detail'); }
 
-    // TOOLS: 4-per-row icon grid. Each entry: state machine tool id + emoji +
-    // label + idle bootstrap variant (swapped to solid btn-primary when
-    // active). 'off' == select: tap an object, drag and pinch move the map.
-    // V4: UI labels clarified. The backend edit "kind" values stay
-    // obstacle/free/wall (see _finishEditsDraw) for backend compat — only the
-    // visible label/hint text changes here. V2 adds the 'path' tool (manual path
-    // drawing that lands in the same collection as robot-recorded paths).
-    // P5: icons from the app's icon font (line-awesome) instead of emoji; the
-    // tile colour lives in CSS (index.html "tool grid") keyed on data-tool, the
-    // `idle` class stays for the active/idle swap below.
-    var TOOLS = [
-        { tool: 'off',           ico: '<i class="la la-mouse-pointer"></i>', label: 'medits.tool.select',           idle: 'btn-outline-light' },
-        { tool: 'waypoint',      ico: '<i class="la la-map-marker"></i>',   label: 'medits.tool.waypoint',          idle: 'btn-outline-info' },
-        { tool: 'path',          ico: '<i class="la la-road"></i>',         label: 'medits.tool.path',              idle: 'btn-outline-primary' },
-        { tool: 'zone',          ico: '<i class="la la-object-group"></i>', label: 'medits.tool.zone',              idle: 'btn-outline-info' },
-        { tool: 'edit_obstacle', ico: '<i class="la la-square"></i>',       label: 'medits.tool.obstacle',   idle: 'btn-outline-danger' },
-        { tool: 'edit_free',     ico: '<i class="la la-square-o"></i>',     label: 'medits.tool.free', idle: 'btn-outline-success' },
-        { tool: 'edit_wall',     ico: '<i class="la la-minus"></i>',        label: 'medits.tool.wall',    idle: 'btn-outline-warning' },
-        { tool: 'edit_delete',   ico: '<i class="la la-trash"></i>',        label: 'medits.tool.delete',            idle: 'btn-outline-secondary' },
-        { tool: 'geofence',      ico: '<i class="la la-shield"></i>',       label: 'medits.tool.geofence',          idle: 'btn-outline-warning' },
+    // TOOLS: the bar over the map holds Select, three groups, Measure, undo and
+    // redo, Layers, History and an overflow. 'off' == select: tap an object, drag
+    // and pinch move the map. The backend edit "kind" values stay
+    // obstacle/free/wall (see _finishEditsDraw). Colours by data-type in
+    // vt_mapedit.css. "Map fixes" and "Meaning" are apart on purpose: the first
+    // corrects what the map shows, the second says what a place is.
+    var TOOL_GROUPS = [
+        { key: 'meaning', ico: 'la-tag', label: 'medits.group.meaning', tools: [
+            { tool: 'obj_place',    type: 'place',    label: 'medits.tool.place' },
+            { tool: 'obj_landmark', type: 'landmark', label: 'medits.tool.landmark' },
+            { tool: 'obj_nogo',     type: 'nogo',     label: 'medits.tool.nogo' },
+            { tool: 'obj_slow',     type: 'slow',     label: 'medits.tool.slow' },
+            { tool: 'obj_noblade',  type: 'noblade',  label: 'medits.tool.noblade' },
+            { tool: 'obj_corridor', type: 'corridor', label: 'medits.tool.corridor' },
+        ] },
+        { key: 'fix', ico: 'la-wrench', label: 'medits.group.fix', tools: [
+            { tool: 'edit_obstacle', type: 'obstacle', label: 'medits.tool.obstacle' },
+            { tool: 'edit_free',     type: 'free',     label: 'medits.tool.free' },
+            { tool: 'edit_wall',     type: 'wall',     label: 'medits.tool.wall' },
+        ] },
+        { key: 'objects', ico: 'la-map-o', label: 'medits.group.objects', tools: [
+            { tool: 'waypoint', type: 'waypoint', label: 'medits.tool.waypoint' },
+            { tool: 'path',     type: 'path',     label: 'medits.tool.path' },
+            { tool: 'zone',     type: 'zone',     label: 'medits.tool.zone' },
+        ] },
     ];
+    var PLACE_TOOL = { obj_place: 'place', obj_landmark: 'landmark', obj_nogo: 'nogo',
+                       obj_slow: 'slow', obj_noblade: 'noblade', obj_corridor: 'corridor' };
 
     // =====================================================================
     // GEOFENCE tool — click the test perimeter instead of driving it.
@@ -762,21 +807,43 @@ window.MapEdits = (function () {
         var ctx = document.getElementById('mapedit_context');
         if (!tools || !ctx) { _built = false; return; }   // panel not (yet) redesigned
 
-        // B. TOOLS — icon grid.
-        var gh = '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb2"' + _ti('medits.tools') + '</div><div class="met-grid">';
-        for (var i = 0; i < TOOLS.length; i++) {
-            var tl = TOOLS[i];
-            gh += '<button type="button" class="btn met-tool ' + tl.idle + '" data-tool="' + tl.tool + '" data-idle="' + tl.idle + '">' +
-                  '<span class="met-ico">' + tl.ico + '</span><span' + _ti(tl.label) + '</span></button>';
+        // B. TOOLS — the bar over the map.
+        function tipAttrs(k) {
+            return ' data-i18n-title="' + k + '" data-i18n-aria-label="' + k + '" title="' + _escapeAttr(t(k)) + '" aria-label="' + _escapeAttr(t(k)) + '"';
         }
-        gh += '</div>';
-        // V3: "Show:" row of toggle chips for the editor overlay groups.
-        gh += _showRowHtml();
-        tools.innerHTML = gh;
+        function btn(ico, k, attrs) {
+            return '<button type="button" class="mapedit-bar-btn"' + (attrs || '') + tipAttrs(k) + '><i class="la ' + ico + '"></i></button>';
+        }
+        function flyTool(tl) {
+            return '<button type="button" class="met-tool" data-tool="' + tl.tool + '"' + (tl.type ? ' data-type="' + tl.type + '"' : '') + '>' +
+                   '<i class="la ' + (tl.type ? MO.TYPES[tl.type].ico : tl.ico) + '"></i><span' + _ti(tl.label) + '</span></button>';
+        }
+        var gh = '<div class="mapedit-bar-row mapedit-bar-tools">' + btn('la-mouse-pointer', 'medits.tool.select', ' data-tool="off"');
+        TOOL_GROUPS.forEach(function (g) {
+            gh += '<div class="mapedit-bar-group"><button type="button" class="mapedit-bar-btn" data-group="' + g.key + '"' + tipAttrs(g.label) + '>' +
+                  '<i class="la ' + g.ico + '"></i><span' + _ti(g.label) + '</span></button>' +
+                  '<div class="mapedit-fly" data-fly="' + g.key + '">' + g.tools.map(flyTool).join('') + '</div></div>';
+        });
+        gh += btn('la-compass', 'medits.tool.measure', ' data-tool="measure"') + '<span class="mapedit-bar-sep"></span>' +
+              btn('la-undo', 'medits.g_undo', ' id="mapedit_gundo" disabled') + btn('la-repeat', 'medits.g_redo', ' id="mapedit_gredo" disabled') +
+              '<span class="mapedit-bar-sep"></span>' +
+              btn('la-clone', 'editor.layers', ' data-goto="mapedit_sec_layers"') + btn('la-history', 'editor.history', ' data-goto="mapedit_sec_history"') +
+              '<div class="mapedit-bar-group">' + btn('la-ellipsis-h', 'medits.more', ' data-group="more"') +
+              '<div class="mapedit-fly" data-fly="more">' +
+              flyTool({ tool: 'geofence', ico: 'la-shield', label: 'medits.tool.geofence' }) +
+              '<button type="button" class="met-tool" id="mapedit_clear_all"><i class="la la-trash"></i><span' + _ti('medits.clear_all') + '</span></button>' +
+              '</div></div></div>' +
+              '<div class="mapedit-bar-row" id="mapedit_status" hidden><span id="mapedit_live"></span>' +
+              btn('la-magnet', 'medits.snap', ' id="mapedit_snap"') +
+              btn('la-location-arrow', 'medits.trace.start', ' id="mapedit_trace"') + '</div>';
+        var bar = document.createElement('div');
+        bar.id = 'mapedit_bar';
+        bar.innerHTML = gh;
+        tools.appendChild(bar);
 
         // C. ACTIVE TOOL CONTEXT — one box showing only what the tool needs.
         ctx.innerHTML =
-            '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1"' + _ti('medits.tool_context') + '</div>' +
+            '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1"' + _ti('medits.inspector') + '</div>' +
             '<div class="vt-box mapedit-ctx-box">' +
             '  <button class="btn btn-outline-secondary" id="mapedit_expand" type="button" data-i18n-title="medits.expand" data-i18n-aria-label="medits.expand" title="' + _escapeAttr(t('medits.expand')) + '" aria-label="' + _escapeAttr(t('medits.expand')) + '"><i class="la la-angle-up"></i></button>' +
             '  <div id="mapedit_sel"></div>' +
@@ -817,16 +884,32 @@ window.MapEdits = (function () {
             '</div>';
 
         // tool buttons
-        tools.querySelectorAll('[data-tool]').forEach(function (b) {
+        bar.querySelectorAll('[data-tool]').forEach(function (b) {
             b.addEventListener('click', function () {
                 var m = b.getAttribute('data-tool');
+                _closeFly();
                 if (_dirty()) { _setHint('medits.sel.save_first'); return; }
                 if (m === 'off') { _setTool('off'); return; }
                 if (_tool === m) _setTool('off'); else _setTool(m);
             });
         });
-        // V3: Show chips.
-        _wireShowChips(tools);
+        bar.querySelectorAll('[data-group]').forEach(function (b) {
+            b.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                var f = bar.querySelector('[data-fly="' + b.getAttribute('data-group') + '"]'), was = f.classList.contains('open');
+                _closeFly();
+                f.classList.toggle('open', !was);
+            });
+        });
+        document.addEventListener('click', function (ev) { if (!ev.target.closest('.mapedit-bar-group')) _closeFly(); });
+        bar.querySelector('#mapedit_gundo').addEventListener('click', function () { _history('undo'); });
+        bar.querySelector('#mapedit_gredo').addEventListener('click', function () { _history('redo'); });
+        bar.querySelector('#mapedit_clear_all').addEventListener('click', function () { _closeFly(); _clearAll(); });
+        bar.querySelector('#mapedit_snap').addEventListener('click', _toggleSnap);
+        bar.querySelector('#mapedit_trace').addEventListener('click', function () { if (_trace) _traceStop(true); else _traceStart(); });
+        bar.querySelectorAll('[data-goto]').forEach(function (b) {
+            b.addEventListener('click', function () { _reveal(b.getAttribute('data-goto')); });
+        });
         // finish / cancel (edits draw)
         ctx.querySelector('#mapedit_finish').addEventListener('click', _finishEditsDraw);
         ctx.querySelector('#mapedit_cancel').addEventListener('click', function () {
@@ -843,56 +926,91 @@ window.MapEdits = (function () {
             ctx.querySelector('#mapedit_zone_slot').appendChild(zoneForm);
             zoneForm.addEventListener('input', function () {
                 if (_draft && _draft.kind === 'zone') { _draft.formDirty = true; _refreshActions(); }
+                _zoneCheckSoon();
             });
         }
         // geofence: offline export of the clicked ring
         var gfx = ctx.querySelector('#mapedit_gf_export');
         if (gfx) gfx.addEventListener('click', _gfExport);
 
-        // Edity mapy section: Clear-all (double-click confirm) lives here, not in
-        // the tool grid.
         _wireLists();
         document.addEventListener('keydown', _onKey);
-        var editctl = document.getElementById('mapedit_editctl');
-        if (editctl) {
-            editctl.innerHTML = '<button class="btn btn-outline-danger btn-sm" id="mapedit_clear_all" type="button"' + _ti('medits.clear_all') + '</button>';
-            _wireClearAll(editctl.querySelector('#mapedit_clear_all'));
-        }
+        Panel.init({
+            rowHtml: rowHtml, markRows: _markRows,
+            togglePath: function (n) {
+                if (!_mapObjLayer) return;
+                _mapObjLayer.setPathHidden(n, !_mapObjLayer.isPathHidden(n));
+                _renderList();
+            },
+            layerOn: _layerOn, setLayer: _setLayer,
+            layerMsg: function (k) { return _worldMsg[k] || null; },
+            suggestion: _suggestion, frameSuggestion: _frameSuggestion,
+            onSuggestions: function (open) { if (_ml) _ml.setSuggestions(open); },
+        });
+        MO.onChange(_onObjects);
+        window.addEventListener('resize', function () { if (_ov && _ov.editing) _showBar(true); });
 
         _built = true;
         _refreshDisabled();
     }
 
-    // ---- V3: "Show:" toggle chips ----
-    var SHOW_CHIPS = [
-        { k: 'waypoints', label: 'medits.show.waypoints' },
-        { k: 'paths',     label: 'medits.show.paths' },
-        { k: 'edits',     label: 'medits.show.edits' },
-        { k: 'zones',     label: 'medits.show.zones' },
-    ];
-    function _showRowHtml() {
-        var h = '<div id="mapedit_show_row" class="vt-flex vt-wrap vt-aic vt-gap6 vt-mt2">' +
-                '<span class="vt-fs-xs vt-caps vt-ls vt-muted"' + _ti('medits.show') + '</span>';
-        for (var i = 0; i < SHOW_CHIPS.length; i++) {
-            var c = SHOW_CHIPS[i];
-            var on = _show[c.k] !== false;
-            h += '<button type="button" class="btn btn-sm mapedit-show-chip ' + (on ? 'btn-info' : 'btn-outline-secondary') +
-                 ' vt-chip-btn" data-show="' + c.k + '"' + _ti(c.label) + '</button>';
-        }
-        h += '</div>';
-        return h;
+    function _closeFly() {
+        document.querySelectorAll('.mapedit-fly.open').forEach(function (f) { f.classList.remove('open'); });
     }
-    function _wireShowChips(root) {
-        if (!root) return;
-        root.querySelectorAll('.mapedit-show-chip').forEach(function (b) {
-            b.addEventListener('click', function () {
-                var k = b.getAttribute('data-show');
-                _show[k] = !_show[k];
-                _saveShow(k);
-                _applyShow(k);
-                b.className = 'btn btn-sm mapedit-show-chip ' + (_show[k] ? 'btn-info' : 'btn-outline-secondary');
-                b.classList.add('vt-chip-btn');   // size: vt_panel.css
-            });
+    // Open a section of the panel from the bar. A phone leaves the compact sheet.
+    function _reveal(id) {
+        var d = document.getElementById(id);
+        if (!d) return;
+        _compact(false);
+        d.open = true;
+        if (d.scrollIntoView) d.scrollIntoView({ block: 'nearest' });
+    }
+    // The bar floats over the map; on a phone it is part of the sheet.
+    function _showBar(on) {
+        var bar = document.getElementById('mapedit_bar'), host = document.getElementById('mapedit_tools');
+        if (!bar || !host) return;
+        var phone = window.innerWidth < 576, want = phone ? host : document.body;
+        if (bar.parentNode !== want) want.appendChild(bar);
+        bar.classList.toggle('on', !!on);
+        var h = (on && !phone) ? bar.offsetHeight + 8 : 0;
+        if (h !== _barH) {
+            _barH = h;
+            document.documentElement.style.setProperty('--mapedit-bar-h', h + 'px');
+        }
+    }
+    var _barH = -1;
+
+    // ---- layers panel
+    var _worldSub = {}, _worldMsg = {};
+    var BRIDGED = { terrain: 'mapv3_chk_terrain', aerial: 'mapv3_chk_aerial', mow_load: 'mapv3_chk_mowload' };   // layers of the Map tab
+    function _layerOn(k) {
+        if (BRIDGED[k]) { var c = document.getElementById(BRIDGED[k]); return !!(c && c.checked); }
+        return _show[k] !== false;
+    }
+    function _setLayer(k, on) {
+        if (BRIDGED[k]) {
+            var c = document.getElementById(BRIDGED[k]);
+            if (c) { c.checked = !!on; c.dispatchEvent(new Event('change')); }
+            return;
+        }
+        _show[k] = !!on;
+        _saveShow(k);
+        _applyShow(k);
+    }
+    function _dropWorld(k) {
+        var sub = _worldSub[k];
+        if (sub) { try { sub.unsubscribe(); } catch (e) {} }
+        delete _worldSub[k];
+        delete _worldMsg[k];
+        if (_ml) _ml.dropWorld(k);
+    }
+    function _applyWorld(k) {
+        if (!_show[k] || !(_ov && _ov.editing)) { _dropWorld(k); return; }
+        if (_worldSub[k]) return;
+        _worldSub[k] = MO.subscribeLayer(k, function (m) {
+            _worldMsg[k] = m;
+            if (_ml) _ml.setWorld(k, m);
+            Panel.setLegend(k);
         });
     }
     function _applyAllShow() { for (var k in SHOW_KEYS) _applyShow(k); }
@@ -900,10 +1018,12 @@ window.MapEdits = (function () {
         if (k === 'waypoints') { if (_mapObjLayer) _mapObjLayer.setWaypointsVisible(_show.waypoints); }
         else if (k === 'paths') { if (_mapObjLayer) _mapObjLayer.setPathsVisible(_show.paths); }
         else if (k === 'edits') { if (_layer) { _layer.group.visible = !!_show.edits; if (_ov) _ov.markDirty(); } }
+        else if (k === 'places') { if (_ml) _ml.group.visible = !!_show.places; }
         else if (k === 'zones') {
             _applyZonesVisible(_show.zones);
             if (_zoneLayer) { _zoneLayer.group.visible = !!_show.zones; if (_ov) _ov.markDirty(); }
-        }
+        } else _applyWorld(k);
+        _rescaleLabels(true);
     }
     // Zones: toggle the EXISTING program/zone MarkerArray geometry in the live
     // 3D scene (exposed by map_view.js as window.__program_markers_client) rather
@@ -919,23 +1039,6 @@ window.MapEdits = (function () {
         } catch (e) {}
     }
 
-    // Double-click-to-confirm (NEVER window.confirm — it blocks the event loop).
-    function _wireClearAll(btn) {
-        if (!btn) return;
-        var armed = false, timer = null;
-        function disarm() { armed = false; _tag(btn, 'medits.clear_all'); btn.classList.remove('btn-danger'); btn.classList.add('btn-outline-danger'); if (timer) { clearTimeout(timer); timer = null; } }
-        btn.addEventListener('click', function () {
-            if (!armed) {
-                armed = true; _tag(btn, 'medits.sure'); btn.classList.remove('btn-outline-danger'); btn.classList.add('btn-danger');
-                timer = setTimeout(disarm, 2500);
-            } else {
-                disarm();
-                if (_layer) _layer.clearAll();
-                _setHint('medits.hint.cleared');
-            }
-        });
-    }
-
     // the hint is a key (+ vars, or a function giving them); kept so a
     // language switch can re-draw it
     var _hintK = null, _hintV = null;
@@ -943,6 +1046,22 @@ window.MapEdits = (function () {
         _hintK = k || null; _hintV = v || null;
         var h = document.getElementById('mapedit_hint');
         if (h) h.textContent = k ? t(k, (typeof v === 'function') ? v() : v) : '';
+    }
+    // A short code from a robot node, in words; the planner's own text as it comes.
+    function _reason(r) {
+        if (r.timeout) return t('medits.sel.no_answer');
+        var c = String(r.code || r.reason || ''), i = c.indexOf(':');
+        var k = 'medits.reason.' + (i < 0 ? c : c.slice(0, i));
+        var s = t(k, { detail: i < 0 ? '' : c.slice(i + 1) });
+        return s !== k ? s : (r.reason || c || t('medits.reason.failed'));
+    }
+    function _sayReason(r) { var x = _reason(r); _setHint('medits.hint.raw', { text: x }); }
+    function _warnings(r) {
+        (r.warnings || []).forEach(function (w) {
+            var i = String(w).indexOf(':'), c = i < 0 ? w : w.slice(0, i), k = 'medits.warn.' + c;
+            var s = t(k, { detail: i < 0 ? '' : String(w).slice(i + 1) });
+            if (s !== k) Panel.toast(s);
+        });
     }
     function _refreshDisabled() {
         // Obstacle/Free/Wall/Delete/Clear need the edits backend; if the shared
@@ -952,19 +1071,20 @@ window.MapEdits = (function () {
 
     // ---- tool state machine ----
     function _setToolButtonsActive(mode) {
-        var tools = document.getElementById('mapedit_tools'); if (!tools) return;
-        tools.querySelectorAll('[data-tool]').forEach(function (b) {
-            var idle = b.getAttribute('data-idle') || 'btn-outline-secondary';
-            b.className = (b.getAttribute('data-tool') === mode)
-                ? 'btn met-tool btn-primary active'
-                : 'btn met-tool ' + idle;
+        var bar = document.getElementById('mapedit_bar'); if (!bar) return;
+        bar.querySelectorAll('[data-tool]').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-tool') === mode);
+        });
+        bar.querySelectorAll('[data-group]').forEach(function (b) {
+            var f = bar.querySelector('[data-fly="' + b.getAttribute('data-group') + '"]');
+            b.classList.toggle('has-tool', !!f.querySelector('[data-tool="' + mode + '"]'));
         });
         var gw = document.getElementById('mapedit_gf_wrap');
         if (gw) gw.style.display = (mode === 'geofence') ? '' : 'none';
         var ww = document.getElementById('mapedit_wall_wrap');
         if (ww) ww.style.display = (mode === 'edit_wall') ? '' : 'none';
         var en = document.getElementById('mapedit_edit_name_wrap');
-        if (en) en.style.display = EDIT_KIND[mode] ? '' : 'none';
+        if (en) en.style.display = (EDIT_KIND[mode] || (PLACE_TOOL[mode] && mode !== 'obj_landmark')) ? '' : 'none';
         var pw = document.getElementById('mapedit_path_wrap');
         if (pw) pw.style.display = (mode === 'path') ? '' : 'none';
         _refreshActions();
@@ -972,15 +1092,19 @@ window.MapEdits = (function () {
 
     function _isDraw(mode) {
         return mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall'
-            || mode === 'path' || mode === 'geofence' || mode === 'zone';
+            || mode === 'path' || mode === 'geofence' || mode === 'zone' || mode === 'measure' || mode === 'zone_split'
+            || (!!PLACE_TOOL[mode] && mode !== 'obj_landmark');
+    }
+    function _isOpenTool(mode) {
+        return mode === 'path' || mode === 'edit_wall' || mode === 'obj_corridor' || mode === 'measure' || mode === 'zone_split';
     }
     // Undo / Delete point / Save or Finish / Cancel: one place for a new shape
     // and for an existing one. Save and Cancel appear with the first change.
     function _refreshActions() {
         var fin = document.getElementById('mapedit_finish'), can = document.getElementById('mapedit_cancel');
         if (!fin || !can) return;
-        var draw = _isDraw(_tool), dirty = _dirty(), saving = !!(_draft && _draft.saving);
-        fin.style.display = (draw || dirty) ? '' : 'none';
+        var draw = _isDraw(_tool), dirty = _dirty(), saving = !!(_draft && _draft.saving) || _drawSaving;
+        fin.style.display = ((draw && _tool !== 'measure') || dirty) ? '' : 'none';
         can.style.display = (draw || dirty) ? '' : 'none';
         fin.disabled = saving;
         can.disabled = saving;
@@ -988,7 +1112,7 @@ window.MapEdits = (function () {
         // "send this ring to the agent as a PROPOSAL". Say so on the button, so
         // nobody reads it as "apply the fence".
         _tag(fin, saving ? 'common.saving' : (dirty ? 'common.save'
-            : (_tool === 'geofence' ? 'medits.gf.send' : 'medits.finish')));
+            : (_tool === 'geofence' ? 'medits.gf.send' : (_tool === 'zone_split' ? 'medits.split' : 'medits.finish'))));
         var P = sharedPolygon();
         var hasShape = draw || (!!_draft && _draft.kind !== 'waypoint');
         var row = document.getElementById('mapedit_shape_tools');
@@ -996,6 +1120,27 @@ window.MapEdits = (function () {
         var un = document.getElementById('mapedit_undo'), dv = document.getElementById('mapedit_del_vertex');
         if (un) un.disabled = !(P && P.canUndo());
         if (dv) dv.disabled = !(P && P.selected >= 0 && P.pointContainer.children.length > (P.minPoints || 0));
+        var st = document.getElementById('mapedit_status');
+        if (st) st.hidden = !(draw || !!_draft);
+        var tr = document.getElementById('mapedit_trace');
+        if (tr) tr.style.display = (draw && _tool !== 'zone_split') ? '' : 'none';
+        _paintLive();
+        _showBar(!!(_ov && _ov.editing));
+    }
+    // Length and area of what is being drawn, as it is drawn.
+    function _paintLive() {
+        var el = document.getElementById('mapedit_live');
+        if (!el) return;
+        var pts = _curPts(), P = sharedPolygon(), txt = '';
+        if (pts.length >= 2 && (_isDraw(_tool) || _draft)) {
+            var len = MO.lineLength(pts).toFixed(2);
+            if (_tool === 'measure') txt = pts.length > 2
+                ? t('medits.live.measure', { m: len, a: MO.polyArea(pts).toFixed(2) }) : t('medits.live.line', { m: len });
+            else if (P && P.openLine) txt = t('medits.live.line', { m: len });
+            else if (pts.length > 2) txt = t('medits.live.area', { a: MO.polyArea(pts).toFixed(2), m: MO.perimeter(pts).toFixed(2) });
+        }
+        if (_trace) txt = (txt ? txt + ' · ' : '') + t('medits.trace.on');
+        el.textContent = txt;
     }
     function _removeSelectedVertex() {
         var P = sharedPolygon();
@@ -1005,10 +1150,118 @@ window.MapEdits = (function () {
         if (!_ov || !_ov.editing) return;
         var el = ev.target, tag = el && el.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-        var P = sharedPolygon();
-        if (!P || !P.attached) return;
-        if ((ev.key === 'z' || ev.key === 'Z') && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); P.undo(); }
-        else if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); _removeSelectedVertex(); }
+        var P = sharedPolygon(), key = ev.key;
+        var mod = ev.ctrlKey || ev.metaKey;
+        if (mod && (key === 'z' || key === 'Z' || key === 'y' || key === 'Y')) {
+            ev.preventDefault();
+            if (ev.shiftKey || key === 'y' || key === 'Y') _history('redo');
+            else if (P && P.attached && P.canUndo()) P.undo();      // the open shape first
+            else _history('undo');
+        } else if (key === 'Delete' || key === 'Backspace') {
+            ev.preventDefault();
+            if (P && P.attached && P.selected >= 0) _removeSelectedVertex();
+            else if (_sel && !_dirty()) _deleteSel(_sel);
+        } else if (key === 'Escape') {
+            // vt_frame.js takes Esc first: it is STOP everywhere, here too.
+            if (_wpInput) _hideWpInput();
+            else if (P && P.attached && P.selected >= 0) P.select(-1);
+            else if (_draft && _dirty() && !_draft.saving) _revertShape();
+            else if (_tool !== 'off') _setTool('off');
+            else if (_sel && !_dirty()) _deselect();
+        }
+    }
+    function _history(which) {
+        if (_dirty()) { _setHint('medits.sel.save_first'); return; }
+        var h = MO.state.history;
+        if (!h || !(which === 'undo' ? h.can_undo : h.can_redo)) return;
+        MO.op({ op: which }, function (r) { if (!r.ok) _sayReason(r); });
+    }
+    function _toggleSnap() {
+        _snapOn = !_snapOn;
+        try { localStorage.setItem(SNAP_KEY, _snapOn ? '1' : '0'); } catch (e) {}
+        _paintSnap();
+    }
+    function _paintSnap() {
+        var b = document.getElementById('mapedit_snap');
+        if (b) { b.classList.toggle('active', _snapOn); b.setAttribute('aria-pressed', _snapOn ? 'true' : 'false'); }
+    }
+
+    // ---- snap to the vertices and edges of what is on the map. Alt or the bar's
+    // magnet turns it off. The dragged vertex and the stored copy of the selected
+    // object do not count.
+    var SNAP_KEY = 'vitulus_editor_snap';
+    var _snapOn = (function () { try { return localStorage.getItem(SNAP_KEY) !== '0'; } catch (e) { return true; } })();
+    function _snapSets(skip) {
+        var sets = [], own = _curPts();
+        if (skip >= 0) own.splice(skip, 1);
+        sets.push({ pts: own, closed: false });
+        function isSel(kind, name) { return !!_sel && _sel.kind === kind && _sel.name === name; }
+        if (_mapObjLayer && _show.waypoints) _mapObjLayer.waypoints.forEach(function (w) {
+            if (!isSel('waypoint', w.name)) sets.push({ pts: [[w.x, w.y]], closed: false });
+        });
+        if (_mapObjLayer && _show.paths) _mapObjLayer.paths.forEach(function (x) {
+            if (!isSel('path', x.name) && !_mapObjLayer.isPathHidden(x.name)) sets.push({ pts: x.points || [], closed: false });
+        });
+        if (_layer && _show.edits) _layer.edits.forEach(function (e) {
+            if (!isSel('edit', e.name)) sets.push({ pts: e.points || [], closed: e.kind !== 'wall' });
+        });
+        if (_zoneLayer && _show.zones) _zoneLayer.zones.forEach(function (z) {
+            if (!isSel('zone', z.name)) sets.push({ pts: z.points, closed: true });
+        });
+        if (_show.places) MO.places().forEach(function (o) {
+            if (!isSel('place', o.name)) sets.push({ pts: o.points || [], closed: o.geometry === 'area' });
+        });
+        return sets;
+    }
+    function _snapHit(world, ev, skip) {
+        if (!_ov || !_snapOn || (ev && ev.altKey) || !(_isDraw(_tool) || _draft)) return null;
+        return MO.snapPoint(world, _snapSets(skip), _ov.worldTol(ev && ev.pointerType === 'mouse' ? 10 : 16));
+    }
+    function snap(world, ev, skip) {
+        var hit = _snapHit(world, ev, skip);
+        if (_ml) _ml.showSnap(hit, _ov ? _ov.worldTol(9) : 0.2);
+        return hit ? { x: hit.x, y: hit.y } : world;
+    }
+    function onHover(world, ev) { if (_isDraw(_tool)) snap(world, ev, -1); }
+    function onDragEnd() { if (_ml) _ml.showSnap(null); }
+
+    // ---- trace by driving: the robot's position, as it is driven by a person or
+    // by anything else, goes into the open draft. It records and nothing more.
+    var _trace = null, TRACE_STEP_M = 0.2, TRACE_SIMPLIFY_M = 0.05;
+    function _traceStart() {
+        var P = sharedPolygon(), tf = window.__tf_client_map;
+        if (!P || !P.attached || !tf) { _setHint('medits.trace.no_pose'); return; }
+        P.checkpoint();     // one Undo takes the whole trace back
+        var tr = { sampler: new MO.TraceSampler(TRACE_STEP_M), first: P.pointContainer.children.length, fn: null };
+        tr.fn = function (x) {
+            if (_trace !== tr || !P.attached || !x || !x.translation) return;
+            if (tr.sampler.add(x.translation.x, x.translation.y)) P.appendPoint({ x: x.translation.x, y: x.translation.y });
+        };
+        _trace = tr;
+        tf.subscribe('base_link', tr.fn);
+        _paintTrace();
+        _setHint('medits.trace.hint');
+    }
+    function _traceStop(keep) {
+        var tr = _trace, P = sharedPolygon();
+        if (!tr) return;
+        _trace = null;
+        try { window.__tf_client_map.unsubscribe('base_link', tr.fn); } catch (e) {}
+        if (keep && P && P.attached && tr.sampler.pts.length > 2) {
+            var pts = _curPts().slice(0, tr.first).concat(MO.simplify(tr.sampler.pts, TRACE_SIMPLIFY_M));
+            P.setPoints(pts, true);  // the checkpoint of the start stays the way back
+        }
+        _paintTrace();
+        if (keep) _setHint('medits.trace.done', { n: _curPts().length });
+    }
+    function _paintTrace() {
+        var b = document.getElementById('mapedit_trace');
+        if (!b) return;
+        var k = _trace ? 'medits.trace.stop' : 'medits.trace.start';
+        b.classList.toggle('active', !!_trace);
+        VTI18n.tag(b, k, 'title');
+        VTI18n.tag(b, k, 'aria-label');
+        _paintLive();
     }
 
     function _teardownTool() {
@@ -1017,12 +1270,16 @@ window.MapEdits = (function () {
         _closeArmed = 0;
         if (_tool === 'zone' && window.mapEditZoneApi) window.mapEditZoneApi.close();
         if (P) { P.openLine = false; P.showMids = false; P.minPoints = 0; P.onChange = null; }
+        _traceStop(false);
+        if (_ml) { _ml.showSnap(null); _ml.setPreview(null); }
         if (P && P.attached && _ov) {
             try { _ov.scene.removeChild(P); } catch (e) {}
             _clearPolygon(P);
         }
         _hideWpInput();
         _gfStopTicker();
+        _drawSaving = false;
+        _zoneCheckClear();
     }
 
     function _clearPolygon(P) {
@@ -1035,9 +1292,12 @@ window.MapEdits = (function () {
     }
 
     function _setTool(mode) {
+        if (PLACE_TOOL[mode] && !MO.live()) { _setHint('medits.obj.offline'); return; }
+        var splitOf = (mode === 'zone_split' && _sel) ? _sel.name : null;
         _deselect();
         _teardownTool();
         _tool = mode || 'off';
+        _splitZone = splitOf;
         if (_ov && _ov.setToolMode) _ov.setToolMode(_tool);
         _setToolButtonsActive(_tool);
         if (_tool !== 'off') _compact(true);
@@ -1047,9 +1307,9 @@ window.MapEdits = (function () {
             if (!P) { _setHint('medits.hint.not_ready'); _setTool('off'); return; }
             _clearPolygon(P);
             // path + barrier are open polylines - no closing edge, no fill
-            P.openLine = (_tool === 'path' || _tool === 'edit_wall');
+            P.openLine = _isOpenTool(_tool);
             P.showMids = true;
-            P.onChange = _refreshActions;
+            P.onChange = _onDrawChange;
             if (_tool === 'zone') {
                 window.mapEditZoneApi.beginNew();
                 _setHint('medits.hint.zone');
@@ -1069,10 +1329,18 @@ window.MapEdits = (function () {
                 _gfTick();
                 _gfStartTicker();
                 _setHint('medits.hint.geofence');
+            } else if (_tool === 'measure') {
+                _setHint('medits.hint.measure');
+            } else if (_tool === 'zone_split') {
+                _setHint('medits.hint.split', { name: _splitZone });
             } else if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');
                 if (pn) pn.value = nextName('path', _names('path'));
                 _setHint('medits.hint.path');
+            } else if (PLACE_TOOL[_tool]) {
+                var pl = document.getElementById('mapedit_edit_name');
+                if (pl) pl.value = nextName(PLACE_TOOL[_tool], _names('place'));
+                _setHint('medits.hint.obj.' + PLACE_TOOL[_tool]);
             } else {
                 var nm = document.getElementById('mapedit_edit_name');
                 if (nm) nm.value = nextName(EDIT_KIND[_tool], _names('edit'));
@@ -1081,14 +1349,39 @@ window.MapEdits = (function () {
                     : (_tool === 'edit_obstacle' ? 'medits.hint.obstacle' : 'medits.hint.free'));
             }
         } else if (_tool === 'waypoint') {
-            _renderWpList();
             _setHint('medits.hint.waypoint');
-        } else if (_tool === 'edit_delete') {
-            _setHint('medits.hint.delete');
+        } else if (_tool === 'obj_landmark') {
+            _setHint('medits.hint.obj.landmark');
         } else {
             _setHint('medits.hint.pick');
         }
+        _paintSnap();
         _refreshActions();
+    }
+    var _drawSaving = false, _splitZone = null;
+    function _onDrawChange() {
+        _refreshActions();
+        if (_tool === 'zone') _zoneCheckSoon();
+    }
+
+    // A new object of the server: the drawing stays until the server took it,
+    // a refusal (a no-go over the dock) must not cost the shape.
+    function _saveNew(type, name, pts, then) {
+        var tt = MO.TYPES[type];
+        var obj = { family: 'place', type: type, name: name, geometry: tt.geometry, points: pts, source: 'owner', props: {} };
+        if (type === 'slow') obj.props.speed_mps = MO.SPEED_DEF;
+        if (type === 'corridor') { obj.props.width_m = MO.CORRIDOR_W; obj.props.connects = []; }
+        _drawSaving = true;
+        _refreshActions();
+        MO.op({ op: 'save', object: obj }, function (r) {
+            _drawSaving = false;
+            if (!r.ok) { _sayReason(r); _refreshActions(); return; }
+            _warnings(r);
+            if (then) then();
+            _setTool('off');
+            _select('place', name, { awaited: true });
+            _setHint('medits.sel.saved', { name: name });
+        });
     }
 
     function _finishEditsDraw() {
@@ -1102,11 +1395,11 @@ window.MapEdits = (function () {
         }
         if (_tool === 'path') { _finishPathDraw(); return; }
         if (_tool === 'geofence') { _finishGeofenceDraw(); return; }
+        if (_tool === 'zone_split') { _finishSplit(); return; }
         var P = sharedPolygon();
         if (!P) { _setTool('off'); return; }
-        var pts = [];
-        var ch = P.pointContainer.children || [];
-        for (var i = 0; i < ch.length; i++) pts.push([ch[i].x, -ch[i].y]); // store y=-rosY -> map y
+        var pts = _curPts();
+        if (PLACE_TOOL[_tool]) { _finishPlace(pts); return; }
         var kind = EDIT_KIND[_tool];
         var minPts = (kind === 'wall') ? 2 : 3;
         if (pts.length < minPts) { _setHint('medits.hint.need_pts.' + kind, { n: minPts }); return; }
@@ -1123,6 +1416,30 @@ window.MapEdits = (function () {
         if (_layer) _layer.saveEdit(spec);
         _setHint('medits.hint.saved.' + kind, { n: pts.length });
         _setTool('off');
+    }
+    function _finishPlace(pts) {
+        var type = PLACE_TOOL[_tool], line = type === 'corridor', minPts = line ? 2 : 3;
+        if (pts.length < minPts) { _setHint('medits.hint.need_pts.any', { n: minPts }); return; }
+        if (!line && _crosses(pts)) { _setHint('medits.shape.crosses'); return; }
+        if (!line && MO.polyArea(pts) < MO.MIN_AREA) { _setHint('medits.shape.too_small'); return; }
+        var ne = document.getElementById('mapedit_edit_name');
+        var name = (ne && ne.value ? ne.value : '').trim() || nextName(type, _names('place'));
+        var bad = nameProblem(name, _names('place'));
+        if (bad) { _setHint('medits.name.err.' + bad, { name: name }); return; }
+        _saveNew(type, name, pts);
+    }
+    function _finishSplit() {
+        var pts = _curPts(), name = _splitZone;
+        if (pts.length !== 2) { _setHint('medits.hint.split', { name: name }); return; }
+        _drawSaving = true;
+        _refreshActions();
+        MO.zoneOp({ op: 'split', name: name, line: pts }, function (r) {
+            _drawSaving = false;
+            if (!r.ok) { _sayReason(r); _refreshActions(); return; }
+            _setTool('off');
+            _select('zone', name, { awaited: true });
+            _setHint('medits.zone.split_done', { name: name, other: (r.names || []).join(', ') });
+        });
     }
 
     // V2: finish the manually drawn path — same vertex extraction as the edit
@@ -1156,7 +1473,12 @@ window.MapEdits = (function () {
             else _newWaypoint(world);
             return true;
         }
-        if (_tool === 'edit_delete') { _onDeleteClick(world); return true; }
+        if (_tool === 'obj_landmark') {
+            if (_drawSaving) return true;
+            _saveNew('landmark', nextName('landmark', _names('place')), [[world.x, world.y]]);
+            return true;
+        }
+        if (_tool === 'zone_split' && _curPts().length >= 2) return true;
         if (_tool === 'path') {
             // The first tap on an existing path selects it instead of starting a new one.
             var P = sharedPolygon();
@@ -1172,23 +1494,15 @@ window.MapEdits = (function () {
     }
     function _tapPx(ev) { return (ev && ev.pointerType === 'mouse') ? 12 : 22; }
 
-    function _onDeleteClick(world) {
-        if (!_layer) return;
-        var tol = _ov.worldTol ? _ov.worldTol(10) : 0.3;
-        var name = _layer.hitTest(world, tol);
-        if (name) { _layer.removeEdit(name); _setHint('medits.hint.edit_deleted', { name: name }); }
-        else _setHint('medits.hint.no_edit');
-    }
-
     // =====================================================================
     // SELECTION — the one place for an object: tap it on the map or pick it from
     // its list (both stay in step), the card in the context box gives its name,
     // shape, settings and Delete. The shape opens right away; nothing is written
     // to the robot before Save, and Save and Cancel appear with the first change.
-    // kind: 'zone' | 'edit' | 'path' | 'waypoint'.
+    // kind: 'zone' | 'edit' | 'path' | 'waypoint' | 'place'.
     // =====================================================================
     var _sel = null;     // {kind, name}
-    var _draft = null;   // {kind, name, orig:[[x,y]..], width, yaw, widthNow, yawNow, formDirty, saving, timer}
+    var _draft = null;   // {kind, name, id, orig:[[x,y]..], width, yaw, widthNow, yawNow, meta, metaOrig, formDirty, saving, timer}
     var SAVE_TIMEOUT_MS = 15000;   // an edit re-serves the whole raster
     var SAME_M = 0.005;  // zone points travel as float32
     // Results and lists are separate topics: the list with the new or renamed
@@ -1198,6 +1512,7 @@ window.MapEdits = (function () {
     function _objOf(sel) {
         if (!sel) return null;
         var list = sel.kind === 'zone' ? (_zoneLayer ? _zoneLayer.zones : [])
+            : sel.kind === 'place' ? MO.places()
             : sel.kind === 'edit' ? (_layer ? _layer.edits : [])
             : sel.kind === 'path' ? (_mapObjLayer ? _mapObjLayer.paths : [])
             : (_mapObjLayer ? _mapObjLayer.waypoints : []);
@@ -1222,9 +1537,32 @@ window.MapEdits = (function () {
         var d = _draft;
         if (!d) return false;
         return d.saving || d.formDirty || d.widthNow !== d.width || d.yawNow !== d.yaw
-            || !_samePts(_curPts(), d.orig);
+            || _metaDirty(d) || !_samePts(_curPts(), d.orig);
     }
-    function _isOpen(kind, o) { return kind === 'path' || kind === 'waypoint' || (kind === 'edit' && o.kind === 'wall'); }
+    function _isOpen(kind, o) {
+        return kind === 'path' || kind === 'waypoint' || (kind === 'edit' && o.kind === 'wall')
+            || (kind === 'place' && o.geometry !== 'area');
+    }
+    function _isPoint(kind, o) { return kind === 'waypoint' || (kind === 'place' && o.geometry === 'point'); }
+    function _typeOf(kind, o) { return kind === 'edit' ? (o.kind || 'obstacle') : (kind === 'place' ? o.type : kind); }
+
+    // ---- what an object means. Lives on the server's object; the draft holds a
+    // copy so the same Save and Cancel cover shape and meaning.
+    function _metaFrom(type, m) {
+        m = m || {};
+        var p = m.props || {}, props = {};
+        if (type === 'place' || type === 'landmark') props.category = p.category || '';
+        if (type === 'slow') props.speed_mps = p.speed_mps != null ? p.speed_mps : MO.SPEED_DEF;
+        if (type === 'corridor') {
+            props.width_m = p.width_m != null ? p.width_m : MO.CORRIDOR_W;
+            props.connects = (p.connects || []).slice();
+        }
+        return { note: m.note || '', aliases: (m.aliases || []).slice(), tags: (m.tags || []).slice(),
+                 valid_from: m.valid_from != null ? m.valid_from : null,
+                 valid_until: m.valid_until != null ? m.valid_until : null, props: props };
+    }
+    function _metaObj(kind, name) { return kind === 'place' ? MO.find('place', name) : MO.find(kind, name); }
+    function _metaDirty(d) { return JSON.stringify(d.meta) !== d.metaOrig; }
 
     // Two edges of a closed ring cross: the planner and the raster mask read
     // such a ring differently than it looks.
@@ -1310,6 +1648,19 @@ window.MapEdits = (function () {
                 }
             }
         }
+        if (_show.places) {
+            MO.places().forEach(function (o) {
+                var op = o.points || [];
+                if (o.geometry === 'point') {
+                    if (op.length && Math.hypot(world.x - op[0][0], world.y - op[0][1]) <= tol) out.push({ kind: 'place', name: o.name, rank: 0, size: 0 });
+                } else if (o.geometry === 'line') {
+                    var hw = ((o.props && o.props.width_m) || MO.CORRIDOR_W) / 2 + tol;
+                    for (var c = 0; c + 1 < op.length; c++) {
+                        if (_distToSeg(world, op[c], op[c + 1]) <= hw) { out.push({ kind: 'place', name: o.name, rank: 1, size: 0 }); break; }
+                    }
+                } else ring('place', o.name, op, 2);
+            });
+        }
         if (_layer && _show.edits) {
             for (i = 0; i < _layer.edits.length; i++) {
                 var e = _layer.edits[i], ep = e.points || [];
@@ -1360,7 +1711,7 @@ window.MapEdits = (function () {
         _compact(true);
         if (opts && opts.frame) _frameSel();
         var body = document.getElementById('ui_drawer_body');
-        if (body) body.scrollTop = 0;
+        if (body && window.innerWidth < 576) body.scrollTop = 0;
         return true;
     }
     function _closeSel() {
@@ -1387,11 +1738,13 @@ window.MapEdits = (function () {
     function _beginShape() {
         var P = sharedPolygon(), o = _objOf(_sel);
         if (!P || !o) return;
-        var kind = _sel.kind, pts = _ptsOf(kind, o);
+        var kind = _sel.kind, pts = _ptsOf(kind, o), point = _isPoint(kind, o);
         _clearPolygon(P);
         P.openLine = _isOpen(kind, o);
-        P.showMids = kind !== 'waypoint';
-        P.minPoints = kind === 'waypoint' ? 1 : (P.openLine ? 2 : 3);
+        P.showMids = !point;
+        P.minPoints = point ? 1 : (P.openLine ? 2 : 3);
+        // a rule keeps its hatch while selected: the handles say it is selected
+        if (P.fillMesh) P.fillMesh.material.opacity = kind === 'place' ? 0.06 : 0.28;
         if (kind === 'zone') {
             window.mapEditZoneApi.begin(o.name);    // form + preview of its mowing paths
         } else {
@@ -1402,8 +1755,12 @@ window.MapEdits = (function () {
         P.onChange = _onShapeChange;
         _draft = { kind: kind, name: o.name, orig: pts.map(function (p) { return [p[0], p[1]]; }),
                    width: o.width_m, widthNow: o.width_m, yaw: o.yaw, yawNow: o.yaw,
-                   yaws: o.yaws ? o.yaws.slice() : null,
+                   yaws: o.yaws ? o.yaws.slice() : null, type: _typeOf(kind, o),
                    editKind: o.kind, formDirty: false, saving: false, timer: null };
+        var mo = _metaObj(kind, o.name);
+        _draft.id = mo ? mo.id : null;
+        _draft.meta = _metaFrom(_draft.type, mo);
+        _draft.metaOrig = JSON.stringify(_draft.meta);
         if (kind === 'waypoint') _showYawPreview(o.x, o.y, o.yaw || 0);
     }
     function _endShape() {
@@ -1412,7 +1769,7 @@ window.MapEdits = (function () {
         _closeArmed = 0;
         if (d && d.timer) clearTimeout(d.timer);
         if (P) { P.onChange = null; P.openLine = false; P.showMids = false; P.minPoints = 0; }
-        if (d && d.kind === 'zone') window.mapEditZoneApi.close();
+        if (d && d.kind === 'zone') { window.mapEditZoneApi.close(); _zoneCheckClear(); }
         if (P && d) {
             try { _ov.scene.removeChild(P); } catch (e) {}
             _clearPolygon(P);
@@ -1433,8 +1790,10 @@ window.MapEdits = (function () {
         var d = _draft, P = sharedPolygon(), pts = _curPts();
         if (pts.length < ((P && P.minPoints) || 0)) return 'medits.shape.too_few';
         if (d.kind === 'path' && !(d.yaws && d.yaws.length === d.orig.length)) return 'medits.shape.no_yaws';
-        var closed = d.kind === 'zone' || (d.kind === 'edit' && d.editKind !== 'wall');
+        var closed = d.kind === 'zone' || (d.kind === 'edit' && d.editKind !== 'wall')
+            || (d.kind === 'place' && MO.TYPES[d.type].geometry === 'area');
         if (closed && _crosses(pts)) return 'medits.shape.crosses';
+        if (d.kind === 'place' && closed && MO.polyArea(pts) < MO.MIN_AREA) return 'medits.shape.too_small';
         return null;
     }
     function _onShapeChange() {
@@ -1446,6 +1805,7 @@ window.MapEdits = (function () {
             var pts = _curPts();
             if (pts.length) _showYawPreview(pts[0][0], pts[0][1], d.yawNow || 0);
         }
+        if (d.kind === 'zone') _zoneCheckSoon();
     }
 
     function _saveShape() {
@@ -1454,20 +1814,40 @@ window.MapEdits = (function () {
         var bad = _shapeProblem();
         if (bad) { _setHint(bad); return; }
         var pts = _curPts();
+        var shapeSame = _samePts(pts, d.orig) && d.widthNow === d.width && d.yawNow === d.yaw && !d.formDirty;
+        var changes = _metaDirty(d) ? MO.metaChanges(JSON.parse(d.metaOrig), d.meta) : null;
         d.saving = true;
-        if (d.kind === 'zone') {
+        function answered(r) {
+            if (_draft !== d) return;
+            if (r.ok) { _warnings(r); return; }
+            d.saving = false;
+            if (d.timer) { clearTimeout(d.timer); d.timer = null; }
+            _sayReason(r);
+            _refreshActions();
+        }
+        if (d.kind === 'place') {
+            var up = Object.assign({ op: 'update', id: d.id }, changes || {});
+            if (!_samePts(pts, d.orig)) up.points = pts;
+            MO.op(up, answered);
+        } else if (changes && d.id) {
+            MO.op(Object.assign({ op: 'update', id: d.id }, changes), answered);
+        }
+        if (d.kind === 'zone' && !shapeSame) {
             window.mapEditZoneApi.save();   // answers through onZoneResult
             _refreshActions();
             return;
         }
         d.target = pts;
-        if (d.kind === 'edit') {
-            _layer.saveEdit({ kind: d.editKind, name: d.name, points: pts, width_m: d.widthNow });
-        } else if (d.kind === 'path') {
-            d.targetYaws = pathYaws(d.orig, d.yaws, pts);
-            _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: d.name, points: pts, yaws: d.targetYaws }) }));
-        } else {
-            _publishWaypointAt(d.name, pts[0][0], pts[0][1], d.yawNow || 0);
+        d.metaTarget = changes ? JSON.stringify(d.meta) : null;
+        if (!shapeSame) {
+            if (d.kind === 'edit') {
+                _layer.saveEdit({ kind: d.editKind, name: d.name, points: pts, width_m: d.widthNow });
+            } else if (d.kind === 'path') {
+                d.targetYaws = pathYaws(d.orig, d.yaws, pts);
+                _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: d.name, points: pts, yaws: d.targetYaws }) }));
+            } else if (d.kind === 'waypoint') {
+                _publishWaypointAt(d.name, pts[0][0], pts[0][1], d.yawNow || 0);
+            }
         }
         _setHint('medits.sel.saving', { name: d.name });
         d.timer = setTimeout(function () {
@@ -1488,9 +1868,10 @@ window.MapEdits = (function () {
     // The owner node's list is the confirmation: the object in it has the new shape.
     function _storedAsDraft(d, o) {
         if (!_samePts(_ptsOf(d.kind, o), d.target)) return false;
+        if (d.metaTarget && JSON.stringify(_metaFrom(d.type, _metaObj(d.kind, d.name))) !== d.metaTarget) return false;
         if (d.kind === 'edit' && d.editKind === 'wall' && o.width_m !== d.widthNow) return false;
         if (d.kind === 'waypoint' && _angleOff(o.yaw || 0, d.yawNow || 0) > 0.01) return false;
-        if (d.kind === 'path') {
+        if (d.kind === 'path' && d.targetYaws) {
             var ny = o.yaws || [];
             if (ny.length !== d.targetYaws.length) return false;
             for (var i = 0; i < ny.length; i++) if (_angleOff(ny[i], d.targetYaws[i]) > 1e-6) return false;
@@ -1533,40 +1914,196 @@ window.MapEdits = (function () {
             _markRows();
             _refreshActions();
         }
-        if (d && !d.saving && !_dirty() && !_samePts(_ptsOf(d.kind, o), d.orig)) _reopenShape();
+        if (d && !d.saving && !_dirty() && (!_samePts(_ptsOf(d.kind, o), d.orig)
+                || JSON.stringify(_metaFrom(d.type, _metaObj(d.kind, d.name))) !== d.metaOrig)) _reopenShape();
         _paintSelStats();
     }
     function _zoneData() {
         var api = window.mapEditZoneApi;
         if (!_zoneLayer || !api) return;
         _zoneLayer.set(api.list());
+        _renderList();
         _onData();
         _markRows();
     }
 
-    // ---- the selection card ----
-    var SEL_ICON = { zone: 'la-object-group', path: 'la-road', waypoint: 'la-map-marker',
-                     obstacle: 'la-square', free: 'la-square-o', wall: 'la-minus' };
-    function _kindKey(sel, o) {
-        if (sel.kind === 'edit') return 'medits.kind.' + (o.kind || 'obstacle');
-        return 'medits.kind.' + sel.kind;
+    // The server's lists changed.
+    function _onObjects(what) {
+        if (!_ov || !_ov.editing) return;
+        if (what === 'objects') {
+            if (_ml) _ml.setPlaces(MO.places(), Date.now() / 1000);
+            _renderList();
+            if (_draft && !_draft.id) {   // the id arrived after the card opened
+                var m = _metaObj(_draft.kind, _draft.name);
+                if (m) { _draft.id = m.id; if (!_dirty()) _reopenShape(); }
+            }
+            _onData();
+        } else if (what === 'history') {
+            var h = MO.state.history || {}, u = document.getElementById('mapedit_gundo'), r = document.getElementById('mapedit_gredo');
+            if (u) u.disabled = !h.can_undo;
+            if (r) r.disabled = !h.can_redo;
+            Panel.renderHistory();
+        } else if (what === 'suggestions') Panel.renderSuggestions();
     }
+
+    // ---- the one list: everything of the map, meaning first
+    function _rows() {
+        var rows = [], now = Date.now() / 1000;
+        function add(kind, type, name, meta, dim) {
+            var m = _metaObj(kind, name), rs = m && MO.TEMPORARY[type] ? MO.ruleState(m, now) : null;
+            rows.push({ kind: kind, type: type, name: name, meta: meta, dim: !!dim,
+                        note: m ? m.note : '', aliases: m ? m.aliases : [], tags: m ? m.tags : [],
+                        category: (m && m.props && m.props.category) || '',
+                        state: rs ? rs.state : null, temporary: !!(rs && rs.temporary) });
+        }
+        function size(pts, line) { return (line ? MO.lineLength(pts).toFixed(1) + ' m' : MO.polyArea(pts).toFixed(1) + ' m²'); }
+        MO.places().forEach(function (o) {
+            add('place', o.type, o.name, o.geometry === 'point' ? '' : size(o.points || [], o.geometry === 'line'));
+        });
+        if (_zoneLayer) _zoneLayer.zones.forEach(function (z) { add('zone', 'zone', z.name, z.area + ' m²'); });
+        ((_layer && _layer.edits) || []).forEach(function (e) {
+            add('edit', e.kind || 'obstacle', e.name || '', size(e.points || [], e.kind === 'wall'));
+        });
+        _wpNames.slice().sort(function (a, b) { return MO.isProtectedName(b) - MO.isProtectedName(a); })
+            .forEach(function (n) { add('waypoint', 'waypoint', n, ''); });
+        ((_mapObjLayer && _mapObjLayer.paths) || []).forEach(function (x) {
+            add('path', 'path', x.name || '', size(x.points || [], true), _mapObjLayer.isPathHidden(x.name));
+        });
+        return rows;
+    }
+    var _listQueued = false;
+    function _renderList() {
+        if (_listQueued) return;
+        _listQueued = true;
+        (window.requestAnimationFrame || setTimeout)(function () {
+            _listQueued = false;
+            if (_built) Panel.renderList(_rows());
+        });
+    }
+
+    // ---- zone preview before saving: what the planner would really mow
+    var _zcTimer = null, ZC_DEBOUNCE_MS = 900;
+    function _zoneCheckClear() {
+        if (_zcTimer) { clearTimeout(_zcTimer); _zcTimer = null; }
+        var el = document.getElementById('mapedit_zcheck');
+        if (el) el.innerHTML = '';
+        if (_ml) _ml.setPreview(null);
+    }
+    function _zoneCheckSoon() {
+        var mine = _tool === 'zone' || (_draft && _draft.kind === 'zone' && _dirty() && !_draft.saving);
+        if (_zcTimer) { clearTimeout(_zcTimer); _zcTimer = null; }
+        if (!mine) { _zoneCheckClear(); return; }
+        _zcTimer = setTimeout(function () {
+            _zcTimer = null;
+            var pts = _curPts();
+            if (pts.length < 3 || _crosses(pts)) return;
+            MO.zoneCheck(pts, window.mapEditZoneApi.settings(), _draft ? _draft.name : '', _zoneChecked);
+        }, ZC_DEBOUNCE_MS);
+    }
+    function _zoneChecked(r) {
+        var el = document.getElementById('mapedit_zcheck');
+        if (!el || r.timeout) return;
+        function num(k, v) { return '<div><b>' + _escapeHtml(v) + '</b><span class="vt-muted">' + _escapeHtml(t(k)) + '</span></div>'; }
+        var h = '<div class="mapedit-zc-nums">' +
+            num('medits.zc.mowable', Number(r.mowable_m2 || 0).toFixed(1) + ' m²') +
+            num('medits.zc.unreachable', Number(r.unreachable_m2 || 0).toFixed(1) + ' m²') +
+            num('medits.zc.length', Number(r.length_m || 0).toFixed(0) + ' m') +
+            num('medits.zc.minutes', Number(r.minutes || 0).toFixed(0) + ' min') + '</div>';
+        (r.problems || []).forEach(function (x) {
+            var k = 'medits.zc.' + x.code, s = t(k), name = x.params && x.params.name;
+            h += '<div class="' + (x.severity === 'error' ? 'text-danger' : 'text-warning') + '">' +
+                 _escapeHtml((s !== k ? s : x.code) + (name ? ' (' + name + ')' : '')) + '</div>';
+        });
+        el.innerHTML = h;
+        if (_ml) _ml.setPreview(r.preview);
+    }
+    // What a mission really uses when a program overrides the zone.
+    function _zoneEffective(name) {
+        var m = MO.find('zone', name), list = m && m.props && m.props.effective;
+        if (Array.isArray(list)) return list;
+        var pg = window.programs, all = (pg && pg.program_list_msg && pg.program_list_msg.program_list) || [];
+        return all.filter(function (p) {
+            return p.override_zone && (p.zone_list || []).some(function (z) { return z.name === name; });
+        }).map(function (p) { return { program: p.name, cut_height: p.cut_height, rpm: p.rpm }; });
+    }
+    function _paintEffective(name) {
+        var el = document.getElementById('mapedit_zone_effective');
+        if (!el) return;
+        el.textContent = (name ? _zoneEffective(name) : []).map(function (e) {
+            return t('medits.sel.effective', { program: e.program, cut: e.cut_height, rpm: e.rpm });
+        }).join(' ');
+    }
+
+    // ---- the inspector: head, status, meaning, rules, status details, actions —
+    // the same order for every type. A section that has nothing to set says so.
+    function _kindKey(sel, o) { return 'medits.kind.' + _typeOf(sel.kind, o); }
     function _zonePrograms(name) {
         var pg = window.programs, all = (pg && pg.program_list_msg && pg.program_list_msg.program_list) || [];
         return all.filter(function (p) {
             return (p.zone_list || []).some(function (z) { return z.name === name; });
         }).map(function (p) { return p.name; });
     }
+    function _inspOpen(k, def) {
+        try { var v = localStorage.getItem('vitulus_editsec_insp_' + k); return v === null ? def : v === '1'; } catch (e) { return def; }
+    }
+    function _insp(k, def, titleKey, body) {
+        return '<details class="mapedit-insp" data-insp="' + k + '"' + (_inspOpen(k, def) ? ' open' : '') + '><summary' + _ti(titleKey) + '</summary>' +
+               '<div class="mapedit-insp-body">' + body + '</div></details>';
+    }
+    function _field(k, control) { return '<label class="mapedit-f"><span' + _ti(k) + '</span>' + control + '</label>'; }
+    function _input(f, type, val, extra, off) {
+        return '<input class="form-control form-control-sm" data-f="' + f + '" type="' + type + '" value="' + _escapeAttr(val == null ? '' : val) + '"' +
+               (extra || '') + (off ? ' disabled' : '') + '>';
+    }
+    function _when(ts) { return ts ? new Date(ts * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '—'; }
+    function _pillsHtml(type, m, locked) {
+        var h = '';
+        function pill(k, st) { h += '<span class="vt-pill"' + (st ? ' data-state="' + st + '"' : '') + _ti(k) + '</span>'; }
+        if (m && (MO.TEMPORARY[type])) {
+            var rs = MO.ruleState(m, Date.now() / 1000);
+            pill('medits.state.' + rs.state, rs.state === 'active' ? 'ok' : 'off');
+            if (rs.temporary) pill('medits.state.temporary', 'info');
+        }
+        if (locked) pill('medits.state.protected', 'brand');
+        if (m && m.source && m.source !== 'owner') pill('medits.actor.' + (m.source === 'agent' || m.source === 'robot' ? m.source : 'unknown'));
+        return h;
+    }
+    function _rulesHtml(type, d, off) {
+        var p = (d && d.meta.props) || {}, m = (d && d.meta) || {}, h = '';
+        if (type === 'zone') return '<div id="mapedit_sel_zone"></div>';
+        if (type === 'slow') {
+            h += _field('medits.f.speed', '<div class="input-group input-group-sm vt-w-md">' + _input('speed_mps', 'number', p.speed_mps,
+                 ' min="' + MO.SPEED_MIN + '" max="' + MO.SPEED_MAX + '" step="0.05"', off) + '<span class="input-group-text">m/s</span></div>');
+        }
+        if (type === 'place' || type === 'landmark') h += _field('medits.f.category', _input('category', 'text', p.category, ' maxlength="40"', off));
+        if (type === 'corridor') {
+            h += _field('medits.f.width', '<div class="input-group input-group-sm vt-w-md">' + _input('width_m', 'number', p.width_m, ' min="0.2" max="5" step="0.1"', off) + '<span class="input-group-text">m</span></div>');
+            h += _field('medits.f.connects', _input('connects', 'text', (p.connects || []).join(', '), '', off));
+        }
+        if (MO.TEMPORARY[type]) {
+            h += '<div class="mapedit-f-row">' +
+                 _field('medits.f.valid_from', _input('valid_from', 'datetime-local', MO.toLocalInput(m.valid_from), '', off)) +
+                 _field('medits.f.valid_until', _input('valid_until', 'datetime-local', MO.toLocalInput(m.valid_until), '', off)) + '</div>' +
+                 '<div class="vt-fs-xs vt-muted"' + _ti('medits.f.valid_hint') + '</div>';
+        }
+        return h || '<div class="vt-fs-xs vt-muted"' + _ti('medits.rules.none') + '</div>';
+    }
+    function _parkZoneForm() {
+        var f = document.getElementById('div_zone_template'), slot = document.getElementById('mapedit_zone_slot');
+        if (f && slot && f.parentNode !== slot) slot.appendChild(f);
+    }
     function _renderSel() {
         var host = document.getElementById('mapedit_sel');
         if (!host) return;
         if (_renaming && _renaming.kind === (_sel && _sel.kind)) return;
+        _parkZoneForm();
         var o = _objOf(_sel);
-        if (!o) { host.innerHTML = ''; return; }
-        var s = _sel, ico = SEL_ICON[s.kind === 'edit' ? o.kind : s.kind] || 'la-square';
-        var locked = s.kind === 'waypoint' && isReserved(s.name);
+        if (!o) { host.innerHTML = ''; _paintEffective(null); return; }
+        var s = _sel, type = _typeOf(s.kind, o), tt = MO.TYPES[type] || {}, m = _metaObj(s.kind, s.name), d = _draft;
+        var locked = MO.isProtected(m, s.name);
+        var off = !(d && d.id);        // meaning lives on the server
         var h = '<div class="mapedit-sel-head">' +
-            '<i class="la ' + ico + ' vt-accent"></i>' +
+            '<i class="la ' + (tt.ico || 'la-square') + '" data-type="' + _escapeAttr(type) + '"></i>' +
             '<div class="vt-grow1 vt-min0">' +
             '<div class="mapedit-sel-kind vt-muted"' + _ti(_kindKey(s, o)) + '</div>' +
             '<div class="mapedit-sel-name text-truncate" title="' + _escapeAttr(s.name) + '">' + _escapeHtml(s.name) + '</div>' +
@@ -1574,32 +2111,58 @@ window.MapEdits = (function () {
             (locked ? '' : '<button class="btn btn-outline-info mapedit-sel-ren" id="mapedit_sel_rename" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>') +
             '<button class="btn btn-outline-secondary mapedit-sel-x" id="mapedit_sel_close" type="button" data-i18n-aria-label="common.close" aria-label="' + _escapeAttr(t('common.close')) + '"><i class="la la-times"></i></button>' +
             '</div>' +
-            (locked ? '<div class="vt-fs-xs vt-muted vt-mb1"' + _ti('medits.sel.reserved') + '</div>' : '') +
+            '<div class="mapedit-pills">' + _pillsHtml(type, m, locked) + '</div>' +
             '<div id="mapedit_sel_stats" class="vt-fs-sm vt-muted vt-minh-line"></div>' +
             '<div id="mapedit_sel_warn" class="vt-fs-sm text-warning"></div>';
-        var more = '';
-        if (s.kind === 'zone') {
-            var used = _zonePrograms(s.name);
-            more += '<div class="vt-fs-xs vt-muted vt-mt1">' + _escapeHtml(used.length
-                    ? t('medits.sel.zone_used', { list: used.join(', ') })
-                    : t('medits.sel.zone_unused')) + '</div>';
-            more += '<div class="vt-fs-xs vt-muted"' + _ti('medits.sel.zone_start') + '</div>';
-        }
-        if (s.kind === 'edit' && o.kind === 'wall') {
+        if (type === 'wall') {
             h += '<div class="vt-mt2"><span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.wall_width') + '</span>' +
-                 '<div class="input-group input-group-sm vt-w-md"><input class="form-control" id="mapedit_sel_width" type="number" min="0.02" max="2" step="0.05" value="' + ((_draft && _draft.widthNow) || o.width_m || 0.10) + '"><span class="input-group-text">m</span></div></div>';
+                 '<div class="input-group input-group-sm vt-w-md"><input class="form-control" id="mapedit_sel_width" type="number" min="0.02" max="2" step="0.05" value="' + ((d && d.widthNow) || o.width_m || 0.10) + '"><span class="input-group-text">m</span></div></div>';
         }
         if (s.kind === 'waypoint') {
-            var yDeg = (_draft && typeof _draft.yawNow === 'number') ? ((_draft.yawNow * 180 / Math.PI) % 360 + 360) % 360 : _wpYawDeg(s.name);
+            var yDeg = (d && typeof d.yawNow === 'number') ? ((d.yawNow * 180 / Math.PI) % 360 + 360) % 360 : _wpYawDeg(s.name);
             var y0 = Math.round(yDeg * 2) / 2;
             h += '<div class="vt-fs-sm vt-mt2 vt-mb1 vt-flex vt-aic vt-gap6"><span' + _ti('medits.heading') + '</span>' +
                  ' <input id="mapedit_sel_yawn" class="form-control form-control-sm vt-w-sm vt-pad-s" type="number" min="0" max="359.5" step="0.5" value="' + y0 + '">°</div>' +
                  '<input id="mapedit_sel_yaw" type="range" min="0" max="359.5" step="0.5" value="' + y0 + '" class="vt-w100">';
         }
-        more += '<div class="vt-fs-xs vt-muted vt-mt1"' + _ti(s.kind === 'waypoint' ? 'medits.sel.how_wp' : 'medits.sel.how') + '</div>' +
-             '<button class="btn btn-outline-danger btn-sm vt-w100 vt-mt2" id="mapedit_sel_del" type="button"' + _ti('common.delete') + '</button>';
+        var dm = (d && d.meta) || _metaFrom(type, m);
+        var more = _insp('meaning', true, 'medits.sec.meaning',
+            (off ? '<div class="vt-fs-xs vt-muted vt-mb1"' + _ti('medits.obj.offline') + '</div>' : '') +
+            _field('medits.f.note', '<textarea class="form-control form-control-sm" data-f="note" rows="2" maxlength="500"' + (off ? ' disabled' : '') + '>' + _escapeHtml(dm.note) + '</textarea>') +
+            _field('medits.f.aliases', _input('aliases', 'text', dm.aliases.join(', '), '', off)) +
+            _field('medits.f.tags', _input('tags', 'text', dm.tags.join(', '), '', off)));
+        more += _insp('rules', true, 'medits.sec.rules', _rulesHtml(type, d, off));
+        var status = '';
+        if (s.kind === 'zone') {
+            var used = _zonePrograms(s.name);
+            status += '<div class="vt-fs-xs vt-muted">' + _escapeHtml(used.length
+                    ? t('medits.sel.zone_used', { list: used.join(', ') })
+                    : t('medits.sel.zone_unused')) + '</div>';
+            status += '<div class="vt-fs-xs vt-muted"' + _ti('medits.sel.zone_start') + '</div>';
+        }
+        if (m) status += '<div class="vt-fs-xs vt-muted">' + _escapeHtml(t('medits.sel.dates', { created: _when(m.created), updated: _when(m.updated) })) + '</div>';
+        status += '<div class="vt-fs-xs vt-muted vt-mt1"' + _ti(_isPoint(s.kind, o) ? 'medits.sel.how_wp' : 'medits.sel.how') + '</div>';
+        more += _insp('status', false, 'medits.sec.status', status);
+        var acts = '<button class="btn btn-outline-info btn-sm" id="mapedit_sel_dup" type="button"' + _ti('medits.duplicate') + '</button>';
+        if (s.kind === 'path') acts += '<button class="btn btn-outline-info btn-sm" id="mapedit_sel_addpt" type="button"' + _ti('medits.add_robot_point') + '</button>';
+        if (s.kind === 'zone') acts += '<button class="btn btn-outline-info btn-sm" id="mapedit_sel_split" type="button"' + _ti('medits.split') + '</button>';
+        if (!locked) acts += '<button class="btn btn-outline-danger btn-sm" id="mapedit_sel_del" type="button"' + _ti('common.delete') + '</button>';
+        var others = s.kind === 'zone' ? _names('zone').filter(function (n) { return n !== s.name; }) : [];
+        if (others.length) {
+            acts += '<div class="mapedit-merge"><select class="form-select form-select-sm" id="mapedit_sel_merge" aria-label="' + _escapeAttr(t('medits.merge_with')) + '">' +
+                    others.map(function (n) { return '<option>' + _escapeHtml(n) + '</option>'; }).join('') + '</select>' +
+                    '<button class="btn btn-outline-info btn-sm" id="mapedit_sel_merge_go" type="button"' + _ti('medits.merge') + '</button></div>';
+        }
+        more += '<div class="mapedit-actions">' + acts + '</div>';
         h += '<div class="mapedit-sel-more">' + more + '</div>';
         host.innerHTML = '<div class="mapedit-sel">' + h + '</div>';
+        var zs = host.querySelector('#mapedit_sel_zone');
+        if (zs) { zs.appendChild(document.getElementById('div_zone_template')); _paintEffective(s.name); } else _paintEffective(null);
+        host.querySelectorAll('details.mapedit-insp').forEach(function (x) {
+            x.addEventListener('toggle', function () {
+                try { localStorage.setItem('vitulus_editsec_insp_' + x.getAttribute('data-insp'), x.open ? '1' : '0'); } catch (e) {}
+            });
+        });
         host.querySelector('#mapedit_sel_close').addEventListener('click', function () {
             if (_dirty()) _setHint('medits.sel.save_first'); else _deselect();
         });
@@ -1624,16 +2187,38 @@ window.MapEdits = (function () {
         }
         if (yr) yr.addEventListener('input', function () { yawFrom(yr, yn); });
         if (yn) yn.addEventListener('input', function () { yawFrom(yn, yr); });
-        _wireRowDelete(host.querySelector('#mapedit_sel_del'), s.name, function () { _deleteSel(s); });
+        host.querySelectorAll('[data-f]').forEach(function (el) { el.addEventListener('input', _metaInput); });
+        function on(id, fn) { var b = host.querySelector(id); if (b) b.addEventListener('click', fn); }
+        function clean(fn) { return function () { if (_dirty()) { _setHint('medits.sel.save_first'); return; } fn(); }; }
+        on('#mapedit_sel_del', clean(function () { _deleteSel(s); }));
+        on('#mapedit_sel_dup', clean(function () { _duplicateSel(s); }));
+        on('#mapedit_sel_addpt', clean(function () { if (window.map_menu) map_menu.add_path_point(s.name); _setHint('medits.hint.path_point'); }));
+        on('#mapedit_sel_split', clean(function () { _setTool('zone_split'); }));
+        on('#mapedit_sel_merge_go', clean(function () { _mergeSel(s, host.querySelector('#mapedit_sel_merge').value); }));
         _paintSelStats();
-        _setHint(s.kind === 'waypoint' ? 'medits.sel.how_short_wp' : 'medits.sel.how_short');
+        _setHint(_isPoint(s.kind, o) ? 'medits.sel.how_short_wp' : 'medits.sel.how_short');
+    }
+    function _metaInput(ev) {
+        var d = _draft, el = ev.target, f = el.getAttribute('data-f');
+        if (!d) return;
+        var m = d.meta, p = m.props;
+        if (f === 'note') m.note = el.value;
+        else if (f === 'aliases') m.aliases = MO.parseList(el.value);
+        else if (f === 'tags') m.tags = MO.parseList(el.value);
+        else if (f === 'category') p.category = el.value.trim();
+        else if (f === 'speed_mps') p.speed_mps = MO.clampSpeed(el.value);
+        else if (f === 'width_m') { var w = parseFloat(el.value); if (isFinite(w) && w > 0) p.width_m = w; }
+        else if (f === 'connects') p.connects = MO.parseList(el.value);
+        else if (f === 'valid_from') m.valid_from = MO.fromLocalInput(el.value);
+        else if (f === 'valid_until') m.valid_until = MO.fromLocalInput(el.value);
+        _refreshActions();
     }
     function _paintSelStats() {
         var el = document.getElementById('mapedit_sel_stats');
         if (!el || !_sel) return;
-        var pts = _draft ? _curPts() : [], k = _sel.kind, txt = '';
-        if (k === 'waypoint') {
-            if (pts.length) txt = 'x ' + pts[0][0].toFixed(2) + ' · y ' + pts[0][1].toFixed(2) + ' m';
+        var pts = _draft ? _curPts() : [], txt = '';
+        if (pts.length === 1) {
+            txt = 'x ' + pts[0][0].toFixed(2) + ' · y ' + pts[0][1].toFixed(2) + ' m';
         } else {
             var open = !!(sharedPolygon() && sharedPolygon().openLine);
             txt = tn('medits.pts', pts.length) + ' · ' + (open
@@ -1645,15 +2230,121 @@ window.MapEdits = (function () {
         var fin = document.getElementById('mapedit_finish');
         if (fin && _draft && !_draft.saving && _shapeProblem()) fin.disabled = true;
     }
+
+    // ---- delete: at once, with the way back in a toast. Protected points have
+    // no delete, whatever the way here was.
+    function _snapshot(s) {
+        var o = _objOf(s);
+        if (!o) return null;
+        if (s.kind === 'zone') return window.mapEditZoneApi.raw(s.name);
+        return JSON.parse(JSON.stringify(o));
+    }
+    function _restore(s, snap) {
+        if (s.kind === 'zone') window.mapEditZoneApi.restore(snap);
+        else if (s.kind === 'edit') _layer.saveEdit({ kind: snap.kind, name: snap.name, points: snap.points, width_m: snap.width_m });
+        else if (s.kind === 'path') _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: snap.name, points: snap.points, yaws: snap.yaws }) }));
+        else _publishWaypointAt(snap.name, snap.x, snap.y, snap.yaw || 0);
+    }
+    function _deleted(name, undo) {
+        Panel.toast(t('medits.sel.deleted', { name: name }), undo);
+        _setHint('medits.sel.deleted', { name: name });
+    }
     function _deleteSel(s) {
+        var m = _metaObj(s.kind, s.name);
+        if (MO.isProtected(m, s.name)) { _setHint('medits.sel.reserved'); return; }
+        var snap = _snapshot(s), full = m ? JSON.parse(JSON.stringify(m)) : null;
         _closeSel();
         _renderSel();
         _markRows();
         _refreshActions();
-        if (s.kind === 'zone') { window.mapEditZoneApi.remove(s.name); _setHint('medits.sel.deleted', { name: s.name }); }
-        else if (s.kind === 'edit') { _layer.removeEdit(s.name); _setHint('medits.hint.edit_deleted', { name: s.name }); }
-        else if (s.kind === 'path') { _removePath(s.name); _setHint('medits.hint.path_deleted', { name: s.name }); }
-        else { if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: s.name })); _setHint('medits.hint.wp_deleted', { name: s.name }); }
+        if (m && MO.live()) {
+            MO.op({ op: 'delete', id: m.id }, function (r) {
+                if (!r.ok) { _sayReason(r); return; }
+                _deleted(s.name, function () {
+                    var redoIt = function (x) { if (!x.ok) _sayReason(x); };
+                    if (MO.undoPlan(MO.state.history, m.id) === 'undo') MO.op({ op: 'undo' }, redoIt);
+                    else MO.op({ op: 'save', object: full }, redoIt);
+                });
+            });
+            return;
+        }
+        if (s.kind === 'zone') window.mapEditZoneApi.remove(s.name);
+        else if (s.kind === 'edit') _layer.removeEdit(s.name);
+        else if (s.kind === 'path') _removePath(s.name);
+        else if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: s.name }));
+        _deleted(s.name, snap ? function () { _restore(s, snap); } : null);
+    }
+    // All edits of the map, one undo step.
+    function _clearAll() {
+        var edits = ((_layer && _layer.edits) || []).slice();
+        if (!edits.length) { _setHint('medits.no_edits'); return; }
+        if (_dirty()) { _setHint('medits.sel.save_first'); return; }
+        var ops = edits.map(function (e) { var m = MO.find('edit', e.name); return m ? { op: 'delete', id: m.id } : null; });
+        var msg = tn('medits.hint.cleared', edits.length);
+        if (MO.live() && ops.every(Boolean)) {
+            MO.op({ op: 'group', ops: ops }, function (r) {
+                if (!r.ok) { _sayReason(r); return; }
+                Panel.toast(msg, function () { MO.op({ op: 'undo' }, function (x) { if (!x.ok) _sayReason(x); }); });
+            });
+            return;
+        }
+        _layer.clearAll();
+        Panel.toast(msg, function () {
+            edits.forEach(function (e) { _layer.saveEdit({ kind: e.kind, name: e.name, points: e.points, width_m: e.width_m }); });
+        });
+    }
+    // A copy one metre aside, under a new name. Zones by the planner: their
+    // settings and programs are its business.
+    function _duplicateSel(s) {
+        var o = _objOf(s);
+        if (!o) return;
+        if (s.kind === 'zone') {
+            MO.zoneOp({ op: 'duplicate', name: s.name }, function (r) {
+                if (!r.ok) { _sayReason(r); return; }
+                var n = (r.names || [])[0];
+                if (n) _select('zone', n, { awaited: true });
+            });
+            return;
+        }
+        var fam = s.kind === 'place' ? 'place' : s.kind;
+        var name = nextName(s.kind === 'place' ? o.type : (s.kind === 'edit' ? (o.kind || 'obstacle') : s.kind), _names(fam));
+        var pts = _ptsOf(s.kind, o).map(function (p) { return [p[0] + 1, p[1] + 1]; });
+        if (s.kind === 'place') {
+            var c = JSON.parse(JSON.stringify(o));
+            delete c.id; c.name = name; c.points = pts;
+            MO.op({ op: 'save', object: c }, function (r) {
+                if (!r.ok) { _sayReason(r); return; }
+                _select('place', name, { awaited: true });
+            });
+            return;
+        }
+        if (s.kind === 'edit') _layer.saveEdit({ kind: o.kind, name: name, points: pts, width_m: o.width_m });
+        else if (s.kind === 'path') _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: name, points: pts, yaws: o.yaws }) }));
+        else _publishWaypointAt(name, pts[0][0], pts[0][1], o.yaw || 0);
+        _select(s.kind, name, { awaited: true });
+    }
+    function _mergeSel(s, other) {
+        MO.zoneOp({ op: 'merge', names: [s.name, other] }, function (r) {
+            if (!r.ok) { _sayReason(r); return; }
+            _setHint('medits.zone.merged', { name: s.name, other: other });
+        });
+    }
+    function _suggestion(id, action) {
+        var sg = (MO.state.suggestions || []).filter(function (x) { return x.id === id; })[0];
+        if (!sg) return;
+        var msg = { op: 'suggestion', id: id, action: action };
+        if (action === 'accept') {
+            var mark = sg.kind === 'landmark';
+            msg.as = { type: mark ? 'landmark' : 'obstacle',
+                       name: mark ? nextName('landmark', _names('place')) : nextName('obstacle', _names('edit')) };
+        }
+        MO.op(msg, function (r) { if (!r.ok) _sayReason(r); });
+    }
+    function _frameSuggestion(id) {
+        var sg = (MO.state.suggestions || []).filter(function (x) { return x.id === id; })[0];
+        if (!sg || !_ov || !sg.points || !sg.points.length) return;
+        var c = _center(sg.points);
+        _ov.frameBox(c[0] - 4, c[1] - 4, c[0] + 4, c[1] + 4);
     }
 
     // ---- lists: one row anatomy, a tap selects ----
@@ -1684,7 +2375,13 @@ window.MapEdits = (function () {
             var on = !!_sel && r.getAttribute('data-kind') === _sel.kind && r.getAttribute('data-n') === _sel.name;
             r.classList.toggle('sel', on);
             r.setAttribute('aria-selected', on ? 'true' : 'false');
-            if (on) { var sec = r.closest('details'); if (sec) sec.open = true; }
+            if (on) {
+                var sec = r.closest('details'), list = r.parentNode;
+                if (sec) sec.open = true;
+                if (r.offsetTop < list.scrollTop || r.offsetTop + r.offsetHeight > list.scrollTop + list.clientHeight) {
+                    list.scrollTop = r.offsetTop - 40;
+                }
+            }
         }
     }
 
@@ -1703,7 +2400,7 @@ window.MapEdits = (function () {
     var _closeArmed = 0;
     var CLOSE_SAME_PRESS_MS = 300, CLOSE_AGAIN_MS = 4000;
     function _unsaved() {
-        return _dirty() || !!_wpInput || (_isDraw(_tool) && _curPts().length > 0);
+        return _dirty() || !!_wpInput || (_isDraw(_tool) && _tool !== 'measure' && _tool !== 'zone_split' && _curPts().length > 0);
     }
     function holdClose() {
         if (!_unsaved()) return false;
@@ -1722,62 +2419,10 @@ window.MapEdits = (function () {
         if (_pub_path_remove) _pub_path_remove.publish(new ROSLIB.Message({ data: name }));
     }
 
-    // Double-click-to-confirm delete wiring for a single button (NEVER
-    // window.confirm). onConfirm fires on the second click within the window.
-    function _wireRowDelete(btn, name, onConfirm) {
-        if (!btn) return;
-        var armed = false, timer = null;
-        var orig = btn.textContent, origKey = btn.getAttribute('data-i18n');
-        var solid = 'btn-danger', outline = 'btn-outline-danger';
-        function disarm() {
-            armed = false;
-            if (origKey) _tag(btn, origKey); else btn.textContent = orig;
-            btn.classList.remove(solid); btn.classList.add(outline); if (timer) { clearTimeout(timer); timer = null; }
-        }
-        btn.addEventListener('click', function () {
-            if (!armed) {
-                armed = true; _tag(btn, 'common.confirm'); btn.classList.remove(outline); btn.classList.add(solid);
-                timer = setTimeout(disarm, 2500);
-            } else {
-                disarm();
-                onConfirm();
-            }
-        });
-    }
-
-    // Paths list lives in the collapsible "Paths" section — rendered from the
-    // latest map_objects.paths. A row selects; its eye hides that one path.
-    function _renderPathList() {
-        var pl = document.getElementById('mapedit_path_list');
-        if (!pl) return;
-        var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
-        if (!paths.length) { pl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_paths') + '</div>'; return; }
-        var html = '';
-        for (var i = 0; i < paths.length; i++) {
-            var pth = paths[i];
-            var name = pth.name || '';
-            var np = (pth.points || []).length;
-            var hidden = _mapObjLayer.isPathHidden(name);
-            html += rowHtml('path', name,
-                '<span class="text-truncate vt-grow1 vt-min0 ' + (hidden ? 'vt-muted' : 'vt-sw-00d0a0') + '" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || t('medits.unnamed')) + '</span>' +
-                '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>' +
-                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="' + _escapeAttr(t('medits.path_vis')) + '" aria-label="' + _escapeAttr(t('medits.path_vis')) + '"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '<i class="la la-eye-slash"></i>' : '<i class="la la-eye"></i>') + '</button>');
-        }
-        pl.innerHTML = html;
-        pl.querySelectorAll('.mapedit-path-vis').forEach(function (b) {
-            b.addEventListener('click', function () {
-                var n = b.getAttribute('data-n');
-                if (!_mapObjLayer) return;
-                _mapObjLayer.setPathHidden(n, !_mapObjLayer.isPathHidden(n));
-                _renderPathList();   // refresh icon/dimmed state
-            });
-        });
-        _markRows();
-    }
-
     // ---- waypoint placement: floating name + yaw slider (simpler than a drag
     //      gesture; yaw chosen from a 0..359° slider) ----
     function _newWaypoint(world) {
+        world = snap(world, null, -1);
         _showWpInput(nextName('waypoint', _names('waypoint')), false, function (finalName, yawDeg) {
             var yaw = (yawDeg || 0) * Math.PI / 180;
             _publishWaypointAt(finalName, world.x, world.y, yaw);
@@ -1889,44 +2534,6 @@ window.MapEdits = (function () {
         _wpInput = null;
     }
 
-    // Waypoint list lives in the collapsible "Waypointy" section — always
-    // rendered (not gated on the active tool). A row selects.
-    function _renderWpList() {
-        var wl = document.getElementById('mapedit_wp_list');
-        if (!wl) return;
-        if (!_wpNames.length) { wl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_wps') + '</div>'; return; }
-        var html = '';
-        for (var i = 0; i < _wpNames.length; i++) {
-            var n = _wpNames[i];
-            html += rowHtml('waypoint', n, '<span class="text-info text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>');
-        }
-        wl.innerHTML = html;
-        _markRows();
-    }
-
-    // Edits list lives in the collapsible "Edity mapy" section; Clear-all is the
-    // double-click button in the same section. Refreshed whenever the latched
-    // edit_list changes (onListChange). A row selects.
-    function _renderEditList() {
-        var el = document.getElementById('mapedit_edit_list');
-        if (!el) return;
-        var edits = (_layer && _layer.edits) ? _layer.edits : [];
-        if (!edits.length) { el.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_edits') + '</div>'; return; }
-        var LBL = { obstacle: t('medits.kind.obstacle'), free: t('medits.kind.free'), wall: t('medits.kind.wall') };
-        var html = '';
-        for (var i = 0; i < edits.length; i++) {
-            var e = edits[i];
-            var kind = LBL[e.kind] || e.kind || '';
-            var np = (e.points || []).length;
-            html += rowHtml('edit', e.name || '',
-                '<span class="text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || t('medits.unnamed')) + '</span>' +
-                '<span class="text-light vt-w-sm">' + _escapeHtml(kind) + '</span>' +
-                '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>');
-        }
-        el.innerHTML = html;
-        _markRows();
-    }
-
     // =====================================================================
     // NAMES — every map object has one. Rules mirror vitulus_mapping/objnames.py;
     // the owner node decides, this only avoids a pointless round trip.
@@ -1965,6 +2572,7 @@ window.MapEdits = (function () {
         if (kind === 'waypoint') return _wpNames;
         if (kind === 'path') return ((_mapObjLayer && _mapObjLayer.paths) || []).map(function (p) { return p.name || ''; });
         if (kind === 'zone') return window.mapEditZoneNames ? window.mapEditZoneNames() : [];
+        if (kind === 'place') return MO.places().map(function (o) { return o.name; });
         return ((_layer && _layer.edits) || []).map(function (e) { return e.name || ''; });
     }
 
@@ -1989,19 +2597,22 @@ window.MapEdits = (function () {
         var r = _renaming;
         if (!r || !res || res.kind !== r.kind || res.from !== r.from || res.to !== r.to) return;
         if (!res.ok) { _renameSay('medits.name.err.' + res.code, { name: res.to }); return; }
-        if (res.kind === 'path' && _mapObjLayer && _mapObjLayer.isPathHidden(res.from)) {
-            _mapObjLayer.setPathHidden(res.from, false);
-            _mapObjLayer.setPathHidden(res.to, true);
+        _renamed(res.kind, res.from, res.to);
+    }
+    function _renamed(kind, from, to) {
+        if (kind === 'path' && _mapObjLayer && _mapObjLayer.isPathHidden(from)) {
+            _mapObjLayer.setPathHidden(from, false);
+            _mapObjLayer.setPathHidden(to, true);
         }
-        if (_sel && _sel.kind === res.kind && _sel.name === res.from) {
-            _sel.name = res.to;
+        if (_sel && _sel.kind === kind && _sel.name === from) {
+            _sel.name = to;
             _sel.awaited = Date.now() + AWAIT_MS;
-            if (_draft) _draft.name = res.to;
-            if (res.kind === 'zone' && window.mapEditZoneApi) window.mapEditZoneApi.setName(res.to);
+            if (_draft) _draft.name = to;
+            if (kind === 'zone' && window.mapEditZoneApi) window.mapEditZoneApi.setName(to);
         }
         _renameDone();
         _markRows();
-        _setHint('medits.hint.renamed', { from: res.from, to: res.to });
+        _setHint('medits.hint.renamed', { from: from, to: to });
     }
     function _renameTopic(kind) {
         var ros = rosOf();
@@ -2023,6 +2634,19 @@ window.MapEdits = (function () {
         if (to === r.from) { _renameDone(); return; }
         var bad = nameProblem(to, _names(r.kind), r.from);
         if (bad) { _renameSay('medits.name.err.' + bad, { name: to }); return; }
+        if (r.kind === 'place') {
+            var obj = MO.find('place', r.from);
+            if (!obj) { _renameSay('medits.name.err.not_found'); return; }
+            r.to = to;
+            r.row.querySelector('.mapedit-ren-save').disabled = true;
+            MO.op({ op: 'update', id: obj.id, name: to }, function (res) {
+                if (_renaming !== r) return;
+                if (res.ok) { _renamed('place', r.from, to); return; }
+                var known = ['exists', 'reserved', 'empty', 'too_long', 'bad_chars'].indexOf(res.reason) >= 0;
+                _renameSay(res.timeout ? 'medits.name.err.timeout' : 'medits.name.err.' + (known ? res.reason : 'failed'), { name: to });
+            });
+            return;
+        }
         var topic = _renameTopic(r.kind);
         if (!topic) { _renameSay('medits.name.err.timeout'); return; }
         r.to = to;
@@ -2060,14 +2684,14 @@ window.MapEdits = (function () {
     function mockPreview() {
         if (!/[?&]mock\b/.test(location.search)) { return false; }
         var keepL = _layer, keepM = _mapObjLayer, keepW = _wpNames;
-        _layer = {edits: [{name: 'Hedge corner', kind: 'obstacle', points: [1, 2, 3, 4]},
-                          {name: 'Gate', kind: 'wall', points: [1, 2]}], group: {}};
-        _mapObjLayer = {paths: [{name: 'Kolem_vina', points: new Array(42)},
-                                {name: 'Back lawn', points: new Array(18)}],
+        _layer = {edits: [{name: 'Hedge corner', kind: 'obstacle', points: [[0, 0], [1, 0], [1, 1]]},
+                          {name: 'Gate', kind: 'wall', points: [[0, 0], [1, 0]]}], group: {}};
+        _mapObjLayer = {paths: [{name: 'Kolem_vina', points: []},
+                                {name: 'Back lawn', points: []}],
                         isPathHidden: function (n) { return n === 'Back lawn'; }};
-        _wpNames = ['DOCK', 'UNDOCK', 'docked'];
+        _wpNames = ['DOCK', 'UNDOCK', 'DOCKED'];
         try {
-            _loadShow(); _buildToolbar(); _renderEditList(); _renderWpList(); _renderPathList();
+            _loadShow(); _buildToolbar(); Panel.renderList(_rows());
         } finally { _layer = keepL; _mapObjLayer = keepM; _wpNames = keepW; }
         return true;
     }
@@ -2075,7 +2699,7 @@ window.MapEdits = (function () {
     // Language switch: data-i18n parts follow by themselves; re-draw the rest.
     function _onLang() {
         if (!_built) return;
-        _renderEditList(); _renderWpList(); _renderPathList();
+        Panel.onLang();
         _renderSel();
         if (_hintK) _setHint(_hintK, _hintV);
         if (_gfSaid) _gfSay(_gfSaid.fn, _gfSaid.cls);
@@ -2094,6 +2718,9 @@ window.MapEdits = (function () {
         onMapTap: onMapTap,
         onVertexTap: onVertexTap,
         onMapGesture: function () { _compact(true); },
+        snap: snap,
+        onHover: onHover,
+        onDragEnd: onDragEnd,
         onZoneData: _zoneData,
         onZoneResult: onZoneResult,
         holdClose: holdClose,

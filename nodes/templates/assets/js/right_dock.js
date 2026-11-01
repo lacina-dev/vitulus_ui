@@ -738,7 +738,7 @@
         if (!fresh || typeof GnssRx === 'undefined') { return null; }
         var pos = d.rx && d.rx.gnss, hdg = d.rx && d.rx.gnss_heading;
         var sp = GnssRx.fixState(pos), sh = GnssRx.fixState(hdg);
-        var sv = '—', corr = '', svUsed = null, age = null, cs = 'off';
+        var sv = '—', corr = '', svUsed = null, age = null, cs = 'off', rate = null;
         if (pos && pos.alive) {
             var s = pos.sat, p = pos.pvt || {};
             sv = s ? s.used + '/' + s.visible : (p.num_sv != null ? String(p.num_sv) : '—');
@@ -747,11 +747,15 @@
             age = a == null ? null : a;
             corr = a == null ? t('rdock.gnss.nocorr') : (a < 10 ? a.toFixed(1) : Math.round(a)) + 's';
             cs = a == null ? 'err' : (a < 2 ? 'ok' : (a < 10 ? 'warn' : 'err'));
+            /* the stream thins out before it stops: msg/s tints it too */
+            rate = GnssRx.rtcmRate(pos);
+            if (RANK[rate.tone] > RANK[cs]) { cs = rate.tone; }
         }
         var worst = RANK[sp] >= RANK[sh] ? sp : sh;
         if (sp === 'off' && sh !== 'off') { worst = sh; }
+        if (cs !== 'off' && cs !== 'ok' && worst === 'ok') { worst = 'warn'; }
         return {pos: [GnssRx.fixText(pos), sp], hdg: [GnssRx.fixText(hdg), sh],
-                sv: sv, svUsed: svUsed, corr: corr, age: age, corrState: cs,
+                sv: sv, svUsed: svUsed, corr: corr, age: age, corrState: cs, rate: rate,
                 worst: worst, posState: sp};
     }
     function shortFix(s) { s = String(s || '—'); return SHORT[s.toUpperCase()] || s; }
@@ -761,6 +765,7 @@
         var cp = el('span', 'vt-chip vt-chip-sm', wrap);
         var ch = el('span', 'vt-chip vt-chip-sm', wrap);
         var tx = el('span', 'rp-tv rp-gsum-t', wrap);
+        var tr = el('span', 'rp-tv rp-gsum-r', wrap);
         var cd = tdot(wrap, 'rp-corr');
         /* level 2: Position | Heading, the quick rows only (GnssRx.quick) */
         var quick = el('div', 'rp-gq', box);
@@ -775,7 +780,7 @@
         var last = '';
         var paint = function () {
             var m = gnssSummary();
-            var key = m ? [m.pos, m.hdg, m.sv, m.corr].join('|') : 'none';
+            var key = m ? [m.pos, m.hdg, m.sv, m.corr, m.rate && m.rate.txt, m.corrState].join('|') : 'none';
             if (key !== last) {
                 last = key;
                 cp.textContent = m ? shortFix(m.pos[0]) : '—';
@@ -787,6 +792,9 @@
                 tx.textContent = m && m.svUsed != null ? String(m.svUsed) : '—';
                 tx.dataset.state = m && m.svUsed != null ? (m.svUsed >= 12 ? 'ok' : 'warn') : 'off';
                 setTip(tx, t('rdock.gnss.sv', {sv: m ? m.sv : '—'}));
+                tr.textContent = m && m.rate ? m.rate.txt : '—';
+                tr.dataset.state = m && m.rate && m.rate.rate != null ? m.rate.tone : 'off';
+                setTip(tr, t('gnssrx.r.rtcm') + ': ' + (m && m.rate ? m.rate.txt : '—') + ' · ' + t('gnssrx.r.rtcm_tip'));
                 cd.dataset.state = m ? m.corrState : 'off';
                 setTip(cd, t('gnssrx.r.corr') + ': ' + (m && m.corr ? m.corr : '—') + ' · ' + t('rdock.gnss.corr_code'));
                 sec.dataset.tone = m ? m.worst : 'off';

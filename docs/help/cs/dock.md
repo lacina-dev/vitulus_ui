@@ -19,7 +19,7 @@ Robot je **v doku, když nabíječka dodává proud** (ikona napájení zelená,
 
 1. **Dok** s nabíjecími kontakty na zadní stěně.
 2. **Odrazka** — lidar ji vidí jako velmi jasný pruh a podle ní dok najde.
-3. **docked** — poloha robota, když sedí v doku (zádí na kontaktech).
+3. **DOCKED** — poloha robota, když sedí v doku (zádí na kontaktech).
 4. **DOCK** — příjezdový bod před dokem, otočený od doku; odtud robot zacouvá dovnitř.
 5. **UNDOCK** — bod, na který robot vyjede.
 6. **Pod okrajem střechy** je GPS špatná — proto výjezd čeká na RTK až na UNDOCK.
@@ -33,7 +33,7 @@ Robot je **v doku, když nabíječka dodává proud** (ikona napájení zelená,
 
 ```flow
 Motory zapnout | program zapne pojezdové motory
-Vycouvat | podle odrazky vyjede 1,25 m z doku
+Vycouvat | podle odrazky vyjede asi 1 m z doku
 Na UNDOCK | podle mapy místa dojede na bod UNDOCK
 warn: Čekat na RTK | oba GPS přijímače RTK a ustálená GPS odometrie 5 s (10 min, po restartu až ~25 min)
 ok: Hotovo | motory zůstanou zapnuté
@@ -83,7 +83,7 @@ Slouží k nastavení a ručním zkouškám; běžně stačí **Dock** / **Undoc
 | Dok podle odrazivosti | přepínač zapnutí, **Dock**, **Undock**, **Stop** — jen krok s odrazkou |
 | Body doku / výjezdu | **Navi** dojede na bod DOCK nebo UNDOCK; **Aktualizovat** uloží *současnou* polohu robota jako ten bod |
 | Mapa detektoru doku | **Nová mapa**, **Upravit mapu**, **Uložit mapu** — lidarový obraz doku |
-| Počáteční lokalizace | poloha *docked*, podle které se robot v doku lokalizuje; když chybí, píše *CHYBÍ bod polohy v doku* |
+| Počáteční lokalizace | poloha *DOCKED*, podle které se robot v doku lokalizuje; když chybí, píše *CHYBÍ bod polohy v doku* |
 | Program zajetí do doku / výjezdu z doku | zaškrtni kroky (bod z mapy, trasa z lidarové mapy, akce podle odrazivosti) a dej **Provést** nebo **Uložit** |
 
 Ruční karty obcházejí stavový automat doku — používej je, jen když robot vidíš.
@@ -92,8 +92,18 @@ Ruční karty obcházejí stavový automat doku — používej je, jen když rob
 
 - **DOCK** — příjezdový bod před dokem, cíl kroku s mapou při zajíždění.
 - **UNDOCK** — bod, na který robot vyjede.
-- **docked** — poloha robota usazeného v doku; z ní začíná lokalizace v doku. Vznikne sama, když
+- **DOCKED** — poloha robota usazeného v doku; z ní začíná lokalizace v doku. Vznikne sama, když
   dokončíš nahrávání mapy *v doku* ([Mapy](mapping.md)).
+
+Všechny tři názvy jsou vždy velkými písmeny. Body můžeš přesunout, smazat ne.
+
+Když vzniká DOCKED a místo ještě nemá DOCK nebo UNDOCK, robot je vytvoří s ním: oba tam, kde končí
+vycouvání, rovně ven z doku od DOCKED, čelem od doku. Bod, který už existuje, zůstane přesně tam,
+kam jsi ho dal, i po dalších uloženích.
+
+**Na RTK robot čeká na bodu UNDOCK.** Přesuň UNDOCK zpod okraje střechy na volné nebe a fix přijde
+rychleji; nový UNDOCK stojí tam, kde vycouvání končí, takže robot jen zůstane stát a čeká. DOCK
+nech před dokem v ose výjezdu, čelem od doku: odtud robot couvá dovnitř.
 
 Nastavení DOCK nebo UNDOCK: dojeď s robotem přesně na místo (i se správným kurzem) a dej
 **Aktualizovat**. Nebo bod posuň v [editoru mapy](map-editor.md).

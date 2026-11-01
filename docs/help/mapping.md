@@ -68,9 +68,10 @@ Active | the new map is active at once
 3. Finish in the dock and press **Save & finish**. The map is saved and becomes **active**.
 
 > [!TIP]
-> Ending the recording **while docked** automatically creates the *docked* point (the robot's pose
-> in the dock), which seeds the localization in the dock. The DOCK and UNDOCK points are set
-> separately in **Map › Dock** ([Dock and undock](dock.md#the-points)). If the session never had
+> Ending the recording **while docked** automatically creates the *DOCKED* point (the robot's pose
+> in the dock), which seeds the localization in the dock. If the site has no DOCK or UNDOCK yet,
+> they are created with it where the back-out ends; move them in **Map › Dock** or the map editor
+> ([Dock and undock](dock.md#the-points)). If the session never had
 > stable RTK, the robot's log warns *captured NO georef datum… remap with good GPS*.
 
 While recording:

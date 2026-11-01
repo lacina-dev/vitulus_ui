@@ -1,0 +1,184 @@
+/* vt_mapedit.css — the map editor (2026-11): the map is the main surface, the
+   tool bar floats over it on a notebook, the left panel holds one object list
+   and one inspector. No left stripes; labels square-ish, cards rounded. */
+
+/* ---- floating tool bar */
+#mapedit_bar {
+    position: fixed; z-index: 7; display: none; flex-direction: column; gap: 6px;
+    top: calc(var(--vt-frame-notice-b, 80px) + 8px);
+    left: calc(var(--vt-frame-left, 0px) + 22px);
+    max-width: calc(100vw - var(--vt-frame-left, 0px) - var(--vt-frame-rp-w, 0px) - 44px);
+    pointer-events: none;
+}
+#mapedit_bar.on { display: flex; }
+/* below the FINDING strip and right of the compass, both live in that corner */
+@media (min-width: 576px) {
+    #mapedit_bar { top: calc(var(--vt-frame-notice-b, 80px) + 34px); left: calc(var(--vt-frame-left, 0px) + 76px); }
+}
+#mapedit_bar > * { pointer-events: auto; }
+.mapedit-bar-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px; width: fit-content; max-width: 100%;
+    background: var(--vt-frame-bg, #282b30); border: 1px solid var(--vt-border-strong);
+    border-radius: var(--vt-r-card); box-shadow: var(--vt-elev-2);
+}
+.mapedit-bar-sep { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--vt-border-strong); }
+.mapedit-bar-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px; position: relative;
+    min-width: 40px; min-height: 40px; padding: 0 8px; font-size: 13px; line-height: 1;
+    color: var(--vt-text); background: transparent; border: 1px solid transparent; border-radius: var(--vt-r-ctl);
+}
+.mapedit-bar-btn .la { font-size: 20px; }
+.mapedit-bar-btn:hover { background: rgba(255, 255, 255, 0.07); }
+.mapedit-bar-btn:disabled { opacity: 0.35; }
+.mapedit-bar-btn.active, .mapedit-bar-btn.has-tool {
+    color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.14); border-color: var(--vt-edge-info);
+}
+.mapedit-bar-group { position: relative; display: inline-flex; }
+.mapedit-fly {
+    display: none; position: absolute; top: calc(100% + 8px); left: 0; z-index: 2; min-width: 210px; padding: 4px;
+    background: var(--vt-frame-bg, #282b30); border: 1px solid var(--vt-border-strong);
+    border-radius: var(--vt-r-card); box-shadow: var(--vt-elev-2);
+}
+.mapedit-fly.open { display: block; }
+.mapedit-fly .met-tool {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 4px 8px;
+    font-size: 13px; text-align: left; color: var(--vt-text); background: transparent; border: 0; border-radius: var(--vt-r-ctl);
+}
+.mapedit-fly .met-tool:hover { background: rgba(255, 255, 255, 0.07); }
+.mapedit-fly .met-tool.active { color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.14); }
+.mapedit-fly .met-tool .la { font-size: 20px; width: 22px; text-align: center; }
+#mapedit_live { min-height: 28px; padding: 2px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+#mapedit_live:empty { display: none; }
+#mapedit_snap { min-height: 32px; min-width: 40px; }
+#mapedit_status { align-items: center; }
+#mapedit_status[hidden] { display: none; }
+
+/* type colours: one place for the icon of every list, tool and inspector */
+.mapedit-ico { font-size: 18px; flex: 0 0 22px; text-align: center; color: var(--vt-muted); }
+[data-type="zone"], [data-type="waypoint"], [data-type="path"] { --mapedit-c: var(--vt-accent); }
+[data-type="obstacle"] { --mapedit-c: #ff4d4d; } [data-type="free"] { --mapedit-c: #37c837; } [data-type="wall"] { --mapedit-c: #e0a030; }
+[data-type="place"] { --mapedit-c: #8fd14f; } [data-type="landmark"] { --mapedit-c: #ffd23f; } [data-type="nogo"] { --mapedit-c: #ff3b4e; }
+[data-type="slow"] { --mapedit-c: #ffab45; } [data-type="noblade"] { --mapedit-c: #b388ff; } [data-type="corridor"] { --mapedit-c: #5cc8ff; }
+.mapedit-ico[data-type], .met-tool[data-type] .la, .mapedit-sel-head > .la[data-type] { color: var(--mapedit-c); }
+
+/* ---- object list: a fixed height, so a tap never moves the inspector below */
+.mapedit-obj-tools { display: flex; gap: 6px; margin-bottom: 6px; }
+#mapedit_obj_search { flex: 1 1 auto; min-width: 0; }
+#mapedit_obj_filter { flex: 0 0 132px; }
+#mapedit_obj_list { position: relative; height: clamp(150px, 28dvh, 300px); overflow-y: auto; overflow-x: hidden; }
+#mapedit_obj_count, #mapedit_sugg_count {
+    margin-left: auto; font-size: 11px; font-weight: 400; color: var(--vt-muted); font-variant-numeric: tabular-nums;
+}
+.mapedit-row-meta { flex: 0 0 64px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+
+/* ---- inspector: the same anatomy for every type */
+.mapedit-pills { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; margin: 2px 0 4px; }
+.mapedit-insp { margin-top: 6px; border-top: 1px solid var(--vt-border); }
+.mapedit-insp > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; min-height: 36px;
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--vt-muted);
+}
+.mapedit-insp > summary::-webkit-details-marker { display: none; }
+.mapedit-insp > summary::before { content: "\25B8"; font-size: 11px; transition: transform .15s ease; }
+.mapedit-insp[open] > summary::before { transform: rotate(90deg); }
+.mapedit-insp-body { padding-bottom: 6px; }
+.mapedit-f { display: block; margin-bottom: 6px; }
+.mapedit-f > span { display: block; font-size: 12px; color: var(--vt-muted); margin-bottom: 2px; }
+.mapedit-f textarea { resize: vertical; min-height: 58px; }
+.mapedit-f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mapedit-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mapedit-actions .btn { flex: 1 1 120px; }
+.mapedit-merge { display: flex; gap: 6px; width: 100%; }
+.mapedit-merge select { flex: 1 1 auto; min-width: 0; }
+#mapedit_empty { padding: 10px 0; }
+
+/* zone form: nothing clipped, technical fields one level down */
+#div_zone_template .input-group { width: 128px; }
+#div_zone_template input[type=number] { min-width: 62px; }
+#zone_template_status:empty { display: none; }
+#mapedit_zcheck { font-size: 12px; margin-top: 6px; }
+#mapedit_zcheck:empty { display: none; }
+.mapedit-zc-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 4px; }
+.mapedit-zc-nums b { display: block; font-family: var(--vt-font-num, inherit); font-size: 15px; font-variant-numeric: tabular-nums; }
+
+/* ---- layers, history, suggestions */
+.mapedit-lay-head { margin: 6px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--vt-muted); }
+.mapedit-lay { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0; cursor: pointer; }
+.mapedit-lay .form-check-input { margin: 0; width: 20px; height: 20px; flex: 0 0 auto; }
+.mapedit-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-left: 28px; font-size: 11px; }
+.mapedit-legend:empty { display: none; }
+.mapedit-legend > div { width: 100%; }
+.mapedit-stop { display: inline-flex; align-items: center; gap: 4px; }
+.mapedit-stop i { width: 12px; height: 12px; border-radius: 3px; }
+.mapedit-swatch.vt-sw-terrain-grad { display: inline-block; width: 60px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #2a5cff, #2adf6f, #ffd23f, #ff3b4e); }
+#mapedit_history { max-height: 300px; overflow-y: auto; }
+.mapedit-sugg { display: flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; border-bottom: 1px solid var(--vt-border); }
+
+/* ---- toast + rule banner: over the map, never over the bars */
+#mapedit_toast {
+    position: fixed; z-index: 9; display: none; align-items: center; gap: 12px;
+    left: calc(var(--vt-frame-left, 0px) + 22px); bottom: calc(var(--vt-frame-ledge, 60px) + 14px);
+    max-width: min(480px, calc(100vw - var(--vt-frame-left, 0px) - 44px)); padding: 6px 8px 6px 14px;
+    background: var(--vt-frame-bg, #282b30); border: 1px solid var(--vt-border-strong);
+    border-radius: var(--vt-r-card); box-shadow: var(--vt-elev-2);
+}
+#mapedit_toast.on { display: flex; }
+.mapedit-toast-txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mapedit_toast .btn { min-height: 40px; flex: 0 0 auto; }
+#vt_maprule_banner {
+    position: fixed; z-index: 9; top: calc(var(--vt-frame-notice-b, 80px) + var(--mapedit-bar-h, 0px) + 8px);
+    left: calc(var(--vt-frame-left, 0px) + 22px); right: calc(var(--vt-frame-rp-w, 0px) + 22px);
+    width: auto; max-width: 640px; margin: 0;
+}
+
+/* ---- phone: the bar lives in the sheet, the map stays visible, 40 px targets */
+@media (max-width: 575.98px) {
+    #mapedit_bar { position: static; max-width: 100%; margin-bottom: 6px; }
+    .mapedit-bar-row { width: 100%; box-shadow: none; background: transparent; border: 0; padding: 0; }
+    .mapedit-bar-btn > span { display: none; }
+    .mapedit-bar-group { position: static; }
+    .mapedit-fly { position: static; width: 100%; order: 10; flex: 1 0 100%; box-shadow: none; }
+    .mapedit-fly.open { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+    #mapedit_obj_list { height: 30dvh; }
+    #mapedit_obj_filter { flex-basis: 120px; }
+    .mapedit-f-row { grid-template-columns: 1fr; }
+    #mapedit_toast { left: 8px; right: 8px; max-width: none; bottom: calc(var(--vt-frame-bottom, 60px) + 8px); z-index: 1002; }
+    #vt_maprule_banner { left: 8px; right: 8px; max-width: none; z-index: 1002; }
+    #ui_drawer.mapedit-compact .mapedit-bar-tools,
+    #ui_drawer.mapedit-compact .mapedit-sec { display: none !important; }
+}
+
+/* ---- Mow load (vt_mow_trail.js): the panel, the same in the map and the editor */
+.vt-sw-mowload { background: linear-gradient(90deg, var(--vt-mow-1), var(--vt-mow-3), var(--vt-mow-5)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mow-panel { display: flex; flex-direction: column; gap: 6px; width: 100%; margin: 4px 0 8px; font-size: 12px; }
+.mow-panel:empty { display: none; }
+.mow-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.mow-field { display: flex; flex: 1 1 120px; flex-direction: column; gap: 2px; min-width: 0; margin: 0; color: var(--vt-muted); font-size: 11px; }
+.mow-field select { min-height: 40px; }
+.mow-scale { display: flex; gap: 2px; }
+.mow-stop { display: flex; flex: 1 1 0; flex-direction: column; gap: 2px; min-width: 0; }
+.mow-stop i { height: 10px; border-radius: 2px; }
+.mow-stop b { overflow: hidden; font-size: 10px; font-weight: 400; color: var(--vt-muted); white-space: nowrap; text-overflow: ellipsis; }
+.mow-states { display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--vt-muted); font-size: 11px; }
+.mow-state { display: inline-flex; align-items: center; gap: 4px; }
+.mow-state i { display: inline-block; width: 18px; border-radius: 1px; background: var(--vt-text); }
+.mow-w-full { height: 10px; } .mow-w-mid { height: 6px; } .mow-w-thin { height: 2px; }
+.mow-state i.mow-w-rule { height: 5px; background: var(--vt-mow-rule); }
+.mow-state i.mow-w-blocked { height: 10px; background: var(--vt-mow-blocked); }
+.mow-events { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0; cursor: pointer; }
+.mow-events .form-check-input { width: 20px; height: 20px; margin: 0; }
+.mow-sum { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.mow-sum em { color: var(--vt-muted); font-style: normal; }
+.mow-card {
+    display: none; position: absolute; z-index: 8; max-width: min(340px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto; padding: 8px 10px;
+    font-size: 12px; color: var(--vt-text); background: var(--vt-overlay); border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-card); box-shadow: var(--vt-elev-2);
+}
+.mow-card-head { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.mow-card-head span { color: var(--vt-muted); }
+.mow-card-head .btn-close { width: 40px; height: 40px; padding: 0; margin: -8px -8px -8px auto; background-size: 12px; }
+.mow-ev { color: var(--vt-warn); }
+.mow-grps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin-top: 4px; }
+.mow-grp h6 { margin: 0 0 2px; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--vt-muted); }
+.mow-grp > div { display: flex; justify-content: space-between; gap: 6px; }
+.mow-grp span { color: var(--vt-muted); }
+.mow-grp b { font-weight: 500; white-space: nowrap; }

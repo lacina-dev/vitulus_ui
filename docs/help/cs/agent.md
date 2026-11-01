@@ -216,7 +216,7 @@ jméno hned. Sám přejmenovávat ani měnit objekty neumí.
   dřívější.
 - Přímé řízení (jeď rovně, couvni) hlídá jen lidar a virtuální bariéru nevidí. Agent si to
   musí ověřit v mapě.
-- DOCK, UNDOCK a docked jsou rezervované body.
+- DOCK, UNDOCK a DOCKED jsou rezervované body.
 
 ### Plán agenta na mapě
 

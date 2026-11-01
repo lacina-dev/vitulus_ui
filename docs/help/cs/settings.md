@@ -36,6 +36,8 @@ Záložka navigace:
 - **Lidar** **ON / OFF**.
 - **RtabMap** — **Zdroj senzorů** (**Kamera** / **Lidar** / **Obojí**) a **Dosah senzorů** —
   pro starší lokalizaci RTAB-Map; běžně se nemění.
+- **Pokročilé (plánovač)** — uložená data plánovače a sestavení mapy s filtrem šumu, okrajem
+  překážek a tvarem výplně. Přesunuto sem z editoru mapy; běžně se nemění.
 
 ## Napájení
 

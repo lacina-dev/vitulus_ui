@@ -38,6 +38,12 @@
        itself runs only on demand. -->
   <node pkg="vitulus_mapping" type="mapping_manager" name="mapping_manager" output="log" respawn="true"/>
 
+  <!-- Map objects: ids, meaning, rules, history and undo (docs/MAP_OBJECTS.md in vitulus_mapping). -->
+  <node pkg="vitulus_mapping" type="map_objects_server" name="map_objects_server" output="log" respawn="true"/>
+
+  <!-- Recorded world layers (coverage, GNSS quality, slope) and suggestions. -->
+  <include file="$(find vitulus_mapping)/launch/map_world_recorder.launch"/>
+
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find vitulus_ui)/launch/rosconsole.conf"/>
   <node pkg="web_video_server" type="web_video_server" name="web_video_server" output="log"/>
   <node pkg="tf2_web_republisher" type="tf2_web_republisher" name="tf2_web_republisher" output="log" respawn="true" respawn_delay="2"/>

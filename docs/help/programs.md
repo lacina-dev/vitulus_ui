@@ -53,6 +53,10 @@ While a program runs, a **Running** card on top of the program list shows its na
 a **Stop** button — whichever program (or none) is open below. After a Stop it turns into
 **Stopped** with **Reset**.
 
+When a start differs from what the program says, the planner adds a note, shown after **Run** and in
+the Running card for the whole run: a zone left out because a [map rule](map-editor.md#rules) covers
+it, or **Resume** restarting a zone because its checkpoint no longer fits or the zone is gone.
+
 ![The Running card: the program's name, its state and Stop](img/shot-program-running.webp "Running — the name, what the mission does now, Stop") ![The Stopped card: the state and Reset](img/shot-program-stopped.webp "Stopped — Reset first, then Run or Resume")
 
 ### Paths on the map
@@ -131,9 +135,9 @@ be loaded, the robot does not leave the dock and the card says why:
 | *can only be loaded in the dock* | bring the robot to the dock and press **Run** again |
 | *while a program is running* / *waits for Reset* | **Stop** or **Reset** first |
 | *did not become active / were not ready / did not take over* | the map has a problem: open it in **Map** and look at what it is missing, then **Run** again |
-| *is … m from that map's dock* | the map's `docked` point is wrong: dock the robot and save it again |
+| *is … m from that map's dock* | the map's `DOCKED` point is wrong: dock the robot and save it again |
 | *has no DOCK point* | add the point, the robot could not get home without it |
-| *has no docked point* | dock the robot on that map and save the point, without it the robot cannot place itself on the map |
+| *has no DOCKED point* | dock the robot on that map and save the point, without it the robot cannot place itself on the map |
 | *is on several maps* | open the right one in the list and press **Run** there |
 
 To **edit** a program of another map, activate that map first: its card here is read-only.

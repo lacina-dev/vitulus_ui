@@ -147,10 +147,11 @@ red = a fault or no data where there should be some · grey = off, paused or not
   one tracker line (`STANDBY` / `ACTIVE` + the last correction); the detail icon in the title
   row opens the rest ([what the chips mean](localization.md#read-the-state-right-panel--navi)).
 - **GNSS** — title row: the Position fix, the Heading fix (`RTK`, `FLT` = float, `DGN` = DGNSS,
-  `3D`, `NO`), the satellites used (green from 12) and a dot for the age of the corrections
-  (green < 2 s, orange < 10 s, red older or none). Expand: two small tiles **Position | Heading**
-  with the quick numbers only — fix, satellites used / visible, accuracy (`acc` in cm, `hdg` in °)
-  and correction age; the detail icon in the title row opens the full card of both receivers
+  `3D`, `NO`), the satellites used (green from 12), the RTCM rate (messages per second, about 5.5 from the
+  base, orange under 2, red at 0) and a dot for the age of the corrections (green < 2 s, orange
+  < 10 s, red older or none; a thin rate turns it orange too). Expand: two small tiles **Position | Heading**
+  with the quick numbers only — fix, satellites used / visible, accuracy (`acc` in cm, `hdg` in °),
+  correction age and RTCM rate; the detail icon in the title row opens the full card of both receivers
   ([GNSS receivers](localization.md#gnss-receivers-right-panel--gnss)).
 - **Camera** — a dot in the title row (green = live picture, orange = starting / waiting, grey =
   off) and the switch Off / S / L; see below.

@@ -86,10 +86,11 @@ window.initPlanner = function(opts) {
 
     // Coverage path overlay (replaces ROS2D.PathShape).
     var coveragePath = new Planner3D.PathLayer({
-        strokeSize : 0.03,
+        strokeSize : window.__coverage_stroke || 0.03,
         strokeColor : '#ff0000',
     });
     gridClient.rootObject.addChild(coveragePath);
+    window.mapEditCoverageStroke = function (v) { coveragePath.strokeSize = v; };
 
 
     // Grid client on change: fit the view to the map the first time it loads
@@ -140,10 +141,13 @@ window.initPlanner = function(opts) {
         isEnabled:   function(){ return polygon.attached; },
         onTap:       function(world, ev){
             if (window.MapEdits && MapEdits.onMapTap(world, ev)) return;
-            if (polygon.attached) polygon.addPoint(world);
+            if (polygon.attached) polygon.addPoint(window.MapEdits ? MapEdits.snap(world, ev, -1) : world);
         },
         onVertexTap: function(i){ if (window.MapEdits) MapEdits.onVertexTap(i); else polygon.select(i); },
         onGesture:   function(){ if (window.MapEdits) MapEdits.onMapGesture(); },
+        snap:        function(world, ev, i){ return window.MapEdits ? MapEdits.snap(world, ev, i) : world; },
+        onHover:     function(world, ev){ if (window.MapEdits) MapEdits.onHover(world, ev); },
+        onDragEnd:   function(){ if (window.MapEdits) MapEdits.onDragEnd(); },
     });
 
 
@@ -169,50 +173,7 @@ window.initPlanner = function(opts) {
         if (typeof _zoneSaveOnLog === 'function') _zoneSaveOnLog(message.data);
     });
 
-    input_obstacle_margin = document.getElementById("input_obstacle_margin");
-    input_fill_free = document.getElementById("input_fill_free");
-    input_fill_shape = document.getElementById("input_fill_shape");
-    btn_assemble_map = document.getElementById("btn_assemble_map");
-
-
-    // get map data
-    function get_map_data() {
-        var topic_map_data = new ROSLIB.Topic({
-            ros: ros,
-            name: '/web_plan/map_data',
-            messageType: 'vitulus_msgs/MapEditMap'
-        });
-        topic_map_data.subscribe(function (message) {
-            input_obstacle_margin.value = message.margin;
-            input_fill_free.value = message.fill;
-            input_fill_shape.value = message.shape;
-        });
-    }
-    get_map_data();
-
-    // assembly map
-    function assemble_map() {
-        var topic_assemble_map = new ROSLIB.Topic({
-            ros: ros,
-            name: '/web_plan/assemble_map',
-            messageType: 'vitulus_msgs/MapEditMap'
-        });
-        topic_assemble_map.advertise();
-
-        btn_assemble_map.onclick = function () {
-            var msg = new ROSLIB.Message({
-                // data : parseInt(input_draw_coverage.value),
-                name: "",
-                fill: parseInt(input_fill_free.value),
-                margin: parseFloat(input_obstacle_margin.value),
-                shape: input_fill_shape.value,
-            });
-            // console.log(msg)
-            topic_assemble_map.publish(msg);
-        };
-    };
-    assemble_map();
-
+    // Stored planner data, map assembly: Settings › Navi › Planner (vt_planner_settings.js).
 
     // Map show: the "Show map layer" / "Show zone layer" buttons were removed
     // 2026-09-20 — they only switched what node_planner publishes on
@@ -393,27 +354,22 @@ window.initPlanner = function(opts) {
     var input_zone_template_coverage_path = document.getElementById("input_zone_template_coverage_path");
     var input_zone_template_path_distance = document.getElementById("input_zone_template_path_distance");
     var input_zone_template_simplify = document.getElementById("input_zone_template_simplify");
-    var btn_new_zone = document.getElementById("btn_new_zone");
-    var div_zone_template = document.getElementById("div_zone_template");
+        var div_zone_template = document.getElementById("div_zone_template");
     var header_zone_template_coverage_path = document.getElementById("header_zone_template_coverage_path");
     var header_zone_template_border_path = document.getElementById("header_zone_template_border_path");
     var header_zone_template_path_list = document.getElementById("header_zone_template_path_list");
-    var div_zone_list = document.getElementById("div_zone_list");
 
     // Init zone template
     var zone_template_style_attr = div_zone_template.getAttribute('style');
     var header_zone_template_coverage_path_style_attr = header_zone_template_coverage_path.getAttribute('style');
     var header_zone_template_border_path_style_attr = header_zone_template_border_path.getAttribute('style');
     div_zone_template.setAttribute('style', 'display:none !important');
-    div_zone_list.innerHTML = "";
     var current_zone = null;
 
 
     // Zone ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // New zone: the editor's Zone tool, which calls _beginNewZone
-    btn_new_zone.onclick = function () { MapEdits.setTool('zone'); };
     var zone_name_row = document.getElementById("zone_template_name_row");
     function _beginNewZone() {
         _zoneSaveClear(); _zoneSaveStatus('', '');
@@ -502,7 +458,7 @@ window.initPlanner = function(opts) {
                 name: zoneName,
                 area: 0,
                 type: 'normal',
-                cut_height: parseInt(input_zone_template_cut_height.value),
+                cut_height: VTMapObjects.clampCut(input_zone_template_cut_height.value),
                 rpm: parseInt(input_zone_template_rpm.value),
                 border_paths: parseInt(input_zone_template_border_path.value),
                 coverage_angle: parseInt(input_zone_template_coverage_path.value),
@@ -633,14 +589,10 @@ window.initPlanner = function(opts) {
     });
 
     var current_zone_list = [];
-    var last_zone_msg = null;
-    _i18nRedraw.push(function () { if (last_zone_msg) render_zone_list(last_zone_msg); });
     zoneListTopic.subscribe(function (message) {
         // console.log("Zone list:");
         initial_lists_received = true;
         current_zone_list = message.zone_list;
-        last_zone_msg = message;
-        render_zone_list(message);
         MapEdits.onZoneData();
     });
     function _zoneNames() { return current_zone_list.map(function (z) { return z.name; }); }
@@ -651,7 +603,7 @@ window.initPlanner = function(opts) {
         list: function () {
             return current_zone_list.map(function (z) {
                 return {
-                    name: z.name, area: z.area,
+                    name: z.name, area: z.area, cut_height: z.cut_height, rpm: z.rpm,
                     points: ((z.polygon && z.polygon.polygon && z.polygon.polygon.points) || [])
                         .map(function (p) { return [p.x, p.y]; }),
                 };
@@ -663,30 +615,29 @@ window.initPlanner = function(opts) {
         close: _closeZoneForm,
         setName: function (name) { _zoneEditing = name; input_zone_template_name.value = name; },
         remove: function (name) { removeZone(name); },
+        // the zone form as settings of a zone_check
+        settings: function () {
+            return {
+                cut_height: VTMapObjects.clampCut(input_zone_template_cut_height.value),
+                rpm: parseInt(input_zone_template_rpm.value),
+                border_paths: parseInt(input_zone_template_border_path.value),
+                coverage_angle: parseInt(input_zone_template_coverage_path.value),
+                paths_distance: parseFloat(input_zone_template_path_distance.value),
+                simplify: parseFloat(input_zone_template_simplify.value),
+            };
+        },
+        // a whole zone as the list gives it, and back: the undo of a delete
+        // while map_objects_server is not there
+        raw: function (name) { return current_zone_list.filter(function (z) { return z.name === name; })[0] || null; },
+        restore: function (z) {
+            topic_save_zone.publish(new ROSLIB.Message({
+                header: { frame_id: "map" }, name: z.name, area: 0, type: 'normal',
+                cut_height: z.cut_height, rpm: z.rpm, border_paths: z.border_paths,
+                coverage_angle: z.coverage_angle, paths_distance: z.paths_distance,
+                simplify: z.simplify, polygon: z.polygon, paths: [],
+            }));
+        },
     };
-    function _esc(s) {
-        return String(s).replace(/[&<>"']/g, function (c) {
-            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
-        });
-    }
-    function render_zone_list(message) {
-        // A row selects the zone: MapEdits.rowHtml, the same anatomy as the other lists.
-        var html_zone_list = '';
-        for (let zone in message.zone_list) {
-            let zone_name = message.zone_list[zone].name;
-            let zone_area = message.zone_list[zone].area;
-            let zone_height = message.zone_list[zone].cut_height;
-            let zone_rpm = message.zone_list[zone].rpm;
-            html_zone_list += MapEdits.rowHtml('zone', zone_name, `
-                    <span class="text-info text-truncate vt-grow1 vt-min0" title="${_esc(zone_name)}">${_esc(zone_name)}</span>
-                    <span class="text-light text-end vt-w-xs">${zone_height}mm</span>
-                    <span class="text-light text-end vt-w-xs">${zone_rpm}rpm</span>
-                    <span class="text-light text-end vt-w-xs">${zone_area}m&sup2;</span>`);
-        }
-        div_zone_list.innerHTML = html_zone_list;
-    }
-
-
     // Edit zone from list by name
     this.editZone = function (zone_name) {
         for (let i in current_zone_list) {
@@ -989,10 +940,6 @@ window.initPlanner = function(opts) {
     // Active map ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Program elements
-    var btn_save_planner_data = document.getElementById("btn_save_planner_data");
-    var btn_load_planner_data = document.getElementById("btn_load_planner_data");
-    var btn_reload_map = document.getElementById("btn_reload_map");
     var active_map_name = document.getElementById("active_map_name");
 
     // Display map name
@@ -1021,59 +968,6 @@ window.initPlanner = function(opts) {
         }
         active_map_file_name = message.data;
     });
-
-    // Load planner data
-    var load_planner_data_Topic = new ROSLIB.Topic({
-        ros : ros,
-        name : '/web_plan/load_planner_data',
-        messageType : 'std_msgs/Bool'
-    });
-    load_planner_data_Topic.advertise();
-
-    btn_load_planner_data.onclick = function () {
-        let msg = new ROSLIB.Message({
-            data: true,
-        });
-        load_planner_data_Topic.publish(msg)
-    }
-
-    // Save planner data
-    var save_planner_data_Topic = new ROSLIB.Topic({
-        ros : ros,
-        name : '/web_plan/save_planner_data',
-        messageType : 'std_msgs/Bool'
-    });
-    save_planner_data_Topic.advertise();
-
-    btn_save_planner_data.onclick = function () {
-        let msg = new ROSLIB.Message({
-            data: true,
-        });
-        save_planner_data_Topic.publish(msg)
-    }
-
-    // Reload map
-    var reload_map_Topic = new ROSLIB.Topic({
-        ros : ros,
-        name : '/web_plan/reload_map',
-        messageType : 'std_msgs/Bool'
-    });
-    reload_map_Topic.advertise();
-
-    btn_reload_map.onclick = function () {
-        let msg = new ROSLIB.Message({
-            data: true,
-        });
-        reload_map_Topic.publish(msg)
-    }
-
-
-
-
-
-
-
-
 
     // Request initial data from backend  //////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1137,19 +1031,6 @@ window.initPlanner = function(opts) {
         }
     });
 
-    // Set path strokeSize to 0.45 on btn_path_footprint click
-    var btnPathFootprint = document.getElementById("btn_path_footprint");
-    btnPathFootprint.onclick = function() {
-        console.log("Setting path strokeSize to 0.55");
-        coveragePath.strokeSize = 0.45;
-    };
-
-    // Set path strokeSize to 0.03 on btn_path_thin click
-    var btnPathThin = document.getElementById("btn_path_thin");
-    btnPathThin.onclick = function() {
-        console.log("Setting path strokeSize to 0.03");
-        coveragePath.strokeSize = 0.03;
-    };
 } /// end of on.load()
 
 

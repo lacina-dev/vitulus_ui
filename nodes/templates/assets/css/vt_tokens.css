@@ -48,6 +48,22 @@
     --vt-info-rgb: var(--vt-accent-rgb);
     --vt-off: #7a8288;           /* switched off / idle / unknown */
     --vt-off-rgb: 122, 130, 136;
+
+    /* Mow load trail: five steps of ColorBrewer RdYlBu, safe for colour-blind eyes;
+       the shader adds a dark edge so it reads over aerial imagery */
+    --vt-mow-1: #2c7bb6;
+    --vt-mow-2: #57c4d8;
+    --vt-mow-3: #ffef8a;
+    --vt-mow-4: #f58a3c;
+    --vt-mow-5: #d7191c;
+    --vt-mow-off: #e9edf0;       /* blade off on a blade metric */
+    --vt-mow-none: #8a949c;      /* value not known */
+    --vt-mow-blocked: #ff3fb0;
+    --vt-mow-hot: #ffffff;
+    --vt-mow-rule: #b388ff;
+    --vt-mow-ev-1: #ff3fb0;      /* event icons, by weight */
+    --vt-mow-ev-2: #ffb000;
+    --vt-mow-ev-3: #e9edf0;
     --vt-brand-rgb: 255, 113, 0;
 
     /* tone = three numbers per state (U2, from the field dashboard):

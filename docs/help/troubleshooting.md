@@ -164,6 +164,19 @@ directory of the current run, `~/.ros/log/latest/`:
 - An older run: `ls -t ~/.ros/log/` lists the run directories, newest first. Old runs are cleaned
   up daily (older than 7 days, the whole directory kept under 500 MB).
 
+## Mower temperature messages
+
+- **`Mower temp sensor spike: 20.0 -> 90.7C in 0.5s. Too fast for the motor, not a stop.`**
+  The reading jumped, the motor did not. The blade may stop for a few seconds if the firmware
+  saw it too: the robot stands, the blade starts again and the mission goes on from where it
+  was. Nothing to do. Three in 30 minutes send it to the dock and it resumes after 5 minutes.
+- **`Mower overtemp: 80.0C. Mower OFF.`** A real overheat: the program resumes in an hour.
+  Look under the deck for grass or a jammed blade.
+- **`Mower temp sensor fault`** The sensor reads nonsense. The program ended and does not
+  resume by itself. Check the NTC cable and connector at the blade motor.
+- Every such event leaves two minutes of temperature, rpm and battery current in
+  `~/.vitulus/safety/mower_temp_events.jsonl`.
+
 ## Something else
 
 - Open **Settings › Diag** — red rows name the part.

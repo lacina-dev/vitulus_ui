@@ -113,6 +113,7 @@ var MapLayerOrder = {
                      // layers are shown at once.
     SENSING_COVER: 22, // Sensing layer: faint "already observed" swath of
                      // the running recording (MapSensing in mapping.js)
+    MOWLOAD:   23,   // Mow load trail and its icons (vt_mow_trail.js)
     UTMGRID:   24,   // UTM grid layer (vt_georef.js): 10 m UTM lines in the map frame
     SENSING:   25,   // Sensing layer: live lidar scan polygon + camera cone
     DOCK:      30,
@@ -594,11 +595,7 @@ class PathListItemTemplate {
                     <i class="fa fa-arrow-circle-right text-info"></i>
                 </button>
                 <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
-                <button onclick="map_menu.add_path_point('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.add'))}</button>
                 <button onclick="map_menu.path_clicked_show('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.show'))}</button>
-                <button onclick="map_menu.show_modal_remove_path('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="${vtEsc(vtT('common.remove'))}">
-                    <i class="fa fa-remove text-danger"></i>
-                </button>
             </div>
             `;
     }
@@ -776,9 +773,6 @@ class PointListItemTemplate {
                 </button>
                 <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
                 <button onclick="map_menu.point_clicked_show('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.show'))}</button>
-                <button onclick="map_menu.show_modal_remove_point('${this.name}')" class="btn btn-primary vt-item-del" type="button" title="${vtEsc(vtT('common.remove'))}">
-                    <i class="fa fa-remove text-danger"></i>
-                </button>
             </div>
             `;
     }
@@ -5639,6 +5633,14 @@ class GnssRx{
         return {txt: vtT('gnssrx.corr.age', {s: a < 10 ? a.toFixed(1) : Math.round(a)}), tone: tone};
     }
 
+    // RTCM msg/s of a receiver: a 1 Hz base gives 5.5, the moving base 30
+    static rtcmRate(o) {
+        var r = o.rtcm || {}, n = r.rate;
+        if (n == null) return {txt: "—", tone: "muted", rate: null};
+        var low = o.role === "heading" ? 10 : 2;
+        return {txt: n.toFixed(1) + "/s", tone: n <= 0 ? "err" : (n < low ? "warn" : "ok"), rate: n};
+    }
+
     row(k, v, tone, tip) {
         return '<div class="vt-gx-r"' + (tip ? ' title="' + vtEsc(tip) + '"' : '') + '><span>' + vtEsc(k) + '</span><b' +
             (tone ? ' class="vt-tone-' + tone + '"' : '') + '>' + vtEsc(v) + '</b></div>';
@@ -5665,6 +5667,8 @@ class GnssRx{
         var c = GnssRx.corr(o);
         h += this.row(vtT('gnssrx.r.corr'), c.txt, c.tone,
             vtT(o.role === "heading" ? 'gnssrx.r.corr_tip_mb' : 'gnssrx.r.corr_tip'));
+        var rr = GnssRx.rtcmRate(o);
+        h += this.row(vtT('gnssrx.r.rtcm'), rr.txt, rr.tone, vtT('gnssrx.r.rtcm_tip'));
         if (quick) return h + '</div>';      // right panel › GNSS expand
         h += this.row(vtT('gnssrx.r.up'), GnssRx.dur(o.up_s), "", vtT('gnssrx.r.up_tip'));
         var w = o.warm || {};
@@ -6855,6 +6859,7 @@ class Programs {
         });
         // The planner answers program saves / deletes / starts only on its log
         // ("Program 'X' NOT saved: ..."): show those lines in the program card.
+        this._startNotes = [];      // planner notes of the current start (_setNotes)
         this.planner_log_Topic = new ROSLIB.Topic({
             ros : ros,
             name : '/web_plan/log',
@@ -6862,6 +6867,15 @@ class Programs {
         });
         this.planner_log_Topic.subscribe((message) => {
             const t = message.data || '';
+            // A note of a start comes in both languages on the state topics a
+            // moment later: its English log line is not shown as well.
+            const note = /^Program '[^']*': (.+)\.$/.exec(t);
+            if (note) {
+                window.setTimeout(() => {
+                    if (!this._startNotes.some((n) => n.text_en === note[1])) this._flashRunMsg(t);
+                }, 600);
+                return;
+            }
             if (/^Programs? /.test(t)) this._flashRunMsg(t);
         });
         // 2026-09-20: the served site changed -> the program shown in the map
@@ -6923,6 +6937,11 @@ class Programs {
             ros: ros, name: '/web_plan/program_start_state', messageType: 'std_msgs/String'
         });
         this.start_state_Topic.subscribe((m) => this._onStartState(m.data));
+        this.chain_state_Topic = new ROSLIB.Topic({
+            ros: ros, name: '/web_plan/program_chain_state', messageType: 'std_msgs/String'
+        });
+        this._chainSubAt = Date.now();
+        this.chain_state_Topic.subscribe((m) => this._onChainState(m.data));
         vtOnLang(() => this._relang());
         this.init();
     }
@@ -6934,6 +6953,7 @@ class Programs {
             this.draw_program_list();
             if (this.selected_program) this._renderProgramZones();
             if (this._startState) this._paintStartState();
+            this._paintNotes(true);
             if (this._editing_new) this.map_menu.span_menu_program_name.innerText = vtT('mapview.prog.new_name');
             this._paintRunning();
             if (this.smach_blocked && this.smach_blocked_key) {
@@ -7047,6 +7067,39 @@ class Programs {
             if ((Date.now() / 1000 - (this._startState.t || 0)) > 30) { this._startState = null; return; }
         }
         this._paintStartState();
+        const st = this._startState;
+        if (st.state === 'ready') {
+            const ours = (this._chainPrograms || []).indexOf(st.program) >= 0;
+            this._setNotes(window.VTMapObjects.mergeNotes(ours ? this._startNotes : [], st.notes));
+        }
+    }
+    // Everything of one chain comes here; a new chain starts a new list.
+    _onChainState(text) {
+        let d;
+        try { d = JSON.parse(text); } catch (e) { return; }
+        // Latched: a chain from before this page counts only while it still runs.
+        const history = Date.now() - this._chainSubAt < 3000;
+        if (history && this._missionIdle(this.mission_status)) return;
+        const fresh = d.id !== this._chainId;
+        this._chainId = d.id;
+        this._chainPrograms = d.programs || [];
+        this._setNotes(window.VTMapObjects.mergeNotes(fresh ? [] : this._startNotes, d.notes));
+    }
+    _setNotes(rows) {
+        const changed = JSON.stringify(rows) !== JSON.stringify(this._startNotes);
+        this._startNotes = rows;
+        if (changed) this._paintNotes(false);
+    }
+    // In the Running card for the whole run and, as start feedback, in the run
+    // message slot. Both fill before they are shown or only ever hold text
+    // already reserved for such messages, so nothing below moves later.
+    _paintNotes(relang) {
+        const text = window.VTMapObjects.notesText(this._startNotes, window.VTI18n ? VTI18n.lang() : 'en');
+        const box = document.getElementById('div_program_running_notes');
+        if (box) box.textContent = text;
+        const msg = document.getElementById('div_menu_program_run_msg');
+        if (relang) { if (msg && this._notesFlashed && msg.textContent === this._notesFlashed) { msg.textContent = text; this._notesFlashed = text; } return; }
+        if (text) { this._flashRunMsg(text); this._notesFlashed = text; }
     }
     _paintStartState() {
         const st = this._startState;
@@ -7121,6 +7174,9 @@ class Programs {
         const waits = this._missionWaitsReset(st);
         const busy = !this._missionIdle(st) && !waits;
         const name = this.mission_program;
+        // A run that ended takes its notes along; a start comes before busy.
+        if (this._notesRun && !busy && !waits) { this._notesRun = false; this._chainPrograms = []; this._setNotes([]); }
+        if (busy) this._notesRun = true;
         if (!busy && !waits) { card.style.display = 'none'; return; }
         card.style.display = '';
         card.dataset.state = waits ? 'warn' : 'info';
@@ -7267,7 +7323,8 @@ class Programs {
         if (!prg.zone_list.length) { window.alert(vtT('mapview.prog.zones_empty')); return; }
         var mapShort = (mapData || '').split('***env*')[0];
         var rpm = parseInt(this.map_menu.inp_program_rpm.value) || 0;
-        var cutHeight = parseInt(this.map_menu.inp_program_cut_height.value) || 0;
+        var cutHeight = window.VTMapObjects.clampCut(this.map_menu.inp_program_cut_height.value) || 0;
+        this.map_menu.inp_program_cut_height.value = cutHeight;
         var override = this.map_menu.chk_program_override_zone.checked;
         if (override && (rpm <= 0 || cutHeight <= 0)) {
             window.alert(vtT('mapview.prog.override_zero'));
@@ -7431,9 +7488,11 @@ class Programs {
         if (!prg || prg.foreign) return;
         const speed = this.map_menu.btn_program_speed_slow.classList.contains('btn-secondary') ? 'slow'
             : this.map_menu.btn_program_speed_fast.classList.contains('btn-secondary') ? 'fast' : 'mid';
+        const cutHeight = window.VTMapObjects.clampCut(this.map_menu.inp_program_cut_height.value) || 0;
+        this.map_menu.inp_program_cut_height.value = cutHeight;
         const updated = Object.assign({}, prg, {
             rpm: parseInt(this.map_menu.inp_program_rpm.value) || 0,
-            cut_height: parseInt(this.map_menu.inp_program_cut_height.value) || 0,
+            cut_height: cutHeight,
             speed: speed,
             override_zone: this.map_menu.chk_program_override_zone.checked,
         });

@@ -130,6 +130,18 @@ může vrátit.
 - Bezpečnostní node sekačku vypne sám (nůž i napájení sekačky), když se robot nakloní o víc než
   30° nebo se motor sekačky zahřeje nad 70 °C.
 
+## Teplota motoru nože
+
+Firmware zastaví nůž sám, když motor ukazuje 70 °C a víc. Nad tím bezpečnostní uzel
+rozhodne, co horké čtení znamená pro misi:
+
+- **Opravdu horko:** nad 70 °C po 3 s nebo nad 100 °C po 1,5 s. Sekání se vypne, program
+  jede do doku, uspí se a pak pokračuje.
+- **Výkyv čidla:** čtení se změnilo rychleji, než se motor umí ohřát (5 °C za sekundu, skutečný
+  motor zvládne asi 0,2 °C za minutu), a vrátilo se. Jen varování, bez zastavení.
+- **Porucha čidla:** čtení je 3 s mimo rozsah (−30 až 150 °C), obvykle kabel NTC. Sekání se
+  vypne, zazní bzučák a program skončí, protože bez čtení motor nic nechrání.
+
 ## Zkoušení bez pohybu robota
 
 Otevři UI s `?mock` na konci adresy (například `http://192.168.0.1:7779/?mock`). Stránka pak

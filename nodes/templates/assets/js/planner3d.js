@@ -482,6 +482,15 @@ window.Planner3D = (function () {
         }
         // A drag calls movePoint many times: its one checkpoint is taken by the
         // gesture when the drag starts.
+        // Replace all vertices in one undo step (a driven trace, simplified).
+        setPoints(pts, noCheckpoint) {
+            if (!noCheckpoint) this.checkpoint();
+            this._pts = pts.map(function (p) { return { x: p[0], y: -p[1] }; });
+            this.selected = -1;
+            this._redraw(); this._changed();
+        }
+        // A driven trace grows without one undo step per sample.
+        appendPoint(pos) { this._pts.push(this._storeFromRos(pos)); this._redraw(); this._changed(); }
         movePoint(index, pos) { if (index >= 0 && index < this._pts.length) { this._pts[index] = this._storeFromRos(pos); this._redraw(); this._changed(); } }
         splitLine(index) {
             var n = this._pts.length; if (n < 2) return -1;
@@ -586,7 +595,8 @@ window.Planner3D = (function () {
     // shape alike:
     //   tap on empty map     state.onTap(world, ev)
     //   drag on empty map    pan (one finger or the mouse; ctrl+drag as before)
-    //   pinch, wheel         zoom; alt+drag as before
+    //   pinch, wheel         zoom; alt+drag on the map as before, alt+tap is a
+    //                        tap (alt = no snap)
     //   drag a vertex        move it
     //   tap a vertex         state.onVertexTap(i)  (shift+click removes it)
     //   tap or drag a "+"    a new vertex on that edge
@@ -595,7 +605,9 @@ window.Planner3D = (function () {
     // during a vertex drag means "zoom": the drag is taken back.
     //
     // state: { isEnabled():bool (a shape is open), onTap(world, ev),
-    //          onVertexTap(i), onGesture() (the map was touched) }
+    //          onVertexTap(i), onGesture() (the map was touched),
+    //          snap(world, ev, index) -> where a dragged vertex lands (optional),
+    //          onHover(world, ev), onDragEnd() }
     function attachInteraction(viewer, getPolygon, state) {
         var el = viewer.renderer.domElement;
         var ptrs = {};          // pointerId -> {x, y}
@@ -631,8 +643,8 @@ window.Planner3D = (function () {
             if (nPtrs() > 2) return;
             var base = { x0: ev.clientX, y0: ev.clientY, x: ev.clientX, y: ev.clientY };
             if (ev.button !== 0 || ev.ctrlKey) { g = Object.assign(base, { kind: 'pan' }); return; }
-            if (ev.altKey) { g = Object.assign(base, { kind: 'zoomdrag' }); return; }
             var h = shapeHit(ev), poly = getPolygon();
+            if (ev.altKey && h.type !== 'vertex' && h.type !== 'mid') { g = Object.assign(base, { kind: 'zoomdrag', moved: false }); return; }
             if (h.type === 'vertex') {
                 if (ev.shiftKey) { poly.remPoint(h.index); return; }
                 g = Object.assign(base, { kind: 'vertex', index: h.index, dragged: false });
@@ -650,6 +662,7 @@ window.Planner3D = (function () {
                 if (ev.pointerType === 'mouse') {   // hover: say what a press would do
                     var over = shapeHit(ev).type;
                     el.style.cursor = (over === 'vertex' || over === 'mid') ? 'pointer' : '';
+                    if (state.onHover) state.onHover(toWorld(ev), ev);
                 }
                 return;
             }
@@ -670,6 +683,8 @@ window.Planner3D = (function () {
             if (g.kind === 'tap' && far) g.kind = 'pan';
             if (g.kind === 'pan') viewer.panByPixels(ev.clientX - g.x, ev.clientY - g.y);
             else if (g.kind === 'zoomdrag') {
+                if (!far && !g.moved) return;
+                g.moved = true;
                 var dy = ev.clientY - g.y;
                 viewer.zoomAt(1 + (dy > 0 ? 1 : -1) * Math.min(0.25, Math.abs(dy) / 200), g.x, g.y);
             } else if (g.kind === 'mid' && far) {
@@ -677,7 +692,7 @@ window.Planner3D = (function () {
                 g.kind = 'vertex'; g.dragged = true;
             } else if (g.kind === 'vertex' && (far || g.dragged)) {
                 if (!g.dragged) { poly.checkpoint(); g.dragged = true; }
-                poly.movePoint(g.index, toWorld(ev));
+                poly.movePoint(g.index, state.snap ? state.snap(toWorld(ev), ev, g.index) : toWorld(ev));
             }
             g.x = ev.clientX; g.y = ev.clientY;
             viewer.markDirty();
@@ -689,9 +704,10 @@ window.Planner3D = (function () {
             if (!known || !g) return;
             if (g.kind === 'pinch') { if (nPtrs() === 0) g = null; return; }
             var done = g; g = null;
+            if (state.onDragEnd) state.onDragEnd();
             if (cancelled) { if (done.dragged) { g = done; takeBackDrag(); g = null; } return; }
             var poly = getPolygon();
-            if (done.kind === 'tap') { if (state.onTap) state.onTap(toWorld(ev), ev); }
+            if (done.kind === 'tap' || (done.kind === 'zoomdrag' && !done.moved)) { if (state.onTap) state.onTap(toWorld(ev), ev); }
             else if (done.kind === 'vertex' && !done.dragged) { if (state.onVertexTap) state.onVertexTap(done.index); }
             else if (done.kind === 'mid') { var i = poly.splitLine(done.index); if (state.onVertexTap) state.onVertexTap(i); }
         }

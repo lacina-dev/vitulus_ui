@@ -143,9 +143,10 @@ pozastaveno nebo není co ukázat.
   před 12 s* — a jeden řádek trackeru (`STANDBY` / `ACTIVE` + poslední korekce); ikona detailu
   v řádku s názvem otevře zbytek ([co znamenají čipy](localization.md#jak-číst-stav-pravý-panel--navi)).
 - **GNSS** — řádek s názvem: fix Polohy, fix Kurzu (`RTK`, `FLT` = float, `DGN` = DGNSS, `3D`,
-  `NO`), použité satelity (zeleně od 12) a tečka stáří korekcí (zelená < 2 s, oranžová < 10 s,
-  červená starší nebo žádné). Rozbalení: dvě malé dlaždice **Poloha | Kurz** jen s rychlými
-  čísly — fix, satelity použité / viditelné, přesnost (`acc` v cm, `hdg` ve °) a stáří korekcí —
+  `NO`), použité satelity (zeleně od 12), rychlost RTCM (zpráv za sekundu, ze základny asi 5,5,
+  oranžově pod 2, červeně při 0) a tečka stáří korekcí (zelená < 2 s, oranžová < 10 s, červená
+  starší nebo žádné; slabá rychlost ji také zbarví oranžově). Rozbalení: dvě malé dlaždice **Poloha | Kurz** jen s rychlými
+  čísly — fix, satelity použité / viditelné, přesnost (`acc` v cm, `hdg` ve °), stáří korekcí a rychlost RTCM —
   a ikona detailu v řádku s názvem otevře celou kartu obou přijímačů
   ([Přijímače GNSS](localization.md#přijímače-gnss-pravý-panel--gnss)).
 - **Kamera** — tečka v řádku s názvem (zelená = živý obraz, oranžová = startuje / čeká, šedá =

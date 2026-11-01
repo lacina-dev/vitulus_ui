@@ -160,6 +160,19 @@ aktuálního běhu, `~/.ros/log/latest/`:
 - Starší běh: `ls -t ~/.ros/log/` vypíše adresáře běhů, nejnovější první. Staré běhy se denně
   uklízí (starší než 7 dní, celý adresář pod 500 MB).
 
+## Hlášení o teplotě sekačky
+
+- **`Mower temp sensor spike: 20.0 -> 90.7C in 0.5s. Too fast for the motor, not a stop.`**
+  Skočilo čtení, ne motor. Pokud to viděl i firmware, nůž se na pár sekund zastaví: robot
+  stojí, nůž se znovu rozběhne a mise pokračuje tam, kde byla. Není co dělat. Tři výkyvy za
+  30 minut ho pošlou do doku a po 5 minutách pokračuje.
+- **`Mower overtemp: 80.0C. Mower OFF.`** Skutečné přehřátí: program pokračuje za hodinu.
+  Podívej se pod sekačku, jestli tam není tráva nebo zaseknutý nůž.
+- **`Mower temp sensor fault`** Čidlo ukazuje nesmysl. Program skončil a sám nepokračuje.
+  Zkontroluj kabel a konektor NTC u motoru nože.
+- Každá taková událost nechá dvě minuty teploty, otáček a proudu z baterie v
+  `~/.vitulus/safety/mower_temp_events.jsonl`.
+
 ## Něco jiného
 
 - Otevři **Nastavení › Diag** — červené řádky pojmenují část.

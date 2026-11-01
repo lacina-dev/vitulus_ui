@@ -34,6 +34,9 @@ application itself. The **?** in the panel head jumps to the tab you have open.
 - **Lidar** ON / OFF.
 - **RtabMap** sensor source (Camera / Lidar / Both) and distance — for the older RTAB-Map
   localization; normally left alone.
+- **Advanced (planner)** — the planner's stored data (**Save data**, **Load data**, **Reload**) and
+  **Assemble map** with its noise filter, obstacle margin and fill shape. Moved here from the map
+  editor; normally left alone.
 
 ## Power
 

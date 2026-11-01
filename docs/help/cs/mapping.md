@@ -66,8 +66,9 @@ Aktivní | nová mapa je hned aktivní
 3. Skonči v doku a stiskni **Uložit a dokončit**. Mapa se uloží a stane se **aktivní**.
 
 > [!TIP]
-> Když nahrávání ukončíš **v doku**, vytvoří se sám bod *docked* (poloha robota v doku), od
-> kterého se v doku odvíjí lokalizace. Body DOCK a UNDOCK se nastavují zvlášť v **Mapa › Dock**
+> Když nahrávání ukončíš **v doku**, vytvoří se sám bod *DOCKED* (poloha robota v doku), od
+> kterého se v doku odvíjí lokalizace. Pokud místo ještě nemá DOCK nebo UNDOCK, vzniknou s ním tam,
+> kde končí vycouvání; přesuneš je v **Mapa › Dock** nebo v editoru mapy
 > ([Dok a výjezd z doku](dock.md#body)). Když relace nikdy neměla stabilní RTK, varuje log robota
 > *captured NO georef datum… remap with good GPS*.
 

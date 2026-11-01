@@ -194,6 +194,27 @@ r.el.fire('wheel', {deltaY: 100, clientX: 0, clientY: 0});
 check('inverted like the live map', r.log.zoom[0] < 1, true);
 
 r = rig(SQ);
+down(r, 500, 500, {altKey: true}); up(r, 500, 500, {altKey: true});
+check('alt+tap on the map is a tap, for placing without snap', r.log.taps.length, 1);
+r = rig(SQ);
+drag(r, [500, 500], [500, 560], {altKey: true});
+check('alt+drag on the map still zooms', [r.log.zoom.length > 0, r.log.taps.length], [true, 0]);
+r = rig(SQ);
+drag(r, [300, 300], [340, 310], {altKey: true});
+check('alt on a vertex moves it', pts(r.P)[2], [3.4, 3.1]);
+
+r = rig(SQ);
+r.P.setPoints([[0, 0], [1, 0], [1, 1]], true);
+check('setPoints without a step', r.P.canUndo(), false);
+r.P.setPoints(SQ);
+r.P.undo();
+check('setPoints with one step', pts(r.P), [[0, 0], [1, 0], [1, 1]]);
+r = rig([]);
+r.P.checkpoint(); r.P.appendPoint({x: 1, y: 1}); r.P.appendPoint({x: 2, y: 1});
+r.P.undo();
+check('a trace comes back with one undo', pts(r.P), []);
+
+r = rig(SQ);
 r.P._detach(r.P.viewer);
 down(r, 300, 300); up(r, 300, 300);
 check('no shape open: a vertex place is a plain tap', [r.log.taps.length, r.log.vertex], [1, []]);

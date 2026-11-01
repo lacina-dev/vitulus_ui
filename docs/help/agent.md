@@ -225,7 +225,7 @@ in the map editor, the new name applies immediately. It cannot rename or change 
   earlier one.
 - Direct driving (drive straight, back up) only watches the lidar and does not see a virtual
   barrier. The agent has to check the map first.
-- DOCK, UNDOCK and docked are reserved waypoints.
+- DOCK, UNDOCK and DOCKED are reserved waypoints.
 
 ### The agent's plan on the map
 

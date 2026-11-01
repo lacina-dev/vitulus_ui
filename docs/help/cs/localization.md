@@ -84,10 +84,10 @@ venkovní mapu doku).
 
 Robot má **dva** přijímače GPS. Řádek **GNSS** v pravém panelu to řekne značkami: fix Polohy,
 fix Kurzu (`RTK` / `FLT` float / `DGN` DGNSS / `3D` / `NO`, barvy jako níže), satelity použité
-pozičním přijímačem (zeleně od 12) a tečka stáří jeho korekcí — zelená < 2 s, oranžová < 10 s,
+pozičním přijímačem (zeleně od 12), rychlost RTCM v zprávách za sekundu a tečka stáří jeho korekcí — zelená < 2 s, oranžová < 10 s,
 červená starší nebo žádné; čísla jsou v popiscích a nádech řádku je podle horšího přijímače.
 Kliknutí na název rozbalí dvě dlaždice **Poloha | Kurz** s rychlými čísly (fix, satelity použité
-/ viditelné, přesnost, stáří korekcí); ikona detailu v řádku s názvem (před **?**) otevře celou kartu — oba přijímače
+/ viditelné, přesnost, stáří korekcí, rychlost RTCM); ikona detailu v řádku s názvem (před **?**) otevře celou kartu — oba přijímače
 vedle sebe — v levém panelu, **Mapa › Loc › Detail lokalizace › Přijímače GNSS**:
 
 - **Poloha** — RTK rover. Korekce (RTCM) dostává ze **základnové stanice**.
@@ -103,6 +103,7 @@ kurzu znamená `RTK` pevné (fixed) řešení s platným kurzem.
 | `sat.` | satelity použité / viditelné; oranžově pod 12 |
 | `přesn.` (Poloha) | vodorovná přesnost hlášená přijímačem: zelená ≤ 3 cm, oranžová ≤ 50 cm |
 | `kurz` (Kurz) | přesnost kurzu: zelená ≤ 0,5°, oranžová ≤ 2° |
+| `RTCM` | zprávy korekcí za sekundu, posledních 10 s: základna asi 5,5, oranžově pod 2, červeně 0; moving base asi 30, oranžově pod 10 |
 | `kor.` | stáří poslední korekce: zelená ≤ 3 s, oranžová starší nebo nepoužitá, červená > 10 s nebo `žádné` |
 | `běží` | doba od startu přijímače |
 | `RTK` | za jak dlouho po startu dosáhl RTK; `… 11:32` = ještě čeká (zatím); `ano` = RTK měl už předtím, než ho robot začal sledovat |

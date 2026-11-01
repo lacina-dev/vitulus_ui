@@ -86,10 +86,10 @@ waits for both to be green** (docking only when it first has to load the outdoor
 
 The robot has **two** GPS receivers. The right panel's **GNSS** row says it in tokens: the
 Position fix, the Heading fix (`RTK` / `FLT` float / `DGN` DGNSS / `3D` / `NO`, coloured like
-below), the satellites the position receiver uses (green from 12) and a dot for the age of its
-corrections — green < 2 s, orange < 10 s, red older or none; the tooltips have the numbers and
+below), the satellites the position receiver uses (green from 12), the RTCM rate in messages per second
+and a dot for the age of its corrections — green < 2 s, orange < 10 s, red older or none; the tooltips have the numbers and
 the row is tinted by the worse receiver. Click the title to expand the two tiles **Position |
-Heading** with the quick numbers (fix, satellites used / visible, accuracy, correction age);
+Heading** with the quick numbers (fix, satellites used / visible, accuracy, correction age, RTCM rate);
 the detail icon in the title row (before **?**) opens the full card — both receivers side by side — in the left panel,
 **Map › Loc › Localization detail › GNSS receivers**:
 
@@ -105,6 +105,7 @@ a fixed heading solution with a valid heading.
 |---|---|
 | `SV` | satellites used / visible; orange below 12 |
 | `acc` (Position) | horizontal accuracy the receiver reports: green ≤ 3 cm, orange ≤ 50 cm |
+| `RTCM` | correction messages per second, last 10 s: the base about 5.5, orange under 2, red 0; moving base about 30, orange under 10 |
 | `hdg` (Heading) | heading accuracy: green ≤ 0.5°, orange ≤ 2° |
 | `corr` | age of the last correction message: green ≤ 3 s, orange older or not used, red > 10 s or `none` |
 | `up` | time since the receiver started |

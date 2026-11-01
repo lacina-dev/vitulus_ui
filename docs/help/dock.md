@@ -7,7 +7,7 @@ icon: la-home
 summary: How the robot leaves and finds its charging dock, and what to do when it fails.
 ui: [map/dock]
 related: [localization, safety, troubleshooting]
-keywords: [dock, undock, charging, reflector, intensity, waypoint, DOCK, UNDOCK, docked, lock]
+keywords: [dock, undock, charging, reflector, intensity, waypoint, DOCK, UNDOCK, DOCKED, docked, lock]
 ---
 # Dock and undock
 
@@ -19,7 +19,7 @@ The robot counts as **docked when the charger supplies power** (supply icon gree
 
 1. **The dock** with the charging contacts on its back wall.
 2. **The reflector** — the lidar sees it as a very bright stripe and finds the dock by it.
-3. **docked** — the robot's pose when seated (rear on the contacts).
+3. **DOCKED** — the robot's pose when seated (rear on the contacts).
 4. **DOCK** — the approach point in front of the dock, facing away from it; from here the robot
    reverses in.
 5. **UNDOCK** — the point the robot drives out to.
@@ -34,7 +34,7 @@ The robot counts as **docked when the charger supplies power** (supply icon gree
 
 ```flow
 Motors on | the program switches the drive motors on
-Back out | intensity: drives 1.25 m out of the dock
+Back out | intensity: drives about 1 m out of the dock
 To UNDOCK | by the site map, to the UNDOCK point
 warn: Wait for RTK | both GPS receivers RTK and GPS odometry ready for 5 s (10 min, after a reboot up to ~25 min)
 ok: Ready | motors stay on
@@ -84,7 +84,7 @@ For setting up and for manual tests; normally the right panel's Dock / Undock is
 | Dock by intensity | enable switch, Dock, Undock, Stop — the reflector stage alone |
 | Dock / undock points | **Navi** drives to the DOCK or UNDOCK point; **Update** saves the robot's *current* position as that point |
 | Dock detector map | New map, Edit map, Save map — the lidar picture of the dock |
-| Localization seed | the *docked* pose used to localize in the dock; says *docked waypoint MISSING* when it is not set |
+| Localization seed | the *DOCKED* pose used to localize in the dock; says *DOCKED waypoint MISSING* when it is not set |
 | Dock program / Undock program | tick the steps (map point, lidar map path, intensity action), then **Execute** or **Save** |
 
 The manual cards bypass the dock state machine — use them only while you watch the robot.
@@ -93,8 +93,19 @@ The manual cards bypass the dock state machine — use them only while you watch
 
 - **DOCK** — the approach point in front of the dock, the goal of the map stage when docking.
 - **UNDOCK** — the point the robot drives out to.
-- **docked** — the robot's pose when seated; it seeds the localization in the dock. It is created
+- **DOCKED** — the robot's pose when seated; it seeds the localization in the dock. It is created
   automatically when you finish a map recording *while docked* ([Mapping](mapping.md)).
+
+The three names are always uppercase. The points can be moved but not deleted.
+
+When DOCKED is created and the site has no DOCK or UNDOCK yet, the robot creates them with it: both
+at the spot where the back-out ends, straight out of the dock from DOCKED, heading away from the
+dock. A point that already exists stays exactly where you put it, also after later saves.
+
+**The robot waits for RTK at UNDOCK.** Move UNDOCK from under the roof edge out to open sky and the
+fix comes faster; a new UNDOCK stands where the back-out ends, so the robot just stays there and
+waits. DOCK stays in front of the dock on the line out of it, heading away from the dock: the robot
+reverses in from there.
 
 To set DOCK or UNDOCK: drive the robot exactly there (heading too), then **Update**. Or move the
 point in the [map editor](map-editor.md).

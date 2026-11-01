@@ -55,6 +55,10 @@ Když program běží, nad seznamem programů je karta **Běží** s jeho názve
 **Stop** — ať je dole otevřený kterýkoli program (nebo žádný). Po zastavení se z ní stane
 **Zastaveno** s tlačítkem **Reset**.
 
+Když se start liší od toho, co program říká, plánovač přidá poznámku. Ukáže se po **Run** a v kartě
+**Běží** po celou jízdu: zóna vynechaná, protože ji kryje [pravidlo mapy](map-editor.md#pravidla),
+nebo **Resume**, které zónu začíná znovu, protože její místo pokračování už nesedí nebo zóna zmizela.
+
 ![Karta Běží: název programu, jeho stav a Stop](../img/shot-program-running.webp "Běží — název, co mise právě dělá, Stop") ![Karta Zastaveno: stav a Reset](../img/shot-program-stopped.webp "Zastaveno — nejdřív Reset, pak Run nebo Resume")
 
 ### Dráhy na mapě
@@ -133,9 +137,9 @@ nevyjede a karta napíše proč:
 | *jde načíst jen v doku* | dojeď do doku a stiskni **Run** znovu |
 | *když běží program* / *čeká na Reset* | nejdřív **Stop** nebo **Reset** |
 | *se nezapnula / nebyly připravené / nepřevzala* | mapa má problém: otevři ji v **Mapa**, podívej se, co jí chybí, a dej **Run** znovu |
-| *je … m od doku té mapy* | bod `docked` té mapy je špatně: zadokuj robota a ulož ho znovu |
+| *je … m od doku té mapy* | bod `DOCKED` té mapy je špatně: zadokuj robota a ulož ho znovu |
 | *nemá bod DOCK* | přidej ho, bez něj by se robot nevrátil domů |
-| *nemá bod docked* | zadokuj robota na té mapě a bod ulož, bez něj se robot na mapě neumístí |
+| *nemá bod DOCKED* | zadokuj robota na té mapě a bod ulož, bez něj se robot na mapě neumístí |
 | *je na více mapách* | otevři v seznamu ten správný a stiskni **Run** tam |
 
 Když chceš program jiné mapy **upravit**, nejdřív zapni jeho mapu: tady je jeho karta jen pro čtení.

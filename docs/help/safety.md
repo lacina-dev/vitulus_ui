@@ -130,6 +130,19 @@ the battery output and the computer (the hardest stop; the UI goes away too). Ho
 - The safety node switches the mower off by itself (blade and mower power) when the robot tilts
   more than 30° or the mower motor gets hotter than 70 °C.
 
+## Blade motor temperature
+
+The firmware stops the blade by itself when the motor reads 70 °C or more. On top of that,
+the safety node decides what a hot reading means for the mission:
+
+- **Really hot:** above 70 °C for 3 s, or above 100 °C for 1.5 s. The mower is switched off,
+  the program goes to the dock, sleeps and resumes.
+- **Sensor spike:** the reading changed faster than the motor can heat (5 °C per second, the
+  real motor manages about 0.2 °C per minute) and came back. A warning, no stop.
+- **Sensor fault:** the reading is out of range (−30 to 150 °C) for 3 s, usually the NTC cable.
+  The mower is switched off, the buzzer sounds and the program ends, because without a
+  reading nothing protects the motor.
+
 ## Trying things without moving the robot
 
 Open the UI with `?mock` at the end of the address (for example `http://192.168.0.1:7779/?mock`).

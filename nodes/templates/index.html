@@ -75,10 +75,16 @@
 <script src="/assets/js/status_header.js"></script>
 <script src="/assets/js/right_dock.js"></script>
 <script src="/assets/js/calendar_manager.js"></script>
+<script src="/assets/js/map_objects.js"></script>
 <script src="/assets/js/planner3d.js"></script>
 <script src="/assets/js/map_edit.js"></script>
 <script src="/assets/js/mapeditor.js"></script>
+<script src="/assets/js/mapedit_layers.js"></script>
+<script src="/assets/js/mapedit_ui.js"></script>
 <script src="/assets/js/mapedits.js"></script>
+<script src="/assets/js/vt_map_rules.js"></script>
+<script src="/assets/js/vt_mow_trail.js"></script>
+<script src="/assets/js/vt_planner_settings.js"></script>
 <script src="/assets/js/imu_calibration.js"></script>
 <script src="/assets/js/app.js"></script>
 <script src="/assets/js/vt_ui.js"></script>
@@ -342,46 +348,6 @@ body:not(.rp-joy-side) #joy_view {
 @media (max-width: 575.98px) {
   #div_map_detail { width: 100% !important; max-width: 100% !important; }
 }
-/* NÁSTROJE tool grid */
-#mapedit_tools .met-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-#mapedit_tools .met-tool {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; min-height: 52px; padding: 4px 2px;
-  font-size: 12px; line-height: 1.1;
-}
-#mapedit_tools .met-tool .met-ico { font-size: 22px; line-height: 1; }
-/* P5: one tile look — neutral surface, the tool's colour only on its icon;
-   the active tool = accent tint + accent edge (the C frame's active state) */
-#mapedit_tools .met-tool.btn {
-  color: var(--vt-text); background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--vt-border); border-radius: var(--vt-r-ctl);
-}
-#mapedit_tools .met-tool.btn:hover { background: rgba(255, 255, 255, 0.07); border-color: var(--vt-border-strong); }
-#mapedit_tools .met-tool[data-tool="waypoint"] .met-ico,
-#mapedit_tools .met-tool[data-tool="path"] .met-ico { color: var(--vt-accent); }
-#mapedit_tools .met-tool[data-tool="edit_obstacle"] .met-ico { color: var(--vt-err); }
-#mapedit_tools .met-tool[data-tool="edit_free"] .met-ico { color: var(--vt-ok); }
-#mapedit_tools .met-tool[data-tool="edit_wall"] .met-ico,
-#mapedit_tools .met-tool[data-tool="geofence"] .met-ico { color: var(--vt-warn); }
-#mapedit_tools .met-tool[data-tool="edit_delete"] .met-ico,
-#mapedit_tools .met-tool[data-tool="off"] .met-ico { color: var(--vt-muted); }
-#mapedit_tools .met-tool.btn.active {
-  color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.14);
-  border-color: var(--vt-edge-info); box-shadow: inset 0 1px 0 var(--vt-edge-info);
-}
-#mapedit_tools .met-tool.btn.active .met-ico { color: var(--vt-accent); }
-#mapedit_tools .met-tool.btn:disabled { opacity: 0.4; }
-/* Show: chips are toggles — tonal accent when on, quiet outline when off */
-#mapedit_tools .mapedit-show-chip.btn-info {
-  color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.12); border: 1px solid var(--vt-edge-info);
-}
-#mapedit_tools .mapedit-show-chip.btn-outline-secondary {
-  color: var(--vt-muted); background: transparent; border: 1px solid var(--vt-border-strong);
-}
 /* Collapsible sections (native <details>) */
 #div_map_detail details.mapedit-sec {
   border: 1px solid var(--vt-border-strong);
@@ -426,15 +392,14 @@ body:not(.rp-joy-side) #joy_view {
   #div_map_detail .btn, #div_map_detail .btn-sm, #div_map_detail .mapedit-sel-x, #div_map_detail .mapedit-sel-ren,
   #div_map_detail .mapedit-row .btn { min-height: 44px; min-width: 44px; }
   .mapedit-row { min-height: 44px; }
+  .mapedit-insp > summary { min-height: 44px; }
   #div_map_detail .form-control, #div_map_detail .form-select { min-height: 44px; font-size: 16px; }
   #mapedit_sel_yaw { height: 44px; }
 }
 /* phone: while working on the map the sheet shrinks to the essentials, the
    ^ button at the top right brings back the tools, lists and details */
 @media (max-width: 575.98px) {
-  #ui_drawer.mapedit-compact #mapedit_tools,
-  #ui_drawer.mapedit-compact #mapedit_context > .text-uppercase,
-  #ui_drawer.mapedit-compact details.mapedit-list,
+    #ui_drawer.mapedit-compact #mapedit_context > .text-uppercase,
   #ui_drawer.mapedit-compact .mapedit-sel-more,
   #ui_drawer.mapedit-compact #mapedit_zone_slot details,
   #ui_drawer.mapedit-compact #ui_drawer_foot { display: none !important; }
@@ -452,7 +417,6 @@ body:not(.rp-joy-side) #joy_view {
 }
 #div_map_detail .btn { min-height: 40px; }
 #div_map_detail .btn-group-sm > .btn, #div_map_detail .btn-sm { min-height: 34px; }
-#div_map_detail .met-tool.btn { min-height: 52px; }
 #div_map_detail .form-control, #div_map_detail .form-select { min-height: 38px; font-size: 13px; }
 #div_map_detail .input-group-sm > .form-control, #div_map_detail .input-group-sm > .input-group-text { min-height: 34px; }
 
@@ -733,6 +697,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 }
 </style>
     <link rel="stylesheet" href="assets/css/vt_panel.css">
+    <link rel="stylesheet" href="assets/css/vt_mapedit.css">
     <link rel="stylesheet" href="assets/css/vt_field.css">
     <link rel="stylesheet" href="assets/css/vt_joy.css">
     <link rel="stylesheet" href="assets/css/vt_help.css">
@@ -919,7 +884,9 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <div class="form-check form-check-inline" title="&#268;HM&Uacute; rain radar overlay" data-i18n-title="mapt.layer.rain_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label vt-fs-sm" for="mapv3_chk_rain"><span data-i18n="mapt.layer.rain">Rain</span> <span class="vt-sw-0000fc">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Sensing — what the lidar and the camera are observing right now (the mapper's ranges): violet = lidar (stronger up to an obstacle it hits, faint = free up to the range limit), yellow = camera view cone; the faint fill = area already observed in this recording. On while a recording runs." data-i18n-title="mapt.layer.sensing_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_sensing"><label class="form-check-label vt-fs-sm" for="mapv3_chk_sensing"><span data-i18n="mapt.layer.sensing">Sensing</span> <span class="vt-sw-b388ff">&#9632;</span><span class="vt-sw-ffd23f">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="UTM grid lines every 10 m (every 100 m stronger) turned into the map frame — shows how the map sits in the UTM grid; with a large map-vs-GPS deviation also the GPS position next to the robot" data-i18n-title="utm.layer_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_utmgrid"><label class="form-check-label vt-fs-sm" for="mapv3_chk_utmgrid"><span data-i18n="utm.layer">UTM grid</span> <span class="vt-sw-utm">&#9638;</span></label></div>
+                                            <div class="form-check form-check-inline" title="Mow load: a trail behind the robot, colour = the metric you pick, width = what the robot was doing" data-i18n-title="mowl.layer_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_mowload"><label class="form-check-label vt-fs-sm" for="mapv3_chk_mowload"><span data-i18n="mowl.layer">Mow load</span> <span class="vt-sw-mowload">&#9632;</span></label></div>
                                         </div>
+                                        <div data-mow-panel class="mow-panel"></div>
 
                                         <!-- SECTION: Map recording (2026-08-16 UI redo: every button says what
                                              it does to WHICH map — the main field feedback) -->
@@ -1083,18 +1050,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_path_cancel" type="button" title="Cancel current navigation" data-i18n-title="page.cancel_nav_tip" data-i18n="page.cancel_navi">Cancel navi</button>
                                         </div>
                                         <div class="vt-items" id="div_menu_path_items_row"></div>
-                                        <details class="drawer-sec" data-drawersec="path_create">
-                                            <summary data-i18n="path.create">Create &amp; record paths</summary>
-                                            <div class="drawer-sec-body">
-                                                <span class="drawer-hint" data-i18n="path.add_hint">Add path, current position as start</span>
-                                                <div class="input-group input-group-sm"><span class="input-group-text"><i class="fa fa-road"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_path_new" placeholder="Path name" data-i18n-placeholder="path.name_ph"><button class="btn btn-primary" id="btn_menu_path_new_save" type="button" data-i18n="path.new">New</button><button class="btn btn-primary" id="btn_menu_path_new_auto" type="button" data-i18n="path.new_auto">New auto</button></div>
-                                                <hr>
-                                                <div class="vt-gap d-flex align-items-center">
-                                                    <button class="btn btn-warning btn-sm" id="btn_menu_path_stop_auto" type="button" title="Stop autopath recording" data-i18n-title="path.stop_auto_tip" data-i18n="path.stop_auto">Stop auto</button>
-                                                    <button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button" title="Clear all paths in the map" data-i18n-title="path.clear_tip" data-i18n="path.clear">Clear paths</button>
-                                                </div>
-                                            </div>
-                                        </details>
+                                        <div class="vt-mt2"><button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button" title="Hide the path shown on the map" data-i18n-title="path.clear_tip" data-i18n="path.clear">Clear paths</button></div>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-point">
                                         <!-- PRIMARY: saved points list + cancel -->
@@ -1103,15 +1059,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_point_cancel" type="button" title="Cancel current navigation" data-i18n-title="page.cancel_nav_tip" data-i18n="page.cancel_navi">Cancel navi</button>
                                         </div>
                                         <div class="vt-items" id="div_menu_point_items_row"></div>
-                                        <details class="drawer-sec" data-drawersec="point_create">
-                                            <summary data-i18n="point.manage">Add &amp; manage points</summary>
-                                            <div class="drawer-sec-body">
-                                                <span class="drawer-hint" data-i18n="point.add_hint">Add current position as point</span>
-                                                <div class="input-group input-group-sm"><span class="input-group-text"><i class="fa fa-map-marker"></i></span><input class="bg-secondary form-control" type="text" id="input_menu_point_new" placeholder="Point name" data-i18n-placeholder="point.name_ph"><button class="btn btn-primary" id="btn_menu_point_new_save" type="button" data-i18n="common.add">Add</button></div>
-                                                <hr>
-                                                <button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button" title="Clear all points in the map" data-i18n-title="point.clear_tip" data-i18n="point.clear">Clear points</button>
-                                            </div>
-                                        </details>
+                                        <div class="vt-mt2"><button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button" title="Hide the points shown on the map" data-i18n-title="point.clear_tip" data-i18n="point.clear">Clear points</button></div>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-dock">
                                         <!-- PRIMARY: dock / undock actions + live status (P12: two cards, one anatomy) -->
@@ -1292,6 +1240,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <span class="text-info vt-prog-running-name" id="span_program_running_name"></span>
                                     </div>
                                     <div class="vt-row"><span class="vt-muted vt-grow" id="span_program_running_status"></span><button class="btn btn-warning btn-sm" id="btn_program_running_stop" type="button" onclick="programs.stopProgram()" data-i18n="common.stop">Stop</button><button class="btn btn-danger btn-sm" id="btn_program_running_reset" type="button" onclick="programs.resetSmach()" data-i18n="common.reset">Reset</button></div>
+                                    <div class="text-warning vt-msg" id="div_program_running_notes"></div>
                                 </div>
                                 <div id="div_menu_program_items_row" class="vt-cards"></div>
                                 <div id="div_menu_program_detail_row" class="vt-card vt-prog-detail" data-state="off">
@@ -1318,7 +1267,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                     <span class="vt-label vt-label-gap" data-i18n="prog.settings">Settings</span>
                                     <div class="vt-form">
                                         <div class="vt-form-item"><label class="vt-label" for="inp_program_rpm" data-i18n="prog.rpm">RPM</label><input class="form-control form-control-sm vt-num-in" id="inp_program_rpm" type="number" min="0" max="9999"></div>
-                                        <div class="vt-form-item"><label class="vt-label" for="inp_program_cut_height" data-i18n="prog.cut_height">Cut height</label><div class="input-group input-group-sm"><input class="form-control vt-num-in" id="inp_program_cut_height" type="number" min="0" max="999"><span class="input-group-text">mm</span></div></div>
+                                        <div class="vt-form-item"><label class="vt-label" for="inp_program_cut_height" data-i18n="prog.cut_height">Cut height</label><div class="input-group input-group-sm"><input class="form-control vt-num-in" id="inp_program_cut_height" type="number" min="0" max="80"><span class="input-group-text">mm</span></div></div>
                                         <div class="vt-form-item"><span class="vt-label" data-i18n="prog.speed">Speed</span>
                                             <div class="btn-group btn-group-sm" role="group">
                                                 <button class="btn btn-sm btn-outline-secondary" id="btn_program_speed_slow" type="button" data-i18n="page.speed.slow">Slow</button>
@@ -1553,6 +1502,40 @@ ul.nav-tabs.drawer-pills .nav-link.active {
       <span class="vt-label vt-label-gap"><span data-i18n="cfg.navi.distance">Sensor distance</span> <span class="text-info" id="span_rtabmap_distance">0</span> <span id="span_rtabmap_distance-1">m</span></span>
       <div class="vt-row"><input class="form-range vt-grow" type="range" id="input_range_rtabmap_distance" min="0.1" max="8.0" step="0.1" value="2.7"><span class="vt-unit"><span id="span_menu_rtabmap_distance_apply">0.0</span> m</span></div>
     </div>
+    <details class="drawer-sec" data-drawersec="planner_adv">
+      <summary data-i18n="editor.adv">Advanced (planner)</summary>
+      <div class="drawer-sec-body">
+    <div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb2" data-i18n="editor.active">Active map</div>
+    <div class="d-flex flex-wrap vt-gap6 vt-mb2">
+      <button class="btn btn-primary btn-sm" id="btn_save_planner_data" type="button" data-i18n="editor.save_data">Save data</button>
+      <button class="btn btn-primary btn-sm" id="btn_load_planner_data" type="button" data-i18n="editor.load_data">Load data</button>
+      <button class="btn btn-primary btn-sm" id="btn_reload_map" type="button" data-i18n="common.reload">Reload</button>
+    </div>
+    <div id="div_log" class="vt-fs-sm vt-accent vt-minh-line vt-mb2 vt-pl1"><span id="log-2" data-i18n="page.initialized">Initialized</span></div>
+
+    <hr class="vt-mt2 vt-mr0 vt-mb2 vt-ml0">
+    <div class="vt-box vt-mb2">
+      <div class="d-flex flex-wrap align-items-end vt-gap6">
+        <div><span class="vt-fs-sm vt-block" data-i18n="editor.noise">Free-space noise filter</span>
+          <div class="input-group input-group-sm vt-w-sm"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
+        </div>
+        <div><span class="vt-fs-sm vt-block" data-i18n="editor.margin">Obstacle margin</span>
+          <div class="input-group input-group-sm vt-w-sm"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
+        </div>
+        <div><span class="vt-fs-sm vt-block" data-i18n="editor.shape">Fill shape</span><select class="form-select form-select-sm vt-w-md" id="input_fill_shape">
+          <option value="square" data-i18n="editor.square">square</option>
+          <option value="ellipse" selected="" data-i18n="editor.ellipse">ellipse</option>
+        </select></div>
+      </div>
+      <div class="d-flex flex-wrap vt-gap6 vt-mt2">
+        <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button" data-i18n="editor.assemble">Assemble map</button>
+        <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button" data-i18n="editor.thin">Path thin</button>
+        <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button" data-i18n="editor.footprint">Path footprint</button>
+      </div>
+    </div>
+
+  </div>
+    </details>
   </div>
 </div>
 <div class="tab-pane fade" role="tabpanel" id="tab_power">
@@ -1699,59 +1682,65 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 
 <div class="vt-pad-s">
 
-<!-- B. TOOLS (tool grid) + C. ACTIVE TOOL CONTEXT — both built by mapedits.js -->
+<!-- Tools: built by mapedits.js; the bar floats over the map on a notebook and lives here on a phone -->
 <div id="mapedit_tools" class="vt-mb2"></div>
+
+<!-- One object list, fixed height: picking from it never moves the inspector -->
+<details class="mapedit-sec mapedit-list" data-editsec="objects" open>
+  <summary><span data-i18n="editor.objects">Objects</span><span id="mapedit_obj_count"></span></summary>
+  <div class="mapedit-sec-body">
+    <div class="mapedit-obj-tools">
+      <input class="form-control form-control-sm" id="mapedit_obj_search" type="search" placeholder="Search name, alias, tag" data-i18n-placeholder="editor.search_ph" aria-label="Search name, alias, tag" data-i18n-aria-label="editor.search_ph">
+      <select class="form-select form-select-sm" id="mapedit_obj_filter" aria-label="Type" data-i18n-aria-label="editor.filter"></select>
+    </div>
+    <div id="mapedit_obj_list"></div>
+  </div>
+</details>
+
+<!-- Inspector and what the active tool needs -->
 <div id="mapedit_context" class="vt-mb2"></div>
 
-<!-- D. Collapsible sections (all collapsed by default) -->
+<details class="mapedit-sec mapedit-list" data-editsec="layers" id="mapedit_sec_layers">
+  <summary data-i18n="editor.layers">Layers</summary>
+  <div class="mapedit-sec-body"><div id="mapedit_layers"></div></div>
+</details>
 
-<!-- Map edits -->
-<details class="mapedit-sec mapedit-list" data-editsec="edits">
-  <summary data-i18n="editor.edits">Map edits</summary>
+<details class="mapedit-sec mapedit-list" data-editsec="suggestions" id="mapedit_sec_sugg">
+  <summary><span data-i18n="editor.suggestions">Suggestions</span><span id="mapedit_sugg_count"></span></summary>
+  <div class="mapedit-sec-body"><div id="mapedit_sugg"></div></div>
+</details>
+
+<details class="mapedit-sec mapedit-list" data-editsec="record">
+  <summary data-i18n="editor.record">Record at the robot</summary>
   <div class="mapedit-sec-body">
-    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.edits_hint">Manual map edits: Obstacle (area) / Free (clear area) / Barrier (line). Tap one to select it.</div>
-    <div id="mapedit_edit_list"></div>
-    <div id="mapedit_editctl" class="vt-mt2"></div>
+    <span class="drawer-hint" data-i18n="point.add_hint">Add current position as point</span>
+    <div class="input-group input-group-sm vt-mb2"><span class="input-group-text"><i class="fa fa-map-marker"></i></span><input class="form-control" type="text" id="input_menu_point_new" placeholder="Point name" data-i18n-placeholder="point.name_ph"><button class="btn btn-primary" id="btn_menu_point_new_save" type="button" data-i18n="common.add">Add</button></div>
+    <span class="drawer-hint" data-i18n="path.add_hint">Add path, current position as start</span>
+    <div class="input-group input-group-sm vt-mb2"><span class="input-group-text"><i class="fa fa-road"></i></span><input class="form-control" type="text" id="input_menu_path_new" placeholder="Path name" data-i18n-placeholder="path.name_ph"><button class="btn btn-primary" id="btn_menu_path_new_save" type="button" data-i18n="path.new">New</button><button class="btn btn-primary" id="btn_menu_path_new_auto" type="button" data-i18n="path.new_auto">New auto</button></div>
+    <button class="btn btn-warning btn-sm" id="btn_menu_path_stop_auto" type="button" title="Stop autopath recording" data-i18n-title="path.stop_auto_tip" data-i18n="path.stop_auto">Stop auto</button>
   </div>
 </details>
 
-<!-- Waypoints -->
-<details class="mapedit-sec mapedit-list" data-editsec="waypoints">
-  <summary data-i18n="editor.wps">Waypoints</summary>
-  <div class="mapedit-sec-body">
-    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.wps_hint">Tap a waypoint to select it, drag it on the map to move it. The Waypoint tool adds a new one.</div>
-    <div id="mapedit_wp_list"></div>
-  </div>
+<details class="mapedit-sec mapedit-list" data-editsec="history" id="mapedit_sec_history">
+  <summary data-i18n="editor.history">History</summary>
+  <div class="mapedit-sec-body"><div id="mapedit_history"></div></div>
 </details>
 
-<!-- Paths -->
-<details class="mapedit-sec mapedit-list" data-editsec="paths">
-  <summary data-i18n="editor.paths">Paths</summary>
-  <div class="mapedit-sec-body">
-    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.paths_hint">Tap a path to select and reshape it. The Path tool draws a new one. The eye hides one path.</div>
-    <div id="mapedit_path_list"></div>
-  </div>
-</details>
-
-<!-- Zones -->
-<details class="mapedit-sec mapedit-list" data-editsec="zones">
-  <summary data-i18n="editor.zones">Zones</summary>
-  <div class="mapedit-sec-body" id="tab-edit-zone">
-    <div class="d-flex align-items-center vt-mb2">
-      <span class="vt-fs-md" data-i18n="editor.zones_head">Mowing zones of the active map</span>
-      <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button" data-i18n="editor.new_zone">New zone</button>
-    </div>
-    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.zones_hint">Tap a zone to select and reshape it. Zones regenerate automatically after map edits.</div>
+<!-- The zone form waits here until the inspector takes it -->
+<div id="mapedit_zone_park" hidden>
     <div id="div_zone_template" class="vt-mt2">
       <div class="vt-w100 vt-mb2" id="zone_template_name_row"><span class="vt-fs-sm" data-i18n="common.name">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name" data-i18n-placeholder="editor.zone_name_ph"></div>
-      <details class="mapedit-sec" data-editsec="zone_settings">
-      <summary data-i18n="editor.zone_settings">Mowing settings</summary>
-      <div class="mapedit-sec-body">
-      <div class="d-flex flex-wrap align-items-end vt-gap6">
+      <div class="d-flex flex-wrap align-items-end vt-gap6 vt-mb2">
         <div><span class="vt-fs-sm vt-block" data-i18n="editor.cut_height">Cut height</span>
-          <div class="input-group input-group-sm vt-w-sm"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
+          <div class="input-group input-group-sm"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="80" step="1" value="45"><span class="input-group-text">mm</span></div>
         </div>
         <div><span class="vt-fs-sm vt-block" data-i18n="editor.rpm">RPM</span><input class="form-control form-control-sm vt-w-sm" id="input_zone_template_rpm" type="number" min="600" max="4000" step="100" value="3300"></div>
+      </div>
+      <div id="mapedit_zone_effective" class="vt-fs-xs text-info"></div>
+      <details class="mapedit-sec" data-editsec="zone_settings">
+      <summary data-i18n="editor.zone_advanced">Advanced</summary>
+      <div class="mapedit-sec-body">
+      <div class="d-flex flex-wrap align-items-end vt-gap6">
         <div id="header_zone_template_border_path"><span class="vt-fs-sm vt-block" data-i18n="editor.border">Paths around obstacles</span><input class="form-control form-control-sm vt-w-sm" id="input_zone_template_border_path" type="number" min="1" max="200" step="1" value="2"></div>
         <div id="header_zone_template_coverage_path"><span class="vt-fs-sm vt-block" data-i18n="editor.angle">Coverage angle (°)</span><input class="form-control form-control-sm vt-w-sm" id="input_zone_template_coverage_path" type="number" min="0" max="180" step="5" value="160"></div>
         <div><span class="vt-fs-sm vt-block" data-i18n="editor.spacing">Path spacing (m)</span><input class="form-control form-control-sm vt-w-sm" id="input_zone_template_path_distance" type="number" min="0.01" max="100" step="0.1" value="0.2"></div>
@@ -1760,11 +1749,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
       </div>
       </div>
       </details>
-      <div id="zone_template_status" class="vt-fs-sm vt-minh-line vt-mt2 vt-wrap-any"></div>
+      <div id="mapedit_zcheck"></div>
+      <div id="zone_template_status" class="vt-fs-sm vt-mt2 vt-wrap-any"></div>
     </div>
-    <div id="div_zone_list"></div>
-  </div>
-</details>
+</div>
 
 <!-- Polygons -->
 <!-- hidden 2026-07-18: superseded by map edits (free/obstacle) -->
@@ -1790,41 +1778,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
   </div>
 </details>
 
-<!-- Advanced (planner) -->
-<details class="mapedit-sec mapedit-list" data-editsec="advanced">
-  <summary data-i18n="editor.adv">Advanced (planner)</summary>
-  <div class="mapedit-sec-body">
-    <div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb2" data-i18n="editor.active">Active map</div>
-    <div class="d-flex flex-wrap vt-gap6 vt-mb2">
-      <button class="btn btn-primary btn-sm" id="btn_save_planner_data" type="button" data-i18n="editor.save_data">Save data</button>
-      <button class="btn btn-primary btn-sm" id="btn_load_planner_data" type="button" data-i18n="editor.load_data">Load data</button>
-      <button class="btn btn-primary btn-sm" id="btn_reload_map" type="button" data-i18n="common.reload">Reload</button>
-    </div>
-    <div id="div_log" class="vt-fs-sm vt-accent vt-minh-line vt-mb2 vt-pl1"><span id="log-2" data-i18n="page.initialized">Initialized</span></div>
 
-    <hr class="vt-mt2 vt-mr0 vt-mb2 vt-ml0">
-    <div class="vt-box vt-mb2">
-      <div class="d-flex flex-wrap align-items-end vt-gap6">
-        <div><span class="vt-fs-sm vt-block" data-i18n="editor.noise">Free-space noise filter</span>
-          <div class="input-group input-group-sm vt-w-sm"><input class="form-control" id="input_fill_free" type="number" min="0" max="20" step="1" value="2"><span class="input-group-text">px</span></div>
-        </div>
-        <div><span class="vt-fs-sm vt-block" data-i18n="editor.margin">Obstacle margin</span>
-          <div class="input-group input-group-sm vt-w-sm"><input class="form-control" id="input_obstacle_margin" type="number" min="0" max="3" step="0.1" value="0.3"><span class="input-group-text">m</span></div>
-        </div>
-        <div><span class="vt-fs-sm vt-block" data-i18n="editor.shape">Fill shape</span><select class="form-select form-select-sm vt-w-md" id="input_fill_shape">
-          <option value="square" data-i18n="editor.square">square</option>
-          <option value="ellipse" selected="" data-i18n="editor.ellipse">ellipse</option>
-        </select></div>
-      </div>
-      <div class="d-flex flex-wrap vt-gap6 vt-mt2">
-        <button class="btn btn-success btn-sm" id="btn_assemble_map" type="button" data-i18n="editor.assemble">Assemble map</button>
-        <button class="btn btn-outline-success btn-sm" id="btn_path_thin" type="button" data-i18n="editor.thin">Path thin</button>
-        <button class="btn btn-outline-success btn-sm" id="btn_path_footprint" type="button" data-i18n="editor.footprint">Path footprint</button>
-      </div>
-    </div>
-
-  </div>
-</details>
 
 </div>
 
