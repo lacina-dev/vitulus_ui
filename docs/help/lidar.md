@@ -47,7 +47,8 @@ filter throws away — and a view from above with the robot's front up, scale 3 
 
 ## Lidar in mapping
 
-This is the only place of these settings; **Map › Advanced sensing tuning** just shows them.
+This is the only place of these settings. They belong to the [mapping profile](mapping.md#mapping-profile)
+of this place: the first line of the card says which one, the Map tab shows a summary.
 
 - **Map with the lidar** — off = walls and free space come from the camera only.
 - **Range for mapping** — hits and free rays beyond it do not go into the map. Navigation does not
@@ -55,11 +56,12 @@ This is the only place of these settings; **Map › Advanced sensing tuning** ju
 - **No return = free** — a beam that hit nothing counts as free up to that range.
 - **Minimum strength for mapping** — weaker returns are neither an obstacle nor free. Raise it in
   tall grass. A value under the filter below does nothing: the card says so.
+- **Free-ray decay** — how much one free ray erases an obstacle in the map. Keep it low: a beam only
+  vouches for its own height. 0 = rays never erase.
 
-**During a recording** a change applies at once and stays with that map. **Without a recording**
-the card shows what the next recording on the active map will use, and next to each value where it
-comes from: *default*, *map …*, or *waits for the next recording*. A change you make now is kept on
-the robot and the next recording takes it over, on any map; **Drop waiting changes** cancels it.
+A change applies at once and stays with this place, recording or not; next to each value is *from
+the profile* or *changed here*. **Back to the profile** drops the changes of the lidar here, saving
+them into the profile is in the Map tab. **Show the range on the map** turns the layer on.
 
 ## Weak-return filter
 

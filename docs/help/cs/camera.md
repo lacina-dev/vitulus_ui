@@ -186,7 +186,12 @@ dalšího snímku kamery, bez restartu a bez výpadku, a robot si ji pamatuje (n
 `~/.vitulus/depth_obstacles/settings.json`, přežije restart).
 
 - **Navigace / Mapování** — dvě nezávislé sady. **Navigace** je to, co robot vidí za jízdy.
-  **Mapování** se používá jen při nahrávání mapy.
+  **Mapování** se používá jen při nahrávání mapy a patří do [profilu mapování](mapping.md#profil-mapování)
+  tohoto místa: změna zůstane u tohoto místa, řádky se porovnávají s profilem a šipka i **Zpět na
+  profil mapování** se k němu vrací. Patří k němu i **Překážky do mapy** a **Volná zem do mapy**.
+- **Ukázat dosah na mapě** zapne vrstvu v pohledu vybrané sady.
+- Výšku, dosah a shluky do mapy rozhoduje jen tahle karta: mapování vezme, co karta pustí, a nic už
+  znovu nefiltruje.
 - Posuvník nebo číslo, vedle jednotka. U každého řádku je *výchozí* nebo *změněno · výchozí …*;
   šipka vrátí tu jednu hodnotu, **Výchozí pro tento profil** (dvě kliknutí) všechny.
 - **Body volno / překážky / zbytek** a **Čas na snímek** jsou živé, průměr za poslední dvě sekundy
@@ -254,5 +259,6 @@ sklon země**.
 ## Vrstvy v obraze
 
 Překryvy kreslené přes obraz kamery v pravém panelu — Lidar, Překážky, Volno, Hloubka — a jejich
-průhlednost; stejná volba jako menu vrstev na obrazu ([Obrazovka](frame.md#kamera)). Nahrávání
+průhlednost; stejná volba jako menu vrstev na obrazu ([Obrazovka](frame.md#kamera)). Překážky, Volno
+a Zbytek jsou ze sady vybrané v Detekci překážek: Navigace, nebo Mapování. Nahrávání
 kamery je v **Nastavení › Rosbag** ([Nastavení](settings.md#rosbag)).

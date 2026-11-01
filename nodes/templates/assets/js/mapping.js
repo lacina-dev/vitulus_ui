@@ -98,7 +98,6 @@ class MappingV3 {
         this._lastGateMsg = null;
         this._lastDemMsg = null;
         this._lastDirectMsg = null;
-        this._lastPresets = null;
         this._relabel = [];   // [fn] re-run on a language switch (double-click buttons)
 
         // vitulus_ui INSERTION-ORDER HARDENING (belt + braces alongside the
@@ -163,87 +162,9 @@ class MappingV3 {
         this.el_ranges_status = document.getElementById("mapv3_ranges_status");
         this.ranges_edited = false;
 
-        // Direct 2D raster mapper — new node, fed by /mapping/direct_status,
-        // configured via /mapping/set_direct (partial dicts OK). Three source
-        // rows (enable checkbox + range cap) plus min-hits and the no-hit-free
-        // toggle, applied together as ONE set_direct JSON. Values are
-        // populated from direct_status.settings only ONCE, on first arrival
-        // (see handleDirectStatus) — unlike the band/ranges edit-guard above,
-        // this stream arrives at ~1.5 Hz so a live re-sync would fight with
-        // in-progress typing; there is no ongoing risk once populated once.
-        this.chk_direct_use_lidar = document.getElementById("mapv3_direct_use_lidar");
-        this.in_direct_lidar_range = document.getElementById("mapv3_direct_lidar_range");
-        this.chk_direct_free_no_hit = document.getElementById("mapv3_direct_free_no_hit");
-        this.chk_direct_use_cam_obstacle = document.getElementById("mapv3_direct_use_cam_obstacle");
-        this.in_direct_obstacle_range = document.getElementById("mapv3_direct_obstacle_range");
-        this.chk_direct_use_cam_free = document.getElementById("mapv3_direct_use_cam_free");
-        this.in_direct_free_range = document.getElementById("mapv3_direct_free_range");
-        this.in_direct_min_hits = document.getElementById("mapv3_direct_min_hits");
-        this.btn_apply_direct = document.getElementById("mapv3_btn_apply_direct");
+        // Direct 2D raster mapper: its live counters, /mapping/direct_status.
+        // Its settings are the mapping profile (vt_map_profile.js).
         this.el_direct_status = document.getElementById("mapv3_direct_status");
-        // 2026-08-09 live-tuning rebuild: sliders publish debounced PARTIAL
-        // set_direct dicts on input; controls re-sync from direct_status
-        // whenever the user has not touched them for a few seconds (replaces
-        // the old one-time prefill — keeps multiple browsers consistent and
-        // reflects preset loads immediately).
-        this.in_direct_obs_hmin = document.getElementById("mapv3_direct_obs_hmin");
-        this.in_direct_obs_hmax = document.getElementById("mapv3_direct_obs_hmax");
-        this.in_direct_min_cluster = document.getElementById("mapv3_direct_min_cluster");
-        this.in_direct_cluster_radius = document.getElementById("mapv3_direct_cluster_radius");
-        this.in_direct_lidar_min_int = document.getElementById("mapv3_direct_lidar_min_int");
-        this.in_direct_hit_inc = document.getElementById("mapv3_direct_hit_inc");
-        this.in_direct_miss_dec = document.getElementById("mapv3_direct_miss_dec");
-        this.in_direct_lidar_free_dec = document.getElementById("mapv3_direct_lidar_free_dec");
-        this.in_direct_occ_erode = document.getElementById("mapv3_direct_occ_erode");
-        this.in_direct_occ_thresh = document.getElementById("mapv3_direct_occ_thresh");
-        this.in_direct_free_thresh = document.getElementById("mapv3_direct_free_thresh");
-        this.sel_direct_preset = document.getElementById("mapv3_direct_preset");
-        this.btn_direct_preset_load = document.getElementById("mapv3_direct_preset_load");
-        this.in_direct_preset_name = document.getElementById("mapv3_direct_preset_name");
-        this.btn_direct_preset_save = document.getElementById("mapv3_direct_preset_save");
-        this.btn_direct_preset_del = document.getElementById("mapv3_direct_preset_del");
-        this._directSettingsSeen = false;   // first-status sync happened
-        this._directLastTouch = 0;          // last user interaction (ms epoch)
-        this._directPending = null;         // accumulated partial for debounce
-        this._directDebounce = null;        // debounce timer
-        this._directPresetSig = '';         // preset <select> rebuild guard
-        // vitulus-field#23: Load/Save/Delete need direct_raster (session
-        // only) — keep their titles to restore them when a session runs
-        this._directPresetTitles = [this.btn_direct_preset_load,
-            this.btn_direct_preset_save, this.btn_direct_preset_del]
-            .map((b) => (b ? b.title : ''));
-        // ...in the current language when the markup tags them (data-i18n-title)
-        this._presetTitle = (i) => {
-            const b = this._directPresetTitles && [this.btn_direct_preset_load,
-                this.btn_direct_preset_save, this.btn_direct_preset_del][i];
-            const k = b && b.getAttribute('data-i18n-title');
-            return k ? mapT(k) : this._directPresetTitles[i];
-        };
-        // slider spec: [input, key, decimals, unit] — value echo span is
-        // the input id + "_val"; shared by wiring, sync and applyDirect.
-        this._directSliders = [
-            [this.in_direct_lidar_range, 'lidar_max_range_m', 1, ' m'],
-            [this.in_direct_obstacle_range, 'obstacle_max_range_m', 1, ' m'],
-            [this.in_direct_free_range, 'free_max_range_m', 1, ' m'],
-            [this.in_direct_obs_hmin, 'cam_obstacle_min_h', 2, ' m'],
-            [this.in_direct_obs_hmax, 'cam_obstacle_max_h', 2, ' m'],
-            [this.in_direct_min_cluster, 'cam_min_cluster_pts', 0, ' pts'],
-            [this.in_direct_cluster_radius, 'cam_cluster_radius_m', 2, ' m'],
-            [this.in_direct_lidar_min_int, 'lidar_min_intensity', 0, ''],
-            [this.in_direct_min_hits, 'min_hits', 0, ''],
-            [this.in_direct_hit_inc, 'hit_inc', 2, ''],
-            [this.in_direct_miss_dec, 'miss_dec', 2, ''],
-            [this.in_direct_lidar_free_dec, 'lidar_free_dec', 2, ''],
-            [this.in_direct_occ_erode, 'occ_erode_factor', 2, ''],
-            [this.in_direct_occ_thresh, 'occ_thresh', 2, ''],
-            [this.in_direct_free_thresh, 'free_thresh', 2, ''],
-        ];
-        this._directChecks = [
-            [this.chk_direct_use_lidar, 'use_lidar'],
-            [this.chk_direct_use_cam_obstacle, 'use_cam_obstacle'],
-            [this.chk_direct_use_cam_free, 'use_cam_free'],
-            [this.chk_direct_free_no_hit, 'lidar_free_no_hit'],
-        ];
 
         this.el_sites = document.getElementById("mapv3_sites_row");
 
@@ -491,8 +412,6 @@ class MappingV3 {
         this.pub_rebuild_combined = pub('/mapping_manager/rebuild_combined');
         this.pub_set_band = pub('/mapping/set_band');
         this.pub_set_ranges = pub('/mapping/set_ranges');
-        this.pub_set_direct = pub('/mapping/set_direct');
-        this.pub_direct_preset = pub('/mapping/direct_preset');
         this.pub_reset_direct = pub('/mapping/reset_direct');
 
         const sub = (name, type, cb) => {
@@ -513,14 +432,6 @@ class MappingV3 {
         // dead. The direct mapper reports its own status via direct_status.
         sub('/mapping/direct_status', 'std_msgs/String',
             (m) => this.handleDirectStatus(m));
-        // vitulus-field#23: the preset list also comes from mapping_manager
-        // (always running, latched) so it is filled outside a session too
-        sub('/mapping_manager/direct_presets', 'std_msgs/String', (m) => {
-            let d;
-            try { d = JSON.parse(m.data); } catch (e) { return; }
-            this._fillDirectPresets(d && d.presets);
-        });
-
         // Terrain elevation as a 3D plane (see terrain_group above). rosbridge
         // delivers CompressedImage.data as base64. The PNG and the world bounds
         // arrive on separate topics, so we cache the newest of each and rebuild
@@ -697,100 +608,6 @@ class MappingV3 {
             this.btn_apply_ranges.addEventListener('click', () => this.applyRanges());
         }
 
-        // Direct mapper — LIVE controls (2026-08-09). Sliders publish a
-        // debounced partial set_direct on input; checkboxes publish
-        // immediately on change. The control set is independent of session
-        // Start/Stop so it stays enabled regardless of setActionsEnabled()
-        // (with no session there is just nobody listening — the pending
-        // timeout in _liveDirectSend reports that honestly).
-        this._directSliders.forEach(([el, key, dec, unit]) => {
-            if (!el) return;
-            el.addEventListener('input', () => {
-                this._directLastTouch = Date.now();
-                this._setDirectValLabel(el, dec, unit);
-                let v = parseFloat(el.value);
-                const partial = {};
-                partial[key] = (dec === 0) ? Math.round(v) : v;
-                // keep the height window valid while dragging: backend
-                // rejects min >= max as one atomic dict, so drag the other
-                // edge along instead of publishing a doomed pair
-                if (key === 'cam_obstacle_min_h' && this.in_direct_obs_hmax) {
-                    const hmax = parseFloat(this.in_direct_obs_hmax.value);
-                    if (v >= hmax) {
-                        const nv = Math.min(v + 0.05, 2.5);
-                        this.in_direct_obs_hmax.value = nv;
-                        this._setDirectValLabel(this.in_direct_obs_hmax, 2, ' m');
-                        partial['cam_obstacle_max_h'] = nv;
-                    }
-                }
-                if (key === 'cam_obstacle_max_h' && this.in_direct_obs_hmin) {
-                    const hmin = parseFloat(this.in_direct_obs_hmin.value);
-                    if (v <= hmin) {
-                        const nv = Math.max(v - 0.05, 0);
-                        this.in_direct_obs_hmin.value = nv;
-                        this._setDirectValLabel(this.in_direct_obs_hmin, 2, ' m');
-                        partial['cam_obstacle_min_h'] = nv;
-                    }
-                }
-                this._liveDirectSend(partial);
-            });
-        });
-        this._directChecks.forEach(([el, key]) => {
-            if (!el) return;
-            el.addEventListener('change', () => {
-                this._directLastTouch = Date.now();
-                const partial = {};
-                partial[key] = !!el.checked;
-                this._liveDirectSend(partial);
-            });
-        });
-        if (this.btn_apply_direct) {
-            this.btn_apply_direct.addEventListener('click', () => this.applyDirect());
-        }
-        // environment presets: applied/saved/deleted SERVER-side by
-        // direct_raster (topic /mapping/direct_preset); the select is
-        // populated by _fillDirectPresets from direct_status.presets and
-        // /mapping_manager/direct_presets.
-        if (this.btn_direct_preset_load) {
-            this.btn_direct_preset_load.addEventListener('click', () => {
-                const name = this.sel_direct_preset && this.sel_direct_preset.value;
-                if (!name) return;
-                this.pub_direct_preset.publish(new ROSLIB.Message(
-                    {data: JSON.stringify({action: 'apply', name: name})}));
-                // let the echoed settings re-sync the sliders right away
-                this._directLastTouch = 0;
-                this._markDirectPending();
-            });
-        }
-        if (this.btn_direct_preset_save) {
-            this.btn_direct_preset_save.addEventListener('click', () => {
-                let name = this.in_direct_preset_name
-                    ? this.in_direct_preset_name.value.trim() : '';
-                if (!name && this.sel_direct_preset) {
-                    name = this.sel_direct_preset.value;   // overwrite selected
-                }
-                if (!name) {
-                    if (this.el_direct_status) {
-                        this._say(this.el_direct_status, () => mapT('mapping.preset.need_name'));
-                        vtTone(this.el_direct_status, 'warn');
-                    }
-                    return;
-                }
-                this.pub_direct_preset.publish(new ROSLIB.Message(
-                    {data: JSON.stringify({action: 'save', name: name})}));
-                this._markDirectPending();
-            });
-        }
-        if (this.btn_direct_preset_del) {
-            this.btn_direct_preset_del.addEventListener('click', () => {
-                const name = this.sel_direct_preset && this.sel_direct_preset.value;
-                if (!name) return;
-                this.pub_direct_preset.publish(new ROSLIB.Message(
-                    {data: JSON.stringify({action: 'delete', name: name})}));
-                this._markDirectPending();
-            });
-        }
-
         // Clear 3D — reset the octomap archive after a localization
         // correction shifted older data (created dynamically, like the
         // caption, to avoid an index.html rebuild)
@@ -834,10 +651,6 @@ class MappingV3 {
             } catch (e) { /* keep the old text */ }
         });
         this._relabel.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
-        if (this._lastPresets) {
-            this._directPresetSig = '';
-            this._fillDirectPresets(this._lastPresets);
-        }
         // the data handlers draw the rest (sites list, tooltips, gate, DEM)
         try {
             if (this._lastManagerMsg) {
@@ -846,7 +659,7 @@ class MappingV3 {
             }
             if (this._lastGateMsg) { this.handleGate(this._lastGateMsg); }
             if (this._lastDemMsg) { this._renderDem(this._lastDemMsg); }
-            if (this._lastDirectMsg && !this._direct_apply_pending) {
+            if (this._lastDirectMsg) {
                 this.handleDirectStatus(this._lastDirectMsg);
             }
         } catch (e) { console.error('[mappingv3] language re-render failed:', e); }
@@ -2402,68 +2215,6 @@ class MappingV3 {
         vtTone(this.el_ranges_status, '');
     }
 
-    // ---- Direct mapper LIVE control helpers (2026-08-09) -------------------
-    _setDirectValLabel(el, dec, unit) {
-        const span = document.getElementById(el.id + '_val');
-        if (!span) return;
-        const v = parseFloat(el.value);
-        span.textContent = (dec === 0 ? String(Math.round(v)) : v.toFixed(dec))
-            + (unit === ' pts' ? mapT('mapping.unit.pts') : (unit || ''));
-    }
-
-    // honest feedback shared by every publish path: the settings are applied
-    // by the SESSION node — with no mapping session running there is nobody
-    // to hear the publish, so a pending mark with a timeout reports that.
-    _markDirectPending() {
-        if (this.el_direct_status) {
-            this._say(this.el_direct_status, () => mapT('mapping.applying'));
-            vtTone(this.el_direct_status, '');
-        }
-        this._direct_apply_pending = Date.now();
-        setTimeout(() => {
-            if (this._direct_apply_pending) {
-                this._direct_apply_pending = null;
-                if (this.el_direct_status) {
-                    this._say(this.el_direct_status, () => mapT('mapping.direct.no_reply'));
-                    vtTone(this.el_direct_status, 'warn');
-                }
-            }
-        }, 3000);
-    }
-
-    // accumulate partial dicts and publish ONE set_direct after 300 ms of
-    // slider silence (a drag emits dozens of input events)
-    _liveDirectSend(partial) {
-        this._directPending = Object.assign(this._directPending || {}, partial);
-        if (this._directDebounce) clearTimeout(this._directDebounce);
-        this._directDebounce = setTimeout(() => {
-            const payload = this._directPending;
-            this._directPending = null;
-            this._directDebounce = null;
-            if (!payload) return;
-            this.pub_set_direct.publish(
-                new ROSLIB.Message({data: JSON.stringify(payload)}));
-            this._markDirectPending();
-        }, 300);
-    }
-
-    // "Send all" — one full-set set_direct; normally redundant (sliders apply
-    // live) but useful to force-sync a fresh session to what the UI shows.
-    applyDirect() {
-        const payload = {};
-        this._directChecks.forEach(([el, key]) => {
-            if (el) payload[key] = !!el.checked;
-        });
-        this._directSliders.forEach(([el, key, dec]) => {
-            if (!el) return;
-            const v = parseFloat(el.value);
-            if (!isNaN(v)) payload[key] = (dec === 0) ? Math.round(v) : v;
-        });
-        this.pub_set_direct.publish(
-            new ROSLIB.Message({data: JSON.stringify(payload)}));
-        this._markDirectPending();
-    }
-
     setActionsEnabled(on) {
         [this.btn_mode_rtk, this.btn_mode_force, this.btn_mode_off,
          this.btn_raster, this.btn_save, this.btn_compare, this.btn_clear,
@@ -2499,16 +2250,6 @@ class MappingV3 {
             this._say(this.el_ranges_status, () => mapT('mapping.ranges.needs_session'));
             vtTone(this.el_ranges_status, '');
         }
-        // vitulus-field#23: the preset list is visible any time, but Load /
-        // Save / Delete are served by direct_raster, which only runs in a
-        // session.
-        [this.btn_direct_preset_load, this.btn_direct_preset_save,
-         this.btn_direct_preset_del].forEach((b, i) => {
-            if (!b) return;
-            b.disabled = !on;
-            b.title = on ? this._presetTitle(i)
-                : mapT('mapping.preset.needs_session_tip');
-        });
     }
 
     // Remove the Direct layer's current mesh (same teardown the client does
@@ -3147,45 +2888,6 @@ class MappingV3 {
         vtTone(this.el_proj, p.state === 'error' ? 'err' : '');
     }
 
-    // environment preset <select>: rebuild only when the name list
-    // changes (signature guard), keeping the current selection. Fed by
-    // direct_status.presets (session) and /mapping_manager/direct_presets
-    // (always) — same list, so the guard keeps them from fighting.
-    _fillDirectPresets(presets) {
-        if (!this.sel_direct_preset || !Array.isArray(presets)) return;
-        this._lastPresets = presets;
-        const sig = presets.map(
-            (p) => p.name + (p.builtin ? '*' : '')).join('|');
-        if (sig === this._directPresetSig) return;
-        this._directPresetSig = sig;
-        const cur = this.sel_direct_preset.value;
-        this.sel_direct_preset.innerHTML = '';
-        presets.forEach((p) => {
-            const o = document.createElement('option');
-            o.value = p.name;
-            o.textContent = p.builtin ? p.name : mapT('mapping.preset.custom', {name: p.name});
-            this.sel_direct_preset.appendChild(o);
-        });
-        if (cur && presets.some((p) => p.name === cur)) {
-            this.sel_direct_preset.value = cur;
-        } else {
-            // settings-persistence: first fill (or vanished selection)
-            // -> re-select the preset remembered from the last session.
-            // Selection only — nothing is applied/published here.
-            const remembered = this._strPref('vitulus_direct_preset_sel', '');
-            if (remembered && presets.some((p) => p.name === remembered)) {
-                this.sel_direct_preset.value = remembered;
-            }
-        }
-        if (!this._directPresetSelWired) {
-            this._directPresetSelWired = true;
-            this.sel_direct_preset.addEventListener('change', () => {
-                this._saveStrPref('vitulus_direct_preset_sel',
-                    this.sel_direct_preset.value);
-            });
-        }
-    }
-
     // Direct 2D raster mapper status — /mapping/direct_status, latched,
     // ~1.5 Hz: {enabled, pass, reasons[], counters{lidar,cam_obstacle,
     // cam_free:{in,throttled,gate_closed,passed}}, settings{...},
@@ -3197,36 +2899,6 @@ class MappingV3 {
         this._lastDirectMsg = msg;
         // Sensing layer: live mapper ranges / sources / gate (MapSensing below)
         if (this.sensing) { this.sensing.onDirect(s); }
-
-        // a status arriving while an Apply is pending = the session node
-        // received + echoed the settings -> show a clear applied tick
-        if (this._direct_apply_pending) {
-            this._direct_apply_pending = null;
-            this._direct_applied_until = Date.now() + 4000;
-        }
-
-        // Re-sync the live controls from the backend's echoed settings —
-        // immediately on the first status, then continuously WHENEVER the
-        // user has not touched the controls for 3 s (keeps multiple open
-        // browsers consistent and reflects preset loads / other clients
-        // without fighting an in-progress drag; a rejected value visibly
-        // snaps back to the backend truth).
-        const touchedRecently = (Date.now() - this._directLastTouch) < 3000;
-        if (s.settings && (!this._directSettingsSeen || !touchedRecently)) {
-            this._directSettingsSeen = true;
-            const st = s.settings;
-            this._directChecks.forEach(([el, key]) => {
-                if (el && st[key] !== undefined) el.checked = !!st[key];
-            });
-            this._directSliders.forEach(([el, key, dec, unit]) => {
-                if (el && st[key] !== undefined) {
-                    el.value = st[key];
-                    this._setDirectValLabel(el, dec, unit);
-                }
-            });
-        }
-
-        this._fillDirectPresets(s.presets);
 
         if (!this.el_direct_status) return;
         const g = s.grid || {};
@@ -3241,12 +2913,8 @@ class MappingV3 {
         if (s.reasons && s.reasons.length) {
             txt += ' — ' + s.reasons.join(', ');
         }
-        const applied = this._direct_applied_until &&
-            Date.now() < this._direct_applied_until;
-        this._say(this.el_direct_status, () =>
-            (applied ? mapT('mapping.direct.applied') + ' \u00b7 ' : '') + txt);
-        vtTone(this.el_direct_status, applied ? 'ok'
-            : ((s.reasons && s.reasons.length) ? 'warn' : ''));
+        this._say(this.el_direct_status, () => txt);
+        vtTone(this.el_direct_status, (s.reasons && s.reasons.length) ? 'warn' : '');
     }
 }
 
@@ -3315,9 +2983,10 @@ class MappingV3 {
 //     canvas at 0.2 m/px (~100 m square, 1 MB, re-centred when the robot
 //     leaves it): what has already been observed in this session. Cleared on
 //     a new recording and on Reset map.
-// Ranges are the CONFIGURED mapper values (what the map actually ingests,
-// not the raw sensor max): /mapping/direct_status settings while a session
-// runs, the mapping_v3.yaml defaults otherwise. Sensor poses come from TF
+// Ranges are what the map actually ingests, not the raw sensor max: the mapping
+// profile of the site + the limits of the sensors (VTSensorLimits, the same
+// answer as the Lidar / Camera range layers), recording or not; nothing is drawn
+// before that answer. Sensor poses come from TF
 // (base_scan, d435_link via the shared map TF client); until TF arrives the
 // URDF mounts below stand in (composed with base_link).
 // Cost: the scan is subscribed ONLY while the layer is on and the page is
@@ -3334,12 +3003,7 @@ const SENSING_CFG = {
     camInfoTopic: '/rtabmap/rgb/camera_info_out', // intrinsics of the depth cloud
     lidarFrame: 'base_scan',
     camFrame: 'd435_link',
-    // mapping_v3.yaml direct_raster defaults (live values from direct_status)
-    lidarMaxRange: 8.0,          // lidar_max_range_m
-    lidarFreeNoHit: true,        // lidar_free_no_hit
-    camObstacleRange: 2.8,       // obstacle_max_range_m
-    camFreeRange: 2.8,           // free_max_range_m
-    camCloudMax: 4.0,            // depth2cloud_wide max_depth (hard ceiling)
+    lidarMaxRange: 8.0,          // the view's margin, until the profile arrives
     // half-FOV left/right of the optical axis (rad) for K 640×480 fx 616.78
     // cx 326.22: atan(cx/fx), atan((w-cx)/fx) — 54.9° in total
     camHalfLeft: 0.4866,
@@ -3411,13 +3075,10 @@ class MapSensing {
         this.viewer3d = viewer3d;
         this.mapping = mapping || null;
         this.cfg = SENSING_CFG;
-        // live mapper settings (direct_status), defaults until a session runs
-        this.st = {
-            use_lidar: true, lidar_max_range_m: this.cfg.lidarMaxRange,
-            lidar_free_no_hit: this.cfg.lidarFreeNoHit, lidar_min_intensity: 0,
-            use_cam_obstacle: true, obstacle_max_range_m: this.cfg.camObstacleRange,
-            use_cam_free: true, free_max_range_m: this.cfg.camFreeRange,
-        };
+        // what the site's mapping profile says, see _limits()
+        this.st = {use_lidar: false, lidar_max_range_m: 0, lidar_free_no_hit: true,
+                   lidar_min_intensity: 0, camReach: 0};
+        this._onLimits = () => this._limits();
         this.running = null;        // recording state (null = not known yet)
         this.gatePass = null;       // direct_status.pass (null = no session)
         this.camHalfL = this.cfg.camHalfLeft;
@@ -3498,11 +3159,6 @@ class MapSensing {
 
     onDirect(d) {
         if (!d) { return; }
-        if (d.settings && typeof d.settings === 'object') {
-            Object.keys(this.st).forEach((k) => {
-                if (d.settings[k] !== undefined && d.settings[k] !== null) { this.st[k] = d.settings[k]; }
-            });
-        }
         this.gatePass = (d.pass === undefined) ? null : d.pass;
         // camera liveness: the mapper counts incoming camera clouds; a count
         // that does not move for 5 s = the camera branch delivers nothing
@@ -3526,8 +3182,27 @@ class MapSensing {
                   this.viewer3d && this.viewer3d.scene);
     }
 
+    // the one source of the Sensing, Lidar range and Camera range layers
+    _limits() {
+        const SL = window.VTSensorLimits;
+        if (!SL) { return; }
+        const r = SL.ranges(), m = SL.mapper();
+        if (!m || m.use_lidar === undefined) { return; }
+        const K = r.camera, obs = K.mapObs && K.mapObsOn ? K.mapObs.v : 0;
+        this.st = {use_lidar: r.lidar.mapOn, lidar_max_range_m: r.lidar.map ? r.lidar.map.v : 0,
+                   lidar_free_no_hit: m.lidar_free_no_hit !== false,
+                   lidar_min_intensity: Number(m.lidar_min_intensity) || 0,
+                   camReach: Math.max(obs, K.mapFree && K.mapFreeOn ? K.mapFree.v : 0)};
+    }
+
     _sync() {
         const want = this._wanted();
+        const SL = window.VTSensorLimits;
+        if (SL) {
+            if (!this._limitsHooked) { this._limitsHooked = true; SL.onChange(this._onLimits); }
+            SL.need('sensing', !!want);
+            this._limits();
+        }
         if (want) {
             this._ensureScene();
             this._ensureTf();
@@ -3667,8 +3342,8 @@ class MapSensing {
 
         // --- lidar fan
         let runs = [];
-        if (st.use_lidar !== false && lp) {
-            const cap = Math.max(0.1, Number(st.lidar_max_range_m) || C.lidarMaxRange);
+        if (st.use_lidar && st.lidar_max_range_m > 0 && lp) {
+            const cap = Math.max(0.1, Number(st.lidar_max_range_m) || 0);
             const B = sensingClassifyBeams(msg, cap, st.lidar_free_no_hit !== false,
                                            Number(st.lidar_min_intensity) || 0, C.maxBeams);
             const R = lp.R, ox = lp.x, oy = lp.y;
@@ -3723,10 +3398,7 @@ class MapSensing {
 
         // --- camera cone
         let cone = null;
-        const useObs = st.use_cam_obstacle !== false, useFree = st.use_cam_free !== false;
-        const rObs = useObs ? Math.min(C.camCloudMax, Number(st.obstacle_max_range_m) || 0) : 0;
-        const rFree = useFree ? Math.min(C.camCloudMax, Number(st.free_max_range_m) || 0) : 0;
-        const rc = Math.max(rObs, rFree);
+        const rc = st.camReach;
         if (cp && rc > 0) {
             const yaw = Math.atan2(cp.R[2], cp.R[0]);
             const a0 = yaw - this.camHalfR, a1 = yaw + this.camHalfL, NA = 39;
@@ -3754,12 +3426,6 @@ class MapSensing {
             seg(cp.x, cp.y, outer[0], outer[1]);
             seg(cp.x, cp.y, outer[2 * NA], outer[2 * NA + 1]);
             for (let i = 0; i < NA; i++) { seg(outer[2 * i], outer[2 * i + 1], outer[2 * i + 2], outer[2 * i + 3]); }
-            // obstacle and ground ranges differ -> the shorter one as an inner arc
-            const rIn = Math.min(rObs || rc, rFree || rc);
-            if (rIn > 0 && rIn < rc - 0.05) {
-                const inner = arc(rIn);
-                for (let i = 0; i < NA; i += 2) { seg(inner[2 * i], inner[2 * i + 1], inner[2 * i + 2], inner[2 * i + 3]); }
-            }
             this._commit(this.camFill, nf / 3);
             this._commit(this.camEdge, ne / 3);
             this.camFill.visible = this.camEdge.visible = true;

@@ -13,6 +13,10 @@ display, any of:
   /camera_overlay/depth      the aligned depth image, colour-mapped (bgr8,
                              streamed by web_video_server like the camera)
 
+/camera_overlay/source (std_msgs/String nav | wide) picks the segmentation the three
+cloud layers show: the navigation profile or the mapping one, like the profile
+selected in Settings > Camera > Obstacle detection.
+
 LAZY: every input is subscribed only while its output has a subscriber (the
 UI turns a layer on). With all layers off the node holds no subscription at
 all — not even /tf — and costs nothing.
@@ -52,7 +56,7 @@ import numpy as np
 import rospy
 import tf2_ros
 from sensor_msgs.msg import CameraInfo, Image, LaserScan, PointCloud2
-from std_msgs.msg import UInt8MultiArray
+from std_msgs.msg import String, UInt8MultiArray
 
 try:
     import cv2
@@ -180,8 +184,9 @@ def turbo_lut():
 
 
 class Layer(object):
-    def __init__(self, name, in_topic, in_type, out_pub, cb):
+    def __init__(self, name, in_topic, in_type, out_pub, cb, wide_topic=None):
         self.name, self.in_topic, self.in_type = name, in_topic, in_type
+        self.topics = {'nav': in_topic, 'wide': wide_topic or in_topic}
         self.pub, self.cb = out_pub, cb
         self.sub = None
         self.last = 0.0
@@ -227,14 +232,19 @@ class CameraOverlay(object):
             Layer('scan', p('~scan', '/scan'), LaserScan,
                   pub('scan', UInt8MultiArray), self.on_scan),
             Layer('obstacles', p('~obstacles', '/obstacles_cloud'), PointCloud2,
-                  pub('obstacles', UInt8MultiArray), self.on_cloud),
+                  pub('obstacles', UInt8MultiArray), self.on_cloud,
+                  p('~obstacles_wide', '/mapping/obstacles_cloud_wide')),
             Layer('free', p('~free', '/ground_cloud'), PointCloud2,
-                  pub('free', UInt8MultiArray), self.on_cloud),
+                  pub('free', UInt8MultiArray), self.on_cloud,
+                  p('~free_wide', '/mapping/ground_cloud_wide')),
             Layer('rest', p('~rest', '/rest_cloud'), PointCloud2,
-                  pub('rest', UInt8MultiArray), self.on_cloud),
+                  pub('rest', UInt8MultiArray), self.on_cloud,
+                  p('~rest_wide', '/mapping/rest_cloud_wide')),
             Layer('depth', p('~depth', '/d435/aligned_depth_to_color/image_raw'), Image,
                   pub('depth', Image), self.on_depth),
         ]
+        self.source = 'nav'
+        rospy.Subscriber('/camera_overlay/source', String, self.on_source, queue_size=1)
         # the only place that (un)registers: a timer thread that holds no rospy
         # lock; 0.5 s so a freshly opened panel waits at most that long
         rospy.Timer(rospy.Duration(0.5), lambda e: self.reconcile())
@@ -243,6 +253,10 @@ class CameraOverlay(object):
     # ---------------------------------------------------------- lazy plumbing
     def poke(self):
         self.dirty.set()
+
+    def on_source(self, msg):
+        if msg.data in ('nav', 'wide'):
+            self.source = msg.data     # reconcile() moves the subscriptions
 
     def reconcile(self):
         # non-blocking: if a previous pass is still running, the next tick
@@ -259,6 +273,13 @@ class CameraOverlay(object):
         any_points = False
         for L in self.layers:
             want = L.pub.get_num_connections() > 0
+            topic = L.topics[self.source]
+            if L.sub is not None and (not want or topic != L.in_topic):
+                L.sub.unregister()
+                L.sub = None
+                if not want:
+                    rospy.loginfo('camera_overlay: %s off', L.name)
+            L.in_topic = topic
             if want and L.sub is None:
                 big = (2 ** 24) if L.in_type is not LaserScan else 65536
                 # AnyMsg: a frame is deserialized only when the layer is
@@ -267,10 +288,6 @@ class CameraOverlay(object):
                 L.sub = rospy.Subscriber(L.in_topic, rospy.AnyMsg, self.on_raw, callback_args=L,
                                          queue_size=1, buff_size=big)
                 rospy.loginfo('camera_overlay: %s on (%s)', L.name, L.in_topic)
-            elif not want and L.sub is not None:
-                L.sub.unregister()
-                L.sub = None
-                rospy.loginfo('camera_overlay: %s off', L.name)
             if want and L.name != 'depth':
                 any_points = True
         if any_points and self.ci_sub is None:

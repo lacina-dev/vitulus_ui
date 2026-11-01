@@ -48,16 +48,14 @@
 #div_lidar_settings .vt-lid-fval { min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Map › Advanced: read-only summary, the link leads to the only place to set it */
-.vt-lid-sum { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
-.vt-lid-sum a { color: var(--vt-accent); text-decoration: underline; cursor: pointer; }
 
 /* legend on the map */
 .vt-rng-card {
     position: fixed; z-index: 4;
     left: calc(var(--vt-frame-cleft, 0px) + 10px);
-    top: calc(var(--vt-frame-ctop, 82px) + 8px);
+    top: calc(var(--vt-frame-ctop, 82px) + 38px);      /* under the Needs you chip */
     width: min(290px, calc(100vw - var(--vt-frame-cleft, 0px) - var(--vt-frame-rp-w, 0px) - 30px));
-    max-height: calc(100vh - var(--vt-frame-ctop, 82px) - var(--vt-frame-cbottom, 40px) - 30px); overflow-y: auto;
+    max-height: calc(100vh - var(--vt-frame-ctop, 82px) - var(--vt-frame-cbottom, 40px) - 60px); overflow-y: auto;
     background: rgba(20, 24, 28, 0.84); color: var(--vt-text, #dee2e6);
     border: 1px solid var(--vt-border-strong, #444); border-radius: 12px;
     padding: 0 8px; font-size: 12px; line-height: 1.35;
@@ -80,4 +78,37 @@
 @media (max-width: 700px) {
     .vt-rng-card { top: auto; bottom: calc(var(--vt-frame-cbottom, 40px) + 10px); max-height: 55vh; }
     body:has(#vt_aplan_card:not([style*="none"])) .vt-rng-card { bottom: calc(var(--vt-frame-cbottom, 40px) + 96px); }
+}
+
+/* the view of the range layers */
+.vt-rng-view { display: flex; width: 100%; margin-bottom: 4px; }
+.vt-rng-view > .btn { flex: 1 1 0; min-height: 36px; padding: 2px 6px; }
+
+/* Map › Recording: the mapping profile of this place */
+.vt-mp-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.vt-mp-title { font-size: var(--vt-fs-sm, 0.8125rem); font-weight: 600; }
+.vt-mp-site { margin-left: auto; min-width: 0; color: var(--vt-muted, #9aa4ad); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-mp-line { display: flex; align-items: center; gap: 6px; }
+.vt-mp-line select { flex: 1 1 auto; min-width: 0; min-height: 36px; }
+.vt-mp-pill { flex: 0 0 auto; min-width: 0; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.vt-mp-pill:empty { display: none; }
+.vt-mp-pill-on { background: rgba(255, 183, 77, 0.16); color: var(--vt-warn, #ffb74d); }
+.vt-mp-ask { margin-top: 6px; }
+.vt-mp-rows { margin-top: 6px; }
+.vt-mp-row { display: grid; grid-template-columns: 5.2em minmax(0, 1fr) auto; gap: 1px 8px; align-items: baseline; padding: 3px 0; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 12px; }
+.vt-mp-k { color: var(--vt-muted, #9aa4ad); white-space: nowrap; }
+.vt-mp-v { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.vt-mp-go { padding: 2px 0; color: var(--vt-accent); text-decoration: underline; white-space: nowrap; cursor: pointer; }
+.vt-mp-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.vt-mp-acts .btn { min-height: 36px; }
+.vt-mp-name { margin-top: 6px; }
+.vt-mp-msg { min-height: 1.3em; margin-top: 4px; color: var(--vt-muted, #9aa4ad); font-size: 12px; }
+.vt-mp-adv { margin-top: 2px; }
+.vt-mp-sl { margin-top: 6px; }
+.vt-mp-sl-top { display: flex; gap: 8px; font-size: 12px; }
+.vt-mp-sl .vt-app-hint { font-size: 11px; }
+@media (max-width: 600px) {
+    .vt-mp-go { padding: 8px 0; }
+    .vt-mp-acts .btn, .vt-mp-line select { min-height: 42px; }
+    .vt-mp-sl input[type=range] { height: 32px; }
 }

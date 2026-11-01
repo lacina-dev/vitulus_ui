@@ -46,18 +46,20 @@ a pohled shora s předkem robota nahoře, měřítko 3 / 8 / 16 m.
 
 ## Lidar v mapování
 
-Tohle je jediné místo těchto nastavení; **Mapa › Pokročilé ladění snímání** je jen ukazuje.
+Tohle je jediné místo těchto nastavení. Patří do [profilu mapování](mapping.md#profil-mapování)
+tohoto místa: první řádek karty říká kterého, záložka Mapa ukazuje souhrn.
 
 - **Mapovat lidarem** — vypnuto = zdi a volno dává jen kamera.
 - **Dosah pro mapování** — zásahy a volné paprsky za ním do mapy nejdou. Navigace na tom nezávisí.
 - **Bez odrazu = volno** — paprsek, který nic nezasáhl, se počítá jako volno do tohoto dosahu.
 - **Minimální síla pro mapování** — slabší odrazy nejsou ani překážka, ani volno. Zvyšte ve vysoké
   trávě. Hodnota pod filtrem níže nic nedělá: karta to řekne.
+- **Mazání volným paprskem** — kolik jeden volný paprsek ubere překážce v mapě. Nech nízko: paprsek
+  ručí jen za svou výšku. 0 = paprsky nemažou.
 
-**Při nahrávání** změna platí hned a zůstane u té mapy. **Bez nahrávání** karta ukazuje, co použije
-příští nahrávání na aktivní mapě, a u každé hodnoty, odkud je: *výchozí*, *mapa …* nebo *čeká na
-příští nahrávání*. Změna, kterou uděláte teď, se uloží na robotu a převezme ji příští nahrávání, na
-jakékoli mapě; **Zahodit čekající změny** ji zruší.
+Změna platí hned a zůstane u tohoto místa, s nahráváním i bez něj; u každé hodnoty je *z profilu*
+nebo *změněno tady*. **Zpět na profil** zahodí změny lidaru tady, uložení do profilu je v záložce
+Mapa. **Ukázat dosah na mapě** zapne vrstvu.
 
 ## Filtr slabých odrazů
 

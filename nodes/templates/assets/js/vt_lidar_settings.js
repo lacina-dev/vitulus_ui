@@ -5,9 +5,9 @@
  *                scan_5m: rate of every stage, who reads it (live, from the master)
  *   This scan    counts, distances, distance + strength histograms, top view
  *   Mapping      the only place of use_lidar, lidar_max_range_m, lidar_free_no_hit,
- *                lidar_min_intensity. During a recording /mapping/set_direct
- *                (direct_raster, kept per map); otherwise POST
- *                /api/lidar/mapper_pending, the next recording takes them over.
+ *                lidar_min_intensity, lidar_free_dec: part of the mapping profile of
+ *                this place (/mapping_manager/profile_cmd, always answered, recording
+ *                or not; during a recording it reaches direct_raster at once).
  *   Weak-return filter  the one chain value worth changing live (laser_filters
  *                dynamic reconfigure): feeds costmaps and the drive guard, so
  *                narrow limits, a second tap, back to the launch value on restart.
@@ -52,7 +52,7 @@
 
     var host = null, pane = null, shown = false, built = false, P = {}, armed = 0;
     var rosRef = null, subs = {}, stage = {}, sum = null, lastScan = null, filterLive = null, subParam = null;
-    var pubSet = null, debounce = 0, pending = null, touched = {}, msg = null, waiting = null, scale = 8, intDraft = null;
+    var debounce = 0, pending = null, touched = {}, msg = null, scale = 8, intDraft = null;
 
     function rosOf() { return (window.ros && window.ros.ros) || null; }
 
@@ -216,12 +216,17 @@
         addRange(items, 'lidar_max_range_m', 0.5, 16, 0.5, 1, 'm');
         addCheck(items, 'lidar_free_no_hit');
         addRange(items, 'lidar_min_intensity', 0, 60, 1, 0, '');
+        addRange(items, 'lidar_free_dec', 0, 1, 0.02, 2, '');
         P.map.body.appendChild(items);
         var ma = el('div', 'vt-lid-actions');
         P.dropPending = el('button', 'btn btn-sm btn-outline-secondary', t('lidarset.map.drop'));
         P.dropPending.type = 'button';
         P.dropPending.addEventListener('click', dropPending);
         ma.appendChild(P.dropPending);
+        var onMap = el('button', 'btn btn-sm btn-outline-info', t('lidarset.view.show'));
+        onMap.type = 'button';
+        onMap.addEventListener('click', function () { if (window.VTSensorRanges) { VTSensorRanges.show('lidar', 'map'); } });
+        ma.appendChild(onMap);
         P.map.body.appendChild(ma);
         P.mapMsg = el('div', 'vt-app-hint');
         P.mapMsg.setAttribute('role', 'status');
@@ -374,11 +379,10 @@
     }
 
     /* ---------------------------------------------------------- mapping */
+    var LIDAR_KEYS = ['use_lidar', 'lidar_max_range_m', 'lidar_free_no_hit', 'lidar_min_intensity', 'lidar_free_dec'];
     function mapperValues() {
-        var live = SL().live(), lim = SL().limits();
-        if (live) { return { v: live, live: true, source: {} }; }
-        var mp = (lim && lim.mapper) || {};
-        return { v: mp.values || {}, live: false, source: mp.source || {}, site: mp.site, pending: mp.pending || {} };
+        var p = SL().profile();
+        return p ? { v: p.values.mapper, ov: p.overrides.mapper, p: p } : { v: {}, ov: {}, p: null };
     }
     function change(key, value) {
         touched[key] = { v: value, at: Date.now() };
@@ -388,57 +392,38 @@
         debounce = setTimeout(flush, SEND_MS);
         P.ctl[key].show(value);
     }
+    function sent(okKey) {
+        return function (l) {
+            if (l.ok) { msg = { key: okKey }; }
+            else {
+                msg = { key: l.error ? 'lidarset.map.refused' : 'lidarset.map.no_echo', args: { why: l.error }, bad: true };
+                touched = {};
+            }
+            paintMapping(!l.ok);
+        };
+    }
     function flush() {
         var vals = pending;
         pending = null;
         if (!vals) { return; }
-        var live = !!SL().live();
-        if (live) {
-            var r = rosOf();
-            if (!r || !window.ROSLIB) { return; }
-            if (!pubSet || rosRef !== r) {
-                rosRef = r;
-                pubSet = new ROSLIB.Topic({ ros: r, name: '/mapping/set_direct', messageType: 'std_msgs/String' });
-                pubSet.advertise();
-            }
-            pubSet.publish(new ROSLIB.Message({ data: JSON.stringify(vals) }));
-            waiting = { at: Date.now(), vals: vals };
-            msg = { key: 'lidarset.map.sent' };
-            paintMapping();
-            return;
-        }
-        postPending({ values: vals });
+        msg = { key: 'lidarset.map.sent' };
+        paintMapping();
+        SL().profileCmd({ cmd: 'set', mapper: vals }, sent('lidarset.map.saved'));
     }
-    function postPending(body) {
-        fetch('/api/lidar/mapper_pending', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Vitulus-UI': '1' }, body: JSON.stringify(body),
-        }).then(function (r) { return r.json(); }).then(function (j) {
-            if (!j.ok) { msg = { key: 'lidarset.map.refused', args: { why: j.error || '' }, bad: true }; touched = {}; paintMapping(true); return; }
-            SL().setLimits(j);
-            msg = { key: body.clear ? 'lidarset.map.dropped' : 'lidarset.map.saved' };
-            paintMapping();
-        }).catch(function (e) {
-            msg = { key: 'lidarset.map.refused', args: { why: String(e && e.message || e) }, bad: true };
-            touched = {};
-            paintMapping(true);
-        });
+    function dropPending() {
+        touched = {};
+        SL().profileCmd({ cmd: 'reset', mapper: LIDAR_KEYS }, sent('lidarset.map.dropped'));
     }
-    function dropPending() { touched = {}; postPending({ clear: true }); }
     function srcText(key, m) {
-        if (m.live) { return t('lidarset.map.src.live'); }
-        var s = m.source[key];
-        if (s === 'pending') { return t('lidarset.map.src.pending'); }
-        if (s === 'site') { return t('lidarset.map.src.site', { site: m.site || '' }); }
-        return s === 'default' ? t('lidarset.map.src.default') : '';
+        if (!m.p) { return ''; }
+        return t(m.ov[key] !== undefined ? 'lidarset.map.src.changed' : 'lidarset.map.src.profile');
     }
     function paintMapping(force) {
         if (!built) { return; }
-        var m = mapperValues(), r = SL().ranges(), lim = SL().limits(), now = Date.now();
-        var known = m.live || !!lim;
-        P.mapMode.textContent = !known ? t(SL().limitsFailed() ? 'lidarset.map.no_api' : 'lidarset.map.loading')
-            : m.live ? t('lidarset.map.mode_live')
-            : m.site ? t('lidarset.map.mode_next_site', { site: m.site }) : t('lidarset.map.mode_next');
-        P.mapMode.classList.toggle('vt-warn-text', !m.live && known);
+        var m = mapperValues(), r = SL().ranges(), now = Date.now();
+        var pn = m.p && window.VTMapProfile ? VTMapProfile.name(m.p.active) : '';
+        P.mapMode.textContent = !m.p ? t('lidarset.map.loading')
+            : m.p.site ? t('lidarset.map.mode_site', { name: pn, site: m.p.site }) : t('lidarset.map.mode_nosite', { name: pn });
         Object.keys(P.ctl).forEach(function (k) {
             var c = P.ctl[k], tt = touched[k];
             if (tt && now - tt.at < WAIT_MS && !force) { c.src.textContent = srcText(k, m); return; }
@@ -446,15 +431,10 @@
             if (m.v[k] !== undefined && !c.typing()) { c.show(m.v[k]); }
             c.src.textContent = srcText(k, m);
         });
-        P.dropPending.style.display = (!m.live && m.pending && Object.keys(m.pending).length) ? '' : 'none';
+        P.dropPending.style.display = LIDAR_KEYS.some(function (k) { return m.ov[k] !== undefined; }) ? '' : 'none';
         if (P.ctl.lidar_max_range_m.why) { P.ctl.lidar_max_range_m.why.textContent = F().whyCut(r.lidar.map); }
         var im = r.lidar.intMin;
         P.ctl.lidar_min_intensity.why.textContent = im && im.cut ? t('lidarset.map.int_cut', { v: F().num(im.v, 0), by: F().byText(im.by) }) : '';
-        if (waiting && now - waiting.at > 3000) {
-            var bad = Object.keys(waiting.vals).some(function (k) { return m.live && m.v[k] !== waiting.vals[k]; });
-            msg = bad ? { key: 'lidarset.map.no_echo', bad: true } : { key: 'lidarset.map.applied' };
-            waiting = null;
-        }
         P.mapMsg.textContent = msg ? t(msg.key, msg.args) : '';
         P.mapMsg.classList.toggle('vt-err-text', !!(msg && msg.bad));
     }
@@ -620,20 +600,6 @@
             g.fillRect(cx - y * k - sz / 2, cy - x * k - sz / 2, sz, sz);
         }
     }
-    function renderSummary() {
-        var box = document.getElementById('mapv3_lidar_summary');
-        if (!box) { return; }
-        var vis = box.offsetParent !== null;
-        SL().need('summary', vis);
-        if (!vis) { return; }
-        var m = mapperValues(), v = m.v;
-        var txt = box.querySelector('[data-role="text"]');
-        if (!txt) { return; }
-        if (v.use_lidar === undefined) { txt.textContent = '—'; return; }
-        txt.textContent = v.use_lidar === false ? t('lidarset.sum.off') : t('lidarset.sum.on', {
-            r: F().m(Number(v.lidar_max_range_m), 1), free: t(v.lidar_free_no_hit === false ? 'common.off' : 'common.on'),
-            i: F().num(Number(v.lidar_min_intensity), 0) });
-    }
     function update() {
         if (!built || !shown) { return; }
         renderDevice();
@@ -654,25 +620,12 @@
             if (rosOf() && rosOf() !== rosRef) { subscribe(false); subscribe(true); }
             update();
         }
-        renderSummary();
-    }
-    function wireSummary() {
-        var box = document.getElementById('mapv3_lidar_summary');
-        var a = box && box.querySelector('a');
-        if (!a) { return; }
-        a.addEventListener('click', function (e) {
-            e.preventDefault();
-            var b = document.getElementById('btn_settings');
-            if (b) { b.click(); }
-            setTimeout(function () { var l = document.querySelector('a.nav-link[href="#tab_rplidar"]'); if (l) { l.click(); } }, 50);
-        });
     }
     function init() {
         host = document.getElementById('div_lidar_settings');
         pane = document.getElementById('tab_rplidar');
         if (!host || !pane || !SL()) { return; }
         build();
-        wireSummary();
         var link = document.querySelector('a.nav-link[href="#tab_rplidar"]');
         if (link) { link.addEventListener('shown.bs.tab', poll); }
         setInterval(poll, 1000);

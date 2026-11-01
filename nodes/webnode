@@ -566,13 +566,8 @@ if __name__ == '__main__':
         # GET  /api/sensor_limits  the real limits of the lidar and the camera
         #      (nodes/sensor_limits.py): cached 5 s, the map layer and the tab
         #      may both ask, the parameter server is not asked per request.
-        # POST /api/lidar/mapper_pending  {values: {...}} | {clear: true}
-        #      lidar settings changed while nothing records: direct_raster
-        #      takes them over at its next start. Same guard as ui_settings.
         _sensor_limits_cache = [0.0, None]
         _sensor_limits_lock = threading.Lock()
-        SENSOR_MAPPER_DIR = os.path.expanduser(sensor_limits.MAPPER_DIR)
-        SENSOR_PENDING_PATH = os.path.join(SENSOR_MAPPER_DIR, sensor_limits.PENDING_NAME)
 
         def _sensor_limits_read():
             import rosgraph
@@ -587,14 +582,11 @@ if __name__ == '__main__':
                     return rospy.get_param(name, default)
                 except Exception:
                     return default
-            base = _pkg_dir('vitulus_mapping') or os.path.join(_LEGACY_SRC, 'vitulus_mapping')
-            return sensor_limits.snapshot(param, state,
-                                          os.path.join(base, 'config', 'mapping_v3.yaml'),
-                                          SENSOR_MAPPER_DIR)
+            return sensor_limits.snapshot(param, state)
 
-        def _sensor_limits(fresh=False):
+        def _sensor_limits():
             with _sensor_limits_lock:
-                if fresh or _sensor_limits_cache[1] is None or time.time() - _sensor_limits_cache[0] > 5.0:
+                if _sensor_limits_cache[1] is None or time.time() - _sensor_limits_cache[0] > 5.0:
                     _sensor_limits_cache[1] = _sensor_limits_read()
                     _sensor_limits_cache[0] = time.time()
                 return _sensor_limits_cache[1]
@@ -608,26 +600,6 @@ if __name__ == '__main__':
             except Exception as exc:
                 rospy.logwarn("[webnode] sensor_limits failed: %s", exc)
                 return jsonify({'ok': False, 'error': str(exc)}), 500
-
-        @app.route('/api/lidar/mapper_pending', methods=['POST'])
-        def api_lidar_mapper_pending():
-            bad = _same_origin_json()
-            if bad:
-                return bad
-            payload = request.get_json(silent=True)
-            if not isinstance(payload, dict):
-                return jsonify({'ok': False, 'error': 'body must be a JSON object'}), 400
-            try:
-                if payload.get('clear') is True:
-                    sensor_limits.clear_pending(SENSOR_PENDING_PATH)
-                else:
-                    sensor_limits.merge_pending(SENSOR_PENDING_PATH, payload.get('values'))
-            except ValueError as exc:
-                return jsonify({'ok': False, 'error': str(exc)}), 400
-            except Exception as exc:
-                rospy.logwarn("[webnode] mapper_pending failed: %s", exc)
-                return jsonify({'ok': False, 'error': str(exc)}), 500
-            return jsonify(_sensor_limits(fresh=True))
 
         @app.route('/api/ui_settings', methods=['GET'])
         def api_ui_settings_get():

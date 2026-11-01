@@ -78,11 +78,37 @@ While recording:
 - **Erase & keep recording** — wipes what was recorded so far, keeps recording (click twice).
 - **Discard (no save)** — ends the recording and throws it away, nothing of it is saved; the
   robot goes back to a saved map (click twice).
-- **Environment preset** and *Advanced sensing tuning* — obstacle detection settings, live; only
-  while recording.
-  The lidar's own settings are not here any more: the tuning shows them read-only, they are set
-  in [Settings › Lidar](lidar.md).
+- **Mapping profile** — what this place is mapped with, see below.
 - *Localization while recording* — how the robot localizes during this recording.
+
+## Mapping profile
+
+One named set for mapping, chosen in the **Recording** section of the Map tab: what the camera counts
+as an obstacle, the lidar for mapping, and how evidence adds up in the map. **Lawn short**, **Lawn
+tall**, **Paved yard**, **Bushes / edge** and **Default** are built in, your own go next to them.
+
+**Every place keeps its own.** The name on the right says for which place the profile is shown.
+Serve another map and its profile comes with it, the camera too (within a second or so), with or
+without a recording; a new map starts as a copy of what was in use. Without a served map the
+values are kept for the next recording. Navigation does not depend on any of it.
+
+- The panel only chooses and shows: **Camera**, **Lidar** and **Evidence** say what the profile
+  holds, **Set** takes you to [Settings › Camera](camera.md#obstacle-detection) and
+  [Settings › Lidar](lidar.md#lidar-in-mapping). The evidence model is right below in the panel.
+- **A change is kept at once** for this place, recording or not, and applies at once during a
+  recording. The panel then shows *edited* with their number and a dot at the part that differs.
+- **Save to profile** writes the changes into the profile, for every place that uses it. **Save
+  as…** makes a new one. **Back to profile** drops the changes of this place.
+- Saving into a built-in profile keeps your version next to it (a dot in the list); **Restore
+  default** brings its values back. **Delete profile** removes your own; places that used it keep
+  their values.
+- Switching the profile with changes open asks first: they would be dropped.
+- If the camera detection does not run, the panel says so and it gets the values when it starts.
+  If it refuses them, the panel says why and it keeps running on the previous ones.
+
+What the camera card says is what lands in the map: the mapper does not filter the camera's points
+a second time. Maps made before this keep what they had: their settings were converted into a
+profile, and what differs from it shows as *edited*.
 
 ## Extend a map
 
@@ -114,16 +140,16 @@ It switches on by itself when a recording starts and off when it ends (tick it b
 
 - **Violet = lidar.** The live scan: stronger fill up to the obstacle each beam hits (with a
   violet outline along it), a faint fill where nothing was hit — that is free space up to the
-  mapper's lidar range (8 m by default), marked by a faint arc. Gaps are beams the map ignores.
+  lidar range of the mapping profile, marked by a faint arc. Gaps are beams the map ignores.
 - **Yellow = camera.** The view cone of the depth camera: about 55° wide, up to the mapper's
-  camera range (2.8 m by default, never more than 4 m). When the ground and the obstacle range
-  differ, the shorter one is a dotted inner arc. During a recording a dimmed cone means the
-  camera delivers nothing to the map right now.
+  camera range of the mapping profile. During a recording a dimmed cone means the camera
+  delivers nothing to the map right now.
 - **Faint fill = already observed** in this recording (only while the mapper takes data in).
   Places without it have not been seen yet — drive there to fill the map. It starts empty with
   each recording and after **Erase & keep recording**.
 
-The ranges are the ones the mapper really uses (its settings), not the sensors' maximum.
+The ranges are the ones the map really takes in (the mapping profile of this place), not the
+sensors' maximum, recording or not.
 
 ### Lidar range and Camera range
 
@@ -133,19 +159,24 @@ with or without a recording, each has its own tick and the browser remembers it.
 
 ![The map with both range layers around the robot and the card with the numbers](img/shot-ranges.webp "Lidar range (violet) and Camera range (yellow)")
 
+**Navigation / Mapping** at the top of the card chooses what the layers show: what the robot uses
+while driving, or the mapping profile of this place. A profile change or a slider in Settings ›
+Camera / Lidar shows here as soon as the robot has it.
+
 - **Dashed** — what the sensor sees (lidar 16 m, camera the raw depth view up to the driver's cut).
-- **Solid** — mapping. **Double** — navigation. The numbers stand on the rings; a label that would
-  cover another one hides, the card top left has them all.
+- **Bright edge** — the limit of the chosen view, from where it starts to where it ends; the camera
+  has its view angle in the middle. The numbers stand on the edges; when something else than the
+  setting of that view limits it, the label names it (*navigation 3.0 m · the costmap*). A label
+  that would cover another one hides, the card has them all.
 - **Short dashes in the camera's view** — where it starts to see the ground: it does not see the
   ground right in front of the robot.
 - **Red sector** — the lidar has something right next to it there (closer than 0.4 m in almost
-  every scan), for example the walls of the dock.
+  every scan, it needs about 30 s), for example the walls of the dock.
 
-The card shows the real values. When a value is lower than what is set, it says who cut it, for
-example *5.0 m: the driver (set 6.0 m)*. Without a recording the mapping values are what the
-**next** recording on the active map will use — each map keeps its own, so they may be far from
-the defaults. The lidar's settings are in [Settings › Lidar](lidar.md), the camera's in
-[Settings › Camera](camera.md).
+The card shows the real values with the camera's height window. When a value is lower than what is
+set, it says who cut it, for example *5.0 m: the driver (set 6.0 m)*. The lidar's settings are in
+[Settings › Lidar](lidar.md), the camera's in [Settings › Camera](camera.md); both have **Show the
+range on the map**.
 
 **Agent's plan** (amber ◆) shows what the agent plans for its running mission — points, routes and
 areas it drew into the map; it appears and disappears by itself, see

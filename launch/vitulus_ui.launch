@@ -13,6 +13,8 @@
     <param name="scan" value="/scan"/>
     <param name="obstacles" value="/obstacles_cloud"/>
     <param name="free" value="/ground_cloud"/>
+    <param name="obstacles_wide" value="/mapping/obstacles_cloud_wide"/>
+    <param name="free_wide" value="/mapping/ground_cloud_wide"/>
     <param name="depth" value="/d435/aligned_depth_to_color/image_raw"/>
     <param name="fixed_frame" value="odom"/>
     <param name="rate" value="5.0"/>

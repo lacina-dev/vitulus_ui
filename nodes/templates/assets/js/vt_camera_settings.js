@@ -22,6 +22,10 @@
  *   /depth_obstacles/set     std_msgs/String JSON {cmd: set | reset, id, profile,
  *                            values, reset | keys}; all of a message or nothing
  *   /depth_obstacles/stats   diagnostic_msgs/DiagnosticStatus — points and times
+ * The Mapping profile belongs to the mapping profile of this place: mapping_manager
+ * takes every change of it into the site, and its "back" buttons return to the values
+ * of that profile (/mapping_manager/profile_cmd through VTSensorLimits). The image
+ * layers follow the profile selected here: /camera_overlay/source nav | wide.
  *
  * Wizard (inside the Depth accuracy card, no modal): 1 prepare the scene
  * (instructions, live snapshot with the calibration area, live checklist from
@@ -72,6 +76,8 @@
             pubT = new ROSLIB.Topic({ ros: r, name: '/camera_calib/cmd', messageType: 'std_msgs/String' });
             sg.pub = new ROSLIB.Topic({ ros: r, name: '/depth_obstacles/set', messageType: 'std_msgs/String' });
             sg.pub.advertise();   // a first change must not race the advertisement
+            sg.pubSrc = new ROSLIB.Topic({ ros: r, name: '/camera_overlay/source', messageType: 'std_msgs/String' });
+            sg.pubSrc.advertise();
         }
         return true;
     }
@@ -784,6 +790,20 @@
         return segNum(def, v) + (u ? ' ' + u : '');
     }
     function segName(key) { return t('camset.seg.p.' + key); }
+    function SL() { return window.VTSensorLimits; }
+    /* the mapping profile of this place, for the profile `wide` */
+    function siteProfile(p) { return p && !p.safety && SL() ? SL().profile() : null; }
+    function segSource() {
+        if (ensure() && sg.pubSrc) { sg.pubSrc.publish(new ROSLIB.Message({ data: sg.prof })); }
+    }
+    function segSelect(name) {
+        if (name === sg.prof) { return; }
+        segFlush();
+        sg.prof = name;
+        sg.msg = null;
+        segSource();
+        renderSeg();
+    }
 
     /* what the robot answered: the first reason in words; never a raw code */
     function segErrorText(e) {
@@ -847,6 +867,7 @@
     function segResetKey(key) {
         delete sg.pend[key];
         delete sg.touched[key];
+        if (siteProfile(segProfile())) { SL().profileCmd({ cmd: 'reset', camera: [key] }); return; }
         var marks = {};
         marks[key] = 1;
         segSend({ cmd: 'reset', keys: [key] }, marks);
@@ -980,17 +1001,45 @@
             var x = el('button', 'btn btn-primary' + (pr.name === p.name ? ' vt-sel' : ''), txt === key ? pr.name : txt);
             x.type = 'button';
             x.setAttribute('aria-pressed', pr.name === p.name ? 'true' : 'false');
-            x.addEventListener('click', function () {
-                if (pr.name === sg.prof) { return; }
-                segFlush();
-                sg.prof = pr.name;
-                sg.msg = null;
-                renderSeg();
-            });
+            x.addEventListener('click', function () { segSelect(pr.name); });
             g.appendChild(x);
         });
         b.appendChild(g);
         b.appendChild(el('div', 'vt-app-hint ' + (p.safety ? 'vt-warn-text' : ''), t(p.safety ? 'camset.seg.nav_warn' : 'camset.seg.wide_hint')));
+        parts.segSite = null;
+        if (!p.safety) {
+            parts.segSite = el('div', 'vt-app-hint');
+            b.appendChild(parts.segSite);
+            parts.segSrc = el('div', 'vt-app-items');
+            [['use_cam_obstacle', 'camset.seg.src.obstacles'], ['use_cam_free', 'camset.seg.src.free']].forEach(function (x) {
+                var it = el('div', 'vt-app-item');
+                it.appendChild(el('span', 'vt-label', t(x[1])));
+                var g2 = el('div', 'btn-group btn-group-sm vt-seg');
+                g2.setAttribute('role', 'group');
+                g2.setAttribute('aria-label', t(x[1]));
+                [[true, 'common.on'], [false, 'common.off']].forEach(function (o) {
+                    var bb = el('button', 'btn btn-primary', t(o[1]));
+                    bb.type = 'button';
+                    bb.setAttribute('data-k', x[0]);
+                    bb.setAttribute('data-v', o[0] ? '1' : '0');
+                    bb.addEventListener('click', function () {
+                        var v = {};
+                        v[x[0]] = o[0];
+                        SL().profileCmd({ cmd: 'set', mapper: v });
+                    });
+                    g2.appendChild(bb);
+                });
+                it.appendChild(g2);
+                parts.segSrc.appendChild(it);
+            });
+            b.appendChild(parts.segSrc);
+        }
+        var onMap = btn('btn-outline-info', 'camset.seg.show', function () {
+            if (window.VTSensorRanges) { VTSensorRanges.show('camera', p.safety ? 'nav' : 'map'); }
+        });
+        var showRow = el('div', 'vt-row vt-card-actions vt-cam-actions');
+        showRow.appendChild(onMap);
+        b.appendChild(showRow);
         parts.segLive = el('dl', 'vt-kv vt-kv-2');
         b.appendChild(parts.segLive);
         parts.segNote = el('div', 'vt-app-hint');
@@ -1023,7 +1072,9 @@
                 sg.armed = 0;
                 sg.pend = {};
                 sg.touched = {};
-                segSend({ cmd: 'reset' }, {});
+                var sp = siteProfile(segProfile());
+                if (sp) { SL().profileCmd({ cmd: 'reset', camera: Object.keys(sp.overrides.camera) }); }
+                else { segSend({ cmd: 'reset' }, {}); }
             } else {
                 sg.armed = Date.now();
                 setTimeout(function () { sg.armed = 0; renderSeg(); }, 4100);
@@ -1050,14 +1101,17 @@
             return;
         }
         // the values, except where the hand is
-        var now = Date.now(), ch = {};
-        (p.changed || []).forEach(function (k) { ch[k] = 1; });
+        var now = Date.now(), ch = {}, pf = siteProfile(p);
+        /* Mapping: "changed" means against the mapping profile of this place */
+        var refv = pf ? pf.base.camera : p.defaults;
+        (pf ? Object.keys(pf.overrides.camera) : (p.changed || [])).forEach(function (k) { ch[k] = 1; });
         Object.keys(sg.rows).forEach(function (k) {
             var r = sg.rows[k], held = sg.pend[k] !== undefined || (sg.touched[k] && now - sg.touched[k] < SEG_HOLD);
             if (sg.touched[k] && !held) { delete sg.touched[k]; }
             if (!held && !(r.typing && r.typing())) { r.show(p.values[k]); }
             r.enable(!!live);
-            r.state.textContent = t(ch[k] ? 'camset.seg.changed' : 'camset.seg.default', { v: segWith(r.def, p.defaults[k]) });
+            var ref = refv[k] !== undefined ? refv[k] : p.defaults[k];
+            r.state.textContent = t(ch[k] ? (pf ? 'camset.seg.changed_p' : 'camset.seg.changed') : (pf ? 'camset.seg.from_profile' : 'camset.seg.default'), { v: segWith(r.def, ref) });
             r.state.classList.toggle('vt-cam-seg-chg', !!ch[k]);
             r.undo.style.display = ch[k] ? '' : 'none';
             r.undo.disabled = !live;
@@ -1066,6 +1120,16 @@
             var s = sg.secs[g], n = s.keys.filter(function (k) { return ch[k]; }).length;
             s.sum.textContent = s.name + (n ? ' • ' + n : '');
         });
+        if (parts.segSite) {
+            parts.segSite.textContent = !pf ? '' : t(pf.site ? 'camset.seg.site' : 'camset.seg.nosite',
+                { name: window.VTMapProfile ? VTMapProfile.name(pf.active) : pf.active, site: pf.site || '' });
+            Array.prototype.forEach.call(parts.segSrc.querySelectorAll('button'), function (b) {
+                var on = !!pf && (pf.values.mapper[b.getAttribute('data-k')] !== false) === (b.getAttribute('data-v') === '1');
+                b.classList.toggle('vt-sel', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                b.disabled = !pf;
+            });
+        }
         // feedback of the running node
         var st0 = sg.stats, pre = p.name + '.';
         var frames = st0 && parseFloat(st0[pre + 'frames']) > 0;
@@ -1095,7 +1159,8 @@
             box.textContent = t(m.changed.length ? 'camset.seg.applied' : 'camset.seg.nothing', { n: m.changed.length });
         }
         var n = (p.changed || []).length;
-        parts.segReset.textContent = t(sg.armed ? 'calib.confirm' : 'camset.seg.reset_all');
+        if (pf) { n = Object.keys(ch).length; }
+        parts.segReset.textContent = t(sg.armed ? 'calib.confirm' : pf ? 'camset.seg.reset_profile' : 'camset.seg.reset_all');
         parts.segReset.disabled = !n || !live;
         if (over || sg.cfg.store_error) { c.card.setAttribute('data-state', 'warn'); }
         else if (live) { c.card.setAttribute('data-state', 'ok'); }
@@ -1150,7 +1215,8 @@
         if (vis !== shown) {
             shown = vis;
             subscribe(vis);
-            if (vis) { parts.layDrawn = false; update(); if (wiz && wiz.step === 1) { startStep1(); } }
+            if (SL()) { SL().need('camera_tab', vis); }
+            if (vis) { parts.layDrawn = false; segSource(); update(); if (wiz && wiz.step === 1) { startStep1(); } }
             else { stopStep1(); parts.wizStep = null; }
         } else if (vis && (!sub || Date.now() - lastRx > 8000)) {
             // rosbridge reconnected, or nothing for 8 s (the node publishes
@@ -1172,8 +1238,9 @@
         setInterval(poll, 1000);
         document.addEventListener('visibilitychange', poll);
         if (I && I.onChange) { I.onChange(function () { build(); }); }
+        if (SL()) { SL().onChange(function () { if (shown) { renderSeg(); } }); }
     }
-    window.VTCameraSettings = { status: function () { return st; }, send: send, _wiz: function () { return wiz; }, _seg: function () { return sg; } };
+    window.VTCameraSettings = { status: function () { return st; }, send: send, profile: segSelect, _wiz: function () { return wiz; }, _seg: function () { return sg; } };
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 0); }); }
     else { setTimeout(init, 0); }
 })();

@@ -193,7 +193,13 @@ change applies from the next camera frame, without a restart and without a gap, 
 remembers it (on the robot in `~/.vitulus/depth_obstacles/settings.json`, it survives a restart).
 
 - **Navigation / Mapping** — two independent sets. **Navigation** is what the robot sees while
-  it drives. **Mapping** is used only while a map is recorded.
+  it drives. **Mapping** is used only while a map is recorded and belongs to the
+  [mapping profile](mapping.md#mapping-profile) of this place: a change stays with this place, the
+  lines compare with the profile and the arrow and **Back to the mapping profile** return to it.
+  With it go **Obstacles into the map** and **Free ground into the map**.
+- **Show the range on the map** turns the layer on, in the view of the selected set.
+- Height, range and blobs of the map are decided here alone: the mapper takes what this card lets
+  through and filters nothing again.
 - Slider or number, the unit next to it. Each line says *default* or *changed · default …*; the
   arrow puts that one value back, **Defaults for this profile** (two clicks) all of them.
 - **Free / Obstacle / Rest points** and **Time per frame** are live, averaged over the last two
@@ -264,4 +270,5 @@ ground**.
 
 The overlays drawn over the camera image in the right panel — Lidar, Obstacles, Free, Depth — and
 their opacity; the same choice as the layer menu on the image ([The screen](frame.md#camera)).
+Obstacles, Free and Rest come from the set selected in Obstacle detection: Navigation or Mapping.
 Recording the camera is in **Settings › Rosbag** ([Settings](settings.md#rosbag)).

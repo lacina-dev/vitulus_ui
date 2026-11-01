@@ -76,11 +76,36 @@ Během nahrávání:
 - **Smazat a nahrávat dál** — smaže, co se zatím nahrálo, a nahrává dál (klikni dvakrát).
 - **Zahodit (neukládat)** — ukončí nahrávání a zahodí ho, nic z něj se neuloží; robot se vrátí na
   uloženou mapu (klikni dvakrát).
-- **Předvolba prostředí** a *Pokročilé ladění snímání* — nastavení detekce překážek, platí hned;
-  jen během nahrávání.
-  Vlastní nastavení lidaru už tady není: ladění ho jen ukazuje, nastavuje se v
-  [Nastavení › Lidar](lidar.md).
+- **Profil mapování** — s čím se tohle místo mapuje, viz níže.
 - *Lokalizace při nahrávání* — jak se robot během tohoto nahrávání lokalizuje.
+
+## Profil mapování
+
+Jedna pojmenovaná sada pro mapování, vybíraná v sekci **Nahrávání** v záložce Mapa: co kamera bere
+jako překážku, lidar pro mapování a jak se v mapě sčítají důkazy. Vestavěné jsou **Tráva krátká**,
+**Tráva vysoká**, **Dlážděný dvůr**, **Keře / okraj** a **Výchozí**, vlastní přibudou vedle nich.
+
+**Každé místo má svůj.** Název vpravo říká, pro které místo se profil ukazuje. Když zapneš jinou
+mapu, přijde její profil, i s kamerou (do vteřiny dvou), s nahráváním i bez něj; nová mapa začne
+jako kopie toho, co se právě používalo. Bez zapnuté mapy se hodnoty nechají pro další nahrávání.
+Navigace na ničem z toho nezávisí.
+
+- Panel jen vybírá a ukazuje: **Kamera**, **Lidar** a **Důkazy** říkají, co profil obsahuje,
+  **Nastavit** tě vezme do [Nastavení › Kamera](camera.md#detekce-překážek) a
+  [Nastavení › Lidar](lidar.md#lidar-v-mapování). Model důkazů je přímo níž v panelu.
+- **Změna se uloží hned** pro tohle místo, s nahráváním i bez něj, a při nahrávání hned platí. Panel
+  pak ukáže *upraveno* s počtem a tečku u části, která se liší.
+- **Uložit do profilu** zapíše změny do profilu, pro všechna místa, která ho používají. **Uložit
+  jako…** udělá nový. **Zpět na profil** zahodí změny tohoto místa.
+- Uložení do vestavěného profilu nechá tvou verzi vedle něj (tečka v seznamu); **Vrátit výchozí**
+  vrátí jeho hodnoty. **Smazat profil** odstraní vlastní; místa, která ho používala, si hodnoty nechají.
+- Přepnutí profilu s rozdělanými změnami se nejdřív zeptá: zahodily by se.
+- Když detekce z kamery neběží, panel to řekne a hodnoty dostane, až naběhne. Když je odmítne, panel
+  řekne proč a běží dál na předchozích.
+
+Co je v kartě kamery, to platí pro mapu: mapování body z kamery podruhé nefiltruje. Mapy z doby před
+touhle změnou si nechaly, co měly: jejich nastavení se převedlo na profil a to, co se od něj liší,
+se ukazuje jako *upraveno*.
 
 ## Rozšířit mapu
 
@@ -113,16 +138,15 @@ zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kd
 
 - **Fialová = lidar.** Živý sken: sytější výplň až k překážce, kterou paprsek zasáhne (podél ní
   fialový obrys), slabá výplň tam, kde nic nezasáhl — to je volné místo až po dosah lidaru
-  v mapovači (výchozí 8 m), označený slabým obloukem. Mezery jsou paprsky, které mapa nebere.
+  v profilu mapování, označený slabým obloukem. Mezery jsou paprsky, které mapa nebere.
 - **Žlutá = kamera.** Zorný kužel hloubkové kamery: asi 55° široký, až po dosah kamery
-  v mapovači (výchozí 2,8 m, nikdy víc než 4 m). Když se dosah pro zem a pro překážky liší,
-  kratší je tečkovaný vnitřní oblouk. Ztlumený kužel během nahrávání znamená, že kamera teď do
-  mapy nic nedodává.
+  v profilu mapování. Ztlumený kužel během nahrávání znamená, že kamera teď do mapy nic nedodává.
 - **Slabá výplň = už viděno** v tomto nahrávání (jen když mapovač data přijímá). Kde chybí, tam
   robot ještě nebyl — zajeď tam a mapa se doplní. S každým nahráváním a po **Smazat a nahrávat dál** začíná
   prázdná.
 
-Dosahy jsou ty, které mapovač opravdu používá (jeho nastavení), ne maximum senzorů.
+Dosahy jsou ty, které mapa opravdu bere (profil mapování tohoto místa), ne maximum senzorů, s
+nahráváním i bez něj.
 
 ### Dosah lidaru a Dosah kamery
 
@@ -132,17 +156,22 @@ i bez něj, každá má své zaškrtnutí a prohlížeč si ho pamatuje.
 
 ![Mapa s oběma vrstvami dosahu kolem robota a karta s čísly](../img/shot-ranges.webp "Dosah lidaru (fialově) a Dosah kamery (žlutě)")
 
-- **Čárkovaně** — co vidí senzor (lidar 16 m, kamera surový záběr hloubky po řez ovladače).
-- **Plně** — mapování. **Dvojitě** — navigace. Čísla stojí na kružnicích; popisek, který by
-  zakryl jiný, se schová, všechna čísla jsou v kartě vlevo nahoře.
-- **Krátké čárky v záběru kamery** — odkud začíná vidět zem: přímo před robotem zem nevidí.
-- **Červený sektor** — lidar tam má něco těsně u sebe (blíž než 0,4 m skoro v každém skenu),
-  třeba stěny doku.
+**Navigace / Mapování** nahoře v kartě vybírá, co vrstvy ukazují: co robot používá za jízdy, nebo
+profil mapování tohoto místa. Změna profilu nebo posuvník v Nastavení › Kamera / Lidar se tu ukáže,
+jakmile ji robot má.
 
-Karta ukazuje skutečné hodnoty. Když je hodnota menší, než je nastaveno, řekne, kdo ji uřízl,
-například *5,0 m: ovladač (nastaveno 6,0 m)*. Bez nahrávání jsou hodnoty mapování to, co použije
-**příští** nahrávání na aktivní mapě — každá mapa má svoje, takže můžou být daleko od výchozích.
-Nastavení lidaru je v [Nastavení › Lidar](lidar.md), kamery v [Nastavení › Kamera](camera.md).
+- **Čárkovaně** — co vidí senzor (lidar 16 m, kamera surový záběr hloubky po řez ovladače).
+- **Jasný okraj** — mez vybraného pohledu, odkud kam sahá; kamera má uprostřed svůj zorný úhel.
+  Čísla stojí na okrajích; když mez dává něco jiného než nastavení toho pohledu, popisek to řekne
+  (*navigace 3,0 m · costmapa*). Popisek, který by překryl jiný, se schová, karta má všechny.
+- **Krátké čárky v záběru kamery** — odkud začíná vidět zem: těsně před robotem ji nevidí.
+- **Červená výseč** — lidar tam má něco těsně u sebe (blíž než 0,4 m skoro v každém skenu, trvá to
+  asi 30 s), třeba stěny doku.
+
+Karta ukazuje skutečné hodnoty i výškové okno kamery. Když je hodnota menší, než je nastaveno, řekne,
+kdo ji uřízl, třeba *5,0 m: ovladač (nastaveno 6,0 m)*. Nastavení lidaru je v
+[Nastavení › Lidar](lidar.md), kamery v [Nastavení › Kamera](camera.md); obě mají **Ukázat dosah na
+mapě**.
 
 **Plán agenta** (jantarový ◆) ukazuje, co agent plánuje pro běžící misi — body, trasy a plochy,
 které si nakreslil do mapy; objeví se a zmizí sám, viz
