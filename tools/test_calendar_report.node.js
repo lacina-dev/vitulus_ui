@@ -4,7 +4,8 @@
  *   - every status code / issue code the node can produce has a sentence in en + cs
  *     with the same placeholders;
  *   - a robot that needs a person never reads as green "Active";
- *   - the checkpoint is shown as zone + path (1-based), the date form stays local.
+ *   - the checkpoint is shown as zone + path (1-based), the date form stays local;
+ *   - the allowed mowing time: what is refused, what only warns, the sentences.
  *
  *     node tools/test_calendar_report.node.js [path/to/master_controller]
  */
@@ -82,6 +83,28 @@ const text = proto._sentence.call(proto, {
     run: { program: 'Mow', checkpoint: 'failed: on_path-Zone-a-2-347' },
 });
 check('sentence + resume point', text === 'Waiting for dry weather (5 min), then Mow. Continues at Zone-a, path 3.', text);
+
+// --- the allowed mowing time -------------------------------------------------
+const set = { enabled: true, start: '07:00', end: '21:00', min_left_min: 30 };
+['on', 'on_night', 'off', 'equal', 'invalid', 'short', 'wait'].forEach((c) => {
+    const k = 'calmgr.window.' + c;
+    check(k, !!en[k] && !!cs[k] && holes(en[k]) === holes(cs[k]));
+});
+check('window setting reported by the node', /'window_setting':/.test(py) && /\/scheduler\/set_window/.test(py));
+check('equal refused', proto._windowProblem('08:00', '08:00', set).code === 'equal');
+check('empty refused', proto._windowProblem('', '21:00', set).code === 'invalid');
+check('normal window fine', proto._windowProblem('07:00', '21:00', set) === null);
+check('over midnight fine', proto._windowProblem('22:00', '05:00', set) === null);
+check('too short only warns', proto._windowProblem('23:50', '00:10', set).warn === true);
+check('exactly the minimum is fine', proto._windowProblem('23:45', '00:15', set) === null);
+const pair = (h, m) => [{ value: h }, { value: m }];
+check('read pads', proto._windowRead(pair('7', '5')) === '07:05');
+check('read refuses 24:00', proto._windowRead(pair('24', '00')) === '');
+check('read refuses minute 60', proto._windowRead(pair('7', '60')) === '');
+check('read refuses empty', proto._windowRead(pair('', '00')) === '');
+check('sentence', proto._windowSentence(set).includes('07:00–21:00'));
+check('sentence over midnight', proto._windowSentence({ enabled: true, start: '22:00', end: '05:00' }).includes('midnight'));
+check('sentence off', proto._windowSentence({ enabled: false, start: '07:00', end: '21:00' }) === en['calmgr.window.off']);
 
 console.log(fails ? `${fails} FAILED` : 'OK');
 process.exit(fails ? 1 : 0);

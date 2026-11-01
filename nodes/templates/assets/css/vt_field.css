@@ -860,6 +860,15 @@ a.vt-needs-btn {
 .vt-cal-issue { overflow-wrap: anywhere; }
 .vt-cal-issues button { align-self: flex-start; }
 .vt-cal-line { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--vt-fs-sm); margin: -2px 0 var(--vt-gap-2); min-height: 1.2em; }
+/* Allowed mowing time: From / To / Save in one row, also at 390 px */
+.vt-win-times { display: flex; align-items: flex-end; gap: var(--vt-gap-2); }
+.vt-win-times .vt-form-item { flex: 1 1 0; }
+.vt-win-times .vt-time { flex-wrap: nowrap; gap: 4px; }
+.vt-win-times input { min-height: 38px; flex: 1 1 0; width: 0; min-width: 44px; padding-left: 2px; padding-right: 2px; font-variant-numeric: tabular-nums; appearance: textfield; -moz-appearance: textfield; }
+.vt-win-times input::-webkit-inner-spin-button, .vt-win-times input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.vt-win-times .btn { flex: 0 0 auto; min-height: 38px; }
+.vt-win-msg { margin-top: var(--vt-gap-2); font-size: var(--vt-fs-sm); color: var(--vt-warn); overflow-wrap: anywhere; }
+.vt-win-msg[data-state="err"] { color: var(--vt-err); }
 
 /* ============ P18: the status icon strip reads as part of the C frame
    One box per icon (the Nextion PNGs are 11–29 px wide → uneven rhythm),

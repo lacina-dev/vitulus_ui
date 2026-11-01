@@ -20,7 +20,7 @@ keywords: [čeká, čekání, spánek, déšť, počasí, baterie, teplota, noc,
 Čas události v kalendáři | automatika zapnutá, Pozdržet vypnuté
 V doku? | a software běží 5 min, programy načtené
 Robot volný? | žádný program, dokování, ruční jízda ani agent; nečeká na Reset
-warn: Denní okno? | 07:00–21:00 a zbývá z něj 30 min, jinak spí, dokud nezačne
+warn: Povolený čas? | výchozí 07:00–21:00 a zbývá z něj 30 min, jinak spí, dokud nezačne
 warn: Baterie ≥ 40 %? | a neprší teď, v posledních 60 min ani do 30 min
 ok: Start | robot vyjede z doku a seká; na RTK čeká až venku na undock bodě
 ```
@@ -32,8 +32,9 @@ Plánovač nic nespustí, dokud:
 - od startu softwaru robota uběhlo méně než 5 minut, nebo ještě nejsou načtené programy;
 - mise není připravená (po zastavení nebo chybě čeká na **Reset**: říká to karta kalendáře), nebo
   robota používá program, dokování, ruční jízda či agent;
-- je mimo **denní okno 07:00–21:00**, nebo z něj zbývá méně než 30 minut — robot spí, dokud se okno
-  neotevře;
+- je mimo **povolený čas sekání** (výchozí 07:00–21:00, změníš ho v
+  [Programy › Kalendář](programs.md#povolený-čas-sekání)), nebo z něj zbývá méně než 30 minut — robot
+  spí, dokud se okno neotevře. Omezuje to jen kalendář, ne ruční spuštění ani agenta;
 - naplánovaný program není na aktivní mapě (zkouší se každých 5 minut, pak se nahlásí).
 
 Nic z toho nečeká na GPS: robot startuje v doku, kde je RTK slabé nebo žádné, vyjede a na RTK čeká
@@ -76,7 +77,7 @@ soubor.
 | Baterie ≤ 25 % | vrátí se do doku, nabije se na 80 % a **naváže**, kde skončil |
 | Prší, nebo 2 ze 3 kroků předpovědi hlásí RAIN | vrátí se, každé 2 h to zkouší a **naváže**, kde skončil |
 | Přehřátá sekačka (TEMP) | vrátí se, počká 1 h a **naváže** |
-| Zavře se okno (21:00) | dokončí rozjetou dráhu, vrátí se a po otevření okna **naváže** další dráhou |
+| Skončí povolený čas (výchozí 21:00) | dokončí rozjetou dráhu, vrátí se a po otevření okna **naváže** další dráhou |
 | Kritická chyba | vrátí se, počká 30 min a **naváže**; po 3 chybách jednoho běhu to vzdá a nahlásí |
 | RTK není připravené | vrátí se, zůstane vzhůru a za 5 min to zkusí znovu; počítá se jako chyba výše |
 | Fatální chyba v doku (nevyjel) | čeká 20 min, provede reset a zkusí znovu; počítá se jako chyba výše |

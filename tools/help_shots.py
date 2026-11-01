@@ -68,6 +68,12 @@ RUNNING = ("const L = (programs.program_list_msg && programs.program_list_msg.pr
            " programs.mission_status = '%s'.replace('NAME', programs.mission_program);"
            " programs._paintRunning(); programs._paintRunning = () => {}; return '';")
 
+# The picture of the allowed mowing time shows the defaults whatever the robot
+# has set (in the page only, nothing is sent).
+WINDOW_DEFAULT = ("calendarManager._report = Object.assign({}, calendarManager._report, {window_setting:"
+                  " {enabled: true, start: '07:00', end: '21:00', stored: false, min_left_min: 30, error: null}});"
+                  " calendarManager._paintWindow(); calendarManager._paintWindow = () => {}; return '';")
+
 # Every shot: name, viewport, steps before the picture, what to crop, markers.
 #   steps: ('click', sel) | ('js', code) | ('wait', ms) | ('wheel', x, y, dy)
 #   clip:  None = the whole viewport, a selector (its box), or [x, y, w, h]
@@ -190,7 +196,11 @@ SHOTS = [
          steps=panel('#btn_programs', 'tab_programs', [('js', RUNNING % 'NAME: exe path 3/12')]), marks=[]),
     dict(name='shot-program-stopped', vp=TALL, scale=2, width=640, clip='#div_program_running', pad=4,
          steps=panel('#btn_programs', 'tab_programs', [('js', RUNNING % 'Stopped')]), marks=[]),
-    dict(name='shot-calendar', vp=DESK, clip='#ui_drawer_head|#ui_drawer_body', steps=panel('#btn_programs', 'tab_calendar', [('wait', 3000)]),
+    dict(name='shot-calendar-window', vp=TALL, scale=2, width=640, clip='#card_mow_window', pad=6,
+         steps=panel('#btn_programs', 'tab_calendar', [('wait', 1000), ('js', WINDOW_DEFAULT)]),
+         marks=[('#chk_window_enabled', '1', 'l'), ('#input_window_start_h', '2', 't'), ('#input_window_end_h', '3', 't'),
+                ('#btn_window_save', '4', 't')]),
+    dict(name='shot-calendar', vp=DESK, clip='#ui_drawer_head|#ui_drawer_body', steps=panel('#btn_programs', 'tab_calendar', [('wait', 3000), ('js', WINDOW_DEFAULT)]),
          marks=[('#span_scheduler_state', '1', 'b'), ('#chk_scheduler_inhibit', '2', 'b'), ('#span_scheduler_status, #span_scheduler_next', '3', 'r'),
                 ('#div_calendar_events, #div_calendar_events *', '4', 'ri'), ('#btn_calendar_add', '5', 'ri')]),
     dict(name='shot-calendar-form', vp=TALL, clip='#div_calendar_form', pad=6,

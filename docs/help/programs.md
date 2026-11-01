@@ -171,8 +171,8 @@ An event can use a program of any map: the form lists them all with the map name
 the map loads in the dock before the robot leaves ([Programs of other maps](#programs-of-other-maps)).
 An event whose program is on no map (deleted, renamed) shows **missing**; the scheduler retries it
 for a while and then reports it. **Edit** it and pick a
-program. An event outside the allowed window (07:00–21:00) shows **outside window**: it can start
-only when the window opens, within the catch-up time below.
+program. An event outside the [allowed mowing time](#allowed-mowing-time) (by default 07:00–21:00)
+shows **outside window**: it can start only when the window opens, within the catch-up time below.
 
 ### When an event cannot start on time
 
@@ -182,6 +182,32 @@ of the window left. After that it is reported as missed. An event never runs twi
 it counts as run only when the robot really got past the start checks, so one refused for rain is
 not lost. When several are due they run one after another. An unfinished program goes first: a new
 event waits for it, it is not dropped for the new one.
+
+### Allowed mowing time
+
+![The Allowed mowing time card with numbered markers](img/shot-calendar-window.webp "1 Limit on / off · 2 from · 3 to · 4 Save")
+
+The card **Allowed mowing time** under the calendar is the "no mowing at night" rule: calendar
+programs start and continue only in this time of day. The default is **07:00–21:00**, Limit on.
+
+- **Limit** switches the rule on and off; off means the calendar times alone decide, also at night.
+- **From** and **To** are set with **Save**. The time may run over midnight (22:00–05:00 mows at
+  night); From and To cannot be the same, and a time shorter than 30 minutes would never start
+  anything, the card warns about that.
+- The setting is stored on the robot, survives a restart and works at once, nothing needs
+  restarting. **Automatic mowing** stays as it is.
+
+It limits only what the calendar does. **Run** by hand and a task for the agent are not limited.
+
+The change itself starts nothing. A closed window works like its usual end: the robot finishes the
+path, returns and continues when the window opens. If you move the time back before the robot left,
+it mows on. A time made wider lets a due event or an unfinished program go by the usual rules (with
+Automatic mowing on, within the catch-up time). A sleep being prepared is called off and planned
+again; a robot that is already asleep is not reachable and decides when it wakes up.
+
+Scripts: `/scheduler/set_window` (`std_msgs/String`, JSON `{"enabled": true, "start": "07:00",
+"end": "21:00"}`, a missing key stays as it is); the setting is in `/scheduler/report`
+(`window_setting`).
 
 ### Hold
 
@@ -197,7 +223,7 @@ starts, sleeping, resuming. It is stored on the robot and survives a restart; a 
 **off**.
 
 - **on**: the calendar starts programs by itself and the robot sleeps / resumes on its own
-  (battery, rain, temperature, the night window — see [Why the robot waits](waiting.md)).
+  (battery, rain, temperature, the [allowed time](#allowed-mowing-time) — see [Why the robot waits](waiting.md)).
   Switching it on also releases **Hold**, and it counts events from now: nothing from the time it
   was off is caught up;
 - **off**: the scheduler is passive — no automatic start and no automatic sleep; programs run only

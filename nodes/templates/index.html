@@ -1357,6 +1357,37 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                     <div id="div_calendar_events" class="vt-list"></div>
                                     <div class="vt-row vt-card-actions"><button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button" data-i18n="prog.add_event">+ Add event</button></div>
                                 </div>
+                                <!-- The allowed mowing time: the switch and the times show what the robot reports (calendar_manager.js) -->
+                                <div class="vt-card" id="card_mow_window">
+                                    <div class="vt-card-head">
+                                        <span class="vt-card-title" data-i18n="prog.window">Allowed mowing time</span>
+                                        <div class="form-check form-switch vt-switch-inline" title="Calendar programs start and continue only in this time of day" data-i18n-title="prog.window_tip">
+                                            <input class="form-check-input" type="checkbox" id="chk_window_enabled" disabled>
+                                            <label class="form-check-label" for="chk_window_enabled" data-i18n="prog.window_limit">Limit</label>
+                                        </div>
+                                    </div>
+                                    <div class="vt-cal-line"><span id="span_window_state" class="vt-muted"></span></div>
+                                    <div class="vt-win-times">
+                                        <div class="vt-form-item">
+                                            <label class="vt-label" for="input_window_start_h" data-i18n="prog.window_from">From</label>
+                                            <div class="vt-row vt-time">
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_start_h" min="0" max="23" step="1" disabled>
+                                                <span>:</span>
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_start_m" min="0" max="59" step="1" disabled>
+                                            </div>
+                                        </div>
+                                        <div class="vt-form-item">
+                                            <label class="vt-label" for="input_window_end_h" data-i18n="prog.window_to">To</label>
+                                            <div class="vt-row vt-time">
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_end_h" min="0" max="23" step="1" disabled>
+                                                <span>:</span>
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_end_m" min="0" max="59" step="1" disabled>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-info" id="btn_window_save" type="button" disabled data-i18n="common.save">Save</button>
+                                    </div>
+                                    <div id="div_window_msg" class="vt-win-msg" style="display:none;"></div>
+                                </div>
                                 <!-- Calendar event edit form (hidden by default; display toggled by calendar_manager.js) -->
                                 <div id="div_calendar_form" class="vt-card" data-state="info" style="display: none;">
                                     <div class="vt-card-head"><span class="vt-card-title" data-i18n="prog.event">Event</span></div>

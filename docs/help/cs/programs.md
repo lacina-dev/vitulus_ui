@@ -172,7 +172,8 @@ Událost může použít program libovolné mapy: formulář je ukazuje všechny
 se mapa načte v doku, než robot vyjede ([Programy jiných map](#programy-jiných-map)). Událost,
 jejíž program není na žádné mapě (smazaný, přejmenovaný), má označení **chybí**; plánovač ji chvíli
 zkouší a pak ji nahlásí. Otevři ji přes **Upravit** a
-vyber program. Událost mimo povolené okno (07:00–21:00) má označení **mimo okno**: spustí se až po
+vyber program. Událost mimo [povolený čas sekání](#povolený-čas-sekání) (výchozí 07:00–21:00) má
+označení **mimo okno**: spustí se až po
 otevření okna, pokud je to ještě v čase pro dohnání.
 
 ### Když se událost nestihne spustit
@@ -183,6 +184,31 @@ Potom se nahlásí jako propadlá. Událost nikdy neběží za den dvakrát a za
 ve chvíli, kdy robot opravdu prošel kontrolami před startem, takže odmítnutí kvůli dešti ji neztratí.
 Když je jich na řadě víc, běží jedna po druhé. Nedokončený program má přednost: nová událost na něj
 počká, kvůli ní se nezahodí.
+
+### Povolený čas sekání
+
+![Karta Povolený čas sekání s očíslovanými značkami](../img/shot-calendar-window.webp "1 Omezit zapnuto / vypnuto · 2 od · 3 do · 4 Uložit")
+
+Karta **Povolený čas sekání** pod kalendářem je pravidlo „v noci se neseká": programy z kalendáře
+startují a navazují jen v tuhle denní dobu. Výchozí je **07:00–21:00** se zapnutým Omezit.
+
+- **Omezit** pravidlo zapíná a vypíná; vypnuto znamená, že rozhodují jen časy v kalendáři, i v noci.
+- **Od** a **Do** se nastaví tlačítkem **Uložit**. Čas může jít přes půlnoc (22:00–05:00 seká
+  v noci); Od a Do nemůžou být stejné a čas kratší než 30 minut by nikdy nic nespustil, karta na to
+  upozorní.
+- Nastavení je uložené na robotu, přežije restart a platí hned, nic se nerestartuje. **Automatické
+  sekání** zůstává, jak je.
+
+Omezuje to jen kalendář. Ruční **Run** a úkol pro agenta omezené nejsou.
+
+Sama změna nic nespustí. Zavřené okno funguje jako jeho běžný konec: robot dokončí dráhu, vrátí se
+a naváže, až se okno otevře. Když čas vrátíš dřív, než robot odjel, seká dál. Rozšířený čas pustí
+událost na řadě nebo nedokončený program podle obvyklých pravidel (se zapnutým Automatickým sekáním,
+v čase na dohnání). Připravovaný spánek se zruší a naplánuje znovu; robot, který už spí, není
+dostupný a rozhodne se, až se probudí.
+
+Skripty: `/scheduler/set_window` (`std_msgs/String`, JSON `{"enabled": true, "start": "07:00",
+"end": "21:00"}`, chybějící klíč zůstává); nastavení je v `/scheduler/report` (`window_setting`).
 
 ### Pozdržet
 
@@ -198,7 +224,7 @@ z kalendáře, spánek, navazování. Je uložený na robotu a přežije restart
 **vypnutý**.
 
 - **zapnuto**: kalendář spouští programy sám a robot se sám uspává a navazuje (baterie, déšť,
-  teplota, noční okno — viz [Proč robot čeká](waiting.md)). Zapnutí zároveň ruší **Pozdržet** a
+  teplota, [povolený čas](#povolený-čas-sekání) — viz [Proč robot čeká](waiting.md)). Zapnutí zároveň ruší **Pozdržet** a
   události počítá od teď: nic z doby, kdy byl vypnutý, se nedohání;
 - **vypnuto**: plánovač je pasivní — žádné automatické spuštění ani uspání; programy běží jen, když
   je spustíš ručně. Program, který je zrovna venku, zůstane běžet, ale plánovač ho přestane sledovat;

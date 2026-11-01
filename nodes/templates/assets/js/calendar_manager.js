@@ -8,6 +8,8 @@
  *   - /scheduler/enabled       (subscribe, std_msgs/Bool, latched)
  *   - /scheduler/report        (subscribe, std_msgs/String, JSON: state as codes)
  *   - /scheduler/clear_issues  (publish, std_msgs/Bool)
+ *   - /scheduler/set_window    (publish, std_msgs/String, JSON: the allowed time;
+ *                               the state comes back in report.window_setting)
  */
 
 function calT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
@@ -74,8 +76,15 @@ class CalendarManager {
             messageType: 'std_msgs/Bool'
         });
 
+        this.windowPub = new ROSLIB.Topic({
+            ros: ros,
+            name: '/scheduler/set_window',
+            messageType: 'std_msgs/String'
+        });
+
         this.calendarPub.advertise();
         this.inhibitPub.advertise();
+        this.windowPub.advertise();
         this.enabledPub.advertise();
         this.clearIssuesPub.advertise();
 
@@ -112,6 +121,7 @@ class CalendarManager {
             }
             this._paintState();
             this._paintIssues();
+            this._paintWindow();
             this.render();
         });
 
@@ -128,6 +138,7 @@ class CalendarManager {
                 this._paintState();
                 this._paintIssues();
                 this._paintNext();
+                this._paintWindow();
                 const sel = this.selProgram;
                 if (sel && sel.options.length === 1 && sel.options[0].value === '') {
                     sel.options[0].textContent = calT('calmgr.no_programs');
@@ -166,6 +177,7 @@ class CalendarManager {
         this.inputMonth = document.getElementById('input_cal_month');
 
         this._initUI();
+        this._paintWindow();
     }
 
     _initUI() {
@@ -201,6 +213,8 @@ class CalendarManager {
             });
         }
 
+        this._initWindow();
+
         // Inhibit toggle -> publish to master_controller
         const inhibitEl = document.getElementById('chk_scheduler_inhibit');
         if (inhibitEl) {
@@ -208,6 +222,116 @@ class CalendarManager {
                 if (this._inhibitFromRos) return;  // skip ROS-driven updates
                 this.inhibitPub.publish(new ROSLIB.Message({ data: inhibitEl.checked }));
             });
+        }
+    }
+
+    /* The allowed mowing time. Like the automation switch: the card shows what
+       the robot reports (report.window_setting), a click is not a fact. Times
+       being edited stay until they are saved and come back from the robot. */
+    _initWindow() {
+        const chk = document.getElementById('chk_window_enabled');
+        const inputs = this._windowInputs();
+        const save = document.getElementById('btn_window_save');
+        if (!chk || !inputs || !save) return;
+        chk.addEventListener('change', () => {
+            const set = this._report && this._report.window_setting;
+            const want = chk.checked;
+            chk.checked = !!(set && set.enabled);
+            this.windowPub.publish(new ROSLIB.Message({ data: JSON.stringify({ enabled: want }) }));
+        });
+        inputs.forEach((el) => el.addEventListener('input', () => {
+            this._windowDirty = true;
+            this._paintWindow();
+        }));
+        save.addEventListener('click', () => {
+            const start = this._windowRead(inputs.slice(0, 2));
+            const end = this._windowRead(inputs.slice(2));
+            if (this._windowProblem(start, end, null)) return;
+            this.windowPub.publish(new ROSLIB.Message({ data: JSON.stringify({ start: start, end: end }) }));
+        });
+    }
+
+    /* Hour and minute apart, as in the event form: 24 h on every phone (a
+       native time input shows AM/PM under an English locale). */
+    _windowInputs() {
+        const els = ['start_h', 'start_m', 'end_h', 'end_m']
+            .map((n) => document.getElementById('input_window_' + n));
+        return els.every(Boolean) ? els : null;
+    }
+
+    /* [hour input, minute input] -> "HH:MM", '' when it is not a time */
+    _windowRead(pair) {
+        const [h, m] = pair.map((el) => String(el.value).trim());
+        if (!/^\d{1,2}$/.test(h) || !/^\d{1,2}$/.test(m)) return '';
+        if (Number(h) > 23 || Number(m) > 59) return '';
+        return h.padStart(2, '0') + ':' + m.padStart(2, '0');
+    }
+
+    _windowWrite(pair, hm) {
+        const parts = hm.split(':');
+        pair[0].value = parts[0];
+        pair[1].value = parts[1];
+    }
+
+    /* Why these times cannot be saved (blocking), or a warning about them:
+       {code, min?, warn?}. set gives the shortest window that can start. */
+    _windowProblem(start, end, set) {
+        if (!/^\d\d:\d\d$/.test(start || '') || !/^\d\d:\d\d$/.test(end || '')) return { code: 'invalid' };
+        if (start === end) return { code: 'equal' };
+        const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+        const length = (mins(end) - mins(start) + 1440) % 1440;
+        if (set && length < set.min_left_min) {
+            return { code: 'short', min: Math.round(set.min_left_min), warn: true };
+        }
+        return null;
+    }
+
+    _windowSentence(set) {
+        if (!set.enabled) return calT('calmgr.window.off');
+        const key = set.start < set.end ? 'calmgr.window.on' : 'calmgr.window.on_night';
+        return calT(key, { start: set.start, end: set.end });
+    }
+
+    _paintWindow() {
+        const chk = document.getElementById('chk_window_enabled');
+        const inputs = this._windowInputs();
+        const save = document.getElementById('btn_window_save');
+        const line = document.getElementById('span_window_state');
+        const msg = document.getElementById('div_window_msg');
+        if (!chk || !inputs || !save || !line || !msg) return;
+        const set = this._report && this._report.window_setting;
+        chk.disabled = !set;
+        inputs.forEach((el) => { el.disabled = !set; });
+        if (!set) {
+            // no report yet, or a master_controller without the setting
+            line.textContent = calT('calmgr.window.wait');
+            save.disabled = true;
+            msg.style.display = 'none';
+            return;
+        }
+        chk.checked = !!set.enabled;
+        const startPair = inputs.slice(0, 2);
+        const endPair = inputs.slice(2);
+        if (this._windowDirty && this._windowRead(startPair) === set.start
+            && this._windowRead(endPair) === set.end) {
+            this._windowDirty = false;
+        }
+        if (!this._windowDirty) {
+            this._windowWrite(startPair, set.start);
+            this._windowWrite(endPair, set.end);
+        }
+        line.textContent = this._windowSentence(set);
+        const problem = this._windowProblem(this._windowRead(startPair), this._windowRead(endPair), set)
+            || (set.error ? { code: set.error } : null);
+        save.disabled = !this._windowDirty || !!(problem && !problem.warn);
+        msg.textContent = problem ? calT('calmgr.window.' + problem.code, problem) : '';
+        msg.style.display = problem ? '' : 'none';
+        msg.dataset.state = (problem && !problem.warn) ? 'err' : 'warn';
+        // An open event form judges its time by the window that applies now.
+        const applied = JSON.stringify(this._report.window);
+        if (applied !== this._windowApplied) {
+            this._windowApplied = applied;
+            if (this.formEl && this.formEl.style.display !== 'none') this._checkWindowHint();
         }
     }
 

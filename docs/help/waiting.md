@@ -20,7 +20,7 @@ Often the robot does nothing on purpose. The calendar's status line
 Time of a calendar event | automation on, Hold off
 In the dock? | and the stack runs for 5 min, programs loaded
 Robot free? | no program, docking, person driving or agent; no Reset pending
-warn: Day window? | 07:00–21:00 and 30 min of it left, otherwise it sleeps until then
+warn: Allowed time? | by default 07:00–21:00 and 30 min of it left, otherwise it sleeps until then
 warn: Battery ≥ 40 %? | and no rain now, in the last 60 min or within 30 min
 ok: Start | the robot undocks and mows; RTK is awaited outside, at the undock point
 ```
@@ -32,8 +32,10 @@ The scheduler starts nothing while:
 - the robot stack started less than 5 minutes ago, or the programs are not loaded yet;
 - the mission is not ready (it waits for **Reset** after a stop or an error: the calendar card
   says so), or a program, docking, a person driving or the agent is using the robot;
-- it is outside the **day window 07:00–21:00**, or less than 30 minutes of it are left — the robot
-  sleeps until the window opens;
+- it is outside the **allowed mowing time** (by default 07:00–21:00, change it in
+  [Programs › Calendar](programs.md#allowed-mowing-time)), or less than 30 minutes of it are left
+  — the robot sleeps until the window opens. This limits only the calendar, not a run by hand or
+  the agent;
 - the scheduled program is not on the active map (retried every 5 minutes, then reported).
 
 None of this waits for GPS: the robot starts in the dock, where RTK is poor or missing, drives out
@@ -77,7 +79,7 @@ applies again.
 | Battery ≤ 25 % | returns to the dock, charges to 80 %, then **continues** where it stopped |
 | It rains, or 2 of 3 forecast steps say RAIN | returns, tries again every 2 h, then **continues** where it stopped |
 | Mower too hot (TEMP) | returns, waits 1 h, then **continues** |
-| The window closes (21:00) | finishes the path it is on, returns, **continues** with the next path when the window opens |
+| The allowed time ends (by default 21:00) | finishes the path it is on, returns, **continues** with the next path when the window opens |
 | A critical error | returns, waits 30 min, **continues**; after 3 errors of one run it gives up and reports it |
 | RTK not ready | returns, stays awake, tries again in 5 min; counts as an error above |
 | Terminal error in the dock (undock failed) | waits 20 min, resets, tries again; counts as an error above |
