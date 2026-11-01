@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [agent's plan, plan on the map, around a zone, point by point, outline, measured position, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
+keywords: [hlídej, hlídání, sleduj, watch, watching, otáčky nože, blade speed, proud nože, blade current, odběr z baterie, battery draw, agent's plan, plan on the map, around a zone, point by point, outline, measured position, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
 ---
 # Vitulus agent
 
@@ -148,6 +148,28 @@ waits inside the robot for long (after the undock dock_smach waits for RTK at th
 3 minutes after that. Outside a mission, a message that tells the robot to move (*jeď*, *dojeď*,
 *vrať se*, *otoč se*, *posekej*…) is always a mission — *dojeď do zóny A* drives the route of that
 zone (*ZONA_A_Path*) — never just a reply.
+
+### Watching running work
+
+*watch the mowing for a while*, *hlídej sekání*, *hlídej otáčky a proud* — the agent keeps watching
+work that is running, even a program you started from the UI or the calendar. The mission stays
+open and the robot's core reads the state by itself, so no model runs meanwhile.
+
+- It tells you what it watches and until when. The default is the end of the program; *chvíli*
+  means 30 minutes; a given time is respected.
+- You hear from it only on a problem or a deviation: stopped robot, drive fault, supervisor FAULT,
+  a mower board error, program interrupted, RTK lost, rain, low battery, blade speed off the
+  set-point by 100 rpm, blade current sensor, board temperature, or the battery draw.
+- At the end you get a summary: how it ended, duration, battery, RTK, number of reports and the
+  min–max of blade speed, blade current sensor, board temperature and battery draw. **Battery draw is
+  the whole robot, not the blade.** The blade current sensor is a voltage reading (the board cuts
+  out above 1.54), not amps.
+- Watching never starts or stops anything. Write *zastav sekání* or *jeď domů* and it does what
+  you say; *přestaň hlídat* or *zruš to* ends only the watching and the robot carries on; *stop* is
+  the full STOP and also stops a program started from the UI.
+- Any message wakes the agent at once and the watching continues.
+- With nothing running it says so and promises nothing. The agent never writes *hlídám* or *dám
+  vědět* unless something really runs behind it.
 
 ### The operator: a model drives step by step
 

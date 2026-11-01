@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a zámek doku.
 ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-zámek-doku, agent/models#modely, needs#čeká-na-tebe]
 related: [safety, dock, support]
-keywords: [stop odvolávám, zruš stop, zrušit stop, zastav, plán agenta, plan agenta, plán na mapě, objetí zóny, obvod zóny, bod po bodu, změřená poloha, skica, souřadnice, nejvzdálenější bod, kolem zóny, objeď zónu, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
+keywords: [hlídej, hlídání, sleduj, watch, watching, otáčky nože, blade speed, proud nože, blade current, odběr z baterie, battery draw, stop odvolávám, zruš stop, zrušit stop, zastav, plán agenta, plan agenta, plán na mapě, objetí zóny, obvod zóny, bod po bodu, změřená poloha, skica, souřadnice, nejvzdálenější bod, kolem zóny, objeď zónu, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
 ---
 # Agent Vitulus
 
@@ -143,6 +143,26 @@ robota (po vyjetí čeká dock_smach na RTK u bodu *UNDOCK*), mise po zhruba min
 co čeká, a pak nejvýš každé 3 minuty. Mimo misi je zpráva, která robotovi říká, ať se hýbe
 (*jeď*, *dojeď*, *vrať se*, *otoč se*, *posekej*…), vždycky mise — *dojeď do zóny A* projede
 trasu té zóny (*ZONA_A_Path*) — nikdy jen odpověď.
+
+### Hlídání běžící práce
+
+*hlídej mi chvíli sekání*, *sleduj, co dělá sekačka*, *hlídej otáčky a proud* — agent hlídá práci,
+která běží, i program spuštěný z UI nebo kalendářem. Mise zůstane otevřená a jádro robota čte stav
+samo, takže mezitím neběží žádný model.
+
+- Řekne, co hlídá a do kdy. Výchozí je konec programu, *chvíli* je 30 minut, zadaný čas platí.
+- Ozve se jen při problému nebo odchylce: stojící robot, porucha pohonu, FAULT supervisoru, chyba
+  desky sekačky, přerušený program, ztráta RTK, déšť, nízká baterie, otáčky nože mimo setpoint
+  o 100 ot/min, snímač proudu nože, teplota desky nebo odběr z baterie.
+- Na konci pošle souhrn: jak to dopadlo, doba, baterie, RTK, počet hlášení a rozsah min–max otáček
+  nože, snímače proudu nože, teploty desky a odběru z baterie. **Odběr z baterie je celý robot, ne
+  nůž.** Snímač proudu nože je údaj ve voltech (deska vypíná nad 1,54), ne ampéry.
+- Hlídání nic nerozjíždí ani nezastavuje. Napiš *zastav sekání* nebo *jeď domů* a stane se to;
+  *přestaň hlídat* nebo *zruš to* ukončí jen hlídání a robot jede dál; *stop* je tvrdý STOP a zastaví
+  i program spuštěný z UI.
+- Každá zpráva agenta vzbudí hned a hlídání běží dál.
+- Když nic neběží, řekne to a nic neslíbí. Agent nikdy nenapíše *hlídám* ani *dám vědět*, když za
+  tím nic neběží.
 
 ### Operátor: model řídí krok po kroku
 
