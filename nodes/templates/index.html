@@ -69,6 +69,9 @@
 <script src="/assets/js/dock.js"></script>
 <script src="/assets/js/gloc.js"></script>
 <script src="/assets/js/mapping.js"></script>
+<script src="/assets/js/vt_notice.js"></script>
+<script src="/assets/js/vt_sleep_plan.js"></script>
+<script src="/assets/js/vt_hw_reset.js"></script>
 <script src="/assets/js/map_view.js"></script>
 <script src="/assets/js/agent_chat.js"></script>
 <script src="/assets/js/agent_blocks.js"></script>
@@ -1315,6 +1318,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <p class="vt-auto-nextline"><span id="span_scheduler_next"></span></p>
     <div class="vt-attn" id="auto_alert" data-state="warn" hidden></div>
     <div class="vt-attn" id="auto_countdown" data-state="warn" hidden></div>
+    <p class="vt-auto-sleepline" id="auto_sleep_plan" hidden></p>
     <label class="vt-auto-master" for="chk_scheduler_enabled">
         <span class="vt-auto-master-t"><b data-i18n="prog.auto">Automatic mowing</b><small data-i18n="auto.master.hint">Calendar starts, sleeping and resuming. Off: nothing starts by itself.</small></span>
         <span class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chk_scheduler_enabled"></span>
@@ -1340,6 +1344,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <div class="vt-auto-nums" id="auto_nums_plan"></div>
 <div id="auto_plan_state" class="vt-auto-sub"></div>
 <div id="auto_timeline" class="vt-auto-tl"></div>
+<div class="vt-auto-used" id="auto_used"></div>
 <div class="vt-auto-actions" id="auto_plan_actions"></div>
 <h6 class="vt-auto-h" data-i18n="prog.calendar">Calendar</h6>
 <div id="div_calendar_events" class="vt-list"></div>
@@ -1456,9 +1461,12 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <summary><i class="la la-moon-o vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.sleep">Sleep</span><span class="vt-auto-toks" id="auto_tok_sleep"></span></summary>
     <div class="drawer-sec-body">
 <div class="vt-auto-nums" id="auto_nums_sleep"></div>
+<p class="vt-auto-sleepline" id="auto_sleep_plan2" hidden></p>
+<div class="vt-attn" id="auto_ignore_warn" data-state="warn" hidden></div>
 <div class="vt-auto-sets" data-auto-group="sleep"></div>
 <div class="vt-auto-block" id="auto_stay"></div>
 <div class="vt-auto-block" id="auto_sleep_now"></div>
+<div class="vt-auto-block" id="auto_hw"></div>
     </div>
 </details>
 <details class="drawer-sec vt-auto-sec" id="auto_sec_recovery" data-sec="recovery" data-state="off">
@@ -1482,6 +1490,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <div class="vt-auto-sets" id="auto_adv_list"></div>
 <h6 class="vt-auto-h" data-i18n="auto.lock.title">Locked limits</h6>
 <div class="vt-auto-locks" id="auto_locks"></div>
+<h6 class="vt-auto-h" data-i18n="auto.limits.title">Sleep timing the robot uses</h6>
+<div class="vt-auto-limits" id="auto_limits"></div>
     </div>
 </details>
 </div>
@@ -1660,10 +1670,12 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.ext_temp">External temp limit</span><span class="text-info input-group-text vt-val" id="span_ext_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_ext_temp" min="20" max="45" step="1" placeholder="20–45"><button class="btn btn-primary" id="btn_ext_temp" type="button" data-i18n="common.save">Save</button></div>
       </div>
     </div>
+    <div class="vt-auto-block" id="auto_hw2"></div>
     <details class="drawer-sec" id="details_power_raw_sleep">
       <summary data-i18n="cfg.power.raw_sleep">Advanced: raw sleep controls</summary>
       <div class="drawer-sec-body">
         <p class="vt-fs-sm vt-tone-warn" data-i18n="cfg.power.raw_sleep_warn">Service use only. These go straight to the power module, past every check of the scheduler. To put the robot to sleep use Autonomy › Sleep.</p>
+        <div class="vt-fs-sm" id="auto_raw_state" role="status"></div>
       <div class="vt-fields">
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_time_min">Sleep time</span><span class="text-info input-group-text vt-val" id="span_sleep_time_min">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_time_min" min="1" max="1440" step="1" placeholder="1–1440"><button class="btn btn-primary" id="btn_sleep_time_save" type="button" data-i18n="common.save">Save</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_now">Sleep now</span><button class="btn btn-warning" id="btn_sleep_timed" type="button" data-i18n="cfg.power.timed">Timed</button><button class="btn btn-warning" id="btn_sleep_until_charged" type="button" data-i18n="cfg.power.until_charged">Until charged</button></div>

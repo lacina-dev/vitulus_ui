@@ -47,7 +47,7 @@ application itself. The **?** in the panel head jumps to the tab you have open.
   standby, board and external temperature limits. Change only if you know why.
 - **Advanced: raw sleep controls** (collapsed, service use: to put the robot to sleep use
   [Autonomy › Sleep](autonomy.md#battery-sleep-faults)) — sleep time, **Sleep now** (Timed / Until charged), standby delay, charged
-  offset, discharge timeout. **Sleep now** cuts the power without shutting the system down; the
+  offset, discharge timeout. **Sleep now** › Timed first says how many minutes it will sleep and asks again: it takes the value you type, otherwise the one the power module keeps (the last anybody wrote, usually the scheduler's). It cuts the power without shutting the system down; the
   scheduler shuts down first and sets the standby delay to 3 minutes
   ([How the robot sleeps](waiting.md#how-the-robot-sleeps)).
 

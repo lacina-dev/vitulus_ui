@@ -1096,6 +1096,11 @@ class ConnectionStatus {
     // the notice band line; the band's own 10 s timer (StatusBar) must not
     // take it away while the link is still down
     showOutage() {
+        if (window.VTNotice) {
+            VTNotice.say({ key: 'conn', text: vtT('mapview.conn.lost'), level: 0, sticky: true, conn: true });
+            this.outage = true;
+            return;
+        }
         var info = document.getElementById('span_status_info');
         if (!info) return;
         var sb = window.status_bar;
@@ -1110,6 +1115,7 @@ class ConnectionStatus {
     clearOutage() {
         if (!this.outage) return;
         this.outage = false;
+        if (window.VTNotice) { VTNotice.clear('conn'); return; }
         var info = document.getElementById('span_status_info');
         if (!info) return;
         info.classList.remove('vt-notice-conn');
@@ -4998,6 +5004,8 @@ class StatusBar {
        je maličkost; výjimka, která z konzole udělá nečitelný sloupec, ne. */
     set_status_info_text(text) {
         if (!this.span_status_info) { return; }
+        // the queue owns the line (vt_notice.js); a panel's own word is a level 1 notice
+        if (window.VTNotice) { VTNotice.say({ text: text, level: 1 }); return; }
         this.span_status_info.classList.remove('vt-notice-conn');   // a new line replaces the outage line
         this.span_status_info.innerText = text;
         this.span_status_info.style.display = "inline";
@@ -5006,6 +5014,7 @@ class StatusBar {
     // a global too). The outage line (ConnectionStatus) stays until the link
     // is back — an older 10 s timer must not take it away.
     hide_status_info() {
+        if (window.VTNotice) { return; }    // the queue times its own lines
         if (!this.span_status_info) { return; }
         if (this.span_status_info.classList.contains('vt-notice-conn')) { return; }
         this.span_status_info.style.display = "none";
@@ -7987,6 +7996,7 @@ window.initMapView = function () {
     status_bar = new StatusBar(ros.ros);
 
     function update_status_bar_info(text) {
+        if (window.VTNotice) { VTNotice.robot(text, window.VTAutonomy && VTAutonomy.robotLine ? VTAutonomy.robotLine(text) : null); return; }
         status_bar.set_status_info_text(text);
         status_bar.info_timeout = setTimeout(status_bar.hide_status_info, status_bar.timeout);
     }
@@ -8641,7 +8651,15 @@ window.initMapView = function () {
         const min = parseInt(power_module.input_sleep_time_min.value, 10);
         if (min > 0) { power_module.pub_set_sleep_time(min); }
     };
-    power_module.btn_sleep_timed.onclick = function() { power_module.pub_start_sleep(); };
+    // Raw Timed: the PM keeps the last time written (by anybody) and cuts hard, past every
+    // check of the scheduler. It says the number first; vt_autonomy.js has the words.
+    power_module.btn_sleep_timed.onclick = function() {
+        if (window.VTAutonomy && VTAutonomy.rawTimed) {
+            VTAutonomy.rawTimed(power_module);
+            return;
+        }
+        power_module.pub_start_sleep();
+    };
     power_module.btn_sleep_until_charged.onclick = function() { power_module.pub_sleep_until_charged(); };
     power_module.btn_standby_delay.onclick = function() {
         const sec = parseInt(power_module.input_standby_delay.value, 10);
