@@ -13,7 +13,8 @@
  *   - the "Edit map" toggle does the same when the editor is active and opens
  *     the editor when it is not,
  *   - without show_map_panel the drawer is closed (old fallback), and without
- *     map_menu at all the editor is still left cleanly.
+ *     map_menu at all the editor is still left cleanly,
+ *   - an unsaved shape holds the close (MapEdits.holdClose).
  */
 'use strict';
 const fs = require('fs');
@@ -34,9 +35,12 @@ function slice(name) {
     throw new Error(name + ' braces never closed');
 }
 
-function build(mapMenu, active) {
+function build(mapMenu, active, held) {
     const calls = [];
     const window = {};
+    if (held !== undefined) {
+        window.MapEdits = {holdClose: function () { calls.push('held'); return held; }};
+    }
     if (mapMenu) {
         window.map_menu = {};
         mapMenu.forEach(function (fn) {
@@ -84,6 +88,18 @@ check('no show_map_panel -> drawer closed', t.calls, ['hideDetail', 'close_drawe
 t = build(null, true);
 t.api.closeFromEditor();
 check('no map_menu -> editor still left', t.calls, ['hideDetail']);
+
+t = build(FULL, true, true);
+t.api.closeFromEditor();
+check('unsaved change holds the close', t.calls, ['held']);
+
+t = build(FULL, true, true);
+t.api.toggleDetail();
+check('...also from the Edit map toggle', t.calls, ['held']);
+
+t = build(FULL, true, false);
+t.api.closeFromEditor();
+check('nothing to hold -> closes', t.calls, ['held', 'hideDetail', 'show_map_panel']);
 
 if (failed) { console.log(failed + ' check(s) FAILED'); process.exit(1); }
 console.log('all checks passed');

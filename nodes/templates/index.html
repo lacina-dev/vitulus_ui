@@ -406,6 +406,50 @@ body:not(.rp-joy-side) #joy_view {
 #div_map_detail details.mapedit-sec[open] > summary::before { transform: rotate(90deg); }
 #div_map_detail details.mapedit-sec > .mapedit-sec-body { padding: 4px 10px 10px; }
 /* Touch-friendly controls inside the panel */
+/* selection card + list rows */
+#mapedit_expand { display: none; }
+#mapedit_zone_slot #div_zone_template { border-bottom: 0; margin-bottom: 0; padding: 0; }
+#mapedit_zone_slot details.mapedit-sec { margin-bottom: 0; }
+.mapedit-ctx-box { position: relative; }
+.mapedit-sel-head { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.mapedit-sel-head > .la { font-size: 22px; }
+.mapedit-sel-kind { font-size: 11px; line-height: 1.2; text-transform: uppercase; letter-spacing: .04em; }
+.mapedit-sel-name { font-size: 16px; font-weight: 600; color: #fff; }
+#div_map_detail .mapedit-sel-x, #div_map_detail .mapedit-sel-ren { min-height: 38px; min-width: 40px; padding: 2px 8px; flex: 0 0 auto; }
+.mapedit-sel { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--vt-border); }
+.mapedit-row { display: flex; align-items: center; gap: 6px; min-height: 36px; cursor: pointer; border-radius: 6px; padding: 2px 4px; }
+.mapedit-row:hover { background: rgba(255, 255, 255, 0.05); }
+.mapedit-row.sel { background: rgba(var(--vt-accent-rgb), 0.16); box-shadow: inset 0 0 0 1px rgba(var(--vt-accent-rgb), 0.55); }
+.mapedit-row .btn { min-height: 34px; padding: 2px 8px; }
+/* phones and anything else driven by a finger: 44 px targets */
+@media (pointer: coarse), (max-width: 575.98px) {
+  #div_map_detail .btn, #div_map_detail .btn-sm, #div_map_detail .mapedit-sel-x, #div_map_detail .mapedit-sel-ren,
+  #div_map_detail .mapedit-row .btn { min-height: 44px; min-width: 44px; }
+  .mapedit-row { min-height: 44px; }
+  #div_map_detail .form-control, #div_map_detail .form-select { min-height: 44px; font-size: 16px; }
+  #mapedit_sel_yaw { height: 44px; }
+}
+/* phone: while working on the map the sheet shrinks to the essentials, the
+   ^ button at the top right brings back the tools, lists and details */
+@media (max-width: 575.98px) {
+  #ui_drawer.mapedit-compact #mapedit_tools,
+  #ui_drawer.mapedit-compact #mapedit_context > .text-uppercase,
+  #ui_drawer.mapedit-compact details.mapedit-list,
+  #ui_drawer.mapedit-compact .mapedit-sel-more,
+  #ui_drawer.mapedit-compact #mapedit_zone_slot details,
+  #ui_drawer.mapedit-compact #ui_drawer_foot { display: none !important; }
+  #ui_drawer.mapedit-compact #mapedit_expand {
+    display: block; position: absolute; top: 6px; right: 6px; width: 44px; padding: 0; font-size: 20px; line-height: 1;
+  }
+  #ui_drawer.mapedit-compact .mapedit-sel-head,
+  #ui_drawer.mapedit-compact #mapedit_hint { padding-right: 48px; }
+  #ui_drawer.mapedit-compact #mapedit_context { margin-bottom: 0 !important; }
+  #ui_drawer.mapedit-compact .mapedit-acts { display: flex; gap: 6px; }
+  #ui_drawer.mapedit-compact .mapedit-acts > div { flex: 1 1 0; min-width: 0; }
+  #ui_drawer.mapedit-compact .mapedit-acts .btn { font-size: 13px; line-height: 1.1; padding: 2px 4px; }
+  #ui_drawer.mapedit-compact .mapedit-acts .la { display: none; }
+  #ui_drawer.mapedit-compact { max-height: 62dvh; }
+}
 #div_map_detail .btn { min-height: 40px; }
 #div_map_detail .btn-group-sm > .btn, #div_map_detail .btn-sm { min-height: 34px; }
 #div_map_detail .met-tool.btn { min-height: 52px; }
@@ -1631,45 +1675,48 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <!-- D. Collapsible sections (all collapsed by default) -->
 
 <!-- Map edits -->
-<details class="mapedit-sec" data-editsec="edits">
+<details class="mapedit-sec mapedit-list" data-editsec="edits">
   <summary data-i18n="editor.edits">Map edits</summary>
   <div class="mapedit-sec-body">
-    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.edits_hint">Manual map edits: Obstacle (area) / Free (clear area) / Barrier (line). Click an item to delete it.</div>
+    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.edits_hint">Manual map edits: Obstacle (area) / Free (clear area) / Barrier (line). Tap one to select it.</div>
     <div id="mapedit_edit_list"></div>
     <div id="mapedit_editctl" class="vt-mt2"></div>
   </div>
 </details>
 
 <!-- Waypoints -->
-<details class="mapedit-sec" data-editsec="waypoints">
+<details class="mapedit-sec mapedit-list" data-editsec="waypoints">
   <summary data-i18n="editor.wps">Waypoints</summary>
   <div class="mapedit-sec-body">
-    <div class="vt-fs-sm vt-muted vt-mb2"><span data-i18n="editor.wps_hint_a">Activate the </span><b data-i18n="editor.tool_wp">Waypoint</b><span data-i18n="editor.wps_hint_b"> tool and click the map to add one. Move / delete existing ones here.</span></div>
+    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.wps_hint">Tap a waypoint to select it, drag it on the map to move it. The Waypoint tool adds a new one.</div>
     <div id="mapedit_wp_list"></div>
   </div>
 </details>
 
 <!-- Paths -->
-<details class="mapedit-sec" data-editsec="paths">
+<details class="mapedit-sec mapedit-list" data-editsec="paths">
   <summary data-i18n="editor.paths">Paths</summary>
   <div class="mapedit-sec-body">
-    <div class="vt-fs-sm vt-muted vt-mb2"><span data-i18n="editor.wps_hint_a">Activate the </span><b data-i18n="editor.tool_path">Path</b><span data-i18n="editor.paths_hint_b"> tool and click the map to draw one, or click an existing path to edit / delete it. Toggle per-path visibility with the eye button.</span></div>
+    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.paths_hint">Tap a path to select and reshape it. The Path tool draws a new one. The eye hides one path.</div>
     <div id="mapedit_path_list"></div>
   </div>
 </details>
 
 <!-- Zones -->
-<details class="mapedit-sec" data-editsec="zones">
+<details class="mapedit-sec mapedit-list" data-editsec="zones">
   <summary data-i18n="editor.zones">Zones</summary>
   <div class="mapedit-sec-body" id="tab-edit-zone">
     <div class="d-flex align-items-center vt-mb2">
       <span class="vt-fs-md" data-i18n="editor.zones_head">Mowing zones of the active map</span>
       <button class="btn btn-primary btn-sm ms-auto" id="btn_new_zone" type="button" data-i18n="editor.new_zone">New zone</button>
     </div>
-    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.zones_hint">Zones regenerate automatically after map edits.</div>
-    <div id="div_zone_template" class="vt-box vt-mb2">
+    <div class="vt-fs-sm vt-muted vt-mb2" data-i18n="editor.zones_hint">Tap a zone to select and reshape it. Zones regenerate automatically after map edits.</div>
+    <div id="div_zone_template" class="vt-mt2">
+      <div class="vt-w100 vt-mb2" id="zone_template_name_row"><span class="vt-fs-sm" data-i18n="common.name">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name" data-i18n-placeholder="editor.zone_name_ph"></div>
+      <details class="mapedit-sec" data-editsec="zone_settings">
+      <summary data-i18n="editor.zone_settings">Mowing settings</summary>
+      <div class="mapedit-sec-body">
       <div class="d-flex flex-wrap align-items-end vt-gap6">
-        <div class="vt-w100"><span class="vt-fs-sm" data-i18n="common.name">Name</span><input class="form-control form-control-sm" id="input_zone_template_name" type="text" value="Zone" placeholder="Zone name" data-i18n-placeholder="editor.zone_name_ph"></div>
         <div><span class="vt-fs-sm vt-block" data-i18n="editor.cut_height">Cut height</span>
           <div class="input-group input-group-sm vt-w-sm"><input class="form-control" id="input_zone_template_cut_height" type="number" min="20" max="65" step="1" value="45"><span class="input-group-text">mm</span></div>
         </div>
@@ -1680,10 +1727,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <div><span class="vt-fs-sm vt-block" data-i18n="editor.simplify">Simplify (m)</span><input class="form-control form-control-sm vt-w-sm" id="input_zone_template_simplify" type="number" min="0" max="1" step="0.02" value="0.1"></div>
         <div id="header_zone_template_path_list" style="display: none;"></div>
       </div>
-      <div class="d-flex vt-gap6 vt-mt2">
-        <button class="btn btn-success btn-sm" id="btn_zone_template_save" type="button" data-i18n="common.save">Save</button>
-        <button class="btn btn-warning btn-sm" id="btn_zone_template_cancel" type="button" data-i18n="common.cancel">Cancel</button>
       </div>
+      </details>
       <div id="zone_template_status" class="vt-fs-sm vt-minh-line vt-mt2 vt-wrap-any"></div>
     </div>
     <div id="div_zone_list"></div>
@@ -1715,7 +1760,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 </details>
 
 <!-- Advanced (planner) -->
-<details class="mapedit-sec" data-editsec="advanced">
+<details class="mapedit-sec mapedit-list" data-editsec="advanced">
   <summary data-i18n="editor.adv">Advanced (planner)</summary>
   <div class="mapedit-sec-body">
     <div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb2" data-i18n="editor.active">Active map</div>

@@ -2,12 +2,14 @@
 //
 // Adds, on top of the existing in-view planner editor (mapeditor.js overlay +
 // map_edit.js zone/polygon flows), a toolbar in #div_map_detail that drives:
+//   - Select            -> pick any visible object on the map or in its list;
+//                          the selection card holds its name, shape and delete
 //   - Waypoint tool     -> /navi_manager/save_waypoint_at + /remove_point
 //   - Obstacle / Free   -> /mapping_manager/save_edit  (polygon draw, reused)
 //   - Wall              -> /mapping_manager/save_edit  (polyline draw, width_m)
 //   - Delete edit       -> /mapping_manager/remove_edit (click hit-test)
 //   - Clear all edits   -> /mapping_manager/remove_edit "*"
-//   - Zones / Polygons  -> reveal the existing map_edit.js tabs (unchanged)
+//   - Zone              -> map_edit.js zone flow (form, confirmation)
 //   - Exit editor
 //
 // The mapping_manager EDITS topic layer is deliberately isolated in the
@@ -41,6 +43,46 @@ window.MapEdits = (function () {
     }
     function rosOf() { return (window.ros && window.ros.ros) || null; }
     function sharedPolygon() { return window.Planner3D && window.Planner3D._lastEditor; }
+
+    // Text in the map: constant size on screen (_rescaleLabels). `extent` (m):
+    // the label of an object shows once the object is that big on screen.
+    var LABEL_FONT = 40, LABEL_PX = 13 / LABEL_FONT, LABEL_MIN_PX = 48;
+    function _makeLabel(text, x, y, order, color, extent) {
+        try {
+            var cv = document.createElement('canvas');
+            var ctx = cv.getContext('2d');
+            ctx.font = LABEL_FONT + 'px sans-serif';
+            var w = Math.max(8, ctx.measureText(text).width);
+            cv.width = w + 12; cv.height = LABEL_FONT + 12;
+            ctx = cv.getContext('2d');
+            ctx.font = LABEL_FONT + 'px sans-serif'; ctx.textBaseline = 'top';
+            ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.fillStyle = color; ctx.fillText(text, 6, 6);
+            var tex = new T.CanvasTexture(cv);
+            tex.needsUpdate = true;
+            var mat = new T.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true });
+            var spr = new T.Sprite(mat);
+            spr.userData.label = { w: cv.width, h: cv.height, x: x, y: y, extent: extent || 0 };
+            spr.renderOrder = order;
+            return spr;
+        } catch (e) { return null; }
+    }
+    function _disposeTree(o) {
+        for (var i = o.children.length - 1; i >= 0; i--) _disposeTree(o.children[i]);
+        o.children.length = 0;
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
+    }
+    function _bbox(pts) {
+        var b = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        for (var i = 0; i < pts.length; i++) {
+            b.minX = Math.min(b.minX, pts[i][0]); b.maxX = Math.max(b.maxX, pts[i][0]);
+            b.minY = Math.min(b.minY, pts[i][1]); b.maxY = Math.max(b.maxY, pts[i][1]);
+        }
+        return b;
+    }
+    function _center(pts) { var b = _bbox(pts); return [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2]; }
+    function _extent(pts) { var b = _bbox(pts); return Math.hypot(b.maxX - b.minX, b.maxY - b.minY); }
 
     // =====================================================================
     // EDITS topic layer (isolated) — mapping_manager save_edit / remove_edit /
@@ -117,10 +159,7 @@ window.MapEdits = (function () {
         }
 
         _clearGroup() {
-            while (this.group.children.length) {
-                var c = this.group.children.pop();
-                if (c.geometry) c.geometry.dispose();
-            }
+            _disposeTree(this.group);
         }
         _render() {
             this._clearGroup();
@@ -132,6 +171,11 @@ window.MapEdits = (function () {
                     this._addRibbon(pts, e.width_m || 0.10, col, order);
                 } else {
                     this._addPolygon(pts, col, order);
+                }
+                if (pts.length && e.name) {
+                    var c = _center(pts);
+                    var lb = _makeLabel(e.name, c[0], c[1], order + 3, '#ffffff', _extent(pts));
+                    if (lb) this.group.add(lb);
                 }
             }
             if (this.overlay) this.overlay.markDirty();
@@ -213,10 +257,8 @@ window.MapEdits = (function () {
     var _mapObjLayer = null; // MapObjectsLayer (V3: waypoint/path overlay groups)
     var _tool = 'off';
     var _built = false;
-    var _pendingMoveName = null;
-    var _clickState = null;  // raw click detector
     var _wpNames = [];       // known waypoint names (from map_point_str_list)
-    var _renaming = null;    // {kind, from, to, row, redraw, timer}: the row being renamed
+    var _renaming = null;    // {kind, from, to, row, redraw, timer}: the name being changed
     var _renameTopics = {};  // kind -> rename publisher
     var _renameResult = null;
 
@@ -272,6 +314,7 @@ window.MapEdits = (function () {
     // groups (waypoint dots+labels, path polylines). Also provides waypoint
     // hit-testing so the waypoint tool can select an existing dot for move/delete.
     // =====================================================================
+    var WP_R = 0.22, WP_MIN_PX = 8;   // waypoint dot: metres, least radius on screen
     class MapObjectsLayer {
         constructor(ros, overlay) {
             this.ros = ros;
@@ -335,13 +378,7 @@ window.MapEdits = (function () {
             return best;
         }
 
-        _clearGroup(g) {
-            while (g.children.length) {
-                var c = g.children.pop();
-                if (c.geometry) c.geometry.dispose();
-                if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
-            }
-        }
+        _clearGroup(g) { _disposeTree(g); }
         _render() {
             this._clearGroup(this.wpGroup);
             this._clearGroup(this.pathGroup);
@@ -358,65 +395,47 @@ window.MapEdits = (function () {
                 var line = new T.LineSegments(lg, new T.LineBasicMaterial({ color: this.COL_PATH, depthTest: false }));
                 line.renderOrder = order;
                 this.pathGroup.add(line);
+                var mid = pts[Math.floor(pts.length / 2)];
+                var plb = _makeLabel(this.paths[p].name || '', mid[0], mid[1], order + 3, '#00d0a0', _extent(pts));
+                if (plb) this.pathGroup.add(plb);
             }
-            // waypoints — small dot + heading tick + text label
+            // waypoints — dot + heading arrow + text label, one group each so
+            // the size can follow the zoom (_rescaleLabels)
             for (var i = 0; i < this.waypoints.length; i++) {
                 var w = this.waypoints[i];
-                var r = 0.22;
-                // 2026-08-16 prominence: dark-blue dot + thin white halo ring
-                // so it pops on aerial imagery AND on the dark background
+                var r = WP_R;
+                var g = new T.Group();
+                g.position.set(w.x, w.y, 0);
+                g.userData.wp = true;
+                // dark-blue dot + thin white halo so it pops on aerial imagery
+                // AND on the dark background
                 var dot = new T.Mesh(new T.CircleGeometry(r, 20),
                     new T.MeshBasicMaterial({ color: this.COL_WP, depthTest: false, depthWrite: false }));
-                dot.position.set(w.x, w.y, 0);
                 dot.renderOrder = order + 1;
-                this.wpGroup.add(dot);
+                g.add(dot);
                 var halo = new T.Mesh(new T.RingGeometry(r, r * 1.28, 24),
                     new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthTest: false, depthWrite: false }));
-                halo.position.set(w.x, w.y, 0);
                 halo.renderOrder = order + 1;
-                this.wpGroup.add(halo);
-                // heading tick
+                g.add(halo);
                 if (typeof w.yaw === 'number') {
-                    // 2026-08-16: tick -> ARROW (with a head) so the stored
-                    // heading is actually readable on the map
+                    // an arrow with a head: the stored heading must be readable
                     var hL = r * 2.6, hA = r * 0.9;
-                    var hx = w.x + Math.cos(w.yaw) * hL, hy = w.y + Math.sin(w.yaw) * hL;
+                    var hx = Math.cos(w.yaw) * hL, hy = Math.sin(w.yaw) * hL;
                     var b1 = w.yaw + Math.PI * 0.82, b2 = w.yaw - Math.PI * 0.82;
                     var hg = new T.BufferGeometry();
                     hg.setAttribute('position', new T.Float32BufferAttribute([
-                        w.x, w.y, 0, hx, hy, 0,
+                        0, 0, 0, hx, hy, 0,
                         hx, hy, 0, hx + Math.cos(b1) * hA, hy + Math.sin(b1) * hA, 0,
                         hx, hy, 0, hx + Math.cos(b2) * hA, hy + Math.sin(b2) * hA, 0], 3));
                     var hl = new T.LineSegments(hg, new T.LineBasicMaterial({ color: this.COL_WP, depthTest: false }));
                     hl.renderOrder = order + 1;
-                    this.wpGroup.add(hl);
+                    g.add(hl);
                 }
-                var label = this._makeLabel(w.name || '', w.x + r * 1.6, w.y + r * 1.6, order + 2);
-                if (label) this.wpGroup.add(label);
+                this.wpGroup.add(g);
+                var label = _makeLabel(w.name || '', w.x, w.y, order + 2, '#7f9dff', 0);
+                if (label) { label.userData.label.beside = true; this.wpGroup.add(label); }
             }
             if (this.overlay) this.overlay.markDirty();
-        }
-        _makeLabel(text, x, y, order) {
-            try {
-                var cv = document.createElement('canvas');
-                var ctx = cv.getContext('2d');
-                var fs = 40; ctx.font = fs + 'px sans-serif';
-                var w = Math.max(8, ctx.measureText(text).width);
-                cv.width = w + 12; cv.height = fs + 12;
-                ctx = cv.getContext('2d');
-                ctx.font = fs + 'px sans-serif'; ctx.textBaseline = 'top';
-                ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, cv.width, cv.height);
-                ctx.fillStyle = '#7f9dff'; ctx.fillText(text, 6, 6);   // lighter blue: readable on the dark label bg
-                var tex = new T.CanvasTexture(cv);
-                tex.needsUpdate = true;
-                var mat = new T.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true });
-                var spr = new T.Sprite(mat);
-                var sc = 0.012;   // metres per pixel
-                spr.scale.set(cv.width * sc, cv.height * sc, 1);
-                spr.position.set(x + cv.width * sc / 2, y, 0);
-                spr.renderOrder = order;
-                return spr;
-            } catch (e) { return null; }
         }
         destroy() {
             try { this.sub.unsubscribe(); } catch (e) {}
@@ -425,14 +444,95 @@ window.MapEdits = (function () {
         }
     }
 
+    // =====================================================================
+    // Zones: outlines + names from /web_plan/zone_list (map_edit.js owns the
+    // subscription, window.mapEditZoneApi hands the list over). The "Zones" chip
+    // shows and hides this layer.
+    // =====================================================================
+    class ZoneLayer {
+        constructor(overlay) {
+            this.overlay = overlay;
+            this.zones = [];                 // [{name, points:[[x,y]...], area}]
+            this.group = new T.Group();
+            this.group.position.z = 0.06;    // under the edits: zones are the bigger areas
+            overlay.overlayGroup.add(this.group);
+            this.COL = new T.Color('#0dcaf0');
+        }
+        set(zones) {
+            this.zones = zones;
+            _disposeTree(this.group);
+            var order = EDITS_ORDER() - 1;
+            for (var i = 0; i < zones.length; i++) {
+                var pts = zones[i].points;
+                if (pts.length < 3) continue;
+                var shape = new T.Shape();
+                shape.moveTo(pts[0][0], pts[0][1]);
+                for (var k = 1; k < pts.length; k++) shape.lineTo(pts[k][0], pts[k][1]);
+                shape.closePath();
+                var fill = new T.Mesh(new T.ShapeGeometry(shape),
+                    new T.MeshBasicMaterial({ color: this.COL, transparent: true, opacity: 0.14, side: T.DoubleSide, depthTest: false, depthWrite: false }));
+                fill.renderOrder = order;
+                this.group.add(fill);
+                var seg = [];
+                for (var e = 0; e < pts.length; e++) {
+                    var a = pts[e], b = pts[(e + 1) % pts.length];
+                    seg.push(a[0], a[1], 0, b[0], b[1], 0);
+                }
+                var lg = new T.BufferGeometry();
+                lg.setAttribute('position', new T.Float32BufferAttribute(seg, 3));
+                var line = new T.LineSegments(lg, new T.LineBasicMaterial({ color: this.COL, depthTest: false }));
+                line.renderOrder = order + 0.1;
+                this.group.add(line);
+                var c = _center(pts);
+                var lb = _makeLabel(zones[i].name, c[0], c[1], EDITS_ORDER() + 3, '#6fe3ff', _extent(pts));
+                if (lb) this.group.add(lb);
+            }
+            _rescaleLabels(true);
+        }
+    }
+    var _zoneLayer = null;
+
+    // Constant size on screen for what lives in map metres. Runs each overlay
+    // frame, does its work only when the zoom changed.
+    var _lastPxm = 0;
+    function _rescaleLabels(force) {
+        if (!_ov) return;
+        var pxm = _ov.pxPerM();
+        if (!force && Math.abs(pxm - _lastPxm) < _lastPxm * 0.004) return;
+        _lastPxm = pxm;
+        var groups = [_layer && _layer.group, _zoneLayer && _zoneLayer.group,
+                      _mapObjLayer && _mapObjLayer.wpGroup, _mapObjLayer && _mapObjLayer.pathGroup];
+        var wpScale = Math.max(1, WP_MIN_PX / (WP_R * pxm));
+        groups.forEach(function (g) {
+            if (!g) return;
+            g.children.forEach(function (o) {
+                if (o.userData.wp) { o.scale.set(wpScale, wpScale, 1); return; }
+                var l = o.userData.label;
+                if (!l) return;
+                var sw = l.w * LABEL_PX / pxm, sh = l.h * LABEL_PX / pxm;
+                o.scale.set(sw, sh, 1);
+                if (l.beside) {
+                    var off = WP_R * 1.6 * wpScale;
+                    o.position.set(l.x + off + sw / 2, l.y + off, 0);
+                } else {
+                    o.position.set(l.x, l.y, 0);
+                }
+                o.visible = !l.extent || l.extent * pxm >= LABEL_MIN_PX;
+            });
+        });
+        var P = sharedPolygon();
+        if (P && P.attached) P._updateVertexScale();
+    }
+
     // ---- public lifecycle (called from mapeditor.js Controller) ----
     function onEnter(overlay) {
         _ov = overlay;
+        overlay.onFrame = function () { _rescaleLabels(false); };
         var ros = rosOf();
         if (!ros) { console.warn('[mapedits] no ros connection yet'); }
         if (ros && !_layer) {
             _layer = new EditMaskLayer(ros, overlay);
-            _layer.onListChange = function () { _renderEditList(); };
+            _layer.onListChange = function () { _renderEditList(); _onData(); };
         } else if (_layer) {
             // overlay may have been rebuilt — re-attach the render group
             try { if (_layer.group.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_layer.group); } catch (e) {}
@@ -440,31 +540,41 @@ window.MapEdits = (function () {
         // V3: map-objects overlay (waypoint dots + path polylines).
         if (ros && !_mapObjLayer) {
             _mapObjLayer = new MapObjectsLayer(ros, overlay);
-            _mapObjLayer.onChange = function () { _renderPathList(); };
+            _mapObjLayer.onChange = function () { _renderPathList(); _renderWpList(); _onData(); };
         } else if (_mapObjLayer) {
             try {
                 if (_mapObjLayer.wpGroup.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_mapObjLayer.wpGroup);
                 if (_mapObjLayer.pathGroup.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_mapObjLayer.pathGroup);
             } catch (e) {}
         }
-        if (ros) _ensureWpTopics(ros);
+        if (!_zoneLayer) _zoneLayer = new ZoneLayer(overlay);
+        else if (_zoneLayer.group.parent !== overlay.overlayGroup) overlay.overlayGroup.add(_zoneLayer.group);
+        if (ros) {
+            _ensureWpTopics(ros);
+            // advertised up front: a publish right after advertise can be lost
+            Object.keys(RENAME_TOPIC).forEach(_renameTopic);
+        }
         _loadShow();
         _buildToolbar();
-        _installClickDetector();
+        _zoneData();
         _renderEditList();
         _renderWpList();
         _renderPathList();
         _applyAllShow();
         _setTool('off');
+        _rescaleLabels(true);
     }
     function onExit() {
         _teardownTool();
+        _deselect();
+        _tool = 'off';
         _setToolButtonsActive('off');
         _hideWpInput();
+        _compact(false);
         // V3: the Zones chip toggles LIVE-scene program/zone markers; restore them
         // so closing the editor never leaves the normal map view with zones hidden.
-        // (The waypoint/path overlay groups live under overlayGroup, which the
-        // overlay hides on exitTopDown, so they need no explicit restore.)
+        // (The overlay layers live under overlayGroup, which the overlay hides
+        // on exitTopDown, so they need no explicit restore.)
         _applyZonesVisible(true);
     }
 
@@ -473,7 +583,7 @@ window.MapEdits = (function () {
 
     // TOOLS: 4-per-row icon grid. Each entry: state machine tool id + emoji +
     // label + idle bootstrap variant (swapped to solid btn-primary when
-    // active). 'off' == pan (pan/zoom passes through to the live map).
+    // active). 'off' == select: tap an object, drag and pinch move the map.
     // V4: UI labels clarified. The backend edit "kind" values stay
     // obstacle/free/wall (see _finishEditsDraw) for backend compat — only the
     // visible label/hint text changes here. V2 adds the 'path' tool (manual path
@@ -482,9 +592,10 @@ window.MapEdits = (function () {
     // tile colour lives in CSS (index.html "tool grid") keyed on data-tool, the
     // `idle` class stays for the active/idle swap below.
     var TOOLS = [
-        { tool: 'off',           ico: '<i class="la la-hand-paper-o"></i>', label: 'medits.tool.pan',               idle: 'btn-outline-light' },
+        { tool: 'off',           ico: '<i class="la la-mouse-pointer"></i>', label: 'medits.tool.select',           idle: 'btn-outline-light' },
         { tool: 'waypoint',      ico: '<i class="la la-map-marker"></i>',   label: 'medits.tool.waypoint',          idle: 'btn-outline-info' },
         { tool: 'path',          ico: '<i class="la la-road"></i>',         label: 'medits.tool.path',              idle: 'btn-outline-primary' },
+        { tool: 'zone',          ico: '<i class="la la-object-group"></i>', label: 'medits.tool.zone',              idle: 'btn-outline-info' },
         { tool: 'edit_obstacle', ico: '<i class="la la-square"></i>',       label: 'medits.tool.obstacle',   idle: 'btn-outline-danger' },
         { tool: 'edit_free',     ico: '<i class="la la-square-o"></i>',     label: 'medits.tool.free', idle: 'btn-outline-success' },
         { tool: 'edit_wall',     ico: '<i class="la la-minus"></i>',        label: 'medits.tool.wall',    idle: 'btn-outline-warning' },
@@ -666,7 +777,10 @@ window.MapEdits = (function () {
         // C. ACTIVE TOOL CONTEXT — one box showing only what the tool needs.
         ctx.innerHTML =
             '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1"' + _ti('medits.tool_context') + '</div>' +
-            '<div class="vt-box">' +
+            '<div class="vt-box mapedit-ctx-box">' +
+            '  <button class="btn btn-outline-secondary" id="mapedit_expand" type="button" data-i18n-title="medits.expand" data-i18n-aria-label="medits.expand" title="' + _escapeAttr(t('medits.expand')) + '" aria-label="' + _escapeAttr(t('medits.expand')) + '"><i class="la la-angle-up"></i></button>' +
+            '  <div id="mapedit_sel"></div>' +
+            '  <div id="mapedit_zone_slot"></div>' +
             '  <div id="mapedit_hint" class="vt-fs-sm vt-accent vt-minh-line"></div>' +
             '  <div id="mapedit_edit_name_wrap" class="vt-mt2" style="display: none;">' +
             '    <span class="vt-fs-sm vt-block vt-mb1"' + _ti('common.name') + '</span>' +
@@ -692,17 +806,21 @@ window.MapEdits = (function () {
             '    <div id="mapedit_gf_out" class="vt-mt2"></div>' +
             '  </div>' +
             '  <div id="mapedit_wp_form" class="vt-mt2"></div>' +
-            '  <div id="mapedit_path_sel" class="vt-mt2"></div>' +
+            '  <div class="mapedit-acts"><div id="mapedit_shape_tools" class="d-flex vt-gap6 vt-mt2" style="display: none !important;">' +
+            '    <button class="btn btn-outline-info btn-sm flex-fill" id="mapedit_undo" type="button"><i class="la la-undo"></i> <span' + _ti('medits.undo') + '</span></button>' +
+            '    <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_del_vertex" type="button"' + _ti('medits.delete_point') + '</button>' +
+            '  </div>' +
             '  <div id="mapedit_ctx_actions" class="d-flex vt-gap6 vt-mt2">' +
             '    <button class="btn btn-success btn-sm flex-fill" id="mapedit_finish" type="button" style="display: none;"' + _ti('medits.finish') + '</button>' +
             '    <button class="btn btn-warning btn-sm flex-fill" id="mapedit_cancel" type="button" style="display: none;"' + _ti('common.cancel') + '</button>' +
-            '  </div>' +
+            '  </div></div>' +
             '</div>';
 
         // tool buttons
         tools.querySelectorAll('[data-tool]').forEach(function (b) {
             b.addEventListener('click', function () {
                 var m = b.getAttribute('data-tool');
+                if (_dirty()) { _setHint('medits.sel.save_first'); return; }
                 if (m === 'off') { _setTool('off'); return; }
                 if (_tool === m) _setTool('off'); else _setTool(m);
             });
@@ -711,13 +829,30 @@ window.MapEdits = (function () {
         _wireShowChips(tools);
         // finish / cancel (edits draw)
         ctx.querySelector('#mapedit_finish').addEventListener('click', _finishEditsDraw);
-        ctx.querySelector('#mapedit_cancel').addEventListener('click', function () { _setTool('off'); });
+        ctx.querySelector('#mapedit_cancel').addEventListener('click', function () {
+            if (_draft) _revertShape(); else _setTool('off');
+        });
+        ctx.querySelector('#mapedit_undo').addEventListener('click', function () {
+            var P = sharedPolygon(); if (P) P.undo();
+        });
+        ctx.querySelector('#mapedit_del_vertex').addEventListener('click', _removeSelectedVertex);
+        ctx.querySelector('#mapedit_expand').addEventListener('click', function () { _compact(false); });
+        // The zone form (fields, save status) lives in the context box too.
+        var zoneForm = document.getElementById('div_zone_template');
+        if (zoneForm) {
+            ctx.querySelector('#mapedit_zone_slot').appendChild(zoneForm);
+            zoneForm.addEventListener('input', function () {
+                if (_draft && _draft.kind === 'zone') { _draft.formDirty = true; _refreshActions(); }
+            });
+        }
         // geofence: offline export of the clicked ring
         var gfx = ctx.querySelector('#mapedit_gf_export');
         if (gfx) gfx.addEventListener('click', _gfExport);
 
         // Edity mapy section: Clear-all (double-click confirm) lives here, not in
         // the tool grid.
+        _wireLists();
+        document.addEventListener('keydown', _onKey);
         var editctl = document.getElementById('mapedit_editctl');
         if (editctl) {
             editctl.innerHTML = '<button class="btn btn-outline-danger btn-sm" id="mapedit_clear_all" type="button"' + _ti('medits.clear_all') + '</button>';
@@ -765,7 +900,10 @@ window.MapEdits = (function () {
         if (k === 'waypoints') { if (_mapObjLayer) _mapObjLayer.setWaypointsVisible(_show.waypoints); }
         else if (k === 'paths') { if (_mapObjLayer) _mapObjLayer.setPathsVisible(_show.paths); }
         else if (k === 'edits') { if (_layer) { _layer.group.visible = !!_show.edits; if (_ov) _ov.markDirty(); } }
-        else if (k === 'zones') { _applyZonesVisible(_show.zones); }
+        else if (k === 'zones') {
+            _applyZonesVisible(_show.zones);
+            if (_zoneLayer) { _zoneLayer.group.visible = !!_show.zones; if (_ov) _ov.markDirty(); }
+        }
     }
     // Zones: toggle the EXISTING program/zone MarkerArray geometry in the live
     // 3D scene (exposed by map_view.js as window.__program_markers_client) rather
@@ -779,23 +917,6 @@ window.MapEdits = (function () {
                 if (m) m.visible = !!vis;
             });
         } catch (e) {}
-    }
-
-    function _showEditTab(which) {
-        // Activate the existing bootstrap tab pane authored in index.html.
-        var href = (which === 'poly') ? '#tab-edit-poly' : '#tab-edit-zone';
-        var link = document.querySelector('a[href="' + href + '"]');
-        try {
-            if (link && window.bootstrap && window.bootstrap.Tab) {
-                window.bootstrap.Tab.getOrCreateInstance(link).show();
-            } else if (link) { link.click(); }
-        } catch (e) { if (link) link.click(); }
-        // {btn}: the button's own (translated) text, read again on every draw
-        var btnId = (which === 'poly') ? 'btn_new_poly' : 'btn_new_zone';
-        _setHint(which === 'poly' ? 'medits.hint.new_polygon' : 'medits.hint.new_zone', function () {
-            var b = document.getElementById(btnId);
-            return { btn: ((b && b.textContent) || '').trim() || (which === 'poly' ? 'New polygon' : 'New zone') };
-        });
     }
 
     // Double-click-to-confirm (NEVER window.confirm — it blocks the event loop).
@@ -838,15 +959,6 @@ window.MapEdits = (function () {
                 ? 'btn met-tool btn-primary active'
                 : 'btn met-tool ' + idle;
         });
-        var isDraw = (mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall'
-                      || mode === 'path' || mode === 'geofence');
-        var fin = document.getElementById('mapedit_finish'), can = document.getElementById('mapedit_cancel');
-        if (fin) fin.style.display = isDraw ? '' : 'none';
-        if (can) can.style.display = isDraw ? '' : 'none';
-        // Finish means "save an edit" everywhere except the geofence, where it
-        // means "send this ring to the agent as a PROPOSAL". Say so on the button,
-        // so nobody reads it as "apply the fence".
-        if (fin) _tag(fin, (mode === 'geofence') ? 'medits.gf.send' : 'medits.finish');
         var gw = document.getElementById('mapedit_gf_wrap');
         if (gw) gw.style.display = (mode === 'geofence') ? '' : 'none';
         var ww = document.getElementById('mapedit_wall_wrap');
@@ -855,19 +967,60 @@ window.MapEdits = (function () {
         if (en) en.style.display = EDIT_KIND[mode] ? '' : 'none';
         var pw = document.getElementById('mapedit_path_wrap');
         if (pw) pw.style.display = (mode === 'path') ? '' : 'none';
+        _refreshActions();
+    }
+
+    function _isDraw(mode) {
+        return mode === 'edit_obstacle' || mode === 'edit_free' || mode === 'edit_wall'
+            || mode === 'path' || mode === 'geofence' || mode === 'zone';
+    }
+    // Undo / Delete point / Save or Finish / Cancel: one place for a new shape
+    // and for an existing one. Save and Cancel appear with the first change.
+    function _refreshActions() {
+        var fin = document.getElementById('mapedit_finish'), can = document.getElementById('mapedit_cancel');
+        if (!fin || !can) return;
+        var draw = _isDraw(_tool), dirty = _dirty(), saving = !!(_draft && _draft.saving);
+        fin.style.display = (draw || dirty) ? '' : 'none';
+        can.style.display = (draw || dirty) ? '' : 'none';
+        fin.disabled = saving;
+        can.disabled = saving;
+        // Finish means "save" everywhere except the geofence, where it means
+        // "send this ring to the agent as a PROPOSAL". Say so on the button, so
+        // nobody reads it as "apply the fence".
+        _tag(fin, saving ? 'common.saving' : (dirty ? 'common.save'
+            : (_tool === 'geofence' ? 'medits.gf.send' : 'medits.finish')));
+        var P = sharedPolygon();
+        var hasShape = draw || (!!_draft && _draft.kind !== 'waypoint');
+        var row = document.getElementById('mapedit_shape_tools');
+        if (row) row.style.setProperty('display', hasShape ? 'flex' : 'none', 'important');
+        var un = document.getElementById('mapedit_undo'), dv = document.getElementById('mapedit_del_vertex');
+        if (un) un.disabled = !(P && P.canUndo());
+        if (dv) dv.disabled = !(P && P.selected >= 0 && P.pointContainer.children.length > (P.minPoints || 0));
+    }
+    function _removeSelectedVertex() {
+        var P = sharedPolygon();
+        if (P && P.selected >= 0) P.remPoint(P.selected);
+    }
+    function _onKey(ev) {
+        if (!_ov || !_ov.editing) return;
+        var el = ev.target, tag = el && el.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        var P = sharedPolygon();
+        if (!P || !P.attached) return;
+        if ((ev.key === 'z' || ev.key === 'Z') && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); P.undo(); }
+        else if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); _removeSelectedVertex(); }
     }
 
     function _teardownTool() {
         // detach + clear the shared polygon if we were drawing edits
         var P = sharedPolygon();
-        if (P) { P.openLine = false; }   // zones/polygons draw closed again
+        if (_tool === 'zone' && window.mapEditZoneApi) window.mapEditZoneApi.close();
+        if (P) { P.openLine = false; P.showMids = false; P.minPoints = 0; P.onChange = null; }
         if (P && P.attached && _ov) {
             try { _ov.scene.removeChild(P); } catch (e) {}
             _clearPolygon(P);
         }
-        _pendingMoveName = null;
         _hideWpInput();
-        _hidePathSel();
         _gfStopTicker();
     }
 
@@ -881,20 +1034,30 @@ window.MapEdits = (function () {
     }
 
     function _setTool(mode) {
+        _deselect();
         _teardownTool();
         _tool = mode || 'off';
         if (_ov && _ov.setToolMode) _ov.setToolMode(_tool);
         _setToolButtonsActive(_tool);
+        if (_tool !== 'off') _compact(true);
 
-        if (_tool === 'edit_obstacle' || _tool === 'edit_free' || _tool === 'edit_wall'
-                || _tool === 'path' || _tool === 'geofence') {
+        if (_isDraw(_tool)) {
             var P = sharedPolygon();
             if (!P) { _setHint('medits.hint.not_ready'); _setTool('off'); return; }
             _clearPolygon(P);
             // path + barrier are open polylines - no closing edge, no fill
             P.openLine = (_tool === 'path' || _tool === 'edit_wall');
-            try { _ov.scene.addChild(P); } catch (e) {}   // grabs the mouse via setDrawing(true)
-            if (_tool === 'geofence') {
+            P.showMids = true;
+            P.onChange = _refreshActions;
+            if (_tool === 'zone') {
+                window.mapEditZoneApi.beginNew();
+                _setHint('medits.hint.zone');
+            } else {
+                try { _ov.scene.addChild(P); } catch (e) {}
+            }
+            if (_tool === 'zone') {
+                // the name and fields are in the zone form
+            } else if (_tool === 'geofence') {
                 // The geofence reuses the shared closed polygon for the preview,
                 // so the ring the owner sees is drawn by the same code as every
                 // other polygon in this editor — one drawing surface, no second
@@ -907,7 +1070,7 @@ window.MapEdits = (function () {
                 _setHint('medits.hint.geofence');
             } else if (_tool === 'path') {
                 var pn = document.getElementById('mapedit_path_name');
-                if (pn) { pn.value = nextName('path', _names('path')); pn.readOnly = false; }
+                if (pn) pn.value = nextName('path', _names('path'));
                 _setHint('medits.hint.path');
             } else {
                 var nm = document.getElementById('mapedit_edit_name');
@@ -924,9 +1087,18 @@ window.MapEdits = (function () {
         } else {
             _setHint('medits.hint.pick');
         }
+        _refreshActions();
     }
 
     function _finishEditsDraw() {
+        if (_draft) { _saveShape(); return; }
+        if (_tool === 'zone') {
+            var zp = _curPts();
+            if (zp.length < 3) { _setHint('medits.hint.need_pts.zone', { n: 3 }); return; }
+            if (_crosses(zp)) { _setHint('medits.shape.crosses'); return; }
+            window.mapEditZoneApi.save();
+            return;
+        }
         if (_tool === 'path') { _finishPathDraw(); return; }
         if (_tool === 'geofence') { _finishGeofenceDraw(); return; }
         var P = sharedPolygon();
@@ -937,6 +1109,7 @@ window.MapEdits = (function () {
         var kind = EDIT_KIND[_tool];
         var minPts = (kind === 'wall') ? 2 : 3;
         if (pts.length < minPts) { _setHint('medits.hint.need_pts.' + kind, { n: minPts }); return; }
+        if (kind !== 'wall' && _crosses(pts)) { _setHint('medits.shape.crosses'); return; }
         var ne = document.getElementById('mapedit_edit_name');
         var name = (ne && ne.value ? ne.value : '').trim() || nextName(kind, _names('edit'));
         var bad = nameProblem(name, _names('edit'));
@@ -963,8 +1136,7 @@ window.MapEdits = (function () {
         if (pts.length < 2) { _setHint('medits.hint.path_need2'); return; }
         var pn = document.getElementById('mapedit_path_name');
         var name = (pn && pn.value ? pn.value : '').trim() || nextName('path', _names('path'));
-        // Re-saving an edited path keeps its (read-only) name on purpose.
-        var bad = (pn && pn.readOnly) ? null : nameProblem(name, _names('path'));
+        var bad = nameProblem(name, _names('path'));
         if (bad) { _setHint('medits.name.err.' + bad, { name: name }); return; }
         if (!_pub_path_at) { _setHint('medits.hint.path_pub'); return; }
         _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: name, points: pts }) }));
@@ -972,35 +1144,32 @@ window.MapEdits = (function () {
         _setTool('off');
     }
 
-    // ---- raw click detector (waypoint / edit_delete) ----
-    function _installClickDetector() {
-        if (_clickState || !_ov || !_ov.canvas) return;
-        var cv = _ov.canvas, st = { down: false, x: 0, y: 0, moved: false, mod: false };
-        _clickState = st;
-        cv.addEventListener('mousedown', function (ev) {
-            st.down = true; st.moved = false; st.x = ev.clientX; st.y = ev.clientY;
-            st.mod = ev.ctrlKey || ev.altKey || ev.shiftKey || ev.button !== 0;
-            // PATH MGMT: snapshot the shared-polygon vertex count BEFORE this click
-            // so the path-tool mouseup can tell a fresh first click (0 pts -> select
-            // an existing path) from a mid-draw click (leave the added point).
+    // ---- taps on the map (Planner3D.attachInteraction -> map_edit.js) ----
+    // true = handled here; false = the open shape takes it as a new point.
+    function onMapTap(world, ev) {
+        if (_tool === 'off') { _tapSelect(world, ev); return true; }
+        var px = _tapPx(ev);
+        if (_tool === 'waypoint') {
+            var wp = _mapObjLayer && _mapObjLayer.hitTestWaypoint(world, _ov.worldTol(px));
+            if (wp) { _setTool('off'); _select('waypoint', wp.name); }
+            else _newWaypoint(world);
+            return true;
+        }
+        if (_tool === 'edit_delete') { _onDeleteClick(world); return true; }
+        if (_tool === 'path') {
+            // The first tap on an existing path selects it instead of starting a new one.
             var P = sharedPolygon();
-            st.pathPre = (P && P.pointContainer) ? (P.pointContainer.children || []).length : 0;
-        });
-        window.addEventListener('mousemove', function (ev) {
-            if (!st.down) return;
-            if (Math.hypot(ev.clientX - st.x, ev.clientY - st.y) > 5) st.moved = true;
-        });
-        window.addEventListener('mouseup', function (ev) {
-            if (!st.down) return; st.down = false;
-            if (st.moved || st.mod) return;
-            var m = _ov.getToolMode ? _ov.getToolMode() : 'off';
-            if (m !== 'waypoint' && m !== 'edit_delete' && m !== 'path') return;
-            var w = _ov.screenToWorld(ev.clientX, ev.clientY);
-            if (m === 'waypoint') _onWaypointClick(w, ev.clientX, ev.clientY);
-            else if (m === 'edit_delete') _onDeleteClick(w);
-            else _onPathToolClick(w, st.pathPre);   // path tool select-on-map
-        });
+            var hit = (P && !P.pointContainer.children.length && _mapObjLayer)
+                ? _mapObjLayer.hitTestPath(world, _ov.worldTol(px)) : null;
+            if (hit) { _setTool('off'); _select('path', hit.name); return true; }
+        }
+        return false;
     }
+    function onVertexTap(i) {
+        var P = sharedPolygon();
+        if (P) P.select(P.selected === i ? -1 : i);
+    }
+    function _tapPx(ev) { return (ev && ev.pointerType === 'mouse') ? 12 : 22; }
 
     function _onDeleteClick(world) {
         if (!_layer) return;
@@ -1011,76 +1180,494 @@ window.MapEdits = (function () {
     }
 
     // =====================================================================
-    // PATH MGMT — select-on-map, per-path list, edit (pre-seed), delete.
+    // SELECTION — the one place for an object: tap it on the map or pick it from
+    // its list (both stay in step), the card in the context box gives its name,
+    // shape, settings and Delete. The shape opens right away; nothing is written
+    // to the robot before Save, and Save and Cancel appear with the first change.
+    // kind: 'zone' | 'edit' | 'path' | 'waypoint'.
     // =====================================================================
+    var _sel = null;     // {kind, name}
+    var _draft = null;   // {kind, name, orig:[[x,y]..], width, yaw, widthNow, yawNow, formDirty, saving, timer}
+    var SAVE_TIMEOUT_MS = 15000;   // an edit re-serves the whole raster
+    var SAME_M = 0.005;  // zone points travel as float32
+    // Results and lists are separate topics: the list with the new or renamed
+    // object may come just after the result. It is not "gone" until this passes.
+    var AWAIT_MS = 4000;
 
-    // Path tool click. attachInteraction has (on this same click) already added a
-    // vertex to the shared polygon; we run AFTER it. On the FIRST click of a fresh
-    // draw (preCount === 0) we hit-test existing paths: a hit selects that path
-    // (undoing the stray vertex); empty space starts a normal new draw. Mid-draw
-    // clicks (preCount > 0) are left untouched so drawing works as before.
-    function _onPathToolClick(world, preCount) {
-        if (preCount !== 0) return;             // mid-draw: keep adding points
-        if (!_mapObjLayer) { _hidePathSel(); return; }
-        var hit = _mapObjLayer.hitTestPath(world, 0.3);   // ~0.3 m world threshold
-        if (hit) {
-            var P = sharedPolygon();
-            if (P) _clearPolygon(P);            // remove the vertex we just placed
-            _selectPath(hit);
+    function _objOf(sel) {
+        if (!sel) return null;
+        var list = sel.kind === 'zone' ? (_zoneLayer ? _zoneLayer.zones : [])
+            : sel.kind === 'edit' ? (_layer ? _layer.edits : [])
+            : sel.kind === 'path' ? (_mapObjLayer ? _mapObjLayer.paths : [])
+            : (_mapObjLayer ? _mapObjLayer.waypoints : []);
+        for (var i = 0; i < list.length; i++) if (list[i].name === sel.name) return list[i];
+        return null;
+    }
+    function _ptsOf(kind, o) { return kind === 'waypoint' ? [[o.x, o.y]] : (o.points || []); }
+    function _curPts() {
+        var P = sharedPolygon(), out = [];
+        var ch = (P && P.pointContainer.children) || [];
+        for (var i = 0; i < ch.length; i++) out.push([ch[i].x, -ch[i].y]);
+        return out;
+    }
+    function _samePts(a, b) {
+        if (a.length !== b.length) return false;
+        for (var i = 0; i < a.length; i++) {
+            if (Math.abs(a[i][0] - b[i][0]) > SAME_M || Math.abs(a[i][1] - b[i][1]) > SAME_M) return false;
+        }
+        return true;
+    }
+    function _dirty() {
+        var d = _draft;
+        if (!d) return false;
+        return d.saving || d.formDirty || d.widthNow !== d.width || d.yawNow !== d.yaw
+            || !_samePts(_curPts(), d.orig);
+    }
+    function _isOpen(kind, o) { return kind === 'path' || kind === 'waypoint' || (kind === 'edit' && o.kind === 'wall'); }
+
+    // Two edges of a closed ring cross: the planner and the raster mask read
+    // such a ring differently than it looks.
+    function _crosses(pts) {
+        function side(a, b, c) { return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); }
+        var n = pts.length;
+        for (var i = 0; i < n; i++) {
+            var a = pts[i], b = pts[(i + 1) % n];
+            for (var k = i + 2; k < n; k++) {
+                if ((k + 1) % n === i) continue;     // the neighbour of edge i
+                var c = pts[k], d = pts[(k + 1) % n];
+                if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true;
+            }
+        }
+        return false;
+    }
+    function _area(pts) {
+        var total = 0;
+        for (var i = 0; i < pts.length; i++) {
+            var a = pts[i], b = pts[(i + 1) % pts.length];
+            total += a[0] * b[1] - b[0] * a[1];
+        }
+        return Math.abs(total / 2);
+    }
+    function _length(pts) {
+        var total = 0;
+        for (var i = 0; i + 1 < pts.length; i++) total += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+        return total;
+    }
+
+    // Objects under a tap: the most specific first. Hidden layers are not hit.
+    function _hits(world, px) {
+        var tol = _ov.worldTol(px), out = [], i, s;
+        var m = _mapObjLayer;
+        if (m && _show.waypoints) {
+            for (i = 0; i < m.waypoints.length; i++) {
+                var w = m.waypoints[i], d = Math.hypot(world.x - w.x, world.y - w.y);
+                if (d <= tol) out.push({ kind: 'waypoint', name: w.name, rank: 0, size: d });
+            }
+        }
+        function ring(kind, name, pts, baseRank) {
+            var edge = false;
+            for (var k = 0; k < pts.length; k++) {
+                if (_distToSeg(world, pts[k], pts[(k + 1) % pts.length]) <= tol) { edge = true; break; }
+            }
+            if (edge) out.push({ kind: kind, name: name, rank: 1, size: _area(pts) });
+            else if (pts.length >= 3 && _pointInPoly(world, pts)) out.push({ kind: kind, name: name, rank: baseRank, size: _area(pts) });
+        }
+        if (m && _show.paths) {
+            for (i = 0; i < m.paths.length; i++) {
+                var pth = m.paths[i], pp = pth.points || [];
+                if (m.isPathHidden(pth.name)) continue;
+                for (s = 0; s + 1 < pp.length; s++) {
+                    if (_distToSeg(world, pp[s], pp[s + 1]) <= tol) { out.push({ kind: 'path', name: pth.name, rank: 1, size: 0 }); break; }
+                }
+            }
+        }
+        if (_layer && _show.edits) {
+            for (i = 0; i < _layer.edits.length; i++) {
+                var e = _layer.edits[i], ep = e.points || [];
+                if (e.kind === 'wall') {
+                    var hw = (e.width_m || 0.10) / 2 + tol;
+                    for (s = 0; s + 1 < ep.length; s++) {
+                        if (_distToSeg(world, ep[s], ep[s + 1]) <= hw) { out.push({ kind: 'edit', name: e.name, rank: 1, size: 0 }); break; }
+                    }
+                } else ring('edit', e.name, ep, 2);
+            }
+        }
+        if (_zoneLayer && _show.zones) {
+            for (i = 0; i < _zoneLayer.zones.length; i++) {
+                ring('zone', _zoneLayer.zones[i].name, _zoneLayer.zones[i].points, 3);
+            }
+        }
+        out.sort(function (a, b) { return a.rank - b.rank || a.size - b.size; });
+        return out;
+    }
+
+    // A repeated tap on overlapping objects walks through them.
+    function _tapSelect(world, ev) {
+        if (_dirty()) { _setHint('medits.sel.save_first'); return; }
+        var hits = _hits(world, _tapPx(ev));
+        var P = sharedPolygon();
+        if (!hits.length) {
+            if (P && P.selected >= 0) P.select(-1); else _deselect();
+            return;
+        }
+        var at = -1;
+        for (var i = 0; i < hits.length; i++) {
+            if (_sel && hits[i].kind === _sel.kind && hits[i].name === _sel.name) at = i;
+        }
+        var next = hits[(at + 1) % hits.length];
+        _select(next.kind, next.name);
+    }
+
+    // opts.frame: bring the object into view (a pick from a list).
+    function _select(kind, name, opts) {
+        if (_dirty()) { _setHint('medits.sel.save_first'); return false; }
+        if (_tool !== 'off') _setTool('off');
+        if (_sel && _sel.kind === kind && _sel.name === name) { if (opts && opts.frame) _frameSel(); return true; }
+        _closeSel();
+        _sel = { kind: kind, name: name, awaited: !!(opts && opts.awaited) ? Date.now() + AWAIT_MS : 0 };
+        _beginShape();
+        _renderSel();
+        _markRows();
+        _compact(true);
+        if (opts && opts.frame) _frameSel();
+        var body = document.getElementById('ui_drawer_body');
+        if (body) body.scrollTop = 0;
+        return true;
+    }
+    function _closeSel() {
+        _endShape();
+        _sel = null;
+    }
+    function _deselect() {
+        if (!_sel) return;
+        _closeSel();
+        _renderSel();
+        _markRows();
+        _setHint('medits.hint.pick');
+        _refreshActions();
+    }
+    function _frameSel() {
+        var o = _objOf(_sel);
+        if (!o || !_ov || !_ov.frameBox) return;
+        var b = _bbox(_ptsOf(_sel.kind, o));
+        var cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+        var half = Math.max(3, (b.maxX - b.minX) / 2, (b.maxY - b.minY) / 2);
+        requestAnimationFrame(function () { _ov.frameBox(cx - half, cy - half, cx + half, cy + half); });
+    }
+
+    function _beginShape() {
+        var P = sharedPolygon(), o = _objOf(_sel);
+        if (!P || !o) return;
+        var kind = _sel.kind, pts = _ptsOf(kind, o);
+        _clearPolygon(P);
+        P.openLine = _isOpen(kind, o);
+        P.showMids = kind !== 'waypoint';
+        P.minPoints = kind === 'waypoint' ? 1 : (P.openLine ? 2 : 3);
+        if (kind === 'zone') {
+            window.mapEditZoneApi.begin(o.name);    // form + preview of its mowing paths
         } else {
-            _hidePathSel();                     // starting a new path: clear stale box
+            try { _ov.scene.addChild(P); } catch (e) {}
+            P.pointContainer.children = pts.map(function (p) { return { x: p[0], y: -p[1] }; });
+        }
+        P.resetUndo();
+        P.onChange = _onShapeChange;
+        _draft = { kind: kind, name: o.name, orig: pts.map(function (p) { return [p[0], p[1]]; }),
+                   width: o.width_m, widthNow: o.width_m, yaw: o.yaw, yawNow: o.yaw,
+                   editKind: o.kind, formDirty: false, saving: false, timer: null };
+        if (kind === 'waypoint') _showYawPreview(o.x, o.y, o.yaw || 0);
+    }
+    function _endShape() {
+        var P = sharedPolygon(), d = _draft;
+        _draft = null;
+        if (d && d.timer) clearTimeout(d.timer);
+        if (P) { P.onChange = null; P.openLine = false; P.showMids = false; P.minPoints = 0; }
+        if (d && d.kind === 'zone') window.mapEditZoneApi.close();
+        if (P && d) {
+            try { _ov.scene.removeChild(P); } catch (e) {}
+            _clearPolygon(P);
+        }
+        _hideYawPreview();
+    }
+    function _reopenShape() {
+        var s = _sel;
+        _endShape();
+        _sel = s;
+        _beginShape();
+        _renderSel();
+        _refreshActions();
+    }
+    function _revertShape() { _reopenShape(); }
+
+    function _shapeProblem() {
+        var d = _draft, P = sharedPolygon(), pts = _curPts();
+        if (pts.length < ((P && P.minPoints) || 0)) return 'medits.shape.too_few';
+        var closed = d.kind === 'zone' || (d.kind === 'edit' && d.editKind !== 'wall');
+        if (closed && _crosses(pts)) return 'medits.shape.crosses';
+        return null;
+    }
+    function _onShapeChange() {
+        var d = _draft;
+        if (!d) return;
+        _refreshActions();
+        _paintSelStats();
+        if (d.kind === 'waypoint') {
+            var pts = _curPts();
+            if (pts.length) _showYawPreview(pts[0][0], pts[0][1], d.yawNow || 0);
         }
     }
 
-    // A map-selected path — offer Edit (pre-seed the draw) / Delete / Cancel in the
-    // tool context box (same interaction language as waypoint selection).
-    function _selectPath(path) {
-        var host = document.getElementById('mapedit_path_sel');
-        if (!host) return;
-        var np = (path.points || []).length;
-        host.innerHTML =
-            '<div class="vt-sep-dashed">' +
-            '<div class="vt-fs-sm vt-mb2"><span' + _ti('medits.sel_path') + '</span> <b class="text-info">' + _escapeHtml(path.name || '') + '</b> <span class="vt-muted" data-medits-pts="' + np + '">(' + _escapeHtml(tn('medits.pts', np)) + ')</span></div>' +
-            '<div class="d-flex vt-gap6">' +
-            '  <button class="btn btn-outline-info btn-sm flex-fill" id="mapedit_path_sel_edit" type="button"' + _ti('common.edit') + '</button>' +
-            '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_path_sel_del" type="button"' + _ti('common.delete') + '</button>' +
-            '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_path_sel_cancel" type="button"' + _ti('common.cancel') + '</button>' +
-            '</div></div>';
-        host.querySelector('#mapedit_path_sel_edit').addEventListener('click', function () {
-            _hidePathSel();
-            _editPath(path);
-        });
-        _wireRowDelete(host.querySelector('#mapedit_path_sel_del'), path.name, function () {
-            _removePath(path.name);
-            _hidePathSel();
-            _setHint('medits.hint.path_deleted', { name: path.name });
-        });
-        host.querySelector('#mapedit_path_sel_cancel').addEventListener('click', function () {
-            _hidePathSel();
-            _setHint('medits.hint.path_short');
-        });
-        _setHint('medits.hint.path_selected', { name: path.name || '' });
+    function _saveShape() {
+        var d = _draft;
+        if (!d || d.saving) return;
+        var bad = _shapeProblem();
+        if (bad) { _setHint(bad); return; }
+        var pts = _curPts();
+        d.saving = true;
+        if (d.kind === 'zone') {
+            window.mapEditZoneApi.save();   // answers through onZoneResult
+            _refreshActions();
+            return;
+        }
+        d.target = pts;
+        if (d.kind === 'edit') {
+            _layer.saveEdit({ kind: d.editKind, name: d.name, points: pts, width_m: d.widthNow });
+        } else if (d.kind === 'path') {
+            _pub_path_at.publish(new ROSLIB.Message({ data: JSON.stringify({ name: d.name, points: pts }) }));
+        } else {
+            _publishWaypointAt(d.name, pts[0][0], pts[0][1], d.yawNow || 0);
+        }
+        _setHint('medits.sel.saving', { name: d.name });
+        d.timer = setTimeout(function () {
+            if (_draft !== d) return;
+            d.saving = false; d.timer = null;
+            _setHint('medits.sel.no_answer');
+            _refreshActions();
+        }, SAVE_TIMEOUT_MS);
+        _refreshActions();
     }
-    function _hidePathSel() {
-        var host = document.getElementById('mapedit_path_sel');
-        if (host) host.innerHTML = '';
+    function _savedHere() {
+        var name = _draft.name;
+        _reopenShape();
+        _setHint('medits.sel.saved', { name: name });
+    }
+    // navi_man answers in (-pi, pi], the heading field gives 0..360 degrees
+    function _angleOff(a, b) { return Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))); }
+    // The owner node's list is the confirmation: the object in it has the new shape.
+    function _storedAsDraft(d, o) {
+        if (!_samePts(_ptsOf(d.kind, o), d.target)) return false;
+        if (d.kind === 'edit' && d.editKind === 'wall' && o.width_m !== d.widthNow) return false;
+        if (d.kind === 'waypoint' && _angleOff(o.yaw || 0, d.yawNow || 0) > 0.01) return false;
+        return true;
     }
 
-    // Edit a path: enter the 'path' tool pre-seeded with the path's existing
-    // vertices, name input prefilled with the SAME name so Finish -> save_path_at
-    // REPLACES it. PolygonEditor stores vertices as {x: rosX, y: -rosY}; assigning
-    // pointContainer.children triggers its _redraw (draggable verts, click adds).
-    function _editPath(path) {
-        _setTool('path');                       // attaches + clears the shared polygon
-        var P = sharedPolygon();
-        if (!P) { _setHint('medits.hint.not_ready'); return; }
-        var pts = path.points || [];
-        var seed = [];
-        for (var i = 0; i < pts.length; i++) seed.push({ x: pts[i][0], y: -pts[i][1] });
-        P.pointContainer.children = seed;       // setter -> _redraw()
-        var pn = document.getElementById('mapedit_path_name');
-        if (pn) { pn.value = path.name || ''; pn.readOnly = true; }
-        _setHint('medits.hint.path_editing', { name: path.name || '', n: seed.length });
+    // Zone save, from map_edit.js. ok=false keeps the draft and the form says why.
+    function onZoneResult(name, ok, programs) {
+        var inTool = _tool === 'zone';
+        if (ok && inTool) {
+            _setTool('off');
+            _select('zone', name, { awaited: true });
+            _setHint('medit.zone_saved', { name: name });
+            return;
+        }
+        if (!_draft || _draft.kind !== 'zone') return;
+        if (!ok) { _draft.saving = false; _refreshActions(); return; }
+        _reopenShape();
+        if (programs) _setHint('medits.sel.zone_saved_programs', { name: name, n: programs });
+        else _setHint('medits.sel.saved', { name: name });
+    }
+
+    // Something in the owners' lists changed.
+    function _onData() {
+        if (_renaming) return;
+        var d = _draft, o = _objOf(_sel);
+        if (d && d.saving && d.target && o && _storedAsDraft(d, o)) { _savedHere(); return; }
+        if (!_sel) return;
+        if (!o) {       // deleted, here or elsewhere
+            if (Date.now() >= _sel.awaited) _deselect();
+            return;
+        }
+        if (_sel.awaited) {
+            _sel.awaited = 0;
+            if (!_draft) _beginShape();
+            var hint = _hintK, hintV = _hintV;
+            _renderSel();
+            _setHint(hint, hintV);
+            _markRows();
+            _refreshActions();
+        }
+        if (d && !d.saving && !_dirty() && !_samePts(_ptsOf(d.kind, o), d.orig)) _reopenShape();
+        _paintSelStats();
+    }
+    function _zoneData() {
+        var api = window.mapEditZoneApi;
+        if (!_zoneLayer || !api) return;
+        _zoneLayer.set(api.list());
+        _onData();
+        _markRows();
+    }
+
+    // ---- the selection card ----
+    var SEL_ICON = { zone: 'la-object-group', path: 'la-road', waypoint: 'la-map-marker',
+                     obstacle: 'la-square', free: 'la-square-o', wall: 'la-minus' };
+    function _kindKey(sel, o) {
+        if (sel.kind === 'edit') return 'medits.kind.' + (o.kind || 'obstacle');
+        return 'medits.kind.' + sel.kind;
+    }
+    function _zonePrograms(name) {
+        var pg = window.programs, all = (pg && pg.program_list_msg && pg.program_list_msg.program_list) || [];
+        return all.filter(function (p) {
+            return (p.zone_list || []).some(function (z) { return z.name === name; });
+        }).map(function (p) { return p.name; });
+    }
+    function _renderSel() {
+        var host = document.getElementById('mapedit_sel');
+        if (!host) return;
+        if (_renaming && _renaming.kind === (_sel && _sel.kind)) return;
+        var o = _objOf(_sel);
+        if (!o) { host.innerHTML = ''; return; }
+        var s = _sel, ico = SEL_ICON[s.kind === 'edit' ? o.kind : s.kind] || 'la-square';
+        var locked = s.kind === 'waypoint' && isReserved(s.name);
+        var h = '<div class="mapedit-sel-head">' +
+            '<i class="la ' + ico + ' vt-accent"></i>' +
+            '<div class="vt-grow1 vt-min0">' +
+            '<div class="mapedit-sel-kind vt-muted"' + _ti(_kindKey(s, o)) + '</div>' +
+            '<div class="mapedit-sel-name text-truncate" title="' + _escapeAttr(s.name) + '">' + _escapeHtml(s.name) + '</div>' +
+            '</div>' +
+            (locked ? '' : '<button class="btn btn-outline-info mapedit-sel-ren" id="mapedit_sel_rename" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>') +
+            '<button class="btn btn-outline-secondary mapedit-sel-x" id="mapedit_sel_close" type="button" data-i18n-aria-label="common.close" aria-label="' + _escapeAttr(t('common.close')) + '"><i class="la la-times"></i></button>' +
+            '</div>' +
+            (locked ? '<div class="vt-fs-xs vt-muted vt-mb1"' + _ti('medits.sel.reserved') + '</div>' : '') +
+            '<div id="mapedit_sel_stats" class="vt-fs-sm vt-muted vt-minh-line"></div>' +
+            '<div id="mapedit_sel_warn" class="vt-fs-sm text-warning"></div>';
+        var more = '';
+        if (s.kind === 'zone') {
+            var used = _zonePrograms(s.name);
+            more += '<div class="vt-fs-xs vt-muted vt-mt1">' + _escapeHtml(used.length
+                    ? t('medits.sel.zone_used', { list: used.join(', ') })
+                    : t('medits.sel.zone_unused')) + '</div>';
+            more += '<div class="vt-fs-xs vt-muted"' + _ti('medits.sel.zone_start') + '</div>';
+        }
+        if (s.kind === 'edit' && o.kind === 'wall') {
+            h += '<div class="vt-mt2"><span class="vt-fs-sm vt-block vt-mb1"' + _ti('medits.wall_width') + '</span>' +
+                 '<div class="input-group input-group-sm vt-w-md"><input class="form-control" id="mapedit_sel_width" type="number" min="0.02" max="2" step="0.05" value="' + ((_draft && _draft.widthNow) || o.width_m || 0.10) + '"><span class="input-group-text">m</span></div></div>';
+        }
+        if (s.kind === 'waypoint') {
+            var yDeg = (_draft && typeof _draft.yawNow === 'number') ? ((_draft.yawNow * 180 / Math.PI) % 360 + 360) % 360 : _wpYawDeg(s.name);
+            var y0 = Math.round(yDeg * 2) / 2;
+            h += '<div class="vt-fs-sm vt-mt2 vt-mb1 vt-flex vt-aic vt-gap6"><span' + _ti('medits.heading') + '</span>' +
+                 ' <input id="mapedit_sel_yawn" class="form-control form-control-sm vt-w-sm vt-pad-s" type="number" min="0" max="359.5" step="0.5" value="' + y0 + '">°</div>' +
+                 '<input id="mapedit_sel_yaw" type="range" min="0" max="359.5" step="0.5" value="' + y0 + '" class="vt-w100">';
+        }
+        more += '<div class="vt-fs-xs vt-muted vt-mt1"' + _ti(s.kind === 'waypoint' ? 'medits.sel.how_wp' : 'medits.sel.how') + '</div>' +
+             '<button class="btn btn-outline-danger btn-sm vt-w100 vt-mt2" id="mapedit_sel_del" type="button"' + _ti('common.delete') + '</button>';
+        h += '<div class="mapedit-sel-more">' + more + '</div>';
+        host.innerHTML = '<div class="mapedit-sel">' + h + '</div>';
+        host.querySelector('#mapedit_sel_close').addEventListener('click', function () {
+            if (_dirty()) _setHint('medits.sel.save_first'); else _deselect();
+        });
+        var rn = host.querySelector('#mapedit_sel_rename');
+        if (rn) rn.addEventListener('click', function () {
+            if (_dirty()) { _setHint('medits.sel.save_first'); return; }
+            startRename(host.querySelector('.mapedit-sel-head'), s.kind, s.name, _renderSel);
+        });
+        var wi = host.querySelector('#mapedit_sel_width');
+        if (wi) wi.addEventListener('input', function () {
+            var v = parseFloat(wi.value);
+            if (_draft && isFinite(v) && v > 0) { _draft.widthNow = v; _refreshActions(); }
+        });
+        var yr = host.querySelector('#mapedit_sel_yaw'), yn = host.querySelector('#mapedit_sel_yawn');
+        function yawFrom(el, other) {
+            var v = parseFloat(el.value);
+            if (!isFinite(v) || !_draft) return;
+            v = ((v % 360) + 360) % 360;
+            other.value = v;
+            _draft.yawNow = v * Math.PI / 180;
+            _onShapeChange();
+        }
+        if (yr) yr.addEventListener('input', function () { yawFrom(yr, yn); });
+        if (yn) yn.addEventListener('input', function () { yawFrom(yn, yr); });
+        _wireRowDelete(host.querySelector('#mapedit_sel_del'), s.name, function () { _deleteSel(s); });
+        _paintSelStats();
+        _setHint(s.kind === 'waypoint' ? 'medits.sel.how_short_wp' : 'medits.sel.how_short');
+    }
+    function _paintSelStats() {
+        var el = document.getElementById('mapedit_sel_stats');
+        if (!el || !_sel) return;
+        var pts = _draft ? _curPts() : [], k = _sel.kind, txt = '';
+        if (k === 'waypoint') {
+            if (pts.length) txt = 'x ' + pts[0][0].toFixed(2) + ' · y ' + pts[0][1].toFixed(2) + ' m';
+        } else {
+            var open = !!(sharedPolygon() && sharedPolygon().openLine);
+            txt = tn('medits.pts', pts.length) + ' · ' + (open
+                ? _length(pts).toFixed(1) + ' m' : _area(pts).toFixed(1) + ' m²');
+        }
+        el.textContent = txt;
+        var w = document.getElementById('mapedit_sel_warn');
+        if (w) w.textContent = (_draft && _shapeProblem()) ? t(_shapeProblem()) : '';
+        var fin = document.getElementById('mapedit_finish');
+        if (fin && _draft && !_draft.saving && _shapeProblem()) fin.disabled = true;
+    }
+    function _deleteSel(s) {
+        _closeSel();
+        _renderSel();
+        _markRows();
+        _refreshActions();
+        if (s.kind === 'zone') { window.mapEditZoneApi.remove(s.name); _setHint('medits.sel.deleted', { name: s.name }); }
+        else if (s.kind === 'edit') { _layer.removeEdit(s.name); _setHint('medits.hint.edit_deleted', { name: s.name }); }
+        else if (s.kind === 'path') { _removePath(s.name); _setHint('medits.hint.path_deleted', { name: s.name }); }
+        else { if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: s.name })); _setHint('medits.hint.wp_deleted', { name: s.name }); }
+    }
+
+    // ---- lists: one row anatomy, a tap selects ----
+    function rowHtml(kind, name, inner) {
+        return '<div class="mapedit-row vt-sep vt-fs-sm" role="button" tabindex="0" data-kind="' + kind + '" data-n="' + _escapeAttr(name) + '">' + inner + '</div>';
+    }
+    function _wireLists() {
+        var panel = _panel();
+        if (!panel || panel._rowsWired) return;
+        panel._rowsWired = true;
+        function pick(row) { _select(row.getAttribute('data-kind'), row.getAttribute('data-n'), { frame: true }); }
+        panel.addEventListener('click', function (ev) {
+            var row = ev.target.closest('.mapedit-row');
+            if (row && !ev.target.closest('button')) pick(row);
+        });
+        panel.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Enter' && ev.key !== ' ') return;
+            var row = ev.target.closest && ev.target.closest('.mapedit-row');
+            if (row && ev.target === row) { ev.preventDefault(); pick(row); }
+        });
+    }
+    function _markRows() {
+        var panel = _panel();
+        if (!panel) return;
+        var rows = panel.querySelectorAll('.mapedit-row');
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var on = !!_sel && r.getAttribute('data-kind') === _sel.kind && r.getAttribute('data-n') === _sel.name;
+            r.classList.toggle('sel', on);
+            r.setAttribute('aria-selected', on ? 'true' : 'false');
+            if (on) { var sec = r.closest('details'); if (sec) sec.open = true; }
+        }
+    }
+
+    // Phone: while working on the map the bottom sheet shrinks to the context box.
+    function _compact(on) {
+        var d = document.getElementById('ui_drawer');
+        if (!d) return;
+        var yes = !!on && window.innerWidth < 576;
+        d.classList.toggle('mapedit-compact', yes);
+        if (yes) d.classList.add('vt-fit');
+        else if (d.classList.contains('editor')) d.classList.remove('vt-fit');
+    }
+    // Closing the editor with unsaved changes takes a second press.
+    var _closeArmed = 0;
+    function holdClose() {
+        if (!_dirty()) return false;
+        var now = Date.now();
+        if (now - _closeArmed < 4000) return false;
+        _closeArmed = now;
+        _setHint('medits.sel.close_again');
+        return true;
     }
 
     function _removePath(name) {
@@ -1111,11 +1698,10 @@ window.MapEdits = (function () {
     }
 
     // Paths list lives in the collapsible "Paths" section — rendered from the
-    // latest map_objects.paths. Per row: name (ellipsis), point count, eye
-    // visibility toggle (per-path), Edit, Delete (double-click confirm).
+    // latest map_objects.paths. A row selects; its eye hides that one path.
     function _renderPathList() {
         var pl = document.getElementById('mapedit_path_list');
-        if (!pl || (_renaming && _renaming.kind === 'path')) return;
+        if (!pl) return;
         var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
         if (!paths.length) { pl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_paths') + '</div>'; return; }
         var html = '';
@@ -1124,19 +1710,12 @@ window.MapEdits = (function () {
             var name = pth.name || '';
             var np = (pth.points || []).length;
             var hidden = _mapObjLayer.isPathHidden(name);
-            html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
+            html += rowHtml('path', name,
                 '<span class="text-truncate vt-grow1 vt-min0 ' + (hidden ? 'vt-muted' : 'vt-sw-00d0a0') + '" title="' + _escapeAttr(name) + '">' + _escapeHtml(name || t('medits.unnamed')) + '</span>' +
                 '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>' +
-                '<div class="btn-group btn-group-sm vt-ml2">' +
-                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="' + _escapeAttr(t('medits.path_vis')) + '"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '<i class="la la-eye-slash"></i>' : '<i class="la la-eye"></i>') + '</button>' +
-                '<button class="btn btn-outline-info mapedit-ren" data-n="' + _escapeAttr(name) + '" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>' +
-                '<button class="btn btn-outline-info mapedit-path-edit" data-n="' + _escapeAttr(name) + '" type="button"' + _ti('common.edit') + '</button>' +
-                '<button class="btn btn-outline-danger mapedit-path-del" data-n="' + _escapeAttr(name) + '" type="button"' + _ti('common.delete') + '</button>' +
-                '</div></div>';
+                '<button class="btn btn-outline-secondary mapedit-path-vis" data-n="' + _escapeAttr(name) + '" type="button" title="' + _escapeAttr(t('medits.path_vis')) + '" aria-label="' + _escapeAttr(t('medits.path_vis')) + '"' + (hidden ? ' data-off="1"' : '') + '>' + (hidden ? '<i class="la la-eye-slash"></i>' : '<i class="la la-eye"></i>') + '</button>');
         }
         pl.innerHTML = html;
-        _wireRename(pl, 'path', _renderPathList);
-        // visibility toggle
         pl.querySelectorAll('.mapedit-path-vis').forEach(function (b) {
             b.addEventListener('click', function () {
                 var n = b.getAttribute('data-n');
@@ -1145,82 +1724,17 @@ window.MapEdits = (function () {
                 _renderPathList();   // refresh icon/dimmed state
             });
         });
-        // edit -> pre-seed the path tool
-        pl.querySelectorAll('.mapedit-path-edit').forEach(function (b) {
-            b.addEventListener('click', function () {
-                var n = b.getAttribute('data-n');
-                var pth = _findPath(n);
-                if (pth) _editPath(pth);
-            });
-        });
-        // delete -> double-click confirm
-        pl.querySelectorAll('.mapedit-path-del').forEach(function (b) {
-            var n = b.getAttribute('data-n');
-            _wireRowDelete(b, n, function () {
-                _removePath(n);
-                _setHint('medits.hint.path_deleted', { name: n });
-            });
-        });
-    }
-    function _findPath(name) {
-        var paths = (_mapObjLayer && _mapObjLayer.paths) ? _mapObjLayer.paths : [];
-        for (var i = 0; i < paths.length; i++) if ((paths[i].name || '') === name) return paths[i];
-        return null;
+        _markRows();
     }
 
     // ---- waypoint placement: floating name + yaw slider (simpler than a drag
     //      gesture; yaw chosen from a 0..359° slider) ----
-    function _onWaypointClick(world, clientX, clientY) {
-        // A move is already armed (from the list, or a prior dot-select): this
-        // click sets the NEW pose for that waypoint.
-        if (_pendingMoveName) {
-            var mv = _pendingMoveName;
-            _showWpInput(mv, true, function (finalName, yawDeg) {
-                var yaw = (yawDeg || 0) * Math.PI / 180;
-                _publishWaypointAt(finalName, world.x, world.y, yaw);
-                _pendingMoveName = null;
-                _setHint('medits.hint.wp_moved', { name: finalName });
-            }, world, _wpYawDeg(mv));
-            return;
-        }
-        // V3: clicking ON an existing waypoint dot selects it for Move / Delete
-        // (we now have real coordinates from /navi_manager/map_objects).
-        if (_mapObjLayer) {
-            var tol = _ov.worldTol ? _ov.worldTol(16) : 0.4;
-            var hit = _mapObjLayer.hitTestWaypoint(world, tol);
-            if (hit) { _selectWaypoint(hit); return; }
-        }
-        // Otherwise place a NEW waypoint at the clicked spot.
+    function _newWaypoint(world) {
         _showWpInput(nextName('waypoint', _names('waypoint')), false, function (finalName, yawDeg) {
             var yaw = (yawDeg || 0) * Math.PI / 180;
             _publishWaypointAt(finalName, world.x, world.y, yaw);
             _setHint('medits.hint.wp_saved', { name: finalName });
         }, world, 0);
-    }
-
-    // V3: a dot-selected waypoint — offer Move (click the map) / Delete, and keep
-    // the Waypoints list flow untouched.
-    function _selectWaypoint(wp) {
-        _pendingMoveName = wp.name;
-        var host = document.getElementById('mapedit_wp_form');
-        if (host) {
-            host.innerHTML =
-                '<div class="vt-sep-dashed">' +
-                '<div class="vt-fs-sm vt-mb2"><span' + _ti('medits.sel_wp') + '</span> <b class="text-info">' + _escapeHtml(wp.name) + '</b></div>' +
-                '<div class="d-flex vt-gap6">' +
-                '  <button class="btn btn-outline-danger btn-sm flex-fill" id="mapedit_wp_sel_del" type="button"' + _ti('common.delete') + '</button>' +
-                '  <button class="btn btn-warning btn-sm flex-fill" id="mapedit_wp_sel_cancel" type="button"' + _ti('common.cancel') + '</button>' +
-                '</div></div>';
-            host.querySelector('#mapedit_wp_sel_del').addEventListener('click', function () {
-                if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: wp.name }));
-                _pendingMoveName = null; _hideWpInput();
-                _setHint('medits.hint.wp_deleted', { name: wp.name });
-            });
-            host.querySelector('#mapedit_wp_sel_cancel').addEventListener('click', function () {
-                _pendingMoveName = null; _hideWpInput();
-            });
-        }
-        _setHint('medits.hint.wp_selected', { name: wp.name });
     }
 
     function _publishWaypointAt(name, x, y, yaw) {
@@ -1262,8 +1776,7 @@ window.MapEdits = (function () {
         _yawPreview = null;
         if (_mapObjLayer && _mapObjLayer.overlay) _mapObjLayer.overlay.markDirty();
     }
-    // current yaw (deg) of a known waypoint — so Move PREFILLS the existing
-    // heading instead of silently resetting it to 0 (old behaviour).
+    // current yaw (deg) of a known waypoint
     function _wpYawDeg(name) {
         if (_mapObjLayer) {
             for (var i = 0; i < _mapObjLayer.waypoints.length; i++) {
@@ -1317,7 +1830,7 @@ window.MapEdits = (function () {
             _hideWpInput();
             onSave(nm, isFinite(v) ? ((v % 360) + 360) % 360 : 0);
         });
-        host.querySelector('#mapedit_wp_cancel').addEventListener('click', function () { _hideWpInput(); _pendingMoveName = null; });
+        host.querySelector('#mapedit_wp_cancel').addEventListener('click', _hideWpInput);
         var nmEl = host.querySelector('#mapedit_wp_name');
         if (!lockName) { nmEl.focus(); nmEl.select(); }
     }
@@ -1329,47 +1842,26 @@ window.MapEdits = (function () {
     }
 
     // Waypoint list lives in the collapsible "Waypointy" section — always
-    // rendered (not gated on the active tool) so it can be browsed/managed any
-    // time. "Move" activates the waypoint tool then arms a move.
+    // rendered (not gated on the active tool). A row selects.
     function _renderWpList() {
         var wl = document.getElementById('mapedit_wp_list');
-        if (!wl || (_renaming && _renaming.kind === 'waypoint')) return;
+        if (!wl) return;
         if (!_wpNames.length) { wl.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_wps') + '</div>'; return; }
         var html = '';
         for (var i = 0; i < _wpNames.length; i++) {
             var n = _wpNames[i];
-            html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
-                '<span class="text-info text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>' +
-                '<div class="btn-group btn-group-sm vt-ml2">' +
-                (isReserved(n) ? '' : '<button class="btn btn-outline-info mapedit-ren" data-n="' + _escapeAttr(n) + '" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>') +
-                '<button class="btn btn-outline-info mapedit-wp-move" data-n="' + _escapeAttr(n) + '" type="button"' + _ti('medits.move') + '</button>' +
-                '<button class="btn btn-outline-danger mapedit-wp-del" data-n="' + _escapeAttr(n) + '" type="button"' + _ti('common.delete') + '</button>' +
-                '</div></div>';
+            html += rowHtml('waypoint', n, '<span class="text-info text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(n) + '">' + _escapeHtml(n) + '</span>');
         }
         wl.innerHTML = html;
-        _wireRename(wl, 'waypoint', _renderWpList);
-        wl.querySelectorAll('.mapedit-wp-move').forEach(function (b) {
-            b.addEventListener('click', function () {
-                if (_tool !== 'waypoint') _setTool('waypoint');
-                _pendingMoveName = b.getAttribute('data-n');
-                _setHint('medits.hint.wp_move', { name: _pendingMoveName });
-            });
-        });
-        wl.querySelectorAll('.mapedit-wp-del').forEach(function (b) {
-            b.addEventListener('click', function () {
-                var n = b.getAttribute('data-n');
-                if (_pub_wp_remove) _pub_wp_remove.publish(new ROSLIB.Message({ data: n }));
-                _setHint('medits.hint.wp_deleted', { name: n });
-            });
-        });
+        _markRows();
     }
 
-    // Edits list lives in the collapsible "Edity mapy" section — per-item delete
-    // (publishes remove_edit); Clear-all is the double-click button in the same
-    // section. Refreshed whenever the latched edit_list changes (onListChange).
+    // Edits list lives in the collapsible "Edity mapy" section; Clear-all is the
+    // double-click button in the same section. Refreshed whenever the latched
+    // edit_list changes (onListChange). A row selects.
     function _renderEditList() {
         var el = document.getElementById('mapedit_edit_list');
-        if (!el || (_renaming && _renaming.kind === 'edit')) return;
+        if (!el) return;
         var edits = (_layer && _layer.edits) ? _layer.edits : [];
         if (!edits.length) { el.innerHTML = '<div class="vt-fs-sm vt-muted"' + _ti('medits.no_edits') + '</div>'; return; }
         var LBL = { obstacle: t('medits.kind.obstacle'), free: t('medits.kind.free'), wall: t('medits.kind.wall') };
@@ -1378,24 +1870,13 @@ window.MapEdits = (function () {
             var e = edits[i];
             var kind = LBL[e.kind] || e.kind || '';
             var np = (e.points || []).length;
-            html += '<div class="d-flex align-items-center vt-sep vt-fs-sm">' +
+            html += rowHtml('edit', e.name || '',
                 '<span class="text-truncate vt-grow1 vt-min0" title="' + _escapeAttr(e.name || '') + '">' + _escapeHtml(e.name || t('medits.unnamed')) + '</span>' +
                 '<span class="text-light vt-w-sm">' + _escapeHtml(kind) + '</span>' +
-                '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>' +
-                '<div class="btn-group btn-group-sm vt-ml2">' +
-                '<button class="btn btn-outline-info mapedit-ren" data-n="' + _escapeAttr((e.name || '')) + '" type="button" data-i18n-title="common.rename" data-i18n-aria-label="common.rename" title="' + _escapeAttr(t('common.rename')) + '" aria-label="' + _escapeAttr(t('common.rename')) + '"><i class="la la-pencil"></i></button>' +
-                '<button class="btn btn-outline-danger mapedit-edit-del" data-n="' + _escapeAttr(e.name || '') + '" type="button"' + _ti('common.delete') + '</button>' +
-                '</div></div>';
+                '<span class="vt-w-xs vt-tar vt-muted">' + _escapeHtml(tn('medits.pts', np)) + '</span>');
         }
         el.innerHTML = html;
-        _wireRename(el, 'edit', _renderEditList);
-        el.querySelectorAll('.mapedit-edit-del').forEach(function (b) {
-            b.addEventListener('click', function () {
-                var n = b.getAttribute('data-n');
-                if (_layer) _layer.removeEdit(n);
-                _setHint('medits.hint.edit_deleted', { name: n });
-            });
-        });
+        _markRows();
     }
 
     // =====================================================================
@@ -1464,8 +1945,14 @@ window.MapEdits = (function () {
             _mapObjLayer.setPathHidden(res.from, false);
             _mapObjLayer.setPathHidden(res.to, true);
         }
-        if (res.kind === 'waypoint' && _pendingMoveName === res.from) _pendingMoveName = res.to;
+        if (_sel && _sel.kind === res.kind && _sel.name === res.from) {
+            _sel.name = res.to;
+            _sel.awaited = Date.now() + AWAIT_MS;
+            if (_draft) _draft.name = res.to;
+            if (res.kind === 'zone' && window.mapEditZoneApi) window.mapEditZoneApi.setName(res.to);
+        }
         _renameDone();
+        _markRows();
         _setHint('medits.hint.renamed', { from: res.from, to: res.to });
     }
     function _renameTopic(kind) {
@@ -1495,18 +1982,17 @@ window.MapEdits = (function () {
         r.timer = setTimeout(function () { _renameSay('medits.name.err.timeout'); }, RENAME_TIMEOUT_MS);
         topic.publish(new ROSLIB.Message({ data: JSON.stringify({ from: r.from, to: to }) }));
     }
-    // Turn a list row into a name field. Its list stops redrawing until done:
-    // the latched lists come again at any moment and would wipe the typing.
+    // Turn the card's head into a name field. The card stops redrawing until
+    // done: the latched lists come again at any moment and would wipe the typing.
     function startRename(row, kind, name, redraw) {
         _renameDone();
         _renaming = { kind: kind, from: name, to: null, row: row, redraw: redraw, timer: null };
-        row.className = 'vt-sep vt-fs-sm';
         row.innerHTML =
-            '<div class="d-flex align-items-center vt-gap6">' +
+            '<div class="vt-w100"><div class="d-flex align-items-center vt-gap6">' +
             '<input class="form-control form-control-sm mapedit-ren-input vt-grow1 vt-min0" type="text" maxlength="' + NAME_MAX + '" value="' + _escapeAttr(name) + '">' +
             '<button class="btn btn-success btn-sm mapedit-ren-save" type="button"' + _ti('common.save') + '</button>' +
             '<button class="btn btn-warning btn-sm mapedit-ren-cancel" type="button"' + _ti('common.cancel') + '</button>' +
-            '</div><div class="mapedit-ren-err vt-fs-xs text-warning" role="alert"></div>';
+            '</div><div class="mapedit-ren-err vt-fs-xs text-warning" role="alert"></div></div>';
         var input = row.querySelector('.mapedit-ren-input');
         input.addEventListener('keydown', function (ev) {
             if (ev.key === 'Enter') { ev.preventDefault(); _renameSubmit(); }
@@ -1516,15 +2002,6 @@ window.MapEdits = (function () {
         row.querySelector('.mapedit-ren-cancel').addEventListener('click', _renameDone);
         input.focus(); input.select();
     }
-    function isRenaming(kind) { return !!(_renaming && _renaming.kind === kind); }
-    function _wireRename(root, kind, redraw) {
-        root.querySelectorAll('.mapedit-ren').forEach(function (b) {
-            b.addEventListener('click', function () {
-                startRename(b.closest('.vt-sep'), kind, b.getAttribute('data-n'), redraw);
-            });
-        });
-    }
-
     function _escapeHtml(s) { return String(s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
     function _escapeAttr(s) { return String(s).replace(/["&<>]/g, function (c) { return { '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
 
@@ -1551,10 +2028,7 @@ window.MapEdits = (function () {
     function _onLang() {
         if (!_built) return;
         _renderEditList(); _renderWpList(); _renderPathList();
-        var sel = document.querySelectorAll('[data-medits-pts]');
-        for (var i = 0; i < sel.length; i++) {
-            sel[i].textContent = '(' + tn('medits.pts', parseInt(sel[i].getAttribute('data-medits-pts'), 10) || 0) + ')';
-        }
+        _renderSel();
         if (_hintK) _setHint(_hintK, _hintV);
         if (_gfSaid) _gfSay(_gfSaid.fn, _gfSaid.cls);
         if (_tool === 'geofence') _gfTick();
@@ -1568,10 +2042,22 @@ window.MapEdits = (function () {
         setTool: _setTool,
         nextName: nextName,
         nameProblem: nameProblem,
-        startRename: startRename,
-        isRenaming: isRenaming,
+        rowHtml: rowHtml,
+        onMapTap: onMapTap,
+        onVertexTap: onVertexTap,
+        onMapGesture: function () { _compact(true); },
+        onZoneData: _zoneData,
+        onZoneResult: onZoneResult,
+        holdClose: holdClose,
         // exposed for diagnostics/tests
         _layer: function () { return _layer; },
+        _state: function () {
+            var P = sharedPolygon();
+            return { tool: _tool, sel: _sel, dirty: _dirty(), saving: !!(_draft && _draft.saving),
+                     pts: _curPts(), selected: P ? P.selected : -1, canUndo: !!(P && P.canUndo()),
+                     zones: _zoneLayer ? _zoneLayer.zones.map(function (z) { return z.name; }) : [],
+                     hint: (document.getElementById('mapedit_hint') || {}).textContent };
+        },
         EditMaskLayer: EditMaskLayer,
     };
 })();

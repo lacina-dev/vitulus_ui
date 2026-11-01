@@ -122,58 +122,28 @@ window.initPlanner = function(opts) {
     // Polygons ////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    var polygon_enabled = false
-    var clickedPolygon = false;
-    var selectedPointIndex = null;
-    // Callback functions when there is mouse interaction with the polygon
-    var pointCallBack = function(type, event, index) {
-        if (polygon_enabled == false){
-          if (type === 'mousedown') {
-            if (event.nativeEvent.shiftKey === true) {
-              polygon.remPoint(index);
-            }
-            else {
-              selectedPointIndex = index;
-            }
-          }
-          clickedPolygon = true;
-        }
-    };
-
-    var lineCallBack = function(type, event, index) {
-      if (type === 'mousedown') {
-        if (event.nativeEvent.shiftKey === true) {
-          polygon.splitLine(index);
-        }
-      }
-      clickedPolygon = true;
-    }
-
     // Create the polygon editor (replaces ROS2D.PolygonMarker). Starts detached;
     // editPoly/editZone/new-* attach it via viewer.scene.addChild(polygon).
     var polygon = new Planner3D.PolygonEditor({
       lineColor : '#6464ff',
       pointColor : '#ff3232',
       fillColor : '#37c837',
-      pointPx : 7,
-      pointCallBack : pointCallBack,
-      lineCallBack : lineCallBack
+      // a fingertip needs a bigger disc than a mouse pointer
+      pointPx : (window.matchMedia && matchMedia('(pointer: coarse)').matches) ? 10 : 7
     });
 
-    // Mouse + touch interaction (replaces the ros2d stage handlers). Vertex/edge
-    // hits drive the same pointCallBack/lineCallBack as before; an empty click
-    // adds a point. Modifiers preserved: ctrl-drag (or two-finger) = pan,
-    // alt-drag / wheel / pinch = zoom. selectedPointIndex (set by pointCallBack)
-    // is the vertex-drag flag.
+    // Mouse + touch (Planner3D.attachInteraction): drag and pinch move the map,
+    // shape handles work by themselves. A tap on the map goes to the editor,
+    // which either uses it (select, place, delete) or leaves it to the open
+    // shape as a new point.
     Planner3D.attachInteraction(viewer, function(){ return polygon; }, {
-        isEnabled:       function(){ return polygon.attached; },
-        onVertexDown:    function(i, ev){ pointCallBack('mousedown', { nativeEvent: ev.nativeEvent || ev }, i); },
-        onEdgeDown:      function(i, ev){ lineCallBack('mousedown', { nativeEvent: ev.nativeEvent || ev }, i); },
-        onAddPoint:      function(world){ polygon.addPoint(world); },
-        onMovePoint:     function(i, world){ polygon.movePoint(i, world); },
-        onReleaseVertex: function(){ selectedPointIndex = null; },
-        draggingVertex:  function(){ return selectedPointIndex !== null; },
-        draggingIndex:   function(){ return selectedPointIndex; },
+        isEnabled:   function(){ return polygon.attached; },
+        onTap:       function(world, ev){
+            if (window.MapEdits && MapEdits.onMapTap(world, ev)) return;
+            if (polygon.attached) polygon.addPoint(world);
+        },
+        onVertexTap: function(i){ if (window.MapEdits) MapEdits.onVertexTap(i); else polygon.select(i); },
+        onGesture:   function(){ if (window.MapEdits) MapEdits.onMapGesture(); },
     });
 
 
@@ -424,8 +394,6 @@ window.initPlanner = function(opts) {
     var input_zone_template_path_distance = document.getElementById("input_zone_template_path_distance");
     var input_zone_template_simplify = document.getElementById("input_zone_template_simplify");
     var btn_new_zone = document.getElementById("btn_new_zone");
-    var btn_zone_template_save = document.getElementById("btn_zone_template_save");
-    var btn_zone_template_cancel = document.getElementById("btn_zone_template_cancel");
     var div_zone_template = document.getElementById("div_zone_template");
     var header_zone_template_coverage_path = document.getElementById("header_zone_template_coverage_path");
     var header_zone_template_border_path = document.getElementById("header_zone_template_border_path");
@@ -444,12 +412,14 @@ window.initPlanner = function(opts) {
     // Zone ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // New zone
-    btn_new_zone.onclick = function () {
+    // New zone: the editor's Zone tool, which calls _beginNewZone
+    btn_new_zone.onclick = function () { MapEdits.setTool('zone'); };
+    var zone_name_row = document.getElementById("zone_template_name_row");
+    function _beginNewZone() {
         _zoneSaveClear(); _zoneSaveStatus('', '');
         div_zone_template.setAttribute('style', zone_template_style_attr);
+        zone_name_row.style.display = '';
         input_zone_template_name.value = MapEdits.nextName('zone', _zoneNames());
-        input_zone_template_name.readOnly = false;
         input_zone_template_rpm.value = 3300;
         input_zone_template_cut_height.value = 45;
         input_zone_template_border_path.value = 2;
@@ -471,8 +441,9 @@ window.initPlanner = function(opts) {
     });
     topic_selected_zone.advertise();
 
-    // Cancel zone
-    btn_zone_template_cancel.onclick = function () {
+    // Close the zone form without saving
+    function _closeZoneForm() {
+        _zoneEditing = null;
         _zoneSaveClear(); _zoneSaveStatus('', '');
         div_zone_template.setAttribute('style', 'display:none !important');
         viewer.scene.removeChild(polygon);
@@ -495,13 +466,14 @@ window.initPlanner = function(opts) {
     topic_save_zone.advertise();
 
     // Save zone
-    btn_zone_template_save.onclick = function () {
-        var zoneName = input_zone_template_name.value.trim();
-        // An edited zone keeps its read-only name; a new one must not replace another.
-        var nameBad = input_zone_template_name.readOnly ? null
-            : MapEdits.nameProblem(zoneName, _zoneNames());
+    function _saveZoneForm() {
+        if (_zoneSavePending) return;   // a second save would only queue a second regeneration
+        var zoneName = _zoneEditing || input_zone_template_name.value.trim();
+        // An edited zone keeps its name; a new one must not replace another.
+        var nameBad = _zoneEditing ? null : MapEdits.nameProblem(zoneName, _zoneNames());
         if (nameBad) {
             _zoneSaveStatus({ k: 'medits.name.err.' + nameBad, v: { name: zoneName } }, 'text-warning');
+            MapEdits.onZoneResult(zoneName, false, 0);
             return;
         }
         // console.log(polygon.pointContainer.children.length);
@@ -562,15 +534,14 @@ window.initPlanner = function(opts) {
     //   acted on when no zone_result follows within ZONE_SAVE_LOG_GRACE_MS.
     //   (A zone_list containing the name is NOT a criterion: it is re-published
     //   on many occasions and, for a re-saved zone, already holds the name.)
-    // No answer: "Still waiting…" after ZONE_SAVE_WAIT_MS (Save stays disabled —
-    //   a lazy workspace build + path generation can take a while, a second
-    //   Save would only queue a second regeneration), error after
-    //   ZONE_SAVE_TIMEOUT_MS.
+    // No answer: "Still waiting…" after ZONE_SAVE_WAIT_MS (a lazy workspace
+    //   build + path generation can take a while), error after ZONE_SAVE_TIMEOUT_MS.
     var ZONE_SAVE_WAIT_MS = 6000;
     var ZONE_SAVE_TIMEOUT_MS = 25000;
     var ZONE_SAVE_LOG_GRACE_MS = 1000;
     var zone_template_status = document.getElementById("zone_template_status");
     var _zoneSavePending = null;          // {name, waitTimer, timer, logTimer} while waiting
+    var _zoneEditing = null;              // name of the existing zone in the form
 
     // text: a planner message (data, shown as is) or {k, v} — our own text,
     // re-drawn on a language switch.
@@ -591,13 +562,9 @@ window.initPlanner = function(opts) {
             clearTimeout(_zoneSavePending.logTimer);
         }
         _zoneSavePending = null;
-        btn_zone_template_save.disabled = false;
-        tag(btn_zone_template_save, 'common.save');
     }
     function _zoneSaveBegin(name) {
         _zoneSaveClear();
-        btn_zone_template_save.disabled = true;
-        tag(btn_zone_template_save, 'common.saving');
         _zoneSaveStatus({ k: 'medit.zone_saving', v: { name: name } }, 'text-info');
         var pending = { name: name, waitTimer: null, timer: null, logTimer: null };
         pending.waitTimer = setTimeout(function () {
@@ -610,8 +577,9 @@ window.initPlanner = function(opts) {
         }, ZONE_SAVE_TIMEOUT_MS);
         _zoneSavePending = pending;
     }
-    function _zoneSaveSucceeded(text) {
+    function _zoneSaveSucceeded(text, programs) {
         var name = _zoneSavePending ? _zoneSavePending.name : '';
+        _zoneEditing = null;
         _zoneSaveClear();
         _zoneSaveStatus('', '');
         div_zone_template.setAttribute('style', 'display:none !important');
@@ -622,10 +590,13 @@ window.initPlanner = function(opts) {
         polygon.fillShape.graphics._oldInstructions = [];
         if (text) { _logKey = null; div_log.textContent = text; }
         else { _logKey = null; div_log.textContent = t('medit.zone_saved', { name: name }); }
+        MapEdits.onZoneResult(name, true, programs || 0);
     }
     function _zoneSaveFailed(text) {
+        var name = _zoneSavePending ? _zoneSavePending.name : '';
         _zoneSaveClear();
         _zoneSaveStatus(text, 'text-danger fw-bold');
+        MapEdits.onZoneResult(name, false, 0);
     }
     // Fallback only — see above.
     function _zoneSaveOnLog(text) {
@@ -650,7 +621,7 @@ window.initPlanner = function(opts) {
         var r;
         try { r = JSON.parse(message.data); } catch (e) { return; }
         if (!r || r.op !== 'save' || r.name !== _zoneSavePending.name) return;
-        if (r.ok) _zoneSaveSucceeded(r.message);
+        if (r.ok) _zoneSaveSucceeded(r.message, r.programs);
         else _zoneSaveFailed(r.message || { k: 'medit.zone_not_saved' });
     });
 
@@ -670,53 +641,49 @@ window.initPlanner = function(opts) {
         current_zone_list = message.zone_list;
         last_zone_msg = message;
         render_zone_list(message);
+        MapEdits.onZoneData();
     });
     function _zoneNames() { return current_zone_list.map(function (z) { return z.name; }); }
     window.mapEditZoneNames = _zoneNames;   // map_edit.js loads before mapedits.js
+    // What the map editor (mapedits.js) needs from the zones: their outlines for
+    // the map, and the zone form with its save confirmation.
+    window.mapEditZoneApi = {
+        list: function () {
+            return current_zone_list.map(function (z) {
+                return {
+                    name: z.name, area: z.area,
+                    points: ((z.polygon && z.polygon.polygon && z.polygon.polygon.points) || [])
+                        .map(function (p) { return [p.x, p.y]; }),
+                };
+            });
+        },
+        beginNew: _beginNewZone,
+        begin: function (name) { editZone(name); },
+        save: _saveZoneForm,
+        close: _closeZoneForm,
+        setName: function (name) { _zoneEditing = name; input_zone_template_name.value = name; },
+        remove: function (name) { removeZone(name); },
+    };
     function _esc(s) {
         return String(s).replace(/[&<>"']/g, function (c) {
             return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
         });
     }
-    // Names can hold any character, so the row buttons read theirs from data-n.
-    div_zone_list.addEventListener('click', function (ev) {
-        var b = ev.target.closest('[data-zone-act]');
-        if (!b) return;
-        var n = b.getAttribute('data-n'), act = b.getAttribute('data-zone-act');
-        if (act === 'edit') editZone(n);
-        else if (act === 'remove') removeZone(n);
-        else MapEdits.startRename(b.closest('.vt-sep'), 'zone', n, function () {
-            if (last_zone_msg) render_zone_list(last_zone_msg);
-        });
-    });
     function render_zone_list(message) {
-        if (MapEdits.isRenaming('zone')) return;
+        // A row selects the zone: MapEdits.rowHtml, the same anatomy as the other lists.
         var html_zone_list = '';
         for (let zone in message.zone_list) {
-            // console.log(message.zone_list[zone]);
             let zone_name = message.zone_list[zone].name;
-            let zone_type = message.zone_list[zone].type;
             let zone_area = message.zone_list[zone].area;
             let zone_height = message.zone_list[zone].cut_height;
             let zone_rpm = message.zone_list[zone].rpm;
-            html_zone_list += `
-                <div class="d-flex align-items-center vt-sep" style="border-bottom: 1px solid #3a3f44;padding: 3px 2px;font-size: 12px;">
-                    <span class="text-info text-truncate" style="flex: 1 1 auto;min-width: 0;" title="${_esc(zone_name)}">${_esc(zone_name)}</span>
-                    <span class="text-light text-end" style="width: 48px;">${zone_height}mm</span>
-                    <span class="text-light text-end" style="width: 58px;">${zone_rpm}rpm</span>
-                    <span class="text-light text-end" style="width: 50px;">${zone_area}m&sup2;</span>
-                    <div class="btn-group btn-group-sm" role="group" style="margin-left: 6px;">
-                        <button class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" data-zone-act="rename" data-n="${_esc(zone_name)}" title="${_esc(t('common.rename'))}" aria-label="${_esc(t('common.rename'))}"><i class="la la-pencil"></i></button>
-                        <button class="btn btn-outline-info" type="button" style="font-size: 11px;padding: 1px 8px;" data-zone-act="edit" data-n="${_esc(zone_name)}">${t('common.edit')}</button>
-                        <button class="btn btn-outline-danger" type="button" style="font-size: 11px;padding: 1px 8px;" data-zone-act="remove" data-n="${_esc(zone_name)}">${t('common.remove')}</button>
-                    </div>
-                </div>
-            `;
-            div_zone_list.innerHTML = html_zone_list;
+            html_zone_list += MapEdits.rowHtml('zone', zone_name, `
+                    <span class="text-info text-truncate vt-grow1 vt-min0" title="${_esc(zone_name)}">${_esc(zone_name)}</span>
+                    <span class="text-light text-end vt-w-xs">${zone_height}mm</span>
+                    <span class="text-light text-end vt-w-xs">${zone_rpm}rpm</span>
+                    <span class="text-light text-end vt-w-xs">${zone_area}m&sup2;</span>`);
         }
-        if (message.zone_list.length === 0) {
-            div_zone_list.innerHTML = "";
-        }
+        div_zone_list.innerHTML = html_zone_list;
     }
 
 
@@ -727,7 +694,9 @@ window.initPlanner = function(opts) {
                 let zone = current_zone_list[i];
                 // console.log(zone);
                 _zoneSaveClear(); _zoneSaveStatus('', '');
+                _zoneEditing = zone.name;
                 div_zone_template.setAttribute('style', zone_template_style_attr);
+                zone_name_row.style.display = 'none';
                 viewer.scene.removeChild(polygon);
                 polygon.pointContainer.children = [];
                 polygon.lineContainer.children = [];
@@ -740,12 +709,12 @@ window.initPlanner = function(opts) {
                     polygon.addPoint(zone.polygon.polygon.points[point]);
                 }
                 input_zone_template_name.value = zone.name;
-                input_zone_template_name.readOnly = true;
                 input_zone_template_rpm.value = zone.rpm;
                 input_zone_template_cut_height.value = zone.cut_height;
                 input_zone_template_border_path.value = zone.border_paths;
                 input_zone_template_coverage_path.value = zone.coverage_angle;
                 input_zone_template_path_distance.value = zone.paths_distance;
+                input_zone_template_simplify.value = zone.simplify;
                 let msg = new ROSLIB.Message({
                     data: zone_name
                 });

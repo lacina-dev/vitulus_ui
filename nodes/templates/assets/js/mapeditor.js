@@ -11,7 +11,8 @@
 // same camera. No THREE mixing.
 //
 // The overlay exposes the same interface that Planner3D.Viewer does, so
-// Planner3D.PolygonEditor + Planner3D.attachInteraction are reused unchanged.
+// Planner3D.PolygonEditor + Planner3D.attachInteraction work on it as they do on
+// their own viewer.
 
 window.MapEditor = (function () {
     'use strict';
@@ -64,7 +65,9 @@ window.MapEditor = (function () {
             this._ray = new T.Ray();
 
             this.onZoom = null;
-            this.editing = false;                   // when true, overlay grabs the mouse + drives the camera
+            this.onFrame = null;                    // called before every overlay frame
+            this.invertWheel = true;                // same wheel direction as the live map
+            this.editing = false;                   // when true, overlay grabs the pointer + drives the camera
 
             // WP-D2 tool-mode framework. Generalises the old setDrawing(bool)
             // grab-gate into a named tool mode so the toolbar (mapedits.js) can
@@ -75,15 +78,11 @@ window.MapEditor = (function () {
             //   'edit_obstacle'|'edit_free'|'edit_wall' — mapping_manager edits draw
             //   'waypoint'     — place/move waypoints (navi_manager)
             //   'edit_delete'  — click-to-remove an edit
-            // Pointer capture (canvas.pointerEvents='auto') is ON whenever a tool
-            // other than 'off' is active OR the shared PolygonEditor is attached
-            // (legacy setDrawing path), so both the polygon flows and the raw-click
-            // tools work. onMapClick(worldX, worldY) is the raw-click hook used by
-            // the waypoint / edit_delete tools (mapedits.js installs its own
-            // click detector on this.canvas; this hook is provided for symmetry).
+            // The overlay takes the pointer for the whole time the editor is
+            // open, 'off' included: that is where a tap selects an object and a
+            // drag moves the map (Planner3D.attachInteraction).
             this.toolMode = 'off';
             this._drawing = false;
-            this.onMapClick = null;
 
             this._resize();
             var self = this;
@@ -99,6 +98,7 @@ window.MapEditor = (function () {
             this._raf = null;
             this._loop = function () {
                 self._raf = requestAnimationFrame(self._loop);
+                if (self.onFrame) { try { self.onFrame(); } catch (e) { console.error(e); } }
                 self.renderer.render(self.threeScene, self.r3d.camera);
             };
             window.addEventListener('resize', function () { self._resize(); });
@@ -179,13 +179,36 @@ window.MapEditor = (function () {
             cam.position.x += ddx; cam.position.y += ddy;
             cc.update(); cam.updateMatrixWorld(true);
         }
+        // factor > 1: the camera moves away. The point under the pointer stays.
         zoomAt(factor, clientX, clientY) {
-            var cc = this.r3d.cameraControls;
+            var cc = this.r3d.cameraControls, cam = this.r3d.camera;
             if (cc) {
-                // factor > 1 == zoom out (see attachInteraction's wheel handler).
-                if (factor > 1) { cc.zoomOut(); } else { cc.zoomIn(); }
-                cc.update();
+                var before = this.screenToWorld(clientX, clientY);
+                cc.scale *= factor;
+                cc.update(); cam.updateMatrixWorld(true);
+                var after = this.screenToWorld(clientX, clientY);
+                var dx = before.x - after.x, dy = before.y - after.y;
+                cc.center.x += dx; cc.center.y += dy;
+                cam.position.x += dx; cam.position.y += dy;
+                cc.update(); cam.updateMatrixWorld(true);
             }
+            if (this.onZoom) this.onZoom();
+        }
+        // Show this box of the map in the part of the screen not covered by the panel.
+        frameBox(minX, minY, maxX, maxY) {
+            var cam = this.r3d.camera, cc = this.r3d.cameraControls;
+            if (!cc) return;
+            var vr = this._visibleRect();
+            var fov = (cam.fov || 40) * Math.PI / 180;
+            // metres seen per pixel of canvas height at distance H: 2 H tan(fov/2) / ch
+            var perPx = Math.max((maxX - minX) / Math.max(1, vr.w), (maxY - minY) / Math.max(1, vr.h));
+            var H = Math.max(8, perPx * 1.3 * vr.ch / (2 * Math.tan(fov / 2)));
+            var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+            cc.center.set(cx, cy, 0);
+            cam.position.set(cx, cy, H);
+            cc.scale = 1; cc.thetaDelta = 0; cc.phiDelta = 0;
+            cc.update(); cam.updateMatrixWorld(true);
+            try { if (vr.dx || vr.dy) this.panByPixels(vr.dx, vr.dy); } catch (e) {}
             if (this.onZoom) this.onZoom();
         }
 
@@ -262,19 +285,13 @@ window.MapEditor = (function () {
             this.editing = true;
             this.overlayGroup.visible = true;
             this.pathGroup.visible = true;
-            // Idle: pointer events pass through to the map, so the robot stays
-            // drivable / orbit-zoomable. The overlay only grabs the mouse while a
-            // tool is active (setToolMode) or a polygon/zone is open (setDrawing).
             this.toolMode = 'off';
             this._drawing = false;
             this._applyPointerEvents();
             this._startLoop();
         }
 
-        // Capture the mouse only while a shape is open for editing. Kept for
-        // PolygonEditor compatibility (it calls setDrawing(true/false) on
-        // attach/detach); pointer capture is now the OR of this flag and the
-        // active tool mode, computed in _applyPointerEvents().
+        // PolygonEditor calls this on attach/detach.
         setDrawing(on) {
             this._drawing = !!on;
             this._applyPointerEvents();
@@ -288,8 +305,7 @@ window.MapEditor = (function () {
         getToolMode() { return this.toolMode || 'off'; }
 
         _applyPointerEvents() {
-            var active = this._drawing || (this.toolMode && this.toolMode !== 'off');
-            this.canvas.style.pointerEvents = (this.editing && active) ? 'auto' : 'none';
+            this.canvas.style.pointerEvents = this.editing ? 'auto' : 'none';
         }
         exitTopDown() {
             var cam = this.r3d.camera, cc = this.r3d.cameraControls;
@@ -530,7 +546,7 @@ window.MapEditor = (function () {
     // The Map-menu "Edit map" toggle.
     function toggleDetail() {
         if (controller().active) {
-            closeToMapPanel();
+            closeFromEditor();
         } else {
             // 2026-08-16: keepBase — site-native serving IS the base map now;
             // swapping to the legacy planner map was jarring and is retired.
@@ -540,6 +556,7 @@ window.MapEditor = (function () {
     // The editor's own ✕ (header / footer "Close editor"): same way back as the
     // toggle — the Map panel, not a closed drawer (vitulus-field#45).
     function closeFromEditor() {
+        if (window.MapEdits && window.MapEdits.holdClose && window.MapEdits.holdClose()) return;
         closeToMapPanel();
     }
 

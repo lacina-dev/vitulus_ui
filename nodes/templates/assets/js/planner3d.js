@@ -358,18 +358,33 @@ window.Planner3D = (function () {
             this.group = new T.Group();
             this.fillMesh = new T.Mesh(new T.BufferGeometry(),
                 new T.MeshBasicMaterial({ color: this.fillColor, transparent: true, opacity: 0.28, side: T.DoubleSide, depthTest: false }));
-            this.fillMesh.position.z = 0.05; this.fillMesh.renderOrder = 3;
+            // Above every editor layer: the shape being edited is what you act on.
+            this.fillMesh.position.z = 0.05; this.fillMesh.renderOrder = 50;
             this.edgeLine = new T.LineSegments(new T.BufferGeometry(),
                 new T.LineBasicMaterial({ color: this.lineColor, depthTest: false }));
-            this.edgeLine.position.z = 0.1; this.edgeLine.renderOrder = 4;
-            this.vertGroup = new T.Group(); this.vertGroup.position.z = 0.15; this.vertGroup.renderOrder = 5;
-            this.group.add(this.fillMesh, this.edgeLine, this.vertGroup);
+            this.edgeLine.position.z = 0.1; this.edgeLine.renderOrder = 51;
+            this.vertGroup = new T.Group(); this.vertGroup.position.z = 0.15;
+            this.midGroup = new T.Group(); this.midGroup.position.z = 0.14;
+            this.group.add(this.fillMesh, this.edgeLine, this.midGroup, this.vertGroup);
             this._vertGeo = new T.CircleGeometry(1, 16);
-            this._vertMat = new T.MeshBasicMaterial({ color: this.pointColor, depthTest: false });
+            this._vertMat = new T.MeshBasicMaterial({ color: this.pointColor, depthTest: false, transparent: true });
+            this._selMat = new T.MeshBasicMaterial({ color: new T.Color('#ffd84a'), depthTest: false, transparent: true });
+            this._midMat = new T.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.75 });
             // The FIRST polygon vertex marks where mowing-path planning starts, so
             // it is drawn in a distinct light-blue to set it apart from the rest.
             this.firstPointColor = new T.Color(opts.firstPointColor || '#5cc8ff');
-            this._firstVertMat = new T.MeshBasicMaterial({ color: this.firstPointColor, depthTest: false });
+            this._firstVertMat = new T.MeshBasicMaterial({ color: this.firstPointColor, depthTest: false, transparent: true });
+
+            // Shape editing. openLine: a chain without the closing edge (path,
+            // barrier). showMids: a "+" handle on every edge long enough to hit.
+            // minPoints: remPoint keeps at least this many vertices.
+            // selected: the vertex the panel's "Delete point" acts on.
+            // onChange: called after every change of the vertices.
+            this.showMids = false;
+            this.minPoints = 0;
+            this.selected = -1;
+            this.onChange = null;
+            this._undo = [];
 
             // ros2d-compatible container facades. map_edit reads .children[i].x/.y
             // and assigns .children = [] to clear; we intercept the assignment.
@@ -377,7 +392,7 @@ window.Planner3D = (function () {
             this.pointContainer = {};
             Object.defineProperty(this.pointContainer, 'children', {
                 get: function () { return self._pts; },
-                set: function (v) { self._pts = v || []; self._redraw(); },
+                set: function (v) { self._pts = v || []; self.selected = -1; self._undo = []; self._redraw(); self._changed(); },
             });
             this.lineContainer = {}; var dummyLines = [];
             Object.defineProperty(this.lineContainer, 'children', {
@@ -422,32 +437,96 @@ window.Planner3D = (function () {
                 var r = (i === 0) ? rad * 1.6 : rad;
                 this.vertGroup.children[i].scale.set(r, r, 1);
             }
+            this._layoutMids(rad);
             if (this.viewer) this.viewer.markDirty();
         }
+        // "+" handles: edge midpoints, only where the edge is long enough on
+        // screen for the handle not to sit on its neighbours.
+        _edgeCount() {
+            var n = this._pts.length;
+            return n < 2 ? 0 : (this.openLine ? n - 1 : n);
+        }
+        _layoutMids(rad) {
+            var eN = this.showMids ? this._edgeCount() : 0, n = this._pts.length;
+            var minLen = this.viewer ? this.viewer.worldTol(this.midMinPx()) : 1;
+            var used = 0;
+            this._mids = [];
+            for (var i = 0; i < eN; i++) {
+                var a = this._worldOf(i), b = this._worldOf((i + 1) % n);
+                if (Math.hypot(b.x - a.x, b.y - a.y) < minLen) continue;
+                var m = this.midGroup.children[used];
+                if (!m) { m = new T.Mesh(this._vertGeo, this._midMat); m.renderOrder = 52; this.midGroup.add(m); }
+                m.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, 0);
+                m.scale.set(rad * 0.62, rad * 0.62, 1);
+                m.visible = true;
+                this._mids.push({ index: i, x: m.position.x, y: m.position.y });
+                used++;
+            }
+            for (var k = used; k < this.midGroup.children.length; k++) this.midGroup.children[k].visible = false;
+        }
+        midMinPx() { return this.pointPx * 7; }
 
         // ---- world<->store helpers (store keeps y = -rosY) ----
         _worldOf(i) { return { x: this._pts[i].x, y: -this._pts[i].y }; }   // -> ros world
         _storeFromRos(pos) { return { x: pos.x, y: -pos.y }; }
 
         // ---- ros2d-compatible mutation API (positions are ROS metres) ----
-        addPoint(pos) { this._pts.push(this._storeFromRos(pos)); this._redraw(); }
-        remPoint(index) { if (index >= 0 && index < this._pts.length) { this._pts.splice(index, 1); this._redraw(); } }
-        movePoint(index, pos) { if (index >= 0 && index < this._pts.length) { this._pts[index] = this._storeFromRos(pos); this._redraw(); } }
+        addPoint(pos) { this.checkpoint(); this._pts.push(this._storeFromRos(pos)); this._redraw(); this._changed(); }
+        remPoint(index) {
+            if (index < 0 || index >= this._pts.length || this._pts.length <= this.minPoints) return false;
+            this.checkpoint();
+            this._pts.splice(index, 1);
+            this.selected = -1;
+            this._redraw(); this._changed();
+            return true;
+        }
+        // A drag calls movePoint many times: its one checkpoint is taken by the
+        // gesture when the drag starts.
+        movePoint(index, pos) { if (index >= 0 && index < this._pts.length) { this._pts[index] = this._storeFromRos(pos); this._redraw(); this._changed(); } }
         splitLine(index) {
-            var n = this._pts.length; if (n < 2) return;
+            var n = this._pts.length; if (n < 2) return -1;
+            this.checkpoint();
             var a = this._pts[index], b = this._pts[(index + 1) % n];
             this._pts.splice(index + 1, 0, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-            this._redraw();
+            this._redraw(); this._changed();
+            return index + 1;
         }
+        select(index) { this.selected = index; this._redraw(); this._changed(); }
+
+        // ---- undo: one snapshot per user action ----
+        checkpoint() {
+            this._undo.push(this._pts.map(function (p) { return { x: p.x, y: p.y }; }));
+            if (this._undo.length > 100) this._undo.shift();
+        }
+        canUndo() { return this._undo.length > 0; }
+        undo() {
+            if (!this._undo.length) return;
+            this._pts = this._undo.pop();
+            this.selected = -1;
+            this._redraw(); this._changed();
+        }
+        resetUndo() { this._undo = []; this._changed(); }
+        _changed() { if (this.onChange) { try { this.onChange(); } catch (e) { console.error(e); } } }
 
         // ---- hit testing in ros world coords; returns {type,index} ----
+        // The nearest vertex wins, so dense shapes stay usable; a "+" handle
+        // comes next, an edge last. An open chain has no closing edge to hit.
         hitTest(world, tol) {
-            var n = this._pts.length, i;
+            var n = this._pts.length, i, best = -1, bestD = tol;
             for (i = 0; i < n; i++) {
-                var w = this._worldOf(i);
-                if (Math.hypot(w.x - world.x, w.y - world.y) <= tol) return { type: 'vertex', index: i };
+                var w = this._worldOf(i), d = Math.hypot(w.x - world.x, w.y - world.y);
+                if (d <= bestD) { bestD = d; best = i; }
             }
-            for (i = 0; i < n; i++) {
+            if (best >= 0) return { type: 'vertex', index: best };
+            var mids = this.showMids ? (this._mids || []) : [];
+            bestD = tol;
+            for (i = 0; i < mids.length; i++) {
+                var md = Math.hypot(mids[i].x - world.x, mids[i].y - world.y);
+                if (md <= bestD) { bestD = md; best = mids[i].index; }
+            }
+            if (best >= 0) return { type: 'mid', index: best };
+            var eN = this._edgeCount();
+            for (i = 0; i < eN; i++) {
                 var p1 = this._worldOf(i), p2 = this._worldOf((i + 1) % n);
                 if (this._distToSeg(world, p1, p2) <= tol * 0.8) return { type: 'edge', index: i };
             }
@@ -474,14 +553,16 @@ window.Planner3D = (function () {
                 var vm = this.vertGroup.children[i];
                 vm.position.set(w.x, w.y, 0);
                 // first vertex = mowing-path start point -> light-blue, rest red
-                vm.material = (i === 0) ? this._firstVertMat : this._vertMat;
+                vm.material = (i === this.selected) ? this._selMat
+                    : ((i === 0) ? this._firstVertMat : this._vertMat);
+                vm.renderOrder = (i === this.selected) ? 54 : 53;
             }
             this._updateVertexScale();
             // edges (line loop as segments; openLine=true draws an open chain
             // without the closing segment - used by the path/barrier tools)
             var seg = [];
-            var eN = this.openLine ? (n - 1) : n;
-            if (n >= 2) for (i = 0; i < eN; i++) { var a = this._worldOf(i), b = this._worldOf((i + 1) % n); seg.push(a.x, a.y, 0, b.x, b.y, 0); }
+            var eN = this._edgeCount();
+            for (i = 0; i < eN; i++) { var a = this._worldOf(i), b = this._worldOf((i + 1) % n); seg.push(a.x, a.y, 0, b.x, b.y, 0); }
             this.edgeLine.geometry.setAttribute('position', new T.Float32BufferAttribute(seg, 3));
             this.edgeLine.geometry.computeBoundingSphere();
             // fill
@@ -501,95 +582,128 @@ window.Planner3D = (function () {
     }
 
     // --------------------------------------------------- interaction wiring
-    // Replicates the original ctrl=pan / alt=zoom / click=add / shift+vertex=
-    // remove / shift+edge=split, plus wheel zoom and basic touch (one finger =
-    // add/drag vertex, two fingers = pan + pinch zoom).
+    // One gesture code for mouse, pen and touch (Pointer Events), in map and
+    // shape alike:
+    //   tap on empty map     state.onTap(world, ev)
+    //   drag on empty map    pan (one finger or the mouse; ctrl+drag as before)
+    //   pinch, wheel         zoom; alt+drag as before
+    //   drag a vertex        move it
+    //   tap a vertex         state.onVertexTap(i)  (shift+click removes it)
+    //   tap or drag a "+"    a new vertex on that edge
+    //   shift+click an edge  split it
+    // A touch has a fat fingertip, hence the larger tolerance. A second finger
+    // during a vertex drag means "zoom": the drag is taken back.
+    //
+    // state: { isEnabled():bool (a shape is open), onTap(world, ev),
+    //          onVertexTap(i), onGesture() (the map was touched) }
     function attachInteraction(viewer, getPolygon, state) {
-        // state: { isEnabled():bool (editing gate), onVertexDown(i,ev),
-        //          onEdgeDown(i,ev), onAddPoint(world), onMovePoint(i,world),
-        //          onReleaseVertex() }
         var el = viewer.renderer.domElement;
-        var mouseDown = false, panKey = false, zoomKey = false, clickedPolygon = false;
-        var last = { x: 0, y: 0 };
+        var ptrs = {};          // pointerId -> {x, y}
+        var g = null;           // the gesture in progress
+        var DRAG_PX = 6;
+        el.style.touchAction = 'none';
 
-        function hit(ev) {
+        function nPtrs() { return Object.keys(ptrs).length; }
+        function twoPtrs() { var k = Object.keys(ptrs); return [ptrs[k[0]], ptrs[k[1]]]; }
+        function toWorld(ev) { return viewer.screenToWorld(ev.clientX, ev.clientY); }
+        function tolPx(ev) { return ev.pointerType === 'mouse' ? 12 : 22; }   // 44 px target
+        function shapeHit(ev) {
             var poly = getPolygon();
-            if (!poly) return { type: null, index: -1 };
-            var world = viewer.screenToWorld(ev.clientX, ev.clientY);
-            return poly.hitTest(world, viewer.worldTol(10));
+            if (!poly || !state.isEnabled()) return { type: null, index: -1 };
+            return poly.hitTest(toWorld(ev), viewer.worldTol(tolPx(ev)));
+        }
+        function takeBackDrag() {
+            var poly = getPolygon();
+            if (g && g.dragged && poly) poly.undo();
         }
 
-        el.addEventListener('mousedown', function (ev) {
-            mouseDown = true; clickedPolygon = false;
-            panKey = ev.ctrlKey; zoomKey = ev.altKey;
-            last.x = ev.clientX; last.y = ev.clientY;
-            if (!panKey && !zoomKey && state.isEnabled()) {
-                var h = hit(ev);
-                if (h.type === 'vertex') { clickedPolygon = true; state.onVertexDown(h.index, ev); }
-                else if (h.type === 'edge') { clickedPolygon = true; state.onEdgeDown(h.index, ev); }
+        el.addEventListener('pointerdown', function (ev) {
+            ptrs[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+            try { el.setPointerCapture(ev.pointerId); } catch (e) {}
+            if (state.onGesture) state.onGesture();
+            if (nPtrs() === 2) {
+                takeBackDrag();
+                var p = twoPtrs();
+                g = { kind: 'pinch', d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y),
+                      x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
+                return;
+            }
+            if (nPtrs() > 2) return;
+            var base = { x0: ev.clientX, y0: ev.clientY, x: ev.clientX, y: ev.clientY };
+            if (ev.button !== 0 || ev.ctrlKey) { g = Object.assign(base, { kind: 'pan' }); return; }
+            if (ev.altKey) { g = Object.assign(base, { kind: 'zoomdrag' }); return; }
+            var h = shapeHit(ev), poly = getPolygon();
+            if (h.type === 'vertex') {
+                if (ev.shiftKey) { poly.remPoint(h.index); return; }
+                g = Object.assign(base, { kind: 'vertex', index: h.index, dragged: false });
+            } else if (h.type === 'mid') {
+                g = Object.assign(base, { kind: 'mid', index: h.index, dragged: false });
+            } else if (h.type === 'edge' && ev.shiftKey) {
+                poly.splitLine(h.index);
+            } else {
+                g = Object.assign(base, { kind: 'tap' });
             }
         });
-        window.addEventListener('mousemove', function (ev) {
-            if (state.draggingVertex()) { state.onMovePoint(state.draggingIndex(), viewer.screenToWorld(ev.clientX, ev.clientY)); viewer.markDirty(); return; }
-            if (!mouseDown) return;
-            var dx = ev.clientX - last.x, dy = ev.clientY - last.y;
-            if (zoomKey) { var f = 1 + (dy > 0 ? 1 : -1) * Math.min(0.25, Math.abs(dy) / 200); viewer.zoomAt(f, last.x, last.y); }
-            else if (panKey) { viewer.panByPixels(dx, dy); }
-            last.x = ev.clientX; last.y = ev.clientY;
-        });
-        window.addEventListener('mouseup', function (ev) {
-            if (state.draggingVertex()) { state.onReleaseVertex(); mouseDown = false; return; }
-            if (mouseDown && !clickedPolygon && !panKey && !zoomKey && state.isEnabled() && _inBounds(el, ev)) {
-                state.onAddPoint(viewer.screenToWorld(ev.clientX, ev.clientY));
+
+        el.addEventListener('pointermove', function (ev) {
+            if (!(ev.pointerId in ptrs)) {
+                if (ev.pointerType === 'mouse') {   // hover: say what a press would do
+                    var over = shapeHit(ev).type;
+                    el.style.cursor = (over === 'vertex' || over === 'mid') ? 'pointer' : '';
+                }
+                return;
             }
-            mouseDown = false; panKey = false; zoomKey = false; clickedPolygon = false;
+            ptrs[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+            if (!g) return;
+            var poly = getPolygon();
+            if (g.kind === 'pinch') {
+                if (nPtrs() < 2) return;
+                var p = twoPtrs();
+                var mid = { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
+                var d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+                viewer.panByPixels(mid.x - g.x, mid.y - g.y);
+                if (g.d > 0 && d > 0) viewer.zoomAt(g.d / d, mid.x, mid.y);
+                g.d = d; g.x = mid.x; g.y = mid.y;
+                return;
+            }
+            var far = Math.hypot(ev.clientX - g.x0, ev.clientY - g.y0) > DRAG_PX;
+            if (g.kind === 'tap' && far) g.kind = 'pan';
+            if (g.kind === 'pan') viewer.panByPixels(ev.clientX - g.x, ev.clientY - g.y);
+            else if (g.kind === 'zoomdrag') {
+                var dy = ev.clientY - g.y;
+                viewer.zoomAt(1 + (dy > 0 ? 1 : -1) * Math.min(0.25, Math.abs(dy) / 200), g.x, g.y);
+            } else if (g.kind === 'mid' && far) {
+                g.index = poly.splitLine(g.index);       // its checkpoint covers the drag
+                g.kind = 'vertex'; g.dragged = true;
+            } else if (g.kind === 'vertex' && (far || g.dragged)) {
+                if (!g.dragged) { poly.checkpoint(); g.dragged = true; }
+                poly.movePoint(g.index, toWorld(ev));
+            }
+            g.x = ev.clientX; g.y = ev.clientY;
+            viewer.markDirty();
         });
+
+        function pointerGone(ev, cancelled) {
+            var known = ev.pointerId in ptrs;
+            delete ptrs[ev.pointerId];
+            if (!known || !g) return;
+            if (g.kind === 'pinch') { if (nPtrs() === 0) g = null; return; }
+            var done = g; g = null;
+            if (cancelled) { if (done.dragged) { g = done; takeBackDrag(); g = null; } return; }
+            var poly = getPolygon();
+            if (done.kind === 'tap') { if (state.onTap) state.onTap(toWorld(ev), ev); }
+            else if (done.kind === 'vertex' && !done.dragged) { if (state.onVertexTap) state.onVertexTap(done.index); }
+            else if (done.kind === 'mid') { var i = poly.splitLine(done.index); if (state.onVertexTap) state.onVertexTap(i); }
+        }
+        el.addEventListener('pointerup', function (ev) { pointerGone(ev, false); });
+        el.addEventListener('pointercancel', function (ev) { pointerGone(ev, true); });
+        el.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+
         el.addEventListener('wheel', function (ev) {
             ev.preventDefault();
-            viewer.zoomAt(ev.deltaY > 0 ? 1.1 : 1 / 1.1, ev.clientX, ev.clientY);
+            var f = ev.deltaY > 0 ? 1.1 : 1 / 1.1;
+            viewer.zoomAt(viewer.invertWheel ? 1 / f : f, ev.clientX, ev.clientY);
         }, { passive: false });
-
-        // ---- touch ----
-        var touchMode = null, t0 = null, t1 = null, pinchStart = 0;
-        el.addEventListener('touchstart', function (ev) {
-            if (ev.touches.length === 1) {
-                var t = ev.touches[0]; last.x = t.clientX; last.y = t.clientY;
-                if (state.isEnabled()) {
-                    var h = poly_hit(t); if (h.type === 'vertex') { touchMode = 'vertex'; state.onVertexDown(h.index, { nativeEvent: {} }); return; }
-                }
-                touchMode = 'tap';
-            } else if (ev.touches.length === 2) {
-                touchMode = 'gesture'; t0 = ev.touches[0]; t1 = ev.touches[1];
-                pinchStart = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
-                last.x = (t0.clientX + t1.clientX) / 2; last.y = (t0.clientY + t1.clientY) / 2;
-            }
-            ev.preventDefault();
-        }, { passive: false });
-        function poly_hit(t) { var poly = getPolygon(); if (!poly) return { type: null }; return poly.hitTest(viewer.screenToWorld(t.clientX, t.clientY), viewer.worldTol(14)); }
-        el.addEventListener('touchmove', function (ev) {
-            if (touchMode === 'vertex' && ev.touches.length === 1) { var t = ev.touches[0]; state.onMovePoint(state.draggingIndex(), viewer.screenToWorld(t.clientX, t.clientY)); }
-            else if (touchMode === 'gesture' && ev.touches.length === 2) {
-                var a = ev.touches[0], b = ev.touches[1];
-                var mid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
-                viewer.panByPixels(mid.x - last.x, mid.y - last.y);
-                var d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-                if (pinchStart > 0) viewer.zoomAt(pinchStart / d, mid.x, mid.y);
-                pinchStart = d; last.x = mid.x; last.y = mid.y;
-            } else if (touchMode === 'tap') { touchMode = 'tapmove'; }
-            ev.preventDefault();
-        }, { passive: false });
-        el.addEventListener('touchend', function (ev) {
-            if (touchMode === 'vertex') state.onReleaseVertex();
-            else if (touchMode === 'tap' && state.isEnabled()) {
-                var t = ev.changedTouches[0]; state.onAddPoint(viewer.screenToWorld(t.clientX, t.clientY));
-            }
-            if (ev.touches.length === 0) touchMode = null;
-            ev.preventDefault();
-        }, { passive: false });
-    }
-    function _inBounds(el, ev) {
-        var r = el.getBoundingClientRect();
-        return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
     }
 
     return { Viewer: Viewer, MapLayer: MapLayer, PathLayer: PathLayer, PolygonEditor: PolygonEditor, attachInteraction: attachInteraction };
