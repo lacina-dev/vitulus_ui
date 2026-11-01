@@ -56,13 +56,13 @@ The layer **Mow load** (Map tab, Layers, and the Layers panel of the editor) dra
 robot, live during mowing and later for any of the last 30 runs. It turns on by itself while a
 program runs, until you set it yourself; then your choice stays.
 
-- **Colour** shows one thing at a time, you pick it under **Colour shows**: Load, Speed, Slope,
-  Temperature, Accuracy, RTCM age or Rpm dip. The legend gives real values.
+- **Colour** shows one thing at a time, you pick it under **Colour shows**: Load, Torque, Speed,
+  Slope, Temperature, GPS vs lidar, GPS vs wheels, RTCM age or Rpm dip. The legend gives real values.
 - **Width** shows what the robot was doing. A full stripe as wide as the deck: cutting. A narrower
   one: spin-up or waiting. A thin line: blade off. Violet: stopped by a no-blade rule. Pink: blocked,
   white: motor hot.
 - **Stops and events** are small icons: blocked, overload, recovery, backup, detour, stall, no
-  progress, new path window, a temperature warning, an RTCM gap, RTK lost and back. When they crowd, the worst stay; zoom in for the rest.
+  progress, new path window, a temperature warning, an RTCM gap, RTK lost and back, a GPS jump. When they crowd, the worst stay; zoom in for the rest.
 - **Tap the trail** for a short card: blade, drive, position, power and job at that moment. With a
   mouse, hovering shows the first numbers.
 - **Run** picks a past run, under it are the totals: time mowing, transit, stops, load, peak
@@ -73,14 +73,21 @@ Load 100 % is the point where the mower firmware cuts the motor: motor current a
 about 10 %. Temperature is recorded raw, so a single wrong reading stays visible: one sample on an
 otherwise cool run is a sensor spike, a slow climb is real heating.
 
-- **Accuracy** is hAcc, how far off the receiver says it may be: about 1.4 cm in RTK fix, 2.7 cm in
-  float, metres without corrections. The fix class itself is in the card and as a mark where it changes.
+- **Torque** is the sum over the four wheels, how hard they work to move the robot: about 7 Nm on a
+  straight, up to 17 in turns. Each wheel is limited to 20 Nm. The card adds
+  the hardest wheel.
+- **GPS vs lidar** and **GPS vs wheels** are the honest view of GPS. The accuracy the receiver reports
+  says 1.4 cm almost everywhere, whatever is really happening, so it is only in the card.
+  GPS vs lidar is how far the lidar scan, laid on the map, wants to move the GPS position: usually
+  10 to 40 cm, and a bad map reads the same as a bad GPS. GPS vs wheels compares the GPS step
+  in one second with the wheels, which cannot jump: about 4 cm in RTK fix, more means the
+  position really moved; from 50 cm a mark stays on the map. Turns are skipped.
 - **RTCM age** is the time since the last correction from the base. It swings between 0 and 1 s,
   3 s counts as a gap and leaves a mark. Rate, satellites and pDOP are in the card.
 - **Rpm dip** is how far the blade fell below the set rpm. The motor control holds it within 2 rpm
   almost all the time, so the scale is fine: a few rpm already show. Real grass shows better in Load.
 
-Runs recorded before the Accuracy and RTCM data existed show those two in grey, no data.
+Runs recorded before these data existed show them in grey, no data. Torque is there from the first runs.
 
 ## Stop
 

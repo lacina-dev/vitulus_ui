@@ -47,15 +47,18 @@ check('bad hex is grey', M.hex('nonsense'), [136, 136, 136]);
 check('below the scale', M.colorOf('load', 5, pal), [0, 0, 0]);
 check('above the scale', M.colorOf('load', 99, pal), [200, 200, 200]);
 check('between stops', M.colorOf('load', 16, pal), [25, 25, 25]);
-check('RTK fix is the first step of Accuracy', M.colorOf('accuracy', 14, pal), [0, 0, 0]);
-near('float is a step away', M.colorOf('accuracy', 27, pal)[0], 50 + (100 - 50) * 2 / 25, 1e-6);
-check('5 m without corrections is off the scale', M.colorOf('accuracy', 4941, pal), [200, 200, 200]);
+check('small GPS disagreement is first', M.colorOf('gpslidar', 4, pal), [0, 0, 0]);
+check('big one is last', M.colorOf('gpslidar', 90, pal), [200, 200, 200]);
+check('wheels agree in RTK fix', M.colorOf('gpswheel', 4, pal), [0, 0, 0]);
+check('typical torque is low on the scale', M.colorOf('torque', 700, pal)[0] <= 50, true);
+check('torque legend in Nm', M.METRICS.torque.label(1700), '17 Nm');
+check('receiver accuracy is no metric', 'accuracy' in M.METRICS, false);
 check('RPM: a held setpoint is the first step', M.colorOf('rpm', 1, pal), [0, 0, 0]);
 check('overshoot too', M.colorOf('rpm', -14, pal), [0, 0, 0]);
 near('a 7 rpm dip is already step 3', M.colorOf('rpm', 7, pal)[0], 100, 1e-6);
 check('a 1 Hz base stays first', M.colorOf('rtcm', 9, pal), [0, 0, 0]);
 check('the rpm legend is in rpm', M.METRICS.rpm.label(7), '−7 rpm');
-check('the accuracy legend is in cm', M.METRICS.accuracy.label(15), '1.5 cm');
+check('the lidar legend is in cm', M.METRICS.gpslidar.label(35), '35 cm');
 check('no fix-class metric left', 'gnss' in M.METRICS, false);
 M.METRIC_KEYS.forEach((k) => check('metric ' + k + ' exists', !!M.METRICS[k], true));
 
@@ -65,7 +68,7 @@ check('cutting is the deck', M.styleOf(S.indexOf('cutting'), deck).w, deck);
 check('transit is thin', M.styleOf(S.indexOf('transit'), deck).w, 0.07);
 check('blocked has its colour', M.styleOf(S.indexOf('blocked'), deck).color, 'blocked');
 check('rule has its colour', M.styleOf(S.indexOf('rule'), deck).color, 'rule');
-const row = (x, y, load, state, extra) => [x * 100, y * 100, load, 200, 3400, 210, state, 0, 30, 25, 4, 2, 14, 3, 55].map((v, i) => (extra && i in extra ? extra[i] : v));
+const row = (x, y, load, state, extra) => [x * 100, y * 100, load, 200, 3400, 210, state, 0, 30, 25, 4, 2, 14, 3, 55, 710, 12, 4].map((v, i) => (extra && i in extra ? extra[i] : v));
 let rows = Int32Array.from(row(0, 0, 20, S.indexOf('transit')));
 check('load with the blade off is neutral', M.rowColor(rows, 0, 'load', pal, M.styleOf(S.indexOf('transit'), deck)), pal.off);
 check('speed with the blade off keeps its scale', M.rowColor(rows, 0, 'speed', pal, M.styleOf(S.indexOf('transit'), deck)), M.colorOf('speed', 30, pal));
@@ -73,8 +76,10 @@ rows = Int32Array.from(row(0, 0, M.NONE, S.indexOf('cutting')));
 check('unknown is unknown', M.rowColor(rows, 0, 'load', pal, M.styleOf(0, deck)), pal.none);
 rows = Int32Array.from(row(0, 0, 50, S.indexOf('spinup'), { 11: M.NONE }));
 check('rpm dip in a spin-up is neutral', M.rowColor(rows, 0, 'rpm', pal, M.styleOf(S.indexOf('spinup'), deck)), pal.off);
-rows = Int32Array.from(row(0, 0, 50, S.indexOf('cutting'), { 12: M.NONE, 13: M.NONE }));
-check('an old run has no accuracy', M.rowColor(rows, 0, 'accuracy', pal, M.styleOf(0, deck)), pal.none);
+rows = Int32Array.from(row(0, 0, 50, S.indexOf('cutting'), { 13: M.NONE, 16: M.NONE, 17: M.NONE }));
+check('an old run has no lidar check', M.rowColor(rows, 0, 'gpslidar', pal, M.styleOf(0, deck)), pal.none);
+check('...no wheel check', M.rowColor(rows, 0, 'gpswheel', pal, M.styleOf(0, deck)), pal.none);
+check('...but torque', M.rowColor(rows, 0, 'torque', pal, M.styleOf(0, deck)) === pal.none, false);
 check('...and no rtcm', M.rowColor(rows, 0, 'rtcm', pal, M.styleOf(0, deck)), pal.none);
 
 // picking
@@ -91,13 +96,15 @@ check('the worst stays in a cell', M.declutter(ev, 1).map((e) => e.k).sort(), [0
 check('close in, all show', M.declutter(ev, 0.01).length, 3);
 
 // card
-const facts = { num_sv: 19, pdop: 1.78, rtcm_rate: 5.5, rtcm_age: 0.3, state: 'cutting', load: 0.31, amps: 0.48, rpm: 3380, setpoint: 3400, temp: 21.3, height: 60, speed: 0.3, cmd: 0.3, wheel: 2.2, roll: 1.2, pitch: -3.1, fix: 4, hacc: 0.014, owner: 'gps', batt_v: 22.4, batt_pct: 67, power: 120, program: 'P', zone: 'Z', path: '3/9', chunk: 12 };
+const facts = { lidar_m: 0.12, jump_m: 0.04, cno: 41.2, prres: 0.8, wheel_max: 2.6, num_sv: 19, pdop: 1.78, rtcm_rate: 5.5, rtcm_age: 0.3, state: 'cutting', load: 0.31, amps: 0.48, rpm: 3380, setpoint: 3400, temp: 21.3, height: 60, speed: 0.3, cmd: 0.3, wheel: 2.2, roll: 1.2, pitch: -3.1, fix: 4, hacc: 0.014, owner: 'gps', batt_v: 22.4, batt_pct: 67, power: 120, program: 'P', zone: 'Z', path: '3/9', chunk: 12 };
 const cg = M.cardGroups(facts);
 check('card groups', cg.map((g) => g.k), ['blade', 'drive', 'place', 'power', 'job']);
-check('few lines', cg.reduce((n, g) => n + g.rows.length, 0) <= 16, true);
-check('rtcm and satellites in the card', cg.find((g) => g.k === 'place').rows.map((r) => r[1]), ['mowl.fix.4 · 1.4 cm', '19 · pDOP 1.78', '5.5/s · 0.3 s', 'gps']);
+check('few lines', cg.reduce((n, g) => n + g.rows.length, 0) <= 19, true);
+check('rtcm and satellites in the card', cg.find((g) => g.k === 'place').rows.map((r) => r[1]), ['mowl.fix.4 · 1.4 cm', '19 · pDOP 1.78', '12 cm', '4 cm', '41.2 dB · 0.8 m', '5.5/s · 0.3 s', 'gps']);
 check('only what is known', M.cardGroups({ state: 'transit', temp: 20 }).map((g) => g.k), ['blade']);
 check('summary lines', M.summaryRows({ time_mow_s: 600, time_transit_s: 60, stops: 2, mean_load: 0.14, peak_load: 0.42, peak_temp: 90.7, energy_wh: 73.2 }).length, 6);
+check('torque total', M.summaryRows({ wheel_mean: 7.4, wheel_peak: 31.8 }), [['torque', '7.4 / 31.8 Nm']]);
+check('gps totals', M.summaryRows({ lidar_med: 12, lidar_p95: 40, jump_med: 4, jump_p95: 14 }), [['gpslidar', '12 / 40 cm'], ['gpswheel', '4 / 14 cm']]);
 check('totals with RTCM', M.summaryRows({ rtk_frac: 0.99, rtcm_rate: 5.5, rtcm_gaps: 2 }), [['rtk', '99 %'], ['rtcm', '5.5/s · 2 ×']]);
 check('duration', [M.duration(90), M.duration(3700)], ['2 min', '1 h 2 min']);
 
@@ -108,7 +115,7 @@ check('skip overlapping rows', st.push(flat, 3), 1);
 check('rows', st.n, 5);
 const narrow = new M.Store();
 narrow.push(M.widen([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 11), 0);
-check('a message of 11 columns widens', [narrow.n, narrow.rows[0], narrow.rows[10], narrow.rows[11], narrow.rows[14]], [1, 1, 11, M.NONE, M.NONE]);
+check('a message of 11 columns widens', [narrow.n, narrow.rows[0], narrow.rows[10], narrow.rows[11], narrow.rows[17]], [1, 1, 11, M.NONE, M.NONE]);
 st.addEvents([1, 100, 200, 3]);
 check('event', [st.events[0].x, st.events[0].k], [1, 3]);
 const big = new M.Store();
@@ -169,10 +176,11 @@ M.METRIC_KEYS.forEach((k) => keys.push('metric.' + k));
 S.forEach((k) => keys.push('state.' + k));
 M.EVENTS.forEach((k) => keys.push('ev.' + k));
 ['0', '1', '2', '3', '4'].forEach((k) => keys.push('fix.' + k));
+['torque', 'gpslidar', 'gpswheel'].forEach((k) => keys.push('note.' + k));
 ['cut', 'spin', 'transit', 'rule', 'blocked'].forEach((k) => keys.push('style.' + k));
 ['blade', 'drive', 'place', 'power', 'job'].forEach((k) => keys.push('grp.' + k));
-['load', 'rpm', 'temp', 'height', 'speed', 'wheel', 'slope', 'fix', 'sats', 'rtcm', 'owner', 'battery', 'power', 'program', 'zone', 'path'].forEach((k) => keys.push('f.' + k));
-['mow', 'transit', 'stops', 'load', 'peak_temp', 'energy', 'rtk', 'rtcm'].forEach((k) => keys.push('sum.' + k));
+['load', 'rpm', 'temp', 'height', 'speed', 'wheel', 'slope', 'fix', 'sats', 'gpslidar', 'gpswheel', 'cno', 'rtcm', 'owner', 'battery', 'power', 'program', 'zone', 'path'].forEach((k) => keys.push('f.' + k));
+['mow', 'transit', 'stops', 'load', 'peak_temp', 'energy', 'rtk', 'rtcm', 'torque', 'gpslidar', 'gpswheel'].forEach((k) => keys.push('sum.' + k));
 ['en', 'cs'].forEach((l) => keys.forEach((k) => check(l + ' has mowl.' + k, typeof D[l]['mowl.' + k], 'string')));
 
 // RTCM rate of the right panel, from map_view.js

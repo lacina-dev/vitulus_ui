@@ -85,7 +85,7 @@
 
     /* ----------------------------------------------- what is open now */
     var PANEL_HOST = { marker: 'div_menu_marker', map: 'div_menu_map', program: 'div_menu_map_program',
-                       config: 'div_menu_config', editor: 'div_map_detail' };
+                       autonomy: 'div_menu_autonomy', config: 'div_menu_config', editor: 'div_map_detail' };
     function contextKey() {
         var d = $('ui_drawer');
         if (!d || !d.classList.contains('open')) { return null; }

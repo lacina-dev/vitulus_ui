@@ -75,6 +75,7 @@
 <script src="/assets/js/status_header.js"></script>
 <script src="/assets/js/right_dock.js"></script>
 <script src="/assets/js/calendar_manager.js"></script>
+<script src="/assets/js/vt_autonomy.js"></script>
 <script src="/assets/js/map_objects.js"></script>
 <script src="/assets/js/planner3d.js"></script>
 <script src="/assets/js/map_edit.js"></script>
@@ -705,6 +706,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <link rel="stylesheet" href="assets/css/vt_camera.css">
     <link rel="stylesheet" href="assets/css/vt_lidar.css">
     <link rel="stylesheet" href="assets/css/vt_header.css">
+    <link rel="stylesheet" href="assets/css/vt_autonomy.css">
 </head>
 
 <body>
@@ -720,6 +722,20 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                     <p class="vt-fs-sm vt-muted vt-mb0" data-i18n="page.undone">This cannot be undone.</p>
                 </div>
                 <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal" data-i18n="common.cancel">Cancel</button><button class="btn btn-danger" id="btn_modal_remove_bag" type="button" data-i18n="common.delete">Delete</button></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" role="dialog" tabindex="-1" id="modal_rain_run">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" data-i18n="auto.rainrun.title">Rain would stop this start</h4><button class="btn-close" type="button" aria-label="Close" data-i18n-aria-label="common.close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="p_modal_rain_run_why"></p>
+                    <p class="vt-fs-sm vt-muted vt-mb0" data-i18n="auto.rainrun.note">Ignoring it applies to this one run. The robot then mows in the rain and does not go home for it.</p>
+                </div>
+                <div class="modal-footer"><button class="btn btn-light" type="button" data-bs-dismiss="modal" data-i18n="common.cancel">Cancel</button><button class="btn btn-warning" id="btn_modal_rain_run_go" type="button" data-i18n="auto.rainrun.go">Ignore rain this time</button></div>
             </div>
         </div>
     </div>
@@ -817,7 +833,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
             <div class="no-event vt-menu-overlay">
                 <div class="row g-0 all-events" id="row_menu">
                     <div class="col">
-                        <div class="btn-group btn-group-sm bg-dark border-1 border-primary vt-tbar vt-tbar-top" role="group" ><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events vt-tbar-first" id="btn_marker" type="button"><i class="la la-hand-pointer-o vt-fs-xl vt-strong"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_settings" type="button"><i class="la la-gear vt-fs-xl vt-strong"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_map" type="button"><i class="la la-map vt-fs-xl vt-strong"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_programs" type="button"><i class="la la-play vt-fs-xl vt-strong"></i></button></div>
+                        <div class="btn-group btn-group-sm bg-dark border-1 border-primary vt-tbar vt-tbar-top" role="group" ><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events vt-tbar-first" id="btn_marker" type="button"><i class="la la-hand-pointer-o vt-fs-xl vt-strong"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_settings" type="button"><i class="la la-gear vt-fs-xl vt-strong"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_map" type="button"><i class="la la-map vt-fs-xl vt-strong"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_programs" type="button"><i class="la la-play vt-fs-xl vt-strong"></i></button><button class="btn btn-outline-info d-flex justify-content-center align-items-center all-events" id="btn_autonomy" type="button"><i class="la la-calendar-check-o vt-fs-xl vt-strong"></i></button></div>
                     </div>
                 </div>
                 <div class="row all-events vt-row0" id="row_submenu">
@@ -1224,7 +1240,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                         <div class="border-primary vt-drawer-panel" id="div_menu_map_point" style="display: none;"></div>
                         <div class="border-primary vt-drawer-panel" id="div_menu_map_path" style="display: none;"></div>
                         <div class="border-primary vt-drawer-panel" id="div_menu_map_program" style="display: none;">
-<ul class="nav nav-tabs drawer-pills vt-mb2" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs" data-i18n="prog.tab.programs">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_calendar" data-i18n="prog.calendar">Calendar</a></li></ul>
+<ul class="nav nav-tabs drawer-pills vt-mb2" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs" data-i18n="prog.tab.programs">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link vt-auto-link" href="#" id="link_programs_plan" title="The calendar is in Autonomy" data-i18n-title="auto.programs_link_tip"><span data-i18n="prog.calendar">Calendar</span> <i class="la la-angle-right"></i></a></li></ul>
 <div class="tab-content">
 <div class="tab-pane active" role="tabpanel" id="tab_programs">
                             <!-- U1 kolo 3: Programs in the panel anatomy — list of program
@@ -1284,59 +1300,50 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                 </div>
                             </div>
                             </div>
-<div class="tab-pane" role="tabpanel" id="tab_calendar"><!-- ===== Calendar Events Section (U1 kolo 2: panel anatomy, no inline styling) ===== -->
-                            <div class="vt-stack">
-                                <div class="vt-card" id="card_calendar">
-                                    <div class="vt-card-head">
-                                        <span class="vt-card-title" data-i18n="prog.calendar">Calendar</span>
-                                        <span class="vt-cal-state" id="span_scheduler_state" data-state="off">—</span>
-                                        <div class="form-check form-switch vt-switch-inline" title="Hold = no program starts from the calendar until you release it" data-i18n-title="prog.hold_tip">
-                                            <input class="form-check-input" type="checkbox" id="chk_scheduler_inhibit">
-                                            <label class="form-check-label" for="chk_scheduler_inhibit" data-i18n="prog.hold">Hold</label>
-                                        </div>
-                                    </div>
-                                    <div class="vt-cal-master">
-                                        <div class="form-check form-switch vt-switch-inline" title="One switch for the whole automatic mowing: calendar starts, sleeping, resuming" data-i18n-title="prog.auto_tip">
-                                            <input class="form-check-input" type="checkbox" id="chk_scheduler_enabled">
-                                            <label class="form-check-label" for="chk_scheduler_enabled" data-i18n="prog.auto">Automatic mowing</label>
-                                        </div>
-                                    </div>
-                                    <div class="vt-cal-line"><span id="span_scheduler_status" class="vt-muted"></span><span class="vt-ok-text" id="span_scheduler_next"></span></div>
-                                    <div id="div_scheduler_issues" class="vt-cal-issues" style="display:none;"></div>
-                                    <div id="div_calendar_events" class="vt-list"></div>
-                                    <div class="vt-row vt-card-actions"><button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button" data-i18n="prog.add_event">+ Add event</button></div>
-                                </div>
-                                <!-- The allowed mowing time: the switch and the times show what the robot reports (calendar_manager.js) -->
-                                <div class="vt-card" id="card_mow_window">
-                                    <div class="vt-card-head">
-                                        <span class="vt-card-title" data-i18n="prog.window">Allowed mowing time</span>
-                                        <div class="form-check form-switch vt-switch-inline" title="Calendar programs start and continue only in this time of day" data-i18n-title="prog.window_tip">
-                                            <input class="form-check-input" type="checkbox" id="chk_window_enabled" disabled>
-                                            <label class="form-check-label" for="chk_window_enabled" data-i18n="prog.window_limit">Limit</label>
-                                        </div>
-                                    </div>
-                                    <div class="vt-cal-line"><span id="span_window_state" class="vt-muted"></span></div>
-                                    <div class="vt-win-times">
-                                        <div class="vt-form-item">
-                                            <label class="vt-label" for="input_window_start_h" data-i18n="prog.window_from">From</label>
-                                            <div class="vt-row vt-time">
-                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_start_h" min="0" max="23" step="1" disabled>
-                                                <span>:</span>
-                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_start_m" min="0" max="59" step="1" disabled>
-                                            </div>
-                                        </div>
-                                        <div class="vt-form-item">
-                                            <label class="vt-label" for="input_window_end_h" data-i18n="prog.window_to">To</label>
-                                            <div class="vt-row vt-time">
-                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_end_h" min="0" max="23" step="1" disabled>
-                                                <span>:</span>
-                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_end_m" min="0" max="59" step="1" disabled>
-                                            </div>
-                                        </div>
-                                        <button class="btn btn-sm btn-outline-info" id="btn_window_save" type="button" disabled data-i18n="common.save">Save</button>
-                                    </div>
-                                    <div id="div_window_msg" class="vt-win-msg" style="display:none;"></div>
-                                </div>
+</div>
+</div>
+
+<!-- ===== Autonomy: what the robot does on its own (vt_autonomy.js; contract: vitulus_planner docs/AUTONOMY.md).
+     One anatomy per section: head = tone + tokens, expand = numbers, then the controls. -->
+<div class="border-primary vt-drawer-panel vt-auto" id="div_menu_autonomy" style="display: none;">
+<div class="vt-card vt-auto-hero" id="card_calendar">
+    <div class="vt-card-head">
+        <span class="vt-sdot"></span><span class="vt-card-title" data-i18n="auto.hero.title">Status</span>
+        <span class="vt-cal-state" id="span_scheduler_state" data-state="off">—</span>
+    </div>
+    <p class="vt-auto-sentence"><span id="span_scheduler_status"></span></p>
+    <p class="vt-auto-nextline"><span id="span_scheduler_next"></span></p>
+    <div class="vt-attn" id="auto_alert" data-state="warn" hidden></div>
+    <div class="vt-attn" id="auto_countdown" data-state="warn" hidden></div>
+    <label class="vt-auto-master" for="chk_scheduler_enabled">
+        <span class="vt-auto-master-t"><b data-i18n="prog.auto">Automatic mowing</b><small data-i18n="auto.master.hint">Calendar starts, sleeping and resuming. Off: nothing starts by itself.</small></span>
+        <span class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chk_scheduler_enabled"></span>
+    </label>
+    <label class="vt-auto-master vt-auto-hold" for="chk_scheduler_inhibit">
+        <span class="vt-auto-master-t"><b data-i18n="auto.hold.label">Pause (Hold)</b><small data-i18n="auto.hold.hint">Stops new starts only. A running mission finishes; use Stop to end it.</small></span>
+        <span class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chk_scheduler_inhibit"></span>
+    </label>
+</div>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_now" data-sec="now" data-state="off">
+    <summary><i class="la la-check-circle vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.now">Now</span><span class="vt-auto-toks" id="auto_tok_now"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-nums" id="auto_nums_now"></div>
+<h6 class="vt-auto-h" data-i18n="auto.now.start_q">Could it start now?</h6>
+<div class="vt-auto-checks" id="auto_checks"></div>
+<h6 class="vt-auto-h" data-i18n="auto.now.sleep_q">Why isn't it sleeping?</h6>
+<div class="vt-auto-checks" id="auto_sleep_checks"></div>
+    </div>
+</details>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_plan" data-sec="plan" data-state="off">
+    <summary><i class="la la-calendar vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.plan">Plan</span><span class="vt-auto-toks" id="auto_tok_plan"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-nums" id="auto_nums_plan"></div>
+<div id="auto_plan_state" class="vt-auto-sub"></div>
+<div id="auto_timeline" class="vt-auto-tl"></div>
+<div class="vt-auto-actions" id="auto_plan_actions"></div>
+<h6 class="vt-auto-h" data-i18n="prog.calendar">Calendar</h6>
+<div id="div_calendar_events" class="vt-list"></div>
+<div class="vt-row vt-card-actions"><button class="btn btn-sm btn-outline-info" id="btn_calendar_add" type="button" data-i18n="prog.add_event">+ Add event</button></div>
                                 <!-- Calendar event edit form (hidden by default; display toggled by calendar_manager.js) -->
                                 <div id="div_calendar_form" class="vt-card" data-state="info" style="display: none;">
                                     <div class="vt-card-head"><span class="vt-card-title" data-i18n="prog.event">Event</span></div>
@@ -1394,9 +1401,89 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <button class="btn btn-sm btn-secondary" id="btn_cal_cancel" type="button" data-i18n="common.cancel">Cancel</button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-</div>
+                                <!-- The allowed mowing time: the switch and the times show what the robot reports (calendar_manager.js) -->
+                                <div class="vt-card" id="card_mow_window">
+                                    <div class="vt-card-head">
+                                        <span class="vt-card-title" data-i18n="prog.window">Allowed mowing time</span>
+                                        <div class="form-check form-switch vt-switch-inline" title="Calendar programs start and continue only in this time of day" data-i18n-title="prog.window_tip">
+                                            <input class="form-check-input" type="checkbox" id="chk_window_enabled" disabled>
+                                            <label class="form-check-label" for="chk_window_enabled" data-i18n="prog.window_limit">Limit</label>
+                                        </div>
+                                    </div>
+                                    <div class="vt-cal-line"><span id="span_window_state" class="vt-muted"></span></div>
+                                    <div class="vt-win-times">
+                                        <div class="vt-form-item">
+                                            <label class="vt-label" for="input_window_start_h" data-i18n="prog.window_from">From</label>
+                                            <div class="vt-row vt-time">
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_start_h" min="0" max="23" step="1" disabled>
+                                                <span>:</span>
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_start_m" min="0" max="59" step="1" disabled>
+                                            </div>
+                                        </div>
+                                        <div class="vt-form-item">
+                                            <label class="vt-label" for="input_window_end_h" data-i18n="prog.window_to">To</label>
+                                            <div class="vt-row vt-time">
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_end_h" min="0" max="23" step="1" disabled>
+                                                <span>:</span>
+                                                <input class="form-control form-control-sm" type="number" inputmode="numeric" id="input_window_end_m" min="0" max="59" step="1" disabled>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-info" id="btn_window_save" type="button" disabled data-i18n="common.save">Save</button>
+                                    </div>
+                                    <div id="div_window_msg" class="vt-win-msg" style="display:none;"></div>
+                                </div>
+<div class="vt-auto-sets" data-auto-group="plan"></div>
+    </div>
+</details>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_rain" data-sec="rain" data-state="off">
+    <summary><i class="la la-cloud vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.rain">Weather</span><span class="vt-auto-toks" id="auto_tok_rain"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-nums" id="auto_nums_rain"></div>
+<div class="vt-auto-radar" id="auto_radar"></div>
+<div class="vt-auto-choices" id="auto_rain_mode" role="radiogroup" aria-labelledby="auto_rain_mode_h"></div>
+<div class="vt-auto-sets" data-auto-group="rain"></div>
+<div class="vt-auto-linkline"><a href="#" id="auto_link_radar" data-i18n="auto.rain.open_radar">Radar images in Map › Rain</a></div>
+    </div>
+</details>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_battery" data-sec="battery" data-state="off">
+    <summary><i class="la la-battery-three-quarters vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.battery">Battery</span><span class="vt-auto-toks" id="auto_tok_battery"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-nums" id="auto_nums_battery"></div>
+<div class="vt-auto-sets" data-auto-group="battery"></div>
+    </div>
+</details>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_sleep" data-sec="sleep" data-state="off">
+    <summary><i class="la la-moon-o vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.sleep">Sleep</span><span class="vt-auto-toks" id="auto_tok_sleep"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-nums" id="auto_nums_sleep"></div>
+<div class="vt-auto-sets" data-auto-group="sleep"></div>
+<div class="vt-auto-block" id="auto_stay"></div>
+<div class="vt-auto-block" id="auto_sleep_now"></div>
+    </div>
+</details>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_recovery" data-sec="recovery" data-state="off">
+    <summary><i class="la la-life-ring vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.recovery">Faults</span><span class="vt-auto-toks" id="auto_tok_recovery"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-nums" id="auto_nums_recovery"></div>
+<div class="vt-auto-sets" data-auto-group="recovery"></div>
+    </div>
+</details>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_history" data-sec="history" data-state="off">
+    <summary><i class="la la-history vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.history">History</span><span class="vt-auto-toks" id="auto_tok_history"></span></summary>
+    <div class="drawer-sec-body">
+<div id="div_scheduler_issues" class="vt-cal-issues" style="display:none;"></div>
+<div class="vt-pills vt-auto-filter" id="auto_journal_filter"></div>
+<ul class="vt-acts vt-auto-journal" id="auto_journal"></ul>
+    </div>
+</details>
+<details class="drawer-sec vt-auto-sec" id="auto_sec_advanced" data-sec="advanced" data-state="off">
+    <summary><i class="la la-sliders vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.advanced">Advanced</span><span class="vt-auto-toks" id="auto_tok_advanced"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-sets" id="auto_adv_list"></div>
+<h6 class="vt-auto-h" data-i18n="auto.lock.title">Locked limits</h6>
+<div class="vt-auto-locks" id="auto_locks"></div>
+    </div>
+</details>
 </div>
                         
                         <div class="border-primary vt-drawer-panel" id="div_menu_config" style="display: none;">
@@ -1573,8 +1660,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.ext_temp">External temp limit</span><span class="text-info input-group-text vt-val" id="span_ext_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_ext_temp" min="20" max="45" step="1" placeholder="20–45"><button class="btn btn-primary" id="btn_ext_temp" type="button" data-i18n="common.save">Save</button></div>
       </div>
     </div>
-    <div class="vt-card">
-      <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.power.sleep">Sleep control</span></div>
+    <details class="drawer-sec" id="details_power_raw_sleep">
+      <summary data-i18n="cfg.power.raw_sleep">Advanced: raw sleep controls</summary>
+      <div class="drawer-sec-body">
+        <p class="vt-fs-sm vt-tone-warn" data-i18n="cfg.power.raw_sleep_warn">Service use only. These go straight to the power module, past every check of the scheduler. To put the robot to sleep use Autonomy › Sleep.</p>
       <div class="vt-fields">
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_time_min">Sleep time</span><span class="text-info input-group-text vt-val" id="span_sleep_time_min">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_time_min" min="1" max="1440" step="1" placeholder="1–1440"><button class="btn btn-primary" id="btn_sleep_time_save" type="button" data-i18n="common.save">Save</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_now">Sleep now</span><button class="btn btn-warning" id="btn_sleep_timed" type="button" data-i18n="cfg.power.timed">Timed</button><button class="btn btn-warning" id="btn_sleep_until_charged" type="button" data-i18n="cfg.power.until_charged">Until charged</button></div>
@@ -1582,7 +1671,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.sleep_charged_offset">Charged offset</span><span class="text-info input-group-text vt-val" id="span_sleep_charged_offset">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_sleep_charged_offset" min="0" max="60" step="1" placeholder="0–60"><button class="btn btn-primary" id="btn_sleep_charged_offset" type="button" data-i18n="common.save">Save</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_timeout_discharging">Discharge timeout</span><span class="text-info input-group-text vt-val" id="span_standby_timeout_discharging">&nbsp;</span><span class="input-group-text">min</span><input class="form-control" type="number" id="input_standby_timeout_discharging" min="0" max="1440" step="1" placeholder="0–1440"><button class="btn btn-primary" id="btn_standby_timeout_discharging" type="button" data-i18n="common.save">Save</button></div>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 </div>
 <div class="tab-pane fade" role="tabpanel" id="tab_mower">

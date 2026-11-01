@@ -1,10 +1,11 @@
 // vt_mow_trail.js — the "Mow load" layer: a trail behind the robot. One metric at
-// a time gives the colour (Load, Speed, Slope, Temperature, Accuracy, RTCM, Rpm dip), the state
+// a time gives the colour (Load, Torque, Speed, Slope, Temperature, GPS against lidar, GPS against
+// wheels, RTCM, Rpm dip), the state
 // gives the width: a full deck stripe while cutting, a thin line in transit.
 // Stops and rules are small icons. Everything else is in the card behind a tap.
 //
 // Data: vitulus_mapping/mowtrail.py, docs/MAP_OBJECTS.md section 11. The robot
-// sends 15 columns, downsampled; a tap asks for the raw row.
+// sends 18 columns, downsampled; a tap asks for the raw row.
 //
 // Drawn into the ros3d scene, so one geometry serves the map and the editor (the
 // editor's overlay canvas is transparent above it). ros3d carries its own THREE
@@ -20,12 +21,12 @@ window.VTMowTrail = (function () {
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
     // ---- format, same as mowtrail.py
-    var STRIDE = 15, LOAD = 2, AMPS = 3, RPM = 4, TEMP = 5, STATE = 6, TIME = 7, SPEED = 8, SLOPE = 9, FIX = 10, DIP = 11, HACC = 12, AGE = 13, RATE = 14;
+    var STRIDE = 18, WHEEL = 15, LIDAR = 16, JUMP = 17, LOAD = 2, AMPS = 3, RPM = 4, TEMP = 5, STATE = 6, TIME = 7, SPEED = 8, SLOPE = 9, FIX = 10, DIP = 11, HACC = 12, AGE = 13, RATE = 14;
     var BRK = 16, NONE = -9999;
     var STATES = ['cutting', 'spinup', 'transit', 'blocked', 'overload', 'hot', 'rule', 'hold'];
-    var EVENTS = ['blocked', 'hot', 'overload', 'rule', 'temp', 'recovery', 'backup', 'detour', 'stall', 'no_progress', 'rewindow', 'hold', 'rtcm_gap', 'fix_down', 'fix_up'];
-    var GLYPH = { blocked: '✕', hot: 'T', overload: '!', rule: '⊘', temp: 'T', recovery: '↻', backup: '↶', detour: '⤴', stall: '■', no_progress: '…', rewindow: '↔', hold: '‖', rtcm_gap: 'R', fix_down: '▼', fix_up: '▲' };
-    var EV_TONE = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2];   // colour step of an EVENTS index
+    var EVENTS = ['blocked', 'hot', 'overload', 'rule', 'temp', 'recovery', 'backup', 'detour', 'stall', 'no_progress', 'rewindow', 'hold', 'rtcm_gap', 'fix_down', 'fix_up', 'gps_jump'];
+    var GLYPH = { blocked: '✕', hot: 'T', overload: '!', rule: '⊘', temp: 'T', recovery: '↻', backup: '↶', detour: '⤴', stall: '■', no_progress: '…', rewindow: '↔', hold: '‖', rtcm_gap: 'R', fix_down: '▼', fix_up: '▲', gps_jump: 'J' };
+    var EV_TONE = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 1];   // colour step of an EVENTS index
     var DEFAULT_LIMITS = { trip_a: 1.54, overload_load: 0.85, deck_m: 0.29, temp_warn_c: 60, temp_max_c: 70 };
 
     // Five colour steps, tokens --vt-mow-1..5 (ColorBrewer RdYlBu: safe for
@@ -35,19 +36,24 @@ window.VTMowTrail = (function () {
     //   rpm    the PID holds 91 % of it within 2 rpm of the setpoint, 4 % 2-4 below,
     //          3 % 4-7, 1 % 7-12, the rest are real dips, down to 145. So the dip,
     //          not rpm, and fine near 0: 3400 +-3 on any fixed rpm scale is one colour.
-    //   hAcc   14 mm in RTK fix (99 % of the run), 27 mm float, so a step at 1.5 and
-    //          2.5 cm tells them apart; 5 m without corrections is off the scale.
+    //   torque sum of four wheels: median 7 Nm, p90 13, p95 17, p99 22, turns p90 17.
+    //          Each wheel is limited to 20 Nm, so 80 Nm would be all of them at the limit.
+    //   GPS    hAcc says 14 mm whatever happens, so it is not a scale. Against lidar
+    //          (bag 17 Oct, moving): median 9 cm, p90 36, p99 59. Against wheels over
+    //          1 s in RTK fix: median 4 cm, p90 12, p99 31, float up to 190.
     //   RTCM   a 1 Hz base makes the age a saw 0..1 s, 3 s is gnss_status corr_stale.
     var METRICS = {
         load: { col: LOAD, stops: [12, 20, 35, 60, 85], blade: true, label: function (v, lim) { return (v / 100 * lim.trip_a).toFixed(2) + ' A'; } },
+        torque: { col: WHEEL, note: true, stops: [600, 800, 1200, 1700, 2500], label: function (v) { return (v / 100) + ' Nm'; } },
         speed: { col: SPEED, stops: [5, 15, 25, 35, 45], label: function (v) { return (v / 100).toFixed(2) + ' m/s'; } },
         slope: { col: SLOPE, stops: [20, 50, 100, 150, 200], label: function (v) { return (v / 10).toFixed(0) + '°'; } },
         temp: { col: TEMP, stops: [300, 400, 500, 600, 700], label: function (v) { return (v / 10).toFixed(0) + ' °C'; } },
-        accuracy: { col: HACC, stops: [15, 25, 50, 100, 300], label: function (v) { return (v / 10) + ' cm'; } },
+        gpslidar: { col: LIDAR, note: true, stops: [5, 10, 20, 35, 60], label: function (v) { return v + ' cm'; } },
+        gpswheel: { col: JUMP, note: true, stops: [5, 10, 20, 40, 100], label: function (v) { return v + ' cm'; } },
         rtcm: { col: AGE, stops: [10, 15, 30, 100, 300], label: function (v) { return (v / 10) + ' s'; } },
         rpm: { col: DIP, stops: [2, 4, 7, 12, 100], blade: true, label: function (v) { return '−' + v + ' rpm'; } },
     };
-    var METRIC_KEYS = ['load', 'speed', 'slope', 'temp', 'accuracy', 'rtcm', 'rpm'];
+    var METRIC_KEYS = ['load', 'torque', 'speed', 'slope', 'temp', 'gpslidar', 'gpswheel', 'rtcm', 'rpm'];
 
     // ---- pure helpers
     function hex(c) {
@@ -158,6 +164,9 @@ window.VTMowTrail = (function () {
             hacc: known(rows[o + HACC]) ? rows[o + HACC] / 1000 : null,
             rtcm_age: known(rows[o + AGE]) ? rows[o + AGE] / 10 : null,
             rtcm_rate: known(rows[o + RATE]) ? rows[o + RATE] / 10 : null,
+            wheel: known(rows[o + WHEEL]) ? rows[o + WHEEL] / 100 : null,
+            lidar_m: known(rows[o + LIDAR]) ? rows[o + LIDAR] / 100 : null,
+            jump_m: known(rows[o + JUMP]) ? rows[o + JUMP] / 100 : null,
         };
     }
     // groups of the card, only what is known
@@ -172,12 +181,15 @@ window.VTMowTrail = (function () {
         ];
         var drive = [
             ['speed', r.speed == null ? null : pair(num(r.speed, 2), num(r.cmd, 2)) + ' m/s'],
-            ['wheel', num(r.wheel, 1, 'Nm')],
+            ['wheel', r.wheel == null ? null : num(r.wheel, 1, 'Nm') + (r.wheel_max == null ? '' : ' · ' + r.wheel_max.toFixed(1))],
             ['slope', r.roll != null ? r.roll.toFixed(1) + '° / ' + (r.pitch == null ? '?' : r.pitch.toFixed(1)) + '°' : num(r.slope, 1, '°')],
         ];
         var place = [
             ['fix', r.fix == null ? null : t('mowl.fix.' + r.fix) + (r.hacc == null ? '' : ' · ' + (r.hacc * 100).toFixed(1) + ' cm')],
             ['sats', r.num_sv == null ? null : r.num_sv + (r.pdop == null ? '' : ' · pDOP ' + r.pdop.toFixed(2))],
+            ['gpslidar', r.lidar_m == null ? null : Math.round(r.lidar_m * 100) + ' cm'],
+            ['gpswheel', r.jump_m == null ? null : Math.round(r.jump_m * 100) + ' cm'],
+            ['cno', r.cno == null ? null : r.cno.toFixed(1) + ' dB' + (r.prres == null ? '' : ' · ' + r.prres.toFixed(1) + ' m')],
             ['rtcm', r.rtcm_rate == null ? null : r.rtcm_rate.toFixed(1) + '/s' + (r.rtcm_age == null ? '' : ' · ' + r.rtcm_age.toFixed(1) + ' s')],
             ['owner', r.owner || null],
         ];
@@ -195,7 +207,10 @@ window.VTMowTrail = (function () {
         if (s.mean_load != null) out.push(['load', Math.round(s.mean_load * 100) + ' / ' + Math.round((s.peak_load || 0) * 100) + ' %']);
         if (s.peak_temp != null) out.push(['peak_temp', s.peak_temp.toFixed(1) + ' °C']);
         if (s.energy_wh != null) out.push(['energy', Math.round(s.energy_wh) + ' Wh']);
-        if (s.rtk_frac != null) out.push(['rtk', Math.round(s.rtk_frac * 100) + ' %']);
+        if (s.wheel_mean != null) out.push(['torque', s.wheel_mean.toFixed(1) + ' / ' + s.wheel_peak.toFixed(1) + ' Nm']);
+        if (s.rtk_frac != null) out.push(['rtk', Math.round(s.rtk_frac * 100) + ' %' + (s.fix_losses ? ' · ' + s.fix_losses + ' ×' : '')]);
+        if (s.lidar_med != null) out.push(['gpslidar', s.lidar_med + ' / ' + s.lidar_p95 + ' cm']);
+        if (s.jump_med != null) out.push(['gpswheel', s.jump_med + ' / ' + s.jump_p95 + ' cm']);
         if (s.rtcm_rate != null) out.push(['rtcm', s.rtcm_rate.toFixed(1) + '/s' + (s.rtcm_gaps ? ' · ' + s.rtcm_gaps + ' ×' : '')]);
         return out;
     }
@@ -552,7 +567,8 @@ window.VTMowTrail = (function () {
         var cells = m.stops.map(function (v, i) { return { c: pal.ramp[i], l: m.label(v, lim) }; });
         var bar = cells.map(function (c) { return '<span class="mow-stop"><i style="background:' + css(c.c) + '"></i><b>' + esc(c.l) + '</b></span>'; }).join('');
         var w = function (cls, k) { return '<span class="mow-state"><i class="' + cls + '"></i>' + esc(t('mowl.style.' + k)) + '</span>'; };
-        return '<div class="mow-scale">' + bar + '</div><div class="mow-states">' + w('mow-w-full', 'cut') + w('mow-w-mid', 'spin') + w('mow-w-thin', 'transit') + w('mow-w-rule', 'rule') + w('mow-w-blocked', 'blocked') + '</div>';
+        var note = m.note ? '<div class="mow-note">' + esc(t('mowl.note.' + S.metric)) + '</div>' : '';
+        return '<div class="mow-scale">' + bar + '</div>' + note + '<div class="mow-states">' + w('mow-w-full', 'cut') + w('mow-w-mid', 'spin') + w('mow-w-thin', 'transit') + w('mow-w-rule', 'rule') + w('mow-w-blocked', 'blocked') + '</div>';
     }
     function summaryHtml() {
         var s = S.summary || (S.runs[0] && (S.view === 'live') ? S.runs[0] : null);
@@ -675,7 +691,8 @@ window.VTMowTrail = (function () {
     // ---- start
     function start(ros) {
         S.ros = ros;
-        var saved = lsGet(LS_METRIC) === 'gnss' ? 'accuracy' : lsGet(LS_METRIC);   // the name until 2026-11
+        var saved = lsGet(LS_METRIC);
+        if (saved === 'gnss' || saved === 'accuracy') saved = 'gpslidar';          // the names until 2026-11
         S.metric = METRICS[saved] ? saved : 'load';
         S.events = lsGet(LS_EVENTS) !== '0';
         var chk = document.getElementById('mapv3_chk_mowload');

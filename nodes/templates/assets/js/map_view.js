@@ -3031,6 +3031,8 @@ class MapMenu {
         this.btn_menu_path_stop_auto = document.getElementById("btn_menu_path_stop_auto");
 
         this.btn_programs = document.getElementById("btn_programs");
+        this.btn_autonomy = document.getElementById("btn_autonomy");
+        this.div_menu_autonomy = document.getElementById("div_menu_autonomy");
         this.div_menu_map_program = document.getElementById("div_menu_map_program");
         this.div_menu_program_detail_row = document.getElementById("div_menu_program_detail_row");
         this.div_menu_program_detail_row.style.display = 'none';
@@ -3456,6 +3458,7 @@ class MapMenu {
         this._drawer_titles = {
             marker: 'mlay.title.marker', map: 'mlay.title.map', program: 'mlay.title.program',
             config: 'mlay.title.config', editor: 'mlay.title.editor',
+            autonomy: 'mlay.title.autonomy',
         };
         this._drawer_last = null;
         this._drawer_title_text = null;   // the title this panel wrote (see vtOnLang below)
@@ -3471,7 +3474,7 @@ class MapMenu {
                 tt.textContent = self._drawer_title_text;
             }
         });
-        ['div_menu_marker', 'div_menu_map', 'div_menu_map_program',
+        ['div_menu_marker', 'div_menu_map', 'div_menu_map_program', 'div_menu_autonomy',
          'div_menu_config', 'div_map_detail'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) self.ui_drawer_body.appendChild(el);   // move (not copy)
@@ -3585,8 +3588,8 @@ class MapMenu {
     // button always did; the others only flipped a JS flag).
     _menu_active(key) {
         var map = {marker: 'btn_marker', map: 'btn_map', editor: 'btn_map',
-                   program: 'btn_programs', config: 'btn_settings'};
-        ['btn_marker', 'btn_map', 'btn_programs', 'btn_settings'].forEach(function (id) {
+                   program: 'btn_programs', config: 'btn_settings', autonomy: 'btn_autonomy'};
+        ['btn_marker', 'btn_map', 'btn_programs', 'btn_autonomy', 'btn_settings'].forEach(function (id) {
             var b = document.getElementById(id);
             // 'vt-on', not 'active': webui.js strips .active 700 ms after any click
             if (b) b.classList.toggle('vt-on', map[key] === id);
@@ -3620,7 +3623,7 @@ class MapMenu {
         var FOOT = {
             marker: {'': ['btn_marker_send_goal', 'btn_marker_cancel_navigation']},
             map: {'tab-path': ['btn_menu_path_cancel'], 'tab-point': ['btn_menu_point_cancel']},
-            program: {'tab_programs': ['btn_program_new_prog'], 'tab_calendar': ['btn_calendar_add']},
+            program: {'tab_programs': ['btn_program_new_prog']},
         };
         var conf = FOOT[key];
         if (conf) {
@@ -3676,6 +3679,7 @@ class MapMenu {
         if (this.btn_map) this.btn_map.active = false;
         if (this.btn_settings) this.btn_settings.active = false;
         if (this.btn_programs) this.btn_programs.active = false;
+        if (this.btn_autonomy) this.btn_autonomy.active = false;
     }
 
     // Force-show the Map panel in the drawer (used when leaving the editor back to
@@ -3700,12 +3704,14 @@ class MapMenu {
         this.div_menu_map_point.style.display = "none";
         this.div_menu_map_path.style.display = "none";
         this.div_menu_map_program.style.display = "none";
+        if (this.div_menu_autonomy) this.div_menu_autonomy.style.display = "none";
         this.current_submenu = 'editor';
         this.row_submenu_visible = true;
         if (this.btn_marker) this.btn_marker.active = false;
         if (this.btn_map) this.btn_map.active = false;
         if (this.btn_settings) this.btn_settings.active = false;
         if (this.btn_programs) this.btn_programs.active = false;
+        if (this.btn_autonomy) this.btn_autonomy.active = false;
         this.open_drawer('editor');
     }
 
@@ -3716,6 +3722,7 @@ class MapMenu {
         this.div_menu_map_point.style.display = "none";
         this.div_menu_map_path.style.display = "none";
         this.div_menu_map_program.style.display = "none";
+        if (this.div_menu_autonomy) this.div_menu_autonomy.style.display = "none";
         // vitulus_ui: also close the in-view map editor (restores the live camera
         // + map) so opening any other menu panel cleanly leaves edit mode.
         var dme = document.getElementById("div_menu_mapedit");
@@ -3795,6 +3802,32 @@ class MapMenu {
             this.row_submenu.style.display = "none";
             this.row_submenu_visible = false;
             this.btn_programs.active = false;
+            this._drawer_slide_out();
+        }
+    }
+
+    btn_autonomy_onclick(interactive_markers) {
+        if (this.editor_holds()) return;
+        if (this.current_submenu !== 'autonomy') {
+            this.hide_all_submenu_divs();
+            this.row_submenu.style.display = "none";
+            this.row_submenu_visible = false;
+            interactive_markers.imClient.rootObject.visible = false;
+        }
+        if (this.row_submenu_visible === false) {
+            this.current_submenu = 'autonomy';
+            this.div_menu_autonomy.style.display = "block";
+            this.row_submenu.style.display = "block";
+            this.row_submenu_visible = true;
+            this.btn_autonomy.active = true;
+            this.open_drawer('autonomy');
+        }
+        else {
+            this.current_submenu = 'none';
+            this.div_menu_autonomy.style.display = "none";
+            this.row_submenu.style.display = "none";
+            this.row_submenu_visible = false;
+            this.btn_autonomy.active = false;
             this._drawer_slide_out();
         }
     }
@@ -7602,22 +7635,30 @@ class Programs {
         return true;
     }
 
-    runProgram(program_name) {
+    // Rain would refuse this start: Autonomy asks ("Ignore rain this time")
+    // and calls go() itself; anything else goes straight on.
+    _gated(go) {
         if (this._runBlocked()) return;
-        const msg = new ROSLIB.Message({
-            data: this._programRef(program_name),
+        if (window.VTAutonomy && VTAutonomy.runGate(go)) return;
+        go();
+    }
+
+    runProgram(program_name) {
+        this._gated(() => {
+            const msg = new ROSLIB.Message({
+                data: this._programRef(program_name),
+            });
+            this.topic_program_select.publish(msg);
         });
-        this.topic_program_select.publish(msg);
-        // console.log(msg);
     }
 
     resumeProgram(program_name) {
-        if (this._runBlocked()) return;
-        const msg = new ROSLIB.Message({
-            data: this._programRef(program_name),
+        this._gated(() => {
+            const msg = new ROSLIB.Message({
+                data: this._programRef(program_name),
+            });
+            this.topic_program_resume.publish(msg);
         });
-        this.topic_program_resume.publish(msg);
-        // console.log(msg);
     }
 
     stopProgram() {
@@ -8081,6 +8122,7 @@ window.initMapView = function () {
      *  Calendar Manager (scheduler calendar events)
      */
     calendarManager = new CalendarManager(ros.ros, programs);
+    if (window.VTAutonomy) VTAutonomy.init(ros.ros);
 
 
     /**
@@ -8164,6 +8206,10 @@ window.initMapView = function () {
 
     map_menu.btn_programs.onclick = function () {
         map_menu.btn_programs_onclick(interactive_markers);
+    };
+
+    map_menu.btn_autonomy.onclick = function () {
+        map_menu.btn_autonomy_onclick(interactive_markers);
     };
 
     map_menu.btn_menu_program_show.onclick = function () {
@@ -8785,6 +8831,7 @@ window.initMapView = function () {
         if (_openPanel === 'marker') { map_menu.btn_marker.onclick(); }
         else if (_openPanel === 'map') { map_menu.btn_map.onclick(); }
         else if (_openPanel === 'program') { map_menu.btn_programs.onclick(); }
+        else if (_openPanel === 'autonomy') { map_menu.btn_autonomy.onclick(); }
         else if (_openPanel === 'config') { map_menu.btn_settings.onclick(); }
     } catch (e) { console.warn('[vitulus_ui] view-state restore failed:', e); }
 }

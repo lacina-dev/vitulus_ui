@@ -6,13 +6,13 @@ order: 70
 icon: la-hourglass-half
 summary: Baterie, déšť, teplota, noční okno a další důvody, proč se nic nespouští.
 ui: [map/rain]
-related: [programs, mowing, troubleshooting]
+related: [autonomy, programs, mowing, troubleshooting]
 keywords: [čeká, čekání, spánek, déšť, počasí, baterie, teplota, noc, předpověď, radar, nečinný, nespustí se, pozdržet, wait, waiting, sleep, rain, weather, battery, temperature, night, forecast, idle, does not start]
 ---
 # Proč robot čeká
 
 Často robot nic nedělá schválně. Proč, říká stavový řádek kalendáře
-([Programy › Kalendář](programs.md#kalendář)) a log.
+([Autonomie › Teď](autonomy.md#teď)) a log.
 
 ## Než program začne
 
@@ -21,7 +21,7 @@ keywords: [čeká, čekání, spánek, déšť, počasí, baterie, teplota, noc,
 V doku? | a software běží 5 min, programy načtené
 Robot volný? | žádný program, dokování, ruční jízda ani agent; nečeká na Reset
 warn: Povolený čas? | výchozí 07:00–21:00 a zbývá z něj 30 min, jinak spí, dokud nezačne
-warn: Baterie ≥ 40 %? | a neprší teď, v posledních 60 min ani do 30 min
+warn: Baterie ≥ 40 %? | a podle nastavení deště neprší teď, v posledních 60 min ani do 30 min
 ok: Start | robot vyjede z doku a seká; na RTK čeká až venku na undock bodě
 ```
 
@@ -33,7 +33,7 @@ Plánovač nic nespustí, dokud:
 - mise není připravená (po zastavení nebo chybě čeká na **Reset**: říká to karta kalendáře), nebo
   robota používá program, dokování, ruční jízda či agent;
 - je mimo **povolený čas sekání** (výchozí 07:00–21:00, změníš ho v
-  [Programy › Kalendář](programs.md#povolený-čas-sekání)), nebo z něj zbývá méně než 30 minut — robot
+  [Autonomie › Plán](programs.md#povolený-čas-sekání)), nebo z něj zbývá méně než 30 minut — robot
   spí, dokud se okno neotevře. Omezuje to jen kalendář, ne ruční spuštění ani agenta;
 - naplánovaný program není na aktivní mapě (zkouší se každých 5 minut, pak se nahlásí).
 
@@ -44,38 +44,41 @@ Program se také odmítne spustit, když:
 
 - je **baterie pod 40 %**;
 - **právě prší**, pršelo v posledních 60 minutách, nebo je déšť v předpovědi do 30 minut
-  (pokud nejsou kontroly deště vypnuté — viz [níž](#kontrola-deště-zap--vyp)).
+  (pokud [nastavení deště](#co-dělá-déšť) neříká jinak; to jsou výchozí hodnoty, mění se v [Autonomie › Počasí](autonomy.md#počasí)).
 
-Program z kalendáře odmítnutý kvůli baterii se nabije na 80 %, odmítnutý kvůli dešti počká 2 h — pak
+Program z kalendáře odmítnutý kvůli baterii se nabije na 80 %, odmítnutý kvůli dešti počká čas do dalšího pokusu (výchozí 2 h) — pak
 to robot zkusí znovu. Odmítnutí událost nespotřebuje.
 
 Chybějící data o počasí (bez internetu, radar nejede, data starší než 30 minut) kalendář nezastaví:
-robot seká a log napíše *No current weather data, starting anyway*. Mokrá tráva po dešti nemá vlastní
-nastavení: tou rezervou je těch 60 minut po posledním dešti.
+robot seká a log napíše *No current weather data, starting anyway*. Mokrou trávu hlídá **Čekat po dešti**,
+výchozí je 60 minut po posledním dešti. S vypnutým **Startovat se starými daty** stará data start
+zablokují.
 
-### Kontrola deště zap / vyp
+### Co dělá déšť
 
-`weather_rain_bypass` zapíná a vypíná kontroly deště u programů spuštěných ručně — před startem
-i během sekání. Program, který spustil **kalendář**, déšť poslechne vždycky, ať je tu cokoli:
-nikdo se na něj nedívá.
+**Autonomie › Počasí** má jednu volbu, stejnou pro kalendář, ruční spuštění i běh spuštěný agentem:
 
-- `false`: déšť zablokuje start a běžící program pošle domů, jak je popsáno tady;
-- `true`: u ručních spuštění se kontroly přeskočí — robot vyjede a seká i v dešti.
+| Volba | Kalendář | Ručně nebo agentem |
+|---|---|---|
+| **Vždy** (výchozí) | déšť start zastaví | déšť start zastaví |
+| **Jen kalendář** | déšť start zastaví | pojede |
+| **Ignorovat** | pojede | pojede |
 
-Jak to poznáš: s vypnutými kontrolami ukáže **Log** při startu programu varování
-*Rain check BYPASSED by config* a program se spustí, i když v navbaru svítí výstraha deště.
+Na této volbě nezávisí nic než déšť: limity baterie, teploty a bezpečnosti platí dál.
 
-Kde to změnit: `weather_rain_bypass` ve `vitulus_navi/config/mower_smach.yaml` (načte se při startu
-softwaru robota). Mise hodnotu čte při každé kontrole, takže jde změnit i za běhu
-`rosparam set /node_mower_smach/weather_rain_bypass false` — do příštího restartu, pak zase platí
-soubor.
+Když by déšť odmítl **Run** nebo **Resume**, dialog řekne proč (teď prší, před chvílí pršelo, má
+pršet) a nabídne **Tentokrát déšť ignorovat**. Platí to jen pro tuhle jízdu a skončí s ní: další
+jízda zase poslechne nastavení. Když zrušíš, nic se nespustí. Umí to jen člověk; agent řekne, proč
+déšť jeho běh odmítl, a volbu nechá na tobě.
+
+Kalendář žádný dialog nemá: počká čas do dalšího pokusu a zkusí to znovu.
 
 ## Během sekání
 
 | Důvod | Co se stane |
 |---|---|
 | Baterie ≤ 25 % | vrátí se do doku, nabije se na 80 % a **naváže**, kde skončil |
-| Prší, nebo 2 ze 3 kroků předpovědi hlásí RAIN | vrátí se, každé 2 h to zkouší a **naváže**, kde skončil |
+| Prší, nebo 2 ze 3 kroků předpovědi hlásí RAIN | vrátí se (pokud není vypnuté **Při dešti domů**), zkusí to znovu po čase do dalšího pokusu, výchozí 2 h, a **naváže**, kde skončil |
 | Přehřátá sekačka (TEMP) | vrátí se, počká 1 h a **naváže** |
 | Skončí povolený čas (výchozí 21:00) | dokončí rozjetou dráhu, vrátí se a po otevření okna **naváže** další dráhou |
 | Kritická chyba | vrátí se, počká 30 min a **naváže**; po 3 chybách jednoho běhu to vzdá a nahlásí |

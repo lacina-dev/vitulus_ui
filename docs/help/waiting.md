@@ -6,13 +6,13 @@ order: 70
 icon: la-hourglass-half
 summary: Battery, rain, temperature, the night window and other reasons why nothing starts.
 ui: [map/rain]
-related: [programs, mowing, troubleshooting]
+related: [autonomy, programs, mowing, troubleshooting]
 keywords: [wait, waiting, sleep, rain, weather, battery, temperature, night, forecast, radar, idle, does not start]
 ---
 # Why the robot waits
 
 Often the robot does nothing on purpose. The calendar's status line
-([Programs › Calendar](programs.md#the-calendar)) and the log say why.
+([Autonomy › Now](autonomy.md#now)) and the log say why.
 
 ## Before a program starts
 
@@ -21,7 +21,7 @@ Time of a calendar event | automation on, Hold off
 In the dock? | and the stack runs for 5 min, programs loaded
 Robot free? | no program, docking, person driving or agent; no Reset pending
 warn: Allowed time? | by default 07:00–21:00 and 30 min of it left, otherwise it sleeps until then
-warn: Battery ≥ 40 %? | and no rain now, in the last 60 min or within 30 min
+warn: Battery ≥ 40 %? | and, by the rain setting, no rain now, in the last 60 min or within 30 min
 ok: Start | the robot undocks and mows; RTK is awaited outside, at the undock point
 ```
 
@@ -33,7 +33,7 @@ The scheduler starts nothing while:
 - the mission is not ready (it waits for **Reset** after a stop or an error: the calendar card
   says so), or a program, docking, a person driving or the agent is using the robot;
 - it is outside the **allowed mowing time** (by default 07:00–21:00, change it in
-  [Programs › Calendar](programs.md#allowed-mowing-time)), or less than 30 minutes of it are left
+  [Autonomy › Plan](programs.md#allowed-mowing-time)), or less than 30 minutes of it are left
   — the robot sleeps until the window opens. This limits only the calendar, not a run by hand or
   the agent;
 - the scheduled program is not on the active map (retried every 5 minutes, then reported).
@@ -46,38 +46,42 @@ A program also refuses to start when:
 
 - the **battery is below 40 %**;
 - it **rains now**, rained in the last 60 minutes, or rain is forecast within 30 minutes
-  (unless the rain checks are switched off — see [below](#rain-checks-on--off)).
+  (unless [the rain setting](#what-rain-does) says otherwise; these are the defaults, set in [Autonomy › Weather](autonomy.md#weather)).
 
-A calendar program refused for the battery charges to 80 %, one refused for rain waits 2 h — then
+A calendar program refused for the battery charges to 80 %, one refused for rain waits for the retry time (by default 2 h) — then
 the robot tries again. The event is not used up by a refusal.
 
 No weather data (no internet, the radar source down, data older than 30 minutes) does not stop the
 calendar: the robot mows and the log says *No current weather data, starting anyway*. Wet grass
-after rain has no setting of its own: the 60 minutes after the last rain are that margin.
+is covered by **Wait after rain**, by default the 60 minutes after the last rain. With **Start with
+old weather data** off, old data block the start instead.
 
-### Rain checks on / off
+### What rain does
 
-`weather_rain_bypass` switches the rain checks for programs you start by hand — both the one
-before the start and the one during mowing. A program the **calendar** started always obeys the
-rain, whatever this says: nobody is watching it.
+**Autonomy › Weather** has one choice, the same for the calendar, a run by hand and a run the agent
+starts:
 
-- `false`: rain blocks the start and sends a running program home, as described here;
-- `true`: rain checks are skipped for manual runs — the robot starts and keeps mowing in rain.
+| Choice | Calendar | Run by hand or by the agent |
+|---|---|---|
+| **Always** (default) | rain stops the start | rain stops the start |
+| **Calendar only** | rain stops the start | it goes |
+| **Ignore** | it goes | it goes |
 
-How to tell: with the checks off the **Log** shows the warning *Rain check BYPASSED by config*
-when a program starts, and a program starts even while the rain alert in the navbar is on.
+Nothing but rain depends on this choice: the battery, temperature and safety limits stay.
 
-Where to change it: `weather_rain_bypass` in `vitulus_navi/config/mower_smach.yaml` (loaded when
-the robot stack starts). The mission reads it at every check, so it can also be changed live with
-`rosparam set /node_mower_smach/weather_rain_bypass false` — until the next restart, when the file
-applies again.
+When rain would refuse a **Run** or **Resume**, a dialog says why (raining now, rained a short while
+ago, rain forecast) and offers **Ignore rain this time**. That applies to this one run only and ends
+with it: the next run obeys the setting again. If you cancel, nothing starts. Only a person can do
+this; the agent says why rain refused its run and leaves the choice to you.
+
+The calendar has no such dialog: it waits for the retry time and tries again.
 
 ## During mowing
 
 | Reason | What happens |
 |---|---|
 | Battery ≤ 25 % | returns to the dock, charges to 80 %, then **continues** where it stopped |
-| It rains, or 2 of 3 forecast steps say RAIN | returns, tries again every 2 h, then **continues** where it stopped |
+| It rains, or 2 of 3 forecast steps say RAIN | returns (unless **Go home when it rains** is off), tries again after the retry time, by default 2 h, then **continues** where it stopped |
 | Mower too hot (TEMP) | returns, waits 1 h, then **continues** |
 | The allowed time ends (by default 21:00) | finishes the path it is on, returns, **continues** with the next path when the window opens |
 | A critical error | returns, waits 30 min, **continues**; after 3 errors of one run it gives up and reports it |

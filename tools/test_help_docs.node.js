@@ -118,7 +118,7 @@ Object.values(docs).forEach((d) => {
 });
 
 /* ---- what must have help: panels, their tabs, the help spots */
-const need = new Set(['marker', 'map', 'program', 'config', 'editor', 'agent', 'needs', 'support']);
+const need = new Set(['marker', 'map', 'program', 'autonomy', 'config', 'editor', 'agent', 'needs', 'support']);
 const html = fs.readFileSync(path.join(TPL, 'index.html'), 'utf8');
 const hosts = { div_menu_map: 'map', div_menu_map_program: 'program', div_menu_config: 'config', div_menu_marker: 'marker', div_map_detail: 'editor' };
 const starts = Object.keys(hosts).map((id) => ({ id, at: html.indexOf('id="' + id + '"') })).filter((h) => h.at >= 0).sort((a, b) => a.at - b.at);

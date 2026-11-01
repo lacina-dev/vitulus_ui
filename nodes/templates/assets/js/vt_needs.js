@@ -244,7 +244,23 @@
         });
         return b;
     }
+    /* a scheduler problem the agent passes on: the core's Czech sentence, no job
+       behind it, the way out is the Autonomy page (x.link = #/autonomy) */
+    function autonomyBtn() {
+        var b = el('button', 'btn btn-outline-info vt-needs-btn', t('needs.autonomy.open'));
+        b.type = 'button';
+        b.addEventListener('click', function () { if (window.VTAutonomy) { VTAutonomy.open('now', true); } });
+        return b;
+    }
+    function autonomyCard(x) {
+        var key = 'ajob.attn.' + x.code, main = t(key);
+        if (main === key) { main = x.why || ''; }
+        return agentAsk(/stranded/.test(x.code || '') ? 'err' : 'warn', t('needs.work.autonomy'), sinceSec(x.since),
+            main.charAt(0).toUpperCase() + main.slice(1), t('needs.autonomy.why'),
+            x.why && x.why !== main ? x.why : null, null, autonomyBtn(), t('needs.autonomy.next'));
+    }
     function workCard(x) {
+        if (x.kind === 'autonomy') { return autonomyCard(x); }
         if (x.code === 'stop_latched') {
             return agentAsk('err', t('needs.work.stop_latched'), sinceSec(x.since),
                 t('ajob.attn.stop_latched'), t('needs.agent.why_stop'), x.why || null, null,

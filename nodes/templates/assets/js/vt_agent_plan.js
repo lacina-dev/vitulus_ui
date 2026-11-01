@@ -22,6 +22,11 @@
  * mission (operator_done/home/timeout/cancelled, done/failed/cancelled), the
  * Clear button (remembered per mission+revision, so the chat history does not
  * bring it back on reload).  Plans older than 6 h from history are ignored.
+ * A route draft of the conversation (operator/routes.py) has plan.draft = {id, v,
+ * status, length_m, time_s, points, name, verified} and mission 'route_<id>': it
+ * belongs to the conversation, so no end of a mission clears it.  Numbered points
+ * (item.n) carry a badge instead of an id, the line is dashed while it is a draft.
+ * Routes are ribbons in metres: a WebGL line is one pixel wide at any zoom.
  * ROS3D bundles its own THREE (r89): everything is built from ROS3D.THREE.
  * i18n: keys 'aplan.*' (en.js + cs.js).  Help: docs/help/agent.md › agent-plan.
  */
@@ -126,6 +131,38 @@
         }
         return out;
     }
+    function ribbon(Th, p, color, dashed) {
+        var W = 0.05, DASH = 0.45, GAP = 0.3, out = [];
+        function quad(a, b) {
+            var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.sqrt(dx * dx + dy * dy) || 1;
+            var nx = -dy / len * W, ny = dx / len * W;
+            out.push(a[0] + nx, a[1] + ny, Z, a[0] - nx, a[1] - ny, Z, b[0] - nx, b[1] - ny, Z,
+                     a[0] + nx, a[1] + ny, Z, b[0] - nx, b[1] - ny, Z, b[0] + nx, b[1] + ny, Z);
+        }
+        var phase = 0;
+        for (var i = 0; i < p.length - 1; i++) {
+            var a = p[i], b = p[i + 1];
+            var len = Math.sqrt(Math.pow(b[0] - a[0], 2) + Math.pow(b[1] - a[1], 2));
+            if (!dashed) { quad(a, b); continue; }
+            var at = 0;
+            while (at < len) {
+                var cycle = phase % (DASH + GAP);
+                var left = cycle < DASH ? DASH - cycle : DASH + GAP - cycle;
+                var step = Math.min(left, len - at);
+                if (cycle < DASH) {
+                    var t0 = at / len, t1 = (at + step) / len;
+                    quad([a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0],
+                         [a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1]);
+                }
+                at += step;
+                phase += step;
+            }
+        }
+        var g = new Th.BufferGeometry();
+        var attr = new Th.BufferAttribute(new Float32Array(out), 3);
+        if (g.setAttribute) { g.setAttribute('position', attr); } else { g.addAttribute('position', attr); }
+        return meshObj(Th, g, color, 0.95);
+    }
     function ring(x, y, r, n) {
         var out = [];
         for (var i = 0; i < n; i++) {
@@ -141,6 +178,7 @@
         S.group = null;
         if (!Th || !V || !V.scene || !S.plan) { return; }
         var group = new Th.Object3D();
+        var draft = !!(S.plan.draft && S.plan.draft.status !== 'saved');
         (S.plan.items || []).forEach(function (item) {
             var p = pts(item), color = colorOf(item.style);
             if (!p.length) { return; }
@@ -150,7 +188,7 @@
                 group.add(disc);
                 group.add(lineObj(Th, ring(p[0][0], p[0][1], 0.24, 28), color));
             } else if (item.kind === 'line' && p.length >= 2) {
-                group.add(lineObj(Th, segs(p, false), color));
+                group.add(ribbon(Th, p, color, draft));
             } else if (item.kind === 'polygon' && p.length >= 3) {
                 group.add(lineObj(Th, segs(p, true), color));
                 try {
@@ -160,7 +198,7 @@
                     group.add(fill);
                 } catch (e) { /* the outline is enough */ }
             } else if (item.kind === 'arrow' && p.length >= 2) {
-                group.add(lineObj(Th, segs(p, false), color));
+                group.add(ribbon(Th, p, color, false));
                 var a = p[p.length - 2], b = p[p.length - 1];
                 var ang = Math.atan2(b[1] - a[1], b[0] - a[0]), h = 0.35;
                 var head = new Th.Geometry();
@@ -199,9 +237,10 @@
         if (!S.plan) { return; }
         (S.plan.items || []).forEach(function (item) {
             var at = labelAnchor(item);
-            var text = item.kind === 'text' ? (item.label || '') : ((item.id || '') + (item.label ? ' ' + item.label : ''));
+            var text = (item.kind === 'text' || item.plain) ? (item.label || '') : ((item.id || '') + (item.label ? ' ' + item.label : ''));
             if (!at || !text) { return; }
-            var tagEl = el('span', 'vt-aplan-tag vt-aplan-' + (COLORS[item.style] ? item.style : 'sketch'), S.labels);
+            var tagEl = el('span', 'vt-aplan-tag vt-aplan-' + (COLORS[item.style] ? item.style : 'sketch') +
+                           (item.n != null ? ' vt-aplan-num' : ''), S.labels);
             tagEl.textContent = text;
             S.tags.push({el: tagEl, x: at[0], y: at[1], text: item.kind === 'text'});
         });
@@ -268,10 +307,19 @@
         var c = ensureCard();
         if (!S.plan) { c.style.display = 'none'; return; }
         c.style.display = '';
-        S.cardMission.textContent = S.plan.mission != null ? t('aplan.mission', {n: S.plan.mission}) : '';
-        var bits = [];
-        if (S.plan.title) { bits.push(S.plan.title); }
-        bits.push(t('aplan.items', {n: (S.plan.items || []).length}));
+        var bits = [], d = S.plan.draft;
+        if (d) {
+            S.cardMission.textContent = d.status === 'saved' ?
+                t('aplan.draft_saved', {name: d.name || ''}) : t('aplan.draft', {id: d.id, v: d.v});
+            bits.push(t('aplan.draft_sub', {points: d.points, length: d.length_m,
+                                            min: Math.max(1, Math.round((d.time_s || 0) / 60))}));
+            if (d.verified === 'blocked') { bits.push(t('aplan.draft_blocked')); }
+            if (d.verified === 'unverified') { bits.push(t('aplan.draft_unverified')); }
+        } else {
+            S.cardMission.textContent = S.plan.mission != null ? t('aplan.mission', {n: S.plan.mission}) : '';
+            if (S.plan.title) { bits.push(S.plan.title); }
+            bits.push(t('aplan.items', {n: (S.plan.items || []).length}));
+        }
         if (!layerOn()) { bits.push(t('aplan.hidden')); }
         S.cardSub.textContent = bits.join(' · ');
     }

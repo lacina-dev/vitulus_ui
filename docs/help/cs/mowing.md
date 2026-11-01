@@ -56,14 +56,14 @@ Vrstva **Zátěž sekání** (záložka Mapa, Vrstvy, a panel Vrstvy v editoru) 
 při sekání a později pro kterýkoli z posledních 30 běhů. Zapne se sama, když běží program, dokud si ji
 nenastavíš sám; pak platí tvoje volba.
 
-- **Barva** ukazuje vždy jednu věc, vybíráš ji v **Barva ukazuje**: Zátěž, Rychlost, Sklon, Teplota,
-  Přesnost, Stáří RTCM nebo Pokles otáček. Legenda dává skutečné hodnoty.
+- **Barva** ukazuje vždy jednu věc, vybíráš ji v **Barva ukazuje**: Zátěž, Tah kol, Rychlost, Sklon,
+  Teplota, GPS proti lidaru, GPS proti kolům, Stáří RTCM nebo Pokles otáček. Legenda dává skutečné hodnoty.
 - **Šířka** říká, co robot dělal. Plný pruh široký jako žací ústrojí: sekání. Užší: rozběh nebo čekání.
   Tenká čára: nůž vypnutý. Fialová: zastaveno pravidlem bez nože. Růžová: zablokováno, bílá: přehřátý
   motor.
 - **Zastávky a události** jsou malé ikony: zablokování, přetížení, záchrana, couvnutí, objížďka,
   zastavení na místě, bez postupu, nové okno trasy, varování teploty, výpadek RTCM, ztráta a návrat
-  RTK. Když se tlačí, zůstanou ty
+  RTK, skok GPS. Když se tlačí, zůstanou ty
   nejhorší; ostatní uvidíš po přiblížení.
 - **Klepnutí na stopu** ukáže krátkou kartu: nůž, jízda, poloha, napájení a úloha v tu chvíli. S myší
   stačí najet, ukážou se první čísla.
@@ -75,14 +75,20 @@ Zátěž 100 % je bod, kdy firmware sekačky vypne motor: proud motoru na limitu
 jediná chybná hodnota zůstane vidět: jeden vzorek v jinak chladném běhu je špička čidla, pomalý růst
 je skutečné zahřívání.
 
-- **Přesnost** je hAcc, o kolik se přijímač podle sebe může mýlit: asi 1,4 cm v RTK fix, 2,7 cm ve
-  float, metry bez korekcí. Třída fixu je v kartě a jako značka tam, kde se změní.
+- **Tah kol** je součet za všechna čtyři kola, jak těžce pracují, aby robot jel: asi 7 Nm na rovince,
+  až 17 v zatáčkách. Každé kolo má limit 20 Nm. Karta přidá nejvíc zatížené kolo.
+- **GPS proti lidaru** a **GPS proti kolům** ukazují GPS poctivě. Přesnost hlášená přijímačem říká
+  skoro všude 1,4 cm, ať se děje cokoli, proto je jen v kartě. GPS proti lidaru říká, o kolik by sken
+  lidaru položený na mapu chtěl posunout polohu GPS: obvykle 10 až 40 cm, a špatná mapa vypadá stejně
+  jako špatné GPS. GPS proti kolům porovná krok GPS za sekundu s koly, která skákat neumějí: v RTK fix
+  asi 4 cm, víc znamená, že se poloha opravdu pohnula; od 50 cm zůstane v mapě značka. Zatáčky se
+  přeskakují.
 - **Stáří RTCM** je čas od poslední korekce ze základny. Kmitá mezi 0 a 1 s, 3 s se počítají jako
   výpadek a zůstane po nich značka. Rychlost zpráv, satelity a pDOP jsou v kartě.
 - **Pokles otáček** říká, o kolik nůž klesl pod nastavené otáčky. Řízení motoru je drží skoro pořád do
   2 ot./min, takže škála je jemná: ukáže už pár otáček. Skutečnou trávu lépe ukáže Zátěž.
 
-Běhy nahrané dřív, než se Přesnost a RTCM zapisovaly, je ukážou šedě, bez dat.
+Běhy nahrané dřív, než se tato data zapisovala, je ukážou šedě, bez dat. Tah kol mají i první běhy.
 
 ## Zastavení
 

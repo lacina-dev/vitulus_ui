@@ -88,6 +88,10 @@
          movees: ['div_status_speed-2'], collapsible: true, drive: true},
         {id: 'mower', title: 'rdock.sec.mower', mower: true, collapsible: true, folded: true,
          lsKey: 'vitulus_rightpanel_x_mower'},
+        /* Autonomy: head = tone + one token (next start / what it waits for), expand =
+           next, battery, rain, the detail is the left panel. Quiet while all is fine. */
+        {id: 'auto', title: 'rdock.sec.auto', auto: true, collapsible: true, folded: true,
+         lsKey: 'vitulus_rightpanel_x_auto'},
         /* 2026-10-18 late: the VO Li Wh FIX PROB ANC row lives in the expand,
            the head keeps owner · heading · one odometry dot */
         {id: 'state', title: 'rdock.sec.state', movees: ['div_odom'], detail: 'loc_nav_box',
@@ -214,6 +218,10 @@
         mdot.id = 'rp_sum_dot_mower';
         mdot.dataset.state = 'off';
         mdot.style.display = 'none';
+        var adot = el('span', 'vt-dot rp-sum-dot', loc);
+        adot.id = 'rp_sum_dot_auto';
+        adot.dataset.state = 'off';
+        adot.style.display = 'none';
         var sum = el('span', 'rp-sum', topRow);
         sum.id = 'rp_sum_batt';
         /* C frame 3: on a phone the collapsed row carries the camera switch —
@@ -328,6 +336,16 @@
             if (def.drive) { buildDriveHead(h); }
             if (def.navi) { buildNaviHead(h, ht); buildNaviBody(sec, box); }
             if (def.mower) { moved = buildMower(sec, h, box); }
+            if (def.auto && window.VTAutonomy) {
+                moved = VTAutonomy.rightSection(sec, h, box);
+                var ad = el('button', 'rp-dq');
+                ad.type = 'button';
+                ad.innerHTML = DETAIL_SVG;
+                setTip(ad, t('rdock.detail.tip'));
+                relang.push(function () { setTip(ad, t('rdock.detail.tip')); });
+                ad.addEventListener('click', function (ev) { ev.stopPropagation(); ev.preventDefault(); VTAutonomy.open('now'); });
+                h.insertBefore(ad, h.querySelector('.vth-q') || h.querySelector('.rp-caret') || null);
+            }
             if (def.gsum) { buildGnssSum(sec, h, box); }
             var lastCaret = h.querySelector('.rp-caret');
             if (lastCaret) { h.appendChild(lastCaret); }   // the caret stays last

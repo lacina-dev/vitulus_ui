@@ -51,7 +51,7 @@ PHONE = (390, 844)
 
 # Selectors the script may click (DOM .click()): menu, tabs, section heads,
 # view switches. Anything that could command the robot is not here.
-CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|agent|support|log|joy|panel_toggle|help|needs)'
+CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|autonomy|agent|support|log|joy|panel_toggle|help|needs)'
                       r'|a\[href="#tab[-_][\w-]+"\]|#btn_ui_drawer_(help|full)|#btn_log_expand|#btn_map_detail_toggle|#div_menu_program_items_row|#btn_calendar_add|\.vth-|#vt_help|\[data-tab=|'
                       r'#rp_|\.rp-|\.vco-btn|\.vt-sec|summary|details|\.vagent-tab|\.vt-support-tab|\.cam-|#cam_|\.vtcam)')
 
@@ -196,14 +196,20 @@ SHOTS = [
     dict(name='shot-program-stopped', vp=TALL, scale=2, width=640, clip='#div_program_running', pad=4,
          steps=panel('#btn_programs', 'tab_programs', [('js', RUNNING % 'Stopped')]), marks=[]),
     dict(name='shot-calendar-window', vp=TALL, scale=2, width=640, clip='#card_mow_window', pad=6,
-         steps=panel('#btn_programs', 'tab_calendar', [('wait', 1000), ('js', WINDOW_DEFAULT)]),
+         steps=panel('#btn_autonomy', None, [('js', OPEN % "'#auto_sec_plan'"), ('wait', 1000), ('js', WINDOW_DEFAULT)]),
          marks=[('#chk_window_enabled', '1', 'l'), ('#input_window_start_h', '2', 't'), ('#input_window_end_h', '3', 't'),
                 ('#btn_window_save', '4', 't')]),
-    dict(name='shot-calendar', vp=DESK, clip='#ui_drawer_head|#ui_drawer_body', steps=panel('#btn_programs', 'tab_calendar', [('wait', 3000), ('js', WINDOW_DEFAULT)]),
-         marks=[('#span_scheduler_state', '1', 'b'), ('#chk_scheduler_inhibit', '2', 'b'), ('#span_scheduler_status, #span_scheduler_next', '3', 'r'),
-                ('#div_calendar_events, #div_calendar_events *', '4', 'ri'), ('#btn_calendar_add', '5', 'ri')]),
+    dict(name='shot-calendar', vp=DESK, clip='#ui_drawer_head|#ui_drawer_body', steps=panel('#btn_autonomy', None, [('wait', 3000), ('js', "document.querySelectorAll('#div_menu_autonomy details').forEach(d => d.open = d.id === 'auto_sec_plan'); document.getElementById('div_calendar_events').scrollIntoView({block: 'center'}); return '';"), ('js', WINDOW_DEFAULT)]),
+         marks=[('#div_calendar_events .vt-cal-rec', '1', 't'), ('#div_calendar_events .cal-toggle', '2', 'b'), ('#div_calendar_events .cal-edit', '3', 't'), ('#btn_calendar_add', '4', 'r')]),
+    dict(name='shot-autonomy', vp=TALL, clip='#ui_drawer_head|#auto_sec_now', steps=panel('#btn_autonomy', None, [('wait', 1500)]),
+         marks=[('#span_scheduler_state', '1', 'b'), ('#span_scheduler_status', '2', 'r'), ('#chk_scheduler_enabled', '3', 'l'), ('#chk_scheduler_inhibit', '4', 'l'),
+                ('#auto_checks', '5', 'ri'), ('#auto_sleep_checks', '6', 'ri')]),
+    dict(name='shot-autonomy-plan', vp=TALL, clip='#auto_nums_plan|#auto_plan_actions', pad=26, steps=panel('#btn_autonomy', None, [('wait', 1500)]),
+         marks=[('#auto_timeline', '1', 'ri'), ('#btn_auto_skip', '2', 'b'), ('#btn_auto_nomow', '3', 'b'), ('#btn_auto_runnext', '4', 'b')]),
+    dict(name='shot-autonomy-rain', vp=TALL, clip='#auto_sec_rain', pad=4, steps=panel('#btn_autonomy', None, [('js', "document.querySelectorAll('#div_menu_autonomy details').forEach(d => d.open = d.id === 'auto_sec_rain'); return '';"), ('wait', 1000)]),
+         marks=[('#auto_radar', '1', 'ri'), ('#auto_rain_mode', '2', 'ri')]),
     dict(name='shot-calendar-form', vp=TALL, clip='#div_calendar_form', pad=6,
-         steps=panel('#btn_programs', 'tab_calendar', [('wait', 1000), ('click', '#btn_calendar_add'), ('wait', 800)]),
+         steps=panel('#btn_autonomy', None, [('js', OPEN % "'#auto_sec_plan'"), ('wait', 1000), ('click', '#btn_calendar_add'), ('wait', 800)]),
          marks=[('#sel_cal_program', '1', 'ri'), ('#input_cal_hour', '2', 'r'), ('#sel_cal_recurrence', '3', 'ri'),
                 ('#btn_cal_save', '4', 'l')]),
     # --- Settings (settings.md, mowing.md, safety.md)
@@ -449,7 +455,7 @@ def box_of(pg, clip, pad):
     return {'x': x0, 'y': y0, 'width': x1 - x0, 'height': y1 - y0}
 
 
-def run(url, only, keep_png, demo=False):
+def run(url, only, keep_png, demo=False, init=None):
     base = url.rstrip('/')
     if re.search(r':7779\b', base):
         sys.exit('refused: :7779 is the live UI — start a dev instance (docs/help/README.md)')
@@ -475,6 +481,8 @@ def run(url, only, keep_png, demo=False):
             pg = ctx.new_page()
             pg.add_init_script('window.alert=()=>{};window.confirm=()=>false;window.prompt=()=>null;'
                                'try{localStorage.clear()}catch(e){}')
+            if init:
+                pg.add_init_script(path=init)
             pg.goto(page_url, wait_until='domcontentloaded')
             pg.wait_for_timeout(s.get('boot', 8000))
             if not pg.evaluate("document.documentElement.classList.contains('vt-mock')"):
@@ -540,6 +548,8 @@ if __name__ == '__main__':
     ap.add_argument('--list', action='store_true', help='list the shots and exit')
     ap.add_argument('--demo', action='store_true',
                     help='invented chat / reports instead of the real ones (use for the help pictures)')
+    ap.add_argument('--init-script', default='',
+                    help='a script run before the page, e.g. a fake rosbridge with invented data')
     ap.add_argument('--png', default='', help='also save a PNG copy into this directory (for a look)')
     a = ap.parse_args()
     if a.list:
@@ -548,4 +558,4 @@ if __name__ == '__main__':
         sys.exit(0)
     if not a.url:
         ap.error('--url is required')
-    run(a.url, set(x for x in a.only.split(',') if x), a.png, a.demo)
+    run(a.url, set(x for x in a.only.split(',') if x), a.png, a.demo, a.init_script or None)

@@ -238,6 +238,24 @@ jméno hned. Sám přejmenovávat ani měnit objekty neumí.
   musí ověřit v mapě.
 - DOCK, UNDOCK a DOCKED jsou rezervované body.
 
+### Plánování trasy v chatu
+
+Řekni si o trasu vlastními slovy: *naplánuj trasu k vodovodu*, *objeď dům*, *jeď podél plotu*,
+*přes terasu k bazénu a zpět*. Agent udělá **návrh**: čáru z plánovače robota rozdělenou
+očíslovanými body (i v zatáčkách), s délkou, časem a případnými problémy. Dostaneš obrázek do
+**Chatu** a tentýž návrh na živé mapě jako čárkovanou čáru ve vrstvě **Plán agenta**. Karta na mapě
+řekne, jestli se to takhle dá jet a jestli je to změřené na živé costmapě; návrh změřený jen nad
+uloženou mapou to přizná, nové překážky v ní nejsou.
+
+Pak jen řekni, co změnit: *uber tamtu zatáčku*, *víc vlevo od stromu*, *přidej zastávku u
+kompostu*, *bez té části*. Čísla bodů jsou z obrázku, vlevo a vpravo se počítá po směru jízdy. Každá
+změna se znovu změří a nakreslí, *vrať to* jde o verzi zpět a návrh zůstane, i když mezitím píšeš
+o něčem jiném nebo se agent restartuje. Když zatáčka zůstane, agent řekne, že jinudy to nevede.
+
+**Návrh robotem nikdy nehne.** Řekneš *ulož to jako Vodovod* a je z něj pojmenovaná trasa (v deníku
+mapy, agent ji umí vrátit); řekneš *jeď* a robot ji projede přes obvyklé brány včetně zámku doku.
+Uložená trasa cestou nezastavuje: se zastávkami jede agent bod po bodu.
+
 ### Plán agenta na mapě
 
 Kdykoli operátor plánuje jízdu nebo hledá cíl či cestu — cokoli jiného než *jeď na bod TEST*
@@ -588,6 +606,10 @@ návrh **dělá**, nikdy podle slova v textu:
   neptá. Auto-approve o nich nikdy nerozhoduje. Fungují i `/allow N` / `/deny N` nebo
   `/caps sign <id>`.
 - Cokoli kolem **nože nebo bezpečnostní vrstvy** se odmítá rovnou — není co povolit.
+
+## Autonomie
+
+Agent ti řekne, co robot dělá sám: proč dnes nesekal, kdy pojede a proč nespí. Čte stránku [Autonomie](autonomy.md) a na tvůj pokyn umí zapnout Hold, který zastaví nové starty; běžící sekání doběhne, pokud ho nezastavíš. Nastavení, kalendář ani okno nemění: řekne přesně, co by se změnilo a kde to uděláš. Déšť teď platí i na běhy spuštěné agentem. Když déšť běh odmítne, agent řekne proč; obejít to můžeš jen ty, volbou **Tentokrát déšť ignorovat** po stisku **Run** v Programech. Co tě potřebuje (nevyjetý běh, uvízlý robot, selhaný běh, nepovedený spánek), přijde jednou krátkou zprávou do chatu, na Discord a do Needs you.
 
 ## Co agent vidí
 

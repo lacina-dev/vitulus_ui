@@ -7,7 +7,7 @@ icon: la-comments-o
 summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
 ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [hlídej, hlídání, sleduj, watch, watching, otáčky nože, blade speed, proud nože, blade current, odběr z baterie, battery draw, agent's plan, plan on the map, around a zone, point by point, outline, measured position, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability]
+keywords: [hlídej, hlídání, sleduj, watch, watching, otáčky nože, blade speed, proud nože, blade current, odběr z baterie, battery draw, agent's plan, plan on the map, around a zone, point by point, outline, measured position, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability, route draft, plan a route, naplánuj trasu, návrh trasy]
 ---
 # Vitulus agent
 
@@ -248,6 +248,26 @@ in the map editor, the new name applies immediately. It cannot rename or change 
 - Direct driving (drive straight, back up) only watches the lidar and does not see a virtual
   barrier. The agent has to check the map first.
 - DOCK, UNDOCK and DOCKED are reserved waypoints.
+
+### Planning a route in chat
+
+Ask for a route in plain words: *plan a route to the tap*, *go around the house*, *along the
+fence*, *over the terrace to the pool and back*. The agent makes a **draft**: a line from the
+robot's own planner, split at numbered points (bends too), with its length, time and any problem.
+You get a picture in **Chat** and the same draft on your live map as a dashed line in the layer
+**Agent's plan**. The card on the map says whether it can be driven and whether it was measured on
+the live costmap; a draft measured only on the saved map says so, because new obstacles are not in
+it.
+
+Then simply say what to change: *remove that bend*, *more to the left of the tree*, *add a stop at
+the compost*, *without that part*. Point numbers come from the picture; left and right mean along
+the direction of travel. Every change is redrawn and measured again, *undo that* goes one version
+back, and the draft stays when you write about something else or the agent restarts. If a bend
+stays, the agent tells you there is no other way.
+
+**A draft never moves the robot.** Say *save it as Tap* and it becomes a named route (in the map
+journal, the agent can undo it); say *go* and the robot drives it through the usual gates, including
+the dock lock. A stored route does not stop on the way: with stops the agent drives point by point.
 
 ### The agent's plan on the map
 
@@ -608,6 +628,10 @@ by what the proposal **does**, never by a word in it:
   these. `/allow N` / `/deny N` or `/caps sign <id>` still work.
 - Anything about the **blade or the safety layer** is refused outright — there is nothing to
   allow.
+
+## Autonomy
+
+The agent can tell you what the robot does on its own: why it did not mow today, when it runs next, and why it is not sleeping. It reads the [Autonomy](autonomy.md) page and can Hold new starts when you ask; a running mission still finishes unless you stop it. It does not change settings, the calendar or the window: it tells you exactly what would change and where. Rain now applies to runs the agent starts too. If rain refuses a run, it says why; only you can override that, with **Ignore rain this time** after pressing **Run** in Programs. Problems that need you (a missed run, robot stranded, failed run, failed sleep) arrive as one short message in chat, Discord and Needs you.
 
 ## What the agent can see
 

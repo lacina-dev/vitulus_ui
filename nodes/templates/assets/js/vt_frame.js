@@ -20,7 +20,7 @@
     var JOY_BESIDE_MIN = 240;          // C frame 3: min. room for the right panel above the stick   // C frame: the back of the C when the panel is hidden
     var LS_LAST = 'vitulus_last_panel';
     var BTN_FOR = {marker: 'btn_marker', map: 'btn_map', program: 'btn_programs',
-                   config: 'btn_settings', agent: 'btn_agent'};
+                   autonomy: 'btn_autonomy', config: 'btn_settings', agent: 'btn_agent'};
 
     function $(id) { return document.getElementById(id); }
     function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
@@ -467,6 +467,7 @@
         btn_settings: ['frame.btn.settings', 'frame.btn.settings.tip'],
         btn_map: ['frame.btn.map', 'frame.btn.map.tip'],
         btn_programs: ['frame.btn.programs', 'frame.btn.programs.tip'],
+        btn_autonomy: ['frame.btn.autonomy', 'frame.btn.autonomy.tip'],
         btn_agent: ['frame.btn.agent', null],
         btn_stop_all: ['frame.btn.stop', 'frame.btn.stop.tip'],
         btn_camera_show: ['frame.btn.camera', 'frame.btn.camera.tip'],

@@ -366,15 +366,17 @@ class CalendarManager {
         if (code === 'sleep_prepare' || code === 'sleep_cut') return ['sleeping', 'off'];
         if (code === 'not_in_dock') return ['off_dock', 'warn'];
         if (/^blocked_/.test(code)) return ['busy', 'warn'];
-        if (/^waiting_(battery|weather|temp|gps|critical|rejected)$/.test(code)) return ['waiting', 'info'];
+        if (code === 'waiting_slot') return ['active', 'ok'];
+        if (/^waiting_/.test(code)) return ['waiting', 'info'];
         return ['active', 'ok'];
     }
 
     _sentence(rep) {
-        const d = Object.assign({}, rep.detail || {});
+        const said = rep.sentence || {};   // machine form of the top sentence
+        const d = Object.assign({}, rep.detail || {}, said.vars || {});
         if (d.left_s !== undefined) d.min = Math.ceil(d.left_s / 60);
         if (d.program === undefined) d.program = (rep.run && rep.run.program) || '';
-        const key = 'calmgr.code.' + rep.code;
+        const key = 'calmgr.code.' + (said.code || rep.code);
         const text = calT(key, d);
         if (text === key) return rep.status || '';
         const run = rep.run;
@@ -415,12 +417,20 @@ class CalendarManager {
         const block = rep && rep.sleep && rep.sleep.block;
         if (line) {
             line.textContent = sentence;
-            line.title = block ? calT('calmgr.why_awake', {why: block}) : '';
+            line.title = block ? calT('calmgr.why_awake', {why: this._awakeWhy(block)}) : '';
         }
         if (card) {
             if (tone === 'off') { delete card.dataset.state; } else { card.dataset.state = tone; }
         }
         this._paintNext();
+    }
+
+    /* report.sleep.block is a code; a reason not translated yet stays readable. */
+    _awakeWhy(block) {
+        const code = String(block).split(':')[0];
+        const key = 'calmgr.awake.' + code;
+        const text = calT(key);
+        return text === key ? String(block).replace(/_/g, ' ') : text;
     }
 
     /* What went wrong and is not visible any more: stays until cleared. */

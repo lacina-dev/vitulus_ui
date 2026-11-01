@@ -5,8 +5,8 @@ group: Robot
 order: 60
 icon: la-calendar
 summary: Co a kdy sekat — programy (vytvořit, upravit, smazat), Run / Resume / Stop / Reset, kalendář a Pozdržet.
-ui: [program, program/programs, program/calendar#kalendář]
-related: [map-editor, mowing, waiting]
+ui: [program, program/programs]
+related: [autonomy, map-editor, mowing, waiting]
 keywords: [chain, several programs, one after another, řetěz, víc programů, program, programy, kalendář, calendar, plán, schedule, pozdržet, hold, pozastaveno, held, aktivní, active, automatika vypnuta, automation off, spustit, run, pokračovat, resume, zastavit, stop, reset, přepsat zóny, override zone, smazat, delete, přejmenovat, rename, běží, running, chybí, missing, přerušit, interrupt, pauza]
 ---
 # Programy a kalendář
@@ -146,9 +146,9 @@ Když chceš program jiné mapy **upravit**, nejdřív zapni jeho mapu: tady je 
 
 ## Kalendář
 
-![Programy › Kalendář s očíslovanými značkami](../img/shot-calendar.webp "1 co plánovač právě dělá (štítek) · 2 Pozdržet · 3 jeho stav a příští spuštění · 4 událost · 5 přidat událost")
+![Kalendář s očíslovanými značkami](../img/shot-calendar.webp "1 událost: program, čas, opakování · 2 zap / vyp · 3 Upravit · 4 přidat událost")
 
-**Programy › Kalendář** ukazuje události: program, čas a opakování (**Jednou**, **Denně**,
+**Autonomie › Plán** ukazuje události (**Kalendář** v Programech vede tam): program, čas a opakování (**Jednou**, **Denně**,
 **Týdně** s vybranými dny, **Měsíčně**, **Ročně**), každá s vypínačem, **Upravit** a **Smazat**.
 Událost se spustí do 15 minut po svém čase, jednou za den.
 

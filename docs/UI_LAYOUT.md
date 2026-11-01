@@ -67,6 +67,10 @@ pravého panelu a v liště logu otevře nápovědu k tomu, co je otevřené (pa
 | Zavření | ✕, Esc (zavře nápovědu a zároveň je to STOP, panel zůstane) | ✕ |
 | Nikdy | neotevře se sama, nemá backdrop — mapa i panel jdou dál ovládat | totéž |
 
+### Autonomie (2026-11)
+
+Panel `#div_menu_autonomy` (klíč `autonomy`, `vt_autonomy.js` + `vt_autonomy.css`, nápověda `autonomy.md`): horní karta `#card_calendar`, pod ní sbalitelné sekce `details.vt-auto-sec` (hlavička = tón + tokeny, rozbalení = čísla, pak ovládání; stav v `vitulus_auto_sec_<id>`). Pravý panel: sekce **Auto** (`rightSection`), tečka `#rp_sum_dot_auto` ve sbaleném řádku jen při problému. Nové nastavení přidá plánovač do schématu, UI potřebuje jen `auto.set.<klíč>.label` a `.hint`.
+
 ### Velký STOP (owner 2026-10-25: kulatý hřib vpravo nahoře)
 
 Jeden velký červený **STOP** (`#vt_stop_big`, vt_frame.js) — **kulatý hřib**

@@ -5,14 +5,14 @@ group: Robot
 order: 60
 icon: la-calendar
 summary: What to mow and when — programs (make, edit, delete), Run / Resume / Stop / Reset, the calendar and Hold.
-ui: [program, program/programs, program/calendar#the-calendar]
-related: [map-editor, mowing, waiting]
+ui: [program, program/programs]
+related: [autonomy, map-editor, mowing, waiting]
 keywords: [chain, several programs, one after another, řetěz, víc programů, program, programs, calendar, schedule, hold, held, active, automation off, run, resume, stop, reset, override zone, delete, remove, rename, running, missing, interrupt, pause]
 ---
 # Programs and calendar
 
 A **program** says *what* to mow: a list of zones of its map, the speed, and optionally one
-cut height and RPM for all of them. The **calendar** says *when*. Both are in **Programs**.
+cut height and RPM for all of them. The **calendar** says *when*. Programs are in **Programs**, the calendar in [Autonomy › Plan](autonomy.md#plan).
 
 ![Programs › Programs with a program open, numbered markers](img/shot-programs.webp "1 the program list (click one to open it; **New program** is at the bottom of the panel) · 2 Run · 3 Resume · 4 Show / Hide · 5 Stop · 6 Reset · 7 Save · 8 Delete")
 
@@ -144,15 +144,15 @@ To **edit** a program of another map, activate that map first: its card here is 
 
 ## The calendar
 
-![Programs › Calendar with numbered markers](img/shot-calendar.webp "1 what the scheduler does now (tag) · 2 Hold · 3 its status and the next run · 4 an event · 5 add an event")
+![The calendar with numbered markers](img/shot-calendar.webp "1 an event: program, time, recurrence · 2 on / off · 3 Edit · 4 add an event")
 
-**Programs › Calendar** lists events: program, time and recurrence (Once, Daily, Weekly with days,
+**Autonomy › Plan** lists events (**Calendar** in Programs leads there): program, time and recurrence (Once, Daily, Weekly with days,
 Monthly, Yearly), each with an on / off switch, **Edit** and **Del**. An event starts within 15
 minutes after its time, once a day.
 
 ![The form for a new calendar event with numbered markers](img/shot-calendar-form.webp "+ Add event: 1 program · 2 time · 3 recurrence · 4 Save")
 
-The tag in the calendar's head says what the scheduler does now:
+The tag in the top card of Autonomy says what the scheduler does now:
 
 | Tag | Meaning |
 |---|---|
@@ -191,7 +191,7 @@ event waits for it, it is not dropped for the new one.
 
 ![The Allowed mowing time card with numbered markers](img/shot-calendar-window.webp "1 Limit on / off · 2 from · 3 to · 4 Save")
 
-The card **Allowed mowing time** under the calendar is the "no mowing at night" rule: calendar
+The card **Allowed mowing time** in Autonomy › Plan is the "no mowing at night" rule: calendar
 programs start and continue only in this time of day. The default is **07:00–21:00**, Limit on.
 
 - **Limit** switches the rule on and off; off means the calendar times alone decide, also at night.
@@ -222,7 +222,7 @@ on; when you switch Hold off, the scheduler resumes it as usual.
 
 ### Automation on / off
 
-**Automatic mowing** in the calendar card is the one switch for everything automatic: calendar
+**Automatic mowing** at the top of [Autonomy](autonomy.md) is the one switch for everything automatic: calendar
 starts, sleeping, resuming. It is stored on the robot and survives a restart; a new robot has it
 **off**.
 

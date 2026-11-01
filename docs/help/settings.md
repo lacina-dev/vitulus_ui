@@ -45,7 +45,8 @@ application itself. The **?** in the panel head jumps to the tab you have open.
 - **Temperature** — board and external temperature and fan speeds.
 - **Outputs & limits** — motor and mower output ON / OFF, charge and cut-off currents for run and
   standby, board and external temperature limits. Change only if you know why.
-- **Sleep control** — sleep time, **Sleep now** (Timed / Until charged), standby delay, charged
+- **Advanced: raw sleep controls** (collapsed, service use: to put the robot to sleep use
+  [Autonomy › Sleep](autonomy.md#battery-sleep-faults)) — sleep time, **Sleep now** (Timed / Until charged), standby delay, charged
   offset, discharge timeout. **Sleep now** cuts the power without shutting the system down; the
   scheduler shuts down first and sets the standby delay to 3 minutes
   ([How the robot sleeps](waiting.md#how-the-robot-sleeps)).

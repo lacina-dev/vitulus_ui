@@ -2264,6 +2264,7 @@ html body.vt-frame.vt-m-sheet.vt-joy-on.vt-panel-open #joy_view.vt-joy.vt-joy.vt
 }
 .vt-aplan-tag.vt-aplan-warn { color: #ff6b6b; border-color: rgba(255, 70, 70, 0.6); }
 .vt-aplan-tag.vt-aplan-info { color: #78c8ff; border-color: rgba(120, 200, 255, 0.55); }
+.vt-aplan-tag.vt-aplan-num { padding: 1px 6px; border-radius: 10px; }
 @media (max-width: 575.98px) {
     .vt-aplan-card { left: calc(var(--vt-frame-cleft, 0px) + 6px); padding: 5px 7px 6px; }
     .vt-aplan-tag { font-size: 11px; }
