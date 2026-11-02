@@ -1083,6 +1083,15 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 /* the outage line in the notice band (ConnectionStatus): red edge, so it
    reads as "the page lost the robot", not as a robot message */
 .vt-notice.vt-notice-conn { border-color: var(--bs-danger, #dc3545); color: #ffd9dc; }
+.vt-notice[data-level="0"] { border-color: var(--bs-danger, #dc3545); color: #ffd9dc; }
+.vt-notice[data-level="1"] { border-color: var(--vt-warn); }
+/* the row lets clicks through to the map; only the notice's own button takes them */
+/* with a button the line is a row: the words give way, the button never leaves the screen */
+.vt-notice[style*="inline-flex"] { align-items: center; max-width: 100%; }
+.vt-notice[style*="inline-flex"] .vt-notice-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-notice-act { flex: 0 0 auto; pointer-events: auto; margin-left: 6px; padding: 0 10px; min-height: 26px; font: inherit; font-size: var(--vt-fs-sm);
+    color: #111; background: var(--vt-warn); border: 0; border-radius: var(--vt-r-ctl); cursor: pointer; }
+@media (pointer: coarse), (max-width: 575.98px) { .vt-notice-act { min-height: 36px; } }
 .vt-conn:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 0; }
 .vt-conn-dot {
     width: 9px; height: 9px; border-radius: 50%;

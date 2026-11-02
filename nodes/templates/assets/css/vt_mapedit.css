@@ -166,6 +166,7 @@
 .mow-w-full { height: 10px; } .mow-w-mid { height: 6px; } .mow-w-thin { height: 2px; }
 .mow-state i.mow-w-rule { height: 5px; background: var(--vt-mow-rule); }
 .mow-state i.mow-w-blocked { height: 10px; background: var(--vt-mow-blocked); }
+.mow-state i.mow-w-link { height: 10px; background: var(--vt-mow-link); }
 .mow-events { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0; cursor: pointer; }
 .mow-events .form-check-input { width: 20px; height: 20px; margin: 0; }
 .mow-sum { display: flex; flex-wrap: wrap; gap: 2px 12px; }

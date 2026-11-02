@@ -228,6 +228,8 @@ html body.vt-frame.vt-h-ph .vt-notice-row {
     overflow: hidden;
 }
 html body.vt-frame.vt-h-ph.vagent-strip-on .vt-notice-row { padding-left: 166px; }
+/* a finger's Cancel on the line: the row gives it room for as long as it is there */
+html body.vt-frame.vt-h-ph .vt-notice-row:has(.vt-notice-act) { height: 40px; }
 
 /* ------------------------------------- notices: one line, in fixed slots */
 /* the robot's notice is one line with an ellipsis (the full text is its

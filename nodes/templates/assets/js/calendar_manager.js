@@ -116,6 +116,7 @@ class CalendarManager {
         this.reportSub.subscribe((msg) => {
             try {
                 this._report = JSON.parse(msg.data);
+                this._reportAt = Date.now();
             } catch (e) {
                 this._report = null;
             }
@@ -374,8 +375,16 @@ class CalendarManager {
     _sentence(rep) {
         const said = rep.sentence || {};   // machine form of the top sentence
         const d = Object.assign({}, rep.detail || {}, said.vars || {});
-        if (d.left_s !== undefined) d.min = Math.ceil(d.left_s / 60);
+        // a wait's seconds left when the report was made: it may be half a minute old
+        if (d.left_s !== undefined) {
+            d.left_s = Math.max(0, d.left_s - (Date.now() - (this._reportAt || Date.now())) / 1000);
+            d.min = Math.ceil(d.left_s / 60);
+        }
         if (d.program === undefined) d.program = (rep.run && rep.run.program) || '';
+        if ((said.code === 'sleep_countdown' || said.code === 'hw_reset_countdown') && window.VTAutonomy && VTAutonomy.planLine) {
+            const line = VTAutonomy.planLine();
+            if (line) return line;
+        }
         const key = 'calmgr.code.' + (said.code || rep.code);
         const text = calT(key, d);
         if (text === key) return rep.status || '';
@@ -453,7 +462,9 @@ class CalendarManager {
                 const why = (typeof vtT === 'function') ? vtT('mapview.prog.mapgate.' + code, {program: d.program, site: ''}) : code;
                 d.reason = why === 'mapview.prog.mapgate.' + code ? code : why;
             }
-            let text = calT(key, d);
+            const byReason = 'calmgr.issue.reason.' + d.reason;   // the reason says more than the code
+            let text = calT(byReason, d);
+            if (text === byReason) text = calT(key, d);
             if (text === key) text = i.code + ' ' + (i.program || '');
             const why = d.blocked_by ? calT('calmgr.code.' + d.blocked_by) : '';
             html += `<div class="vt-cal-issue" title="${this._escHtml(why)}">${this._escHtml(text)}</div>`;
@@ -680,6 +691,7 @@ class CalendarManager {
             const idx = this.events.findIndex(e => e.id === this.editingId);
             if (idx >= 0) {
                 ev.enabled = this.events[idx].enabled;
+                if (this._moved(this.events[idx], ev) && !this._runOpen()) { ev.id = this._uuid(); }
                 this.events[idx] = ev;
             }
         } else {
@@ -689,6 +701,31 @@ class CalendarManager {
         this._publish();
         this._hideForm();
         this.render();
+    }
+
+    /* The master marks a slot used per id and date: an event moved to later today under
+       its old id counts as already run and the next start falls a week away. A moved
+       event is a new slot, so it gets a new id. Not while a run is open: the master
+       ends a run whose event is gone. */
+    _moved(a, b) {
+        return ['start_time', 'recurrence', 'start_date', 'day_of_month', 'month'].some(k => (a[k] || '') !== (b[k] || ''))
+            || JSON.stringify(a.days_of_week || []) !== JSON.stringify(b.days_of_week || []);
+    }
+
+    _runOpen() {
+        return !!(this._report && this._report.run);
+    }
+
+    /* "Run today anyway": the same as deleting the entry and adding it again.
+       false = refused, a run is open. */
+    releaseSlot(id) {
+        if (this._runOpen()) return false;
+        const ev = this.events.find(e => e.id === id);
+        if (!ev) return false;
+        ev.id = this._uuid();
+        this._publish();
+        this.render();
+        return true;
     }
 
     _deleteEvent(id) {

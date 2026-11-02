@@ -62,9 +62,62 @@ offers **Ignore rain this time**: it applies to that one run only.
 Each setting has a label, one sentence and its default, and **Reset** when it differs. A change
 applies at once and the row says *Saved*. A refused value says why and the old one stays.
 
-**Sleep** also has **Stay awake** (for N hours) and **Sleep now** (for a time, or until charged, tap
-twice). Sleep now works only in the dock with nothing running. If someone else is connected, a 60 s
-countdown appears at the top with **Cancel**.
+### Sleep
+
+The sentence under **Sleep** is the plan: when it goes to sleep, for how long, when it wakes, or what
+holds it awake. The same sentence stands at the top of the page, and **Cancel** is above the map, in
+the right panel and at the top while a sleep is counting down. With the robot's timing the power goes
+3 minutes after the start and the robot wakes at the stated time; the time *off* is shorter than
+the time you ask for by those 3 minutes.
+
+- **Sleep automatically** is the robot's own sleeping. **Sleep now** works either way.
+- **Ignore logins** and **Ignore open UI**: off, a terminal or an open page keeps the robot awake. On,
+  it goes to sleep with you connected, the power goes and the page and every terminal lose it until it
+  wakes. Switching one on can start a sleep at once, so it first tells you the duration and the wake
+  time and asks.
+- **Cancel** holds automatic sleep off for 30 minutes and says until when, then the countdown comes
+  again. For longer, use **Stay awake** (N hours).
+- **Sleep now**: the box takes what the robot accepts, today from 16 minutes (a limit of 15 and a clock
+  margin), and the line under it says what would happen. A start inside the sleep is a choice: wake for
+  it (the sleep gets shorter) or skip it. A login on a terminal refuses Sleep now unless Ignore logins
+  is on. While a sleep is counting down, cancel that one first. With this page open a 60 s countdown
+  runs first. If it fails afterwards, the page says so.
+
+Some limits are not settings yet. **Advanced** lists them with their values: the shortest sleep, the
+wait before the power goes, the longest piece of sleep, the countdown and the time a Cancel holds.
+
+### Hardware reset
+
+**Hardware reset: everything off for N s** (also in Settings › Power) is not a sleep. Power to the
+computer, motors and mower goes off for N seconds, default 60, only the power module stays on. It works
+in the dock on the charger with nothing running. It says what will happen and asks, then the power
+goes 20 s later, with **Cancel** until then. It is a hard cut without a clean shutdown, and this page
+and Claude sessions go too; the robot is back about 2 minutes after. The scheduler does not know
+about it. The page that started it reconnects, says how it went and puts the power module's times back.
+
+### The mower board stops answering
+
+During mowing the robot stops after 3 s without news from the mower board. If the board answers
+within 6 s, it just drives on. If not, the blade gets stopped and the robot tries to bring the board back
+(the panel shows the banner, here and in the right panel). While the board stays silent the mower's power
+stays off: it comes back only once the board answers. When that fails, or the mission ends meanwhile,
+the power stays off, the robot goes home without the blade and the run stays waiting at its place. If you
+switch the mower off yourself during mowing, the robot goes home, leaves it off and tells you. The run
+does not resume by itself: start it when you want it.
+
+**Reset a silent mower board by itself** (Faults, off by default, you turn it on per robot): when the board is still silent in the
+dock, on the charger, with nothing running, the robot does a hardware reset on its own: announced 60 s
+ahead with **Cancel**, power off for a minute, the run goes on after the boot. It does this once per
+run and at most twice in 24 hours; after that it tells you and waits. If somebody is connected and
+**Ignore logins** / **Ignore open UI** are off, it does not cut: it tells you and waits until they are
+gone. A terminal used in the last 10 minutes stops it even with **Ignore logins** on. Cancel holds for
+that run. Off the dock it never cuts.
+
+### A start that does not run today
+
+One calendar entry runs once a day. If an entry already ran today and has a later start today, Plan
+says so, names the next start and offers **Run today anyway** (the same as deleting the entry and
+adding it again). Moving an entry to another time needs nothing: it counts as a new start.
 
 ## Advanced
 
@@ -77,6 +130,14 @@ cannot be changed here. No setting here relaxes a safety limit.
 The journal says in plain words what happened: started, finished, skipped, missed, waited, slept,
 woke, settings changed. Filter it by runs, waits, sleep or settings. Problems stay on top until you
 **Clear** them.
+
+## The line above the map
+
+One line says what the robot is doing, and what is about to happen: a sleep ahead ("Going to sleep
+in 5 min for 11 h 55 min") when that is known, the countdown with **Cancel**, *Sleep cancelled*, *Leaving:
+Bigger*, *Waiting for RTK*, *Mowing finished*. STOP and errors come first and stay until they are over.
+The robot's routine lines wait their turn, each stays at least 2.5 seconds, and all of them stay in
+the **Log**. On a phone the line is shorter; the whole sentence is in the panel.
 
 ## Outside the panel
 

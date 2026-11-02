@@ -23,10 +23,10 @@ window.VTMowTrail = (function () {
     // ---- format, same as mowtrail.py
     var STRIDE = 18, WHEEL = 15, LIDAR = 16, JUMP = 17, LOAD = 2, AMPS = 3, RPM = 4, TEMP = 5, STATE = 6, TIME = 7, SPEED = 8, SLOPE = 9, FIX = 10, DIP = 11, HACC = 12, AGE = 13, RATE = 14;
     var BRK = 16, NONE = -9999;
-    var STATES = ['cutting', 'spinup', 'transit', 'blocked', 'overload', 'hot', 'rule', 'hold'];
-    var EVENTS = ['blocked', 'hot', 'overload', 'rule', 'temp', 'recovery', 'backup', 'detour', 'stall', 'no_progress', 'rewindow', 'hold', 'rtcm_gap', 'fix_down', 'fix_up', 'gps_jump'];
-    var GLYPH = { blocked: '✕', hot: 'T', overload: '!', rule: '⊘', temp: 'T', recovery: '↻', backup: '↶', detour: '⤴', stall: '■', no_progress: '…', rewindow: '↔', hold: '‖', rtcm_gap: 'R', fix_down: '▼', fix_up: '▲', gps_jump: 'J' };
-    var EV_TONE = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 1];   // colour step of an EVENTS index
+    var STATES = ['cutting', 'spinup', 'transit', 'blocked', 'overload', 'hot', 'rule', 'hold', 'link_lost'];
+    var EVENTS = ['blocked', 'link_lost', 'hot', 'overload', 'rule', 'temp', 'recovery', 'backup', 'detour', 'stall', 'no_progress', 'rewindow', 'hold', 'rtcm_gap', 'fix_down', 'fix_up', 'gps_jump'];
+    var GLYPH = { blocked: '✕', link_lost: '?', hot: 'T', overload: '!', rule: '⊘', temp: 'T', recovery: '↻', backup: '↶', detour: '⤴', stall: '■', no_progress: '…', rewindow: '↔', hold: '‖', rtcm_gap: 'R', fix_down: '▼', fix_up: '▲', gps_jump: 'J' };
+    var EV_TONE = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 1];   // colour step of an EVENTS index
     var DEFAULT_LIMITS = { trip_a: 1.54, overload_load: 0.85, deck_m: 0.29, temp_warn_c: 60, temp_max_c: 70 };
 
     // Five colour steps, tokens --vt-mow-1..5 (ColorBrewer RdYlBu: safe for
@@ -73,6 +73,7 @@ window.VTMowTrail = (function () {
             blocked: tok('--vt-mow-blocked', '#ff3fb0'),
             hot: tok('--vt-mow-hot', '#ffffff'),
             rule: tok('--vt-mow-rule', '#b388ff'),
+            link: tok('--vt-mow-link', '#ff7100'),
             ev: [tok('--vt-mow-ev-1', '#ff3fb0'), tok('--vt-mow-ev-2', '#ffb000'), tok('--vt-mow-ev-3', '#e9edf0')],
         };
     }
@@ -96,6 +97,7 @@ window.VTMowTrail = (function () {
         case 'hold': return { w: deck * 0.6 };
         case 'blocked': return { w: deck, color: 'blocked' };
         case 'hot': return { w: deck, color: 'hot' };
+        case 'link_lost': return { w: deck, color: 'link' };
         case 'rule': return { w: deck * 0.45, color: 'rule' };
         default: return { w: 0.07, off: true };
         }
@@ -345,7 +347,7 @@ window.VTMowTrail = (function () {
 
     function Icons(T, scene) {
         this.T = T;
-        var N = 4, SZ = 64, cv = document.createElement('canvas');
+        var N = 5, SZ = 64, cv = document.createElement('canvas');
         cv.width = cv.height = N * SZ;
         var pal = palette(), c = cv.getContext('2d');
         c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = 'bold 34px sans-serif';
@@ -568,7 +570,7 @@ window.VTMowTrail = (function () {
         var bar = cells.map(function (c) { return '<span class="mow-stop"><i style="background:' + css(c.c) + '"></i><b>' + esc(c.l) + '</b></span>'; }).join('');
         var w = function (cls, k) { return '<span class="mow-state"><i class="' + cls + '"></i>' + esc(t('mowl.style.' + k)) + '</span>'; };
         var note = m.note ? '<div class="mow-note">' + esc(t('mowl.note.' + S.metric)) + '</div>' : '';
-        return '<div class="mow-scale">' + bar + '</div>' + note + '<div class="mow-states">' + w('mow-w-full', 'cut') + w('mow-w-mid', 'spin') + w('mow-w-thin', 'transit') + w('mow-w-rule', 'rule') + w('mow-w-blocked', 'blocked') + '</div>';
+        return '<div class="mow-scale">' + bar + '</div>' + note + '<div class="mow-states">' + w('mow-w-full', 'cut') + w('mow-w-mid', 'spin') + w('mow-w-thin', 'transit') + w('mow-w-rule', 'rule') + w('mow-w-blocked', 'blocked') + w('mow-w-link', 'link') + '</div>';
     }
     function summaryHtml() {
         var s = S.summary || (S.runs[0] && (S.view === 'live') ? S.runs[0] : null);

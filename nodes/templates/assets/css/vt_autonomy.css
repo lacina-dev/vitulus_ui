@@ -145,6 +145,30 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
 /* right panel */
 #right_panel .rp-auto-chip { margin-left: auto; font-variant-numeric: tabular-nums; }
 
+/* the plan of the next sleep, in words */
+.vt-auto-sleepline { margin: 4px 0 var(--vt-gap-2); font-size: var(--vt-fs-sm); color: var(--vt-muted); }
+.vt-auto-sleepline[data-state="warn"] { color: var(--vt-warn); font-weight: 600; }
+.vt-auto-used .vt-attn { flex-wrap: wrap; margin-bottom: var(--vt-gap-2); }
+.vt-auto-preview { margin: 4px 0 0; font-size: var(--vt-fs-sm); }
+.vt-auto-preview[data-state="warn"] { color: var(--vt-warn); }
+.vt-auto-preview[data-state="err"] { color: var(--vt-err); }
+.vt-auto-choice-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.vt-auto-limit { display: flex; align-items: baseline; gap: var(--vt-gap-2); padding: 3px 0; font-size: var(--vt-fs-sm); }
+.vt-auto-limit-t { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.vt-auto-limit-t small { color: var(--vt-muted); }
+.vt-auto-limit-v { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+#auto_ignore_warn { flex-wrap: wrap; }
+/* these say what happens to the robot: never cut to one line */
+#auto_ignore_warn .vt-attn-txt, #auto_countdown .vt-attn-txt, .vt-auto-used .vt-attn-txt { white-space: normal; overflow: visible; }
+
+/* right panel: the coming sleep, always one tap from Cancel */
+.rp-auto-link { width: 100%; margin-top: 4px; font-size: 12px; line-height: 1.3; color: var(--vt-text); }
+.rp-auto-link[hidden] { display: none; }
+.rp-auto-plan { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 3px; font-size: 11px; line-height: 1.25; color: var(--vt-warn); }
+.rp-auto-plan[hidden] { display: none; }
+.rp-auto-plan > span { flex: 1 1 auto; min-width: 0; }
+.rp-auto-plan .btn { flex: 0 0 auto; padding: 1px 8px; min-height: 26px; font-size: 11px; }
+
 /* touch: 40 px */
 @media (pointer: coarse), (max-width: 575.98px) {
     .vt-auto-go { width: 40px; height: 40px; }
@@ -152,6 +176,8 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
     .vt-auto-in, .vt-auto-set-c select, .vt-auto-line .btn, .vt-auto-actions .btn { min-height: 40px; }
     .vt-auto-reset { min-height: 32px; line-height: 32px; padding: 0 8px; }
     .vt-auto-fbtn { min-height: 40px; }
+    .rp-auto-plan .btn { min-height: 40px; }
+    .vt-auto-choice-row .btn { min-height: 40px; }
     #ui_drawer details.vt-auto-sec > summary { min-height: 44px; }
     .vt-auto-actions .btn { flex: 1 1 100%; }
     .vt-auto-sec-t { font-size: var(--vt-fs); }

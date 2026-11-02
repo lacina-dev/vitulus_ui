@@ -59,6 +59,7 @@
     --vt-mow-off: #e9edf0;       /* blade off on a blade metric */
     --vt-mow-none: #8a949c;      /* value not known */
     --vt-mow-blocked: #ff3fb0;
+    --vt-mow-link: #ff7100;
     --vt-mow-hot: #ffffff;
     --vt-mow-rule: #b388ff;
     --vt-mow-ev-1: #ff3fb0;      /* event icons, by weight */

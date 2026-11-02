@@ -48,7 +48,7 @@ Záložka navigace:
   běh a pohotovost, limit teploty desky (PCB) a vnější teploty. Měň jen, když víš proč.
 - **Pokročilé: přímé ovládání spánku** (sbalené, jen pro servis: robota uspávej v
   [Autonomie › Spánek](autonomy.md#baterie-spánek-poruchy)) — **Doba spánku**, **Uspat teď** (**Na čas** / **Do nabití**), **Prodleva
-  pohotovosti**, **Posun po nabití**, **Limit vybíjení**. **Uspat teď** odpojí napájení bez
+  pohotovosti**, **Posun po nabití**, **Limit vybíjení**. **Uspat teď** › **Na čas** nejdřív řekne, kolik minut bude spát, a zeptá se znovu: vezme hodnotu, kterou napíšeš, jinak tu, co drží napájecí modul (poslední zapsanou, obvykle od plánovače). Odpojí napájení bez
   vypnutí systému; plánovač systém nejdřív vypne a prodlevu pohotovosti nastaví na 3 minuty
   ([Jak robot spí](waiting.md#jak-robot-spí)).
 
