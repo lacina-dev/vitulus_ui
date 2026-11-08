@@ -191,13 +191,23 @@ shows in the others at once, and the browser remembers it. Tap outside the card,
 
 **Terrain (T10)** (layers card under *Robot*, also a tick in the Map tab's layers row; off by
 default, remembered) shows what the robot's terrain node sees right now: a 6 × 6 m window around
-the robot in 5 cm cells, about twice a second, flat on the ground under the robot and the paths.
-**Green** = free, **yellow → orange** = harder (slope, roughness), **red** = not passable (a step,
-a too steep slope, an obstacle); where the camera has not looked yet there is nothing. The data
-come only while the layer is on and the page is shown. The row says *live*, *waiting…*, *old data*
-(nothing new for a few seconds) or *no data* — then the terrain node does not run, the camera gives
-no picture, or the re-framing to the map (`costmap_reframe_t10`) is not running.
+the robot in 5 cm cells, about twice a second, flat on the ground under the robot and the paths;
+where the camera has not looked yet there is nothing. Three views (the choice is remembered):
 
+- **Reason** — why a place is hard or not passable: **green** free, **yellow → orange** higher cost
+  (slope, roughness), **violet** a step (an edge over 8 cm), **blue** too steep, **red** an obstacle,
+  **grey-violet** a drop seen only from one place (a hole or a bank — not forbidden yet), **grey** in
+  the dock zone; the dock zone itself is outlined in white.
+- **Cost** — 0 free (green) … 99 hard (orange), 100 not passable (red).
+- **Height** — the ground against the robot, blue lower, brown higher (±15 cm); only when the
+  terrain node sends it (its parameter `ui_elevation`), otherwise the button is greyed out.
+
+The layer follows the global *Maps opacity*. The data come only while the layer is on and the page
+is shown (at most twice a second, a few kB each). Until the terrain node's detailed topic
+`/traversability/ui` is there, the layer falls back to its plain costmap — the cost only, the row says
+so. The row says *live*, *waiting…*, *old data* (nothing new for a few seconds, drawn faded), *no map
+position* (the robot does not know where the odometry sits in the map: not drawn) or *no data* —
+then the terrain node does not run or the camera gives no picture.
 ### Scale bar
 
 In the bottom-left corner, just above the credits line, a small bar shows the scale: its length on

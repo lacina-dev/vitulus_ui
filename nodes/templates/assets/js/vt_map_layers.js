@@ -347,14 +347,33 @@
         tlRefit();
     }
 
-    // T29: the terrain row — the state sentence when it needs one
+    // T29: the terrain row — view buttons (only views with data), legend of
+    // the view, the source when it is the fallback, the state sentence
+    var travLegSig = '';
     function syncTrav() {
         var row = panel && panel.querySelector('[data-lyr-row="trav"]'), chk = $('mapv3_chk_trav');
         if (!row || !chk) { return; }
-        var I = window.VTTerrain && VTTerrain.info ? VTTerrain.info() : { state: '' };
+        var I = window.VTTerrain && VTTerrain.info ? VTTerrain.info()
+            : { state: '', source: '', views: { reason: true, cost: true, height: false }, mode: 'reason' };
+        row.querySelectorAll('[data-lyr-tmode]').forEach(function (b) {
+            var m = b.getAttribute('data-lyr-tmode'), off = !I.views[m];
+            b.setAttribute('aria-pressed', String(I.source === 'grid' ? m === 'cost' : I.mode === m));
+            if (b.disabled !== off) { b.disabled = off; }
+            b.title = off ? t(m === 'height' ? 'trav.view.height_off' : 'trav.view.grid_only') : '';
+        });
+        // the fallback grid has the cost only
+        var mode = I.source === 'grid' ? 'cost' : I.mode;
+        var leg = row.querySelector('[data-lyr-tleg]'), sig = mode + '|' + lang();
+        if (leg && (travLegSig !== sig || !leg.firstChild)) { travLegSig = sig; leg.innerHTML = travLegendHtml(mode); }
+        var src = row.querySelector('[data-lyr-tsrc]');
+        if (src) {
+            var sm = chk.checked && I.source === 'grid' ? t('trav.src.grid') : '';
+            if (src.textContent !== sm) { src.textContent = sm; }
+            src.hidden = !sm;
+        }
         var st = row.querySelector('[data-lyr-tstat]');
         if (st) {
-            var why = chk.checked && ['nodata', 'stale', 'noros'].indexOf(I.state) >= 0 ? t('trav.why.' + I.state) : '';
+            var why = chk.checked && ['nodata', 'stale', 'noros', 'notf'].indexOf(I.state) >= 0 ? t('trav.why.' + I.state) : '';
             if (st.textContent !== why) { st.textContent = why; }
             st.hidden = !why;
         }
@@ -367,16 +386,36 @@
         return (bgOn() && s && s.state) ? s : null;
     }
 
-    // ---- T29: the terrain layer's legend (cost 0 … 100, vt_terrain_layer.js colours)
-    function rgba(c) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (c[3] / 255).toFixed(2) + ')'; }
-    function travLegendHtml() {
+    // ---- T29: the terrain layer's views and legends (vt_terrain_layer.js colours)
+    function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? (c[3] / 255).toFixed(2) : a) + ')'; }
+    function travModesHtml() {
+        return '<div class="vt-lyr-tmodes" role="group" aria-label="' + esc(t('trav.view')) + '">' +
+            ['reason', 'cost', 'height'].map(function (m) {
+                return '<button type="button" class="vt-lyr-tmode" data-lyr-tmode="' + m + '" aria-pressed="false">' + esc(t('trav.mode.' + m)) + '</button>';
+            }).join('') + '</div>';
+    }
+    function travLegendHtml(mode) {
         var V = window.VTTerrain;
         if (!V || !V.costColor) { return ''; }
-        var cs = [0, 25, 49, 50, 75, 99].map(function (c, i, a) { return rgba(V.costColor(c)) + ' ' + Math.round(i / a.length * 100) + '%'; });
-        cs.push(rgba(V.costColor(100)) + ' 86%', rgba(V.costColor(100)) + ' 100%');
-        return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,' + cs.join(',') + ')"></span>' +
-            '<span class="vt-lyr-legend-l"><span>' + esc(t('trav.leg.free')) + '</span><span>' + esc(t('trav.leg.hard')) + '</span><span>' +
-            esc(t('trav.leg.lethal')) + '</span></span></div>';
+        if (mode === 'cost') {
+            var cs = [0, 25, 49, 50, 75, 99].map(function (c, i, a) { return rgba(V.costColor(c)) + ' ' + Math.round(i / a.length * 100) + '%'; });
+            cs.push(rgba(V.costColor(100)) + ' 86%', rgba(V.costColor(100)) + ' 100%');
+            return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,' + cs.join(',') + ')"></span>' +
+                '<span class="vt-lyr-legend-l"><span>' + esc(t('trav.leg.free')) + '</span><span>' + esc(t('trav.leg.hard')) + '</span><span>' +
+                esc(t('trav.leg.lethal')) + '</span></span></div>';
+        }
+        if (mode === 'height' && V.heightColor) {
+            var sp = V.ELEV_SPAN_CM, hs = [128 - sp, 128, 128 + sp].map(function (v) { return rgba(V.heightColor(v)); });
+            return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,' + hs.join(',') + ')"></span>' +
+                '<span class="vt-lyr-legend-l vt-tnum"><span>' + esc(t('trav.leg.low', { cm: sp })) + '</span><span>' + esc(t('trav.leg.level')) +
+                '</span><span>' + esc(t('trav.leg.high', { cm: sp })) + '</span></span></div>';
+        }
+        if (!V.REASON) { return ''; }
+        return '<div class="vt-lyr-legend vt-lyr-treasons">' + [1, 2, 3, 4, 5, 6, 7].map(function (c) {
+            var col = c === 2 ? V.reasonColor(2, 75) : V.REASON[c];
+            return '<span class="vt-lyr-treason"><span class="vt-lyr-tchip" style="background:' + rgba(col, 1) + '"></span>' +
+                esc(t('trav.r.' + V.REASON_KEYS[c])) + '</span>';
+        }).join('') + '<span class="vt-lyr-treason"><span class="vt-lyr-tchip is-zone"></span>' + esc(t('trav.r.zone_line')) + '</span></div>';
     }
 
     function ovRow(key, chkId, name, hint, extra) {
@@ -445,7 +484,9 @@
             if ($('mapv3_chk_trav')) {
                 h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>');
                 h.push(ovRow('trav', 'mapv3_chk_trav', t('trav.layer'), t('trav.hint'),
-                    travLegendHtml() + '<div class="vt-lyr-tstat" data-lyr-tstat role="status" hidden></div>'));
+                    travModesHtml() + '<div data-lyr-tleg></div>' +
+                    '<div class="vt-lyr-hint" data-lyr-tsrc hidden></div>' +
+                    '<div class="vt-lyr-tstat" data-lyr-tstat role="status" hidden></div>'));
             }
             if ($('mapv3_chk_rain') || weather.length) {
                 h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.weather')) + '</div>');
@@ -554,6 +595,12 @@
         if (el.hasAttribute('data-lyr-help')) {
             close(false);
             if (window.VTHelp) { VTHelp.open('mapping', lang() === 'cs' ? 'tlačítko-vrstev-na-mapě' : 'the-layers-button-on-the-map'); }
+            return;
+        }
+        if (el.hasAttribute('data-lyr-tmode')) {
+            var ms = $('mapv3_trav_mode'), m = el.getAttribute('data-lyr-tmode');
+            if (ms && !el.disabled && ms.value !== m) { ms.value = m; fire(ms, 'change'); }
+            sync();
             return;
         }
         if (el.hasAttribute('data-lyr-more')) { moreSettings(); }

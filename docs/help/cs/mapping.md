@@ -187,13 +187,22 @@ ukáže i na ostatních, a prohlížeč si to pamatuje. Klepnutí mimo kartu, �
 
 **Terén (T10)** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa; výchozí
 vypnuto, pamatuje se) ukazuje, co teď vidí uzel terénu robota: okno 6 × 6 m kolem robota po 5 cm,
-zhruba dvakrát za sekundu, naplocho na zemi pod robotem a trasami. **Zelená** = volno, **žlutá →
-oranžová** = obtížnější (sklon, nerovnost), **červená** = nesjízdné (schod, příliš prudký svah,
-překážka); kam kamera ještě nedohlédla, tam není nic. Data chodí jen se zapnutou vrstvou
-a zobrazenou stránkou. Řádek říká *živě*, *čekám…*, *stará data* (pár sekund nic nového) nebo
-*žádná data* — pak uzel terénu neběží, kamera nedává obraz, nebo neběží přepočet do mapy
-(`costmap_reframe_t10`).
+zhruba dvakrát za sekundu, naplocho na zemi pod robotem a trasami; kam kamera ještě nedohlédla, tam
+není nic. Tři pohledy (volba se pamatuje):
 
+- **Důvod** — proč je místo obtížné nebo nesjízdné: **zelená** volno, **žlutá → oranžová** vyšší cena
+  (sklon, nerovnost), **fialová** schod (hrana přes 8 cm), **modrá** příliš prudký svah, **červená**
+  překážka, **šedofialová** sráz viděný jen z jednoho místa (díra nebo mez — zatím nezakázáno),
+  **šedá** v zóně doku; samotná zóna doku má bílý obrys.
+- **Cena** — 0 volno (zelená) … 99 obtížné (oranžová), 100 nesjízdné (červená).
+- **Výška** — terén proti robotu, modrá níž, hnědá výš (±15 cm); jen když ji uzel terénu posílá
+  (jeho parametr `ui_elevation`), jinak je tlačítko zašedlé.
+
+Vrstva se řídí společným *Krytím map*. Data chodí jen se zapnutou vrstvou a zobrazenou stránkou
+(nejvýš dvakrát za sekundu, pár kB). Dokud podrobné téma uzlu terénu `/traversability/ui` není,
+vrstva použije jeho obyčejnou costmapu — jen cenu, řádek to řekne. Řádek říká *živě*, *čekám…*,
+*stará data* (pár sekund nic nového, kreslí se vybledle), *bez polohy v mapě* (robot neví, kde je
+odometrie v mapě: nekreslí se) nebo *žádná data* — pak uzel terénu neběží nebo kamera nedává obraz.
 ### Měřítko
 
 V levém dolním rohu, hned nad řádkem s autory map, ukazuje malý pruh měřítko: jeho délka na zemi je

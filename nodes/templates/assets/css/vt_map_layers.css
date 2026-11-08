@@ -247,3 +247,18 @@
 }
 .vt-lyr-tstat { margin: 2px 0; color: var(--vt-warn); font-size: var(--vt-fs-sm); line-height: 1.35; overflow-wrap: anywhere; hyphens: auto; }
 .vt-lyr-tstat[hidden] { display: none; }
+
+/* ---- T29 full: views (reason / cost / height) and the reasons' legend */
+.vt-lyr-tmodes { display: flex; gap: 4px; margin: 2px 0 6px; }
+.vt-lyr-tmode {
+    flex: 1 1 0; min-width: 0; min-height: var(--vt-touch, 40px); padding: 0 6px;
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl); background: transparent;
+    color: var(--vt-muted); font-size: var(--vt-fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.vt-lyr-tmode[aria-pressed="true"] { color: var(--vt-text); border-color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.18); }
+.vt-lyr-tmode:disabled { opacity: 0.4; cursor: default; }
+.vt-lyr-tmode:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
+.vt-lyr-treasons { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+.vt-lyr-treason { display: inline-flex; align-items: center; gap: 5px; color: var(--vt-muted); font-size: var(--vt-fs-xs); white-space: nowrap; }
+.vt-lyr-tchip { flex: 0 0 auto; width: 11px; height: 11px; border-radius: 2px; }
+.vt-lyr-tchip.is-zone { background: transparent; border: 2px solid #eeeeee; border-radius: 50%; }
