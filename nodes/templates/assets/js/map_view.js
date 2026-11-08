@@ -1985,6 +1985,8 @@ class InteractiveMarkers{
         function down(ev) {
             var touch = ev.type === 'touchstart';
             if (touch && g && g.touch && nTouch(ev) > 1) { g.multi = true; return; }   // 2nd finger: pinch
+            // T22c: only the left mouse button places the marker (right / middle drag the map)
+            if (ev.type === 'mousedown' && ev.domEvent && ev.domEvent.button !== 0) { g = null; return; }
             var p = pt(ev);
             g = { ray: (ev.mouseRay && ev.mouseRay.clone) ? ev.mouseRay.clone() : null,
                   x0: p ? p.x : null, y0: p ? p.y : null, touch: touch,
@@ -2051,6 +2053,57 @@ class InteractiveMarkers{
                     }
         });
         this.newInteractiveMarkerTopic.publish(newInteractiveMarkerMsg);
+        this.keep_heading(map_x, map_y);
+    }
+
+    // T22c: navi_manager makes the new marker with heading 0, the Heading slider
+    // keeps its angle — turn the new marker to the slider (the same feedback a
+    // slider move sends), so what the user sees is what "Send goal" sends.
+    // Waits (≤ 5 s) for the marker of this point to come from the server; a later
+    // tap restarts the wait for its own point. While it waits, the slider only
+    // stores its angle (heading_pending) — the old marker is about to go.
+    keep_heading(x, y) {
+        var self = this, until = Date.now() + 5000, ims = this.imClient.interactiveMarkers || {};
+        var seen = ims.webgui_marker || null;
+        this.stop_heading_wait();
+        this._headingT = setInterval(function () {
+            var h = (self.imClient.interactiveMarkers || {}).webgui_marker;
+            if (h && h !== seen) {
+                seen = h;
+                var p = h.message && h.message.pose && h.message.pose.position;
+                if (p && Math.abs(p.x - x) < 1e-3 && Math.abs(p.y - y) < 1e-3) {
+                    self.stop_heading_wait();
+                    self.apply_heading(true);   // heading 0 = as the server made it: nothing to send
+                    return;
+                }
+            }
+            if (Date.now() >= until) self.stop_heading_wait();
+        }, 50);
+    }
+    stop_heading_wait() {
+        if (this._headingT) clearInterval(this._headingT);
+        this._headingT = null;
+    }
+    heading_pending() {
+        return !!this._headingT;
+    }
+
+    // turn the goal marker to the Heading slider (self.heading(), else euler.z);
+    // false = no marker on the map yet (or skip_zero and heading 0)
+    apply_heading(skip_zero) {
+        if (typeof this.heading === 'function') {
+            var v = this.heading();
+            if (isFinite(v)) this.euler.z = v;
+        }
+        if (skip_zero && !this.euler.z) return false;
+        var root = this.imClient.rootObject;
+        var marker = root.getObjectByName('webgui_marker');
+        var rotate_z = marker && marker.getObjectByName('rotate_z');
+        if (!marker || !rotate_z) return false;
+        var q = new THREE.Quaternion();
+        q.setFromEuler(this.euler);
+        marker.setOrientation(rotate_z, q);
+        return true;
     }
 }
 
@@ -8858,16 +8911,18 @@ window.initMapView = function () {
     map_menu.btn_marker.onclick = function () {
         map_menu.btn_marker_onclick(interactive_markers);
     };
+    // T22c: the slider is the heading of every marker placed (keep_heading)
+    interactive_markers.heading = function () {
+        return parseFloat(map_menu.range_marker_orientation.value);
+    };
     map_menu.range_marker_orientation.oninput = function() {
-        const marker = viewer.viewer.scene.getObjectByName("webgui_marker");
         interactive_markers.euler.z = parseFloat(map_menu.range_marker_orientation.value);
         const hd = document.getElementById('span_marker_heading');
         if (hd) hd.textContent = Math.round(interactive_markers.euler.z * 180 / Math.PI) + '°';
-        const quaternion = new THREE.Quaternion();
-        quaternion.setFromEuler(interactive_markers.euler);
-        const rotate_z = viewer.viewer.scene.getObjectByName("rotate_z");
+        // T22c: a new marker is on its way — keep_heading turns it to this angle
+        if (interactive_markers.heading_pending()) return;
         // T22: no marker yet (none placed since navi_manager started) — nothing to turn
-        if (marker && rotate_z) marker.setOrientation(rotate_z, quaternion);
+        interactive_markers.apply_heading();
     };
     map_menu.btn_marker_send_goal.onclick = function () {
         map_menu.btn_marker_send_goal_onclick(interactive_markers);

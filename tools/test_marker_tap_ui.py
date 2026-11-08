@@ -6,7 +6,7 @@ a robot.
 reset); "Send goal" (/navi_manager/interactive_marker_goal) then drives to it. It used to go out on every
 touchstart / mousedown on the map — a pinch sent ~3 messages and moved the goal marker to where the
 gesture began, in any panel. Now (map_view.js InteractiveMarkers.attach_tap) only a tap / click without
-dragging, with one finger, while the Marker panel is open.
+dragging, with the left button / one finger, while the Marker panel is open.
 
 The page is served from this tree; rosbridge is a fake WebSocket that answers the TF republisher (identity
 map) and records every publish. It checks, desktop 1440 (mouse) and phone 360 (real touch events, CDP):
@@ -14,6 +14,10 @@ map) and records every publish. It checks, desktop 1440 (mouse) and phone 360 (r
   - a click / tap with the Map panel open or no panel: no marker publish;
   - a click / tap in the Marker panel, then Send goal: new_interactive_marker at the pressed point
     (the ray of the press hits z=0 there), then interactive_marker_goal "interactiveGoal";
+  - a fake interactive marker server (like navi_man: new marker at the point, heading 0) answers:
+    the Heading slider's angle survives pan / zoom up to Send goal, and a new marker is turned to the
+    slider (T22c), so the goal navi_man sends (model: last new marker / feedback pose) is what is seen;
+    heading 0 sends no feedback; only the left mouse button places the marker;
   - with --master TREE the same goal entry on that tree gives the same messages in the same order
     (a touch tap there sends the same pose twice — ROS3D notifies touchstart twice; here once).
 
@@ -25,6 +29,7 @@ import argparse
 import functools
 import http.server
 import json
+import math
 import os
 import re
 import sys
@@ -38,6 +43,7 @@ COUNT = [0]
 LAT, LON = 50.0838, 14.3758      # park Ladronka (public point), never the garden
 NEW = '/navi_manager/new_interactive_marker'
 GOAL = '/navi_manager/interactive_marker_goal'
+FEEDBACK = '/interactive_marker/feedback'
 
 
 def check(name, ok, detail=''):
@@ -61,6 +67,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 FAKE = r"""
 (() => {
   const F = window.__fake = { pubs: [], calls: [] };
+  // interactive marker server like navi_man.callback_new_interactive_marker: 'webgui_marker' at the
+  // point, heading 0, a free box control + the rotate_z control the Heading slider turns
+  const q0 = { x: 0, y: 0, z: 0, w: 1 }, hdr = { frame_id: 'map', stamp: { secs: 0, nsecs: 0 }, seq: 0 };
+  const imMarker = (pos) => ({ header: hdr, pose: { position: { x: pos.x, y: pos.y, z: 0 }, orientation: q0 },
+    name: 'webgui_marker', description: 'Marker for webUI', scale: 1, menu_entries: [],
+    controls: [
+      { name: '', orientation: q0, orientation_mode: 0, interaction_mode: 0, always_visible: true,
+        markers: [{ header: { frame_id: '', stamp: { secs: 0, nsecs: 0 }, seq: 0 }, ns: '', id: 0, type: 0, action: 0,
+          pose: { position: { x: 0, y: 0, z: 0 }, orientation: q0 }, scale: { x: 0.6, y: 0.6, z: 0.6 },
+          color: { r: 0.05, g: 1, b: 0, a: 0.8 }, lifetime: { secs: 0, nsecs: 0 }, frame_locked: false, points: [],
+          colors: [], text: '', mesh_resource: '', mesh_use_embedded_materials: false }],
+        independent_marker_orientation: false, description: '' },
+      { name: 'rotate_z', orientation: { x: 0, y: 0.7071068, z: 0, w: 0.7071068 }, orientation_mode: 0,
+        interaction_mode: 5, always_visible: false, markers: [], independent_marker_orientation: false,
+        description: '' }] });
+  let imSeq = 0;
+  F.eraseMarker = () => F.imws && F.imws.deliver({ op: 'publish', topic: '/interactive_marker/tunneled/update',
+    msg: { server_id: 'fake', seq_num: ++imSeq, type: 1, markers: [], poses: [], erases: ['webgui_marker'] } });
   const tfArray = (frames) => ({ transforms: frames.map((f) => ({
       header: { frame_id: 'map', stamp: { secs: 0, nsecs: 0 }, seq: 0 }, child_frame_id: f,
       transform: { translation: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 } } })) });
@@ -82,15 +106,23 @@ FAKE = r"""
           v = { topic_name: '/tf_repub_fake' };
         } else if (m.service === '/rosapi/get_param') {
           v = { value: 'null' };
+        } else if (m.service === '/interactive_marker/tunneled/get_init') {
+          v = { msg: { server_id: 'fake', seq_num: 0, markers: [], poses: [], erases: [] } };
         }
         setTimeout(() => this.deliver({ op: 'service_response', id: m.id, service: m.service, values: v, result: true }), 5);
       } else if (m.op === 'subscribe') {
+        if (m.topic === '/interactive_marker/tunneled/update') { F.imws = this; }
         if (m.topic === '/tf_repub_fake') {
           clearInterval(this.tfT);
           this.tfT = setInterval(() => this.deliver({ op: 'publish', topic: m.topic, msg: tfArray(this.frames) }), 200);
         }
       } else if (m.op === 'publish') {
         F.pubs.push({ topic: m.topic, msg: m.msg });
+        if (m.topic === '/navi_manager/new_interactive_marker') {   // the server answers with the new marker
+          const pos = m.msg.position;
+          setTimeout(() => this.deliver({ op: 'publish', topic: '/interactive_marker/tunneled/update',
+            msg: { server_id: 'fake', seq_num: ++imSeq, type: 1, markers: [imMarker(pos)], poses: [], erases: [] } }), F.imDelay || 60);
+        }
       }
     }
   }
@@ -119,6 +151,30 @@ def at_press(seq, want):
     """poses as 'at the pressed point' (the camera differs between runs, the meaning must not)"""
     return [(s[0], 'at press' if abs(s[1] - want[0]) < 0.01 and abs(s[2] - want[1]) < 0.01 else (s[1], s[2]),
              s[3], s[4]) if s[0] == NEW else s for s in seq]
+
+
+def yaw(q):
+    return math.atan2(2 * (q['w'] * q['z'] + q['x'] * q['y']), 1 - 2 * (q['y'] ** 2 + q['z'] ** 2))
+
+
+def navi(pubs):
+    """navi_man model: the marker pose = the last new marker (heading 0) or the last feedback pose
+    (interactiveMarkerFeedback); Send goal -> that pose (x, y, yaw)"""
+    pose, goals = None, []
+    for p in pubs:
+        if p['topic'] == NEW:
+            pose = (p['msg']['position']['x'], p['msg']['position']['y'], 0.0)
+        elif p['topic'] == FEEDBACK and pose is not None:
+            m = p['msg']['pose']
+            pose = (m['position']['x'], m['position']['y'], yaw(m['orientation']))
+        elif p['topic'] == GOAL:
+            goals.append(pose)
+    return goals
+
+
+def same_goal(g, want, heading):
+    return len(g) == 1 and g[0] is not None and abs(g[0][0] - want[0]) < 0.01 and abs(g[0][1] - want[1]) < 0.01 \
+        and abs(g[0][2] - heading) < 0.01
 
 
 def dedup(seq):
@@ -186,6 +242,18 @@ class Page(object):
         self.pg.wait_for_timeout(300)
         return self.ev('window.map_menu.current_submenu')
 
+    def heading(self, v):
+        self.ev("""(v) => { const r = document.getElementById('range_marker_orientation'); r.value = String(v);
+                         r.dispatchEvent(new Event('input')); }""", v)
+        self.pg.wait_for_timeout(250)
+
+    def send_goal(self):
+        self.ev("() => document.getElementById('btn_marker_send_goal').click()")
+        self.pg.wait_for_timeout(300)
+
+    def has_marker(self):
+        return self.ev("() => !!window.__ros3d_map.scene.getObjectByName('webgui_marker')")
+
     # gestures -----------------------------------------------------------------------------------
     def touch(self, kind, pts):
         self.cdp.send('Input.dispatchTouchEvent', {'type': kind, 'touchPoints': [
@@ -246,6 +314,9 @@ def goal_entry(p):
     """Marker panel open, click / tap a spot, Send goal; returns (messages, expected x/y)"""
     p.panel('marker')
     p.camera()
+    # a marker an older tree put there during the gestures would catch the tap: remove it (server erase)
+    p.ev('() => window.__fake.eraseMarker()')
+    p.pg.wait_for_timeout(200)
     s = p.spot(0.5, 0.3)
     want = p.expected(s['x'], s['y'])
     n0 = len(p.pubs())
@@ -256,6 +327,12 @@ def goal_entry(p):
 
 
 def story(p, label):
+    # turning the heading with no marker yet (none placed): no page error, nothing sent but the slider
+    n0 = len(p.pubs())
+    p.heading(1.5)
+    p.heading(0)
+    check('%s: Heading with no marker sends nothing' % label, not [x for x in p.pubs()[n0:]
+                                                                    if x['topic'] in (NEW, GOAL, FEEDBACK)])
     s = p.spot(0.5, 0.3)
     check('%s: test point is the map canvas' % label, s['hit'], s)
     x, y = s['x'], s['y']
@@ -298,10 +375,77 @@ def story(p, label):
     new = summary(p.pubs()[n0:])
     check('%s: next tap moves the marker' % label,
           len(new) == 1 and abs(new[0][1] - want2[0]) < 0.01 and abs(new[0][2] - want2[1]) < 0.01, new)
-    # turning the heading with no marker on the robot side: no page error (slider guard)
-    p.ev("""() => { const r = document.getElementById('range_marker_orientation'); r.value = '1.5';
-                    r.dispatchEvent(new Event('input')); }""")
-    p.pg.wait_for_timeout(200)
+    p.pg.wait_for_timeout(300)
+    check('%s: the fake marker server put the marker on the map' % label, p.has_marker())
+    # heading 0 + a new marker: nothing more than before (no feedback)
+    check('%s: heading 0: a new marker sends no feedback' % label,
+          not [x for x in p.pubs()[n0:] if x['topic'] == FEEDBACK])
+    # the heading set on the slider survives pan / zoom up to Send goal
+    n0 = len(p.pubs())
+    p.heading(1.2)
+    s3 = p.spot(0.45, 0.4)
+    p.pan(s3['x'], s3['y'])
+    if p.phone:
+        p.pinch(s3['x'], s3['y'])
+    else:
+        p.wheel(s3['x'], s3['y'])
+    p.send_goal()
+    g = navi(p.pubs())[-1:]   # the marker of the 2nd tap is older than n0
+    check('%s: Heading 1.2 + pan / zoom -> goal at the marker, heading 1.2 (%s)' % (label, g),
+          same_goal(g, want2, 1.2), g)
+    # a new marker keeps the slider's heading (navi_man makes it with 0): what is seen is what is sent
+    p.camera()
+    s4 = p.spot(0.6, 0.22)
+    want4 = p.expected(s4['x'], s4['y'])
+    n0 = len(p.pubs())
+    p.tap(s4['x'], s4['y'])
+    p.pg.wait_for_timeout(500)
+    fb = [x for x in p.pubs()[n0:] if x['topic'] == FEEDBACK]
+    check('%s: new marker turned to the slider (feedback heading %s)' % (
+        label, [round(yaw(x['msg']['pose']['orientation']), 3) for x in fb]),
+        len(fb) == 1 and abs(yaw(fb[0]['msg']['pose']['orientation']) - 1.2) < 0.01, fb[:2])
+    p.send_goal()
+    g = navi(p.pubs()[n0:])
+    check('%s: Send goal after a new marker -> new point, heading 1.2 (%s)' % (label, g), same_goal(g, want4, 1.2), g)
+    # two quick taps: the second marker gets the heading too
+    s5, s6 = p.spot(0.35, 0.2), p.spot(0.65, 0.3)
+    want6 = p.expected(s6['x'], s6['y'])
+    n0 = len(p.pubs())
+    p.tap(s5['x'], s5['y'])
+    p.tap(s6['x'], s6['y'])
+    p.pg.wait_for_timeout(500)
+    p.send_goal()
+    g = navi(p.pubs()[n0:])
+    check('%s: two quick taps -> the 2nd point, heading 1.2 (%s)' % (label, g), same_goal(g, want6, 1.2), g)
+    # the slider moved while the new marker is on its way: the old marker is left alone, the new one gets it
+    p.ev('() => { window.__fake.imDelay = 600; }')
+    s7 = p.spot(0.4, 0.3)
+    want7 = p.expected(s7['x'], s7['y'])
+    n0 = len(p.pubs())
+    p.tap(s7['x'], s7['y'])
+    p.heading(0.8)
+    early = [x for x in p.pubs()[n0:] if x['topic'] == FEEDBACK]
+    p.pg.wait_for_timeout(900)
+    p.ev('() => { window.__fake.imDelay = 0; }')
+    fb = [x for x in p.pubs()[n0:] if x['topic'] == FEEDBACK]
+    p.send_goal()
+    g = navi(p.pubs()[n0:])
+    check('%s: slider during the wait does not turn the old marker' % label, not early, early[:1])
+    check('%s: ...the new marker gets the angle: goal at the new point, heading 0.8 (%s)' % (label, g),
+          len(fb) == 1 and same_goal(g, want7, 0.8), (len(fb), g))
+    p.heading(0)
+    # only the left mouse button places the marker
+    if not p.phone:
+        for btn in ('right', 'middle'):
+            n0 = len(p.pubs())
+            p.pg.mouse.click(s4['x'], s4['y'], button=btn)
+            p.pg.wait_for_timeout(300)
+            new = summary(p.pubs()[n0:])
+            check('%s: %s click places no marker' % (label, btn), not new, new)
+        n0 = len(p.pubs())
+        p.pg.mouse.click(s4['x'], s4['y'], button='left')
+        p.pg.wait_for_timeout(300)
+        check('%s: left click places it' % label, len(summary(p.pubs()[n0:])) == 1)
     check('%s: no page errors' % label, not p.errors, p.errors[:3])
     check('%s: no HTTP write' % label, not p.writes, p.writes[:3])
     return at_press(seq, want), counts
@@ -320,7 +464,8 @@ def run_tree(b, root, label_root, master_mode=False):
             p = Page(ctx, url, phone)
             if master_mode:
                 # baseline only: what the old tree sends for the same goal entry and for gestures
-                s = p.spot(0.5, 0.3)
+                # (gestures away from the goal point: an old tree places a marker where they begin)
+                s = p.spot(0.5, 0.4)
                 counts = {}
                 for mode in ('none', 'marker'):
                     p.panel(mode)
