@@ -1957,6 +1957,61 @@ class InteractiveMarkers{
         this.interactiveMarkerGoalTopic.advertise();
     }
 
+    // T22: /navi_manager/new_interactive_marker makes navi_manager (re)create the
+    // goal marker at that point (heading reset) — the pose "Send goal" then sends.
+    // It used to go out on every touchstart / mousedown on the map, in any panel:
+    // a pan, pinch or wheel-drag sent ~3 messages and moved the goal marker to
+    // where the gesture began. Now only a tap / click without dragging, with one
+    // finger, while the Marker panel is open places it — at the point pressed
+    // (the ray of the press, i.e. the same message as before).
+    attach_tap(controls, active) {
+        var self = this, g = null;
+        var SLOP_MOUSE = 5, SLOP_TOUCH = 10;   // CSS px a tap may wander
+        function pt(ev) {
+            var d = ev.domEvent || {};
+            var t = (d.touches && d.touches.length) ? d.touches[0]
+                : ((d.changedTouches && d.changedTouches.length) ? d.changedTouches[0] : d);
+            return (t && typeof t.clientX === 'number') ? { x: t.clientX, y: t.clientY } : null;
+        }
+        function nTouch(ev) {
+            var d = ev.domEvent || {};
+            return (d.touches && typeof d.touches.length === 'number') ? d.touches.length : 0;
+        }
+        function far(t, p) {
+            if (!t || !p || t.x0 === null) return false;
+            var s = t.touch ? SLOP_TOUCH : SLOP_MOUSE;
+            return Math.abs(p.x - t.x0) > s || Math.abs(p.y - t.y0) > s;
+        }
+        function down(ev) {
+            var touch = ev.type === 'touchstart';
+            if (touch && g && g.touch && nTouch(ev) > 1) { g.multi = true; return; }   // 2nd finger: pinch
+            var p = pt(ev);
+            g = { ray: (ev.mouseRay && ev.mouseRay.clone) ? ev.mouseRay.clone() : null,
+                  x0: p ? p.x : null, y0: p ? p.y : null, touch: touch,
+                  multi: touch && nTouch(ev) > 1, moved: false, active: !!active() };
+        }
+        function move(ev) {
+            if (!g) return;
+            if (ev.type === 'touchmove' && nTouch(ev) > 1) g.multi = true;
+            if (far(g, pt(ev))) g.moved = true;
+        }
+        function up(ev) {
+            if (!g) return;
+            var t = g;
+            if (nTouch(ev) > 0) { t.multi = true; return; }   // a finger still down: pinch
+            g = null;
+            if (t.multi || t.moved || far(t, pt(ev)) || !t.ray || !t.active || !active()) return;
+            self.new_marker({ mouseRay: t.ray });
+        }
+        controls.addEventListener('mousedown', down);
+        controls.addEventListener('touchstart', down);
+        controls.addEventListener('mousemove', move);
+        controls.addEventListener('touchmove', move);
+        controls.addEventListener('mouseup', up);
+        controls.addEventListener('touchend', up);
+        controls.addEventListener('touchcancel', function () { g = null; });
+    }
+
     send_goal(){
         // console.log('Sending interactive marker goal.');
         var interactiveMarkerGoalMsg = new ROSLIB.Message({
@@ -8548,12 +8603,10 @@ window.initMapView = function () {
     viewer_grid = new ViewerGrid(viewer);
 
     interactive_markers = new InteractiveMarkers(ros.ros, tf_client.tfClientMap, viewer.viewer);
-    viewer.viewer.cameraControls.addEventListener('touchstart', function(event3d) {
-        interactive_markers.new_marker(event3d);
-    });
-
-    viewer.viewer.cameraControls.addEventListener('mousedown', function(event3d) {
-        interactive_markers.new_marker(event3d);
+    // T22: the goal marker is placed only by a tap / click in the Marker panel
+    // (was: every touchstart / mousedown, also pan / pinch / other panels)
+    interactive_markers.attach_tap(viewer.viewer.cameraControls, function () {
+        return typeof map_menu !== 'undefined' && !!map_menu && map_menu.current_submenu === 'marker';
     });
 
     clouds = new Clouds(ros.ros, tf_client.tfClientMap, viewer.viewer);
@@ -8813,7 +8866,8 @@ window.initMapView = function () {
         const quaternion = new THREE.Quaternion();
         quaternion.setFromEuler(interactive_markers.euler);
         const rotate_z = viewer.viewer.scene.getObjectByName("rotate_z");
-        marker.setOrientation(rotate_z, quaternion);
+        // T22: no marker yet (none placed since navi_manager started) — nothing to turn
+        if (marker && rotate_z) marker.setOrientation(rotate_z, quaternion);
     };
     map_menu.btn_marker_send_goal.onclick = function () {
         map_menu.btn_marker_send_goal_onclick(interactive_markers);

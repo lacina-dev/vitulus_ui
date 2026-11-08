@@ -19,7 +19,8 @@ a robota nebo obraz z kamery bys měl vidět. **Zrušit navigaci** nebo **STOP**
 ![Panel Značka vedle mapy, s očíslovanými značkami](../img/shot-marker.webp "1 Kurz · 2 Odeslat cíl · 3 Zrušit navigaci — samotná značka cíle je na mapě vedle robota")
 
 1. V pásu menu otevři **Značka**. Na mapě se objeví značka cíle.
-2. Klikni nebo ťukni do mapy tam, kam má robot jet (nebo značku přetáhni).
+2. Klikni nebo ťukni do mapy tam, kam má robot jet (nebo značku přetáhni). Posunutí nebo
+   přiblížení mapy značku nechá na místě.
 3. Posuvníkem **Kurz** ji natoč tím směrem, kterým má robot nakonec stát.
 4. Stiskni **Odeslat cíl**.
 

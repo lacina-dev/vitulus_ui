@@ -19,7 +19,8 @@ should be able to see the robot or the camera. **Cancel navigation** or **STOP**
 ![The Marker panel next to the map, with numbered markers](img/shot-marker.webp "1 Heading · 2 Send goal · 3 Cancel navigation — the goal marker itself sits on the map next to the robot")
 
 1. Open **Marker** in the menu band. A goal marker appears on the map.
-2. Click or tap the map where the robot should go (or drag the marker).
+2. Click or tap the map where the robot should go (or drag the marker). Moving or zooming the map
+   leaves the marker where it is.
 3. Turn it with the **Heading** slider to the direction the robot should end in.
 4. Press **Send goal**.
 
