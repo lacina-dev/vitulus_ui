@@ -2158,6 +2158,19 @@
        v detailu, kde se u každé cesty píše, co udělá. */
     var REC_WAY_CLS = {task: 'primary', ignore: '', ack: 'ghost'};
 
+    /* D6 (G2): the core's three built-in ways (analyze.py BUILTIN_IGNORE /
+       BUILTIN_ACK / the revert of a self-repair) always carry the same Czech
+       label and sentence, so the panel says them in the UI's language.  A
+       `task` way is the agent's own proposal for this one finding — its
+       words are data and stay as the core wrote them. */
+    var REC_WAY_I18N = {ignore: ['agent.d6.way.ignore', 'agent.d6.way.ignore_does'],
+                        ack: ['agent.d6.way.ack', 'agent.d6.way.ack_does'],
+                        revert: ['agent.d6.way.revert', 'agent.d6.way.revert_does']};
+    function recWayLabel(w) {
+      var k = REC_WAY_I18N[String((w && w.kind) || '')];
+      return k ? T(k[0]) : String((w && w.label) || (w && w.kind) || '');
+    }
+
     function recDecidePending() {
       for (var a in recAskWay) { if (recAskWay[a]) return true; }
       for (var b in recBusy) { if (recBusy[b]) return true; }
@@ -2183,6 +2196,8 @@
     /* Věta „co se stane" — v seznamu ji cesty nenesou, tak se dohledá
        v staženém detailu; když není, potvrzení zopakuje aspoň popisek. */
     function recDoes(r, way) {
+      var wk = REC_WAY_I18N[String((way && way.kind) || '')];
+      if (wk) return T(wk[1]);
       if (way && way.does) return String(way.does);
       var d = recDetail[r.id], dw = (d && d.decision && d.decision.ways) || [];
       for (var i = 0; i < dw.length; i++) {
@@ -2207,7 +2222,7 @@
       var kind = String(w.kind || 'task');
       var cls = REC_WAY_CLS[kind];
       var b = el('button', 'vagent-actbtn vrec-way w-' + kind + (cls ? ' ' + cls : ''),
-                 String(w.label || kind));
+                 recWayLabel(w));
       b.type = 'button';
       b.disabled = !!busy;
       b.addEventListener('click', function (ev) {
@@ -2227,7 +2242,7 @@
       var ask = recAskWay[r.id];
       if (ask) {
         /* V potvrzení se opakuje PRÁVĚ TO, co se stane, ne „Are you sure?". */
-        var q = el('div', 'vrec-askq', recDoes(r, ask) || String(ask.label || ''));
+        var q = el('div', 'vrec-askq', recDoes(r, ask) || recWayLabel(ask));
         host.appendChild(q);
         var arow = el('div', 'vrec-btnrow');
         var yes = el('button', 'vagent-actbtn primary', T('common.confirm'));
@@ -2320,8 +2335,13 @@
       head.setAttribute('role', 'button');
       head.tabIndex = 0;
       var l1 = el('div', 'vrec-l1');
-      l1.appendChild(el('span', 'vrec-chip c-' + r.status +
-        (r.status === 'resolved' ? ' o-' + (r.outcome || '') : ''), recChip(r)));
+      /* D6 (G2): a „Read this" row sits under the heading „Read this 15" —
+         the same red label on each of fifteen cards stopped meaning
+         anything.  Other states (working / new / handled) keep theirs. */
+      if (r.status !== 'read') {
+        l1.appendChild(el('span', 'vrec-chip c-' + r.status +
+          (r.status === 'resolved' ? ' o-' + (r.outcome || '') : ''), recChip(r)));
+      }
       if (r.count && r.count > 1) {
         var x = el('span', 'vrec-x', '×' + r.count);
         x.title = TN('bfind.occurrences', r.count);

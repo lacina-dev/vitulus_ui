@@ -16,6 +16,7 @@
     var PAGE = 60;
     var root = null, listEl = null, nowEl = null, pillsEl = null, moreEl = null;
     var filter = 'all', shown = PAGE, started = false, issueOnly = null, issueChip = null;
+    var openRows = {};   // D6: rows unfolded by a tap survive the next redraw
 
     function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
     function tag(e, k, attr) { if (window.VTI18n) { VTI18n.tag(e, k, attr); } return e; }
@@ -31,6 +32,12 @@
         if (cls) { e.className = cls; }
         if (text !== undefined && text !== null) { e.textContent = text; }
         return e;
+    }
+    /* D6 (G4): a row is read by a person — long hex ids (a step's hash,
+       „Step d44e92e5dc4c …") say nothing to him; they stay in the tooltip */
+    function human(s) {
+        return String(s || '').replace(/(^|[\s(:])(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{10,}(?=$|[\s),.:;])/g, '$1')
+            .replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
     }
     function pad(n) { return (n < 10 ? '0' : '') + n; }
     function hhmm(t) { var d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
@@ -125,7 +132,11 @@
         var row = el('div', 'vt-act vt-act-now');
         if (!d) { row.appendChild(el('span', 'vt-skel')); nowEl.appendChild(row); return; }
         var busy = (d.busy && d.busy.length) || d.state === 'busy' || d.state === 'running';
-        row.setAttribute('data-state', d.level === 'error' ? 'err' : (d.level === 'warn' || d.state === 'waiting') ? 'warn' : (busy ? 'info' : 'ok'));
+        /* D6 (G4): the tone is the kit's own level.  „Idle, waiting for the
+           next check" (state waiting) is the normal quiet state, not a
+           warning — it was amber all day (alert-only-when-needed). */
+        row.setAttribute('data-state', d.level === 'error' ? 'err' : d.level === 'warn' ? 'warn'
+            : busy ? 'info' : d.state === 'waiting' ? 'off' : 'ok');
         if (busy) { row.classList.add('vt-busy'); }
         row.appendChild(el('span', 'vt-sdot'));
         var txt = el('span', 'vt-act-txt', kitText(d).replace(/\s+/g, ' '));
@@ -162,10 +173,10 @@
             li.setAttribute('data-state', r.state);
             if (r.busy) { li.classList.add('vt-busy'); }
             li.appendChild(el('span', 'vt-sdot'));
-            var t = el('span', 'vt-act-txt', r.text);
+            var t = el('span', 'vt-act-txt', human(r.text) || r.text);
             t.title = r.text;
             li.appendChild(t);
-            if (r.issue) { t.textContent = '#' + r.issue + ' · ' + r.text; }
+            if (r.issue) { t.textContent = '#' + r.issue + ' · ' + (human(r.text) || r.text); }
             /* I6: a row opens what it is about (read only) */
             var go = rowLink(r);
             if (go) {
@@ -174,6 +185,21 @@
                 li.setAttribute('role', 'button');
                 li.addEventListener('click', go);
                 li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+            } else {
+                /* D6 (G4): a row that opens nothing unfolds to its whole
+                   text on a tap — on a phone the tooltip is not there */
+                li.classList.add('vt-act-fold');
+                li.tabIndex = 0;
+                li.setAttribute('aria-expanded', 'false');
+                if (openRows[r.key]) { li.classList.add('vt-act-open'); li.setAttribute('aria-expanded', 'true'); }
+                var fold = function () {
+                    var on = !li.classList.contains('vt-act-open');
+                    li.classList.toggle('vt-act-open', on);
+                    li.setAttribute('aria-expanded', on ? 'true' : 'false');
+                    if (on) { openRows[r.key] = 1; } else { delete openRows[r.key]; }
+                };
+                li.addEventListener('click', fold);
+                li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fold(); } });
             }
             var meta = el('span', 'vt-act-time');
             meta.appendChild(el('span', 'vt-act-src vt-act-src-' + r.side, r.side === 'agent' ? tr('activity.src.agent') : r.src));

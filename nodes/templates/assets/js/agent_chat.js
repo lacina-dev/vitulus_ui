@@ -841,6 +841,9 @@
             tabBtns[id].classList.toggle('active', id === tabId);
         });
         tabBtns[tabId].classList.remove('attention');
+        panel.setAttribute('data-tab', tabId);      // D6: CSS per open tab (phone filter row)
+        if (tabId === 'findings') { findingsSeen(); }
+        markHiddenTabs();
         if (!restore && !fellBack) { lsSet(LS_TAB, tabId); }
         blocks.forEach(function (blk) {
             if (tabFor(blk.id) === tabId && blk.onOpen && blk.body) {
@@ -922,6 +925,19 @@
         return !!(btn && btn.classList.contains('active'));
     }
 
+    /* D6 (G5): a card head says what it is with an icon and the title,
+       like the cards of Settings / Autonomy (one anatomy of a panel) */
+    var BLOCK_ICON = {dock: 'la-lock', robot: 'la-tachometer', tools: 'la-wrench',
+                      nastroje: 'la-puzzle-piece', mise: 'la-flag', parked: 'la-hand-paper-o',
+                      gate: 'la-check-circle', zdravi: 'la-heartbeat', models: 'la-sliders'};
+    function headIcon(head, blockId) {
+        if (!BLOCK_ICON[blockId]) { return; }
+        var i = document.createElement('i');
+        i.className = 'la ' + BLOCK_ICON[blockId] + ' vagent-hico';
+        i.setAttribute('aria-hidden', 'true');
+        head.appendChild(i);
+    }
+
     function mountBlocks() {
         var body = panel.querySelector('#vagent_blocks');
         if (!body) { return; }
@@ -938,6 +954,7 @@
                 host.className = 'vagent-card';
                 host.open = true;
                 var h = document.createElement('summary');
+                headIcon(h, blk.id);
                 var ht = document.createElement('span');
                 ht.className = 'ct';
                 // `titleKey` (an i18n key) follows the language switch;
@@ -959,6 +976,7 @@
                 host.className = 'vagent-sec-body vagent-pinned';
                 var ph = document.createElement('div');
                 ph.className = 'vagent-pinhead';
+                headIcon(ph, blk.id);
                 var pt = document.createElement('span');
                 pt.className = 'ct';
                 if (blk.titleKey) { lt(pt, blk.titleKey); }
@@ -973,6 +991,18 @@
                 host.className = 'vagent-sec-body vagent-pane-body';
                 inner = host;
                 if (blk.summaryExtra) { tabBtns[tabId].appendChild(blk.summaryExtra); }
+                if (blk.id === 'robot') {
+                    /* D6 (G5): the live robot state is a card among the
+                       Robot tab's cards, so it gets the same head (it was a
+                       CSS ::before with a fixed English word) */
+                    var rh = document.createElement('div');
+                    rh.className = 'vagent-pinhead vagent-robothead';
+                    headIcon(rh, 'robot');
+                    lt(rh.appendChild(document.createElement('span')), 'agent.d6.robot_state');
+                    host.appendChild(rh);
+                    inner = document.createElement('div');
+                    host.appendChild(inner);
+                }
             }
             pane.appendChild(host);
             blk.el = host;
@@ -991,7 +1021,12 @@
         '<span class="sp"></span>' +
         '<button id="vagent_density" type="button" title="Display density">▤</button>' +
         '<button id="vagent_clear" type="button" title="Clear view (history stays on the robot)">⌧</button>' +
-        '<button id="vagent_stop" type="button" title="STOP — immediate stop, bypasses the queue and the model">STOP</button>' +
+        /* D6 (H5): the agent's stop must not read as the robot's red STOP
+           next to it — an outlined button with a square stop sign and the
+           words "Stop agent" (just "Agent" where the head is narrow, CSS) */
+        '<button id="vagent_stop" class="vagent-stop2" type="button" title="Stop the agent">' +
+        '<i class="la la-stop" aria-hidden="true"></i>' +
+        '<span class="vagent-stop-l"></span><span class="vagent-stop-s"></span></button>' +   // words: lt() below
         '</div>' +
         '<div id="vagent_status"></div>' +
         '<div id="vagent_tabs"></div>' +
@@ -1000,7 +1035,46 @@
     // the English titles above are the first paint; these follow the language
     lt(panel.querySelector('#vagent_density'), 'agent.density.tip', null, 'title');
     lt(panel.querySelector('#vagent_clear'), 'agent.clear.tip', null, 'title');
-    lt(panel.querySelector('#vagent_stop'), 'agent.stop.tip', null, 'title');
+    lt(panel.querySelector('#vagent_stop'), 'agent.d6.stop_tip', null, 'title');
+    lt(panel.querySelector('#vagent_stop'), 'agent.d6.stop_tip', null, 'aria-label');
+    lt(panel.querySelector('#vagent_stop .vagent-stop-l'), 'agent.d6.stop');
+    lt(panel.querySelector('#vagent_stop .vagent-stop-s'), 'agent.d6.stop_short');
+
+    /* D6 (G3): on a phone the tab row shows two or three of the six tabs.
+       A hidden tab that carries a count (Findings 15) or wants attention
+       lights the ‹ / › of its side, so it is not missed behind the edge. */
+    function markHiddenTabs() {
+        var strip = panel.querySelector('#vagent_tabs');
+        if (!strip || !strip.clientWidth) { return; }
+        var s = strip.getBoundingClientRect(), l = false, r = false;
+        Object.keys(tabBtns).forEach(function (id) {
+            var b = tabBtns[id];
+            if (b.classList.contains('active')) { return; }
+            var mark = null;
+            Array.prototype.forEach.call(b.querySelectorAll('span'), function (x) {
+                if (!mark && (x.textContent || '').trim() && x.offsetParent !== null) { mark = x; }
+            });
+            if (!mark && !b.classList.contains('attention')) { return; }
+            var br = (mark || b).getBoundingClientRect();
+            if (br.right > s.right - 26) { r = true; }
+            if (br.left < s.left + 26) { l = true; }
+        });
+        strip.classList.toggle('vagent-attn-r', r);
+        strip.classList.toggle('vagent-attn-l', l);
+    }
+    (function () {
+        var strip = panel.querySelector('#vagent_tabs'), tm = null;
+        function soon() {
+            if (tm) { return; }
+            tm = setTimeout(function () { tm = null; markHiddenTabs(); }, 150);
+        }
+        strip.addEventListener('scroll', soon, {passive: true});
+        window.addEventListener('resize', soon);
+        if (window.MutationObserver) {
+            new MutationObserver(soon).observe(strip, {subtree: true, childList: true,
+                characterData: true, attributes: true, attributeFilter: ['class']});
+        }
+    })();
     var panelActive = false;
     var syncPlaceholder = null;   // U32, set when the chat block is built
 
@@ -1107,6 +1181,8 @@
         panel.style.display = 'flex';
         d.body.classList.add('vagent-host');
         panelActive = true;
+        if (panel.getAttribute('data-tab') === 'findings') { findingsSeen(); }
+        setTimeout(markHiddenTabs, 400);
 
         try {
             var rm = document.getElementById('row_menu');
@@ -2460,9 +2536,42 @@
                 Array.prototype.forEach.call(
                     el.querySelectorAll('#vagent_chips [data-f]'),
                     function (x) { x.classList.toggle('on', x === b); });
+                if (fSel && fSel.value !== filter) { fSel.value = filter; }
                 applyFilter();
             });
         });
+
+        /* D6 (G3): on a phone the filter pills cost a whole row of the chat
+           (40 px of ~170 at 360 px).  There they fold into one small picker
+           at the end of the status chips; it drives the same pills (a click
+           on the hidden pill), so the filter logic stays in one place.
+           CSS shows it only below 576 px and only on the Chat tab. */
+        var fBox = document.createElement('span');
+        fBox.id = 'vagent_fcompact';
+        var fSel = document.createElement('select');
+        fSel.id = 'vagent_fsel';
+        [['all', 'chat.filter.all'], ['chat', 'chat.filter.chat'],
+         ['report', 'chat.filter.report'], ['work', 'chat.filter.work']].forEach(function (f) {
+            var o = document.createElement('option');
+            o.value = f[0];
+            lt(o, f[1]);
+            fSel.appendChild(o);
+        });
+        fSel.value = filter;
+        lt(fSel, 'agent.d6.filter_tip', null, 'title');
+        lt(fSel, 'agent.d6.filter_tip', null, 'aria-label');
+        fSel.addEventListener('change', function () {
+            var pill = el.querySelector('#vagent_chips [data-f="' + fSel.value + '"]');
+            if (pill) { pill.click(); }
+        });
+        var fScope = document.createElement('button');
+        fScope.type = 'button';
+        fScope.id = 'vagent_scope2';
+        fScope.addEventListener('click', function () { scopeBtn.click(); });
+        fBox.appendChild(fSel);
+        fBox.appendChild(fScope);
+        var stEl = panel.querySelector('#vagent_status');
+        if (stEl) { stEl.appendChild(fBox); }
         var scopeBtn = el.querySelector('#vagent_scope');
         /* 2026-10-25: an icon, not the word — "all" here next to the
            filter pill "All" read as the same thing twice; the tooltip says
@@ -2472,6 +2581,10 @@
             scopeBtn.innerHTML = '<i class="la ' + (all ? 'la-users' : 'la-user') + '" aria-hidden="true"></i>';
             lt(scopeBtn, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'title');
             lt(scopeBtn, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'aria-label');
+            // D6 (G3): the phone's copy next to the status chips
+            fScope.innerHTML = scopeBtn.innerHTML;
+            lt(fScope, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'title');
+            lt(fScope, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'aria-label');
         }
         scopeBtn.addEventListener('click', function () {
             scope = scope === 'all' ? 'mine' : 'all';
@@ -3102,6 +3215,8 @@
         b.className = 'ja' + (cls ? ' ' + cls : '');
         b.textContent = label;
         if (tip) { b.title = tip; }
+        // D6 (G6): an icon-only button says what it does to a screen reader too
+        if (tip && / ico\b|^ico\b/.test(cls || '')) { b.setAttribute('aria-label', tip); }
         b.addEventListener('click', function (ev) {
             ev.stopPropagation();
             run(b);
@@ -3292,7 +3407,7 @@
     }
 
     function deleteBtn(j) {
-        return actBtn('🗑', 'danger', _t('ajob.delete.tip'), function (b) {
+        return actBtn('🗑', 'danger ico', _t('ajob.delete.tip'), function (b) {
             inlineConfirm(b, function () {
                 b.disabled = true;
                 var p = parseRef(j.ref);
@@ -3867,14 +3982,14 @@
             }
         } else if (group === 'scheduled') {
             var on = j.status !== 'paused';
-            acts.appendChild(actBtn(on ? '⏸' : '▶', '', on ? _t('ajob.a.pause') : _t('ajob.a.resume'), function (b) {
+            acts.appendChild(actBtn(on ? '⏸' : '▶', 'ico', on ? _t('ajob.a.pause') : _t('ajob.a.resume'), function (b) {
                 b.disabled = true;
                 jobPost(j.ref, on ? 'pause' : 'resume', null, function () {
                     return schedPost(p.id, on ? 'pause' : 'resume');
                 }).then(function () { b.disabled = false; afterAction(); })
                   .catch(function (e) { b.disabled = false; b.title = _t('ajob.failed', {err: String(e)}); });
             }));
-            acts.appendChild(actBtn('↻', '', _t('ajob.a.run_now'), function (b) {
+            acts.appendChild(actBtn('↻', 'ico', _t('ajob.a.run_now'), function (b) {
                 b.disabled = true;
                 jobPost(j.ref, 'run', null, function () { return schedPost(p.id, 'run'); })
                     .then(function () {
@@ -3913,7 +4028,7 @@
         }
         if (unifiedOk === true && group !== 'running' &&
             (group !== 'scheduled' || j.status === 'paused' || j.status === 'draft')) {
-            acts.appendChild(actBtn('🗄', '', _t('ajob.a.archive_tip'), function (b) {
+            acts.appendChild(actBtn('🗄', 'ico', _t('ajob.a.archive_tip'), function (b) {
                 b.disabled = true;
                 jobPost(j.ref, 'archive', null).then(function () {
                     archFetched = false;    // shelf changed: refetch on open
@@ -4317,7 +4432,7 @@
         var form = document.createElement('div');
         form.className = 'vagent-schedform vagent-jobform';
         var toggle = document.createElement('button');
-        toggle.type = 'button'; toggle.className = 'ja';
+        toggle.type = 'button'; toggle.className = 'ja vagent-newjob';   // D6 (G6): a real button
         lt(toggle, 'ajob.f.new');
         form.appendChild(toggle);
         var body = document.createElement('div');
@@ -5392,20 +5507,25 @@
             var src = (ev && ev.detail) || sharedState;
             var st = src.robot || {};
             var h = src.health;
+            /* the chips are redrawn; the chat's phone filter picker (D6,
+               #vagent_fcompact) lives at the end of this row and stays */
+            var keep = strip.querySelector('#vagent_fcompact');
             strip.textContent = '';
+            if (keep) { strip.appendChild(keep); }
+            function put(c) { strip.insertBefore(c, keep || null); }
             var pct = st.battery_pct;
-            strip.appendChild(chip(_t('agent.st.bat'), pct != null ? Math.round(pct) + ' %' : '–',
+            put(chip(_t('agent.st.bat'), pct != null ? Math.round(pct) + ' %' : '–',
                 pct == null ? '' : pct > 50 ? 'good' : pct > 20 ? 'warn' : 'bad'));
             var rtk = st.rtk && typeof st.rtk === 'object' ? st.rtk.fix : st.rtk;
-            strip.appendChild(chip('RTK', rtk || '–',
+            put(chip('RTK', rtk || '–',
                 rtk === 'fixed' ? 'good' : rtk === 'float' ? 'warn' :
                 rtk ? 'bad' : ''));
-            strip.appendChild(chip(_t('agent.st.dock'), st.in_dock === true ? _t('agent.st.yes')
+            put(chip(_t('agent.st.dock'), st.in_dock === true ? _t('agent.st.yes')
                 : st.in_dock === false ? _t('agent.st.no') : '–'));
-            strip.appendChild(chip(_t('agent.st.motors'), st.motor_power === true ? _t('agent.st.on')
+            put(chip(_t('agent.st.motors'), st.motor_power === true ? _t('agent.st.on')
                 : st.motor_power === false ? _t('agent.st.off') : '–'));
             var coreOk = !!(h && h.ok);
-            strip.appendChild(chip(_t('agent.st.core'), coreOk ? 'ok' : '–',
+            put(chip(_t('agent.st.core'), coreOk ? 'ok' : '–',
                 coreOk ? 'good' : 'bad'));
         }
         document.addEventListener('vagent:state', paint);
@@ -5780,6 +5900,21 @@
     var stripFp = '';
     var STRIP_CUT = 60;
 
+    /* D6 (G2): how many „Read this" findings the owner has already seen —
+       the count at the moment Findings was on screen.  A higher count lights
+       the strip again; when findings get resolved the mark comes down with
+       the count, so the next new one lights it too. */
+    var LS_FIND_SEEN = 'vitulus_agent_findings_seen_n';
+    function findingsSeenN() {
+        var n = Number(lsGet(LS_FIND_SEEN));
+        return isFinite(n) && n > 0 ? n : 0;
+    }
+    function findingsSeen() {
+        if (!panelActive || typeof stripReadN !== 'number') { return; }
+        if (findingsSeenN() !== stripReadN) { lsSet(LS_FIND_SEEN, String(stripReadN)); }
+        paintStrip();
+    }
+
     function cut(s, n) {
         s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
         n = n || STRIP_CUT;
@@ -5846,9 +5981,13 @@
            count keeps the old open+high rule. */
         if (typeof stripReadN === 'number') {
             if (stripReadN > 0) {
-                return {kind: 'finding', tab: 'findings',
+                /* D6 (G2): red only while there is one the owner has not
+                   looked at yet; the ones he has seen in Findings stay as a
+                   quiet chip (one tap away), not a standing alarm */
+                return {kind: stripReadN > findingsSeenN() ? 'finding' : 'finding-seen',
+                        tab: 'findings',
                         label: _t('agent.strip.finding'),
-                        text: _t('agent.strip.read_n', {n: stripReadN}), age: ''};
+                        text: _tn('agent.d6.read_n', stripReadN), age: ''};
             }
         }
         var hot = null;
@@ -6046,6 +6185,10 @@
                 stripFindings = (d && d.findings) || [];
                 var rn = d && d.counts && d.counts.read;
                 stripReadN = (typeof rn === 'number') ? rn : undefined;
+                if (typeof stripReadN === 'number') {
+                    if (findingsSeenN() > stripReadN) { lsSet(LS_FIND_SEEN, String(stripReadN)); }
+                    if (panelActive && blockTabActive('incidents')) { findingsSeen(); }
+                }
                 paintStrip();
             }).catch(function () {});
         }
@@ -6208,8 +6351,14 @@
             msgsEl.appendChild(e);
         });
 
-        panel.querySelector('#vagent_stop').addEventListener('click', function () {
-            var stopBtn = panel.querySelector('#vagent_stop');
+        /* D6 (found while doing H5): this asked `panel.querySelector` for the
+           button at click time — but while the panel is open the button is
+           not in the panel, mergeHead() has moved it into the shared drawer
+           head, so the lookup gave null and inlineConfirm(null) returned:
+           the agent's STOP did nothing at all.  The button that was clicked
+           is the anchor. */
+        panel.querySelector('#vagent_stop').addEventListener('click', function (ev) {
+            var stopBtn = ev.currentTarget;
             inlineConfirm(stopBtn, function () { doStop(); });
         });
         function doStop() {

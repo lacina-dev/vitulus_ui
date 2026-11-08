@@ -39,7 +39,8 @@ The **menu band** under it opens the panels: **Panel**, **Marker**, **Settings**
 **Programs**, **Agent**, **Support** — buttons as wide as their name, from the left.
 
 **Notices** float in the top of the map, so the map does not move when one appears: on the left
-the agent's line (e.g. *FINDING · 5 to read*, click = the agent panel), in the middle the robot's
+the agent's line (e.g. *FINDING · 5 to read*, click = the agent panel; red only while a finding is
+new to you, grey once you have seen it in Findings), in the middle the robot's
 notice (*Waiting for dock cmd*, a lost connection…) on one line — hover it for the whole text.
 
 **A narrower window** takes things away instead of squeezing them: under 1600 px the computer
@@ -75,7 +76,7 @@ after it.
 **PC** (≥ 1024 px wide): the panel is a column, the map narrows next to it. **Tablet / phone on
 its side**: the column lies over the map. **Phone upright** (< 576 px): the panel is a sheet from
 the bottom (60 % of the height). On a phone (upright or on its side) a compact head puts
-**?** / ⤢ / ✕ (in the Agent panel also its STOP) at the end of the tab row; upright the title moves into the grip row.
+**?** / ⤢ / ✕ (in the Agent panel also its **Agent** stop) at the end of the tab row; upright the title moves into the grip row.
 
 **Tabs that do not fit** (a narrow panel, a phone, longer Czech labels) stay in one row that
 scrolls sideways: a **‹** / **›** at the edge shows there are more — click it, turn the mouse wheel
@@ -109,7 +110,7 @@ its side the collar hangs a little below the one header row and the right panel 
 on a phone held upright it sits at the right end of the navbar (58 px), so the bottom bar and the
 drive band stay free for the thumbs. It is on screen in every state (a panel open or full screen,
 the log, the large camera, the map editor, the help, the agent) and never covers anything. **Esc**
-does the same. It is the one full stop ([Safety](safety.md#stop)); the agent panel's own STOP is a
+does the same. It is the one full stop ([Safety](safety.md#stop)); the agent panel's own **Stop agent** is a
 different thing (it stops the agent's mission).
 
 ## The right panel

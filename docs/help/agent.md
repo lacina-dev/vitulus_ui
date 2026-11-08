@@ -17,7 +17,10 @@ band. Write to it in Czech or English; most of its replies are in Czech.
 
 Tabs: **Chat** · **Work** · **Activity** · **Findings** · **Robot** · **Models**.
 
-![The Agent panel with numbered markers](img/shot-agent.webp "1 robot state chips · 2 the agent's STOP · 3 tabs · 4 type a task or question · 5 quick commands")
+![The Agent panel with numbered markers](img/shot-agent.webp "1 robot state chips · 2 Stop agent (the agent's STOP) · 3 tabs · 4 type a task or question · 5 quick commands")
+
+On a phone the tab row shows two or three tabs; swipe it or tap **›**. A small orange dot on
+**‹ / ›** means a hidden tab has a count or news (typically **Findings**).
 
 ## Give a task
 
@@ -63,7 +66,9 @@ ok: Report | done, or why not
 
 Above the conversation, the pills **All / Chat / Reports / Jobs** filter what you see; the people
 icon at the end of that row switches between the whole conversation from every device (two
-people) and this browser only (one person).
+people) and this browser only (one person). On a phone the same filter is one small picker
+(**All ▾**) with the people icon at the right end of the state chips, so the chat keeps one row
+more.
 
 ### One conversation, one brain
 
@@ -364,7 +369,11 @@ The same in Czech goes to the chat and to the agent's status strip.
 ## Work (approvals and jobs)
 
 **Work** has the **approvals** pinned on top, then *Needs you* (parked jobs), the jobs and the
-*Mission / driving* card. When the agent wants to do something that needs a person, it asks:
+*Mission / driving* card. Your standing **Auto-approve** sits in *Needs you* in a calm blue box
+(and as a blue tag in its head when it is folded): it is your own setting, so it does not glow
+red. On a job card the icon buttons (pause / run, run now, archive) are on the left, the
+report setting and auto-approve on the right, and **delete** (🗑, two taps) stands apart at the
+very end of the row. **+ new job** opens the form for a new job. When the agent wants to do something that needs a person, it asks:
 **Approve** / **Deny**. If the robot would move, the card says
 *THE ROBOT WOULD MOVE — only you may allow this* and the button needs a second tap.
 
@@ -509,7 +518,8 @@ never switches the blade on by itself.
 
 ## The agent's STOP
 
-The red **STOP** in the agent panel's head (two taps) stops what the agent started — the
+**Stop agent** in the agent panel's head — an outlined button with a square stop sign, on a
+phone just **Agent** — (two taps) stops what the agent started — the
 supervisor stops the robot within about 1.5 s. It **latches**: the agent refuses all actions,
 and a banner says *STOP IS LATCHED*, until you release it. It is not the robot STOP —
 that is the big red STOP top right ([Safety](safety.md#stop)).
@@ -560,7 +570,11 @@ restart of the agent (yours, a crash) it waits for `pokračuj`.
 ## Activity
 
 One timeline of what the agent and the support kit did — reports, decisions, deploys — with
-filters. Decisions made in the UI are signed with your name and show up here.
+filters. Decisions made in the UI are signed with your name and show up here. The line on top says
+what runs now; when the kit only waits for its next check it stays grey, amber or red only when
+the kit itself reports a problem. A row that leads somewhere (a job, a finding, an issue) opens
+it on a tap; any other row unfolds to its whole text on a tap (on a phone the rows show two
+lines). Long internal ids are left out of the row text; the tooltip keeps the full line.
 
 ## Findings
 
@@ -575,7 +589,12 @@ only proposed), and never while a mission runs. You get a short message *Problem
 Fix · Verification* with *Vrátit zpět* (revert) and *Příště ignorovat* (ignore next time).
 
 Only **READ THIS** (findings that want you) lights the status strip; **New** (waiting for the
-agent's own analysis) and the handled ones are folded.
+agent's own analysis) and the handled ones are folded. The heading **READ THIS 15** carries the
+alarm — the cards under it are plain cards with the decision right on them: the agent's own
+proposal (its words, e.g. *Ověřit obraz kamery*) and the two that are always there, **Ignore
+next time** and **Noted** (shown in the UI's language). The chip **Finding · 15 to read** over the
+map is red only while there is a finding you have not seen yet; once you have opened
+**Findings**, it stays as a quiet grey chip until a new one comes.
 
 ## What the agent learns
 
@@ -674,8 +693,8 @@ same language as the Support dashboard's home page:
 
 - **The state in one sentence** on top — *3 things wait for you. The agents handle 1 thing
   themselves, Mac tests 7 fixes.* (green *Nothing is needed from you.* when nothing waits) — and
-  one line per robot (you and the other side, e.g. *Has the newest release, the robot runs on
-  it.*). Versions, stack times and similar facts are folded under *Details for agents*.
+  one line per robot (**This robot** and the other side, e.g. *Has the newest release, the robot
+  runs on it.*) — how each side stands, not a task. Versions, stack times and similar facts are folded under *Details for agents*.
 - **On you** — one list of everything you have to do; its count is the bell's number:
   - **Warnings only a person solves** — the GitHub token expires or does not work, field does not
     run, Signal is off, the other side is silent or stuck, this robot is behind — each with what

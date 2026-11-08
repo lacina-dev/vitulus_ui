@@ -549,7 +549,10 @@
                 var li = el('li', 'vt-fv-hside');
                 li.setAttribute('data-state', { ok: 'ok', warn: 'warn', bad: 'err' }[c.tone] || 'off');
                 li.appendChild(el('span', 'vt-sdot'));
-                var tg = tag({ k: c.me ? 'you' : 'peer', t: c.me ? t('fv.you') : (c.name || c.login) }, true);
+                /* D6 (N1): this line is how THIS side stands (robot, repos),
+                   not a task — under „Nothing is needed from you" a „You:"
+                   in front of it read as one. It is labelled by the side. */
+                var tg = tag({ k: c.me ? 'you' : 'peer', t: c.me ? t('needs.d6.side_me') : (c.name || c.login) }, true);
                 if (tg) { li.appendChild(tg); }
                 li.appendChild(el('span', 'vt-fv-hss', c.say || ''));
                 ul.appendChild(li);

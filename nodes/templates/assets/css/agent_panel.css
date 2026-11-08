@@ -2677,3 +2677,190 @@ input.tl-inf[type="checkbox"] { width: 18px; height: 18px; padding: 0; }
 .vrec-job {
     padding: 0 2px 6px; font-size: 11px; opacity: 0.5; overflow-wrap: anywhere;
 }
+
+/* =========================================================================
+   D6 (T8, 2026-11-08) — agent panel and its alerts: audit ui_audit.md G1–G6,
+   H5, N1.  This file loads before vt_panel.css / vt_field.css, which style
+   the same parts; the rules here therefore start with `html body` and win
+   by specificity (no new stylesheet, index.html untouched).
+   ========================================================================= */
+
+/* H5 — the agent's stop is not the robot's red STOP: outlined, a square stop
+   sign and words.  Same place, same two-tap confirmation, same request. */
+html body #vagent_stop.vagent-stop2 {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    min-width: 0; white-space: nowrap;
+    padding: 0 10px !important;
+    background: transparent !important;
+    border: 1px solid var(--vt-edge-err) !important;
+    color: var(--vt-err) !important;
+    font: 600 var(--vt-fs-sm)/1 var(--vt-font) !important;
+    letter-spacing: 0;
+    filter: none;
+}
+html body #vagent_stop.vagent-stop2:hover { background: var(--vt-glow-err) !important; border-color: var(--vt-err) !important; }
+html body #vagent_stop.vagent-stop2 .la { font-size: 15px; line-height: 1; }
+html body #vagent_stop.vagent-stop2 .vagent-stop-s { display: none; }
+/* where the head is tight — it shares its row with the tabs (phone sheet), or
+   touch makes every head button 40 px wide (tablet) — the short word */
+@media (max-width: 575.98px), (pointer: coarse) {
+    html body #vagent_stop.vagent-stop2 { padding: 0 7px !important; gap: 3px; }
+    html body #vagent_stop.vagent-stop2 .vagent-stop-l { display: none; }
+    html body #vagent_stop.vagent-stop2 .vagent-stop-s { display: inline; }
+}
+
+/* G3 — phone: the chat's filter pills fold into one picker at the end of the
+   status chips (agent_chat.js #vagent_fcompact) — one row less for the chat */
+#vagent_fcompact { display: none; }
+@media (max-width: 575.98px) {
+    html body #vagent_panel[data-tab="chat"] #vagent_chips { display: none; }
+    html body #vagent_panel[data-tab="chat"] #vagent_fcompact {
+        display: inline-flex; align-items: center; gap: var(--vt-gap-1);
+        position: sticky; right: 0; margin-left: auto; flex: 0 0 auto;
+        padding-left: var(--vt-gap-2);
+        background: linear-gradient(to right, transparent, var(--vt-frame-bg, var(--vt-navbar)) 10px);
+    }
+    html body #vagent_panel #vagent_status {
+        align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+        padding-top: var(--vt-gap-1); padding-bottom: var(--vt-gap-1);
+    }
+    html body #vagent_panel #vagent_status::-webkit-scrollbar { display: none; }
+    html body #vagent_panel #vagent_status .vagent-chip { flex: 0 0 auto; }
+}
+#vagent_fsel {
+    height: 32px; max-width: 120px; padding: 0 22px 0 8px;
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl);
+    background: var(--vt-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%230dcaf0' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 8px center;
+    color: var(--vt-accent); font: 500 var(--vt-fs-sm)/1 var(--vt-font);
+    appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+#vagent_scope2 {
+    width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl);
+    background: transparent; color: var(--vt-accent); font-size: 16px; cursor: pointer;
+}
+@media (pointer: coarse) {
+    #vagent_fsel { height: 40px; font-size: var(--vt-fs); }
+    #vagent_scope2 { width: 40px; height: 40px; }
+}
+/* a hidden tab with a count / wanting attention lights the ‹ › of its side */
+html body #vagent_tabs.vagent-attn-r > .vt-tabs-nav-r::after,
+html body #vagent_tabs.vagent-attn-l > .vt-tabs-nav-l::after {
+    content: ''; position: absolute; top: 5px; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--vt-warn); box-shadow: 0 0 0 2px var(--vt-surface);
+    pointer-events: none;
+}
+html body #vagent_tabs.vagent-attn-r > .vt-tabs-nav-r::after { right: 3px; }
+html body #vagent_tabs.vagent-attn-l > .vt-tabs-nav-l::after { left: 3px; }
+
+/* G1 — auto-approve is the owner's standing choice, not an alarm: a calm
+   info tone (the state is still written in words, in the head too) */
+html body #vagent_panel .vpk-auto.on {
+    border-color: var(--vt-edge-info);
+    background: var(--vt-tint-info), transparent;
+}
+html body #vagent_panel .vpk-autochip {
+    background: var(--vt-glow-info); color: var(--vt-accent);
+    border: 1px solid var(--vt-edge-info); border-radius: var(--vt-r-tag);
+    font-weight: 600; letter-spacing: 0; text-transform: none;
+}
+
+/* G2 — findings: the heading „Read this 15" carries the alarm; the rows are
+   ordinary cards with the decision buttons, „Noted" is a quiet button (it
+   was styled as a link) */
+/* (doubled class: the tone list of vt_panel.css is an :is() whose
+   specificity is that of its longest member, three classes) */
+html body #vagent_panel .vrec-row.vrec-row.s-read {
+    border-color: var(--vt-border) !important;
+    box-shadow: none;
+    background: var(--vt-surface-2);
+}
+html body #vagent_panel .vrec-way.ghost {
+    text-decoration: none; opacity: 1;
+    border: 1px solid var(--vt-border); background: transparent;
+    color: var(--vt-muted);
+}
+html body #vagent_panel .vrec-way.ghost:hover { color: var(--vt-text); border-color: var(--vt-border-strong); background: rgba(255, 255, 255, 0.05); }
+/* the map chip of findings already looked at: quiet, still one tap away */
+html body #vagent_strip.va-finding-seen {
+    --vt-st: var(--vt-muted); --vt-st-glow: transparent; --vt-st-edge: rgba(255, 255, 255, 0.12);
+}
+html body #vagent_strip.va-finding-seen .vs-lab {
+    background: var(--vt-surface-3); color: var(--vt-muted);
+    border-radius: var(--vt-r-tag); opacity: 1;
+}
+html body #vagent_strip.va-finding-seen .vs-txt { color: var(--vt-muted); }
+
+/* G4 — Activity: the „now" line wraps instead of cutting the sentence; a row
+   that opens nothing unfolds on a tap; on touch the rows show two lines */
+html body .vt-act-nowbox .vt-act-txt {
+    white-space: normal; overflow: visible; text-overflow: clip;
+    overflow-wrap: anywhere; line-height: 1.35; padding: 6px 0;
+}
+html body .vt-act.vt-act-fold { cursor: pointer; }
+html body .vt-act.vt-act-fold:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; border-radius: var(--vt-r-tag); }
+html body .vt-act.vt-act-open .vt-act-txt {
+    white-space: normal; overflow: visible; text-overflow: clip;
+    overflow-wrap: anywhere; line-height: 1.35; padding: 6px 0;
+}
+@media (pointer: coarse), (max-width: 575.98px) {
+    html body .vt-acts .vt-act { min-height: 40px; }
+    html body .vt-acts .vt-act:not(.vt-act-open) .vt-act-txt {
+        white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        line-height: 1.35; padding: 4px 0; overflow-wrap: anywhere;
+    }
+}
+
+/* G5 — card heads in the agent panel speak like the cards of Settings and
+   Autonomy: icon · title in the accent colour (Bitter, as all section heads,
+   P27), no shouting caps; the count / status stays on the right */
+html body #vagent_panel details.vagent-card > summary,
+html body #vagent_panel .vagent-pinhead {
+    font: 600 var(--vt-fs)/1.3 var(--vt-font-head) !important;
+    letter-spacing: 0 !important; text-transform: none !important;
+    color: var(--vt-accent) !important;
+    min-height: 32px; gap: var(--vt-gap-2);
+}
+html body #vagent_panel :is(details.vagent-card > summary, .vagent-pinhead) .vagent-hico {
+    font-size: 16px; line-height: 1; color: var(--vt-accent); flex: 0 0 auto;
+}
+html body #vagent_panel details.vagent-card > summary::before { color: var(--vt-muted); }
+html body #vagent_panel details.vagent-card > summary .vagent-cnt,
+html body #vagent_panel .vagent-pinhead .vagent-cnt { font-family: var(--vt-font); }
+html body #vagent_panel .vagent-pane[data-pane="robot"] > .vagent-pane-body::before { content: none; display: none; }
+html body #vagent_panel .vagent-robothead { padding: 2px 0 8px; display: flex; align-items: center; }
+@media (pointer: coarse) {
+    html body #vagent_panel details.vagent-card > summary { min-height: 40px; }
+}
+
+/* G6 — job cards: icon buttons are real targets (32 px, 40+ on touch),
+   delete stands apart at the far end of the row, „+ new job" is a button */
+html body #vagent_panel .vagent-ujob button.ja.ico {
+    min-width: 32px; height: 32px; padding: 0 6px; line-height: 30px;
+    border-radius: var(--vt-r-ctl); font-size: 15px;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+html body #vagent_panel .vagent-ujob .sa { gap: var(--vt-gap-2); }
+html body #vagent_panel .vagent-ujob .sa > .ja.danger {
+    order: 3;
+    margin-left: var(--vt-gap-2);
+    position: relative;
+}
+html body #vagent_panel .vagent-ujob .sa > .ja.danger::before {
+    content: ''; position: absolute; left: calc(-1 * var(--vt-gap-2) - 1px); top: 6px; bottom: 6px;
+    border-left: 1px solid var(--vt-border-strong);
+}
+html body #vagent_panel .vagent-ujob .sa > .vagent-polgrp { order: 2; }
+html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob {
+    min-height: 32px; padding: 0 14px; line-height: 30px;
+    border: 1px solid var(--vt-edge-info); border-radius: var(--vt-r-ctl);
+    background: rgba(var(--vt-accent-rgb), 0.08); color: var(--vt-accent);
+    font: 500 var(--vt-fs)/30px var(--vt-font); text-decoration: none;
+}
+html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob:hover { background: rgba(var(--vt-accent-rgb), 0.16); }
+@media (pointer: coarse) {
+    html body #vagent_panel .vagent-ujob button.ja.ico { min-width: 44px; height: 44px; line-height: 42px; font-size: 17px; }
+    html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob { min-height: 44px; line-height: 42px; }
+}
+/* H5: the wider stop button must not squeeze the panel title ("AGENT") */
+html body #ui_drawer_head:has(#vagent_head_right) > #ui_drawer_title { flex-shrink: 0; }

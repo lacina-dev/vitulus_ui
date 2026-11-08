@@ -17,7 +17,11 @@ odpovídá většinou česky.
 
 Záložky: **Chat** · **Práce** · **Aktivita** · **Nálezy** · **Robot** · **Modely**.
 
-![Panel Agent s očíslovanými značkami](../img/shot-agent.webp "1 čipy stavu robota · 2 STOP agenta · 3 záložky · 4 napiš úkol nebo otázku · 5 rychlé příkazy")
+![Panel Agent s očíslovanými značkami](../img/shot-agent.webp "1 čipy stavu robota · 2 Zastav agenta (STOP agenta) · 3 záložky · 4 napiš úkol nebo otázku · 5 rychlé příkazy")
+
+Na telefonu je v řádku záložek vidět dvě až tři záložky; posuň ho prstem nebo ťukni na **›**.
+Malá oranžová tečka na **‹ / ›** znamená, že schovaná záložka má počet nebo novinku (typicky
+**Nálezy**).
 
 ## Zadat úkol
 
@@ -61,7 +65,8 @@ ok: Hlášení | hotovo, nebo proč ne
 
 Nad konverzací filtrují pilulky **Vše / Chat / Hlášení / Úlohy**, co vidíš; ikona lidí na konci
 řádku přepíná mezi celou konverzací ze všech zařízení (dva lidé) a jen tímhle prohlížečem (jeden
-člověk).
+člověk). Na telefonu je tentýž filtr jeden malý výběr (**Vše ▾**) s ikonou lidí na pravém konci
+řádku se stavovými čipy, takže chatu zůstane o řádek víc.
 
 ### Jeden rozhovor, jeden mozek
 
@@ -347,7 +352,12 @@ agenta.
 ## Práce (schválení a úlohy)
 
 **Práce** má nahoře připnutá **schválení**, pod nimi *Čeká na tebe* (zaparkované úlohy), úlohy a
-kartu *Mise / jízda*. Když agent chce udělat něco, k čemu je potřeba člověk, zeptá se:
+kartu *Mise / jízda*. Tvoje trvalé **automatické schvalování** je v *Čeká na tebe* v klidném modrém
+rámečku (a když je karta sbalená, jako modrý štítek v její hlavičce): je to tvoje vlastní
+nastavení, proto nesvítí červeně. Na kartě úlohy jsou vlevo ikonová tlačítka (pozastavit /
+spustit, spustit hned, archivovat), vpravo nastavení hlášení a automatické schvalování a úplně
+na konci řádku, oddělené, **smazat** (🗑, dvě klepnutí). **+ nová úloha** otevře formulář nové
+úlohy. Když agent chce udělat něco, k čemu je potřeba člověk, zeptá se:
 **Schválit** / **Zamítnout**. Kdyby se robot pohnul, karta píše
 *ROBOT BY SE POHNUL — povolit to smíš jen ty* a tlačítko potřebuje druhé klepnutí.
 
@@ -489,7 +499,8 @@ zastaví — supervisor programu pošle stop a nůž vypne. Nůž agent sám nik
 
 ## STOP agenta
 
-Červený **STOP** v hlavičce panelu agenta (dvě klepnutí) zastaví, co agent spustil — supervisor
+**Zastav agenta** v hlavičce panelu agenta — obrysové tlačítko se čtverečkem stop, na telefonu
+jen **Agent** — (dvě klepnutí) zastaví, co agent spustil — supervisor
 robot zastaví zhruba do 1,5 s. **Zůstane zajištěný**: agent odmítá všechny akce a pruh hlásí
 *STOP JE ZAJIŠTĚNÝ*, dokud ho neuvolníš. Není to STOP robota — to je červený STOP
 vpravo nahoře ([Bezpečnost](safety.md#stop)).
@@ -539,7 +550,11 @@ sám, mise taky pokračuje sama; po jakémkoli jiném restartu agenta (tvém, po
 ## Aktivita
 
 Jedna časová osa toho, co agent a podpůrný kit udělali — hlášení, rozhodnutí, nasazení — s
-filtry. Rozhodnutí z UI jsou podepsaná tvým jménem a objeví se tady.
+filtry. Rozhodnutí z UI jsou podepsaná tvým jménem a objeví se tady. Řádek nahoře říká, co právě
+běží; když kit jen čeká na další kontrolu, je šedý, oranžový nebo červený jen tehdy, když kit sám
+hlásí problém. Řádek, který někam vede (úloha, nález, issue), ho klepnutím otevře; jakýkoli jiný
+řádek se klepnutím rozbalí na celý text (na telefonu mají řádky dva řádky textu). Dlouhá vnitřní
+id se z textu řádku vynechávají; celý řádek je v tooltipu.
 
 ## Nálezy
 
@@ -554,7 +569,11 @@ když běží mise. Dostaneš krátkou zprávu *Problém · Zdůvodnění · Ře
 *Vrátit zpět* a *Příště ignorovat*.
 
 Stavový pruh rozsvítí jen **PŘEČTI SI** (nálezy, které chtějí tebe); **Nové** (čekají na rozbor
-agentem) a vyřešené jsou sbalené.
+agentem) a vyřešené jsou sbalené. Poplach nese nadpis **PŘEČTI SI 15** — karty pod ním jsou obyčejné
+karty s rozhodnutím přímo na nich: vlastní návrh agenta (jeho slovy, např. *Ověřit obraz kamery*)
+a dvě volby, které tam jsou vždycky, **Příště ignorovat** a **Beru na vědomí** (v jazyce UI). Čip
+**Nález · 15 nepřečtených** nad mapou je červený jen dokud je mezi nimi nález, který jsi ještě
+neviděl; jakmile otevřeš **Nálezy**, zůstane jako klidný šedý čip, dokud nepřijde nový.
 
 ## Co se agent naučí
 
@@ -649,8 +668,9 @@ dashboardu Podpory:
 
 
 - **Stav jednou větou** nahoře — *Na tobě čekají 3 věci. Agenti řeší 1 věc sami, Mac testuje
-  7 oprav.* (zeleně *Nic po tobě nechceme.*, když nic nečeká) — a řádek pro každého robota (ty
-  a druhá strana, např. *Má nejnovější vydání, robot na něm jede.*). Verze, časy stacku a podobná
+  7 oprav.* (zeleně *Nic po tobě nechceme.*, když nic nečeká) — a řádek pro každého robota
+  (**Tento robot** a druhá strana, např. *Má nejnovější vydání, robot na něm jede.*) — jak která
+  strana stojí, ne úkol. Verze, časy stacku a podobná
   fakta jsou sbalené v *Podrobnosti pro agenty*.
 - **Na tobě** — jeden seznam všeho, co máš udělat; jeho počet je číslo na zvonku:
   - **Upozornění, která vyřeší jen člověk** — token GitHubu vyprší nebo nefunguje, field neběží,

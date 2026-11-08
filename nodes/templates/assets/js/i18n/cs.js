@@ -3004,7 +3004,6 @@
     "needs.work.script_failed": "Skriptový úkol selhal",
     "needs.work.schedule_stalled": "Plán se zasekl",
     "needs.work.other": "Práce agenta tě potřebuje",
-    "agent.strip.read_n": "{n} k přečtení",
     "ajob.badge.tip": "{run} běží · {att} chce pozornost",
     "ajob.err.sched": "Naplánované úlohy: {err}",
     "ajob.err.sched_missing": "Naplánované úlohy: API zatím není k dispozici",
@@ -3188,6 +3187,23 @@
     "chat.cap.deny_tip": "Návrh archivuje s důvodem; agent se na něj už neptá (totéž co /deny {id})",
     "chat.cap.deny_really": "Zamítnout — opravdu?",
     "chat.cap.decided": "Už rozhodnuto (nebo vypršelo) — viz Agent › Práce.",
+    // D6 agent (2026-11-08): agent STOP, phone filter, findings, robot card head, Needs you side
+    "agent.d6.stop": "Zastav agenta",
+    "agent.d6.stop_short": "Agent",
+    "agent.d6.stop_tip": "Zastav agenta: dvěma ťuknutími zastavíš, co agent spustil (supervizor zastaví robota), a agent pak nic nedělá, dokud STOP neuvolníš. Robotí STOP je velké červené tlačítko v rohu.",
+    "agent.d6.filter_tip": "Co chat ukazuje",
+    "agent.d6.read_n.one": "{n} nepřečtený",
+    "agent.d6.read_n.few": "{n} nepřečtené",
+    "agent.d6.read_n.many": "{n} nepřečteného",
+    "agent.d6.read_n.other": "{n} nepřečtených",
+    "agent.d6.robot_state": "Stav robota",
+    "agent.d6.way.ignore": "Příště ignorovat",
+    "agent.d6.way.ignore_does": "Zavřu to a zapamatuju si, že tohle hlásit nemám — příště tě tím nebudu rušit. Vzít zpět jde v Rules.",
+    "agent.d6.way.ack": "Beru na vědomí",
+    "agent.d6.way.ack_does": "Zavřu to jako přečtené. Nic se nespustí, žádné pravidlo nevznikne, a kdyby se to ozvalo znovu, uvidíš to zas.",
+    "agent.d6.way.revert": "Vrátit zpět",
+    "agent.d6.way.revert_does": "Vrátím tuhle opravu (git revert jejích commitů) stejnou cestou, jakou se nasadila: testy, nasazení, kontrola po restartu.",
+    "needs.d6.side_me": "Tento robot",
     /* ---- @end chat */
 
     /* ---- @frag camera: Settings › Camera, depth calibration wizard (vt_camera_settings.js; messages of node camera_calib) */

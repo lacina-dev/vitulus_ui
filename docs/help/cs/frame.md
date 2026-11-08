@@ -38,7 +38,8 @@ když se změní číslo nebo se objeví hláška, nic v liště neuskočí a ni
 **Agent**, **Support** — tlačítka široká podle názvu, zleva.
 
 **Hlášky** plavou v horní části mapy, takže se mapa při jejich objevení nepohne: vlevo řádek
-agenta (např. *NÁLEZ · 5 k přečtení*, klik = panel agenta), uprostřed hláška robota (*Waiting for
+agenta (např. *NÁLEZ · 5 nepřečtených*, klik = panel agenta; červený jen dokud je mezi nimi nový,
+který jsi ještě neviděl, po otevření Nálezů zešedne), uprostřed hláška robota (*Waiting for
 dock cmd*, výpadek spojení…) na jednom řádku — celý text ukáže po najetí myší.
 
 **Užší okno** věci ubírá, nemačká je: pod 1600 px ukazuje počítač jen stahování ↓, pod 1366 px je
@@ -72,7 +73,7 @@ panel (nebo hřbet) **až dolů ke spodní hraně**; spodní lišta začíná hn
 **PC** (šířka ≥ 1024 px): panel je sloupec, mapa se vedle něj zúží. **Tablet / telefon na
 šířku**: sloupec leží přes mapu. **Telefon na výšku** (< 576 px): panel je sheet vysouvaný zdola
 (60 % výšky). Na telefonu (na výšku i na šířku) má panel kompaktní hlavičku: **?** / ⤢ / ✕ (v panelu Agent
-i jeho STOP) jsou na konci řádku záložek; na výšku se název přesune do řádku s úchytem.
+i jeho stop **Agent**) jsou na konci řádku záložek; na výšku se název přesune do řádku s úchytem.
 
 **Záložky, které se nevejdou** (úzký panel, telefon, delší české popisky), zůstanou v jednom
 řádku, který se posouvá do strany: **‹** / **›** na okraji ukazuje, že jich je víc — klikni na ni,
@@ -105,7 +106,7 @@ pravý panel začíná pod nimi. Na telefonu na šířku objímka trochu přesah
 hlavičky a pravý panel začíná pod ní; na telefonu na výšku sedí na pravém konci navbaru (58 px),
 takže spodní lišta a pás jízdy zůstávají volné pro palce. Je vidět ve všech stavech (otevřený panel
 i přes celou obrazovku, log, velká kamera, editor mapy, nápověda, agent) a nic nezakrývá. Totéž
-udělá **Esc**. Je to jediné úplné zastavení ([Bezpečnost](safety.md#stop)); vlastní STOP panelu
+udělá **Esc**. Je to jediné úplné zastavení ([Bezpečnost](safety.md#stop)); vlastní **Zastav agenta** panelu
 Agent je jiná věc (zastaví misi agenta).
 
 ## Pravý panel

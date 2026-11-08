@@ -2931,7 +2931,6 @@
     "needs.work.script_failed": "Script task failed",
     "needs.work.schedule_stalled": "Schedule stuck",
     "needs.work.other": "Agent work needs you",
-    "agent.strip.read_n": "{n} to read",
     "ajob.badge.tip": "{run} running · {att} need attention",
     "ajob.err.sched": "Scheduled jobs: {err}",
     "ajob.err.sched_missing": "Scheduled jobs: API not available yet",
@@ -3111,6 +3110,21 @@
     "chat.cap.deny_tip": "Archives the proposal with the reason; the agent does not ask again (same as /deny {id})",
     "chat.cap.deny_really": "Deny — really?",
     "chat.cap.decided": "Already decided (or expired) — see Agent › Work.",
+    // D6 agent (2026-11-08): agent STOP, phone filter, findings, robot card head, Needs you side
+    "agent.d6.stop": "Stop agent",
+    "agent.d6.stop_short": "Agent",
+    "agent.d6.stop_tip": "Stop the agent: two taps stop what the agent started (the supervisor stops the robot) and hold the agent until you release it. The robot’s own STOP is the big red button in the corner.",
+    "agent.d6.filter_tip": "What the chat shows",
+    "agent.d6.read_n.one": "{n} to read",
+    "agent.d6.read_n.other": "{n} to read",
+    "agent.d6.robot_state": "Robot state",
+    "agent.d6.way.ignore": "Ignore next time",
+    "agent.d6.way.ignore_does": "I close it and remember not to report this — it will not bother you next time. You can take it back in Rules.",
+    "agent.d6.way.ack": "Noted",
+    "agent.d6.way.ack_does": "I close it as read. Nothing starts, no rule is made, and if it comes back you will see it again.",
+    "agent.d6.way.revert": "Undo the fix",
+    "agent.d6.way.revert_does": "I revert this fix (git revert of its commits) the same way it was deployed: tests, deployment, a check after the restart.",
+    "needs.d6.side_me": "This robot",
     /* ---- @end chat */
 
     /* ---- @frag camera: Settings › Camera, depth calibration wizard (vt_camera_settings.js; messages of node camera_calib) */
