@@ -4,7 +4,8 @@
 The page is served from this tree on a private port. WebSocket is replaced before the
 page runs: the fake answers subscribe, advertise, call_service (rosapi) and writes down
 every publish, so a test says "the master reports this" and reads what the page sent.
-Tonight's sequence of 2026-11-01 runs as one story (S1..), then the phone.
+Tonight's sequence of 2026-11-01 runs as one story (S1..), then the phone. Who decides
+(calendar | agent, AUTONOMY.md §6) is mode_story (M0..) and mode_fit on every screen.
 
     python3 tools/test_autonomy_ui.py [--shots DIR]
 
@@ -522,6 +523,198 @@ def link_story(p, shots, label):
     p.pub('/scheduler/report', report(now))
 
 
+AGENT_SCHEMA = {
+    'agent_fallback_calendar': ('bool', '', None, None, True), 'limits_in_calendar': ('bool', '', None, None, False),
+    'limit_rain_h': ('float', 'h', 0, 48, 3.0), 'limit_temp_min_c': ('float', 'C', -10, 25, 5.0),
+    'limit_zone_gap_days': ('float', 'd', 0, 14, 2.0), 'limit_day_start': ('time', '', None, None, '08:00'),
+    'limit_day_end': ('time', '', None, None, '20:00')}
+
+
+def agent_settings():
+    """settings() + the agent group, keys sorted as master_controller sends them."""
+    s = settings()
+    for k, (typ, unit, lo, hi, v) in AGENT_SCHEMA.items():
+        s['values'][k] = s['defaults'][k] = v
+        s['schema'][k] = {'type': typ, 'min': lo, 'max': hi, 'unit': unit, 'group': 'agent', 'advanced': False,
+                          'locked': False, 'needs_restart': False}
+    s['schema'] = dict(sorted(s['schema'].items()))
+    return s
+
+
+def mode_view(mode='calendar', **over):
+    """/scheduler/mode as master_controller._mode_view builds it."""
+    v = {'mode': mode, 'dock_permitted': None if mode == 'calendar' else False,
+         'dock_why': None if mode == 'calendar' else 'majitel dok nepovolil', 'state': 'IDLE', 'automation': True,
+         'held': False, 'fallback': True, 'limits_apply': mode == 'agent', 'changed': None, 'advice': None,
+         'last_decision': None, 'limit_now': None,
+         'limits': {'day_start': '08:00', 'day_end': '20:00', 'rain_h': 3.0, 'temp_min_c': 5.0, 'zone_gap_days': 2.0,
+                    'in_calendar': False},
+         'weather': {'hours_since_rain': 30.0, 'rain_last_h': 0.0, 'temp_now': 12.0}, 'last_mow': {}}
+    v.update(over)
+    return v
+
+
+def mode_story(p, shots, label):
+    """Who decides: the switch sends only on a press; the agent's advice, the last decision, the dock (D36)."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    # a latched answer to somebody's press long ago comes first: it says nothing
+    p.pub('/scheduler/command_result', {'cmd': 'set_mode', 'ok': True, 'code': 'changed'})
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/report', report(now))
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.open('mode')
+    check('M0 nothing sent to set_mode on load', not p.sent('/scheduler/set_mode'), p.sent('/scheduler/set_mode'))
+    check('M0 old latched answer not shown', not p.text('#auto_mode_msg'), p.text('#auto_mode_msg'))
+    sel = p.pg.evaluate("[...document.querySelectorAll('#auto_mode_choice .vt-auto-choice')].map(b=>[b.dataset.mode,b.getAttribute('aria-checked'),b.disabled])")
+    check('M1 the robot\'s mode is selected', sel == [['calendar', 'true', False], ['agent', 'false', False]], sel)
+    check('M1 head says calendar', ('Kalendář' if cs else 'Calendar') in (p.text('#auto_tok_mode') or ''), p.text('#auto_tok_mode'))
+    order = p.pg.evaluate("[...document.querySelectorAll('[data-auto-group=agent] .vt-auto-set')].map(r=>r.dataset.key)")
+    check('M1 limits in their order', order == ['agent_fallback_calendar', 'limits_in_calendar', 'limit_day_start', 'limit_day_end',
+                                                'limit_rain_h', 'limit_temp_min_c', 'limit_zone_gap_days'], order)
+    check('M1 a time is 24 h text', p.pg.evaluate("document.getElementById('auto_in_limit_day_start').value") == '08:00')
+    check('M1 °C next to the temperature', '°C' in (p.text('[data-key=limit_temp_min_c] .vt-auto-unit') or ''))
+    # a press of the selected mode sends nothing
+    p.click('#btn_auto_mode_calendar')
+    check('M2 same mode: nothing sent', not p.sent('/scheduler/set_mode'))
+    p.click('#btn_auto_mode_agent')
+    got = p.sent('/scheduler/set_mode')
+    check('M2 agent: one message, by the owner', len(got) == 1 and json.loads(got[0]['data']) == {'mode': 'agent', 'by': 'owner'}, got)
+    check('M2 buttons wait for the answer', p.pg.evaluate("document.getElementById('btn_auto_mode_calendar').disabled"))
+    p.click('#btn_auto_mode_agent')
+    check('M2 no second message while waiting', len(p.sent('/scheduler/set_mode')) == 1)
+    p.pub('/scheduler/command_result', {'cmd': 'set_mode', 'ok': True, 'code': 'changed'})
+    p.pub('/scheduler/mode', mode_view('agent'))
+    msg = p.text('#auto_mode_msg') or ''
+    check('M2 answer said', 'Agent' in msg, msg)
+    check('M2 agent selected', p.pg.evaluate("document.getElementById('btn_auto_mode_agent').getAttribute('aria-checked')") == 'true')
+    check('M2 dock locked said quietly', ('zamčený' if cs else 'locked') in (p.text('#auto_mode_notes') or ''), p.text('#auto_mode_notes'))
+    check('M2 no attention box without an advice', p.pg.locator('#auto_mode_attn').is_hidden())
+
+    # D36: a mow advice in its window, the dock locked
+    frm, to = now - dt.timedelta(minutes=5), now + dt.timedelta(hours=3)
+    adv = {'id': 'a1', 'action': 'mow', 'program': 'Bigger', 'from': iso(frm) + ':00', 'to': iso(to) + ':00', 'until': None,
+           'expires': iso(to) + ':00', 'reason': 'Dry for two days, the grass grows fast.', 'confidence': 0.8, 'by': 'agent',
+           'received': iso(frm) + ':00', 'state': 'pending', 'fresh': True}
+    dec = {'t': iso(now) + ':00', 'kind': 'advice', 'code': 'waiting', 'program': 'Bigger', 'source': 'agent',
+           'vars': {'id': 'a1', 'why': 'dock:waiting_dock', 'dock': 'majitel dok nepovolil'}}
+    p.pub('/scheduler/report', report(now, code='waiting_dock', detail={'program': 'Bigger', 'at': iso(to) + ':00'},
+                                      sentence={'code': 'waiting_dock', 'vars': {'program': 'Bigger', 'at': iso(to) + ':00'}}))
+    p.pub('/scheduler/mode', mode_view('agent', advice=adv, last_decision=dec))
+    attn = p.text('#auto_mode_attn') or ''
+    check('M3 waiting for the dock: said with the program', p.pg.locator('#auto_mode_attn').is_visible() and 'Bigger' in attn
+          and ('povolení doku' if cs else 'dock permission') in attn, attn)
+    check('M3 the way to the dock lock', p.pg.locator('#btn_auto_mode_dock').is_visible())
+    check('M3 head token amber', p.pg.evaluate("document.getElementById('auto_sec_mode').dataset.state") == 'warn')
+    top = p.text('#span_scheduler_status') or ''
+    check('M3 top sentence in words', 'Bigger' in top and 'calmgr' not in top and ('dok' if cs else 'dock') in top.lower(), top)
+    adv_t = p.text('#auto_mode_advice') or ''
+    check('M3 advice: what, reason, confidence', 'Bigger' in adv_t and 'Dry for two days' in adv_t and '80' in adv_t, adv_t)
+    last = p.text('#auto_mode_last') or ''
+    check('M3 last decision: what and why in words', 'Bigger' in last and '_' not in last and ('doku' if cs else 'dock') in last, last)
+    if shots:
+        p.pg.evaluate("document.getElementById('auto_sec_mode').scrollIntoView()")
+        p.pg.screenshot(path=os.path.join(shots, label + '-mode-dock.png'))
+    # the press of the dock link goes to the Agent panel, nothing is sent. The real Agent
+    # panel opens its own sockets, which would take the fake's place: a stand-in button.
+    p.pg.evaluate("""()=>{const a=document.getElementById('btn_agent')||document.body.appendChild(document.createElement('button'));
+        const b=a.cloneNode(false); b.id='btn_agent'; b.onclick=null; b.addEventListener('click',()=>{b.dataset.hit='1'}); a.replaceWith(b);}""")
+    n = len(p.pg.evaluate('__fake.sent'))
+    p.click('#btn_auto_mode_dock')
+    check('M3 dock link: to the Agent panel, nothing sent', len(p.pg.evaluate('__fake.sent')) == n
+          and p.pg.evaluate("document.getElementById('btn_agent').dataset.hit") == '1')
+    p.open('mode')
+
+    # a limit holds the next start; the journal says it in words
+    p.pub('/scheduler/report', report(now, code='limit_rain', detail={'program': 'Bigger', 'hours_since_rain': 1.5, 'need_h': 3.0},
+                                      sentence={'code': 'limit_rain', 'vars': {'program': 'Bigger', 'hours_since_rain': 1.5, 'need_h': 3.0}}))
+    p.pub('/scheduler/mode', mode_view('agent', dock_permitted=True, dock_why=None,
+                                       limit_now={'code': 'limit_rain', 'vars': {'hours_since_rain': 1.5, 'need_h': 3.0}, 'program': 'Bigger'},
+                                       last_decision={'t': iso(now) + ':00', 'kind': 'waited', 'code': 'limit_rain', 'program': 'Bigger',
+                                                      'source': 'calendar', 'vars': {'hours_since_rain': 1.5, 'need_h': 3.0}}))
+    notes = p.text('#auto_mode_notes') or ''
+    check('M4 limit now: the numbers', '1.5' in notes and '3' in notes, notes)
+    check('M4 dock open said', ('odemčený' if cs else 'unlocked') in notes, notes)
+    check('M4 no dock box', p.pg.locator('#auto_mode_attn').is_hidden())
+    last = p.text('#auto_mode_last') or ''
+    check('M4 limit decision in words', '1.5' in last and 'limit_' not in last, last)
+    top = p.text('#span_scheduler_status') or ''
+    check('M4 top sentence', '1.5' in top and 'calmgr' not in top, top)
+    # agent_blocked by a limit (master _agent_idle): with its numbers, and from an older
+    # master without them - then the limit's name, never a {placeholder}
+    for detail, want in (({'hours_since_rain': 1.5, 'need_h': 3.0}, '1.5'), ({}, 'déšť' if cs else 'rain')):
+        d = dict({'program': 'Bigger', 'why': 'limit:limit_rain'}, **detail)
+        p.pub('/scheduler/report', report(now, code='agent_blocked', detail=d, sentence={'code': 'agent_blocked', 'vars': d}))
+        top = p.text('#span_scheduler_status') or ''
+        check('M4 agent_blocked by rain %s: in words' % ('with numbers' if detail else 'without numbers'),
+              want in top and '{' not in top and 'limit_' not in top, top)
+    p.pub('/scheduler/journal', {'entries': [
+        {'t': iso(now) + ':00', 'kind': 'mode', 'code': 'agent', 'program': '', 'vars': {'by': 'owner'}},
+        {'t': iso(now) + ':00', 'kind': 'advice', 'code': 'rejected', 'program': 'X', 'vars': {'why': 'not_on_map'}},
+        {'t': iso(now) + ':00', 'kind': 'skipped', 'code': 'limit_zone_gap', 'program': 'Bigger',
+         'vars': {'zone': 'Front', 'days': 0.5, 'need_days': 2.0}}]})
+    p.open('history')
+    j = p.text('#auto_journal') or ''
+    check('M5 journal of the agent in words', 'Front' in j and '_' not in j and ('mapě' if cs else 'map') in j, j)
+
+    # a limit in the agent group is saved like any setting
+    p.open('mode')
+    n_set = len(p.sent('/scheduler/set_settings'))
+    p.pg.fill('#auto_in_limit_day_start', '25:00')
+    p.pg.dispatch_event('#auto_in_limit_day_start', 'change')
+    p.pg.wait_for_timeout(150)
+    check('M6 no time of day: not sent, said', len(p.sent('/scheduler/set_settings')) == n_set and p.text('[data-key=limit_day_start] .vt-auto-msg'),
+          p.text('[data-key=limit_day_start] .vt-auto-msg'))
+    p.pg.fill('#auto_in_limit_day_start', '9.00')
+    p.pg.dispatch_event('#auto_in_limit_day_start', 'change')
+    p.pg.wait_for_timeout(150)
+    got = p.sent('/scheduler/set_settings')
+    body = json.loads(got[-1]['data']) if got else {}
+    check('M6 a limit saved', body.get('values') == {'limit_day_start': '09:00'}, got[-1:] if got else got)
+    p.pub('/scheduler/settings_result', {'req': body.get('req'), 'ok': True, 'rejected': {}})
+    # back to the calendar, an old master without the topic
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/report', report(now))
+
+
+def mode_fit(p, shots, label):
+    """The section on this screen: no sideways scroll, finger-size targets on touch, nothing cut."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    frm, to = now - dt.timedelta(minutes=5), now + dt.timedelta(hours=3)
+    adv = {'id': 'a1', 'action': 'mow', 'program': 'Bigger', 'from': iso(frm) + ':00', 'to': iso(to) + ':00', 'until': None,
+           'expires': iso(to) + ':00', 'reason': 'Dry for two days, the grass grows fast.', 'confidence': 0.8, 'by': 'agent',
+           'received': iso(frm) + ':00', 'state': 'pending', 'fresh': True}
+    p.pub('/scheduler/report', report(now, code='waiting_dock', detail={'program': 'Bigger'},
+                                      sentence={'code': 'waiting_dock', 'vars': {'program': 'Bigger'}}))
+    p.pub('/scheduler/mode', mode_view('agent', advice=adv, last_decision={
+        't': iso(now) + ':00', 'kind': 'advice', 'code': 'waiting', 'program': 'Bigger', 'source': 'agent',
+        'vars': {'why': 'dock:waiting_dock'}}))
+    p.open('mode')
+    p.pg.evaluate("document.getElementById('auto_sec_mode').scrollIntoView()")
+    p.pg.wait_for_timeout(200)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const sec=document.getElementById('auto_sec_mode');
+        /* cut only with … and the whole text in the title */
+        const over=[...sec.querySelectorAll('*')].filter(e=>e.offsetParent&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible'
+              &&!e.classList.contains('vt-auto-toks')&&!(getComputedStyle(e).textOverflow==='ellipsis'&&e.title===e.textContent)).map(e=>e.id||e.className);
+        /* a switch is the box around it (a label for it) */
+        const small=q('#auto_sec_mode button, #auto_sec_mode input, #auto_sec_mode summary').map(e=>e.type==='checkbox'&&e.closest('label')?e.closest('label'):e).map(e=>{const b=e.getBoundingClientRect();
+              return [e.id||e.className||e.tagName, Math.round(b.width), Math.round(b.height)]}).filter(x=>x[2]<40);
+        const cut=[...document.querySelectorAll('#auto_tok_mode .vt-pill')].filter(e=>e.scrollWidth>e.clientWidth+1).map(e=>e.textContent);
+        const out=q('#auto_sec_mode *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        return {w:document.documentElement.scrollWidth, sec:sec.scrollWidth-sec.clientWidth, coarse:matchMedia('(pointer: coarse)').matches,
+                small, over, out, cut}}""")
+    check(label + ' mode: no sideways scroll', r['w'] <= vw + 1 and r['sec'] <= 1 and not r['out'], r)
+    check(label + ' mode: nothing cut (… + title allowed)', not r['over'], r['over'])
+    check(label + ' mode: head tokens whole', not r['cut'], r['cut'])
+    if r['coarse']:
+        check(label + ' mode: touch targets >= 40 px', not r['small'], r['small'])
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-mode.png'))
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -565,16 +758,21 @@ def main():
             story(p, a.shots, label)
             hw_story(p, a.shots, label)
             link_story(p, a.shots, label)
+            mode_story(p, a.shots, label)
+            mode_fit(p, a.shots, label)
             layout(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
-        for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en')):
+        for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
+                                       ('cs', (360, 740), True, 'small-cs'), ('cs', (768, 1024), True, 'tablet-cs')):
             print('--- %s' % label, flush=True)
             ctx = b.new_context(viewport={'width': vp[0], 'height': vp[1]}, is_mobile=phone, has_touch=phone, service_workers='block',
                                 timezone_id='Europe/Prague')
             p = P(ctx, url)
             p.lang(lang)
-            layout(p, a.shots, label)
+            mode_fit(p, a.shots, label)
+            if label != 'tablet-cs':    # the line above the map at 768 px: not this panel's (see the report)
+                layout(p, a.shots, label)
             ctx.close()
         b.close()
     srv.shutdown()

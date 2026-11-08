@@ -3,12 +3,13 @@
  * Contract: vitulus_planner docs/AUTONOMY.md. The panel draws what master_controller
  * reports and never decides anything itself:
  *   in   /scheduler/report (checks, sleep.checks, rain_would_refuse), /scheduler/timeline,
- *        /scheduler/journal,
+ *        /scheduler/journal, /scheduler/mode (who decides: calendar | agent, its advice,
+ *        last decision, limits, dock permission; also report.mode),
  *        /scheduler/settings, /scheduler/settings_result, /scheduler/command_result,
  *        /scheduler/sleep_countdown, /scheduler/calendar, /weather_alert/rain_alert,
  *        /pm/power_status, /mower_smach/status + active_program, /mower/link, /map_rules/state;
  *        rosparam /master_controller/sleep_* (the limits, vt_sleep_plan.js does the arithmetic)
- *   out  /scheduler/set_settings, /scheduler/sleep_now, /scheduler/sleep_cancel,
+ *   out  /scheduler/set_settings, /scheduler/set_mode (only on a press), /scheduler/sleep_now, /scheduler/sleep_cancel,
  *        /scheduler/ignore_rain_once, /scheduler/run_next, /scheduler/set_calendar (through
  *        calendar_manager), /pm/set_robot_sleep and /pm/set_sleep_until_charged (cancel of a raw sleep)
  * The plan of the next sleep is one value (planNow): hero, Sleep section, right panel and the
@@ -49,8 +50,13 @@
     var IN_SECTION = { idle_sleep_threshold_min: 1, wake_before_min: 1, rain_after_min: 1, rain_forecast_min: 1, rain_retry_h: 1, temp_wait_h: 1,
                        temp_spike_wait_min: 1, error_retry_max: 1, resume_max: 1, run_max_age_h: 1,
                        off_dock_wait_min: 1 };
-    var SECTIONS = ['now', 'plan', 'rain', 'battery', 'sleep', 'recovery', 'history', 'advanced'];
-    var OPEN_DEFAULT = { now: 1, plan: 1 };
+    var SECTIONS = ['mode', 'now', 'plan', 'rain', 'battery', 'sleep', 'recovery', 'history', 'advanced'];
+    var OPEN_DEFAULT = { mode: 1, now: 1, plan: 1 };
+    /* who decides (AUTONOMY.md §6); the agent group's rows in this order, the schema comes sorted */
+    var MODES = ['calendar', 'agent'];
+    var AGENT_ORDER = ['agent_fallback_calendar', 'limits_in_calendar', 'limit_day_start', 'limit_day_end',
+                       'limit_rain_h', 'limit_temp_min_c', 'limit_zone_gap_days'];
+    var ADVICE_STATES = { pending: 'info', used: 'ok', missed: 'warn', expired: 'off', dropped: 'off' };
     var CHECK_TONE = { ok: 'ok', wait: 'warn', block: 'err', off: 'off', unknown: 'off' };
     var RAIN_MODES = ['always', 'calendar', 'ignore'];
     var RAIN_CODES = { rain: 1, recent_rain: 1, forecast: 1, rain_stale: 1 };
@@ -67,7 +73,7 @@
         ros: null, report: null, settings: null, rain: null, pubs: {}, rows: {}, shape: '',
         pending: {}, countdown: null, cdTimer: null, cdAt: 0, reqN: 0, lastRun: null,
         filter: 'all', limits: null, params: {}, skew: 0, reportAt: 0, pm: null, smach: '', program: '',
-        sleepAsk: null, runAsk: 0, n: { first: true, code: '', cd: false, seq: false, soon: 0, smach: '', link: '',
+        sleepAsk: null, runAsk: 0, mode: null, modeAsk: null, n: { first: true, code: '', cd: false, seq: false, soon: 0, smach: '', link: '',
                                         rules: '', seen: null }
     };
 
@@ -223,9 +229,17 @@
         return withUnit(v, sc.unit);
     }
 
+    /* "8", "830", "8.30", "08:30" -> "08:30"; null when it is no time of day */
+    function hhmm(s) {
+        var m = /^\s*(\d{1,2})(?:\s*[:.,h ]?\s*(\d{2}))?\s*$/.exec(String(s || ''));
+        if (!m) { return null; }
+        var h = Number(m[1]), mi = m[2] === undefined ? 0 : Number(m[2]);
+        return h <= 23 && mi <= 59 ? pad(h) + ':' + pad(mi) : null;
+    }
     /* Ours before it goes out; the master checks again. {code, vars} or null */
     function validate(k, v) {
         var sc = schema(k) || {};
+        if (sc.type === 'time' && !(typeof v === 'string' && /^\d\d:\d\d$/.test(v))) { return { code: 'type' }; }
         if (sc.type === 'int' || sc.type === 'float') {
             if (typeof v !== 'number' || isNaN(v)) { return { code: 'type' }; }
             if ((sc.min !== undefined && v < sc.min) || (sc.max !== undefined && v > sc.max)) {
@@ -375,7 +389,8 @@
         if (window.VTI18n) { VTI18n.tag(hint, 'auto.set.' + k + '.hint'); }
         var ctl = el('div', 'vt-auto-set-c', r.el);
         if (sc.type === 'bool') {
-            var w = el('span', 'form-check form-switch', ctl);
+            var w = el('label', 'form-check form-switch vt-auto-sw', ctl);    // the whole box toggles: 40 px on touch
+            w.htmlFor = id;
             r.input = el('input', 'form-check-input', w);
             r.input.type = 'checkbox';
             r.input.addEventListener('change', function () {
@@ -393,6 +408,14 @@
             r.input = el('input', 'form-control form-control-sm vt-auto-in', ctl);
             var numeric = sc.type === 'int' || sc.type === 'float';
             r.input.type = numeric ? 'number' : (sc.type === 'date' ? 'date' : (sc.type === 'datetime' ? 'datetime-local' : 'text'));
+            if (sc.type === 'time') {
+                /* 24 h like the rest of the UI (a time field follows the browser's 12 h locale);
+                   decimal keypad on a phone: 8.30, 8:30, 830 and 8 all mean what they say */
+                r.input.inputMode = 'decimal';
+                r.input.maxLength = 5;
+                r.input.placeholder = 'HH:MM';
+                r.input.autocomplete = 'off';
+            }
             if (numeric) {
                 r.input.inputMode = sc.type === 'int' ? 'numeric' : 'decimal';
                 if (sc.min !== undefined) { r.input.min = sc.min; }
@@ -400,9 +423,11 @@
                 r.input.step = sc.step || (sc.type === 'int' ? 1 : 'any');
             }
             r.input.addEventListener('change', function () {
-                saveKey(k, numeric ? Number(r.input.value) : r.input.value);
+                var v = numeric ? Number(r.input.value) : (sc.type === 'time' ? hhmm(r.input.value) : r.input.value);
+                if (sc.type === 'time' && v) { r.input.value = v; }
+                saveKey(k, v);
             });
-            if (sc.unit) { el('span', 'vt-auto-unit', ctl, sc.unit); }
+            if (sc.unit) { el('span', 'vt-auto-unit', ctl, withUnit(0, sc.unit).replace(/^0\s*/, '')); }
         }
         r.input.id = id;
         var foot = el('div', 'vt-auto-set-f', r.el);
@@ -444,7 +469,8 @@
         S.rows = {};
         document.querySelectorAll('[data-auto-group]').forEach(clear);
         clear($('auto_adv_list'));
-        Object.keys(sch).forEach(function (k) {
+        var rank = function (k) { return AGENT_ORDER.indexOf(k); };
+        Object.keys(sch).sort(function (a, b) { return rank(a) - rank(b); }).forEach(function (k) {
             var sc = sch[k];
             if (CUSTOM[k] || sc.locked) { return; }
             if (!has('auto.set.' + k + '.label') || !has('auto.set.' + k + '.hint')) {
@@ -481,6 +507,7 @@
         paintRainMode();
         paintLocks();
         paintQuiet();
+        paintLimitsHead();
     }
     /* an old master has no settings: say it once per group instead of empty space */
     function paintQuiet() {
@@ -539,6 +566,234 @@
                 ? t('auto.default', { v: t('auto.rain.mode.' + (def('rain_mode') || 'always')) }) : '';
             S.rainFoot.reset.style.visibility = (schema('rain_mode') && v !== def('rain_mode')) ? '' : 'hidden';
         }
+    }
+
+    /* ------------------------------------------- who decides (wave 2) */
+    /* /scheduler/mode is the master's view (AUTONOMY.md §6). The two buttons say
+       what the robot reports; a press is the only thing that sends. Nothing here
+       grants the dock: the owner does that in the Agent panel (D36). */
+    function modeView() { return S.mode || null; }
+    function hm(iso) { var d = parseIso(iso); return d ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '—'; }
+    /* the time alone today, with its day otherwise */
+    function soon(iso) { var d = parseIso(iso); return d && dayStart(d) === dayStart(new Date(nowMs())) ? hm(iso) : when(iso); }
+    /* "today 10:00–14:00", the end with its day only when it is another day */
+    function span(from, to) {
+        var a = parseIso(from), b = parseIso(to);
+        if (!a || !b) { return when(from || to); }
+        return when(from) + '–' + (dayStart(a) === dayStart(b) ? hm(to) : when(to));
+    }
+    function adviceText(a) {
+        if (!a || !a.action) { return ''; }
+        if (a.action === 'skip') { return t('auto.mode.adv.skip', { until: when(a.until) }); }
+        return t('auto.mode.adv.mow', { program: a.program || '', span: span(a.from, a.to) });
+    }
+    /* the limit with its numbers; without them (an older master) just its name, never a {placeholder} */
+    function limitText(code, vars) {
+        var full = first(['auto.limit.' + code], vars || {});
+        if (full && !/\{\w+\}/.test(full)) { return full; }
+        return first(['auto.limit.name.' + code]) || String(code).replace(/^limit_/, '').replace(/_/g, ' ');
+    }
+    /* a reason code of the agent mode in words: limit:…, dock:…, a check key:code, a refusal */
+    function whyCode(code, vars) {
+        var str = String(code || ''), cut = str.indexOf(':');
+        var head_ = cut < 0 ? '' : str.slice(0, cut), rest = cut < 0 ? str : str.slice(cut + 1);
+        if (head_ === 'limit') { return limitText(rest, vars); }
+        if (head_ === 'dock') { return t('auto.mode.why.dock'); }
+        if (!head_ && has('auto.mode.rej.' + str)) { return t('auto.mode.rej.' + str); }
+        if (!head_ && /^limit_/.test(str)) { return limitText(str, vars); }
+        return commandWhy(str);
+    }
+    function modeMsg(state, text) { msgOf({ msg: $('auto_mode_msg') }, state, text); }
+    function buildMode() {
+        var box = $('auto_mode_choice');
+        if (!box || box.dataset.built) { return; }
+        box.dataset.built = '1';
+        MODES.forEach(function (m) {
+            var b = el('button', 'vt-auto-choice', box);
+            b.type = 'button';
+            b.id = 'btn_auto_mode_' + m;
+            b.dataset.mode = m;
+            b.setAttribute('role', 'radio');
+            var ti = el('b', null, b, t('auto.mode.' + m));
+            var hi = el('small', null, b, t('auto.mode.' + m + '.hint'));
+            if (window.VTI18n) { VTI18n.tag(ti, 'auto.mode.' + m); VTI18n.tag(hi, 'auto.mode.' + m + '.hint'); }
+            b.addEventListener('click', function () { setMode(m); });
+        });
+    }
+    function setMode(m) {
+        var mv = modeView();
+        if (!mv || mv.mode === m || S.modeAsk || MODES.indexOf(m) < 0) { return; }
+        S.modeAsk = { t: Date.now(), mode: m };
+        S.modeAsk.timer = setTimeout(function () {
+            S.modeAsk = null;
+            modeMsg('warn', t('auto.msg.no_answer'));
+            paintMode();
+        }, 6000);
+        modeMsg('saving', t('auto.msg.saving'));
+        pubJson('/scheduler/set_mode', { mode: m, by: 'owner' });
+        paintMode();
+    }
+    /* latched: an answer to a press of long ago comes at every page load */
+    function onModeResult(r) {
+        var ask = S.modeAsk;
+        if (!ask || Date.now() - ask.t > 15000) { return; }
+        clearTimeout(ask.timer);
+        S.modeAsk = null;
+        if (r.ok) {
+            modeMsg('ok', t(r.code === 'same' ? 'auto.mode.msg.same' : 'auto.mode.msg.changed', { mode: t('auto.mode.' + ask.mode) }));
+        } else {
+            modeMsg('err', t('auto.mode.msg.refused'));
+        }
+        paintMode();
+    }
+    /* what the agent mode does now: one token for the section head */
+    function modeState(mv) {
+        var code = S.report && S.report.code;
+        var adv = mv.advice && mv.advice.fresh ? mv.advice : null;
+        if (!mv.automation) { return { k: 'auto.mode.st.auto_off', tone: 'off' }; }
+        if (mv.held) { return { k: 'auto.mode.st.held', tone: 'warn' }; }
+        if (mv.mode !== 'agent') { return { k: mv.limits_apply ? 'auto.mode.st.cal_limits' : 'auto.mode.st.cal', tone: 'ok' }; }
+        if (code === 'waiting_dock') { return { k: 'auto.mode.st.dock', tone: 'warn' }; }
+        if (mv.limit_now) {
+            return { k: 'auto.mode.st.limit', v: { what: first(['auto.limit.name.' + mv.limit_now.code]) || mv.limit_now.code }, tone: 'info' };
+        }
+        if (adv && adv.action === 'skip') { return { k: 'auto.mode.st.skip', v: { until: when(adv.until) }, tone: 'info' }; }
+        if (adv && adv.state === 'pending') {
+            if (mv.dock_permitted === false) { return { k: 'auto.mode.st.dock', tone: 'warn' }; }
+            return { k: 'auto.mode.st.mow', v: { program: adv.program || '', at: soon(adv.from) }, tone: 'ok' };
+        }
+        if (adv) { return { k: 'auto.mode.st.done', tone: 'ok' }; }
+        return mv.fallback ? { k: 'auto.mode.st.fallback', tone: 'ok' } : { k: 'auto.mode.st.no_advice', tone: 'info' };
+    }
+    function note(box, key, vars, state) {
+        var p = el('p', 'vt-auto-note-l', box, t(key, vars));
+        if (state) { p.dataset.state = state; }
+        return p;
+    }
+    /* D36: a mow advice leaves the dock only with the owner's permission. Said
+       where it matters (an advice that wants to go, or will want to), quiet otherwise. */
+    function paintDock(mv) {
+        var box = $('auto_mode_attn');
+        if (!box) { return; }
+        var rep = S.report || {}, adv = mv && mv.advice && mv.advice.fresh ? mv.advice : null;
+        var key = null, vars = {}, state = 'warn';
+        if (mv && mv.mode === 'agent') {
+            if (rep.code === 'waiting_dock') {
+                if (adv && adv.state === 'pending' && adv.action === 'mow') {
+                    key = 'auto.mode.dock.waiting';
+                    vars = { program: adv.program || '', to: soon(adv.to) };
+                } else {
+                    key = 'auto.mode.dock.waiting_run';
+                    vars = { program: (rep.detail && rep.detail.program) || (adv && adv.program) || '' };
+                }
+            } else if (adv && adv.state === 'pending' && adv.action === 'mow' && mv.dock_permitted === false) {
+                var ahead = (parseIso(adv.from) || 0) > nowMs();
+                key = ahead ? 'auto.mode.dock.ahead' : 'auto.mode.dock.waiting';
+                vars = ahead ? { program: adv.program || '', at: soon(adv.from) } : { program: adv.program || '', to: soon(adv.to) };
+                state = ahead ? 'info' : 'warn';
+            }
+        }
+        box.hidden = !key;
+        if (!key) { return; }
+        var sig = key + JSON.stringify(vars) + (mv.dock_why || '');
+        if (box.dataset.sig === sig) { return; }
+        box.dataset.sig = sig;
+        box.dataset.state = state;
+        clear(box);
+        var tx = el('span', 'vt-attn-txt', box, t(key, vars));
+        if (mv.dock_why) { tx.title = mv.dock_why; }   // the lock's own words (Czech, from the agent)
+        var b = el('button', 'btn btn-sm ' + (state === 'warn' ? 'btn-outline-warning' : 'btn-outline-info'), box, t('auto.mode.dock.go'));
+        b.type = 'button'; b.id = 'btn_auto_mode_dock';
+        b.title = t('auto.mode.dock.go_tip');
+        el('i', 'la la-angle-right', b);
+        b.addEventListener('click', function () { goFix('agent'); });
+    }
+    function paintAdvice(mv) {
+        var box = $('auto_mode_advice');
+        if (!box) { return; }
+        var a = mv && mv.mode === 'agent' ? mv.advice : null;
+        box.hidden = !a;
+        clear(box);
+        if (!a) { return; }
+        el('h6', 'vt-auto-h', box, t(a.fresh ? 'auto.mode.adv.h' : 'auto.mode.adv.h_old'));
+        el('div', 'vt-auto-dec-main', box, adviceText(a));
+        var meta = el('div', 'vt-auto-dec-meta', box);
+        var st = el('span', 'vt-pill', meta, first(['auto.mode.adv.state.' + a.state]) || String(a.state || ''));
+        st.dataset.state = ADVICE_STATES[a.state] || 'off';
+        if (typeof a.confidence === 'number') { el('span', 'vt-pill', meta, t('auto.mode.adv.conf', { pct: Math.round(a.confidence * 100) })); }
+        if (a.received) { el('span', null, meta, when(a.received)); }
+        if (a.reason) { el('p', 'vt-auto-dec-why', box, t('auto.mode.adv.reason', { reason: a.reason })); }
+    }
+    function paintLast(mv) {
+        var box = $('auto_mode_last');
+        if (!box) { return; }
+        clear(box);
+        if (!mv) { return; }
+        el('h6', 'vt-auto-h', box, t('auto.mode.last.h'));
+        var d = mv.last_decision;
+        if (!d) { el('p', 'vt-auto-quiet', box, t('auto.mode.last.none')); return; }
+        var v = d.vars || {};
+        el('div', 'vt-auto-dec-main', box, journalText(d));
+        var meta = el('div', 'vt-auto-dec-meta', box);
+        el('span', null, meta, when(d.t));
+        if (d.source) {
+            var s = el('span', 'vt-pill', meta, first(['auto.mode.src.' + d.source]) || d.source);
+            s.dataset.state = d.source === 'agent' ? 'info' : '';
+        }
+        if (typeof v.confidence === 'number') { el('span', 'vt-pill', meta, t('auto.mode.adv.conf', { pct: Math.round(v.confidence * 100) })); }
+        var main = box.querySelector('.vt-auto-dec-main').textContent, wv = v.why ? whyCode(v.why, v) : '';
+        var why = v.reason ? t('auto.mode.adv.reason', { reason: v.reason })
+            : (wv && main.indexOf(wv) < 0 ? t('auto.mode.why', { why: wv }) : '');
+        if (why) {
+            var p = el('p', 'vt-auto-dec-why', box, why);
+            if (v.dock) { p.title = v.dock; }
+        }
+    }
+    function paintMode() {
+        var box = $('auto_mode_choice');
+        if (!box) { return; }
+        var mv = modeView(), ask = S.modeAsk;
+        box.querySelectorAll('.vt-auto-choice').forEach(function (b) {
+            var on = !!mv && b.dataset.mode === mv.mode;
+            b.classList.toggle('vt-sel', on);
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+            b.disabled = !mv || !!ask;
+            if (ask && ask.mode === b.dataset.mode) { b.dataset.pending = '1'; } else { delete b.dataset.pending; }
+        });
+        var notes = $('auto_mode_notes');
+        clear(notes);
+        if (!mv) {
+            /* an old master has neither /scheduler/mode nor report.mode */
+            note(notes, S.report ? 'auto.mode.old' : 'auto.mode.wait');
+            head('mode', 'off', []);
+            paintDock(null); paintAdvice(null); paintLast(null);
+            return;
+        }
+        var st = modeState(mv);
+        var toks = [{ text: t('auto.mode.' + mv.mode), state: mv.mode === 'agent' ? 'info' : undefined },
+                    { text: t(st.k, st.v), state: st.tone }];
+        head('mode', st.tone === 'warn' ? 'warn' : (mv.mode === 'agent' ? 'info' : 'off'), toks);
+        $('auto_tok_mode').querySelectorAll('.vt-pill').forEach(function (x) { x.title = x.textContent; });
+        if (!mv.automation) { note(notes, 'auto.mode.note.auto_off', null, 'warn'); }
+        else if (mv.held) { note(notes, 'auto.mode.note.held', null, 'warn'); }
+        if (mv.mode === 'agent') {
+            var adv = mv.advice && mv.advice.fresh ? mv.advice : null;
+            if (!adv) { note(notes, mv.fallback ? 'auto.mode.note.fallback' : 'auto.mode.note.no_advice'); }
+            if (mv.limit_now) { note(notes, 'auto.mode.limit_now', { what: limitText(mv.limit_now.code, mv.limit_now.vars) }); }
+            if (mv.dock_permitted === true) { note(notes, 'auto.mode.dock.open'); }
+            else if (mv.dock_permitted === false && !(adv && adv.state === 'pending' && adv.action === 'mow')) {
+                note(notes, 'auto.mode.dock.locked').title = mv.dock_why || '';
+            }
+        } else {
+            note(notes, mv.limits_apply ? 'auto.mode.note.calendar_limits' : 'auto.mode.note.calendar');
+            if (mv.limit_now) { note(notes, 'auto.mode.limit_now', { what: limitText(mv.limit_now.code, mv.limit_now.vars) }); }
+        }
+        paintDock(mv); paintAdvice(mv); paintLast(mv);
+    }
+    /* an older master has no agent group: no heading over nothing */
+    function paintLimitsHead() {
+        var h = $('auto_mode_limits_h'), g = document.querySelector('[data-auto-group="agent"]');
+        if (h && g) { h.hidden = !g.firstChild; }
     }
 
     /* ------------------------------------------------------- checks */
@@ -1559,6 +1814,7 @@
         return c && c.code === m[2] ? checkText(c) : t('auto.check.state.block', { what: t('auto.check.key.' + name) });
     }
     function onCommand(r) {
+        if (r && r.cmd === 'set_mode') { onModeResult(r); return; }
         if (!r || !S.sleepMsg) { return; }
         /* latched: the answer to somebody's press long ago comes at every page load */
         if (r.cmd === 'run_next') {
@@ -1596,7 +1852,7 @@
 
     /* ------------------------------------------------------- history */
     var JFILTER = { all: null, runs: ['started', 'finished', 'skipped', 'missed'], waits: ['waited'],
-                    sleep: ['slept', 'woke'], settings: ['settings'] };
+                    agent: ['advice', 'mode'], sleep: ['slept', 'woke'], settings: ['settings'] };
     function buildFilter() {
         var box = $('auto_journal_filter');
         if (!box || box.dataset.built) { return; }
@@ -1612,6 +1868,12 @@
         if (v.blocked_by) { v.why = first(['calmgr.code.' + v.blocked_by]) || v.blocked_by; }
         if (Array.isArray(v.keys)) { v.keys = v.keys.join(', '); }
         if (v.ms) { v.dur = fmtDur(v.ms / 1000); }
+        if (j.kind === 'advice') {
+            if (v.why) { v.why = whyCode(v.why, v); }
+            if (v.until) { v.until = when(v.until); }
+            v.what = adviceText({ action: v.action, program: j.program, from: v.start, to: v.end, until: (j.vars || {}).until });
+        }
+        if (/^limit_/.test(j.code)) { v.limit = limitText(j.code, v); }
         return first(['auto.j.' + j.kind + '.' + j.code, 'auto.j.' + j.kind], v)
             || (first(['auto.j.kind.' + j.kind]) || j.kind) + (j.program ? ' ' + j.program : '');
     }
@@ -1635,7 +1897,8 @@
         if (!shown.length) { el('li', 'vt-empty', box, t('auto.j.empty')); return; }
         shown.forEach(function (j) {
             var li = el('li', 'vt-act', box);
-            li.dataset.state = j.kind === 'missed' ? 'warn' : (j.kind === 'finished' ? 'ok' : (j.kind === 'started' ? 'info' : 'off'));
+            li.dataset.state = j.kind === 'missed' ? 'warn' : (j.kind === 'finished' ? 'ok'
+                : (j.kind === 'started' || j.kind === 'advice' || j.kind === 'mode' ? 'info' : 'off'));
             el('span', 'vt-sdot', li);
             el('span', 'vt-act-txt', li, journalText(j));
             el('span', 'vt-act-time', li, when(j.t));
@@ -1686,7 +1949,7 @@
     }
 
     function paintAll() {
-        paintNow(); paintPlan(); paintRain(); paintBattery(); paintSleep();
+        paintMode(); paintNow(); paintPlan(); paintRain(); paintBattery(); paintSleep();
         paintRecovery(); paintHistory(); paintAlert(); paintRight();
         var locked = S.settings && S.settings.schema
             ? Object.keys(S.settings.schema).filter(function (k) { return S.settings.schema[k].locked; }).length : 0;
@@ -1826,16 +2089,17 @@
         // advertised early: the first message after an advertise can get lost
         [['/scheduler/set_settings', 'std_msgs/String'], ['/scheduler/sleep_now', 'std_msgs/String'],
          ['/scheduler/sleep_cancel', 'std_msgs/Bool'], ['/scheduler/ignore_rain_once', 'std_msgs/Bool'],
-         ['/scheduler/run_next', 'std_msgs/Bool']].forEach(function (x) {
+         ['/scheduler/run_next', 'std_msgs/Bool'], ['/scheduler/set_mode', 'std_msgs/String']].forEach(function (x) {
             S.pubs[x[0]] = new ROSLIB.Topic({ ros: ros, name: x[0], messageType: x[1] });
             S.pubs[x[0]].advertise();
         });
-        buildRainMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
+        buildRainMode(); buildMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
         readLimits();
         document.addEventListener('rosconnected', function () { S.link = true; readLimits(); });
         document.addEventListener('rosdisconnected', function () { S.link = false; });
         document.addEventListener('rosconnecting', function () { S.link = false; });
-        subJson('/scheduler/report', function (r) { S.report = r; S.reportAt = Date.now(); paintAll(); paintSettings(); afterReport(); tick(); });
+        subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintRight(); });
+        subJson('/scheduler/report', function (r) { S.report = r; S.reportAt = Date.now(); if (r && r.mode) { S.mode = r.mode; } paintAll(); paintSettings(); afterReport(); tick(); });
         subJson('/scheduler/timeline', function (o) { S.timeline = o; paintTimeline(); paintUsed(); });
         subJson('/scheduler/journal', function (o) { S.journal = o.entries || []; paintHistory(); onJournal(S.journal); });
         subJson('/scheduler/settings', function (o) { S.settings = o; paintSettings(); paintAll(); });
@@ -1863,13 +2127,13 @@
         setTimeout(fromHash, 800);
         if (window.VTI18n) {
             VTI18n.onChange(function () {
-                S.shape = ''; ['auto_plan_actions', 'auto_journal_filter', 'auto_stay', 'auto_sleep_now', 'auto_hw', 'auto_hw2'].forEach(function (id) {
+                S.shape = ''; ['auto_mode_choice', 'auto_plan_actions', 'auto_journal_filter', 'auto_stay', 'auto_sleep_now', 'auto_hw', 'auto_hw2'].forEach(function (id) {
                     var b = $(id);
                     if (b) { clear(b); delete b.dataset.built; }
                 });
                 if (S.planMsg) { S.planMsg.remove(); }
                 var cd = $('auto_countdown'); clear(cd);
-                buildPlanActions(); buildSleep(); buildFilter(); buildHw();
+                buildMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
                 var lim = $('auto_limits'); if (lim) { delete lim.dataset.sig; }
                 paintSettings(); paintAll(); tick();
             });
@@ -1879,5 +2143,5 @@
 
     window.VTAutonomy = { init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {
         return S.report ? planLine() : ''; }, rawTimed: rawTimed, robotLine: robotLine, when: when,
-                          _state: S, _checkText: checkText, _validate: validate };
+                          whyCode: whyCode, _state: S, _checkText: checkText, _validate: validate };
 }());

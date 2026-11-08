@@ -4,10 +4,10 @@ title: Autonomie
 group: Robot
 order: 65
 icon: la-calendar-check-o
-summary: Co robot dělá sám a proč a všechna pravidla pro to — automatické sekání, Hold, plán, počasí, baterie, spánek, poruchy.
+summary: Co robot dělá sám a proč a všechna pravidla pro to — automatické sekání, Hold, kdo rozhoduje (kalendář nebo agent), plán, počasí, baterie, spánek, poruchy.
 ui: [autonomy]
 related: [programs, waiting, settings]
-keywords: [autonomie, autonomy, automatika, hold, pauza, plán, kalendář, počasí, déšť, ignorovat déšť, baterie, spánek, zůstat vzhůru, poruchy, pokusy, historie, zamčené, limity]
+keywords: [autonomie, autonomy, automatika, hold, pauza, kdo rozhoduje, režim agent, rada, povolení doku, tvrdé limity, plán, kalendář, počasí, déšť, ignorovat déšť, baterie, spánek, zůstat vzhůru, poruchy, pokusy, historie, zamčené, limity]
 ---
 # Autonomie
 
@@ -15,7 +15,7 @@ keywords: [autonomie, autonomy, automatika, hold, pauza, plán, kalendář, poč
 řekne, co dělá teď a co přijde dál. Pod ní má každá sekce hlavičku s barvou a krátkými štítky;
 po rozbalení jsou čísla a ovládání. Co rozbalíš, zůstane rozbalené.
 
-![Horní část Autonomie s očíslovanými značkami](../img/shot-autonomy.webp "1 štítek stavu · 2 co dělá teď, pod tím co dál · 3 Automatické sekání · 4 Pauza (Hold) · 5 mohl by vyjet · 6 proč nespí")
+![Horní část Autonomie s očíslovanými značkami](../img/shot-autonomy.webp "1 štítek stavu · 2 co dělá teď, pod tím co dál · 3 Automatické sekání · 4 Pauza (Hold) · 5 kdo rozhoduje: kalendář nebo agent · 6 mohl by vyjet · 7 proč nespí")
 
 ## Dva vypínače
 
@@ -121,6 +121,26 @@ Kdo rozhoduje, kdy sekat: **kalendář** (tvoje sloty, jako dosud), nebo **agent
 nebo agentovi v chatu: „sekej podle sebe" / „přepni na agenta" a „zpět na kalendář". Po aktualizaci je
 nastavený kalendář, nic se nemění, dokud nepřepneš.
 
+V panelu je to sekce **Kdo rozhoduje** hned pod horní kartou:
+
+![Kdo rozhoduje s očíslovanými značkami](../img/shot-autonomy-mode.webp "1 Kalendář | Agent · 2 čeká na povolení doku, Zámek doku › · 3 platná rada · 4 poslední rozhodnutí · 5 pravidla a tvrdé limity")
+
+- **Kalendář | Agent**: zvýrazněné je to, co hlásí robot. Klepnutím přepneš, řádek pod tím napíše
+  *Přepnuto na: Agent*, až to robot potvrdí (nebo proč ne). Samotné otevření stránky nic nepřepne.
+  Hlavička sekce ukazuje režim a co se teď děje: *Sloty*, *Zastupuje kalendář*, *Čeká na radu*,
+  *Limit: déšť*, *Čeká na dok*…
+- **Čeká na dok** (oranžový rámeček): agent chce sekat a dok je zamčený. Napíše program a do kdy rada
+  platí; **Zámek doku ›** tě vezme do panelu Agent, kde dok odemkneš. Stránka sama dok neodemyká.
+  Před časem rady je rámeček modrý a říká, že robot vyjede jen s tvým povolením.
+- **Platná rada**: co agent poradil (posekat program X mezi …, nebo nesekat do …), stav (čeká,
+  provedena, zmeškaná, prošlá, zrušená), jistota a důvod vlastními slovy agenta.
+- **Poslední rozhodnutí**: co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
+  v Historii.
+- **Pravidla a tvrdé limity**: *Bez rady zastupuje kalendář*, *Tvrdé limity i pro kalendář*,
+  *Starty od* / *Starty do* (24 h, např. 8.30 nebo 08:30), *Počkat po dešti*, *Nejnižší teplota*,
+  *Stejná zóna znovu za*. Tyhle limity platí jen v režimu Agent, nebo v režimu Kalendář se zapnutým
+  *Tvrdé limity i pro kalendář*. Každé s výchozí hodnotou a **Reset**, ukládá se jako každé nastavení.
+
 V režimu agent se agent dívá na počasí (déšť za poslední dny a předpověď), kdy se která zóna naposled
 sekala, co poslední běh nedosekal a jak těžké bylo sečení, a robotu řekne *posekej program X mezi
 těmito časy* nebo *nesekej do T*, s důvodem a jistotou. Robot radu provede stejně jako **Spustit
@@ -147,7 +167,8 @@ nastavení tady bezpečnostní limit nepovolí.
 ## Historie
 
 Deník říká lidsky, co se stalo: vyjel, dokončil, přeskočil, zmeškal, čekal, usnul, probudil se,
-změna nastavení. Jde filtrovat podle jízd, čekání, spánku a nastavení. Problémy zůstanou nahoře,
+změna nastavení, a také rady agenta a přepnutí, kdo rozhoduje. Jde filtrovat podle jízd, čekání,
+agenta, spánku a nastavení. Problémy zůstanou nahoře,
 dokud je nesmažeš (**Smazat**).
 
 ## Řádek nad mapou

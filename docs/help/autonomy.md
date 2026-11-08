@@ -4,10 +4,10 @@ title: Autonomy
 group: Robot
 order: 65
 icon: la-calendar-check-o
-summary: What the robot does on its own and why, and all the rules for it — automatic mowing, Hold, plan, weather, battery, sleep, faults.
+summary: What the robot does on its own and why, and all the rules for it — automatic mowing, Hold, who decides (calendar or agent), plan, weather, battery, sleep, faults.
 ui: [autonomy]
 related: [programs, waiting, settings]
-keywords: [autonomy, autonomie, automatic, automation, hold, pause, plan, calendar, weather, rain, ignore rain, battery, sleep, stay awake, faults, retries, history, locked, limits]
+keywords: [autonomy, autonomie, automatic, automation, hold, pause, who decides, agent mode, advice, dock permission, hard limits, plan, calendar, weather, rain, ignore rain, battery, sleep, stay awake, faults, retries, history, locked, limits]
 ---
 # Autonomy
 
@@ -15,7 +15,7 @@ keywords: [autonomy, autonomie, automatic, automation, hold, pause, plan, calend
 card says in one sentence what it does now and what comes next. Under it, each section has a head
 with a colour and short tokens; open it for the numbers and the controls. What you open stays open.
 
-![The top of Autonomy with numbered markers](img/shot-autonomy.webp "1 state tag · 2 what it does now, next under it · 3 Automatic mowing · 4 Pause (Hold) · 5 could it start now · 6 why it does not sleep")
+![The top of Autonomy with numbered markers](img/shot-autonomy.webp "1 state tag · 2 what it does now, next under it · 3 Automatic mowing · 4 Pause (Hold) · 5 who decides: calendar or agent · 6 could it start now · 7 why it does not sleep")
 
 ## The two switches
 
@@ -126,6 +126,27 @@ Who decides when to mow: the **calendar** (your slots, as always) or the **agent
 panel, or tell the agent in the chat: "mow as you see fit" / "switch to the agent" and "back to the
 calendar". After an update it is the calendar, nothing changes until you switch.
 
+In the panel it is the section **Who decides**, right under the top card:
+
+![Who decides with numbered markers](img/shot-autonomy-mode.webp "1 Calendar | Agent · 2 waits for the dock permission, Dock lock › · 3 the advice in force · 4 the last decision · 5 rules and hard limits")
+
+- **Calendar | Agent**: the highlighted one is what the robot reports. A tap switches, the line under it
+  says *Switched to: Agent* once the robot confirms (or why not). Opening the page never switches
+  anything. The head of the section shows the mode and what it does now: *Slots*, *Calendar stands in*,
+  *Waits for advice*, *Limit: rain*, *Waits for dock*…
+- **Waits for dock** (amber box): the agent wants to mow and the dock is locked. It names the program
+  and until when the advice holds; **Dock lock ›** takes you to the Agent panel, where you unlock it.
+  The page does not unlock the dock itself. Before the advice's time the box is blue and says the robot
+  will leave only with your permission.
+- **Advice in force**: what the agent advised (mow program X between …, or no mowing until …), its
+  state (waiting, carried out, missed, expired, dropped), confidence and reason in the agent's own words.
+- **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
+  in the History.
+- **Rules and hard limits**: *Calendar stands in without advice*, *Hard limits for the calendar too*,
+  *Starts from* / *Starts until* (24 h, e.g. 8.30 or 08:30), *Wait after rain*, *Lowest temperature*,
+  *Same zone again after*. These limits apply only in the Agent mode, or in the Calendar mode with
+  *Hard limits for the calendar too* on. Each with its default and **Reset**, saved like any setting.
+
 In the agent mode the agent looks at the weather (rain history and forecast), when each zone was last
 mowed, what the last run left unfinished and how heavy the cutting was, and tells the robot *mow
 program X between these times* or *don't mow until T*, with its reason and confidence. The robot
@@ -155,7 +176,8 @@ cannot be changed here. No setting here relaxes a safety limit.
 ## History
 
 The journal says in plain words what happened: started, finished, skipped, missed, waited, slept,
-woke, settings changed. Filter it by runs, waits, sleep or settings. Problems stay on top until you
+woke, settings changed, and the agent's advice and the switches of who decides. Filter it by runs,
+waits, agent, sleep or settings. Problems stay on top until you
 **Clear** them.
 
 ## The line above the map

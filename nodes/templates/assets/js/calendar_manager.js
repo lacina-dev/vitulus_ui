@@ -372,6 +372,9 @@ class CalendarManager {
         if (/^blocked_/.test(code)) return ['busy', 'warn'];
         if (code === 'waiting_slot') return ['active', 'ok'];
         if (/^waiting_/.test(code)) return ['waiting', 'info'];
+        // the agent mode and the hard limits: it waits, nothing is wrong (AUTONOMY.md §6)
+        if (/^limit_/.test(code) || code === 'agent_no_advice' || code === 'agent_skip'
+            || code === 'agent_wait_window' || code === 'agent_blocked') return ['waiting', 'info'];
         return ['active', 'ok'];
     }
 
@@ -384,13 +387,22 @@ class CalendarManager {
             d.min = Math.ceil(d.left_s / 60);
         }
         if (d.program === undefined) d.program = (rep.run && rep.run.program) || '';
+        // the agent mode's times are local ISO, its "why" a code: in words
+        if (window.VTAutonomy && VTAutonomy.when) {
+            ['at', 'until'].forEach((k) => {
+                if (typeof d[k] === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(d[k])) d[k] = VTAutonomy.when(d[k]);
+            });
+            if (typeof d.why === 'string' && VTAutonomy.whyCode) d.why = VTAutonomy.whyCode(d.why, d);
+        }
         if ((said.code === 'sleep_countdown' || said.code === 'hw_reset_countdown') && window.VTAutonomy && VTAutonomy.planLine) {
             const line = VTAutonomy.planLine();
             if (line) return line;
         }
         const key = 'calmgr.code.' + (said.code || rep.code);
-        const text = calT(key, d);
+        let text = calT(key, d);
         if (text === key) return rep.status || '';
+        // a value the robot did not send: never a raw {placeholder}
+        if (/\{\w+\}/.test(text)) text = text.replace(/\s*\{\w+\}/g, '').replace(/\s+([.,:;—–])/g, '$1');
         const run = rep.run;
         if (run && run.checkpoint && rep.code !== 'mowing') {
             const cp = /^failed: on_path-(.+)-(\d+)-(\d+)$/.exec(run.checkpoint);

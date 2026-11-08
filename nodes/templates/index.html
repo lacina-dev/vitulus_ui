@@ -1338,6 +1338,20 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <span class="form-check form-switch"><input class="form-check-input" type="checkbox" id="chk_scheduler_inhibit"></span>
     </label>
 </div>
+<!-- Who decides: calendar or agent (vt_autonomy.js, vitulus_planner docs/AUTONOMY.md §6) -->
+<details class="drawer-sec vt-auto-sec" id="auto_sec_mode" data-sec="mode" data-state="off">
+    <summary><i class="la la-random vt-auto-ico"></i><span class="vt-auto-sec-t" id="auto_mode_h" data-i18n="auto.sec.mode">Who decides</span><span class="vt-auto-toks" id="auto_tok_mode"></span></summary>
+    <div class="drawer-sec-body">
+<div class="vt-auto-choices vt-auto-modes" id="auto_mode_choice" role="radiogroup" aria-labelledby="auto_mode_h"></div>
+<div class="vt-auto-set-f"><span class="vt-auto-msg" id="auto_mode_msg" aria-live="polite"></span></div>
+<div class="vt-attn" id="auto_mode_attn" data-state="warn" role="status" hidden></div>
+<div class="vt-auto-notes" id="auto_mode_notes"></div>
+<div class="vt-auto-dec" id="auto_mode_advice" hidden></div>
+<div class="vt-auto-dec" id="auto_mode_last"></div>
+<h6 class="vt-auto-h" id="auto_mode_limits_h" data-i18n="auto.mode.limits_h">Rules and hard limits</h6>
+<div class="vt-auto-sets" data-auto-group="agent"></div>
+    </div>
+</details>
 <details class="drawer-sec vt-auto-sec" id="auto_sec_now" data-sec="now" data-state="off">
     <summary><i class="la la-check-circle vt-auto-ico"></i><span class="vt-auto-sec-t" data-i18n="auto.sec.now">Now</span><span class="vt-auto-toks" id="auto_tok_now"></span></summary>
     <div class="drawer-sec-body">

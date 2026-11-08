@@ -45,9 +45,11 @@ const cs = dict('cs.js');
 // --- the node's codes -------------------------------------------------------
 const py = fs.readFileSync(master, 'utf8');
 const codes = new Set();
-py.replace(/_set_status\([^)]*?'([a-z_]+)'/gs, (m, c) => { codes.add(c); return m; });
+py.replace(/_set_status\(\s*(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')\s*(?:%\s*(?:\([^()]*(?:\([^()]*\)[^()]*)*\)|[\w.]+(?:\([^()]*\))?))?\s*,\s*'([a-z_]+)'(?!\s*\+)/gs, (m, c) => { codes.add(c); return m; });
 ['battery', 'weather', 'temp', 'critical', 'gps', 'rejected'].forEach((r) => codes.add('waiting_' + r));
 ['stopped', 'terminal', 'mission', 'mission_unknown', 'dock', 'manual', 'agent'].forEach((r) => codes.add('blocked_' + r));
+['night', 'rain', 'cold', 'weather_unknown'].forEach((r) => codes.add('limit_' + r));
+codes.add('not_in_dock');
 const issues = new Set();
 py.replace(/_issue\('([a-z_]+)'/g, (m, c) => { issues.add(c); return m; });
 py.replace(/_give_up\(run, '([a-z_]+)'/g, (m, c) => { issues.add(c); return m; });
