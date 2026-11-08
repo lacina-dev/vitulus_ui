@@ -184,6 +184,27 @@ open and the robot's core reads the state by itself, so no model runs meanwhile.
 - With nothing running it says so and promises nothing. The agent never writes *hlídám* or *dám
   vědět* unless something really runs behind it.
 
+### Standing watch: "if X, do Y"
+
+*if I lose the UI for more than a minute, drive to point X*, *every hour check the battery and below
+30 % go to the dock*, *if the camera stops sending, tell me* — the agent turns the sentence into a
+rule and its core checks it by itself, continuously or at intervals, without a model, also at night
+and after a restart. It confirms in one sentence what it watches and what it will do.
+
+- **What watches**: the robot state, any ROS topic (value, messages missing), time, a place, the
+  browsers connected to the robot. "My UI" is the browser you gave the order from; another
+  browser connecting later does not count.
+- **What it does**: a message, a photo, one action (drive to a point, back to the dock…) or a
+  saved mowing program. Movement runs as a short mission with every gate: the dock permit, STOP
+  and your takeover always win; while you drive by hand it waits; it does not interrupt a running
+  mission or program unless you said so; it leaves the dock only if you allowed it for that rule.
+- **Shadow mode**: until you try it with the robot, rules that move only report what they would do.
+- **STOP** (UI, the robot's display, the agent's STOP) or taking over the controls pauses every rule
+  that moves; it resumes only when you say so.
+- *what are you watching?* lists them; *stop watching X* / *cancel watch 3*, *pause watch 3*,
+  *resume watch 3* — no model needed. The **Watching** block in the agent panel shows the same list
+  with Pause / Resume / Cancel.
+
 ### The operator: a model drives step by step
 
 Every task — routine drives (*undock / waypoint / route / wait / dock*) included, and every

@@ -177,6 +177,28 @@ samo, takže mezitím neběží žádný model.
 - Když nic neběží, řekne to a nic neslíbí. Agent nikdy nenapíše *hlídám* ani *dám vědět*, když za
   tím nic neběží.
 
+### Trvalé hlídání: „když X, udělej Y"
+
+*když vypadnu z UI na víc než minutu, jeď k bodu X*, *každou hodinu zkontroluj baterii a pod 30 %
+jeď do doku*, *když kamera přestane posílat obraz, napiš mi* — agent z věty udělá pravidlo a jeho
+jádro ho hlídá samo, neustále nebo pravidelně, bez modelu, i v noci a po restartu. Jednou větou
+potvrdí, co hlídá a co udělá.
+
+- **Co hlídá**: stav robota, libovolný ROS topic (hodnota, nechodí zprávy), čas, místo, prohlížeče
+  připojené k robotu. „Moje UI" je prohlížeč, ze kterého jsi pokyn dal; cizí prohlížeč připojený
+  později se nepočítá.
+- **Co udělá**: zprávu, fotku, jednu akci (jízda k bodu, do doku…) nebo uložený program sekání.
+  Pohyb jede jako krátká mise se všemi branami: povolení doku, STOP a tvoje převzetí vždy vyhrají;
+  když řídíš ručně, počká; běžící misi ani program nepřeruší, pokud jsi to neřekl; z doku vyjede,
+  jen když jsi to pro to hlídání povolil.
+- **Stínový režim**: dokud to spolu s robotem nevyzkoušíme, hlídání s pohybem jen hlásí, co by
+  udělala.
+- **STOP** (UI, displej robota, STOP agenta) nebo převzetí řízení pozastaví všechna hlídání
+  s pohybem; znovu běží, až to řekneš.
+- *co hlídáš?* je vypíše; *přestaň hlídat X* / *zruš hlídání 3*, *pozastav hlídání 3*, *obnov
+  hlídání 3* — bez modelu. Blok **Hlídání** v panelu agenta ukazuje totéž s tlačítky Pozastavit /
+  Obnovit / Zrušit.
+
 ### Operátor: model řídí krok po kroku
 
 Každé zadání — i rutinní jízdy (*vyjet / bod / trasa / počkat / do doku*) a každý pokyn typu

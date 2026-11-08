@@ -946,10 +946,21 @@ if __name__ == '__main__':
             approval = request.headers.get("X-Vitulus-Approval")
             if approval:
                 headers["X-Vitulus-Approval"] = approval
+            # T27: agent pozná, ze kterého prohlížeče přišel pokyn (owner pro
+            # hlídání „když vypadnu z UI").  Agent tomu věří jen od loopbacku,
+            # tedy od téhle proxy; hlavičku z prohlížeče přepíšeme.
+            if request.remote_addr:
+                headers["X-Forwarded-For"] = request.remote_addr
             if request.method == "POST":
                 data = request.get_data(cache=False)[:AGENT_MAX_BODY]
-                headers["Content-Type"] = request.headers.get(
-                    "Content-Type", "application/json")
+                ctype = request.headers.get("Content-Type")
+                if ctype:
+                    headers["Content-Type"] = ctype
+                elif not subpath.lstrip("/").startswith("api/watch/"):
+                    # T27: akce hlídání chtějí JSON jako ochranu proti CSRF
+                    # (no-cors POST z cizí stránky JSON nepošle) — výchozí
+                    # hlavičku jim proto proxy nedoplní.
+                    headers["Content-Type"] = "application/json"
             req = urllib.request.Request(url, data=data, headers=headers,
                                          method=request.method)
             try:
