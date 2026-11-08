@@ -7,7 +7,7 @@ icon: la-map
 summary: Record a new map, extend one, activate it, layers and the combined map.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock, lidar]
-keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, background map, cadastre, parcels, contour lines, relief, slope, buildings, house numbers, satellite, orthophoto, Esri, Bing, Google, overlay, terrain, session, save, sensing, lidar, camera, coverage, field of view]
+keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, background map, cadastre, parcels, contour lines, relief, slope, buildings, house numbers, satellite, orthophoto, Esri, Bing, Google, overlay, terrain, session, save, sensing, lidar, camera, coverage, field of view, layers button, Wayback, CENIA, historical orthophoto, 1950s]
 ---
 # Maps and mapping
 
@@ -134,7 +134,8 @@ automatically after Save & finish, a layer delete or a switch; ↻ rebuilds it b
 
 Tick the layers under the map list: **Base** (cyan, the navigation map), **Saved** (red, the
 active map), **Direct** (black, the live recording), **Preview** (blue), **Terrain** (height: blue low,
-red high), **Aerial** (the background map, see below), **Rain** (radar).
+red high), **Background** (the background map, see below), **Rain** (radar). The background map
+and the overlays are quickest to change with the [layers button on the map](#the-layers-button-on-the-map).
 
 **Sensing** shows what the robot is observing right now, drawn flat on the ground around it.
 It switches on by itself when a recording starts and off when it ends (tick it by hand any time):
@@ -151,6 +152,29 @@ It switches on by itself when a recording starts and off when it ends (tick it b
 
 The ranges are the ones the map really takes in (the mapping profile of this place), not the
 sensors' maximum, recording or not.
+
+### The layers button on the map
+
+The square button with the layers icon (rounded corners, like the compass) under the compass in the top-left corner of the map opens
+**Map layers** — on a phone as a sheet over the bottom of the map (the map stays visible above it,
+the STOP, the bottom bar and the joystick stay free), on a wider screen as a card beside the button.
+One tap opens it, a second one picks the map:
+
+- **Background map** — the photos and the maps in their two groups, each tile with its name and
+  the provider under it; **None** takes the background away. The chosen one is framed, its name is
+  also in the card's header. **Opacity** under the tiles is the same slider as in Display (layers).
+- **Overlays** — *Lines and labels* (cadastre, buildings and house numbers, contour lines) and
+  *Terrain* (shaded relief, relief ×10 and ×20, slope, aspect, trees and buildings), plus the
+  **Rain radar** under *Weather*. A switch turns each on; while it is on the row shows its opacity,
+  a line on what it shows and its tile state (*z19 · 3/12*); **Slope** also has its colour scale
+  from *flat* (grey) to *steep* (brown).
+- Sources added since you last opened the card carry an orange **new** tag and the button an
+  orange dot, until you close the card.
+- **More settings in Map › Display ›** opens the rest (Detail, alignment, the rain radar's area);
+  in the map editor it opens the editor's Layers.
+
+It is the same setting as the Map panel and the editor's Layers: whatever you change in one place
+shows in the others at once, and the browser remembers it. Tap outside the card, ✕ or Esc closes it.
 
 ### Lidar range and Camera range
 
@@ -187,7 +211,9 @@ areas it drew into the map; it appears and disappears by itself, see
 the map, its **Detail** and an alignment nudge (saved on the robot for each map and tile source; the ČÚZK
 sources share one, the Google ones another), the rain radar, and shows the terrain (DEM) status.
 The background maps come in two groups: **aerial and satellite photos** (Google satellite, Google
-satellite with names, ČÚZK orthophoto, Esri, Bing) and **maps** (Google map, ČÚZK topographic map,
+satellite with names, ČÚZK orthophoto, Esri, Bing, three older Esri releases — *Esri archive
+2025-04, 2023-06, 2022-04 (Wayback)*, the date is the release, the photo over your place can be older —
+and the *Orthophoto 1950s (CENIA)*, black-and-white aerial photos from the 1950s, up to z18) and **maps** (Google map, ČÚZK topographic map,
 OpenTopoMap, OpenStreetMap). Each photo source has its own date and its own sharpness — when one is
 old or blurry over the garden, try another. **Detail** *Auto* (the default) loads the finest level
 each source has — Google up to z21, the ČÚZK orthophoto z20 — and closer up only magnifies it

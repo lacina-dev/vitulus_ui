@@ -148,9 +148,13 @@ Tracing only records. It does not move the robot, you drive it yourself.
 **Layers** is one panel. Objects: waypoints, paths, map fixes, zones, places and rules. A hidden
 layer cannot be selected on the map. World, each with its legend: **Coverage** (when it was last
 mowed), **Mow load** (the trail of a run, see Mowing unit), **Grass height** (measured grass
-against the cut height, see [Mowing unit](mowing.md#grass-height-ahead)), **GNSS quality**, **Slope**, **Terrain**,
-**Aerial** (with it on, pick the background map right below it) and **Overlays** (cadastre,
-buildings, contour lines, relief, slope — the same switches as in the Map tab). A layer without data says so. The trail also shows how GPS agrees with lidar and wheels, the RTCM corrections and, with thin lines, the plan, GPS and lidar positions, so
+against the cut height, see [Mowing unit](mowing.md#grass-height-ahead)), **GNSS quality**, **Slope (robot)** (the
+slope the robot measured itself), **Terrain**,
+**Background map** (with it on, pick the background map right below it) and **Overlays** (cadastre,
+buildings, contour lines, relief, slope from the ČÚZK terrain model … — the same switches as in the Map tab; a switched-on
+overlay shows its opacity slider right under it). The
+[layers button on the map](mapping.md#the-layers-button-on-the-map) works in the editor too and changes the same
+settings; its **More settings** opens these Layers. A layer without data says so. The trail also shows how GPS agrees with lidar and wheels, the RTCM corrections and, with thin lines, the plan, GPS and lidar positions, so
 it tells where the base reaches badly, which helps when you place a zone. A tap on the trail shows its card only when no drawing tool
 is active.
 

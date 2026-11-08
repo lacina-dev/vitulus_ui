@@ -144,8 +144,11 @@ Stopa jen nahrává. Robota nerozjede, jedeš s ním sám.
 **Vrstvy** jsou jeden panel. Objekty: body, trasy, opravy mapy, zóny, místa a pravidla. Skrytá
 vrstva v mapě nejde vybrat. Svět, každá vrstva s legendou: **Pokrytí** (kdy se naposledy sekalo),
 **Zátěž sekání** (stopa běhu, viz Sekací ústrojí), **Výška trávy** (změřená tráva proti
-výšce sekání, viz [Sekací ústrojí](mowing.md#výška-trávy-před-robotem)), **Kvalita GNSS**, **Sklon**, **Terén**, **Letecká** (když je zapnutá, hned pod ní vybereš podkladovou mapu) a **Překryvy**
-(katastr, budovy, vrstevnice, reliéf, sklon — tytéž přepínače jako v záložce Mapa).
+výšce sekání, viz [Sekací ústrojí](mowing.md#výška-trávy-před-robotem)), **Kvalita GNSS**, **Sklon (robot)** (sklon, který robot
+změřil sám), **Terén**, **Podklad** (když je zapnutý, hned pod ním vybereš podkladovou mapu) a **Překryvy**
+(katastr, budovy, vrstevnice, reliéf, sklon z terénního modelu ČÚZK … — tytéž přepínače jako v záložce Mapa; zapnutý
+překryv má hned pod sebou posuvník krytí). [Tlačítko vrstev na mapě](mapping.md#tlačítko-vrstev-na-mapě) funguje i
+v editoru a mění totéž nastavení; jeho **Další nastavení** otevře tyhle Vrstvy.
 Vrstva bez dat to řekne. Stopa ukazuje i shodu GPS s lidarem a koly, korekce RTCM a tenkými čarami polohy podle plánu, GPS a lidaru, takže je vidět, kam základna
 dosahuje špatně, což pomůže při kreslení zóny. Klepnutí na stopu ukáže kartu, jen když není aktivní kreslicí nástroj.
 

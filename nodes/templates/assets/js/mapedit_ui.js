@@ -165,9 +165,16 @@ window.MapEditPanel = (function () {
         return '<div class="mapedit-lay-head">' + esc(t('medits.layer.overlays')) + '</div>' +
             Array.prototype.map.call(rows, function (r) {
                 var id = r.getAttribute('data-ov'), c = $('mapv3_ov_' + id), lab = $('mapv3_ov_' + id + '_lab');
+                var op = $('mapv3_ov_' + id + '_op'), name = lab ? lab.textContent : id;
                 return '<label class="mapedit-lay" for="mapedit_ov_' + esc(id) + '"><input class="form-check-input" type="checkbox" id="mapedit_ov_' +
                     esc(id) + '" data-ovl="' + esc(id) + '"' + (c && c.checked ? ' checked' : '') + '><span class="vt-grow1">' +
-                    esc(lab ? lab.textContent : id) + '</span></label>';
+                    esc(name) + '</span></label>' +
+                    // T17 M5-2: the overlay's opacity here too (mirrors #mapv3_ov_<id>_op)
+                    (op ? '<div class="vt-lyr-op mapedit-ovop" data-ovop-row="' + esc(id) + '"' + (c && c.checked ? '' : ' hidden') + '>' +
+                        '<span class="vt-lyr-op-l">' + esc(t('mapt.opacity')) + '</span>' +
+                        '<input type="range" min="0" max="1" step="0.05" value="' + esc(op.value) + '" data-ovop="' + esc(id) + '" aria-label="' +
+                        esc(t('mapt.aerial.ov_opacity', {name: name})) + '">' +
+                        '<output class="vt-lyr-op-v vt-tnum">' + Math.round(parseFloat(op.value) * 100) + '\u00a0%</output></div>' : '');
             }).join('');
     }
     function baseSelectHtml() {
@@ -198,6 +205,14 @@ window.MapEditPanel = (function () {
                 if (m) { m.checked = c.checked; m.dispatchEvent(new Event('change')); }
             });
         });
+        host.querySelectorAll('[data-ovop]').forEach(function (r) {
+            r.addEventListener('input', function () {
+                var m = $('mapv3_ov_' + r.getAttribute('data-ovop') + '_op');
+                if (m) { m.value = r.value; m.dispatchEvent(new Event('input')); }
+                var o = r.parentNode.querySelector('output');
+                if (o) o.textContent = Math.round(parseFloat(r.value) * 100) + '\u00a0%';
+            });
+        });
     }
     // which bases / overlays exist and their names (a new catalog or language =
     // re-render); toggles and the
@@ -225,10 +240,28 @@ window.MapEditPanel = (function () {
             var m = $('mapv3_ov_' + c.getAttribute('data-ovl'));
             if (m && c.checked !== m.checked) c.checked = m.checked;
         });
+        host.querySelectorAll('[data-ovop-row]').forEach(function (row) {
+            var id = row.getAttribute('data-ovop-row'), c = $('mapv3_ov_' + id), m = $('mapv3_ov_' + id + '_op');
+            row.hidden = !(c && c.checked);
+            var r = row.querySelector('input');
+            if (r && m && document.activeElement !== r && r.value !== m.value) {
+                r.value = m.value;
+                var o = row.querySelector('output');
+                if (o) o.textContent = Math.round(parseFloat(m.value) * 100) + '\u00a0%';
+            }
+        });
+        // the background on / off (the layers button on the map changes it too)
+        var la = $('mapedit_lay_aerial');
+        if (la && la.checked !== api.layerOn('aerial')) { la.checked = api.layerOn('aerial'); setLegend('aerial'); }
         var b = $('mapedit_base'), src = $('mapv3_aerial_src');
         if (b && src && b.value !== src.value) b.value = src.value;
     }
     document.addEventListener('vt:map-sources', syncMapSources);
+    // an opacity moved in the Map tab or the layers button: mirror it here
+    document.addEventListener('input', function (e) {
+        var id = e.target && e.target.id;
+        if (id && /^mapv3_ov_.+_op$/.test(id) && $('mapedit_layers')) syncMapSources();
+    }, true);
     function legendHtml(k, on) {
         if (!on) return '';
         var msg = api.layerMsg(k);

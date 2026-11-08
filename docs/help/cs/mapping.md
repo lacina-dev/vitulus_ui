@@ -7,7 +7,7 @@ icon: la-map
 summary: Nahrát novou mapu, rozšířit ji, aktivovat, vrstvy a souhrnná mapa.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock, lidar]
-keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, podkladová mapa, katastr, parcely, vrstevnice, reliéf, sklon, budovy, čísla domů, satelit, ortofoto, Esri, Bing, Google, překryv, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole]
+keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, podkladová mapa, katastr, parcely, vrstevnice, reliéf, sklon, budovy, čísla domů, satelit, ortofoto, Esri, Bing, Google, překryv, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole, tlačítko vrstev, Wayback, CENIA, historické ortofoto, 50. léta]
 ---
 # Mapy a mapování
 
@@ -132,7 +132,8 @@ po **Uložit a dokončit**, po smazání vrstvy nebo po přepnutí; ↻ ji sesta
 
 Zaškrtni vrstvy pod seznamem map: **Základ** (tyrkysová, navigační mapa), **Uložená** (červená,
 aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (modrá), **Terén** (výška:
-modrá nízko, červená vysoko), **Letecká** (podkladová mapa, viz níž), **Déšť** (radar).
+modrá nízko, červená vysoko), **Podklad** (podkladová mapa, viz níž), **Déšť** (radar).
+Podklad a překryvy změníš nejrychleji [tlačítkem vrstev na mapě](#tlačítko-vrstev-na-mapě).
 
 **Snímání** ukazuje, co robot právě sleduje, nakreslené naplocho na zemi kolem něj. Samo se
 zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kdykoli i ručně):
@@ -148,6 +149,27 @@ zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kd
 
 Dosahy jsou ty, které mapa opravdu bere (profil mapování tohoto místa), ne maximum senzorů, s
 nahráváním i bez něj.
+
+### Tlačítko vrstev na mapě
+
+Čtvercové tlačítko se zaoblenými rohy a ikonou vrstev (vypadá jako kompas) pod kompasem v levém horním rohu mapy otevře **Mapové vrstvy** — na
+telefonu jako list přes spodek mapy (mapa nad ním zůstane vidět, STOP, spodní lišta a joystick zůstanou
+volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho otevře, druhé vybere mapu:
+
+- **Podklad** — snímky a mapy ve dvou skupinách, každá dlaždice se jménem a pod ním poskytovatel;
+  **Žádný** podklad schová. Vybraný je orámovaný, jeho jméno je i v hlavičce karty. **Krytí** pod
+  dlaždicemi je tentýž posuvník jako v Zobrazení (vrstvy).
+- **Překryvy** — *Čáry a popisy* (katastr, budovy a čísla domů, vrstevnice) a *Terén* (stínovaný
+  reliéf, reliéf ×10 a ×20, sklon, expozice, stromy a budovy) a pod *Počasí* **Srážkový radar**.
+  Každý zapneš přepínačem; zapnutý řádek ukáže krytí, jednu větu o tom, co ukazuje, a stav dlaždic
+  (*z19 · 3/12*); **Sklon** má i barevnou stupnici od *roviny* (šedá) po *strmé* (hnědá).
+- Zdroje, které přibyly od chvíle, kdy jsi kartu otevřel naposledy, mají oranžový štítek **nové** a
+  tlačítko oranžovou tečku, dokud kartu nezavřeš.
+- **Další nastavení v Mapa › Zobrazení ›** otevře zbytek (Detail, zarovnání, oblast radaru); v editoru
+  mapy otevře jeho Vrstvy.
+
+Je to totéž nastavení jako v panelu Mapa a ve Vrstvách editoru: co změníš na jednom místě, hned se
+ukáže i na ostatních, a prohlížeč si to pamatuje. Klepnutí mimo kartu, ✕ nebo Esc ji zavře.
 
 ### Dosah lidaru a Dosah kamery
 
@@ -182,7 +204,9 @@ které si nakreslil do mapy; objeví se a zmizí sám, viz
 její **Detail** a posun zarovnání (uložený na robotu pro každou mapu a zdroj dlaždic; zdroje ČÚZK sdílí
 jeden, zdroje Google druhý), srážkový radar a ukáže stav terénu (DEM). Podkladové mapy jsou ve dvou
 skupinách: **letecké a satelitní snímky** (satelit Google, satelit Google s popisky, ortofoto
-ČÚZK, Esri, Bing) a **mapy** (mapa Google, topografická mapa ČÚZK, OpenTopoMap, OpenStreetMap).
+ČÚZK, Esri, Bing, tři starší vydání Esri — *Archiv Esri 2025-04, 2023-06, 2022-04 (Wayback)*, datum je
+vydání, snímek nad tvým místem může být starší — a *Ortofoto 50. léta (CENIA)*, černobílé letecké snímky
+z 50. let, do z18) a **mapy** (mapa Google, topografická mapa ČÚZK, OpenTopoMap, OpenStreetMap).
 Každý zdroj snímků má jiné datum a jinou ostrost — když je nad zahradou starý nebo rozmazaný,
 zkus jiný. **Detail** *Auto* (výchozí) načte nejjemnější úroveň, jakou zdroj má — Google až z21,
 ortofoto ČÚZK z20 — a ještě blíž ji už jen plynule zvětší. Na telefonu se podkladová mapa zastaví

@@ -71,6 +71,19 @@
     --vt-mow-fusion: #ff7100;    /* the fused pose in the tap marks */
     --vt-brand-rgb: 255, 113, 0;
 
+    /* thumbnails of the background-map kinds in the layers panel
+       (vt_map_layers.css): a photo = field, trees, soil; a map = paper, park, roads */
+    --vt-thumb-field: #6f8b47;
+    --vt-thumb-field-2: #8a9a5b;
+    --vt-thumb-tree: #4f7a39;
+    --vt-thumb-tree-2: #3c5f2c;
+    --vt-thumb-soil: #a08d6a;
+    --vt-thumb-soil-2: #b9a582;
+    --vt-thumb-paper: #e9e5dc;
+    --vt-thumb-park: #cfe3c1;
+    --vt-thumb-road: #f2c14e;
+    --vt-thumb-street: #ffffff;
+
     /* tone = three numbers per state (U2, from the field dashboard):
        --vt-glow-*  the soft wash from the top-left corner,
        --vt-edge-*  the toned border + the 1 px glow along the top edge.

@@ -1,0 +1,187 @@
+/* vt_map_layers.css — the layers button on the map and its panel
+   (vt_map_layers.js, T17 M5 2026-11-08). The button sits in the compass
+   column (top-left corner of the map hollow) and looks like the rose; the
+   panel is a floating card beside it, on a phone a sheet over the bottom of
+   the map. Colours from vt_tokens.css. */
+
+.vt-lyr-fab {
+    position: fixed; z-index: 5;
+    left: calc(var(--vt-frame-cleft, 0px) + 10px);
+    top: calc(var(--vt-frame-top, 72px) + 98px);   /* JS puts it under the rose */
+    width: 44px; height: 44px; padding: 0; margin: 0;
+    display: grid; place-items: center;
+    color: var(--vt-text); background: var(--vt-overlay);
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-panel);
+    box-shadow: var(--vt-elev-1); cursor: pointer;
+    transition: background var(--vt-ease), border-color var(--vt-ease), color var(--vt-ease);
+}
+.vt-lyr-fab[hidden] { display: none; }
+.vt-lyr-fab svg { display: block; }
+.vt-lyr-fab.vt-lyr-active { color: var(--vt-accent); }
+.vt-lyr-fab:hover { border-color: rgba(var(--vt-accent-rgb), 0.6); }
+.vt-lyr-fab[aria-expanded="true"] {
+    color: var(--vt-text); border-color: var(--vt-accent);
+    background: linear-gradient(rgba(var(--vt-accent-rgb), 0.24), rgba(var(--vt-accent-rgb), 0.24)), var(--vt-navbar);
+}
+.vt-lyr-fab:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 2px; }
+.vt-lyr-dot {
+    position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--vt-brand); box-shadow: 0 0 0 2px var(--vt-navbar);
+}
+.vt-lyr-dot[hidden] { display: none; }
+@media (max-width: 575.98px) {
+    .vt-lyr-fab { left: calc(var(--vt-frame-cleft, 0px) + 6px); width: 48px; height: 48px; }
+}
+
+/* ---- the panel */
+.vt-lyr-panel {
+    position: fixed; z-index: 1030;             /* over the phone sheet (1000), under modals */
+    display: flex; flex-direction: column; overflow: hidden;
+    color: var(--vt-text); background: var(--vt-overlay);
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-panel);
+    box-shadow: var(--vt-shadow);
+    font: 400 var(--vt-fs)/1.35 var(--vt-font);
+}
+.vt-lyr-panel[hidden] { display: none; }
+.vt-lyr-panel:focus { outline: none; }
+.vt-lyr-head {
+    flex: 0 0 auto; display: flex; align-items: center; gap: var(--vt-gap-2);
+    min-height: 48px; padding: 2px 4px 2px var(--vt-pad);
+    border-bottom: 1px solid var(--vt-border);
+}
+.vt-lyr-head > svg { flex: 0 0 auto; color: var(--vt-accent); width: 18px; height: 18px; }
+.vt-lyr-title { flex: 0 0 auto; font-weight: 600; font-size: var(--vt-fs-md); color: var(--vt-accent); }
+.vt-lyr-meta {
+    flex: 1 1 auto; min-width: 0; text-align: right; color: var(--vt-muted); font-size: var(--vt-fs-sm);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vt-lyr-iconbtn {
+    flex: 0 0 auto; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--vt-r-ctl);
+    background: transparent; color: var(--vt-muted); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.vt-lyr-iconbtn[data-lyr-help] { font-size: 15px; font-weight: 600; }
+.vt-lyr-iconbtn:hover { color: var(--vt-text); background: rgba(255, 255, 255, 0.06); }
+.vt-lyr-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+    padding: 4px var(--vt-pad) var(--vt-pad); -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+}
+.vt-lyr-sec + .vt-lyr-sec { margin-top: var(--vt-gap-2); padding-top: var(--vt-gap-1); border-top: 1px solid var(--vt-border); }
+.vt-lyr-sec-h {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--vt-gap-2);
+    min-height: 40px; font-weight: 600; font-size: var(--vt-fs);
+}
+.vt-lyr-grp-h { margin: 6px 0 4px; color: var(--vt-muted); font-size: var(--vt-fs-xs); letter-spacing: .02em; }
+
+/* background: a grid of tiles, one tap = that map */
+.vt-lyr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 6px; padding-top: 4px; }
+.vt-lyr-base {
+    position: relative; display: flex; align-items: center; gap: var(--vt-gap-2);
+    min-height: 48px; padding: 4px 8px 4px 5px; text-align: left; cursor: pointer;
+    color: var(--vt-text); background: var(--vt-surface-2);
+    border: 1px solid var(--vt-border); border-radius: var(--vt-r-card);
+}
+.vt-lyr-base:hover { border-color: var(--vt-border-strong); background: var(--vt-surface-3); }
+.vt-lyr-base[aria-checked="true"] {
+    background: var(--vt-tint-info), var(--vt-surface-2);
+    border-color: var(--vt-accent); box-shadow: inset 0 0 0 1px var(--vt-accent);
+}
+.vt-lyr-base:focus-visible, .vt-lyr-ovt:focus-visible, .vt-lyr-none:focus-visible,
+.vt-lyr-more:focus-visible, .vt-lyr-iconbtn:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
+/* a small picture of the kind of map: photo (green / brown field) or drawn map */
+.vt-lyr-thumb {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.vt-lyr-thumb-photo {
+    background:
+        radial-gradient(circle at 30% 35%, var(--vt-thumb-tree) 0 22%, transparent 23%),
+        radial-gradient(circle at 72% 70%, var(--vt-thumb-tree-2) 0 18%, transparent 19%),
+        linear-gradient(135deg, var(--vt-thumb-field-2) 0%, var(--vt-thumb-field) 45%, var(--vt-thumb-soil) 46%,
+                        var(--vt-thumb-soil-2) 60%, var(--vt-thumb-field) 61%);
+}
+.vt-lyr-thumb-map {
+    background:
+        linear-gradient(90deg, transparent 47%, var(--vt-thumb-road) 47% 55%, transparent 55%),
+        linear-gradient(0deg, transparent 62%, var(--vt-thumb-street) 62% 68%, transparent 68%),
+        linear-gradient(135deg, var(--vt-thumb-paper) 0 50%, var(--vt-thumb-park) 50%);
+}
+.vt-lyr-thumb-other { background: var(--vt-surface-3); }
+.vt-lyr-bt { display: flex; flex-direction: column; min-width: 0; }
+.vt-lyr-bn { font-size: var(--vt-fs); line-height: 1.2; overflow-wrap: break-word; }
+.vt-lyr-bp { font-size: var(--vt-fs-xs); color: var(--vt-muted); line-height: 1.2; overflow-wrap: break-word; }
+/* on a tile the "new" tag sits on its top edge, the name keeps its lines */
+.vt-lyr-base .vt-lyr-new { position: absolute; top: -6px; right: 6px; margin: 0; }
+.vt-lyr-new {
+    display: inline-block; margin-left: 5px; padding: 0 5px; vertical-align: 1px;
+    font-size: 10px; line-height: 15px; font-weight: 600; letter-spacing: .02em;
+    color: var(--vt-navbar); background: var(--vt-brand); border-radius: var(--vt-r-tag);
+    white-space: nowrap;
+}
+.vt-lyr-none {
+    min-height: 40px; min-width: 64px; padding: 0 12px; cursor: pointer;
+    font-size: var(--vt-fs-sm); font-weight: 400; color: var(--vt-muted);
+    background: transparent; border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl);
+}
+.vt-lyr-none[aria-pressed="true"] { color: var(--vt-text); border-color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.16); }
+
+/* opacity row */
+.vt-lyr-op { display: flex; align-items: center; gap: var(--vt-gap-2); min-height: 40px; }
+.vt-lyr-op[hidden], [data-lyr-bgop][hidden] { display: none; }
+.vt-lyr-op-l { flex: 0 0 auto; color: var(--vt-muted); font-size: var(--vt-fs-sm); }
+.vt-lyr-op input[type="range"] { flex: 1 1 auto; min-width: 0; height: 40px; touch-action: pan-y; accent-color: var(--vt-accent); }
+.vt-lyr-op-v { flex: 0 0 3.6em; text-align: right; font-size: var(--vt-fs-sm); }
+
+/* overlays: one switch row each, opacity + hint + legend while on */
+.vt-lyr-ov + .vt-lyr-ov { margin-top: 2px; }
+.vt-lyr-ovt {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    min-height: 44px; padding: 4px 6px; text-align: left; cursor: pointer;
+    color: var(--vt-text); background: transparent; border: 0; border-radius: var(--vt-r-ctl);
+}
+.vt-lyr-ovt:hover { background: rgba(255, 255, 255, 0.05); }
+.vt-lyr-sw-ui {
+    position: relative; flex: 0 0 auto; width: 34px; height: 20px; border-radius: 10px;
+    background: var(--vt-surface-3); border: 1px solid var(--vt-border-strong);
+    transition: background var(--vt-ease), border-color var(--vt-ease);
+}
+.vt-lyr-sw-ui::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--vt-muted); transition: transform var(--vt-ease), background var(--vt-ease);
+}
+.vt-lyr-ovt[aria-checked="true"] .vt-lyr-sw-ui { background: rgba(var(--vt-accent-rgb), 0.35); border-color: var(--vt-accent); }
+.vt-lyr-ovt[aria-checked="true"] .vt-lyr-sw-ui::after { transform: translateX(14px); background: var(--vt-accent); }
+.vt-lyr-ovn { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; hyphens: auto; line-height: 1.25; }
+.vt-lyr-ovs { flex: 0 0 auto; max-width: 40%; color: var(--vt-muted); font-size: var(--vt-fs-xs); text-align: right; overflow-wrap: anywhere; }
+.vt-lyr-ovx { padding: 0 6px 6px 50px; }
+.vt-lyr-ovx[hidden] { display: none; }
+.vt-lyr-hint { color: var(--vt-muted); font-size: var(--vt-fs-sm); line-height: 1.35; overflow-wrap: anywhere; hyphens: auto; }
+.vt-lyr-legend { margin: 2px 0 4px; }
+.vt-lyr-grad { display: block; height: 10px; border-radius: var(--vt-r-tag); border: 1px solid rgba(255, 255, 255, 0.15); }
+.vt-lyr-legend-l { display: flex; justify-content: space-between; color: var(--vt-muted); font-size: var(--vt-fs-xs); margin-top: 2px; }
+
+.vt-lyr-foot { margin-top: var(--vt-gap-2); padding-top: var(--vt-gap-1); border-top: 1px solid var(--vt-border); }
+.vt-lyr-more {
+    min-height: 40px; padding: 0 4px; border: 0; background: transparent; cursor: pointer;
+    color: var(--vt-accent); font-size: var(--vt-fs-sm); text-align: left;
+}
+.vt-lyr-more:hover { text-decoration: underline; }
+
+/* phone: the sheet over the bottom of the map */
+.vt-lyr-panel.vt-lyr-sheet { border-radius: var(--vt-r-panel) var(--vt-r-panel) var(--vt-r-card) var(--vt-r-card); }
+
+/* the same opacity row in the map editor's Layers (mapedit_ui.js, M5-2) */
+.mapedit-ovop { padding-left: 26px; min-height: 36px; }
+
+/* M5-6: the credit chip in the map corner — on a touch screen the tap area
+   grows to 40 px with transparent top / bottom edges (12 + 6 px), the chip
+   looks the same and sits where it did (6 px above the bottom bar); the tap
+   area ends exactly at the bar, never over it */
+@media (pointer: coarse) {
+    .vt-map-attr {
+        box-sizing: border-box; min-height: 40px;
+        bottom: var(--vt-frame-bottom, 44px);
+        border-top: 12px solid transparent; border-bottom: 6px solid transparent;
+        background-clip: padding-box;
+        border-radius: 6px 6px 6px 6px / 18px 18px 12px 12px;   /* = 6 px corners on the visible chip */
+    }
+}

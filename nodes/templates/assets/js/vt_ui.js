@@ -128,10 +128,13 @@
                 .filter(function (x) { return x && x.offsetParent !== null; });
             var i = list.indexOf(e.target.closest('a, button'));
             if (i < 0) { return; }
+            // the tab strip owns these keys, also at its ends: they never
+            // reach the keyboard driving (vt_joy.js)
+            e.preventDefault();
+            e.stopPropagation();
             var j = k === 'Home' ? 0 : k === 'End' ? list.length - 1 : i + (k === 'ArrowRight' ? 1 : -1);
             j = Math.max(0, Math.min(list.length - 1, j));
             if (j === i) { return; }
-            e.preventDefault();
             list[j].focus();
             list[j].click();
         });

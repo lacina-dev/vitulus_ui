@@ -111,6 +111,7 @@
 <script src="/assets/js/vt_header.js"></script>
 <script src="/assets/js/vt_cam_overlay.js"></script>
 <script src="/assets/js/vt_georef.js"></script>
+<script src="/assets/js/vt_map_layers.js"></script>
 <script src="/assets/js/vt_agent_plan.js"></script>
 <style>@keyframes vitulus-spin { from {transform:rotate(0deg);} to {transform:rotate(360deg);} }</style>
 <style>/* attention pulse: Programs > Reset while the mission SM is Stopped / TERMINAL ERROR */
@@ -713,6 +714,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <link rel="stylesheet" href="assets/css/vt_header.css">
     <link rel="stylesheet" href="assets/css/vt_autonomy.css">
     <link rel="stylesheet" href="assets/css/vt_programs.css">
+    <link rel="stylesheet" href="assets/css/vt_map_layers.css">
 </head>
 
 <body>
@@ -902,7 +904,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <div class="form-check form-check-inline" title="Direct 2D raster mapper — live raster built straight from sensor rays (lidar + camera), independent of the octomap/DEM pipeline" data-i18n-title="mapt.layer.direct_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_direct" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_direct"><span data-i18n="mapt.layer.direct">Direct</span> <span class="vt-sw-000000">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Raw-raster preview overlay (per-raster management A/B compare; blue)" data-i18n-title="mapt.layer.preview_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_preview" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_preview"><span data-i18n="mapt.layer.preview">Preview</span> <span class="vt-sw-2a8cff">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Terrain elevation plane (blue = low, red = high)" data-i18n-title="mapt.layer.terrain_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label vt-fs-sm" for="mapv3_chk_terrain"><span data-i18n="mapt.layer.terrain">Terrain</span> <span class="vt-sw-terrain">&#9632;</span></label></div>
-                                            <div class="form-check form-check-inline" title="Aerial / satellite tiles (MapProxy)" data-i18n-title="mapt.layer.aerial_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label vt-fs-sm" for="mapv3_chk_aerial"><span data-i18n="mapt.layer.aerial">Aerial</span> <span class="vt-sw-8fd14f">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="Background map under the robot's maps: photos or maps (MapProxy); pick it with the layers button on the map" data-i18n-title="mapt.layer.aerial_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_aerial"><label class="form-check-label vt-fs-sm" for="mapv3_chk_aerial"><span data-i18n="mapt.layer.aerial">Background</span> <span class="vt-sw-8fd14f">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="&#268;HM&Uacute; rain radar overlay" data-i18n-title="mapt.layer.rain_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_rain"><label class="form-check-label vt-fs-sm" for="mapv3_chk_rain"><span data-i18n="mapt.layer.rain">Rain</span> <span class="vt-sw-0000fc">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Sensing — what the lidar and the camera are observing right now (the mapper's ranges): violet = lidar (stronger up to an obstacle it hits, faint = free up to the range limit), yellow = camera view cone; the faint fill = area already observed in this recording. On while a recording runs." data-i18n-title="mapt.layer.sensing_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_sensing"><label class="form-check-label vt-fs-sm" for="mapv3_chk_sensing"><span data-i18n="mapt.layer.sensing">Sensing</span> <span class="vt-sw-b388ff">&#9632;</span><span class="vt-sw-ffd23f">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="UTM grid lines every 10 m (every 100 m stronger) turned into the map frame — shows how the map sits in the UTM grid; with a large map-vs-GPS deviation also the GPS position next to the robot" data-i18n-title="utm.layer_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_utmgrid"><label class="form-check-label vt-fs-sm" for="mapv3_chk_utmgrid"><span data-i18n="utm.layer">UTM grid</span> <span class="vt-sw-utm">&#9638;</span></label></div>
@@ -979,7 +981,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <button class="btn btn-outline-warning btn-sm vt-mt2 vt-fs-xs vt-pad-s" id="mapv3_btn_clear_costmaps" type="button" title="Clear the navigation costmaps — the live obstacle memory that accumulates while driving (the 'map that builds as you drive'). It is NOT a saved map; it instantly re-marks whatever the sensors currently see." data-i18n-title="mapt.disp.clear_cm_tip" data-i18n="mapt.disp.clear_cm">Clear costmaps</button>
 
                                                 <hr class="vt-mt2 vt-mr0 vt-mb2 vt-ml0">
-                                                <div class="vt-fs-sm vt-mb1" title="Georeferenced MapProxy map under the map: satellite and aerial photos, orthophoto, maps (loads only when the Aerial layer is ticked)" data-i18n-title="mapt.aerial.title_tip" data-i18n="mapt.aerial.title">Background map (MapProxy)</div>
+                                                <div class="vt-fs-sm vt-mb1" title="Georeferenced MapProxy map under the map: satellite and aerial photos, orthophoto, maps (loads only when the Background layer is ticked)" data-i18n-title="mapt.aerial.title_tip" data-i18n="mapt.aerial.title">Background map (MapProxy)</div>
                                                 <!-- options come from the source catalog (vt_map_sources.js, /api/map_sources); own row: the names are long -->
                                                 <select class="form-select form-select-sm vt-fs-sm vt-mb1" id="mapv3_aerial_src" title="Background map source" data-i18n-title="mapt.aerial.src_tip"><option value="sat" selected>Satellite (Google)</option></select>
                                                 <!-- T17 M3: detail = auto (each source's finest level) or a manual cap; coverage follows the view (no area choice) -->

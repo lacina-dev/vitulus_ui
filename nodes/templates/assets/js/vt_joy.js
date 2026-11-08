@@ -130,6 +130,18 @@
     function buzz(ms) {
         try { if (navigator.vibrate) { navigator.vibrate(ms); } } catch (e) { /* not allowed */ }
     }
+    /* a keyboard-navigable widget that uses the arrows itself (radio group,
+       tabs, slider, menu, list): its arrows never start driving. Plain buttons
+       keep driving: after a click the focus stays on the button and the owner
+       drives on (2026-11-08, M5 check: the arrows in the layers panel's map
+       picker sent /cmd_vel). */
+    var NAV_ROLES = /^(radio|tab|slider|spinbutton|scrollbar|menuitem|menuitemradio|menuitemcheckbox|option|listbox|combobox|treeitem|gridcell)$/;
+    function navWidget(t) {
+        if (!t || !t.getAttribute) { return false; }
+        if (t.closest && t.closest('.vt-joy-pad')) { return false; }   // the stick itself (role slider) drives
+        if (NAV_ROLES.test(t.getAttribute('role') || '')) { return true; }
+        return !!(t.closest && t.closest('[role=radiogroup], [role=tablist], [role=listbox], [role=menu], [role=menubar], [role=tree], [role=grid]'));
+    }
     function isTyping(t) {
         if (!t) { return false; }
         var tag = (t.tagName || '').toLowerCase();
@@ -1005,7 +1017,11 @@
                 return;
             }
             var k = KEYMAP[e.code];
+            /* only the START is filtered: a key some widget already used
+               (defaultPrevented) or a widget of its own never drives; keyup
+               below is never filtered, a released key always stops */
             if (!k || !keyboardOn || pid !== null || isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) { return; }
+            if (e.defaultPrevented || navWidget(e.target)) { return; }
             e.preventDefault();
             if (lockReason()) { if (!e.repeat) { nudgeLock(); } return; }
             shiftHeld = e.shiftKey;
