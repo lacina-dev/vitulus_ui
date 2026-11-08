@@ -41,6 +41,14 @@ Po STOP se nic nerozjede, dokud někdo motory znovu nezapne (**Nastavení › Mo
 **Undock**, které je zapne samo). STOP se pošle jednou — nic nezamyká, takže nový příkaz (výjezd,
 displej robota) motory zase zapnout může.
 
+**STOP při špatném spojení.** Stránka spojení průběžně hlídá a mrtvé pozná zhruba do 8 s (po STOP
+za 2–3 s — robot každý STOP potvrzuje; krátké zaškobrtnutí Wi-Fi spojení neshodí). STOP zmáčknutý bez spojení (nebo ten, který robot
+nepotvrdil) se neztratí: pás hlášek napíše *Offline · STOP odejde po
+připojení*, stránka se připojí znovu, STOP hned pošle a napíše *STOP doručen (spojení zpět)*.
+STOP čeká, dokud je stránka otevřená. Příkazy k jízdě z té doby se později nikdy nepošlou a páčka
+jezdí, jen když od robota chodí data. Jiný příkaz zmáčknutý bez spojení (motory ON, Undock, Go,
+start programu…) **neodejde** — pás napíše *Offline · příkaz NEODEŠEL*; až bude tečka zelená, zmáčkni ho znovu.
+
 > [!NOTE]
 > Panel agenta má ve své hlavičce vlastní červený **STOP**. Ten zastaví misi agenta a odpovídá na
 > něj jádro robota, nikdy model.

@@ -82,7 +82,8 @@ o počasí. Kliknutím uvidíš radar deště (**Mapa › Déšť**).
 **Tečka** vedle loga je spojení této stránky s robotem: zelená spojeno, oranžová (pulzuje)
 připojuje se, červená bez spojení — po najetí myší ukáže slova, kliknutím se hned připojí znovu.
 Když spojení spadne, napíše to i pás hlášek pod menu (*Bez spojení s robotem · připojuji
-znovu…*), dokud se neobnoví.
+znovu…*), dokud se neobnoví. Mrtvé spojení (vypadlá Wi-Fi) se ukáže zhruba do 8 s; STOP
+zmáčknutý mezitím počká a odejde po připojení ([STOP při špatném spojení](safety.md#stop)).
 
 > [!TIP]
 > Všechny ikony šedé a přes ně *bez živých dat*? Stránka není připojená, nebo software robota

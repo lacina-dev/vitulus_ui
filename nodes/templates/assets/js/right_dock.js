@@ -841,7 +841,7 @@
             }, {
                 canFire: function () {
                     var r = window.ros;
-                    if (!(r && r.state === 'connected')) { return false; }
+                    if (!(r && (r.up ? r.up() : r.state === 'connected'))) { return false; }
                     try { if (reread) { reread(); } } catch (e) { return false; }
                     return canStart();
                 },
@@ -1072,7 +1072,9 @@
                        ' · ' + (L.budget_used_deg != null ? Number(L.budget_used_deg).toFixed(1) + '°' : '—'),
                        'muted', t('locg.r.budget_tip')]);
         }
-        var hist = ownerHist.map(function (x) { return hhmmss(x.t) + ' ' + x.from + ' → ' + x.to; });
+        // the owner codes in words (gps → tracker = GPS → tracker / dok → …)
+        var own = function (k) { var s = t('locg.own.' + k); return s === 'locg.own.' + k ? String(k) : s; };
+        var hist = ownerHist.map(function (x) { return hhmmss(x.t) + ' ' + own(x.from) + ' → ' + own(x.to); });
         var key = JSON.stringify([rows, hist]);
         if (key === navLast) { return; }
         navLast = key;

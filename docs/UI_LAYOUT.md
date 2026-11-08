@@ -85,6 +85,14 @@ ve vitulus_agent) a pustí páčku; **Esc** udělá totéž vždy (capture fáze
 psaní a v dialogu; nápověda / obrázek / dialog Esc dostanou dál; hlava se
 krátce promáčkne, `vt-pressed`). Mezerník STOP není (nikdy nebyl). STOP panelu
 Agent (`#vagent_stop`) je jiná věc — zastaví misi agenta.
+Doručení hlídá `vt_link.js` (T25): spojení = `socket.readyState === OPEN`, ne
+roslib `isConnected`; každý STOP (i ■, STOP MOTOR, Stop programu/doku, nula páčky)
+robot potvrdí (sondou `/rosapi/get_param` za ním), nepotvrzený nebo zmáčknutý bez
+spojení odejde jednou hned po přepojení; mrtvé spojení se zahodí po ~8 s ticha (po nepotvrzeném STOP
+po 2,5 s; na robotu se při plné sadě odběrů Wi-Fi zasekne na 1,5–6 s), jízda z doby výpadku se nikdy nepošle a jede jen při čerstvém příjmu
+(< 2 s); čekající STOP nepropadá (jen nula páčky po 10 s); jiné příkazy bez spojení
+neodejdou (fronta max. 2 s, tlačítka pohybu hlídá `ros.up()` hned při stisku, hláška
+„Offline · příkaz NEODEŠEL“, „Offline · STOP odejde po připojení“). Test `tools/test_vt_link.node.js`.
 
 | | PC / na šířku (`vt-m-dock`, `vt-m-overlay`) | Telefon na výšku (`vt-m-sheet`) |
 |---|---|---|

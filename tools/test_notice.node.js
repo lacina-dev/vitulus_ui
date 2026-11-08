@@ -142,5 +142,30 @@ eq('outage stays', r.shown, 'Spojení ztraceno');
 r.q.clear('conn');
 eq('and ends', r.shown, null);
 
+// T25: a lost link right after a STOP shows at once (urgent), not after the STOP line's 6 s
+r = rig();
+r.q.robot('STOP pressed');
+eq('stop line', r.shown, 'STOP pressed');
+r.run(300);
+r.q.say({ key: 'conn', text: 'Spojení ztraceno', level: 0, sticky: true, conn: true });
+eq('without urgent it waits', r.shown, 'STOP pressed');
+r.q.clear('conn');
+r = rig();
+r.q.robot('STOP pressed');
+r.run(300);
+r.q.say({ key: 'conn', text: 'Spojení ztraceno', level: 0, sticky: true, conn: true, urgent: true });
+eq('urgent outage at once', r.shown, 'Spojení ztraceno');
+r.q.say({ key: 'conn', text: 'Spojení ztraceno · STOP čeká', level: 0, sticky: true, conn: true, urgent: true });
+eq('urgent text update', r.shown, 'Spojení ztraceno · STOP čeká');
+r.q.say({ key: 'cd', text: 'countdown', level: 1, sticky: true });
+r.run(60000);
+eq('urgent outage stays', r.shown, 'Spojení ztraceno · STOP čeká');
+r = rig();
+r.q.say({ key: 'cd', text: 'countdown', level: 0, sticky: true });
+r.q.say({ key: 'conn', text: 'lost', level: 0, sticky: true, conn: true, urgent: true });
+eq('urgent over a sticky', r.shown, 'lost');
+r.q.clear('conn');
+eq('the sticky comes back', r.shown, 'countdown');
+
 console.log(fails ? fails + ' of ' + n + ' failed' : 'OK — ' + n + ' notice checks');
 process.exit(fails ? 1 : 0);

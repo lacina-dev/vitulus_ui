@@ -17,8 +17,18 @@ class ROS {
         // groovyCompatibility:false → TFClient uses the auto-cleaning
         // /republish_tfs service instead of leak-prone actionlib goals
         // (see map_view.js ROS ctor for the full story).
-        this.ros = new ROSLIB.Ros({url: "ws://" + location.hostname + ":9090", groovyCompatibility: false});
+        var url = "ws://" + location.hostname + ":" + (window.__ROSBRIDGE_PORT || 9090);
+        this.ros = new ROSLIB.Ros({url: url, groovyCompatibility: false});
         console.log("Connected to ROS.");
+        // T25: the same link guard as the map view (vt_link.js): the stick's
+        // turn only on a live, fresh link, never replayed; its zero (let go)
+        // and any STOP wait for the link; a dead link is dropped in <= 5 s.
+        // This connection had no reconnect of its own: try again every 2 s.
+        var self = this;
+        this.link = window.VTLink ? VTLink.install(this.ros) : null;
+        this.ros.on('close', function () {
+            setTimeout(function () { try { self.ros.connect(url); } catch (e) { /* next close retries */ } }, 2000);
+        });
     }
 }
 
@@ -278,6 +288,8 @@ class JoyTeleop {
             }
         });
         window.vtImuJoy = this.joy;      // map_view.js feeds it the motor state
+        // a dropped link must not leave the stick "held" (zeros: vt_link keeps them)
+        ros.ros.on('close', () => { this.joy.release(); });
         if (window.VTI18n) {
             VTI18n.onChange(() => { this.joy.setSpeed(0, 0, t('imucal.joy_turn')); });
         }

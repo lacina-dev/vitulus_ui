@@ -82,7 +82,9 @@ yet. Click it to see the rain radar (**Map › Rain**).
 The **dot** next to the logo is the connection of this page to the robot: green connected,
 orange (pulsing) connecting, red no connection — hover it for the words, click it to reconnect
 right away. When the connection drops, the notice band under the menu also says
-*No connection to the robot · reconnecting…* until it is back.
+*No connection to the robot · reconnecting…* until it is back. A dead link (Wi-Fi gone) shows
+within about 8 s; a STOP pressed meanwhile waits and goes out after the reconnect
+([STOP with a bad connection](safety.md#stop)).
 
 > [!TIP]
 > All icons grey with *no live data*? The page is not connected, or the robot stack is

@@ -1295,6 +1295,7 @@ class ROS {
         this._reconnect_timer = null;
         this._reconnect_delay = 1500;       // start at 1.5s
         this._reconnect_delay_max = 8000;   // cap at 8s
+        this._reconnect_delay_stop = 2000;  // cap while a STOP waits for the link (T25)
         this.state = 'connecting';          // 'connecting' | 'connected' | 'disconnected'
         this._suspended = false;            // vitulus_ui: paused while the map section is hidden
         this._hb_svc = null;                // heartbeat service, recreated on each connect
@@ -1359,6 +1360,36 @@ class ROS {
             self._scheduleReconnect();
         });
 
+        // T25: the link guard (vt_link.js) — "up" from the socket's readyState,
+        // half-open found after ~8 s of silence (2.5 s after an unconfirmed STOP) and the socket
+        // dropped at once (a CLOSING socket used to keep roslib "connected" for
+        // ~40 s and swallowed every publish, a STOP too), STOPs kept while the
+        // link is down and sent once right after the reconnect, drive commands
+        // never replayed. The 'close' it causes runs the reconnect below.
+        this.link = null;
+        if (window.VTLink) {
+            this.link = VTLink.install(this.ros, {
+                onStop: function (ev, info) {
+                    // an e-stop beats the map section's pause
+                    if (ev === 'queued' && self._suspended) { self.resume(); }
+                    // a STOP waiting: try again soon, not after the long backoff
+                    if (ev === 'queued' && self.state !== 'connected' && self._reconnect_delay > self._reconnect_delay_stop) {
+                        self._reconnect_delay = 500;
+                        if (self._reconnect_timer) { clearTimeout(self._reconnect_timer); self._reconnect_timer = null; self._scheduleReconnect(); }
+                    }
+                    emit('vtstop' + ev, info);
+                },
+                onDead: function (reason) {
+                    console.warn('[ROS] link dead (' + reason + ') — dropping the socket, reconnecting');
+                },
+                onDrop: function (info) {
+                    console.warn('[ROS] no link: not sent', info.what);
+                    emit('vtcmddropped', info);
+                }
+            });
+            return;
+        }
+
         // Two-stage liveness check — co-operating with rosbridge:
         //
         // Stage 1 (passive): rosbridge sends data frames for every subscribed topic.
@@ -1400,6 +1431,15 @@ class ROS {
         }, 3000);
     }
 
+    // true only while the socket really is OPEN (roslib's isConnected stays
+    // true on a CLOSING socket)
+    up() {
+        if (this.state !== 'connected') return false;
+        if (this.link) return this.link.up();
+        var s = this.ros.socket;
+        return !!(s && s.readyState === 1 && this.ros.isConnected);
+    }
+
     // vitulus_ui: pause/resume the whole map-view ROS connection so its heavy
     // subscriptions (SLAM occupancy grid, laser, point clouds, camera) stop
     // consuming CPU/GC while the user is on another section. Mirrors a normal
@@ -1428,8 +1468,9 @@ class ROS {
         self._reconnect_timer = setTimeout(function() {
             self._reconnect_timer = null;
             try { self.ros.connect(self._url); } catch (e) { console.warn('[ROS] connect() threw:', e); }
-            // exponential backoff (1.5 -> 3 -> 6 -> 8)
-            self._reconnect_delay = Math.min(self._reconnect_delay * 2, self._reconnect_delay_max);
+            // exponential backoff (1.5 -> 3 -> 6 -> 8; 2 s at most while a STOP waits)
+            var cap = self.link && self.link.waiting() ? self._reconnect_delay_stop : self._reconnect_delay_max;
+            self._reconnect_delay = Math.min(self._reconnect_delay * 2, cap);
             // safety: if still not connected after the delay, schedule again
             setTimeout(function() {
                 if (self.state !== 'connected' && !self._reconnect_timer) {
@@ -1459,6 +1500,28 @@ class ConnectionStatus {
         document.addEventListener('rosconnected',    function() { self.set('connected'); });
         document.addEventListener('rosconnecting',   function() { self.set('connecting'); });
         document.addEventListener('rosdisconnected', function() { self.set('disconnected'); });
+        // T25: a STOP pressed while the link is down waits for it (vt_link.js);
+        // the outage line says so, and what became of it afterwards
+        this.stopWait = false;
+        // A STOP of the program / dock / motors / blade waits while the page is
+        // open (only a zero of the stick goes stale) — the sticky outage line
+        // says so until the link is back, then "STOP delivered".
+        var waiting = function () { var l = self.ros && self.ros.link; return l ? l.waiting() : 0; };
+        document.addEventListener('vtstopqueued', function () {
+            if (!waiting()) return;
+            self.stopWait = true;
+            if (self.outage || self._state !== 'connected') { self.showOutage(); }
+        });
+        document.addEventListener('vtstopacked', function () {
+            if (!self.stopWait || waiting()) return;
+            self.stopWait = false;
+            if (window.VTNotice) VTNotice.say({ key: 'estop_link', text: vtT('mapview.estop.late'), level: 0, ttl: 12000, urgent: true });
+        });
+        // N2: a command pressed while the link was down did not go out (it is
+        // not sent seconds later either) — say so once
+        document.addEventListener('vtcmddropped', function () {
+            if (window.VTNotice) VTNotice.say({ key: 'cmd_drop', text: vtT('mapview.conn.notsent'), level: 0, ttl: 8000, urgent: true, repeat_ms: 3000 });
+        });
         vtOnLang(function () { self.set(self._state); });
         if (this.el) {
             // click / Enter / Space = reconnect right away
@@ -1499,8 +1562,12 @@ class ConnectionStatus {
     // the notice band line; the band's own 10 s timer (StatusBar) must not
     // take it away while the link is still down
     showOutage() {
+        // a STOP still waiting (pressed while down, or sent into the dead link)
+        var link = this.ros && this.ros.link;
+        if (link && link.waiting()) { this.stopWait = true; }
+        var key = this.stopWait ? 'mapview.conn.lost_stop' : 'mapview.conn.lost';
         if (window.VTNotice) {
-            VTNotice.say({ key: 'conn', text: vtT('mapview.conn.lost'), level: 0, sticky: true, conn: true });
+            VTNotice.say({ key: 'conn', text: vtT(key), level: 0, sticky: true, conn: true, urgent: true });
             this.outage = true;
             return;
         }
@@ -1508,7 +1575,7 @@ class ConnectionStatus {
         if (!info) return;
         var sb = window.status_bar;
         if (sb && sb.info_timeout) { clearTimeout(sb.info_timeout); sb.info_timeout = null; }
-        var txt = vtT('mapview.conn.lost');
+        var txt = vtT(key);
         if (info.textContent !== txt) { info.textContent = txt; }
         info.style.display = 'inline';
         info.classList.add('vt-notice-conn');
@@ -6080,6 +6147,7 @@ class Odom{
                 gps: ["RTK", "#5cb85c"],
                 dock: [vtT('mapview.odom.dock'), "#5cb85c"],       // precise anchor, not degraded
                 tracker: ["TRACKER", "#f0ad4e"],
+                relock: ["RELOCK", "#f0ad4e"],
                 rtabmap: ["RTABMAP", "#f0ad4e"],
                 legacy: ["EXT", "#f0ad4e"],
                 dr: [vtT('mapview.odom.dr'), "#d9534f"]
@@ -9171,6 +9239,20 @@ window.initMapView = function () {
     });
     pm_motor_switch_estop.advertise();
 
+    // T25 N2: a command that moves the robot, pressed while the link is down,
+    // is not sent (and not sent seconds later either, vt_link.js) — the press
+    // itself says so at once. Capture phase: before the button's own handler.
+    var MOVE_SEL = '#btn_motors_on, #btn_motor_on_pm, #btn_marker_send_goal, #btn_menu_program_run, #btn_menu_program_resume, ' +
+        '#btn_modal_rain_run_go, #dock_btn_menu_dock, #dock_btn_menu_undock, #dock_btn_undock_by_map, ' +
+        '#map_undock_btn_navi_point, #program_dock_btn_execute, #program_undock_btn_execute, ' +
+        '#undock_btn_by_intensity, #btn_run_calibration, [onclick*="point_clicked_goal"], [onclick*="path_clicked_exec"]';
+    document.addEventListener('click', function (e) {
+        var t = e.target && e.target.closest ? e.target.closest(MOVE_SEL) : null;
+        if (!t || !ros || typeof ros.up !== 'function' || ros.up()) return;
+        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+        try { document.dispatchEvent(new CustomEvent('vtcmddropped', {detail: {n: 1, what: [t.id || 'button'], press: true}})); } catch (err) { /* old browser */ }
+    }, true);
+
     map_menu.btn_stop_all.onclick = function () {
         // D3 review N1: first of all, a START MOTOR hold in progress must not
         // turn into a blade start after this stop
@@ -9209,7 +9291,8 @@ window.initMapView = function () {
         try { pm_motor_switch_estop.publish(new ROSLIB.Message({ data: false })); }
         catch (e) { console.error('[stop_all] open PM motor switch failed:', e); }
 
-        update_status_bar_info(vtT("mapview.estop"));
+        // link down: the sticky outage line already says the STOP waits (T25)
+        if (!(ros && typeof ros.up === 'function') || ros.up()) update_status_bar_info(vtT("mapview.estop"));
     }
 
     if (move_base_control.checkbox_keyboard) {
@@ -9373,7 +9456,7 @@ window.initMapView = function () {
     // nothing. What it sends is unchanged: /mower/set_motor_on {data: true}, once.
     mower.blade_hold = vtHoldToFire(mower.btn_mower_start_motor, 500, function () {
         mower.pub_mower_set_motor_on(true);
-    }, { canFire: function () { return !!(ros && ros.state === 'connected'); },
+    }, { canFire: function () { return !!(ros && (ros.up ? ros.up() : ros.state === 'connected')); },
          hint: document.getElementById('div_mower_hold_hint'),
          keys: { idle: 'cfg.d3.hold.hint', hold: 'cfg.d3.hold.holding', early: 'cfg.d3.hold.early', done: 'cfg.d3.hold.sent' } });
 

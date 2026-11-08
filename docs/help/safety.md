@@ -42,6 +42,16 @@ After a STOP nothing drives until someone switches the motors on again
 (**Settings › Motors › ON**, or an Undock, which switches them on by itself). STOP is sent once —
 it does not lock anything, so a new command (an Undock, the display) can switch the motors on again.
 
+**STOP with a bad connection.** The page checks the link all the time and notices a dead one within
+about 8 s (2–3 s after a STOP — the robot confirms every STOP; a short Wi-Fi hiccup does not drop it). A STOP pressed while the link is
+down (or one the robot did not confirm) is not lost: the notice band says
+*Offline · STOP goes out on reconnect*, the page reconnects and
+sends it right away, then says *STOP delivered (back online)*. The STOP waits as
+long as the page stays open. Driving commands from that time are never sent later, and the stick
+drives only while the robot's data is arriving. Any other command pressed without a connection
+(motors ON, Undock, Go, a program start…) is **not** sent — the band says
+*Offline · command NOT sent*; press it again once the dot is green.
+
 > [!NOTE]
 > The agent panel has its own red **STOP** in its head. It stops the agent's mission and is
 > answered by the robot core, never by a model.

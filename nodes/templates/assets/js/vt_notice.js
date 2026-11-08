@@ -15,7 +15,7 @@
  * Latched topics answer a new subscriber at once with their last line, of any age. Those
  * come as a burst after (re)connecting: only the last of it is shown.
  *
- *   VTNotice.say({ key, text, level, sticky, ttl, action: { text, fn }, conn })
+ *   VTNotice.say({ key, text, level, sticky, ttl, action: { text, fn }, conn, urgent })
  *   VTNotice.clear(key)
  *   VTNotice.robot(line)      a line of /nextion/log_info
  */
@@ -102,16 +102,25 @@
             }
             var at = -1;
             queue.forEach(function (q, i) { if (q.key === key) { at = i; } });
-            if (at >= 0) { item.t = queue[at].t; queue[at] = item; return; }
+            if (at >= 0) { item.t = queue[at].t; queue[at] = item; urgent(o, item); return; }
             var r = recent[key];
             if (!item.sticky && r && r.text === item.text && now() - r.t < (o.repeat_ms || REPEAT_MS)) { return; }
             recent[key] = { text: item.text, t: now() };
             queue.push(item);
+            if (urgent(o, item)) { return; }
             if (item.level === 3) {
                 var routine = queue.filter(function (q) { return q.level === 3; });
                 if (routine.length > MAX_ROUTINE) { queue.splice(queue.indexOf(routine[0]), 1); }
             }
             pump();
+        }
+        /* urgent (a lost link): shown NOW, also over an equal line still in its minimum
+           time (the STOP line); a sticky one it pushes aside comes back later */
+        function urgent(o, item) {
+            if (!o.urgent || !cur || cur.key === item.key || item.level > cur.level) { return false; }
+            if (cur.sticky) { queue.push(cur); }
+            show(take(queue.indexOf(item)));
+            return true;
         }
         function clear(key) {
             queue = queue.filter(function (q) { return q.key !== key; });
