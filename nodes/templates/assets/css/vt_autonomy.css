@@ -378,3 +378,27 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
     html body #ui_drawer .vt-auto-journal .vt-act { min-height: 30px; font-size: var(--vt-fs-sm); }
     html body #ui_drawer .vt-auto-journal .vt-act:not(.vt-act-open) .vt-act-txt { padding: 3px 0; line-height: 1.3; }
 }
+
+/* ---- T21 A4: one button height (36 px with a mouse, 40 on touch), Skip says which start, no empty lines ---- */
+/* the top card's answers, the sleep line, Show all, ›, Edit / Delete, filters, Show older: 36 px with a mouse */
+.vt-auto-ans, .vt-auto-okbtn, .vt-auto-fbtn, .vt-auto-jmore .btn, #div_calendar_events .vt-cal-row .btn { min-height: 36px; }
+.vt-auto-go { width: 36px; height: 36px; }
+.vt-auto-sleepline-b { min-height: 36px; display: flex; align-items: center; }
+.vt-auto-okbtn { display: inline-flex; align-items: center; }
+/* Skip next / No mowing today: equal halves; Skip names the start on a second line */
+.vt-auto-actions > .btn { flex: 1 1 0; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.vt-auto-btn-s { display: block; font-size: var(--vt-fs-xs); opacity: .8; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+/* the plan's message line only while it says something (it shows after a tap, under the steps) */
+#auto_plan_msg:empty { display: none; }
+/* the top card's sentence: two lines reserved on a phone (it is mostly two), one in the wider panel */
+@media (min-width: 576px) { .vt-auto-sentence { min-height: 1.35em; } }
+/* History filters: one row on a 360 px phone in Czech too — a little less padding, they share the row */
+@media (max-width: 400px) {
+    .vt-auto-filter { gap: 3px; }
+    .vt-auto-fbtn { flex: 1 1 auto; justify-content: center; padding: 0 5px; gap: 4px; }
+    .vt-auto-fn { min-width: 1.4em; padding: 0 3px; }
+}
+@media (pointer: coarse), (max-width: 575.98px) {
+    .vt-auto-go { width: 40px; height: 40px; }
+    .vt-auto-sleepline-b, #div_calendar_events .vt-cal-row .btn, .vt-auto-ans, .vt-auto-okbtn, .vt-auto-fbtn, .vt-auto-jmore .btn { min-height: var(--vt-touch); }
+}

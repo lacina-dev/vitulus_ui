@@ -1361,6 +1361,147 @@ def a3_fit(p, shots, label):
         p.pg.screenshot(path=os.path.join(shots, label + '-a3-runnext.png'))
 
 
+def a4_story(p, shots, label):
+    """T21 A4: woke on time / later / earlier, the planned wake in the tile, a burst of settings in one row,
+    Skip names its start, words in the setting footers, no empty message line. Display only."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    p.pub('/scheduler/sleep_countdown', {'active': False})
+    p.pg.evaluate("VTAutonomy._state.countdown = {active: false}")
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    awake = checks(ssh=('block', 'logins', {'who': ['pts/0']}), ui=('block', 'clients', {'n': 2}))
+    nxt = now + dt.timedelta(hours=7)
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(nxt)},
+                                      sleep={'checks': awake, 'block': 'login:pts/0', 'next_wake': None}))
+    p.open('plan')
+    p.open('sleep')
+    p.open('history')
+    p.tick()
+    n0 = len(p.pg.evaluate('__fake.sent'))
+    p.pg.evaluate("try{localStorage.removeItem('vitulus_auto_jfilter')}catch(e){}")
+    p.click('.vt-auto-fbtn[data-f="all"]')
+
+    # woke: on time, later, earlier
+    ts = lambda s: (now - dt.timedelta(seconds=s)).strftime('%Y-%m-%dT%H:%M:%S')
+    J = [{'t': ts(9000), 'kind': 'woke', 'code': 'timed', 'program': '', 'vars': {'late_s': 4}},
+         {'t': ts(8000), 'kind': 'woke', 'code': 'timed', 'program': '', 'vars': {'late_s': 430969}},
+         {'t': ts(7000), 'kind': 'woke', 'code': 'timed', 'program': '', 'vars': {'late_s': -40966}},
+         # one change alone, then a burst of four by you (each within 90 s), then the agent right after
+         {'t': ts(4000), 'kind': 'settings', 'code': 'changed', 'program': '', 'vars': {'by': 'owner', 'values': {'wake_before_min': 8.0}}},
+         {'t': ts(3000), 'kind': 'settings', 'code': 'changed', 'program': '', 'vars': {'by': 'owner', 'values': {'sleep_ignore_ssh': True}}},
+         {'t': ts(2999), 'kind': 'settings', 'code': 'changed', 'program': '', 'vars': {'by': 'owner', 'values': {'sleep_ignore_ui': True}}},
+         {'t': ts(2986), 'kind': 'settings', 'code': 'changed', 'program': '', 'vars': {'by': 'owner', 'values': {'sleep_ignore_ssh': False}}},
+         {'t': ts(2930), 'kind': 'settings', 'code': 'changed', 'program': '', 'vars': {'by': 'owner', 'values': {'sleep_ignore_ui': False}}},
+         {'t': ts(2920), 'kind': 'settings', 'code': 'changed', 'program': '', 'vars': {'by': 'agent', 'values': {'wake_before_min': 12.0}}}]
+    p.pub('/scheduler/journal', {'entries': J})
+    r = p.pg.evaluate("[...document.querySelectorAll('#auto_journal .vt-act .vt-act-txt')].map(e=>e.textContent)")[::-1]
+    check('A4 History: woke on time / later (in days) / earlier', len(r) >= 3
+          and ('včas' if cs else 'on time') in r[0] and ('5 dní později' if cs else '5 days later') in r[1]
+          and ('11 h 23 min dřív' if cs else '11 h 23 min earlier') in r[2], r[:3])
+    check('A4 History: a burst of settings is one row, where each ended, how many', len(r) == 6
+          and '×4' in r[4] and ('Ignorovat přihlášení → vypnuto' if cs else 'Ignore logins → off') in r[4]
+          and ('Ignorovat otevřené UI → vypnuto' if cs else 'Ignore open UI → off') in r[4], r)
+    check('A4 History: a lone change and another person\'s change stay rows of their own', '×' not in r[3] and '×' not in r[5]
+          and ('Agent změnil' if cs else 'The agent changed') in r[5], r[3:])
+    # a newer value never hides behind an older row: Skip next on, another entry, then Skip next off in a burst of five keys
+    S = lambda s, **v: {'t': ts(s), 'kind': 'settings', 'code': 'changed', 'program': '', 'vars': {'by': 'owner', 'values': v}}
+    J2 = [S(900, skip_next=True), {'t': ts(800), 'kind': 'mode', 'code': 'agent', 'program': '', 'vars': {'by': 'owner'}},
+          S(700, wake_before_min=8.0, sleep_ignore_ssh=True), S(690, sleep_ignore_ui=True, idle_sleep_threshold_min=30.0),
+          S(680, catchup_max_h=2.0), S(670, skip_next=None),
+          {'t': ts(600), 'kind': 'woke', 'code': 'timed', 'program': '', 'vars': {'late_s': 129600}},
+          {'t': ts(500), 'kind': 'woke', 'code': 'timed', 'program': '', 'vars': {'late_s': 400 * 86400}}]
+    p.pub('/scheduler/journal', {'entries': J2})
+    txt = lambda: p.pg.evaluate("[...document.querySelectorAll('#auto_journal .vt-act .vt-act-txt')].map(e=>e.textContent)")[::-1]
+    r = txt()
+    burst = [x for x in r if '×4' in x]
+    off = ('Přeskočit další → vypnuto' if cs else 'Skip next → off')
+    check('A4 History: the newer Skip next value leads the burst row, no "+N"', len(burst) == 1
+          and burst[0].split(': ', 1)[1].startswith(off) and '+' not in burst[0]
+          and all(w in burst[0] for w in (('Probudit se před programem', 'Ignorovat přihlášení', 'Ignorovat otevřené UI') if cs
+                                         else ('Wake before a program', 'Ignore logins', 'Ignore open UI'))), r)
+    p.click('.vt-auto-fbtn[data-f="decide"]')
+    check('A4 History: the burst is the same row in Decisions', [x for x in txt() if '×4' in x] == burst, txt())
+    p.click('.vt-auto-fbtn[data-f="all"]')
+    check('A4 History: woke a day and a half later, past a year capped', ('1 den 12 h později' if cs else '1 day 12 h later') in r[-2]
+          and ('víc než rok později' if cs else 'more than a year later') in r[-1], r[-2:])
+
+    # the tile: the plan's wake before it sleeps, the robot's own wake once it has one
+    tile = p.pg.evaluate("[...document.querySelectorAll('#auto_nums_sleep .vt-auto-num')][0].textContent")
+    m = re.search(r'≈ ([^()]*?\d\d:\d\d)', tile or '')
+    full = p.pg.evaluate("document.getElementById('auto_sleep_plan').title") or ''
+    check('A4 Sleep tile: the planned wake, not a dash', m is not None and m.group(1) in full and ('plán' if cs else 'plan') in tile, [tile, full])
+    wk = now + dt.timedelta(hours=3)
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(nxt)},
+                                      sleep={'checks': awake, 'block': 'login:pts/0', 'next_wake': iso(wk)}))
+    tile = p.pg.evaluate("[...document.querySelectorAll('#auto_nums_sleep .vt-auto-num')][0].textContent")
+    check('A4 Sleep tile: the robot\'s wake when it has one', wk.strftime('%H:%M') in tile and '≈' not in tile, tile)
+    foot = p.pg.evaluate("[...document.querySelectorAll('#auto_sec_sleep .vt-auto-set-f')].map(e=>e.textContent).join(' | ')")
+    check('A4 setting footers say on / off in words', ('Výchozí zapnuto' if cs else 'Default on') in foot
+          and not re.search(r'\b(ON|OFF)\b', foot), foot[:300])
+
+    # Skip next names its start; nothing on a second line once skipped
+    sk = p.pg.evaluate("(()=>{const b=document.getElementById('btn_auto_skip'), s=b.querySelector('.vt-auto-btn-s');return [b.querySelector('.vt-auto-btn-t').textContent, s?s.textContent:'']})()")
+    check('A4 Skip next says which start', 'Bigger' in sk[1] and nxt.strftime('%H:%M') in sk[1], sk)
+    p.pub('/scheduler/settings', dict(agent_settings(), values=dict(agent_settings()['values'], skip_next=True)))
+    sk = p.pg.evaluate("(()=>{const b=document.getElementById('btn_auto_skip'), s=b.querySelector('.vt-auto-btn-s');return [b.querySelector('.vt-auto-btn-t').textContent, s?s.textContent:'']})()")
+    check('A4 Skip undone: the button says undo, the start is in the line above', sk[1] == ''
+          and sk[0] == p.pg.evaluate("VTI18n.t('auto.plan.unskip')"), sk)
+    p.pub('/scheduler/settings', agent_settings())
+    check('A4 no empty message line under the plan steps', p.pg.evaluate(
+        "(()=>{const m=document.getElementById('auto_plan_msg');return !m.textContent && m.getBoundingClientRect().height===0})()"))
+    check('A4 nothing sent', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent')[n0:])
+    if shots:
+        p.pg.evaluate("document.getElementById('auto_sec_history').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a4-history.png'))
+    errs = [e for e in p.errors if 'erases' not in e]
+    check('A4 no page errors', not errs, errs[:3])
+
+
+def a4_fit(p, shots, label):
+    """One button height, equal Skip / No mowing, filters in one row, the sentence's reserved height on this screen."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(now + dt.timedelta(hours=7))},
+                                      sleep={'checks': checks(ssh=('block', 'logins', {'who': ['pts/0']})), 'block': 'login:pts/0'}))
+    p.pub('/scheduler/calendar', A2_CAL)
+    p.pub('/scheduler/journal', {'entries': a3_journal(now)})
+    p.open('now')
+    p.open('plan')
+    p.open('history')
+    p.pg.wait_for_timeout(200)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const box=e=>{const b=e.getBoundingClientRect();return [e.id||e.className,Math.round(b.width),Math.round(b.height)]};
+        const btns=q('#btn_auto_ans_mode, #btn_auto_ans_now, #btn_auto_checks_all, #btn_auto_sleep_more, #auto_checks .vt-auto-go, #div_calendar_events .vt-cal-row .btn, .vt-auto-fbtn, #btn_auto_journal_more, #btn_auto_skip, #btn_auto_nomow').map(box);
+        const s=document.getElementById('btn_auto_skip').getBoundingClientRect(), n=document.getElementById('btn_auto_nomow').getBoundingClientRect();
+        const tops=q('.vt-auto-fbtn').map(e=>Math.round(e.getBoundingClientRect().top));
+        const sen=document.querySelector('.vt-auto-sentence'), cs=getComputedStyle(sen);
+        const out=q('#div_menu_autonomy *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        const over=q('#auto_plan_actions *, #auto_journal_filter *, #card_calendar *').filter(e=>e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>e.id||e.className);
+        return {w:document.documentElement.scrollWidth, coarse:matchMedia('(pointer: coarse)').matches, btns,
+                skipW:Math.round(s.width), noW:Math.round(n.width), rows:new Set(tops).size,
+                minH:parseFloat(cs.minHeight), lh:parseFloat(cs.fontSize)*1.35, out, over}}""")
+    floor = 40 if r['coarse'] else 36
+    check(label + ' A4: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r['out'])
+    check(label + ' A4: plan steps, filters, top card: nothing cut', not r['over'], r['over'])
+    check(label + ' A4: buttons >= %d px (answers, Show all, ›, sleep line, Edit/Delete, filters, Show older, Skip)' % floor,
+          all(b[2] >= floor for b in r['btns']) and len(r['btns']) >= 10, [b for b in r['btns'] if b[2] < floor] or len(r['btns']))
+    check(label + ' A4: Skip next and No mowing today equally wide', abs(r['skipW'] - r['noW']) <= 1, [r['skipW'], r['noW']])
+    check(label + ' A4: history filters in one row', r['rows'] == 1, r['rows'])
+    if vw >= 576:
+        check(label + ' A4: the sentence reserves one line in the wider panel', r['minH'] <= r['lh'] + 1, [r['minH'], r['lh']])
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a4-top.png'))
+        p.pg.evaluate("document.getElementById('auto_plan_actions').scrollIntoView({block: 'center'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a4-plan.png'))
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -1413,6 +1554,8 @@ def main():
             a2_fit(p, a.shots, label)
             a3_story(p, a.shots, label)
             a3_fit(p, a.shots, label)
+            a4_story(p, a.shots, label)
+            a4_fit(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
@@ -1426,6 +1569,7 @@ def main():
             a1_fit(p, a.shots, label)
             a2_fit(p, a.shots, label)
             a3_fit(p, a.shots, label)
+            a4_fit(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

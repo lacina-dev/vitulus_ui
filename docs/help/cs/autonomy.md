@@ -57,7 +57,7 @@ povolený čas, když omezuje (*Povoleno 07:00–21:00*). Časová osa ukazuje 7
 nahoře: den, kdy se něco děje (start, spánek, který začíná nebo končí), má svůj pruh s povoleným časem,
 starty a očekávaným spánkem (šrafovaně); dny, kdy celý den spí nebo se nic neděje, se sbalí do jednoho
 řádku, třeba *út 10. 11. – pá 13. 11.: spí celou dobu*. Každá položka kalendáře je jeden řádek: vypínač,
-program a pod ním čas a dny, **Upravit** a **Smazat**. **Přeskočit další** přeskočí jeden start,
+program a pod ním čas a dny, **Upravit** a **Smazat**. **Přeskočit další** přeskočí jeden start (druhý řádek tlačítka říká který: *Bigger · dnes 23:15*),
 **Dnes nesekat** vynechá dnešek. Přeskočený start je na ose přeškrtnutý a stejné tlačítko to vrátí.
 
 **Spustit Bigger teď** (jméno dalšího programu; *Spustit další plánovaný teď*, když nic naplánováno
@@ -92,7 +92,8 @@ platí hned a řádek napíše *Uloženo*. Odmítnutá hodnota řekne proč a z�
 
 ### Spánek
 
-Věta pod **Spánek** je plán: kdy usne, na jak dlouho, kdy se vzbudí. Hned pod ní **Proč nespí?**
+Věta pod **Spánek** je plán: kdy usne, na jak dlouho, kdy se vzbudí. Dokud neusne, dlaždice **Další
+probuzení** ukazuje toto plánované probuzení (*≈ 23:01 (plán)*); když spí, to robotovo. Hned pod ní **Proč nespí?**
 vypíše, co robota drží vzhůru; někdo přihlášený v terminálu nebo otevřené webové UI je modré, robota
 drží vzhůru záměrně. Nahoře na stránce je totéž krátce (kdo ho drží, jménem) a **Zrušit** je nad mapou,
 v pravém panelu i nahoře, dokud se spánek odpočítává. Podle časování robota se napájení vypne 3 minuty po začátku a robot se vzbudí v uvedený
@@ -210,8 +211,9 @@ nastavení tady bezpečnostní limit nepovolí.
 
 Deník říká lidsky, co se stalo: vyjel, dokončil, jak jízda skončila, když nedokončila (*zastaven
 ručně*, *ukončen: někdo vypnul napájení sekačky*, *vzdán po opakovaných chybách*), přeskočil, zmeškal, proč
-čekal (*přerušen kvůli dešti* vs. *start odmítnut kvůli dešti — nevyjel*), usnul, probudil se, co se v nastavení změnilo a kdo to změnil (*Změnil jsi:
-Ignorovat otevřené UI → zapnuto*), a také rady agenta a přepnutí, kdo rozhoduje. Nejnovější jsou
+čekal (*přerušen kvůli dešti* vs. *start odmítnut kvůli dešti — nevyjel*), usnul, probudil se (včas, nebo o kolik později či dřív, než měl —
+*Probudil se o 5 dní později, než měl* po výpadku proudu), co se v nastavení změnilo a kdo to změnil (*Změnil jsi:
+Ignorovat otevřené UI → zapnuto*; dávka změn během minuty dvou je jeden řádek: kde které nastavení skončilo, *(×4)*), a také rady agenta a přepnutí, kdo rozhoduje. Nejnovější jsou
 nahoře, pod řádkem pro každý den, u každého řádku jen čas; **Ukázat starší** přidá zbytek. Filtry:
 **Sečení** (jízdy a jejich čekání), **Rozhodnutí** (kdo rozhoduje, rady agenta, nastavení),
 **Problémy** (co se nepovedlo, červeně nebo oranžově, s počtem) a **Spánek**; volba se pamatuje.

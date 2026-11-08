@@ -59,7 +59,7 @@ section shows the allowed time while it limits (*Allowed 07:00–21:00*). The ti
 ends) gets its track with the allowed time, the starts and the expected sleep (hatched); days asleep
 all day, or with nothing, fold into one line each, e.g. *Tue 10 Nov – Fri 13 Nov: asleep the whole
 time*. Each calendar entry is one row: its switch, the program over its time and days, **Edit** and
-**Delete**. **Skip next** skips one start,
+**Delete**. **Skip next** skips one start (its second line names it: *Bigger · today 23:15*),
 **No mowing today** skips today. A skipped start is crossed out in the timeline, and the same button
 undoes it.
 
@@ -98,7 +98,8 @@ applies at once and the row says *Saved*. A refused value says why and the old o
 
 ### Sleep
 
-The sentence under **Sleep** is the plan: when it goes to sleep, for how long, when it wakes. Right
+The sentence under **Sleep** is the plan: when it goes to sleep, for how long, when it wakes. Until it
+sleeps, the **Next wake** tile shows that planned wake (*≈ 23:01 (plan)*); once asleep, the robot's own. Right
 under it **Why isn't it sleeping?** lists what keeps the robot awake; someone logged in on a terminal
 or an open web UI is blue, it keeps the robot awake on purpose. The top of the page says the same
 short (who holds it by name), and **Cancel** is above the map, in the right panel and at the top while
@@ -226,8 +227,9 @@ cannot be changed here. No setting here relaxes a safety limit.
 
 The journal says in plain words what happened: started, finished, how a run ended when it did not
 finish (*stopped by hand*, *ended: someone switched the mower's power off*, *gave up after repeated
-errors*), skipped, missed, why it waited (*stopped for rain* vs *start refused because of rain — it did not leave*), slept, woke, what setting changed and who changed it (*You
-changed: Ignore open UI → on*), and the agent's advice and the switches of who decides. The newest
+errors*), skipped, missed, why it waited (*stopped for rain* vs *start refused because of rain — it did not leave*), slept, woke (on time, or how much
+later or earlier than planned — *Woke up 5 days later than planned* after a power cut), what setting changed and who changed it (*You
+changed: Ignore open UI → on*; a burst of changes within a minute or two is one row: where each setting ended up, *(×4)*), and the agent's advice and the switches of who decides. The newest
 come first, under a line for each day, each row with its time; **Show older** adds the rest. Filter
 it: **Mowing** (runs and their waits), **Decisions** (who decides, the agent's advice, settings),
 **Problems** (what went wrong, red or amber, with their count) or **Sleep**; the choice is

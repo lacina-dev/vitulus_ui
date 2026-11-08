@@ -5015,4 +5015,17 @@
     "auto.a3.j.mode.calendar_owner": "Přepnul jsi: rozhoduje kalendář.",
     "auto.a3.j.mode.agent_agent": "Agent přepnul: rozhoduje agent.",
     "auto.a3.j.mode.calendar_agent": "Agent přepnul: rozhoduje kalendář.",
+    // T21 A4 (2026-11-08): Autonomie — probudil se včas / později / dřív, plánované probuzení, dávka změn nastavení v jednom řádku, Přeskočit říká který start
+    "auto.a4.j.woke.on_time": "Probudil se včas.",
+    "auto.a4.j.woke.late": "Probudil se o {dur} později, než měl.",
+    "auto.a4.j.woke.early": "Probudil se o {dur} dřív, než měl.",
+    "auto.a4.dur.d.one": "{n} den",
+    "auto.a4.dur.d.few": "{n} dny",
+    "auto.a4.dur.d.many": "{n} dne",
+    "auto.a4.dur.d.other": "{n} dní",
+    "auto.a4.j.times": "{text} (×{n}).",
+    "auto.a4.sleep.wake_plan": "≈ {t} (plán)",
+    "auto.a4.plan.skip_which": "{program} · {when}",
+    "auto.a4.dur.dh": "{d} {h} h",
+    "auto.a4.dur.year_plus": "víc než rok",
 };

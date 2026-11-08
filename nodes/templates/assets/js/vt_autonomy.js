@@ -230,7 +230,8 @@
     function num(k) { var v = val(k); return v === undefined ? null : v; }
     function fmtVal(k, v) {
         var sc = schema(k) || {};
-        if (sc.type === 'bool') { return t(v ? 'common.on' : 'common.off'); }
+        /* T21 A4: a word in the sentence ("Default on", "Výchozí zapnuto"), not the ON/OFF of a switch */
+        if (sc.type === 'bool') { return t(v ? 'auto.a3.j.v.on' : 'auto.a3.j.v.off'); }
         if (sc.type === 'enum') { return first(['auto.opt.' + k + '.' + v], {}) || String(v); }
         if (v === null || v === undefined || v === '') { return t('auto.none'); }
         return withUnit(v, sc.unit);
@@ -1347,6 +1348,7 @@
         S.runWhat = el('small', 'vt-auto-runnext-w', run);
         S.runWhat.id = 'auto_runnext_what';
         S.planMsg = el('div', 'vt-auto-msg vt-auto-msg-w', box.parentNode);
+        S.planMsg.id = 'auto_plan_msg';     // T21 A4: no empty line under the steps while nothing is said
         box.parentNode.insertBefore(S.planMsg, box.nextSibling);
         var sink = function (st, tx) { msgOf({ msg: S.planMsg }, st, tx); };
         S.btnSkip.addEventListener('click', function () {
@@ -1407,6 +1409,15 @@
         if (w.textContent !== tx) { w.textContent = tx; }
         if (st) { w.dataset.state = st; } else { delete w.dataset.state; }
     }
+    function btnText(b, main, sub) {
+        var sig = main + '|' + sub;
+        if (b.dataset.sig === sig) { return; }
+        b.dataset.sig = sig;
+        clear(b);
+        el('span', 'vt-auto-btn-t', b, main);
+        if (sub) { el('small', 'vt-auto-btn-s', b, sub); }
+        b.title = sub ? main + ': ' + sub : main;
+    }
     function paintPlanActions() {
         if (!S.btnSkip) { return; }
         var ready = !!S.settings;
@@ -1414,7 +1425,9 @@
         var noMowOn = noMow >= today();
         var next = S.report && S.report.next;
         S.btnSkip.disabled = !ready || (!next && !skip);
-        S.btnSkip.textContent = t(skip ? 'auto.plan.unskip' : 'auto.plan.skip');
+        /* T21 A4: Skip next says which start it skips (program · when) on a second line */
+        btnText(S.btnSkip, t(skip ? 'auto.plan.unskip' : 'auto.plan.skip'),
+                !skip && next ? t('auto.a4.plan.skip_which', { program: next.program || '', when: when(next.at) }) : '');
         S.btnNoMow.disabled = !ready;
         S.btnNoMow.textContent = t(noMowOn ? 'auto.plan.mow_again' : 'auto.plan.no_mow');
         S.btnRunNext.disabled = !ready || !next;
@@ -1743,6 +1756,10 @@
         if (S.sleepPreview.textContent !== tx) { S.sleepPreview.textContent = tx; }
         S.sleepPreview.dataset.state = st;
     }
+    function planWake() {
+        var p = S.report ? planNow() : null;
+        return p && p.wake ? t('auto.a4.sleep.wake_plan', { t: clock(p.wake) }) : '—';
+    }
     function paintSleep() {
         var rep = S.report, sl = rep && rep.sleep;
         var on = val('sleep_enabled');
@@ -1756,7 +1773,9 @@
         if (sl && sl.next_wake) { toks.push({ text: when(sl.next_wake) }); }
         head('sleep', on === false ? 'off' : (S.countdown && S.countdown.active ? 'warn' : (on ? 'ok' : 'off')), toks);
         nums('sleep', [
-            { k: t('auto.num.next_wake'), v: sl && sl.next_wake ? when(sl.next_wake) : '—' },
+            /* T21 A4: before it sleeps the robot has no wake yet; the plan's wake (the sentence
+               right under) then, marked as planned — not a dash beside "wakes at 23:01" */
+            { k: t('auto.num.next_wake'), v: sl && sl.next_wake ? when(sl.next_wake) : planWake() },
             { k: t('auto.num.last_wake'), v: sl && sl.last_wake && sl.last_wake.actual_epoch ? clock(sl.last_wake.actual_epoch * 1000) : '—' },
             { k: t('auto.num.idle'), v: withUnit(num('idle_sleep_threshold_min'), 'min') }
         ]);
@@ -2389,14 +2408,25 @@
         return first(['auto.set.' + k + '.label', 'auto.a3.j.key.' + k]) || k.replace(/_/g, ' ');
     }
     /* "Ignore open UI: on" for what changed; three at most, then +N */
+    /* a day and more: "1 day 12 h", "5 days"; past a year it is no time to tell */
+    function longDur(sec) {
+        if (sec > 365 * 86400) { return t('auto.a4.dur.year_plus'); }
+        var d = Math.floor(sec / 86400), h = Math.round((sec - d * 86400) / 3600);
+        if (h >= 24) { d += 1; h = 0; }
+        var dd = window.VTI18n && VTI18n.tn ? VTI18n.tn('auto.a4.dur.d', d, { n: d }) : d + ' d';
+        return h ? t('auto.a4.dur.dh', { d: dd, h: h }) : dd;
+    }
     function settingsWhat(vars) {
         var vals = vars && vars.values;
         var keys = vals && typeof vals === 'object' ? Object.keys(vals) : (Array.isArray(vars && vars.keys) ? vars.keys : []);
         if (!keys.length) { return ''; }
-        var parts = keys.slice(0, 3).map(function (k) {
+        /* T21 A4: every key, none behind "+N" (a newer value must never hide behind an older row);
+           keys that also have an older row of their own first, so a two-line row shows them */
+        var older = vars._older || {};
+        keys = keys.filter(function (k) { return older[k]; }).concat(keys.filter(function (k) { return !older[k]; }));
+        return keys.map(function (k) {
             return vals && k in vals ? t('auto.a3.j.set_kv', { what: setName(k), v: setWord(k, vals[k]) }) : setName(k);
-        });
-        return parts.join(', ') + (keys.length > 3 ? ' +' + (keys.length - 3) : '');
+        }).join(', ');
     }
     function journalText(j) {
         var v = Object.assign({ program: j.program || '' }, j.vars || {});
@@ -2417,6 +2447,14 @@
                 return t(by === 'owner' || by === 'agent' ? 'auto.a3.j.settings_by.' + by : 'auto.a3.j.settings', { what: what });
             }
         }
+        /* T21 A4: woke up on time, or how much later / earlier than planned (a power cut,
+           a wake by hand): days when it is days */
+        if (j.kind === 'woke' && typeof v.late_s === 'number' && isFinite(v.late_s)) {
+            var off = Math.abs(v.late_s);
+            if (off < 120) { return t('auto.a4.j.woke.on_time'); }
+            return t(v.late_s > 0 ? 'auto.a4.j.woke.late' : 'auto.a4.j.woke.early',
+                     { dur: off >= 86400 ? longDur(off) : fmtDur(off) });
+        }
         var code = j.code, reason = String(v.reason || ''), keys = [];
         if (j.kind === 'finished' && code === 'stopped' && /user/.test(reason)) { code = 'stopped_user'; }
         /* given up for one cause (a sensor, the mower's power, a terminal error) = ended;
@@ -2431,6 +2469,38 @@
         if (j.kind === 'mode' && ((j.vars || {}).by === 'owner' || (j.vars || {}).by === 'agent')) { code = code + '_' + j.vars.by; }
         return first(keys.concat(['auto.a3.j.' + j.kind + '.' + code, 'auto.j.' + j.kind + '.' + j.code, 'auto.a3.j.' + j.kind, 'auto.j.' + j.kind]), v)
             || (first(['auto.j.kind.' + j.kind]) || j.kind) + (j.program ? ' ' + j.program : '');
+    }
+    /* T21 A4: a burst of settings changes (toggling back and forth, several switches at once)
+       is one row: the same person, each change within 90 s of the one before. The row says
+       where each setting ended up, newest value first, and how many changes it was. */
+    var JMERGE_MS = 90000;
+    function mergeSettings(list) {          // newest first
+        var out = [];
+        list.forEach(function (j) {
+            var vals = j.kind === 'settings' && j.vars && j.vars.values;
+            var d = parseIso(j.t);
+            if (!vals || typeof vals !== 'object' || !d) { out.push(j); return; }
+            var g = out[out.length - 1], by = (j.vars && j.vars.by) || '';
+            if (g && g._n && g._by === by && g._last - d.getTime() >= 0 && g._last - d.getTime() <= JMERGE_MS) {
+                Object.keys(vals).forEach(function (k) { if (!(k in g.vars.values)) { g.vars.values[k] = vals[k]; } });
+                g._n += 1; g._last = d.getTime();
+                return;
+            }
+            out.push({ t: j.t, kind: 'settings', code: j.code, program: '', vars: { by: j.vars.by, values: Object.assign({}, vals) },
+                       _n: 1, _by: by, _last: d.getTime() });
+        });
+        return out;
+    }
+    /* which settings keys an older row also changed (newest first): such a key leads its row */
+    function markOlder(rows) {
+        var seen = {};
+        for (var i = rows.length - 1; i >= 0; i--) {
+            var j = rows[i], vals = j.kind === 'settings' && j.vars && j.vars.values;
+            if (!vals || typeof vals !== 'object') { continue; }
+            if (j._n) { j.vars._older = Object.assign({}, seen); }
+            Object.keys(vals).forEach(function (k) { seen[k] = 1; });
+        }
+        return rows;
     }
     function paintHistory() {
         var rep = S.report, box = $('auto_journal');
@@ -2451,7 +2521,8 @@
         if (f) { f.style.display = list ? '' : 'none'; }
         clear(box);
         if (!list) { return; }
-        var shown = list.slice().reverse().filter(function (j) { return jIn(j, S.filter); });
+        /* T21 A4: merged on the whole journal, then filtered: a burst is the same row in every filter */
+        var shown = markOlder(mergeSettings(list.slice().reverse())).filter(function (j) { return jIn(j, S.filter); });
         if (!shown.length) { el('li', 'vt-empty', box, t(S.filter === 'problems' ? 'auto.a3.j.no_problems' : 'auto.j.empty')); return; }
         /* T21 A3: the newest page, a day line over each day's rows (the row says only the time),
            and "Show older" for the rest */
@@ -2471,6 +2542,7 @@
                 : (j.kind === 'started' || j.kind === 'advice' || j.kind === 'mode' ? 'info' : 'off'));
             el('span', 'vt-sdot', li);
             var tx = journalText(j);
+            if (j._n > 1) { tx = t('auto.a4.j.times', { text: tx.replace(/[.\s]+$/, ''), n: j._n }); }
             el('span', 'vt-act-txt', li, tx).title = tx;
             el('span', 'vt-act-time', li, d ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '—');
         });

@@ -4930,4 +4930,15 @@
     "auto.a3.j.mode.calendar_owner": "You switched: the calendar decides.",
     "auto.a3.j.mode.agent_agent": "The agent switched: the agent decides.",
     "auto.a3.j.mode.calendar_agent": "The agent switched: the calendar decides.",
+    // T21 A4 (2026-11-08): Autonomy — woke on time / later / earlier, the planned wake, a burst of settings in one row, Skip names its start
+    "auto.a4.j.woke.on_time": "Woke up on time.",
+    "auto.a4.j.woke.late": "Woke up {dur} later than planned.",
+    "auto.a4.j.woke.early": "Woke up {dur} earlier than planned.",
+    "auto.a4.dur.d.one": "{n} day",
+    "auto.a4.dur.d.other": "{n} days",
+    "auto.a4.j.times": "{text} (×{n}).",
+    "auto.a4.sleep.wake_plan": "≈ {t} (plan)",
+    "auto.a4.plan.skip_which": "{program} · {when}",
+    "auto.a4.dur.dh": "{d} {h} h",
+    "auto.a4.dur.year_plus": "more than a year",
 };
