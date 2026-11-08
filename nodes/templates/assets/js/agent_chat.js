@@ -2495,8 +2495,10 @@
             // no width of its own -> ask the window, which always has one;
             // 576 px is the panel's own phone breakpoint (see openPanel)
             var narrow = (w != null) ? (w < 340) : (window.innerWidth < 576);
-            inputEl.placeholder = narrow
-                ? _t('chat.input.short')
+            // D6: on a phone the filter picker shares the row — even shorter
+            var tiny = (w != null) && w < 270;
+            inputEl.placeholder = tiny ? _t('agent.d6.input_xs')
+                : narrow ? _t('chat.input.short')
                 : _t('chat.input.long');
         };
         syncPlaceholder();
@@ -2543,11 +2545,11 @@
 
         /* D6 (G3): on a phone the filter pills cost a whole row of the chat
            (40 px of ~170 at 360 px).  There they fold into one small picker
-           at the end of the status chips; it drives the same pills (a click
-           on the hidden pill), so the filter logic stays in one place.
-           CSS shows it only below 576 px and only on the Chat tab. */
-        var fBox = document.createElement('span');
-        fBox.id = 'vagent_fcompact';
+           at the start of the input row, and the people icon (whose
+           conversation) goes to the end of the quick commands — the status
+           chips keep their whole row, motors always in sight.  The picker
+           drives the same pills (a click on the hidden pill), so the filter
+           logic stays in one place.  CSS shows them only below 576 px. */
         var fSel = document.createElement('select');
         fSel.id = 'vagent_fsel';
         [['all', 'chat.filter.all'], ['chat', 'chat.filter.chat'],
@@ -2568,10 +2570,9 @@
         fScope.type = 'button';
         fScope.id = 'vagent_scope2';
         fScope.addEventListener('click', function () { scopeBtn.click(); });
-        fBox.appendChild(fSel);
-        fBox.appendChild(fScope);
-        var stEl = panel.querySelector('#vagent_status');
-        if (stEl) { stEl.appendChild(fBox); }
+        var formEl = el.querySelector('#vagent_form');
+        formEl.insertBefore(fSel, formEl.firstChild);
+        el.querySelector('#vagent_quick').appendChild(fScope);
         var scopeBtn = el.querySelector('#vagent_scope');
         /* 2026-10-25: an icon, not the word — "all" here next to the
            filter pill "All" read as the same thing twice; the tooltip says
@@ -5507,12 +5508,8 @@
             var src = (ev && ev.detail) || sharedState;
             var st = src.robot || {};
             var h = src.health;
-            /* the chips are redrawn; the chat's phone filter picker (D6,
-               #vagent_fcompact) lives at the end of this row and stays */
-            var keep = strip.querySelector('#vagent_fcompact');
             strip.textContent = '';
-            if (keep) { strip.appendChild(keep); }
-            function put(c) { strip.insertBefore(c, keep || null); }
+            function put(c) { strip.appendChild(c); }
             var pct = st.battery_pct;
             put(chip(_t('agent.st.bat'), pct != null ? Math.round(pct) + ' %' : '–',
                 pct == null ? '' : pct > 50 ? 'good' : pct > 20 ? 'warn' : 'bad'));
@@ -5900,19 +5897,43 @@
     var stripFp = '';
     var STRIP_CUT = 60;
 
-    /* D6 (G2): how many „Read this" findings the owner has already seen —
-       the count at the moment Findings was on screen.  A higher count lights
-       the strip again; when findings get resolved the mark comes down with
-       the count, so the next new one lights it too. */
-    var LS_FIND_SEEN = 'vitulus_agent_findings_seen_n';
-    function findingsSeenN() {
-        var n = Number(lsGet(LS_FIND_SEEN));
-        return isFinite(n) && n > 0 ? n : 0;
+    /* D6 (G2): WHICH „Read this" findings the owner has already seen — the
+       ids that were open while Findings was on screen (a count alone hid a
+       new finding that came as an old one left).  The strip is red whenever
+       one of the open ones is not among them; ids that are no longer open
+       drop out of the mark.  The ids come from the core's own list
+       (`/api/v2/records?status=read`, a read); without it the strip stays
+       red, as before D6. */
+    var LS_FIND_SEEN = 'vitulus_agent_findings_seen_ids';
+    var stripReadIds = null;     // ids of the open „Read this" records, null = unknown
+    function seenIds() {
+        try {
+            var a = JSON.parse(lsGet(LS_FIND_SEEN) || '[]');
+            return Array.isArray(a) ? a.map(String) : [];
+        } catch (e) { return []; }
+    }
+    function setSeen(ids) { lsSet(LS_FIND_SEEN, JSON.stringify(ids.map(String))); }
+    function unseenFindings(readN, ids, seen) {
+        if (!ids || readN > ids.length) { return true; }   // not all known by id
+        return ids.some(function (id) { return seen.indexOf(String(id)) < 0; });
+    }
+    function pollReadIds() {
+        return api('/api/v2/records?status=read&limit=200').then(function (d) {
+            if (!d || d.ok === false || !Array.isArray(d.records)) { stripReadIds = null; return; }
+            stripReadIds = d.records.filter(function (r) { return r && r.status === 'read'; })
+                .map(function (r) { return String(r.id); });
+            var s = seenIds();
+            var keep = s.filter(function (id) { return stripReadIds.indexOf(id) >= 0; });
+            if (keep.length !== s.length) { setSeen(keep); }
+        }).catch(function () { stripReadIds = null; });
     }
     function findingsSeen() {
-        if (!panelActive || typeof stripReadN !== 'number') { return; }
-        if (findingsSeenN() !== stripReadN) { lsSet(LS_FIND_SEEN, String(stripReadN)); }
-        paintStrip();
+        if (!panelActive) { return; }
+        pollReadIds().then(function () {
+            if (!panelActive || !blockTabActive('incidents') || !stripReadIds) { return; }
+            setSeen(stripReadIds);
+            paintStrip();
+        });
     }
 
     function cut(s, n) {
@@ -5984,7 +6005,7 @@
                 /* D6 (G2): red only while there is one the owner has not
                    looked at yet; the ones he has seen in Findings stay as a
                    quiet chip (one tap away), not a standing alarm */
-                return {kind: stripReadN > findingsSeenN() ? 'finding' : 'finding-seen',
+                return {kind: unseenFindings(stripReadN, stripReadIds, seenIds()) ? 'finding' : 'finding-seen',
                         tab: 'findings',
                         label: _t('agent.strip.finding'),
                         text: _tn('agent.d6.read_n', stripReadN), age: ''};
@@ -6185,11 +6206,13 @@
                 stripFindings = (d && d.findings) || [];
                 var rn = d && d.counts && d.counts.read;
                 stripReadN = (typeof rn === 'number') ? rn : undefined;
-                if (typeof stripReadN === 'number') {
-                    if (findingsSeenN() > stripReadN) { lsSet(LS_FIND_SEEN, String(stripReadN)); }
-                    if (panelActive && blockTabActive('incidents')) { findingsSeen(); }
-                }
-                paintStrip();
+                if (stripReadN === 0) { stripReadIds = []; setSeen([]); }
+                if (!(stripReadN > 0)) { paintStrip(); return; }
+                // the ids first, then the chip: no red blink for seen ones
+                pollReadIds().then(function () {
+                    if (panelActive && blockTabActive('incidents') && stripReadIds) { setSeen(stripReadIds); }
+                    paintStrip();
+                });
             }).catch(function () {});
         }
         paintStrip();

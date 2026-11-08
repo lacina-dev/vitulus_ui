@@ -65,8 +65,9 @@ ok: Hlášení | hotovo, nebo proč ne
 
 Nad konverzací filtrují pilulky **Vše / Chat / Hlášení / Úlohy**, co vidíš; ikona lidí na konci
 řádku přepíná mezi celou konverzací ze všech zařízení (dva lidé) a jen tímhle prohlížečem (jeden
-člověk). Na telefonu je tentýž filtr jeden malý výběr (**Vše ▾**) s ikonou lidí na pravém konci
-řádku se stavovými čipy, takže chatu zůstane o řádek víc.
+člověk). Na telefonu je tentýž filtr jeden malý výběr (**Vše ▾**) na začátku řádku pro psaní a ikona lidí
+je na konci rychlých příkazů, takže chatu zůstane o řádek víc; stavové čipy mají vlastní řádek
+(raději se zalomí na druhý řádek, než aby některý schovaly).
 
 ### Jeden rozhovor, jeden mozek
 
@@ -503,7 +504,9 @@ zastaví — supervisor programu pošle stop a nůž vypne. Nůž agent sám nik
 jen **Agent** — (dvě klepnutí) zastaví, co agent spustil — supervisor
 robot zastaví zhruba do 1,5 s. **Zůstane zajištěný**: agent odmítá všechny akce a pruh hlásí
 *STOP JE ZAJIŠTĚNÝ*, dokud ho neuvolníš. Není to STOP robota — to je červený STOP
-vpravo nahoře ([Bezpečnost](safety.md#stop)).
+vpravo nahoře ([Bezpečnost](safety.md#stop)). Otázka *Opravdu? Ano / Ne* se otevře pod
+tlačítkem. (Do listopadu 2026 tohle tlačítko při otevřeném panelu nedělalo nic — klepnutí se
+k potvrzení nedostalo; teď funguje.)
 
 Co se zajistí a co ne:
 
@@ -572,8 +575,10 @@ Stavový pruh rozsvítí jen **PŘEČTI SI** (nálezy, které chtějí tebe); **
 agentem) a vyřešené jsou sbalené. Poplach nese nadpis **PŘEČTI SI 15** — karty pod ním jsou obyčejné
 karty s rozhodnutím přímo na nich: vlastní návrh agenta (jeho slovy, např. *Ověřit obraz kamery*)
 a dvě volby, které tam jsou vždycky, **Příště ignorovat** a **Beru na vědomí** (v jazyce UI). Čip
-**Nález · 15 nepřečtených** nad mapou je červený jen dokud je mezi nimi nález, který jsi ještě
-neviděl; jakmile otevřeš **Nálezy**, zůstane jako klidný šedý čip, dokud nepřijde nový.
+**Nález · 15 nepřečtených** nad mapou je červený, dokud je mezi otevřenými nálezy *PŘEČTI SI*
+nějaký, který jsi ještě neviděl: panel si pamatuje, které nálezy (podle čísla) byly otevřené, když
+jsi měl **Nálezy** na obrazovce. Pak je čip klidný a šedý — dokud nepřijde nález, který jsi
+neviděl (i když se zároveň jiný vyřešil a počet zůstal stejný).
 
 ## Co se agent naučí
 

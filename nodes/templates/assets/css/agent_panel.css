@@ -2709,23 +2709,20 @@ html body #vagent_stop.vagent-stop2 .vagent-stop-s { display: none; }
     html body #vagent_stop.vagent-stop2 .vagent-stop-s { display: inline; }
 }
 
-/* G3 — phone: the chat's filter pills fold into one picker at the end of the
-   status chips (agent_chat.js #vagent_fcompact) — one row less for the chat */
-#vagent_fcompact { display: none; }
+/* G3 — phone: the chat's filter pills fold into one picker at the start of
+   the input row (#vagent_fsel), the people icon to the end of the quick
+   commands (#vagent_scope2) — one row less for the chat.  The status chips
+   keep their own row and wrap rather than scroll: the motor state (and the
+   rest) is always in sight. */
+#vagent_fsel, #vagent_scope2 { display: none; }
 @media (max-width: 575.98px) {
     html body #vagent_panel[data-tab="chat"] #vagent_chips { display: none; }
-    html body #vagent_panel[data-tab="chat"] #vagent_fcompact {
-        display: inline-flex; align-items: center; gap: var(--vt-gap-1);
-        position: sticky; right: 0; margin-left: auto; flex: 0 0 auto;
-        padding-left: var(--vt-gap-2);
-        background: linear-gradient(to right, transparent, var(--vt-frame-bg, var(--vt-navbar)) 10px);
-    }
+    html body #vagent_panel #vagent_form > #vagent_fsel { display: block; flex: 0 0 auto; align-self: stretch; height: auto; }
+    html body #vagent_panel #vagent_quick > #vagent_scope2 { display: inline-flex; margin-left: auto; flex: 0 0 auto; }
     html body #vagent_panel #vagent_status {
-        align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+        flex-wrap: wrap; overflow: visible;
         padding-top: var(--vt-gap-1); padding-bottom: var(--vt-gap-1);
     }
-    html body #vagent_panel #vagent_status::-webkit-scrollbar { display: none; }
-    html body #vagent_panel #vagent_status .vagent-chip { flex: 0 0 auto; }
 }
 #vagent_fsel {
     height: 32px; max-width: 120px; padding: 0 22px 0 8px;
@@ -2735,7 +2732,7 @@ html body #vagent_stop.vagent-stop2 .vagent-stop-s { display: none; }
     appearance: none; -webkit-appearance: none; cursor: pointer;
 }
 #vagent_scope2 {
-    width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; padding: 0; align-items: center; justify-content: center;
     border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl);
     background: transparent; color: var(--vt-accent); font-size: 16px; cursor: pointer;
 }
@@ -2780,10 +2777,10 @@ html body #vagent_panel .vrec-way.ghost {
     border: 1px solid var(--vt-border); background: transparent;
     color: var(--vt-muted);
 }
-html body #vagent_panel .vrec-way.ghost:hover { color: var(--vt-text); border-color: var(--vt-border-strong); background: rgba(255, 255, 255, 0.05); }
+html body #vagent_panel .vrec-way.ghost:hover { color: var(--vt-text); border-color: var(--vt-border-strong); background: var(--vt-surface-3); }
 /* the map chip of findings already looked at: quiet, still one tap away */
 html body #vagent_strip.va-finding-seen {
-    --vt-st: var(--vt-muted); --vt-st-glow: transparent; --vt-st-edge: rgba(255, 255, 255, 0.12);
+    --vt-st: var(--vt-muted); --vt-st-glow: transparent; --vt-st-edge: var(--vt-edge-off);
 }
 html body #vagent_strip.va-finding-seen .vs-lab {
     background: var(--vt-surface-3); color: var(--vt-muted);
@@ -2854,13 +2851,26 @@ html body #vagent_panel .vagent-ujob .sa > .vagent-polgrp { order: 2; }
 html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob {
     min-height: 32px; padding: 0 14px; line-height: 30px;
     border: 1px solid var(--vt-edge-info); border-radius: var(--vt-r-ctl);
-    background: rgba(var(--vt-accent-rgb), 0.08); color: var(--vt-accent);
+    background: var(--vt-glow-info); color: var(--vt-accent);
     font: 500 var(--vt-fs)/30px var(--vt-font); text-decoration: none;
 }
-html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob:hover { background: rgba(var(--vt-accent-rgb), 0.16); }
+html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob:hover { background: var(--vt-tint-info), var(--vt-surface-3); }
 @media (pointer: coarse) {
     html body #vagent_panel .vagent-ujob button.ja.ico { min-width: 44px; height: 44px; line-height: 42px; font-size: 17px; }
     html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob { min-height: 44px; line-height: 42px; }
 }
 /* H5: the wider stop button must not squeeze the panel title ("AGENT") */
 html body #ui_drawer_head:has(#vagent_head_right) > #ui_drawer_title { flex-shrink: 0; }
+/* H5 (kontrola A3): the meta slot (the agent's status dot) never gives way to
+   the stop button; the „Really? Yes / No" of the stop opens as a small
+   popover under the button instead of inside the head row, so ?, ⤢ and ✕
+   stay where they are (it used to push them out of the head for 8 s) */
+html body #ui_drawer_head:has(#vagent_head_right) > #ui_drawer_meta { flex-shrink: 0; min-width: max-content; }
+html body #vagent_head_right { position: relative; }
+html body #vagent_head_right > .vagent-confirm {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
+    margin: 0; padding: 4px 8px; gap: var(--vt-gap-2);
+    background: var(--vt-surface-2); border-color: var(--vt-edge-warn);
+    box-shadow: var(--vt-elev-2);
+    font-size: var(--vt-fs);
+}

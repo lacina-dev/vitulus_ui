@@ -3203,6 +3203,7 @@
     "agent.d6.way.ack_does": "Zavřu to jako přečtené. Nic se nespustí, žádné pravidlo nevznikne, a kdyby se to ozvalo znovu, uvidíš to zas.",
     "agent.d6.way.revert": "Vrátit zpět",
     "agent.d6.way.revert_does": "Vrátím tuhle opravu (git revert jejích commitů) stejnou cestou, jakou se nasadila: testy, nasazení, kontrola po restartu.",
+    "agent.d6.input_xs": "Úkol nebo otázka…",
     "needs.d6.side_me": "Tento robot",
     /* ---- @end chat */
 

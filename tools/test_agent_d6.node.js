@@ -9,7 +9,8 @@
  *  - the core's built-in ways of a finding (ignore / ack / revert) are said in
  *    the UI's language, the agent's own `task` proposal keeps its words, and
  *    the decision POST still carries the core's `way` number (not the label);
- *  - the map strip's finding chip is red only for findings not seen yet;
+ *  - the map strip's finding chip is red while an open finding has not been
+ *    seen — by id, so a new one replacing a solved one still lights it;
  *  - the D6 keys exist in en.js and cs.js, cs plural forms included.
  * Functions are sliced out of the sources verbatim (the modules are DOM-bound
  * IIFEs) and run against small stubs.
@@ -82,20 +83,25 @@ ok('findings: the decision body still sends the way number',
    /body: \{way: way\.way, by: VA\.authorId \|\| 'ui'\}/.test(blk));
 ok('findings: a Read-this row has no per-card READ THIS chip', /if \(r\.status !== 'read'\) \{\s*l1\.appendChild\(el\('span', 'vrec-chip/.test(blk));
 
-/* ---- the strip: red only for findings not seen yet */
+/* ---- the strip: red while an open „Read this" finding has not been seen (by id) */
 const chat = read('agent_chat.js');
 let LS = {};
-const seenN = new Function('lsGet', 'LS_FIND_SEEN',
-    slice(chat, 'findingsSeenN', 'agent_chat.js') + '\nreturn findingsSeenN;')((k) => (k in LS ? LS[k] : null), 'k');
-const kindOf = (n) => (n > seenN() ? 'finding' : 'finding-seen');
-ok('strip: nothing seen yet -> red', kindOf(15) === 'finding');
-LS.k = '15';
-ok('strip: 15 seen, 15 open -> quiet', kindOf(15) === 'finding-seen');
-ok('strip: 15 seen, 16 open -> red again', kindOf(16) === 'finding');
+const S = new Function('lsGet', 'lsSet', 'LS_FIND_SEEN',
+    slice(chat, 'seenIds', 'agent_chat.js') + '\n' + slice(chat, 'setSeen', 'agent_chat.js') + '\n' +
+    slice(chat, 'unseenFindings', 'agent_chat.js') + '\nreturn {seenIds, setSeen, unseenFindings};')(
+    (k) => (k in LS ? LS[k] : null), (k, v) => { LS[k] = v; }, 'k');
+const red = (ids, n) => S.unseenFindings(n == null ? ids.length : n, ids, S.seenIds());
+ok('strip: nothing seen yet -> red', red(['1', '2', '3']));
+S.setSeen(['1', '2', '3']);
+ok('strip: all open ones seen -> quiet', !red(['1', '2', '3']));
+ok('strip: one solved, one new, same count -> red', red(['2', '3', '4']));
+ok('strip: fewer, all seen -> quiet', !red(['2']));
+ok('strip: ids unknown (older core) -> red', S.unseenFindings(3, null, S.seenIds()));
+ok('strip: more open than ids listed -> red', red(['1', '2'], 5));
 LS.k = 'garbage';
-ok('strip: an unreadable mark counts as nothing seen', kindOf(1) === 'finding');
-ok('strip: the pick uses the seen mark', /kind: stripReadN > findingsSeenN\(\) \? 'finding' : 'finding-seen'/.test(chat));
-ok('strip: the mark comes down with the count', /if \(findingsSeenN\(\) > stripReadN\) \{ lsSet\(LS_FIND_SEEN, String\(stripReadN\)\); \}/.test(chat));
+ok('strip: an unreadable mark counts as nothing seen', red(['1']));
+ok('strip: the pick uses the ids', /kind: unseenFindings\(stripReadN, stripReadIds, seenIds\(\)\) \? 'finding' : 'finding-seen'/.test(chat));
+ok('strip: the ids are a read of the core\'s list', /api\('\/api\/v2\/records\?status=read&limit=200'\)/.test(chat));
 ok('agent STOP: the click still asks first and posts /api/stop',
    /inlineConfirm\(stopBtn, function \(\) \{ doStop\(\); \}\)/.test(chat) && /api\('\/api\/stop', \{body: \{author: displayName \|\| author\}\}\)/.test(chat));
 

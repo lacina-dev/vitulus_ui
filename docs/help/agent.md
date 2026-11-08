@@ -67,8 +67,9 @@ ok: Report | done, or why not
 Above the conversation, the pills **All / Chat / Reports / Jobs** filter what you see; the people
 icon at the end of that row switches between the whole conversation from every device (two
 people) and this browser only (one person). On a phone the same filter is one small picker
-(**All ▾**) with the people icon at the right end of the state chips, so the chat keeps one row
-more.
+(**All ▾**) at the start of the input row and the people icon sits at the end of the quick
+commands, so the chat keeps one row more; the state chips keep their own row (they wrap to a
+second line rather than hide one).
 
 ### One conversation, one brain
 
@@ -522,7 +523,9 @@ never switches the blade on by itself.
 phone just **Agent** — (two taps) stops what the agent started — the
 supervisor stops the robot within about 1.5 s. It **latches**: the agent refuses all actions,
 and a banner says *STOP IS LATCHED*, until you release it. It is not the robot STOP —
-that is the big red STOP top right ([Safety](safety.md#stop)).
+that is the big red STOP top right ([Safety](safety.md#stop)). The question *Really? Yes / No*
+opens under the button. (Until November 2026 this button did nothing while the panel was open —
+the tap never reached the confirmation; it works now.)
 
 What latches and what does not:
 
@@ -593,8 +596,10 @@ agent's own analysis) and the handled ones are folded. The heading **READ THIS 1
 alarm — the cards under it are plain cards with the decision right on them: the agent's own
 proposal (its words, e.g. *Ověřit obraz kamery*) and the two that are always there, **Ignore
 next time** and **Noted** (shown in the UI's language). The chip **Finding · 15 to read** over the
-map is red only while there is a finding you have not seen yet; once you have opened
-**Findings**, it stays as a quiet grey chip until a new one comes.
+map is red while any open *READ THIS* finding is one you have not seen yet: the panel remembers
+which findings (by their number) were open while you had **Findings** on screen. Then the chip is
+a quiet grey one — until a finding you have not seen arrives (also when another one was solved at
+the same time and the count stays the same).
 
 ## What the agent learns
 

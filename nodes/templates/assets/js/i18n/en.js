@@ -3124,6 +3124,7 @@
     "agent.d6.way.ack_does": "I close it as read. Nothing starts, no rule is made, and if it comes back you will see it again.",
     "agent.d6.way.revert": "Undo the fix",
     "agent.d6.way.revert_does": "I revert this fix (git revert of its commits) the same way it was deployed: tests, deployment, a check after the restart.",
+    "agent.d6.input_xs": "Task or question…",
     "needs.d6.side_me": "This robot",
     /* ---- @end chat */
 
