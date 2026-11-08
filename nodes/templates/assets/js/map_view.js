@@ -34,6 +34,22 @@ function vtMapPixelRatio() {
     return Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 }
 
+/* 2026-11-08: zoom limits of the map view camera. The view is a narrow
+   (filmGauge 0.04 / focal 1) perspective looking down: its longer side
+   shows 0.04 x the camera distance, so 5 m = 20 cm (4 cells of the robot's
+   map, the background map far past its finest tiles) — the closest useful
+   zoom. near = distance/4 (max the old 20 m) keeps everything up to 3/4 of
+   the distance above the ground in view, i.e. the robot, lidar and markers. */
+var MAP_MIN_DISTANCE = 5.0;
+var MAP_NEAR_MAX = 20.0;
+function vtMapCamLimits(ctrl) {
+    if (!ctrl) { return; }
+    ctrl.minDistance = MAP_MIN_DISTANCE;
+    ctrl.nearMax = MAP_NEAR_MAX;
+    ctrl.nearRatio = 0.25;
+    ctrl.nearMin = 0.05;
+}
+
 /* T17 M7: the zone pictures of Programs (vt_map_thumbs.js) come with a tag in
    index.html; a webnode still serving the old template (Jinja cache until its
    restart) has no such tag: load the module here then, once. */
@@ -1558,6 +1574,14 @@ class Viewer3D{
                     this.viewer.renderer.setPixelRatio(vtMapPixelRatio());
                 }
             } catch (e) { /* stub / no renderer */ }
+            // 2026-11-08 (owner: "zoomed in more, the map disappears"): the
+            // camera looks down from `distance` with near = 20 m, so below
+            // 20 m the near plane cut the ground away — background map, robot
+            // maps, zones, plan, all at once (and a reload restored that blank
+            // pose). The near plane now follows the zoom (ros3d OrbitControls
+            // nearMax: distance/4, at most the old 20 m, so the usual zoom
+            // range is unchanged) and the zoom-in stops at MAP_MIN_DISTANCE.
+            try { vtMapCamLimits(this.viewer.cameraControls); } catch (e) { /* old ros3d */ }
         } catch (e) {
             console.error('[vitulus_ui] 3D map disabled — could not create a WebGL context:', e);
             this.webgl = false;

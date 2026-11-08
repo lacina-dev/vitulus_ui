@@ -219,7 +219,8 @@ and the *Orthophoto 1950s (CENIA)*, black-and-white aerial photos from the 1950s
 OpenTopoMap, OpenStreetMap). Each photo source has its own date and its own sharpness — when one is
 old or blurry over the garden, try another. **Detail** *Auto* (the default) loads the finest level
 each source has — Google up to z21, the ČÚZK orthophoto z20 — and closer up only magnifies it
-smoothly. On a phone the background map stops one level coarser (Google z20, ČÚZK z19) and so
+smoothly. Zooming in stops at about 20 cm along the longer side of the screen; the background map and the robot's maps
+stay on screen all the way. On a phone the background map stops one level coarser (Google z20, ČÚZK z19) and so
 loads fewer tiles. On a slow connection
 pick a lower cap (z17–z21): fewer tiles, a softer picture. The tiles always cover what you see.
 After a move or a zoom the previous picture stays until the new tiles are in, and a coarser one

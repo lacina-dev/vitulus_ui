@@ -58882,6 +58882,15 @@ var ROS3D = (function (exports, ROSLIB) {
 	    // frame can be framed, and drops it back to Infinity when rain is off.
 	    this.maxDistance = Infinity;
 	    this.minDistance = 0;
+	    // vitulus_ui 2026-11-08: optional near plane that follows the zoom.
+	    // nearMax > 0 turns it on: camera.near = clamp(distance * nearRatio,
+	    // nearMin, nearMax), applied in every update() (every frame), so a
+	    // close zoom, a restored pose or robot-follow never puts the ground
+	    // behind the near plane (map view: near 20 m clipped the whole map
+	    // away below 20 m). Default off (original behaviour).
+	    this.nearMax = 0;
+	    this.nearMin = 0.05;
+	    this.nearRatio = 0.25;
 	    // vitulus_ui: distance-adaptive wheel zoom. Below this camera-to-center
 	    // distance the wheel step is exactly the normal userZoomSpeed (standard
 	    // zoom feel unchanged); beyond it the step grows with each decade so a
@@ -59360,6 +59369,16 @@ var ROS3D = (function (exports, ROSLIB) {
 	    }
 
 	    position.copy(this.center).add(offset);
+
+	    // vitulus_ui 2026-11-08: near plane follows the zoom (see nearMax)
+	    if (this.nearMax > 0) {
+	      var _near = Math.max(this.nearMin,
+	          Math.min(this.nearMax, offset.length() * this.nearRatio));
+	      if (isFinite(_near) && Math.abs(_near - this.camera.near) > _near * 1e-3) {
+	        this.camera.near = _near;
+	        this.camera.updateProjectionMatrix();
+	      }
+	    }
 
 	    // vitulus_ui 2026-08-16: screen-up = spherical tangent toward the
 	    // zenith. Rotates with theta (top-down map rotation works), degrades to

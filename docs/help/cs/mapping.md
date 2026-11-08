@@ -212,7 +212,8 @@ vydání, snímek nad tvým místem může být starší — a *Ortofoto 50. lé
 z 50. let, do z18) a **mapy** (mapa Google, topografická mapa ČÚZK, OpenTopoMap, OpenStreetMap).
 Každý zdroj snímků má jiné datum a jinou ostrost — když je nad zahradou starý nebo rozmazaný,
 zkus jiný. **Detail** *Auto* (výchozí) načte nejjemnější úroveň, jakou zdroj má — Google až z21,
-ortofoto ČÚZK z20 — a ještě blíž ji už jen plynule zvětší. Na telefonu se podkladová mapa zastaví
+ortofoto ČÚZK z20 — a ještě blíž ji už jen plynule zvětší. Přiblížení se zastaví zhruba na 20 cm podél delší strany obrazovky; podkladová
+mapa i mapy robota přitom zůstávají vidět. Na telefonu se podkladová mapa zastaví
 o úroveň hruběji (Google z20, ČÚZK z19), a načte tak méně dlaždic. Na pomalém spojení vyber nižší strop (z17–z21): méně
 dlaždic, měkčí obraz. Dlaždice vždy pokryjí to, co vidíš. Po posunu nebo přiblížení zůstane
 předchozí obraz, dokud nové dlaždice nedorazí, a mezery mezitím vyplní hrubší obraz, takže mapa
