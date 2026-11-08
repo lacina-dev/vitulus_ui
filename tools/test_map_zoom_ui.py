@@ -17,7 +17,8 @@ controls API), for the background maps sat, cuzk, esri, cenia_1950s and none:
     right half the robot map — never the empty viewer;
   - the usual zoom (1000 m) keeps the old near plane of 20 m;
   - a stored close pose (10 m) is restored with the map visible;
-  - zooming sends nothing (no HTTP write, no rosbridge publish / service call but the TF republisher).
+  - zooming sends nothing (no HTTP write, no rosbridge publish / service call but the TF republisher;
+    the link probe of vt_link.js, a /rosapi/get_param read, is not counted).
 
     python3 tools/test_map_zoom_ui.py [--root TREE] [--shots DIR]
 
@@ -109,7 +110,11 @@ FAKE = r"""
       const m = JSON.parse(raw);
       F.ops[m.op] = (F.ops[m.op] || 0) + 1;
       if (m.op === 'call_service') {
-        F.sent.push(m.service);
+        // the link probe of vt_link.js (a read: /rosapi/get_param of /use_sim_time, id vt_link:N)
+        // is not a write; every other service call still counts
+        const probe = m.service === '/rosapi/get_param' && String(m.id).indexOf('vt_link:') === 0 &&
+                      m.args && m.args.name === '/use_sim_time';
+        if (probe) { F.probes = (F.probes || 0) + 1; } else { F.sent.push(m.service); }
         let v = {};
         if (m.service === '/republish_tfs') {
           this.frames = (m.args && m.args.source_frames) || [];
