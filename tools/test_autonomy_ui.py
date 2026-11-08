@@ -949,6 +949,192 @@ def a1_fit(p, shots, label):
         p.pg.screenshot(path=os.path.join(shots, label + '-a1-fit.png'))
 
 
+def a2_timeline(today):
+    """/scheduler/timeline like the robot's: today a sleep and a start, then a long sleep to day 6."""
+    d = lambda n, h, m: iso(dt.datetime.combine(today + dt.timedelta(days=n), dt.time(h, m)))
+    return {'sleeps': [{'from': d(0, 8, 0), 'to': d(0, 23, 3), 'reason': 'next_slot'},
+                       {'from': d(1, 2, 0), 'to': d(6, 23, 3), 'reason': 'next_slot'}],
+            'starts': [{'program': 'Bigger', 'state': 'planned', 't': d(0, 23, 15)},
+                       {'program': 'Bigger', 'state': 'planned', 't': d(6, 23, 15)}]}
+
+
+A2_CAL = [{'id': 'ev1', 'program_name': 'Bigger', 'site': 'Garden', 'enabled': True, 'recurrence': 'weekly',
+           'start_time': '23:15', 'days_of_week': [5, 6]}]
+
+
+def a2_story(p, shots, label):
+    """T21 A2: order Now → Plan → Who decides, nothing said twice, timeline of the days that matter. Display only."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    p.pub('/scheduler/sleep_countdown', {'active': False})
+    p.pg.evaluate("VTAutonomy._state.countdown = {active: false}")
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    awake = checks(ssh=('block', 'logins', {'who': ['pts/0']}), ui=('block', 'clients', {'n': 2}))
+    p.pub('/scheduler/report', report(now, checks=start_checks(), sleep={'checks': awake, 'block': 'login:pts/0'}))
+    p.pub('/scheduler/calendar', A2_CAL)
+    p.pub('/scheduler/timeline', a2_timeline(now.date()))
+    p.open('plan')
+    p.open('sleep')
+    p.tick()
+    n0 = len(p.pg.evaluate('__fake.sent'))
+    order = p.pg.evaluate("[...document.querySelectorAll('#div_menu_autonomy > details')].map(d=>d.id)")
+    check('A2 order: Now, Plan, Who decides', order[:3] == ['auto_sec_now', 'auto_sec_plan', 'auto_sec_mode'], order)
+    check('A2 order: Now right under the top card', p.pg.evaluate(
+        "document.getElementById('card_calendar').nextElementSibling.id") == 'auto_sec_now')
+    # the next start once: the top card; no tile, no time token in Plan
+    nxt = p.text('#span_scheduler_next') or ''
+    hm = report(now)['next']['at'][11:16]
+    check('A2 next start in the top card', hm in nxt, nxt)
+    check('A2 Plan: no number tiles', p.pg.evaluate("document.getElementById('auto_nums_plan').children.length") == 0)
+    check('A2 Plan head: no second next start', hm not in (p.text('#auto_tok_plan') or ''), p.text('#auto_tok_plan'))
+    on = report(now, checks=start_checks(), sleep={'checks': awake, 'block': 'login:pts/0'})
+    on['window_setting'] = dict(on['window_setting'], enabled=True, start='07:00', end='21:00')
+    p.pub('/scheduler/report', on)
+    check('A2 Plan head: the allowed time when it limits', '07:00–21:00' in (p.text('#auto_tok_plan') or ''), p.text('#auto_tok_plan'))
+    p.pub('/scheduler/report', report(now, checks=start_checks(), sleep={'checks': awake, 'block': 'login:pts/0'}))
+    p.tick()
+    # what keeps it awake: short by name in the top card, whole in Sleep, not in Now
+    hero = p.text('#auto_sleep_plan') or ''
+    full = p.pg.evaluate("VTAutonomy._checkText({key:'ssh', state:'block', code:'logins', vars:{who:['pts/0']}})")
+    check('A2 top card: sleep line short, holders by name', ('Webové UI' if cs else 'Web UI') in hero and full not in hero
+          and re.search(r'\d+ h', hero), hero)
+    check('A2 top card: the whole sentence in its tooltip', full in (p.pg.evaluate("document.getElementById('auto_sleep_plan').title") or ''))
+    check('A2 why not sleeping: in Sleep, not in Now', p.pg.evaluate(
+        "!!document.querySelector('#auto_sec_sleep #auto_sleep_checks') && !document.querySelector('#auto_sec_now #auto_sleep_checks')"))
+    lst, sec2 = p.text('#auto_sleep_checks') or '', p.text('#auto_sleep_plan2') or ''
+    check('A2 Sleep: holders in the list, not again in the sentence', full in lst and full not in sec2 and sec2, [sec2, lst])
+    check('A2 Sleep list: no › to the section it is in', p.pg.evaluate("document.querySelectorAll('#auto_sleep_checks .vt-auto-go').length") == 0)
+    p.click('#btn_auto_sleep_more')
+    p.pg.wait_for_timeout(300)
+    check('A2 top card sleep line › opens Sleep', p.pg.evaluate("document.getElementById('auto_sec_sleep').open"))
+    # timeline: tracks only for the days something happens on, an hour scale, sleep folded
+    tl = p.pg.evaluate("""()=>({rows:[...document.querySelectorAll('#auto_timeline .vt-auto-tl-row:not(.vt-auto-tl-scale)')].map(r=>r.querySelector('.vt-auto-tl-day').textContent),
+        gaps:[...document.querySelectorAll('#auto_timeline .vt-auto-tl-gap')].map(g=>[g.dataset.kind,g.textContent]),
+        hours:[...document.querySelectorAll('#auto_timeline .vt-auto-tl-hour')].map(h=>h.textContent),
+        now:document.querySelectorAll('#auto_timeline .vt-auto-tl-now').length,
+        sleep:document.querySelectorAll('#auto_timeline .vt-auto-tl-sleep').length})""")
+    check('A2 timeline: 3 days with something, 4 asleep days in one line', len(tl['rows']) == 3 and len(tl['gaps']) == 1
+          and tl['gaps'][0][0] == 'sleep' and ('spí' if cs else 'asleep') in tl['gaps'][0][1], tl)
+    check('A2 timeline: hour scale 0–24', tl['hours'] == ['0', '6', '12', '18', '24'], tl['hours'])
+    check('A2 timeline: now on today, sleeps drawn', tl['now'] == 1 and tl['sleep'] >= 3, tl)
+    one = iso(dt.datetime.combine(now.date() + dt.timedelta(days=3), dt.time(9, 0)))
+    p.pub('/scheduler/timeline', {'sleeps': [], 'starts': [{'program': 'Bigger', 'state': 'planned', 't': one}]})
+    tl = p.pg.evaluate("""()=>({rows:document.querySelectorAll('#auto_timeline .vt-auto-tl-row:not(.vt-auto-tl-scale)').length,
+        gaps:[...document.querySelectorAll('#auto_timeline .vt-auto-tl-gap')].map(g=>g.dataset.kind)})""")
+    check('A2 timeline: empty days folded around the one start', tl['rows'] == 1 and tl['gaps'] == ['empty', 'empty'], tl)
+    p.pub('/scheduler/timeline', a2_timeline(now.date()))
+    # words: the state tag, the head tokens
+    check('A2 state tag says scheduled', (p.text('#span_scheduler_state') or '') == ('Naplánováno' if cs else 'Scheduled'), p.text('#span_scheduler_state'))
+    check('A2 Who decides head: by the plan', ('Podle plánu' if cs else 'By the plan') in (p.text('#auto_tok_mode') or ''), p.text('#auto_tok_mode'))
+    check('A2 Weather head: what rain does', ('Déšť zastaví vše' if cs else 'Rain stops all') in (p.text('#auto_tok_rain') or ''), p.text('#auto_tok_rain'))
+    check('A2 Weather head without radar data: says so', ('Radar bez dat' if cs else 'No radar data') in (p.text('#auto_tok_rain') or '')
+          and ('Nic naplánováno' if cs else 'Nothing planned') not in (p.text('#auto_tok_rain') or ''), p.text('#auto_tok_rain'))
+    # "Scheduled" only for a planned start; the codes that fell through to it get their own word (card and right panel)
+    tags = [('no_schedule', {}, 'Nic v plánu' if cs else 'Nothing planned'),
+            ('waiting_slot', {'next': None}, 'Nic v plánu' if cs else 'Nothing planned'),
+            ('outside_window', {}, 'Mimo okno' if cs else 'Outside window'),
+            ('no_mow', {}, 'Nesekat' if cs else 'No mowing'),
+            ('agent_advice_done', {}, 'Nevyjíždí' if cs else 'Not starting'),
+            ('intent_timeout', {}, 'Nevyjíždí' if cs else 'Not starting'),
+            ('intent_wait', {}, 'Čeká' if cs else 'Waiting'),
+            ('something_new', {}, 'Jiný stav' if cs else 'Other state'),
+            ('waiting_slot', {'said': 'sleep_countdown'}, 'Usíná' if cs else 'Falling asleep'),
+            ('waiting_slot', {'said': 'hw_reset_countdown'}, 'Tvrdý restart' if cs else 'Hardware reset')]
+    for code, over, want in tags:
+        over = dict(over)
+        said = over.pop('said', code)
+        p.pub('/scheduler/report', report(now, code=code, sentence={'code': said, 'vars': {'left_s': 50}}, checks=start_checks(), **over))
+        tag, chip = p.text('#span_scheduler_state') or '', p.text('.rp-auto-chip') or ''
+        check('A2 state tag for %s/%s: %s, not Scheduled' % (code, said, want), tag == want
+              and (want in chip or said != code), [tag, chip])
+    p.pub('/scheduler/report', report(now, checks=start_checks(), sleep={'checks': awake, 'block': 'login:pts/0'}))
+    # the agent waits for the dock: the box says it with its way; the same last decision is not repeated
+    frm, to = now - dt.timedelta(minutes=5), now + dt.timedelta(hours=3)
+    adv = {'id': 'a1', 'action': 'mow', 'program': 'Bigger', 'from': iso(frm) + ':00', 'to': iso(to) + ':00', 'until': None,
+           'reason': 'dry', 'confidence': 0.8, 'state': 'pending', 'fresh': True}
+    p.pub('/scheduler/report', report(now, code='waiting_dock', detail={'program': 'Bigger'}, checks=start_checks(),
+                                      sentence={'code': 'waiting_dock', 'vars': {'program': 'Bigger'}}))
+    p.pub('/scheduler/mode', mode_view('agent', advice=adv, last_decision={
+        't': iso(now) + ':00', 'kind': 'advice', 'code': 'waiting', 'program': 'Bigger', 'source': 'agent', 'vars': {'why': 'dock:waiting_dock'}}))
+    vis = lambda sel: p.pg.evaluate("(s)=>{const e=document.querySelector(s);return !!(e&&e.offsetParent&&!e.hidden)}", sel)
+    p.open('mode')
+    check('A2 dock: the box says it', vis('#auto_mode_attn'))
+    check('A2 dock: Last decision not repeated under it', not vis('#auto_mode_last'))
+    p.pub('/scheduler/mode', mode_view('agent', dock_permitted=True, dock_why=None, last_decision={
+        't': iso(now) + ':00', 'kind': 'waited', 'code': 'limit_rain', 'program': 'Bigger', 'source': 'calendar',
+        'vars': {'hours_since_rain': 1.5, 'need_h': 3.0}}))
+    p.pub('/scheduler/report', report(now, checks=start_checks()))
+    check('A2 another decision: shown', vis('#auto_mode_last') and not vis('#auto_mode_attn'))
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    check('A2 nothing sent by any of it', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent')[n0:])
+    # Who decides on a first visit: folded for the calendar, open while the agent decides
+    ctx = p.pg.context
+    q = P(ctx, p.pg.url)
+    q.pg.evaluate("localStorage.removeItem('vitulus_auto_sec_mode')")
+    q.pg.close()
+    q = P(ctx, p.pg.url)
+    q.pub('/scheduler/settings', agent_settings())
+    q.pub('/scheduler/report', report(now, checks=start_checks()))
+    q.pub('/scheduler/mode', mode_view('calendar'))
+    q.tick(400)
+    check('A2 Who decides folded on a first visit (calendar)', not q.pg.evaluate("document.getElementById('auto_sec_mode').open"))
+    q.pub('/scheduler/mode', mode_view('agent'))
+    q.tick(400)
+    check('A2 Who decides opens by itself for the agent', q.pg.evaluate("document.getElementById('auto_sec_mode').open")
+          and q.pg.evaluate("localStorage.getItem('vitulus_auto_sec_mode')") is None)
+    q.click('#auto_sec_mode > summary')
+    q.tick(300)
+    check('A2 the owner\'s fold is remembered', q.pg.evaluate("localStorage.getItem('vitulus_auto_sec_mode')") == '0')
+    q.pub('/scheduler/mode', mode_view('calendar'))
+    q.pub('/scheduler/mode', mode_view('agent'))
+    check('A2 after that it stays as the owner left it', not q.pg.evaluate("document.getElementById('auto_sec_mode').open"))
+    q.pg.close()
+    errs = [e for e in p.errors if 'erases' not in e]
+    check('A2 no page errors', not errs, errs[:3])
+
+
+def a2_fit(p, shots, label):
+    """The calendar row, the switches and the heads on this screen: touch size, one switch size, nothing cut."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    awake = checks(ssh=('block', 'logins', {'who': ['pts/0', 'pts/2']}), ui=('block', 'clients', {'n': 2}))
+    p.pub('/scheduler/report', report(now, checks=start_checks(), sleep={'checks': awake, 'block': 'login:pts/0'}))
+    p.pub('/scheduler/calendar', A2_CAL + [dict(A2_CAL[0], id='ev2', program_name='Front lawn by the long hedge', site='',
+                                                enabled=False, start_time='09:00', days_of_week=[0, 1, 2, 3, 4])])
+    p.pub('/scheduler/timeline', a2_timeline(now.date()))
+    p.open('sleep')
+    p.open('plan')
+    p.pg.evaluate("document.getElementById('div_calendar_events').scrollIntoView({block: 'center'})")
+    p.pg.wait_for_timeout(200)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const box=e=>{const b=e.getBoundingClientRect();return [e.id||e.className||e.tagName,Math.round(b.width),Math.round(b.height)]};
+        const hits=q('#div_calendar_events .vt-cal-sw, #div_calendar_events .cal-edit, #div_calendar_events .cal-del, #card_mow_window .vt-switch-hit, #btn_auto_sleep_more').map(box);
+        const lim=document.getElementById('chk_window_enabled').getBoundingClientRect(), cal=document.querySelector('#div_calendar_events .cal-toggle').getBoundingClientRect();
+        const set=q('#auto_sec_sleep .vt-auto-set-c .form-check-input')[0];
+        const sb=set?set.getBoundingClientRect():null;
+        const cut=q('#auto_tok_mode .vt-pill, #auto_tok_rain .vt-pill, #auto_tok_plan .vt-pill, #auto_tok_now .vt-pill').filter(e=>e.scrollWidth>e.clientWidth+1).map(e=>e.textContent);
+        const out=q('#div_menu_autonomy *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        const over=q('#div_calendar_events *, #auto_timeline *, #card_calendar *').filter(e=>e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>e.id||e.className);
+        return {w:document.documentElement.scrollWidth, coarse:matchMedia('(pointer: coarse)').matches, hits,
+                lim:[Math.round(lim.width),Math.round(lim.height)], cal:[Math.round(cal.width),Math.round(cal.height)],
+                set:sb?[Math.round(sb.width),Math.round(sb.height)]:null, cut, out, over}}""")
+    check(label + ' A2: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r['out'])
+    check(label + ' A2: calendar row, timeline, top card: nothing cut', not r['over'], r['over'])
+    check(label + ' A2: head tokens whole', not r['cut'], r['cut'])
+    check(label + ' A2: Limit and calendar switches the size of a setting switch', r['lim'] == r['cal'] == (r['set'] or r['cal']) and r['lim'][0] >= 40, r)
+    if r['coarse']:
+        check(label + ' A2: touch targets >= 40 px (calendar switch, Edit, Delete, Limit, sleep line)',
+              all(h[2] >= 40 for h in r['hits']) and len(r['hits']) >= 6, r['hits'])
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-a2-calendar.png'))
+        p.pg.evaluate("document.getElementById('auto_timeline').scrollIntoView({block: 'center'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a2-timeline.png'))
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -997,6 +1183,8 @@ def main():
             layout(p, a.shots, label)
             a1_story(p, a.shots, label)
             a1_fit(p, a.shots, label)
+            a2_story(p, a.shots, label)
+            a2_fit(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
@@ -1008,6 +1196,7 @@ def main():
             p.lang(lang)
             mode_fit(p, a.shots, label)
             a1_fit(p, a.shots, label)
+            a2_fit(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

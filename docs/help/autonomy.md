@@ -20,10 +20,18 @@ Automation*, *Waits for the agent's advice*, *Not now: Sleeping*, *Not starting 
 while a sleep counts down). It is green only when the robot reports that it waits for its next start and
 nothing holds it by the robot's own rules: no check blocks or waits, automation and programs are on, no hard
 limit in force, an advice that wants to go has the dock permit (the calendar standing in needs none). Any
-other state is not green; its sentence is in the tooltip. A tap opens that section; nothing is sent. Under it, each section has a head with a colour and
-short tokens; open it for the numbers and the controls. What you open stays open.
+other state is not green; its sentence is in the tooltip. A tap opens that section; nothing is sent. The
+next start is said only here. Under the buttons one short line says the sleep: *Sleeps 6 h 27 min once
+free; held by: Logins, Web UI ›* — the whole sentence is in its tooltip and in **Sleep**, where a tap
+on the line takes you.
 
-![The top of Autonomy with numbered markers](img/shot-autonomy.webp "1 state tag · 2 what it does now, next under it · 3 Automatic mowing · 4 Pause (Hold) · 5 who decides: calendar or agent · 6 could it start now · 7 why it does not sleep")
+Under the card come the sections, on every screen in this order: **Now**, **Plan**, **Who decides**,
+then Weather, Battery, Sleep, Faults, History, Advanced. Each has a head with a colour and short
+tokens; open it for the numbers and the controls. What you open stays open. On a first visit Now and
+Plan are open; Who decides stays folded while the calendar decides (the card says so) and opens by
+itself while the agent decides, until you open or fold it yourself.
+
+![The top of Autonomy with numbered markers](img/shot-autonomy.webp "1 state tag · 2 what it does now, next under it · 3 who decides: calendar or agent · 4 could it start now · 5 the sleep, short · 6 Automatic mowing · 7 Pause (Hold)")
 
 ## The two switches
 
@@ -39,15 +47,19 @@ off (automation, no programs). The head of the section says the same as the top 
 that are fine (green; *no time limit* counts as fine) and those not checked now (grey: GPS is checked when a run starts, the line shows
 the live fix) fold into one line, *Nothing holds a start: 10 fine. Not checked now: 2.*; **Show all**
 lists every one of them, **Problems only** folds them again (remembered).
-**Why isn't it sleeping?** shows only what keeps the robot awake; someone logged in on a terminal or
-an open web UI is blue, it keeps the robot awake on purpose. The › next to a line takes you to where it is fixed.
+The › next to a line takes you to where it is fixed. What keeps the robot awake is in **Sleep**.
 
 ## Plan
 
-![Plan with numbered markers](img/shot-autonomy-plan.webp "1 the next 7 days: allowed time (blue), starts (marks, with the time under them), expected sleep (grey) · 2 Skip next · 3 No mowing today · 4 Run next planned now")
+![Plan with numbered markers](img/shot-autonomy-plan.webp "1 the next 7 days: hours 0–24, allowed time (blue), starts (marks, with the time under them), expected sleep (hatched grey), now (white line) · 2 Skip next · 3 No mowing today · 4 Run next planned now")
 
-The calendar and the [allowed mowing time](programs.md#allowed-mowing-time) are here. The timeline
-shows the next 7 days: starts, the allowed time and expected sleep. **Skip next** skips one start,
+The calendar and the [allowed mowing time](programs.md#allowed-mowing-time) are here; the head of the
+section shows the allowed time while it limits (*Allowed 07:00–21:00*). The timeline covers the next
+7 days with an hour scale on top: a day on which something happens (a start, a sleep that begins or
+ends) gets its track with the allowed time, the starts and the expected sleep (hatched); days asleep
+all day, or with nothing, fold into one line each, e.g. *Tue 10 Nov – Fri 13 Nov: asleep the whole
+time*. Each calendar entry is one row: its switch, the program over its time and days, **Edit** and
+**Delete**. **Skip next** skips one start,
 **No mowing today** skips today, **Run next planned now** starts the next program at once (tap
 twice). A skipped start is crossed out in the timeline, and the same button undoes it. The calendar
 form, recurrence and the catch-up rules are in [Programs and calendar](programs.md#the-calendar).
@@ -56,7 +68,8 @@ form, recurrence and the catch-up rules are in [Programs and calendar](programs.
 
 ![Weather with numbered markers](img/shot-autonomy-rain.webp "1 the radar now and the next 30 minutes · 2 what rain does")
 
-One choice decides what rain does:
+One choice decides what rain does; the head of the section says it (*Rain stops all*, *Rain stops
+calendar*, *Rain ignored*) next to the radar now:
 
 | Choice | What rain does |
 |---|---|
@@ -76,9 +89,11 @@ applies at once and the row says *Saved*. A refused value says why and the old o
 
 ### Sleep
 
-The sentence under **Sleep** is the plan: when it goes to sleep, for how long, when it wakes, or what
-holds it awake. The same sentence stands at the top of the page, and **Cancel** is above the map, in
-the right panel and at the top while a sleep is counting down. With the robot's timing the power goes
+The sentence under **Sleep** is the plan: when it goes to sleep, for how long, when it wakes. Right
+under it **Why isn't it sleeping?** lists what keeps the robot awake; someone logged in on a terminal
+or an open web UI is blue, it keeps the robot awake on purpose. The top of the page says the same
+short (who holds it by name), and **Cancel** is above the map, in the right panel and at the top while
+a sleep is counting down. With the robot's timing the power goes
 3 minutes after the start and the robot wakes at the stated time; the time *off* is shorter than
 the time you ask for by those 3 minutes.
 
@@ -137,13 +152,13 @@ Who decides when to mow: the **calendar** (your slots, as always) or the **agent
 panel, or tell the agent in the chat: "mow as you see fit" / "switch to the agent" and "back to the
 calendar". After an update it is the calendar, nothing changes until you switch.
 
-In the panel it is the section **Who decides**, right under the top card:
+In the panel it is the section **Who decides**, under Plan:
 
-![Who decides with numbered markers](img/shot-autonomy-mode.webp "1 Calendar | Agent · 2 waits for the dock permission, Dock permit › · 3 the advice in force · 4 the last decision · 5 rules and hard limits")
+![Who decides with numbered markers](img/shot-autonomy-mode.webp "1 Calendar | Agent · 2 waits for the dock permission, Dock permit › · 3 the advice in force · 4 rules and hard limits")
 
 - **Calendar | Agent**: the highlighted one is what the robot reports. A tap switches, the line under it
   says *Switched to: Agent* once the robot confirms (or why not). Opening the page never switches
-  anything. The head of the section shows the mode and what it does now: *Slots*, *Calendar stands in*,
+  anything. The head of the section shows the mode and what it does now: *By the plan*, *Plan + limits*, *Calendar stands in*,
   *Waits for advice*, *Limit: rain*, *Waits for dock*…
 - **Waits for dock** (amber box): the agent wants to mow and the dock is locked. It names the program
   and until when the advice holds; **Dock permit ›** opens the dock permit tile in the Agent panel,
@@ -157,7 +172,8 @@ In the panel it is the section **Who decides**, right under the top card:
 - **Advice in force**: what the agent advised (mow program X between …, or no mowing until …), its
   state (waiting, carried out, missed, expired, dropped), confidence and reason in the agent's own words.
 - **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
-  in the History. In the Calendar mode it shows only once there is a decision.
+  in the History. In the Calendar mode it shows only once there is a decision. While the amber box says
+  that the advice waits for your dock permission, the same decision is not repeated under it.
 - **Rules and hard limits** fold away: the head says *in force* or *not in force now*; they open by
   themselves while in force and stay folded while not, until you open or fold them yourself (remembered). Inside, first one line with the [allowed mowing time](programs.md#allowed-mowing-time),
   e.g. *Allowed mowing time 07:00–21:00 (on) — applies to the agent too* or *off*. It is the same time

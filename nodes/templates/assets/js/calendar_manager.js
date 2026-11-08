@@ -234,6 +234,15 @@ class CalendarManager {
         const inputs = this._windowInputs();
         const save = document.getElementById('btn_window_save');
         if (!chk || !inputs || !save) return;
+        // T21 A2: the switch sits in a box of its own (40 px on touch) that toggles it, like
+        // every other switch of the panel; the "Limit" label keeps its own text (data-i18n)
+        if (!chk.parentNode.classList.contains('vt-switch-hit')) {
+            const hit = document.createElement('label');
+            hit.className = 'vt-switch-hit';
+            hit.htmlFor = chk.id;
+            chk.parentNode.insertBefore(hit, chk);
+            hit.appendChild(chk);
+        }
         chk.addEventListener('change', () => {
             const set = this._report && this._report.window_setting;
             const want = chk.checked;
@@ -378,6 +387,29 @@ class CalendarManager {
         return ['active', 'ok'];
     }
 
+    /* T21 A2: the state tag of the card and the right panel. _codeLook stays as it is
+       (the answer "could it start now" reads it); here "Scheduled" only for a start that
+       is planned, the codes that fall through it get their own word, an unknown one a
+       neutral word (its sentence and the raw line say the rest) */
+    _stateLook(rep) {
+        const code = rep && rep.code;
+        const look = this._codeLook(code);
+        if (look[0] !== 'active') return look;
+        // the master says a countdown in the sentence, the code stays (waiting_slot …)
+        const said = (rep.sentence && rep.sentence.code) || '';
+        if (said === 'sleep_countdown') return ['falling', 'warn'];
+        if (said === 'hw_reset_countdown') return ['hw_reset', 'warn'];
+        if (code === 'waiting_slot') return (rep.next && rep.enabled !== false) ? look : ['none', 'off'];
+        if (code === 'no_schedule') return ['none', 'off'];
+        if (code === 'outside_window') return ['outside', 'info'];
+        if (code === 'no_mow') return ['no_mow', 'off'];
+        if (code === 'intent_wait') return ['waiting', 'info'];
+        if (code === 'agent_advice_done' || code === 'intent_timeout') return ['not_starting', 'off'];
+        if (code === 'sleep_countdown') return ['falling', 'warn'];
+        if (code === 'hw_reset_countdown') return ['hw_reset', 'warn'];
+        return ['unknown', 'off'];
+    }
+
     _sentence(rep) {
         const said = rep.sentence || {};   // machine form of the top sentence
         const d = Object.assign({}, rep.detail || {}, said.vars || {});
@@ -422,7 +454,7 @@ class CalendarManager {
         const rep = this._report;
         let label = '—', tone = 'off', sentence = st;
         if (rep) {
-            const look = this._codeLook(rep.code);
+            const look = this._stateLook(rep);
             label = calT('calmgr.state.' + look[0]);
             tone = look[1];
             sentence = this._sentence(rep);
@@ -430,9 +462,8 @@ class CalendarManager {
             label = calT('calmgr.state.auto_off');
             sentence = calT('calmgr.code.off');
         } else if (st) {
-            // an older master_controller without the report
-            label = calT('calmgr.state.active');
-            tone = 'ok';
+            // an older master_controller without the report: its line says what it does
+            label = calT('calmgr.state.unknown');
         }
         el.textContent = label;
         el.dataset.state = tone;
@@ -514,15 +545,18 @@ class CalendarManager {
             const missing = known && !(ev.site ? knownAt.has(ev.site + '|||' + ev.program_name)
                                                : known.has(ev.program_name));
             const outside = !!(this._report && (this._report.outside_window || []).includes(ev.id));
+            // T21 A2: switch (the whole box toggles, 40 px on touch) · name over time + days · Edit, Delete
+            const name = this._escHtml(ev.program_name);
+            const tip = this._escHtml(calT('calmgr.a2.toggle', {program: ev.program_name})).replace(/"/g, '&quot;');
             html += `<div class="vt-cal-row${enabled ? '' : ' is-off'}${(missing || outside) ? ' has-miss' : ''}">`;
-            html += `<div class="form-check form-switch"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" ${enabled ? 'checked' : ''}></div>`;
-            html += `<span class="vt-cal-name">${this._escHtml(ev.program_name)}${ev.site ? ' (' + this._escHtml(ev.site) + ')' : ''}</span>`;
+            html += `<label class="form-check form-switch vt-cal-sw" title="${tip}"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" aria-label="${tip}" ${enabled ? 'checked' : ''}></label>`;
+            html += `<div class="vt-cal-main"><span class="vt-cal-name">${name}${ev.site ? ' <small class="vt-cal-site">' + this._escHtml(ev.site) + '</small>' : ''}</span>`;
+            html += `<span class="vt-cal-when"><span class="vt-cal-time">${timeStr}</span><span class="vt-cal-rec">${recLabel}</span>`;
             if (missing) html += `<span class="vt-cal-miss" title="${calT('calmgr.missing_tip')}">${calT('calmgr.missing')}</span>`;
             if (outside) html += `<span class="vt-cal-miss" title="${calT('calmgr.outside_tip', this._report.window || {})}">${calT('calmgr.outside')}</span>`;
-            html += `<span class="vt-cal-time">${timeStr}</span>`;
-            html += `<span class="vt-cal-rec">${recLabel}</span>`;
-            html += `<button class="btn btn-sm btn-outline-info cal-edit" data-id="${ev.id}">${calT('common.edit')}</button>`;
-            html += `<button class="btn btn-sm btn-outline-danger cal-del" data-id="${ev.id}">${calT('calmgr.del')}</button>`;
+            html += `</span></div>`;
+            html += `<button class="btn btn-sm btn-outline-info cal-edit" type="button" data-id="${ev.id}">${calT('common.edit')}</button>`;
+            html += `<button class="btn btn-sm btn-outline-danger cal-del" type="button" data-id="${ev.id}">${calT('calmgr.del')}</button>`;
             html += `</div>`;
         });
         this.containerEl.innerHTML = html;

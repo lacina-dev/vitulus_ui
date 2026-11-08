@@ -181,7 +181,13 @@ Událost se spustí do 15 minut po svém čase, jednou za den.
 
 | Štítek | Význam |
 |---|---|
-| **Aktivní** | plánovač bude spouštět programy (nečinný, čeká na další událost) |
+| **Naplánováno** | plánovač bude spouštět programy (nečinný, čeká na další událost) |
+| **Nic v plánu** | automatika je zapnutá, ale žádný start není naplánovaný (žádná událost nebo všechny vypnuté) |
+| **Mimo okno** | čeká, až se otevře [povolený čas sekání](#povolený-čas-sekání) |
+| **Nesekat** | je zapnuté *Dnes nesekat* (nebo nesekat do určitého dne) |
+| **Nevyjíždí** | běh agenta skončil nebo se zrušil; čeká na další radu nebo na kalendář |
+| **Usíná** / **Tvrdý restart** | odpočítává se spánek nebo tvrdý restart, se **Zrušit** |
+| **Jiný stav** | stav, který tahle stránka ještě nezná; řádek pod ním a tooltip řeknou, co to je |
 | **Čeká** | nedokončený program na něco čeká: nabití, sucho, další pokus; řádek pod štítkem říká na co a co přijde potom |
 | **Obsazeno** | robota používá někdo jiný (běžící program, dokování, ruční jízda, agent) nebo ho drží hlídač GPS; kalendář počká a dožene to a robot neusne |
 | **Chce Reset** | mise byla zastavená nebo skončila chybou; nic nepojede, dokud nestiskneš **Reset** |

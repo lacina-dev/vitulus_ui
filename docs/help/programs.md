@@ -180,7 +180,13 @@ The tag in the top card of Autonomy says what the scheduler does now:
 
 | Tag | Meaning |
 |---|---|
-| **Active** | the scheduler will start programs (idle, waiting for the next event) |
+| **Scheduled** | the scheduler will start programs (idle, waiting for the next event) |
+| **Nothing planned** | automation is on, but no start is planned (no event, or all switched off) |
+| **Outside window** | it waits for the [allowed mowing time](#allowed-mowing-time) to open |
+| **No mowing** | *No mowing today* (or until a day) is on |
+| **Not starting** | the agent's run is done or dropped; it waits for the next advice or the calendar |
+| **Falling asleep** / **Hardware reset** | a sleep or a hardware reset counts down, with **Cancel** |
+| **Other state** | a state this page does not know yet; the line under it and the tooltip say what it is |
 | **Waiting** | an unfinished program waits for something it can name: charge, dry weather, a retry; the line under the tag says what, and what comes after it |
 | **Busy** | someone else uses the robot (a running program, docking, a person driving, the agent) or the GPS watchdog holds it; the calendar waits and catches up, and the robot does not go to sleep |
 | **Needs Reset** | the mission was stopped or ended with an error; nothing runs until **Reset** |

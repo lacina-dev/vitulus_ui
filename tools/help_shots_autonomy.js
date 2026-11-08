@@ -1,5 +1,5 @@
 /* help_shots_autonomy.js — init script for tools/help_shots.py: the Autonomy pictures
- * (shot-autonomy, shot-autonomy-mode) from invented, neutral data, not from a robot.
+ * (shot-autonomy, shot-autonomy-mode, shot-autonomy-plan, shot-calendar) from invented, neutral data, not from a robot.
  *
  *   python3 -m http.server -d nodes/templates 7862 &      # or a dev webnode (docs/help/README.md)
  *   tools/help_shots.py --url http://127.0.0.1:7862 --init-script tools/help_shots_autonomy.js \
@@ -17,11 +17,13 @@
       + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':00';
   const now = new Date(); now.setSeconds(0, 0);
   const at = (min) => iso(new Date(now.getTime() + min * 60000));
+  const dow = (n) => { const d = new Date(now); d.setDate(d.getDate() + n); return (d.getDay() + 6) % 7; };   // Monday = 0
+  const day = (n, h, m) => { const d = new Date(now); d.setDate(d.getDate() + n); d.setHours(h, m, 0, 0); return iso(d); };
   const PROG = 'Front lawn';
   const chk = (key, state, code, vars) => ({ key, state, code, vars: vars || {} });
   const report = {
     enabled: true, held: false, state: 'IDLE', code: 'waiting_dock', detail: { program: PROG }, status: 'Idle',
-    battery: 100, next: { program: PROG, at: at(60 * 24) }, pending: [], issues: [], outside_window: [], window: null,
+    battery: 100, next: { program: PROG, at: day(1, 9, 0) }, pending: [], issues: [], outside_window: [], window: { start: '07:00', end: '21:00' },
     window_setting: { enabled: true, start: '07:00', end: '21:00', stored: true, min_left_min: 30, error: null },
     limits: { resumes: 12, critical: 3 }, weather: null, run: null,
     sentence: { code: 'waiting_dock', vars: { program: PROG } },
@@ -57,7 +59,10 @@
   const latched = {
     '/scheduler/report': report, '/scheduler/settings': settings, '/scheduler/mode': mode,
     '/scheduler/journal': { entries: [] },
-    '/scheduler/calendar': [{ id: 'ev1', program_name: PROG, site: '', enabled: true, recurrence: 'weekly', start_time: '09:00', days_of_week: [1, 4] }]
+    // T21 A2: the plan's timeline: today a sleep and the advice's run, then a long sleep, the next start in 3 days
+    '/scheduler/timeline': { sleeps: [{ from: at(30), to: day(1, 8, 48), reason: 'next_slot' }, { from: day(1, 12, 0), to: day(4, 8, 48), reason: 'next_slot' }],
+                             starts: [{ program: PROG, state: 'planned', t: day(1, 9, 0) }, { program: PROG, state: 'planned', t: day(4, 9, 0) }] },
+    '/scheduler/calendar': [{ id: 'ev1', program_name: PROG, site: '', enabled: true, recurrence: 'weekly', start_time: '09:00', days_of_week: [dow(1), dow(4)].sort() }]
   };
   const bools = { '/scheduler/enabled': { data: true }, '/scheduler/inhibit_status': { data: false } };   // std_msgs/Bool
   const PARAMS = { sleep_wait_before_standby_s: 180, sleep_min_off_s: 120, sleep_min_s: 900, sleep_timer_drift: 0.005,

@@ -51,7 +51,10 @@
                        temp_spike_wait_min: 1, error_retry_max: 1, resume_max: 1, run_max_age_h: 1,
                        off_dock_wait_min: 1 };
     var SECTIONS = ['mode', 'now', 'plan', 'rain', 'battery', 'sleep', 'recovery', 'history', 'advanced'];
-    var OPEN_DEFAULT = { mode: 1, now: 1, plan: 1 };
+    var OPEN_DEFAULT = { now: 1, plan: 1 };
+    /* T21 A2: Who decides opens by itself while the agent decides and stays folded for the
+       calendar (the top card says "Calendar decides"), until the owner opens or folds it */
+    var FOLLOW_MODE = 'mode';
     /* who decides (AUTONOMY.md §6); the agent group's rows in this order, the schema comes sorted */
     var MODES = ['calendar', 'agent'];
     var AGENT_ORDER = ['agent_fallback_calendar', 'limits_in_calendar',
@@ -760,9 +763,13 @@
         clear(box);
         if (!mv) { return; }
         var d = mv.last_decision;
-        /* T21 A1: the calendar decides by its slots; "no decision yet" there says nothing */
-        box.hidden = !d && mv.mode !== 'agent';
-        if (box.hidden) { return; }
+        /* T21 A1: the calendar decides by its slots; "no decision yet" there says nothing.
+           T21 A2: "waits for your dock permission" is said by the box above (with its way to
+           the permit); the same decision is not said a second time under it */
+        var attn = $('auto_mode_attn');
+        var dockSaid = !!(d && attn && !attn.hidden && d.kind === 'advice' && /^dock:/.test(String((d.vars || {}).why || '')));
+        box.hidden = (!d && mv.mode !== 'agent') || dockSaid;
+        if (box.hidden && !dockSaid) { return; }
         el('h6', 'vt-auto-h', box, t('auto.mode.last.h'));
         if (!d) { el('p', 'vt-auto-quiet', box, t('auto.mode.last.none')); return; }
         var v = d.vars || {};
@@ -787,6 +794,11 @@
         if (!box) { return; }
         paintWindowLine();
         var mv = modeView(), ask = S.modeAsk;
+        var sec = $('auto_sec_mode');
+        if (sec && mv && S.modeAuto && sec.open !== (mv.mode === 'agent')) {
+            S.modeProg = mv.mode === 'agent';
+            sec.open = S.modeProg;
+        }
         paintAnsMode(mv);
         paintLimitsTok(mv);
         box.querySelectorAll('.vt-auto-choice').forEach(function (b) {
@@ -1112,6 +1124,8 @@
             var tx = el('span', 'vt-auto-check-t', r, checkText(c));
             if (c.key === 'gnss' && c.code === 'not_checked' && !quietOk) { S.gnssLive = { el: tx, c: c }; }
             var fix = FIX[c.key];
+            /* T21 A2: the sleep list stands in Sleep now: no › to the section it is in */
+            if (quietOk && fix === 'sec:sleep' && box.closest && box.closest('#auto_sec_sleep')) { fix = null; }
             if (fix && c.state !== 'ok' && (c.state !== 'off' || top(c))) {
                 var b = el('button', 'vt-auto-go', r);
                 b.type = 'button';
@@ -1209,18 +1223,18 @@
         var next = rep && rep.next;
         var skip = val('skip_next'), noMow = val('no_mow_until');
         var toks = [];
+        var w = rep && rep.window_setting;
+        /* T21 A2: the next start is said once, in the top card right above; the head says
+           the allowed time instead (when it limits), or why nothing comes */
         if (rep && !rep.enabled) { toks.push({ text: t('auto.tok.auto_off') }); }
-        else if (next) { toks.push({ text: when(next.at), state: 'ok' }); }
-        else { toks.push({ text: t('auto.tok.none') }); }
+        else if (!next) { toks.push({ text: t('auto.tok.none') }); }
+        else if (w && w.enabled) { toks.push({ text: t('auto.a2.plan.window', { start: w.start, end: w.end }) }); }
         if (skip) { toks.push({ text: t('auto.tok.skip'), state: 'warn' }); }
         if (noMow && noMow >= today()) { toks.push({ text: t('auto.tok.no_mow'), state: 'warn' }); }
         head('plan', (skip || noMow >= today()) ? 'warn' : (next && rep.enabled ? 'ok' : 'off'), toks);
-        var w = rep && rep.window_setting;
-        nums('plan', [
-            { k: t('auto.num.next'), v: next ? (next.program + ' · ' + when(next.at)) : '—' },
-            { k: t('auto.num.window'), v: w ? (w.enabled ? w.start + '–' + w.end : t('common.off')) : '—' },
-            { k: t('auto.num.catchup'), v: withUnit(num('catchup_max_h'), 'h') }
-        ]);
+        /* T21 A2: no number tiles here: next start = top card, allowed time = its card,
+           catch-up = its setting row below */
+        nums('plan', []);
         paintPlanActions();
         paintTimeline();
         paintUsed();
@@ -1328,16 +1342,63 @@
         box.style.display = '';
         var starts = tl.starts || [], sleeps = tl.sleeps || [];
         var base = dayStart(new Date());
-        var w = S.report.window;
+        var w = S.report && S.report.window;
         var frac = function (hm) { var p = hm.split(':'); return (Number(p[0]) * 60 + Number(p[1])) / 1440; };
+        /* T21 A2: only the days something happens on get a track (a start, a sleep that
+           begins or ends); the days asleep all day or with nothing fold into one line each
+           run; an hour scale on top; the sleep stands out; now marked on today */
+        var days = [];
         for (var i = 0; i < 7; i++) {
-            var from = new Date(base); from.setDate(from.getDate() + i);
+            var f0 = new Date(base); f0.setDate(f0.getDate() + i);
+            var t1 = new Date(f0.getTime()); t1.setDate(t1.getDate() + 1);
+            var a0 = f0.getTime(), a1 = t1.getTime();
+            var hasStart = starts.some(function (st) { var d = parseIso(st.at || st.t); return d && d.getTime() >= a0 && d.getTime() < a1; });
+            var whole = false, part = false;
+            sleeps.forEach(function (s) {
+                var f = parseIso(s.from), e = parseIso(s.to);
+                if (!f || !e || Math.min(e.getTime(), a1) <= Math.max(f.getTime(), a0)) { return; }
+                if (f.getTime() <= a0 && e.getTime() >= a1) { whole = true; } else { part = true; }
+            });
+            days.push({ from: f0, kind: hasStart || part ? 'event' : (whole ? 'sleep' : 'empty') });
+        }
+        var shown = days.some(function (d) { return d.kind === 'event'; });
+        if (shown) {
+            var scale = el('div', 'vt-auto-tl-row vt-auto-tl-scale', box);
+            el('span', 'vt-auto-tl-day', scale);
+            var ruler = el('div', 'vt-auto-tl-ruler', scale);
+            [0, 6, 12, 18, 24].forEach(function (h) {
+                var m = el('span', 'vt-auto-tl-hour', ruler, String(h));
+                m.style.left = (h / 24 * 100) + '%';
+                m.dataset.h = h;
+            });
+        }
+        for (var g = 0; g < days.length; g++) {
+            if (days[g].kind !== 'event') {
+                var k = g;
+                while (k + 1 < days.length && days[k + 1].kind === days[g].kind) { k++; }
+                var gap = el('div', 'vt-auto-tl-gap', box);
+                gap.dataset.kind = days[g].kind;
+                el('span', 'vt-auto-tl-sw', gap);
+                var span_ = k > g ? t('auto.a2.tl.range', { from: dayWord(days[g].from), to: dayWord(days[k].from) }) : dayWord(days[g].from);
+                el('span', null, gap, t(days[g].kind === 'sleep' ? 'auto.a2.tl.asleep' : 'auto.a2.tl.nothing', { days: span_ }));
+                g = k;
+                continue;
+            }
+            var from = days[g].from;
             var d0 = from.getTime();
             var to = new Date(d0); to.setDate(to.getDate() + 1);
             var d1 = to.getTime();
             var row = el('div', 'vt-auto-tl-row', box);
             el('span', 'vt-auto-tl-day', row, dayWord(from));
             var track = el('div', 'vt-auto-tl-track', row);
+            if (d0 === base) {
+                var nowAt = nowMs();
+                if (nowAt >= d0 && nowAt < d1) {
+                    var nm = el('span', 'vt-auto-tl-now', track);
+                    nm.style.left = ((nowAt - d0) / 864000) + '%';
+                    nm.title = t('auto.a2.tl.now');
+                }
+            }
             if (w) {
                 var a = frac(w.start), b = frac(w.end);
                 var band = function (x, y) {
@@ -1383,6 +1444,11 @@
         if (m.rain_alert) { return { state: 'warn', key: 'auto.radar.expected' }; }
         return { state: 'ok', key: 'auto.radar.dry' };
     }
+    /* T21 A2: no radar data is not "Nothing planned" */
+    function radarTok(r) {
+        var k = r.key.split('.').pop();
+        return k === 'none' ? t('auto.a2.tok.radar_none') : t('auto.tok.' + k);
+    }
     function paintRain() {
         var r = radar(), box = $('auto_radar');
         if (box) {
@@ -1400,8 +1466,9 @@
             }
         }
         var mode = val('rain_mode');
-        var toks = [{ text: t('auto.tok.' + r.key.split('.').pop()), state: r.state }];
-        if (mode) { toks.unshift({ text: t('auto.rain.mode.' + mode) }); }
+        var toks = [{ text: radarTok(r), state: r.state }];
+        /* T21 A2: the head says what rain does ("Always" alone said nothing) */
+        if (mode) { toks.unshift({ text: first(['auto.a2.rain.tok.' + mode, 'auto.rain.mode.' + mode]) }); }
         head('rain', mode === 'ignore' ? 'warn' : r.state, toks);
         nums('rain', [
             { k: t('auto.num.after_rain'), v: withUnit(num('rain_after_min'), 'min') },
@@ -1656,6 +1723,46 @@
         box.hidden = false;
     }
     /* Every place that says the plan, and the clock that keeps them true. */
+    /* T21 A2: the top card says the plan short (what holds it by name, the whole
+       sentence in the tooltip and in Sleep); Sleep says it whole, and what holds it
+       in its list right under it instead of a second time in the sentence */
+    function heroSleep(p, tx) {
+        if (isHwReset(p) || live(p)) { return tx; }
+        var h = p.holds, v = {};
+        if (p.off_s !== undefined && p.off_s !== null) { v.dur = fmtDur(p.off_s); }
+        if (h && h.cancelled_until) { return t('auto.a2.hero.cancelled', { until: clock(h.cancelled_until) }); }
+        if (h && h.failed) { return tx; }
+        if (p.kind === 'blocked' && h && h.open && h.open.length) {
+            v.who = h.open.map(function (c) { return t('auto.check.key.' + c.key); }).join(', ');
+            return t('auto.a2.hero.blocked', v);
+        }
+        if (p.kind === 'none' && p.why === 'sleep_off') { return t('auto.a2.hero.off'); }
+        if (p.kind === 'none' && p.why === 'too_short') { return t('auto.a2.hero.too_short'); }
+        return tx;
+    }
+    /* the short line keeps its way to Sleep, where the whole of it is */
+    function heroSleepText(e) {
+        var s = e.querySelector('.vt-auto-sleepline-t');
+        if (s) { return s; }
+        clear(e);
+        /* one button, the whole line: the › stays on the line of the last word */
+        var b = el('button', 'vt-auto-sleepline-b', e);
+        b.type = 'button'; b.id = 'btn_auto_sleep_more';
+        s = el('span', 'vt-auto-sleepline-t', b);
+        el('span', 'vt-auto-sleepline-go', b, '\u00a0\u203a').setAttribute('aria-hidden', 'true');
+        b.addEventListener('click', function () { openSec('sleep', true); });
+        return s;
+    }
+    function sleepSecLine(p, tx) {
+        var h = p.holds;
+        if (p.kind === 'blocked' && !(h && (h.cancelled_until || h.failed)) && $('auto_sleep_checks')) {
+            var v = {};
+            if (p.wake) { v.wake = wakeAt(p.wake); }
+            if (p.off_s !== undefined && p.off_s !== null) { v.dur = fmtDur(p.off_s); }
+            return t('auto.a2.sp.blocked', v);
+        }
+        return tx;
+    }
     function paintPlanLine() {
         var p = planNow(), tx = planLine(p);
         ['auto_sleep_plan', 'auto_sleep_plan2'].forEach(function (id) {
@@ -1663,7 +1770,12 @@
             if (!e) { return; }
             var show = !!tx && !(id === 'auto_sleep_plan' && live(p));
             e.hidden = !show;
-            if (show && e.textContent !== tx) { e.textContent = tx; }
+            var said = show ? (id === 'auto_sleep_plan' ? heroSleep(p, tx) : sleepSecLine(p, tx)) : '';
+            var into = id === 'auto_sleep_plan' ? heroSleepText(e) : e;
+            if (show && into.textContent !== said) { into.textContent = said; }
+            var tip = show && said !== tx ? tx : '';
+            if (id === 'auto_sleep_plan') { tip = show ? (tip ? tip + ' ' : '') + t('auto.fix.sleep') : ''; }
+            if (e.title !== tip) { e.title = tip; }
             e.dataset.state = (p.kind === 'soon' && p.ignored) ? 'warn' : '';
         });
         if (RP && RP.plan) {
@@ -2196,6 +2308,25 @@
     }
 
     /* ------------------------------------------------- panel, sections */
+    /* T21 A2 (director 2026-11-08): the order on every screen is Now → Plan → Who decides,
+       and what keeps it awake is said in Sleep (the top card names it short). Moved once
+       here, index.html stays as it is (ids and texts unchanged). */
+    function arrange() {
+        var mode = $('auto_sec_mode'), plan = $('auto_sec_plan');
+        if (mode && plan && plan.nextElementSibling !== mode) { plan.parentNode.insertBefore(mode, plan.nextSibling); }
+        var list = $('auto_sleep_checks'), at = $('auto_sleep_plan2');
+        if (list && at && !list.dataset.moved) {
+            var h = list.previousElementSibling;
+            list.dataset.moved = '1';
+            if (h && h.tagName === 'H6') {
+                h.id = 'auto_sleep_checks_h';
+                at.parentNode.insertBefore(h, at.nextSibling);
+                h.parentNode.insertBefore(list, h.nextSibling);
+            } else {
+                at.parentNode.insertBefore(list, at.nextSibling);
+            }
+        }
+    }
     function secKey(id) { return 'vitulus_auto_sec_' + id; }
     function setupSections() {
         SECTIONS.forEach(function (id) {
@@ -2204,7 +2335,12 @@
             var v = null;
             try { v = localStorage.getItem(secKey(id)); } catch (e) {}
             s.open = v === null ? !!OPEN_DEFAULT[id] : v === '1';
+            if (id === FOLLOW_MODE) { S.modeAuto = v === null; }
             s.addEventListener('toggle', function () {
+                if (id === FOLLOW_MODE) {
+                    if (S.modeProg === s.open) { S.modeProg = null; return; }   // our own open/fold
+                    S.modeAuto = false;
+                }
                 try { localStorage.setItem(secKey(id), s.open ? '1' : '0'); } catch (e) {}
             });
         });
@@ -2296,7 +2432,8 @@
         var rep = S.report;
         if (!RP || !rep) { return; }
         var cm = window.calendarManager;
-        var look = cm && cm._codeLook ? cm._codeLook(rep.code) : ['active', 'ok'];
+        /* T21 A2: the same tag as the card (calendarManager._stateLook) */
+        var look = cm && cm._stateLook ? cm._stateLook(rep) : (cm && cm._codeLook ? cm._codeLook(rep.code) : ['unknown', 'off']);
         var issues = (rep.issues || []).filter(function (i) { return i.level && i.level !== 'info'; });
         var tone = issues.length ? (issues.some(function (i) { return /^err/.test(i.level); }) ? 'err' : 'warn')
             : (look[1] === 'ok' || look[1] === 'off' ? 'off' : look[1]);
@@ -2320,7 +2457,7 @@
         if (RP.sec.dataset.tone !== tone) { RP.sec.dataset.tone = tone; }
         RP.next.textContent = rep.next ? when(rep.next.at) : '—';
         RP.batt.textContent = rep.battery !== null && rep.battery !== undefined ? Math.round(rep.battery) + ' %' : '—';
-        RP.rain.textContent = t('auto.tok.' + radar().key.split('.').pop());
+        RP.rain.textContent = radarTok(radar());
         var dot = document.getElementById('rp_sum_dot_auto');
         if (dot) {
             dot.dataset.state = tone;
@@ -2355,6 +2492,7 @@
     }
     function init(ros) {
         S.ros = ros;
+        arrange();
         setupSections();
         try { S.checksAll = localStorage.getItem('vitulus_auto_checks_all') === '1'; } catch (e) { S.checksAll = false; }
         buildAnswer(); buildLimitsFold();
@@ -2405,7 +2543,7 @@
         setTimeout(fromHash, 800);
         if (window.VTI18n) {
             VTI18n.onChange(function () {
-                S.shape = ''; ['auto_mode_choice', 'auto_plan_actions', 'auto_journal_filter', 'auto_stay', 'auto_sleep_now', 'auto_hw', 'auto_hw2'].forEach(function (id) {
+                S.shape = ''; ['auto_mode_choice', 'auto_plan_actions', 'auto_journal_filter', 'auto_stay', 'auto_sleep_now', 'auto_hw', 'auto_hw2', 'auto_sleep_plan'].forEach(function (id) {
                     var b = $(id);
                     if (b) { clear(b); delete b.dataset.built; }
                 });

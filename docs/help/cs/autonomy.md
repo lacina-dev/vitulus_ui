@@ -20,10 +20,17 @@ ho drží, a kolik dalších; šedé, když jde o tvoji volbu nebo stav robota, 
 Zelené je jen tehdy, když robot hlásí, že čeká na další start, a start podle jeho pravidel nic nedrží:
 žádná podmínka neblokuje ani nečeká, automatika a programy jsou zapnuté, neplatí žádný tvrdý limit a rada,
 která chce vyjet, má povolený dok (kalendář v záskoku ho nepotřebuje). Každý jiný stav zelený není; jeho
-věta je v tooltipu. Klepnutí otevře tu sekci; nic se neodesílá. Pod ní má každá sekce hlavičku s barvou a krátkými štítky;
-po rozbalení jsou čísla a ovládání. Co rozbalíš, zůstane rozbalené.
+věta je v tooltipu. Klepnutí otevře tu sekci; nic se neodesílá. Další start říká jen tahle karta. Pod
+tlačítky jeden krátký řádek řekne spánek: *Usne na 6 h 27 min, až bude volno; drží ho: Přihlášení,
+Webové UI ›* — celá věta je v tooltipu a ve **Spánku**, kam tě klepnutí na řádek vezme.
 
-![Horní část Autonomie s očíslovanými značkami](../img/shot-autonomy.webp "1 štítek stavu · 2 co dělá teď, pod tím co dál · 3 Automatické sekání · 4 Pauza (Hold) · 5 kdo rozhoduje: kalendář nebo agent · 6 mohl by vyjet · 7 proč nespí")
+Pod kartou jsou sekce, na každé obrazovce v tomhle pořadí: **Teď**, **Plán**, **Kdo rozhoduje**, pak
+Počasí, Baterie, Spánek, Poruchy, Historie, Pokročilé. Každá má hlavičku s barvou a krátkými štítky; po
+rozbalení jsou čísla a ovládání. Co rozbalíš, zůstane rozbalené. Při první návštěvě jsou rozbalené Teď
+a Plán; Kdo rozhoduje zůstane sbalené, dokud rozhoduje kalendář (karta to říká), a samo se rozbalí,
+když rozhoduje agent — dokud ho sám nerozbalíš nebo nesbalíš.
+
+![Horní část Autonomie s očíslovanými značkami](../img/shot-autonomy.webp "1 štítek stavu · 2 co dělá teď, pod tím co dál · 3 kdo rozhoduje: kalendář nebo agent · 4 mohl by vyjet · 5 spánek krátce · 6 Automatické sekání · 7 Pauza (Hold)")
 
 ## Dva vypínače
 
@@ -39,15 +46,18 @@ vypnutá (automatika, žádné programy). Hlavička sekce říká totéž co hor
 v pořádku (zelené; *bez časového limitu* se počítá jako v pořádku) a ty, které se teď nekontrolují (šedé: GPS se kontroluje až při startu, řádek ukáže
 živý fix), se sbalí do jednoho řádku, *Start nic nedrží: v pořádku 10. Teď se nekontroluje: 2.*;
 **Ukázat vše** vypíše každou z nich, **Jen problémy** je zase sbalí (zapamatuje se).
-**Proč nespí?** ukáže jen to, co robota drží vzhůru; někdo přihlášený v terminálu nebo otevřené webové
-UI je modré, robota drží vzhůru záměrně. Šipka › u řádku vede tam, kde se to řeší.
+Šipka › u řádku vede tam, kde se to řeší. Co robota drží vzhůru, je ve **Spánku**.
 
 ## Plán
 
-![Plán s očíslovanými značkami](../img/shot-autonomy-plan.webp "1 dalších 7 dní: povolený čas (modře), starty (značky, čas pod nimi), očekávaný spánek (šedě) · 2 Přeskočit další · 3 Dnes nesekat · 4 Spustit další plánovaný teď")
+![Plán s očíslovanými značkami](../img/shot-autonomy-plan.webp "1 dalších 7 dní: hodiny 0–24, povolený čas (modře), starty (značky, čas pod nimi), očekávaný spánek (šrafovaně šedě), teď (bílá čárka) · 2 Přeskočit další · 3 Dnes nesekat · 4 Spustit další plánovaný teď")
 
-Tady je kalendář a [povolený čas sekání](programs.md#povolený-čas-sekání). Časová osa ukazuje
-7 dní dopředu: starty, povolený čas a očekávaný spánek. **Přeskočit další** přeskočí jeden start,
+Tady je kalendář a [povolený čas sekání](programs.md#povolený-čas-sekání); hlavička sekce ukazuje
+povolený čas, když omezuje (*Povoleno 07:00–21:00*). Časová osa ukazuje 7 dní dopředu se stupnicí hodin
+nahoře: den, kdy se něco děje (start, spánek, který začíná nebo končí), má svůj pruh s povoleným časem,
+starty a očekávaným spánkem (šrafovaně); dny, kdy celý den spí nebo se nic neděje, se sbalí do jednoho
+řádku, třeba *út 10. 11. – pá 13. 11.: spí celou dobu*. Každá položka kalendáře je jeden řádek: vypínač,
+program a pod ním čas a dny, **Upravit** a **Smazat**. **Přeskočit další** přeskočí jeden start,
 **Dnes nesekat** vynechá dnešek, **Spustit další plánovaný teď** spustí další program hned (klepni
 dvakrát). Přeskočený start je na ose přeškrtnutý a stejné tlačítko to vrátí. Formulář události,
 opakování a pravidla dohánění jsou v [Programy a kalendář](programs.md#kalendář).
@@ -56,7 +66,8 @@ opakování a pravidla dohánění jsou v [Programy a kalendář](programs.md#ka
 
 ![Počasí s očíslovanými značkami](../img/shot-autonomy-rain.webp "1 radar teď a dalších 30 minut · 2 co dělá déšť")
 
-Jedna volba rozhoduje, co dělá déšť:
+Jedna volba rozhoduje, co dělá déšť; hlavička sekce to řekne (*Déšť zastaví vše*, *Déšť zastaví
+kalendář*, *Déšť se ignoruje*) vedle radaru teď:
 
 | Volba | Co déšť udělá |
 |---|---|
@@ -75,9 +86,10 @@ platí hned a řádek napíše *Uloženo*. Odmítnutá hodnota řekne proč a z�
 
 ### Spánek
 
-Věta pod **Spánek** je plán: kdy usne, na jak dlouho, kdy se vzbudí, nebo co ho drží vzhůru. Stejná
-věta je nahoře na stránce a **Zrušit** je nad mapou, v pravém panelu i nahoře, dokud se spánek
-odpočítává. Podle časování robota se napájení vypne 3 minuty po začátku a robot se vzbudí v uvedený
+Věta pod **Spánek** je plán: kdy usne, na jak dlouho, kdy se vzbudí. Hned pod ní **Proč nespí?**
+vypíše, co robota drží vzhůru; někdo přihlášený v terminálu nebo otevřené webové UI je modré, robota
+drží vzhůru záměrně. Nahoře na stránce je totéž krátce (kdo ho drží, jménem) a **Zrušit** je nad mapou,
+v pravém panelu i nahoře, dokud se spánek odpočítává. Podle časování robota se napájení vypne 3 minuty po začátku a robot se vzbudí v uvedený
 čas; doba *vypnuto* je o ty 3 minuty kratší, než kolik zadáš.
 
 - **Usínat samočinně** je spánek, o kterém rozhoduje robot. **Uspat teď** funguje vždy.
@@ -132,13 +144,13 @@ Kdo rozhoduje, kdy sekat: **kalendář** (tvoje sloty, jako dosud), nebo **agent
 nebo agentovi v chatu: „sekej podle sebe" / „přepni na agenta" a „zpět na kalendář". Po aktualizaci je
 nastavený kalendář, nic se nemění, dokud nepřepneš.
 
-V panelu je to sekce **Kdo rozhoduje** hned pod horní kartou:
+V panelu je to sekce **Kdo rozhoduje** pod Plánem:
 
-![Kdo rozhoduje s očíslovanými značkami](../img/shot-autonomy-mode.webp "1 Kalendář | Agent · 2 čeká na povolení doku, Povolení doku › · 3 platná rada · 4 poslední rozhodnutí · 5 pravidla a tvrdé limity")
+![Kdo rozhoduje s očíslovanými značkami](../img/shot-autonomy-mode.webp "1 Kalendář | Agent · 2 čeká na povolení doku, Povolení doku › · 3 platná rada · 4 pravidla a tvrdé limity")
 
 - **Kalendář | Agent**: zvýrazněné je to, co hlásí robot. Klepnutím přepneš, řádek pod tím napíše
   *Přepnuto na: Agent*, až to robot potvrdí (nebo proč ne). Samotné otevření stránky nic nepřepne.
-  Hlavička sekce ukazuje režim a co se teď děje: *Sloty*, *Zastupuje kalendář*, *Čeká na radu*,
+  Hlavička sekce ukazuje režim a co se teď děje: *Podle plánu*, *Plán + limity*, *Zastupuje kalendář*, *Čeká na radu*,
   *Limit: déšť*, *Čeká na dok*…
 - **Čeká na dok** (oranžový rámeček): agent chce sekat a dok je zamčený. Napíše program a do kdy rada
   platí; **Povolení doku ›** otevře dlaždici povolení doku v panelu Agent, kde povolíš časové okno.
@@ -151,7 +163,8 @@ V panelu je to sekce **Kdo rozhoduje** hned pod horní kartou:
 - **Platná rada**: co agent poradil (posekat program X mezi …, nebo nesekat do …), stav (čeká,
   provedena, zmeškaná, prošlá, zrušená), jistota a důvod vlastními slovy agenta.
 - **Poslední rozhodnutí** (v režimu Kalendář jen když nějaké je): co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
-  v Historii.
+  v Historii. Dokud oranžový rámeček říká, že rada čeká na tvoje povolení doku, totéž rozhodnutí se
+  pod ním neopakuje.
 - **Pravidla a tvrdé limity** jdou sbalit: hlavička řekne *platí* nebo *teď neplatí*; když platí, samy
   se rozbalí, když neplatí, zůstanou sbalené — dokud je sám nerozbalíš nebo nesbalíš (zapamatuje se). Uvnitř nejdřív jeden řádek s [povoleným časem sekání](programs.md#povolený-čas-sekání),
   třeba *Povolený čas sekání 07:00–21:00 (zapnuto) — platí i pro agenta* nebo *vypnuto*. Je to tentýž
