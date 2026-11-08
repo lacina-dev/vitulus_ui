@@ -21,6 +21,7 @@ from werkzeug.serving import make_server
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from system_metrics import load_system_metrics
 import sensor_limits
+import terrain_mosaic
 
 # Robot-native geofence proposal writer (propose-only, NO signing). It lives in
 # vitulus_navi so this PUBLIC web node can serve /api/geofence/propose without
@@ -637,6 +638,36 @@ if __name__ == '__main__':
             except Exception as exc:
                 rospy.logwarn("[webnode] sensor_limits failed: %s", exc)
                 return jsonify({'ok': False, 'error': str(exc)}), 500
+
+        # GET  /api/terrain_mosaic          the terrain maps of mowed areas of the
+        #      served site (nodes/terrain_mosaic.py): georeference, files, stats,
+        #      newest first; read only (T30)
+        # GET  /api/terrain_mosaic/<file>   one of its PNG / JSON files, only a
+        #      plain file directly in the site's terrain_mosaic directory;
+        #      ETag + no-cache (a new mosaic shows on the next look)
+        @app.route('/api/terrain_mosaic', methods=['GET'])
+        def api_terrain_mosaic():
+            try:
+                site = _tile_offsets_active_map()
+                d = terrain_mosaic.mosaic_dir(site)
+                resp = jsonify({'ok': True, 'site': site, 'mosaics': terrain_mosaic.list_mosaics(d),
+                                'ts': int(time.time())})
+                resp.headers['Cache-Control'] = 'no-cache'
+                return resp
+            except Exception as exc:
+                rospy.logwarn("[webnode] terrain_mosaic failed: %s", exc)
+                return jsonify({'ok': False, 'error': str(exc), 'mosaics': []}), 500
+
+        @app.route('/api/terrain_mosaic/<name>', methods=['GET'])
+        def api_terrain_mosaic_file(name):
+            d = terrain_mosaic.mosaic_dir(_tile_offsets_active_map())
+            path = terrain_mosaic.safe_file(d, name)
+            if not path:
+                abort(404)
+            resp = send_file(path, conditional=True,
+                             mimetype='application/json' if name.endswith('.json') else 'image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
 
         @app.route('/api/ui_settings', methods=['GET'])
         def api_ui_settings_get():

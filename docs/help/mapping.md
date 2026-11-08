@@ -208,6 +208,18 @@ is shown (at most twice a second, a few kB each). Until the terrain node's detai
 so. The row says *live*, *waiting…*, *old data* (nothing new for a few seconds, drawn faded), *no map
 position* (the robot does not know where the odometry sits in the map: not drawn) or *no data* —
 then the terrain node does not run or the camera gives no picture.
+### Mowed area terrain
+
+**Mowed area terrain** (layers card under *Robot*, also a tick in the Map tab's layers row; off by
+default, remembered) shows the terrain of the whole area the robot mowed, put together afterwards
+from its mowing recordings in 5 cm cells — the same as the live window of the layer above, but for
+all of it at once. Three views: **Traversability** (green free, yellow → red harder, dark red not
+passable), **Reason** (the same colours as the live layer: step, too steep, obstacle, drop seen once,
+dock zone) and **Height** (blue lowest, brown highest; the legend says how many centimetres apart).
+It has its own opacity; the line under it names the map, how much of the area is known and what share
+is not passable. It is a still picture of the day it was made; *no map* means none was made for this
+site yet. The layer only reads the map from the robot (a few hundred kB once when shown).
+
 ### Scale bar
 
 In the bottom-left corner, just above the credits line, a small bar shows the scale: its length on

@@ -231,7 +231,7 @@
         var l = lang();
         return l + '|' + cat.bases.map(function (b) { return b.id + ':' + b.group + ':' + VTMapSources.label(b, l); }).join(',') +
             '|' + cat.overlays.map(function (o) { return o.id + ':' + o.layer_order + ':' + VTMapSources.label(o, l); }).join(',') +
-            '|' + (!!$('mapv3_chk_rain')) + '|' + (!!$('mapv3_chk_trav')) + '|' + (!!$('mapv3_align_etrs')) + '|' + fresh.join(',');
+            '|' + (!!$('mapv3_chk_rain')) + '|' + (!!$('mapv3_chk_trav')) + '|' + (!!$('mapv3_chk_tmosaic')) + '|' + (!!$('mapv3_align_etrs')) + '|' + fresh.join(',');
     }
 
     function newTag(id) {
@@ -379,6 +379,50 @@
         }
     }
 
+    // T30: the mowed-area terrain row — views with data, legend, what map, state
+    var mosLegSig = '';
+    function syncMosaic() {
+        var row = panel && panel.querySelector('[data-lyr-row="tmosaic"]'), chk = $('mapv3_chk_tmosaic');
+        if (!row || !chk) { return; }
+        var I = window.VTTerrainMosaic && VTTerrainMosaic.info ? VTTerrainMosaic.info()
+            : { state: '', mode: 'cost', views: { cost: true, reason: true, height: false }, mosaic: null };
+        row.querySelectorAll('[data-lyr-mmode]').forEach(function (b) {
+            var m = b.getAttribute('data-lyr-mmode'), off = I.mosaic ? !I.views[m] : false;
+            b.setAttribute('aria-pressed', String(I.mode === m));
+            if (b.disabled !== off) { b.disabled = off; }
+            b.title = off ? t(m === 'height' && I.mosaic && I.mosaic.files.elevation16 ? 'tmos.height_browser' : 'tmos.view_none') : '';
+        });
+        var rg = I.hRange, sig = I.mode + '|' + lang() + '|' + (rg ? rg.lo + '-' + rg.hi : '');
+        var leg = row.querySelector('[data-lyr-mleg]');
+        if (leg && (mosLegSig !== sig || !leg.firstChild)) { mosLegSig = sig; leg.innerHTML = mosaicLegendHtml(I.mode, rg); }
+        var inf = row.querySelector('[data-lyr-minfo]'), m = I.mosaic, txt = '';
+        if (chk.checked && m) {
+            var st = m.stats || {}, L = lang(), n = function (v, d) { var x = (+v).toFixed(d); return L === 'cs' ? x.replace('.', ',') : x; };
+            txt = t('tmos.info', { name: m.name, area: st.area_known_m2 != null ? n(st.area_known_m2, 0) : '—',
+                                   lethal: st.lethal_pct != null ? n(st.lethal_pct, 1) : '—' });
+        }
+        if (inf && inf.textContent !== txt) { inf.textContent = txt; }
+        if (inf) { inf.hidden = !txt; }
+        var ms = row.querySelector('[data-lyr-mstat]');
+        if (ms) {
+            var why = chk.checked && ['nomap', 'error'].indexOf(I.state) >= 0 ? t('tmos.why.' + I.state) : '';
+            if (ms.textContent !== why) { ms.textContent = why; }
+            ms.hidden = !why;
+        }
+    }
+    function mosaicLegendHtml(mode, rg) {
+        if (mode === 'reason') { return travLegendHtml('reason'); }
+        if (mode === 'height') {
+            var span = rg ? Math.max(1, Math.round((rg.hi - rg.lo) / 10)) : 0;     // mm -> cm
+            return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,rgb(30,136,229),rgb(245,245,220),rgb(121,85,72))"></span>' +
+                '<span class="vt-lyr-legend-l vt-tnum"><span>' + esc(t('tmos.leg.low')) + '</span><span>' + esc(t('tmos.leg.span', { cm: span })) +
+                '</span><span>' + esc(t('tmos.leg.high')) + '</span></span></div>';
+        }
+        return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,#4caf50 0%,#ffeb3b 45%,#f44336 85%,#7f0000 86%,#7f0000 100%)"></span>' +
+            '<span class="vt-lyr-legend-l"><span>' + esc(t('trav.leg.free')) + '</span><span>' + esc(t('trav.leg.hard')) + '</span><span>' +
+            esc(t('trav.leg.lethal')) + '</span></span></div>';
+    }
+
     // ---- T17 M8-5: is the background map loading? (mapping.js _baseLoad,
     // event 'vt:map-tiles'); 'none' = not one tile came (MapProxy / internet)
     function bgLoad() {
@@ -476,7 +520,7 @@
                     (o.timeline ? '<div class="vt-lyr-tl" data-lyr-tl="' + esc(o.id) + '"></div>' : '')));
             });
         };
-        if (cat.overlays.length || $('mapv3_chk_rain') || $('mapv3_chk_trav')) {
+        if (cat.overlays.length || $('mapv3_chk_rain') || $('mapv3_chk_trav') || $('mapv3_chk_tmosaic')) {
             h.push('<section class="vt-lyr-sec"><div class="vt-lyr-sec-h"><span>' + esc(t('maplyr.ov')) + '</span></div>');
             if (lines.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.lines')) + '</div>'); ovs(lines); }
             if (tones.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.terrain')) + '</div>'); ovs(tones); }
@@ -487,6 +531,18 @@
                     travModesHtml() + '<div data-lyr-tleg></div>' +
                     '<div class="vt-lyr-hint" data-lyr-tsrc hidden></div>' +
                     '<div class="vt-lyr-tstat" data-lyr-tstat role="status" hidden></div>'));
+            }
+            // T30: the terrain map of the whole mowed area (vt_terrain_mosaic.js)
+            if ($('mapv3_chk_tmosaic')) {
+                if (!$('mapv3_chk_trav')) { h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>'); }
+                h.push(ovRow('tmosaic', 'mapv3_chk_tmosaic', t('tmos.layer'), t('tmos.hint'),
+                    rangeHtml('mapv3_tmosaic_op', t('tmos.layer')) +
+                    '<div class="vt-lyr-tmodes" role="group" aria-label="' + esc(t('trav.view')) + '">' +
+                    ['cost', 'reason', 'height'].map(function (m) {
+                        return '<button type="button" class="vt-lyr-tmode" data-lyr-mmode="' + m + '" aria-pressed="false">' + esc(t('tmos.mode.' + m)) + '</button>';
+                    }).join('') + '</div><div data-lyr-mleg></div>' +
+                    '<div class="vt-lyr-hint vt-tnum" data-lyr-minfo hidden></div>' +
+                    '<div class="vt-lyr-tstat" data-lyr-mstat role="status" hidden></div>'));
             }
             if ($('mapv3_chk_rain') || weather.length) {
                 h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.weather')) + '</div>');
@@ -534,6 +590,7 @@
         tlAttach();
         paintThumbs();
         syncTrav();
+        syncMosaic();
         var cat = catalog(), meta = $('vt_lyr_meta');
         if (meta) {
             var src = on && cat && cat.byId[b];
@@ -572,6 +629,8 @@
         if (rainOn()) { n++; }
         var tv = $('mapv3_chk_trav');
         if (tv && tv.checked) { n++; }
+        var tm = $('mapv3_chk_tmosaic');
+        if (tm && tm.checked) { n++; }
         fab.classList.toggle('vt-lyr-active', bgOn() || n > 0);
         // M8-5: not one tile of the background came: the button says so
         var ld = bgLoad(), warn = !!(ld && ld.state === 'none');
@@ -595,6 +654,12 @@
         if (el.hasAttribute('data-lyr-help')) {
             close(false);
             if (window.VTHelp) { VTHelp.open('mapping', lang() === 'cs' ? 'tlačítko-vrstev-na-mapě' : 'the-layers-button-on-the-map'); }
+            return;
+        }
+        if (el.hasAttribute('data-lyr-mmode')) {
+            var mm = $('mapv3_tmosaic_mode'), mv = el.getAttribute('data-lyr-mmode');
+            if (mm && !el.disabled && mm.value !== mv) { mm.value = mv; fire(mm, 'change'); }
+            sync();
             return;
         }
         if (el.hasAttribute('data-lyr-tmode')) {
@@ -739,6 +804,15 @@
         document.head.appendChild(sc);
     }
     // T17 M10: measuring on the map, loaded the same way
+    // T30: the mowed-area terrain map, loaded the same way
+    function loadMosaic() {
+        if (window.VTTerrainMosaic || document.querySelector('script[data-vt-tmosaic]')) { return; }
+        var sc = document.createElement('script');
+        sc.src = '/assets/js/vt_terrain_mosaic.js';
+        sc.setAttribute('data-vt-tmosaic', '1');
+        document.head.appendChild(sc);
+    }
+
     function loadMeasure() {
         if (window.VTMapMeasure || document.querySelector('script[data-vt-measure]')) { return; }
         var sc = document.createElement('script');
@@ -752,6 +826,7 @@
         build();
         loadTerrain();
         loadMeasure();
+        loadMosaic();
         place();
         // the Map tab / editor changed something: mirror it (capture: the
         // events fired by mapping.js / mapedits.js do not bubble)

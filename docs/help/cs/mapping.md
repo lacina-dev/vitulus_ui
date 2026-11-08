@@ -203,6 +203,18 @@ Vrstva se řídí společným *Krytím map*. Data chodí jen se zapnutou vrstvou
 vrstva použije jeho obyčejnou costmapu — jen cenu, řádek to řekne. Řádek říká *živě*, *čekám…*,
 *stará data* (pár sekund nic nového, kreslí se vybledle), *bez polohy v mapě* (robot neví, kde je
 odometrie v mapě: nekreslí se) nebo *žádná data* — pak uzel terénu neběží nebo kamera nedává obraz.
+### Terén sečené plochy
+
+**Terén sečené plochy** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa;
+výchozí vypnuto, pamatuje se) ukazuje terén celé plochy, kterou robot posekal, složený dodatečně z jeho
+nahrávek sečení po 5 cm — totéž jako živé okno vrstvy výše, ale pro celou plochu najednou. Tři pohledy:
+**Průjezdnost** (zelená volno, žlutá → červená obtížnější, tmavě červená nesjízdné), **Důvod** (stejné
+barvy jako živá vrstva: schod, příliš prudké, překážka, sráz viděný jednou, zóna doku) a **Výška**
+(modrá nejníž, hnědá nejvýš; legenda řekne, o kolik centimetrů). Má vlastní krytí; řádek pod ní řekne
+název mapy, kolik plochy je známo a jaký podíl je nesjízdný. Je to pevný obraz ze dne, kdy vznikl;
+*žádná mapa* znamená, že pro toto stanoviště zatím žádná nevznikla. Vrstva mapu z robota jen čte (pár
+set kB jednou při zobrazení).
+
 ### Měřítko
 
 V levém dolním rohu, hned nad řádkem s autory map, ukazuje malý pruh měřítko: jeho délka na zemi je
