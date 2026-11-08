@@ -44,6 +44,9 @@ const S = V.state;
 check('state: off / wait / nodata / ok / stale', S(1000, 0, 0) === 'off' && S(2000, 1000, 0) === 'wait' && S(1000 + V.NODATA_MS + 1, 1000, 0) === 'nodata' &&
       S(5000, 1000, 4500) === 'ok' && S(5000 + V.STALE_MS + 1, 1000, 5000) === 'stale' && S(5000 + V.NODATA_MS + 1, 1000, 5000) === 'nodata');
 
+check('hotfix: a silent subscription is renewed (new topic id) after NODATA_MS, at most every RESUB_MS',
+      V.RESUB_MS >= 5000 && /function watchdog\(now\)/.test(src) && /S\.client\.rosTopic\.unsubscribe\(\);[^\n]*\n\s*try \{ S\.client\.subscribe\(\);/.test(src) &&
+      /now - \(S\.lastRx \|\| S\.onAt\) <= NODATA_MS \|\| now - S\.resubAt < RESUB_MS/.test(src));
 const relay = fs.readFileSync(path.join(ROOT, 'nodes', 'costmap_reframe'), 'utf8');
 check('costmap_reframe: ~in / ~out, defaults as before', /get_param\('~out', '\/local_costmap_map_framed'\)/.test(relay) &&
       /get_param\('~in', '\/move_base_flex\/local_costmap\/costmap_slow'\)/.test(relay));

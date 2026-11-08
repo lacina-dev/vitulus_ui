@@ -33,6 +33,7 @@
     var THROTTLE_MS = 500;
     var NODATA_MS = 6000;      // ticked this long without a grid: the node sends nothing
     var STALE_MS = 3000;       // no new grid this long: old data
+    var RESUB_MS = 10000;      // silent subscription: subscribe again at most this often
     var LS_ON = 'vitulus_layer_trav';
 
     // ---- pure ------------------------------------------------------------
@@ -57,7 +58,7 @@
     }
 
     var api = { costColor: costColor, state: state, TOPIC: TOPIC, THROTTLE_MS: THROTTLE_MS,
-                NODATA_MS: NODATA_MS, STALE_MS: STALE_MS };
+                NODATA_MS: NODATA_MS, STALE_MS: STALE_MS, RESUB_MS: RESUB_MS };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (typeof document === 'undefined') { if (root) { root.VTTerrain = api; } return; }
 
@@ -70,7 +71,7 @@
     function viewer3d() { return (root.viewer && root.viewer.viewer) || null; }
     function tfMap() { return (root.tf_client && root.tf_client.tfClientMap) || null; }
 
-    var S = { chk: null, st: null, client: null, onAt: 0, lastRx: 0, rx: 0, timer: null, stateNow: 'off' };
+    var S = { chk: null, st: null, client: null, onAt: 0, lastRx: 0, rx: 0, timer: null, stateNow: 'off', resubAt: 0, resubs: 0 };
     var COLOR = { r: 1, g: 2, b: 3, vtTrav: true };     // identifies this layer's grids in getColor
 
     // colours of this layer's grids; every other grid as before
@@ -162,8 +163,24 @@
         tick();
     }
 
+    // Hotfix 2026-11-08: on the robot a subscription made while the page
+    // connects can stay silent (rosbridge sends, roslib never emits it to the
+    // topic: seen with the subscribe sent twice under one id, ~1 page load in
+    // 3). Data silent NODATA_MS while connected: drop the topic and subscribe
+    // anew (new id), at most every RESUB_MS — also when the node really is
+    // quiet, where it costs one unsubscribe + subscribe.
+    function watchdog(now) {
+        var R = rosOf();
+        if (!S.client || !S.onAt || !R || R.isConnected === false) { return; }
+        if (now - (S.lastRx || S.onAt) <= NODATA_MS || now - S.resubAt < RESUB_MS) { return; }
+        S.resubAt = now; S.resubs++;
+        try { if (S.client.rosTopic) { S.client.rosTopic.unsubscribe(); } } catch (e) { /* closed */ }
+        try { S.client.subscribe(); } catch (e) { /* next round */ }
+    }
+
     function tick() {
         var on = !!(S.chk && S.chk.checked);
+        if (on && !document.hidden) { watchdog(Date.now()); }
         var st = on ? (document.hidden ? 'paused' : !rosOf() ? 'noros' : state(Date.now(), S.onAt, S.lastRx)) : 'off';
         if (st === 'nodata') { showGrid(false); }
         var changed = st !== S.stateNow;
@@ -175,7 +192,7 @@
         if (changed) { try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* old browser */ } }
     }
 
-    function info() { return { state: S.stateNow, rx: S.rx, subscribed: !!(S.client && S.onAt) }; }
+    function info() { return { state: S.stateNow, rx: S.rx, subscribed: !!(S.client && S.onAt), resubs: S.resubs }; }
 
     function init() {
         if (!$('map_view')) { return; }
