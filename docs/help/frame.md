@@ -57,9 +57,9 @@ the dot, ?, the bell, ⋯ and STOP are always there.
 **summary** (one icon per group + *No warnings* / *2 warnings* / *No warnings · 1 no data*; tap = the status card) —
 three rows of 40 px, 120 px in all. The notices float in the top of the map like on a PC: under
 the summary, or under the right panel's row, right of the compass and the layers button (a long
-line ends in **…**). With the right panel **unfolded** the agent's lines (a latched STOP with
+line ends in **…**). Whether the right panel is unfolded or folded, the agent's lines (a latched STOP with
 **Release STOP**, the open dock with **Lock again**, what the agent does) stand as a column on the
-map left of the panel, under the compass and the layers button — whole words, full-width buttons;
+map under the compass and the layers button (left of an unfolded panel) — whole words, full-width buttons;
 the panel never moves when the agent starts or stops talking. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
 the panel buttons · one icon per status group · bell · Restart · ⋯ — the logo, ? and the computer
 are in **⋯**, STOP is in the corner above the right panel.

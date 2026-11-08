@@ -517,35 +517,40 @@ html body.vt-frame .vt-notice-row .vt-notice.vt-notice-cut { cursor: pointer; }
    .vt-rp-unfold, --vt-frame-pills-top / -max, --vt-frame-rp-left) — one pill
    per row, the words wrap (nothing cut), the buttons (Release STOP, Lock)
    full width and a finger's 40 px; a column taller than the room scrolls.
-   The notice keeps its slot. The folded panel (one row) is unchanged. */
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars {
+   The notice keeps its slot. T8 F: the same column over a FOLDED or hidden
+   panel (it was a 22-px row there: 28-px buttons, the STOP latch cut "…"),
+   as wide as needed up to 320 px (vt_frame.js .vt-pills-col, --vt-frame-pills-*). */
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars {
     top: var(--vt-frame-pills-top, 260px) !important;
-    left: calc(var(--vt-frame-cleft, 6px) + 6px);
-    width: calc(var(--vt-frame-rp-left, 100vw) - var(--vt-frame-cleft, 6px) - 16px);
-    max-width: calc(var(--vt-frame-rp-left, 100vw) - var(--vt-frame-cleft, 6px) - 16px);
+    left: var(--vt-frame-pills-left, 12px);
+    width: var(--vt-frame-pills-w, 150px);
+    max-width: var(--vt-frame-pills-w, 150px);
     max-height: var(--vt-frame-pills-max, 240px);
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 6px;
     overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
 }
-/* …so with the panel unfolded the notice stays in its own slot, not one
-   line lower under pills that are no longer there (it slid under the panel) */
-html body.vt-frame.vt-h-ph.vt-rp-unfold.vagent-strip-on .vt-notice-row { top: var(--vt-frame-ntop, 124px); }
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars > * { flex: 0 0 auto; max-width: none; }
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars #vagent_strip {
+/* …so the notice stays in its own slot, not one line lower under pills that
+   are no longer there (with the panel unfolded it slid under the panel) */
+html body.vt-frame.vt-h-ph.vt-pills-col.vagent-strip-on .vt-notice-row { top: var(--vt-frame-ntop, 124px); }
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars > * { flex: 0 0 auto; max-width: none; }
+/* over a folded / hidden panel the pills keep their own width (up to the column's) */
+html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars { align-items: flex-start; }
+html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars > * { max-width: 100%; }
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip {
     height: auto; min-height: 24px; max-width: none; padding: 3px 8px 3px 3px;
     white-space: normal; line-height: 1.3;
 }
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars #vagent_strip .vs-lab { align-self: flex-start; }
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars #vagent_strip .vs-txt { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars :is(#vagent_panic, #vagent_unlocked):not([style*="none"]) {
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip .vs-lab { align-self: flex-start; }
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip .vs-txt { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars :is(#vagent_panic, #vagent_unlocked):not([style*="none"]) {
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
     max-width: none; padding: 5px 6px; white-space: normal; line-height: 1.3; text-align: left;
 }
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-txt {
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-txt {
     display: block; flex: 1 1 100%; min-width: 0; overflow: visible; white-space: normal; overflow-wrap: anywhere;
     font-size: 12px; font-weight: 600; letter-spacing: 0;
 }
-html body.vt-frame.vt-h-ph.vt-rp-unfold #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-btn {
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-btn {
     flex: 1 0 100%; min-height: 40px;
 }
 /* touch (tablet too): the notice's button is a finger's 40 px, and the line

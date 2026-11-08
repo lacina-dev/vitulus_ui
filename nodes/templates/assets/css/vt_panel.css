@@ -2654,3 +2654,22 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
     #div_log_view .log-toolbar .log-source-btn { justify-content: flex-start; }
     #div_log_view .log-toolbar .log-search { min-height: 26px; }
 }
+
+/* ---- T8 F (2026-11-08): phone targets left in the drawer -------------------
+   Touch: the layer quick-toggles of Map › Map (13 boxes of 25 px side by
+   side), the dock detector switches of Map › Dock (22 px) and the GNSS
+   recorder's REC / STOP (25 px) become a finger's 40 px: each toggle is one
+   40-px chip — the label's ::before covers the whole chip, a tap anywhere on
+   it toggles its box (the box itself stays the same drawing). */
+@media (pointer: coarse) {
+    #ui_drawer .map-layers-row .form-check-inline {
+        position: relative; display: inline-flex; align-items: center;
+        min-height: 40px; min-width: 40px; margin-right: 6px; padding-right: 4px;
+    }
+    #ui_drawer .map-layers-row .form-check-inline .form-check-label::before,
+    #ui_drawer .vt-dock-sw .form-check-label::before {
+        content: ''; position: absolute; inset: 0;
+    }
+    #ui_drawer .vt-dock-sw { position: relative; min-height: 40px; }
+    #ui_drawer #tab_rosbag .vt-switch > .btn { min-height: 40px; }
+}

@@ -139,20 +139,36 @@
                 var rt = parseFloat(getComputedStyle(row).top);
                 nb = Math.max(nb, (isNaN(rt) ? ntop : rt) + row.offsetHeight);
             }
-            if (rpOn0 && !rpFold) {
-                colTopS = ntop + 44;
-                // T8 E review: the agent's pills — a column on the map left of
-                // the panel, under the compass and the layers button (the rose
-                // sits above the button), down to the panel's foot at most
-                var fab = $('vt_lyr_fab'), rose = $('vt_utm_rose');
-                var ptop = colTopS + 2;
-                if (visible(fab)) { ptop = Math.max(ptop, fab.getBoundingClientRect().bottom + 8); }
-                if (visible(rose)) { ptop = Math.max(ptop, rose.getBoundingClientRect().bottom + 8); }
-                setVar('--vt-frame-pills-top', px(ptop));
-                setVar('--vt-frame-pills-max', px(Math.max(60, rp0.getBoundingClientRect().bottom - ptop)));
-            }
+            if (rpOn0 && !rpFold) { colTopS = ntop + 44; }
+            // T8 E/F: the agent's pills — a column on the map under the
+            // notice slot, the compass and the layers button; left of the
+            // unfolded panel, or as wide as a finger needs over a folded /
+            // hidden one; down to the panel's foot, the stick, the small log
+            // or the map scale at most (none of them is ever covered)
+            var fab = $('vt_lyr_fab'), rose = $('vt_utm_rose');
+            var ptop = ntop + 46;
+            if (visible(fab)) { ptop = Math.max(ptop, fab.getBoundingClientRect().bottom + 8); }
+            if (visible(rose)) { ptop = Math.max(ptop, rose.getBoundingClientRect().bottom + 8); }
+            var pleft = (parseFloat(getComputedStyle(root).getPropertyValue('--vt-frame-cleft')) || 6) + 6;   // last pass's C edge (set below)
+            var pw = (rpOn0 && !rpFold) ? rp0.getBoundingClientRect().left - pleft - 10
+                                        : Math.min(W - pleft - 12, 320);
+            var pbot = (rpOn0 && !rpFold) ? rp0.getBoundingClientRect().bottom : H;
+            var bmP = $('div_bottom_menu');
+            if (visible(bmP)) { pbot = Math.min(pbot, bmP.getBoundingClientRect().top); }
+            ['joy_view', 'div_log_view', 'vt_map_scale'].forEach(function (id) {
+                var e = $(id);
+                if (!visible(e) || (id === 'div_log_view' && e.classList.contains('log-expanded'))) { return; }
+                var r = e.getBoundingClientRect();
+                if (r.left < pleft + pw && r.right > pleft && r.top > ptop) { pbot = Math.min(pbot, r.top); }
+            });
+            setCls(body, 'vt-pills-col', true);
+            setVar('--vt-frame-pills-top', px(ptop));
+            setVar('--vt-frame-pills-left', px(pleft));
+            setVar('--vt-frame-pills-w', px(Math.max(120, pw)));
+            setVar('--vt-frame-pills-max', px(Math.max(60, pbot - 6 - ptop)));
         } else {
             setCls(body, 'vt-rp-unfold', false);
+            setCls(body, 'vt-pills-col', false);
             if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
         }
         setVar('--vt-frame-col-top', px(m === 'sheet' ? colTopS : Math.max(top, colTop)));

@@ -55,9 +55,9 @@ tu nejhorší ze skupiny. Logo, tečka, ?, zvonek, ⋯ a STOP jsou tam vždycky.
 (jedna ikona za skupinu + *Bez varování* / *2 varování* / *Bez varování · 1 bez dat*; klepnutí = karta stavu) —
 tři řádky po 40 px, dohromady 120 px. Hlášky plavou v horní části mapy jako na PC: pod souhrnem,
 nebo pod řádkem pravého panelu, vpravo od kompasu a tlačítka vrstev (dlouhý řádek končí **…**).
-Při **rozbaleném** pravém panelu stojí řádky agenta (zajištěný STOP se **Zrušit STOP**,
-povolený dok se **Zamknout**, co agent dělá) jako sloupec na mapě vlevo od panelu, pod kompasem a
-tlačítkem vrstev — celá slova, tlačítka přes celou šířku; panel se nepohne, když agent začne nebo
+Ať je pravý panel rozbalený, nebo sbalený, řádky agenta (zajištěný STOP se **Zrušit STOP**,
+povolený dok se **Zamknout**, co agent dělá) stojí jako sloupec na mapě pod kompasem a tlačítkem
+vrstev (u rozbaleného panelu vlevo od něj) — celá slova, tlačítka přes celou šířku; panel se nepohne, když agent začne nebo
 přestane mluvit.
 ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
 panelů · jedna ikona za skupinu stavu · zvonek · Restart · ⋯ — logo, ? a počítač jsou v **⋯**, STOP
