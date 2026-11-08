@@ -1337,11 +1337,13 @@ class MappingV3 {
     }
 
     // EPSG:3857 XYZ tiles, origin upper-left (y not flipped)
-    // T17 M3: + ?r=<refresh> after an outage, so the browser does not keep
-    // MapProxy's offline fill (see _tileRefresh)
+    // T17 M3: + ?r=<refresh> for a tile that failed, came white or loaded
+    // during an outage (it may be MapProxy's offline fill the browser keeps),
+    // once the network is back — see _tileRefresh. Other tiles keep their URL.
     _aerialTileUrl(src, z, x, y) {
         const u = VTMapSources.tileUrl(this.aerial_host, src, z, x, y);
-        return (this._tileBust && window.VTMapTiles) ? VTMapTiles.withBust(u, this._tileBust) : u;
+        const g = this._tileGen && this._tileGen.get(u);
+        return (g && window.VTMapTiles) ? VTMapTiles.withBust(u, g) : u;
     }
 
     _applyAerialOpacity() {
@@ -1694,7 +1696,10 @@ class MappingV3 {
                     } else {
                         const L = this._baseL || (this._baseL = this._tileLayerNew('base', group));
                         L.group = group;
-                        if (L.dkey !== dkey) { this._tileLayerClear(L); L.dkey = dkey; }
+                        // stand-ins only from a source with the same alignment
+                        // offset (VTMapTiles.layerKey): sat <-> cuzk starts empty
+                        const bkey = VTMapTiles.layerKey(dkey, src);
+                        if (L.dkey !== bkey) { this._tileLayerClear(L); L.dkey = bkey; }
                         const opacity = this.in_aerial_opacity ?
                                         parseFloat(this.in_aerial_opacity.value) : 1.0;
                         const ro = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.AERIAL : -100;
@@ -1817,6 +1822,8 @@ class MappingV3 {
             this._texLoads = new Map();      // url -> {waiters: Set}
             this._texFailedAt = new Map();   // url -> ms of the last failure
             this._tileLayers = new Set();
+            this._tileSuspect = new Set();   // tile URLs to reload after an outage
+            this._tileGen = new Map();       // tile URL -> ?r= of its last reload
             this._tileWatchNet();
         }
         return this._tcache;
@@ -1885,7 +1892,7 @@ class MappingV3 {
                     }
                     if (white && this._tileIsWhite(src, iw, ih)) {
                         this._texFailedAt.set(url, Date.now());
-                        this._tileOutage('white');
+                        this._tileOutage('white', url);
                         finish(false);
                         return;
                     }
@@ -1898,7 +1905,12 @@ class MappingV3 {
                     console.error('[mappingv3] aerial tile paint failed:', e);
                 }
                 if (!ok) { this._texFailedAt.set(url, Date.now()); }
-                else if (wasBad) {
+                else if (this._outage && this._outage.down) {
+                    // loaded while tiles fail: may be an offline fill (old
+                    // cache / magnified level) — reload it once all is back
+                    this._tileSuspect.add(VTMapTiles.withoutBust(url));
+                }
+                if (ok && wasBad) {
                     // a tile that failed / came white is real now: MapProxy
                     // (or its internet) is back — reload what it filled in
                     this._texFailedAt.delete(url);
@@ -1908,7 +1920,7 @@ class MappingV3 {
             };
             img.onerror = () => {      // missing tile / MapProxy unreachable
                 this._texFailedAt.set(url, Date.now());
-                this._tileOutage('error');
+                this._tileOutage('error', url);
                 finish(false);
             };
             img.src = wasBad ? VTMapTiles.withBust(url, Date.now()) : url;
@@ -1932,23 +1944,27 @@ class MappingV3 {
     }
 
     // Outage / recovery (MapProxy without internet sends fills with 200 and
-    // max-age 3600, the browser would keep them): once the network, the
-    // robot or a failed tile is back, every tile on the map is loaded again
-    // with ?r=<now> (new URLs: the old planes stay as stand-ins meanwhile).
+    // max-age 3600, the browser would keep them). An outage = a tile really
+    // failed or came white; the tiles that failed, came white or loaded
+    // during it are the suspects. Once the network, the robot or a failed
+    // tile is back, ONLY the suspects load again with ?r=<now> (new URLs:
+    // their old planes stay as stand-ins meanwhile). A rosbridge reconnect
+    // with no failed tile reloads nothing.
     _tileWatchNet() {
         if (this._tileNetWired) { return; }
         this._tileNetWired = true;
         this._outage = new VTMapTiles.Outage({ minGapMs: 20000 });
         try {
-            window.addEventListener('offline', () => this._tileOutage('offline'));
+            // the network / robot back = a chance to reload; it does so only
+            // if tiles really failed or came white meanwhile (_tileOutage)
             window.addEventListener('online', () => this._tileRecovered('online'));
-            document.addEventListener('rosdisconnected', () => this._tileOutage('robot'));
             document.addEventListener('rosconnected', () => this._tileRecovered('robot'));
         } catch (e) { /* no window (tests) */ }
     }
-    _tileOutage(why) {
+    _tileOutage(why, url) {
         this._tileWatchNet();
         this._outage.mark(Date.now());
+        if (url) { this._tileSuspect.add(VTMapTiles.withoutBust(url)); }
     }
     _tileRecovered(why) {
         this._tileWatchNet();
@@ -1962,8 +1978,12 @@ class MappingV3 {
         }
     }
     _tileRefresh() {
-        this._tileBust = Date.now();
+        const now = Date.now();
+        if (!this._tileSuspect.size) { return; }
+        this._tileSuspect.forEach((u) => this._tileGen.set(u, now));
+        this._tileSuspect.clear();
         this._texFailedAt.clear();
+        this._tileRefreshN = (this._tileRefreshN || 0) + 1;   // new sets (sig)
         if (this._tilesWanted()) { this.rebuildAerial(); }
     }
 
@@ -2017,7 +2037,19 @@ class MappingV3 {
 
     _tileDropFb(L, f) {
         this._tileMeshDispose(L, f.mesh);
-        this._texCache().release(f.url);
+        this._texRelease(f.url);
+    }
+
+    _texRelease(url) {
+        this._texCache().release(url);
+        this._texTrimSoon();
+    }
+
+    // released textures: keep the idle limit (once per tick, not per tile)
+    _texTrimSoon() {
+        if (this._texTrimQ) { return; }
+        this._texTrimQ = true;
+        Promise.resolve().then(() => { this._texTrimQ = false; this._texTrim(); });
     }
 
     _tileDropFallbacks(L) {
@@ -2044,7 +2076,7 @@ class MappingV3 {
             if (t.cancel) { t.cancel(); t.cancel = null; }
             if (t.state === 'ok') {
                 t.mesh.renderOrder = this._tileFbOrder(L, t.z);
-                L.fb.push({ z: t.z, x: t.x, y: t.y, url: t.url, mesh: t.mesh });
+                L.fb.push({ z: t.z, x: t.x, y: t.y, url: t.url, mesh: t.mesh, src: set.src.id });
             } else {
                 this._tileMeshDispose(L, t.mesh);
             }
@@ -2072,16 +2104,16 @@ class MappingV3 {
     // a stand-in plane for tile a (z,x,y) of the current source; `url` must
     // be held by the caller (the reference passes to the stand-in)
     _tileAddFb(L, set, a, url) {
-        if (L.fb.some((f) => f.url === url)) { this._texCache().release(url); return; }
+        if (L.fb.some((f) => f.url === url)) { this._texRelease(url); return; }
         const r = set.tileRect(a.z, a.x, a.y);
-        if (!(r.w > 0) || !(r.h > 0)) { this._texCache().release(url); return; }
+        if (!(r.w > 0) || !(r.h > 0)) { this._texRelease(url); return; }
         const mesh = this._tileMesh(set.T, r, set.opacity, this._tileFbOrder(L, a.z));
         const e = this._texCache().get(url);
         mesh.material.map = e.tex;
         mesh.material.needsUpdate = true;
         mesh.visible = true;
         L.group.add(mesh);
-        L.fb.push({ z: a.z, x: a.x, y: a.y, url: url, mesh: mesh });
+        L.fb.push({ z: a.z, x: a.x, y: a.y, url: url, mesh: mesh, src: set.src.id });
     }
 
     // fetch a coarser tile as a stand-in for the tiles of `set` under it;
@@ -2099,7 +2131,7 @@ class MappingV3 {
             }
             // still useful? (the set is current and a tile under it is not painted)
             if (L.cur === set && !this._tileFbCovered(a, set)) { this._tileAddFb(L, set, a, url); }
-            else { this._texCache().release(url); }
+            else { this._texRelease(url); }
         });
         if (L.fbPending.has(url) || !this._texLoads.has(url)) { return; }   // answered at once
         L.fbPending.set(url, cancel);
@@ -2149,7 +2181,7 @@ class MappingV3 {
         const C = this._texCache();
         const { src, z, range } = ctx;
         const sig = src.id + '@' + z + ':' + range.tx0 + ',' + range.tx1 + ',' +
-                    range.ty0 + ',' + range.ty1 + '#' + (this._tileBust || 0);
+                    range.ty0 + ',' + range.ty1 + '#' + (this._tileRefreshN || 0);
         L.ro = ctx.ro;
         if (L.cur && L.cur.sig === sig && L.cur.failed === 0) {
             L.cur.report = ctx.report;
@@ -2176,6 +2208,15 @@ class MappingV3 {
             if (set.report) { set.report(set, false); }
             if (set.loaded + set.failed >= set.total) {
                 if (set.failed > 0) { this._tileRetrySoon(); } else { this._tileRetryDelay = 0; }
+                // settled: another source's picture must not stay (not even
+                // over a failed tile: wrong imagery under this credit line)
+                if (L.fb.some((f) => f.src !== set.src.id)) {
+                    L.fb = L.fb.filter((f) => {
+                        if (f.src === set.src.id) { return true; }
+                        this._tileDropFb(L, f);
+                        return false;
+                    });
+                }
             }
         };
         // pass 1: planes, nearest to the view centre first; cached tiles paint now
@@ -2212,7 +2253,7 @@ class MappingV3 {
             if (t.state !== 'wait') { return; }
             const cancel = this._texFetch(t.url, set.white, (ok) => {
                 t.cancel = null;
-                if (L.cur !== set || t.state !== 'wait') { if (ok) { C.release(t.url); } return; }
+                if (L.cur !== set || t.state !== 'wait') { if (ok) { this._texRelease(t.url); } return; }
                 if (ok) { this._tilePaint(L, set, t); } else { this._tileFail(L, set, t); }
                 report();
             });

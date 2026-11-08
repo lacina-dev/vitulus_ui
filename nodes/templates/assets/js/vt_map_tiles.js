@@ -153,6 +153,20 @@
         return url + (url.indexOf('?') < 0 ? '?' : '&') + 'r=' + token;
     }
 
+    // Key of a layer's planes: they survive a new build only on the same
+    // datum (dkey) and, for the background map, the same alignment group —
+    // stand-ins from a source with another offset (sat vs cuzk) would sit
+    // shifted and under the wrong credit line, so a switch there starts empty.
+    function layerKey(dkey, src) {
+        return dkey + '|' + (src ? (src.offset_key || src.id) : '');
+    }
+
+    // the url without the parameter withBust added
+    function withoutBust(url) {
+        var u = String(url).replace(/[?&]r=\d+/g, '');
+        return (u.indexOf('?') < 0 && u.indexOf('&') >= 0) ? u.replace('&', '?') : u;
+    }
+
     // Outage bookkeeping: mark() when tiles fail, come white, the browser
     // goes offline or the robot connection drops; recovered() when the
     // network / robot is back or a tile that failed loads for real. It says
@@ -258,7 +272,7 @@
 
     var api = { texBytes: texBytes, overlaps: overlaps, ancestor: ancestor, under: under,
                 orderByDistance: orderByDistance, budgets: budgets, zoomCap: zoomCap, baseShare: baseShare, overlayWant: overlayWant,
-                isBlankWhite: isBlankWhite, withBust: withBust, Outage: Outage, TexCache: TexCache, MB: MB };
+                isBlankWhite: isBlankWhite, withBust: withBust, withoutBust: withoutBust, layerKey: layerKey, Outage: Outage, TexCache: TexCache, MB: MB };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (root) { root.VTMapTiles = api; }
 })(typeof window !== 'undefined' ? window : null);

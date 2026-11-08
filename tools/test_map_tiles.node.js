@@ -87,6 +87,16 @@ const fitPhone = (() => { let b = 240; const cap = Math.min(160, MT.baseShare(b,
     const mapTiles = 153 <= cap ? 153 : 45; b -= mapTiles; b -= 3 * 45 + 2 * 15; return b >= 0; })();
 ok('300 m view on a phone: map + five overlays fit the budget', fitPhone);
 
+console.log('\nstand-ins across sources (M3-A)');
+const dk = '50.08,14.35,0';
+const SAT = { id: 'sat', offset_key: 'sat' }, HYB = { id: 'sat_hybrid', offset_key: 'sat' },
+      CUZK = { id: 'cuzk', offset_key: 'cuzk' }, ZTM = { id: 'ztm', offset_key: 'cuzk' };
+ok('same alignment group keeps the planes (sat -> hybrid)', MT.layerKey(dk, SAT) === MT.layerKey(dk, HYB));
+ok('same alignment group keeps the planes (cuzk -> ztm)', MT.layerKey(dk, CUZK) === MT.layerKey(dk, ZTM));
+ok('another alignment group starts empty (sat -> cuzk)', MT.layerKey(dk, SAT) !== MT.layerKey(dk, CUZK));
+ok('another datum starts empty', MT.layerKey(dk, SAT) !== MT.layerKey('50.09,14.35,0', SAT));
+ok('source without offset_key keys by its id', MT.layerKey(dk, { id: 'esri' }) === dk + '|esri');
+
 console.log('\noffline fill');
 const white = new Uint8ClampedArray(256 * 256 * 4).fill(255);
 ok('plain white tile is the offline fill', MT.isBlankWhite(white));
@@ -98,6 +108,11 @@ ok('empty data is not the fill', !MT.isBlankWhite(new Uint8ClampedArray(0)) && !
 ok('bust appends ?r=', MT.withBust('http://h:8082/wmts/l/g/19/1/2.png', 123) === 'http://h:8082/wmts/l/g/19/1/2.png?r=123');
 ok('bust after an existing query uses &', MT.withBust('http://h/x.png?a=1', 5) === 'http://h/x.png?a=1&r=5');
 ok('no token = url unchanged', MT.withBust('http://h/x.png', 0) === 'http://h/x.png');
+ok('withoutBust strips only the r parameter', MT.withoutBust('http://h/x.png?r=123') === 'http://h/x.png' &&
+   MT.withoutBust('http://h/x.png?a=1&r=5') === 'http://h/x.png?a=1' && MT.withoutBust('http://h/x.png') === 'http://h/x.png');
+ok('withoutBust strips a repeated bust too', MT.withoutBust('http://h/x.png?r=1&r=2') === 'http://h/x.png' &&
+   MT.withoutBust('http://h/x.png?r=1&a=2') === 'http://h/x.png?a=2');
+ok('withoutBust undoes withBust', MT.withoutBust(MT.withBust('http://h/y.png', 99)) === 'http://h/y.png');
 const O = new MT.Outage({ minGapMs: 20000 });
 ok('no outage: recovery does nothing', O.recovered(1000) === false);
 O.mark(2000); O.mark(3000);
@@ -149,6 +164,14 @@ ok('index.html loads vt_map_tiles.js before mapping.js',
    html.indexOf('vt_map_tiles.js') > 0 && html.indexOf('vt_map_tiles.js') < html.indexOf('/mapping.js'));
 ok('mapping.js uses the shared texture cache', /new VTMapTiles\.TexCache/.test(mapping));
 ok('mapping.js takes the detail cap from VTMapTiles.zoomCap', /VTMapTiles\.zoomCap\(/.test(mapping));
+ok('M3-A: base stand-ins keyed by alignment, other sources dropped',
+   /VTMapTiles\.layerKey\(/.test(mapping) && /f\.src !== set\.src\.id/.test(mapping));
+ok('M3-B: reconnect reloads only suspects (failed / white tiles)',
+   /_tileSuspect/.test(mapping) && !/addEventListener\('offline'/.test(mapping) && !/'rosdisconnected'/.test(mapping) &&
+   /_tileOutage\('error', url\)/.test(mapping) && /_tileOutage\('white', url\)/.test(mapping) &&
+   /if \(!this\._tileSuspect\.size\) \{ return; \}/.test(mapping));
+ok('N1: every texture release keeps the idle limit', /_texRelease\(url\) \{\s*this\._texCache\(\)\.release\(url\);\s*this\._texTrimSoon\(\);/.test(mapping) &&
+   (mapping.match(/\.release\(/g) || []).length === 2);
 ok('mapping.js shares the phone budget (baseShare, overlayWant)',
    /VTMapTiles\.baseShare\(/.test(mapping) && /VTMapTiles\.overlayWant\(/.test(mapping));
 ok('mapping.js skips the white fill and reloads after an outage',
