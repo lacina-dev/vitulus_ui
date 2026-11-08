@@ -197,7 +197,12 @@ potvrdí, co hlídá a co udělá.
   s pohybem; znovu běží, až to řekneš.
 - *co hlídáš?* je vypíše; *přestaň hlídat X* / *zruš hlídání 3*, *pozastav hlídání 3*, *obnov
   hlídání 3* — bez modelu. Blok **Hlídání** v panelu agenta ukazuje totéž s tlačítky Pozastavit /
-  Obnovit / Zrušit.
+  Obnovit / Zrušit; u každého pravidla i poslední spuštění, a když ho něco zablokovalo, tak čím
+  (*naposled 23:16 zablokováno (dok)*).
+- Hlídání *jednou* po spuštění skončí; jinak platí, dokud ho nezrušíš.
+- *u hlídání 3 povol i výjezd z doku* povolí výjezd jen tomu pravidlu (*zakaž výjezd* ho vezme
+  zpět). Vyjet pak smí, jen když platí i povolení doku — agent řekne, jestli platí. Povolit to
+  můžeš jen ty; otázka nic nemění.
 
 ### Operátor: model řídí krok po kroku
 

@@ -29,6 +29,24 @@
     if (s < 172800) return T('common.ago.h', {n: (s / 3600).toFixed(1)});
     return T('common.ago.d', {n: Math.round(s / 86400)});
   }
+  // Čas zablokování: dnes jen HH:MM, jindy i den („7. 11. 23:16").
+  function hhmm(ts) {
+    var d = new Date(ts * 1000), now = new Date();
+    var t = (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' +
+      (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+    if (d.toDateString() === now.toDateString()) return t;
+    return d.getDate() + '. ' + (d.getMonth() + 1) + '. ' + t;
+  }
+  // Poslední spuštění: zablokované (novější než provedené) má přednost —
+  // „naposled 23:16 zablokováno (dok)", ne „zatím ne".
+  function lastText(r) {
+    var b = r.last_blocked;
+    if (b && b.ts) {
+      return T('watchr.blocked', {when: hhmm(b.ts),
+        why: T('watchr.block.' + (b.kind || 'other'), {n: b.mission || ''})});
+    }
+    return T('watchr.last', {when: ago(r.last_fired)});
+  }
 
   var CSS = [
     '.vwr-list{display:flex;flex-direction:column;gap:.5rem}',
@@ -103,7 +121,8 @@
         card.appendChild(head);
         card.appendChild(el('div', 'vwr-main', r.when + ' → ' + r.action));
         var sub = T(r.mode === 'stream' ? 'watchr.mode.stream' : 'watchr.mode.poll',
-                    {s: r.every_s || ''}) + ' · ' + T('watchr.last', {when: ago(r.last_fired)});
+                    {s: r.every_s || ''}) + ' · ' + lastText(r);
+        if (r.repeat === 'once') sub += ' · ' + T('watchr.repeat.once');
         if (r.state === 'paused' && r.why) sub += ' · ' + r.why;
         card.appendChild(el('div', 'vwr-sub', sub));
         var acts = el('div', 'vwr-acts');

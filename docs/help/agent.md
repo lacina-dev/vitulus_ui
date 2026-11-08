@@ -203,7 +203,12 @@ and after a restart. It confirms in one sentence what it watches and what it wil
   that moves; it resumes only when you say so.
 - *what are you watching?* lists them; *stop watching X* / *cancel watch 3*, *pause watch 3*,
   *resume watch 3* — no model needed. The **Watching** block in the agent panel shows the same list
-  with Pause / Resume / Cancel.
+  with Pause / Resume / Cancel; for each rule also its last run, and when something blocked it, what
+  (*last 23:16 blocked (dock)*).
+- A rule set *once* ends after it runs; otherwise it holds until you cancel it.
+- *allow watch 3 to leave the dock* allows leaving the dock for that rule only (*forbid watch 3
+  to leave the dock* takes it back). It still leaves only while the dock permit is valid too — the
+  agent tells you whether it is. Only you can allow it; a question changes nothing.
 
 ### The operator: a model drives step by step
 
