@@ -617,7 +617,7 @@
     var STOP_PRESS = [
         {sel: '#vt_stop_big', always: true},                 // the big STOP (frame)
         {sel: '#btn_stop_all', always: true},                // the bar STOP (hidden, map_view.js)
-        {sel: '#btn_mower_stop_motor', always: true},        // Settings › Mower › STOP MOTOR
+        {sel: '#btn_mower_stop_motor'},                      // Settings › Mower › STOP MOTOR (scroll panel: press = 2nd finger)
         {sel: '#rp_mower_blade_key[data-state="err"]'},      // right panel ■ blade stop (only while it turns)
         {sel: '#dock_btn_menu_stop'},                        // right panel Controls › Stop
         {sel: '#dock_btn_by_map_stop'},                      // Map › Dock › Stop (lidar map)
