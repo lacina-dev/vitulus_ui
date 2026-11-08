@@ -123,15 +123,20 @@ nastavený kalendář, nic se nemění, dokud nepřepneš.
 
 V panelu je to sekce **Kdo rozhoduje** hned pod horní kartou:
 
-![Kdo rozhoduje s očíslovanými značkami](../img/shot-autonomy-mode.webp "1 Kalendář | Agent · 2 čeká na povolení doku, Zámek doku › · 3 platná rada · 4 poslední rozhodnutí · 5 pravidla a tvrdé limity")
+![Kdo rozhoduje s očíslovanými značkami](../img/shot-autonomy-mode.webp "1 Kalendář | Agent · 2 čeká na povolení doku, Povolení doku › · 3 platná rada · 4 poslední rozhodnutí · 5 pravidla a tvrdé limity")
 
 - **Kalendář | Agent**: zvýrazněné je to, co hlásí robot. Klepnutím přepneš, řádek pod tím napíše
   *Přepnuto na: Agent*, až to robot potvrdí (nebo proč ne). Samotné otevření stránky nic nepřepne.
   Hlavička sekce ukazuje režim a co se teď děje: *Sloty*, *Zastupuje kalendář*, *Čeká na radu*,
   *Limit: déšť*, *Čeká na dok*…
 - **Čeká na dok** (oranžový rámeček): agent chce sekat a dok je zamčený. Napíše program a do kdy rada
-  platí; **Zámek doku ›** tě vezme do panelu Agent, kde dok odemkneš. Stránka sama dok neodemyká.
-  Před časem rady je rámeček modrý a říká, že robot vyjede jen s tvým povolením.
+  platí; **Povolení doku ›** otevře dlaždici povolení doku v panelu Agent, kde povolíš časové okno.
+  Stránka sama dok nepovoluje. Před časem rady je rámeček modrý a říká, že robot vyjede jen s tvým
+  povolením. Když žádná rada nečeká, řekne povolení tichý řádek pod přepínačem (*Dok je odemčený do
+  17:00*, *Dok je zamčený*, naplánované okno) s **Povolení doku ›**; když okno skončilo s robotem
+  venku, rámeček řekne, že dosekne díl a vrátí se domů.
+- V **Mohl by teď vyjet?** má běh z rady řádek **Povolení doku** (*Povoleno*, *Nepovoleno: rada čeká
+  na tvoje povolení doku*, *Chybí soubor ownerů*, …); běhy z kalendáře ho nemají.
 - **Platná rada**: co agent poradil (posekat program X mezi …, nebo nesekat do …), stav (čeká,
   provedena, zmeškaná, prošlá, zrušená), jistota a důvod vlastními slovy agenta.
 - **Poslední rozhodnutí**: co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
@@ -147,8 +152,10 @@ V režimu agent se agent dívá na počasí (déšť za poslední dny a předpov
 sekala, co poslední běh nedosekal a jak těžké bylo sečení, a robotu řekne *posekej program X mezi
 těmito časy* nebo *nesekej do T*, s důvodem a jistotou. Robot radu provede stejně jako **Spustit
 další**: platí všechny kontroly **Mohl by teď vyjet?**. **Výjezd z doku povoluješ dál ty:** radu
-„sekej" robot provede jen při odemčeném doku (předvolba **Mow**); bez něj ti agent jednou napíše
-do chatu „chci sekat X v …, povol dok" a robot počká. Odemčení se spotřebuje až skutečným výjezdem. Bez čerstvé rady zatím rozhoduje kalendář
+„sekej" robot provede jen v okně povolení doku, které jsi povolil ([Povolení doku](agent.md#povolení-doku));
+bez něj ti agent jednou napíše do chatu „chci sekat X v …, povol dok" a robot počká. Když okno skončí
+s robotem venku, dosekne díl (nejvýš 5 min) a vrátí se domů (historie: *povolení doku skončilo
+s robotem venku*); nové okno od teď to zruší. Bez čerstvé rady zatím rozhoduje kalendář
 (jde to vypnout: pak bez agenta nevyjede nic). Dokud rada platí, o slotech kalendáře rozhoduje agent
 a později se nedohánějí. V režimu agent robot spí nejdéle do dalšího začátku povoleného času sekání,
 aby se agent mohl každý den podívat.

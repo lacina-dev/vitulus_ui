@@ -415,6 +415,7 @@
                 lt(retry, 'agent.down.retry');
                 retry.addEventListener('click', function () { probeAgent(); });
                 ph.appendChild(retry);
+                ph.appendChild(dockDownBox());
                 blocks.parentNode.insertBefore(ph, blocks);
             }
             ph.style.display = '';
@@ -422,6 +423,59 @@
             blocks.classList.remove('vagent-hidden');
             if (ph) { ph.style.display = 'none'; }
         }
+    }
+
+    /* N2/S2: with the agent down the dock permit tile is hidden with the
+       other blocks — this stays: the state is unknown (no stale countdown),
+       and locking works (the webnode clears in the dock_permit node). */
+    function dockDownBox() {
+        var box = document.createElement('div');
+        box.className = 'vagent-pinned dkp dkp-down';
+        box.id = 'dockp_down';
+        var h = document.createElement('div');
+        h.className = 'vagent-pinhead';
+        lt(h, 'dockp.title');
+        box.appendChild(h);
+        var m = document.createElement('div');
+        m.className = 'dkp-main';
+        lt(m, 'dockp.main.unknown');
+        box.appendChild(m);
+        var sub = document.createElement('div');
+        sub.className = 'dkp-sub';
+        lt(sub, 'dockp.sub.unknown');
+        box.appendChild(sub);
+        var acts = document.createElement('div');
+        acts.className = 'dk-acts';
+        var out = document.createElement('div');
+        out.className = 'dkp-ok';
+        out.id = 'dockp_down_out';
+        [['current', 'btn_dockp_down_lock', 'dockp.lock.now', 'dk-btn dk-back'],
+         ['all', 'btn_dockp_down_lock_all', 'dockp.lock.all', 'dk-btn']].forEach(function (x) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.id = x[1];
+            b.className = x[3];
+            lt(b, x[2]);
+            b.addEventListener('click', function () {
+                b.disabled = true;
+                out.textContent = _t('dockp.sending');
+                dockLock(x[0]).then(function (d) {
+                    b.disabled = false;
+                    if (!d || d.ok === false) {
+                        out.className = 'dk-err';
+                        out.textContent = _t('dockp.err.lock', {err: dockErrText(d)});
+                        return;
+                    }
+                    out.className = 'dkp-ok';
+                    out.textContent = _t(d.direct ? (d.code === 'nothing' ? 'dockp.ok.direct_nothing' : 'dockp.ok.direct')
+                                                  : 'dockp.ok.locked');
+                }, function () { b.disabled = false; });
+            });
+            acts.appendChild(b);
+        });
+        box.appendChild(acts);
+        box.appendChild(out);
+        return box;
     }
 
     function api(path, opts) {
@@ -1841,6 +1895,10 @@
                 inputEl.focus();
             });
             attachFlowButtons(row, task, kind);
+        } else if (task.meta && task.meta.dock_permit_proposal) {
+            // T18 (D39): the core's proposal of a dock permit window — the
+            // owner's tap on Allow is the confirmation
+            attachPermitProposal(row, task.meta.dock_permit_proposal);
         }
         /* a quiet report (RTK fix, dock, „repaired it myself", a summary —
            the core marks it, attention.py) stays in the feed but does not
@@ -2032,6 +2090,20 @@
             row.appendChild(cbar);
             return;
         }
+        /* T18: the dock permit's own reports (window ends in 10 min, the
+           robot sent home, a chat proposal allowed) carry the way to the tile */
+        if (/^dock_permit_/.test(String(meta.event || ''))) {
+            var pbar = document.createElement('div');
+            pbar.className = 'vagent-actions';
+            var pgo = document.createElement('button');
+            pgo.type = 'button';
+            pgo.className = 'vagent-actbtn primary';
+            lt(pgo, 'dockp.chat.tile');
+            pgo.addEventListener('click', function (e) { e.stopPropagation(); openDock(); });
+            pbar.appendChild(pgo);
+            row.appendChild(pbar);
+            return;
+        }
         if (meta.event === 'awaiting_dock') {
             var dbar = document.createElement('div');
             dbar.className = 'vagent-actions';
@@ -2042,7 +2114,7 @@
             lt(dgo, 'chat.dock.open_tip', null, 'title');
             dgo.addEventListener('click', function (e) {
                 e.stopPropagation();
-                openDock(meta.dock_grant || 'test');
+                openDock();
             });
             dbar.appendChild(dgo);
             row.appendChild(dbar);
@@ -5538,155 +5610,53 @@
         }).catch(function () {});
     }
 
-    // ==================================================== the dock lock
-    /* Robert, 2026-08-30: „Dokovy zamek muzu odemknout jen ja kliknutim v ui.
-       jestli to agent obejde? At ma jasne stanovene, ze takova narizeni nesmi
-       obchazet."
-
-       So this panel is the ONLY place the lock opens, and what it grants is a
-       single named action for a few minutes, not a mode.  The core enforces
-       it (`v2/ros_wire.check()` refuses every moving action without a live
-       row in `dock_release`); everything here is the human half: say exactly
-       what is being allowed, take a second tap for it, show it while it lasts,
-       and give one click to take it back.  The countdown below is DISPLAY
-       ONLY — expiry, the use count and the signature are decided in the core,
-       which is the half the agent cannot reach. */
-    var dockState = {supported: null, locked: true, release: null, ts: 0};
+    // ==================================================== the dock permit
+    /* owner, 2026-08-30: „Dokovy zamek muzu odemknout jen ja kliknutim v ui."
+       T18 (2026-11-08, D36-D39): the permit is a TIME WINDOW held by the
+       robot layer (vitulus_dock `dock_permit`, contract t18-kontrakt.md), not
+       a list of actions in the agent.  The owner allows the dock from-to,
+       optionally "only 1 exit" and "lock after return"; at the end of the
+       window with the robot out it finishes the path and comes home (D38).
+       What is shown here is GET /api/v2/dock (`permit` = the node's state,
+       `permit_ok` = the agent accepts it, `owners_check` = the owners file).
+       Every write goes through the webnode door that adds the owner's proof
+       (/agent-dock/*), with a req_id per intent: an answer that got lost is
+       asked again with the SAME req_id and the node does not apply it twice.
+       Allowing always takes the owner's tap on a written-out summary (the
+       tile, or the Allow button of a chat proposal); locking is one tap.
+       Countdowns are display only, on THIS browser's clock rebuilt from the
+       node's `remaining_s` (the phone's clock is not the robot's). */
+    var dockState = {supported: null, locked: true, release: null, ts: 0,
+                     permit: null, permitOk: false, permitWhy: null, permitText: null,
+                     owners: null, migration: null, at: 0, error: null,
+                     down: false, lastLive: false};
     var dockEl = null;
 
-    /* Two grants, both NAMED — the release is a list of action ids and the
-       core refuses `*`, `all` and `any` (ros_wire `_release_from_row`), so the
-       card lists the actions themselves rather than saying "allow movement".
-       Two, not one, because one departure alone strands the robot outside:
-       coming home is `dock.start`, and that is movement too. */
-    /* button / title / lines are i18n keys; the getters below hand callers
-       (agent_blocks.js renders the card) the text in the current language */
-    /* action ids in double quotes: they are ids of the core's lock, and
-       test_i18n reads every single-quoted area.word as an i18n key */
-    var DOCK_GRANTS = [{
-        /* 2026-10-18, the owner: „Chci dock unlock, který bude na cokoliv
-           a zapne se zas až tím, že robot zajede do docku."  Still NAMED:
-           the core writes the full list of guarded actions from its signed
-           registry (ros_wire.free_drive_actions — this list is what the card
-           shows and the webnode lets through), no use limit, and the core
-           locks it again by itself once the robot has left the dock and is
-           back in it (v2/dock_relock).  12 h stays as the safety cap. */
-        key: 'free',
-        until_docked: true,
-        /* 18. 10. evening, the owner: „Přidej agentovi všechny akce, a to
-           i převzetí gamepadem" — direct driving (drive.*, through the
-           cmd_vel_mux `primitive` input, always under the gamepad and the
-           web joystick) and saved mowing programs are moves too.  The blade
-           is never an action: only a saved program runs it. */
-        actions: ["dock.start", "dock.start_modality", "dock.undock",
-                  "drive.rotate", "drive.straight", "drive.velocity",
-                  "map.new", "map.save", "map.session_start", "map.session_stop",
-                  "motor.on", "mower.program_resume", "mower.program_run",
-                  "nav.backup", "nav.execute_path", "nav.goto_offset",
-                  "nav.goto_waypoint", "nav.goto_xy"],
-        minutes: 720,
-        max_runs: null,
-        primary: true,
-        button: 'agent.dock.free.button',
-        title: 'agent.dock.free.title',
-        lines: [
-            ['agent.dock.l.actions', 'agent.dock.free.actions'],
-            ['agent.dock.l.not', 'agent.dock.free.not'],
-            ['agent.dock.l.uses', 'agent.dock.free.uses'],
-            ['agent.dock.l.locks', 'agent.dock.free.locks'],
-            ['agent.dock.l.signed', 'agent.dock.free.signed']
-        ]
-    }, {
-        /* 2026-10-18: the owner stands at the robot and wants the agent to
-           do a test drive — undock, drive to a waypoint, wait, dock back.
-           Those are THREE moving actions in one mission, and each phase
-           spends one use (`ros_wire.guard`), so one tap has to cover all of
-           them with room for a retry.  `motor.on` is in the list because it
-           counts as movement while a navigation goal is pending (B13); when
-           nothing is pending it never spends a use. */
-        key: 'test',
-        /* The mission's recovery (recovery.CATALOGUE) backs off an obstacle,
-           turns, takes a detour point or docks by another modality — each
-           of those is a move and spends a use, so the test drive covers them
-           and has room for them. */
-        actions: ["dock.undock", "nav.goto_waypoint", "dock.start", "motor.on",
-                  "nav.backup", "drive.rotate", "drive.straight", "nav.goto_xy",
-                  "nav.goto_offset", "dock.start_modality"],
-        minutes: 45,
-        max_runs: 12,
-        button: 'agent.dock.test.button',
-        title: 'agent.dock.test.title',
-        lines: [
-            ['agent.dock.l.actions', 'agent.dock.test.actions'],
-            ['agent.dock.l.not', 'agent.dock.test.not'],
-            ['agent.dock.l.valid', 'agent.dock.test.valid'],
-            ['agent.dock.l.uses', 'agent.dock.test.uses'],
-            ['agent.dock.l.signed', 'agent.dock.test.signed']
-        ]
-    }, {
-        /* 18. 10.: a saved mowing program, started the way the Run / Resume
-           buttons of the program card start it (/web_plan/program_select).
-           The program undocks, mows and docks back by itself; the blade runs
-           only inside it, and the supervisor's mowing run stops it on STOP,
-           a takeover or a lost heartbeat. */
-        key: 'mow',
-        actions: ["mower.program_run", "mower.program_resume", "motor.on"],
-        minutes: 60,
-        max_runs: 3,
-        button: 'agent.dock.mow.button',
-        title: 'agent.dock.mow.title',
-        lines: [
-            ['agent.dock.l.actions', 'agent.dock.mow.actions'],
-            ['agent.dock.l.not', 'agent.dock.mow.not'],
-            ['agent.dock.l.valid', 'agent.dock.mow.valid'],
-            ['agent.dock.l.uses', 'agent.dock.mow.uses'],
-            ['agent.dock.l.stops', 'agent.dock.mow.stops'],
-            ['agent.dock.l.signed', 'agent.dock.mow.signed']
-        ]
-    }, {
-        key: 'out',
-        actions: ["dock.undock"],
-        minutes: 15,
-        max_runs: 1,
-        button: 'agent.dock.out.button',
-        title: 'agent.dock.out.title',
-        lines: [
-            ['agent.dock.l.actions', 'agent.dock.out.actions'],
-            ['agent.dock.l.not', 'agent.dock.out.not'],
-            ['agent.dock.l.valid', 'agent.dock.out.valid'],
-            ['agent.dock.l.uses', 'agent.dock.out.uses'],
-            ['agent.dock.l.signed', 'agent.dock.out.signed']
-        ]
-    }, {
-        key: 'round',
-        actions: ["dock.undock", "dock.start"],
-        minutes: 30,
-        max_runs: 2,
-        button: 'agent.dock.round.button',
-        title: 'agent.dock.round.title',
-        lines: [
-            ['agent.dock.l.actions', 'agent.dock.round.actions'],
-            ['agent.dock.l.not', 'agent.dock.round.not'],
-            ['agent.dock.l.valid', 'agent.dock.round.valid'],
-            ['agent.dock.l.uses', 'agent.dock.round.uses'],
-            ['agent.dock.l.signed', 'agent.dock.round.signed']
-        ]
-    }];
-    DOCK_GRANTS.forEach(function (g) { g.ttl_s = g.minutes * 60; });
-    DOCK_GRANTS.forEach(function (g) {
-        var kb = g.button, kt = g.title, kl = g.lines;
-        Object.defineProperty(g, 'button', {enumerable: true, get: function () { return _t(kb); }});
-        Object.defineProperty(g, 'title', {enumerable: true, get: function () { return _t(kt); }});
-        Object.defineProperty(g, 'lines', {enumerable: true, get: function () {
-            return kl.map(function (pair) { return [_t(pair[0]), _t(pair[1])]; });
-        }});
-    });
+    /* Kept for an old caller: no presets since T18 (D39). */
+    function dockGrants() { return []; }
 
     function dockRelease() { return dockState.release || null; }
 
-    function dockLeft(rel) {
-        if (!rel || !rel.until) { return 0; }
-        return Math.max(0, rel.until - Date.now() / 1000);
+    /* seconds left of a field of the node's state, on this browser's clock */
+    function dockSince() { return dockState.at ? (Date.now() - dockState.at) / 1000 : 0; }
+    function dockLeft(w) {
+        if (!w) { return 0; }
+        if (w.remaining_s !== undefined) { return Math.max(0, (+w.remaining_s || 0) - dockSince()); }
+        if (w.until) { return Math.max(0, w.until - Date.now() / 1000); }   // old shape
+        return 0;
+    }
+    function dockStartsIn(w) { return w ? Math.max(0, (+w.starts_in_s || 0) - dockSince()) : 0; }
+    function dockHomewardLeft(p) {
+        var hw = p && p.homeward;
+        if (!hw || hw.deadline === undefined || p.stamp === undefined) { return null; }
+        return Math.max(0, (+hw.deadline - +p.stamp) - dockSince());
+    }
+    /* the robot's epoch -> a Date on this browser (shifted by its offset) */
+    function dockWhen(epoch) {
+        var p = dockState.permit;
+        if (!epoch) { return null; }
+        var skew = p && p.stamp ? (dockState.at / 1000 - p.stamp) : 0;
+        return new Date((+epoch + skew) * 1000);
     }
 
     function mmss(sec) {
@@ -5698,12 +5668,43 @@
         return m + ':' + ss;
     }
 
-    /* Free drive (until_docked) has no use limit: the robot coming home
-       ends it, not a count. */
     function dockUsesLeft(rel) {
         if (!rel) { return 0; }
-        if (rel.until_docked) { return Infinity; }
+        if (rel.until_docked || rel.max_runs === null || rel.max_runs === undefined) { return Infinity; }
         return Math.max(0, (rel.max_runs || 1) - (rel.used || 0));
+    }
+
+    /* What the dock permit is NOW, in one word the tile, the bar and the
+       Autonomy panel share:
+         unsupported | reading | locked | scheduled | waiting_clock | open |
+         ending | exits_used | homeward | unverified | silent */
+    function dockView() {
+        var st = dockState, p = st.permit;
+        var v = {kind: 'locked', permit: p, active: p && p.active || null,
+                 next: p && p.next_window || null, scheduled: (p && p.scheduled) || [],
+                 clockOk: !!(p && p.clock_ok), why: st.permitWhy || (p && p.why) || null,
+                 owners: st.owners, ownersBad: !!(st.owners && st.owners.state && st.owners.state !== 'ok'),
+                 migration: st.migration, text: st.permitText};
+        /* N2: the agent is down — the last state may be stale: say "unknown",
+           never a countdown; locking still works (the webnode clears in the node) */
+        if (st.down) { v.kind = 'unknown'; v.active = null; v.scheduled = []; return v; }
+        if (st.supported === false) { v.kind = 'unsupported'; return v; }
+        if (st.supported === null) { v.kind = 'reading'; return v; }
+        if (p && p.homeward) { v.kind = 'homeward'; v.homewardLeft = dockHomewardLeft(p); return v; }
+        if (p && p.allowed) {
+            if (!st.permitOk) { v.kind = st.permitWhy === 'node_silent' ? 'silent' : 'unverified'; return v; }
+            v.kind = p.ending_soon ? 'ending' : 'open';
+            return v;
+        }
+        if (p && p.why === 'exits_used') { v.kind = 'exits_used'; return v; }
+        if (p && p.why === 'waiting_clock') { v.kind = 'waiting_clock'; return v; }
+        if (p && p.why === 'scheduled') { v.kind = 'scheduled'; return v; }
+        return v;
+    }
+    function dockLive() {
+        var k = dockView().kind;
+        if (k === 'unknown') { return dockState.lastLive; }     // the bar stays, honest
+        return k === 'open' || k === 'ending' || k === 'homeward' || k === 'unverified';
     }
 
     function announceDock() {
@@ -5711,32 +5712,18 @@
         paintUnlocked();
     }
 
-    /* The release the lock honours is the NEWEST valid row (ros_wire
-       `_db_release`), which is `active[0]` of GET /api/v2/dock.  `until` is
-       rebuilt from `left_s` on THIS browser's clock (the phone's clock is not
-       the robot's), so the countdown is honest even with a skewed clock. */
+    /* The valid window as the old card's row (id, until, max_runs, used):
+       `active[0]` of GET /api/v2/dock, rebuilt on this browser's clock. */
     function dockFromV2(d) {
         var a = (d && d.active && d.active[0]) || null;
         if (!a) { return null; }
         var at = (d.__at || Date.now()) / 1000;
-        return {id: a.id, row_id: a.id, actions: a.actions || [],
+        return {id: a.id, window_id: a.window_id, row_id: a.id, actions: a.actions || [],
                 until: at + Math.max(0, +a.left_s || 0),
                 max_runs: a.max_runs, used: a.used || 0, by: a.by,
                 channel: a.channel, note: a.note,
                 until_docked: !!a.until_docked,
                 left_dock_ago: a.left_dock ? Math.max(0, (d.ts || 0) - a.left_dock) : null};
-    }
-
-    /* The newest release the core locked again by itself (robot docked),
-       for the note on the locked card. */
-    function dockAutoRelocked(d) {
-        var r = ((d && d.recent) || []).filter(function (x) {
-            return x && x.revoked_note && /robot docked/.test(x.revoked_note);
-        })[0];
-        if (!r || !r.revoked) { return null; }
-        var ago = Math.max(0, (d.ts || 0) - r.revoked);
-        if (ago > 12 * 3600) { return null; }
-        return {id: r.id, at: Date.now() - ago * 1000, note: r.revoked_note};
     }
 
     function pollDock(force) {
@@ -5745,7 +5732,16 @@
         // again even after a 404.
         if (dockState.supported === false && !force) { return Promise.resolve(); }
         return api('/api/v2/dock').then(function (d) {
-            if (!d || d.agent_down) { return; }
+            if (d && d.agent_down) {
+                if (!dockState.down) {
+                    dockState.lastLive = dockLive();
+                    dockState.down = true;
+                    announceDock();
+                }
+                return;
+            }
+            if (!d) { return; }
+            dockState.down = false;
             if (d.ok === false && !d.active) {
                 dockState.supported = /not found|404/i.test(String(d.error || ''))
                     ? false : dockState.supported;
@@ -5755,13 +5751,23 @@
             dockState.supported = true;
             dockState.error = null;
             dockState.release = dockFromV2(d);
-            dockState.relocked = dockAutoRelocked(d);
-            dockState.locked = !dockState.release;
+            dockState.permit = d.permit || null;
+            dockState.permitOk = !!d.permit_ok;
+            dockState.permitWhy = d.permit_why || null;
+            dockState.permitText = d.permit_text || null;
+            dockState.owners = d.owners_check || null;
+            dockState.migration = d.migration || null;
+            dockState.at = Date.now();
+            dockState.locked = !dockState.permitOk;
             dockState.ts = Date.now();
             announceDock();
         }).catch(function (e) {
             if (/HTTP 404/.test(String(e))) {
                 dockState.supported = false;      // core does not serve it yet
+                announceDock();
+            } else if (e && e.status === 503 && !dockState.down) {
+                dockState.lastLive = dockLive();  // nothing behind /agent
+                dockState.down = true;
                 announceDock();
             }
         });
@@ -5785,54 +5791,80 @@
             if (timer) { clearTimeout(timer); }
             return r.json().catch(function () { return null; }).then(function (d) {
                 if (!r.ok) {
-                    return {ok: false, error: (d && d.error) || ('HTTP ' + r.status)};
+                    return {ok: false, status: r.status, code: d && d.code,
+                            error: (d && d.error) || ('HTTP ' + r.status)};
                 }
                 return d || {ok: false, error: _t('agent.dock.err.empty')};
             });
         }, function (e) {
             if (timer) { clearTimeout(timer); }
-            return {ok: false, error: (window.VTMock && VTMock.on)
+            return {ok: false, status: 0, error: (window.VTMock && VTMock.on)
                 ? _t('agent.dock.err.mock')
                 : String((e && e.message) || e)};
         });
     }
 
-    /* The grant itself.  Never called without a second tap in the card. */
-    function dockUnlock(grant, note) {
-        grant = grant || DOCK_GRANTS[0];
-        var body = {
-            actions: grant.actions,
-            minutes: grant.minutes,
-            note: note || ('granted in the panel (' + grant.key + '): ' +
-                           grant.actions.join(', '))
-        };
-        // Free drive carries no use count: it ends when the robot docks.
-        if (grant.until_docked) { body.until_docked = true; }
-        else { body.max_runs = grant.max_runs; }
-        return dockWrite('/agent-dock/grant', body).then(function (d) {
-            if (d && d.ok !== false && d.id) {
-                return pollDock(true).then(function () { return d; });
+    function dockReqId(kind) {
+        return kind + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    }
+    /* Lost answers (no HTTP answer, a 503 from the bridge or the node's
+       timeout) are asked again with the SAME req_id; a refusal is final. */
+    function dockSend(path, body, tries) {
+        return dockWrite(path, body).then(function (d) {
+            var lost = d && d.ok === false && (d.status === 0 || d.status === 502 ||
+                                               d.status === 503 || d.status === 504);
+            if (lost && tries > 1) {
+                return new Promise(function (res) { setTimeout(res, 800); })
+                    .then(function () { return dockSend(path, body, tries - 1); });
             }
             return d;
         });
     }
 
-    function dockRelock() {
-        var rel = dockRelease();
-        if (!rel || !rel.id) { return pollDock(true); }
-        return dockWrite('/agent-dock/revoke/' + encodeURIComponent(rel.id), {})
-            .then(function (d) {
-                if (!d || d.ok === false) {
-                    notify('report', 'Dock not locked again: ' + ((d && d.error) || '?'));
-                    throw new Error((d && d.error) || 'relock refused');
-                }
-                return pollDock(true).then(function () { return d; });
-            });
+    /* Allow a window.  Only after the owner's tap on the written-out summary
+       (tile) or the Allow button of a chat proposal (channel chat, confirmed).
+       opts: minutes | to (epoch s), from, one_exit, lock_on_return, reason,
+       req_id, channel, confirmed. */
+    function dockGrant(opts) {
+        opts = opts || {};
+        var body = {req_id: opts.req_id || dockReqId('ui'),
+                    reason: opts.reason || 'allowed in the panel'};
+        ['minutes', 'to', 'from'].forEach(function (k) {
+            if (opts[k] !== undefined && opts[k] !== null) { body[k] = opts[k]; }
+        });
+        if (opts.one_exit) { body.one_exit = true; }
+        if (opts.lock_on_return) { body.lock_on_return = true; }
+        if (opts.channel === 'chat') { body.channel = 'chat'; body.confirmed = opts.confirmed === true; }
+        return dockSend('/agent-dock/grant', body, 3).then(function (d) {
+            return pollDock(true).then(function () { return d; }, function () { return d; });
+        });
     }
 
-    /* Open the Dock lock card (Robot tab) — from a mission that waits for it,
-       or from the UNLOCKED bar.  With `key`, go straight to that grant's
-       scope card so the owner reads it and taps twice. */
+    /* Lock: 'current' (the window whose time runs), 'all', or a window id. */
+    function dockLock(target) {
+        target = target || 'current';
+        return dockSend('/agent-dock/revoke/' + encodeURIComponent(target),
+                        {req_id: dockReqId('lock'), reason: 'locked in the panel'}, 3)
+            .then(function (d) {
+                if (!d || d.ok === false) {
+                    notify('report', _t('dockp.err.lock', {err: (d && d.error) || '?'}));
+                } else if (d.direct && (target === 'all' || target === 'current')) {
+                    dockState.lastLive = false;      // locked in the node: the bar can go
+                    paintUnlocked();
+                }
+                return pollDock(true).then(function () { return d; }, function () { return d; });
+            });
+    }
+    function dockRelock() {
+        return dockLock('current').then(function (d) {
+            if (!d || d.ok === false) { throw new Error((d && d.error) || 'relock refused'); }
+            return d;
+        });
+    }
+
+    /* Open the dock permit tile (Robot tab) — from a mission that waits for
+       it, a chat bubble, Needs you, the Autonomy panel or the bar.  Opening
+       it grants nothing. */
     function openDock(key) {
         openPanel();
         activateTab('robot');
@@ -5840,46 +5872,153 @@
             {detail: {key: key || null}}));
     }
 
-    /* Always visible while anything is unlocked — the owner must never have
-       to open a tab to find out that the dock is open, and taking it back is
-       one click from wherever he is. */
+    function dockHm(epoch) {
+        var d = dockWhen(epoch);
+        return d ? ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) : '–';
+    }
+
+    /* Always visible while the dock is open (or the robot is sent home by
+       the end of the window) — the owner never has to open a tab to find out,
+       and locking is one tap from wherever he is. */
     var unlockedEl = null;
     function paintUnlocked() {
         if (!unlockedEl) { return; }
-        var rel = dockRelease();
-        var live = rel && dockLeft(rel) > 0 && dockUsesLeft(rel) > 0;
-        if (!live) {
-            unlockedEl.style.display = 'none';
-            unlockedEl.textContent = '';
-            layoutBars();
+        var v = dockView();
+        if (!dockLive()) {
+            if (unlockedEl.style.display !== 'none') {
+                unlockedEl.style.display = 'none';
+                layoutBars();
+            }
             return;
         }
-        unlockedEl.textContent = '';
-        var lab = document.createElement('span');
-        lab.className = 'vs-lab';
-        lab.textContent = _t('agent.dock.bar.label');
-        unlockedEl.appendChild(lab);
-        var txt = document.createElement('span');
-        txt.className = 'vs-txt';
-        var n = dockUsesLeft(rel);
-        txt.textContent = rel.until_docked
-            ? _t('agent.dock.bar.free', {t: mmss(dockLeft(rel))})
-            : _tn('agent.dock.bar.uses', n, {actions: (rel.actions || []).join(', '),
-                                              t: mmss(dockLeft(rel))});
-        unlockedEl.appendChild(txt);
-        var back = document.createElement('button');
-        back.type = 'button';
-        back.className = 'vs-btn';
+        /* built once, then only the words change: the 1 s countdown must not
+           replace the Lock button under a finger */
+        if (!unlockedEl.dataset.wired) {
+            unlockedEl.dataset.wired = '1';
+            unlockedEl.textContent = '';
+            var l0 = document.createElement('span');
+            l0.className = 'vs-lab';
+            var t0 = document.createElement('span');
+            t0.className = 'vs-txt';
+            var b0 = document.createElement('button');
+            b0.type = 'button';
+            b0.className = 'vs-btn';
+            b0.id = 'btn_dockp_bar_lock';
+            b0.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                b0.disabled = true;
+                dockLock('current').then(function () { b0.disabled = false; },
+                                         function () { b0.disabled = false; });
+            });
+            unlockedEl.appendChild(l0);
+            unlockedEl.appendChild(t0);
+            unlockedEl.appendChild(b0);
+            unlockedEl.addEventListener('click', function () { openDock(); });
+        }
+        var lab = unlockedEl.querySelector('.vs-lab'), txt = unlockedEl.querySelector('.vs-txt');
+        var back = unlockedEl.querySelector('.vs-btn');
+        unlockedEl.setAttribute('data-kind', v.kind);
+        lab.textContent = _t('dockp.bar.' + v.kind);
+        var a = v.active, words = '';
+        if (v.kind === 'homeward') {
+            words = _t('dockp.bar.homeward_txt', {t: mmss(v.homewardLeft || 0)});
+        } else if (v.kind === 'unknown') {
+            words = _t('dockp.bar.unknown_txt');
+        } else if (a) {
+            var ex = a.max_exits ? _t('dockp.bar.exits', {n: a.exits || 0, max: a.max_exits}) : '';
+            words = _t(v.kind === 'ending' ? 'dockp.bar.ending_txt' : 'dockp.bar.open_txt',
+                       {to: dockHm(a.to), t: mmss(dockLeft(a))}) + (ex ? ' · ' + ex : '');
+        }
+        txt.textContent = words;
         back.textContent = _t('agent.dock.bar.lock');
         back.title = _t('agent.dock.bar.lock_tip');
-        back.addEventListener('click', function (ev) {
-            ev.stopPropagation();
-            back.disabled = true;
-            dockRelock().catch(function () { back.disabled = false; });
+        back.hidden = v.kind === 'homeward';      // the window is over already
+        unlockedEl.title = lab.textContent + ' ' + words + ' — ' + _t('dockp.bar.tip');
+        if (unlockedEl.style.display === 'none') {
+            unlockedEl.style.display = '';
+            layoutBars();
+        }
+    }
+
+    /* A chat proposal (dock_permit_chat, D39): the window written out by the
+       core and ONE button that allows it — the owner's tap is the
+       confirmation (channel chat, confirmed: true).  Nothing is allowed
+       without it; the proposal's own req_id makes a second tap harmless. */
+    var LS_DOCKP_DONE = 'vitulus_dockp_chat_done';
+    function dockpDone() {
+        try { return JSON.parse(localStorage.getItem(LS_DOCKP_DONE) || '{}') || {}; } catch (e) { return {}; }
+    }
+    function dockpMark(rid, text) {
+        try {
+            var d = dockpDone();
+            d[rid] = text;
+            var keys = Object.keys(d);
+            if (keys.length > 40) { delete d[keys[0]]; }
+            localStorage.setItem(LS_DOCKP_DONE, JSON.stringify(d));
+        } catch (e) { /* private window: the node still keeps it once */ }
+    }
+    function attachPermitProposal(row, p) {
+        if (!p || !p.req_id) { return; }
+        var bar = document.createElement('div');
+        bar.className = 'vagent-actions vagent-dockp';
+        var out = document.createElement('span');
+        out.className = 'vagent-cap-out';
+        var done = dockpDone()[p.req_id];
+        if (done) {
+            out.textContent = '✓ ' + done;
+            bar.appendChild(out); row.appendChild(bar); return;
+        }
+        if (p.valid_until && Date.now() / 1000 > p.valid_until) {
+            lt(out, 'dockp.chat.expired');
+            bar.appendChild(out); row.appendChild(bar); return;
+        }
+        var yes = document.createElement('button');
+        yes.type = 'button';
+        yes.className = 'vagent-actbtn primary';
+        yes.setAttribute('data-dockp-req', p.req_id);
+        lt(yes, 'dockp.chat.allow');
+        yes.title = p.summary || '';
+        var tile = document.createElement('button');
+        tile.type = 'button';
+        tile.className = 'vagent-actbtn';
+        lt(tile, 'dockp.chat.tile');
+        tile.addEventListener('click', function (e) { e.stopPropagation(); openDock(); });
+        yes.addEventListener('click', function (e) {
+            e.stopPropagation();
+            yes.disabled = true;
+            lt(out, 'dockp.sending');
+            dockGrant({minutes: p.minutes, to: p.to, from: p.from, one_exit: p.one_exit,
+                       lock_on_return: p.lock_on_return, req_id: p.req_id,
+                       reason: p.reason, channel: 'chat', confirmed: true})
+                .then(function (d) {
+                    if (d && d.ok !== false) {
+                        var w = d.window || {};
+                        var msg = _t(d.code === 'scheduled' ? 'dockp.chat.scheduled' : 'dockp.chat.done',
+                                     {from: dockHm(w.from), to: dockHm(w.to)});
+                        dockpMark(p.req_id, msg);
+                        yes.remove();
+                        out.textContent = '✓ ' + msg;
+                        return;
+                    }
+                    yes.disabled = false;
+                    out.textContent = '✕ ' + dockErrText(d);
+                });
         });
-        unlockedEl.appendChild(back);
-        unlockedEl.style.display = '';
-        layoutBars();
+        bar.appendChild(yes);
+        bar.appendChild(tile);
+        bar.appendChild(out);
+        row.appendChild(bar);
+    }
+    /* a refusal in the viewer's language: the node's code when there is one */
+    function dockErrText(d) {
+        var raw = String((d && d.error) || '');
+        var m = /\(([a-z_]+)\)/.exec(raw);
+        var code = (d && d.code && d.code !== 'invalid') ? d.code : (m ? m[1] : null);
+        if (code) {
+            var k = 'dockp.err.' + code, s = _t(k);
+            if (s !== k) { return s; }
+        }
+        return raw || _t('agent.dock.err.empty');
     }
 
     // ================================================ shell strip + now bar
@@ -6271,7 +6410,7 @@
         every(5000, function () { pollState(); pollHealth(); });
         every(5000, pollDock);
         // the countdown in the bar has to tick even between polls
-        setInterval(function () { if (dockRelease()) { paintUnlocked(); } }, 1000);
+        setInterval(function () { if (dockLive()) { paintUnlocked(); } }, 1000);
         blocks.forEach(function (blk) {
             if (blk.poll && blk.poll.fn) { every(blk.poll.every_ms || 5000, blk.poll.fn); }
         });
@@ -6500,12 +6639,19 @@
         // the dock lock: state, the one-shot grant, and taking it back
         dock: {
             state: function () { return dockState; },
-            grants: function () { return DOCK_GRANTS; },
-            unlock: dockUnlock,
+            view: dockView,
+            grants: dockGrants,
+            grant: dockGrant,
+            lock: dockLock,
             open: openDock,
             relock: dockRelock,
             poll: pollDock,
             left: dockLeft,
+            startsIn: dockStartsIn,
+            homewardLeft: function () { return dockHomewardLeft(dockState.permit); },
+            when: dockWhen,
+            hm: dockHm,
+            errText: dockErrText,
             usesLeft: dockUsesLeft,
             mmss: mmss
         }

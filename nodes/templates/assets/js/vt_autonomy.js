@@ -692,6 +692,10 @@
                 key = ahead ? 'auto.mode.dock.ahead' : 'auto.mode.dock.waiting';
                 vars = ahead ? { program: adv.program || '', at: soon(adv.from) } : { program: adv.program || '', to: soon(adv.to) };
                 state = ahead ? 'info' : 'warn';
+            } else if (mv.dock_homeward) {
+                /* T18 D38: the window ended with the robot out — said while it lasts */
+                key = 'auto.mode.dock.homeward';
+                vars = { min: Math.max(1, Math.ceil((+mv.dock_homeward.left_s || 0) / 60)) };
             }
         }
         box.hidden = !key;
@@ -707,7 +711,28 @@
         b.type = 'button'; b.id = 'btn_auto_mode_dock';
         b.title = t('auto.mode.dock.go_tip');
         el('i', 'la la-angle-right', b);
-        b.addEventListener('click', function () { goFix('agent'); });
+        b.addEventListener('click', openPermit);
+    }
+    /* to the Agent panel (as before), and there straight to the dock permit tile
+       (Robot tab); opening it grants nothing */
+    function openPermit() {
+        goFix('agent');
+        try {
+            if (window.VAgent && VAgent.isVisible && VAgent.isVisible() && VAgent.dock && VAgent.dock.open) {
+                VAgent.dock.open();
+            }
+        } catch (e) { /* agent panel not loaded */ }
+    }
+    /* the dock permit as the Agent panel reads it (agent_chat.js VAgent.dock), or null */
+    function permitView() {
+        try {
+            var D = window.VAgent && VAgent.dock;
+            if (!D || !D.view) { return null; }
+            var v = D.view();
+            if (!v || v.kind === 'reading' || v.kind === 'unsupported') { return null; }
+            return { kind: v.kind, active: v.active, next: v.next,
+                     to: v.active ? D.hm(v.active.to) : '', nextAt: v.next ? D.hm(v.next.from) : '' };
+        } catch (e) { return null; }
     }
     function paintAdvice(mv) {
         var box = $('auto_mode_advice');
@@ -782,9 +807,22 @@
             var adv = mv.advice && mv.advice.fresh ? mv.advice : null;
             if (!adv) { note(notes, mv.fallback ? 'auto.mode.note.fallback' : 'auto.mode.note.no_advice'); }
             if (mv.limit_now) { note(notes, 'auto.mode.limit_now', { what: limitText(mv.limit_now.code, mv.limit_now.vars) }); }
-            if (mv.dock_permitted === true) { note(notes, 'auto.mode.dock.open'); }
-            else if (mv.dock_permitted === false && !(adv && adv.state === 'pending' && adv.action === 'mow')) {
-                note(notes, 'auto.mode.dock.locked').title = mv.dock_why || '';
+            /* the dock permit, quietly (the box above speaks only when an advice waits);
+               T18: with the window's end and the way to the tile */
+            var pv = permitView(), dn = null;
+            if (mv.dock_permitted === true) {
+                dn = note(notes, pv && pv.active ? 'auto.mode.dock.open_until' : 'auto.mode.dock.open',
+                          pv && pv.active ? { to: pv.to } : null);
+            } else if (mv.dock_permitted === false && !(adv && adv.state === 'pending' && adv.action === 'mow')) {
+                dn = note(notes, pv && pv.kind === 'scheduled' && pv.next ? 'auto.mode.dock.next' : 'auto.mode.dock.locked',
+                          pv && pv.next ? { at: pv.nextAt } : null);
+                dn.title = mv.dock_why || '';
+            }
+            if (dn) {
+                var dl = el('button', 'vt-auto-notelink', dn, t('auto.mode.dock.go') + ' \u203a');
+                dl.type = 'button'; dl.id = 'btn_auto_mode_dock_note';
+                dl.title = t('auto.mode.dock.go_tip');
+                dl.addEventListener('click', openPermit);
             }
         } else {
             note(notes, mv.limits_apply ? 'auto.mode.note.calendar_limits' : 'auto.mode.note.calendar');
@@ -865,6 +903,10 @@
         if (v.left_s !== undefined) { v.min = Math.max(1, Math.ceil(v.left_s / 60)); }
         if (Array.isArray(v.who)) { v.who = v.who.join(', '); }
         if (v.until) { v.until = String(v.until).length === 10 ? dayWord(new Date(v.until + 'T12:00')) : when(v.until); }
+        if (typeof v.to === 'number' && v.to > 1e9) {       /* T18 permit: epoch of the window end */
+            var dt = new Date(v.to * 1000);
+            v.to = pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+        }
         return v;
     }
     /* GPS is only checked when a run starts (code not_checked): say so, with the
@@ -2140,6 +2182,12 @@
         document.addEventListener('rosdisconnected', function () { S.link = false; });
         document.addEventListener('rosconnecting', function () { S.link = false; });
         subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintRight(); });
+        /* T18: the D36 box says the dock permit the Agent panel just read */
+        document.addEventListener('vagent:dock', function () {
+            if (!S.mode) { return; }
+            var sig = JSON.stringify(permitView());
+            if (sig !== S.permitSig) { S.permitSig = sig; paintMode(); }
+        });
         subJson('/scheduler/report', function (r) { S.report = r; S.reportAt = Date.now(); if (r && r.mode) { S.mode = r.mode; } paintAll(); paintSettings(); afterReport(); tick(); });
         subJson('/scheduler/timeline', function (o) { S.timeline = o; paintTimeline(); paintUsed(); });
         subJson('/scheduler/journal', function (o) { S.journal = o.entries || []; paintHistory(); onJournal(S.journal); });

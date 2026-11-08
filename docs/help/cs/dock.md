@@ -108,12 +108,13 @@ nech před dokem v ose výjezdu, čelem od doku: odtud robot couvá dovnitř.
 Nastavení DOCK nebo UNDOCK: dojeď s robotem přesně na místo (i se správným kurzem) a dej
 **Aktualizovat**. Nebo bod posuň v [editoru mapy](map-editor.md).
 
-## Zámek doku (agent)
+## Povolení doku (agent)
 
-[Agent Vitulus](agent.md) nesmí sám vyjet z doku ani od něj odjet: **zámek doku** otevírá jen
-majitel, v **Agent › Robot › Zámek doku**, a to pro pojmenovaný rozsah. Viz
-[Zámek doku](agent.md#zámek-doku). Zámek platí jen pro agenta: program, který spustíš v
-**Programy** (**Run** / **Resume**), nebo program spuštěný kalendářem vyjede z doku i bez
+[Agent Vitulus](agent.md) nesmí sám vyjet z doku ani od něj odjet: dok povoluje jen majitel,
+v **Agent › Robot › Povolení doku**, na časové okno (od–do, podle potřeby jen 1 výjezd nebo
+zamknout po návratu). Viz [Povolení doku](agent.md#povolení-doku). Na konci okna s robotem venku
+dosekne díl (nejvýš 5 min) a vrátí se domů. Povolení platí jen pro agenta a jeho radu „sekej“:
+program, který spustíš v **Programy** (**Run** / **Resume**), kalendář i **Undock** jedou bez
 něj.
 
 ## Když to selže

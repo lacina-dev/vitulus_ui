@@ -628,6 +628,75 @@ a.vt-needs-btn {
 #vagent_panel .dk-btn { border-radius: var(--vt-r-ctl, 7px); border-color: var(--vt-border-strong); }
 #vagent_panel .dk-btn.dk-primary { background: rgba(var(--vt-accent-rgb), 0.08); border-color: var(--vt-edge-info); color: var(--vt-accent); }
 #vagent_panel .dk-btn.dk-primary:hover { background: rgba(var(--vt-accent-rgb), 0.16); }
+/* ============ T18: the dock permit tile (agent_blocks.js, block `dock`) —
+   the same card anatomy: the state pill in the head (right), the main line,
+   the numbers, the option tags, what needs the owner, the actions, the
+   details folded.  Tones: open = warn (as the old UNLOCKED), going home =
+   warn, a refusal / owners file = err; everything from the tokens. */
+#vagent_panel .vagent-pinned:has(.dk-pill.wait) {
+    --vt-st-glow: var(--vt-glow-info); --vt-st-edge: var(--vt-edge-info);
+}
+#vagent_panel .dk-pill.wait { color: var(--vt-accent); background: var(--vt-glow-info); border-color: var(--vt-edge-info); }
+#vagent_panel .dk-pill { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dkp .dkp-main { font: 600 var(--vt-fs, 14px)/1.3 var(--vt-font); color: var(--vt-text); margin: 2px 0 2px;
+                 padding-right: 9.5em; overflow-wrap: anywhere; hyphens: auto; }
+.dkp .dkp-sub { color: var(--vt-muted); font-size: var(--vt-fs-sm, 12.5px); line-height: 1.35; overflow-wrap: anywhere; hyphens: auto; }
+.dkp .dkp-num { font-variant-numeric: tabular-nums; min-height: 1.35em; }
+.dkp .dkp-tags { display: flex; flex-wrap: wrap; gap: var(--vt-gap-1); margin-top: var(--vt-gap-2); }
+.dkp .dkp-attn {
+    margin-top: var(--vt-gap-2); padding: 6px 10px; border-radius: var(--vt-r-ctl);
+    border: 1px solid var(--vt-st-edge, var(--vt-border)); color: var(--vt-text);
+    background: radial-gradient(130% 160% at 0% 0%, var(--vt-st-glow, transparent) 0%, transparent 65%), var(--vt-surface);
+    font-size: var(--vt-fs-sm, 12.5px); line-height: 1.35; overflow-wrap: anywhere; hyphens: auto;
+}
+.dkp .dkp-attn[data-state="info"] { --vt-st-glow: var(--vt-glow-info); --vt-st-edge: var(--vt-edge-info); }
+.dkp .dkp-attn b { display: block; margin-bottom: 2px; color: var(--vt-st, var(--vt-text)); }
+.dkp .dkp-code { display: block; margin: 6px 0 2px; padding: 4px 6px; border-radius: var(--vt-r-tag);
+                 background: rgba(0, 0, 0, 0.25); color: var(--vt-text); font-size: 11.5px; overflow-wrap: anywhere; user-select: all; }
+.dkp .dkp-acts { margin-top: var(--vt-gap-2); }
+.dkp .dkp-h6 { font: 700 var(--vt-fs-xs, 11px)/1.3 var(--vt-font); letter-spacing: .05em; text-transform: uppercase;
+               color: var(--vt-muted); margin: var(--vt-gap-3) 0 var(--vt-gap-1); }
+.dkp .dkp-sched-r { display: flex; align-items: center; gap: var(--vt-gap-2); padding: 2px 0; }
+.dkp .dkp-sched-t { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dkp .dk-btn.dkp-x { flex: 0 0 auto; min-width: 32px; padding: 0 8px; font-size: 16px; line-height: 1; }
+.dkp .dkp-det { margin-top: var(--vt-gap-2); }
+.dkp .dkp-det > summary { cursor: pointer; color: var(--vt-muted); font-size: var(--vt-fs-sm, 12.5px); min-height: 24px; }
+.dkp .dkp-det .dk-l { flex-basis: 96px; }
+.dkp .dkp-form { margin-top: var(--vt-gap-2); }
+.dkp .dkp-form[hidden], .dkp [hidden] { display: none !important; }
+.dkp .dk-btn.dkp-change { color: var(--vt-accent); border-color: var(--vt-edge-info); }
+.dkp .dkp-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: var(--vt-gap-1); }
+.dkp .dkp-quick .dk-btn { width: 100%; text-align: center; min-height: 36px; white-space: nowrap; }
+.dkp .dkp-custom { display: grid; gap: var(--vt-gap-2); margin-top: var(--vt-gap-2); padding: var(--vt-gap-2);
+                   border: 1px solid var(--vt-border); border-radius: var(--vt-r-ctl); }
+.dkp .dkp-dt { display: grid; grid-template-columns: 3.5em 1fr; align-items: center; gap: var(--vt-gap-2); margin: 0; }
+.dkp .dkp-dt input { min-width: 0; width: 100%; min-height: 34px; color: var(--vt-text); background: var(--vt-surface-3);
+                     border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl); padding: 2px 6px; color-scheme: dark; }
+.dkp .dkp-opts { display: grid; gap: var(--vt-gap-1); margin: var(--vt-gap-2) 0; }
+.dkp .dkp-check { display: flex; align-items: flex-start; gap: var(--vt-gap-2); margin: 0; cursor: pointer; min-height: 32px; }
+.dkp .dkp-check input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 2px; accent-color: var(--vt-accent); }
+.dkp .dkp-check input:disabled + span { opacity: .55; }
+.dkp .dkp-check span { min-width: 0; overflow-wrap: anywhere; }
+.dkp .dkp-check small { display: block; color: var(--vt-muted); font-size: 11.5px; line-height: 1.3; }
+.dkp .dkp-sum { margin-top: var(--vt-gap-2); padding: var(--vt-gap-2) 10px; border-radius: var(--vt-r-ctl);
+                border: 1px solid var(--vt-edge-warn); background: var(--vt-tint-warn), var(--vt-surface); }
+.dkp .dkp-sum .dkp-main { padding-right: 0; }
+.dkp .dkp-sum .dk-btn.dk-yes { min-width: 7em; }
+.dkp .dkp-ok { margin-top: var(--vt-gap-2); color: var(--vt-ok); font-size: var(--vt-fs-sm, 12.5px); }
+.dkp .dkp-out { color: var(--vt-err); font-size: var(--vt-fs-sm, 12.5px); margin-top: var(--vt-gap-1); overflow-wrap: anywhere; }
+@media (pointer: coarse) {
+    .dkp .dkp-quick .dk-btn, .dkp .dkp-dt input { min-height: 44px; }
+    .dkp .dkp-check { min-height: 44px; align-items: center; }
+    .dkp .dkp-check input { width: 22px; height: 22px; margin-top: 0; }
+    .dkp .dk-btn.dkp-x { min-width: 44px; min-height: 44px; }
+    .dkp .dkp-det > summary { min-height: 40px; padding: 10px 0 6px; box-sizing: border-box; }
+}
+/* the bar over the map: ending soon / going home are warnings, not the calm "open" */
+#vagent_unlocked[data-kind="ending"] .vs-lab, #vagent_unlocked[data-kind="homeward"] .vs-lab { background: var(--vt-err); color: #1c2329; }
+#vagent_unlocked { cursor: pointer; }
+html body.vt-frame:not(.vt-h-ph) #vagent_bars #vagent_unlocked { max-width: 380px; }
+#vagent_unlocked .vs-txt { font-variant-numeric: tabular-nums; }
+.vagent-dockp .vagent-cap-out { overflow-wrap: anywhere; }
 /* Robot › the live state block is a card too (heading, surface, radius) */
 #vagent_panel .vagent-pane[data-pane="robot"] > .vagent-pane-body {
     background: var(--vt-surface-2);
@@ -1270,3 +1339,6 @@ input[type="color"].vt-color::-moz-color-swatch { border: 0; border-radius: 2px;
 .vt-fv-nowh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .vt-fv-nowh .vt-fv-k { margin: 0; }
 .vt-fv-nowt { margin: 0; font-size: var(--vt-fs-md); line-height: 1.4; color: var(--vt-text); overflow-wrap: anywhere; }
+/* T18 N2/S2: the agent is down — the dock box under the placeholder (locking still works) */
+.vagent-down .dkp-down { text-align: left; margin-top: var(--vt-gap-4); }
+.vagent-down .dkp-down .dk-acts { justify-content: flex-start; }

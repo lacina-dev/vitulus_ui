@@ -34,8 +34,8 @@ Projdi v tomhle pořadí:
 3. **Program po zastavení?** **Run** se ignoruje, dokud nedáš **Reset**
    ([Programy](programs.md#přerušit-a-pokračovat)).
 4. **Úkol agenta?**
-   - *Zámek doku* zamčený → mise čeká; odemkni v **Agent › Robot**
-     ([Zámek doku](agent.md#zámek-doku)).
+   - Chybí *povolení doku* → mise čeká; povol okno v **Agent › Robot**
+     ([Povolení doku](agent.md#povolení-doku)).
    - Pruh *STOP JE ZAJIŠTĚNÝ* → napiš `/stop pokracuj`.
    - Mise čeká na supervisor → viz [FAULT supervisoru](#fault-supervisoru).
    - Podpůrný kit restartuje stack → mise počkají, než skončí.

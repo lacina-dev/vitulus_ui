@@ -110,12 +110,14 @@ reverses in from there.
 To set DOCK or UNDOCK: drive the robot exactly there (heading too), then **Update**. Or move the
 point in the [map editor](map-editor.md).
 
-## Dock lock (agent)
+## Dock permit (agent)
 
-The [Vitulus agent](agent.md) may not undock or drive away from the dock on its own: the **dock
-lock** is opened only by the owner, in **Agent › Robot › Dock lock**, for a named scope. See
-[Dock lock](agent.md#dock-lock). The lock is only for the agent: a program you start in
-**Programs** (Run / Resume) or one the calendar starts undocks without it.
+The [Vitulus agent](agent.md) may not undock or drive away from the dock on its own: only the owner
+allows the dock, in **Agent › Robot › Dock permit**, for a time window (from–to, optionally only
+1 exit or lock after return). See [Dock permit](agent.md#dock-permit). At the end of the window
+with the robot out it finishes the path (at most 5 min) and comes home. The permit is only for the
+agent and its mow advice: a program you start in **Programs** (Run / Resume), the calendar and
+**Undock** go without it.
 
 ## When it fails
 

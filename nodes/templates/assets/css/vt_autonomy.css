@@ -220,3 +220,8 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
 .vt-auto-winline[hidden] { display: none; }
 .vt-auto-winline .vt-auto-check-t { overflow-wrap: break-word; hyphens: auto; }
 .vt-auto-winline[data-state="info"] .vt-auto-check-t { color: var(--vt-text); }
+/* T18: the quiet dock permit note carries the way to the tile (Agent › Robot) */
+.vt-auto-notelink { margin-left: 6px; padding: 0 2px; border: 0; background: none; color: var(--vt-accent);
+                    font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
+.vt-auto-notelink:hover { color: var(--vt-text); }
+@media (pointer: coarse) { .vt-auto-notelink { display: inline-flex; align-items: center; min-height: 40px; padding: 0 6px; } }

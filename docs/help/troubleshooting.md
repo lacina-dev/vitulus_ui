@@ -33,8 +33,8 @@ Check in this order:
    sticks does *not* block anything.
 3. **A program after Stop?** Run is ignored until **Reset** ([Programs](programs.md#interrupt-and-continue)).
 4. **An agent task?**
-   - *Dock lock* locked → the mission waits; unlock in **Agent › Robot**
-     ([Dock lock](agent.md#dock-lock)).
+   - *Dock permit* missing → the mission waits; allow a window in **Agent › Robot**
+     ([Dock permit](agent.md#dock-permit)).
    - *STOP IS LATCHED* banner → write `/stop pokracuj`.
    - The mission waits for the supervisor → see [Supervisor FAULT](#supervisor-fault).
    - The support kit is restarting the stack → missions wait until it is done.

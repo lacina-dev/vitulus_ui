@@ -180,6 +180,19 @@
         });
         return b;
     }
+    /* T18: a mission (or the agent's mow advice) waits for the dock permit —
+       the way out is the permit tile; opening it grants nothing (the owner
+       picks a window and taps Allow there) */
+    function dockBtn() {
+        var b = el('button', 'btn btn-outline-warning vt-needs-btn', t('needs.dock.open'));
+        b.type = 'button';
+        b.id = 'btn_needs_dock';
+        b.addEventListener('click', function () {
+            try { if (window.VAgent && VAgent.dock && VAgent.dock.open) { VAgent.dock.open(); } }
+            catch (e) { /* agent down */ }
+        });
+        return b;
+    }
     /* the robot agent's asks in the SAME anatomy as the field's cards
        (vt_field.css .vt-ask): type · waits → title → Why you → button →
        What happens next; the source is a small "robot agent" tag */
@@ -272,8 +285,10 @@
         if (main === 'ajob.attn.' + x.code) { main = x.why || ''; }
         var sub = '#' + String(x.ref || '').replace(/^[js]:/, '') + ' ' + (x.title || '');
         if (x.detail) { sub += ' — ' + x.detail; }
+        var dock = x.code === 'dock_locked';
         return agentAsk(x.code === 'safety' ? 'err' : 'warn', head, sinceSec(x.since),
-            main.charAt(0).toUpperCase() + main.slice(1), t('needs.agent.why_work'), sub, null, agentBtn(x.ref), t('needs.agent.next_work'));
+            main.charAt(0).toUpperCase() + main.slice(1), t('needs.agent.why_work'), sub, null,
+            dock ? dockBtn() : agentBtn(x.ref), t(dock ? 'needs.dock.next' : 'needs.agent.next_work'));
     }
     /* a new capability (a new write on the robot the agent may not give
        itself): decided right here — Allow signs it in your name, Deny (two

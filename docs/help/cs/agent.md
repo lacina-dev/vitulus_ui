@@ -4,8 +4,8 @@ title: Agent Vitulus
 group: Robot
 order: 80
 icon: la-comments-o
-summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a zámek doku.
-ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-zámek-doku, agent/models#modely, needs#čeká-na-tebe]
+summary: Zadej robotovi úkol normální řečí, sleduj jeho mise, schválení, nálezy a povolení doku.
+ui: [agent, agent/chat#zadat-úkol, agent/work#práce-schválení-a-úlohy, agent/activity#aktivita, agent/findings#nálezy, agent/robot#robot-a-povolení-doku, agent/models#modely, needs#čeká-na-tebe]
 related: [safety, dock, support]
 keywords: [hlídej, hlídání, sleduj, watch, watching, otáčky nože, blade speed, proud nože, blade current, odběr z baterie, battery draw, stop odvolávám, zruš stop, zrušit stop, zastav, plán agenta, plan agenta, plán na mapě, objetí zóny, obvod zóny, bod po bodu, změřená poloha, skica, souřadnice, nejvzdálenější bod, kolem zóny, objeď zónu, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, model světa, world model, co agent vidí, what the agent sees, analýza mapy, map analysis, překážka, obstacle, objížďka, detour, dosažitelný, reachable, kde jsi, co je kolem, cesta k, dojedeš, nástroje, tools, vlastní nástroje, own tools, učení, learn, learned, příručka, playbook, zkušenost, experience, naučil, co ses naučil, jak bys to řešil, strategie, strategy, akce, actions, přímé řízení, direct driving, jeď rovně, otoč se, couvni, back up, bod na mapě, goto xy, program sekání, mowing program, posekej, mow, nůž, blade, cmd_vel mux, agent, chat, mise, mission, úkol, úloha, task, zkušební jízda, test drive, volná jízda, free drive, do návratu do doku, until docked, pokračuj, continue, zruš, cancel, schválit, approve, zamítnout, deny, nálezy, findings, čeká na tebe, needs you, zvonek, bell, zámek doku, dock lock, odemknout, unlock, supervisor, fault, stop zajištěný, stop latched, restart, reconnect, ros master, zotavení, recovery, opakování, retry, alternativa, návrat do doku, return to dock, čekání na rtk, rtk wait, nenašel cestu, no path, blokovaná cesta, blocked, displej, display, lcd, nová schopnost, new capability]
 ---
@@ -93,7 +93,7 @@ vyjeď z doku jen pomocí intensity, otoč se o 360° doprava a vrať se do doku
 
 **Pevná slova bez modelu** zůstávají: zrušení a *domů* (*zruš to*, *jeď domů*, *vrať se do
 doku*), uvolnění STOPu (*stop odvolávám*, `/stop pokracuj`), lomítkové příkazy a *dok je
-odemčený* — to se **měří na zámku**: odpověď řekne, co je odemčeno (předvolba, kolik použití, do
+odemčený* — to se **měří na povolení**: odpověď řekne, co je povolené (okno, kolik výjezdů, do
 kdy). Mise, která na zámek čeká, pokračuje sama; když nic nečeká, jen to řekne (zeptá se, jen když
 předtím něco navrhl), a misi nikdy nezaloží. Co jádro hlásí samo (kroky, zámek, čekání,
 výsledky, STOP), se zapisuje do rozhovoru taky, aby operátor věděl, co se stalo. Po 24 tazích,
@@ -208,9 +208,9 @@ dej go na bod TEST a počkej tam na signál
   i když model mlčí. Před rozhodnutím operátor jednou větou řekne proč (*uložená trasa u zóny B jen
   končí, objedu ji po rozích*) a na konci krátce shrne. Otázka, kterou ti položí, svítí v **Čeká na
   tebe**.
-- **Zámek doku bez psaní.** Když krok potřebuje odemčený výjezd, jádro pošle obvyklé hlášení
-  *čeká na tvoje odemčení* se správnou předvolbou (*Jen výjezd z doku* pro výjezd, *Sekání* pro
-  program) a pod ním tlačítko **Otevřít zámek doku**; mise svítí v **Čeká na tebe**. Jakmile
+- **Povolení doku bez psaní.** Když krok potřebuje povolený výjezd, jádro pošle obvyklé hlášení
+  *čeká na tvoje odemčení* a pod ním tlačítko **Povolit dok…** (otevře dlaždici povolení doku);
+  mise svítí v **Čeká na tebe**. Jakmile
   odemkneš, chat napíše *Dok je odemčený (ui#N) — vyjíždím z doku.* a tentýž krok se rozjede sám.
 - **Zná tvar tvých zón.** Operátor čte zóny, trasy a body z mapy místa (obrys, střed, rozměry,
   nejvzdálenější roh od robota nebo doku, bod kousek uvnitř zóny, okruh kolem ní, které uložené
@@ -380,59 +380,71 @@ co uklidil nebo vyřešil sám, jako *Problém · Zdůvodnění · Řešení* �
 nemusíš. Hlášení, která jen informují (RTK, dok, „sám jsem si spravil"), zůstanou v chatu, ale
 nezvednou odznak, a na Discord přijdou bez upozornění na telefonu.
 
-## Robot a zámek doku
+## Robot a povolení doku
 
-**Robot** ukazuje živý stav, nástroje robota a kartu **Zámek doku**.
+**Robot** ukazuje živý stav, nástroje robota a dlaždici **Povolení doku**.
 
-### Zámek doku
+### Povolení doku
 
-Odemčením doku říkáš, že robot má jet: mise pokračuje sama, nic dalšího psát netřeba. Odemčení se
-spotřebuje až skutečným opuštěním doku; když výjezd selže a robot zůstane v doku, stejné odemčení
-platí i pro další pokus (do vypršení). STOP, zrušení nebo převzetí ho spotřebuje.
+Agent **sám s robotem z doku nevyjede**. Dok povoluješ na **časové okno** — od teď nebo později,
+na libovolný úsek do 12 hodin — a v něm smí agent (i jeho rada „sekej“, viz
+[Autonomie](autonomy.md)) vyjet. Povolením říkáš, že robot má jet: čekající mise pokračuje sama.
+Povolení hlídá **jen výjezd z doku**: návrat domů je vždy volný, a když je robot venku, jízda
+i sekání už další povolení nepotřebují — každý pohyb dál hlídá supervisor. Kalendář a tvůj vlastní
+**Undock** se neptají.
 
-Agent **sám s robotem z doku nevyjede** — zámek hlídá **jen výjezd z doku**: vyjetí a každý
-pohyb, když robot stojí v doku (nebo se stav doku nedá změřit), potřebuje kliknutí majitele tady.
-**Návrat do doku je vždy povolený** a když je robot změřeně venku (`is_in_dock` false nebo stav
-doku UNDOCKED), jízda na body, místa v mapě, po trasách i přímé řízení už další odemčení
-nepotřebují — každý pohyb dál hlídá supervisor. Program sekání spuštěný z doku potřebuje odemčení
-(**Sekání** nebo **Volná jízda**); změřeně venku žádné nechce, stačí tvůj pokyn. Zastavit jde vždycky.
+Dlaždice řekne jednou větou, jak na tom dok je, a pod tím čísla:
 
-1. Vyber předvolbu a přečti si její rozsah: *Akce*, *Nepovoleno*, *Platí*, *Použití*,
-   *Podepsal*.
-   - **Volná jízda — cokoli, dokud se robot nevrátí do doku** (nahoře) — povolí každý pohyb
-     včetně přímého řízení a uložených programů sekání (samotný nůž nikdy), bez omezení počtu
-     použití. Zamkne se sama, jakmile je robot zpátky v doku
-     (nebo nejpozději po 12 h). Když ji odemkneš, zatímco robot stojí v doku, počká, až robot
-     vyjede a vrátí se. Karta píše *Odemčeno do návratu do doku*.
-   - **Zkušební jízda** — vyjet z doku, jet k bodům, zajet zpět (a zapnout motory, je-li
-     potřeba) a k tomu, co potřebuje zotavení mise (couvnout, otočit se, bod objížďky, dokovat
-     jinou modalitou); 45 min, nejvýš 12 pohybů; žádné uložené trasy, žádné sekání.
-   - **Sekání: spustit uložený program sekání** — spustí nebo obnoví uložený program stejně jako
-     **Run** / **Resume** na kartě programu, a to kterékoli mapy (mapu programu si robot nejdřív
-     načte v doku); 60 min na spuštění, nejvýš 3 spuštění. Viz
-     [Programy sekání](#programy-sekání).
-   - **Jen výjezd z doku, jednou** — 15 min, 1 použití.
-   - **Vyjet z doku a zajet zpět** — 30 min, 2 použití.
-2. **Odemknout — klepni znovu pro potvrzení**, pak do 6 s **Ano — odemknout dok**.
-3. Dokud je otevřeno, karta ukazuje *ODEMČENO*, *Zbývá použití*, *Vyprší za* a **Znovu
-   zamknout** — to každé odemčení hned vezme zpět.
+| Štítek | Co znamená |
+|---|---|
+| *ZAMČENO* | žádné okno: agent zůstává v doku |
+| *POVOLENO* | *Povoleno do 17:00*, kolik zbývá, výjezdy *0 z 1* (nebo *bez limitu*) |
+| *BRZY KONČÍ* | posledních 10 minut okna (viz níž) |
+| *NAPLÁNOVÁNO* | pozdější okno, *začne za …*; v seznamu *Naplánováno* má každé × |
+| *ČEKÁ NA ČAS* | naplánované okno se otevře jen s časem ověřeným proti GPS |
+| *VÝJEZDY VYČERPÁNY* | okno běží, ale výjezdy došly: další výjezd ne, domů vždy |
+| *JEDE DOMŮ* | okno skončilo s robotem venku: dosekne díl, pak zajede do doku |
+| *NEUZNÁNO* / *UZEL MLČÍ* | uzel okno má, ale agent ho nebere (soubor ownerů, nebo uzel `dock_permit` neběží) |
 
-Mise, která zámek potřebuje, se sama zaparkuje; její zpráva v chatu řekne, kterou předvolbu
-potřebuje (výjezd z doku na bod a zpět = **Jen výjezd z doku, jednou** — zbytek jízdy i cesta
-domů odemčení nepotřebují), a má **Otevřít zámek doku**, které tu
-předvolbu rovnou otevře. Po odemčení mise pokračuje sama — `pokračuj` psát netřeba (po 2 h čekání
-ji znovu rozjede jen `pokračuj`). Počítá se i odemčení z posledních 15 min před zaparkováním mise.
+**Jak povolit dok:**
 
-- **Platí vždy nejnovější odemčení.** Když je odemčené něco užšího (např. *Jen výjezd z doku*)
-  a mise potřebuje víc, zpráva mise, `pokračuj` i *dok je odemčený* řeknou přesně, co je odemčené
-  a co chybí. **Otevřít zámek doku** pak ukáže potřebnou předvolbu s poznámkou *Teď odemčeno: …* —
-  jejím odemčením se užší nahradí. Karta s živým odemčením nabízí i širší předvolby.
-- Odemčení, kterému zbývá méně použití, než mise spotřebuje v doku, misi nespustí; chat řekne,
-  kolik zbývá a kolik je potřeba.
-- Na *dok je odemčený* / *odemkl jsem* při čekající misi odpovídá sám zámek: buď se mise rozjede
-  (odpověď to řekne, až opravdu jede), nebo řekne, co ještě chybí.
+1. Vyber úsek: **1 h**, **2 h**, **4 h**, **do 20:00** nebo **Vlastní…** (od–do; *Začít
+   později* potřebuje čas ověřený proti GPS — bez něj jen okno od teď).
+2. Podle potřeby **Jen 1 výjezd** (druhý výjezd už nepovolí) nebo **Zamknout po návratu** (okno
+   skončí, až robot zajede do doku). Jedno, nebo druhé.
+3. Přečti shrnutí (*Od teď do 18:00 (2 h)*, volby; nové okno od teď nahradí běžící, pozdější
+   okno běžící ukončí tam, kde samo začne) a klepni **Povolit**. Bez toho klepnutí se nic nepovolí.
 
-Zámek platí jen pro agenta, ne pro tvoje tlačítka a joystick.
+Dokud je dok povolený, nad mapou svítí pruh *DOK POVOLEN do 17:00* s odpočtem a **Zamknout**;
+klepnutím na pruh se otevře dlaždice. **Zamknout teď** (nebo **Zamknout** v pruhu) hned ukončí
+běžící okno, **Zamknout všechno** i naplánovaná — jedno klepnutí, bez potvrzení (je to směr do
+bezpečí). Robot, který je při zamčení venku, dojede domů jako obvykle.
+
+**Konec okna.** 10 minut před koncem, když je robot venku, přijde zpráva do chatu (i na
+Discord) a dlaždice přejde na *BRZY KONČÍ*. Na konci, je-li robot venku, dosekne rozdělaný díl
+(nejvýš 5 minut), zbytek uloží jako přerušený a vrátí se domů; zbytek naváže v dalším okně. Nové
+okno od teď návrat zruší.
+
+**Soubor ownerů.** Dok smí povolit jen jméno ze souboru `~/.vitulus/dock_permit_owners` na
+robotu (jedno jméno na řádek); okno povolené tady se podepíše prvním jménem ze souboru. Když soubor
+chybí, je prázdný nebo nejde přečíst (nebo otevřené okno podepsalo jméno, které v něm není),
+dlaždice ukáže **Vytvoř soubor ownerů** i s řádkem k doplnění — do té doby žádné okno neplatí
+(kalendář a tvůj Undock jedou dál).
+
+**Když agent neběží**, dlaždice i pruh místo starého odpočtu napíšou *Stav neznámý (agent
+neběží)*. **Zamknout teď** a **Zamknout všechno** fungují dál: UI robota pošle zamčení rovnou uzlu
+`dock_permit` a napíše *Zamčeno přímo v uzlu dock_permit*. Povolit jde jen s agentem.
+
+**Z chatu.** Napiš *povol dok na 2 hodiny*, *povol dok do 18:00*, *povol dok zítra 14–17*,
+*povol dok jen jednou* nebo *povol dok a zamkni po návratu*: agent odpoví vypsaným oknem
+a tlačítkem **Povolit** pod odpovědí — povolí ho teprve to klepnutí (návrh platí 15 minut; dvojí
+klepnutí dvě okna neudělá). *zamkni dok* hned zamkne všechno. Po klepnutí přijde odpověď, co se
+povolilo.
+
+Mise, která dok potřebuje, se sama zaparkuje a její zpráva má **Povolit dok…**, které otevře
+dlaždici; **Čeká na tebe** ji ukáže se stejným tlačítkem. Jakmile okno povolíš, mise pokračuje
+sama. Na *dok je odemčený* při čekající misi odpovídá samo povolení. Každé okno, jeho konec,
+upozornění i návrat domů jsou řádky v **Aktivitě**.
 
 ## Co agent smí
 
@@ -450,7 +462,7 @@ pak **změří** — odpověď nikdy netvrdí úspěch bez důkazu.
 | `nav.goto_offset` | místo nejvýš 1 m vedle uloženého bodu | jako výše |
 | `nav.backup` | couvnout o 5–50 cm | pravidla přímého řízení níže |
 | `drive.straight` / `drive.rotate` / `drive.velocity` | jet rovně nejvýš ±2 m, otočit se nejvýš o ±360°, nebo rychlost nejvýš na 5 s | pravidla přímého řízení níže |
-| `mower.program_run` / `mower.program_resume` | spustit / obnovit uložený program sekání | zámek doku (Sekání nebo Volná jízda) · supervisor v režimu sekání |
+| `mower.program_run` / `mower.program_resume` | spustit / obnovit uložený program sekání | okno povolení doku · supervisor v režimu sekání |
 | `mower.program_stop` / `mower.program_reset`, `drive.stop`, `dock.stop`, `nav.cancel_*`, `motor.off` | zastavit | vždycky povoleno |
 | `nav.speed`, `nav.clear_costmaps`, `nav.save_waypoint`, `nav.record_path_start` / `_stop`, `map.*` | nastavení, mapové nástroje, nahrávání (jména agenta začínají `agent_`) | sami robotem nehýbou; mapovací relace potřebují zámek doku |
 
@@ -476,7 +488,7 @@ a sám zastaví — akce skončí jako *přerušená* s důvodem — když:
 
 Agent smí spustit jen **uložený program sekání**, stejně jako **Run** / **Resume** na kartě
 programu. Program sám vyjede z doku, poseká své zóny a vrátí se do doku. Spuštění a obnovení
-z doku potřebuje tvoje odemčení (**Sekání** nebo **Volná jízda**), jedno odemčení platí pro celou misi, venku žádné nechce; zastavit a resetovat program jde
+z doku potřebuje tvoje okno povolení doku, jedno okno platí pro celou misi, venku žádné nechce; zastavit a resetovat program jde
 vždycky.
 
 Řekni *posekej zónu A*: agent sám vybere nejvhodnější uložený program podle jména, zóny nebo mapy,

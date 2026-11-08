@@ -289,263 +289,534 @@
 
   function register(VA) {
 
-    // ---- blok: Dokový zámek ----------------------------------------------
+    // ---- blok: Povolení doku (T18) ---------------------------------------
     /* Rozhodnutí majitele (30. 8.): „Dokovy zamek muzu odemknout jen ja
-       kliknutim v ui."  Tahle karta je to kliknutí — a proto ukazuje ROZSAH,
-       ne sloveso: kterou akci, jak dlouho, kolikrát, kdo to podepisuje.
-       Jednorázové svolení, druhé klepnutí na potvrzení, po použití zaniká.
-       Vynucuje to jádro (v2/ros_wire), tohle je jen lidská půlka. */
-    var dockBox = null, dockTick = null, dockGrantOpen = false, dockGrantOver = null;
-
-    /* Does the live release already give everything grant `g` gives?  The
-       lock honours only the NEWEST valid release (ros_wire), so a narrower
-       one („out") in front of a waiting test drive must be replaceable from
-       here — 25. 10. 2026, mission #238 waited on „out" with no way to
-       unlock the test drive except „Lock again" first. */
-    function dockCovers(VA, rel, g) {
-      if (!rel || !g) { return false; }
-      var have = rel.actions || [];
-      var all = g.actions.every(function (a) { return have.indexOf(a) >= 0; });
-      if (!all) { return false; }
-      if (g.until_docked) { return !!rel.until_docked; }
-      return VA.dock.usesLeft(rel) >= (g.max_runs || 1) || !!rel.until_docked;
-    }
+       kliknutim v ui."  T18 (D36–D39): povolení je ČASOVÉ OKNO od–do, které
+       drží robotí vrstva (uzel dock_permit); volby „jen 1 výjezd" a „zamknout
+       po návratu".  Dlaždice ukazuje stav okna slovy (otevřené / naplánované /
+       čeká na čas / zamčeno a proč, zbývá, výjezdy), konec okna (D38: 10 min
+       předem, pak dosekat díl a domů) a soubor ownerů, bez kterého agent
+       žádné okno neuzná.  Povolit = vybrat úsek → shrnutí → klepnout
+       Povolit (bez druhého klepnutí nic).  Zamknout = jedno klepnutí. */
+    var dockBox = null, dockStat = null, dockForm = null, dockTick = null;
+    var dockSel = null;          // {minutes|to, from} chosen, waiting for Allow
+    var dockBusy = false;
+    var dockOpts = {one_exit: false, lock_on_return: false};
 
     VA.registerBlock({
-      id: 'dock', title: T('blocks.title.dock'), titleKey: 'blocks.title.dock', order: 5,
-      render: function (root) { dockBox = root; drawDock(VA); },
-      onOpen: function () { if (VA.dock) { VA.dock.poll(true); } drawDock(VA); }
+      id: 'dock', title: T('dockp.title'), titleKey: 'dockp.title', order: 5,
+      render: function (root) { dockBox = root; buildDock(VA); },
+      onOpen: function () { if (VA.dock) { VA.dock.poll(true); } paintDock(VA); }
     });
-
-    document.addEventListener('vagent:dock', function () { drawDock(VA); });
-    /* „Open Dock lock" from a mission that waits for it: show the card and,
-       when a grant is named, its scope card straight away — the owner still
-       reads it and taps twice; nothing is granted by opening it. */
-    document.addEventListener('vagent:dock-open', function (ev) {
-      var key = ev && ev.detail && ev.detail.key;
+    document.addEventListener('vagent:dock', function () { paintDock(VA); });
+    document.addEventListener('vt:lang', function () { if (dockBox) { buildDock(VA); } });
+    document.addEventListener('vagent:dock-open', function () {
       var go = function () {
-        if (!dockBox || !VA.dock) { return; }
-        var st = VA.dock.state();
-        var rel = st.release;
-        var live = rel && VA.dock.left(rel) > 0 && VA.dock.usesLeft(rel) > 0;
-        var g = null;
-        VA.dock.grants().forEach(function (x) { if (x.key === key) { g = x; } });
-        if (g && st.supported === true && (!live || !dockCovers(VA, rel, g))) {
-          drawGrant(VA, g, live ? rel : null);
-        }
-        else { drawDock(VA); }
+        paintDock(VA);
         try { dockBox.scrollIntoView({block: 'start', behavior: 'smooth'}); } catch (e) { /* ok */ }
       };
-      VA.dock.poll(true).then(go, go);
+      if (VA.dock) { VA.dock.poll(true).then(go, go); } else { go(); }
     });
 
-    function dockRow(label, value) {
-      var r = el('div', 'dk-r');
+    function dkRow(label, value, cls) {
+      var r = el('div', 'dk-r' + (cls ? ' ' + cls : ''));
       r.appendChild(el('span', 'dk-l', label));
       r.appendChild(el('span', 'dk-v', value));
       return r;
     }
+    function dkPad(n) { return ('0' + n).slice(-2); }
+    /* the robot's epoch for a local Date of this browser (minus its skew) */
+    function dkEpoch(date) {
+      var st = VA.dock.state(), p = st.permit;
+      var skew = p && p.stamp ? (st.at / 1000 - p.stamp) : 0;
+      return Math.round(date.getTime() / 1000 - skew);
+    }
+    function dkDay(epoch) {
+      var d = VA.dock.when(epoch);
+      if (!d) { return ''; }
+      var today = new Date(); today.setHours(0, 0, 0, 0);
+      var day = new Date(d.getTime()); day.setHours(0, 0, 0, 0);
+      var diff = Math.round((day - today) / 86400000);
+      if (diff === 0) { return T('dockp.day.today'); }
+      if (diff === 1) { return T('dockp.day.tomorrow'); }
+      return d.getDate() + '. ' + (d.getMonth() + 1) + '.';
+    }
+    function dkSpan(from, to) {
+      var a = dkDay(from), b = dkDay(to);
+      return a + ' ' + VA.dock.hm(from) + '–' + (a === b ? '' : b + ' ') + VA.dock.hm(to);
+    }
+    function dkDur(sec) {
+      var m = Math.max(0, Math.round(sec / 60)), h = Math.floor(m / 60);
+      m -= h * 60;
+      if (h && m) { return T('dockp.dur.hm', {h: h, m: m}); }
+      return h ? T('dockp.dur.h', {h: h}) : T('dockp.dur.m', {m: m});
+    }
+    var DK_PILL = {unknown: 'wait', locked: 'shut', scheduled: 'shut', waiting_clock: 'wait', exits_used: 'wait',
+                   open: 'open', ending: 'open', homeward: 'open', unverified: 'wait',
+                   silent: 'wait', reading: 'shut', unsupported: 'shut'};
 
-    function drawDock(VA) {
-      if (!dockBox || !VA.dock) return;
-      var st = VA.dock.state();
-      var rel = st.release;
-      var live = rel && VA.dock.left(rel) > 0 && VA.dock.usesLeft(rel) > 0;
-      /* While the owner is reading WHAT he is about to allow, a 5 s poll must
-         not pull the card out from under him — caught in the browser doing
-         exactly that.  The scope panel stays until he decides or cancels;
-         a release appearing (or the endpoint going away) still wins. */
-      if (dockGrantOpen && st.supported === true &&
-          (!live || (dockGrantOver && rel.id === dockGrantOver))) { return; }
-      if (dockTick) { clearInterval(dockTick); dockTick = null; }
+    function buildDock(VA) {
+      if (!dockBox) { return; }
       dockBox.textContent = '';
-
-      var head = el('div', 'dk-h');
-      var pill = el('span', 'dk-pill ' + (live ? 'open' : 'shut'),
-                    live ? T('blocks.dock.unlocked') : T('blocks.dock.locked'));
-      head.appendChild(pill);
-      dockBox.appendChild(head);
-
-      if (st.supported === false) {
-        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.unsupported')));
-        return;
-      }
-      if (st.supported === null) {
-        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.reading')));
-        return;
-      }
-
-      if (live && rel.until_docked) {
-        /* Free drive (owner 2026-10-18): no use count, the core locks it
-           again by itself when the robot is back in the dock. */
-        dockBox.appendChild(el('div', 'dk-title', T('blocks.dock.until_docked')));
-        dockBox.appendChild(dockRow(T('blocks.dock.allowed'), T('blocks.dock.every_move',
-          {actions: (rel.actions || []).join(', ')})));
-        dockBox.appendChild(dockRow(T('blocks.dock.uses'), rel.used
-          ? T('blocks.dock.no_limit_used', {n: rel.used}) : T('blocks.dock.no_limit')));
-        dockBox.appendChild(dockRow(T('blocks.dock.robot'), rel.left_dock_ago == null
-          ? T('blocks.dock.still_in') : T('blocks.dock.left')));
-        var capRow = dockRow(T('blocks.dock.latest_in'),
-          VA.dock.mmss(VA.dock.left(rel)));
-        dockBox.appendChild(capRow);
-        dockBox.appendChild(dockRow(T('blocks.dock.signed_by'), rel.by || '?'));
-        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.locks_itself')));
-        var again = el('button', 'dk-btn dk-back', T('blocks.dock.lock_again'));
-        again.type = 'button';
-        again.title = T('blocks.dock.lock_again_title');
-        again.addEventListener('click', function () {
-          again.disabled = true;
-          VA.dock.relock().catch(function () { again.disabled = false; });
-        });
-        dockBox.appendChild(again);
-        dockTick = setInterval(function () {
-          var l = VA.dock.left(rel);
-          capRow.querySelector('.dk-v').textContent = VA.dock.mmss(l);
-          if (l <= 0) { clearInterval(dockTick); dockTick = null; drawDock(VA); }
-        }, 1000);
-        return;
-      }
-
-      if (live) {
-        dockBox.appendChild(dockRow(T('blocks.dock.allowed'), (rel.actions || []).join(', ')));
-        dockBox.appendChild(dockRow(T('blocks.dock.uses_left'),
-          T('blocks.dock.n_of_max', {n: VA.dock.usesLeft(rel), max: (rel.max_runs || 1)})));
-        var leftRow = dockRow(T('blocks.dock.expires_in'), VA.dock.mmss(VA.dock.left(rel)));
-        dockBox.appendChild(leftRow);
-        dockBox.appendChild(dockRow(T('blocks.dock.signed_by'), rel.by || '?'));
-        if (rel.used) {
-          dockBox.appendChild(el('div', 'dk-note',
-            T('blocks.dock.used_n', {n: rel.used})));
-        }
-        var back = el('button', 'dk-btn dk-back', T('blocks.dock.lock_again'));
-        back.type = 'button';
-        back.title = T('blocks.dock.lock_again_title');
-        back.addEventListener('click', function () {
-          back.disabled = true;
-          VA.dock.relock().catch(function () { back.disabled = false; });
-        });
-        dockBox.appendChild(back);
-        /* A wider preset replaces this one (the newest release wins). */
-        var wider = VA.dock.grants().filter(function (g) {
-          return !dockCovers(VA, rel, g) && rel.actions &&
-            g.actions.length > rel.actions.length && rel.actions.every(
-              function (a) { return g.actions.indexOf(a) >= 0; });
-        });
-        if (wider.length) {
-          dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.wider')));
-          wider.forEach(function (g) {
-            var w = el('button', 'dk-btn dk-grant', g.button);
-            w.type = 'button';
-            w.title = g.actions.join(' + ');
-            w.addEventListener('click', function () { drawGrant(VA, g, rel); });
-            dockBox.appendChild(w);
-          });
-        }
-        // the countdown is display only; the core decides when it is over
-        dockTick = setInterval(function () {
-          var l = VA.dock.left(rel);
-          leftRow.querySelector('.dk-v').textContent = VA.dock.mmss(l);
-          if (l <= 0) { clearInterval(dockTick); dockTick = null; drawDock(VA); }
-        }, 1000);
-        return;
-      }
-
-      dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.cannot_leave')));
-      if (st.relocked) {
-        var at = new Date(st.relocked.at);
-        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.relocked', {
-          id: st.relocked.id,
-          time: ('0' + at.getHours()).slice(-2) + ':' + ('0' + at.getMinutes()).slice(-2)})));
-      }
-      if (st.error) {
-        dockBox.appendChild(el('div', 'dk-err', T('blocks.dock.state_err', {err: st.error})));
-      }
-      VA.dock.grants().forEach(function (g) {
-        var open = el('button', 'dk-btn dk-grant' + (g.primary ? ' dk-primary' : ''), g.button);
-        open.type = 'button';
-        open.title = g.actions.join(' + ');
-        open.addEventListener('click', function () { drawGrant(VA, g); });
-        dockBox.appendChild(open);
-      });
+      dockBox.classList.add('dkp');
+      dockStat = el('div', 'dkp-stat');
+      dockStat.id = 'dockp_stat';
+      dockForm = el('div', 'dkp-form');
+      dockForm.id = 'dockp_form';
+      dockBox.appendChild(dockStat);
+      dockBox.appendChild(dockForm);
+      dockSel = null;
+      buildForm(VA);
+      paintDock(VA);
     }
 
-    /* The scope, written out.  The owner should see WHAT he is allowing,
-       not just a verb — so every field of the grant is on the card before
-       the button that gives it. */
-    function drawGrant(VA, g, over) {
-      dockGrantOpen = true;
-      dockGrantOver = over ? over.id : null;
+    /* ---- the state: one sentence, the numbers, what needs the owner ---- */
+    function paintDock(VA) {
+      if (!dockStat || !VA.dock) { return; }
+      var v = VA.dock.view(), a = v.active;
+      /* redraw only when something the owner reads changed: a 5 s poll must
+         not pull a button from under his finger (the countdowns tick alone) */
+      var sig = JSON.stringify([v.kind, a && [a.id, a.to, a.exits, a.max_exits, a.lock_on_return],
+                                v.scheduled.map(function (w) { return [w.id, w.from, w.to]; }),
+                                v.owners && v.owners.state, v.migration && v.migration.ts,
+                                VA.dock.state().error, v.clockOk, v.permit && v.permit.dock,
+                                window.VTI18n && VTI18n.lang && VTI18n.lang()]);
+      if (dockStat.dataset.sig === sig && dockStat.firstChild) { paintForm(VA, v); return; }
+      dockStat.dataset.sig = sig;
       if (dockTick) { clearInterval(dockTick); dockTick = null; }
-      dockBox.textContent = '';
+      dockStat.textContent = '';
+      dockStat.setAttribute('data-kind', v.kind);
       var head = el('div', 'dk-h');
-      head.appendChild(el('span', 'dk-pill ' + (over ? 'open' : 'shut'),
-                          over ? T('blocks.dock.unlocked') : T('blocks.dock.locked')));
-      dockBox.appendChild(head);
-      if (over) {
-        dockBox.appendChild(el('div', 'dk-note', T('blocks.dock.replaces',
-          {actions: (over.actions || []).join(', ')})));
-      }
-      dockBox.appendChild(el('div', 'dk-title', g.title));
-      g.lines.forEach(function (pair) {
-        dockBox.appendChild(dockRow(pair[0], pair[1]));
-      });
-      var until = new Date(Date.now() + g.ttl_s * 1000);
-      var untilHm = ('0' + until.getHours()).slice(-2) + ':' +
-        ('0' + until.getMinutes()).slice(-2);
-      dockBox.appendChild(dockRow(T('blocks.dock.until'), g.until_docked
-        ? T('blocks.dock.until_docked_at', {time: untilHm}) : untilHm));
+      var pill = el('span', 'dk-pill ' + (DK_PILL[v.kind] || 'shut'), T('dockp.pill.' + v.kind));
+      pill.id = 'dockp_pill';
+      head.appendChild(pill);
+      dockStat.appendChild(head);
 
-      var row = el('div', 'dk-acts');
-      var yes = el('button', 'dk-btn dk-yes', T('blocks.dock.unlock'));
-      yes.type = 'button';
-      var armed = false, timer = null;
-      yes.addEventListener('click', function () {
-        if (!armed) {
-          armed = true;
-          yes.textContent = T('blocks.dock.unlock_yes');
-          yes.classList.add('armed');
-          timer = setTimeout(function () {
-            armed = false;
-            yes.classList.remove('armed');
-            yes.textContent = T('blocks.dock.unlock');
-          }, 6000);
-          return;
-        }
-        if (timer) { clearTimeout(timer); }
-        yes.disabled = true;
-        yes.textContent = T('blocks.dock.unlocking');
-        VA.dock.unlock(g).then(function (d) {
-          if (!d || d.ok === false) {
-            // stay on the card: the refusal has to stay readable, and a
-            // poll must not wipe it away
-            yes.disabled = false;
-            armed = false;
-            yes.textContent = T('blocks.dock.unlock');
-            dockBox.appendChild(el('div', 'dk-err', T('blocks.dock.not_unlocked',
-              {err: (d && d.error) || T('blocks.dock.core_refused')})));
-            return;
-          }
-          dockGrantOpen = false;
-          dockGrantOver = null;
-          drawDock(VA);
-        }).catch(function (e) {
-          yes.disabled = false;
-          armed = false;
-          yes.textContent = T('blocks.dock.unlock');
-          dockBox.appendChild(el('div', 'dk-err',
-            /HTTP 404/.test(String(e))
-              ? T('blocks.dock.not_unlocked_404')
-              : T('blocks.dock.not_unlocked', {err: String(e)})));
+      if (v.kind === 'unsupported' || v.kind === 'reading') {
+        dockStat.appendChild(el('div', 'dk-note', T(v.kind === 'reading' ? 'blocks.dock.reading'
+                                                                          : 'blocks.dock.unsupported')));
+        dockForm.hidden = true;
+        return;
+      }
+      /* main line + secondary */
+      var main = el('div', 'dkp-main'), sub = el('div', 'dkp-sub');
+      main.id = 'dockp_main';
+      var live = null;
+      if (v.kind === 'homeward') {
+        main.textContent = T('dockp.main.homeward');
+        live = function () { return T('dockp.sub.homeward', {t: VA.dock.mmss(VA.dock.homewardLeft() || 0)}); };
+      } else if (a && (v.kind === 'open' || v.kind === 'ending' || v.kind === 'unverified' ||
+                       v.kind === 'silent' || v.kind === 'exits_used')) {
+        main.textContent = T('dockp.main.open', {to: VA.dock.hm(a.to), day: dkDay(a.to) === T('dockp.day.today') ? '' : dkDay(a.to) + ' '});
+        live = function () {
+          var bits = [T('dockp.sub.left', {t: dkDur(VA.dock.left(a))})];
+          bits.push(a.max_exits ? T('dockp.sub.exits', {n: a.exits || 0, max: a.max_exits})
+                                : T('dockp.sub.exits_free', {n: a.exits || 0}));
+          return bits.join(' · ');
+        };
+      } else if (v.kind === 'scheduled' && v.next) {
+        main.textContent = T('dockp.main.scheduled', {span: dkSpan(v.next.from, v.next.to)});
+        live = function () { return T('dockp.sub.starts', {t: dkDur(VA.dock.startsIn(v.next))}); };
+      } else if (v.kind === 'unknown') {
+        main.textContent = T('dockp.main.unknown');
+        sub.textContent = T('dockp.sub.unknown');
+      } else if (v.kind === 'waiting_clock') {
+        main.textContent = T('dockp.main.waiting_clock');
+        sub.textContent = T('dockp.sub.waiting_clock');
+      } else {
+        main.textContent = T('dockp.main.locked');
+        sub.textContent = T('dockp.sub.locked');
+      }
+      if (live) {
+        sub.textContent = live();
+        sub.classList.add('dkp-num');
+        dockTick = setInterval(function () {
+          if (!document.body.contains(sub)) { clearInterval(dockTick); dockTick = null; return; }
+          sub.textContent = live();
+        }, 1000);
+      }
+      dockStat.appendChild(main);
+      dockStat.appendChild(sub);
+
+      /* tags: the options of the window, who allowed it */
+      if (a && v.kind !== 'homeward') {
+        var tags = el('div', 'dkp-tags');
+        if (a.max_exits === 1) { tags.appendChild(el('span', 'vt-pill', T('dockp.tag.one_exit'))); }
+        if (a.lock_on_return) { tags.appendChild(el('span', 'vt-pill', T('dockp.tag.lock_on_return'))); }
+        if (a.channel === 'chat') { tags.appendChild(el('span', 'vt-pill', T('dockp.tag.chat'))); }
+        if (tags.firstChild) { dockStat.appendChild(tags); }
+      }
+
+      /* what needs the owner, one sentence each */
+      if (v.ownersBad) {
+        var ob = el('div', 'dkp-attn dkp-owners');
+        ob.id = 'dockp_owners';
+        ob.setAttribute('data-state', 'err');
+        ob.appendChild(el('b', null, T('dockp.owners.h')));
+        ob.appendChild(el('div', null, T('dockp.owners.' + v.owners.state,
+                                         {file: v.owners.file || '~/.vitulus/dock_permit_owners',
+                                          name: v.owners.signs_as || ''})));
+        var of = v.owners.file || '~/.vitulus/dock_permit_owners';
+        var code = el('code', 'dkp-code', (v.owners.state === 'empty' || v.owners.state === 'missing')
+          ? 'echo ' + T('dockp.owners.your_name') + ' >> ' + of
+          : (v.owners.state === 'mismatch' ? 'cat ' + of : 'ls -l ' + of));
+        ob.appendChild(code);
+        ob.appendChild(el('div', 'dk-note', T('dockp.owners.after')));
+        dockStat.appendChild(ob);
+      }
+      if (v.kind === 'ending') {
+        dockStat.appendChild(attn('warn', T('dockp.attn.ending', {to: VA.dock.hm(a.to)})));
+      } else if (v.kind === 'homeward') {
+        dockStat.appendChild(attn('warn', T('dockp.attn.homeward')));
+      } else if (v.kind === 'exits_used') {
+        dockStat.appendChild(attn('info', T('dockp.attn.exits_used')));
+      } else if (v.kind === 'silent') {
+        dockStat.appendChild(attn('warn', T('dockp.attn.silent')));
+      } else if (v.kind === 'unverified' && !v.ownersBad) {
+        dockStat.appendChild(attn('warn', T('dockp.attn.unverified'))).title = v.text || '';
+      }
+      var mig = v.migration;
+      if (mig && mig.message && !mig.ok) {
+        dockStat.appendChild(attn('warn', T('dockp.attn.migration', {row: mig.row, code: mig.code || '?'})));
+      }
+      var stErr = VA.dock.state().error;
+      if (stErr) { dockStat.appendChild(el('div', 'dk-err', T('blocks.dock.state_err', {err: stErr}))); }
+
+      /* lock: one tap (the safe direction) */
+      var running = a && (v.kind === 'open' || v.kind === 'ending' || v.kind === 'exits_used' ||
+                          v.kind === 'unverified' || v.kind === 'silent' || v.kind === 'waiting_clock');
+      var acts = el('div', 'dk-acts dkp-acts');
+      if (running || v.kind === 'waiting_clock' || v.kind === 'unknown') {
+        acts.appendChild(lockBtn('current', 'btn_dockp_lock', T('dockp.lock.now'), 'dk-back'));
+      }
+      if (v.scheduled.length || v.kind === 'unknown') {
+        acts.appendChild(lockBtn('all', 'btn_dockp_lock_all', T('dockp.lock.all'), ''));
+      }
+      if (acts.firstChild) { dockStat.appendChild(acts); }
+
+      /* scheduled windows, each with its own × */
+      if (v.scheduled.length) {
+        var list = el('div', 'dkp-sched');
+        list.appendChild(el('div', 'dkp-h6', T('dockp.sched.h')));
+        v.scheduled.forEach(function (w) {
+          var r = el('div', 'dkp-sched-r');
+          var bits = [dkSpan(w.from, w.to)];
+          if (w.max_exits === 1) { bits.push(T('dockp.tag.one_exit')); }
+          if (w.lock_on_return) { bits.push(T('dockp.tag.lock_on_return')); }
+          r.appendChild(el('span', 'dkp-sched-t', bits.join(' · ')));
+          var x = lockBtn(w.id, null, '×', 'dkp-x');
+          x.title = T('dockp.sched.cancel');
+          x.setAttribute('aria-label', T('dockp.sched.cancel'));
+          r.appendChild(x);
+          list.appendChild(r);
         });
+        dockStat.appendChild(list);
+      }
+
+      /* details (collapsed, remembered) */
+      var det = el('details', 'dkp-det');
+      det.open = isOpen('dkp_det', false);
+      det.addEventListener('toggle', function () { setOpen('dkp_det', det.open); });
+      det.appendChild(el('summary', null, T('dockp.det.h')));
+      if (a) {
+        det.appendChild(dkRow(T('dockp.det.window'), dkSpan(a.from, a.to)));
+        det.appendChild(dkRow(T('blocks.dock.signed_by'), (a.by || '?') + ' · ' + (a.channel || '?')));
+        if (a.reason) { det.appendChild(dkRow(T('dockp.det.reason'), a.reason)); }
+        det.appendChild(dkRow(T('dockp.det.end'), T(a.end_action === 'none' ? 'dockp.det.end_none'
+                                                                            : 'dockp.det.end_return')));
+      }
+      var p = v.permit || {};
+      det.appendChild(dkRow(T('dockp.det.dock'), p.dock ? T(p.dock === 'in' ? 'dockp.det.dock_in' : 'dockp.det.dock_out') : '–'));
+      det.appendChild(dkRow(T('dockp.det.clock'), p.clock_ok ? T('dockp.det.clock_ok')
+                                                             : T('dockp.det.clock_no')));
+      det.appendChild(dkRow(T('dockp.det.who_reads'), T('dockp.det.who_reads_v')));
+      if (v.text) { det.appendChild(dkRow(T('dockp.det.agent'), v.text)); }
+      dockStat.appendChild(det);
+
+      /* the form: open by itself while locked; behind „Change" while open */
+      paintForm(VA, v);
+    }
+
+    function attn(state, text) {
+      var b = el('div', 'dkp-attn', text);
+      b.setAttribute('data-state', state);
+      return b;
+    }
+
+    function lockBtn(target, id, label, cls) {
+      var b = el('button', 'dk-btn ' + (cls || ''), label);
+      b.type = 'button';
+      if (id) { b.id = id; }
+      b.setAttribute('data-lock', target);
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        VA.dock.lock(target).then(function (d) {
+          b.disabled = false;
+          if (!d || d.ok === false) {
+            dockStat.appendChild(el('div', 'dk-err', T('dockp.err.lock', {err: VA.dock.errText(d)})));
+          } else if (d.direct) {
+            /* S2: the agent is down, the webnode locked it in the node itself */
+            var okd = el('div', 'dkp-ok', T(d.code === 'nothing' ? 'dockp.ok.direct_nothing' : 'dockp.ok.direct'));
+            okd.id = 'dockp_direct';
+            dockStat.appendChild(okd);
+          }
+        }, function () { b.disabled = false; });
       });
-      row.appendChild(yes);
+      return b;
+    }
+
+    /* ---- allowing: quick picks or a custom span, the two options, then
+       the summary and ONE Allow (the confirmation) ---- */
+    function buildForm(VA) {
+      dockForm.textContent = '';
+      var tog = el('button', 'dk-btn dkp-change', T('dockp.form.change'));
+      tog.type = 'button';
+      tog.id = 'btn_dockp_change';
+      tog.addEventListener('click', function () {
+        setOpen('dkp_form', !isOpen('dkp_form', false));
+        paintForm(VA, VA.dock.view());
+      });
+      dockForm.appendChild(tog);
+      var body = el('div', 'dkp-fbody');
+      body.id = 'dockp_fbody';
+      body.appendChild(el('div', 'dkp-h6', T('dockp.form.h')));
+      var quick = el('div', 'dkp-quick');
+      [['60', 'dockp.q.1h'], ['120', 'dockp.q.2h'], ['240', 'dockp.q.4h']].forEach(function (q) {
+        var b = el('button', 'dk-btn dkp-q', T(q[1]));
+        b.type = 'button';
+        b.setAttribute('data-min', q[0]);
+        b.addEventListener('click', function () { choose(VA, {minutes: +q[0]}); });
+        quick.appendChild(b);
+      });
+      var eve = el('button', 'dk-btn dkp-q', '');
+      eve.type = 'button';
+      eve.id = 'btn_dockp_evening';
+      eve.addEventListener('click', function () {
+        choose(VA, {to: dkEpoch(eveningTarget())});
+      });
+      quick.appendChild(eve);
+      var cust = el('button', 'dk-btn dkp-q', T('dockp.q.custom'));
+      cust.type = 'button';
+      cust.id = 'btn_dockp_custom';
+      quick.appendChild(cust);
+      body.appendChild(quick);
+
+      /* custom: from (only with a reliable clock) – to */
+      var cbox = el('div', 'dkp-custom');
+      cbox.id = 'dockp_custom';
+      cbox.hidden = true;
+      var later = el('label', 'dkp-check');
+      var laterIn = el('input');
+      laterIn.type = 'checkbox';
+      laterIn.id = 'chk_dockp_later';
+      later.appendChild(laterIn);
+      later.appendChild(el('span', null, T('dockp.c.later')));
+      var fromL = el('label', 'dkp-dt');
+      fromL.appendChild(el('span', null, T('dockp.c.from')));
+      var fromIn = el('input');
+      fromIn.type = 'datetime-local';
+      fromIn.id = 'inp_dockp_from';
+      fromL.appendChild(fromIn);
+      var toL = el('label', 'dkp-dt');
+      toL.appendChild(el('span', null, T('dockp.c.to')));
+      var toIn = el('input');
+      toIn.type = 'datetime-local';
+      toIn.id = 'inp_dockp_to';
+      toL.appendChild(toIn);
+      var clockNote = el('div', 'dk-note dkp-clocknote', T('dockp.c.clock'));
+      clockNote.id = 'dockp_clocknote';
+      var cErr = el('div', 'dk-err');
+      var cGo = el('button', 'dk-btn dk-primary', T('dockp.c.use'));
+      cGo.type = 'button';
+      cGo.id = 'btn_dockp_custom_use';
+      cbox.appendChild(later);
+      cbox.appendChild(fromL);
+      cbox.appendChild(toL);
+      cbox.appendChild(clockNote);
+      cbox.appendChild(cGo);
+      cbox.appendChild(cErr);
+      body.appendChild(cbox);
+      function localVal(d) {
+        return d.getFullYear() + '-' + dkPad(d.getMonth() + 1) + '-' + dkPad(d.getDate()) +
+          'T' + dkPad(d.getHours()) + ':' + dkPad(d.getMinutes());
+      }
+      function syncLater() { fromL.hidden = !laterIn.checked; }
+      cust.addEventListener('click', function () {
+        cbox.hidden = !cbox.hidden;
+        if (!cbox.hidden) {
+          var now = new Date(), t0 = new Date(now.getTime() + 2 * 3600 * 1000);
+          t0.setMinutes(0, 0, 0);
+          if (!toIn.value) { toIn.value = localVal(t0); }
+          if (!fromIn.value) { var f = new Date(now.getTime() + 3600 * 1000); f.setMinutes(0, 0, 0); fromIn.value = localVal(f); }
+          syncLater();
+        }
+      });
+      laterIn.addEventListener('change', syncLater);
+      cGo.addEventListener('click', function () {
+        cErr.textContent = '';
+        var to = toIn.value ? new Date(toIn.value) : null;
+        var from = laterIn.checked && fromIn.value ? new Date(fromIn.value) : null;
+        var now = Date.now();
+        if (!to || isNaN(to.getTime())) { cErr.textContent = T('dockp.c.err.to'); return; }
+        var start = from ? from.getTime() : now;
+        if (from && from.getTime() <= now + 60000) { from = null; start = now; }
+        if (to.getTime() <= start + 60000) { cErr.textContent = T('dockp.c.err.order'); return; }
+        if (to.getTime() - start > 12 * 3600 * 1000) { cErr.textContent = T('dockp.c.err.long'); return; }
+        if (from && from.getTime() - now > 7 * 86400 * 1000) { cErr.textContent = T('dockp.c.err.far'); return; }
+        if (from && !VA.dock.view().clockOk) { cErr.textContent = T('dockp.c.clock'); return; }
+        var sel = {to: dkEpoch(to)};
+        if (from) { sel.from = dkEpoch(from); }
+        choose(VA, sel);
+      });
+
+      /* options */
+      var opts = el('div', 'dkp-opts');
+      [['one_exit', 'dockp.opt.one_exit', 'dockp.opt.one_exit_hint'],
+       ['lock_on_return', 'dockp.opt.lock_on_return', 'dockp.opt.lock_on_return_hint']].forEach(function (o) {
+        var l = el('label', 'dkp-check');
+        var i = el('input');
+        i.type = 'checkbox';
+        i.id = 'chk_dockp_' + o[0];
+        i.checked = !!dockOpts[o[0]];
+        i.addEventListener('change', function () {
+          dockOpts[o[0]] = i.checked;
+          if (i.checked) {      // one or the other: both end the window at the first return
+            var other = o[0] === 'one_exit' ? 'lock_on_return' : 'one_exit';
+            dockOpts[other] = false;
+            var oi = document.getElementById('chk_dockp_' + other);
+            if (oi) { oi.checked = false; }
+          }
+          if (dockSel) { paintSummary(VA); }
+        });
+        l.appendChild(i);
+        var tx = el('span');
+        tx.appendChild(el('b', null, T(o[1])));
+        tx.appendChild(el('small', null, T(o[2])));
+        l.appendChild(tx);
+        opts.appendChild(l);
+      });
+      body.appendChild(opts);
+      body.appendChild(el('div', 'dk-note', T('dockp.form.end_note')));
+
+      var sum = el('div', 'dkp-sum');
+      sum.id = 'dockp_sum';
+      sum.hidden = true;
+      body.appendChild(sum);
+      dockForm.appendChild(body);
+    }
+
+    function eveningTarget() {
+      var d = new Date();
+      d.setHours(20, 0, 0, 0);
+      return d;
+    }
+
+    function paintForm(VA, v) {
+      if (!dockForm) { return; }
+      var body = document.getElementById('dockp_fbody');
+      var tog = document.getElementById('btn_dockp_change');
+      if (!body || !tog) { return; }
+      if (v.kind === 'unknown') { dockForm.hidden = true; return; }   // allowing needs the agent
+      dockForm.hidden = false;
+      var locked = v.kind === 'locked' || v.kind === 'scheduled' || v.kind === 'exits_used';
+      var open = locked || isOpen('dkp_form', false) || !!dockSel;
+      tog.hidden = locked;
+      tog.textContent = T(open ? 'dockp.form.change_close' : 'dockp.form.change');
+      tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+      body.hidden = !open;
+      var eve = document.getElementById('btn_dockp_evening');
+      if (eve) {
+        var target = eveningTarget(), left = target.getTime() - Date.now();
+        eve.hidden = left < 30 * 60 * 1000 || left > 12 * 3600 * 1000;
+        eve.textContent = T('dockp.q.until', {hm: '20:00'});
+      }
+      var laterIn = document.getElementById('chk_dockp_later');
+      var note = document.getElementById('dockp_clocknote');
+      if (laterIn) {
+        laterIn.disabled = !v.clockOk;
+        if (!v.clockOk && laterIn.checked) { laterIn.checked = false; laterIn.dispatchEvent(new Event('change')); }
+      }
+      if (note) { note.hidden = !!v.clockOk; }
+    }
+
+    function choose(VA, sel) {
+      dockSel = sel;
+      paintSummary(VA);
+      var sum = document.getElementById('dockp_sum');
+      if (sum) { try { sum.scrollIntoView({block: 'nearest', behavior: 'smooth'}); } catch (e) { /* ok */ } }
+    }
+
+    function selSpan(sel) {
+      var st = VA.dock.state(), p = st.permit;
+      var nowR = p && p.stamp ? p.stamp + (Date.now() - st.at) / 1000 : Date.now() / 1000;
+      var from = sel.from || nowR;
+      var to = sel.to || (from + sel.minutes * 60);
+      return {from: from, to: to};
+    }
+
+    function paintSummary(VA) {
+      var sum = document.getElementById('dockp_sum');
+      if (!sum) { return; }
+      sum.textContent = '';
+      if (!dockSel) { sum.hidden = true; return; }
+      sum.hidden = false;
+      var s = selSpan(dockSel), v = VA.dock.view();
+      sum.appendChild(el('div', 'dkp-h6', T('dockp.sum.h')));
+      var main = dockSel.from ? T('dockp.sum.later', {span: dkSpan(s.from, s.to), dur: dkDur(s.to - s.from)})
+                              : T('dockp.sum.now', {to: VA.dock.hm(s.to), dur: dkDur(s.to - s.from)});
+      var m = el('div', 'dkp-main', main);
+      m.id = 'dockp_sum_main';
+      sum.appendChild(m);
+      var bits = [];
+      if (dockOpts.one_exit) { bits.push(T('dockp.tag.one_exit')); }
+      if (dockOpts.lock_on_return) { bits.push(T('dockp.tag.lock_on_return')); }
+      if (!bits.length) { bits.push(T('dockp.sum.any_exits')); }
+      sum.appendChild(el('div', 'dkp-sub', bits.join(' · ')));
+      if (!dockSel.from && v.active && (v.kind === 'open' || v.kind === 'ending' || v.kind === 'exits_used')) {
+        sum.appendChild(el('div', 'dk-note', T('dockp.sum.replaces')));
+      }
+      if (dockSel.from && v.active) {
+        sum.appendChild(el('div', 'dk-note', T('dockp.sum.trims')));
+      }
+      var row = el('div', 'dk-acts');
+      var yes = el('button', 'dk-btn dk-yes', T('dockp.sum.allow'));
+      yes.type = 'button';
+      yes.id = 'btn_dockp_allow';
       var no = el('button', 'dk-btn', T('common.cancel'));
       no.type = 'button';
-      no.addEventListener('click', function () {
-        dockGrantOpen = false; dockGrantOver = null; drawDock(VA);
+      no.id = 'btn_dockp_cancel';
+      var out = el('div', 'dkp-out');
+      out.id = 'dockp_out';
+      yes.addEventListener('click', function () {
+        if (dockBusy) { return; }
+        dockBusy = true;
+        yes.disabled = no.disabled = true;
+        yes.textContent = T('dockp.sending');
+        var opts = {one_exit: dockOpts.one_exit, lock_on_return: dockOpts.lock_on_return};
+        if (dockSel.minutes) { opts.minutes = dockSel.minutes; } else { opts.to = dockSel.to; }
+        if (dockSel.from) { opts.from = dockSel.from; }
+        VA.dock.grant(opts).then(function (d) {
+          dockBusy = false;
+          if (d && d.ok !== false) {
+            dockSel = null;
+            setOpen('dkp_form', false);
+            paintDock(VA);
+            var w = d.window || {};
+            dockStat.appendChild(el('div', 'dkp-ok', T(d.code === 'scheduled' ? 'dockp.ok.scheduled' : 'dockp.ok.open',
+                                                   {to: VA.dock.hm(w.to), span: dkSpan(w.from, w.to)})));
+            paintSummary(VA);
+            return;
+          }
+          yes.disabled = no.disabled = false;
+          yes.textContent = T('dockp.sum.allow');
+          out.textContent = T('dockp.err.allow', {err: VA.dock.errText(d)});
+        });
       });
+      no.addEventListener('click', function () { dockSel = null; paintSummary(VA); paintForm(VA, VA.dock.view()); });
+      row.appendChild(yes);
       row.appendChild(no);
-      dockBox.appendChild(row);
+      sum.appendChild(row);
+      sum.appendChild(out);
     }
 
     // ---- blok: Modely a poskytovatelé -------------------------------------

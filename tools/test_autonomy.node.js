@@ -57,7 +57,13 @@ const CHECKS = {
     map: ['ok', 'loading_map', 'unknown'], enabled: ['on', 'sleep_off', 'automation_off'], manual: ['free', 'busy'], agent: ['free', 'busy'],
     ssh: ['none', 'logins', 'ignored'], ui: ['none', 'clients', 'ignored'], boot: ['done', 'boot_grace'], stay_awake: ['none', 'until'],
     reason: ['none', 'too_short', 'no_charging', 'charge_no_gain', 'pm_no_status', 'pm_params', 'pm_no_ack', 'pm_lost', 'pm_no_cut', 'pm_cancel_failed', 'countdown_cancelled'],
+    // T18: the master's permit line (node why + PermitView no_state/stale/no_owners_*/not_owner)
+    permit: ['open', 'exits_used', 'waiting_clock', 'scheduled', 'locked', 'no_file', 'unreadable', 'node_silent',
+             'no_state', 'stale', 'no_owners_missing', 'no_owners_empty', 'no_owners_unreadable', 'not_owner'],
 };
+// T18: the master's journal of the end of a dock permit window (D38)
+['homeward', 'homeward_cancel'].forEach((c) => check('journal dock_permit.' + c, both('auto.j.dock_permit.' + c)));
+check('journal waited.dock_permit', both('auto.j.waited.dock_permit'));
 Object.keys(CHECKS).forEach((k) => {
     check('check name ' + k, both('auto.check.key.' + k));
     CHECKS[k].forEach((c) => check('check ' + k + '.' + c, both('auto.check.' + k + '.' + c)));

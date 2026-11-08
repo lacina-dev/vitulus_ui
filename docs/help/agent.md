@@ -4,10 +4,10 @@ title: Vitulus agent
 group: Robot
 order: 80
 icon: la-comments-o
-summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock lock.
-ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-lock, agent/models#models, needs#needs-you]
+summary: Give the robot a task in plain words, follow its missions, approvals, findings and the dock permit.
+ui: [agent, agent/chat#give-a-task, agent/work#work-approvals-and-jobs, agent/activity#activity, agent/findings#findings, agent/robot#robot-and-the-dock-permit, agent/models#models, needs#needs-you]
 related: [safety, dock, support]
-keywords: [hlídej, hlídání, sleduj, watch, watching, otáčky nože, blade speed, proud nože, blade current, odběr z baterie, battery draw, agent's plan, plan on the map, around a zone, point by point, outline, measured position, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability, route draft, plan a route, naplánuj trasu, návrh trasy]
+keywords: [hlídej, hlídání, sleduj, watch, watching, otáčky nože, blade speed, proud nože, blade current, odběr z baterie, battery draw, agent's plan, plan on the map, around a zone, point by point, outline, measured position, sketch, coordinates, farthest point, around the zone, operator, operátor, skill, skilly, pípni, beep, zobraz zónu, show zone, počkej na signál, wait for signal, world model, what the agent sees, map analysis, obstacle, detour, reachable, kde jsi, co je kolem, cesta k, model světa, tools, own tools, learn, learned, playbook, experience, naučil, co ses naučil, jak bys to řešil, strategy, free drive, until docked, actions, direct driving, drive straight, rotate, back up, couvni, otoč se, goto xy, detour point, mowing program, mow, posekej, program run, resume, blade, primitive, cmd_vel mux, agent, chat, mission, task, test drive, pokračuj, continue, zruš, cancel, approve, deny, findings, needs you, bell, dock lock, dock permit, time window, povol dok, zamkni dok, unlock, supervisor, fault, stop latched, stop odvolávám, zruš stop, release stop, zastav, restart, reconnect, ros master, recovery, retry, alternative, return to dock, rtk wait, no path, blocked, display, lcd, new capability, route draft, plan a route, naplánuj trasu, návrh trasy]
 ---
 # Vitulus agent
 
@@ -89,14 +89,14 @@ itself what a message is:
 ```
 vyjeď z doku jen pomocí intensity, otoč se o 360° doprava a vrať se do doku
 → Plán: 1. vyjedu z doku jen po odrazce, 2. otočím se o 360° doprava, 3. vrátím se do doku.
-→ (dock locked: report with Open Dock lock → you unlock "Undock only")
+→ (dock locked: report with Allow the dock… → you allow a window, e.g. 1 h, only 1 exit)
 → Dok je odemčený (ui#N) — vyjíždím z doku po odrazce (intensity). … Krok 3: jedu do doku.
 ```
 
 What stays **fixed words, without the model**: cancel and *go home* (*zruš to*, *jeď domů*,
 *vrať se do doku*), releasing the STOP (*stop odvolávám*, `/stop pokracuj`), slash commands, and
 *dok je odemčený* — that one is **measured on the lock**: the reply says what is unlocked (which
-preset, how many uses, until when). A mission waiting at the lock carries on by itself; with
+window, how many exits, until when). A mission waiting at the lock carries on by itself; with
 nothing waiting it just says so (it asks only when it proposed something before), and it never
 starts a mission. What the core says on its own (steps, the lock, waiting, results, STOP) is
 written into the conversation too, so the operator knows what happened. The conversation starts a
@@ -197,8 +197,8 @@ dej go na bod TEST a počkej tam na signál
 
 - **Same gates as every mission.** Each step goes through the action registry, the signed list of
   allowed actions, the dock lock (leaving the dock needs your unlock; going home never does), the
-  supervisor and the actuation token. The blade turns only in a saved program after your **Mow**
-  unlock. When a step is refused the operator says why in one sentence and what you can do.
+  supervisor and the actuation token. The blade turns only in a saved program inside your dock
+  permit window. When a step is refused the operator says why in one sentence and what you can do.
   Skills the UI has but you have not signed yet are listed as *waiting for signature*.
 - **Step in at any time.** Every message during the mission goes into **the same conversation**
   with the model. A wait is interrupted at once; during a drive the agent weighs the message
@@ -216,9 +216,9 @@ dej go na bod TEST a počkej tam na signál
   are there even when the model is quiet. Before a decision the operator says in one sentence why
   (*the saved route only ends at zone B, so I drive around its corners*), and it ends with a short
   summary. A question it asks you lights up in **Needs you**.
-- **Dock lock without typing.** When a step needs the dock exit unlocked, the core posts the usual
-  *waits for your unlock* report with the right preset (*Undock only* for leaving the dock, *Mow*
-  for a program) and the **Open Dock lock** button under it; the mission shows in **Needs you**.
+- **Dock permit without typing.** When a step needs the dock exit allowed, the core posts the usual
+  *waits for your unlock* report with the **Allow the dock…** button under it (it opens the dock
+  permit tile); the mission shows in **Needs you**.
   The moment you unlock, the chat says *Dok je odemčený (ui#N) — vyjíždím z doku.* and the same
   step runs by itself.
 - **It knows the shape of your zones.** The operator reads the zones, routes and points of the
@@ -396,63 +396,73 @@ agent** lists what it tidied or solved on its own as *Problem · Reason · Fix* 
 to do. Messages that only inform (RTK, dock, "repaired it myself") stay in the chat but do not
 raise the badge, and on Discord they arrive without a phone notification.
 
-## Robot and the dock lock
+## Robot and the dock permit
 
-**Robot** shows the live state, the robot tools and the **Dock lock** card.
+**Robot** shows the live state, the robot tools and the **Dock permit** tile.
 
-### Dock lock
+### Dock permit
 
-Unlocking the dock tells the robot to go: the mission continues by itself, no further message
-needed. An unlock is spent only when the robot really leaves the dock; if the undock fails and the
-robot stays docked, the same unlock covers the retry (until it expires). STOP, cancelling or taking
-over does spend it.
+By default the agent **cannot take the robot out of the dock**. You allow the dock for a **time
+window** — from now or later, for any span up to 12 hours — and inside it the agent (and its
+*mow* advice, see [Autonomy](autonomy.md)) may leave. Allowing the dock tells the robot to go: a
+waiting mission continues by itself. The permit guards **leaving the dock only**: driving back
+home is always free, and once the robot is outside, driving and mowing need no further permit —
+the supervisor still guards every move. The calendar and your own **Undock** do not ask.
 
-By default the agent **cannot move the robot out of the dock** — the lock guards **leaving the
-dock only**: the undock, and any move while the robot stands in the dock (or its dock state cannot
-be measured), need the owner's click here. **Driving back to the dock is always allowed**, and
-once the robot is measurably outside (`is_in_dock` false or dock state UNDOCKED) driving to
-waypoints, points, paths and direct driving need no further unlock — the supervisor still guards
-every move. A mowing program started from the dock needs its unlock (**Mow** or **Free drive**); measured outside it needs none, your order is enough.
-Stopping always works.
+The tile says in one line what the dock is now, with the numbers under it:
 
-1. Pick a preset and read its scope: *Actions*, *Not allowed*, *Valid for*, *Uses*,
-   *Signed by*.
-   - **Free drive — anything until the robot is back in the dock** (on top) — unlocks every
-     move, direct driving and saved mowing programs included (never the blade on its own),
-     without a use limit. It locks itself once the robot is back in the
-     dock (or after 12 h at most). Unlocked while the robot stands in the dock, it waits until the
-     robot leaves and comes back. The card says *Unlocked until docked*.
-   - **Test drive** — undock, drive to waypoints, dock back (and switch motors on if needed),
-     plus what the mission's recovery needs (back off, turn, a detour point, dock by another
-     modality); 45 min, up to 12 moves; no saved routes, no mowing.
-   - **Mow: run a saved mowing program** — starts or resumes a saved program, the same as
-     **Run** / **Resume** on the program card, of any map (the robot loads the program's map
-     in the dock first); 60 min to start, up to 3 starts. See
-     [Mowing programs](#mowing-programs).
-   - **Undock only, once** — 15 min, 1 use.
-   - **Undock and dock back** — 30 min, 2 uses.
-2. **Unlock — tap again to confirm**, then **Yes — unlock the dock** within 6 s.
-3. While open the card shows *UNLOCKED*, *Uses left*, *Expires in* and **Lock again** — which
-   takes any unlock back at once.
+| Pill | What it means |
+|---|---|
+| *LOCKED* | no window: the agent stays in the dock |
+| *OPEN* | *Allowed until 17:00*, the time left, exits *0 of 1* (or *no limit*) |
+| *ENDS SOON* | the last 10 minutes of the window (see below) |
+| *SCHEDULED* | a later window, *starts in …*; the list *Scheduled* has a × for each |
+| *WAITS FOR TIME* | a scheduled window opens only with a clock checked against GPS |
+| *EXITS USED* | the window runs but its exits are spent: no more departures, home is free |
+| *GOING HOME* | the window ended with the robot out: it finishes the path, then docks |
+| *NOT ACCEPTED* / *NODE SILENT* | the node has a window, but the agent does not count it (owners file, or the `dock_permit` node is not running) |
 
-A mission that needs the lock parks itself; its chat message names the preset it needs (a drive
-out of the dock to a waypoint and back = **Undock only, once** — the rest of the drive and the way
-home need no unlock) and has **Open Dock lock**, which opens that preset
-straight away. After you unlock, the mission continues by itself — no need to write `pokračuj`
-(after 2 h of waiting only `pokračuj` restarts it). An unlock you made up to 15 min before the
-mission parked counts too.
+**To allow the dock:**
 
-- **Only the newest unlock counts.** When a narrower one is live (e.g. *Undock only*) and the
-  mission needs more, the mission message, `pokračuj` and *dok je odemčený* all say exactly what is
-  unlocked and what is missing. **Open Dock lock** then shows the needed preset with the note
-  *Unlocked now: …* — unlocking it replaces the narrower one. The live card also offers the wider
-  presets.
-- An unlock with too few uses left for what the mission does in the dock does not start it; the
-  chat says how many are left and how many it needs.
-- Writing *dok je odemčený* / *odemkl jsem* while a mission waits is answered from the lock itself:
-  either the mission starts (the reply says so once it is moving), or what is still missing.
+1. Pick a span: **1 h**, **2 h**, **4 h**, **until 20:00** or **Custom…** (from–to; *Start
+   later* needs a clock checked against GPS — without it only a window from now).
+2. Optionally **Only 1 exit** (a second departure is not allowed) or **Lock after return** (the
+   window ends when the robot is back in the dock). One or the other.
+3. Read the summary (*From now until 18:00 (2 h)*, the options; a new window from now replaces the
+   one that runs, a later one ends the running window where it starts) and tap **Allow**. Nothing
+   is allowed before that tap.
 
-The lock governs the agent only, not your own buttons and joystick.
+While the dock is open, a bar over the map shows *DOCK OPEN until 17:00* with the countdown and
+**Lock again**; tapping the bar opens the tile. **Lock now** (or **Lock again**) ends the running
+window at once, **Lock everything** also the scheduled ones — one tap, no confirmation (it is the
+safe direction). A robot that is out when you lock comes home as usual.
+
+**The end of a window.** 10 minutes before the end, with the robot out, you get a message
+in the chat (and on Discord) and the tile turns *ENDS SOON*. At the end, if the robot is out, it
+finishes the path it is mowing (at most 5 minutes), saves the rest as interrupted and comes home;
+the rest carries on in the next window. A new window from now cancels the return.
+
+**Owners file.** Only a name from `~/.vitulus/dock_permit_owners` on the robot (one name per line)
+may allow the dock; a window you allow here is signed with the first name in it. When the file is
+missing, empty or unreadable (or an open window is signed by a name it does not list), the tile shows
+**Create the owners file** with the line to add — until then no window counts (the calendar and your
+own Undock go as usual).
+
+**When the agent is not running** the tile and the bar say *State unknown (the agent is not
+running)* instead of an old countdown. **Lock now** and **Lock everything** still work: the robot UI
+sends the lock straight to the `dock_permit` node and says *Locked directly in the dock_permit node*.
+Allowing needs the agent.
+
+**From the chat.** Write *povol dok na 2 hodiny*, *povol dok do 18:00*, *povol dok zítra 14–17*,
+*povol dok jen jednou* or *povol dok a zamkni po návratu*: the agent answers with the window
+written out and an **Allow** button under its reply — only that tap allows it (the proposal is
+valid 15 minutes; tapping twice does not make two windows). *zamkni dok* locks everything at
+once. The reply after the tap says what was allowed.
+
+A mission that needs the dock parks itself and its message has **Allow the dock…**, which opens
+the tile; **Needs you** shows it with the same button. Once you allow a window, the mission
+continues by itself. Writing *dok je odemčený* while a mission waits is answered from the permit
+itself. Every window, its end, the warning and the return home are rows in **Activity**.
 
 ## What the agent may do
 
@@ -464,13 +474,13 @@ lock for moves), then **measures** the result — a reply never claims success w
 |---|---|---|
 | `dock.undock` / `dock.start` | the robot's own saved undock / dock program | undock: dock lock · dock: always allowed · supervisor · measured dock state |
 | `dock.start_modality` | dock with the saved program by map or by reflector only | as above |
-| `dock.undock_modality` | leave the dock with the saved undock program by reflector only (*po odrazce*, `intensity` — just the back-out, no drive to the UNDOCK point, no GPS wait), by map, or both | like `dock.undock`: needs the dock unlock (*Undock only* covers it), also outside · supervisor · measured dock state |
+| `dock.undock_modality` | leave the dock with the saved undock program by reflector only (*po odrazce*, `intensity` — just the back-out, no drive to the UNDOCK point, no GPS wait), by map, or both | like `dock.undock`: needs the dock permit (a window with *only 1 exit* covers it), also outside · supervisor · measured dock state |
 | `nav.goto_waypoint` / `nav.execute_path` | drive to a saved waypoint / along a saved route | name must exist · dock lock only while in the dock · supervisor · navigation result |
 | `nav.goto_xy` | drive to a point on the map (x, y, heading) | the world model must find a reachable path first · dock lock only while in the dock · supervisor |
 | `nav.goto_offset` | a point up to 1 m next to a saved waypoint | as above |
 | `nav.backup` | back off 5–50 cm | direct driving rules below |
 | `drive.straight` / `drive.rotate` / `drive.velocity` | drive straight up to ±2 m, turn up to ±360°, or a speed for at most 5 s | direct driving rules below |
-| `mower.program_run` / `mower.program_resume` | run / resume a saved mowing program | dock lock (Mow or Free drive) · supervisor mowing run |
+| `mower.program_run` / `mower.program_resume` | run / resume a saved mowing program | dock permit window · supervisor mowing run |
 | `mower.program_stop` / `mower.program_reset`, `drive.stop`, `dock.stop`, `nav.cancel_*`, `motor.off` | stop things | always allowed |
 | `nav.speed`, `nav.clear_costmaps`, `nav.save_waypoint`, `nav.record_path_start` / `_stop`, `map.*` | settings, map tools, recording (agent names start with `agent_`) | no motion of their own; mapping sessions need the dock lock |
 
@@ -497,7 +507,7 @@ measures the distance and the angle from its odometry, ramps the speed (at most 
 
 The agent may run only a **saved mowing program**, the same way the program card's **Run** /
 **Resume** does. The program undocks, mows its zones and docks back by itself. Starting or
-resuming from the dock needs your unlock (**Mow** or **Free drive**), one unlock covers the whole mission; outside it needs none. Stopping and resetting it always works.
+resuming from the dock needs your dock permit window, one window covers the whole mission; outside it needs none. Stopping and resetting it always works.
 
 Say *mow zone A*: the agent picks the best saved program by name, zone or map, typos included. If it is unclear, it asks one short question. It never edits or creates programs. It resets a stopped mower by itself and tells you if it rains.
 

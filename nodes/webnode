@@ -7,6 +7,8 @@ import rospy
 import yaml
 from flask import Flask, render_template, send_from_directory, jsonify, request, send_file, abort
 import threading
+import re as _re_mod
+from std_msgs.msg import String as _RosString
 import sys
 import signal
 import subprocess
@@ -83,13 +85,15 @@ except Exception as _gf_exc:  # degrade to a clear 503 rather than crash the nod
     geofence_propose = None
     _geofence_import_error = str(_gf_exc)
 
-port = 7779
+# Overridable only for a local test bench (T18 integration in vitulus-dev);
+# the robot runs the defaults.
+port = int(os.environ.get("VITULUS_WEBNODE_PORT") or 7779)
 
 # systemd service that runs the whole robot. Restarting it from the web requires
 # a passwordless sudoers rule (see setup/vitulus-ui-sudoers); without it the
 # restart endpoint returns an error instead of hanging on a password prompt.
 ROBOT_SERVICE = "vitulus.service"
-host = "0.0.0.0"
+host = os.environ.get("VITULUS_WEBNODE_HOST") or "0.0.0.0"
 
 # Absolute path to this package's web root (templates + assets). Mirrors the
 # original vitulus_webui approach of pointing at the source tree, since the
@@ -883,7 +887,9 @@ if __name__ == '__main__':
         #    robot without vitulus_agent serves 503 here and nothing else
         #    breaks (robot-vs-agent doctrine).
         # Once the panel uses this door, :8088 can be bound to loopback.
-        AGENT_UPSTREAM = "http://127.0.0.1:8088"
+        AGENT_UPSTREAM = os.environ.get("VITULUS_AGENT_UPSTREAM") or "http://127.0.0.1:8088"
+        if not _re_mod.match(r"^http://127\.0\.0\.1:[0-9]{2,5}$", AGENT_UPSTREAM):
+            AGENT_UPSTREAM = "http://127.0.0.1:8088"     # loopback only, always
         AGENT_TIMEOUT_S = 30.0          # /api/mapview really does take ~5 s
         AGENT_MAX_BODY = 1024 * 1024    # 1 MiB is far above any panel POST
 
@@ -1336,6 +1342,7 @@ if __name__ == '__main__':
         #   browser --POST /agent-dock/grant | /agent-dock/revoke/<id>--> webnode
         #   webnode --POST 127.0.0.1:8088/api/v2/dock[/<id>/revoke]
         #           + X-Vitulus-Token--> agent (checks owner, scope, limits)
+        #   agent --/dock_permit/set|clear--> dock_permit node (T18: the window)
         # Every attempt goes to ~/.vitulus/ui_actions.jsonl (Agent > Activity).
         AGENT_UI_TOKEN = os.path.expanduser("~/.vitulus/agent/ui_token")
         # What the card may ask for; the agent checks the scope again.
@@ -1406,11 +1413,15 @@ if __name__ == '__main__':
                 return jsonify({"ok": False, "error": "body too large"}), 413
             return None
 
-        def _dock_post(path, body, rec):
+        def _dock_post(path, body, rec, fallback=None):
+            """POST to the agent with the owner's token.  `fallback()` (lock
+            only) answers instead when the agent cannot be reached."""
             import urllib.request
             import urllib.error
             tok = _agent_ui_token()
             if not tok:
+                if fallback is not None:
+                    return fallback("no ui_token")
                 rec.update(ok=False, status=503, message="no ui_token")
                 _ui_audit(rec)
                 return jsonify({"ok": False, "error": "the unlock token cannot be created (~/.vitulus/agent/ui_token)"}), 503
@@ -1425,6 +1436,8 @@ if __name__ == '__main__':
             except urllib.error.HTTPError as exc:
                 raw, st = exc.read(), exc.code
             except Exception as exc:
+                if fallback is not None:
+                    return fallback("agent unreachable: %s" % exc)
                 rec.update(ok=False, status=503, message="agent unreachable: %s" % exc)
                 _ui_audit(rec)
                 return jsonify({"ok": False, "error": "agent bridge unreachable: %s" % exc}), 503
@@ -1435,19 +1448,126 @@ if __name__ == '__main__':
             ok = st == 200 and got.get("ok", True) is not False
             rec.update(ok=ok, status=st, message=str(got.get("error") or "")[:300],
                        receipt=got.get("id"))
+            if got.get("by"):
+                rec["author"] = got.get("by")    # the name the agent signed with
             _ui_audit(rec)
             resp = jsonify(got)
             resp.headers["Cache-Control"] = "no-store"
             return resp, st
 
-        @app.route("/agent-dock/grant", methods=["POST"])
-        def agent_dock_grant():
-            bad = _same_origin_json()
-            if bad:
-                return bad
-            b = request.get_json(silent=True)
-            if not isinstance(b, dict):
-                return jsonify({"ok": False, "error": "JSON object expected"}), 400
+        # -- T18: the dock permit is a time window (from-to) held by the
+        # robot layer (vitulus_dock `dock_permit`, contract t18-kontrakt.md);
+        # the agent's web API checks the person (this door's token) and sends
+        # /dock_permit/set|clear.  The browser asks for a WINDOW: minutes or
+        # to, optionally from, one exit, lock after return; by and the token
+        # are never the browser's.  A chat proposal (D39) comes through here
+        # too, only with confirmed: true - the owner's tap on its button.
+        # req_id: one per intent; the page sends the same one again when an
+        # answer got lost, and the node does not apply it twice.
+        DOCK_REQ_ID_RE = _re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$")
+        DOCK_ISO_RE = _re.compile(
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}(:?\d{2})?)$")
+        DOCK_WINDOW_ID_RE = _re.compile(r"^(current|all|[0-9]{1,9}|p[0-9]{1,12}-[0-9]{1,9})$")
+        # N3: the page and this door send no name - the agent signs with the
+        # first name of the owners file (one source); the audit row says
+        # "owner" until the agent's answer names who signed.
+        DOCK_AUDIT_AUTHOR = "owner"
+
+        def _dock_time(v, name):
+            """Epoch SECONDS or ISO 8601 with an offset -> (value, error)."""
+            if v is None:
+                return None, None
+            if isinstance(v, bool):
+                return None, "%s: epoch seconds or ISO 8601 with an offset" % name
+            if isinstance(v, (int, float)):
+                if not 1e9 <= v < 1e11:
+                    return None, "%s: epoch in seconds (10 digits)" % name
+                return int(v), None
+            if isinstance(v, str) and len(v) <= 40 and DOCK_ISO_RE.match(v.strip()):
+                return v.strip(), None
+            return None, "%s: epoch seconds or ISO 8601 with an offset" % name
+
+        def _dock_window_body(b):
+            """The body for the agent's /api/v2/dock built from checked fields
+            -> (body, None) or (None, why)."""
+            channel = str(b.get("channel") or "ui").strip().lower()
+            if channel not in ("ui", "chat"):
+                return None, "channel: ui or chat"
+            if channel == "chat" and b.get("confirmed") is not True:
+                return None, "a chat proposal needs the owner's tap (confirmed: true)"
+            body = {"channel": channel}
+            if channel == "chat":
+                body["confirmed"] = True
+            to_raw = b.get("to") if b.get("to") is not None else b.get("until")
+            if b.get("minutes") is not None and to_raw is not None:
+                return None, "minutes or to, not both"
+            if b.get("minutes") is not None:
+                m = b.get("minutes")
+                if isinstance(m, bool) or not isinstance(m, (int, float)) or \
+                        not 1 <= m <= DOCK_MAX_MINUTES:
+                    return None, "minutes: 1-%d" % DOCK_MAX_MINUTES
+                body["minutes"] = m
+            to, err = _dock_time(to_raw, "to")
+            if err:
+                return None, err
+            if to is not None:
+                body["to"] = to
+            frm, err = _dock_time(b.get("from"), "from")
+            if err:
+                return None, err
+            if frm is not None:
+                body["from"] = frm
+            lor = b.get("lock_on_return")
+            if lor is not None and not isinstance(lor, bool):
+                return None, "lock_on_return: true or false"
+            if lor:
+                body["lock_on_return"] = True
+            if "minutes" not in body and "to" not in body and not lor:
+                return None, "how long? minutes or to"
+            if b.get("one_exit") is True:
+                body["max_exits"] = 1
+            elif b.get("max_exits") is not None:
+                n = b.get("max_exits")
+                if isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= 20:
+                    return None, "max_exits: 1-20"
+                body["max_exits"] = n
+            if lor and "max_exits" in body:
+                return None, "lock after return has no exit count"
+            ea = b.get("end_action")
+            if ea is not None:
+                if ea not in ("return", "none"):
+                    return None, "end_action: return or none"
+                body["end_action"] = ea
+            reason = b.get("reason")
+            if reason is not None:
+                body["reason"] = str(reason)[:200]
+            rid = b.get("req_id")
+            if rid is not None:
+                if not isinstance(rid, str) or not DOCK_REQ_ID_RE.match(rid):
+                    return None, "req_id: letters, digits ._:- (max 80)"
+                body["req_id"] = rid
+            return body, None
+
+        def _dock_ref(body):
+            """A short line for Agent > Activity: what the click asked for."""
+            parts = []
+            if body.get("from") is not None:
+                parts.append("from %s" % body["from"])
+            if body.get("minutes") is not None:
+                parts.append("%g min" % body["minutes"])
+            if body.get("to") is not None:
+                parts.append("to %s" % body["to"])
+            if body.get("max_exits"):
+                parts.append("%d exit%s" % (body["max_exits"], "" if body["max_exits"] == 1 else "s"))
+            if body.get("lock_on_return"):
+                parts.append("lock after return")
+            if body.get("channel") == "chat":
+                parts.append("chat, confirmed")
+            return "window " + ", ".join(parts)
+
+        def _dock_grant_legacy(b):
+            """The card of a page opened before T18 (named actions + count):
+            the agent turns it into a window, the same checks as before."""
             acts = b.get("actions")
             free = b.get("until_docked") is True
             allowed = DOCK_FREE_DRIVE if free else DOCK_UNLOCKABLE
@@ -1469,7 +1589,7 @@ if __name__ == '__main__':
             note = str(b.get("note") or "")[:300]
             # by/channel are not the browser's to choose: this door is the
             # owner's click in this UI and nothing else.
-            body = {"by": "robert", "channel": "ui", "actions": sorted(set(acts)),
+            body = {"channel": "ui", "actions": sorted(set(acts)),
                     "minutes": minutes, "note": note or None}
             if free:
                 body["until_docked"] = True
@@ -1477,19 +1597,203 @@ if __name__ == '__main__':
                 body["max_runs"] = max_runs
             rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-unlock",
                    "ref": ("until docked: " if free else "") + ",".join(body["actions"]),
-                   "author": "robert",
+                   "author": DOCK_AUDIT_AUTHOR,
                    "client": request.remote_addr}
             return _dock_post("/api/v2/dock", body, rec)
 
-        @app.route("/agent-dock/revoke/<int:rel_id>", methods=["POST"])
-        def agent_dock_revoke(rel_id):
+        @app.route("/agent-dock/grant", methods=["POST"])
+        def agent_dock_grant():
             bad = _same_origin_json()
             if bad:
                 return bad
-            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-relock",
-                   "ref": "dock_release:%d" % rel_id, "author": "robert",
+            b = request.get_json(silent=True)
+            if not isinstance(b, dict):
+                return jsonify({"ok": False, "error": "JSON object expected"}), 400
+            if "actions" in b:
+                return _dock_grant_legacy(b)
+            body, why = _dock_window_body(b)
+            if why:
+                return jsonify({"ok": False, "error": why, "code": "invalid"}), 400
+            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-unlock",
+                   "ref": _dock_ref(body), "author": DOCK_AUDIT_AUTHOR,
                    "client": request.remote_addr}
-            return _dock_post("/api/v2/dock/%d/revoke" % rel_id, {}, rec)
+            return _dock_post("/api/v2/dock", body, rec)
+
+        @app.route("/agent-dock/revoke/<rel_id>", methods=["POST"])
+        def agent_dock_revoke(rel_id):
+            """Lock: `current` (the window whose time runs), `all` (scheduled
+            ones too), a window id p<time>-<n> or its number.  Locking is the
+            safe direction - one tap, no confirmation."""
+            bad = _same_origin_json()
+            if bad:
+                return bad
+            if not DOCK_WINDOW_ID_RE.match(rel_id or ""):
+                return jsonify({"ok": False, "error": "window: current, all, p<time>-<n> or a number"}), 400
+            b = request.get_json(silent=True)
+            b = b if isinstance(b, dict) else {}
+            body = {}
+            rid = b.get("req_id")
+            if rid is not None:
+                if not isinstance(rid, str) or not DOCK_REQ_ID_RE.match(rid):
+                    return jsonify({"ok": False, "error": "req_id: letters, digits ._:- (max 80)"}), 400
+                body["req_id"] = rid
+            if b.get("reason") is not None:
+                body["reason"] = str(b.get("reason"))[:200]
+            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-relock",
+                   "ref": ("dock_permit:%s" % rel_id) if not rel_id.isdigit()
+                   else "dock_release:%s" % rel_id,
+                   "author": DOCK_AUDIT_AUTHOR, "client": request.remote_addr}
+            return _dock_post("/api/v2/dock/%s/revoke" % rel_id, body, rec,
+                              fallback=lambda why: _dock_clear_direct(rel_id, body.get("req_id"), rec, why))
+
+        # -- S2: locking must work without the agent.  When its web API cannot
+        # be reached, this node sends /dock_permit/clear itself (rospy) and
+        # waits for /dock_permit/result with the same req_id (3 s, the same
+        # command again, 3x).  ONLY clear - anyone may lock (contract 3.2,
+        # the safe direction); a set never goes this way.
+        _dock_direct = {"cond": threading.Condition(), "res": {}, "state": None, "pub": None}
+
+        def _on_dock_result(msg):
+            try:
+                doc = json.loads(msg.data or "{}")
+            except ValueError:
+                return
+            if not isinstance(doc, dict) or doc.get("cmd") != "clear" or doc.get("req_id") is None:
+                return
+            with _dock_direct["cond"]:
+                _dock_direct["res"][str(doc["req_id"])] = doc
+                while len(_dock_direct["res"]) > 100:
+                    _dock_direct["res"].pop(next(iter(_dock_direct["res"])))
+                _dock_direct["cond"].notify_all()
+
+        def _on_dock_state(msg):
+            try:
+                _dock_direct["state"] = json.loads(msg.data or "{}")
+            except ValueError:
+                pass
+
+        def _dock_clear_direct(target, rid, rec, why):
+            payload = {"by": "robot-ui", "channel": "ui",
+                       "reason": "locked in the panel (agent unreachable)",
+                       "req_id": rid or "ui-direct-%d-%s" % (int(time.time()), os.urandom(3).hex())}
+            if target == "all":
+                payload["all"] = True
+            elif target.startswith("p"):
+                payload["id"] = target
+            elif target.isdigit():
+                st = _dock_direct["state"] or {}
+                wins = [st.get("active")] + list(st.get("scheduled") or [])
+                found = [w.get("id") for w in wins if w and str(w.get("id", "")).endswith("-" + target)]
+                if not found:
+                    rec.update(ok=False, status=404, message="direct: unknown window %s" % target)
+                    _ui_audit(rec)
+                    return jsonify({"ok": False, "error": "window #%s does not exist" % target,
+                                    "direct": True}), 404
+                payload["id"] = found[0]
+            pub = _dock_direct["pub"]
+            got = None
+            if pub is not None:
+                for _attempt in range(3):
+                    pub.publish(_RosString(json.dumps(payload, sort_keys=True)))
+                    end = time.time() + 3.0
+                    with _dock_direct["cond"]:
+                        while payload["req_id"] not in _dock_direct["res"] and time.time() < end:
+                            _dock_direct["cond"].wait(max(0.05, end - time.time()))
+                        got = _dock_direct["res"].get(payload["req_id"])
+                    if got is not None:
+                        break
+            if got is None:
+                rec.update(ok=False, status=503, message="direct clear: no answer (%s)" % why)
+                _ui_audit(rec)
+                return jsonify({"ok": False, "code": "timeout", "direct": True,
+                                "error": "the agent is down and the dock_permit node did not answer"}), 503
+            out = dict(got, direct=True, agent=why)
+            ok = bool(got.get("ok"))
+            rec.update(ok=ok, status=200 if ok else 400, receipt=",".join(got.get("ended") or []),
+                       message="locked directly in the node (%s)" % why)
+            _ui_audit(rec)
+            resp = jsonify(out)
+            resp.headers["Cache-Control"] = "no-store"
+            return resp, (200 if ok else 400)
+
+        # -- T18 Activity rows from the node's own events (contract §5, §8):
+        # what nobody clicked here - a window that expired, ended by the
+        # return, ran out of exits, a scheduled window that opened, the
+        # 10 min warning and homeward.  Clicks of this page are already
+        # rows (dock-unlock / dock-relock above).  /dock_permit/event is
+        # latched: dedup by `seq` (kept in a file, so a restart does not log
+        # the last event again).
+        DOCK_EVENT_SEEN = os.path.expanduser("~/.vitulus/ui_dock_permit_seen.json")
+        _dock_seen = {"seq": None, "stamp": 0.0, "lock": threading.Lock()}
+        try:
+            with open(DOCK_EVENT_SEEN) as f:
+                _d = json.load(f)
+            _dock_seen.update(seq=int(_d.get("seq")), stamp=float(_d.get("stamp") or 0.0))
+        except Exception:
+            pass
+
+        def _dock_event_row(ev):
+            kind = ev.get("event")
+            w = ev.get("window") if isinstance(ev.get("window"), dict) else {}
+            why = ev.get("why")
+            if kind == "set" and w.get("channel") in ("ui", "chat"):
+                return None             # this page's click, already a row
+            if kind == "end" and why in ("cleared", "replaced"):
+                return None             # a click (lock / a new window)
+            if kind == "exit" and not w:
+                return None             # a run outside any window
+            if kind not in ("set", "end", "open", "trim", "exit", "warn",
+                            "homeward", "homeward_cancel"):
+                return None
+            small = {k: w.get(k) for k in ("id", "from", "to", "max_exits", "exits",
+                                           "lock_on_return", "by", "channel") if k in w}
+            stamp = float(ev.get("stamp") or time.time())
+            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(stamp)),
+                   "action": "dock-permit", "event": kind, "author": "robot", "ok": True,
+                   "ref": str(w.get("id") or (ev.get("homeward") or {}).get("window") or ""),
+                   "seq": ev.get("seq"), "window": small}
+            if why:
+                rec["why"] = why
+            if kind == "exit":
+                rec["permitted"] = bool(ev.get("permitted"))
+            if kind == "warn":
+                rec["robot_out"] = bool(ev.get("robot_out"))
+            if kind == "trim":
+                rec["dropped_s"] = ev.get("dropped_s")
+            return rec
+
+        def _on_dock_event(msg):
+            try:
+                ev = json.loads(msg.data or "{}")
+                seq = int(ev.get("seq"))
+                stamp = float(ev.get("stamp") or 0.0)
+            except Exception:
+                return
+            with _dock_seen["lock"]:
+                first = _dock_seen["seq"] is None
+                if not first and seq <= _dock_seen["seq"] and stamp <= _dock_seen["stamp"]:
+                    return              # seen (a latched replay)
+                _dock_seen.update(seq=seq, stamp=stamp)
+                try:
+                    os.makedirs(os.path.dirname(DOCK_EVENT_SEEN), exist_ok=True)
+                    with open(DOCK_EVENT_SEEN + ".tmp", "w") as f:
+                        json.dump({"seq": seq, "stamp": stamp}, f)
+                    os.replace(DOCK_EVENT_SEEN + ".tmp", DOCK_EVENT_SEEN)
+                except Exception as exc:
+                    rospy.logwarn("dock permit seen file: %s" % exc)
+            if first and time.time() - stamp > 120.0:
+                return                  # first start: an old latched event
+            rec = _dock_event_row(ev)
+            if rec:
+                _ui_audit(rec)
+
+        try:
+            rospy.Subscriber("/dock_permit/event", _RosString, _on_dock_event, queue_size=50)
+            rospy.Subscriber("/dock_permit/result", _RosString, _on_dock_result, queue_size=50)
+            rospy.Subscriber("/dock_permit/state", _RosString, _on_dock_state, queue_size=1)
+            _dock_direct["pub"] = rospy.Publisher("/dock_permit/clear", _RosString, queue_size=10)
+        except Exception as exc:
+            rospy.logwarn("dock permit topics not wired: %s" % exc)
 
         server = ServerThread(app, host, port)
         server.start()

@@ -128,16 +128,21 @@ calendar". After an update it is the calendar, nothing changes until you switch.
 
 In the panel it is the section **Who decides**, right under the top card:
 
-![Who decides with numbered markers](img/shot-autonomy-mode.webp "1 Calendar | Agent · 2 waits for the dock permission, Dock lock › · 3 the advice in force · 4 the last decision · 5 rules and hard limits")
+![Who decides with numbered markers](img/shot-autonomy-mode.webp "1 Calendar | Agent · 2 waits for the dock permission, Dock permit › · 3 the advice in force · 4 the last decision · 5 rules and hard limits")
 
 - **Calendar | Agent**: the highlighted one is what the robot reports. A tap switches, the line under it
   says *Switched to: Agent* once the robot confirms (or why not). Opening the page never switches
   anything. The head of the section shows the mode and what it does now: *Slots*, *Calendar stands in*,
   *Waits for advice*, *Limit: rain*, *Waits for dock*…
 - **Waits for dock** (amber box): the agent wants to mow and the dock is locked. It names the program
-  and until when the advice holds; **Dock lock ›** takes you to the Agent panel, where you unlock it.
-  The page does not unlock the dock itself. Before the advice's time the box is blue and says the robot
-  will leave only with your permission.
+  and until when the advice holds; **Dock permit ›** opens the dock permit tile in the Agent panel,
+  where you allow a time window. The page does not allow the dock itself. Before the advice's time the
+  box is blue and says the robot will leave only with your permission. Without an advice waiting, a quiet
+  line under the switch says the permit (*Dock unlocked until 17:00*, *Dock locked*, a scheduled
+  window) with **Dock permit ›**; when a window ended with the robot out, the box says that it
+  finishes the path and comes home.
+- In **Could it start now?** an advice run has the line **Dock permit** (*Allowed*, *Not allowed: the
+  advice waits for your dock permit*, *The owners file is missing*, …); calendar runs do not have it.
 - **Advice in force**: what the agent advised (mow program X between …, or no mowing until …), its
   state (waiting, carried out, missed, expired, dropped), confidence and reason in the agent's own words.
 - **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
@@ -154,10 +159,11 @@ In the agent mode the agent looks at the weather (rain history and forecast), wh
 mowed, what the last run left unfinished and how heavy the cutting was, and tells the robot *mow
 program X between these times* or *don't mow until T*, with its reason and confidence. The robot
 carries the advice out the same way as **Run next**: every check of **Could it start now?** still
-applies. **Leaving the dock stays yours:** the robot follows the agent's "mow" only while you have
-unlocked the dock (preset **Mow**); without it the agent tells you once in the chat — "I want to mow
-X between …, unlock the dock" — and the robot waits. The unlock is used up only when the robot really
-leaves. Without a fresh advice the calendar decides meanwhile (it can be switched off: then nothing
+applies. **Leaving the dock stays yours:** the robot follows the agent's "mow" only inside a dock permit
+window you allowed ([Dock permit](agent.md#dock-permit)); without it the agent tells you once in the
+chat — "I want to mow X between …, allow the dock" — and the robot waits. When the window ends with
+the robot out, it finishes the path (at most 5 min) and comes home (history: *the dock permit ended
+with the robot out*); a new window from now cancels that. Without a fresh advice the calendar decides meanwhile (it can be switched off: then nothing
 starts without the agent). While an advice is in force, the calendar's slots are the agent's to decide
 and are not caught up later. In the agent mode the robot sleeps at most until the allowed mowing time
 opens next, so the agent gets its daily look.
