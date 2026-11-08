@@ -5205,4 +5205,6 @@
     "auto.a6.short.programs.wait_programs": "Seznam programů",
     "auto.a6.short.programs.not_on_map": "Program mimo mapu",
     "auto.a6.fold_all": "Sbalit vše (rozbaleno {n})",
+    // T8 H (2026-11-08): ⋯ shows the open panel whose key it holds
+    "hdr.more.open": "otevřeno: {name}",
 };

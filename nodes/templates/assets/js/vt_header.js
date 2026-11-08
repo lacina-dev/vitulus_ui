@@ -254,6 +254,32 @@
             keys.splice(k, 1);
         }
         if (more) { more.dataset.over = bandOver.length ? '1' : ''; }
+        watchOver();
+    }
+    /* T8 H: an open panel whose key hides in ⋯ lights ⋯ up like the band's
+       own open key (vt_header.css [data-over-on]); the hidden keys' state is
+       watched, so opening / closing the panel repaints it at once */
+    var overObs = null;
+    function keyOn(b) {
+        return b.classList.contains('vt-on') || b.classList.contains('active') || b.getAttribute('aria-pressed') === 'true';
+    }
+    function paintOver() {
+        if (!more) { return; }
+        var on = bandOver.some(keyOn);
+        var v = on ? '1' : '';
+        if ((more.dataset.overOn || '') !== v) { more.dataset.overOn = v; }
+        var lab = tr('hdr.more.tip');
+        var open = bandOver.filter(keyOn).map(function (b) { return String(b.dataset.label || b.getAttribute('aria-label') || '').split(' — ')[0]; });
+        var tip = open.length ? lab + ' · ' + tr('hdr.more.open', {name: open.join(', ')}) : lab;
+        if (more.title !== tip) { more.title = tip; more.setAttribute('aria-label', tip); }
+    }
+    function watchOver() {
+        if (overObs) { overObs.disconnect(); }
+        if (window.MutationObserver && bandOver.length) {
+            overObs = overObs || new MutationObserver(paintOver);
+            bandOver.forEach(function (b) { overObs.observe(b, {attributes: true, attributeFilter: ['class', 'aria-pressed']}); });
+        }
+        paintOver();
     }
     function bandItem(b) {
         var ico = b.querySelector('svg, i');
@@ -420,7 +446,7 @@
         if (grp0 && window.MutationObserver) { new MutationObserver(function () { fitBand(); }).observe(grp0, {childList: true}); }
         if (grp0 && window.ResizeObserver) { new ResizeObserver(function () { fitBand(); }).observe(grp0); }
         if (window.VTI18n) {
-            VTI18n.onChange(function () { if (menu && !menu.hidden) { fillMenu(); } });
+            VTI18n.onChange(function () { if (menu && !menu.hidden) { fillMenu(); } paintOver(); });
         }
         // the help button and the bell arrive later (other modules): restyle them
         (function late() {

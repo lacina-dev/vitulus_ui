@@ -5118,4 +5118,6 @@
     "auto.a6.short.programs.wait_programs": "Program list",
     "auto.a6.short.programs.not_on_map": "Program off the map",
     "auto.a6.fold_all": "Fold all ({n} open)",
+    // T8 H (2026-11-08): ⋯ shows the open panel whose key it holds
+    "hdr.more.open": "open: {name}",
 };

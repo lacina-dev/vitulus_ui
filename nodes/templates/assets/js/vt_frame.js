@@ -147,14 +147,24 @@
             // or the map scale at most (none of them is ever covered)
             var fab = $('vt_lyr_fab'), rose = $('vt_utm_rose');
             var ptop = ntop + 46;
-            if (visible(fab)) { ptop = Math.max(ptop, fab.getBoundingClientRect().bottom + 8); }
-            if (visible(rose)) { ptop = Math.max(ptop, rose.getBoundingClientRect().bottom + 8); }
             var pleft = (parseFloat(getComputedStyle(root).getPropertyValue('--vt-frame-cleft')) || 6) + 6;   // last pass's C edge (set below)
-            var pw = (rpOn0 && !rpFold) ? rp0.getBoundingClientRect().left - pleft - 10
-                                        : Math.min(W - pleft - 12, 320);
-            var pbot = (rpOn0 && !rpFold) ? rp0.getBoundingClientRect().bottom : H;
+            var unf = rpOn0 && !rpFold;
+            var pbot = unf ? rp0.getBoundingClientRect().bottom : H;
             var bmP = $('div_bottom_menu');
             if (visible(bmP)) { pbot = Math.min(pbot, bmP.getBoundingClientRect().top); }
+            // T8 H (live audit): the open phone sheet (left panel) is the
+            // floor too — the column covered its head (title, agent STOP, ?).
+            // Then the column starts right under the notice slot, BESIDE the
+            // compass and the layers button instead of under them.
+            var sheetOpen = open && drawer && visible(drawer);
+            if (sheetOpen) { pbot = Math.min(pbot, drawer.getBoundingClientRect().top); }
+            [fab, rose].forEach(function (e) {
+                if (!visible(e)) { return; }
+                var r = e.getBoundingClientRect();
+                if (sheetOpen && r.top < pbot) { pleft = Math.max(pleft, r.right + 8); }
+                else if (!sheetOpen) { ptop = Math.max(ptop, r.bottom + 8); }
+            });
+            var pw = unf ? rp0.getBoundingClientRect().left - pleft - 10 : Math.min(W - pleft - 12, 320);
             ['joy_view', 'div_log_view', 'vt_map_scale'].forEach(function (id) {
                 var e = $(id);
                 if (!visible(e) || (id === 'div_log_view' && e.classList.contains('log-expanded'))) { return; }

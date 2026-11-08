@@ -570,3 +570,17 @@ html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars :is(#vagent_panic, #vagent_
    the key stays in the page, hidden, and ⋯ shows it as its first item. */
 html body.vt-h-ph #row_menu .btn-group > .btn.vt-band-over { display: none !important; }
 .vt-hdr-mi.vt-hdr-mi-band.vt-on { background: rgba(var(--vt-accent-rgb), 0.16); color: #fff; }
+
+/* ---- T8 H (2026-11-08): ⋯ lights up while a panel whose key hides in it is
+   open (vt_header.js paintOver), the same look as the band's open key */
+html body.vt-h-ph #btn_hdr_more[data-over-on="1"] {
+    color: var(--vt-accent);
+    background: rgba(var(--vt-accent-rgb), 0.14);
+    box-shadow: inset 0 -2px 0 var(--vt-accent);
+}
+/* T8 H: over a folded / hidden panel the column is wide — a pill's button
+   stands beside its words (one 40-px row instead of two), so more fits above
+   an open left panel */
+html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars :is(#vagent_panic, #vagent_unlocked):not([style*="none"]) { flex-wrap: nowrap; }
+html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-txt { flex: 1 1 auto; }
+html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-btn { flex: 0 0 auto; padding: 0 12px; }

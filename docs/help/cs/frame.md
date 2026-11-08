@@ -57,10 +57,11 @@ tři řádky po 40 px, dohromady 120 px. Hlášky plavou v horní části mapy j
 nebo pod řádkem pravého panelu, vpravo od kompasu a tlačítka vrstev (dlouhý řádek končí **…**).
 Ať je pravý panel rozbalený, nebo sbalený, řádky agenta (zajištěný STOP se **Zrušit STOP**,
 povolený dok se **Zamknout**, co agent dělá) stojí jako sloupec na mapě pod kompasem a tlačítkem
-vrstev (u rozbaleného panelu vlevo od něj) — celá slova, tlačítka přes celou šířku; panel se nepohne, když agent začne nebo
+vrstev (u rozbaleného panelu vlevo od něj; při otevřeném levém panelu vedle nich, nad ním) — celá slova, tlačítka přes celou šířku; panel se nepohne, když agent začne nebo
 přestane mluvit.
 ? a počítač jsou v **⋯**; na úzkém telefonu (kde by klávesy pásu menu vedle STOP měly pod 40 px) je
-tam i **Podpora**, jako první položka **⋯** (pak **Značka**, jen když je to ještě potřeba).
+tam i **Podpora**, jako první položka **⋯** (pak **Značka**, jen když je to ještě potřeba); dokud je ten panel otevřený,
+**⋯** svítí jako tlačítko otevřeného panelu.
 **Telefon na šířku**: jeden řádek — tečka · tlačítka
 panelů · jedna ikona za skupinu stavu · zvonek · Restart · ⋯ — logo, ? a počítač jsou v **⋯**, STOP
 je v rohu nad pravým panelem.
