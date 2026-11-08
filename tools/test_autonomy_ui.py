@@ -526,8 +526,7 @@ def link_story(p, shots, label):
 AGENT_SCHEMA = {
     'agent_fallback_calendar': ('bool', '', None, None, True), 'limits_in_calendar': ('bool', '', None, None, False),
     'limit_rain_h': ('float', 'h', 0, 48, 3.0), 'limit_temp_min_c': ('float', 'C', -10, 25, 5.0),
-    'limit_zone_gap_days': ('float', 'd', 0, 14, 2.0), 'limit_day_start': ('time', '', None, None, '08:00'),
-    'limit_day_end': ('time', '', None, None, '20:00')}
+    'limit_zone_gap_days': ('float', 'd', 0, 14, 2.0)}
 
 
 def agent_settings():
@@ -547,7 +546,8 @@ def mode_view(mode='calendar', **over):
          'dock_why': None if mode == 'calendar' else 'majitel dok nepovolil', 'state': 'IDLE', 'automation': True,
          'held': False, 'fallback': True, 'limits_apply': mode == 'agent', 'changed': None, 'advice': None,
          'last_decision': None, 'limit_now': None,
-         'limits': {'day_start': '08:00', 'day_end': '20:00', 'rain_h': 3.0, 'temp_min_c': 5.0, 'zone_gap_days': 2.0,
+         'limits': {'window': {'enabled': True, 'start': '07:00', 'end': '21:00', 'min_left_min': 30.0},
+                    'day_start': '07:00', 'day_end': '21:00', 'rain_h': 3.0, 'temp_min_c': 5.0, 'zone_gap_days': 2.0,
                     'in_calendar': False},
          'weather': {'hours_since_rain': 30.0, 'rain_last_h': 0.0, 'temp_now': 12.0}, 'last_mow': {}}
     v.update(over)
@@ -570,9 +570,39 @@ def mode_story(p, shots, label):
     check('M1 the robot\'s mode is selected', sel == [['calendar', 'true', False], ['agent', 'false', False]], sel)
     check('M1 head says calendar', ('Kalendář' if cs else 'Calendar') in (p.text('#auto_tok_mode') or ''), p.text('#auto_tok_mode'))
     order = p.pg.evaluate("[...document.querySelectorAll('[data-auto-group=agent] .vt-auto-set')].map(r=>r.dataset.key)")
-    check('M1 limits in their order', order == ['agent_fallback_calendar', 'limits_in_calendar', 'limit_day_start', 'limit_day_end',
+    check('M1 limits in their order', order == ['agent_fallback_calendar', 'limits_in_calendar',
                                                 'limit_rain_h', 'limit_temp_min_c', 'limit_zone_gap_days'], order)
-    check('M1 a time is 24 h text', p.pg.evaluate("document.getElementById('auto_in_limit_day_start').value") == '08:00')
+    # one window (owner 2026-11-08): no start hours of the agent, the window of Plan in one line
+    check('M1 no start hours of the agent', p.pg.locator('#auto_in_limit_day_start, #auto_in_limit_day_end').count() == 0)
+    win = p.text('#auto_mode_window') or ''
+    check('M1 window line: off, for the agent too', p.pg.locator('#auto_mode_window').is_visible()
+          and ('vypnuto' if cs else 'off') in win and 'agent' in win and '{' not in win, win)
+    check('M1 window line above the limits', p.pg.evaluate(
+        "document.getElementById('auto_mode_window').nextElementSibling === document.querySelector('[data-auto-group=agent]')"))
+    on = report(now)
+    on['window_setting'] = dict(on['window_setting'], enabled=True, start='06:30', end='20:15')
+    p.pub('/scheduler/report', on)
+    win = p.text('#auto_mode_window') or ''
+    check('M1 window line: on with its times', '06:30–20:15' in win and ('zapnuto' if cs else '(on)') in win
+          and ('platí i pro agenta' if cs else 'applies to the agent too') in win, win)
+    if shots:
+        p.pg.evaluate("document.getElementById('auto_mode_limits_h').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-mode-limits.png'))
+    on['window_setting'] = dict(on['window_setting'], start='22:00', end='05:00')
+    p.pub('/scheduler/report', on)
+    win = p.text('#auto_mode_window') or ''
+    check('M1 window line: over midnight said', '22:00–05:00' in win and ('půlnoc' if cs else 'midnight') in win, win)
+    n = len(p.pg.evaluate('__fake.sent'))
+    p.click('#btn_auto_mode_window')
+    p.pg.wait_for_timeout(700)
+    check('M1 window › opens Plan at the card, nothing sent', len(p.pg.evaluate('__fake.sent')) == n
+          and p.pg.evaluate("document.getElementById('auto_sec_plan').open")
+          and p.pg.evaluate("(()=>{const r=document.getElementById('card_mow_window').getBoundingClientRect();"
+                            "return r.top >= 0 && r.bottom <= innerHeight;})()"))
+    check('M1 window › has a name', bool(p.pg.evaluate("document.getElementById('btn_auto_mode_window').getAttribute('aria-label')")))
+    p.pub('/scheduler/report', report(now))
+    p.open('mode')
     check('M1 °C next to the temperature', '°C' in (p.text('[data-key=limit_temp_min_c] .vt-auto-unit') or ''))
     # a press of the selected mode sends nothing
     p.click('#btn_auto_mode_calendar')
@@ -648,6 +678,29 @@ def mode_story(p, shots, label):
         top = p.text('#span_scheduler_status') or ''
         check('M4 agent_blocked by rain %s: in words' % ('with numbers' if detail else 'without numbers'),
               want in top and '{' not in top and 'limit_' not in top, top)
+    # the night limit is the allowed window: its times, in words, also too little of it left
+    night = {'start': '07:00', 'end': '21:00', 'cause': 'outside_window', 'min_left_min': 30.0}
+    d = dict({'program': 'Bigger', 'why': 'limit:limit_night'}, **night)
+    p.pub('/scheduler/report', report(now, code='agent_blocked', detail=d, sentence={'code': 'agent_blocked', 'vars': d}))
+    top = p.text('#span_scheduler_status') or ''
+    check('M4 agent_blocked by the night: the window in words', '07:00–21:00' in top and ('povolený čas' if cs else 'allowed mowing time') in top
+          and '{' not in top and 'limit_' not in top, top)
+    d = dict(d, cause='too_little_left')
+    p.pub('/scheduler/report', report(now, code='agent_blocked', detail=d, sentence={'code': 'agent_blocked', 'vars': d}))
+    top = p.text('#span_scheduler_status') or ''
+    check('M4 too little of the window left: said with the minutes', '30' in top and '07:00–21:00' in top and '{' not in top, top)
+    p.pub('/scheduler/mode', mode_view('agent', dock_permitted=True, dock_why=None,
+                                       limit_now={'code': 'limit_night', 'vars': night, 'program': 'Bigger'}))
+    notes = p.text('#auto_mode_notes') or ''
+    check('M4 night limit now: the window', '07:00–21:00' in notes and '{' not in notes, notes)
+    p.pub('/scheduler/journal', {'entries': [
+        {'t': iso(now) + ':00', 'kind': 'advice', 'code': 'waiting', 'program': 'Bigger',
+         'vars': dict({'why': 'limit:limit_night', 'id': 'a1'}, **night)},
+        {'t': iso(now) + ':00', 'kind': 'waited', 'code': 'limit_night', 'program': 'Bigger', 'vars': night}]})
+    p.open('history')
+    j = p.text('#auto_journal') or ''
+    check('M5 night limit in the journal: the window in words', j.count('07:00–21:00') == 2 and 'limit_' not in j and '{' not in j, j)
+    p.open('mode')
     p.pub('/scheduler/journal', {'entries': [
         {'t': iso(now) + ':00', 'kind': 'mode', 'code': 'agent', 'program': '', 'vars': {'by': 'owner'}},
         {'t': iso(now) + ':00', 'kind': 'advice', 'code': 'rejected', 'program': 'X', 'vars': {'why': 'not_on_map'}},
@@ -660,17 +713,17 @@ def mode_story(p, shots, label):
     # a limit in the agent group is saved like any setting
     p.open('mode')
     n_set = len(p.sent('/scheduler/set_settings'))
-    p.pg.fill('#auto_in_limit_day_start', '25:00')
-    p.pg.dispatch_event('#auto_in_limit_day_start', 'change')
+    p.pg.fill('#auto_in_limit_rain_h', '99')
+    p.pg.dispatch_event('#auto_in_limit_rain_h', 'change')
     p.pg.wait_for_timeout(150)
-    check('M6 no time of day: not sent, said', len(p.sent('/scheduler/set_settings')) == n_set and p.text('[data-key=limit_day_start] .vt-auto-msg'),
-          p.text('[data-key=limit_day_start] .vt-auto-msg'))
-    p.pg.fill('#auto_in_limit_day_start', '9.00')
-    p.pg.dispatch_event('#auto_in_limit_day_start', 'change')
+    check('M6 out of range: not sent, said', len(p.sent('/scheduler/set_settings')) == n_set and p.text('[data-key=limit_rain_h] .vt-auto-msg'),
+          p.text('[data-key=limit_rain_h] .vt-auto-msg'))
+    p.pg.fill('#auto_in_limit_rain_h', '4')
+    p.pg.dispatch_event('#auto_in_limit_rain_h', 'change')
     p.pg.wait_for_timeout(150)
     got = p.sent('/scheduler/set_settings')
     body = json.loads(got[-1]['data']) if got else {}
-    check('M6 a limit saved', body.get('values') == {'limit_day_start': '09:00'}, got[-1:] if got else got)
+    check('M6 a limit saved', body.get('values') == {'limit_rain_h': 4.0}, got[-1:] if got else got)
     p.pub('/scheduler/settings_result', {'req': body.get('req'), 'ok': True, 'rejected': {}})
     # back to the calendar, an old master without the topic
     p.pub('/scheduler/mode', mode_view('calendar'))
@@ -713,6 +766,9 @@ def mode_fit(p, shots, label):
         check(label + ' mode: touch targets >= 40 px', not r['small'], r['small'])
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-mode.png'))
+        p.pg.evaluate("document.getElementById('auto_mode_limits_h').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-mode-limits-off.png'))
 
 
 def layout(p, shots, label):

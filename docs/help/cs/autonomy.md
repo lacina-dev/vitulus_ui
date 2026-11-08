@@ -136,8 +136,10 @@ V panelu je to sekce **Kdo rozhoduje** hned pod horní kartou:
   provedena, zmeškaná, prošlá, zrušená), jistota a důvod vlastními slovy agenta.
 - **Poslední rozhodnutí**: co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
   v Historii.
-- **Pravidla a tvrdé limity**: *Bez rady zastupuje kalendář*, *Tvrdé limity i pro kalendář*,
-  *Starty od* / *Starty do* (24 h, např. 8.30 nebo 08:30), *Počkat po dešti*, *Nejnižší teplota*,
+- **Pravidla a tvrdé limity**: nejdřív jeden řádek s [povoleným časem sekání](programs.md#povolený-čas-sekání),
+  třeba *Povolený čas sekání 07:00–21:00 (zapnuto) — platí i pro agenta* nebo *vypnuto*. Je to tentýž
+  čas jako v Plánu, zvláštní pro agenta není; **›** tě vezme ke kartě v Plánu, kde se nastavuje. Pak
+  *Bez rady zastupuje kalendář*, *Tvrdé limity i pro kalendář*, *Počkat po dešti*, *Nejnižší teplota*,
   *Stejná zóna znovu za*. Tyhle limity platí jen v režimu Agent, nebo v režimu Kalendář se zapnutým
   *Tvrdé limity i pro kalendář*. Každé s výchozí hodnotou a **Reset**, ukládá se jako každé nastavení.
 
@@ -148,11 +150,12 @@ další**: platí všechny kontroly **Mohl by teď vyjet?**. **Výjezd z doku po
 „sekej" robot provede jen při odemčeném doku (předvolba **Mow**); bez něj ti agent jednou napíše
 do chatu „chci sekat X v …, povol dok" a robot počká. Odemčení se spotřebuje až skutečným výjezdem. Bez čerstvé rady zatím rozhoduje kalendář
 (jde to vypnout: pak bez agenta nevyjede nic). Dokud rada platí, o slotech kalendáře rozhoduje agent
-a později se nedohánějí. V režimu agent robot spí nejdéle do dalšího rána, aby se agent mohl každý den
-podívat.
+a později se nedohánějí. V režimu agent robot spí nejdéle do dalšího začátku povoleného času sekání,
+aby se agent mohl každý den podívat.
 
-**Tvrdé limity** drží robot, agent je nepřebije: start jen 8:00–20:00 (rozjetý běh pokračuje do
-konce povoleného času sekání, výchozí 21:00), ne do 3 h po dešti, ne pod 5 °C, stejná zóna nejdřív
+**Tvrdé limity** drží robot, agent je nepřebije: start jen v povoleném čase sekání (výchozí
+7:00–21:00, a když z něj zbývá méně než 30 minut, nic nevyjede; rozjetý běh pokračuje do jeho konce
+jako u kalendáře; s vypnutým časem denní doba nedrží ani agenta), ne do 3 h po dešti, ne pod 5 °C, stejná zóna nejdřív
 po 2 dnech (dosečení nedokončeného programu to nezdrží). Bez aktuálního počasí (radar i předpověď
 staré) režim agent nevyjede. V režimu agent platí vždy, v režimu kalendář jen když je zapneš. Běh spuštěný
 ručně ani **Spustit další** neomezují. Každé rozhodnutí — rada přijata, běh spuštěn, čekání a proč,

@@ -142,10 +142,13 @@ In the panel it is the section **Who decides**, right under the top card:
   state (waiting, carried out, missed, expired, dropped), confidence and reason in the agent's own words.
 - **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
   in the History.
-- **Rules and hard limits**: *Calendar stands in without advice*, *Hard limits for the calendar too*,
-  *Starts from* / *Starts until* (24 h, e.g. 8.30 or 08:30), *Wait after rain*, *Lowest temperature*,
-  *Same zone again after*. These limits apply only in the Agent mode, or in the Calendar mode with
-  *Hard limits for the calendar too* on. Each with its default and **Reset**, saved like any setting.
+- **Rules and hard limits**: first one line with the [allowed mowing time](programs.md#allowed-mowing-time),
+  e.g. *Allowed mowing time 07:00–21:00 (on) — applies to the agent too* or *off*. It is the same time
+  as in Plan, there is no separate one for the agent; **›** takes you to the card in Plan where you set
+  it. Then *Calendar stands in without advice*, *Hard limits for the calendar too*, *Wait after rain*,
+  *Lowest temperature*, *Same zone again after*. These limits apply only in the Agent mode, or in the
+  Calendar mode with *Hard limits for the calendar too* on. Each with its default and **Reset**, saved
+  like any setting.
 
 In the agent mode the agent looks at the weather (rain history and forecast), when each zone was last
 mowed, what the last run left unfinished and how heavy the cutting was, and tells the robot *mow
@@ -156,11 +159,13 @@ unlocked the dock (preset **Mow**); without it the agent tells you once in the c
 X between …, unlock the dock" — and the robot waits. The unlock is used up only when the robot really
 leaves. Without a fresh advice the calendar decides meanwhile (it can be switched off: then nothing
 starts without the agent). While an advice is in force, the calendar's slots are the agent's to decide
-and are not caught up later. In the agent mode the robot sleeps at most until the next morning, so the
-agent gets its daily look.
+and are not caught up later. In the agent mode the robot sleeps at most until the allowed mowing time
+opens next, so the agent gets its daily look.
 
-**Hard limits** stay in the robot, the agent cannot override them: starts only 08:00–20:00 (a run
-already out goes on until the allowed mowing time ends, 21:00 by default), not within 3 h after rain,
+**Hard limits** stay in the robot, the agent cannot override them: starts only in the allowed mowing
+time (07:00–21:00 by default, also with less than 30 minutes of it left nothing starts; a run already
+out goes on until it ends, as in the calendar; with the time switched off, the time of day does not
+hold the agent either), not within 3 h after rain,
 not below 5 °C, the same zone again only after 2 days (finishing an unfinished program is not held
 back). With no current weather (radar and forecast both old) the agent mode does not start. In the agent mode they always
 apply; in the calendar mode only when you turn them on. A run you start by hand, or **Run next**, is

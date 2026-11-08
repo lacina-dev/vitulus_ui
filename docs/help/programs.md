@@ -206,17 +206,21 @@ event waits for it, it is not dropped for the new one.
 
 ![The Allowed mowing time card with numbered markers](img/shot-calendar-window.webp "1 Limit on / off · 2 from · 3 to · 4 Save")
 
-The card **Allowed mowing time** in Autonomy › Plan is the "no mowing at night" rule: calendar
-programs start and continue only in this time of day. The default is **07:00–21:00**, Limit on.
+The card **Allowed mowing time** in Autonomy › Plan is the "no mowing at night" rule: the calendar
+and the agent start and continue programs only in this time of day. The default is **07:00–21:00**,
+Limit on. It is the only such time: the agent's night limit is this one (Autonomy › Who decides ›
+Rules and hard limits shows it in one line).
 
-- **Limit** switches the rule on and off; off means the calendar times alone decide, also at night.
+- **Limit** switches the rule on and off; off means the calendar times alone decide, also at night,
+  and the time of day does not hold the agent either.
 - **From** and **To** are set with **Save**. The time may run over midnight (22:00–05:00 mows at
   night); From and To cannot be the same, and a time shorter than 30 minutes would never start
   anything, the card warns about that.
 - The setting is stored on the robot, survives a restart and works at once, nothing needs
   restarting. **Automatic mowing** stays as it is.
 
-It limits only what the calendar does. **Run** by hand and a task for the agent are not limited.
+It limits the calendar and what the agent decides itself in the Agent mode. **Run** by hand and a
+task you give the agent are not limited.
 
 The change itself starts nothing. A closed window works like its usual end: the robot finishes the
 path, returns and continues when the window opens. If you move the time back before the robot left,

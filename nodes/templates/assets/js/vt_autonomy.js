@@ -54,7 +54,7 @@
     var OPEN_DEFAULT = { mode: 1, now: 1, plan: 1 };
     /* who decides (AUTONOMY.md §6); the agent group's rows in this order, the schema comes sorted */
     var MODES = ['calendar', 'agent'];
-    var AGENT_ORDER = ['agent_fallback_calendar', 'limits_in_calendar', 'limit_day_start', 'limit_day_end',
+    var AGENT_ORDER = ['agent_fallback_calendar', 'limits_in_calendar',
                        'limit_rain_h', 'limit_temp_min_c', 'limit_zone_gap_days'];
     var ADVICE_STATES = { pending: 'info', used: 'ok', missed: 'warn', expired: 'off', dropped: 'off' };
     var CHECK_TONE = { ok: 'ok', wait: 'warn', block: 'err', off: 'off', unknown: 'off' };
@@ -589,7 +589,8 @@
     }
     /* the limit with its numbers; without them (an older master) just its name, never a {placeholder} */
     function limitText(code, vars) {
-        var full = first(['auto.limit.' + code], vars || {});
+        var cause = vars && vars.cause ? ['auto.limit.' + code + '.' + vars.cause] : [];
+        var full = first(cause.concat(['auto.limit.' + code]), vars || {});
         if (full && !/\{\w+\}/.test(full)) { return full; }
         return first(['auto.limit.name.' + code]) || String(code).replace(/^limit_/, '').replace(/_/g, ' ');
     }
@@ -752,6 +753,7 @@
     function paintMode() {
         var box = $('auto_mode_choice');
         if (!box) { return; }
+        paintWindowLine();
         var mv = modeView(), ask = S.modeAsk;
         box.querySelectorAll('.vt-auto-choice').forEach(function (b) {
             var on = !!mv && b.dataset.mode === mv.mode;
@@ -794,6 +796,45 @@
     function paintLimitsHead() {
         var h = $('auto_mode_limits_h'), g = document.querySelector('[data-auto-group="agent"]');
         if (h && g) { h.hidden = !g.firstChild; }
+        paintWindowLine();
+    }
+    /* One window for the calendar and the agent (owner 2026-11-08): the agent's
+       night limit is the Allowed mowing time of Plan. Said here in one line, set
+       there (the › opens Plan at the card). From report.window_setting. */
+    function paintWindowLine() {
+        var g = document.querySelector('[data-auto-group="agent"]');
+        if (!g) { return; }
+        var row = $('auto_mode_window');
+        if (!row) {
+            row = document.createElement('div');
+            row.id = 'auto_mode_window';
+            row.className = 'vt-auto-check vt-auto-winline';
+            g.parentNode.insertBefore(row, g);
+            el('span', 'vt-sdot', row);
+            el('span', 'vt-auto-check-t', row);
+            var b = el('button', 'vt-auto-go', row);
+            b.type = 'button';
+            b.id = 'btn_auto_mode_window';
+            el('i', 'la la-angle-right', b);
+            b.addEventListener('click', goWindow);
+        }
+        var set = S.report && S.report.window_setting;
+        row.hidden = !set || !g.firstChild;
+        if (row.hidden) { return; }
+        var key = !set.enabled ? 'auto.mode.window.off'
+            : (String(set.start) < String(set.end) ? 'auto.mode.window.on' : 'auto.mode.window.on_night');
+        row.dataset.state = set.enabled ? 'info' : 'off';
+        row.querySelector('.vt-auto-check-t').textContent = t(key, { start: set.start, end: set.end });
+        var btn = row.querySelector('button');
+        btn.title = t('auto.mode.window.go');
+        btn.setAttribute('aria-label', btn.title);
+    }
+    function goWindow() {
+        openSec('plan', false);
+        setTimeout(function () {
+            var c = $('card_mow_window');
+            if (c) { c.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        }, 60);
     }
 
     /* ------------------------------------------------------- checks */

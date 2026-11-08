@@ -213,3 +213,10 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
 #card_mow_window[data-limit="off"] .vt-win-times:focus-within,
 #card_mow_window[data-limit="off"] .vt-win-times:hover { opacity: 1; }
 .vt-auto-check[data-state="info"] .vt-auto-check-t { color: var(--vt-muted); }
+
+/* Who decides › Rules and hard limits: the one allowed mowing time (Plan) as a line
+   with its way to Plan; words wrap whole, the › never squeezed */
+.vt-auto-winline { margin-bottom: var(--vt-gap-2); }
+.vt-auto-winline[hidden] { display: none; }
+.vt-auto-winline .vt-auto-check-t { overflow-wrap: break-word; hyphens: auto; }
+.vt-auto-winline[data-state="info"] .vt-auto-check-t { color: var(--vt-text); }

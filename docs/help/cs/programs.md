@@ -208,17 +208,21 @@ počká, kvůli ní se nezahodí.
 
 ![Karta Povolený čas sekání s očíslovanými značkami](../img/shot-calendar-window.webp "1 Omezit zapnuto / vypnuto · 2 od · 3 do · 4 Uložit")
 
-Karta **Povolený čas sekání** pod kalendářem je pravidlo „v noci se neseká": programy z kalendáře
-startují a navazují jen v tuhle denní dobu. Výchozí je **07:00–21:00** se zapnutým Omezit.
+Karta **Povolený čas sekání** pod kalendářem je pravidlo „v noci se neseká": kalendář i agent
+spouští a navazují programy jen v tuhle denní dobu. Výchozí je **07:00–21:00** se zapnutým Omezit.
+Jiný takový čas není: noční limit agenta je právě tenhle (Autonomie › Kdo rozhoduje › Pravidla
+a tvrdé limity ho ukazuje jedním řádkem).
 
-- **Omezit** pravidlo zapíná a vypíná; vypnuto znamená, že rozhodují jen časy v kalendáři, i v noci.
+- **Omezit** pravidlo zapíná a vypíná; vypnuto znamená, že rozhodují jen časy v kalendáři, i v noci,
+  a denní doba nedrží ani agenta.
 - **Od** a **Do** se nastaví tlačítkem **Uložit**. Čas může jít přes půlnoc (22:00–05:00 seká
   v noci); Od a Do nemůžou být stejné a čas kratší než 30 minut by nikdy nic nespustil, karta na to
   upozorní.
 - Nastavení je uložené na robotu, přežije restart a platí hned, nic se nerestartuje. **Automatické
   sekání** zůstává, jak je.
 
-Omezuje to jen kalendář. Ruční **Run** a úkol pro agenta omezené nejsou.
+Omezuje to kalendář a to, co agent v režimu Agent rozhoduje sám. Ruční **Run** a úkol, který
+agentovi zadáš, omezené nejsou.
 
 Sama změna nic nespustí. Zavřené okno funguje jako jeho běžný konec: robot dokončí dráhu, vrátí se
 a naváže, až se okno otevře. Když čas vrátíš dřív, než robot odjel, seká dál. Rozšířený čas pustí

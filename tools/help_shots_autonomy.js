@@ -36,12 +36,12 @@
   };
   const S = (type, group, unit, min, max) => ({ type, group, unit: unit || '', min: min === undefined ? null : min,
                                                 max: max === undefined ? null : max, advanced: false, locked: false, needs_restart: false });
-  const values = { agent_fallback_calendar: true, limits_in_calendar: false, limit_day_start: '08:00', limit_day_end: '20:00',
+  const values = { agent_fallback_calendar: true, limits_in_calendar: false,
                    limit_rain_h: 3.0, limit_temp_min_c: 5.0, limit_zone_gap_days: 2.0, sleep_enabled: true, rain_mode: 'always',
                    skip_next: null, no_mow_until: null, stay_awake_until: null };
   const settings = { version: 1, values, defaults: Object.assign({}, values), schema: {
     agent_fallback_calendar: S('bool', 'agent'), limits_in_calendar: S('bool', 'agent'),
-    limit_day_start: S('time', 'agent'), limit_day_end: S('time', 'agent'), limit_rain_h: S('float', 'agent', 'h', 0, 48),
+    limit_rain_h: S('float', 'agent', 'h', 0, 48),
     limit_temp_min_c: S('float', 'agent', 'C', -10, 25), limit_zone_gap_days: S('float', 'agent', 'd', 0, 14),
     sleep_enabled: S('bool', 'sleep'), rain_mode: Object.assign(S('enum', 'rain'), { options: ['always', 'calendar', 'ignore'] }) } };
   const advice = { id: 'a1', action: 'mow', program: PROG, site: null, from: at(-10), to: at(170), until: null, expires: at(170),
@@ -51,7 +51,7 @@
                  automation: true, held: false, fallback: true, limits_apply: true, changed: { t: at(-60 * 26), by: 'owner' },
                  advice, last_decision: { t: at(-2), kind: 'advice', code: 'waiting', program: PROG, source: 'agent',
                                           vars: { id: 'a1', why: 'dock:waiting_dock', dock: 'the owner has not unlocked the dock' } },
-                 limit_now: null, limits: { day_start: '08:00', day_end: '20:00', rain_h: 3, temp_min_c: 5, zone_gap_days: 2, in_calendar: false },
+                 limit_now: null, limits: { window: { enabled: true, start: '07:00', end: '21:00', min_left_min: 30 }, day_start: '07:00', day_end: '21:00', rain_h: 3, temp_min_c: 5, zone_gap_days: 2, in_calendar: false },
                  weather: { hours_since_rain: 30, rain_last_h: 0, temp_now: 14 }, last_mow: {} };
   report.mode = mode;
   const latched = {
