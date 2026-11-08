@@ -216,6 +216,17 @@ every zoom — wheel, pinch, the zoom buttons, the map editor. It is measured at
 the map is seen almost straight from above, so it holds across the whole picture. With the rain
 overlay on, the time label of the radar sits just above the bar.
 
+### Measuring
+
+The ruler button under the layers button measures on the map. Tap it, then tap (or click) points on
+the map: the card beside the button shows the length of the line through them, and from three points
+also the **area** they enclose and the length **round** (the closed shape) — e.g. how big a part of the
+lawn is or how far the fence runs. Dragging and pinching still move the map (only a tap without
+dragging adds a point). **Undo** removes the last point, **Clear** all, **×** or Esc ends measuring.
+Distances are on the ground in the map's own metres. While the Marker panel or the map editor is open
+measuring takes no taps (a tap there places the goal marker or edits) and the card says so. Measuring
+sends nothing to the robot.
+
 ### Lidar range and Camera range
 
 **Sensing** is what the sensors see now. **Lidar range** and **Camera range** are two layers with

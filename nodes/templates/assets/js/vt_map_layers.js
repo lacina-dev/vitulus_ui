@@ -738,11 +738,20 @@
         sc.onload = function () { sig = ''; if (isOpen) { render(); } };
         document.head.appendChild(sc);
     }
+    // T17 M10: measuring on the map, loaded the same way
+    function loadMeasure() {
+        if (window.VTMapMeasure || document.querySelector('script[data-vt-measure]')) { return; }
+        var sc = document.createElement('script');
+        sc.src = '/assets/js/vt_map_measure.js';
+        sc.setAttribute('data-vt-measure', '1');
+        document.head.appendChild(sc);
+    }
 
     function init() {
         if (!document.getElementById('map_view')) { return; }
         build();
         loadTerrain();
+        loadMeasure();
         place();
         // the Map tab / editor changed something: mirror it (capture: the
         // events fired by mapping.js / mapedits.js do not bubble)

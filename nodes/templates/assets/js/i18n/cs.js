@@ -4888,6 +4888,19 @@
     "dockp.err.owners_missing": "dok smí povolit jen owner zapsaný v ~/.vitulus/dock_permit_owners — soubor chybí nebo je prázdný",
     // M7 (T17, 2026-11-08): obrázek zón na kartě programu v Programech
     "prog.m7.thumb_tip": "Zóny programu — klikni a ukáže se na mapě",
+    // M10 (T17, 2026-11-08): měření v mapě (vzdálenost, plocha)
+    "measure.btn": "Měřit",
+    "measure.btn_tip": "Měření v mapě: klepáním na body vzdálenost (a od tří bodů plocha)",
+    "measure.title": "Měření",
+    "measure.end": "Ukončit měření",
+    "measure.undo": "Zpět",
+    "measure.clear": "Smazat",
+    "measure.hint_first": "Klepni do mapy na první bod.",
+    "measure.hint_next": "Klepni na další bod.",
+    "measure.pts": "bodů: {n}",
+    "measure.pts_area": "bodů: {n} · plocha {area} · dokola {round}",
+    "measure.blocked.marker": "Nejde, dokud je otevřený panel Značka (klepnutí tam umisťuje cílovou značku).",
+    "measure.blocked.editor": "Nejde, dokud je otevřený editor mapy (klepnutí tam upravuje).",
     // M9 (T17, 2026-11-08): Google zarovnaný na ČÚZK (ETRS89), stavový řádek podkladu slovy
     "mapping.m9.st_full": "{src} — nejjemnější detail · dlaždic: {n} (z{z})",
     "mapping.m9.st_out": "{src} — oddáleno, hrubší obraz · dlaždic: {n} (z{z}); pro nejjemnější detail přibliž",

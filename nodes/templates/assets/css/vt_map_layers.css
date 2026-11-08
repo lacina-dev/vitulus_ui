@@ -262,3 +262,31 @@
 .vt-lyr-treason { display: inline-flex; align-items: center; gap: 5px; color: var(--vt-muted); font-size: var(--vt-fs-xs); white-space: nowrap; }
 .vt-lyr-tchip { flex: 0 0 auto; width: 11px; height: 11px; border-radius: 2px; }
 .vt-lyr-tchip.is-zone { background: transparent; border: 2px solid #eeeeee; border-radius: 50%; }
+/* ---- T17 M10: measuring (vt_map_measure.js) — the ruler button under the
+   layers button (same look), the card beside it */
+.vt-meas-btn { top: calc(var(--vt-frame-top, 72px) + 150px); }   /* JS puts it under the layers button */
+.vt-meas-btn[aria-pressed="true"] {
+    color: var(--vt-text); border-color: var(--vt-accent);
+    background: linear-gradient(rgba(var(--vt-accent-rgb), 0.24), rgba(var(--vt-accent-rgb), 0.24)), var(--vt-navbar);
+}
+.vt-meas-card {
+    position: fixed; z-index: 6; box-sizing: border-box; padding: 2px 4px var(--vt-gap-2) var(--vt-pad);
+    color: var(--vt-text); background: var(--vt-overlay);
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-panel); box-shadow: var(--vt-shadow);
+    font: 400 var(--vt-fs)/1.35 var(--vt-font);
+}
+.vt-meas-card[hidden] { display: none; }
+.vt-meas-head { display: flex; align-items: center; gap: var(--vt-gap-2); min-height: 40px; }
+.vt-meas-title { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--vt-accent); }
+.vt-meas-head .vt-lyr-iconbtn { width: 40px; height: 40px; }
+.vt-meas-len { font-size: 22px; font-weight: 500; line-height: 1.2; min-height: 26px; padding-right: var(--vt-pad); }
+.vt-meas-sub { color: var(--vt-muted); font-size: var(--vt-fs-sm); min-height: 1.35em; padding-right: var(--vt-pad); overflow-wrap: anywhere; hyphens: auto; }
+.vt-meas-sub.is-warn { color: var(--vt-warn); }
+.vt-meas-acts { display: flex; gap: var(--vt-gap-2); margin-top: var(--vt-gap-2); padding-right: var(--vt-pad); }
+.vt-meas-act {
+    flex: 1 1 0; min-width: 0; min-height: var(--vt-touch, 40px); padding: 0 8px;
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl); background: transparent;
+    color: var(--vt-text); font-size: var(--vt-fs-sm); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vt-meas-act:disabled { opacity: 0.4; cursor: default; }
+.vt-meas-act:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }

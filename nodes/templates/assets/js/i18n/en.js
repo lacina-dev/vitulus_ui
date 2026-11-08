@@ -4803,6 +4803,19 @@
     "dockp.err.owners_missing": "only an owner listed in ~/.vitulus/dock_permit_owners can permit the dock — the file is missing or empty",
     // M7 (T17, 2026-11-08): the zone picture of a program card in Programs
     "prog.m7.thumb_tip": "The program's zones — click to show it on the map",
+    // M10 (T17, 2026-11-08): measuring on the map (distance, area)
+    "measure.btn": "Measure",
+    "measure.btn_tip": "Measure on the map: tap points for a distance (and from three points the area)",
+    "measure.title": "Measuring",
+    "measure.end": "End measuring",
+    "measure.undo": "Undo",
+    "measure.clear": "Clear",
+    "measure.hint_first": "Tap the map for the first point.",
+    "measure.hint_next": "Tap the next point.",
+    "measure.pts": "{n} points",
+    "measure.pts_area": "{n} points · area {area} · round {round}",
+    "measure.blocked.marker": "Closed while the Marker panel is open (a tap there places the goal marker).",
+    "measure.blocked.editor": "Closed while the map editor is open (a tap there edits).",
     // M9 (T17, 2026-11-08): Google aligned to ČÚZK (ETRS89), the background map's status line in words
     "mapping.m9.st_full": "{src} — finest detail · tiles: {n} (z{z})",
     "mapping.m9.st_out": "{src} — zoomed out, coarser picture · tiles: {n} (z{z}); zoom in for the finest detail",

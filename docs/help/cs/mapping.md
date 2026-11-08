@@ -210,6 +210,16 @@ vzdálenost napsaná nad ním (kulaté číslo: 50 cm, 2 m, 20 m, 1 km …). Sle
 kolečko, dva prsty, tlačítka zoomu, editor mapy. Měří se uprostřed pohledu; mapa je vidět skoro
 přímo shora, takže platí po celém obrázku. Se zapnutým deštěm je čas radaru hned nad pruhem.
 
+### Měření
+
+Tlačítko s pravítkem pod tlačítkem vrstev měří v mapě. Klepni na něj a pak klepej (nebo klikej) na
+body v mapě: karta vedle tlačítka ukáže délku čáry přes ně a od tří bodů i **plochu**, kterou uzavírají,
+a délku **dokola** (uzavřený tvar) — třeba jak velký je kus trávníku nebo jak dlouhý je plot. Tažení
+a dva prsty mapou dál hýbou (bod přidá jen klepnutí bez tažení). **Zpět** odebere poslední bod,
+**Smazat** všechny, **×** nebo Esc měření ukončí. Vzdálenosti jsou na zemi ve vlastních metrech mapy.
+Když je otevřený panel Značka nebo editor mapy, měření klepnutí nebere (tam klepnutí umisťuje cílovou
+značku nebo upravuje) a karta to řekne. Měření robotu nic neposílá.
+
 ### Dosah lidaru a Dosah kamery
 
 **Snímání** je to, co senzory vidí právě teď. **Dosah lidaru** a **Dosah kamery** jsou dvě vrstvy
