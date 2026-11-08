@@ -68,6 +68,7 @@
 <script src="/assets/js/rain_alert.js"></script>
 <script src="/assets/js/dock.js"></script>
 <script src="/assets/js/gloc.js"></script>
+<script src="/assets/js/vt_map_sources.js"></script>
 <script src="/assets/js/mapping.js"></script>
 <script src="/assets/js/vt_notice.js"></script>
 <script src="/assets/js/vt_sleep_plan.js"></script>
@@ -976,14 +977,22 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <button class="btn btn-outline-warning btn-sm vt-mt2 vt-fs-xs vt-pad-s" id="mapv3_btn_clear_costmaps" type="button" title="Clear the navigation costmaps — the live obstacle memory that accumulates while driving (the 'map that builds as you drive'). It is NOT a saved map; it instantly re-marks whatever the sensors currently see." data-i18n-title="mapt.disp.clear_cm_tip" data-i18n="mapt.disp.clear_cm">Clear costmaps</button>
 
                                                 <hr class="vt-mt2 vt-mr0 vt-mb2 vt-ml0">
-                                                <div class="vt-fs-sm vt-mb1" title="Drape MapProxy satellite/OSM tiles georeferenced under the map (loads only when the Aerial layer is ticked)" data-i18n-title="mapt.aerial.title_tip" data-i18n="mapt.aerial.title">Aerial tiles (MapProxy)</div>
+                                                <div class="vt-fs-sm vt-mb1" title="Georeferenced MapProxy map under the map: satellite, orthophoto, topographic maps (loads only when the Aerial layer is ticked)" data-i18n-title="mapt.aerial.title_tip" data-i18n="mapt.aerial.title">Background map (MapProxy)</div>
+                                                <!-- options come from the source catalog (vt_map_sources.js, /api/map_sources); own row: the names are long -->
+                                                <select class="form-select form-select-sm vt-fs-sm vt-mb1" id="mapv3_aerial_src" title="Background map source" data-i18n-title="mapt.aerial.src_tip"><option value="sat" selected>Satellite (Google)</option></select>
                                                 <div class="input-group input-group-sm">
-                                                    <select class="form-select vt-fs-sm" id="mapv3_aerial_src" title="Tile source layer" data-i18n-title="mapt.aerial.src_tip"><option value="sat" selected data-i18n="mapt.aerial.sat">satellite</option><option value="cuzk">ČÚZK orto</option><option value="osm">OSM</option></select>
-                                                    <select class="form-select vt-fs-sm" id="mapv3_aerial_zoom" title="Tile zoom level (gm_grid max z21; OSM capped at z19)" data-i18n-title="mapt.aerial.zoom_tip"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option><option value="20">z20</option><option value="21">z21</option></select>
+                                                    <select class="form-select vt-fs-sm" id="mapv3_aerial_zoom" title="Most detailed tile zoom; each source is capped at its own maximum" data-i18n-title="mapt.aerial.zoom_tip"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option><option value="20">z20</option><option value="21">z21</option></select>
                                                     <select class="form-select vt-fs-sm" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Large areas + high zoom are auto-clamped." data-i18n-title="mapt.aerial.area_tip"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
                                                 </div>
                                                 <div class="vt-fs-sm vt-mt1"><span data-i18n="mapt.opacity">Opacity</span> <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" class="vt-vam vt-w-md"></div>
                                                 <span id="mapv3_aerial_status" class="vt-fs-sm vt-block vt-mt1 vt-dim">aerial: &mdash;</span>
+
+                                                <!-- 2026-11-08 map sources: overlays from the catalog (one row each:
+                                                     checkbox, opacity, zoom status), drawn above the maps. -->
+                                                <div id="mapv3_overlays_box" class="vt-mt2" hidden>
+                                                    <div class="vt-fs-sm vt-mb1" title="Transparent layers with their own opacity, with or without the background map: lines (cadastre, contours) on top of the robot's maps, the relief under them" data-i18n-title="mapt.aerial.ov_title_tip" data-i18n="mapt.aerial.ov_title">Overlays</div>
+                                                    <div id="mapv3_overlays"></div>
+                                                </div>
 
                                                 <!-- Aerial ALIGNMENT OFFSET (2026-08-30). Ortho imagery is never
                                                      perfectly georeferenced; nudge the tile layer until it lines up
@@ -1960,7 +1969,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                     </div>
                 </div>
             </div>
-            <div id="map_view" style="width: 100%;height: 100%;background: rgba(2,60,85,0.22);color: rgba(2,60,85,0.22);overflow: hidden;"></div>
+            <div id="map_view" style="width: 100%;height: 100%;background: rgba(2,60,85,0.22);color: rgba(2,60,85,0.22);overflow: hidden;"><!-- credits of the MapProxy layers on screen (mapping.js _updateAttribution); one line, tap = whole text --><button type="button" id="mapv3_attr" class="vt-map-attr" aria-expanded="false" hidden></button></div>
         </div>
     </div>
     <div id="joy_view" class="vt-joy" style="display: none;"></div>

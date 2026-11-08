@@ -7,7 +7,7 @@ icon: la-map
 summary: Record a new map, extend one, activate it, layers and the combined map.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock, lidar]
-keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, terrain, session, save, sensing, lidar, camera, coverage, field of view]
+keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, background map, cadastre, parcels, contour lines, relief, overlay, terrain, session, save, sensing, lidar, camera, coverage, field of view]
 ---
 # Maps and mapping
 
@@ -134,7 +134,7 @@ automatically after Save & finish, a layer delete or a switch; ↻ rebuilds it b
 
 Tick the layers under the map list: **Base** (cyan, the navigation map), **Saved** (red, the
 active map), **Direct** (black, the live recording), **Preview** (blue), **Terrain** (height: blue low,
-red high), **Aerial** (satellite photo), **Rain** (radar).
+red high), **Aerial** (the background map, see below), **Rain** (radar).
 
 **Sensing** shows what the robot is observing right now, drawn flat on the ground around it.
 It switches on by itself when a recording starts and off when it ends (tick it by hand any time):
@@ -183,9 +183,19 @@ range on the map**.
 areas it drew into the map; it appears and disappears by itself, see
 [Vitulus agent › The agent's plan on the map](agent.md#the-agents-plan-on-the-map).
 
-**Display (layers)** sets their opacity, the robot marker colours, the aerial photo source
-(satellite / ČÚZK / OSM), zoom and an alignment nudge (saved on the robot for each map and tile
-source), the rain radar, and shows the terrain (DEM) status. **Clear costmaps** forgets the obstacles the robot currently remembers — it does not
+**Display (layers)** sets their opacity, the robot marker colours, the **background map** under
+the map (Satellite, ČÚZK orthophoto, ČÚZK topographic map, OpenTopoMap, OpenStreetMap), zoom and an
+alignment nudge (saved on the robot for each map and tile source; the ČÚZK sources share one), the
+rain radar, and shows the terrain (DEM) status.
+
+**Overlays** are transparent layers, each with its own tick box and opacity, with or without the
+background map: **Cadastre** (parcel boundaries, light lines) and **Contour lines** are drawn on
+top of the robot's maps, **Shaded relief** (ČÚZK terrain model DMR 5G) under them, as a tone over
+the background map. Cadastre and contour lines show only close up — the row says *zoom in* until
+they do. All layers share one tile limit, the background map first: an overlay that does not fit
+says *tile limit*, a background map drawn coarser than asked says so in its status line. The small
+line in the bottom-left corner of the map credits the sources on screen (tap it for the whole
+text): ČÚZK sources are open data, OpenTopoMap is CC-BY-SA. **Clear costmaps** forgets the obstacles the robot currently remembers — it does not
 change any saved map.
 
 > [!NOTE]

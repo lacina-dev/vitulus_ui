@@ -2293,3 +2293,31 @@ html body.vt-frame.vt-m-overlay .vt-utm-rose {
    The strip gets the full width and stays one line. */
 body.vt-frame.vt-m-sheet #row_icons > .col-1:empty { display: none; }
 body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max-width: 100%; }
+
+/* ---- map sources (2026-11-08): overlay rows + map credits ---------------- */
+/* one overlay per row: [x] name | opacity | zoom status; wraps on a phone,
+   the checkbox label is the 40 px touch target */
+.vt-ovl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-height: 40px; }
+.vt-ovl-name { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; flex: 1 1 150px;
+               min-width: 0; font-size: var(--vt-fs-sm); cursor: pointer; overflow-wrap: anywhere; }
+.vt-ovl-name .form-check-input { margin: 0; flex: 0 0 auto; }
+.vt-ovl-op { flex: 1 1 90px; max-width: 140px; min-width: 70px; vertical-align: middle; }
+.vt-ovl-st { flex: 0 0 4.5em; font-size: var(--vt-fs-xs); text-align: right; }
+/* credits: small, dim, bottom-LEFT corner of the map, above the bottom bar
+   (--vt-frame-bottom, 44 px when the frame has not measured it yet); one line
+   with "…", the full text in the tooltip and on a tap (.open). The map is the
+   positioning box (position: relative changes nothing else of its layout;
+   the mini-map swap keeps its own position: fixed !important). z-index 1 and
+   before the log in the DOM: an open log covers it, nothing else does. */
+#map_view { position: relative; }
+.vt-map-attr {
+    position: absolute; left: 6px; bottom: calc(var(--vt-frame-bottom, 44px) + 6px); z-index: 1;
+    max-width: min(60%, 520px); min-height: 22px; margin: 0; padding: 2px 8px;
+    border: 0; border-radius: 6px; cursor: pointer; text-align: left;
+    font-size: 10px; line-height: 1.5; color: var(--vt-muted);
+    background: var(--vt-overlay); opacity: 0.85;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vt-map-attr.open { white-space: normal; overflow-wrap: anywhere; }
+.vt-map-attr:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; opacity: 1; }
+.vt-map-attr[hidden] { display: none; }

@@ -142,7 +142,8 @@ window.MapEditPanel = (function () {
                 var on = api.layerOn(k);
                 return '<label class="mapedit-lay" for="mapedit_lay_' + k + '"><input class="form-check-input" type="checkbox" id="mapedit_lay_' + k + '"' +
                     (on ? ' checked' : '') + ' data-layer="' + k + '"><span class="vt-grow1">' + esc(t('medits.layer.' + k)) + '</span></label>' +
-                    '<div class="mapedit-legend" id="mapedit_legend_' + k + '">' + legendHtml(k, on) + '</div>';
+                    '<div class="mapedit-legend" id="mapedit_legend_' + k + '">' + legendHtml(k, on) + '</div>' +
+                    (k === 'aerial' ? overlayRowsHtml() : '');
             }).join('');
         }).join('');
         if (window.VTMowTrail) VTMowTrail.renderPanels();
@@ -153,11 +154,72 @@ window.MapEditPanel = (function () {
                 setLegend(k);
             });
         });
+        wireMapSources(host);
+        host._msSig = mapSourcesSig();
     }
+    // ---- map sources (Map tab controls are the single truth: these mirror
+    // #mapv3_aerial_src and the #mapv3_ov_<id> checkboxes of mapping.js)
+    function overlayRowsHtml() {
+        var rows = document.querySelectorAll('#mapv3_overlays [data-ov]');
+        if (!rows.length) return '';
+        return '<div class="mapedit-lay-head">' + esc(t('medits.layer.overlays')) + '</div>' +
+            Array.prototype.map.call(rows, function (r) {
+                var id = r.getAttribute('data-ov'), c = $('mapv3_ov_' + id), lab = $('mapv3_ov_' + id + '_lab');
+                return '<label class="mapedit-lay" for="mapedit_ov_' + esc(id) + '"><input class="form-check-input" type="checkbox" id="mapedit_ov_' +
+                    esc(id) + '" data-ovl="' + esc(id) + '"' + (c && c.checked ? ' checked' : '') + '><span class="vt-grow1">' +
+                    esc(lab ? lab.textContent : id) + '</span></label>';
+            }).join('');
+    }
+    function baseSelectHtml() {
+        var src = $('mapv3_aerial_src');
+        if (!src) return '';
+        return '<label class="vt-muted" for="mapedit_base">' + esc(t('medits.legend.base')) + '</label> ' +
+            '<select class="form-select form-select-sm" id="mapedit_base">' +
+            Array.prototype.map.call(src.options, function (o) {
+                return '<option value="' + esc(o.value) + '"' + (o.value === src.value ? ' selected' : '') + '>' + esc(o.textContent) + '</option>';
+            }).join('') + '</select>';
+    }
+    function wireMapSources(host) {
+        var b = host.querySelector('#mapedit_base');
+        if (b) b.addEventListener('change', function () {
+            var src = $('mapv3_aerial_src');
+            if (src) { src.value = b.value; src.dispatchEvent(new Event('change')); }
+        });
+        host.querySelectorAll('[data-ovl]').forEach(function (c) {
+            c.addEventListener('change', function () {
+                var m = $('mapv3_ov_' + c.getAttribute('data-ovl'));
+                if (m) { m.checked = c.checked; m.dispatchEvent(new Event('change')); }
+            });
+        });
+    }
+    // which bases / overlays exist (a new catalog = new rows); toggles and the
+    // chosen base are NOT part of it — those are synced in place
+    function mapSourcesSig() {
+        var src = $('mapv3_aerial_src');
+        return (src ? Array.prototype.map.call(src.options, function (o) { return o.value; }).join(',') : '') + '|' +
+            Array.prototype.map.call(document.querySelectorAll('#mapv3_overlays [data-ov]'), function (r) {
+                return r.getAttribute('data-ov');
+            }).join(',');
+    }
+    // Map tab changed a source: mirror it here without re-rendering the panel
+    // (keeps focus and scroll); re-render only when the set of sources changed.
+    function syncMapSources() {
+        var host = $('mapedit_layers');
+        if (!api || !host) return;
+        if (host._msSig !== mapSourcesSig()) { renderLayers(); return; }
+        host.querySelectorAll('[data-ovl]').forEach(function (c) {
+            var m = $('mapv3_ov_' + c.getAttribute('data-ovl'));
+            if (m && c.checked !== m.checked) c.checked = m.checked;
+        });
+        var b = $('mapedit_base'), src = $('mapv3_aerial_src');
+        if (b && src && b.value !== src.value) b.value = src.value;
+    }
+    document.addEventListener('vt:map-sources', syncMapSources);
     function legendHtml(k, on) {
         if (!on) return '';
         var msg = api.layerMsg(k);
         if (k === 'mow_load') return window.VTMowTrail ? VTMowTrail.panelHost() : '';
+        if (k === 'aerial') return baseSelectHtml();
         if (k === 'terrain') return '<span class="mapedit-swatch vt-sw-terrain-grad"></span> ' + esc(t('medits.legend.terrain'));
         if (k !== 'coverage' && k !== 'gnss' && k !== 'slope') return '';
         var stops = msg && msg.legend && msg.legend.stops;
@@ -169,6 +231,7 @@ window.MapEditPanel = (function () {
     function setLegend(k) {
         var el = $('mapedit_legend_' + k);
         if (el) el.innerHTML = legendHtml(k, api.layerOn(k));
+        if (el && k === 'aerial') wireMapSources(el);
         if (k === 'mow_load' && window.VTMowTrail) VTMowTrail.renderPanels();
     }
 

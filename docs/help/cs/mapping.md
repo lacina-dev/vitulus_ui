@@ -7,7 +7,7 @@ icon: la-map
 summary: Nahrát novou mapu, rozšířit ji, aktivovat, vrstvy a souhrnná mapa.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock, lidar]
-keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole]
+keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, podkladová mapa, katastr, parcely, vrstevnice, reliéf, překryv, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole]
 ---
 # Mapy a mapování
 
@@ -132,7 +132,7 @@ po **Uložit a dokončit**, po smazání vrstvy nebo po přepnutí; ↻ ji sesta
 
 Zaškrtni vrstvy pod seznamem map: **Základ** (tyrkysová, navigační mapa), **Uložená** (červená,
 aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (modrá), **Terén** (výška:
-modrá nízko, červená vysoko), **Letecká** (satelitní snímek), **Déšť** (radar).
+modrá nízko, červená vysoko), **Letecká** (podkladová mapa, viz níž), **Déšť** (radar).
 
 **Snímání** ukazuje, co robot právě sleduje, nakreslené naplocho na zemi kolem něj. Samo se
 zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kdykoli i ručně):
@@ -178,9 +178,19 @@ mapě**.
 které si nakreslil do mapy; objeví se a zmizí sám, viz
 [Agent Vitulus › Plán agenta na mapě](agent.md#plán-agenta-na-mapě).
 
-**Zobrazení (vrstvy)** nastaví jejich krytí, barvy značky robota, zdroj leteckého snímku
-(satelit / ČÚZK / OSM), přiblížení a posun zarovnání (uložený na robotu pro každou mapu a zdroj
-dlaždic), srážkový radar a ukáže stav terénu (DEM). **Vymazat costmapy** zapomene překážky,
+**Zobrazení (vrstvy)** nastaví jejich krytí, barvy značky robota, **podkladovou mapu** pod mapou
+(satelit, ortofoto ČÚZK, topografická mapa ČÚZK, OpenTopoMap, OpenStreetMap), přiblížení a posun
+zarovnání (uložený na robotu pro každou mapu a zdroj dlaždic; zdroje ČÚZK sdílí jeden), srážkový
+radar a ukáže stav terénu (DEM).
+
+**Překryvy** jsou průhledné vrstvy, každá s vlastním zaškrtnutím a krytím, s podkladovou mapou
+i bez ní: **Katastr** (hranice parcel, světlé čáry) a **Vrstevnice** se kreslí nad mapami robota,
+**Stínovaný reliéf** (model terénu ČÚZK DMR 5G) pod nimi jako tón přes podkladovou mapu. Katastr
+a vrstevnice jsou vidět jen zblízka — dokud ne, řádek ukazuje *přibliž*. Všechny vrstvy mají
+společný limit dlaždic, podkladová mapa má přednost: překryv, který se nevejde, ukáže *limit
+dlaždic*, a když se podklad kreslí hruběji, než chceš, řekne to jeho stavový řádek. Malý řádek
+v levém dolním rohu mapy uvádí zdroje, které jsou právě vidět (klepnutím ukáže celý text): zdroje
+ČÚZK jsou otevřená data, OpenTopoMap je pod CC-BY-SA. **Vymazat costmapy** zapomene překážky,
 které si robot právě pamatuje — žádnou uloženou mapu nemění.
 
 > [!NOTE]

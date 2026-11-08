@@ -304,6 +304,39 @@ if __name__ == '__main__':
             return jsonify(out)
 
         # -----------------------------------------------------------------
+        # Map sources (MapProxy) — the catalog the Map tab and the map editor
+        # offer: base maps + overlays with names (en/cs), zoom limits and
+        # credits. ONE place: ui_sources.json next to mapproxy.yaml in the
+        # docker-mapproxy repo, so a new MapProxy layer needs no UI change.
+        # Path: ~map_sources param, else docker-mapproxy beside this repo in
+        # the workspace, else the historical location. A missing/broken file
+        # answers ok:false and the UI keeps its built-in three sources.
+        def _map_sources_path():
+            p = rospy.get_param('~map_sources', '')
+            if p:
+                return os.path.expanduser(p)
+            src = os.path.dirname(os.path.dirname(os.path.dirname(_HERE)))  # .../src
+            rel = ('docker-mapproxy', 'mapproxy_configuration', 'ui_sources.json')
+            return _first_existing([os.path.join(src, *rel),
+                                    os.path.join(os.path.dirname(src), *rel),
+                                    os.path.join(os.path.dirname(_LEGACY_SRC), *rel)],
+                                   os.path.join(os.path.dirname(_LEGACY_SRC), *rel))
+
+        @app.route('/api/map_sources')
+        def api_map_sources():
+            path = _map_sources_path()
+            try:
+                with open(path, 'r') as fh:
+                    cat = json.load(fh)
+                srcs = cat.get('sources') if isinstance(cat, dict) else None
+                if not isinstance(srcs, list):
+                    raise ValueError('no "sources" list')
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': '%s: %s' % (path, exc)})
+            return jsonify({'ok': True, 'default_base': cat.get('default_base', 'sat'),
+                            'sources': srcs})
+
+        # -----------------------------------------------------------------
         # Aerial (MapProxy) tile-layer OFFSET — per map, per tile layer.
         # -----------------------------------------------------------------
         # The ortho/satellite imagery is never perfectly georeferenced: it sits

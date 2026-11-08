@@ -97,6 +97,9 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 // ===========================================================================
 var MapLayerOrder = {
     AERIAL:  -100,
+    OVERLAY_UNDER: -99, // MapProxy overlays with layer_order 'under' (shaded
+                     // relief — mapping.js): a tone right above the
+                     // background map, still UNDER every robot map.
     BASE:       0,
     COSTMAP:    5,
     SITE:      10,
@@ -106,6 +109,10 @@ var MapLayerOrder = {
     TERRAIN:   12,   // opt-in elevation plane, raised ABOVE the flat maps/costmaps
                      // (was -50) so ticking Terrain shows it on top; still below
                      // EDITS/LIVE. Flat plane, colour=height; renderOrder governs.
+    OVERLAY:   13,   // MapProxy overlays (cadastre, contours, relief —
+                     // mapping.js), +0.01 per overlay: ABOVE the occupancy
+                     // maps and the terrain so parcel lines read on the map,
+                     // below edits/live/robot. Each has its own opacity.
     EDITS:     15,   // WP-D2 map-editor edit_list overlay (mapedits.js)
     LIVE:      20,
     DIRECT:    21,   // direct 2D raster mapper overlay (mapping.js) — teal,
@@ -125,7 +132,9 @@ var MapLayerOrder = {
     // z-offsets used by the plane groups + occupancy offsetPose (documentation
     // + single source of truth for the group-owned planes below).
     Z_AERIAL:  -0.05,
-    Z_TERRAIN: -0.02
+    Z_TERRAIN: -0.02,
+    Z_OVERLAY: -0.01,
+    Z_OVERLAY_UNDER: -0.04
 };
 
 

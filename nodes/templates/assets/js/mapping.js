@@ -756,7 +756,8 @@ class MappingV3 {
         this.aerial_meshes = [];       // current tile meshes
         this.aerial_token = 0;         // bumps to cancel stale async builds
         this.aerial_area_m = 100;      // square side around map origin (metres)
-        this.AERIAL_TILE_CAP = 400;    // hard cap on tiles per rebuild
+        this.AERIAL_TILE_CAP = 400;    // hard cap on tiles of the background map
+        this.TILE_BUDGET = 600;        // all MapProxy layers together (base first)
 
         this.chk_aerial = document.getElementById('mapv3_chk_aerial');
         this.sel_aerial_src = document.getElementById('mapv3_aerial_src');
@@ -770,7 +771,11 @@ class MappingV3 {
 
         // Persist source/zoom/area/opacity across reloads (restore BEFORE the
         // boot-time rebuildAerial below so the first build uses them).
-        this._persistSelect(this.sel_aerial_src, 'vitulus_aerial_src');
+        // Base map <select> + overlay rows come from the source catalog
+        // (vt_map_sources.js, /api/map_sources). Filled NOW from the built-in
+        // fallback so the boot build below has a source; the catalog fetch
+        // then refills them and keeps the stored choice when it exists.
+        this._initMapSources();
         this._persistSelect(this.sel_aerial_zoom, 'vitulus_aerial_zoom');
         this._persistSelect(this.sel_aerial_area, 'vitulus_aerial_area');
         this._persistRange(this.in_aerial_opacity, 'vitulus_aerial_opacity');
@@ -778,6 +783,7 @@ class MappingV3 {
         if (this.chk_aerial) {
             this.chk_aerial.addEventListener('change', () => {
                 this._saveLayerPref('vitulus_layer_aerial', this.chk_aerial.checked);
+                this._updateAttribution();
                 if (this.chk_aerial.checked) {
                     // 2026-08-16 field fix: re-ticking the layer must RE-FETCH
                     // the datum — the cache made a toggle useless after a new
@@ -802,7 +808,7 @@ class MappingV3 {
             // zoom change) forced a rebuild. Retry until one build lands.
             let _bootTries = 0;
             const _bootTimer = setInterval(() => {
-                if (this._aerialBuiltOnce || !this.chk_aerial.checked
+                if (this._aerialBuiltOnce || !this._tilesWanted()
                         || ++_bootTries > 5) {
                     clearInterval(_bootTimer);
                     return;
@@ -813,7 +819,7 @@ class MappingV3 {
         }
         [this.sel_aerial_src, this.sel_aerial_zoom, this.sel_aerial_area].forEach((el) => {
             if (el) el.addEventListener('change', () => {
-                if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
+                if (this._tilesWanted()) this.rebuildAerial();
             });
         });
         if (this.in_aerial_opacity) {
@@ -840,6 +846,207 @@ class MappingV3 {
     }
 
     // =====================================================================
+    // MAP SOURCES — base map choice + overlays (catalog: vt_map_sources.js)
+    // ---------------------------------------------------------------------
+    // Base: ONE at a time, the existing #mapv3_aerial_src select and the
+    // Aerial layer checkbox. Overlays (cadastre, contours, relief …): any
+    // number, each with its own checkbox + opacity, independent of the Aerial
+    // checkbox; catalog layer_order 'over' = lines ABOVE the robot maps
+    // (MapLayerOrder.OVERLAY), 'under' = a tone right above the background
+    // map, under the robot maps (OVERLAY_UNDER). All layers share one tile
+    // budget (TILE_BUDGET, background map first). Stored
+    // in localStorage: vitulus_aerial_src (base id; old values mapped),
+    // vitulus_overlay_<id> ('1'/'0', default off), vitulus_overlay_<id>_op.
+    // =====================================================================
+    _initMapSources() {
+        const MS = window.VTMapSources;
+        this.map_sources = MS ? MS.fallback() : null;
+        this.ov_layers = {};          // id -> {src, group, meshes, sig, gen}
+        this.el_ov_host = document.getElementById('mapv3_overlays');
+        this.el_attr = document.getElementById('mapv3_attr');
+        this._aerialSrcPref = this._strPref('vitulus_aerial_src', null);
+        this._fillMapSources();
+        if (this.sel_aerial_src) {
+            this.sel_aerial_src.addEventListener('change', () => {
+                this._aerialSrcPref = this.sel_aerial_src.value;
+                this._saveStrPref('vitulus_aerial_src', this.sel_aerial_src.value);
+                this._updateAttribution();
+                try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* ignore */ }
+            });
+        }
+        this._relabel.push(() => this._fillMapSources());
+        if (!MS) { return; }
+        // The first build WAITS for the catalog (max 1.5 s, see rebuildAerial):
+        // the stored base may not be in the built-in list, and building the
+        // fallback (Google) first would fetch tiles nobody looks at.
+        let done;
+        const loaded = new Promise((res) => { done = res; });
+        this._catalogReady = Promise.race([loaded, new Promise((res) => setTimeout(res, 1500))])
+            .then(() => { this._catalogReady = null; });
+        fetch('/api/map_sources', { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((j) => {
+                if (!j || j.ok !== true) {
+                    console.warn('[mappingv3] map source catalog unavailable — built-in list',
+                                 j && j.error);
+                    return;
+                }
+                const before = this.sel_aerial_src ? this.sel_aerial_src.value : '';
+                this.map_sources = MS.normalize(j);
+                this._fillMapSources();
+                const after = this.sel_aerial_src ? this.sel_aerial_src.value : '';
+                this._updateTileOffsetReadout();
+                this._applyAerialOffset();
+                if (after !== before || this._overlaysOn().length) {
+                    if (this._tilesWanted()) { this.rebuildAerial(); }
+                }
+            })
+            .catch((e) => console.warn('[mappingv3] map source catalog failed:', e))
+            .then(() => done());
+    }
+
+    _lang() { return (window.VTI18n && VTI18n.lang && VTI18n.lang()) || 'en'; }
+
+    // (Re)build the base <select> and the overlay rows from this.map_sources.
+    // Idempotent: also the language-switch relabel.
+    _fillMapSources() {
+        const MS = window.VTMapSources, cat = this.map_sources;
+        if (!MS || !cat) { return; }
+        const lang = this._lang();
+        const sel = this.sel_aerial_src;
+        if (sel) {
+            const want = MS.resolveBase(cat, this._aerialSrcPref != null
+                                             ? this._aerialSrcPref : sel.value);
+            sel.innerHTML = '';
+            cat.bases.forEach((b) => {
+                const o = document.createElement('option');
+                o.value = b.id;
+                o.textContent = MS.label(b, lang);
+                sel.appendChild(o);
+            });
+            sel.value = want;
+        }
+        const host = this.el_ov_host;
+        if (host) {
+            const wrap = document.getElementById('mapv3_overlays_box');
+            if (wrap) { wrap.hidden = !cat.overlays.length; }
+            const sig = cat.overlays.map((o) => o.id).join(',');
+            if (host._ovSig !== sig) {
+                host._ovSig = sig;
+                host.innerHTML = '';
+                cat.overlays.forEach((o) => host.appendChild(this._overlayRow(o)));
+            }
+            cat.overlays.forEach((o) => {
+                const lab = document.getElementById('mapv3_ov_' + o.id + '_lab');
+                if (lab) { lab.textContent = MS.label(o, lang); }
+                const op = document.getElementById('mapv3_ov_' + o.id + '_op');
+                if (op) {
+                    const t = mapT('mapt.aerial.ov_opacity', {name: MS.label(o, lang)});
+                    op.title = t;
+                    op.setAttribute('aria-label', t);
+                }
+                this._overlayStatus(o.id);
+            });
+        }
+        this._updateAttribution();
+        try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* old browser */ }
+    }
+
+    // One overlay row: [x] name  ——opacity——  status. Touch targets via the
+    // shared .vt-ovl-row styles (vt_panel.css).
+    _overlayRow(o) {
+        const row = document.createElement('div');
+        row.className = 'vt-ovl-row';
+        row.setAttribute('data-ov', o.id);
+        const id = 'mapv3_ov_' + o.id;
+        row.innerHTML =
+            '<label class="vt-ovl-name" for="' + id + '"><input class="form-check-input" type="checkbox" id="' + id + '">' +
+            '<span id="' + id + '_lab"></span></label>' +
+            '<input type="range" id="' + id + '_op" min="0" max="1" step="0.05" class="vt-ovl-op">' +
+            '<span id="' + id + '_st" class="vt-ovl-st vt-dim vt-tnum"></span>';
+        const chk = row.querySelector('#' + id);
+        const op = row.querySelector('#' + id + '_op');
+        chk.checked = this._layerPref('vitulus_overlay_' + o.id, false);
+        op.value = String(o.default_opacity);
+        this._persistRange(op, 'vitulus_overlay_' + o.id + '_op');
+        chk.addEventListener('change', () => {
+            this._saveLayerPref('vitulus_overlay_' + o.id, chk.checked);
+            if (!chk.checked) { this._dropOverlay(o.id); }
+            this._overlayStatus(o.id);
+            this._updateAttribution();
+            if (chk.checked) { this.aerial_datum = null; this.rebuildAerial(); }
+            try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* ignore */ }
+        });
+        op.addEventListener('input', () => {
+            const v = parseFloat(op.value);
+            const st = this.ov_layers[o.id];
+            if (st && v >= 0 && v <= 1) {
+                st.meshes.forEach((m) => { try { m.material.opacity = v; } catch (e) { /* ignore */ } });
+            }
+        });
+        return row;
+    }
+
+    _overlayOn(id) {
+        const c = document.getElementById('mapv3_ov_' + id);
+        return !!(c && c.checked);
+    }
+    _overlaysOn() {
+        const cat = this.map_sources;
+        return cat ? cat.overlays.filter((o) => this._overlayOn(o.id)) : [];
+    }
+    // anything on the map that needs MapProxy tiles?
+    _tilesWanted() {
+        return !!((this.chk_aerial && this.chk_aerial.checked) || this._overlaysOn().length);
+    }
+
+    _overlayStatus(id, fn) {
+        const el = document.getElementById('mapv3_ov_' + id + '_st');
+        if (!el) { return; }
+        if (!this._overlayOn(id)) { this._say(el, () => ''); return; }
+        this._say(el, fn || (() => ''));
+    }
+
+    _dropOverlay(id) {
+        const st = this.ov_layers[id];
+        if (!st) { return; }
+        st.gen++;
+        st.meshes.forEach((m) => {
+            try {
+                if (st.group) st.group.remove(m);
+                m.geometry && m.geometry.dispose();
+                if (m.material) { m.material.map && m.material.map.dispose(); m.material.dispose(); }
+            } catch (e) { /* best-effort */ }
+        });
+        st.meshes = [];
+        st.sig = '';
+        if (st.group) { st.group.visible = false; }
+    }
+
+    // the small credit line in the map corner: every layer on screen, once
+    _updateAttribution() {
+        const MS = window.VTMapSources, el = this.el_attr, cat = this.map_sources;
+        if (!el || !MS || !cat) { return; }
+        const on = [];
+        if (this.chk_aerial && this.chk_aerial.checked && this.sel_aerial_src) {
+            const b = cat.byId[this.sel_aerial_src.value];
+            if (b) { on.push(b); }
+        }
+        this._overlaysOn().forEach((o) => on.push(o));
+        const txt = MS.attribution(on, this._lang());
+        el.textContent = txt;
+        el.title = txt;          // one line with "…" on a phone: full text here
+        el.hidden = !txt;
+        if (!el._vtWired) {
+            el._vtWired = true;  // tap / Enter = show the whole credit line
+            el.addEventListener('click', () => {
+                const open = el.classList.toggle('open');
+                el.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+        }
+    }
+
+    // =====================================================================
     // AERIAL TILE OFFSET — state, rendering and the drawer control.
     // ---------------------------------------------------------------------
     // Applied as a pure TRANSLATION of `aerial_group` (the MapProxy tile
@@ -849,9 +1056,13 @@ class MappingV3 {
     // broken map view.
     // =====================================================================
 
-    // Tile layer id the offset is keyed on ('sat' | 'cuzk' | 'osm').
+    // Tile layer id the offset is keyed on ('sat' | 'cuzk' | 'osm' …): the
+    // base's offset_key from the catalog — sources sharing one georeference
+    // (ČÚZK ortho, ZTM, cadastre …) share one offset — else its own id.
     _aerialLayerId() {
-        return (this.sel_aerial_src && this.sel_aerial_src.value) || 'sat';
+        const id = (this.sel_aerial_src && this.sel_aerial_src.value) || 'sat';
+        const s = this.map_sources && this.map_sources.byId ? this.map_sources.byId[id] : null;
+        return (s && s.offset_key) || id;
     }
 
     _currentTileOffset() {
@@ -869,6 +1080,18 @@ class MappingV3 {
             g.position.x = o.dx;
             g.position.y = o.dy;
         } catch (e) { /* an offset must never break the 3D view */ }
+        // overlays: each by its own offset key (no group / no store = no-op)
+        try {
+            const ov = this.ov_layers || {};
+            Object.keys(ov).forEach((id) => {
+                const st = ov[id];
+                if (!st || !st.group || !st.group.position) { return; }
+                const o = tileOffsetGet(this.tile_offsets, this.tile_offset_map,
+                                        st.src.offset_key || id);
+                st.group.position.x = o.dx;
+                st.group.position.y = o.dy;
+            });
+        } catch (e) { /* idem */ }
     }
 
     // `fn` renders the text (re-run on a language switch); '' clears it
@@ -1053,24 +1276,22 @@ class MappingV3 {
         });
     }
 
-    _aerialSources() {
-        // discovered from MapProxy demo/WMTS: gm_layer = Google satellite,
-        // osm_demo = OSM streets. Both EPSG:3857 XYZ (origin ul, y not flipped).
-        return {
-            sat: { layer: 'gm_layer', grid: 'gm_grid', label: 'satellite' },
-            cuzk: { layer: 'cuzk_layer', grid: 'gm_grid', label: 'ČÚZK orto' },
-            osm: { layer: 'osm_demo', grid: 'webmercator', label: 'OSM' },
-        };
+    // the catalog entry of the chosen base (fallback: first base)
+    _aerialBase() {
+        const cat = this.map_sources || (window.VTMapSources && VTMapSources.fallback());
+        if (!cat) { return null; }
+        const id = this.sel_aerial_src ? this.sel_aerial_src.value : cat.default_base;
+        return cat.byId[id] || cat.byId[cat.default_base] || cat.bases[0];
     }
 
-    // the source's name for the status line ('satellite' is a word, the rest names)
+    // the source's name for the status line, in the UI language
     _aerialLabel(key, src) {
-        return (src && src.layer === 'gm_layer') ? mapT('mapping.aerial.src_sat') : src.label;
+        return window.VTMapSources ? VTMapSources.label(src, this._lang()) : String(key);
     }
 
+    // EPSG:3857 XYZ tiles, origin upper-left (y not flipped)
     _aerialTileUrl(src, z, x, y) {
-        return 'http://' + this.aerial_host + '/wmts/' + src.layer + '/' +
-               src.grid + '/' + z + '/' + x + '/' + y + '.png';
+        return VTMapSources.tileUrl(this.aerial_host, src, z, x, y);
     }
 
     _applyAerialOpacity() {
@@ -1196,11 +1417,11 @@ class MappingV3 {
     // itself skips the work if the covering tile set is unchanged, so panning
     // within the same tiles is free.
     _scheduleAerialFollow() {
-        if (!(this.chk_aerial && this.chk_aerial.checked)) { return; }
+        if (!this._tilesWanted()) { return; }
         if (this._aerialFollowTimer) { clearTimeout(this._aerialFollowTimer); }
         this._aerialFollowTimer = setTimeout(() => {
             this._aerialFollowTimer = null;
-            if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
+            if (this._tilesWanted()) { this.rebuildAerial(); }
         }, 220);
     }
 
@@ -1217,17 +1438,25 @@ class MappingV3 {
                 vtTone(this.el_aerial_status, warn ? 'warn' : '');
             }
         };
+        // first build after page load: wait for the source catalog (max 1.5 s)
+        if (this._catalogReady) { await this._catalogReady; }
         const token = ++this.aerial_token;
+        const baseOn = !!(this.chk_aerial && this.chk_aerial.checked);
+        const overlays = this._overlaysOn();
+        // base-only status: overlays have their own line in their row
+        const bstatus = (fn, warn) => { if (baseOn) { status(fn, warn); } };
+        const ostatus = (fn) => overlays.forEach((o) => this._overlayStatus(o.id, fn));
         try {
             // (1) datum — cache once; refetch only if we don't have it.
             if (!this.aerial_datum) {
-                status(() => mapT('mapping.aerial.loading_datum'));
+                bstatus(() => mapT('mapping.aerial.loading_datum'));
                 const resp = await fetch('/api/datum', { cache: 'no-store' });
                 const dj = resp.ok ? await resp.json() : null;
                 // ok:false = no served site right now (normal while recording a
                 // new map) — say so, do not cache, try again next time.
                 if (!dj || dj.ok === false) {
-                    status(() => mapT('mapping.aerial.no_datum'), true);
+                    bstatus(() => mapT('mapping.aerial.no_datum'), true);
+                    ostatus(() => mapT('mapping.aerial.no_datum'));
                     return;
                 }
                 this.aerial_datum = dj;
@@ -1235,36 +1464,28 @@ class MappingV3 {
             if (token !== this.aerial_token) { return; }
             const d = this.aerial_datum;
             if (d.origin_lat == null || d.origin_lon == null) {
-                status(() => mapT('mapping.datum_no_origin'), true);
+                bstatus(() => mapT('mapping.datum_no_origin'), true);
                 return;
             }
 
             const T = this._r3d();
-            const group = this._ensureAerialGroup();
-            if (!T || !group) { status(() => mapT('mapping.not_ready_3d'), true); return; }
+            if (!T || !this.viewer3d || !this.viewer3d.scene) {
+                bstatus(() => mapT('mapping.not_ready_3d'), true);
+                return;
+            }
 
-            // group carries the -trueYaw rotation: map = R(-trueYaw)*(true
+            // groups carry the -trueYaw rotation: map = R(-trueYaw)*(true
             // east/north offset), so a plane laid out in true-north metres
-            // inside the group ends up in the map frame. Rotation about +z.
+            // inside a group ends up in the map frame. Rotation about +z.
             const yaw = this._mapTrueYaw(d);
-            group.rotation.z = -yaw;
-            group.visible = true;
-            // re-assert the alignment offset on every rebuild (the group is
-            // reused, but a source/map switch changes which offset applies).
-            this._applyAerialOffset();
             this._aerialBuiltOnce = true;   // boot-retry: a build got this far
 
-            const srcKey = this.sel_aerial_src ? this.sel_aerial_src.value : 'sat';
-            const src = this._aerialSources()[srcKey] || this._aerialSources().sat;
             // The configured zoom is the DETAIL CAP: the most detailed level we
-            // ever use. gm_grid now has 22 levels (max z21 — Google z20, CUZK
-            // 12.5cm ortofoto); the OSM webmercator grid still tops out at z19,
-            // so the cap is clamped per-source (src.maxz), not globally.
-            const srcMaxZ = (src.grid === 'gm_grid') ? 21 : 19;
-            let zCap = this.sel_aerial_zoom ?
+            // ever use, clamped per source by its catalog max_zoom (gm_grid has
+            // 22 levels = z21; OSM z19; OpenTopoMap z17 …).
+            let zSel = this.sel_aerial_zoom ?
                     parseInt(this.sel_aerial_zoom.value, 10) : 19;
-            if (!(zCap >= 0)) { zCap = 19; }
-            zCap = Math.max(0, Math.min(srcMaxZ, zCap));
+            if (!(zSel >= 0)) { zSel = 19; }
 
             const { mLat, mLon } = this._metersPerDeg(d.origin_lat);
             const cornerLonLat = (e, n) => ({
@@ -1276,8 +1497,7 @@ class MappingV3 {
             // (map metres, +margin), rotate map->true east/north (R(+trueYaw)),
             // and cover their bounding box. Fall back to a square of the manual
             // area around the origin if the camera can't be read (stub viewer).
-            const yaw2 = yaw;
-            const cyaw = Math.cos(yaw2), syaw = Math.sin(yaw2);
+            const cyaw = Math.cos(yaw), syaw = Math.sin(yaw);
             const vp = this._aerialViewParams();
             let enCorners;
             if (vp) {
@@ -1311,91 +1531,176 @@ class MappingV3 {
                 return { tx0: x0, tx1: x1, ty0: y0, ty1: y1, count };
             };
 
-            // (3) ADAPTIVE ZOOM — pick the finest level whose tile resolution is
-            // still no coarser than the on-screen resolution, but never exceed
-            // the configured detail cap. At the default/standard zoom this lands
-            // on the cap (crisp detail); only when dollying out past the default
-            // limit does it step DOWN to coarser world-scale tiles.
-            let z = zCap;
+            // (3) ADAPTIVE ZOOM — the finest level whose tile resolution is
+            // still no coarser than the on-screen resolution (capped per source
+            // below). At the standard zoom this lands on the cap (crisp
+            // detail); dollying out steps DOWN to coarser world-scale tiles.
+            let zAdaptive = Infinity;
             if (vp && vp.heightPx > 0) {
                 const screenRes = (2.0 * vp.halfH) / vp.heightPx;   // map m / px
                 const phi = d.origin_lat * Math.PI / 180.0;
                 const mercZ0 = 156543.03392 * Math.max(0.05, Math.cos(phi));
-                let zAdaptive = Math.ceil(
+                zAdaptive = Math.ceil(
                     Math.log2(mercZ0 / Math.max(1e-6, screenRes)));
-                if (!isFinite(zAdaptive)) { zAdaptive = zCap; }
-                z = Math.max(0, Math.min(zCap, zAdaptive));
+                if (!isFinite(zAdaptive)) { zAdaptive = Infinity; }
             }
-
-            // (4) tile-count guard: auto-clamp zoom DOWN until it fits the cap.
-            const CAP = this.AERIAL_TILE_CAP;
-            let range = tileRangeAt(z);
-            while (range.count > CAP && z > 0) {
-                z -= 1;
-                range = tileRangeAt(z);
-            }
-            const { tx0, tx1, ty0, ty1 } = range;
-            const nTiles = range.count;
-            if (!(nTiles > 0) || nTiles > CAP) {
-                status(() => mapT('mapping.aerial.too_many', {n: nTiles, z: z}), true);
-                return;
-            }
-
-            // (4b) skip the (re)build entirely if the covering tile set is
-            // unchanged — makes panning within the same tiles and re-enabling
-            // the layer free. Source or zoom change invalidates the signature.
-            const sig = srcKey + '@' + z + ':' + tx0 + ',' + tx1 + ',' +
-                        ty0 + ',' + ty1;
-            if (sig === this._aerialSig && this.aerial_meshes.length > 0) {
-                const nMesh = this.aerial_meshes.length;
-                status(() => mapT('mapping.aerial.tiles_same',
-                    {n: nMesh, z: z, src: this._aerialLabel(srcKey, src)}));
-                return;
-            }
-            this._aerialSig = sig;
-
-            // (4) build fresh meshes off-screen, swap in after ready.
-            const newMeshes = [];
-            const opacity = this.in_aerial_opacity ?
-                            parseFloat(this.in_aerial_opacity.value) : 1.0;
+            // (4) TILE BUDGET: one limit for all layers together, the
+            // background map first, then the overlays in catalog order.
+            let budget = this.TILE_BUDGET;
+            // zoom + covering tile range for one source within `cap` tiles;
+            // capped = the limit (not the view) pushed the zoom down
+            const plan = (src, cap) => {
+                const zCap = Math.max(0, Math.min(src.max_zoom, zSel));
+                const zWant = Math.max(0, Math.min(zCap, zAdaptive));
+                let z = zWant;
+                let range = tileRangeAt(z);
+                while (range.count > cap && z > 0) {
+                    z -= 1;
+                    range = tileRangeAt(z);
+                }
+                return { z, zCap, zWant, range, capped: z < zWant };
+            };
             // convert a lon/lat back to true east/north metres (inverse of above).
             const lonLatToXY = (lon, lat) => ({
                 x: (lon - d.origin_lon) * mLon,
                 y: (lat - d.origin_lat) * mLat,
             });
+            // fresh tile planes for one source into `group`; `stale()` true =
+            // a later build replaced them (their images must not paint)
+            const buildSet = (src, z, range, group, opacity, renderOrder, stale) => {
+                const meshes = [];
+                for (let tx = range.tx0; tx <= range.tx1; tx++) {
+                    for (let ty = range.ty0; ty <= range.ty1; ty++) {
+                        // tile geographic bounds -> map-aligned metres
+                        const nw = this._tileToLonLat(tx, ty, z);
+                        const se = this._tileToLonLat(tx + 1, ty + 1, z);
+                        const pNW = lonLatToXY(nw.lon, nw.lat);
+                        const pSE = lonLatToXY(se.lon, se.lat);
+                        const w = pSE.x - pNW.x;         // +east
+                        const h = pNW.y - pSE.y;         // +north (nw.lat > se.lat)
+                        if (!(w > 0) || !(h > 0)) { continue; }
+                        const cx = (pNW.x + pSE.x) / 2;
+                        const cy = (pNW.y + pSE.y) / 2;
+                        const url = this._aerialTileUrl(src, z, tx, ty);
+                        const mesh = this._buildTileMesh(T, url, cx, cy, w, h,
+                                                         opacity, stale, renderOrder);
+                        if (mesh) { meshes.push(mesh); group.add(mesh); }
+                    }
+                }
+                return meshes;
+            };
 
-            let built = 0;
-            for (let tx = tx0; tx <= tx1; tx++) {
-                for (let ty = ty0; ty <= ty1; ty++) {
-                    // tile geographic bounds -> map-aligned metres
-                    const nw = this._tileToLonLat(tx, ty, z);
-                    const se = this._tileToLonLat(tx + 1, ty + 1, z);
-                    const pNW = lonLatToXY(nw.lon, nw.lat);
-                    const pSE = lonLatToXY(se.lon, se.lat);
-                    const w = pSE.x - pNW.x;         // +east
-                    const h = pNW.y - pSE.y;         // +north (nw.lat > se.lat)
-                    if (!(w > 0) || !(h > 0)) { continue; }
-                    const cx = (pNW.x + pSE.x) / 2;
-                    const cy = (pNW.y + pSE.y) / 2;
-                    const url = this._aerialTileUrl(src, z, tx, ty);
-                    const mesh = this._buildTileMesh(T, url, cx, cy, w, h,
-                                                     opacity, token);
-                    if (mesh) { newMeshes.push(mesh); group.add(mesh); built++; }
+            // ---- BASE ---------------------------------------------------------
+            const src = this._aerialBase();
+            if (baseOn && src) {
+                const group = this._ensureAerialGroup();
+                if (!group) { status(() => mapT('mapping.not_ready_3d'), true); }
+                else {
+                    group.rotation.z = -yaw;
+                    group.visible = true;
+                    // re-assert the alignment offset on every rebuild (the group is
+                    // reused, but a source/map switch changes which offset applies).
+                    this._applyAerialOffset();
+                    const srcKey = src.id;
+                    const CAP = Math.min(this.AERIAL_TILE_CAP, budget);
+                    const { z, zCap, zWant, range, capped } = plan(src, CAP);
+                    const { tx0, tx1, ty0, ty1 } = range;
+                    const nTiles = range.count;
+                    const sig = srcKey + '@' + z + ':' + tx0 + ',' + tx1 + ',' +
+                                ty0 + ',' + ty1;
+                    const label = this._aerialLabel(srcKey, src);
+                    const fits = nTiles > 0 && nTiles <= CAP;
+                    if (fits) { budget -= nTiles; }
+                    // the limit pushed the zoom down: say so (warn tone)
+                    const done = (n) => {
+                        if (capped) {
+                            status(() => mapT('mapping.aerial.tiles_capped',
+                                {n: n, z: z, want: zWant, src: label}), true);
+                        } else {
+                            status(() => mapT((z < zCap) ? 'mapping.aerial.tiles_out' : 'mapping.aerial.tiles',
+                                {n: n, z: z, cap: zCap, src: label}));
+                        }
+                    };
+                    if (!fits) {
+                        status(() => mapT('mapping.aerial.too_many', {n: nTiles, z: z}), true);
+                    } else if (sig === this._aerialSig && this.aerial_meshes.length > 0) {
+                        // (4b) unchanged covering tile set: panning within the same
+                        // tiles and re-enabling the layer are free.
+                        const nMesh = this.aerial_meshes.length;
+                        if (capped) { done(nMesh); }
+                        else {
+                            status(() => mapT('mapping.aerial.tiles_same',
+                                {n: nMesh, z: z, src: label}));
+                        }
+                    } else {
+                        this._aerialSig = sig;
+                        const opacity = this.in_aerial_opacity ?
+                                        parseFloat(this.in_aerial_opacity.value) : 1.0;
+                        const gen = this._aerialGen = (this._aerialGen || 0) + 1;
+                        const ro = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.AERIAL : -100;
+                        const newMeshes = buildSet(src, z, range, group, opacity, ro,
+                                                   () => this._aerialGen !== gen);
+                        this._disposeAerialMeshes();
+                        this.aerial_meshes = newMeshes;
+                        done(newMeshes.length);
+                    }
                 }
             }
-            if (token !== this.aerial_token) {
-                // superseded mid-build: drop what we just added
-                newMeshes.forEach((m) => {
-                    try { group.remove(m); m.geometry && m.geometry.dispose();
-                          if (m.material) { m.material.map && m.material.map.dispose();
-                                            m.material.dispose(); } } catch (e) {}
+
+            // ---- OVERLAYS (each its own group: 'over' above the robot maps,
+            // 'under' right above the background map) ----------------------
+            const MLO = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder : null;
+            overlays.forEach((o, i) => {
+                const under = o.layer_order === 'under';
+                let st = this.ov_layers[o.id];
+                if (!st) { st = this.ov_layers[o.id] = { src: o, group: null, meshes: [], sig: '', gen: 0 }; }
+                st.src = o;
+                if (!st.group) {
+                    st.group = new T.Object3D();
+                    st.group.position.z = under ? (MLO ? MLO.Z_OVERLAY_UNDER : -0.04)
+                                                : (MLO ? MLO.Z_OVERLAY : -0.01);
+                    this.viewer3d.scene.add(st.group);
+                }
+                st.group.rotation.z = -yaw;
+                st.group.visible = true;
+                const { z, zWant, range, capped } = plan(o, Math.max(0, budget));
+                if (zWant < o.min_zoom) {
+                    // the server draws nothing this far out: say so, keep no planes
+                    this._dropOverlay(o.id);
+                    st.group.visible = false;
+                    this._overlayStatus(o.id, () => mapT('mapt.aerial.ov_zoom_in'));
+                    return;
+                }
+                if (!(range.count > 0) || range.count > budget || z < o.min_zoom) {
+                    // over the shared tile limit: the background map comes first
+                    this._dropOverlay(o.id);
+                    st.group.visible = false;
+                    this._overlayStatus(o.id, () => mapT('mapt.aerial.ov_limit'));
+                    return;
+                }
+                budget -= range.count;
+                const sig = o.id + '@' + z + ':' + range.tx0 + ',' + range.tx1 + ',' +
+                            range.ty0 + ',' + range.ty1;
+                this._overlayStatus(o.id, () => (capped
+                    ? mapT('mapt.aerial.ov_capped', {z: z}) : 'z' + z));
+                if (sig === st.sig && st.meshes.length) { return; }
+                st.sig = sig;
+                const opEl = document.getElementById('mapv3_ov_' + o.id + '_op');
+                let op = opEl ? parseFloat(opEl.value) : o.default_opacity;
+                if (!(op >= 0 && op <= 1)) { op = o.default_opacity; }
+                const gen = ++st.gen;
+                const ro = (under ? (MLO ? MLO.OVERLAY_UNDER : -99)
+                                  : (MLO ? MLO.OVERLAY : 13)) + i * 0.01;
+                const old = st.meshes;
+                st.meshes = buildSet(o, z, range, st.group, op, ro, () => st.gen !== gen);
+                old.forEach((m) => {
+                    try {
+                        st.group.remove(m); m.geometry && m.geometry.dispose();
+                        if (m.material) { m.material.map && m.material.map.dispose(); m.material.dispose(); }
+                    } catch (e) { /* best-effort */ }
                 });
-                return;
-            }
-            this._disposeAerialMeshes();
-            this.aerial_meshes = newMeshes;
-            status(() => mapT((z < zCap) ? 'mapping.aerial.tiles_out' : 'mapping.aerial.tiles',
-                {n: built, z: z, cap: zCap, src: this._aerialLabel(srcKey, src)}));
+            });
+            this._applyAerialOffset();
         } catch (e) {
             console.error('[mappingv3] rebuildAerial failed:', e);
             status(() => mapT('mapping.aerial.failed'), true);
@@ -1405,7 +1710,9 @@ class MappingV3 {
     // Build one textured plane for a tile. The texture loads async: the mesh is
     // created immediately with an empty texture and the image is painted in on
     // load, so nothing blocks. Returns the mesh (or null on failure).
-    _buildTileMesh(T, url, cx, cy, w, h, opacity, token) {
+    // `stale()` true = a later build replaced this plane (do not paint it);
+    // `renderOrder` defaults to the base (bottom) slot, overlays pass theirs.
+    _buildTileMesh(T, url, cx, cy, w, h, opacity, stale, renderOrder) {
         try {
             // start with a 1x1 transparent texture; fill on image load.
             const tex = new T.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
@@ -1419,14 +1726,14 @@ class MappingV3 {
             mesh.position.set(cx, cy, 0);
             // BOTTOM of the paint order (see MapLayerOrder). depthWrite already
             // false above; renderOrder pins it under every transparent grid.
-            mesh.renderOrder =
-                (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.AERIAL : -100;
+            mesh.renderOrder = (typeof renderOrder === 'number') ? renderOrder
+                : ((typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.AERIAL : -100);
 
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
                 try {
-                    if (token !== this.aerial_token) { return; }  // stale
+                    if (typeof stale === 'function' && stale()) { return; }
                     const MAX = 256;
                     const iw = Math.min(MAX, img.naturalWidth || 256);
                     const ih = Math.min(MAX, img.naturalHeight || 256);
@@ -1528,7 +1835,7 @@ class MappingV3 {
                 // coverage extent (so the MapProxy basemap covers the whole rain
                 // frame). Re-apply both whenever rain is switched on/off.
                 this._applyZoomLimit();
-                if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
+                if (this._tilesWanted()) { this.rebuildAerial(); }
             });
         }
         // Grow the camera far-plane as the user dollies out while the rain
@@ -1569,7 +1876,7 @@ class MappingV3 {
                 this._ensureRainSub();
                 this.rebuildRain();
                 this._applyZoomLimit();
-                if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
+                if (this._tilesWanted()) { this.rebuildAerial(); }
             }
         }
     }
@@ -1608,7 +1915,7 @@ class MappingV3 {
                 if (this.chk_rain && this.chk_rain.checked &&
                     Math.abs(this._rainHalfKm() - prevHalfKm) > 1e-6) {
                     this._applyZoomLimit();
-                    if (this.chk_aerial && this.chk_aerial.checked) { this.rebuildAerial(); }
+                    if (this._tilesWanted()) { this.rebuildAerial(); }
                 }
             });
         } catch (e) {
@@ -2307,7 +2614,7 @@ class MappingV3 {
             // a different map = a different offset key: re-read the robot store
             // (it also re-applies the offset to the group).
             if (this.tile_offsets !== undefined) { this._loadTileOffsets(); }
-            if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
+            if (this._tilesWanted()) this.rebuildAerial();
         }
         // 2026-08-16 UI redo: stavový přehled nahoře — JAKÁ mapa se nahrává
         const hdr = document.getElementById('mapv3_hdr_session');
@@ -2788,7 +3095,7 @@ class MappingV3 {
         if (g.datum_captured && !this._aerialDatumCaptured) {
             this._aerialDatumCaptured = true;
             this.aerial_datum = null;
-            if (this.chk_aerial && this.chk_aerial.checked) this.rebuildAerial();
+            if (this._tilesWanted()) this.rebuildAerial();
         } else if (!g.datum_captured) {
             this._aerialDatumCaptured = false;
         }
