@@ -1309,19 +1309,21 @@
         });
     }
     /* A step that moves the robot or changes today's plan takes two taps. */
+    /* T21 A3: key may be a function giving the label (a label with the program in it) */
     function twoTap(b, key, fn, taker) {
+        var label = function () { return typeof key === 'function' ? key() : t(key); };
         b.addEventListener('click', function () {
             if (!b.dataset.armed && taker && taker()) { return; }
             if (b.dataset.armed) {
                 delete b.dataset.armed;
                 clearTimeout(b._t);
-                b.textContent = t(key);
+                b.textContent = label();
                 fn();
                 return;
             }
             b.dataset.armed = '1';
             b.textContent = t('auto.tap_again');
-            b._t = setTimeout(function () { delete b.dataset.armed; b.textContent = t(key); }, 4000);
+            b._t = setTimeout(function () { delete b.dataset.armed; b.textContent = label(); }, 4000);
         });
     }
     function buildPlanActions() {
@@ -1335,7 +1337,15 @@
         };
         S.btnSkip = mk('btn_auto_skip', 'auto.plan.skip');
         S.btnNoMow = mk('btn_auto_nomow', 'auto.plan.no_mow');
-        S.btnRunNext = mk('btn_auto_runnext', 'auto.plan.run_next');
+        /* T21 A3: Run next moves the robot — its own row under the two plan changes, with
+           the program in its label and one line saying what it does (or why it would be
+           refused now). The two taps and what is sent stay as they were. */
+        var run = el('div', 'vt-auto-runnext', box);
+        run.id = 'auto_runnext';
+        S.btnRunNext = el('button', 'btn btn-sm vt-auto-runnext-b', run, t('auto.plan.run_next'));
+        S.btnRunNext.type = 'button'; S.btnRunNext.id = 'btn_auto_runnext';
+        S.runWhat = el('small', 'vt-auto-runnext-w', run);
+        S.runWhat.id = 'auto_runnext_what';
         S.planMsg = el('div', 'vt-auto-msg vt-auto-msg-w', box.parentNode);
         box.parentNode.insertBefore(S.planMsg, box.nextSibling);
         var sink = function (st, tx) { msgOf({ msg: S.planMsg }, st, tx); };
@@ -1347,10 +1357,55 @@
             if ((val('no_mow_until') || '') >= today()) { send({ no_mow_until: null }, null, ['no_mow_until'], sink); }
             else { send({ no_mow_until: today() }, null, ['no_mow_until'], sink); }
         });
-        twoTap(S.btnRunNext, 'auto.plan.run_next', function () {
+        twoTap(S.btnRunNext, runLabel, function () {
             S.runAsk = Date.now();
             pub('/scheduler/run_next', 'std_msgs/Bool', true);
         });
+    }
+    /* T21 A3: Run next names the program it brings forward */
+    function runLabel() {
+        var next = S.report && S.report.next;
+        return next && next.program ? t('auto.a3.run.btn', { program: next.program }) : t('auto.plan.run_next');
+    }
+    /* What Run next does, said before the tap. The refusal is the robot's own gate
+       (master _start_blocker: not IDLE = busy, an open run, a countdown, a check that
+       blocks or waits, automation / programs off; the dock permit is not asked for a
+       start by hand) — read here, not decided. */
+    var RUN_BUSY = { MOWING: 1, WAIT_OFF_DOCK: 1 };
+    function paintRunWhat(next) {
+        var w = S.runWhat;
+        if (!w) { return; }
+        var rep = S.report, tx, st = '';
+        var bad = ((rep && rep.checks) || []).filter(function (c) { return c.key !== 'permit' && holdsStart(c); })
+            .sort(function (a, b) { return HOLD_RANK[a.state] - HOLD_RANK[b.state]; });
+        var said = rep && rep.sentence && rep.sentence.code, state = rep && rep.state;
+        var hw = said === 'hw_reset_countdown' || (state === 'PREPARE_SLEEP' && ((rep.sleep || {}).source === 'hw_reset'));
+        var falling = said === 'sleep_countdown' || (rep && rep.code === 'sleep_countdown') || !!(S.countdown && S.countdown.active);
+        var held = function (whyKey) { tx = t('auto.a3.run.held', { why: t(whyKey) }); st = 'warn'; };
+        if (!next) { tx = t('auto.a3.run.none'); }
+        else if (hw) { held('auto.a3.run.why.hw_reset'); }
+        else if (falling) { held('auto.a3.run.why.falling'); }
+        else if (state === 'PREPARE_SLEEP') { held('auto.a3.run.why.sleeping'); }
+        else if (rep && (RUNNING[rep.code] || RUN_BUSY[state])) {
+            tx = t('auto.a3.run.busy', { program: (rep.run && rep.run.program) || next.program || '' });
+        } else if (rep && rep.run) {
+            /* an open run that waits (battery, rain…): it goes first, nothing more starts */
+            var prog = rep.run.program || next.program || '';
+            var cm = window.calendarManager, look = cm && cm._codeLook ? cm._codeLook(rep.code) : null;
+            var why = bad.length ? t('auto.check.key.' + bad[0].key)
+                : (look && look[0] !== 'active' && has('calmgr.state.' + look[0]) ? t('calmgr.state.' + look[0]) : '');
+            tx = why ? t('auto.a3.run.waiting', { program: prog, why: why }) : t('auto.a3.run.waiting_plain', { program: prog });
+        } else if (bad.length) {
+            tx = t('auto.a3.run.held', { why: checkText(bad[0]) });
+            /* the owner's own switches (automation off, Hold) are a choice: neutral, as in the top card */
+            st = bad[0].state === 'wait' ? 'warn' : (bad[0].state === 'off' || OWN_SWITCH[bad[0].key] ? '' : 'err');
+        } else if (rep && state && state !== 'IDLE') {
+            held('auto.a3.run.why.busy');
+        } else {
+            tx = t('auto.a3.run.what', { program: next.program || '', when: when(next.at) });
+        }
+        if (w.textContent !== tx) { w.textContent = tx; }
+        if (st) { w.dataset.state = st; } else { delete w.dataset.state; }
     }
     function paintPlanActions() {
         if (!S.btnSkip) { return; }
@@ -1363,7 +1418,8 @@
         S.btnNoMow.disabled = !ready;
         S.btnNoMow.textContent = t(noMowOn ? 'auto.plan.mow_again' : 'auto.plan.no_mow');
         S.btnRunNext.disabled = !ready || !next;
-        if (!S.btnRunNext.dataset.armed) { S.btnRunNext.textContent = t('auto.plan.run_next'); }
+        if (!S.btnRunNext.dataset.armed) { S.btnRunNext.textContent = runLabel(); }
+        paintRunWhat(next);
         var st = $('auto_plan_state');
         if (st) {
             var parts = [];
@@ -2272,17 +2328,75 @@
     }
 
     /* ------------------------------------------------------- history */
-    var JFILTER = { all: null, runs: ['started', 'finished', 'skipped', 'missed'], waits: ['waited'],
-                    agent: ['advice', 'mode'], sleep: ['slept', 'woke'], settings: ['settings'] };
+    /* T21 A3: filters by what the owner looks for — mowing (runs and their waits),
+       decisions (who decides, the agent's advice, settings and who changed them),
+       problems (what went wrong, the same codes the master reports as issues), sleep. */
+    var JFILTER = { all: null, mow: ['started', 'finished', 'skipped', 'missed', 'waited', 'dock_permit'],
+                    decide: ['advice', 'mode', 'settings'], problems: 'problems', sleep: ['slept', 'woke'] };
+    var JPAGE = 15, JMORE = 25;
+    /* what went wrong, by the master's own codes (ISSUE_ROUTES and the refusals): err | warn | null */
+    var JPROBLEM = {
+        finished: { run_failed: 'err', run_no_progress: 'err', run_too_many_resumes: 'err', run_terminal: 'err',
+                    run_rejected: 'err', run_stranded: 'err', run_expired: 'warn', run_event_removed: 'warn' },
+        waited: { mower_link: 'err', hw_reset_spent: 'err', hw_reset: 'warn', hw_reset_person: 'warn', rejected: 'warn',
+                  critical: 'warn', gps: 'warn', lost: 'warn' },
+        skipped: { intent_timeout: 'warn' },
+        advice: { rejected: 'warn', missed: 'warn' },
+        slept: { sleep_failed: 'err' }
+    };
+    var RUN_ONE_CAUSE = { temp_sensor: 1, mower_power_off: 1, terminal: 1 };
+    function jProblem(j) {
+        if (j.kind === 'missed') { return 'warn'; }
+        return (JPROBLEM[j.kind] || {})[j.code] || null;
+    }
+    function jIn(j, f) {
+        var w = JFILTER[f];
+        if (!w) { return true; }
+        return w === 'problems' ? !!jProblem(j) : w.indexOf(j.kind) >= 0;
+    }
+    var JFKEY = 'vitulus_auto_jfilter';
     function buildFilter() {
         var box = $('auto_journal_filter');
         if (!box || box.dataset.built) { return; }
         box.dataset.built = '1';
+        if (!S.jInit) {
+            S.jInit = true;
+            try { var keep = localStorage.getItem(JFKEY); if (keep && keep in JFILTER) { S.filter = keep; } } catch (e) { /* private mode */ }
+        }
+        if (!(S.filter in JFILTER)) { S.filter = 'all'; }
         Object.keys(JFILTER).forEach(function (f) {
-            var b = el('button', 'vt-auto-fbtn', box, t('auto.j.filter.' + f));
+            var b = el('button', 'vt-auto-fbtn', box);
             b.type = 'button'; b.dataset.f = f;
-            b.addEventListener('click', function () { S.filter = f; paintHistory(); });
+            el('span', null, b, t('auto.a3.j.filter.' + f));
+            if (f === 'problems') { el('span', 'vt-auto-fn', b); }
+            b.addEventListener('click', function () {
+                S.filter = f; S.jLimit = JPAGE;
+                try { localStorage.setItem(JFKEY, f); } catch (e) { /* private mode */ }
+                paintHistory();
+            });
         });
+    }
+    /* a setting's value in words: on / off, a time, a day, an option */
+    function setWord(k, v) {
+        if (v === null || v === undefined || v === '') { return t('auto.a3.j.v.off'); }
+        if (v === true || v === false) { return t(v ? 'auto.a3.j.v.on' : 'auto.a3.j.v.off'); }
+        if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v)) { return when(v); }
+        if (typeof v === 'string' && /^\d{4}-\d\d-\d\d$/.test(v)) { return dayWord(new Date(v + 'T12:00')); }
+        if (k === 'rain_mode') { return first(['auto.a3.j.rain.' + v]) || String(v); }
+        return fmtVal(k, v);
+    }
+    function setName(k) {
+        return first(['auto.set.' + k + '.label', 'auto.a3.j.key.' + k]) || k.replace(/_/g, ' ');
+    }
+    /* "Ignore open UI: on" for what changed; three at most, then +N */
+    function settingsWhat(vars) {
+        var vals = vars && vars.values;
+        var keys = vals && typeof vals === 'object' ? Object.keys(vals) : (Array.isArray(vars && vars.keys) ? vars.keys : []);
+        if (!keys.length) { return ''; }
+        var parts = keys.slice(0, 3).map(function (k) {
+            return vals && k in vals ? t('auto.a3.j.set_kv', { what: setName(k), v: setWord(k, vals[k]) }) : setName(k);
+        });
+        return parts.join(', ') + (keys.length > 3 ? ' +' + (keys.length - 3) : '');
     }
     function journalText(j) {
         var v = Object.assign({ program: j.program || '' }, j.vars || {});
@@ -2295,7 +2409,27 @@
             v.what = adviceText({ action: v.action, program: j.program, from: v.start, to: v.end, until: (j.vars || {}).until });
         }
         if (/^limit_/.test(j.code)) { v.limit = limitText(j.code, v); }
-        return first(['auto.j.' + j.kind + '.' + j.code, 'auto.j.' + j.kind], v)
+        /* T21 A3: what changed and who changed it; how a run ended; why it waits */
+        if (j.kind === 'settings') {
+            var what = settingsWhat(j.vars);
+            if (what) {
+                var by = (j.vars || {}).by;
+                return t(by === 'owner' || by === 'agent' ? 'auto.a3.j.settings_by.' + by : 'auto.a3.j.settings', { what: what });
+            }
+        }
+        var code = j.code, reason = String(v.reason || ''), keys = [];
+        if (j.kind === 'finished' && code === 'stopped' && /user/.test(reason)) { code = 'stopped_user'; }
+        /* given up for one cause (a sensor, the mower's power, a terminal error) = ended;
+           only an exhausted limit is "gave up after repeated errors" */
+        if (j.kind === 'finished' && code === 'run_failed' && RUN_ONE_CAUSE[reason]) { code = 'run_failed_' + reason; }
+        if (j.kind === 'finished' && code === 'run_rejected' && reason === 'dock:intent_timeout') { code = 'run_rejected_intent'; }
+        /* the start was refused (it never left) vs the run was interrupted */
+        if (j.kind === 'waited' && v.reject && code !== 'rejected') { keys = ['auto.a3.j.waited.rej' + '_' + code, 'auto.a3.j.waited.rej']; }
+        if (j.kind === 'dock_permit' && code === 'homeward') {
+            if (v.left_s) { v.left = fmtDur(v.left_s); } else { code = 'homeward_plain'; }
+        }
+        if (j.kind === 'mode' && ((j.vars || {}).by === 'owner' || (j.vars || {}).by === 'agent')) { code = code + '_' + j.vars.by; }
+        return first(keys.concat(['auto.a3.j.' + j.kind + '.' + code, 'auto.j.' + j.kind + '.' + j.code, 'auto.a3.j.' + j.kind, 'auto.j.' + j.kind]), v)
             || (first(['auto.j.kind.' + j.kind]) || j.kind) + (j.program ? ' ' + j.program : '');
     }
     function paintHistory() {
@@ -2307,23 +2441,45 @@
         if (issues.length) { toks.push({ text: t('auto.tok.issues', { n: issues.length }), state: worst }); }
         if (list && list.length) { toks.push({ text: when(list[list.length - 1].t) }); }
         head('history', worst, toks);
-        document.querySelectorAll('.vt-auto-fbtn').forEach(function (b) { b.classList.toggle('vt-sel', b.dataset.f === S.filter); });
+        var nProb = (list || []).filter(jProblem).length;
+        document.querySelectorAll('.vt-auto-fbtn').forEach(function (b) {
+            b.classList.toggle('vt-sel', b.dataset.f === S.filter);
+            var n = b.querySelector('.vt-auto-fn');
+            if (n) { n.textContent = nProb ? String(nProb) : ''; n.hidden = !nProb; }
+        });
         var f = $('auto_journal_filter');
         if (f) { f.style.display = list ? '' : 'none'; }
         clear(box);
         if (!list) { return; }
-        var shown = list.slice().reverse().filter(function (j) {
-            return !JFILTER[S.filter] || JFILTER[S.filter].indexOf(j.kind) >= 0;
-        });
-        if (!shown.length) { el('li', 'vt-empty', box, t('auto.j.empty')); return; }
-        shown.forEach(function (j) {
+        var shown = list.slice().reverse().filter(function (j) { return jIn(j, S.filter); });
+        if (!shown.length) { el('li', 'vt-empty', box, t(S.filter === 'problems' ? 'auto.a3.j.no_problems' : 'auto.j.empty')); return; }
+        /* T21 A3: the newest page, a day line over each day's rows (the row says only the time),
+           and "Show older" for the rest */
+        var lim = S.jLimit || JPAGE;
+        var day = null;
+        shown.slice(0, lim).forEach(function (j) {
+            var d = parseIso(j.t);
+            var ds = d ? dayStart(d) : null;
+            if (ds !== day) {
+                day = ds;
+                var h = el('li', 'vt-auto-jday', box, d ? dayWord(d) : '—');
+                h.setAttribute('role', 'presentation');
+            }
             var li = el('li', 'vt-act', box);
-            li.dataset.state = j.kind === 'missed' ? 'warn' : (j.kind === 'finished' ? 'ok'
+            var bad = jProblem(j);
+            li.dataset.state = bad || (j.kind === 'finished' ? (j.code === 'succeeded' ? 'ok' : 'off')
                 : (j.kind === 'started' || j.kind === 'advice' || j.kind === 'mode' ? 'info' : 'off'));
             el('span', 'vt-sdot', li);
-            el('span', 'vt-act-txt', li, journalText(j));
-            el('span', 'vt-act-time', li, when(j.t));
+            var tx = journalText(j);
+            el('span', 'vt-act-txt', li, tx).title = tx;
+            el('span', 'vt-act-time', li, d ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '—');
         });
+        if (shown.length > lim) {
+            var more = el('li', 'vt-auto-jmore', box);
+            var b = el('button', 'btn btn-sm btn-link', more, t('auto.a3.j.more', { n: Math.min(JMORE, shown.length - lim), left: shown.length - lim }));
+            b.type = 'button'; b.id = 'btn_auto_journal_more';
+            b.addEventListener('click', function () { S.jLimit = lim + JMORE; paintHistory(); });
+        }
     }
     function paintAlert() {
         var box = $('auto_alert');

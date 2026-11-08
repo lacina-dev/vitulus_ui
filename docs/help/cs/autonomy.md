@@ -50,7 +50,7 @@ v pořádku (zelené; *bez časového limitu* se počítá jako v pořádku) a t
 
 ## Plán
 
-![Plán s očíslovanými značkami](../img/shot-autonomy-plan.webp "1 dalších 7 dní: hodiny 0–24, povolený čas (modře), starty (značky, čas pod nimi), očekávaný spánek (šrafovaně šedě), teď (bílá čárka) · 2 Přeskočit další · 3 Dnes nesekat · 4 Spustit další plánovaný teď")
+![Plán s očíslovanými značkami](../img/shot-autonomy-plan.webp "1 dalších 7 dní: hodiny 0–24, povolený čas (modře), starty (značky, čas pod nimi), očekávaný spánek (šrafovaně šedě), teď (bílá čárka) · 2 Přeskočit další · 3 Dnes nesekat · 4 Spustit další program teď (vlastní řádek, hýbe robotem; řádek pod ním říká, co udělá, nebo proč by to robot teď odmítl)")
 
 Tady je kalendář a [povolený čas sekání](programs.md#povolený-čas-sekání); hlavička sekce ukazuje
 povolený čas, když omezuje (*Povoleno 07:00–21:00*). Časová osa ukazuje 7 dní dopředu se stupnicí hodin
@@ -58,8 +58,14 @@ nahoře: den, kdy se něco děje (start, spánek, který začíná nebo končí)
 starty a očekávaným spánkem (šrafovaně); dny, kdy celý den spí nebo se nic neděje, se sbalí do jednoho
 řádku, třeba *út 10. 11. – pá 13. 11.: spí celou dobu*. Každá položka kalendáře je jeden řádek: vypínač,
 program a pod ním čas a dny, **Upravit** a **Smazat**. **Přeskočit další** přeskočí jeden start,
-**Dnes nesekat** vynechá dnešek, **Spustit další plánovaný teď** spustí další program hned (klepni
-dvakrát). Přeskočený start je na ose přeškrtnutý a stejné tlačítko to vrátí. Formulář události,
+**Dnes nesekat** vynechá dnešek. Přeskočený start je na ose přeškrtnutý a stejné tlačítko to vrátí.
+
+**Spustit Bigger teď** (jméno dalšího programu; *Spustit další plánovaný teď*, když nic naplánováno
+není) má vlastní řádek pod nimi, protože hýbe robotem. Přesune další plánovaný start na teď: robot hned
+vyjede z doku a seče a ten start se tím spotřebuje (ve svůj čas už nepojede). Je to ruční start, takže
+tvrdé limity neplatí, ale všechny podmínky **Mohl by teď vyjet?** musí projít. Řádek pod tlačítkem to
+řekne předem — nebo proč by to robot teď odmítl (*Teď by robot odmítl: Není v doku*, *…: Usíná*, blíží se tvrdý
+restart), že už jízda běží, nebo že otevřená jízda čeká (*Bigger čeká (Baterie): nic dalšího se nespustí*). Klepni dvakrát: první klepnutí se zeptá *Klepni znovu*, po 4 s se samo vrátí. Formulář události,
 opakování a pravidla dohánění jsou v [Programy a kalendář](programs.md#kalendář).
 
 ## Počasí
@@ -202,10 +208,14 @@ nastavení tady bezpečnostní limit nepovolí.
 
 ## Historie
 
-Deník říká lidsky, co se stalo: vyjel, dokončil, přeskočil, zmeškal, čekal, usnul, probudil se,
-změna nastavení, a také rady agenta a přepnutí, kdo rozhoduje. Jde filtrovat podle jízd, čekání,
-agenta, spánku a nastavení. Problémy zůstanou nahoře,
-dokud je nesmažeš (**Smazat**).
+Deník říká lidsky, co se stalo: vyjel, dokončil, jak jízda skončila, když nedokončila (*zastaven
+ručně*, *ukončen: někdo vypnul napájení sekačky*, *vzdán po opakovaných chybách*), přeskočil, zmeškal, proč
+čekal (*přerušen kvůli dešti* vs. *start odmítnut kvůli dešti — nevyjel*), usnul, probudil se, co se v nastavení změnilo a kdo to změnil (*Změnil jsi:
+Ignorovat otevřené UI → zapnuto*), a také rady agenta a přepnutí, kdo rozhoduje. Nejnovější jsou
+nahoře, pod řádkem pro každý den, u každého řádku jen čas; **Ukázat starší** přidá zbytek. Filtry:
+**Sečení** (jízdy a jejich čekání), **Rozhodnutí** (kdo rozhoduje, rady agenta, nastavení),
+**Problémy** (co se nepovedlo, červeně nebo oranžově, s počtem) a **Spánek**; volba se pamatuje.
+Problémy, které hlásí robot, zůstanou nahoře, dokud je nesmažeš (**Smazat**).
 
 ## Řádek nad mapou
 

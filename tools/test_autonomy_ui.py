@@ -1155,6 +1155,212 @@ def a2_fit(p, shots, label):
         p.pg.screenshot(path=os.path.join(shots, label + '-a2-timeline.png'))
 
 
+def a3_journal(now):
+    """41 entries over three days, oldest first as master_controller sends them; three problems among them."""
+    out = []
+    base = now - dt.timedelta(days=2, hours=3)
+
+    def add(mins, kind, code, program='Bigger', **v):
+        out.append({'t': (base + dt.timedelta(minutes=mins)).strftime('%Y-%m-%dT%H:%M:%S'), 'kind': kind, 'code': code,
+                    'program': program, 'vars': v})
+    for i in range(30):
+        add(i * 2, 'settings', 'changed', '', by='owner', values={'sleep_ignore_ui': bool(i % 2)})
+    add(100, 'started', 'started', slot='x')
+    add(130, 'waited', 'weather', left_s=1800)
+    add(140, 'waited', 'gps', left_s=60)
+    add(170, 'finished', 'run_failed', reason='critical')
+    add(1500, 'started', 'started')
+    add(1560, 'finished', 'stopped', reason='stopped:user_stop')
+    add(1600, 'settings', 'changed', '', by='agent', values={'wake_before_min': 8.0})
+    add(1700, 'slept', 'timed', '', by='auto', ms=3600000)
+    add(1760, 'woke', 'timed', '', late_s=4)
+    add(2900, 'missed', 'slot_missed')
+    add(2950, 'mode', 'agent', '', by='owner')
+    return out
+
+
+def a3_story(p, shots, label):
+    """T21 A3: Run next says what it does (taps and message unchanged); History in pages, filters, plain endings. Display only."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    p.pub('/scheduler/sleep_countdown', {'active': False})
+    p.pg.evaluate("VTAutonomy._state.countdown = {active: false}")
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    nxt = now + dt.timedelta(hours=5)
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(nxt)}))
+    p.open('plan')
+    vis = lambda s: p.pg.evaluate("(s)=>{const e=document.querySelector(s);return !!(e&&e.offsetParent)}", s)
+    n0 = len(p.pg.evaluate('__fake.sent'))
+
+    # Run next: its own row with the program, and what it does
+    lab = p.text('#btn_auto_runnext') or ''
+    check('A3 Run next names the program', 'Bigger' in lab and lab == ('Spustit Bigger teď' if cs else 'Start Bigger now'), lab)
+    check('A3 Run next on its own row under the plan changes', p.pg.evaluate(
+        "(()=>{const b=document.getElementById('btn_auto_runnext'), r=document.getElementById('auto_runnext'), s=document.getElementById('btn_auto_skip');"
+        "return r.contains(b) && document.getElementById('auto_plan_actions').contains(r) && r.getBoundingClientRect().top >= s.getBoundingClientRect().bottom - 1})()"))
+    what = p.text('#auto_runnext_what') or ''
+    check('A3 Run next says what it does: program, its time, hard limits',
+          'Bigger' in what and nxt.strftime('%H:%M') in what and ('tvrdé limity' if cs else 'hard limits') in what, what)
+    check('A3 Run next looks different from Skip', p.pg.evaluate(
+        "getComputedStyle(document.getElementById('btn_auto_runnext')).backgroundColor !== getComputedStyle(document.getElementById('btn_auto_skip')).backgroundColor"))
+    # held: the robot's own gate in words, tone like the top card
+    p.pub('/scheduler/report', report(now, checks=start_checks(dock=('block', 'not_in_dock', {})), next={'program': 'Bigger', 'at': iso(nxt)}))
+    what = p.text('#auto_runnext_what') or ''
+    check('A3 Run next held: says the check, red', ('Není v doku' if cs else 'Not in the dock') in what
+          and p.pg.evaluate("document.getElementById('auto_runnext_what').dataset.state") == 'err', what)
+    p.pub('/scheduler/report', report(now, checks=start_checks(automation=('off', 'off', {})), next={'program': 'Bigger', 'at': iso(nxt)}))
+    check('A3 Run next held by automation off: neutral', not p.pg.evaluate("document.getElementById('auto_runnext_what').dataset.state"),
+          p.text('#auto_runnext_what'))
+    p.pub('/scheduler/report', report(now, state='MOWING', code='mowing', checks=start_checks(), next={'program': 'Bigger', 'at': iso(nxt)},
+                                      run={'program': 'Front', 'slot': None, 'started': True}))
+    what = p.text('#auto_runnext_what') or ''
+    check('A3 Run next while mowing: says so', 'Front' in what and ('už běží' if cs else 'already under way') in what, what)
+    # an open run that waits (battery): not "under way", it waits and nothing more starts
+    p.pub('/scheduler/report', report(now, code='waiting_battery', checks=start_checks(battery=('wait', 'low', {'pct': 31, 'need': 40})),
+                                      next={'program': 'Bigger', 'at': iso(nxt)}, run={'program': 'Front', 'slot': None, 'started': True}))
+    what = p.text('#auto_runnext_what') or ''
+    check('A3 Run next with a waiting run: waits, why, nothing more starts', 'Front' in what and ('čeká' if cs else 'waits') in what
+          and ('Baterie' if cs else 'Battery') in what and ('už běží' if cs else 'under way') not in what, what)
+    # the robot's own gate beyond the checks: a countdown, a hardware reset, asleep (master _start_blocker)
+    for over, want in ((dict(sentence={'code': 'sleep_countdown', 'vars': {'left_s': 60}}), 'Usíná' if cs else 'Falling asleep'),
+                       (dict(sentence={'code': 'hw_reset_countdown', 'vars': {'left_s': 60}}), 'tvrdý restart' if cs else 'hardware reset'),
+                       (dict(state='PREPARE_SLEEP', code='sleep_prepare', sentence={'code': 'sleep_prepare', 'vars': {}}), 'Spí' if cs else 'Asleep')):
+        p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(nxt)}, **over))
+        what = p.text('#auto_runnext_what') or ''
+        check('A3 Run next refused while %s: says so, amber' % want, want in what and ('odmítl' if cs else 'refused') in what
+              and p.pg.evaluate("document.getElementById('auto_runnext_what').dataset.state") == 'warn', what)
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next=None))
+    check('A3 Run next with nothing planned: disabled, says so', p.pg.evaluate("document.getElementById('btn_auto_runnext').disabled")
+          and p.text('#auto_runnext_what') == ('Není naplánované nic, co by šlo přesunout.' if cs else 'Nothing planned to bring forward.'),
+          p.text('#auto_runnext_what'))
+    # the two taps and the message: as before
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(nxt)}))
+    again = p.pg.evaluate("VTI18n.t('auto.tap_again')")
+    k = len(p.sent('/scheduler/run_next'))
+    p.click('#btn_auto_runnext')
+    check('A3 Run next first tap: nothing sent, asks again', len(p.sent('/scheduler/run_next')) == k
+          and p.text('#btn_auto_runnext') == again and p.pg.evaluate("!!document.getElementById('btn_auto_runnext').dataset.armed"))
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-a3-runnext-armed.png'))
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(nxt)}))
+    check('A3 Run next armed: a report does not undo the second tap', p.text('#btn_auto_runnext') == again)
+    p.click('#btn_auto_runnext')
+    got = p.sent('/scheduler/run_next')
+    check('A3 Run next second tap: one message, the same as before', len(got) == k + 1 and got[-1] == {'data': True}, got[k:])
+    check('A3 Run next label back with the program', 'Bigger' in (p.text('#btn_auto_runnext') or ''), p.text('#btn_auto_runnext'))
+    p.click('#btn_auto_runnext')
+    p.pg.wait_for_timeout(4300)
+    check('A3 Run next one tap times out: label back, nothing sent', len(p.sent('/scheduler/run_next')) == k + 1
+          and 'Bigger' in (p.text('#btn_auto_runnext') or '') and not p.pg.evaluate("document.getElementById('btn_auto_runnext').dataset.armed"))
+    n1 = len(p.pg.evaluate('__fake.sent'))
+    check('A3 Run next: nothing else sent', n1 == n0 + 1, p.pg.evaluate('__fake.sent')[n0:])
+
+    # History: a page, a line per day, Show older
+    p.pg.evaluate("try{localStorage.removeItem('vitulus_auto_jfilter')}catch(e){}")
+    p.click('.vt-auto-fbtn[data-f="all"]')
+    p.pub('/scheduler/journal', {'entries': a3_journal(now)})
+    p.open('history')
+    rows = lambda: p.pg.evaluate("[...document.querySelectorAll('#auto_journal .vt-act')].map(e=>[e.dataset.state, e.querySelector('.vt-act-txt').textContent, e.querySelector('.vt-act-time').textContent])")
+    r = rows()
+    check('A3 History: the newest 15', len(r) == 15, len(r))
+    check('A3 History: the row says the time, the day is a line', all(re.match(r'^\d\d:\d\d$', x[2]) for x in r)
+          and p.pg.evaluate("document.querySelectorAll('#auto_journal .vt-auto-jday').length") >= 2, [x[2] for x in r])
+    more = p.text('#btn_auto_journal_more') or ''
+    check('A3 History: Show older says how many', '26' in more, more)
+    p.click('#btn_auto_journal_more')
+    check('A3 History: Show older adds 25', len(rows()) == 40 and vis('#btn_auto_journal_more'), len(rows()))
+    p.click('#btn_auto_journal_more')
+    check('A3 History: then the rest, and no more button', len(rows()) == 41 and not vis('#btn_auto_journal_more'), len(rows()))
+    # problems: a filter with its count, endings in words
+    chip = p.text('.vt-auto-fbtn[data-f="problems"]') or ''
+    check('A3 History: Problems with its count', chip.endswith('3'), chip)
+    p.click('.vt-auto-fbtn[data-f="problems"]')
+    r = rows()
+    check('A3 History: Problems only problems', len(r) == 3 and set(x[0] for x in r) == {'err', 'warn'}, r)
+    failed = [x for x in r if ('vzdán' if cs else 'gave up') in x[1]]
+    check('A3 History: a failed run is not "finished" and is red', len(failed) == 1 and failed[0][0] == 'err'
+          and ('dokončen' if cs else 'finished') not in failed[0][1], r)
+    check('A3 History: the filter is remembered', p.pg.evaluate("localStorage.getItem('vitulus_auto_jfilter')") == 'problems')
+    p.click('.vt-auto-fbtn[data-f="mow"]')
+    r = rows()
+    txt = ' '.join(x[1] for x in r)
+    stop = [x for x in r if ('ručně' if cs else 'by hand') in x[1]]
+    check('A3 History: Mowing — stopped by hand, said so, not green', len(stop) == 1 and stop[0][0] == 'off', r)
+    check('A3 History: Mowing — why it waited', ('dešti' if cs else 'rain') in txt and ('GPS') in txt and '{' not in txt, txt)
+    check('A3 History: Mowing — no settings in it', ('Změnil' if cs else 'changed') not in txt, txt)
+    p.click('.vt-auto-fbtn[data-f="decide"]')
+    r = rows()
+    txt = ' '.join(x[1] for x in r)
+    check('A3 History: a new filter starts at the first page', len(r) == 15 and vis('#btn_auto_journal_more'), len(r))
+    check('A3 History: Decisions — what changed and who', ('Změnil jsi: Ignorovat otevřené UI' if cs else 'You changed: Ignore open UI') in txt
+          and ('Agent změnil: Probudit se před programem → 8' if cs else 'The agent changed: Wake before a program → 8') in txt, txt[:300])
+    # how it ended and why it waited, by vars.reason / vars.reject; who switched; going home at the permit's end
+    p.click('.vt-auto-fbtn[data-f="all"]')
+    ts = lambda m: (now - dt.timedelta(minutes=m)).strftime('%Y-%m-%dT%H:%M:%S')
+    J = [('waited', 'weather', {'reject': 'rain', 'left_s': 1800}), ('waited', 'weather', {'left_s': 1800}),
+         ('finished', 'run_failed', {'reason': 'temp_sensor'}), ('finished', 'run_failed', {'reason': 'critical'}),
+         ('finished', 'run_rejected', {'reason': 'dock:intent_timeout'}), ('dock_permit', 'homeward', {'window': 'x', 'left_s': 300}),
+         ('dock_permit', 'homeward_cancel', {}), ('mode', 'agent', {'by': 'owner'})]
+    p.pub('/scheduler/journal', {'entries': [{'t': ts(60 - i), 'kind': k, 'code': c, 'program': '' if k == 'mode' else 'Bigger', 'vars': v}
+                                             for i, (k, c, v) in enumerate(J)]})
+    r = [x[1] for x in rows()][::-1]     # oldest first, as J
+    want = (['nevyjel', 'přerušen kvůli dešti', 'ukončen: porucha teplotního čidla', 'vzdán po opakovaných chybách',
+             'nepotvrdil výjezd agenta', 'nejvýš 5 min', 'seče dál', 'Přepnul jsi: rozhoduje agent'] if cs else
+            ['did not leave', 'stopped for rain', 'ended: the mower\'s temperature sensor', 'gave up after repeated errors',
+             'did not confirm the agent\'s exit', 'at most 5 min', 'mows on', 'You switched: the agent decides'])
+    check('A3 History: endings and waits by their reason, who switched, going home', len(r) == len(want)
+          and all(w in x for w, x in zip(want, r)) and not any('{' in x for x in r), list(zip(want, r)))
+    check('A3 History: a refused start is not "stopped"', ('přerušen' if cs else 'stopped for') not in r[0], r[0])
+    check('A3 History: nothing sent', len(p.pg.evaluate('__fake.sent')) == n1, p.pg.evaluate('__fake.sent')[n1:])
+    if shots:
+        p.pg.evaluate("document.getElementById('auto_sec_history').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a3-history.png'))
+    p.click('.vt-auto-fbtn[data-f="all"]')
+    errs = [e for e in p.errors if 'erases' not in e]
+    check('A3 no page errors', not errs, errs[:3])
+
+
+def a3_fit(p, shots, label):
+    """Run next and History on this screen: touch size, compact rows on a phone, nothing cut, no sideways scroll."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/report', report(now, checks=start_checks(dock=('block', 'not_in_dock', {})),
+                                      next={'program': 'Front lawn by the long hedge', 'at': iso(now + dt.timedelta(hours=5))}))
+    p.pub('/scheduler/journal', {'entries': a3_journal(now)})
+    p.open('plan')
+    p.open('history')
+    p.pg.evaluate("document.getElementById('auto_sec_history').scrollIntoView({block: 'start'})")
+    p.pg.wait_for_timeout(200)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const h=e=>Math.round(e.getBoundingClientRect().height);
+        const out=q('#div_menu_autonomy *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        const over=q('#auto_runnext, #auto_runnext *, #auto_journal_filter *, #auto_journal *').filter(e=>e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>e.id||e.className);
+        const f=document.getElementById('auto_journal_filter').getBoundingClientRect();
+        const chips=q('.vt-auto-fbtn').map(e=>{const b=e.getBoundingClientRect();return [e.dataset.f,Math.round(b.height),b.right<=f.right+1&&b.left>=f.left-1]});
+        const one=q('#auto_journal .vt-act').map(h);
+        return {w:document.documentElement.scrollWidth, coarse:matchMedia('(pointer: coarse)').matches, out, over, chips,
+                run:h(document.getElementById('btn_auto_runnext')), more:h(document.getElementById('btn_auto_journal_more')), rowMin:Math.min(...one)}}""")
+    check(label + ' A3: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r['out'])
+    check(label + ' A3: Run next, filters, journal: nothing cut', not r['over'], r['over'])
+    check(label + ' A3: filters whole inside their row', all(c[2] for c in r['chips']) and len(r['chips']) == 5, r['chips'])
+    if r['coarse']:
+        check(label + ' A3: touch targets >= 40 px (Run next, filters, Show older)', r['run'] >= 40 and r['more'] >= 40
+              and all(c[1] >= 40 for c in r['chips']), r)
+    else:
+        check(label + ' A3: filters 32 px with a mouse', all(c[1] >= 32 for c in r['chips']), r['chips'])
+    if vw < 600:
+        check(label + ' A3: compact journal rows on a phone', r['rowMin'] <= 32, r['rowMin'])
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-a3-history-fit.png'))
+        p.pg.evaluate("document.getElementById('auto_runnext').scrollIntoView({block: 'center'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a3-runnext.png'))
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -1205,6 +1411,8 @@ def main():
             a1_fit(p, a.shots, label)
             a2_story(p, a.shots, label)
             a2_fit(p, a.shots, label)
+            a3_story(p, a.shots, label)
+            a3_fit(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
@@ -1217,6 +1425,7 @@ def main():
             mode_fit(p, a.shots, label)
             a1_fit(p, a.shots, label)
             a2_fit(p, a.shots, label)
+            a3_fit(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

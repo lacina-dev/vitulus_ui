@@ -339,3 +339,42 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
 @media (pointer: coarse), (max-width: 575.98px) {
     .vt-auto-actions .btn { flex: 1 1 calc(50% - var(--vt-gap-2)); }
 }
+
+/* ---- T21 A3: Run next on its own row with what it does; History in pages, a line per day ---- */
+/* Run next moves the robot: under the two plan changes, the accent fill and ▶ set it apart;
+   armed (the second tap) it turns amber. One line under it says what it does. */
+.vt-auto-runnext { flex: 1 1 100%; display: grid; gap: 4px; margin-top: 2px; padding-top: var(--vt-gap-2); border-top: 1px solid var(--vt-border); }
+.vt-auto-actions .vt-auto-runnext-b { justify-self: start; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 36px; padding: 4px 16px; border: 1px solid var(--vt-accent); background: rgba(var(--vt-accent-rgb), .14);
+    color: var(--vt-accent); font-weight: 600; white-space: normal; overflow-wrap: break-word; text-align: center; }
+.vt-auto-runnext-b::before { content: '\25B6'; flex: 0 0 auto; font-size: .78em; line-height: 1; }
+.vt-auto-runnext-b:hover:not(:disabled) { background: rgba(var(--vt-accent-rgb), .24); color: var(--vt-accent); }
+.vt-auto-runnext-b:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
+.vt-auto-runnext-b[data-armed] { border-color: var(--vt-warn); background: rgba(var(--vt-warn-rgb), .16); color: var(--vt-warn); }
+.vt-auto-runnext-b:disabled { opacity: .5; }
+.vt-auto-runnext-w { display: block; color: var(--vt-muted); font-size: var(--vt-fs-sm); line-height: 1.35; overflow-wrap: break-word; hyphens: auto; }
+.vt-auto-runnext-w:empty { display: none; }
+.vt-auto-runnext-w[data-state="warn"] { color: var(--vt-warn); }
+.vt-auto-runnext-w[data-state="err"] { color: var(--vt-err); }
+@media (pointer: coarse), (max-width: 575.98px) {
+    .vt-auto-actions .vt-auto-runnext-b { justify-self: stretch; min-height: var(--vt-touch); }
+}
+
+/* History: filters 32 px (40 on touch) with the problems count; a day line, rows with the time only */
+.vt-auto-fbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.vt-auto-fn { min-width: 1.7em; padding: 0 5px; border-radius: 999px; background: rgba(var(--vt-warn-rgb), .2); color: var(--vt-warn);
+    font-size: var(--vt-fs-xs); line-height: 1.5; text-align: center; font-variant-numeric: tabular-nums; }
+.vt-auto-fn[hidden] { display: none; }
+.vt-auto-journal .vt-auto-jday { padding: var(--vt-gap-2) 2px 2px; font: 600 var(--vt-fs-xs)/1.3 var(--vt-font); color: var(--vt-muted); }
+.vt-auto-journal .vt-auto-jday:first-child { padding-top: 0; }
+.vt-auto-journal .vt-auto-jday::first-letter { text-transform: uppercase; }
+.vt-auto-journal .vt-auto-jday + .vt-act { border-top: 0; }
+.vt-auto-journal .vt-act-time { min-width: 5ch; text-align: right; }
+.vt-auto-jmore { display: flex; justify-content: center; padding-top: var(--vt-gap-1); border-top: 1px solid var(--vt-border); }
+.vt-auto-jmore .btn { color: var(--vt-accent); font-size: var(--vt-fs-sm); min-height: 32px; }
+@media (pointer: coarse), (max-width: 575.98px) {
+    .vt-auto-jmore .btn, .vt-auto-fbtn { min-height: var(--vt-touch); }
+    /* rows are not buttons: compact, two lines at most, the full text in the tooltip */
+    html body #ui_drawer .vt-auto-journal .vt-act { min-height: 30px; font-size: var(--vt-fs-sm); }
+    html body #ui_drawer .vt-auto-journal .vt-act:not(.vt-act-open) .vt-act-txt { padding: 3px 0; line-height: 1.3; }
+}

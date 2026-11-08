@@ -51,7 +51,7 @@ The › next to a line takes you to where it is fixed. What keeps the robot awak
 
 ## Plan
 
-![Plan with numbered markers](img/shot-autonomy-plan.webp "1 the next 7 days: hours 0–24, allowed time (blue), starts (marks, with the time under them), expected sleep (hatched grey), now (white line) · 2 Skip next · 3 No mowing today · 4 Run next planned now")
+![Plan with numbered markers](img/shot-autonomy-plan.webp "1 the next 7 days: hours 0–24, allowed time (blue), starts (marks, with the time under them), expected sleep (hatched grey), now (white line) · 2 Skip next · 3 No mowing today · 4 Start the next program now (its own row, it moves the robot; the line under it says what it does, or why it would be refused now)")
 
 The calendar and the [allowed mowing time](programs.md#allowed-mowing-time) are here; the head of the
 section shows the allowed time while it limits (*Allowed 07:00–21:00*). The timeline covers the next
@@ -60,8 +60,17 @@ ends) gets its track with the allowed time, the starts and the expected sleep (h
 all day, or with nothing, fold into one line each, e.g. *Tue 10 Nov – Fri 13 Nov: asleep the whole
 time*. Each calendar entry is one row: its switch, the program over its time and days, **Edit** and
 **Delete**. **Skip next** skips one start,
-**No mowing today** skips today, **Run next planned now** starts the next program at once (tap
-twice). A skipped start is crossed out in the timeline, and the same button undoes it. The calendar
+**No mowing today** skips today. A skipped start is crossed out in the timeline, and the same button
+undoes it.
+
+**Start Bigger now** (the name of the next program; *Run next planned now* when nothing is planned)
+has its own row below them, because it moves the robot. It brings the next planned start forward:
+the robot leaves the dock and mows at once, and that start is used up (it does not run again at its
+time). It is a start by hand, so the hard limits don't apply, but every check of **Could it start
+now?** still must pass. The line under the button says this before you tap — or why the robot would
+refuse it now (*Would be refused now: Not in the dock*, *…: Falling asleep*, a hardware reset coming), that a run is under
+way, or that an open run waits (*Bigger waits (Battery): nothing more starts*). Tap
+twice: the first tap asks *Tap again*, after 4 s it lets go by itself. The calendar
 form, recurrence and the catch-up rules are in [Programs and calendar](programs.md#the-calendar).
 
 ## Weather
@@ -215,10 +224,14 @@ cannot be changed here. No setting here relaxes a safety limit.
 
 ## History
 
-The journal says in plain words what happened: started, finished, skipped, missed, waited, slept,
-woke, settings changed, and the agent's advice and the switches of who decides. Filter it by runs,
-waits, agent, sleep or settings. Problems stay on top until you
-**Clear** them.
+The journal says in plain words what happened: started, finished, how a run ended when it did not
+finish (*stopped by hand*, *ended: someone switched the mower's power off*, *gave up after repeated
+errors*), skipped, missed, why it waited (*stopped for rain* vs *start refused because of rain — it did not leave*), slept, woke, what setting changed and who changed it (*You
+changed: Ignore open UI → on*), and the agent's advice and the switches of who decides. The newest
+come first, under a line for each day, each row with its time; **Show older** adds the rest. Filter
+it: **Mowing** (runs and their waits), **Decisions** (who decides, the agent's advice, settings),
+**Problems** (what went wrong, red or amber, with their count) or **Sleep**; the choice is
+remembered. Problems the robot reports stay on top until you **Clear** them.
 
 ## The line above the map
 

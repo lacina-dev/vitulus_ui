@@ -252,7 +252,7 @@ SHOTS = [
          marks=[('#btn_auto_mode_calendar', '1', 'ri'), ('#btn_auto_mode_dock', '2', 'l'), ('#auto_mode_advice .vt-auto-h', '3', 'ri'),
                 ('#auto_tok_limits .vt-pill', '4', 'l')]),
     dict(name='shot-autonomy-plan', vp=TALL, clip='#auto_timeline|#auto_plan_actions', pad=26, steps=panel('#btn_autonomy', None, [('wait', 1500)]),
-         marks=[('#auto_timeline', '1', 'ri'), ('#btn_auto_skip', '2', 'b'), ('#btn_auto_nomow', '3', 'b'), ('#btn_auto_runnext', '4', 'b')]),
+         marks=[('#auto_timeline', '1', 'ri'), ('#btn_auto_skip', '2', 'b'), ('#btn_auto_nomow', '3', 'b'), ('#btn_auto_runnext', '4', 'r')]),
     dict(name='shot-autonomy-rain', vp=TALL, clip='#auto_sec_rain', pad=4, steps=panel('#btn_autonomy', None, [('js', "document.querySelectorAll('#div_menu_autonomy details').forEach(d => d.open = d.id === 'auto_sec_rain'); return '';"), ('wait', 1000)]),
          marks=[('#auto_radar', '1', 'ri'), ('#auto_rain_mode', '2', 'ri')]),
     dict(name='shot-calendar-form', vp=TALL, clip='#div_calendar_form', pad=6,
