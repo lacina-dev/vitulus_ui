@@ -133,6 +133,9 @@ check('18 columns widen to 26', w18.length, 52);
 check('...keeping the old ones', [w18[26], w18[26 + 17]], [110, 4]);
 check('...and the new are NONE', w18.slice(18, 26).every((v) => v === M.NONE), true);
 check('26 columns stay as they are', M.widen(w18, 26), w18);
+const wide = [];
+for (let i = 0; i < 2; i++) for (let c = 0; c < 30; c++) wide.push(c < 26 ? w18[i * 26 + c] : 777);
+check('a wider message (newer recorder) is cut to 26 columns', M.widen(wide, 30), w18);
 const st18 = new M.Store();
 st18.push(w18, 0);
 const f18 = M.rowFacts(st18.rows, 1, 1000);
@@ -160,7 +163,7 @@ const det = { x: 1, y: 2, yaw: 90, path_x: 1.12, path_y: 2, path_yaw: 90, xte_m:
     lidar_x: null, lidar_y: null, gps_xte_m: 0.05, gps_along_m: 0.3, gps_across_m: 0.05, head_err_deg: -2.5, owner: 'gps', track: 'gps_owns', state: 'cutting' };
 const pg = M.cardGroups(det);
 check('position is the first group', pg[0].k, 'pose');
-check('position table', pg[0].table, [['plan', '0', '0 / −12'], ['fusion', '−12', '0 / 0'], ['gps', '+5', '+30 / +5']]);
+check('position table', pg[0].table, [['plan', '0', '0 / −12'], ['fusion', '−12', '0 / 0'], ['gps', '+5', '+30 / +5', null]]);
 check('position lines', pg[0].rows, [['heading', '90.0° / 92.5° ±0.8° · Δ −2.5°'], ['owner', 'gps'], ['track', 'gps_owns']]);
 check('owner left the GNSS group', pg.some((g) => g.k === 'place'), false);
 check('lidar from x, y and yaw when the robot sent no along / across', M.poseFacts({ x: 0, y: 0, yaw: 0, lidar_x: 0.1, lidar_y: -0.2 }).table, [['lidar', null, '+10 / −20']]);
@@ -183,6 +186,15 @@ check('after BRK too', segs.slice(18, 24), [6, 0.1, 0, 7, 0.1, 1]);
 const lst = {};
 const inc = M.polySegments(lrows, 0, 5, M.LINES.gps.x, M.LINES.gps.y, false, lst).concat(M.polySegments(lrows, 5, 8, M.LINES.gps.x, M.LINES.gps.y, false, lst));
 check('live: two appends draw the same', inc, segs);
+// GPS only in RTK fix: a float row cuts the line like NONE (wire col 10 = 4 in row())
+const frows = Int32Array.from([].concat(row(0, 0, 0, 0, { 21: 0, 22: 0 }), row(1, 0, 0, 0, { 21: 100, 22: 0 }), row(2, 0, 0, 0, { 10: 3, 21: 400, 22: 0 }),
+    row(3, 0, 0, 0, { 21: 300, 22: 0 }), row(4, 0, 0, 0, { 21: 400, 22: 0 })));
+check('gps line skips a float', M.polySegments(frows, 0, 5, M.LINES.gps.x, M.LINES.gps.y, false, {}, M.LINES.gps.fix).map((v) => Math.round(v * 100) / 100), [0, 0, 0, 1, 0, 1, 3, 0, 0, 4, 0, 1]);
+check('without the fix rule the float is drawn', M.polySegments(frows, 0, 5, M.LINES.gps.x, M.LINES.gps.y, false, {}).length / 6, 4);
+check('only the GPS line asks for RTK fix', [M.LINES.gps.fix, M.LINES.plan.fix, M.LINES.lidar.fix], [4, undefined, undefined]);
+const fl = M.poseFacts({ fix: 3, xte_m: 0.02, gps_xte_m: 1.9, gps_along_m: 0.4, gps_across_m: -2.0 }).table.find((x) => x[0] === 'gps');
+check('float GPS: against the pose, not the plan, with its class', fl, ['gps', null, '+40 / −200', 'mowl.fix.3']);
+check('RTK fix GPS has no note', M.poseFacts({ fix: 4, gps_xte_m: 0.05, gps_along_m: 0.1, gps_across_m: 0 }).table[0], ['gps', '+5', '+10 / 0', null]);
 const prow = Int32Array.from([].concat(row(0, 0, 0, 0, { 19: 0, 20: 0 }), row(0.1, 0, 0, 0, { 19: 10, 20: 0 }), row(0.2, 0, 0, 0, { 19: 300, 20: 0 })));
 check('plan: a new path is no line', M.polySegments(prow, 0, 3, M.LINES.plan.x, M.LINES.plan.y, true, {}).length / 6, 1);
 check('gps: the same jump is drawn, it is the news', M.polySegments(prow, 0, 3, M.LINES.plan.x, M.LINES.plan.y, false, {}).length / 6, 2);

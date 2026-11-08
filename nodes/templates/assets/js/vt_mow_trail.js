@@ -65,7 +65,8 @@ window.VTMowTrail = (function () {
     // thin lines over the trail: wire columns, a CSS token, dashed or not
     var LINES = {
         plan: { x: PATH_X, y: PATH_Y, tok: '--vt-mow-plan', def: '#f4f6f8', dash: true, jump: true },
-        gps: { x: GPS_X, y: GPS_Y, tok: '--vt-mow-gps', def: '#43d58b' },
+        // RTK fix only: a float sits metres off with a hAcc of a few cm (the garage, 2026-11-08)
+        gps: { x: GPS_X, y: GPS_Y, tok: '--vt-mow-gps', def: '#43d58b', fix: 4 },
         lidar: { x: LIDAR_X, y: LIDAR_Y, tok: '--vt-mow-lidar', def: '#0dcaf0' },
     };
     var LINE_KEYS = ['plan', 'gps', 'lidar'];
@@ -171,15 +172,16 @@ window.VTMowTrail = (function () {
     // m, d = distance along the line (for the dash). A break (BRK) or an unknown
     // point cuts the line. `jump`: the plan also cuts where it steps much further
     // than the robot did (a new path, not a move). `st` carries the end over to the
-    // next call, so a live message only appends.
-    function polySegments(rows, from, to, cx, cy, jump, st) {
+    // next call, so a live message only appends. `fix`: only rows of that fix class
+    // (wire FIX) draw, any other cuts the line like an unknown point.
+    function polySegments(rows, from, to, cx, cy, jump, st, fix) {
         var out = [];
         st = st || {};
         for (var i = from; i < to; i++) {
             var o = i * STRIDE, x = rows[o + cx], y = rows[o + cy];
             var fx = rows[o] / 100, fy = rows[o + 1] / 100;
             if (rows[o + STATE] >= BRK) st.ok = false;
-            if (x === NONE || y === NONE) { st.ok = false; st.fx = fx; st.fy = fy; continue; }
+            if (x === NONE || y === NONE || (fix != null && rows[o + FIX] !== fix)) { st.ok = false; st.fx = fx; st.fy = fy; continue; }
             x /= 100; y /= 100;
             if (st.ok) {
                 var len = Math.hypot(x - st.x, y - st.y), moved = Math.hypot(fx - st.fx, fy - st.fy);
@@ -276,10 +278,12 @@ window.VTMowTrail = (function () {
             var v = inRobot(x - r.x, y - r.y, r.yaw);
             return scm(v[0]) + ' / ' + scm(v[1]);
         };
+        var rtk = r.fix == null || r.fix === 4;
         var table = [
             ['plan', r.path_x == null ? null : '0', rel(r.path_x, r.path_y)],
             ['fusion', scm(r.xte_m), r.xte_m == null ? null : '0 / 0'],
-            ['gps', scm(r.gps_xte_m), rel(r.gps_x, r.gps_y, r.gps_along_m, r.gps_across_m)],
+            // without RTK fix GPS is shown against the pose, with its fix class, but is no measure of the plan
+            ['gps', rtk ? scm(r.gps_xte_m) : null, rel(r.gps_x, r.gps_y, r.gps_along_m, r.gps_across_m), rtk ? null : t('mowl.fix.' + r.fix)],
             ['lidar', scm(r.lidar_xte_m), rel(r.lidar_x, r.lidar_y, r.lidar_along_m, r.lidar_across_m)],
         ].filter(function (x) { return x[1] != null || x[2] != null; });
         if (table.length === 1 && table[0][0] === 'plan') table = [];
@@ -313,8 +317,10 @@ window.VTMowTrail = (function () {
     // ---- trail store: the raw wire rows, growing
     function Store() { this.rows = new Int32Array(STRIDE * 2048); this.n = 0; this.total = 0; this.run = null; this.start = 0; this.events = []; }
     // a message of a narrower format, from a robot not updated yet
+    // Any width to ours: missing columns are unknown, extra ones (a newer recorder
+    // than this page) are cut. Reading a wider row as ours draws lines across the map.
     function widen(flat, stride) {
-        if (!stride || stride >= STRIDE) return flat || [];
+        if (!stride || stride === STRIDE) return flat || [];
         var n = flat.length / stride, out = new Array(n * STRIDE);
         for (var i = 0; i < n; i++) for (var c = 0; c < STRIDE; c++) out[i * STRIDE + c] = c < stride ? flat[i * stride + c] : NONE;
         return out;
@@ -649,7 +655,7 @@ window.VTMowTrail = (function () {
                 var c = S.pal[k];
                 L.uniforms.uC.value.set(c[0] / 255, c[1] / 255, c[2] / 255);
             }
-            L.append(polySegments(st.rows, from, st.n, d.x, d.y, d.jump, L.st));
+            L.append(polySegments(st.rows, from, st.n, d.x, d.y, d.jump, L.st, d.fix));
         });
         S.linesDrawn = st.n;
     }
@@ -783,7 +789,7 @@ window.VTMowTrail = (function () {
         S.lines[k] = !!on;
         lsSet(LS_LINES, JSON.stringify(S.lines));
         if (S.lineObj) {
-            if (on) { S.lineObj[k].clear(); S.lineObj[k].append(polySegments(S.store.rows, 0, S.store.n, LINES[k].x, LINES[k].y, LINES[k].jump, S.lineObj[k].st)); S.linesDrawn = S.store.n; }
+            if (on) { S.lineObj[k].clear(); S.lineObj[k].append(polySegments(S.store.rows, 0, S.store.n, LINES[k].x, LINES[k].y, LINES[k].jump, S.lineObj[k].st, LINES[k].fix)); S.linesDrawn = S.store.n; }
             showLines();
         }
     }
@@ -897,7 +903,7 @@ window.VTMowTrail = (function () {
         if (!rows || !rows.length) return '';
         var pal = S.pal || palette(), dot = function (k) { var c = pal[k === 'fusion' ? 'fusion' : k]; return '<i class="mow-dot" style="background:rgb(' + c.join(',') + ')"></i>'; };
         return '<table class="mow-pose"><thead><tr><th></th><th>' + esc(t('mowl.pose.col_plan')) + '</th><th>' + esc(t('mowl.pose.col_fusion')) + '</th></tr></thead><tbody>' + rows.map(function (x) {
-            return '<tr><th>' + dot(x[0]) + esc(t('mowl.pose.' + x[0])) + '</th><td>' + esc(x[1] == null ? '–' : x[1]) + '</td><td>' + esc(x[2] == null ? '–' : x[2]) + '</td></tr>';
+            return '<tr><th>' + dot(x[0]) + esc(t('mowl.pose.' + x[0])) + (x[3] ? ' <small class="mow-fixnote">' + esc(x[3]) + '</small>' : '') + '</th><td>' + esc(x[1] == null ? '–' : x[1]) + '</td><td>' + esc(x[2] == null ? '–' : x[2]) + '</td></tr>';
         }).join('') + '</tbody></table>';
     }
     // dots where the sources put the robot at the tapped moment, only on a pinned card

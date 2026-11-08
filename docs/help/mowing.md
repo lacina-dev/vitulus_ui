@@ -121,7 +121,9 @@ How to read it, with **Off the plan** as the colour and the GPS line on:
 - **Heading vs GNSS** large while driving straight: the fused heading drifted; a pose that follows a
   wrong heading drifts sideways soon after.
 
-What is recorded: **GPS** only while the receiver has a fix — without one the GPS line breaks.
+What is recorded: **GPS** only while the receiver has a fix, and the GPS line is drawn **only in RTK
+fix** — a float can lie metres away while the receiver still reports a few cm, so the line breaks
+there. The card still shows a float GPS against the pose, marked *RTK float*, but not against the plan.
 **Lidar** is recorded also when it disagrees with GPS (the tracker says *lidar disagrees*) — exactly
 then it is worth a look. **Heading vs GNSS** is left out in turns, where the two never match in time.
 

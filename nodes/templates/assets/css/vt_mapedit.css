@@ -195,4 +195,5 @@
 .mow-pose thead th { font-size: 10px; line-height: 1.2; color: var(--vt-muted); white-space: normal; vertical-align: bottom; }
 .mow-pose tbody th { text-align: left; color: var(--vt-muted); }
 .mow-pose td { font-weight: 500; }
+.mow-fixnote { color: var(--vt-warn); font-size: 10px; }
 .mow-dot { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; vertical-align: 0; }

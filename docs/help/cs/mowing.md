@@ -119,7 +119,9 @@ Jak to číst, s barvou **Odchylka od plánu** a zapnutou čárou GPS:
 - **Heading proti GNSS** velký při jízdě rovně: fúzovaný heading ujel; poloha, která jede podle
   špatného headingu, brzy uteče i do strany.
 
-Co se zapisuje: **GPS** jen když má přijímač fix — bez něj se čára GPS přeruší. **Lidar** se zapisuje
+Co se zapisuje: **GPS** jen když má přijímač fix a čára GPS se kreslí **jen v RTK fix** — float umí
+ležet metry vedle, i když přijímač hlásí pár cm, proto se tam čára přeruší. Karta float GPS ukáže vůči
+fúzi s poznámkou *RTK float*, ale ne vůči plánu. **Lidar** se zapisuje
 i tehdy, když s GPS nesouhlasí (tracker hlásí *lidar nesouhlasí*) — právě tehdy stojí za pohled.
 **Heading proti GNSS** se v otočkách vynechává, tam se oba časově nikdy nepotkají.
 
