@@ -26,13 +26,14 @@ from 60 °C) and the running program
 **START MOTOR acts only when you hold it for half a second** — with the mouse, a finger, or
 Enter / Space held on the keyboard. The button fills while you hold it; letting go earlier (or
 sliding off it) sends nothing and the line under it says so. A plain click does nothing.
-**STOP MOTOR** acts at once.
+**STOP**, **STOP MOTOR**, a lost connection to the robot, a second finger or leaving the tab during the
+hold cancel it — the blade then does not start. **STOP MOTOR** acts at once (on the press itself).
 
 ![Settings › Mower with numbered markers](img/shot-mower.webp "1 ON / OFF (power) · 2 direction · 3 height in mm + Set · 4 RPM + Set · 5 Home · 6 START MOTOR (hold ½ s) / STOP MOTOR")
 
 | Control | What it does |
 |---|---|
-| **Power ON / OFF** | mower power; the filled half is the real state. **Temp** next to it is the mower board's temperature. The card head shows the **State**: OFF, INIT, HOME, HEIGHT, READY, RUN, ERR, BLOCKED, TEMP |
+| **Power ON / OFF** | mower power; the filled half is the real state. The card head shows **Temp** (the mower board's temperature) and the **State**: OFF, INIT, HOME, HEIGHT, READY, RUN, ERR, BLOCKED, TEMP |
 | **Direction** | Left / Right — the blade's direction of rotation. The current mower controller does not take it: it always reports LEFT |
 | **Height** | current / max in **mm**; type a height in mm (from the mower's minimum, 25 mm by default, up to the max, e.g. 45) and **Set**. A value outside that range is ignored |
 | **RPM** | current / setpoint; type a value (500–4000) and **Set** |

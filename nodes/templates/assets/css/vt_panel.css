@@ -679,6 +679,12 @@ ul.nav-tabs.vt-cfg-sub {
     overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
 }
 ul.nav-tabs.vt-cfg-sub::-webkit-scrollbar { display: none; }
+/* N3: sticks under the sticky group row (vt_settings_groups.js sets the class
+   and --vt-cfg-sub-top = the group row's height) */
+ul.nav-tabs.vt-cfg-sub.vt-cfg-sub-stick {
+    position: sticky; top: var(--vt-cfg-sub-top, 46px); z-index: 4;
+    background: var(--vt-frame-bg, var(--vt-bg));
+}
 ul.nav-tabs.vt-cfg-sub > .nav-item { flex: 0 0 auto; margin: 0; }
 ul.nav-tabs.vt-cfg-sub .nav-link {
     min-height: 34px; padding: 6px 12px; margin: 0 0 -1px;

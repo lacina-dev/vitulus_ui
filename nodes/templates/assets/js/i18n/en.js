@@ -2569,7 +2569,7 @@
     "cfg.d3.motors.off_old": "The motors are switched off — the numbers below are from when they were last on.",
     "cfg.d3.motors.stale": "The motors stopped reporting — the numbers below are old.",
     "cfg.d3.navi.lidar": "Lidar",
-    "cfg.d3.rtab.wait": "RTAB-Map does not report its settings now (it runs only while a map is made). A source you pick is stored for its next start.",
+    "cfg.d3.rtab.wait": "RTAB-Map does not report its settings now (it runs only while a map is made). A source you pick is sent with the distance under the slider and stored for its next start.",
     "cfg.d3.rtab.now": "now",
     "cfg.d3.rtab.apply": "Apply",
     "cfg.d3.rtab.apply_tip": "Sends this distance with the source the robot reports",

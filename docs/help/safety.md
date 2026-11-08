@@ -26,7 +26,9 @@ The big round red **STOP** button (a mushroom: a red cap in a collar of the fram
 window; the top bar runs into it from the left and the right panel starts under it (on a phone
 held upright it is the right end of the top bar). It is on screen in every state — with a panel open or full screen,
 the log, the large camera, the map editor, the help or the agent — and nothing covers it. The
-**Esc** key does the same, always (also while you type or a dialog is open). It does all of this
+**Esc** key does the same, always (also while you type or a dialog is open). STOP acts the moment
+you touch it — also with a second finger while the other one holds the joystick or START MOTOR.
+It does all of this
 at once, and lets go of the joystick:
 
 1. cancels the navigation goal,

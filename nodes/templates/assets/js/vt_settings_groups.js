@@ -106,5 +106,25 @@
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { setTimeout(sync, 0); }); }
     else { setTimeout(sync, 0); }
 
-    window.VTSettingsGroups = { open: openGroup, sync: sync };
+    /* D3 review N3: where the group row sticks to the top of the panel
+       (phone sheet / landscape, vt_panel.css P24 / P27), the tab row sticks
+       right under it, so both stay while the panel scrolls */
+    function stick() {
+        var on = getComputedStyle(groupsEl).position === 'sticky';
+        tabsEl.classList.toggle('vt-cfg-sub-stick', on);
+        if (on) { tabsEl.style.setProperty('--vt-cfg-sub-top', groupsEl.offsetHeight + 'px'); }
+    }
+    window.addEventListener('resize', stick);
+    if (window.ResizeObserver) { new ResizeObserver(stick).observe(groupsEl); }
+    if (window.MutationObserver) {
+        var mo = new MutationObserver(stick);
+        mo.observe(document.body || document.documentElement, {attributes: true, attributeFilter: ['class']});
+        var dr = document.getElementById('ui_drawer');
+        if (dr) { mo.observe(dr, {attributes: true, attributeFilter: ['class']}); }
+        var host = document.getElementById('div_menu_config');   // shown / hidden by its style
+        if (host) { mo.observe(host, {attributes: true, attributeFilter: ['style']}); }
+    }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', stick); } else { stick(); }
+
+    window.VTSettingsGroups = { open: openGroup, sync: sync, stick: stick };
 })();

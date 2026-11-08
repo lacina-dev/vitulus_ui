@@ -618,13 +618,29 @@ function vtSetSwitch(el, on, st, noCard) {
    click alone sends nothing. While held, --vt-hold (0…1) fills the button
    (vt_panel.css .vt-hold). fire() runs at most once per hold.
    o.hint = element for the one-line feedback, o.keys = {idle, hold, early,
-   done} i18n keys for it. */
+   done} i18n keys for it; o.canFire() = last check right before fire()
+   (e.g. the robot link is up — roslib would QUEUE a publish made offline
+   and send it on reconnect).
+   Safety (D3 review N1): a running hold is cancelled by every STOP (the big
+   STOP, STOP MOTOR, any blade-off publish: vtHoldCancelAll()), a lost robot
+   link, the page / window losing focus, and the button being hidden (panel
+   or tab switched). At fire time it checks all of that again, plus that no
+   STOP came since the hold began (vtHoldStopEpoch), so a STOP during a hold
+   can never be followed by the start. */
+var vtHoldAll = [];
+var vtHoldStopEpoch = 0;
+function vtHoldCancelAll() {
+    vtHoldStopEpoch++;
+    vtHoldAll.forEach(function (h) { try { h.cancel(); } catch (e) { /* the others still cancel */ } });
+}
+window.vtHoldCancelAll = vtHoldCancelAll;
 function vtHoldToFire(btn, ms, fire, o) {
     if (!btn || btn.dataset.vtHold) return null;   // wired once: two wirings would fire twice
     btn.dataset.vtHold = '1';
     o = o || {};
     var k = o.keys || {};
-    var t0 = 0, raf = 0, timer = 0, pid = null, back = 0;
+    var t0 = 0, raf = 0, timer = 0, pid = null, back = 0, epoch = 0;
+    var shown = function () { return btn.isConnected && btn.offsetParent !== null && !btn.disabled && document.visibilityState !== 'hidden'; };
     var setP = function (p) { btn.style.setProperty('--vt-hold', String(Math.max(0, Math.min(1, p)))); };
     var say = function (key, idleAfter) {
         if (!o.hint || !key) return;
@@ -637,6 +653,7 @@ function vtHoldToFire(btn, ms, fire, o) {
     };
     var tick = function () {
         if (!t0) return;
+        if (!shown()) { stop(true); return; }      // panel / tab switched away mid-hold
         setP((performance.now() - t0) / ms);
         raf = requestAnimationFrame(tick);
     };
@@ -654,12 +671,15 @@ function vtHoldToFire(btn, ms, fire, o) {
     var start = function (pointerId) {
         if (t0 || btn.disabled) return;
         t0 = performance.now();
+        epoch = vtHoldStopEpoch;
         pid = pointerId;
         btn.classList.add('vt-holding');
         say(k.hold);
         tick();
         timer = setTimeout(function () {
             if (!t0) return;
+            // the last gate: no STOP since the hold began, still visible, link up
+            if (epoch !== vtHoldStopEpoch || !shown() || (o.canFire && !o.canFire())) { stop(true); return; }
             t0 = 0;
             cancelAnimationFrame(raf);
             if (pid !== null) { try { btn.releasePointerCapture(pid); } catch (e) { /* gone */ } }
@@ -700,9 +720,20 @@ function vtHoldToFire(btn, ms, fire, o) {
         if (pid === null) stop(true);
     });
     btn.addEventListener('blur', function () { stop(true); });
-    btn.addEventListener('click', function (e) { e.preventDefault(); e.stopImmediatePropagation(); });
+    // a second finger / pointer anywhere while held = let go (on a phone a
+    // tap with a second finger makes no click, so this is what catches a
+    // STOP tapped while the first finger still holds START)
+    document.addEventListener('pointerdown', function (e) { if (t0 && e.pointerId !== pid) stop(true); }, true);
+    window.addEventListener('blur', function () { stop(true); });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') stop(true); });
+    // capture: runs before other click listeners on the button (webui.js blurs
+    // every btn* 700 ms after a click — that would cancel a hold begun right
+    // after a tap, D3 review N2); a click itself never acts here
+    btn.addEventListener('click', function (e) { e.preventDefault(); e.stopImmediatePropagation(); }, true);
     btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });   // a long press is not a menu
-    return { cancel: function () { stop(false); } };
+    var h = { cancel: function () { stop(false); }, holding: function () { return !!t0; } };
+    vtHoldAll.push(h);
+    return h;
 }
 
 class PathListItemTemplate {
@@ -6703,6 +6734,9 @@ class Mower {
     }
 
     pub_mower_set_motor_on(value) {
+        // D3 review N1: any blade-off (big STOP, STOP MOTOR, the right panel,
+        // the stop of a program) first kills a START hold in progress
+        if (value === false) vtHoldCancelAll();
         let msg = new ROSLIB.Message({
             data: value
         });
@@ -8603,8 +8637,8 @@ window.initMapView = function () {
 
     joy_teleop = new JoyTeleop(ros);
     // a dropped rosbridge must not leave the stick "held"
-    ros.ros.on('close', function () { joy_teleop.joy.release(); });
-    ros.ros.on('error', function () { joy_teleop.joy.release(); });
+    ros.ros.on('close', function () { joy_teleop.joy.release(); vtHoldCancelAll(); });
+    ros.ros.on('error', function () { joy_teleop.joy.release(); vtHoldCancelAll(); });
 
 
     /**
@@ -8627,6 +8661,9 @@ window.initMapView = function () {
     pm_motor_switch_estop.advertise();
 
     map_menu.btn_stop_all.onclick = function () {
+        // D3 review N1: first of all, a START MOTOR hold in progress must not
+        // turn into a blade start after this stop
+        vtHoldCancelAll();
         // vitulus_ui: full emergency stop. It is not enough to cut the wheels and
         // cancel the nav goal — every autonomous driver must be stopped too, or
         // re-enabling the motors would let a still-running mowing mission / dock
@@ -8825,10 +8862,18 @@ window.initMapView = function () {
     // nothing. What it sends is unchanged: /mower/set_motor_on {data: true}, once.
     mower.blade_hold = vtHoldToFire(mower.btn_mower_start_motor, 500, function () {
         mower.pub_mower_set_motor_on(true);
-    }, { hint: document.getElementById('div_mower_hold_hint'),
+    }, { canFire: function () { return !!(ros && ros.state === 'connected'); },
+         hint: document.getElementById('div_mower_hold_hint'),
          keys: { idle: 'cfg.d3.hold.hint', hold: 'cfg.d3.hold.holding', early: 'cfg.d3.hold.early', done: 'cfg.d3.hold.sent' } });
 
+    // a lost / stale robot link (heartbeat) cancels a START hold too
+    ['rosdisconnected', 'roserror'].forEach(function (ev) { document.addEventListener(ev, vtHoldCancelAll); });
+
+    // STOP MOTOR acts already on the press (also with a second finger, which
+    // makes no click on a phone): vt_frame.js STOP_PRESS runs this handler
+    // on pointerdown and drops the click that ends the same press
     mower.btn_mower_stop_motor.onclick = function() {
+        vtHoldCancelAll();                     // D3 review N1 (also inside the publish)
         mower.pub_mower_set_motor_on(value = false);
     };
 

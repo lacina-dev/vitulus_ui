@@ -2628,7 +2628,7 @@
     "cfg.d3.motors.off_old": "Motory jsou vypnuté — čísla níž jsou z doby, kdy byly naposledy zapnuté.",
     "cfg.d3.motors.stale": "Motory přestaly hlásit — čísla níž jsou stará.",
     "cfg.d3.navi.lidar": "Lidar",
-    "cfg.d3.rtab.wait": "RTAB-Map teď svoje nastavení nehlásí (běží jen při tvorbě mapy). Zdroj, který vybereš, se uloží pro jeho příští spuštění.",
+    "cfg.d3.rtab.wait": "RTAB-Map teď svoje nastavení nehlásí (běží jen při tvorbě mapy). Zdroj, který vybereš, se pošle spolu se vzdáleností pod jezdcem a uloží se pro jeho příští spuštění.",
     "cfg.d3.rtab.now": "teď",
     "cfg.d3.rtab.apply": "Použít",
     "cfg.d3.rtab.apply_tip": "Pošle tuhle vzdálenost se zdrojem, který robot hlásí",

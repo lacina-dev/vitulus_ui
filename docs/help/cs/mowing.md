@@ -25,13 +25,15 @@ STOP MOTOR tady; kliknutím na název se rozbalí
 
 **START MOTOR zabere, až když ho půl sekundy podržíš** — myší, prstem, nebo podržením Enter /
 mezerníku na klávesnici. Tlačítko se během držení plní; když pustíš dřív (nebo z něj sjedeš),
-nic se nepošle a řádek pod ním to řekne. Samotné kliknutí nedělá nic. **STOP MOTOR** zabere hned.
+nic se nepošle a řádek pod ním to řekne. Samotné kliknutí nedělá nic.
+**STOP**, **STOP MOTOR**, ztráta spojení s robotem, druhý prst nebo odchod ze záložky během držení ho
+zruší — nůž se pak nerozběhne. **STOP MOTOR** zabere hned (už při stisku).
 
 ![Nastavení › Sekačka s očíslovanými značkami](../img/shot-mower.webp "1 ON / OFF (napájení) · 2 směr · 3 výška v mm + Nastavit · 4 otáčky + Nastavit · 5 Domů · 6 START MOTOR (podržet ½ s) / STOP MOTOR")
 
 | Ovládání | Co dělá |
 |---|---|
-| **Napájení ON / OFF** | napájení sekačky; vyplněná polovina je skutečný stav. **Tepl.** vedle je teplota desky sekačky. Hlavička karty ukazuje **Stav**: OFF, INIT, HOME, VÝŠKA, READY, RUN, ERR, BLOCKED, TEMP |
+| **Napájení ON / OFF** | napájení sekačky; vyplněná polovina je skutečný stav. Hlavička karty ukazuje **Tepl.** (teplota desky sekačky) a **Stav**: OFF, INIT, HOME, VÝŠKA, READY, RUN, ERR, BLOCKED, TEMP |
 | **Směr** | **Vlevo** / **Vpravo** — směr otáčení nože. Současný řadič sekačky ho nepřebírá: hlásí vždy LEFT |
 | **Výška** | aktuální / maximum v **mm**; zadej výšku v mm (od minima sekačky, výchozí 25 mm, po maximum, třeba 45) a **Nastavit**. Hodnota mimo rozsah se ignoruje |
 | **Otáčky** | aktuální / žádané; zadej hodnotu (500–4000) a **Nastavit** |

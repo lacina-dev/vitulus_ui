@@ -598,6 +598,73 @@
         if (b) { b.click(); }
     }
 
+    /* STOP on the press (owner/ředitel 2026-11-08, after D3 review): on a
+       phone a tap with a SECOND finger while another finger is down (on the
+       stick, on START MOTOR, anywhere) makes pointer events but NO click —
+       a click-only STOP did nothing then. The STOP controls below therefore
+       act on pointerdown: the press runs the control's own click handler once
+       (el.click(), so every existing handler and message stays the same) and
+       the click that ends the same press is dropped, so a tap / mouse click
+       sends exactly one stop. The drop never swallows a real stop: only a
+       pointer click (detail > 0) that follows a press which itself already
+       stopped, within 1.5 s, is dropped; keyboard (Enter / Space / Esc) and
+       script .click() (detail 0) always act.
+         always: the emergency / blade stops act on every press;
+         else:   panel stops (inside scrolling panels: a scroll that starts
+                 on them must not stop a program) act on the press only when
+                 another pointer is already down — the case without a click;
+                 a single tap stays a normal click. */
+    var STOP_PRESS = [
+        {sel: '#vt_stop_big', always: true},                 // the big STOP (frame)
+        {sel: '#btn_stop_all', always: true},                // the bar STOP (hidden, map_view.js)
+        {sel: '#btn_mower_stop_motor', always: true},        // Settings › Mower › STOP MOTOR
+        {sel: '#rp_mower_blade_key[data-state="err"]'},      // right panel ■ blade stop (only while it turns)
+        {sel: '#dock_btn_menu_stop'},                        // right panel Controls › Stop
+        {sel: '#dock_btn_by_map_stop'},                      // Map › Dock › Stop (lidar map)
+        {sel: '#dock_btn_by_intensity_stop'},                // Map › Dock › Stop (intensity)
+        {sel: '#btn_menu_program_stop'},                     // Programs › Stop
+        {sel: '#btn_menu_point_cancel'},                     // Map › Point › Cancel navigation
+        {sel: '#btn_menu_path_cancel'}                       // Map › Path › Cancel navigation
+    ];
+    var downIds = {};                                        // pointerId → pointerType, pointers now down
+    function nDown() { return Object.keys(downIds).length; }
+    function stopRule(t) {
+        if (!t || !t.closest) { return null; }
+        for (var i = 0; i < STOP_PRESS.length; i++) {
+            var el = t.closest(STOP_PRESS[i].sel);
+            if (el) { return {el: el, always: !!STOP_PRESS[i].always}; }
+        }
+        return null;
+    }
+    document.addEventListener('pointerdown', function (e) {
+        // a new touch gesture: no older finger can still be down
+        if (e.isPrimary && e.pointerType !== 'mouse') {
+            Object.keys(downIds).forEach(function (k) { if (downIds[k] !== 'mouse') { delete downIds[k]; } });
+        }
+        downIds[e.pointerId] = e.pointerType;
+        if (e.pointerType === 'mouse' && e.button !== 0) { return; }
+        var r = stopRule(e.target);
+        if (!r || r.el.disabled) { return; }
+        if (!(r.always || nDown() > 1)) { r.el.removeAttribute('data-vt-stop-pressed'); return; }
+        r.el.setAttribute('data-vt-stop-pressed', String(Date.now()));
+        try { r.el.click(); } catch (err) { /* the bar STOP below still runs */ }
+    }, true);
+    ['pointerup', 'pointercancel'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) { delete downIds[e.pointerId]; }, true);
+    });
+    window.addEventListener('blur', function () { downIds = {}; });
+    document.addEventListener('click', function (e) {
+        var el = e.target && e.target.closest ? e.target.closest('[data-vt-stop-pressed]') : null;
+        if (!el) { return; }
+        var at = Number(el.getAttribute('data-vt-stop-pressed')) || 0;
+        if (e.detail > 0 && at && Date.now() - at < 1500) {
+            el.removeAttribute('data-vt-stop-pressed');      // the end of a press that already stopped
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    }, true);
+    window.VTStopPress = { rules: STOP_PRESS, down: nDown };
+
     function init() {
         installC();
         installToggle();

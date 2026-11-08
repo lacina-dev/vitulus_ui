@@ -26,7 +26,8 @@ Velké kulaté červené tlačítko **STOP** (hřib: červená hlava v objímce 
 horní lišta do něj vbíhá zleva a pravý panel začíná pod ním (na telefonu na výšku je to pravý
 konec horní lišty). Je vidět ve všech stavech — s otevřeným panelem i přes celou obrazovku,
 s logem, velkou kamerou, editorem mapy, nápovědou i agentem — a nic ho nezakryje. Klávesa **Esc**
-udělá totéž, vždy (i při psaní nebo v otevřeném dialogu). Najednou udělá všechno tohle a navíc
+udělá totéž, vždy (i při psaní nebo v otevřeném dialogu). STOP zabere v okamžiku dotyku — i druhým
+prstem, když první drží joystick nebo START MOTOR. Najednou udělá všechno tohle a navíc
 pustí joystick:
 
 1. zruší cíl navigace,

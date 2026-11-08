@@ -127,7 +127,7 @@ The help should *show* what it talks about. Two kinds:
 | Key | Spot |
 |---|---|
 | `marker`, `map`, `program`, `config`, `editor`, `agent`, `needs`, `support` | the panel (fallback for its tabs) |
-| `map/<tab>`, `program/<tab>`, `config/<tab>` | a tab: the pane id without `tab-` / `tab_` (`#tab-dock` → `map/dock`, `#tab_lidar` → `config/lidar`) |
+| `map/<tab>`, `program/<tab>`, `config/<tab>` | a tab: the pane id without `tab-` / `tab_` (`#tab-dock` → `map/dock`, `#tab_navi` → `config/navi`) |
 | `agent/<tab>` | `TAB_ORDER` in `agent_chat.js` |
 | `support/<tab>` | `TABS` in `vt_support.js` |
 | `right/state`, `log` | the `?` in the right panel's Navi head and in the log toolbar |
