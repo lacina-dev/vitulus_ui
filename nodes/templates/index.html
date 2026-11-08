@@ -711,6 +711,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <link rel="stylesheet" href="assets/css/vt_lidar.css">
     <link rel="stylesheet" href="assets/css/vt_header.css">
     <link rel="stylesheet" href="assets/css/vt_autonomy.css">
+    <link rel="stylesheet" href="assets/css/vt_programs.css">
 </head>
 
 <body>
@@ -886,7 +887,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <div id="mapv3_maps_header" class="vt-flex vt-aic vt-gap6 vt-wrap">
                                                 <span class="drawer-hint" data-i18n="mapt.saved">Saved maps</span>
                                                 <span id="mapv3_serving_status" class="vt-fs-sm vt-dim">active: &mdash;</span>
-                                                <button class="btn btn-outline-secondary btn-sm vt-fs-xs vt-pad-s" id="mapv3_btn_deactivate" type="button" data-i18n-title="mapt.deactivate_tip" title="FACTORY-FRESH test: deactivate the map entirely — no active map, no datum, survives restarts (simulates a freshly installed robot; localization runs on GPS/odometry only). Click twice to confirm. Any Activate or Save &amp; finish restores normal operation.">Deactivate</button>
+                                                <button class="btn btn-outline-warning btn-sm vt-map-deact" id="mapv3_btn_deactivate" type="button" data-i18n-title="mapt.deactivate_tip" title="FACTORY-FRESH test: deactivate the map entirely — no active map, no datum, survives restarts (simulates a freshly installed robot; localization runs on GPS/odometry only). Click twice to confirm. Any Activate or Save &amp; finish restores normal operation.">Deactivate</button>
                                             </div>
                                             <div id="mapv3_sites_row" class="vt-mt1"></div>
                                         </div>
@@ -1075,7 +1076,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <!-- PRIMARY: saved paths list + run/cancel -->
                                         <div class="drawer-primary">
                                             <span class="drawer-hint" data-i18n="path.saved">Saved paths</span>
-                                            <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_path_cancel" type="button" title="Cancel current navigation" data-i18n-title="page.cancel_nav_tip" data-i18n="page.cancel_navi">Cancel navi</button>
+                                            <button class="btn btn-outline-warning btn-sm ms-auto" id="btn_menu_path_cancel" type="button" title="Cancel current navigation" data-i18n-title="page.cancel_nav_tip" data-i18n="page.cancel_navi" data-nav="off">Cancel navigation</button>
                                         </div>
                                         <div class="vt-items" id="div_menu_path_items_row"></div>
                                         <div class="vt-mt2"><button class="btn btn-primary btn-sm" id="btn_menu_path_clear" type="button" title="Hide the path shown on the map" data-i18n-title="path.clear_tip" data-i18n="path.clear">Clear paths</button></div>
@@ -1084,17 +1085,21 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <!-- PRIMARY: saved points list + cancel -->
                                         <div class="drawer-primary">
                                             <span class="drawer-hint" data-i18n="point.saved">Saved points</span>
-                                            <button class="btn btn-warning btn-sm ms-auto" id="btn_menu_point_cancel" type="button" title="Cancel current navigation" data-i18n-title="page.cancel_nav_tip" data-i18n="page.cancel_navi">Cancel navi</button>
+                                            <button class="btn btn-outline-warning btn-sm ms-auto" id="btn_menu_point_cancel" type="button" title="Cancel current navigation" data-i18n-title="page.cancel_nav_tip" data-i18n="page.cancel_navi" data-nav="off">Cancel navigation</button>
                                         </div>
                                         <div class="vt-items" id="div_menu_point_items_row"></div>
                                         <div class="vt-mt2"><button class="btn btn-primary btn-sm" id="btn_menu_point_clear" type="button" title="Hide the points shown on the map" data-i18n-title="point.clear_tip" data-i18n="point.clear">Clear points</button></div>
                                     </div>
                                     <div class="tab-pane" role="tabpanel" id="tab-dock">
-                                        <!-- PRIMARY: dock / undock actions + live status (P12: two cards, one anatomy) -->
+                                        <!-- PRIMARY: dock / undock actions + live status (P12: two cards, one anatomy).
+                                             D4 (audit M3): the head switch runs the card's node and says On / Off;
+                                             one line says what the card is and how the two differ -->
+                                        <p class="vt-dock-note" data-i18n="dock.d4.manual_note">For setting up and tests: these buttons bypass the dock sequence, watch the robot. Everyday Dock / Undock is in the right panel › Controls.</p>
                                         <div class="vt-card vt-dock-card vt-mb2">
                                             <div class="vt-card-head"><span class="vt-card-title" data-i18n="dock.by_map">Dock by lidar map</span>
-                                                <span class="vt-end form-check form-check-inline vt-m0"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="dock_check_enable_by_map">Enable</label></span>
+                                                <span class="vt-end form-check form-switch vt-m0 vt-dock-sw" title="Runs the dock detector (the lidar dock map) — this card's buttons and picture need it" data-i18n-title="dock.d4.by_map_sw_tip"><input class="form-check-input" type="checkbox" role="switch" id="dock_check_enable_by_map"><label class="form-check-label" id="dock_label_enable_by_map" for="dock_check_enable_by_map">—</label></span>
                                             </div>
+                                            <p class="vt-dock-hint" data-i18n="dock.d4.by_map_hint">Finds the dock by the lidar picture of its surroundings (the Dock detector map below).</p>
                                             <div class="btn-group btn-group-sm vt-seg" role="group">
                                                 <button class="btn btn-primary btn-sm" id="predock_btn_by_map" type="button" data-i18n="dock.predock">Predock</button>
                                                 <button class="btn btn-primary btn-sm" id="dock_btn_by_map" type="button" data-i18n="dock.dock">Dock</button>
@@ -1106,8 +1111,9 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         </div>
                                         <div class="vt-card vt-dock-card vt-mb2">
                                             <div class="vt-card-head"><span class="vt-card-title" data-i18n="dock.by_int">Dock by intensity</span>
-                                                <span class="vt-end form-check form-check-inline vt-m0"><input class="form-check-input" type="checkbox" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="dock_check_enable_by_intensity">Enable</label></span>
+                                                <span class="vt-end form-check form-switch vt-m0 vt-dock-sw" title="Runs the docking controller (the reflector) — this card's buttons and picture need it" data-i18n-title="dock.d4.by_int_sw_tip"><input class="form-check-input" type="checkbox" role="switch" id="dock_check_enable_by_intensity"><label class="form-check-label" id="dock_label_enable_by_intensity" for="dock_check_enable_by_intensity">—</label></span>
                                             </div>
+                                            <p class="vt-dock-hint" data-i18n="dock.d4.by_int_hint">Finds the dock by its reflector — the bright stripe the lidar sees on the dock.</p>
                                             <div class="btn-group btn-group-sm vt-seg" role="group">
                                                 <button class="btn btn-primary btn-sm" id="dock_btn_by_intensity" type="button" data-i18n="dock.dock">Dock</button>
                                                 <button class="btn btn-primary btn-sm" id="undock_btn_by_intensity" type="button" data-i18n="dock.undock">Undock</button>
@@ -1252,7 +1258,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                         <div class="border-primary vt-drawer-panel" id="div_menu_map_point" style="display: none;"></div>
                         <div class="border-primary vt-drawer-panel" id="div_menu_map_path" style="display: none;"></div>
                         <div class="border-primary vt-drawer-panel" id="div_menu_map_program" style="display: none;">
-<ul class="nav nav-tabs drawer-pills vt-mb2" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs" data-i18n="prog.tab.programs">Programs</a></li><li class="nav-item" role="presentation"><a class="nav-link vt-auto-link" href="#" id="link_programs_plan" title="The calendar is in Autonomy" data-i18n-title="auto.programs_link_tip"><span data-i18n="prog.calendar">Calendar</span> <i class="la la-angle-right"></i></a></li></ul>
+<!-- D4 (audit P5): one tab; the calendar is a link to Autonomy › Plan under the list, not a tab -->
+<ul class="nav nav-tabs drawer-pills vt-mb2" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_programs" data-i18n="prog.tab.programs">Programs</a></li></ul>
 <div class="tab-content">
 <div class="tab-pane active" role="tabpanel" id="tab_programs">
                             <!-- U1 kolo 3: Programs in the panel anatomy — list of program
@@ -1271,31 +1278,36 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                     <div class="text-warning vt-msg" id="div_program_running_notes"></div>
                                 </div>
                                 <div id="div_menu_program_items_row" class="vt-cards"></div>
+                                <div class="vt-prog-calrow"><a class="vt-prog-cal" href="#" id="link_programs_plan" title="The calendar is in Autonomy › Plan" data-i18n-title="auto.programs_link_tip"><i class="la la-calendar" aria-hidden="true"></i><span data-i18n="prog.d4.cal_link">When they run: calendar in Autonomy › Plan</span><i class="la la-angle-right" aria-hidden="true"></i></a></div>
                                 <div id="div_menu_program_detail_row" class="vt-card vt-prog-detail" data-state="off">
                                     <div class="vt-card-head">
                                         <span class="vt-card-title" data-i18n="prog.program">Program</span>
                                         <span class="text-info" id="span_menu_program_name" style="display: none;"></span>
-                                        <span class="vt-end"><span data-i18n="prog.last">last:</span> <span id="span_menu_program_last_result">—</span></span>
+                                        <span class="vt-end vt-prog-last"><span data-i18n="prog.last">last:</span> <span id="span_menu_program_last_result">—</span></span>
                                     </div>
                                     <div class="vt-form">
                                         <div class="vt-form-item vt-form-wide"><label class="vt-label" for="inp_program_name" data-i18n="common.name">Name</label><input class="form-control form-control-sm" id="inp_program_name" type="text" placeholder="Program name" data-i18n-placeholder="prog.name_ph"></div>
                                     </div>
                                     <dl class="vt-kv vt-kv-2">
-                                        <dt data-i18n="prog.area">Area</dt><dd><span id="span_menu_program_area">0</span> m²</dd>
-                                        <dt data-i18n="prog.length">Length</dt><dd><span id="span_menu_program_length">0</span> m</dd>
-                                        <dt data-i18n="prog.duration">Duration</dt><dd><span id="span_menu_program_duration">0</span> min</dd>
+                                        <dt data-i18n="prog.area">Area</dt><dd><span id="span_menu_program_area">0</span>&nbsp;m²</dd>
+                                        <dt data-i18n="prog.length">Length</dt><dd><span id="span_menu_program_length">0</span>&nbsp;m</dd>
+                                        <dt data-i18n="prog.duration">Duration</dt><dd><span id="span_menu_program_duration">0</span>&nbsp;min</dd>
                                         <dt data-i18n="prog.map">Map</dt><dd><span id="span_menu_program_map">—</span></dd>
                                         <dt data-i18n="prog.env">Environment</dt><dd><span id="span_menu_program_env">—</span></dd>
                                         <dt data-i18n="prog.status">Status</dt><dd><span id="span_menu_program_status">—</span></dd>
                                     </dl>
                                     <div class="vt-msg vt-prog-foreign-note" data-i18n="mapview.prog.foreign_note">This program belongs to another map. Run loads that map in the dock first. To edit it, activate its map.</div>
+                                    <!-- D4 (audit P1): Run is the primary action and stands apart from Resume;
+                                         Resume / Show are secondary; Stop / Reset sit apart on the right and
+                                         light up only when they apply (map_view.js Programs._paintHalt) -->
                                     <div class="vt-prog-action"><span class="vt-label vt-label-gap" data-i18n="prog.action">Action</span>
-                                    <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-primary" id="btn_menu_program_run" type="button" data-i18n="prog.run">Run</button><button class="btn btn-primary" id="btn_menu_program_resume" type="button" data-i18n="common.resume">Resume</button><button class="btn btn-primary" id="btn_menu_program_show" type="button">Show</button><button class="btn btn-warning" id="btn_menu_program_stop" type="button" data-i18n="common.stop">Stop</button><button class="btn btn-danger" id="btn_menu_program_reset" type="button" data-i18n="common.reset">Reset</button></div>
+                                    <div class="vt-prog-acts">
+                                        <div class="vt-prog-go" role="group"><button class="btn btn-info vt-prog-run" id="btn_menu_program_run" type="button"><i class="la la-play" aria-hidden="true"></i><span data-i18n="prog.run">Run</span></button><button class="btn btn-primary" id="btn_menu_program_resume" type="button" data-i18n="common.resume">Resume</button><button class="btn btn-primary" id="btn_menu_program_show" type="button" data-i18n="common.show">Show</button></div>
+                                        <div class="vt-prog-halt" role="group"><button class="btn btn-outline-warning" id="btn_menu_program_stop" type="button" data-i18n="common.stop">Stop</button><button class="btn btn-outline-danger" id="btn_menu_program_reset" type="button" data-i18n="common.reset">Reset</button></div>
+                                    </div>
                                     <div class="text-warning fw-bold vt-msg" id="div_menu_program_run_msg"></div></div>
                                     <span class="vt-label vt-label-gap" data-i18n="prog.settings">Settings</span>
                                     <div class="vt-form">
-                                        <div class="vt-form-item"><label class="vt-label" for="inp_program_rpm" data-i18n="prog.rpm">RPM</label><input class="form-control form-control-sm vt-num-in" id="inp_program_rpm" type="number" min="0" max="9999"></div>
-                                        <div class="vt-form-item"><label class="vt-label" for="inp_program_cut_height" data-i18n="prog.cut_height">Cut height</label><div class="input-group input-group-sm"><input class="form-control vt-num-in" id="inp_program_cut_height" type="number" min="0" max="80"><span class="input-group-text">mm</span></div></div>
                                         <div class="vt-form-item"><span class="vt-label" data-i18n="prog.speed">Speed</span>
                                             <div class="btn-group btn-group-sm" role="group">
                                                 <button class="btn btn-sm btn-outline-secondary" id="btn_program_speed_slow" type="button" data-i18n="page.speed.slow">Slow</button>
@@ -1303,12 +1315,25 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <button class="btn btn-sm btn-outline-secondary" id="btn_program_speed_fast" type="button" data-i18n="page.speed.fast">Fast</button>
                                             </div>
                                         </div>
-                                        <div class="vt-form-item"><label class="vt-label" for="chk_program_override_zone" data-i18n="prog.override">Override zone</label><div class="form-check vt-check"><input class="form-check-input" type="checkbox" id="chk_program_override_zone"></div></div>
                                     </div>
-                                    <div class="vt-row vt-card-actions"><button class="btn btn-success btn-sm" id="btn_program_save_settings" type="button" data-i18n="common.save">Save</button><button class="btn btn-outline-danger btn-sm vt-prog-del" id="btn_program_delete" type="button" title="Delete this program" data-i18n-title="prog.del_tip" onclick="programs.askDeleteProgram()" data-i18n="common.delete">Delete</button></div>
+                                    <!-- D4 (audit P2): what applies is said in words — without Override each zone keeps
+                                         its own height / RPM (an unset 0 shows as an empty field), with it the
+                                         program's two values win and the zone cards show theirs crossed out -->
+                                    <div class="vt-prog-ovr-box" id="div_program_override" data-ovr="off">
+                                        <label class="vt-prog-ovr" for="chk_program_override_zone"><input class="form-check-input" type="checkbox" id="chk_program_override_zone"><span data-i18n="prog.override">Override zones</span></label>
+                                        <div class="vt-form vt-prog-ovr-vals">
+                                            <div class="vt-form-item"><label class="vt-label" for="inp_program_cut_height" data-i18n="prog.cut_height">Cut height</label><div class="input-group input-group-sm"><input class="form-control vt-num-in" id="inp_program_cut_height" type="number" min="0" max="80" placeholder="—"><span class="input-group-text">mm</span></div></div>
+                                            <div class="vt-form-item"><label class="vt-label" for="inp_program_rpm" data-i18n="prog.rpm">RPM</label><input class="form-control form-control-sm vt-num-in" id="inp_program_rpm" type="number" min="0" max="9999" placeholder="—"></div>
+                                        </div>
+                                        <div class="vt-prog-ovr-note" id="div_program_override_note"></div>
+                                    </div>
+                                    <!-- D4 (audit P3): the zones of the program first; adding is a separate row
+                                         whose list starts empty ("Add a zone…"), so it never looks like a zone of
+                                         the program; Save / Delete at the foot of the card, Save stores all of it -->
                                     <span class="vt-label vt-label-gap" data-i18n="prog.zones">Program zones</span>
-                                    <div class="vt-row"><select class="form-select form-select-sm vt-grow" id="sel_program_add_zone"></select><button class="btn btn-primary btn-sm" id="btn_program_add_zone_sel" type="button" onclick="programs.addZoneToProgram()" data-i18n="prog.add_zone">Add zone</button></div>
                                     <div class="vt-cards vt-zone-cards" id="row_menu_program_detail_zones"></div>
+                                    <div class="vt-row vt-prog-addzone"><select class="form-select form-select-sm vt-grow" id="sel_program_add_zone" aria-label="Zone to add" data-i18n-aria-label="prog.d4.pick_zone_tip"></select><button class="btn btn-primary btn-sm" id="btn_program_add_zone_sel" type="button" onclick="programs.addZoneToProgram()" data-i18n="prog.add_zone" disabled>Add zone</button></div>
+                                    <div class="vt-row vt-card-actions"><button class="btn btn-success btn-sm" id="btn_program_save_settings" type="button" data-i18n="common.save">Save</button><button class="btn btn-outline-danger btn-sm vt-prog-del" id="btn_program_delete" type="button" title="Delete this program" data-i18n-title="prog.del_tip" onclick="programs.askDeleteProgram()" data-i18n="common.delete">Delete</button></div>
                                 </div>
                             </div>
                             </div>

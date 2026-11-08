@@ -578,6 +578,19 @@ function vtResultState(t) {
     if (/stop|cancel|preempt|pause|interrupt/i.test(t)) return 'warn';
     return 'info';
 }
+/* D4 (audit M1): Cancel navigation in Map › Path / Point is always there and
+   always works (whatever the page thinks), but it is filled (lit) only while a
+   navigation goal is driven — the same MBF exe_path state that locks the stick
+   (JoyView._watchOwner). No subscription of its own. */
+function vtPaintNavCancel(active) {
+    ['btn_menu_path_cancel', 'btn_menu_point_cancel'].forEach(function (id) {
+        var b = document.getElementById(id);
+        if (!b) return;
+        b.classList.toggle('btn-warning', !!active);
+        b.classList.toggle('btn-outline-warning', !active);
+        b.dataset.nav = active ? 'on' : 'off';
+    });
+}
 function vtEsc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
         return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
@@ -746,10 +759,10 @@ class PathListItemTemplate {
         return `
             <div class="vt-item">
                 <button onclick="map_menu.path_clicked_exec('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="${vtEsc(vtT('mlib.path.drive'))}">
-                    <i class="fa fa-arrow-circle-right text-info"></i>
+                    <i class="fa fa-arrow-circle-right" aria-hidden="true"></i><span>${vtEsc(vtT('path.d4.go'))}</span>
                 </button>
                 <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
-                <button onclick="map_menu.path_clicked_show('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.show'))}</button>
+                <button onclick="map_menu.path_clicked_show('${this.name}')" class="btn btn-outline-secondary vt-item-show" type="button">${vtEsc(vtT('common.show'))}</button>
             </div>
             `;
     }
@@ -757,8 +770,10 @@ class PathListItemTemplate {
 
 
 class ProgramZoneItemTemplate {
-    // U1 kolo 3: zone of a program = small card with a key/value list
-    constructor(zone) {
+    // U1 kolo 3: zone of a program = small card with a key/value list.
+    // D4 (P2): ovr = {cut, rpm} while the program overrides the zones — the
+    // zone's own value is crossed out next to the one that applies.
+    constructor(zone, ovr) {
         this.zone = zone;
         this.name = zone.name;
         this.area = zone.area;
@@ -769,19 +784,23 @@ class ProgramZoneItemTemplate {
         this.paths_distance = zone.paths_distance;
         this.border_paths = zone.border_paths;
         this.paths = zone.paths.length;
+        const own = (v, unit) => v + (unit ? '&nbsp;' + unit : '');
+        const ovrDd = (v, unit, o) => (ovr
+            ? `<dd class="vt-overridden" title="${vtEsc(vtT('prog.d4.ovr_zone_tip'))}"><s>${own(v, unit)}</s><b>${own(o, unit)}</b></dd>`
+            : `<dd>${own(v, unit)}</dd>`);
         this.element =  `
             <div class="vt-card vt-zone-card">
                 <div class="vt-card-head">
-                    <span class="vt-card-title">${vtEsc(this.name)}</span>
+                    <span class="vt-card-title" title="${vtEsc(this.name)}">${vtEsc(this.name)}</span>
                     <button class="vt-iconbtn vt-iconbtn-sm vt-zone-del" type="button" title="${vtEsc(vtT('mapview.zone.remove'))}" onclick="programs.removeZoneFromProgram('${this.name}')"><i class="fa fa-remove text-danger"></i></button>
                 </div>
                 <dl class="vt-kv vt-kv-2">
-                    <dt>${vtEsc(vtT('mapview.zone.cut_height'))}</dt><dd>${this.cut_height} mm</dd>
-                    <dt>${vtEsc(vtT('mapview.zone.rpm'))}</dt><dd>${this.rpm}</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.cut_height'))}</dt>${ovrDd(this.cut_height, 'mm', ovr && ovr.cut)}
+                    <dt>${vtEsc(vtT('mapview.zone.rpm'))}</dt>${ovrDd(this.rpm, '', ovr && ovr.rpm)}
                     <dt>${vtEsc(vtT('mapview.zone.angle'))}</dt><dd>${this.coverage_angle}°</dd>
-                    <dt>${vtEsc(vtT('mapview.zone.path_distance'))}</dt><dd>${this.paths_distance} m</dd>
-                    <dt>${vtEsc(vtT('mapview.zone.area'))}</dt><dd>${this.area} m²</dd>
-                    <dt>${vtEsc(vtT('mapview.zone.length'))}</dt><dd>${this.length} m</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.path_distance'))}</dt><dd>${own(this.paths_distance, 'm')}</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.area'))}</dt><dd>${own(this.area, 'm²')}</dd>
+                    <dt>${vtEsc(vtT('mapview.zone.length'))}</dt><dd>${own(this.length, 'm')}</dd>
                     <dt>${vtEsc(vtT('mapview.zone.borders'))}</dt><dd>${this.border_paths}</dd>
                     <dt>${vtEsc(vtT('mapview.zone.paths'))}</dt><dd>${this.paths}</dd>
                 </dl>
@@ -801,13 +820,15 @@ class ProgramListItemTemplate {
         this.area = item.area;
         this.last_duration = item.last_duration_minutes;
         this.last_result = item.last_result || '';
-        const st = vtResultState(this.last_result);
-        // last_result comes from the planner (data); only the "never run" stand-in is UI text
-        const res = vtEsc(this.last_result || vtT('mapview.prog.never_run'));
+        // D4 (P4): the planner's last_result in the UI language (Programs.resultText),
+        // the raw text in the tooltip
+        const r = Programs.resultText(this.last_result);
+        const st = r.state;
+        const res = vtEsc(r.text);
         this.element =  `
             <button onclick="programs.show_program(${this.program})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
                 <span class="vt-prog-name">${vtEsc(this.name)}${mapName ? ` <span class="vt-prog-map">(${vtEsc(mapName)})</span>` : ''}</span>
-                <span class="vt-prog-meta">${this.area} m² · ${this.last_duration || 0} min · <span class="vt-prog-res">${res}</span></span>
+                <span class="vt-prog-meta">${this.area}&nbsp;m² · ${this.last_duration || 0}&nbsp;min · <span class="vt-prog-res" title="${vtEsc(this.last_result)}">${res}</span></span>
             </button>
             `;
     }
@@ -818,12 +839,13 @@ class ProgramListItemTemplate {
 // its map in the dock first.
 class ForeignProgramItemTemplate {
     constructor(item, id) {
-        const st = vtResultState(item.last_result || '');
-        const res = vtEsc(item.last_result || vtT('mapview.prog.never_run'));
+        const r = Programs.resultText(item.last_result || '');
+        const st = r.state;
+        const res = vtEsc(r.text);
         this.element = `
             <button onclick="programs.show_foreign(${id})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
                 <span class="vt-prog-name">${vtEsc(item.name)} <span class="vt-prog-map">(${vtEsc(item.site)})</span></span>
-                <span class="vt-prog-meta">${item.area || 0} m² · ${item.last_duration_minutes || 0} min · <span class="vt-prog-res">${res}</span></span>
+                <span class="vt-prog-meta">${item.area || 0}&nbsp;m² · ${item.last_duration_minutes || 0}&nbsp;min · <span class="vt-prog-res" title="${vtEsc(item.last_result || '')}">${res}</span></span>
             </button>
             `;
     }
@@ -923,10 +945,10 @@ class PointListItemTemplate {
         return `
             <div class="vt-item">
                 <button onclick="map_menu.point_clicked_goal('${this.name}')" class="btn btn-primary vt-item-go" type="button" title="${vtEsc(vtT('mlib.point.goto'))}">
-                    <i class="fa fa-map-marker text-info"></i>
+                    <i class="fa fa-map-marker" aria-hidden="true"></i><span>${vtEsc(vtT('point.d4.go'))}</span>
                 </button>
                 <span class="vt-item-name text-info" title="${this.name}">${this.name}</span>
-                <button onclick="map_menu.point_clicked_show('${this.name}')" class="btn btn-primary" type="button">${vtEsc(vtT('common.show'))}</button>
+                <button onclick="map_menu.point_clicked_show('${this.name}')" class="btn btn-outline-secondary vt-item-show" type="button">${vtEsc(vtT('common.show'))}</button>
             </div>
             `;
     }
@@ -2440,6 +2462,7 @@ class JoyTeleop {
             else if (st.busy || st.prog) k = 'program';
             else if (st.nav) k = 'nav';
             this.joy.setOwner(k, k ? vtT('joy.owner.' + k, {p: st.prog}) : '');
+            vtPaintNavCancel(st.nav);
         };
         const sub = (name, type, fn, thr) => new ROSLIB.Topic({
             ros: ros.ros, name: name, messageType: type, queue_length: 1, throttle_rate: thr || 0
@@ -7088,6 +7111,21 @@ class PowerModule {
 
 
 class Programs {
+    // D4 (audit P4): the planner's last_result in words of the UI language
+    // ({text, state}); callers keep the raw text in a tooltip. The mission
+    // writes 'succeeded', 'failed: on_path-<zone>-<path>-<index>' (the
+    // checkpoint: the run did not finish, Resume continues there) and
+    // 'failed: on_init | on_planner | on_mower' (it did not get past the
+    // start). Anything else is shown as it came.
+    static resultText(raw) {
+        const t = String(raw || '').trim();
+        if (!t) return {text: vtT('mapview.prog.never_run'), state: 'off'};
+        if (/^succe/i.test(t)) return {text: vtT('prog.d4.res.done'), state: 'ok'};
+        const m = /^failed: on_path-(.+)-(\d+)-(\d+)$/.exec(t);
+        if (m) return {text: vtT('prog.d4.res.unfinished', {zone: m[1]}), state: 'warn'};
+        if (/^failed: on_(init|planner|mower)$/.test(t)) return {text: vtT('prog.d4.res.start_failed'), state: 'err'};
+        return {text: t, state: vtResultState(t)};
+    }
     constructor(ros, map_menu, paths_visualization) {
         this.map_menu = map_menu;
         this.paths_visualization = paths_visualization;
@@ -7265,7 +7303,11 @@ class Programs {
     _relang() {
         try {
             this.draw_program_list();
-            if (this.selected_program) this._renderProgramZones();
+            if (this.selected_program) {
+                this._paintLastResult(this.selected_program.last_result);
+                this._paintOverride();
+                this._fillZoneDropdown();
+            }
             if (this._startState) this._paintStartState();
             this._paintNotes(true);
             if (this._editing_new) this.map_menu.span_menu_program_name.innerText = vtT('mapview.prog.new_name');
@@ -7299,17 +7341,64 @@ class Programs {
             })();
         }
     }
+    // D4 (P3): the list starts on "Add a zone…" (nothing picked, Add is off),
+    // so it never looks like a zone of the program; zones already in the
+    // program are listed but cannot be picked again
     _fillZoneDropdown() {
         var sel = document.getElementById('sel_program_add_zone');
         if (!sel) return;
         var cur = sel.value;
+        var have = ((this.selected_program && this.selected_program.zone_list) || []).map((z) => z.name);
         sel.innerHTML = '';
+        var ph = document.createElement('option');
+        ph.value = ''; ph.textContent = vtT('prog.d4.pick_zone');
+        sel.appendChild(ph);
         this.available_zones.forEach((z) => {
             var o = document.createElement('option');
-            o.value = z.name; o.textContent = z.name;
+            var inProg = have.indexOf(z.name) !== -1;
+            o.value = z.name;
+            o.textContent = inProg ? vtT('prog.d4.zone_in', {zone: z.name}) : z.name;
+            o.disabled = inProg;
             sel.appendChild(o);
         });
-        if (cur) sel.value = cur;
+        sel.value = (cur && have.indexOf(cur) === -1) ? cur : '';
+        this._syncAddZone();
+    }
+    _syncAddZone() {
+        var sel = document.getElementById('sel_program_add_zone');
+        var btn = document.getElementById('btn_program_add_zone_sel');
+        if (btn) btn.disabled = !(sel && sel.value);
+    }
+    // D4 (P4): "last: done" in the card head, the raw text in its tooltip
+    _paintLastResult(raw) {
+        const el = this.map_menu.span_menu_program_last_result;
+        if (!el) return;
+        el.removeAttribute('data-i18n');
+        el.textContent = Programs.resultText(raw).text;
+        el.title = raw || '';
+    }
+    // D4 (P2): what applies, in words; an unset 0 shows as an empty field
+    // (the same 0 is saved); the zone cards show their values crossed out
+    // while the program overrides them
+    _paintOverride(typing) {
+        const m = this.map_menu;
+        if (!m || !m.chk_program_override_zone) return;
+        if (!typing) {
+            [m.inp_program_rpm, m.inp_program_cut_height].forEach((i) => {
+                if (i && String(i.value) === '0') i.value = '';
+            });
+        }
+        const on = !!m.chk_program_override_zone.checked;
+        const box = document.getElementById('div_program_override');
+        if (box) box.dataset.ovr = on ? 'on' : 'off';
+        const note = document.getElementById('div_program_override_note');
+        if (note) {
+            const cut = parseInt(m.inp_program_cut_height.value, 10) || 0;
+            const rpm = parseInt(m.inp_program_rpm.value, 10) || 0;
+            note.textContent = !on ? vtT('prog.d4.ovr_off')
+                : (cut > 0 && rpm > 0) ? vtT('prog.d4.ovr_on', {cut: cut, rpm: rpm}) : vtT('prog.d4.ovr_missing');
+        }
+        this._renderProgramZones();
     }
     // ---- programs of the other maps (vitulus-field#46) ----------------------
     _onSites() {
@@ -7355,13 +7444,8 @@ class Programs {
         m.span_menu_program_duration.innerText = p.last_duration_minutes || 0;
         m.span_menu_program_env.innerText = '—';
         m.span_menu_program_map.innerText = p.site;
-        if (p.last_result) {
-            m.span_menu_program_last_result.removeAttribute('data-i18n');
-            m.span_menu_program_last_result.innerText = p.last_result;
-        } else {
-            vtTag(m.span_menu_program_last_result, 'mapview.prog.never_run');
-        }
-        m.div_menu_program_detail_row.dataset.state = vtResultState(p.last_result);
+        this._paintLastResult(p.last_result);
+        m.div_menu_program_detail_row.dataset.state = Programs.resultText(p.last_result).state;
         m.inp_program_rpm.value = p.rpm || 0;
         m.inp_program_cut_height.value = p.cut_height || 0;
         this._setSpeedButtons(p.speed || 'mid');
@@ -7369,7 +7453,8 @@ class Programs {
         this._editing_new = false;
         this._markNew();
         if (m.inp_program_name) m.inp_program_name.value = p.name;
-        this._renderProgramZones();
+        if (m.chk_program_override_zone) m.chk_program_override_zone.checked = !!p.override_zone;
+        this._paintOverride();
         m.div_menu_program_detail_row.style.display = 'flex';
     }
     _onStartState(text) {
@@ -7446,8 +7531,13 @@ class Programs {
             c.innerHTML = '<div class="vt-empty">' + vtEsc(vtT('mapview.prog.no_zones')) + '</div>';
             return;
         }
+        var m = this.map_menu, ovr = null;
+        if (m.chk_program_override_zone && m.chk_program_override_zone.checked) {
+            ovr = {cut: parseInt(m.inp_program_cut_height.value, 10) || '—',
+                   rpm: parseInt(m.inp_program_rpm.value, 10) || '—'};
+        }
         var html = '';
-        zones.forEach((zone) => { html += new ProgramZoneItemTemplate(zone).element; });
+        zones.forEach((zone) => { html += new ProgramZoneItemTemplate(zone, ovr).element; });
         c.innerHTML = html;
     }
     // vitulus-field#46: a site program belongs to the map it is created on, so
@@ -7491,6 +7581,7 @@ class Programs {
         // A run that ended takes its notes along; a start comes before busy.
         if (this._notesRun && !busy && !waits) { this._notesRun = false; this._chainPrograms = []; this._setNotes([]); }
         if (busy) this._notesRun = true;
+        this._paintHalt(busy, waits);
         if (!busy && !waits) { card.style.display = 'none'; return; }
         card.style.display = '';
         card.dataset.state = waits ? 'warn' : 'info';
@@ -7504,6 +7595,18 @@ class Programs {
         if (stop) stop.style.display = busy ? '' : 'none';
         const reset = document.getElementById('btn_program_running_reset');
         if (reset) reset.style.display = waits ? '' : 'none';
+    }
+    // D4 (P1): the detail's Stop / Reset are outlines at rest (they always
+    // work); Stop is filled while a mission drives, Reset while it waits for one
+    _paintHalt(busy, waits) {
+        const lit = (id, on, tone) => {
+            const b = document.getElementById(id);
+            if (!b) return;
+            b.classList.toggle('btn-' + tone, !!on);
+            b.classList.toggle('btn-outline-' + tone, !on);
+        };
+        lit('btn_menu_program_stop', busy, 'warning');
+        lit('btn_menu_program_reset', waits || this.smach_blocked, 'danger');
     }
     // the running card: how far the run is on the map, or that it is hidden
     _runPathNote(name) {
@@ -7591,7 +7694,7 @@ class Programs {
         this.map_menu.inp_program_cut_height.value = 0;
         this._setSpeedButtons('mid');
         this.map_menu.chk_program_override_zone.checked = false;
-        this._renderProgramZones();
+        this._paintOverride();
         this._ensureZones();
     }
     addZoneToProgram() {
@@ -7604,11 +7707,14 @@ class Programs {
             this.selected_program.zone_list.push(z);
             this._renderProgramZones();
         }
+        sel.value = '';
+        this._fillZoneDropdown();
     }
     removeZoneFromProgram(name) {
         if (!this.selected_program) return;
         this.selected_program.zone_list = this.selected_program.zone_list.filter((z) => z.name !== name);
         this._renderProgramZones();
+        this._fillZoneDropdown();
     }
     // Save the program (create or update): name + zones + cutting settings, in
     // the same /web_plan/program_new message the planner uses.
@@ -7758,14 +7864,8 @@ class Programs {
         const map_env = program.map_name.split('***env*')[1];
         this.map_menu.span_menu_program_env.innerText = map_env || '—';
         this.map_menu.span_menu_program_map.innerText = map_name;
-        // last_result is the planner's own text (data); only the stand-in is UI text
-        if (program.last_result) {
-            this.map_menu.span_menu_program_last_result.removeAttribute('data-i18n');
-            this.map_menu.span_menu_program_last_result.innerText = program.last_result;
-        } else {
-            vtTag(this.map_menu.span_menu_program_last_result, 'mapview.prog.never_run');
-        }
-        this.map_menu.div_menu_program_detail_row.dataset.state = vtResultState(program.last_result);
+        this._paintLastResult(program.last_result);
+        this.map_menu.div_menu_program_detail_row.dataset.state = Programs.resultText(program.last_result).state;
         this.map_menu.inp_program_rpm.value = program.rpm !== undefined ? program.rpm : 0;
         this.map_menu.inp_program_cut_height.value = program.cut_height !== undefined ? program.cut_height : 0;
         this._setSpeedButtons(program.speed || 'mid');
@@ -7777,7 +7877,7 @@ class Programs {
         this._editing_new = false;
         this._markNew();
         if (this.map_menu.inp_program_name) this.map_menu.inp_program_name.value = shownName;
-        this._renderProgramZones();
+        this._paintOverride();
         this._ensureZones();
         // Another program picked: a manual Show goes, the planner draws the rest
         // (the running program stays). Not on the restore after a page load.
@@ -7903,6 +8003,8 @@ class Programs {
         this.smach_blocked_text = blocked ? vtT(this.smach_blocked_key) : '';
         const btn = this.map_menu.btn_menu_program_reset;
         if (btn) btn.classList.toggle('vitulus-attn', blocked);
+        if (btn) { btn.classList.toggle('btn-danger', blocked || this._missionWaitsReset(this.mission_status));
+                   btn.classList.toggle('btn-outline-danger', !btn.classList.contains('btn-danger')); }
         if (!blocked) this._setRunMsg('');
     }
     _setRunMsg(text) {
@@ -8542,6 +8644,16 @@ window.initMapView = function () {
     map_menu.btn_program_save_settings.onclick = function () {
         programs.saveProgramEdit();
     };
+    // D4 (P2, P3): the override box and the zone list follow what is typed /
+    // picked — page only, nothing is sent before Save / Add zone
+    map_menu.chk_program_override_zone.addEventListener('change', function () { programs._paintOverride(true); });
+    [map_menu.inp_program_rpm, map_menu.inp_program_cut_height].forEach(function (inp) {
+        if (inp) inp.addEventListener('input', function () { programs._paintOverride(true); });
+    });
+    (function () {
+        var sel = document.getElementById('sel_program_add_zone');
+        if (sel) sel.addEventListener('change', function () { programs._syncAddZone(); });
+    })();
 
     /**
      *  Paths submenu

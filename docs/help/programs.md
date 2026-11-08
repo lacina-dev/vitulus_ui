@@ -12,19 +12,30 @@ keywords: [chain, several programs, one after another, řetěz, víc programů, 
 # Programs and calendar
 
 A **program** says *what* to mow: a list of zones of its map, the speed, and optionally one
-cut height and RPM for all of them. The **calendar** says *when*. Programs are in **Programs**, the calendar in [Autonomy › Plan](autonomy.md#plan).
+cut height and RPM for all of them. The **calendar** says *when*. Programs are in **Programs**, the calendar in [Autonomy › Plan](autonomy.md#plan)
+(the link *When they run: calendar in Autonomy › Plan* under the program list leads there).
 
-![Programs › Programs with a program open, numbered markers](img/shot-programs.webp "1 the program list (click one to open it; **New program** is at the bottom of the panel) · 2 Run · 3 Resume · 4 Show / Hide · 5 Stop · 6 Reset · 7 Save · 8 Delete")
+![Programs › Programs with a program open, numbered markers](img/shot-programs.webp "1 the program list (click one to open it; **New program** is at the bottom of the panel) · 2 the link to the calendar · 3 Run · 4 Resume · 5 Show / Hide · 6 Stop · 7 Reset")
+
+Each card in the list says how the program last ended: **done**, **unfinished · zone** (it stopped
+in that zone, **Resume** continues there), **failed at the start**, or **never run**. The robot's own
+words are in the tooltip.
+
+![The settings and zones of a program, numbered markers](img/shot-program-settings.webp "1 Override zones · 2 cut height and RPM for all zones · 3 what applies, in words · 4 a zone card: its own value crossed out, the program's next to it · 5 Add a zone… · 6 Save · 7 Delete")
 
 ## Make a program
 
 1. Activate the map first — a program belongs to the map it is made on.
-2. **Programs › Programs › New program**: a **name**, add zones from the list (**Add zone**).
+2. **Programs › Programs › New program**: a **name**, then add zones: pick one in **Add a zone…**
+   under **Program zones** and press **Add zone** (a zone already in the program is marked and
+   cannot be picked again).
 3. **Speed**: Slow / Mid / Fast.
-4. **RPM** and **Cut height** (mm), and **Override zone**: with it ticked, these two values
-   replace each zone's own cut height and RPM (both must be above 0). The height is in
+4. **Override zones**: off, each zone mows with its own cut height and RPM (shown on its card).
+   Ticked, the **Cut height** (mm) and **RPM** below it replace the values of every zone (both must
+   be above 0); the zone cards then show their own value crossed out and the program's next to it,
+   and the line under the box says what applies. An empty field means *not set*. The height is in
    millimetres like everywhere in the UI, e.g. 50 = 5 cm.
-5. **Save**.
+5. **Save** at the bottom of the card — it stores the name, the zones and the settings together.
 
 To change a program, open its card, edit and **Save** again. A new name renames it (the old
 entry goes away). A program the robot is running cannot be renamed — Stop it first.
@@ -32,7 +43,7 @@ entry goes away). A program the robot is running cannot be renamed — Stop it f
 ## Delete a program
 
 1. Open the program's card in **Programs › Programs**.
-2. **Delete** (red, next to **Save**) and confirm in the dialog.
+2. **Delete** (red, at the bottom next to **Save**) and confirm in the dialog.
 
 The program's zones stay on the map — only the program goes. If calendar events use the program,
 the dialog says how many; they stay in the calendar marked **missing** and are skipped until you
@@ -48,6 +59,10 @@ it first (a stopped program can be deleted).
 | **Show / Hide** | draws the program's paths on the map; a running program is drawn by itself, see [below](#paths-on-the-map) |
 | **Stop** | stops the mission: the drive goal is cancelled, the blade stops, the robot stands where it is — *Stopped* |
 | **Reset** | clears a *STOPPED* or *TERMINAL ERROR* state |
+
+**Run** is the filled button and stands apart from **Resume**. **Stop** and **Reset** sit apart at
+the right (on a phone on their own row) and are outlined while there is nothing for them to do; they
+work any time. **Stop** fills while a mission drives, **Reset** while the mission waits for it.
 
 While a program runs, a **Running** card on top of the program list shows its name and state with
 a **Stop** button — whichever program (or none) is open below. After a Stop it turns into
@@ -146,7 +161,7 @@ To **edit** a program of another map, activate that map first: its card here is 
 
 ![The calendar with numbered markers](img/shot-calendar.webp "1 an event: program, time, recurrence · 2 on / off · 3 Edit · 4 add an event")
 
-**Autonomy › Plan** lists events (**Calendar** in Programs leads there): program, time and recurrence (Once, Daily, Weekly with days,
+**Autonomy › Plan** lists events (the calendar link under the program list leads there): program, time and recurrence (Once, Daily, Weekly with days,
 Monthly, Yearly), each with an on / off switch, **Edit** and **Delete**. An event starts within 15
 minutes after its time, once a day.
 

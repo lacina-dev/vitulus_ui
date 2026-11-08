@@ -76,12 +76,12 @@ is expected).
 
 For setting up and for manual tests; normally the right panel's Dock / Undock is enough.
 
-![The Dock tab of the Map panel with numbered cards](img/shot-dock-tab.webp "Map › Dock: 1 dock by lidar map · 2 dock by intensity · 3 Update the DOCK point · 4 Update the UNDOCK point · 5 dock detector map · 6 localization seed · 7 dock program · 8 undock program")
+![The Dock tab of the Map panel with numbered cards](img/shot-dock-tab.webp "Map › Dock: 1 dock by lidar map, On / Off · 2 dock by intensity, On / Off · 3 Update the DOCK point · 4 Update the UNDOCK point · 5 dock detector map · 6 localization seed · 7 dock program · 8 undock program")
 
 | Part | What it does |
 |---|---|
-| Dock by lidar map | enable switch, Predock, Dock, Undock, Stop — the lidar dock-map stage alone |
-| Dock by intensity | enable switch, Dock, Undock, Stop — the reflector stage alone |
+| Dock by lidar map | finds the dock by the lidar picture of its surroundings; the **On / Off** switch runs the dock detector (the buttons and the picture need it); Predock, Dock, Undock, Stop — this stage alone |
+| Dock by intensity | finds the dock by its reflector; the **On / Off** switch runs the docking controller; Dock, Undock, Stop — this stage alone |
 | Dock / undock points | **Navi** drives to the DOCK or UNDOCK point; **Update** saves the robot's *current* position as that point |
 | Dock detector map | New map, Edit map, Save map — the lidar picture of the dock |
 | Localization seed | the *DOCKED* pose used to localize in the dock; says *DOCKED waypoint MISSING* when it is not set |

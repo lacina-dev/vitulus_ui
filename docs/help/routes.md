@@ -59,16 +59,17 @@ from outside (a program, another browser). The wheels themselves are limited to 
 
 ## Points
 
-![Map › Point tab with numbered markers](img/shot-point-tab.webp "Map › Point: 1 drive there · 2 Show · 3 Clear points") ![Map › Path tab with numbered markers](img/shot-path-tab.webp "Map › Path: 1 drive it · 2 Show · 3 Clear paths")
+![Map › Point tab with numbered markers](img/shot-point-tab.webp "Map › Point: 1 Go — drive there · 2 Show · 3 Clear points") ![Map › Path tab with numbered markers](img/shot-path-tab.webp "Map › Path: 1 Go — drive it · 2 Show · 3 Clear paths")
 
-**Map › Point** lists saved points: the marker button at the start of a row drives there, **Show**
-shows it on the map, **Clear points** hides what is shown. **Cancel navi** stops the drive. New
-points, renaming and deleting are in the [map editor](map-editor.md).
+**Map › Point** lists saved points: **Go** at the start of a row drives there, **Show** shows it on
+the map, **Clear points** hides what is shown. **Cancel navigation** at the bottom of the panel stops
+the drive; it is outlined while nothing drives and fills while a navigation goal is being driven (it
+works either way). New points, renaming and deleting are in the [map editor](map-editor.md).
 
 ## Paths
 
-**Map › Path** lists saved paths: the arrow button at the start of a row drives the path, **Show**
-shows it, **Clear paths** hides what is shown. **Cancel navi** stops the drive.
+**Map › Path** lists saved paths: **Go** at the start of a row drives the path, **Show** shows it,
+**Clear paths** hides what is shown. **Cancel navigation** stops the drive, as on the Point tab.
 
 Recording, drawing, tracing by driving and deleting are in the [map editor](map-editor.md):
 **Record at the robot** has **New** and **New auto**, the same as before.

@@ -59,16 +59,17 @@ někdo zvenku (program, jiný prohlížeč). Samotná kola jsou omezená na 1,4 
 
 ## Body
 
-![Mapa › záložka Bod s očíslovanými značkami](../img/shot-point-tab.webp "Mapa › Bod: 1 dojet · 2 Ukázat · 3 Smazat body") ![Mapa › záložka Trasa s očíslovanými značkami](../img/shot-path-tab.webp "Mapa › Trasa: 1 projet · 2 Ukázat · 3 Smazat trasy")
+![Mapa › záložka Bod s očíslovanými značkami](../img/shot-point-tab.webp "Mapa › Bod: 1 Jeď — dojet · 2 Ukázat · 3 Smazat body") ![Mapa › záložka Trasa s očíslovanými značkami](../img/shot-path-tab.webp "Mapa › Trasa: 1 Jeď — projet · 2 Ukázat · 3 Smazat trasy")
 
-**Mapa › Bod** ukazuje uložené body: tlačítko se značkou na začátku řádku na bod dojede,
-**Ukázat** ho ukáže na mapě, **Smazat body** ukázané skryje. **Zrušit navigaci** jízdu zastaví.
-Nové body, přejmenování a mazání jsou v [editoru mapy](map-editor.md).
+**Mapa › Bod** ukazuje uložené body: **Jeď** na začátku řádku na bod dojede, **Ukázat** ho ukáže na
+mapě, **Smazat body** ukázané skryje. **Zrušit navigaci** dole v panelu jízdu zastaví; dokud nic
+nejede, je jen obrysové, a vyplní se, když robot jede k cíli navigace (funguje vždycky). Nové body,
+přejmenování a mazání jsou v [editoru mapy](map-editor.md).
 
 ## Trasy
 
-**Mapa › Trasa** ukazuje uložené trasy: tlačítko se šipkou na začátku řádku trasu projede,
-**Ukázat** ji ukáže, **Smazat trasy** ukázanou skryje. **Zrušit navigaci** jízdu zastaví.
+**Mapa › Trasa** ukazuje uložené trasy: **Jeď** na začátku řádku trasu projede, **Ukázat** ji
+ukáže, **Smazat trasy** ukázanou skryje. **Zrušit navigaci** jízdu zastaví, stejně jako u bodů.
 
 Nahrávání, kreslení, stopa jízdou a mazání jsou v [editoru mapy](map-editor.md): **Záznam na místě
 robota** má **Nová** a **Nová auto** jako dřív.

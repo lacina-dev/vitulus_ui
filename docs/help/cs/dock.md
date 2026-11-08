@@ -75,12 +75,12 @@ v pořádku).
 
 Slouží k nastavení a ručním zkouškám; běžně stačí **Dock** / **Undock** v pravém panelu.
 
-![Záložka Dock panelu Mapa s očíslovanými kartami](../img/shot-dock-tab.webp "Mapa › Dock: 1 dok podle lidarové mapy · 2 dok podle odrazivosti · 3 Aktualizovat bod DOCK · 4 Aktualizovat bod UNDOCK · 5 mapa detektoru doku · 6 počáteční lokalizace · 7 program zajetí do doku · 8 program výjezdu z doku")
+![Záložka Dock panelu Mapa s očíslovanými kartami](../img/shot-dock-tab.webp "Mapa › Dock: 1 dok podle lidarové mapy, Zapnuto / Vypnuto · 2 dok podle odrazivosti, Zapnuto / Vypnuto · 3 Aktualizovat bod DOCK · 4 Aktualizovat bod UNDOCK · 5 mapa detektoru doku · 6 počáteční lokalizace · 7 program zajetí do doku · 8 program výjezdu z doku")
 
 | Část | Co dělá |
 |---|---|
-| Dok podle lidarové mapy | přepínač zapnutí, **Před dok**, **Dock**, **Undock**, **Stop** — jen krok s lidarovou mapou doku |
-| Dok podle odrazivosti | přepínač zapnutí, **Dock**, **Undock**, **Stop** — jen krok s odrazkou |
+| Dok podle lidarové mapy | najde dok podle lidarového obrazu okolí; přepínač **Zapnuto / Vypnuto** spouští detektor doku (tlačítka a obraz ho potřebují); **Před dok**, **Dock**, **Undock**, **Stop** — jen tenhle krok |
+| Dok podle odrazivosti | najde dok podle odrazky; přepínač **Zapnuto / Vypnuto** spouští řadič dokování; **Dock**, **Undock**, **Stop** — jen tenhle krok |
 | Body doku / výjezdu | **Navi** dojede na bod DOCK nebo UNDOCK; **Aktualizovat** uloží *současnou* polohu robota jako ten bod |
 | Mapa detektoru doku | **Nová mapa**, **Upravit mapu**, **Uložit mapu** — lidarový obraz doku |
 | Počáteční lokalizace | poloha *DOCKED*, podle které se robot v doku lokalizuje; když chybí, píše *CHYBÍ bod polohy v doku* |

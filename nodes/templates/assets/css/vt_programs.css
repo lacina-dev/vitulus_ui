@@ -1,0 +1,125 @@
+/* vt_programs.css — Programs and the Map › Path / Point / Dock tabs (T8 D4, 2026-11-08).
+ *
+ * Audit (vitulus_ui UI audit 2026-11-08) P1–P5, M1, M3, M4. Only tokens from
+ * vt_tokens.css; loaded after vt_field.css, so these rules win over the older
+ * program rules there. Touch size (>= 40 px on (pointer: coarse)) comes from
+ * vt_panel.css "#ui_drawer button"; this file only keeps the rows from
+ * squeezing it.
+ */
+
+/* ---- P1: the action row of a program ---------------------------------------
+   [▶ Run] [Resume] [Show]      [Stop] [Reset]
+   Run is the one filled accent button and has a gap to Resume (no segmented
+   group to slide across); Stop / Reset stand apart at the right end (on a
+   narrow panel they wrap to their own row, still at the right) and are
+   outlines until they apply: Stop while a mission drives, Reset while the
+   mission waits for it (Programs._paintHalt). */
+.vt-prog-acts {
+    display: flex; flex-wrap: wrap; align-items: stretch;
+    gap: var(--vt-gap-2) var(--vt-gap-4);
+}
+.vt-prog-go, .vt-prog-halt { display: flex; gap: var(--vt-gap-2); min-width: 0; }
+.vt-prog-go { flex: 1 1 auto; }
+.vt-prog-halt { flex: 0 0 auto; margin-left: auto; }
+.vt-prog-acts .btn {
+    min-height: 34px; padding: 4px 10px; font-size: var(--vt-fs);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* buttons never shrink below their word: a row that is too narrow wraps */
+.vt-prog-go > .btn { flex: 1 0 auto; }
+.vt-prog-go > .vt-prog-run {
+    flex: 1.5 0 auto; min-width: 88px; font-weight: 700; margin-right: var(--vt-gap-2);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.vt-prog-go > .vt-prog-run .la { font-size: 1.15em; }
+#div_menu_program_detail_row .vt-prog-halt > .btn { flex: 0 0 auto; min-width: 72px; }
+/* an outline Stop / Reset reads as "available, nothing to stop" */
+.vt-prog-halt > .btn[class*="btn-outline-"] { background: transparent; }
+@media (pointer: coarse) {
+    .vt-prog-acts .btn { min-height: var(--vt-touch); }
+}
+
+/* the card head: "last: done" never pushes the title off the row */
+.vt-prog-last { display: inline-flex; gap: 4px; min-width: 0; max-width: 62%; white-space: nowrap; }
+.vt-prog-last > span { flex: 0 0 auto; }
+.vt-prog-last > #span_menu_program_last_result { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- P2: Override zone = a box that says what applies ----------------------- */
+.vt-prog-ovr-box {
+    margin: var(--vt-gap-1) 0 var(--vt-gap-2);
+    padding: var(--vt-gap-2);
+    border: 1px solid var(--vt-border); border-radius: var(--vt-r-ctl);
+    background: rgba(0, 0, 0, 0.12);
+}
+.vt-prog-ovr-box[data-ovr="on"] { border-color: var(--vt-edge-info, var(--vt-border-strong)); }
+label.vt-prog-ovr {
+    display: inline-flex; align-items: center; gap: var(--vt-gap-2);
+    min-height: 32px; margin: 0; cursor: pointer; font-size: var(--vt-fs);
+}
+label.vt-prog-ovr .form-check-input { margin: 0; float: none; flex: 0 0 auto; }
+#div_menu_program_detail_row .vt-prog-ovr-vals { margin: var(--vt-gap-1) 0 0; }
+/* off: the two values are kept (set them, then tick) but read as not in force */
+.vt-prog-ovr-box[data-ovr="off"] .vt-prog-ovr-vals { opacity: .55; transition: opacity .15s; }
+.vt-prog-ovr-box[data-ovr="off"] .vt-prog-ovr-vals:focus-within,
+.vt-prog-ovr-box[data-ovr="off"] .vt-prog-ovr-vals:hover { opacity: 1; }
+.vt-prog-ovr-note {
+    margin-top: var(--vt-gap-1); font-size: var(--vt-fs-sm); color: var(--vt-muted);
+    overflow-wrap: anywhere; hyphens: auto;
+}
+.vt-prog-ovr-box[data-ovr="on"] .vt-prog-ovr-note { color: var(--vt-accent); }
+.vt-prog-ovr-note:empty { display: none; }
+/* a program of another map is read-only here (vt_field.css dims its .vt-form) */
+#div_menu_program_detail_row.is-foreign .vt-prog-ovr-box { opacity: .6; pointer-events: none; }
+
+/* zone cards: two columns of label · value when the card is narrow, units
+   never alone on the next line; a value the program overrides is crossed out */
+.vt-zone-card { container-type: inline-size; }
+.vt-zone-card .vt-kv-2 dd { white-space: nowrap; }
+@container (max-width: 340px) {
+    .vt-zone-card .vt-kv-2 { grid-template-columns: auto 1fr; }
+}
+.vt-zone-card .vt-card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-zone-card dd.vt-overridden s { color: var(--vt-faint); }
+.vt-zone-card dd.vt-overridden b { color: var(--vt-accent); font-weight: 600; margin-left: 4px; }
+
+/* ---- P3: adding a zone is its own row under the program's zones ------------ */
+.vt-prog-addzone { margin-top: var(--vt-gap-2); gap: var(--vt-gap-2); }
+.vt-prog-addzone .form-select { min-width: 0; }
+#sel_program_add_zone:invalid, #sel_program_add_zone option[value=""] { color: var(--vt-muted); }
+#div_menu_program_detail_row .vt-card-actions { margin-top: var(--vt-gap-3); }
+
+/* ---- P5: the calendar is a link (it opens Autonomy › Plan), not a tab ------- */
+.vt-prog-calrow { display: flex; justify-content: flex-end; margin: calc(-1 * var(--vt-gap-1)) 0 var(--vt-gap-1); }
+a.vt-prog-cal {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 4px;
+    font-size: var(--vt-fs-sm); color: var(--vt-muted); text-decoration: none;
+    border-radius: var(--vt-r-tag);
+}
+a.vt-prog-cal span { text-decoration: underline; text-decoration-color: var(--vt-border-strong); text-underline-offset: 3px; }
+a.vt-prog-cal:hover, a.vt-prog-cal:focus-visible { color: var(--vt-accent); }
+a.vt-prog-cal .la-calendar { font-size: 1.2em; }
+@media (pointer: coarse) { a.vt-prog-cal { min-height: var(--vt-touch); } }
+
+/* ---- M1: Path / Point rows: the drive button says so; Cancel lights up only
+   while a goal is driven (vtPaintNavCancel), it works always ------------------ */
+.vt-item > .btn.vt-item-go { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--vt-accent); }
+.vt-item > .btn.vt-item-go .fa { font-size: 1.1em; }
+.vt-item > .btn.vt-item-show { margin-left: var(--vt-gap-1); color: var(--vt-text); }
+#btn_menu_path_cancel[data-nav="off"], #btn_menu_point_cancel[data-nav="off"] { background: transparent; }
+
+/* ---- M3: Dock cards -------------------------------------------------------- */
+.vt-dock-note, .vt-dock-hint {
+    margin: 0 0 var(--vt-gap-2); font-size: var(--vt-fs-sm); color: var(--vt-muted);
+    overflow-wrap: anywhere; hyphens: auto;
+}
+.vt-dock-sw { display: inline-flex; align-items: center; gap: 6px; padding-left: 0; }
+.vt-dock-sw .form-check-input { float: none; margin: 0; cursor: pointer; }
+/* a switch stays a switch (the touch rule makes every checkbox a 24 px square) */
+#ui_drawer .vt-dock-sw .form-check-input { width: 40px !important; height: 22px !important; min-width: 40px; border-radius: 11px; }
+.vt-dock-sw .form-check-label { min-width: 3.5em; font-size: var(--vt-fs-sm); cursor: pointer; }
+
+/* ---- M4: Deactivate is a real button at the end of the Saved maps row ------- */
+#mapv3_maps_header .vt-map-deact { margin-left: auto; font-size: var(--vt-fs-sm); min-height: 28px; padding: 2px 10px; }
+@media (pointer: coarse) { #mapv3_maps_header .vt-map-deact { min-height: var(--vt-touch); } }
+/* the second click is armed (mapping.js adds .vt-armed + .btn-danger): it must look armed */
+#mapv3_maps_header .vt-map-deact.vt-armed { background: var(--vt-danger); border-color: var(--vt-danger); color: #fff; }

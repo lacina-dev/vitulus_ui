@@ -81,5 +81,15 @@ ok('no map on: still all programs', row.innerHTML.includes('B1Test') && row.inne
 p.active_map_data = 'X***env*OUTDOOR';
 listeners['vitulus-sites']();
 ok('legacy: no site rows', !row.innerHTML.includes('B1Test'));
+// D4 (P4): the last result in words, the planner's text kept for the tooltip
+const R = (t) => ctx.Programs.resultText(t);
+ok('result: done', R('succeeded').state === 'ok' && R('succeeded').text === 'prog.d4.res.done', R('succeeded'));
+ok('result: checkpoint = unfinished in that zone', R('failed: on_path-Back_garden-by-the-fence-3-120').state === 'warn'
+    && R('failed: on_path-Back_garden-by-the-fence-3-120').text === 'prog.d4.res.unfinished{"zone":"Back_garden-by-the-fence"}',
+    R('failed: on_path-Back_garden-by-the-fence-3-120'));
+ok('result: failed at the start', ['on_init', 'on_planner', 'on_mower'].every((ph) => R('failed: ' + ph).state === 'err'
+    && R('failed: ' + ph).text === 'prog.d4.res.start_failed'));
+ok('result: never run', R('').text === 'mapview.prog.never_run' && R('').state === 'off');
+ok('result: anything else as it came', R('aborted by user').text === 'aborted by user');
 if (fails) { console.log('FAILED ' + fails); process.exit(1); }
 console.log('OK');

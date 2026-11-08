@@ -12,20 +12,31 @@ keywords: [chain, several programs, one after another, řetěz, víc programů, 
 # Programy a kalendář
 
 **Program** říká, *co* sekat: seznam zón své mapy, rychlost a volitelně jednu výšku sekání
-a otáčky pro všechny zóny. **Kalendář** říká, *kdy*. Obojí najdeš v **Programy**.
+a otáčky pro všechny zóny. **Kalendář** říká, *kdy*. Programy najdeš v **Programy**, kalendář
+v [Autonomie › Plán](autonomy.md#plán) (vede tam odkaz *Kdy běží: kalendář v Autonomii › Plán* pod
+seznamem programů).
 
-![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů (kliknutím ho otevřeš; **Nový program** je dole v panelu) · 2 Run · 3 Resume · 4 Show / Hide · 5 Stop · 6 Reset · 7 Uložit · 8 Smazat")
+![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů (kliknutím ho otevřeš; **Nový program** je dole v panelu) · 2 odkaz na kalendář · 3 Run · 4 Resume · 5 Ukázat / Skrýt · 6 Stop · 7 Reset")
+
+Každá karta v seznamu říká, jak program naposledy skončil: **hotovo**, **nedokončeno · zóna**
+(skončil v té zóně, **Resume** tam pokračuje), **selhal při startu** nebo **ještě neběžel**.
+Původní text robota je v bublině po najetí myší.
+
+![Nastavení a zóny programu, očíslované značky](../img/shot-program-settings.webp "1 Přepsat zóny · 2 výška sekání a otáčky pro všechny zóny · 3 co platí, slovy · 4 karta zóny: její hodnota přeškrtnutá, vedle hodnota programu · 5 Přidat zónu… · 6 Uložit · 7 Smazat")
 
 ## Vytvořit program
 
 1. Nejdřív aktivuj mapu — program patří k mapě, na které vznikl.
-2. **Programy › Programy › Nový program**: vyplň **Název** a přidej zóny ze seznamu
-   (**Přidat zónu**).
+2. **Programy › Programy › Nový program**: vyplň **Název** a přidej zóny: pod **Zóny programu**
+   vyber zónu v **Přidat zónu…** a stiskni **Přidat zónu** (zóna, která už v programu je, je
+   označená a znovu vybrat nejde).
 3. **Rychlost**: **Slow** / **Mid** / **Fast**.
-4. **Otáčky**, **Výška sekání** (mm) a **Přepsat zóny**: když je zaškrtnuté, tyhle dvě hodnoty
-   nahradí výšku sekání a otáčky každé zóny (obě musí být nad 0). Výška je v milimetrech jako
-   všude v UI, třeba 50 = 5 cm.
-5. **Uložit**.
+4. **Přepsat zóny**: vypnuté — každá zóna se seče se svou výškou a otáčkami (jsou na její kartě).
+   Zaškrtnuté — **Výška sekání** (mm) a **Otáčky** pod ním nahradí hodnoty všech zón (obě musí být
+   nad 0); karty zón pak ukážou svou hodnotu přeškrtnutou a vedle ni hodnotu programu a řádek pod
+   rámečkem řekne, co platí. Prázdné pole znamená *nenastaveno*. Výška je v milimetrech jako všude
+   v UI, třeba 50 = 5 cm.
+5. **Uložit** dole na kartě — uloží název, zóny i nastavení najednou.
 
 Program změníš tak, že otevřeš jeho kartu, upravíš ho a znovu dáš **Uložit**. Nový název ho
 přejmenuje (starý záznam zmizí). Program, který robot právě jede, přejmenovat nejde — nejdřív ho
@@ -34,7 +45,7 @@ zastav.
 ## Smazat program
 
 1. Otevři kartu programu v **Programy › Programy**.
-2. **Smazat** (červené, vedle **Uložit**) a potvrď v dialogu.
+2. **Smazat** (červené, dole vedle **Uložit**) a potvrď v dialogu.
 
 Zóny programu na mapě zůstanou — zmizí jen program. Když program používají události v kalendáři,
 dialog řekne kolik; v kalendáři zůstanou s označením **chybí** a přeskakují se, dokud je
@@ -50,6 +61,10 @@ neotevřeš přes **Upravit** a nevybereš jiný program. Běžící program sma
 | **Ukázat / Skrýt** | vykreslí trasy programu na mapu; běžící program se vykreslí sám, viz [níže](#dráhy-na-mapě) |
 | **Stop** | zastaví misi: cíl jízdy se zruší, nůž se zastaví, robot zůstane stát, kde je — *Zastaveno* |
 | **Reset** | smaže stav *STOPPED* nebo *TERMINAL ERROR* |
+
+**Run** je vyplněné tlačítko a stojí stranou od **Resume**. **Stop** a **Reset** jsou odděleně vpravo
+(na telefonu na vlastním řádku) a jsou jen obrysové, dokud nemají co dělat; fungují ale vždycky.
+**Stop** se vyplní, když mise jede, **Reset**, když na něj mise čeká.
 
 Když program běží, nad seznamem programů je karta **Běží** s jeho názvem, stavem a tlačítkem
 **Stop** — ať je dole otevřený kterýkoli program (nebo žádný). Po zastavení se z ní stane
@@ -148,7 +163,7 @@ Když chceš program jiné mapy **upravit**, nejdřív zapni jeho mapu: tady je 
 
 ![Kalendář s očíslovanými značkami](../img/shot-calendar.webp "1 událost: program, čas, opakování · 2 zap / vyp · 3 Upravit · 4 přidat událost")
 
-**Autonomie › Plán** ukazuje události (**Kalendář** v Programech vede tam): program, čas a opakování (**Jednou**, **Denně**,
+**Autonomie › Plán** ukazuje události (vede tam odkaz na kalendář pod seznamem programů): program, čas a opakování (**Jednou**, **Denně**,
 **Týdně** s vybranými dny, **Měsíčně**, **Ročně**), každá s vypínačem, **Upravit** a **Smazat**.
 Událost se spustí do 15 minut po svém čase, jednou za den.
 
