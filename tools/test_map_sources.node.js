@@ -125,6 +125,19 @@ ok('credits once each, in order', MS.attribution([cat.byId.cuzk, cat.byId.ztm, c
 ok('no credits -> empty', MS.attribution([cat.byId.sat]) === '');
 ok('credits in cs', MS.attribution([cat.byId.cuzk, cat.byId.kn], 'cs') === '© ČÚZK · Katastr © ČÚZK');
 
+console.log('\ntime line (T20 E2: precipitation overlay)');
+const tcat = MS.normalize({ sources: [
+    { id: 'b', kind: 'base', layer: 'b', grid: 'g' },
+    { id: 'precip', kind: 'overlay', layer: 'precip_mosaic', grid: 'gm_grid', timeline: { port: 8097 } },
+    { id: 'pbad', kind: 'overlay', layer: 'x', grid: 'g', timeline: { port: 'nope' } },
+    { id: 'btl', kind: 'base', layer: 'y', grid: 'g', timeline: { port: 8097 } },
+    { id: 'kn2', kind: 'overlay', layer: 'z', grid: 'g' },
+] });
+ok('overlay timeline port passes through', tcat.byId.precip.timeline && tcat.byId.precip.timeline.port === 8097);
+ok('bad port -> default 8097', tcat.byId.pbad.timeline.port === 8097);
+ok('a base never gets a time line', !tcat.byId.btl.timeline);
+ok('overlay without timeline has none (as before)', !('timeline' in tcat.byId.kn2));
+
 console.log('\nshipped catalog (docker-mapproxy in the workspace)');
 const ws = path.resolve(__dirname, '..', '..', '..');       // .../src
 const candidates = [process.env.MAPPROXY_REPO, path.join(ws, 'docker-mapproxy'), path.join(path.dirname(ws), 'docker-mapproxy'),
@@ -144,6 +157,8 @@ if (!repo) {
     ok('default base exists and is a base', shipped.byId[raw.default_base] && shipped.byId[raw.default_base].kind === 'base');
     ok('every overlay states its layer_order', raw.sources.every((s) => s.kind !== 'overlay' ||
        s.layer_order === 'under' || s.layer_order === 'over'));
+    ok('at most one overlay has a time line', raw.sources.filter((s) => s.timeline).length <= 1);
+    ok('time line only on overlays', raw.sources.every((s) => !s.timeline || s.kind === 'overlay'));
     const yml = fs.readFileSync(path.join(repo, 'mapproxy_configuration', 'mapproxy.yaml'), 'utf8');
     raw.sources.forEach((s) => {
         ok('layer ' + s.layer + ' is in mapproxy.yaml',

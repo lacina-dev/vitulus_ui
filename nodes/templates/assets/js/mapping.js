@@ -181,6 +181,23 @@ var vtMapTilesReady = (typeof window === 'undefined' || window.VTMapTiles) ? Pro
             document.head.appendChild(s);
         } catch (e) { resolve(); }
     });
+/* T20 E2: the precipitation time line (vt_precip.js), loaded by index.html;
+   the same fallback for an old template. Needed only when the catalog has an
+   overlay with a time line, so it is asked for only then. */
+var vtPrecipReady = null;
+function vtPrecipLoad() {
+    if (vtPrecipReady) { return vtPrecipReady; }
+    vtPrecipReady = (typeof window === 'undefined' || window.VTPrecip) ? Promise.resolve()
+        : new Promise(function (resolve) {
+            try {
+                var s = document.createElement('script');
+                s.src = '/assets/js/vt_precip.js';
+                s.onload = s.onerror = function () { resolve(); };
+                document.head.appendChild(s);
+            } catch (e) { resolve(); }
+        });
+    return vtPrecipReady;
+}
 function mapTn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
 function mapTag(el, k, attr) { if (el && window.VTI18n) { VTI18n.tag(el, k, attr); } }
 
@@ -1079,11 +1096,14 @@ class MappingV3 {
         }
         this._updateAttribution();
         this._updateToneOn();
+        this._precipSync();
         try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* old browser */ }
     }
 
     // One overlay row: [x] name  ——opacity——  status. Touch targets via the
-    // shared .vt-ovl-row styles (vt_panel.css).
+    // shared .vt-ovl-row styles (vt_panel.css). An overlay with a time line
+    // (T20 E2, precipitation) gets its controls under the row, shown while
+    // it is ticked (vt_precip.js fills them).
     _overlayRow(o) {
         const row = document.createElement('div');
         row.className = 'vt-ovl-row';
@@ -1099,11 +1119,19 @@ class MappingV3 {
         chk.checked = this._layerPref('vitulus_overlay_' + o.id, false);
         op.value = String(o.default_opacity);
         this._persistRange(op, 'vitulus_overlay_' + o.id + '_op');
+        if (o.timeline) {
+            const tl = document.createElement('div');
+            tl.id = 'mapv3_precip';
+            tl.className = 'vt-precip';
+            tl.hidden = true;
+            row.appendChild(tl);
+        }
         chk.addEventListener('change', () => {
             this._saveLayerPref('vitulus_overlay_' + o.id, chk.checked);
             if (!chk.checked) { this._dropOverlay(o.id); }
             this._updateToneOn();
             this._overlayStatus(o.id);
+            if (o.timeline) { this._precipSync(); }
             this._updateAttribution();
             if (chk.checked) { this.aerial_datum = null; this.rebuildAerial(); }
             try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* ignore */ }
@@ -1150,6 +1178,136 @@ class MappingV3 {
         if (st.group) { st.group.visible = false; }
     }
 
+    // =====================================================================
+    // T20 E2 — PRECIPITATION MOSAIC with a time line
+    // ---------------------------------------------------------------------
+    // The catalog overlay with "timeline" (id precip) is drawn straight from
+    // the robot's precip-mosaic service (port from the catalog, 8097) frame by
+    // frame: past observations and nowcast, chosen on the slider or played.
+    // Only GET requests to the robot itself. MapProxy's layer of the same
+    // entry (the newest frame) is used only while the service has never
+    // answered. Off = nothing is asked. The ČHMÚ Rain layer (rain_img from
+    // weather_alert) is a separate layer and does not change.
+    _precipSrc() {
+        const cat = this.map_sources;
+        return cat ? (cat.overlays.find((o) => !!o.timeline) || null) : null;
+    }
+    _precipOn() {
+        const o = this._precipSrc();
+        return !!(o && this._overlayOn(o.id));
+    }
+    _precipSync() {
+        const o = this._precipSrc();
+        const mount = document.getElementById('mapv3_precip');
+        const on = !!(o && this._overlayOn(o.id));
+        if (mount) { mount.hidden = !on; }
+        if (!on) {
+            if (this._precip) { this._precip.stop(); }
+            this._precipBadge();
+            if (this._precipWide) { this._precipWide = false; this._applyZoomLimit(); }
+            return;
+        }
+        vtPrecipLoad().then(() => {
+            if (!window.VTPrecip || !this._precipOn()) { return; }
+            const m = document.getElementById('mapv3_precip');
+            if (!m) { return; }
+            const base = VTPrecip.base(window.location.hostname, o.timeline);
+            if (!this._precip || this._precip.o.base !== base || this._precip.o.mount !== m) {
+                if (this._precip) { this._precip.stop(); }
+                this._precip = new VTPrecip.Timeline({
+                    mount: m, base: base,
+                    onFrame: (f, why) => this._precipOnFrame(f, why),
+                    ready: () => this._precipReady(),
+                    onFit: (km) => this.fitPrecipArea(km),
+                });
+                if (!this._precipRelabel) {
+                    this._precipRelabel = true;
+                    this._relabel.push(() => { if (this._precip) { this._precip.relabel(); } this._precipBadge(); });
+                }
+            }
+            this._precip.start();
+            this._precipBadge();
+        });
+    }
+    // a new frame on screen (slider, playback, new data) or the service is down
+    _precipOnFrame(f, why) {
+        this._precipBadge();
+        this._updateAttribution();
+        if (!this._precipWide && this._precip && this._precip.index()) {
+            this._precipWide = true;      // the zoom-out limit now knows the area
+            this._applyZoomLimit();
+        }
+        if (this._precipOn() && (f || why === 'down')) { this.rebuildAerial(); }
+    }
+    // the source drawn for the precipitation overlay: the frame on screen
+    // (its own id, so the tile set and the stand-ins follow the frame), the
+    // MapProxy fallback while the service never answered, null = wait
+    _precipTileSrc(o) {
+        const P = this._precip;
+        const f = P && P.frame();
+        if (f) {
+            return Object.assign({}, o, { id: o.id + '_' + f.id.replace(/[^0-9A-Za-z]/g, '') + '_' + f.v,
+                                          frame: f, tile_base: P.o.base });
+        }
+        if (P && P.failed && !P.index()) { return o; }
+        return null;
+    }
+    // playback steps on when the tiles of the frame on screen are in
+    _precipReady() {
+        const o = this._precipSrc(), P = this._precip;
+        const st = o && this.ov_layers[o.id];
+        const set = st && st.L && st.L.cur;
+        const f = P && P.frame();
+        if (!set || !f || !set.src || !set.src.frame || set.src.frame.id !== f.id) { return false; }
+        return set.loaded + set.failed >= set.total;
+    }
+    // the small label on the map: the time the layer shows (nowcast in the info colour)
+    _precipBadge() {
+        const host = document.getElementById('map_view');
+        if (!host) { return; }
+        let b = document.getElementById('mapv3_precip_badge');
+        const P = this._precip;
+        const f = (this._precipOn() && P && window.VTPrecip) ? P.frame() : null;
+        if (!f) { if (b) { b.hidden = true; } return; }
+        if (!b) {
+            b = document.createElement('div');
+            b.id = 'mapv3_precip_badge';
+            b.className = 'vt-map-precip vt-tnum';
+            b.setAttribute('aria-live', 'off');
+            host.appendChild(b);
+        }
+        b.textContent = VTPrecip.badgeText(P.index(), f);
+        b.classList.toggle('is-nowcast', f.kind === 'nowcast');
+        const s = P.status();
+        b.classList.toggle('is-warn', s.state === 'down' || s.state === 'stale');
+        b.hidden = false;
+    }
+    // the side (m) of the area the zoom-out limit opens for the precipitation
+    // overlay (its whole area, at most 300 km); 0 = off
+    _precipSideM() {
+        if (!this._precipOn() || !this._precip || !this._precip.index()) { return 0; }
+        return Math.min(300, this._precip.sideKm()) * 1000.0;
+    }
+    // "Whole area": centre on the garden and show the precipitation area
+    fitPrecipArea() {
+        const side = this._precipSideM();
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        if (!(side > 0) || !cam || !ctrl || !ctrl.center || !cam.position) { return; }
+        this._applyZoomLimit();
+        const dist = this._distanceToFrame(side);
+        const off = cam.position.clone().sub(ctrl.center);
+        ctrl.center.x = 0.0; ctrl.center.y = 0.0;
+        let d0 = off.length();
+        if (!(d0 > 0)) { off.set(0, 0, 1); d0 = 1; }
+        off.multiplyScalar(dist / d0);
+        cam.position.copy(ctrl.center).add(off);
+        this._onCamChange();
+        if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
+        this._scheduleAerialFollow();
+        this._updateBeacon();
+    }
+
     // the small credit line in the map corner: every layer on screen, once
     _updateAttribution() {
         const MS = window.VTMapSources, el = this.el_attr, cat = this.map_sources;
@@ -1159,7 +1317,11 @@ class MappingV3 {
             const b = cat.byId[this.sel_aerial_src.value];
             if (b) { on.push(b); }
         }
-        this._overlaysOn().forEach((o) => on.push(o));
+        this._overlaysOn().forEach((o) => {
+            // the precipitation layer credits the sources of the frame on screen
+            const a = (o.timeline && this._precip) ? this._precip.attribution() : '';
+            on.push(a ? Object.assign({}, o, { attribution: { en: a, cs: a } }) : o);
+        });
         const txt = MS.attribution(on, this._lang());
         el.textContent = txt;
         el.title = txt;          // one line with "…" on a phone: full text here
@@ -1437,7 +1599,10 @@ class MappingV3 {
     // during an outage (it may be MapProxy's offline fill the browser keeps),
     // once the network is back — see _tileRefresh. Other tiles keep their URL.
     _aerialTileUrl(src, z, x, y) {
-        const u = VTMapSources.tileUrl(this.aerial_host, src, z, x, y);
+        // T20 E2: a precipitation frame comes straight from the precip service
+        const u = (src.frame && src.tile_base && window.VTPrecip)
+            ? VTPrecip.tileUrl(src.tile_base, src.frame, z, x, y)
+            : VTMapSources.tileUrl(this.aerial_host, src, z, x, y);
         const g = this._tileGen && this._tileGen.get(u);
         return (g && window.VTMapTiles) ? VTMapTiles.withBust(u, g) : u;
     }
@@ -1848,6 +2013,13 @@ class MappingV3 {
                     return;
                 }
                 budget -= range.count;
+                // T20 E2: the precipitation overlay draws the frame on screen
+                // (none yet: the first index is on its way, keep what is there)
+                const so = o.timeline ? this._precipTileSrc(o) : o;
+                if (!so) {
+                    this._overlayStatus(o.id, () => mapT('common.loading'));
+                    return;
+                }
                 const report = (set) => {
                     const n = set.total, k = set.loaded, f = set.failed;
                     this._overlayStatus(o.id, () => (
@@ -1866,7 +2038,7 @@ class MappingV3 {
                 if (!(op >= 0 && op <= 1)) { op = o.default_opacity; }
                 const ro = (under ? (MLO ? MLO.OVERLAY_UNDER : -99)
                                   : (MLO ? MLO.OVERLAY : 13)) + i * 0.01;
-                this._tileSetShow(L, { T, src: o, z, range, opacity: op, ro, tileRect,
+                this._tileSetShow(L, { T, src: so, z, range, opacity: op, ro, tileRect,
                                        center: centerAt(z, range), report });
                 st.sig = L.cur ? L.cur.sig : '';
                 st.meshes = L.cur ? Array.from(L.cur.tiles.values(), (t) => t.mesh) : [];
@@ -2704,7 +2876,9 @@ class MappingV3 {
         if (!cam) { return; }
         if (this._defaultFar == null) { this._defaultFar = cam.far; }   // 6000
         const rainOn = !!(this.chk_rain && this.chk_rain.checked);
-        if (!rainOn) {
+        // T20 E2: the precipitation overlay opens the limit too (its area)
+        const precipSide = this._precipSideM ? this._precipSideM() : 0;
+        if (!rainOn && !(precipSide > 0)) {
             // Restore original limits — behaviour unchanged from before.
             if (ctrl) { ctrl.maxDistance = Infinity; }
             // If we're still parked at a rain-scale zoom-out, the restored
@@ -2729,7 +2903,8 @@ class MappingV3 {
         }
         // Rain on: allow zooming out until the full frame fits, and grow the
         // far-plane to match the current camera height (see _onCamChange).
-        if (ctrl) { ctrl.maxDistance = this._distanceToFrame(this._rainFrameSideM()); }
+        const side = Math.max(rainOn ? this._rainFrameSideM() : 0, precipSide);
+        if (ctrl) { ctrl.maxDistance = this._distanceToFrame(side); }
         this._onCamChange();
     }
 
@@ -2738,7 +2913,7 @@ class MappingV3 {
     // un-clipped when fully zoomed out — yet far stays near the 6000 default
     // when zoomed in, preserving depth precision for the garden-scale layers.
     _onCamChange() {
-        if (!(this.chk_rain && this.chk_rain.checked)) { return; }
+        if (!(this.chk_rain && this.chk_rain.checked) && !(this._precipWide && this._precipOn())) { return; }
         const cam = this.viewer3d && this.viewer3d.camera;
         const ctrl = this.viewer3d && this.viewer3d.cameraControls;
         if (!cam || !ctrl || !ctrl.center) { return; }

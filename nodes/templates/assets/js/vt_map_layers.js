@@ -38,7 +38,7 @@
     var SHEET_PART = 0.62;                     // phone: at most this much of the map hollow
     // overlays with a short hint (i18n maplyr.hint.<id>); a new catalog id
     // without one just shows its name
-    var HINTS = ['kn', 'ruian', 'contours', 'hillshade', 'relief_x10', 'relief_x20', 'slope', 'aspect', 'surface_relief'];
+    var HINTS = ['kn', 'ruian', 'contours', 'hillshade', 'relief_x10', 'relief_x20', 'slope', 'aspect', 'surface_relief', 'precip'];
     // ČÚZK DMR 5G SlopeRGBMap colour map (REST legend of the image service,
     // sampled 2026-11-08): grey = flat, yellow, orange, brown = steep
     var SLOPE_STOPS = ['#d1d1d1', '#fffac2', '#ffff00', '#ffbe00', '#fe7200', '#a24a1b'];

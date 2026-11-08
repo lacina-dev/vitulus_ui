@@ -2516,3 +2516,80 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
 .vt-map-attr.open { white-space: normal; overflow-wrap: anywhere; }
 .vt-map-attr:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; opacity: 1; }
 .vt-map-attr[hidden] { display: none; }
+
+/* ---- T20 E2: precipitation mosaic — time line under its overlay row ------ */
+/* one card across the whole row (flex-basis 100 %): time · kind · state,
+   [play] slider (observations | nowcast) [Now], legend, credits + Whole area.
+   Fixed slots and tabular numbers: nothing jumps while it plays. */
+.vt-precip { flex: 1 1 100%; min-width: 0; margin: 2px 0 6px; padding: var(--vt-gap-2) var(--vt-gap-2) var(--vt-gap-1);
+             border: 1px solid var(--vt-border); border-radius: var(--vt-r-card);
+             background: var(--vt-surface-2) var(--vt-tint-info); font-size: var(--vt-fs-sm); }
+.vt-precip[hidden] { display: none; }
+.vt-precip-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--vt-gap-2); min-height: 22px; }
+.vt-precip-time { flex: 0 0 auto; min-width: 3.2em; font-weight: 500; font-size: var(--vt-fs-md, 14px); color: var(--vt-text); }
+.vt-precip-kind { flex: 0 1 auto; min-width: 0; color: var(--vt-muted); overflow-wrap: anywhere; }
+.vt-precip-kind.is-nowcast { color: var(--vt-info); }
+.vt-precip-state { margin-left: auto; text-align: right; font-size: var(--vt-fs-xs); overflow-wrap: anywhere; }
+.vt-precip-row { display: flex; align-items: center; gap: var(--vt-gap-2); margin-top: var(--vt-gap-1); }
+.vt-precip-btn { flex: 0 0 auto; min-width: var(--vt-touch); min-height: var(--vt-touch); padding: 0 var(--vt-gap-2);
+                 border-radius: var(--vt-r-ctl); font-size: var(--vt-fs-sm); line-height: 1; }
+.vt-precip-nowbtn { min-width: 3.6em; }
+.vt-precip-slide { position: relative; flex: 1 1 auto; min-width: 0; padding-bottom: 14px; }
+/* the coloured track under the native slider: observations neutral, nowcast
+   in the info colour (striped) — what is a forecast is visible at a glance */
+.vt-precip-track { position: absolute; left: 9px; right: 9px; top: calc(var(--vt-touch) / 2 - 3px); height: 6px;
+                   border-radius: 3px; background: var(--vt-surface-3); overflow: hidden; pointer-events: none; }
+.vt-precip-seg-obs { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 255, 255, 0.28); }
+.vt-precip-seg-nc { position: absolute; top: 0; bottom: 0;
+                    background: repeating-linear-gradient(135deg, rgba(var(--vt-info-rgb), 0.75) 0 4px, rgba(var(--vt-info-rgb), 0.35) 4px 8px); }
+.vt-precip-range { position: relative; display: block; width: 100%; height: var(--vt-touch); margin: 0; padding: 0;
+                   -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+/* the native track stays transparent (the coloured track above shows through), only the thumb is drawn */
+.vt-precip-range::-webkit-slider-runnable-track { height: var(--vt-touch); background: transparent; border: 0; }
+.vt-precip-range::-moz-range-track { height: var(--vt-touch); background: transparent; border: 0; }
+.vt-precip-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
+    margin-top: calc((var(--vt-touch) - 18px) / 2); border-radius: 50%; border: 2px solid var(--vt-surface-2);
+    background: var(--vt-accent); box-shadow: 0 0 0 1px var(--vt-accent); }
+.vt-precip-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--vt-surface-2);
+    background: var(--vt-accent); box-shadow: 0 0 0 1px var(--vt-accent); }
+.vt-precip-range:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -6px; border-radius: var(--vt-r-ctl); }
+.vt-precip-range:disabled { cursor: default; opacity: 0.5; }
+.vt-precip.is-nowcast .vt-precip-range::-webkit-slider-thumb { background: var(--vt-surface-2); border-color: var(--vt-info); }
+.vt-precip.is-nowcast .vt-precip-range::-moz-range-thumb { background: var(--vt-surface-2); border-color: var(--vt-info); }
+.vt-precip-ticks { position: absolute; left: 9px; right: 9px; bottom: 0; height: 14px; font-size: 10px; line-height: 14px; }
+.vt-precip-ticks span { position: absolute; top: 0; white-space: nowrap; }
+.vt-precip-t0 { left: 0; }
+.vt-precip-t1 { right: 0; color: var(--vt-info); }
+/* "now" ends at the mark (the nowcast stripes start there); the right end
+   label goes when it would touch it (vt_precip.js _fixTicks) */
+.vt-precip-tnow { transform: translateX(-100%); padding-right: 3px; border-right: 1px solid var(--vt-muted); }
+.vt-precip-ticks span[hidden] { display: none; }
+.vt-precip-legend { margin-top: var(--vt-gap-2); }
+.vt-precip-legend[hidden] { display: none; }
+.vt-precip-lrow { display: flex; align-items: center; gap: var(--vt-gap-2); min-height: 16px; }
+.vt-precip-lrow.is-snow { margin-top: 3px; }
+.vt-precip-lname { flex: 0 0 4.2em; color: var(--vt-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-precip-bar { display: flex; flex: 1 1 auto; min-width: 0; height: 10px; border-radius: var(--vt-r-tag); overflow: hidden; }
+.vt-precip-lrow.is-snow .vt-precip-bar { flex: 0 1 50%; height: 8px; }
+.vt-precip-bin { flex: 1 1 0; min-width: 0; }
+/* the numbers under the rain bar: left edge = 4.2em name + gap, like the bar */
+.vt-precip-marks { position: relative; height: 14px; margin-left: calc(4.2em + var(--vt-gap-2)); margin-right: 3.4em; line-height: 14px; }
+.vt-precip-marks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.vt-precip-marks .vt-precip-unit { left: auto; right: -3.4em; transform: none; }
+.vt-precip-fail { margin-top: var(--vt-gap-1); color: var(--vt-warn); overflow-wrap: anywhere; }
+.vt-precip-fail[hidden] { display: none; }
+.vt-precip-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--vt-gap-1) var(--vt-gap-2); margin-top: var(--vt-gap-1); }
+.vt-precip-attr { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.vt-precip-attr a { color: inherit; text-decoration: underline dotted; }
+.vt-precip-fit { flex: 0 0 auto; min-height: var(--vt-touch); font-size: var(--vt-fs-xs); }
+/* the time on the map, just above the credits line (bottom-left) */
+.vt-map-precip {
+    position: absolute; left: 6px; bottom: calc(var(--vt-frame-bottom, 44px) + 32px); z-index: 1;
+    max-width: min(60%, 360px); padding: 2px 8px; border-radius: 6px; pointer-events: none;
+    font-size: var(--vt-fs-xs); line-height: 1.6; color: var(--vt-text);
+    background: var(--vt-overlay); opacity: 0.9;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vt-map-precip.is-nowcast { color: var(--vt-info); box-shadow: inset 0 0 0 1px var(--vt-edge-info); }
+.vt-map-precip.is-warn { color: var(--vt-warn); }
+.vt-map-precip[hidden] { display: none; }

@@ -7,7 +7,7 @@ icon: la-map
 summary: Nahrát novou mapu, rozšířit ji, aktivovat, vrstvy a souhrnná mapa.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock, lidar]
-keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, podkladová mapa, katastr, parcely, vrstevnice, reliéf, sklon, budovy, čísla domů, satelit, ortofoto, Esri, Bing, Google, překryv, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole, tlačítko vrstev, Wayback, CENIA, historické ortofoto, 50. léta]
+keywords: [mapa, mapy, mapování, místo, site, nahrát, nahrávání, record, rozšířit, extend, přemapovat, remap, aktivovat, deaktivovat, vrstvy, layers, souhrnná, combined, letecká, aerial, podkladová mapa, katastr, parcely, vrstevnice, reliéf, sklon, budovy, čísla domů, satelit, ortofoto, Esri, Bing, Google, překryv, srážky, radar, mozaika, předpověď, nowcast, terén, terrain, relace, session, uložit, snímání, sensing, lidar, kamera, pokrytí, zorné pole, tlačítko vrstev, Wayback, CENIA, historické ortofoto, 50. léta]
 ---
 # Mapy a mapování
 
@@ -132,8 +132,9 @@ po **Uložit a dokončit**, po smazání vrstvy nebo po přepnutí; ↻ ji sesta
 
 Zaškrtni vrstvy pod seznamem map: **Základ** (tyrkysová, navigační mapa), **Uložená** (červená,
 aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (modrá), **Terén** (výška:
-modrá nízko, červená vysoko), **Podklad** (podkladová mapa, viz níž), **Déšť** (radar).
-Podklad a překryvy změníš nejrychleji [tlačítkem vrstev na mapě](#tlačítko-vrstev-na-mapě).
+modrá nízko, červená vysoko), **Podklad** (podkladová mapa, viz níž), **Déšť** (radar ČHMÚ ze služby
+počasí; mapa z více radarů je překryv **Srážky (mozaika)**, viz níž). Podklad a překryvy změníš
+nejrychleji [tlačítkem vrstev na mapě](#tlačítko-vrstev-na-mapě).
 
 **Snímání** ukazuje, co robot právě sleduje, nakreslené naplocho na zemi kolem něj. Samo se
 zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kdykoli i ručně):
@@ -160,7 +161,9 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
   **Žádný** podklad schová. Vybraný je orámovaný, jeho jméno je i v hlavičce karty. **Krytí** pod
   dlaždicemi je tentýž posuvník jako v Zobrazení (vrstvy).
 - **Překryvy** — *Čáry a popisy* (katastr, budovy a čísla domů, vrstevnice) a *Terén* (stínovaný
-  reliéf, reliéf ×10 a ×20, sklon, expozice, stromy a budovy) a pod *Počasí* **Srážkový radar**.
+  reliéf, reliéf ×10 a ×20, sklon, expozice, stromy a budovy) a pod *Počasí* **Srážkový radar**
+  a **Srážky (mozaika)** (jedna mapa z více radarů; její časová osa s předpovědí, ▶ a legendou je
+  v Mapa › Zobrazení (vrstvy), viz níž).
   Každý zapneš přepínačem; zapnutý řádek ukáže krytí, jednu větu o tom, co ukazuje, a stav dlaždic
   (*z19 · 3/12*); **Sklon** má i barevnou stupnici od *roviny* (šedá) po *strmé* (hnědá).
 - Zdroje, které přibyly od chvíle, kdy jsi kartu otevřel naposledy, mají oranžový štítek **nové** a
@@ -246,6 +249,20 @@ v levém dolním rohu mapy uvádí zdroje, které jsou právě vidět (klepnutí
 ČÚZK jsou otevřená data, OpenTopoMap je pod CC-BY-SA; Google, Esri a Bing jsou vlastní snímky
 těch firem. **Vymazat costmapy** zapomene překážky,
 které si robot právě pamatuje — žádnou uloženou mapu nemění.
+
+**Srážky (mozaika)** jsou jedna mapa deště složená z několika meteoradarů — českého kompozitu
+ČHMÚ, evropské sítě EUMETNET OPERA a RainVieweru — kterou skládá vlastní služba srážek robota (běží
+na robotu vedle MapProxy, port 8097). Po zaškrtnutí se pod řádkem otevře časová osa: čas obrázku
+na mapě a co je to zač (*nejnovější radar*, *radar −25 min* nebo *předpověď +20 min*, krátkodobá
+předpověď v barvě info), jak starý je nejnovější snímek radaru, posuvník přes poslední dvě hodiny
+a předpověď (šrafovaná část vpravo od *teď*), **▶** pro přehrání, **Teď** pro návrat na nejnovější
+snímek (vrstva pak sama sleduje nové), legenda barev v mm/h (déšť, a sníh, kde ho radar pozná),
+zdroje obrázku s odkazy a **Celé okolí**, které oddálí mapu na celou oblast kolem zahrady. Čas je
+napsaný i v levém dolním rohu mapy. Slabý déšť je průsvitný, silný plný; kde žádný radar neměří,
+zůstane mapa prázdná (to neznamená „sucho“). *Data stará N min* znamená, že radary už chvíli
+neposlaly nový snímek; *služba neodpovídá* znamená, že služba srážek na robotu neběží — vrstva
+**Déšť** ze služby počasí je samostatná a funguje dál. Mapa je jen pro vlastní potřebu robota:
+podmínky RainVieweru povolují jen osobní použití.
 
 > [!NOTE]
 > Když se vrstva mapy neukáže, nemusí chybět — nejdřív obnov stránku. Víc v

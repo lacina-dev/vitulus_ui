@@ -7,7 +7,7 @@ icon: la-map
 summary: Record a new map, extend one, activate it, layers and the combined map.
 ui: [map, map/map]
 related: [map-editor, routes, localization, dock, lidar]
-keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, background map, cadastre, parcels, contour lines, relief, slope, buildings, house numbers, satellite, orthophoto, Esri, Bing, Google, overlay, terrain, session, save, sensing, lidar, camera, coverage, field of view, layers button, Wayback, CENIA, historical orthophoto, 1950s]
+keywords: [map, site, record, recording, extend, remap, activate, deactivate, layers, combined, aerial, background map, cadastre, parcels, contour lines, relief, slope, buildings, house numbers, satellite, orthophoto, Esri, Bing, Google, overlay, precipitation, rain radar, radar mosaic, nowcast, terrain, session, save, sensing, lidar, camera, coverage, field of view, layers button, Wayback, CENIA, historical orthophoto, 1950s]
 ---
 # Maps and mapping
 
@@ -134,8 +134,9 @@ automatically after Save & finish, a layer delete or a switch; ↻ rebuilds it b
 
 Tick the layers under the map list: **Base** (cyan, the navigation map), **Saved** (red, the
 active map), **Direct** (black, the live recording), **Preview** (blue), **Terrain** (height: blue low,
-red high), **Background** (the background map, see below), **Rain** (radar). The background map
-and the overlays are quickest to change with the [layers button on the map](#the-layers-button-on-the-map).
+red high), **Background** (the background map, see below), **Rain** (the ČHMÚ radar of the weather
+service; the map from several radars is the **Precipitation (mosaic)** overlay, see below). The
+background map and the overlays are quickest to change with the [layers button on the map](#the-layers-button-on-the-map).
 
 **Sensing** shows what the robot is observing right now, drawn flat on the ground around it.
 It switches on by itself when a recording starts and off when it ends (tick it by hand any time):
@@ -164,8 +165,9 @@ One tap opens it, a second one picks the map:
   the provider under it; **None** takes the background away. The chosen one is framed, its name is
   also in the card's header. **Opacity** under the tiles is the same slider as in Display (layers).
 - **Overlays** — *Lines and labels* (cadastre, buildings and house numbers, contour lines) and
-  *Terrain* (shaded relief, relief ×10 and ×20, slope, aspect, trees and buildings), plus the
-  **Rain radar** under *Weather*. A switch turns each on; while it is on the row shows its opacity,
+  *Terrain* (shaded relief, relief ×10 and ×20, slope, aspect, trees and buildings), and
+  under *Weather* the **Rain radar** and **Precipitation (mosaic)** (one map from several radars;
+  its time line with the nowcast, ▶ and the legend are in Map › Display (layers), see below). A switch turns each on; while it is on the row shows its opacity,
   a line on what it shows and its tile state (*z19 · 3/12*); **Slope** also has its colour scale
   from *flat* (grey) to *steep* (brown).
 - Sources added since you last opened the card carry an orange **new** tag and the button an
@@ -256,6 +258,21 @@ line in the bottom-left corner of the map credits the sources on screen (tap it 
 text): ČÚZK sources are open data, OpenTopoMap is CC-BY-SA; Google, Esri and Bing are the
 companies' own imagery. **Clear costmaps** forgets the obstacles the robot currently remembers — it does not
 change any saved map.
+
+**Precipitation (mosaic)** is one rain map put together from several weather radars — the Czech
+ČHMÚ composite, the European EUMETNET OPERA network and RainViewer — by the robot's own
+precipitation service (it runs on the robot next to MapProxy, port 8097). Tick it and a time line
+opens under the row: the time of the picture on the map and what it is (*newest radar*, *radar
+−25 min*, or *nowcast +20 min*, a short forecast drawn in the info colour), how old the newest radar
+picture is, a slider over the last two hours plus the nowcast (the striped part right of *now*),
+**▶** to play it, **Now** to jump back to the newest picture (the layer then follows the new ones by
+itself), the colour legend in mm/h (rain, and snow where the radar knows it), the sources of the
+picture with links, and **Whole area** to zoom out over the whole region around the garden. The
+time is also written in the map's bottom-left corner. Light rain is see-through, heavy rain solid;
+where no radar measures, the map stays empty (that is not "dry"). *Data N min old* means the radars
+have not sent a new picture for a while; *service not responding* means the precipitation service on
+the robot is not running — the **Rain** layer from the weather service is separate and keeps
+working. The map is meant for this robot's own use: RainViewer's terms allow personal use only.
 
 > [!NOTE]
 > A map layer that does not show is not necessarily missing — reload the page first. More in

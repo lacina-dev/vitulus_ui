@@ -106,6 +106,13 @@
             offset_key: ID_RE.test(off) ? off : id,
         };
         if (kind === 'overlay') { style(out, s); }
+        // T20 E2: an overlay with time frames (the robot's precip-mosaic
+        // service): {port} of the service on the robot; mapping.js then takes
+        // the tiles from it frame by frame (vt_precip.js) and this MapProxy
+        // layer is only the fallback ("latest")
+        if (kind === 'overlay' && s.timeline && typeof s.timeline === 'object') {
+            out.timeline = { port: Math.round(num(s.timeline.port, 8097, 1, 65535)) };
+        }
         return out;
     }
 
