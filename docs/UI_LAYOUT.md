@@ -145,21 +145,23 @@ nezalomí (`flex-wrap: nowrap`, užší okno věci ubírá).
 | Místo | Obsah | Poznámka |
 |---|---|---|
 | vlevo | logo VITULUS + **tečka spojení** (`#conn_status`, `data-state`), zóna pevně 172 px | zelená = spojeno, oranžová pulzující = připojuji, červená = bez spojení; slova jen v `title` + `aria-label` (en/cs, `mapview.conn.*`); klik / Enter = hned znovu připojit (`ConnectionStatus`, map_view.js) |
-| střed | **řada stavových ikon** (`#status_div`, status_header.js) od pevného x: skupiny počasí · senzory · pojezd · teploty · napájení | počasí = `#ico_rain` (klik = radar, rain_alert.js); `vt-h-sum` (< 1100 px a nízké okno): 1 ikona za skupinu = nejhorší (`.sh-rep`: červená > oranžová > zelená > šedá) |
+| střed | **řada stavových ikon** (`#status_div`, status_header.js) od pevného x: skupiny počasí · senzory · pojezd · teploty · napájení | čárové ikony `.sh-ico` (D8: skrytý `<img>` nese stav z map_view.js, barva = tón, rohová tečka u varování / poruchy, stav slovy v `title`); skupiny kromě počasí = tlačítko `#btn_status_card` → karta stavu `#sh_status_card`; bez spojení nebo 10 s bez icon_status šedé + „no live data“; počasí = `#ico_rain` (klik = radar, rain_alert.js); `vt-h-sum` (< 1100 px a nízké okno): 1 ikona za skupinu = nejhorší (`.sh-rep`: červená > oranžová > zelená > šedá); telefon na výšku: souhrn (1 ikona za skupinu + „All OK“ / „2 warnings“) |
 | vpravo | **systém** `#system_monitor_header` (CPU · RAM · ↓ ↑) · `.vt-hdr-vdiv` · ? `#btn_help` · zvonek `#btn_needs` · Restart `#btn_robot_restart` (jen ikona, potvrzení `appjs.restart.confirm`) · ⋯ `#btn_hdr_more` | pořadí dělá CSS `order`, ne DOM (moduly vkládají tlačítka před `#btn_navbar_toggler`, který je skrytý); řádek nechává volný roh STOPu (`padding-right: --vt-stop-zone`) |
 | ⋯ menu `#vt_hdr_menu` | Fullscreen (`VTApp.toggleFs`, jen kde je Fullscreen API), jazyk EN / CS (`VTI18n.setLang`, totéž co Settings › App); na telefonu a nízkém okně i ? (`VTSupport.help`) a systém (`VTSys.section()`), na nízkém okně navíc logo | malá tečka na ⋯ (telefon, nízké okno), když systém hlásí jantar / červenou |
 
 **Systém v pevných slotech**: Roboto `tabular-nums`; procenta ve slotu 3ch + „%“;
 síť: hodnota ve slotu 3ch (8.4 · 88 · 317) + jednotka v boxu 2,9em; vyhlazení
 EMA τ ≈ 6 s (vzorek /api/system každé 2 s); jednotka s hysterezí (nahoru při
-1000, dolů pod 900). Blok má pevnou šířku 266 px (`vt-h-w1600`: 186 px, jen ↓).
+1000, dolů pod 900). Šířka bloku je jeho přirozená šířka — díky pevným slotům stálá;
+kolik z něj je vidět, měří `fitMonitor` (status_header.js, D8 2026-11-08) podle místa
+v řádku: ↓ ↑ → jen ↓ (`body.sh-sys-rx`) → čip (`body.sh-sys-chip`).
 Barvy jen když je potřeba: CPU podle **průměru za 30 s** (≥ 90 % jantar, ≥ 97 %
 červená), RAM / disk podle hodnoty (≥ 90 / ≥ 97 %). Klik = karta `#sh_sys_card`
 (kruhy CPU · RAM · DISK, síť, průměr, zátěž, odkaz Settings › Diag).
 
-**Zúžení** (jen PC, nic se nezalamuje): `vt-h-w1600` < 1600 síť jen ↓ ·
-`vt-h-w1366` < 1366 systém jako čip `#btn_sys_chip` (barva nejhorší z CPU / RAM /
-disk, klik = karta) · `vt-h-w1280` < 1280 pás menu jen ikony (44 px, název v
+**Zúžení** (jen PC, nic se nezalamuje): systém podle místa v řádku (`sh-sys-rx` síť
+jen ↓, `sh-sys-chip` čip `#btn_sys_chip` — barva nejhorší z CPU / RAM / disk, klik =
+karta; třídy `vt-h-w1600` / `vt-h-w1366` ho už neřídí) · `vt-h-w1280` < 1280 pás menu jen ikony (44 px, název v
 tooltipu) · `vt-h-w1100` < 1100 ikony po 1 za skupinu. Logo, tečka, ?, zvonek, ⋯
 a STOP se neskrývají nikdy.
 

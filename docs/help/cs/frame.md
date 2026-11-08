@@ -26,8 +26,9 @@ když se změní číslo nebo se objeví hláška, nic v liště neuskočí a ni
 
 - **Vlevo** — logo **VITULUS** s malou **tečkou spojení** (zelená = stránka je spojená s robotem,
   oranžová pulzující = připojuje se, červená = bez spojení; po najetí myší ukáže slova, kliknutím
-  se hned připojí znovu). Hned za ním **ikony stavu**, první je **počasí** (klik = radar deště) —
-  viz [Ikony stavu](status-icons.md).
+  se hned připojí znovu). Hned za ním **ikony stavu**, první je **počasí** (klik = radar deště);
+  klik na ostatní otevře **kartu stavu** (každá ikona se stavem slovy), a když nejdou živá data,
+  zešednou a přes ně je *bez živých dat* — viz [Ikony stavu](status-icons.md).
 - **Vpravo** — **počítač** robota (CPU · RAM · stahování ↓ · odesílání ↑, klik = karta s dalšími
   čísly), pak **?** nápověda, zvonek (**Čeká na tebe**, číslo na něm počítá, co na tebe čeká),
   **Restart** (ikona vypínače — po potvrzení restartuje celého robota) a **⋯** další:
@@ -42,13 +43,14 @@ agenta (např. *NÁLEZ · 5 nepřečtených*, klik = panel agenta; červený, do
 který jsi v Nálezech ještě neviděl, jinak šedý), uprostřed hláška robota (*Waiting for
 dock cmd*, výpadek spojení…) na jednom řádku — celý text ukáže po najetí myší.
 
-**Užší okno** věci ubírá, nemačká je: pod 1600 px ukazuje počítač jen stahování ↓, pod 1366 px je
-to jeden **čip** (barva = nejhorší z CPU, RAM a disku; klik = karta s čísly), pod 1280 px má pás
+**Užší okno** věci ubírá, nemačká je: když se do lišty celý blok počítače nevejde, zmizí nejdřív
+odesílání ↑, pak je to jeden **čip** (barva = nejhorší z CPU, RAM a disku; klik = karta s čísly),
+pod 1280 px má pás
 menu jen ikony (název je v bublině), pod 1100 px ukazuje každá skupina ikon jen jednu ikonu —
 tu nejhorší ze skupiny. Logo, tečka, ?, zvonek, ⋯ a STOP jsou tam vždycky.
 
-**Telefon na výšku**: navbar (logo, tečka, zvonek, Restart, ⋯, STOP), pás menu, řádek ikon stavu
-a řádek hlášek. ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
+**Telefon na výšku**: navbar (logo, tečka, zvonek, Restart, ⋯, STOP), pás menu, **souhrn** stavu
+(jedna ikona za skupinu + *Vše OK* / *2 varování*; klepnutí = karta stavu) a řádek hlášek. ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
 panelů · jedna ikona za skupinu stavu · zvonek · Restart · ⋯ — logo, ? a počítač jsou v **⋯**, STOP
 je v rohu nad pravým panelem.
 

@@ -2,7 +2,7 @@
    "three zones"; vt_header.js sets the layout classes; docs/UI_LAYOUT.md
    "Navbar").
      PC          navbar 44 + menu band 36 = 80 px
-                 [logo · dot | 172 px] [status icons from x = 184]  …  [system 266 px] | ? · bell · Restart · ⋯ ) STOP
+                 [logo · dot | 172 px] [status icons from x = 184]  …  [system ↓ ↑ / ↓ / chip] | ? · bell · Restart · ⋯ ) STOP
      phone up    navbar 52 + menu 44 + icons 28 + notices 28 = 152 px
      low window  one row of 44 px: dot · panel buttons | icons per group … bell · Restart · ⋯ ) STOP
    Nothing grows to "share the rest": the left zone has a fixed width and the
@@ -97,6 +97,14 @@ html body #div_menu .vt-hdr-tb:is(.vt-on, [aria-expanded="true"]) {
     box-shadow: inset 0 -2px 0 var(--vt-accent);
     border-radius: 8px 8px 0 0;
 }
+/* D8: on a touch screen the header targets are at least 40 px (the navbar is
+   44): the 40 × 36 tool buttons get their full height, the 24-px connection
+   dot (tap = reconnect) a 40-px hit area around it */
+@media (pointer: coarse) {
+    html body #div_menu .vt-hdr-tb { height: 40px; }
+    html body #div_menu .vt-brand .vt-conn { position: relative; }
+    html body #div_menu .vt-brand .vt-conn::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; }
+}
 html body #div_menu .vt-hdr-restart { color: #d9825f; }
 html body #div_menu .vt-hdr-restart:hover { color: #ff9a74; }
 
@@ -135,12 +143,13 @@ body:is(.vt-h-ph, .vt-h-row) #btn_hdr_more:is([data-sys="warn"], [data-sys="err"
 body:is(.vt-h-ph, .vt-h-row) #btn_hdr_more[data-sys="err"] .vt-hdr-more-dot { background: var(--vt-err); }
 
 /* -------------------------------------------- the system monitor (PC) */
-/* the fixed-slot block (status_header.css) or, narrower, the chip */
+/* the fixed-slot block (status_header.css) or, with less room, the chip —
+   measured by status_header.js fitMonitor (D8, audit H2), not by the window
+   width: sh-sys-rx = ↓ only, sh-sys-chip = the chip */
 #div_menu #btn_sys_chip { display: none; }
-body.vt-h-w1600 #div_menu #system_monitor_header { width: 186px; }
-body.vt-h-w1600 #div_menu #system_monitor_header .sh-net-tx { display: none; }
-body.vt-h-w1366 #div_menu #system_monitor_header { display: none; }
-body.vt-h-w1366 #div_menu #btn_sys_chip { display: inline-grid; }
+body.sh-sys-rx #div_menu #system_monitor_header .sh-net-tx { display: none; }
+body.sh-sys-chip #div_menu #system_monitor_header { display: none; }
+body.sh-sys-chip #div_menu #btn_sys_chip { display: inline-grid; }
 body:is(.vt-h-ph, .vt-h-row) #div_menu :is(#system_monitor_header, #btn_sys_chip, .vt-hdr-vdiv) { display: none !important; }
 #system_monitor_header.sh-sys { padding: 0; }
 #system_monitor_header.sh-sys:hover,

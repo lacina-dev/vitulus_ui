@@ -9,8 +9,9 @@
  *                    ending at the round STOP in the top-right corner
  *                    (vt_frame.js; the rows keep --vt-stop-zone free).
  *             Narrowing, never wrapping (vt_header.css):
- *               < 1600  network ↓ only            (vt-h-w1600)
- *               < 1366  system as a chip + card    (vt-h-w1366)
+ *               system: ↓ ↑ → ↓ only → a chip + card, by the room the
+ *                       row has (status_header.js fitMonitor, D8 H2;
+ *                       vt-h-w1600 / vt-h-w1366 no longer style it)
  *               < 1280  menu icons only            (vt-h-w1280)
  *               < 1100  one icon per status group  (vt-h-w1100 → vt-h-sum)
  *             Logo, dot, ?, bell, ⋯ and STOP are never hidden.

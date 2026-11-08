@@ -28,7 +28,9 @@ never wraps onto a second line:
 - **Left** — the **VITULUS** logo with a small **connection dot** (green = the page is connected
   to the robot, orange pulsing = connecting, red = no connection; hover it for the words, click it
   to reconnect right away). Right after it the **status icons**, the first one is the **weather**
-  (click = rain radar) — see [Status icons](status-icons.md).
+  (click = rain radar); a click on the others opens the **status card** (every icon with its state
+  in words), and when no live data comes they turn grey with *no live data* over them — see
+  [Status icons](status-icons.md).
 - **Right** — the robot's **computer** (CPU · RAM · download ↓ · upload ↑, click = a card with
   more), then **?** help, the bell (**Needs you**, the number on it counts what waits for you),
   **Restart** (the power icon — restarts the whole robot after you confirm) and **⋯** more:
@@ -43,14 +45,15 @@ the agent's line (e.g. *FINDING · 5 to read*, click = the agent panel; red whil
 you have not seen in Findings yet, grey otherwise), in the middle the robot's
 notice (*Waiting for dock cmd*, a lost connection…) on one line — hover it for the whole text.
 
-**A narrower window** takes things away instead of squeezing them: under 1600 px the computer
-shows only download ↓, under 1366 px it is one **chip** (its colour = the worst of CPU, RAM and
-disk; click = the card with the numbers), under 1280 px the menu band shows icons only (the name is
+**A narrower window** takes things away instead of squeezing them: when the bar has no room for
+the whole computer block it first drops upload ↑, then it is one **chip** (its colour = the worst
+of CPU, RAM and disk; click = the card with the numbers), under 1280 px the menu band shows icons only (the name is
 the tooltip), under 1100 px each icon group shows one icon — the worst one of the group. The logo,
 the dot, ?, the bell, ⋯ and STOP are always there.
 
-**Phone upright**: the navbar (logo, dot, bell, Restart, ⋯, STOP), the menu band, a row of status
-icons and a row of notices. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
+**Phone upright**: the navbar (logo, dot, bell, Restart, ⋯, STOP), the menu band, the status
+**summary** (one icon per group + *All OK* / *2 warnings*; tap = the status card) and a row of
+notices. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
 the panel buttons · one icon per status group · bell · Restart · ⋯ — the logo, ? and the computer
 are in **⋯**, STOP is in the corner above the right panel.
 

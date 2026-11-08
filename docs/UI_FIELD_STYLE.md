@@ -135,9 +135,11 @@ všech existujících kartách naráz bez zásahu do HTML.
   sekce panelů (`drawer-sec`, `map-sec`, `mapedit-sec`, skupiny Needs you,
   nápověda), nadpisy sekcí agenta (RUNNING, ROBOT STATE, …), dny v Activity,
   skupiny v Diag. Karty, popisky a ovládání zůstávají Roboto.
-- **Stavové ikony — čtyři barvy** (barva je přímo v PNG v
-  `assets/img/robot_icons/`, přebarvené z neonových barev displeje Nextion;
-  bez CSS filtrů). Kontrast proti ploše rámu `#282b30`:
+- **Stavové ikony — čtyři barvy.** Od D8 (2026-11-08) v hlavičce čárové SVG
+  ikony (status_header.js) v barvě tokenu stavu (`--vt-ok`, `--vt-warn`,
+  `--vt-err`, `--vt-off`), varování / porucha navíc rohová tečka; PNG
+  v `assets/img/robot_icons/` zůstávají jen jako nositel stavu (název souboru)
+  a pro Nastavení. Původní paleta PNG proti ploše rámu `#282b30`:
 
   | Stav | Barva | Kontrast | Pozn. |
   |---|---|---|---|

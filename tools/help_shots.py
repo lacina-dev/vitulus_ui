@@ -51,7 +51,7 @@ PHONE = (390, 844)
 
 # Selectors the script may click (DOM .click()): menu, tabs, section heads,
 # view switches. Anything that could command the robot is not here.
-CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|autonomy|agent|support|log|joy|panel_toggle|help|needs)'
+CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|autonomy|agent|support|log|joy|panel_toggle|help|needs|status_card)'
                       r'|a\[href="#tab[-_][\w-]+"\]|#btn_ui_drawer_(help|full)|#btn_log_expand|#btn_map_detail_toggle|#div_menu_program_items_row|#btn_calendar_add|\.vth-|#vt_help|\[data-tab=|'
                       r'#rp_|\.rp-|\.vco-btn|\.vt-sec|summary|details|\.vagent-tab|\.vt-support-tab|\.cam-|#cam_|\.vtcam)')
 
@@ -146,6 +146,9 @@ SHOTS = [
                 ('#btn_help', '4', 'b'), ('#btn_needs', '5', 'b'), ('#btn_robot_restart', '6', 'b'), ('#btn_hdr_more', '7', 'b'),
                 ('#vt_stop_big', '8', 'l')]),
     dict(name='shot-status-icons', vp=DESK, scale=3, width=900, clip='#status_div', pad=4, marks=[]),
+    # D8 2026-11-08: a click on the icons = the status card (read only: every icon, its state in words)
+    dict(name='shot-status-card', vp=DESK, scale=2, width=560, clip='#sh_status_card', pad=6, marks=[],
+         steps=[('click', '#btn_status_card'), ('wait', 600)]),
     # --- right panel (dock.md, routes.md, localization.md)
     dict(name='shot-controls', vp=DESK, scale=3, width=560, clip='#right_panel section.rp-sec[data-sec="drive"]', pad=2, md=15,
          marks=[('#span_batt_pct', '1', 'l'), ('#rp_motors', '2', 'l'),

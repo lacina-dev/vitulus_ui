@@ -37,6 +37,161 @@
     display: block;
 }
 
+/* ---- D8 (audit H1): line icons ------------------------------------------
+   status_header.js wraps each robot <img> (hidden, map_view.js still swaps
+   its src) in a .sh-ico box with a 24-unit line icon in currentColor; the
+   colour is the tone, warning / fault also get a corner dot (hollow =
+   warning, full = fault) so green vs orange is not the only cue. */
+#status_div.sh-strip .sh-ico > img { display: none !important; }
+#status_div.sh-strip .sh-ico {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 16px; height: 16px;
+    color: var(--vt-faint);
+    transition: color .2s ease, opacity .2s ease;
+}
+#status_div.sh-strip .sh-ico > svg { display: block; width: 16px; height: 16px; overflow: visible; }
+#status_div.sh-strip .sh-ico[data-tone="ok"],   .sh-st-i[data-tone="ok"],   .sh-st-s[data-tone="ok"]   { color: var(--vt-ok); }
+#status_div.sh-strip .sh-ico[data-tone="warn"], .sh-st-i[data-tone="warn"], .sh-st-s[data-tone="warn"] { color: var(--vt-warn); }
+#status_div.sh-strip .sh-ico[data-tone="err"],  .sh-st-i[data-tone="err"],  .sh-st-s[data-tone="err"]  { color: var(--vt-err); }
+#status_div.sh-strip .sh-ico[data-tone="off"],  .sh-st-i[data-tone="off"]  { color: var(--vt-off); }
+.sh-st-s[data-tone="off"] { color: var(--vt-muted); }
+#status_div.sh-strip .sh-ico:is([data-tone="warn"], [data-tone="err"])::after {
+    content: "";
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    background: var(--vt-frame-bg, #282b30);
+    border: 1.6px solid currentColor;
+}
+#status_div.sh-strip .sh-ico[data-tone="err"]::after { background: currentColor; box-shadow: 0 0 0 1.2px var(--vt-frame-bg, #282b30); }
+
+/* the groups except the weather are one button: it opens the status card */
+#status_div.sh-strip .sh-open {
+    position: relative;
+    display: inline-flex;
+    flex-wrap: inherit;
+    align-items: center;
+    align-content: center;
+    justify-content: center;
+    column-gap: inherit;
+    row-gap: inherit;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0 4px;
+    border: 0;
+    border-radius: var(--vt-r-ctl, 6px);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;            /* on a phone the row sits in a no-event overlay over the map */
+}
+#status_div.sh-strip .vt-rain { pointer-events: auto; }
+#status_div.sh-strip .sh-open:hover,
+#status_div.sh-strip .sh-open[aria-expanded="true"] { background: rgba(255, 255, 255, 0.06); }
+#status_div.sh-strip .sh-open:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; }
+#status_div.sh-strip .sh-sum { display: none; }
+/* last known only (no link, or no icon_status for 10 s): grey + a label */
+#status_div.sh-strip.sh-stale .sh-ico { color: var(--vt-faint); opacity: .5; }
+#status_div.sh-strip.sh-stale .sh-ico::after { display: none; }
+#status_div.sh-strip .sh-stale-tag { display: none; }
+#status_div.sh-strip.sh-stale .sh-stale-tag {
+    display: block;
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(40, 43, 48, 0.94);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+    color: var(--vt-text, #dce8ee);
+    font: 600 10.5px/1.3 var(--vt-font, 'Roboto', sans-serif);
+    letter-spacing: .02em;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* phone held upright: the row is a summary — one icon per group (the worst)
+   and the state in words; the whole row is the button */
+body.vt-h-ph #status_div.sh-strip:not(.in-header) { justify-content: flex-start; width: 100%; }
+body.vt-h-ph #status_div.sh-strip .sh-open { flex: 1 1 auto; justify-content: flex-start; min-width: 0; padding: 0 8px; }
+body.vt-h-ph #status_div.sh-strip .sh-group > :not(.sh-rep) { display: none !important; }
+body.vt-h-ph #status_div.sh-strip .sh-ico,
+body.vt-h-ph #status_div.sh-strip .sh-ico > svg { width: 16px; height: 16px; }
+body.vt-h-ph #status_div.sh-strip .sh-sum {
+    display: block;
+    min-width: 0;
+    margin-left: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 500 12px/1.2 var(--vt-font, 'Roboto', sans-serif);
+    color: var(--vt-text, #dce8ee);
+}
+body.vt-h-ph #status_div.sh-strip .sh-sum[data-tone="warn"] { color: var(--vt-warn); }
+body.vt-h-ph #status_div.sh-strip .sh-sum[data-tone="err"] { color: var(--vt-err); }
+body.vt-h-ph #status_div.sh-strip .sh-sum[data-tone="off"] { color: var(--vt-muted); }
+body.vt-h-ph #status_div.sh-strip .sh-sum::after { content: " ›"; color: var(--vt-muted); }
+body.vt-h-ph #status_div.sh-strip.sh-stale .sh-stale-tag { display: none; }   /* the summary says it */
+
+/* landscape / small tablet with the panel open (vt-m-overlay): as before
+   with the PNGs, only what needs attention stays (vt_field.css did it on the
+   <img>s) — quiet icons step back, a calm strip is not shown at all */
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip .sh-ico:is([data-tone="ok"], [data-tone="off"]) { display: none !important; }
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip.sh-calm { display: none !important; }
+body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip.sh-stale .sh-ico { display: inline-grid !important; }
+
+/* the status card (#sh_status_card): every icon, its name, its state */
+.sh-card.sh-status-card { width: 300px; max-width: calc(100vw - 16px); overflow-y: auto; gap: 8px; box-sizing: border-box; }
+.sh-status-card .sh-card-h { align-items: center; }
+.sh-status-card .sh-card-age { margin-left: auto; text-align: right; }
+.sh-status-card .sh-card-age[data-tone="off"] { color: var(--vt-warn); }
+.sh-card-x {
+    flex: 0 0 auto;
+    width: 32px; height: 32px;
+    margin: -6px -8px -6px 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--vt-muted, #91a4af);
+    font: 400 20px/1 var(--vt-font, 'Roboto', sans-serif);
+    cursor: pointer;
+}
+.sh-card-x:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.sh-card-x:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; }
+.sh-st-list { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; column-gap: 8px; row-gap: 3px; align-items: center; }
+.sh-st-g {
+    grid-column: 1 / -1;
+    margin-top: 5px;
+    font-size: 10px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--vt-muted, #91a4af);
+}
+.sh-st-g:first-child { margin-top: 0; }
+.sh-st-row { display: contents; }
+.sh-st-i { display: grid; place-items: center; width: 20px; height: 18px; }
+.sh-st-i svg { display: block; width: 16px; height: 16px; overflow: visible; }
+.sh-st-n { min-width: 0; overflow-wrap: anywhere; color: var(--vt-text, #dce8ee); }
+.sh-st-s { text-align: right; font-weight: 500; white-space: nowrap; }
+.sh-status-card.is-stale .sh-st-i, .sh-status-card.is-stale .sh-st-s { color: var(--vt-muted, #91a4af); }
+.sh-st-note { color: var(--vt-warn); }
+@media (pointer: coarse) {
+    .sh-card-x { width: 40px; height: 40px; margin: -10px -10px -10px 0; }
+    .sh-st-list { row-gap: 6px; }
+}
+@media (max-width: 380px) {
+    .sh-st-s { white-space: normal; max-width: 9.5em; }
+}
+
 /* ---- over the map (below the header breakpoint) ----------------------- */
 /* #row_icons is 32 px tall; two rows of 15 px + 1 px gap fit inside it, so
    wrapping never pushes the map down — the height does not jump. */
@@ -77,14 +232,16 @@ body.vt-h-sum #status_div.in-header .sh-group > :not(.sh-rep) { display: none !i
 
 /* ==== system monitor (#system_monitor_header, status_header.js) =========
    CPU · RAM · ↓ ↑ in FIXED slots: the block keeps one width whatever the
-   numbers do (266 px; 186 px with ↓ only, vt_header.css), so nothing in the
-   header moves when they change. */
+   numbers do, so nothing in the header moves when they change; how much of
+   it shows (↓ ↑ / ↓ / the chip) is measured against the room in the header
+   row (status_header.js fitMonitor, D8 audit H2: at 1366 px the old fixed
+   186 px box cut "kB/s" and hid ↑ although there was room). */
 #system_monitor_header.sh-sys {
     display: flex;
     align-items: center;
     gap: 10px;
     flex: 0 0 auto;
-    width: 266px;
+    width: auto;                     /* D8 (H2): the natural width — constant, the slots are fixed */
     height: 32px;
     margin: 0;
     padding: 0 6px;
@@ -107,7 +264,7 @@ body.vt-h-sum #status_div.in-header .sh-group > :not(.sh-rep) { display: none !i
 .sh-i u { text-decoration: none; color: var(--vt-muted, #91a4af); }
 .sh-n3 { display: inline-block; width: 3ch; text-align: right; }
 .sh-unit { display: inline-block; width: 2.9em; padding-left: .25em; text-align: left; box-sizing: border-box; }
-.sh-arr { color: var(--vt-muted, #91a4af); margin-right: 1px; }
+.sh-arr { color: var(--vt-muted, #91a4af); margin-right: 3px; }   /* D8: "↑412" touched when the 3ch slot is full */
 .sh-arr.rx { color: #62b9ff; }
 .sh-arr.tx { color: #b28cff; }
 .sh-netbox { display: inline-flex; align-items: baseline; gap: 4px; flex: 0 0 auto; }
