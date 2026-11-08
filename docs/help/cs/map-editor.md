@@ -132,7 +132,7 @@ Stopa jen nahrává. Robota nerozjede, jedeš s ním sám.
 vrstva v mapě nejde vybrat. Svět, každá vrstva s legendou: **Pokrytí** (kdy se naposledy sekalo),
 **Zátěž sekání** (stopa běhu, viz Sekací ústrojí), **Výška trávy** (změřená tráva proti
 výšce sekání, viz [Sekací ústrojí](mowing.md#výška-trávy-před-robotem)), **Kvalita GNSS**, **Sklon**, **Terén**, **Letecká** (když je zapnutá, hned pod ní vybereš podkladovou mapu) a **Překryvy**
-(katastr, vrstevnice, reliéf — tytéž přepínače jako v záložce Mapa).
+(katastr, budovy, vrstevnice, reliéf, sklon — tytéž přepínače jako v záložce Mapa).
 Vrstva bez dat to řekne. Stopa ukazuje i shodu GPS s lidarem a koly, korekce RTCM a tenkými čarami polohy podle plánu, GPS a lidaru, takže je vidět, kam základna
 dosahuje špatně, což pomůže při kreslení zóny. Klepnutí na stopu ukáže kartu, jen když není aktivní kreslicí nástroj.
 

@@ -175,8 +175,15 @@ window.MapEditPanel = (function () {
         if (!src) return '';
         return '<label class="vt-muted" for="mapedit_base">' + esc(t('medits.legend.base')) + '</label> ' +
             '<select class="form-select form-select-sm" id="mapedit_base">' +
-            Array.prototype.map.call(src.options, function (o) {
-                return '<option value="' + esc(o.value) + '"' + (o.value === src.value ? ' selected' : '') + '>' + esc(o.textContent) + '</option>';
+            // same options and groups (optgroup) as the Map tab picker
+            Array.prototype.map.call(src.children, function (n) {
+                var one = function (o) {
+                    return '<option value="' + esc(o.value) + '"' + (o.value === src.value ? ' selected' : '') + '>' + esc(o.textContent) + '</option>';
+                };
+                if (n.tagName === 'OPTGROUP') {
+                    return '<optgroup label="' + esc(n.label) + '">' + Array.prototype.map.call(n.children, one).join('') + '</optgroup>';
+                }
+                return one(n);
             }).join('') + '</select>';
     }
     function wireMapSources(host) {
@@ -192,13 +199,20 @@ window.MapEditPanel = (function () {
             });
         });
     }
-    // which bases / overlays exist (a new catalog = new rows); toggles and the
+    // which bases / overlays exist and their names (a new catalog or language =
+    // re-render); toggles and the
     // chosen base are NOT part of it — those are synced in place
     function mapSourcesSig() {
+        // labels count too: the Map tab relabels its picker on a language
+        // switch AFTER this panel re-rendered (VTI18n.onChange order), and
+        // its 'vt:map-sources' event must then re-render the copy here
         var src = $('mapv3_aerial_src');
-        return (src ? Array.prototype.map.call(src.options, function (o) { return o.value; }).join(',') : '') + '|' +
+        return (src ? Array.prototype.map.call(src.querySelectorAll('optgroup, option'), function (o) {
+            return o.tagName === 'OPTGROUP' ? '[' + o.label + ']' : o.value + '=' + o.textContent;
+        }).join(',') : '') + '|' +
             Array.prototype.map.call(document.querySelectorAll('#mapv3_overlays [data-ov]'), function (r) {
-                return r.getAttribute('data-ov');
+                var id = r.getAttribute('data-ov'), lab = $('mapv3_ov_' + id + '_lab');
+                return id + '=' + (lab ? lab.textContent : '');
             }).join(',');
     }
     // Map tab changed a source: mirror it here without re-rendering the panel

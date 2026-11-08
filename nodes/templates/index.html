@@ -977,7 +977,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <button class="btn btn-outline-warning btn-sm vt-mt2 vt-fs-xs vt-pad-s" id="mapv3_btn_clear_costmaps" type="button" title="Clear the navigation costmaps — the live obstacle memory that accumulates while driving (the 'map that builds as you drive'). It is NOT a saved map; it instantly re-marks whatever the sensors currently see." data-i18n-title="mapt.disp.clear_cm_tip" data-i18n="mapt.disp.clear_cm">Clear costmaps</button>
 
                                                 <hr class="vt-mt2 vt-mr0 vt-mb2 vt-ml0">
-                                                <div class="vt-fs-sm vt-mb1" title="Georeferenced MapProxy map under the map: satellite, orthophoto, topographic maps (loads only when the Aerial layer is ticked)" data-i18n-title="mapt.aerial.title_tip" data-i18n="mapt.aerial.title">Background map (MapProxy)</div>
+                                                <div class="vt-fs-sm vt-mb1" title="Georeferenced MapProxy map under the map: satellite and aerial photos, orthophoto, maps (loads only when the Aerial layer is ticked)" data-i18n-title="mapt.aerial.title_tip" data-i18n="mapt.aerial.title">Background map (MapProxy)</div>
                                                 <!-- options come from the source catalog (vt_map_sources.js, /api/map_sources); own row: the names are long -->
                                                 <select class="form-select form-select-sm vt-fs-sm vt-mb1" id="mapv3_aerial_src" title="Background map source" data-i18n-title="mapt.aerial.src_tip"><option value="sat" selected>Satellite (Google)</option></select>
                                                 <div class="input-group input-group-sm">
@@ -990,7 +990,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <!-- 2026-11-08 map sources: overlays from the catalog (one row each:
                                                      checkbox, opacity, zoom status), drawn above the maps. -->
                                                 <div id="mapv3_overlays_box" class="vt-mt2" hidden>
-                                                    <div class="vt-fs-sm vt-mb1" title="Transparent layers with their own opacity, with or without the background map: lines (cadastre, contours) on top of the robot's maps, the relief under them" data-i18n-title="mapt.aerial.ov_title_tip" data-i18n="mapt.aerial.ov_title">Overlays</div>
+                                                    <div class="vt-fs-sm vt-mb1" title="Transparent layers with their own opacity, with or without the background map: lines (cadastre, buildings, contours) on top of the robot's maps, relief and slope under them" data-i18n-title="mapt.aerial.ov_title_tip" data-i18n="mapt.aerial.ov_title">Overlays</div>
                                                     <div id="mapv3_overlays"></div>
                                                 </div>
 

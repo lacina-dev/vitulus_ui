@@ -4,12 +4,17 @@
  * overlays the Map tab and the map editor offer.
  *
  *     node tools/test_map_sources.node.js
+ *     MAPPROXY_REPO=~/vitulus/wt/docker-mapproxy/<task> node tools/test_map_sources.node.js
  *
  * Checks the pure helpers (validation, fallback, mapping of old stored
- * choices, tile URL, credits) and, when the docker-mapproxy repo sits in the
- * same workspace, that its ui_sources.json is valid and every layer it names
- * exists in mapproxy.yaml (skipped with a note otherwise; MAPPROXY_REPO=<path>
- * points it at another checkout).
+ * choices, tile URL, credits, base groups) and the shipped catalog: that
+ * docker-mapproxy's ui_sources.json is valid and every layer it names exists
+ * in mapproxy.yaml. The catalog is looked up in MAPPROXY_REPO first, then
+ * docker-mapproxy beside this repo in the catkin workspace (src/ or its
+ * parent), then the robot's path. In a git WORKTREE (e.g. ~/vitulus/wt/...)
+ * none of the relative paths match: set MAPPROXY_REPO to the docker-mapproxy
+ * checkout that belongs to the change, otherwise the catalog part is skipped
+ * with a note (the rest still runs).
  */
 'use strict';
 const fs = require('fs');
@@ -64,6 +69,22 @@ ok('default_base honoured', cat.default_base === 'cuzk');
 ok('no bases at all -> fallback', MS.normalize({ sources: [{ id: 'kn', kind: 'overlay', layer: 'a', grid: 'b' }] }).bases.length === 3);
 ok('garbage -> fallback', MS.normalize('nope').fromCatalog === false);
 
+console.log('\nbase groups (picker)');
+const gcat = MS.normalize({ sources: [
+    { id: 'm1', kind: 'base', group: 'map', layer: 'a', grid: 'g' },
+    { id: 'p1', kind: 'base', group: 'photo', layer: 'b', grid: 'g' },
+    { id: 'x1', kind: 'base', group: 'weird', layer: 'c', grid: 'g' },
+    { id: 'p2', kind: 'base', group: 'photo', layer: 'd', grid: 'g' },
+    { id: 'o1', kind: 'overlay', group: 'photo', layer: 'e', grid: 'g' },
+] });
+const gg = MS.baseGroups(gcat);
+ok('groups in fixed order photo, map, ungrouped last', gg.map((g) => g.group).join() === 'photo,map,');
+ok('catalog order kept inside a group', gg[0].sources.map((b) => b.id).join() === 'p1,p2');
+ok('unknown group -> ungrouped', gcat.byId.x1.group === '' && gg[2].sources[0].id === 'x1');
+ok('overlays carry no group', gcat.byId.o1.group === '');
+ok('catalog without groups = one plain list', MS.baseGroups(cat).length === 1 && MS.baseGroups(cat)[0].group === '');
+ok('fallback bases are grouped', MS.baseGroups(fb).map((g) => g.group).join() === 'photo,map');
+
 console.log('\nstored choice -> base');
 ok('known id kept', MS.resolveBase(cat, 'ztm') === 'ztm');
 ok('old label "satellite" -> sat', MS.resolveBase(cat, 'satellite') === 'sat');
@@ -96,6 +117,8 @@ if (!repo) {
     ok('the old ids sat / cuzk / osm are still there',
        ['sat', 'cuzk', 'osm'].every((id) => shipped.byId[id] && shipped.byId[id].kind === 'base'));
     ok('every entry has en + cs names', raw.sources.every((s) => s.name && s.name.en && s.name.cs));
+    ok('every base has a group (photo / map)', shipped.bases.every((b) => b.group === 'photo' || b.group === 'map'));
+    ok('default base exists and is a base', shipped.byId[raw.default_base] && shipped.byId[raw.default_base].kind === 'base');
     ok('every overlay states its layer_order', raw.sources.every((s) => s.kind !== 'overlay' ||
        s.layer_order === 'under' || s.layer_order === 'over'));
     const yml = fs.readFileSync(path.join(repo, 'mapproxy_configuration', 'mapproxy.yaml'), 'utf8');

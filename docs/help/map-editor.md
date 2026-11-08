@@ -135,7 +135,7 @@ layer cannot be selected on the map. World, each with its legend: **Coverage** (
 mowed), **Mow load** (the trail of a run, see Mowing unit), **Grass height** (measured grass
 against the cut height, see [Mowing unit](mowing.md#grass-height-ahead)), **GNSS quality**, **Slope**, **Terrain**,
 **Aerial** (with it on, pick the background map right below it) and **Overlays** (cadastre,
-contour lines, relief — the same switches as in the Map tab). A layer without data says so. The trail also shows how GPS agrees with lidar and wheels, the RTCM corrections and, with thin lines, the plan, GPS and lidar positions, so
+buildings, contour lines, relief, slope — the same switches as in the Map tab). A layer without data says so. The trail also shows how GPS agrees with lidar and wheels, the RTCM corrections and, with thin lines, the plan, GPS and lidar positions, so
 it tells where the base reaches badly, which helps when you place a zone. A tap on the trail shows its card only when no drawing tool
 is active.
 

@@ -22,13 +22,13 @@
     var FALLBACK = {
         default_base: 'sat',
         sources: [
-            { id: 'sat', kind: 'base', layer: 'gm_layer', grid: 'gm_grid', format: 'png',
+            { id: 'sat', kind: 'base', group: 'photo', layer: 'gm_layer', grid: 'gm_grid', format: 'png',
               name: { en: 'Satellite (Google)', cs: 'Satelit (Google)' }, max_zoom: 21,
               attribution: 'Imagery © Google' },
-            { id: 'cuzk', kind: 'base', layer: 'cuzk_layer', grid: 'gm_grid', format: 'png',
+            { id: 'cuzk', kind: 'base', group: 'photo', layer: 'cuzk_layer', grid: 'gm_grid', format: 'png',
               name: { en: 'Orthophoto ČÚZK', cs: 'Ortofoto ČÚZK' }, max_zoom: 21,
               attribution: '© ČÚZK' },
-            { id: 'osm', kind: 'base', layer: 'osm_demo', grid: 'webmercator', format: 'png',
+            { id: 'osm', kind: 'base', group: 'map', layer: 'osm_demo', grid: 'webmercator', format: 'png',
               name: { en: 'OpenStreetMap', cs: 'OpenStreetMap' }, max_zoom: 19,
               attribution: '© OpenStreetMap contributors' },
         ],
@@ -39,6 +39,9 @@
     var ID_RE = /^[a-z0-9_]{1,40}$/;
     var NAME_RE = /^[A-Za-z0-9_]{1,80}$/;
     var MAX_Z = 21;   // gm_grid has 22 levels (z0-z21)
+    // base map groups of the source picker (catalog "group"), in this order;
+    // a base without a known group goes last, outside any group
+    var GROUPS = ['photo', 'map'];
 
     function num(v, dflt, lo, hi) {
         var n = typeof v === 'number' ? v : parseFloat(v);
@@ -67,6 +70,8 @@
         return {
             id: id,
             kind: kind,
+            // bases only: 'photo' (aerial/satellite) | 'map' (drawn) | ''
+            group: (kind === 'base' && GROUPS.indexOf(s.group) >= 0) ? s.group : '',
             layer: String(s.layer),
             grid: String(s.grid),
             format: s.format === 'jpeg' ? 'jpeg' : 'png',
@@ -118,6 +123,18 @@
         return cat.default_base;
     }
 
+    // the bases split for the picker: [{group, sources}] in GROUPS order, the
+    // ungrouped ones last (group ''); empty groups left out. One entry with
+    // group '' = a catalog without groups (plain list).
+    function baseGroups(cat) {
+        var out = [];
+        GROUPS.concat(['']).forEach(function (g) {
+            var list = ((cat && cat.bases) || []).filter(function (b) { return b.group === g; });
+            if (list.length) { out.push({ group: g, sources: list }); }
+        });
+        return out;
+    }
+
     function label(src, lang) {
         if (!src) { return ''; }
         return (lang && src.name[lang]) || src.name.en || src.id;
@@ -138,8 +155,9 @@
         return out.join(' · ');
     }
 
-    var api = { FALLBACK: FALLBACK, ALIASES: ALIASES, normalize: normalize, fallback: fallback,
-                resolveBase: resolveBase, label: label, tileUrl: tileUrl, attribution: attribution };
+    var api = { FALLBACK: FALLBACK, ALIASES: ALIASES, GROUPS: GROUPS, normalize: normalize,
+                fallback: fallback, resolveBase: resolveBase, baseGroups: baseGroups, label: label,
+                tileUrl: tileUrl, attribution: attribution };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (root) { root.VTMapSources = api; }
 })(typeof window !== 'undefined' ? window : null);

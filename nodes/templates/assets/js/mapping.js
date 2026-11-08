@@ -86,6 +86,27 @@ function tileOffsetFormat(off) {
 // i18n (docs/I18N.md): keys 'mapping.*'. Distinct global names — this is a
 // classic script, a top-level `t` would collide with other modules.
 function mapT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+
+/* T17 MapProxy tiles: mipmap LOD bias -1. The tile zoom is chosen so a tile
+   texel is at most one screen pixel (rebuildAerial, adaptive zoom), i.e. the
+   view minifies tiles 1-2x. Plain trilinear mipmapping blends in the half-
+   resolution level there and blurs the picture; with the bias that range stays
+   on the full-resolution level (bilinear, sharp) and the mipmaps only take
+   over where the view really shrinks a tile (zoomed out past the tile limit,
+   the far part of a tilted view: no shimmer). One shared function = one
+   shader program for all tiles (three.js keys programs by its source).
+   Works on the raw shader (#include not yet resolved) and on resolved text. */
+function vtTileLodBias(shader) {
+    var fs = shader.fragmentShader;
+    if (fs.indexOf('#include <map_fragment>') >= 0) {
+        fs = fs.replace('#include <map_fragment>',
+            '#ifdef USE_MAP\n\tvec4 texelColor = texture2D( map, vUv, -1.0 );\n' +
+            '\ttexelColor = mapTexelToLinear( texelColor );\n\tdiffuseColor *= texelColor;\n#endif\n');
+    } else {
+        fs = fs.replace('texture2D( map, vUv )', 'texture2D( map, vUv, -1.0 )');
+    }
+    shader.fragmentShader = fs;
+}
 function mapTn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
 function mapTag(el, k, attr) { if (el && window.VTI18n) { VTI18n.tag(el, k, attr); } }
 
@@ -918,11 +939,21 @@ class MappingV3 {
             const want = MS.resolveBase(cat, this._aerialSrcPref != null
                                              ? this._aerialSrcPref : sel.value);
             sel.innerHTML = '';
-            cat.bases.forEach((b) => {
+            // bases in groups (catalog "group": photos / drawn maps); a
+            // catalog without groups stays a plain list
+            const opt = (b) => {
                 const o = document.createElement('option');
                 o.value = b.id;
                 o.textContent = MS.label(b, lang);
-                sel.appendChild(o);
+                return o;
+            };
+            (MS.baseGroups ? MS.baseGroups(cat) : [{ group: '', sources: cat.bases }]).forEach((g) => {
+                if (!g.group) { g.sources.forEach((b) => sel.appendChild(opt(b))); return; }
+                const og = document.createElement('optgroup');
+                og.label = g.group === 'photo' ? mapT('mapt.aerial.group_photo')
+                         : (g.group === 'map' ? mapT('mapt.aerial.group_map') : g.group);
+                g.sources.forEach((b) => og.appendChild(opt(b)));
+                sel.appendChild(og);
             });
             sel.value = want;
         }
@@ -1409,6 +1440,11 @@ class MappingV3 {
             const mv = document.getElementById('map_view');
             heightPx = (mv && mv.clientHeight) || 800;
         }
+        // T17: DEVICE pixels, not CSS pixels — the 3D canvas draws at the
+        // screen's pixel ratio (vtMapPixelRatio, map_view.js; max 2), so a
+        // phone (DPR 2-3) gets the one-finer tile level its screen can show
+        // instead of a magnified coarser one.
+        heightPx *= (typeof vtMapPixelRatio === 'function') ? vtMapPixelRatio() : 1;
         return { cx: ctrl.center.x, cy: ctrl.center.y, halfW, halfH, heightPx };
     }
 
@@ -1722,6 +1758,7 @@ class MappingV3 {
                 map: tex, transparent: true, opacity: opacity, depthWrite: false,
             });
             if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
+            mat.onBeforeCompile = vtTileLodBias;   // T17: see vtTileLodBias
             const mesh = new T.Mesh(geo, mat);
             mesh.position.set(cx, cy, 0);
             // BOTTOM of the paint order (see MapLayerOrder). depthWrite already
@@ -1734,19 +1771,24 @@ class MappingV3 {
             img.onload = () => {
                 try {
                     if (typeof stale === 'function' && stale()) { return; }
-                    const MAX = 256;
-                    const iw = Math.min(MAX, img.naturalWidth || 256);
-                    const ih = Math.min(MAX, img.naturalHeight || 256);
-                    const cv = document.createElement('canvas');
-                    cv.width = iw; cv.height = ih;
-                    const ctx = cv.getContext('2d');
-                    if (!ctx) { return; }
-                    ctx.drawImage(img, 0, 0, iw, ih);
-                    const rgba = new Uint8Array(
-                        ctx.getImageData(0, 0, iw, ih).data.buffer);
-                    const ntex = new T.DataTexture(rgba, iw, ih);
-                    ntex.flipY = true;   // canvas row0=top -> +y (north)
-                    ntex.needsUpdate = true;
+                    // T17 sharpness: the image goes to the GPU as it is (no
+                    // canvas + getImageData copy) with linear filtering,
+                    // mipmaps and anisotropy (_tileTexture). Only an image
+                    // larger than MAX px is scaled down through a canvas.
+                    const MAX = 512;
+                    const nw = img.naturalWidth || 256, nh = img.naturalHeight || 256;
+                    let src = img, iw = nw, ih = nh;
+                    if (nw > MAX || nh > MAX) {
+                        iw = Math.min(MAX, nw); ih = Math.min(MAX, nh);
+                        const cv = document.createElement('canvas');
+                        cv.width = iw; cv.height = ih;
+                        const ctx = cv.getContext('2d');
+                        if (!ctx) { return; }
+                        ctx.drawImage(img, 0, 0, iw, ih);
+                        src = cv;
+                    }
+                    const ntex = this._tileTexture(T, src, iw, ih);
+                    if (!ntex) { return; }
                     const old = mat.map;
                     mat.map = ntex;
                     mat.needsUpdate = true;
@@ -1760,6 +1802,47 @@ class MappingV3 {
             return mesh;
         } catch (e) {
             console.error('[mappingv3] _buildTileMesh failed:', e);
+            return null;
+        }
+    }
+
+    // A tile texture that stays sharp (T17). Before: a DataTexture, which in
+    // ROS3D's THREE defaults to NearestFilter with no mipmaps — blocky when
+    // magnified past the source's last level, grainy and shimmering when
+    // zoomed out or tilted. Now: linear magnification, trilinear mipmaps
+    // (power-of-two tiles: 256/512 px; LOD bias -1 in the shader, see
+    // vtTileLodBias, so the usual 1-2x view stays on the full-resolution
+    // level) and anisotropic filtering at the GPU's maximum (oblique 3D
+    // views). Built with ROS3D's own THREE (the renderer
+    // accepts only its objects, see _r3d()); image row 0 = top -> flipY puts
+    // north up, as the old canvas copy did. Returns null on failure.
+    _tileTexture(T, src, w, h) {
+        try {
+            const R = (window.ROS3D && ROS3D.THREE) || {};
+            const Tex = R.Texture || Object.getPrototypeOf(T.DataTexture.prototype).constructor;
+            const LIN = R.LinearFilter !== undefined ? R.LinearFilter : 1006;
+            const MIP = R.LinearMipMapLinearFilter !== undefined ? R.LinearMipMapLinearFilter
+                : (R.LinearMipmapLinearFilter !== undefined ? R.LinearMipmapLinearFilter : 1008);
+            const pot = (n) => n > 0 && (n & (n - 1)) === 0;
+            const tex = new Tex(src);
+            tex.flipY = true;
+            tex.magFilter = LIN;
+            const mip = pot(w) && pot(h);
+            tex.minFilter = mip ? MIP : LIN;
+            tex.generateMipmaps = mip;
+            if (this._tileAniso === undefined) {
+                let a = 1;
+                try {
+                    const caps = this.viewer3d && this.viewer3d.renderer && this.viewer3d.renderer.capabilities;
+                    a = (caps && caps.getMaxAnisotropy) ? (caps.getMaxAnisotropy() || 1) : 1;
+                } catch (e) { a = 1; }
+                this._tileAniso = Math.max(1, Math.min(16, a));
+            }
+            tex.anisotropy = this._tileAniso;
+            tex.needsUpdate = true;
+            return tex;
+        } catch (e) {
+            console.error('[mappingv3] tile texture failed:', e);
             return null;
         }
     }

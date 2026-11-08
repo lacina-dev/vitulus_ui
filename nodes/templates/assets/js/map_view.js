@@ -27,6 +27,13 @@ function vtOnLang(fn) {
     if (window.VTI18n && VTI18n.onChange) VTI18n.onChange(fn);
 }
 
+/* T17: the pixel ratio the 3D map draws at — the screen's devicePixelRatio,
+   max 2 (a 3x phone at 2x is already sharp; 9x the pixels is not worth the
+   GPU). mapping.js picks the tile zoom from the same number. */
+function vtMapPixelRatio() {
+    return Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+}
+
 ROS3D.Viewer.prototype.resize = function(width, height) {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -1173,6 +1180,13 @@ class Viewer3D{
             try {
                 if (this.viewer.renderer) { this.viewer.renderer.sortObjects = true; }
             } catch (e) { /* stub / no renderer */ }
+            // T17: draw at the screen's pixel ratio (phones were drawn at CSS
+            // pixels and magnified: blurry map, tiles and lines)
+            try {
+                if (this.viewer.renderer && this.viewer.renderer.setPixelRatio) {
+                    this.viewer.renderer.setPixelRatio(vtMapPixelRatio());
+                }
+            } catch (e) { /* stub / no renderer */ }
         } catch (e) {
             console.error('[vitulus_ui] 3D map disabled — could not create a WebGL context:', e);
             this.webgl = false;
@@ -1186,6 +1200,11 @@ class Viewer3D{
         var width = document.getElementById("map_view").offsetWidth;
         var height = document.getElementById("map_view").offsetHeight;
         var padding = parseInt((document.getElementById("map_view").style.padding).replace('px', ''));
+        // the pixel ratio changes with browser zoom or another screen
+        try {
+            var r = this.viewer.renderer, pr = vtMapPixelRatio();
+            if (r && r.getPixelRatio && r.getPixelRatio() !== pr) { r.setPixelRatio(pr); }
+        } catch (e) { /* stub */ }
         this.viewer.resize(width, height);
     };
 
