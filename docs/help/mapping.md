@@ -184,20 +184,35 @@ areas it drew into the map; it appears and disappears by itself, see
 [Vitulus agent › The agent's plan on the map](agent.md#the-agents-plan-on-the-map).
 
 **Display (layers)** sets their opacity, the robot marker colours, the **background map** under
-the map, zoom and an alignment nudge (saved on the robot for each map and tile source; the ČÚZK
+the map, its **Detail** and an alignment nudge (saved on the robot for each map and tile source; the ČÚZK
 sources share one, the Google ones another), the rain radar, and shows the terrain (DEM) status.
 The background maps come in two groups: **aerial and satellite photos** (Google satellite, Google
 satellite with names, ČÚZK orthophoto, Esri, Bing) and **maps** (Google map, ČÚZK topographic map,
 OpenTopoMap, OpenStreetMap). Each photo source has its own date and its own sharpness — when one is
-old or blurry over the garden, try another. Close up the map keeps the finest picture a source has
-and only magnifies it smoothly; on a phone it loads one level finer to match the sharper screen.
+old or blurry over the garden, try another. **Detail** *Auto* (the default) loads the finest level
+each source has — Google up to z21, the ČÚZK orthophoto z20 — and closer up only magnifies it
+smoothly. On a phone the background map stops one level coarser (Google z20, ČÚZK z19) and so
+loads fewer tiles. On a slow connection
+pick a lower cap (z17–z21): fewer tiles, a softer picture. The tiles always cover what you see.
+After a move or a zoom the previous picture stays until the new tiles are in, and a coarser one
+fills the gaps meanwhile, so the map does not go blank; a view you saw a moment ago comes back at
+once. The status line counts the tiles as they come (*loading tiles 12/48*) and says when some did
+not load — then MapProxy on the robot is not reachable or has no picture there (without internet
+it has only what it stored before; the plain white tile it sends then is not drawn). Once the
+network, the connection to the robot or MapProxy's internet is back, the map loads its tiles again
+by itself. A phone uses a lower tile limit than a computer to spare its
+memory; with overlays on it gives the background map at most half of it (far out the map then
+shows a coarser level and its line says *tile limit*) and draws the overlays a level coarser
+(relief and slope two), so all of them fit.
 
 **Overlays** are transparent layers, each with its own tick box and opacity, with or without the
 background map: **Cadastre** (parcel boundaries, light lines), **Buildings, house numbers** (ČÚZK
 RÚIAN: building outlines and house numbers) and **Contour lines** are drawn on top of the robot's
 maps; **Shaded relief** and **Slope** (both from the ČÚZK terrain model DMR 5G; slope yellow →
 orange → red = steeper, handy for banks and ditches) under them, as a tone over the background map.
-Cadastre, buildings and contour lines show only close up — the row says *zoom in* until they do. All layers share one tile limit, the background map first: an overlay that does not fit
+Cadastre, buildings and contour lines show only close up — the row says *zoom in* until they do.
+While an overlay loads its row counts the tiles (*z19 · 3/12*); *not loaded* or *2 missing* means
+MapProxy did not deliver them. All layers share one tile limit, the background map first: an overlay that does not fit
 says *tile limit*, a background map drawn coarser than asked says so in its status line. The small
 line in the bottom-left corner of the map credits the sources on screen (tap it for the whole
 text): ČÚZK sources are open data, OpenTopoMap is CC-BY-SA; Google, Esri and Bing are the

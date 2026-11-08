@@ -69,6 +69,7 @@
 <script src="/assets/js/dock.js"></script>
 <script src="/assets/js/gloc.js"></script>
 <script src="/assets/js/vt_map_sources.js"></script>
+<script src="/assets/js/vt_map_tiles.js"></script>
 <script src="/assets/js/mapping.js"></script>
 <script src="/assets/js/vt_notice.js"></script>
 <script src="/assets/js/vt_sleep_plan.js"></script>
@@ -981,10 +982,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <div class="vt-fs-sm vt-mb1" title="Georeferenced MapProxy map under the map: satellite and aerial photos, orthophoto, maps (loads only when the Aerial layer is ticked)" data-i18n-title="mapt.aerial.title_tip" data-i18n="mapt.aerial.title">Background map (MapProxy)</div>
                                                 <!-- options come from the source catalog (vt_map_sources.js, /api/map_sources); own row: the names are long -->
                                                 <select class="form-select form-select-sm vt-fs-sm vt-mb1" id="mapv3_aerial_src" title="Background map source" data-i18n-title="mapt.aerial.src_tip"><option value="sat" selected>Satellite (Google)</option></select>
-                                                <div class="input-group input-group-sm">
-                                                    <select class="form-select vt-fs-sm" id="mapv3_aerial_zoom" title="Most detailed tile zoom; each source is capped at its own maximum" data-i18n-title="mapt.aerial.zoom_tip"><option value="17">z17</option><option value="18">z18</option><option value="19" selected>z19</option><option value="20">z20</option><option value="21">z21</option></select>
-                                                    <select class="form-select vt-fs-sm" id="mapv3_aerial_area" title="Coverage area: square side length centred on the map origin. Large areas + high zoom are auto-clamped." data-i18n-title="mapt.aerial.area_tip"><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option><option value="400">400 m</option></select>
-                                                </div>
+                                                <!-- T17 M3: detail = auto (each source's finest level) or a manual cap; coverage follows the view (no area choice) -->
+                                                <label class="vt-fs-sm vt-flex vt-aic vt-gap6 vt-mb0"><span data-i18n="mapt.aerial.zoom_lbl">Detail</span>
+                                                    <select class="form-select form-select-sm vt-fs-sm vt-w-lg" id="mapv3_aerial_zoom" title="Most detailed tile zoom. Auto = the finest level each source has (Google z21, ČÚZK z20; on a phone one level less); a lower cap loads fewer tiles on a slow connection." data-i18n-title="mapt.aerial.zoom_tip"><option value="auto" selected data-i18n="mapt.aerial.zoom_auto">Auto (finest)</option><option value="17">z17</option><option value="18">z18</option><option value="19">z19</option><option value="20">z20</option><option value="21">z21</option></select>
+                                                </label>
                                                 <div class="vt-fs-sm vt-mt1"><span data-i18n="mapt.opacity">Opacity</span> <input type="range" id="mapv3_aerial_opacity" min="0" max="1" step="0.05" value="1" class="vt-vam vt-w-md"></div>
                                                 <span id="mapv3_aerial_status" class="vt-fs-sm vt-block vt-mt1 vt-dim">aerial: &mdash;</span>
 

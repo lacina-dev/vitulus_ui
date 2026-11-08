@@ -107,6 +107,19 @@ function vtTileLodBias(shader) {
     }
     shader.fragmentShader = fs;
 }
+/* T17 M3: the tile cache and tile maths live in vt_map_tiles.js, loaded by
+   index.html. A webnode still serving the old template (Jinja cache until
+   its restart) has no such tag while this file is already new: load the
+   module here then. rebuildAerial waits for it. */
+var vtMapTilesReady = (typeof window === 'undefined' || window.VTMapTiles) ? Promise.resolve()
+    : new Promise(function (resolve) {
+        try {
+            var s = document.createElement('script');
+            s.src = '/assets/js/vt_map_tiles.js';
+            s.onload = s.onerror = function () { resolve(); };
+            document.head.appendChild(s);
+        } catch (e) { resolve(); }
+    });
 function mapTn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
 function mapTag(el, k, attr) { if (el && window.VTI18n) { VTI18n.tag(el, k, attr); } }
 
@@ -777,8 +790,11 @@ class MappingV3 {
         this.aerial_meshes = [];       // current tile meshes
         this.aerial_token = 0;         // bumps to cancel stale async builds
         this.aerial_area_m = 100;      // square side around map origin (metres)
-        this.AERIAL_TILE_CAP = 400;    // hard cap on tiles of the background map
-        this.TILE_BUDGET = 600;        // all MapProxy layers together (base first)
+        // T17 M3: tile limits per device (vt_map_tiles.js budgets): a phone
+        // gets fewer tiles and less GPU memory for the tile textures
+        const TB = this._tileEnv();
+        this.AERIAL_TILE_CAP = TB.baseCap;    // hard cap on tiles of the background map
+        this.TILE_BUDGET = TB.tileBudget;     // all MapProxy layers together (base first)
 
         this.chk_aerial = document.getElementById('mapv3_chk_aerial');
         this.sel_aerial_src = document.getElementById('mapv3_aerial_src');
@@ -797,7 +813,11 @@ class MappingV3 {
         // fallback so the boot build below has a source; the catalog fetch
         // then refills them and keeps the stored choice when it exists.
         this._initMapSources();
+        // detail: "auto" (default, T17 M3) = the finest level of each source;
+        // a number = a manual cap (kept for a slow connection)
         this._persistSelect(this.sel_aerial_zoom, 'vitulus_aerial_zoom');
+        // the area select is gone from the panel (T17 M5-4: coverage follows
+        // the view); kept only if an old page still has it
         this._persistSelect(this.sel_aerial_area, 'vitulus_aerial_area');
         this._persistRange(this.in_aerial_opacity, 'vitulus_aerial_opacity');
 
@@ -1011,8 +1031,9 @@ class MappingV3 {
         op.addEventListener('input', () => {
             const v = parseFloat(op.value);
             const st = this.ov_layers[o.id];
-            if (st && v >= 0 && v <= 1) {
-                st.meshes.forEach((m) => { try { m.material.opacity = v; } catch (e) { /* ignore */ } });
+            if (st && st.group && v >= 0 && v <= 1) {
+                // every plane of the overlay: the current tiles and the stand-ins
+                st.group.children.forEach((m) => { try { m.material.opacity = v; } catch (e) { /* ignore */ } });
             }
         });
         return row;
@@ -1041,14 +1062,9 @@ class MappingV3 {
     _dropOverlay(id) {
         const st = this.ov_layers[id];
         if (!st) { return; }
-        st.gen++;
-        st.meshes.forEach((m) => {
-            try {
-                if (st.group) st.group.remove(m);
-                m.geometry && m.geometry.dispose();
-                if (m.material) { m.material.map && m.material.map.dispose(); m.material.dispose(); }
-            } catch (e) { /* best-effort */ }
-        });
+        // planes go, their textures stay in the tile cache (ticking the
+        // overlay again soon paints at once)
+        if (st.L) { this._tileLayerClear(st.L); }
         st.meshes = [];
         st.sig = '';
         if (st.group) { st.group.visible = false; }
@@ -1321,15 +1337,20 @@ class MappingV3 {
     }
 
     // EPSG:3857 XYZ tiles, origin upper-left (y not flipped)
+    // T17 M3: + ?r=<refresh> after an outage, so the browser does not keep
+    // MapProxy's offline fill (see _tileRefresh)
     _aerialTileUrl(src, z, x, y) {
-        return VTMapSources.tileUrl(this.aerial_host, src, z, x, y);
+        const u = VTMapSources.tileUrl(this.aerial_host, src, z, x, y);
+        return (this._tileBust && window.VTMapTiles) ? VTMapTiles.withBust(u, this._tileBust) : u;
     }
 
     _applyAerialOpacity() {
         if (!this.in_aerial_opacity) return;
         const op = parseFloat(this.in_aerial_opacity.value);
         if (!(op >= 0 && op <= 1)) return;
-        this.aerial_meshes.forEach((m) => {
+        // every plane of the background map: current tiles and stand-ins
+        const ms = this.aerial_group ? this.aerial_group.children : this.aerial_meshes;
+        ms.forEach((m) => {
             try { if (m.material) { m.material.opacity = op; } } catch (e) {}
         });
     }
@@ -1353,19 +1374,11 @@ class MappingV3 {
         return this.aerial_group;
     }
 
+    // remove every background-map plane (textures stay in the tile cache)
     _disposeAerialMeshes() {
-        const group = this.aerial_group;
-        this.aerial_meshes.forEach((m) => {
-            try {
-                if (group) group.remove(m);
-                m.geometry && m.geometry.dispose();
-                if (m.material) {
-                    m.material.map && m.material.map.dispose();
-                    m.material.dispose();
-                }
-            } catch (e) { /* best-effort */ }
-        });
+        if (this._baseL) { this._tileLayerClear(this._baseL); }
         this.aerial_meshes = [];
+        this._aerialSig = '';
     }
 
     // metres-per-degree of latitude / longitude at a given latitude (WGS84).
@@ -1451,14 +1464,15 @@ class MappingV3 {
     // Debounced camera-follow: after the view stops moving, refit the aerial
     // basemap to the current viewport (and adaptive zoom). rebuildAerial()
     // itself skips the work if the covering tile set is unchanged, so panning
-    // within the same tiles is free.
+    // within the same tiles is free; a changed set keeps the old planes
+    // until the new ones cover them (_tileSetShow).
     _scheduleAerialFollow() {
         if (!this._tilesWanted()) { return; }
         if (this._aerialFollowTimer) { clearTimeout(this._aerialFollowTimer); }
         this._aerialFollowTimer = setTimeout(() => {
             this._aerialFollowTimer = null;
             if (this._tilesWanted()) { this.rebuildAerial(); }
-        }, 220);
+        }, 150);   // T17 M3: a rebuild no longer blanks the map, so it may come sooner
     }
 
     // Build (or rebuild) the aerial tile planes. Async, cancellable, fully
@@ -1476,6 +1490,7 @@ class MappingV3 {
         };
         // first build after page load: wait for the source catalog (max 1.5 s)
         if (this._catalogReady) { await this._catalogReady; }
+        await vtMapTilesReady;     // T17 M3: the tile cache module (old template)
         const token = ++this.aerial_token;
         const baseOn = !!(this.chk_aerial && this.chk_aerial.checked);
         const overlays = this._overlaysOn();
@@ -1518,10 +1533,15 @@ class MappingV3 {
 
             // The configured zoom is the DETAIL CAP: the most detailed level we
             // ever use, clamped per source by its catalog max_zoom (gm_grid has
-            // 22 levels = z21; OSM z19; OpenTopoMap z17 …).
-            let zSel = this.sel_aerial_zoom ?
-                    parseInt(this.sel_aerial_zoom.value, 10) : 19;
-            if (!(zSel >= 0)) { zSel = 19; }
+            // 22 levels = z21; OSM z19; OpenTopoMap z17 …). T17 M3: "auto"
+            // (the default) = each source's max_zoom on a desktop (Google z21,
+            // ČÚZK z20), one level less for the background map on a phone
+            // (VTMapTiles.zoomCap; overlays keep their max_zoom, ≤ z20); a
+            // number is a manual cap.
+            const zVal = this.sel_aerial_zoom ? this.sel_aerial_zoom.value : 'auto';
+            const coarse = !!this._tileEnv().mobile;
+            const capFor = (src) => VTMapTiles.zoomCap(src.max_zoom, zVal,
+                { coarse: coarse && src.kind !== 'overlay' });
 
             const { mLat, mLon } = this._metersPerDeg(d.origin_lat);
             const cornerLonLat = (e, n) => ({
@@ -1585,9 +1605,11 @@ class MappingV3 {
             let budget = this.TILE_BUDGET;
             // zoom + covering tile range for one source within `cap` tiles;
             // capped = the limit (not the view) pushed the zoom down
-            const plan = (src, cap) => {
-                const zCap = Math.max(0, Math.min(src.max_zoom, zSel));
-                const zWant = Math.max(0, Math.min(zCap, zAdaptive));
+            // zA = the adaptive zoom this layer aims at (overlays on a phone:
+            // CSS pixels, VTMapTiles.overlayWant)
+            const plan = (src, cap, zA) => {
+                const zCap = capFor(src);
+                const zWant = Math.max(0, Math.min(zCap, (zA === undefined) ? zAdaptive : zA));
                 let z = zWant;
                 let range = tileRangeAt(z);
                 while (range.count > cap && z > 0) {
@@ -1601,30 +1623,26 @@ class MappingV3 {
                 x: (lon - d.origin_lon) * mLon,
                 y: (lat - d.origin_lat) * mLat,
             });
-            // fresh tile planes for one source into `group`; `stale()` true =
-            // a later build replaced them (their images must not paint)
-            const buildSet = (src, z, range, group, opacity, renderOrder, stale) => {
-                const meshes = [];
-                for (let tx = range.tx0; tx <= range.tx1; tx++) {
-                    for (let ty = range.ty0; ty <= range.ty1; ty++) {
-                        // tile geographic bounds -> map-aligned metres
-                        const nw = this._tileToLonLat(tx, ty, z);
-                        const se = this._tileToLonLat(tx + 1, ty + 1, z);
-                        const pNW = lonLatToXY(nw.lon, nw.lat);
-                        const pSE = lonLatToXY(se.lon, se.lat);
-                        const w = pSE.x - pNW.x;         // +east
-                        const h = pNW.y - pSE.y;         // +north (nw.lat > se.lat)
-                        if (!(w > 0) || !(h > 0)) { continue; }
-                        const cx = (pNW.x + pSE.x) / 2;
-                        const cy = (pNW.y + pSE.y) / 2;
-                        const url = this._aerialTileUrl(src, z, tx, ty);
-                        const mesh = this._buildTileMesh(T, url, cx, cy, w, h,
-                                                         opacity, stale, renderOrder);
-                        if (mesh) { meshes.push(mesh); group.add(mesh); }
-                    }
-                }
-                return meshes;
+            // where a tile of zoom z lies in this group's true east/north metres
+            const tileRect = (z, tx, ty) => {
+                const nw = this._tileToLonLat(tx, ty, z);
+                const se = this._tileToLonLat(tx + 1, ty + 1, z);
+                const pNW = lonLatToXY(nw.lon, nw.lat);
+                const pSE = lonLatToXY(se.lon, se.lat);
+                return { cx: (pNW.x + pSE.x) / 2, cy: (pNW.y + pSE.y) / 2,
+                         w: pSE.x - pNW.x, h: pNW.y - pSE.y };   // +east, +north
             };
+            // the view centre in (fractional) tile coordinates of zoom z: the
+            // tiles load from there outwards
+            let cLonLat = null;
+            if (vp) {
+                const mx = vp.cx, my = vp.cy;
+                cLonLat = cornerLonLat(cyaw * mx - syaw * my, syaw * mx + cyaw * my);
+            }
+            const centerAt = (z, range) => (cLonLat ? this._lonLatToTile(cLonLat.lon, cLonLat.lat, z)
+                : { x: (range.tx0 + range.tx1 + 1) / 2, y: (range.ty0 + range.ty1 + 1) / 2 });
+            // planes of one layer survive a new build only on the same datum
+            const dkey = d.origin_lat + ',' + d.origin_lon + ',' + yaw;
 
             // ---- BASE ---------------------------------------------------------
             const src = this._aerialBase();
@@ -1638,20 +1656,34 @@ class MappingV3 {
                     // reused, but a source/map switch changes which offset applies).
                     this._applyAerialOffset();
                     const srcKey = src.id;
-                    const CAP = Math.min(this.AERIAL_TILE_CAP, budget);
+                    // phone + overlays: the map takes at most half the budget
+                    const CAP = Math.min(this.AERIAL_TILE_CAP,
+                        VTMapTiles.baseShare(budget, { coarse: coarse }, overlays.length));
                     const { z, zCap, zWant, range, capped } = plan(src, CAP);
-                    const { tx0, tx1, ty0, ty1 } = range;
                     const nTiles = range.count;
-                    const sig = srcKey + '@' + z + ':' + tx0 + ',' + tx1 + ',' +
-                                ty0 + ',' + ty1;
                     const label = this._aerialLabel(srcKey, src);
                     const fits = nTiles > 0 && nTiles <= CAP;
                     if (fits) { budget -= nTiles; }
-                    // the limit pushed the zoom down: say so (warn tone)
-                    const done = (n) => {
-                        if (capped) {
+                    // T17 M3-4: the line tells the truth — loading k/n while
+                    // tiles come, how many did not load, and only then the
+                    // usual "tiles: n @ zN" (the limit pushed the zoom down:
+                    // warn tone)
+                    const report = (set, same) => {
+                        const n = set.total, k = set.loaded, f = set.failed;
+                        if (k + f < n) {
+                            status(() => mapT('mapping.aerial.tiles_loading',
+                                {k: k, n: n, z: z, src: label}));
+                        } else if (f > 0 && k === 0) {
+                            status(() => mapT('mapping.aerial.tiles_none', {n: n, z: z, src: label}), true);
+                        } else if (f > 0) {
+                            status(() => mapT('mapping.aerial.tiles_failed',
+                                {k: k, n: n, f: f, z: z, src: label}), true);
+                        } else if (capped) {
                             status(() => mapT('mapping.aerial.tiles_capped',
                                 {n: n, z: z, want: zWant, src: label}), true);
+                        } else if (same) {
+                            status(() => mapT('mapping.aerial.tiles_same',
+                                {n: n, z: z, src: label}));
                         } else {
                             status(() => mapT((z < zCap) ? 'mapping.aerial.tiles_out' : 'mapping.aerial.tiles',
                                 {n: n, z: z, cap: zCap, src: label}));
@@ -1659,26 +1691,20 @@ class MappingV3 {
                     };
                     if (!fits) {
                         status(() => mapT('mapping.aerial.too_many', {n: nTiles, z: z}), true);
-                    } else if (sig === this._aerialSig && this.aerial_meshes.length > 0) {
-                        // (4b) unchanged covering tile set: panning within the same
-                        // tiles and re-enabling the layer are free.
-                        const nMesh = this.aerial_meshes.length;
-                        if (capped) { done(nMesh); }
-                        else {
-                            status(() => mapT('mapping.aerial.tiles_same',
-                                {n: nMesh, z: z, src: label}));
-                        }
                     } else {
-                        this._aerialSig = sig;
+                        const L = this._baseL || (this._baseL = this._tileLayerNew('base', group));
+                        L.group = group;
+                        if (L.dkey !== dkey) { this._tileLayerClear(L); L.dkey = dkey; }
                         const opacity = this.in_aerial_opacity ?
                                         parseFloat(this.in_aerial_opacity.value) : 1.0;
-                        const gen = this._aerialGen = (this._aerialGen || 0) + 1;
                         const ro = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.AERIAL : -100;
-                        const newMeshes = buildSet(src, z, range, group, opacity, ro,
-                                                   () => this._aerialGen !== gen);
-                        this._disposeAerialMeshes();
-                        this.aerial_meshes = newMeshes;
-                        done(newMeshes.length);
+                        // (4b) unchanged covering tile set: panning within the same
+                        // tiles and re-enabling the layer are free. Otherwise the
+                        // new tiles come in over the old ones (no blank frame).
+                        this._tileSetShow(L, { T, src, z, range, opacity, ro, tileRect,
+                                               center: centerAt(z, range), report });
+                        this._aerialSig = L.cur ? L.cur.sig : '';
+                        this.aerial_meshes = L.cur ? Array.from(L.cur.tiles.values(), (t) => t.mesh) : [];
                     }
                 }
             }
@@ -1689,7 +1715,7 @@ class MappingV3 {
             overlays.forEach((o, i) => {
                 const under = o.layer_order === 'under';
                 let st = this.ov_layers[o.id];
-                if (!st) { st = this.ov_layers[o.id] = { src: o, group: null, meshes: [], sig: '', gen: 0 }; }
+                if (!st) { st = this.ov_layers[o.id] = { src: o, group: null, meshes: [], sig: '', gen: 0, L: null }; }
                 st.src = o;
                 if (!st.group) {
                     st.group = new T.Object3D();
@@ -1699,7 +1725,9 @@ class MappingV3 {
                 }
                 st.group.rotation.z = -yaw;
                 st.group.visible = true;
-                const { z, zWant, range, capped } = plan(o, Math.max(0, budget));
+                const zA = VTMapTiles.overlayWant(zAdaptive, o, { coarse: coarse },
+                    (typeof vtMapPixelRatio === 'function') ? vtMapPixelRatio() : 1);
+                const { z, zWant, range, capped } = plan(o, Math.max(0, budget), zA);
                 if (zWant < o.min_zoom) {
                     // the server draws nothing this far out: say so, keep no planes
                     this._dropOverlay(o.id);
@@ -1715,26 +1743,28 @@ class MappingV3 {
                     return;
                 }
                 budget -= range.count;
-                const sig = o.id + '@' + z + ':' + range.tx0 + ',' + range.tx1 + ',' +
-                            range.ty0 + ',' + range.ty1;
-                this._overlayStatus(o.id, () => (capped
-                    ? mapT('mapt.aerial.ov_capped', {z: z}) : 'z' + z));
-                if (sig === st.sig && st.meshes.length) { return; }
-                st.sig = sig;
+                const report = (set) => {
+                    const n = set.total, k = set.loaded, f = set.failed;
+                    this._overlayStatus(o.id, () => (
+                        (k + f < n) ? mapT('mapt.aerial.ov_loading', {z: z, k: k, n: n})
+                        : (f > 0 && k === 0) ? mapT('mapt.aerial.ov_failed')
+                        : (f > 0) ? mapT('mapt.aerial.ov_failed_some', {z: z, f: f})
+                        : capped ? mapT('mapt.aerial.ov_capped', {z: z}) : 'z' + z));
+                    vtTone(document.getElementById('mapv3_ov_' + o.id + '_st'),
+                           (k + f >= n && f > 0) ? 'warn' : '');
+                };
+                const L = st.L || (st.L = this._tileLayerNew('ov:' + o.id, st.group));
+                L.group = st.group;
+                if (L.dkey !== dkey) { this._tileLayerClear(L); L.dkey = dkey; }
                 const opEl = document.getElementById('mapv3_ov_' + o.id + '_op');
                 let op = opEl ? parseFloat(opEl.value) : o.default_opacity;
                 if (!(op >= 0 && op <= 1)) { op = o.default_opacity; }
-                const gen = ++st.gen;
                 const ro = (under ? (MLO ? MLO.OVERLAY_UNDER : -99)
                                   : (MLO ? MLO.OVERLAY : 13)) + i * 0.01;
-                const old = st.meshes;
-                st.meshes = buildSet(o, z, range, st.group, op, ro, () => st.gen !== gen);
-                old.forEach((m) => {
-                    try {
-                        st.group.remove(m); m.geometry && m.geometry.dispose();
-                        if (m.material) { m.material.map && m.material.map.dispose(); m.material.dispose(); }
-                    } catch (e) { /* best-effort */ }
-                });
+                this._tileSetShow(L, { T, src: o, z, range, opacity: op, ro, tileRect,
+                                       center: centerAt(z, range), report });
+                st.sig = L.cur ? L.cur.sig : '';
+                st.meshes = L.cur ? Array.from(L.cur.tiles.values(), (t) => t.mesh) : [];
             });
             this._applyAerialOffset();
         } catch (e) {
@@ -1743,34 +1773,102 @@ class MappingV3 {
         }
     }
 
-    // Build one textured plane for a tile. The texture loads async: the mesh is
-    // created immediately with an empty texture and the image is painted in on
-    // load, so nothing blocks. Returns the mesh (or null on failure).
-    // `stale()` true = a later build replaced this plane (do not paint it);
-    // `renderOrder` defaults to the base (bottom) slot, overlays pass theirs.
-    _buildTileMesh(T, url, cx, cy, w, h, opacity, stale, renderOrder) {
-        try {
-            // start with a 1x1 transparent texture; fill on image load.
-            const tex = new T.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
-            tex.needsUpdate = true;
-            const geo = new T.Geometry(w, h);       // PlaneBufferGeometry
-            const mat = new T.Material({
-                map: tex, transparent: true, opacity: opacity, depthWrite: false,
-            });
-            if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
-            mat.onBeforeCompile = vtTileLodBias;   // T17: see vtTileLodBias
-            const mesh = new T.Mesh(geo, mat);
-            mesh.position.set(cx, cy, 0);
-            // BOTTOM of the paint order (see MapLayerOrder). depthWrite already
-            // false above; renderOrder pins it under every transparent grid.
-            mesh.renderOrder = (typeof renderOrder === 'number') ? renderOrder
-                : ((typeof MapLayerOrder !== 'undefined') ? MapLayerOrder.AERIAL : -100);
+    // =====================================================================
+    // T17 M3 — TILE LAYERS WITHOUT A BLANK FRAME
+    // ---------------------------------------------------------------------
+    // Before: every rebuild removed all planes first and the new ones started
+    // empty, so after a pan or zoom the map had no background until the new
+    // set loaded; every tile was a new Image and a new GPU upload.
+    // Now, per layer (L = the background map or one overlay):
+    //   - textures live in one shared cache (VTMapTiles.TexCache) keyed by
+    //     the tile URL: a tile already seen paints at once, with no request;
+    //   - a new build puts its planes OVER the old ones; the old loaded
+    //     planes stay as stand-ins (L.fb, slightly lower render order) and
+    //     each goes as soon as every new tile over it has painted;
+    //   - where nothing covers a missing tile, a coarser tile stands in: one
+    //     already cached (z-1 … z-3) or one requested at z-2 before the tiles
+    //     themselves (one z-2 tile covers 16) — and the same when a tile
+    //     fails to load (MapProxy offline returns 500 outside its cache);
+    //   - the set counts loaded / failed tiles, the status says it (M3-4);
+    //   - GPU memory is bounded (budgets per device, vt_map_tiles.js): unused
+    //     textures are evicted oldest first; over the hard limit the
+    //     stand-ins go first.
+    _tileEnv() {
+        if (this._tileEnvV) { return this._tileEnvV; }
+        let coarse = false;
+        try { coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
+        catch (e) { coarse = false; }
+        // module not loaded yet (old template, see vtMapTilesReady): the same
+        // tile numbers, not remembered, so the byte limits come once it is
+        if (!window.VTMapTiles) {
+            return { mobile: coarse, tileBudget: coarse ? 240 : 600, baseCap: coarse ? 160 : 400 };
+        }
+        this._tileEnvV = VTMapTiles.budgets({ coarse: coarse });
+        return this._tileEnvV;
+    }
 
+    _texCache() {
+        if (!this._tcache) {
+            const B = this._tileEnv();
+            this._tcache = new VTMapTiles.TexCache({
+                idleBytes: B.idleBytes, hardBytes: B.hardBytes,
+                dispose: (tex) => { try { tex.dispose(); } catch (e) { /* gone */ } },
+            });
+            this._texLoads = new Map();      // url -> {waiters: Set}
+            this._texFailedAt = new Map();   // url -> ms of the last failure
+            this._tileLayers = new Set();
+            this._tileWatchNet();
+        }
+        return this._tcache;
+    }
+
+    // numbers for the status / tests: textures, GPU bytes, stand-in planes
+    tileStats() {
+        const C = this._texCache(), s = C.stats();
+        let fb = 0, planes = 0;
+        this._tileLayers.forEach((L) => {
+            fb += L.fb.length;
+            planes += L.fb.length + (L.cur ? L.cur.tiles.size : 0);
+        });
+        s.fallbacks = fb; s.planes = planes; s.loading = this._texLoads.size;
+        s.mb = Math.round(s.bytes / 1e5) / 10;
+        return s;
+    }
+
+    // One tile texture through the cache. cb(true) = the caller now holds a
+    // reference (release: _texCache().release(url)); cb(false) = it did not
+    // load. A cached tile calls back at once (same frame: no blank). Returns
+    // a cancel function; a texture nobody waits for any more still goes into
+    // the cache when it arrives (unused, evicted first).
+    // `white` = the plain white tile is MapProxy's offline fill, not a picture
+    // (counted as not loaded, its plane stays empty / a coarser one shows).
+    // A tile that failed or came white is asked again past the browser cache.
+    _texFetch(url, white, cb) {
+        const C = this._texCache();
+        if (C.has(url)) { C.acquire(url); cb(true); return () => {}; }
+        const fAt = this._texFailedAt.get(url);
+        if (fAt && Date.now() - fAt < 10000) { cb(false); return () => {}; }
+        let ld = this._texLoads.get(url);
+        if (!ld) {
+            ld = { waiters: new Set() };
+            this._texLoads.set(url, ld);
             const img = new Image();
+            const wasBad = !!fAt;
             img.crossOrigin = 'anonymous';
+            const finish = (ok) => {
+                this._texLoads.delete(url);
+                const ws = Array.from(ld.waiters);
+                ld.waiters.clear();
+                ws.forEach((w) => {
+                    if (ok) { C.acquire(url); }
+                    try { w(ok); } catch (e) { console.error('[mappingv3] tile callback failed:', e); }
+                });
+                if (ok) { this._texTrim(); }
+            };
             img.onload = () => {
+                let ok = false;
                 try {
-                    if (typeof stale === 'function' && stale()) { return; }
+                    const T = this._r3d();
                     // T17 sharpness: the image goes to the GPU as it is (no
                     // canvas + getImageData copy) with linear filtering,
                     // mipmaps and anisotropy (_tileTexture). Only an image
@@ -1783,27 +1881,344 @@ class MappingV3 {
                         const cv = document.createElement('canvas');
                         cv.width = iw; cv.height = ih;
                         const ctx = cv.getContext('2d');
-                        if (!ctx) { return; }
-                        ctx.drawImage(img, 0, 0, iw, ih);
-                        src = cv;
+                        if (ctx) { ctx.drawImage(img, 0, 0, iw, ih); src = cv; } else { src = null; }
                     }
-                    const ntex = this._tileTexture(T, src, iw, ih);
-                    if (!ntex) { return; }
-                    const old = mat.map;
-                    mat.map = ntex;
-                    mat.needsUpdate = true;
-                    try { old && old.dispose(); } catch (e) {}
+                    if (white && this._tileIsWhite(src, iw, ih)) {
+                        this._texFailedAt.set(url, Date.now());
+                        this._tileOutage('white');
+                        finish(false);
+                        return;
+                    }
+                    const tex = (T && src) ? this._tileTexture(T, src, iw, ih) : null;
+                    if (tex) {
+                        C.put(url, tex, VTMapTiles.texBytes(iw, ih, !!tex.generateMipmaps));
+                        ok = true;
+                    }
                 } catch (e) {
                     console.error('[mappingv3] aerial tile paint failed:', e);
                 }
+                if (!ok) { this._texFailedAt.set(url, Date.now()); }
+                else if (wasBad) {
+                    // a tile that failed / came white is real now: MapProxy
+                    // (or its internet) is back — reload what it filled in
+                    this._texFailedAt.delete(url);
+                    this._tileRecovered('tile');
+                }
+                finish(ok);
             };
-            img.onerror = () => { /* missing tile: leave transparent */ };
-            img.src = url;
-            return mesh;
-        } catch (e) {
-            console.error('[mappingv3] _buildTileMesh failed:', e);
-            return null;
+            img.onerror = () => {      // missing tile / MapProxy unreachable
+                this._texFailedAt.set(url, Date.now());
+                this._tileOutage('error');
+                finish(false);
+            };
+            img.src = wasBad ? VTMapTiles.withBust(url, Date.now()) : url;
         }
+        ld.waiters.add(cb);
+        return () => { ld.waiters.delete(cb); };
+    }
+
+    // the plain white offline fill? (every pixel opaque white; checked on a
+    // reused canvas, a real photo exits at the first pixels)
+    _tileIsWhite(src, w, h) {
+        try {
+            const cv = this._whiteCv || (this._whiteCv = document.createElement('canvas'));
+            if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+            const ctx = cv.getContext('2d', { willReadFrequently: true });
+            if (!ctx) { return false; }
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(src, 0, 0, w, h);
+            return VTMapTiles.isBlankWhite(ctx.getImageData(0, 0, w, h).data);
+        } catch (e) { return false; }   // unreadable (no CORS): draw it
+    }
+
+    // Outage / recovery (MapProxy without internet sends fills with 200 and
+    // max-age 3600, the browser would keep them): once the network, the
+    // robot or a failed tile is back, every tile on the map is loaded again
+    // with ?r=<now> (new URLs: the old planes stay as stand-ins meanwhile).
+    _tileWatchNet() {
+        if (this._tileNetWired) { return; }
+        this._tileNetWired = true;
+        this._outage = new VTMapTiles.Outage({ minGapMs: 20000 });
+        try {
+            window.addEventListener('offline', () => this._tileOutage('offline'));
+            window.addEventListener('online', () => this._tileRecovered('online'));
+            document.addEventListener('rosdisconnected', () => this._tileOutage('robot'));
+            document.addEventListener('rosconnected', () => this._tileRecovered('robot'));
+        } catch (e) { /* no window (tests) */ }
+    }
+    _tileOutage(why) {
+        this._tileWatchNet();
+        this._outage.mark(Date.now());
+    }
+    _tileRecovered(why) {
+        this._tileWatchNet();
+        const now = Date.now();
+        if (this._outage.recovered(now)) { this._tileRefresh(); return; }
+        if (this._outage.pending && !this._tileRecoverT) {
+            this._tileRecoverT = setTimeout(() => {
+                this._tileRecoverT = null;
+                this._tileRecovered(why);
+            }, this._outage.retryIn(now) + 50);
+        }
+    }
+    _tileRefresh() {
+        this._tileBust = Date.now();
+        this._texFailedAt.clear();
+        if (this._tilesWanted()) { this.rebuildAerial(); }
+    }
+
+    // keep the textures within the limits; over the hard limit the stand-in
+    // planes let go of theirs first
+    _texTrim() {
+        const C = this._texCache();
+        if (C.trim()) {
+            this._tileLayers.forEach((L) => this._tileDropFallbacks(L));
+            C.trim();
+        }
+    }
+
+    _tileLayerNew(key, group) {
+        this._texCache();
+        const L = { key: key, group: group, cur: null, fb: [], fbPending: new Map(), dkey: '' };
+        this._tileLayers.add(L);
+        return L;
+    }
+
+    // a plane for one tile (hidden until its texture is there)
+    _tileMesh(T, r, opacity, renderOrder) {
+        if (!this._tilePendingTex) {
+            this._tilePendingTex = new T.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
+            this._tilePendingTex.needsUpdate = true;
+        }
+        const geo = new T.Geometry(r.w, r.h);       // PlaneBufferGeometry
+        const mat = new T.Material({
+            map: this._tilePendingTex, transparent: true, opacity: opacity, depthWrite: false,
+        });
+        if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
+        mat.onBeforeCompile = vtTileLodBias;   // T17: see vtTileLodBias
+        const mesh = new T.Mesh(geo, mat);
+        mesh.position.set(r.cx, r.cy, 0);
+        // depthWrite off; renderOrder pins the paint order (MapLayerOrder)
+        mesh.renderOrder = renderOrder;
+        mesh.visible = false;
+        return mesh;
+    }
+
+    _tileMeshDispose(L, mesh) {
+        try {
+            if (L.group) { L.group.remove(mesh); }
+            mesh.geometry && mesh.geometry.dispose();
+            mesh.material && mesh.material.dispose();   // the texture belongs to the cache
+        } catch (e) { /* best-effort */ }
+    }
+
+    // stand-ins sit just under the layer's current tiles, finer above coarser
+    _tileFbOrder(L, z) { return (L.ro || 0) - 0.004 + z * 0.0001; }
+
+    _tileDropFb(L, f) {
+        this._tileMeshDispose(L, f.mesh);
+        this._texCache().release(f.url);
+    }
+
+    _tileDropFallbacks(L) {
+        L.fb.forEach((f) => this._tileDropFb(L, f));
+        L.fb = [];
+    }
+
+    // everything off the layer (textures stay cached)
+    _tileLayerClear(L) {
+        this._tileRetire(L);
+        this._tileDropFallbacks(L);
+        L.fbPending.forEach((cancel) => { try { cancel(); } catch (e) { /* ignore */ } });
+        L.fbPending.clear();
+    }
+
+    // the current set steps back: loaded planes become stand-ins, pending
+    // ones go (their requests are cancelled, a late image still lands in the
+    // cache)
+    _tileRetire(L) {
+        const set = L.cur;
+        if (!set) { return; }
+        L.cur = null;
+        set.tiles.forEach((t) => {
+            if (t.cancel) { t.cancel(); t.cancel = null; }
+            if (t.state === 'ok') {
+                t.mesh.renderOrder = this._tileFbOrder(L, t.z);
+                L.fb.push({ z: t.z, x: t.x, y: t.y, url: t.url, mesh: t.mesh });
+            } else {
+                this._tileMeshDispose(L, t.mesh);
+            }
+        });
+    }
+
+    // is every tile of `set` that lies under stand-in f painted?
+    _tileFbCovered(f, set) {
+        const u = VTMapTiles.under(f, set.z, set.range);
+        if (!u) { return true; }              // off the new coverage
+        for (let x = u.x0; x <= u.x1; x++) {
+            for (let y = u.y0; y <= u.y1; y++) {
+                const t = set.tiles.get(x + ',' + y);
+                if (t && t.state !== 'ok') { return false; }
+            }
+        }
+        return true;
+    }
+
+    // does a loaded stand-in already cover tile t?
+    _tileHasCover(L, t) {
+        return L.fb.some((f) => VTMapTiles.overlaps(f, t));
+    }
+
+    // a stand-in plane for tile a (z,x,y) of the current source; `url` must
+    // be held by the caller (the reference passes to the stand-in)
+    _tileAddFb(L, set, a, url) {
+        if (L.fb.some((f) => f.url === url)) { this._texCache().release(url); return; }
+        const r = set.tileRect(a.z, a.x, a.y);
+        if (!(r.w > 0) || !(r.h > 0)) { this._texCache().release(url); return; }
+        const mesh = this._tileMesh(set.T, r, set.opacity, this._tileFbOrder(L, a.z));
+        const e = this._texCache().get(url);
+        mesh.material.map = e.tex;
+        mesh.material.needsUpdate = true;
+        mesh.visible = true;
+        L.group.add(mesh);
+        L.fb.push({ z: a.z, x: a.x, y: a.y, url: url, mesh: mesh });
+    }
+
+    // fetch a coarser tile as a stand-in for the tiles of `set` under it;
+    // on failure try the next coarser one (down to z-3 of the set)
+    _tileFetchFb(L, set, a) {
+        const minZ = Math.max(0, set.src.min_zoom || 0);
+        if (a.z < minZ || a.z < set.z - 3) { return; }
+        const url = this._aerialTileUrl(set.src, a.z, a.x, a.y);
+        if (L.fbPending.has(url) || L.fb.some((f) => f.url === url)) { return; }
+        const cancel = this._texFetch(url, set.white, (ok) => {
+            L.fbPending.delete(url);
+            if (!ok) {
+                if (L.cur === set) { this._tileFetchFb(L, set, VTMapTiles.ancestor(a, 1)); }
+                return;
+            }
+            // still useful? (the set is current and a tile under it is not painted)
+            if (L.cur === set && !this._tileFbCovered(a, set)) { this._tileAddFb(L, set, a, url); }
+            else { this._texCache().release(url); }
+        });
+        if (L.fbPending.has(url) || !this._texLoads.has(url)) { return; }   // answered at once
+        L.fbPending.set(url, cancel);
+    }
+
+    _tilePaint(L, set, t) {
+        const e = this._texCache().get(t.url);
+        if (!e) { t.state = 'err'; set.failed++; return; }
+        t.mesh.material.map = e.tex;
+        t.mesh.material.needsUpdate = true;
+        t.mesh.visible = true;
+        t.state = 'ok';
+        set.loaded++;
+        // stand-ins under this tile whose whole area is painted now: go
+        if (L.fb.length) {
+            L.fb = L.fb.filter((f) => {
+                if (!VTMapTiles.overlaps(f, t) || !this._tileFbCovered(f, set)) { return true; }
+                this._tileDropFb(L, f);
+                return false;
+            });
+        }
+    }
+
+    _tileFail(L, set, t) {
+        t.state = 'err';
+        set.failed++;
+        t.mesh.visible = false;
+        // keep whatever covers it; otherwise ask for a coarser tile (MapProxy
+        // offline may still have one in its cache)
+        if (!this._tileHasCover(L, t)) { this._tileFetchFb(L, set, VTMapTiles.ancestor(t, 1)); }
+    }
+
+    // some tiles did not load (MapProxy unreachable, Wi-Fi gone): try again
+    // by itself after 15 s, 30 s, 60 s, then every 60 s while it fails
+    _tileRetrySoon() {
+        if (this._tileRetryT) { return; }
+        const d = this._tileRetryDelay = Math.min(60000, (this._tileRetryDelay || 7500) * 2);
+        this._tileRetryT = setTimeout(() => {
+            this._tileRetryT = null;
+            if (this._tilesWanted()) { this.rebuildAerial(); }
+        }, d);
+    }
+
+    // Show tiles `range` of zoom `z` of source `src` in layer L. ctx: {T, src,
+    // z, range, opacity, ro, tileRect(z,x,y), center:{x,y}, report(set, same)}
+    _tileSetShow(L, ctx) {
+        const C = this._texCache();
+        const { src, z, range } = ctx;
+        const sig = src.id + '@' + z + ':' + range.tx0 + ',' + range.tx1 + ',' +
+                    range.ty0 + ',' + range.ty1 + '#' + (this._tileBust || 0);
+        L.ro = ctx.ro;
+        if (L.cur && L.cur.sig === sig && L.cur.failed === 0) {
+            L.cur.report = ctx.report;
+            ctx.report(L.cur, L.cur.loaded >= L.cur.total);
+            return;
+        }
+        this._tileRetire(L);
+        const set = L.cur = {
+            // the plain white offline fill is no picture: photos and overlays
+            // (a map may be white for real, e.g. a field on ZTM)
+            white: src.kind === 'overlay' || src.group === 'photo',
+            sig: sig, z: z, range: range, src: src, T: ctx.T, tileRect: ctx.tileRect,
+            opacity: ctx.opacity, tiles: new Map(), total: 0, loaded: 0, failed: 0,
+            report: ctx.report,
+        };
+        // stand-ins off the new coverage are of no use
+        L.fb = L.fb.filter((f) => {
+            if (VTMapTiles.under(f, z, range)) { return true; }
+            this._tileDropFb(L, f);
+            return false;
+        });
+        const report = () => {
+            if (L.cur !== set) { return; }
+            if (set.report) { set.report(set, false); }
+            if (set.loaded + set.failed >= set.total) {
+                if (set.failed > 0) { this._tileRetrySoon(); } else { this._tileRetryDelay = 0; }
+            }
+        };
+        // pass 1: planes, nearest to the view centre first; cached tiles paint now
+        const misses = [];
+        VTMapTiles.orderByDistance(range, ctx.center.x, ctx.center.y).forEach(([x, y]) => {
+            const r = ctx.tileRect(z, x, y);
+            if (!(r.w > 0) || !(r.h > 0)) { return; }
+            const t = { z: z, x: x, y: y, url: this._aerialTileUrl(src, z, x, y),
+                        mesh: this._tileMesh(ctx.T, r, ctx.opacity, ctx.ro), state: 'wait', cancel: null };
+            set.tiles.set(x + ',' + y, t);
+            set.total++;
+            L.group.add(t.mesh);
+            if (C.has(t.url)) { C.acquire(t.url); this._tilePaint(L, set, t); }
+            else { misses.push(t); }
+        });
+        // pass 2: a coarser stand-in where nothing covers a missing tile —
+        // a cached one (z-1 … z-3), else one z-2 tile requested first
+        const minZ = Math.max(0, src.min_zoom || 0);
+        const want = new Map();
+        misses.forEach((t) => {
+            if (this._tileHasCover(L, t)) { return; }
+            for (let dz = 1; dz <= 3; dz++) {
+                const a = VTMapTiles.ancestor(t, dz);
+                if (a.z < minZ) { break; }
+                const u = this._aerialTileUrl(src, a.z, a.x, a.y);
+                if (C.has(u)) { C.acquire(u); this._tileAddFb(L, set, a, u); return; }
+            }
+            const a = VTMapTiles.ancestor(t, Math.min(2, z - minZ));
+            if (a.z < z) { want.set(a.x + ',' + a.y + ',' + a.z, a); }
+        });
+        want.forEach((a) => this._tileFetchFb(L, set, a));
+        // pass 3: the tiles themselves
+        misses.forEach((t) => {
+            if (t.state !== 'wait') { return; }
+            const cancel = this._texFetch(t.url, set.white, (ok) => {
+                t.cancel = null;
+                if (L.cur !== set || t.state !== 'wait') { if (ok) { C.release(t.url); } return; }
+                if (ok) { this._tilePaint(L, set, t); } else { this._tileFail(L, set, t); }
+                report();
+            });
+            if (t.state === 'wait' && this._texLoads.has(t.url)) { t.cancel = cancel; }
+        });
+        report();
     }
 
     // A tile texture that stays sharp (T17). Before: a DataTexture, which in

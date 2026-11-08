@@ -179,20 +179,32 @@ které si nakreslil do mapy; objeví se a zmizí sám, viz
 [Agent Vitulus › Plán agenta na mapě](agent.md#plán-agenta-na-mapě).
 
 **Zobrazení (vrstvy)** nastaví jejich krytí, barvy značky robota, **podkladovou mapu** pod mapou,
-přiblížení a posun zarovnání (uložený na robotu pro každou mapu a zdroj dlaždic; zdroje ČÚZK sdílí
+její **Detail** a posun zarovnání (uložený na robotu pro každou mapu a zdroj dlaždic; zdroje ČÚZK sdílí
 jeden, zdroje Google druhý), srážkový radar a ukáže stav terénu (DEM). Podkladové mapy jsou ve dvou
 skupinách: **letecké a satelitní snímky** (satelit Google, satelit Google s popisky, ortofoto
 ČÚZK, Esri, Bing) a **mapy** (mapa Google, topografická mapa ČÚZK, OpenTopoMap, OpenStreetMap).
 Každý zdroj snímků má jiné datum a jinou ostrost — když je nad zahradou starý nebo rozmazaný,
-zkus jiný. Zblízka mapa drží nejjemnější obraz, jaký zdroj má, a jen ho plynule zvětší; na
-telefonu načte o úroveň jemnější dlaždice, aby odpovídaly ostřejšímu displeji.
+zkus jiný. **Detail** *Auto* (výchozí) načte nejjemnější úroveň, jakou zdroj má — Google až z21,
+ortofoto ČÚZK z20 — a ještě blíž ji už jen plynule zvětší. Na telefonu se podkladová mapa zastaví
+o úroveň hruběji (Google z20, ČÚZK z19), a načte tak méně dlaždic. Na pomalém spojení vyber nižší strop (z17–z21): méně
+dlaždic, měkčí obraz. Dlaždice vždy pokryjí to, co vidíš. Po posunu nebo přiblížení zůstane
+předchozí obraz, dokud nové dlaždice nedorazí, a mezery mezitím vyplní hrubší obraz, takže mapa
+nezmizí; pohled, který jsi viděl před chvílí, se vrátí hned. Stavový řádek počítá dlaždice, jak
+přicházejí (*načítám dlaždice 12/48*), a řekne, když se některé nenačetly — pak MapProxy na robotu
+není dostupný nebo tam obraz nemá (bez internetu má jen to, co si dřív uložil; čistě bílou dlaždici, kterou pak posílá, mapa
+nekreslí). Jakmile se vrátí síť, spojení s robotem nebo internet MapProxy, mapa si dlaždice sama
+načte znovu. Telefon má nižší
+limit dlaždic než počítač, aby šetřil paměť; se zapnutými překryvy dá podkladové mapě nejvýš
+polovinu (zdálky pak ukáže hrubší úroveň a její řádek hlásí *limit dlaždic*) a překryvy kreslí
+o úroveň hruběji (reliéf a sklon o dvě), aby se vešly všechny.
 
 **Překryvy** jsou průhledné vrstvy, každá s vlastním zaškrtnutím a krytím, s podkladovou mapou
 i bez ní: **Katastr** (hranice parcel, světlé čáry), **Budovy, čísla domů** (RÚIAN ČÚZK: obrysy
 budov a čísla popisná) a **Vrstevnice** se kreslí nad mapami robota; **Stínovaný reliéf**
 a **Sklon terénu** (obojí z modelu terénu ČÚZK DMR 5G; sklon žlutá → oranžová → červená = prudší,
 hodí se na meze a příkopy) pod nimi jako tón přes podkladovou mapu. Katastr, budovy a vrstevnice
-jsou vidět jen zblízka — dokud ne, řádek ukazuje *přibliž*. Všechny vrstvy mají
+jsou vidět jen zblízka — dokud ne, řádek ukazuje *přibliž*. Během načítání řádek překryvu počítá
+dlaždice (*z19 · 3/12*); *nenačteno* nebo *chybí 2* znamená, že je MapProxy nedodal. Všechny vrstvy mají
 společný limit dlaždic, podkladová mapa má přednost: překryv, který se nevejde, ukáže *limit
 dlaždic*, a když se podklad kreslí hruběji, než chceš, řekne to jeho stavový řádek. Malý řádek
 v levém dolním rohu mapy uvádí zdroje, které jsou právě vidět (klepnutím ukáže celý text): zdroje
