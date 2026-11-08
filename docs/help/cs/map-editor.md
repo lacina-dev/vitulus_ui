@@ -131,7 +131,7 @@ Stopa jen nahrává. Robota nerozjede, jedeš s ním sám.
 **Vrstvy** jsou jeden panel. Objekty: body, trasy, opravy mapy, zóny, místa a pravidla. Skrytá
 vrstva v mapě nejde vybrat. Svět, každá vrstva s legendou: **Pokrytí** (kdy se naposledy sekalo),
 **Zátěž sekání** (stopa běhu, viz Sekací ústrojí), **Kvalita GNSS**, **Sklon**, **Terén**, **Letecká**.
-Vrstva bez dat to řekne. Stopa ukazuje i shodu GPS s lidarem a koly a korekce RTCM, takže je vidět, kam základna
+Vrstva bez dat to řekne. Stopa ukazuje i shodu GPS s lidarem a koly, korekce RTCM a tenkými čarami polohy podle plánu, GPS a lidaru, takže je vidět, kam základna
 dosahuje špatně, což pomůže při kreslení zóny. Klepnutí na stopu ukáže kartu, jen když není aktivní kreslicí nástroj.
 
 ## Návrhy

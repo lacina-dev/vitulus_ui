@@ -169,6 +169,11 @@
 .mow-state i.mow-w-link { height: 10px; background: var(--vt-mow-link); }
 .mow-events { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0; cursor: pointer; }
 .mow-events .form-check-input { width: 20px; height: 20px; margin: 0; }
+.mow-lines { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; color: var(--vt-muted); font-size: 11px; }
+.mow-line { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: 0; color: var(--vt-text); font-size: 12px; cursor: pointer; }
+.mow-line .form-check-input { width: 20px; height: 20px; margin: 0; }
+.mow-line i { display: inline-block; width: 18px; border-top: 2px solid; }
+.mow-line i.mow-line-plan { border-top-style: dashed; }
 .mow-sum { display: flex; flex-wrap: wrap; gap: 2px 12px; }
 .mow-sum em { color: var(--vt-muted); font-style: normal; }
 .mow-card {
@@ -184,3 +189,10 @@
 .mow-grp > div { display: flex; justify-content: space-between; gap: 6px; }
 .mow-grp span { color: var(--vt-muted); }
 .mow-grp b { font-weight: 500; white-space: nowrap; }
+.mow-grp-wide { grid-column: 1 / -1; }
+.mow-pose { width: 100%; margin-bottom: 2px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.mow-pose th, .mow-pose td { padding: 1px 4px 1px 0; font-weight: 400; text-align: right; white-space: nowrap; }
+.mow-pose thead th { font-size: 10px; line-height: 1.2; color: var(--vt-muted); white-space: normal; vertical-align: bottom; }
+.mow-pose tbody th { text-align: left; color: var(--vt-muted); }
+.mow-pose td { font-weight: 500; }
+.mow-dot { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; vertical-align: 0; }

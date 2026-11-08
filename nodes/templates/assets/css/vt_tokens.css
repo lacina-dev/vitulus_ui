@@ -65,6 +65,10 @@
     --vt-mow-ev-1: #ff3fb0;      /* event icons, by weight */
     --vt-mow-ev-2: #ffb000;
     --vt-mow-ev-3: #e9edf0;
+    --vt-mow-plan: #f4f6f8;      /* lines of positions: the plan (dashed), GPS, lidar */
+    --vt-mow-gps: #43d58b;
+    --vt-mow-lidar: #0dcaf0;
+    --vt-mow-fusion: #ff7100;    /* the fused pose in the tap marks */
     --vt-brand-rgb: 255, 113, 0;
 
     /* tone = three numbers per state (U2, from the field dashboard):

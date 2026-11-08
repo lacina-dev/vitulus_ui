@@ -7,7 +7,7 @@ icon: la-cut
 summary: Napájení sekačky, nůž, výška sekání a otáčky v Nastavení › Sekačka.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [zátěž sekání, zátěž, stopa, teplota, přetížení, minulé běhy, sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
+keywords: [odchylka od plánu, mimo plán, čára plánu, čára gps, čára lidaru, heading proti gnss, lhala lokalizace, zátěž sekání, zátěž, stopa, teplota, přetížení, minulé běhy, sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
 ---
 # Sekací ústrojí
 
@@ -57,18 +57,24 @@ při sekání a později pro kterýkoli z posledních 30 běhů. Zapne se sama, 
 nenastavíš sám; pak platí tvoje volba.
 
 - **Barva** ukazuje vždy jednu věc, vybíráš ji v **Barva ukazuje**: Zátěž, Tah kol, Rychlost, Sklon,
-  Teplota, GPS proti lidaru, GPS proti kolům, Stáří RTCM nebo Pokles otáček. Legenda dává skutečné hodnoty.
+  Teplota, GPS proti lidaru, GPS proti kolům, Stáří RTCM, Pokles otáček, Odchylka od plánu nebo Heading
+  proti GNSS. Legenda dává skutečné hodnoty.
 - **Šířka** říká, co robot dělal. Plný pruh široký jako žací ústrojí: sekání. Užší: rozběh nebo čekání.
   Tenká čára: nůž vypnutý. Fialová: zastaveno pravidlem bez nože. Růžová: zablokováno, bílá: přehřátý
   motor.
 - **Zastávky a události** jsou malé ikony: zablokování, přetížení, záchrana, couvnutí, objížďka,
   zastavení na místě, bez postupu, nové okno trasy, varování teploty, výpadek RTCM, ztráta a návrat
-  RTK, skok GPS. Když se tlačí, zůstanou ty
+  RTK, skok GPS, mimo plán (↯, od 25 cm). Když se tlačí, zůstanou ty
   nejhorší; ostatní uvidíš po přiblížení.
-- **Klepnutí na stopu** ukáže krátkou kartu: nůž, jízda, poloha, napájení a úloha v tu chvíli. S myší
-  stačí najet, ukážou se první čísla.
+- **Čáry** jsou tenké čáry nad stopou, každá má vlastní přepínač vedle událostí: **Plán** (světlá,
+  přerušovaná) je, kde robot měl být — nejbližší bod plánované cesty; **GPS** (zelená) a **Lidar**
+  (azurová) jsou místa, kam robota položil každý z nich. Samotná stopa je fúzovaná poloha, podle
+  které robot řídil. Kde zdroj neměl data, čára se přeruší.
+- **Klepnutí na stopu** ukáže krátkou kartu: poloha, nůž, jízda, GNSS, napájení a úloha v tu chvíli. S myší
+  stačí najet, ukážou se první čísla. Karta po klepnutí dá do mapy i malé tečky spojené s polohou:
+  plán, fúze (oranžová), GPS a lidar; se zavřením karty zmizí.
 - **Běh** vybere minulý běh, pod ním jsou součty: čas sekání, přejezdy, zastávky, zátěž, špička
-  teploty, energie.
+  teploty, energie a jak daleko byl robot od plánu, GPS od plánu a heading od GNSS (medián / p95).
 
 Zátěž 100 % je bod, kdy firmware sekačky vypne motor: proud motoru na limitu (1,54 A) nebo otáčky na
 čtvrtině nastavených, co je blíž. Nůž naprázdno ukazuje asi 10 %. Teplota se zapisuje syrově, takže
@@ -88,7 +94,37 @@ je skutečné zahřívání.
 - **Pokles otáček** říká, o kolik nůž klesl pod nastavené otáčky. Řízení motoru je drží skoro pořád do
   2 ot./min, takže škála je jemná: ukáže už pár otáček. Skutečnou trávu lépe ukáže Zátěž.
 
-Běhy nahrané dřív, než se tato data zapisovala, je ukážou šedě, bez dat. Tah kol mají i první běhy.
+### Který zdroj lhal
+
+Skupina **Poloha** v kartě je malá tabulka, řádek na zdroj:
+
+| Řádek | vůči plánu, cm | vůči fúzi vpřed / vlevo, cm |
+|---|---|---|
+| Plán | 0, vztažný bod | kde byl plán vůči robotu |
+| Fúze | boční vzdálenost od plánu, + = robot vlevo od něj | 0 / 0, vztažný bod |
+| GPS | GPS napříč od plánu | kam robota dalo GPS: před / vlevo od fúze |
+| Lidar | lidar napříč od plánu | totéž pro lidar |
+
+Pod ní: heading fúze proti headingu ze dvou antén GNSS (s jejich přesností a rozdílem Δ), kdo vlastnil
+lokalizaci a stav trackeru lidaru.
+
+Jak to číst, s barvou **Odchylka od plánu** a zapnutou čárou GPS:
+
+- **Poloha blízko plánu, GPS daleko**: robot plán dodržel, ale na špatném místě — lhala lokalizace.
+  Čára GPS (a lidaru, pokud s GPS souhlasí) ukáže, kudy robot opravdu jel.
+- **Poloha daleko od plánu**: robot věděl, že je mimo, a nevrátil se — řízení, regulátor cesty,
+  prokluz kol ve svahu nebo překážka v cestě.
+- **GPS a lidar od sebe, fúze s jedním z nich**: poloha šla za tím zdrojem, druhý nesouhlasí. Vlastník
+  a stav trackeru v kartě řeknou, komu se tehdy věřilo.
+- **Heading proti GNSS** velký při jízdě rovně: fúzovaný heading ujel; poloha, která jede podle
+  špatného headingu, brzy uteče i do strany.
+
+Co se zapisuje: **GPS** jen když má přijímač fix — bez něj se čára GPS přeruší. **Lidar** se zapisuje
+i tehdy, když s GPS nesouhlasí (tracker hlásí *lidar nesouhlasí*) — právě tehdy stojí za pohled.
+**Heading proti GNSS** se v otočkách vynechává, tam se oba časově nikdy nepotkají.
+
+Běhy nahrané dřív, než se tato data zapisovala, je ukážou šedě, bez dat, a nemají čáry ani tabulku
+Poloha. Tah kol mají i první běhy.
 
 ## Zastavení
 

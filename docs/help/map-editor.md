@@ -133,7 +133,7 @@ Tracing only records. It does not move the robot, you drive it yourself.
 **Layers** is one panel. Objects: waypoints, paths, map fixes, zones, places and rules. A hidden
 layer cannot be selected on the map. World, each with its legend: **Coverage** (when it was last
 mowed), **Mow load** (the trail of a run, see Mowing unit), **GNSS quality**, **Slope**, **Terrain**,
-**Aerial**. A layer without data says so. The trail also shows how GPS agrees with lidar and wheels and the RTCM corrections, so
+**Aerial**. A layer without data says so. The trail also shows how GPS agrees with lidar and wheels, the RTCM corrections and, with thin lines, the plan, GPS and lidar positions, so
 it tells where the base reaches badly, which helps when you place a zone. A tap on the trail shows its card only when no drawing tool
 is active.
 

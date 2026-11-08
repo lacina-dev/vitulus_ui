@@ -7,7 +7,7 @@ icon: la-cut
 summary: Mower power, the blade, cut height and RPM in Settings › Mower.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [mow load, load, trail, heat, temperature, overload, past runs, mower, blade, knife, cut height, height, rpm, remember, saved height, saved rpm, after power-off, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
+keywords: [off the plan, plan line, gps line, lidar line, heading vs gnss, cross-track, xte, localization wrong, mow load, load, trail, heat, temperature, overload, past runs, mower, blade, knife, cut height, height, rpm, remember, saved height, saved rpm, after power-off, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
 ---
 # Mowing unit
 
@@ -57,16 +57,24 @@ robot, live during mowing and later for any of the last 30 runs. It turns on by 
 program runs, until you set it yourself; then your choice stays.
 
 - **Colour** shows one thing at a time, you pick it under **Colour shows**: Load, Torque, Speed,
-  Slope, Temperature, GPS vs lidar, GPS vs wheels, RTCM age or Rpm dip. The legend gives real values.
+  Slope, Temperature, GPS vs lidar, GPS vs wheels, RTCM age, Rpm dip, Off the plan or Heading vs GNSS.
+  The legend gives real values.
 - **Width** shows what the robot was doing. A full stripe as wide as the deck: cutting. A narrower
   one: spin-up or waiting. A thin line: blade off. Violet: stopped by a no-blade rule. Pink: blocked,
   white: motor hot.
 - **Stops and events** are small icons: blocked, overload, recovery, backup, detour, stall, no
-  progress, new path window, a temperature warning, an RTCM gap, RTK lost and back, a GPS jump. When they crowd, the worst stay; zoom in for the rest.
-- **Tap the trail** for a short card: blade, drive, position, power and job at that moment. With a
-  mouse, hovering shows the first numbers.
+  progress, new path window, a temperature warning, an RTCM gap, RTK lost and back, a GPS jump, off
+  the plan (↯, 25 cm or more). When they crowd, the worst stay; zoom in for the rest.
+- **Lines** are thin lines over the trail, each with its own switch next to the events: **Plan**
+  (light, dashed) is where the robot should have been, the point of the planned path nearest to it;
+  **GPS** (green) and **Lidar** (cyan) are where each of them put the robot. The trail itself is the
+  fused pose, the one the robot steered by. A line breaks where its source had no data.
+- **Tap the trail** for a short card: position, blade, drive, GNSS, power and job at that moment. With a
+  mouse, hovering shows the first numbers. A tapped card also puts small dots on the map, joined
+  to the pose: plan, pose (orange), GPS and lidar; they go away when the card closes.
 - **Run** picks a past run, under it are the totals: time mowing, transit, stops, load, peak
-  temperature, energy.
+  temperature, energy, and how far the robot was from the plan, GPS from the plan and the heading
+  from GNSS (median / p95).
 
 Load 100 % is the point where the mower firmware cuts the motor: motor current at its limit
 (1.54 A) or speed down to a quarter of the setpoint, whichever is closer. The blade running free reads
@@ -87,7 +95,38 @@ otherwise cool run is a sensor spike, a slow climb is real heating.
 - **Rpm dip** is how far the blade fell below the set rpm. The motor control holds it within 2 rpm
   almost all the time, so the scale is fine: a few rpm already show. Real grass shows better in Load.
 
-Runs recorded before these data existed show them in grey, no data. Torque is there from the first runs.
+### Which source was wrong
+
+The **Position** group of the card is a small table, one row per source:
+
+| Row | vs plan, cm | vs pose fwd / left, cm |
+|---|---|---|
+| Plan | 0, the reference | where the plan was from the robot |
+| Pose | sideways distance from the plan, + = robot left of it | 0 / 0, the reference |
+| GPS | GPS sideways from the plan | where GPS put the robot: ahead / to the left of the pose |
+| Lidar | lidar sideways from the plan | the same for the lidar |
+
+Under it: heading of the pose against the heading of the two GNSS antennas (with their accuracy
+and the difference Δ), who owned the localization, and the state of the lidar tracker.
+
+How to read it, with **Off the plan** as the colour and the GPS line on:
+
+- **Pose near the plan, GPS far from it**: the robot followed the plan, but the plan was followed
+  in a wrong place — the localization was wrong. The GPS line (and the lidar line, if it agrees with
+  GPS) shows where the robot really drove.
+- **Pose far from the plan**: the robot knew it was off and did not get back — the steering, the
+  path controller, wheels slipping on a slope or an obstacle on the way.
+- **GPS and lidar apart, pose with one of them**: the pose followed that source; the other one
+  disagrees. Owner and tracker state in the card say who was trusted then.
+- **Heading vs GNSS** large while driving straight: the fused heading drifted; a pose that follows a
+  wrong heading drifts sideways soon after.
+
+What is recorded: **GPS** only while the receiver has a fix — without one the GPS line breaks.
+**Lidar** is recorded also when it disagrees with GPS (the tracker says *lidar disagrees*) — exactly
+then it is worth a look. **Heading vs GNSS** is left out in turns, where the two never match in time.
+
+Runs recorded before these data existed show them in grey, no data, and have no lines or Position
+table. Torque is there from the first runs.
 
 ## Stop
 

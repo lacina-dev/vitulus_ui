@@ -1,11 +1,15 @@
 // vt_mow_trail.js — the "Mow load" layer: a trail behind the robot. One metric at
 // a time gives the colour (Load, Torque, Speed, Slope, Temperature, GPS against lidar, GPS against
-// wheels, RTCM, Rpm dip), the state
+// wheels, RTCM, Rpm dip, distance from the plan, heading against GNSS), the state
 // gives the width: a full deck stripe while cutting, a thin line in transit.
 // Stops and rules are small icons. Everything else is in the card behind a tap.
+// Thin lines on top, each on its own switch: the plan (the projection of the
+// pose on the active path), GPS and lidar positions, so a lying source shows
+// as a line away from the others.
 //
 // Data: vitulus_mapping/mowtrail.py, docs/MAP_OBJECTS.md section 11. The robot
-// sends 18 columns, downsampled; a tap asks for the raw row.
+// sends 26 columns, downsampled (18 before 2026-11-08, widened with NONE); a tap
+// asks for the raw row.
 //
 // Drawn into the ros3d scene, so one geometry serves the map and the editor (the
 // editor's overlay canvas is transparent above it). ros3d carries its own THREE
@@ -21,12 +25,13 @@ window.VTMowTrail = (function () {
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
     // ---- format, same as mowtrail.py
-    var STRIDE = 18, WHEEL = 15, LIDAR = 16, JUMP = 17, LOAD = 2, AMPS = 3, RPM = 4, TEMP = 5, STATE = 6, TIME = 7, SPEED = 8, SLOPE = 9, FIX = 10, DIP = 11, HACC = 12, AGE = 13, RATE = 14;
+    var STRIDE = 26, WHEEL = 15, LIDAR = 16, JUMP = 17, LOAD = 2, AMPS = 3, RPM = 4, TEMP = 5, STATE = 6, TIME = 7, SPEED = 8, SLOPE = 9, FIX = 10, DIP = 11, HACC = 12, AGE = 13, RATE = 14;
+    var XTE = 18, PATH_X = 19, PATH_Y = 20, GPS_X = 21, GPS_Y = 22, LIDAR_X = 23, LIDAR_Y = 24, HEAD_ERR = 25;
     var BRK = 16, NONE = -9999;
     var STATES = ['cutting', 'spinup', 'transit', 'blocked', 'overload', 'hot', 'rule', 'hold', 'link_lost'];
-    var EVENTS = ['blocked', 'link_lost', 'hot', 'overload', 'rule', 'temp', 'recovery', 'backup', 'detour', 'stall', 'no_progress', 'rewindow', 'hold', 'rtcm_gap', 'fix_down', 'fix_up', 'gps_jump'];
-    var GLYPH = { blocked: '✕', link_lost: '?', hot: 'T', overload: '!', rule: '⊘', temp: 'T', recovery: '↻', backup: '↶', detour: '⤴', stall: '■', no_progress: '…', rewindow: '↔', hold: '‖', rtcm_gap: 'R', fix_down: '▼', fix_up: '▲', gps_jump: 'J' };
-    var EV_TONE = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 1];   // colour step of an EVENTS index
+    var EVENTS = ['blocked', 'link_lost', 'hot', 'overload', 'rule', 'temp', 'recovery', 'backup', 'detour', 'stall', 'no_progress', 'rewindow', 'hold', 'rtcm_gap', 'fix_down', 'fix_up', 'gps_jump', 'off_path'];
+    var GLYPH = { blocked: '✕', link_lost: '?', hot: 'T', overload: '!', rule: '⊘', temp: 'T', recovery: '↻', backup: '↶', detour: '⤴', stall: '■', no_progress: '…', rewindow: '↔', hold: '‖', rtcm_gap: 'R', fix_down: '▼', fix_up: '▲', gps_jump: 'J', off_path: '↯' };
+    var EV_TONE = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 1, 1];   // colour step of an EVENTS index
     var DEFAULT_LIMITS = { trip_a: 1.54, overload_load: 0.85, deck_m: 0.29, temp_warn_c: 60, temp_max_c: 70 };
 
     // Five colour steps, tokens --vt-mow-1..5 (ColorBrewer RdYlBu: safe for
@@ -52,8 +57,18 @@ window.VTMowTrail = (function () {
         gpswheel: { col: JUMP, note: true, stops: [5, 10, 20, 40, 100], label: function (v) { return v + ' cm'; } },
         rtcm: { col: AGE, stops: [10, 15, 30, 100, 300], label: function (v) { return (v / 10) + ' s'; } },
         rpm: { col: DIP, stops: [2, 4, 7, 12, 100], blade: true, label: function (v) { return '−' + v + ' rpm'; } },
+        // signed on the wire, the colour is the size
+        pathdev: { col: XTE, abs: true, note: true, stops: [3, 6, 10, 20, 35], label: function (v) { return v + ' cm'; } },
+        headerr: { col: HEAD_ERR, abs: true, note: true, stops: [10, 20, 40, 80, 150], label: function (v) { return (v / 10) + '°'; } },
     };
-    var METRIC_KEYS = ['load', 'torque', 'speed', 'slope', 'temp', 'gpslidar', 'gpswheel', 'rtcm', 'rpm'];
+    var METRIC_KEYS = ['load', 'torque', 'speed', 'slope', 'temp', 'gpslidar', 'gpswheel', 'rtcm', 'rpm', 'pathdev', 'headerr'];
+    // thin lines over the trail: wire columns, a CSS token, dashed or not
+    var LINES = {
+        plan: { x: PATH_X, y: PATH_Y, tok: '--vt-mow-plan', def: '#f4f6f8', dash: true, jump: true },
+        gps: { x: GPS_X, y: GPS_Y, tok: '--vt-mow-gps', def: '#43d58b' },
+        lidar: { x: LIDAR_X, y: LIDAR_Y, tok: '--vt-mow-lidar', def: '#0dcaf0' },
+    };
+    var LINE_KEYS = ['plan', 'gps', 'lidar'];
 
     // ---- pure helpers
     function hex(c) {
@@ -75,6 +90,8 @@ window.VTMowTrail = (function () {
             rule: tok('--vt-mow-rule', '#b388ff'),
             link: tok('--vt-mow-link', '#ff7100'),
             ev: [tok('--vt-mow-ev-1', '#ff3fb0'), tok('--vt-mow-ev-2', '#ffb000'), tok('--vt-mow-ev-3', '#e9edf0')],
+            plan: tok(LINES.plan.tok, LINES.plan.def), gps: tok(LINES.gps.tok, LINES.gps.def), lidar: tok(LINES.lidar.tok, LINES.lidar.def),
+            fusion: tok('--vt-mow-fusion', '#ff7100'),
         };
     }
     // colour of a value on a metric's scale, 0..255
@@ -107,7 +124,7 @@ window.VTMowTrail = (function () {
         var m = METRICS[metric], v = rows[i * STRIDE + m.col];
         if (m.blade && (st.off || st.spin)) return pal.off;
         if (v === NONE) return pal.none;
-        return colorOf(metric, v, pal);
+        return colorOf(metric, m.abs ? Math.abs(v) : v, pal);
     }
     // metres per CSS pixel at the view centre
     function metresPerPx(camera, centre, heightPx) {
@@ -150,10 +167,43 @@ window.VTMowTrail = (function () {
         return d.getDate() + '. ' + (d.getMonth() + 1) + '. ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
     function known(v) { return v !== NONE && v != null; }
+    // Segments of one line from wire rows [from, to): flat [x1, y1, d1, x2, y2, d2, ...],
+    // m, d = distance along the line (for the dash). A break (BRK) or an unknown
+    // point cuts the line. `jump`: the plan also cuts where it steps much further
+    // than the robot did (a new path, not a move). `st` carries the end over to the
+    // next call, so a live message only appends.
+    function polySegments(rows, from, to, cx, cy, jump, st) {
+        var out = [];
+        st = st || {};
+        for (var i = from; i < to; i++) {
+            var o = i * STRIDE, x = rows[o + cx], y = rows[o + cy];
+            var fx = rows[o] / 100, fy = rows[o + 1] / 100;
+            if (rows[o + STATE] >= BRK) st.ok = false;
+            if (x === NONE || y === NONE) { st.ok = false; st.fx = fx; st.fy = fy; continue; }
+            x /= 100; y /= 100;
+            if (st.ok) {
+                var len = Math.hypot(x - st.x, y - st.y), moved = Math.hypot(fx - st.fx, fy - st.fy);
+                if (jump && len > moved + 0.5) st.d = 0;
+                else { out.push(st.x, st.y, st.d, x, y, st.d + len); st.d += len; }
+            } else st.d = 0;
+            st.ok = true; st.x = x; st.y = y; st.fx = fx; st.fy = fy;
+        }
+        return out;
+    }
+    // a point of another source in the robot frame: [forward, left], m
+    function inRobot(dx, dy, yawDeg) {
+        var a = yawDeg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+        return [dx * c + dy * s, -dx * s + dy * c];
+    }
+    function cm(v) { return known(v) ? v / 100 : null; }
     // short lines of a row from the wire; the tap replaces them with the raw row
     function rowFacts(rows, i, start) {
         var o = i * STRIDE;
         return {
+            x: rows[o] / 100, y: rows[o + 1] / 100,
+            xte_m: cm(rows[o + XTE]), path_x: cm(rows[o + PATH_X]), path_y: cm(rows[o + PATH_Y]),
+            gps_x: cm(rows[o + GPS_X]), gps_y: cm(rows[o + GPS_Y]), lidar_x: cm(rows[o + LIDAR_X]), lidar_y: cm(rows[o + LIDAR_Y]),
+            head_err_deg: known(rows[o + HEAD_ERR]) ? rows[o + HEAD_ERR] / 10 : null,
             state: STATES[rows[o + STATE] & (BRK - 1)],
             t: (start || 0) + rows[o + TIME] / 10,
             load: known(rows[o + LOAD]) ? rows[o + LOAD] / 100 : null,
@@ -193,13 +243,53 @@ window.VTMowTrail = (function () {
             ['gpswheel', r.jump_m == null ? null : Math.round(r.jump_m * 100) + ' cm'],
             ['cno', r.cno == null ? null : r.cno.toFixed(1) + ' dB' + (r.prres == null ? '' : ' · ' + r.prres.toFixed(1) + ' m')],
             ['rtcm', r.rtcm_rate == null ? null : r.rtcm_rate.toFixed(1) + '/s' + (r.rtcm_age == null ? '' : ' · ' + r.rtcm_age.toFixed(1) + ' s')],
-            ['owner', r.owner || null],
         ];
         var power = [['battery', r.batt_v == null ? null : r.batt_v.toFixed(1) + ' V' + (r.batt_pct == null ? '' : ' · ' + r.batt_pct + ' %')], ['power', num(r.power, 0, 'W')]];
         var job = [['program', r.program || null], ['zone', r.zone || null], ['path', r.path ? r.path + (r.chunk == null ? '' : ' · ' + r.chunk) : null]];
-        return [['blade', blade], ['drive', drive], ['place', place], ['power', power], ['job', job]].map(function (g) {
-            return { k: g[0], rows: g[1].filter(function (x) { return x[1] != null; }) };
-        }).filter(function (g) { return g.rows.length; });
+        var pose = poseFacts(r);
+        return [['pose', pose.rows, pose.table], ['blade', blade], ['drive', drive], ['place', place], ['power', power], ['job', job]].map(function (g) {
+            var out = { k: g[0], rows: g[1].filter(function (x) { return x[1] != null; }) };
+            if (g[2]) out.table = g[2];
+            return out;
+        }).filter(function (g) { return g.rows.length || (g.table && g.table.length); });
+    }
+    // signed cm, a real minus
+    function scm(v) {
+        if (v == null) return null;
+        var n = Math.round(v * 100);
+        return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+    }
+    // a word of the robot in the UI language; an unknown one stays as it came
+    function named(area, v) {
+        if (!v) return null;
+        var k = 'mowl.' + area + '.' + v, s = t(k);
+        return s && s !== k ? s : String(v);
+    }
+    function sdeg(v) { return v == null ? null : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '°'; }
+    // The Position group: where the sources were against the plan and the fused pose.
+    // table rows [source, across the plan (cm, + = left), against the pose (forward / left, cm)];
+    // a row without any number is left out.
+    function poseFacts(r) {
+        var rel = function (x, y, along, across) {
+            if (along != null && across != null) return scm(along) + ' / ' + scm(across);
+            if (x == null || y == null || r.x == null || r.y == null || r.yaw == null) return null;
+            var v = inRobot(x - r.x, y - r.y, r.yaw);
+            return scm(v[0]) + ' / ' + scm(v[1]);
+        };
+        var table = [
+            ['plan', r.path_x == null ? null : '0', rel(r.path_x, r.path_y)],
+            ['fusion', scm(r.xte_m), r.xte_m == null ? null : '0 / 0'],
+            ['gps', scm(r.gps_xte_m), rel(r.gps_x, r.gps_y, r.gps_along_m, r.gps_across_m)],
+            ['lidar', scm(r.lidar_xte_m), rel(r.lidar_x, r.lidar_y, r.lidar_along_m, r.lidar_across_m)],
+        ].filter(function (x) { return x[1] != null || x[2] != null; });
+        if (table.length === 1 && table[0][0] === 'plan') table = [];
+        var head = null, err = r.head_err_deg;
+        if (err == null && r.yaw != null && r.gps_head != null) err = ((r.yaw - r.gps_head + 540) % 360) - 180;
+        if (r.yaw != null && r.gps_head != null) {
+            head = r.yaw.toFixed(1) + '° / ' + r.gps_head.toFixed(1) + '°' + (r.head_acc == null ? '' : ' ±' + r.head_acc.toFixed(1) + '°') + ' · Δ ' + sdeg(err);
+        } else if (err != null) head = 'Δ ' + sdeg(err);
+        var rows = [['heading', head], ['owner', named('owner', r.owner)], ['track', named('track', r.track)]];
+        return { table: table, rows: rows };
     }
     function summaryRows(s) {
         var out = [];
@@ -214,6 +304,9 @@ window.VTMowTrail = (function () {
         if (s.lidar_med != null) out.push(['gpslidar', s.lidar_med + ' / ' + s.lidar_p95 + ' cm']);
         if (s.jump_med != null) out.push(['gpswheel', s.jump_med + ' / ' + s.jump_p95 + ' cm']);
         if (s.rtcm_rate != null) out.push(['rtcm', s.rtcm_rate.toFixed(1) + '/s' + (s.rtcm_gaps ? ' · ' + s.rtcm_gaps + ' ×' : '')]);
+        if (s.xte_med != null) out.push(['pathdev', s.xte_med + ' / ' + s.xte_p95 + ' cm']);
+        if (s.gps_xte_med != null) out.push(['gpspath', s.gps_xte_med + ' / ' + s.gps_xte_p95 + ' cm']);
+        if (s.head_med != null) out.push(['headerr', (s.head_med / 10).toFixed(1) + ' / ' + (s.head_p95 / 10).toFixed(1) + '°']);
         return out;
     }
 
@@ -260,6 +353,12 @@ window.VTMowTrail = (function () {
     var PFS = 'precision mediump float; uniform sampler2D uAtlas; uniform float uN; varying float vK;' +
         'void main(){ vec2 c = (vec2(mod(vK, uN), floor(vK / uN)) + gl_PointCoord) / uN; vec4 t = texture2D(uAtlas, c);' +
         ' if (t.a < 0.05) discard; gl_FragColor = t; }';
+
+    // thin lines: one LineSegments per line, uDash in m (0 = solid), aD = distance along
+    var LVS = 'attribute float aD; uniform float uZ; varying float vD;' +
+        'void main(){ vD = aD; gl_Position = projectionMatrix * modelViewMatrix * vec4(position.xy, uZ, 1.0); }';
+    var LFS = 'precision mediump float; uniform vec3 uC; uniform float uDash; uniform float uAlpha; varying float vD;' +
+        'void main(){ if (uDash > 0.0 && mod(vD, uDash * 2.0) > uDash) discard; gl_FragColor = vec4(uC, uAlpha); }';
 
     function order() {
         var o = (typeof MapLayerOrder !== 'undefined') ? MapLayerOrder : {};
@@ -386,9 +485,108 @@ window.VTMowTrail = (function () {
         this.g.setDrawRange(0, n);
     };
 
+    // One line of positions. Preallocated, grows by doubling (a new geometry then),
+    // an append uploads only its range.
+    function Line(T, scene, rgb, dash) {
+        this.T = T;
+        this.scene = scene;
+        this.uniforms = { uC: { value: new T.Vector3(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255) }, uDash: { value: dash ? 0.25 : 0 }, uZ: { value: 0.035 }, uAlpha: { value: 0.95 } };
+        this.dash = !!dash;
+        this.material = new T.ShaderMaterial({ vertexShader: LVS, fragmentShader: LFS, uniforms: this.uniforms, transparent: true, depthTest: false, depthWrite: false });
+        this.cap = 0; this.n = 0; this.mesh = null; this.st = {};
+        this._alloc(4096);
+    }
+    Line.prototype._alloc = function (cap) {
+        var T = this.T, g = new T.BufferGeometry();
+        var pos = new T.BufferAttribute(new Float32Array(cap * 6), 3).setDynamic(true);
+        var d = new T.BufferAttribute(new Float32Array(cap * 2), 1).setDynamic(true);
+        if (this.mesh) { pos.array.set(this.pos.array.subarray(0, this.n * 6)); d.array.set(this.d.array.subarray(0, this.n * 2)); }
+        g.addAttribute('position', pos);
+        g.addAttribute('aD', d);
+        g.setDrawRange(0, this.n * 2);
+        var mesh = new T.LineSegments(g, this.material);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = order() + 0.3;
+        mesh.visible = this.mesh ? this.mesh.visible : false;
+        if (this.mesh) { this.scene.remove(this.mesh); this.mesh.geometry.dispose(); }
+        this.scene.add(mesh);
+        this.mesh = mesh; this.pos = pos; this.d = d; this.cap = cap;
+    };
+    Line.prototype.clear = function () { this.n = 0; this.st = {}; this.mesh.geometry.setDrawRange(0, 0); };
+    // seg = polySegments output
+    Line.prototype.append = function (seg) {
+        var k = seg.length / 6;
+        if (!k) return;
+        if (this.n + k > this.cap) {
+            var cap = this.cap;
+            while (cap < this.n + k) cap *= 2;
+            this._alloc(cap);
+            this.pos.needsUpdate = this.d.needsUpdate = true;     // the whole new buffer
+        } else if (!this.pos.needsUpdate) {
+            this.pos.updateRange.offset = this.n * 6; this.pos.updateRange.count = k * 6;
+            this.d.updateRange.offset = this.n * 2; this.d.updateRange.count = k * 2;
+            this.pos.needsUpdate = this.d.needsUpdate = true;
+        } else {
+            this.pos.updateRange.count = this.d.updateRange.count = -1;   // two appends before a frame
+        }
+        var p = this.pos.array, d = this.d.array;
+        for (var i = 0; i < k; i++) {
+            var s = i * 6, o = (this.n + i) * 6, q = (this.n + i) * 2;
+            p[o] = seg[s]; p[o + 1] = seg[s + 1]; p[o + 2] = 0; p[o + 3] = seg[s + 3]; p[o + 4] = seg[s + 4]; p[o + 5] = 0;
+            d[q] = seg[s + 2]; d[q + 1] = seg[s + 5];
+        }
+        this.n += k;
+        this.mesh.geometry.setDrawRange(0, this.n * 2);
+    };
+
+    // Marks at a tapped row: Plan, Fusion, GPS, Lidar as dots, joined to Fusion.
+    function Marks(T, scene) {
+        this.T = T;
+        this.pos = new T.BufferAttribute(new Float32Array(4 * 3), 3).setDynamic(true);
+        this.col = new T.BufferAttribute(new Float32Array(4 * 3), 3).setDynamic(true);
+        this.g = new T.BufferGeometry();
+        this.g.addAttribute('position', this.pos);
+        this.g.addAttribute('color', this.col);
+        this.lpos = new T.BufferAttribute(new Float32Array(6 * 3), 3).setDynamic(true);
+        this.lcol = new T.BufferAttribute(new Float32Array(6 * 3), 3).setDynamic(true);
+        this.lg = new T.BufferGeometry();
+        this.lg.addAttribute('position', this.lpos);
+        this.lg.addAttribute('color', this.lcol);
+        var dpr = Math.min(2, window.devicePixelRatio || 1);
+        this.points = new T.Points(this.g, new T.PointsMaterial({ size: 9 * dpr, sizeAttenuation: false, vertexColors: T.VertexColors, depthTest: false, depthWrite: false, transparent: true }));
+        this.lines = new T.LineSegments(this.lg, new T.LineBasicMaterial({ vertexColors: T.VertexColors, depthTest: false, depthWrite: false, transparent: true }));
+        this.root = new T.Object3D();
+        this.root.add(this.lines);
+        this.root.add(this.points);
+        this.points.frustumCulled = this.lines.frustumCulled = false;
+        this.points.renderOrder = order() + 0.7;
+        this.lines.renderOrder = order() + 0.6;
+        this.root.visible = false;
+        scene.add(this.root);
+    }
+    // list = [{x, y, c: [r, g, b] 0..255}], the first is the fused pose
+    Marks.prototype.set = function (list) {
+        var n = Math.min(4, list.length), z = 0.06;
+        if (!n) { this.root.visible = false; return; }
+        for (var i = 0; i < n; i++) {
+            this.pos.array.set([list[i].x, list[i].y, z], i * 3);
+            this.col.array.set(list[i].c.map(function (v) { return v / 255; }), i * 3);
+        }
+        for (var j = 1; j < n; j++) {
+            var o = (j - 1) * 6;
+            this.lpos.array.set([list[0].x, list[0].y, z, list[j].x, list[j].y, z], o);
+            this.lcol.array.set(list[j].c.concat(list[j].c).map(function (v) { return v / 255; }), o);
+        }
+        this.g.setDrawRange(0, n);
+        this.lg.setDrawRange(0, (n - 1) * 2);
+        this.pos.needsUpdate = this.col.needsUpdate = this.lpos.needsUpdate = this.lcol.needsUpdate = true;
+        this.root.visible = true;
+    };
+    Marks.prototype.hide = function () { this.root.visible = false; };
+
     // ---- the layer
-    var LS_ON = 'vitulus_mow_load', LS_METRIC = 'vitulus_mow_metric', LS_EVENTS = 'vitulus_mow_events';
-    var S = { ros: null, on: false, busy: false, metric: 'load', events: true, view: 'live', store: new Store(), drawn: 0, limits: DEFAULT_LIMITS, runs: [], active: null, summary: null, subs: [], pub: null, reqN: 0, pastReq: null, detailReq: null, lastAsk: 0, ribbon: null, icons: null, pal: null, mpp: 0, card: null, hoverAt: 0, activeReq: 0 };
+    var LS_ON = 'vitulus_mow_load', LS_METRIC = 'vitulus_mow_metric', LS_EVENTS = 'vitulus_mow_events', LS_LINES = 'vitulus_mow_lines';
+    var S = { ros: null, on: false, busy: false, metric: 'load', events: true, lines: { plan: false, gps: false, lidar: false }, lineObj: null, linesDrawn: 0, marks: null, view: 'live', store: new Store(), drawn: 0, limits: DEFAULT_LIMITS, runs: [], active: null, summary: null, subs: [], pub: null, reqN: 0, pastReq: null, detailReq: null, lastAsk: 0, ribbon: null, icons: null, pal: null, mpp: 0, card: null, hoverAt: 0, activeReq: 0 };
 
     function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
@@ -401,6 +599,9 @@ window.VTMowTrail = (function () {
         S.pal = palette();
         S.ribbon = new Ribbon(T, V.scene);
         S.icons = new Icons(T, V.scene);
+        S.lineObj = {};
+        LINE_KEYS.forEach(function (k) { S.lineObj[k] = new Line(T, V.scene, S.pal[k], LINES[k].dash); });
+        S.marks = new Marks(T, V.scene);
         S.ribbon.onCamera = onCamera;
         bindPointer();
         return true;
@@ -410,6 +611,7 @@ window.VTMowTrail = (function () {
         if (!V || !V.cameraControls) return;
         var dom = V.renderer.domElement, mpp = metresPerPx(cam, V.cameraControls.center, dom.clientHeight);
         S.ribbon.uniforms.uMin.value = mpp * 0.9;
+        if (S.lineObj) S.lineObj.plan.uniforms.uDash.value = Math.max(0.15, mpp * 6);   // dashes stay a few px long
         if (!S.mpp || Math.abs(mpp / S.mpp - 1) > 0.15) { S.mpp = mpp; paintIcons(); }
     }
     function paintIcons() {
@@ -432,15 +634,41 @@ window.VTMowTrail = (function () {
         r.flush();
         S.drawn = st.n;
     }
+    // the lines that are on, from where they ended; the ones off cost nothing
+    function anyLine() { return LINE_KEYS.some(function (k) { return S.lines[k]; }); }
+    function drawLines(from) {
+        if (!S.lineObj) return;
+        var st = S.store;
+        if (!anyLine()) return;
+        if (from > S.linesDrawn) from = S.linesDrawn;
+        LINE_KEYS.forEach(function (k) {
+            var L = S.lineObj[k], d = LINES[k];
+            if (!S.lines[k]) return;
+            if (from === 0) {
+                L.clear();
+                var c = S.pal[k];
+                L.uniforms.uC.value.set(c[0] / 255, c[1] / 255, c[2] / 255);
+            }
+            L.append(polySegments(st.rows, from, st.n, d.x, d.y, d.jump, L.st));
+        });
+        S.linesDrawn = st.n;
+    }
+    function showLines() {
+        if (!S.lineObj) return;
+        LINE_KEYS.forEach(function (k) { S.lineObj[k].mesh.visible = S.on && S.lines[k]; });
+    }
     function redraw() {
         if (!ensureScene()) return;
         S.ribbon.clear();
         S.pal = palette();
         drawFrom(0);
+        drawLines(0);
+        showLines();
         paintIcons();
     }
     function setVisible() {
         if (S.ribbon) S.ribbon.root.visible = S.on;
+        showLines();
         paintIcons();
         if (!S.on) hideCard();
     }
@@ -503,7 +731,7 @@ window.VTMowTrail = (function () {
         st.push(widen(m.r, m.stride), skip);
         st.total = Math.max(st.total, m.n);
         if (m.e && m.e.length) { st.addEvents(m.e); paintIcons(); }
-        if (ensureScene()) drawFrom(Math.max(1, S.drawn));
+        if (ensureScene()) { drawFrom(Math.max(1, S.drawn)); drawLines(S.linesDrawn); }
     }
     function onPast(m) {
         if (m.req !== S.pastReq) return;
@@ -520,7 +748,10 @@ window.VTMowTrail = (function () {
     }
     function onDetail(m) {
         if (m.req !== S.detailReq || !m.ok || !S.card) return;
-        S.card.facts = Object.assign({}, S.card.facts, m.row);
+        // the raw row wins, but an unknown in it keeps what the wire knew
+        var facts = Object.assign({}, S.card.facts);
+        Object.keys(m.row).forEach(function (k) { if (m.row[k] != null || !(k in facts)) facts[k] = m.row[k]; });
+        S.card.facts = facts;
         S.card.near = m.row.events || [];
         paintCard();
     }
@@ -546,6 +777,16 @@ window.VTMowTrail = (function () {
         renderPanels();
     }
     function setEvents(on) { S.events = !!on; lsSet(LS_EVENTS, on ? '1' : '0'); paintIcons(); }
+    // a line switched on is built once from the whole store, then appended
+    function setLine(k, on) {
+        if (!LINES[k]) return;
+        S.lines[k] = !!on;
+        lsSet(LS_LINES, JSON.stringify(S.lines));
+        if (S.lineObj) {
+            if (on) { S.lineObj[k].clear(); S.lineObj[k].append(polySegments(S.store.rows, 0, S.store.n, LINES[k].x, LINES[k].y, LINES[k].jump, S.lineObj[k].st)); S.linesDrawn = S.store.n; }
+            showLines();
+        }
+    }
     function pickRun(id) {
         hideCard();
         if (!id || id === 'live') {
@@ -588,7 +829,15 @@ window.VTMowTrail = (function () {
             '<label class="mow-field"><span>' + esc(t('mowl.run')) + '</span><select class="form-select form-select-sm" data-mow="run">' + runs + '</select></label></div>' +
             legendHtml() +
             '<label class="mow-events"><input class="form-check-input" type="checkbox" data-mow="events"' + (S.events ? ' checked' : '') + '> ' + esc(t('mowl.events')) + '</label>' +
+            linesHtml() +
             summaryHtml();
+    }
+    function linesHtml() {
+        var pal = S.pal || palette();
+        return '<div class="mow-lines" title="' + esc(t('mowl.lines_tip')) + '"><span>' + esc(t('mowl.lines')) + '</span>' + LINE_KEYS.map(function (k) {
+            return '<label class="mow-line"><input class="form-check-input" type="checkbox" data-mow="line" data-line="' + k + '"' + (S.lines[k] ? ' checked' : '') + '>' +
+                '<i class="mow-line-' + k + '" style="border-color:rgb(' + pal[k].join(',') + ')"></i>' + esc(t('mowl.line.' + k)) + '</label>';
+        }).join('') + '</div>';
     }
     function renderPanels() {
         var nodes = document.querySelectorAll('[data-mow-panel]');
@@ -603,6 +852,7 @@ window.VTMowTrail = (function () {
         if (k === 'metric') setMetric(el.value);
         else if (k === 'run') pickRun(el.value);
         else if (k === 'events') setEvents(el.checked);
+        else if (k === 'line') setLine(el.getAttribute('data-line'), el.checked);
     }
 
     // ---- tap and hover: a short card
@@ -619,6 +869,7 @@ window.VTMowTrail = (function () {
     }
     function hideCard() {
         S.card = null;
+        if (S.marks) S.marks.hide();
         var el = document.getElementById('mow_card');
         if (el) el.style.display = 'none';
     }
@@ -627,10 +878,11 @@ window.VTMowTrail = (function () {
         if (!c) return;
         var r = c.facts, el = cardEl();
         var groups = cardGroups(r).map(function (g) {
-            return '<div class="mow-grp"><h6>' + esc(t('mowl.grp.' + g.k)) + '</h6>' + g.rows.map(function (x) {
+            return '<div class="mow-grp' + (g.table ? ' mow-grp-wide' : '') + '"><h6>' + esc(t('mowl.grp.' + g.k)) + '</h6>' + poseTable(g.table) + g.rows.map(function (x) {
                 return '<div><span>' + esc(t('mowl.f.' + x[0])) + '</span><b>' + esc(x[1]) + '</b></div>';
             }).join('') + '</div>';
         }).join('');
+        paintMarks();
         var near = (c.near || []).map(function (e) { return '<div class="mow-ev">' + esc(t('mowl.ev.' + e.kind)) + '</div>'; }).join('');
         el.innerHTML = '<div class="mow-card-head"><b>' + esc(t('mowl.state.' + r.state)) + '</b><span>' + esc(clock(r.t)) + '</span>' +
             (c.pinned ? '<button type="button" class="btn-close btn-close-white" data-mow-close aria-label="' + esc(t('mowl.close')) + '"></button>' : '') + '</div>' + near + '<div class="mow-grps">' + groups + '</div>';
@@ -640,6 +892,25 @@ window.VTMowTrail = (function () {
         el.style.right = 'auto'; el.style.bottom = 'auto';
         el.style.left = Math.min(c.px + 14, W - el.offsetWidth - 8) + 'px';
         el.style.top = Math.max(8, Math.min(c.py + 14, H - el.offsetHeight - 8)) + 'px';
+    }
+    function poseTable(rows) {
+        if (!rows || !rows.length) return '';
+        var pal = S.pal || palette(), dot = function (k) { var c = pal[k === 'fusion' ? 'fusion' : k]; return '<i class="mow-dot" style="background:rgb(' + c.join(',') + ')"></i>'; };
+        return '<table class="mow-pose"><thead><tr><th></th><th>' + esc(t('mowl.pose.col_plan')) + '</th><th>' + esc(t('mowl.pose.col_fusion')) + '</th></tr></thead><tbody>' + rows.map(function (x) {
+            return '<tr><th>' + dot(x[0]) + esc(t('mowl.pose.' + x[0])) + '</th><td>' + esc(x[1] == null ? '–' : x[1]) + '</td><td>' + esc(x[2] == null ? '–' : x[2]) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+    // dots where the sources put the robot at the tapped moment, only on a pinned card
+    function paintMarks() {
+        if (!S.marks) return;
+        var c = S.card, r = c && c.facts;
+        if (!c || !c.pinned || r.x == null) { S.marks.hide(); return; }
+        var pal = S.pal || palette(), list = [{ x: r.x, y: r.y, c: pal.fusion }];
+        [['plan', r.path_x, r.path_y], ['gps', r.gps_x, r.gps_y], ['lidar', r.lidar_x, r.lidar_y]].forEach(function (p) {
+            if (p[1] != null && p[2] != null) list.push({ x: p[1], y: p[2], c: pal[p[0]] });
+        });
+        if (list.length < 2) { S.marks.hide(); return; }
+        S.marks.set(list);
     }
     function pick(ev) {
         var V = viewer(), T = three();
@@ -693,6 +964,7 @@ window.VTMowTrail = (function () {
     // ---- start
     function start(ros) {
         S.ros = ros;
+        try { var ln = JSON.parse(lsGet(LS_LINES) || '{}'); LINE_KEYS.forEach(function (k) { S.lines[k] = ln[k] === true; }); } catch (e) { /* default off */ }
         var saved = lsGet(LS_METRIC);
         if (saved === 'gnss' || saved === 'accuracy') saved = 'gpslidar';          // the names until 2026-11
         S.metric = METRICS[saved] ? saved : 'load';
@@ -723,6 +995,7 @@ window.VTMowTrail = (function () {
         STATES: STATES, EVENTS: EVENTS, METRICS: METRICS, METRIC_KEYS: METRIC_KEYS, STRIDE: STRIDE, NONE: NONE, BRK: BRK, CHUNK: CHUNK,
         hex: hex, colorOf: colorOf, styleOf: styleOf, rowColor: rowColor, metresPerPx: metresPerPx, nearest: nearest, declutter: declutter,
         duration: duration, rowFacts: rowFacts, cardGroups: cardGroups, summaryRows: summaryRows, Store: Store, Ribbon: Ribbon, widen: widen,
+        LINES: LINES, LINE_KEYS: LINE_KEYS, polySegments: polySegments, poseFacts: poseFacts, inRobot: inRobot, Line: Line,
         panelHost: function () { return '<div data-mow-panel class="mow-panel"></div>'; }, renderPanels: renderPanels,
         _state: S, _start: start, _onTrail: onTrail, _onSnapshot: onSnapshot, _setOn: setOn,
     };
