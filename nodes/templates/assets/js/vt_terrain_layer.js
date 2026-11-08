@@ -44,7 +44,9 @@
     var NODATA_MS = 6000;      // ticked this long without data: the node sends nothing
     var STALE_MS = 3000;       // no new data this long: old data (drawn faded)
     var FALLBACK_MS = 4000;    // /traversability/ui silent this long: use the grid
-    var RESUB_MS = 10000;      // a silent subscription is renewed at most this often
+    var RESUB_MS = 15000;      // a subscription silent this long gets a second one (then 30 s, 60 s)
+    var RESUB_MAX_MS = 60000;
+    var OVERLAP_MS = 20000;    // the old subscription is dropped when the new one speaks, at the latest after this
     var LS_ON = 'vitulus_layer_trav', LS_MODE = 'vitulus_layer_trav_mode';
     var MODES = ['reason', 'cost', 'height'];
     var ELEV_SPAN_CM = 15;     // height colours saturate at ±15 cm (as the T10 pictures)
@@ -155,7 +157,7 @@
                 parse: parse, placement: placement, zonesToMap: zonesToMap, state: state, source: source,
                 REASON: REASON, REASON_KEYS: REASON_KEYS, MODES: MODES, ELEV_SPAN_CM: ELEV_SPAN_CM,
                 TOPIC: TOPIC, TOPIC_UI: TOPIC_UI, THROTTLE_MS: THROTTLE_MS, NODATA_MS: NODATA_MS,
-                STALE_MS: STALE_MS, FALLBACK_MS: FALLBACK_MS, RESUB_MS: RESUB_MS };
+                STALE_MS: STALE_MS, FALLBACK_MS: FALLBACK_MS, RESUB_MS: RESUB_MS, OVERLAP_MS: OVERLAP_MS };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (typeof document === 'undefined') { if (root) { root.VTTerrain = api; } return; }
 
@@ -185,7 +187,7 @@
         group: null, mesh: null, tex: null, canvas: null, ctx: null, img: null, zones: null, zsig: '',
         // fallback grid
         client: null, gridOn: false, gridRx: 0, gridAt: 0, rxGrid: 0,
-        uiResubAt: 0, gridResubAt: 0, resubs: 0,
+        uiSubAt: 0, uiWait: RESUB_MS, uiOld: [], lastRaw: null, gridSubAt: 0, gridWait: RESUB_MS, resubs: 0,
     };
     var COLOR = { r: 1, g: 2, b: 3, vtTrav: true };     // identifies the fallback's grids in getColor
 
@@ -221,14 +223,11 @@
         var want = !!(S.chk && S.chk.checked) && !document.hidden && ready();
         if (want) {
             if (!S.onAt) { S.onAt = Date.now(); S.uiRx = 0; S.gridRx = 0; S.last = null; }
-            if (!S.uiSub) {
-                S.uiSub = new ROSLIB.Topic({ ros: rosOf(), name: TOPIC_UI, messageType: 'std_msgs/String',
-                                             throttle_rate: THROTTLE_MS, queue_length: 1 });
-                S.uiSub.subscribe(onUi);
-            }
+            if (!S.uiSub) { S.uiSub = uiTopic(); S.uiSubAt = Date.now(); S.uiWait = RESUB_MS; }
             gridWanted(source(Date.now(), S.onAt, S.uiRx) === 'grid');
         } else {
             if (S.uiSub) { try { S.uiSub.unsubscribe(); } catch (e) { /* closed */ } S.uiSub = null; }
+            dropOldUi();
             gridWanted(false);
             S.onAt = 0;
         }
@@ -244,8 +243,33 @@
     }
 
     // ---- 1. /traversability/ui
-    function onUi(m) {
-        var raw = m && m.data, p = parse(raw);
+    // a subscription whose messages go to onUi with the topic that brought them
+    function uiTopic() {
+        var tp = new ROSLIB.Topic({ ros: rosOf(), name: TOPIC_UI, messageType: 'std_msgs/String',
+                                    throttle_rate: THROTTLE_MS, queue_length: 1 });
+        tp.subscribe(function (m) { onUi(m, tp); });
+        return tp;
+    }
+    function dropOldUi(keep) {
+        S.uiOld = S.uiOld.filter(function (tp) {
+            if (tp === keep) { return true; }
+            try { tp.unsubscribe(); } catch (e) { /* closed */ }
+            return false;
+        });
+    }
+    function onUi(m, tp) {
+        var raw = m && m.data;
+        // two subscriptions overlap while one is renewed: each message once,
+        // and the one that speaks stays (the others go)
+        if (tp && tp !== S.uiSub && S.uiOld.indexOf(tp) >= 0) {
+            var cur = S.uiSub; S.uiSub = tp; S.uiOld = S.uiOld.filter(function (x) { return x !== tp; });
+            if (cur) { S.uiOld.push(cur); }
+        }
+        if (S.uiOld.length) { dropOldUi(); }
+        if (raw && raw === S.lastRaw) { return; }
+        S.lastRaw = raw;
+        S.uiWait = RESUB_MS;
+        var p = parse(raw);
         S.rxUi++; S.bytesUi += raw ? raw.length : 0;
         if (!p) { return; }
         S.uiRx = Date.now();
@@ -387,14 +411,14 @@
             offsetPose: new ROSLIB.Pose({ position: new ROSLIB.Vector3({ x: 0, y: 0, z: 0.01 }),
                                           orientation: new ROSLIB.Quaternion({ x: 0, y: 0, z: 0, w: 1 }) }),
         });
-        c.on('change', function () { S.gridRx = Date.now(); S.rxGrid++; show(true); tick(); });
+        c.on('change', function () { S.gridRx = Date.now(); S.rxGrid++; S.gridWait = RESUB_MS; show(true); tick(); });
         if (typeof MapLayerOpacity !== 'undefined' && MapLayerOpacity.registerClient) { MapLayerOpacity.registerClient(c, order()); }
         return c;
     }
     function gridWanted(on) {
         if (on && !S.gridOn && wrapColors()) {
             if (!S.client) { S.client = makeClient(); } else { S.client.subscribe(); }
-            S.gridOn = true; S.gridRx = 0; S.gridAt = Date.now();
+            S.gridOn = true; S.gridRx = 0; S.gridAt = S.gridSubAt = Date.now(); S.gridWait = RESUB_MS;
         } else if (!on && S.gridOn) {
             // every listener off (MapLayerOpacity adds one to the topic too):
             // only then roslib sends rosbridge the unsubscribe
@@ -403,26 +427,42 @@
         }
     }
 
-    // Hotfix 2026-11-08 (seen on the robot with the quick version): a
-    // subscription made while the page connects can stay silent — rosbridge
-    // sends, roslib never emits it to the topic (the subscribe went out twice
-    // under one id, ~1 page load in 3). A subscription silent NODATA_MS while
-    // connected is dropped and made anew (new id), at most every RESUB_MS;
-    // when the node is really quiet that costs one unsubscribe + subscribe.
+    // Hotfix 2026-11-08 (robot): a subscription made while the page connects
+    // can stay silent (rosbridge sends, roslib never emits it — the subscribe
+    // went out twice under one id). Hotfix 2: renewing by unsubscribe +
+    // subscribe made it worse — on the loaded robot a fresh rosbridge
+    // subscription takes up to ~10 s to deliver its first message, and the
+    // unsubscribe tore down rosbridge's own ROS subscriber each time, so a
+    // renewal every 10 s never let data through ("no data", no subscriber).
+    // Now: silent RESUB_MS since the subscription / the last message -> a
+    // SECOND subscription next to the first (rosbridge keeps its ROS
+    // subscriber); the one that delivers stays, the other goes (at the latest
+    // after OVERLAP_MS). Then 30 s, 60 s between tries; data resets it.
     function watchdog(now) {
         var R = rosOf();
         if (!S.onAt || !R || R.isConnected === false) { return; }
-        if (S.uiSub && now - (S.uiRx || S.onAt) > NODATA_MS && now - S.uiResubAt >= RESUB_MS) {
-            S.uiResubAt = now; S.resubs++;
-            try { S.uiSub.unsubscribe(); } catch (e) { /* closed */ }
-            S.uiSub = new ROSLIB.Topic({ ros: R, name: TOPIC_UI, messageType: 'std_msgs/String',
-                                         throttle_rate: THROTTLE_MS, queue_length: 1 });
-            S.uiSub.subscribe(onUi);
+        if (S.uiSub && now - Math.max(S.uiRx, S.uiSubAt) > S.uiWait) {
+            S.resubs++;
+            S.uiOld.push(S.uiSub);
+            var olds = S.uiOld.slice();
+            S.uiSub = uiTopic(); S.uiSubAt = now;
+            S.uiWait = Math.min(RESUB_MAX_MS, S.uiWait * 2);
+            setTimeout(function () {
+                olds.forEach(function (tp) {
+                    var k = S.uiOld.indexOf(tp);
+                    if (k >= 0) { S.uiOld.splice(k, 1); try { tp.unsubscribe(); } catch (e) { /* closed */ } }
+                });
+            }, OVERLAP_MS);
         }
-        if (S.gridOn && S.client && now - (S.gridRx || S.gridAt) > NODATA_MS && now - S.gridResubAt >= RESUB_MS) {
-            S.gridResubAt = now; S.resubs++;
-            try { if (S.client.rosTopic) { S.client.rosTopic.unsubscribe(); } } catch (e) { /* closed */ }
+        if (S.gridOn && S.client && now - Math.max(S.gridRx, S.gridSubAt) > S.gridWait) {
+            S.resubs++;
+            // the old topic stays subscribed in rosbridge (MapLayerOpacity keeps a
+            // listener on it) until the new one is up, then goes
+            var old = S.client.rosTopic;
             try { S.client.subscribe(); } catch (e) { /* next round */ }
+            S.gridSubAt = now;
+            S.gridWait = Math.min(RESUB_MAX_MS, S.gridWait * 2);
+            setTimeout(function () { try { if (old && old !== S.client.rosTopic) { old.unsubscribe(); } } catch (e) { /* closed */ } }, OVERLAP_MS);
         }
     }
 

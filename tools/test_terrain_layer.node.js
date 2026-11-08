@@ -87,9 +87,10 @@ check('source: ui first, the grid after FALLBACK_MS of silence, back to ui when 
 check('the fallback grid is subscribed only while the contract topic is silent', /gridWanted\(source\(Date\.now\(\), S\.onAt, S\.uiRx\) === 'grid'\)/.test(src));
 check('panel: views a source offers (grid = cost only)', /views = S\.src === 'grid' \? \{ reason: false, cost: true, height: false \}/.test(src));
 
-check('hotfix: silent subscriptions (contract topic and fallback grid) renewed after NODATA_MS, at most every RESUB_MS',
-      V.RESUB_MS >= 5000 && /function watchdog\(now\)/.test(src) && /now - \(S\.uiRx \|\| S\.onAt\) > NODATA_MS && now - S\.uiResubAt >= RESUB_MS/.test(src) &&
-      /now - \(S\.gridRx \|\| S\.gridAt\) > NODATA_MS && now - S\.gridResubAt >= RESUB_MS/.test(src));
+check('hotfix 2: a silent subscription gets a SECOND one next to it (no unsubscribe first), 15 s → 30 s → 60 s, the one that delivers stays',
+      V.RESUB_MS === 15000 && V.OVERLAP_MS >= 10000 && /S\.uiOld\.push\(S\.uiSub\);[\s\S]{0,80}S\.uiSub = uiTopic\(\)/.test(src) &&
+      /S\.uiWait = Math\.min\(RESUB_MAX_MS, S\.uiWait \* 2\)/.test(src) && /if \(raw && raw === S\.lastRaw\) \{ return; \}/.test(src) &&
+      !/S\.uiSub\.unsubscribe\(\);\s*\n\s*S\.uiSub = new ROSLIB\.Topic/.test(src));
 const relay = fs.readFileSync(path.join(ROOT, 'nodes', 'costmap_reframe'), 'utf8');
 check('costmap_reframe: ~in / ~out, defaults as before', /get_param\('~out', '\/local_costmap_map_framed'\)/.test(relay) &&
       /get_param\('~in', '\/move_base_flex\/local_costmap\/costmap_slow'\)/.test(relay));
