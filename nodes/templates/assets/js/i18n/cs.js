@@ -5199,4 +5199,10 @@
     "tmos.why.error": "Mapu se nepodařilo z robota načíst.",
     "tmos.pick": "Která mapa terénu",
     "tmos.recorder": "trvalá mapa robota",
+    // T21 A6 (2026-11-08): Autonomie — co drží start slovy, Sbalit vše, hlavička rozbalené sekce zůstává nahoře
+    "auto.a6.short.programs.no_schedule": "Nic v plánu",
+    "auto.a6.short.programs.no_mow": "Nesekat",
+    "auto.a6.short.programs.wait_programs": "Seznam programů",
+    "auto.a6.short.programs.not_on_map": "Program mimo mapu",
+    "auto.a6.fold_all": "Sbalit vše (rozbaleno {n})",
 };

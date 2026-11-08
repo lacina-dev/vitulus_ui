@@ -901,8 +901,9 @@ def a1_story(p, shots, label):
          mode_view('calendar'), '', 'nevyjíždí' if cs else 'Not starting'),
         ('calendar + limit rain', report(now, code='limit_rain', checks=start_checks()), mode_view('calendar', limits_apply=True, limit_now=rain),
          'warn', 'déšť' if cs else 'rain'),
+        # T21 A6 (#40): the answer says what holds it in words — was "Programs", now "Nothing planned"
         ('no schedule', report(now, code='no_schedule', checks=start_checks(programs=('off', 'no_schedule', {}))), mode_view('calendar'), '',
-         'Programy' if cs else 'Programs'),
+         'Teď nevyjede: Nic v plánu' if cs else "Won't start now: Nothing planned"),
         ('sleep prepare', report(now, code='sleep_prepare', state='PREPARE_SLEEP', checks=start_checks()), mode_view('calendar'), '', ''),
     ]
     for name, rep_, mv, tone, word in truth:
@@ -1645,6 +1646,124 @@ def a5_fit(p, shots, label):
     p.tick(200)
 
 
+
+def a6_story(p, shots, label):
+    """T21 A6: what holds a start in words, Plan's head follows the mode, nothing in the panel rewritten while
+    nothing changes, Fold all, the open section's head stays at the top. Display only."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    p.pub('/scheduler/sleep_countdown', {'active': False})
+    p.pg.evaluate("VTAutonomy._state.countdown = {active: false}")
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/calendar', [dict(A2_CAL[0], enabled=False)])
+    rep0 = report(now, code='no_schedule', next=None, checks=start_checks(programs=('off', 'no_schedule', {})))
+    p.pub('/scheduler/report', rep0)
+    p.open('now')
+    p.open('plan')
+    n0 = len(p.pg.evaluate('__fake.sent'))
+    ans = p.text('#btn_auto_ans_now') or ''
+    check('A6 the answer says "Nothing planned", not "Programs"', ('Nic v plánu' if cs else 'Nothing planned') in ans
+          and ('Programy' if cs else 'Programs') not in ans, ans)
+    check('A6 the Now head too', ('Nic v plánu' if cs else 'Nothing planned') in (p.text('#auto_tok_now') or ''), p.text('#auto_tok_now'))
+    off = 'Kalendář vypnutý' if cs else 'Calendar off'
+    check('A6 Plan head: Calendar off in the calendar mode', off in (p.text('#auto_tok_plan') or ''), p.text('#auto_tok_plan'))
+    p.pub('/scheduler/mode', mode_view('agent'))       # the mode alone, no new report
+    check('A6 Plan head follows the mode at once (agent: not Calendar off)', off not in (p.text('#auto_tok_plan') or ''), p.text('#auto_tok_plan'))
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    # the switched-off entry changes (another name and time, then two of them): Now says the new one, at once
+    p.pub('/scheduler/calendar', [dict(A2_CAL[0], enabled=False, program_name='Zeta-other', start_time='06:45')])
+    chk = p.text('#auto_checks') or ''
+    check('A6 Now follows the switched-off entry it names', 'Zeta-other 06:45' in chk and 'Bigger' not in chk, chk)
+    p.pub('/scheduler/calendar', [dict(A2_CAL[0], enabled=False), dict(A2_CAL[0], id='ev9', enabled=False, program_name='Zeta-other')])
+    chk = p.text('#auto_checks') or ''
+    check('A6 two switched off: Now says all of them', ('všechny položky kalendáře (2)' if cs else 'all 2 calendar entries') in chk, chk)
+    p.pub('/scheduler/calendar', A2_CAL)
+
+    # idle: the same report, mode, radar and status again and again rewrite nothing in the panel
+    # (the two sleep sentences say clock times and change for real: their text is left out)
+    rep1 = report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(now + dt.timedelta(hours=5))})
+    rain = {'rain_alert': False, 'rain_now': 0, 'time': {'secs': 0, 'nsecs': 0}, 'status_nowcast10m': 'OK',
+            'status_nowcast20m': 'OK', 'status_nowcast30m': 'OK'}
+    mv = mode_view('calendar')
+    for o in ('mode', 'plan', 'rain', 'battery', 'sleep', 'recovery', 'history'):
+        p.open(o)
+    send = lambda: (p.pub('/scheduler/report', rep1), p.pub('/scheduler/mode', mv), p.raw('/weather_alert/rain_alert', rain),
+                    p.raw('/scheduler/status', {'data': 'Idle'}))
+    send()
+    p.tick(800)
+    for _try in range(3):
+        p.pg.wait_for_function("(()=>{const s=new Date().getSeconds(); return s >= 3 && s <= 50;})()", timeout=70000)
+        send()          # the page takes in the new minute (the timeline's "now" mark) before the watch starts
+        p.tick(500)
+        p.pg.evaluate("""(()=>{window.__m=[]; window.__min=Math.floor(Date.now()/60000);
+            const skip=['auto_sleep_plan','auto_sleep_plan2'].map(i=>document.getElementById(i)).filter(Boolean);
+            window.__mo=new MutationObserver(l=>l.forEach(m=>{const e=m.target.nodeType===1?m.target:m.target.parentElement;
+                if (skip.some(x=>x.contains(e)&&(e!==x||m.type==='childList'))) { return; }
+                let id='?'; for (let x=e; x; x=x.parentElement) { if (x.id) { id=x.id; break; } }
+                __m.push(id+':'+m.type+(m.attributeName?'.'+m.attributeName:''));}));
+            __mo.observe(document.getElementById('div_menu_autonomy'),{subtree:true,childList:true,characterData:true,attributes:true});})()""")
+        for _ in range(3):
+            send()
+            p.tick(400)
+        r = p.pg.evaluate("(()=>{__mo.disconnect(); return [__m, Math.floor(Date.now()/60000) !== __min]})()")
+        if not r[1]:
+            break
+    check('A6 idle: nothing in the panel rewritten by the same report, mode, radar, status', not r[0], sorted(set(r[0]))[:12])
+
+    # Fold all: shown from 3 open sections, folds them all (remembered)
+    vis = p.pg.evaluate("!document.getElementById('auto_foldall').hidden")
+    fb = p.text('#btn_auto_fold_all') or ''
+    check('A6 Fold all shown with many open, says how many', vis and re.search(r'\d', fb) and ('Sbalit vše' if cs else 'Fold all') in fb, fb)
+    # the open section's head stays at the top while its body scrolls under it
+    st = p.pg.evaluate("""(()=>{const b=document.getElementById('ui_drawer_body'), s=document.getElementById('auto_sec_plan');
+        const body=s.querySelector('.drawer-sec-body'); b.scrollTop += body.getBoundingClientRect().top - b.getBoundingClientRect().top + 120;
+        const h=s.querySelector('summary').getBoundingClientRect(), bt=b.getBoundingClientRect().top;
+        const bg=getComputedStyle(s.querySelector('summary')).backgroundColor;
+        return [Math.round(h.top - bt), bg, Math.round(s.getBoundingClientRect().top - bt)]})()""")
+    # the section's own top has scrolled out of sight, its head stays at the top edge of the panel (its padding)
+    check('A6 the open section\'s head stays at the top, not see-through', st[2] < -50 and 0 <= st[0] <= 12
+          and st[1] not in ('rgba(0, 0, 0, 0)', 'transparent'), st)
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-a6-sticky.png'))
+    p.click('#btn_auto_fold_all')
+    left = p.pg.evaluate("[...document.querySelectorAll('#div_menu_autonomy details.vt-auto-sec')].filter(d=>d.open).length")
+    ls = p.pg.evaluate("['now','plan','history'].map(i=>localStorage.getItem('vitulus_auto_sec_'+i))")
+    check('A6 Fold all folds every section, remembered, then hides', left == 0 and ls == ['0', '0', '0']
+          and p.pg.evaluate("document.getElementById('auto_foldall').hidden"), [left, ls])
+    p.open('now')
+    p.open('plan')
+    check('A6 nothing sent', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent')[n0:])
+    errs = [e for e in p.errors if 'erases' not in e]
+    check('A6 no page errors', not errs, errs[:3])
+
+
+def a6_fit(p, shots, label):
+    """Fold all and the sticky heads on this screen: touch size, nothing cut, no sideways scroll."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/report', report(now, code='no_schedule', next=None, checks=start_checks(programs=('off', 'no_schedule', {}))))
+    for o in ('now', 'plan', 'sleep', 'history'):
+        p.open(o)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const out=q('#div_menu_autonomy *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        const over=q('#card_calendar *, #auto_tok_now *').filter(e=>e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>e.id||e.className);
+        const f=document.getElementById('btn_auto_fold_all').getBoundingClientRect();
+        return {w:document.documentElement.scrollWidth, coarse:matchMedia('(pointer: coarse)').matches, out, over, fh:Math.round(f.height)}}""")
+    check(label + ' A6: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r['out'])
+    check(label + ' A6: top card and Now head whole', not r['over'], r['over'])
+    check(label + ' A6: Fold all >= %d px' % (40 if r['coarse'] else 36), r['fh'] >= (40 if r['coarse'] else 36), r)
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(200)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a6-top.png'))
+    p.click('#btn_auto_fold_all')
+    p.open('now')
+    p.open('plan')
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -1701,6 +1820,8 @@ def main():
             a4_fit(p, a.shots, label)
             a5_story(p, a.shots, label)
             a5_fit(p, a.shots, label)
+            a6_story(p, a.shots, label)
+            a6_fit(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
@@ -1716,6 +1837,7 @@ def main():
             a3_fit(p, a.shots, label)
             a4_fit(p, a.shots, label)
             a5_fit(p, a.shots, label)
+            a6_fit(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

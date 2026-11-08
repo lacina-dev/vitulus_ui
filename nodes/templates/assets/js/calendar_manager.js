@@ -312,18 +312,20 @@ class CalendarManager {
         const msg = document.getElementById('div_window_msg');
         if (!chk || !inputs || !save || !line || !msg) return;
         const set = this._report && this._report.window_setting;
-        chk.disabled = !set;
-        inputs.forEach((el) => { el.disabled = !set; });
+        // T21 A6: written only on a change (every report repainted the card)
+        const put = (e, k, v) => { if (e[k] !== v) { e[k] = v; } };
+        put(chk, 'disabled', !set);
+        inputs.forEach((el) => { put(el, 'disabled', !set); });
         if (!set) {
             // no report yet, or a master_controller without the setting
-            line.textContent = calT('calmgr.window.wait');
-            save.disabled = true;
-            msg.style.display = 'none';
+            put(line, 'textContent', calT('calmgr.window.wait'));
+            put(save, 'disabled', true);
+            if (msg.style.display !== 'none') msg.style.display = 'none';
             return;
         }
-        chk.checked = !!set.enabled;
+        put(chk, 'checked', !!set.enabled);
         const card = document.getElementById('card_mow_window');
-        if (card) card.dataset.limit = set.enabled ? 'on' : 'off';
+        if (card && card.dataset.limit !== (set.enabled ? 'on' : 'off')) card.dataset.limit = set.enabled ? 'on' : 'off';
         const startPair = inputs.slice(0, 2);
         const endPair = inputs.slice(2);
         if (this._windowDirty && this._windowRead(startPair) === set.start
@@ -334,13 +336,14 @@ class CalendarManager {
             this._windowWrite(startPair, set.start);
             this._windowWrite(endPair, set.end);
         }
-        line.textContent = this._windowSentence(set);
+        put(line, 'textContent', this._windowSentence(set));
         const problem = this._windowProblem(this._windowRead(startPair), this._windowRead(endPair), set)
             || (set.error ? { code: set.error } : null);
-        save.disabled = !this._windowDirty || !!(problem && !problem.warn);
-        msg.textContent = problem ? calT('calmgr.window.' + problem.code, problem) : '';
-        msg.style.display = problem ? '' : 'none';
-        msg.dataset.state = (problem && !problem.warn) ? 'err' : 'warn';
+        put(save, 'disabled', !this._windowDirty || !!(problem && !problem.warn));
+        put(msg, 'textContent', problem ? calT('calmgr.window.' + problem.code, problem) : '');
+        if (msg.style.display !== (problem ? '' : 'none')) msg.style.display = problem ? '' : 'none';
+        const mst = (problem && !problem.warn) ? 'err' : 'warn';
+        if (msg.dataset.state !== mst) msg.dataset.state = mst;
         // An open event form judges its time by the window that applies now.
         const applied = JSON.stringify(this._report.window);
         if (applied !== this._windowApplied) {
@@ -536,7 +539,8 @@ class CalendarManager {
     render() {
         if (!this.containerEl) return;
         if (!this.events || this.events.length === 0) {
-            this.containerEl.innerHTML = '<div class="vt-empty">' + calT('calmgr.empty') + '</div>';
+            const empty = '<div class="vt-empty">' + calT('calmgr.empty') + '</div>';
+            if (this._rowsHtml !== empty) { this._rowsHtml = empty; this.containerEl.innerHTML = empty; }
             return;
         }
         // Program names of the active map (null = list not received yet)
@@ -569,6 +573,9 @@ class CalendarManager {
             html += `<button class="btn btn-sm btn-outline-danger cal-del" type="button" data-id="${ev.id}">${calT('calmgr.del')}</button>`;
             html += `</div>`;
         });
+        // T21 A6: the rows only when they read differently (every report rendered them anew)
+        if (this._rowsHtml === html && this.containerEl.firstChild) return;
+        this._rowsHtml = html;
         this.containerEl.innerHTML = html;
 
         // Bind event listeners

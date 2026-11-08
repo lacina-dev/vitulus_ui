@@ -418,3 +418,22 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
     font-size: var(--vt-fs-xs); line-height: 1.5; color: var(--vt-muted); white-space: nowrap; }
 /* Who decides › Last decision whose time is over: muted, with "over at …" */
 #auto_mode_last[data-past] .vt-auto-dec-main, #auto_mode_last[data-past] .vt-auto-dec-why { color: var(--vt-muted); font-weight: 400; }
+
+/* ---- T21 A6: an open section's head stays at the top while you scroll; Fold all; a quieter top card ---- */
+/* clip (not hidden) keeps the rounded corners without making each section its own scroller */
+#ui_drawer details.vt-auto-sec { overflow: clip; }
+/* top: the drawer body's top padding, so the head sits flush at its edge with nothing passing above it */
+#ui_drawer details.vt-auto-sec[open] > summary { position: sticky; top: calc(-1 * var(--vt-gap-2)); z-index: 3; background: var(--vt-surface-2); }
+#ui_drawer details.vt-auto-sec[open][data-state="ok"] > summary { background: var(--vt-tint-ok), var(--vt-surface-2); }
+#ui_drawer details.vt-auto-sec[open][data-state="warn"] > summary { background: var(--vt-tint-warn), var(--vt-surface-2); }
+#ui_drawer details.vt-auto-sec[open][data-state="err"] > summary { background: var(--vt-tint-err), var(--vt-surface-2); }
+#ui_drawer details.vt-auto-sec[open][data-state="info"] > summary { background: var(--vt-tint-info), var(--vt-surface-2); }
+.vt-auto-foldall { display: flex; justify-content: flex-end; margin: 2px 0 -4px; }
+.vt-auto-foldall[hidden] { display: none; }
+.vt-auto-foldall-b { min-height: 36px; padding: 0 4px; font-size: var(--vt-fs-sm); color: var(--vt-accent); }
+@media (pointer: coarse), (max-width: 575.98px) { .vt-auto-foldall-b { min-height: var(--vt-touch); } }
+/* the wider panel: the two answers and the sleep line closer together (the 36 px targets stay) */
+@media (min-width: 576px) {
+    .vt-auto-answer { margin-bottom: 2px; }
+    .vt-auto-sleepline-b { padding: 0; }
+}

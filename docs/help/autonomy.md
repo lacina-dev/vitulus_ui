@@ -14,7 +14,7 @@ keywords: [autonomy, autonomie, automatic, automation, hold, pause, who decides,
 **Autonomy** in the menu is the one place that says what the robot does on its own and why. The top
 card says in one sentence what it does now and what comes next. Under the next start two buttons answer
 at a glance: **who decides** (*Calendar decides* / *Agent decides*) and **could it start now** (*Could start
-now*, amber *Waits: Weather* or *Hard limit: cold*, red *Won't start now: Battery +1* — the first thing that
+now*, amber *Waits: Weather* or *Hard limit: cold*, red *Won't start now: Battery +1*, grey *Won't start now: Nothing planned* — the first thing that
 holds it and how many more; grey when it is your choice or the state of the robot, e.g. *Won't start now:
 Automation*, *Waits for the agent's advice*, *Not now: Sleeping*, *Not starting now*; amber *Going to sleep*
 while a sleep counts down). It is green only when the robot reports that it waits for its next start and
@@ -31,7 +31,8 @@ robot sent, not the current one. It goes away as soon as the robot answers again
 
 Under the card come the sections, on every screen in this order: **Now**, **Plan**, **Who decides**,
 then Weather, Battery, Sleep, Faults, History, Advanced. Each has a head with a colour and short
-tokens; open it for the live numbers (battery now, errors, wakes — not the settings again) and the controls. What you open stays open. On a first visit Now and
+tokens; open it for the live numbers (battery now, errors, wakes — not the settings again) and the controls. What you open stays open; the head of an open section stays at the top while you scroll through it, so it
+folds from there, and with three or more open **Fold all** at the foot of the top card folds them all. On a first visit Now and
 Plan are open; Who decides stays folded while the calendar decides (the card says so) and opens by
 itself while the agent decides, until you open or fold it yourself.
 

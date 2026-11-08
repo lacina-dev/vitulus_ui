@@ -14,7 +14,7 @@ keywords: [autonomie, autonomy, automatika, hold, pauza, kdo rozhoduje, režim a
 **Autonomie** v menu je jedno místo, které říká, co robot dělá sám a proč. Horní karta jednou větou
 řekne, co dělá teď a co přijde dál. Pod dalším startem dvě tlačítka odpoví na první pohled: **kdo
 rozhoduje** (*Rozhoduje kalendář* / *Rozhoduje agent*) a **jestli by teď vyjel** (*Teď by mohl vyjet*,
-jantarové *Čeká: Počasí* nebo *Tvrdý limit: zima*, červené *Teď nevyjede: Baterie +1* — první věc, která
+jantarové *Čeká: Počasí* nebo *Tvrdý limit: zima*, červené *Teď nevyjede: Baterie +1*, šedé *Teď nevyjede: Nic v plánu* — první věc, která
 ho drží, a kolik dalších; šedé, když jde o tvoji volbu nebo stav robota, třeba *Teď nevyjede: Automatika*,
 *Čeká na radu agenta*, *Teď ne: Spí*, *Teď nevyjíždí*; jantarové *Usíná*, když běží odpočet spánku).
 Zelené je jen tehdy, když robot hlásí, že čeká na další start, a start podle jeho pravidel nic nedrží:
@@ -30,7 +30,8 @@ Jakmile robot zase odpoví, zmizí to.
 
 Pod kartou jsou sekce, na každé obrazovce v tomhle pořadí: **Teď**, **Plán**, **Kdo rozhoduje**, pak
 Počasí, Baterie, Spánek, Poruchy, Historie, Pokročilé. Každá má hlavičku s barvou a krátkými štítky; po
-rozbalení jsou živá čísla (baterie teď, chyby, probuzení — ne znovu nastavení) a ovládání. Co rozbalíš, zůstane rozbalené. Při první návštěvě jsou rozbalené Teď
+rozbalení jsou živá čísla (baterie teď, chyby, probuzení — ne znovu nastavení) a ovládání. Co rozbalíš, zůstane rozbalené; hlavička rozbalené sekce zůstává při posouvání nahoře, takže se dá sbalit
+odtud, a když jsou rozbalené tři a víc, **Sbalit vše** dole v horní kartě je sbalí všechny. Při první návštěvě jsou rozbalené Teď
 a Plán; Kdo rozhoduje zůstane sbalené, dokud rozhoduje kalendář (karta to říká), a samo se rozbalí,
 když rozhoduje agent — dokud ho sám nerozbalíš nebo nesbalíš.
 

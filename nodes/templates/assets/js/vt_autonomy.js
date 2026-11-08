@@ -42,6 +42,21 @@
         return e;
     }
     function clear(e) { while (e && e.firstChild) { e.removeChild(e.firstChild); } }
+    /* T21 A6: write only what changed — the report, the mode and the radar come often and an
+       idle page rewrote whole sections each time */
+    function hide(e, v) { if (e && e.hidden !== !!v) { e.hidden = !!v; } }
+    function attr(e, k, v) { if (e && e.getAttribute(k) !== v) { e.setAttribute(k, v); } }
+    function setState(e, v) { if (!e) { return; } if (v) { if (e.dataset.state !== v) { e.dataset.state = v; } } else if ('state' in e.dataset) { delete e.dataset.state; } }
+    function setText(e, v) { if (e && e.textContent !== v) { e.textContent = v; } }
+    /* build into a copy; the box takes it only when it reads differently (listeners move along) */
+    function swap(box, build) {
+        var tmp = document.createElement(box.tagName);
+        build(tmp);
+        if (tmp.innerHTML === box.innerHTML) { return false; }
+        clear(box);
+        while (tmp.firstChild) { box.appendChild(tmp.firstChild); }
+        return true;
+    }
 
     /* settings the panel draws itself; everything else comes from the schema */
     var CUSTOM = { window_enabled: 1, window_start: 1, window_end: 1, skip_next: 1,
@@ -462,8 +477,8 @@
         }
         var d = def(k);
         var same = JSON.stringify(v) === JSON.stringify(d);
-        r.defEl.textContent = t('auto.default', { v: fmtVal(k, d) });
-        r.reset.style.visibility = same ? 'hidden' : '';
+        setText(r.defEl, t('auto.default', { v: fmtVal(k, d) }));
+        if (r.reset.style.visibility !== (same ? 'hidden' : '')) { r.reset.style.visibility = same ? 'hidden' : ''; }
     }
 
     /* Rows are built once per schema; repainting only touches values, so
@@ -491,9 +506,11 @@
         });
     }
     function paintLocks() {
-        var box = $('auto_locks'), sch = S.settings && S.settings.schema;
-        if (!box) { return; }
-        clear(box);
+        var box0 = $('auto_locks'), sch = S.settings && S.settings.schema;
+        if (!box0) { return; }
+        swap(box0, function (box) { locksBox(box, sch); });
+    }
+    function locksBox(box, sch) {
         var keys = sch ? Object.keys(sch).filter(function (k) {
             return sch[k].locked && has('auto.set.' + k + '.label');
         }) : [];
@@ -566,13 +583,14 @@
         box.querySelectorAll('.vt-auto-choice').forEach(function (b) {
             var on = b.dataset.mode === v;
             b.classList.toggle('vt-sel', on);
-            b.setAttribute('aria-checked', on ? 'true' : 'false');
-            b.disabled = !schema('rain_mode');
+            attr(b, 'aria-checked', on ? 'true' : 'false');
+            if (b.disabled !== !schema('rain_mode')) { b.disabled = !schema('rain_mode'); }
         });
         if (S.rainFoot) {
-            S.rainFoot.defEl.textContent = schema('rain_mode')
-                ? t('auto.default', { v: t('auto.rain.mode.' + (def('rain_mode') || 'always')) }) : '';
-            S.rainFoot.reset.style.visibility = (schema('rain_mode') && v !== def('rain_mode')) ? '' : 'hidden';
+            setText(S.rainFoot.defEl, schema('rain_mode')
+                ? t('auto.default', { v: t('auto.rain.mode.' + (def('rain_mode') || 'always')) }) : '');
+            var vis = (schema('rain_mode') && v !== def('rain_mode')) ? '' : 'hidden';
+            if (S.rainFoot.reset.style.visibility !== vis) { S.rainFoot.reset.style.visibility = vis; }
         }
     }
 
@@ -743,7 +761,7 @@
                 vars = { min: Math.max(1, Math.ceil((+mv.dock_homeward.left_s || 0) / 60)) };
             }
         }
-        box.hidden = !key;
+        hide(box, !key);
         if (!key) { return; }
         var sig = key + JSON.stringify(vars) + (mv.dock_why || '') + lang();   // T22: + language (title)
         if (box.dataset.sig === sig) { return; }
@@ -783,9 +801,11 @@
         var box = $('auto_mode_advice');
         if (!box) { return; }
         var a = mv && mv.mode === 'agent' ? mv.advice : null;
-        box.hidden = !a;
-        clear(box);
-        if (!a) { return; }
+        hide(box, !a);
+        if (!a) { if (box.firstChild) { clear(box); } return; }
+        swap(box, function (box) { adviceBox(box, a); });
+    }
+    function adviceBox(box, a) {
         el('h6', 'vt-auto-h', box, t(a.fresh ? 'auto.mode.adv.h' : 'auto.mode.adv.h_old'));
         el('div', 'vt-auto-dec-main', box, adviceText(a));
         var meta = el('div', 'vt-auto-dec-meta', box);
@@ -814,7 +834,7 @@
            the permit); the same decision is not said a second time under it */
         var attn = $('auto_mode_attn');
         var dockSaid = !!(d && attn && !attn.hidden && d.kind === 'advice' && /^dock:/.test(String((d.vars || {}).why || '')));
-        box.hidden = (!d && mv.mode !== 'agent') || dockSaid;
+        hide(box, (!d && mv.mode !== 'agent') || dockSaid);
         if (box.hidden && !dockSaid) { return; }
         el('h6', 'vt-auto-h', box, t('auto.mode.last.h'));
         if (!d) { el('p', 'vt-auto-quiet', box, t('auto.mode.last.none')); return; }
@@ -858,15 +878,15 @@
         box.querySelectorAll('.vt-auto-choice').forEach(function (b) {
             var on = !!mv && b.dataset.mode === mv.mode;
             b.classList.toggle('vt-sel', on);
-            b.setAttribute('aria-checked', on ? 'true' : 'false');
-            b.disabled = !mv || !!ask;
+            attr(b, 'aria-checked', on ? 'true' : 'false');
+            var dis = !mv || !!ask;
+            if (b.disabled !== dis) { b.disabled = dis; }
             if (ask && ask.mode === b.dataset.mode) { b.dataset.pending = '1'; } else { delete b.dataset.pending; }
         });
-        var notes = $('auto_mode_notes');
-        clear(notes);
+        var notes0 = $('auto_mode_notes');
         if (!mv) {
+            swap(notes0, function (notes) { note(notes, S.report ? 'auto.mode.old' : 'auto.mode.wait'); });
             /* an old master has neither /scheduler/mode nor report.mode */
-            note(notes, S.report ? 'auto.mode.old' : 'auto.mode.wait');
             head('mode', 'off', []);
             paintDock(null); paintAdvice(null); paintLast(null);
             return;
@@ -875,7 +895,11 @@
         var toks = [{ text: t('auto.mode.' + mv.mode), state: mv.mode === 'agent' ? 'info' : undefined },
                     { text: t(st.k, st.v), state: st.tone }];
         head('mode', st.tone === 'warn' ? 'warn' : (mv.mode === 'agent' ? 'info' : 'off'), toks);
-        $('auto_tok_mode').querySelectorAll('.vt-pill').forEach(function (x) { x.title = x.textContent; });
+        $('auto_tok_mode').querySelectorAll('.vt-pill').forEach(function (x) { if (x.title !== x.textContent) { x.title = x.textContent; } });
+        swap(notes0, function (notes) { modeNotes(notes, mv); });
+        paintDock(mv); paintAdvice(mv); paintLast(mv);
+    }
+    function modeNotes(notes, mv) {
         if (!mv.automation) { note(notes, 'auto.mode.note.auto_off', null, 'warn'); }
         else if (mv.held) { note(notes, 'auto.mode.note.held', null, 'warn'); }
         if (mv.mode === 'agent') {
@@ -903,13 +927,12 @@
             note(notes, mv.limits_apply ? 'auto.mode.note.calendar_limits' : 'auto.mode.note.calendar');
             if (mv.limit_now) { note(notes, 'auto.mode.limit_now', { what: limitText(mv.limit_now.code, mv.limit_now.vars) }); }
         }
-        paintDock(mv); paintAdvice(mv); paintLast(mv);
     }
     /* an older master has no agent group: no heading over nothing */
     function paintLimitsHead() {
         var h = $('auto_mode_limits'), g = document.querySelector('[data-auto-group="agent"]');
         if (!h) { h = $('auto_mode_limits_h'); }
-        if (h && g) { h.hidden = !g.firstChild; }
+        if (h && g) { hide(h, !g.firstChild); }
         paintWindowLine();
     }
     /* T21 A1: Rules and hard limits fold into their own disclosure (remembered, open by
@@ -941,10 +964,12 @@
     function paintLimitsTok(mv) {
         var box = $('auto_tok_limits');
         if (!box) { return; }
-        clear(box);
+        swap(box, function (box) {
+            if (!mv) { return; }
+            var p = el('span', 'vt-pill', box, t(mv.limits_apply ? 'auto.a1.lim.on' : 'auto.a1.lim.off'));
+            if (mv.limits_apply) { p.dataset.state = 'info'; }
+        });
         if (!mv) { return; }
-        var p = el('span', 'vt-pill', box, t(mv.limits_apply ? 'auto.a1.lim.on' : 'auto.a1.lim.off'));
-        if (mv.limits_apply) { p.dataset.state = 'info'; }
         var d = $('auto_mode_limits');
         if (d && S.limitsAuto && d.open !== !!mv.limits_apply) {
             S.limitsProg = !!mv.limits_apply;
@@ -1001,6 +1026,11 @@
         return c.state === 'block' || c.state === 'wait' || (c.state === 'off' && !!GATE_OFF[c.key]);
     }
     var HOLD_RANK = { block: 0, off: 1, wait: 2 };
+    /* T21 A6: what holds a start in two words: by the check's code where the check's own
+       name is a word of the robot ("Programs" said nothing for "nothing is planned") */
+    function checkShort(c) {
+        return first(['auto.a6.short.' + c.key + '.' + c.code]) || t('auto.check.key.' + c.key);
+    }
     var READY_CODES = { waiting_slot: 1 };
     function startVerdict() {
         var rep = S.report, checks = rep && rep.checks;
@@ -1010,7 +1040,7 @@
         var bad = checks.filter(holdsStart).sort(function (a, b) { return HOLD_RANK[a.state] - HOLD_RANK[b.state]; });
         if (bad.length) {
             var c = bad[0], more = bad.length - 1;
-            var what = t('auto.check.key.' + c.key) + (more > 0 ? ' +' + more : '');
+            var what = checkShort(c) + (more > 0 ? ' +' + more : '');
             /* the owner's own switches (automation off, Hold) are a choice, not a fault: neutral */
             var tone = c.state === 'wait' ? 'warn' : (c.state === 'off' || OWN_SWITCH[c.key] ? 'off' : 'err');
             return { tone: tone, text: t(c.state === 'wait' ? 'auto.a1.ans.wait' : 'auto.a1.ans.block', { what: what }),
@@ -1080,15 +1110,15 @@
             b.addEventListener('click', goWindow);
         }
         var set = S.report && S.report.window_setting;
-        row.hidden = !set || !g.firstChild;
+        hide(row, !set || !g.firstChild);
         if (row.hidden) { return; }
         var key = !set.enabled ? 'auto.mode.window.off'
             : (String(set.start) < String(set.end) ? 'auto.mode.window.on' : 'auto.mode.window.on_night');
-        row.dataset.state = set.enabled ? 'info' : 'off';
-        row.querySelector('.vt-auto-check-t').textContent = t(key, { start: set.start, end: set.end });
+        setState(row, set.enabled ? 'info' : 'off');
+        setText(row.querySelector('.vt-auto-check-t'), t(key, { start: set.start, end: set.end }));
         var btn = row.querySelector('button');
-        btn.title = t('auto.mode.window.go');
-        btn.setAttribute('aria-label', btn.title);
+        if (btn.title !== t('auto.mode.window.go')) { btn.title = t('auto.mode.window.go'); }
+        attr(btn, 'aria-label', btn.title);
     }
     function goWindow() {
         openSec('plan', false);
@@ -1168,7 +1198,17 @@
                       'auto.check.state.' + c.state], Object.assign({ what: t('auto.check.key.' + c.key) }, v));
     }
     var QUIET_HOLDS = { ssh: 1, ui: 1 };
+    /* what the list says depends on: the checks, the fold, the switched-off calendar entries
+       (their names and times), the language and the day ("today" / "tomorrow" in the lines) */
+    function checksSig(list, quietOk) {
+        return JSON.stringify([list, quietOk, !!S.checksAll, calOffText('auto.a5.programs.cal_off'), lang(), dayStart(new Date(nowMs()))]);
+    }
     function paintChecks(box, list, quietOk) {
+        /* T21 A6: rebuilt only when the list, the fold or the language changes (the GPS line's
+           live text follows in tick) */
+        var sig = checksSig(list, quietOk);
+        if (box._sig === sig && box._n) { return box._n; }
+        box._sig = sig;
         clear(box);
         if (!quietOk) { S.gnssLive = null; }
         var n = { ok: 0, wait: 0, block: 0 };
@@ -1205,6 +1245,7 @@
             }
         });
         if (!quietOk && (list || []).length) { okLine(box, n, folded, fold); }
+        box._n = n;
         return n;
     }
     function okLine(box, n, folded, fold) {
@@ -1238,17 +1279,18 @@
         if (!c) { return; }
         var checks = rep && rep.checks, sleep = rep && rep.sleep;
         var n = { ok: 0, wait: 0, block: 0 };
+        var quiet = function (box, tx) {
+            box._sig = 'q:' + tx; box._n = null;
+            if (box.childNodes.length === 1 && box.firstChild.textContent === tx) { return; }
+            clear(box); el('p', 'vt-auto-quiet', box, tx);
+        };
         if (checks) { n = paintChecks(c, checks, false); }
-        else {
-            clear(c);
-            el('p', 'vt-auto-quiet', c, t(rep ? 'auto.now.old' : 'auto.now.wait'));
-        }
+        else { quiet(c, t(rep ? 'auto.now.old' : 'auto.now.wait')); }
         if (sleep && sleep.checks) {
             var sn = paintChecks(sc, sleep.checks, true);
-            if (!sn.wait && !sn.block) { clear(sc); el('p', 'vt-auto-quiet', sc, t('auto.now.sleep_free')); }
+            if (!sn.wait && !sn.block) { quiet(sc, t('auto.now.sleep_free')); sc._sig = checksSig(sleep.checks, true); sc._n = sn; }
         } else {
-            clear(sc);
-            el('p', 'vt-auto-quiet', sc, sleep && sleep.block ? t('calmgr.why_awake', { why: awake(sleep.block) })
+            quiet(sc, sleep && sleep.block ? t('calmgr.why_awake', { why: awake(sleep.block) })
                 : t(sleep ? 'auto.now.sleep_free' : (rep ? 'auto.now.old' : 'auto.now.wait')));
         }
         /* T21 A1: the head says the same as the top card (one verdict) */
@@ -1266,7 +1308,11 @@
     function head(id, state, toks) {
         var s = $('auto_sec_' + id), box = $('auto_tok_' + id);
         if (!s || !box) { return; }
-        s.dataset.state = state || 'off';
+        /* T21 A6: written only on a change (reports, the mode and the radar come often) */
+        var sig = (state || 'off') + JSON.stringify(toks || []);
+        if (box.dataset.sig === sig) { return; }
+        box.dataset.sig = sig;
+        if (s.dataset.state !== (state || 'off')) { s.dataset.state = state || 'off'; }
         clear(box);
         (toks || []).forEach(function (k) {
             var p = el('span', 'vt-pill', box, k.text);
@@ -1277,6 +1323,9 @@
     function nums(id, list) {
         var box = $('auto_nums_' + id);
         if (!box) { return; }
+        var sig = JSON.stringify(list || []);       // T21 A6: only on a change
+        if (box.dataset.sig === sig) { return; }
+        box.dataset.sig = sig;
         clear(box);
         (list || []).forEach(function (n) {
             var c = el('div', 'vt-auto-num', box);
@@ -1316,6 +1365,9 @@
         var used = ((S.timeline && S.timeline.starts) || []).filter(function (x) {
             return x.reason === 'already_run' && dayStart(new Date(x.t)) === dayStart(new Date(nowMs()));
         });
+        var usig = JSON.stringify([used, S.report && S.report.next, !!(S.report && S.report.run), lang(), dayStart(new Date(nowMs()))]);
+        if (box.dataset.sig === usig) { return; }      // T21 A6: only on a change
+        box.dataset.sig = usig;
         clear(box);
         var next = S.report && S.report.next;
         used.forEach(function (x) {
@@ -1423,7 +1475,7 @@
             /* an open run that waits (battery, rain…): it goes first, nothing more starts */
             var prog = rep.run.program || next.program || '';
             var cm = window.calendarManager, look = cm && cm._codeLook ? cm._codeLook(rep.code) : null;
-            var why = bad.length ? t('auto.check.key.' + bad[0].key)
+            var why = bad.length ? checkShort(bad[0])
                 : (look && look[0] !== 'active' && has('calmgr.state.' + look[0]) ? t('calmgr.state.' + look[0]) : '');
             tx = why ? t('auto.a3.run.waiting', { program: prog, why: why }) : t('auto.a3.run.waiting_plain', { program: prog });
         } else if (bad.length) {
@@ -1453,14 +1505,15 @@
         var skip = val('skip_next'), noMow = val('no_mow_until') || '';
         var noMowOn = noMow >= today();
         var next = S.report && S.report.next;
-        S.btnSkip.disabled = !ready || (!next && !skip);
+        var dSkip = !ready || (!next && !skip);
+        if (S.btnSkip.disabled !== dSkip) { S.btnSkip.disabled = dSkip; }
         /* T21 A4: Skip next says which start it skips (program · when) on a second line */
         btnText(S.btnSkip, t(skip ? 'auto.plan.unskip' : 'auto.plan.skip'),
                 !skip && next ? t('auto.a4.plan.skip_which', { program: next.program || '', when: when(next.at) }) : '');
-        S.btnNoMow.disabled = !ready;
-        S.btnNoMow.textContent = t(noMowOn ? 'auto.plan.mow_again' : 'auto.plan.no_mow');
-        S.btnRunNext.disabled = !ready || !next;
-        if (!S.btnRunNext.dataset.armed) { S.btnRunNext.textContent = runLabel(); }
+        if (S.btnNoMow.disabled !== !ready) { S.btnNoMow.disabled = !ready; }
+        setText(S.btnNoMow, t(noMowOn ? 'auto.plan.mow_again' : 'auto.plan.no_mow'));
+        if (S.btnRunNext.disabled !== (!ready || !next)) { S.btnRunNext.disabled = !ready || !next; }
+        if (!S.btnRunNext.dataset.armed) { setText(S.btnRunNext, runLabel()); }
         paintRunWhat(next);
         var st = $('auto_plan_state');
         if (st) {
@@ -1469,13 +1522,17 @@
             if (noMowOn) { parts.push(t('auto.plan.no_mow_until', { day: dayWord(new Date(noMow + 'T12:00')) })); }
             var off = calOffText('auto.a5.plan.cal_off');
             if (off) { parts.push(off); }
-            st.textContent = parts.join(' ');
-            st.style.display = parts.length ? '' : 'none';
+            setText(st, parts.join(' '));
+            if (st.style.display !== (parts.length ? '' : 'none')) { st.style.display = parts.length ? '' : 'none'; }
         }
     }
     function paintTimeline() {
         var box = $('auto_timeline'), tl = S.timeline;
         if (!box) { return; }
+        /* T21 A6: rebuilt when its data, the language or the minute (the "now" mark) changes */
+        var sig = JSON.stringify([tl, S.report && S.report.window, val('skip_next'), lang(), Math.floor(Date.now() / 60000)]);
+        if (box.dataset.sig === sig) { return; }
+        box.dataset.sig = sig;
         clear(box);
         if (!tl || !(tl.starts || tl.sleeps)) { box.style.display = 'none'; return; }
         box.style.display = '';
@@ -1758,8 +1815,8 @@
     function paintManual() {
         if (!S.sleepMin || !window.VTSleepPlan) { return; }
         var l = L(), min = VTSleepPlan.minManualMin(l), max = VTSleepPlan.maxManualMin(l);
-        S.sleepMin.min = min; S.sleepMin.max = max;
-        S.sleepHint.textContent = t('auto.sleepnow.limits', { min: min, max: max, floor: Math.round(VTSleepPlan.floorS(l) / 60), cd: l.countdown_s });
+        attr(S.sleepMin, 'min', String(min)); attr(S.sleepMin, 'max', String(max));
+        setText(S.sleepHint, t('auto.sleepnow.limits', { min: min, max: max, floor: Math.round(VTSleepPlan.floorS(l) / 60), cd: l.countdown_s }));
         var m = Number(S.sleepMin.value), st = '', tx = '';
         var ctx = manualCtx();
         var r = S.report && m >= 1 ? VTSleepPlan.manual(m, ctx) : null;
@@ -1782,8 +1839,8 @@
             tx = t('auto.sleepnow.stopped', { why: stops.map(checkText).join(' ') });
             if (stops.some(function (c) { return c.key === 'ssh'; })) { tx += ' ' + t('auto.sleepnow.ssh_fix'); }
         }
-        if (S.sleepPreview.textContent !== tx) { S.sleepPreview.textContent = tx; }
-        S.sleepPreview.dataset.state = st;
+        setText(S.sleepPreview, tx);
+        if ((S.sleepPreview.dataset.state || '') !== st) { S.sleepPreview.dataset.state = st; }
     }
     function planWake() {
         var p = S.report ? planNow() : null;
@@ -2081,9 +2138,9 @@
     function paintLink() {
         var banner = S.mowerLink, box = $('auto_link');
         if (box) {
-            box.hidden = !banner;
-            box.textContent = banner ? t('auto.link.' + banner) : '';
-            box.dataset.state = banner === 'recovering' ? 'warn' : 'err';
+            hide(box, !banner);
+            setText(box, banner ? t('auto.link.' + banner) : '');
+            setState(box, banner === 'recovering' ? 'warn' : 'err');
         }
         if (RP) {
             RP.link.hidden = !banner;
@@ -2575,43 +2632,45 @@
         document.querySelectorAll('.vt-auto-fbtn').forEach(function (b) {
             b.classList.toggle('vt-sel', b.dataset.f === S.filter);
             var n = b.querySelector('.vt-auto-fn');
-            if (n) { n.textContent = nProb ? String(nProb) : ''; n.hidden = !nProb; }
+            if (n) { setText(n, nProb ? String(nProb) : ''); hide(n, !nProb); }
         });
         var f = $('auto_journal_filter');
-        if (f) { f.style.display = list ? '' : 'none'; }
-        clear(box);
-        if (!list) { return; }
-        /* T21 A4: merged on the whole journal, then filtered: a burst is the same row in every filter */
-        var shown = markOlder(mergeSettings(list.slice().reverse())).filter(function (j) { return jIn(j, S.filter); });
-        if (!shown.length) { el('li', 'vt-empty', box, t(S.filter === 'problems' ? 'auto.a3.j.no_problems' : 'auto.j.empty')); return; }
-        /* T21 A3: the newest page, a day line over each day's rows (the row says only the time),
-           and "Show older" for the rest */
-        var lim = S.jLimit || JPAGE;
-        var day = null;
-        shown.slice(0, lim).forEach(function (j) {
-            var d = parseIso(j.t);
-            var ds = d ? dayStart(d) : null;
-            if (ds !== day) {
-                day = ds;
-                var h = el('li', 'vt-auto-jday', box, d ? dayWord(d) : '—');
-                h.setAttribute('role', 'presentation');
+        if (f && f.style.display !== (list ? '' : 'none')) { f.style.display = list ? '' : 'none'; }
+        /* T21 A6: the list is built aside and taken only when it reads differently */
+        swap(box, function (box) {
+            if (!list) { return; }
+            /* T21 A4: merged on the whole journal, then filtered: a burst is the same row in every filter */
+            var shown = markOlder(mergeSettings(list.slice().reverse())).filter(function (j) { return jIn(j, S.filter); });
+            if (!shown.length) { el('li', 'vt-empty', box, t(S.filter === 'problems' ? 'auto.a3.j.no_problems' : 'auto.j.empty')); return; }
+            /* T21 A3: the newest page, a day line over each day's rows (the row says only the time),
+               and "Show older" for the rest */
+            var lim = S.jLimit || JPAGE;
+            var day = null;
+            shown.slice(0, lim).forEach(function (j) {
+                var d = parseIso(j.t);
+                var ds = d ? dayStart(d) : null;
+                if (ds !== day) {
+                    day = ds;
+                    var h = el('li', 'vt-auto-jday', box, d ? dayWord(d) : '—');
+                    h.setAttribute('role', 'presentation');
+                }
+                var li = el('li', 'vt-act', box);
+                var bad = jProblem(j);
+                li.dataset.state = bad || (j.kind === 'finished' ? (j.code === 'succeeded' ? 'ok' : 'off')
+                    : (j.kind === 'started' || j.kind === 'advice' || j.kind === 'mode' ? 'info' : 'off'));
+                el('span', 'vt-sdot', li);
+                var tx = journalText(j);
+                if (j._n > 1) { tx = t('auto.a4.j.times', { text: tx.replace(/[.\s]+$/, ''), n: j._n }); }
+                el('span', 'vt-act-txt', li, tx).title = tx;
+                el('span', 'vt-act-time', li, d ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '—');
+            });
+            if (shown.length > lim) {
+                var more = el('li', 'vt-auto-jmore', box);
+                var b = el('button', 'btn btn-sm btn-link', more, t('auto.a3.j.more', { n: Math.min(JMORE, shown.length - lim), left: shown.length - lim }));
+                b.type = 'button'; b.id = 'btn_auto_journal_more';
+                b.addEventListener('click', function () { S.jLimit = lim + JMORE; paintHistory(); });
             }
-            var li = el('li', 'vt-act', box);
-            var bad = jProblem(j);
-            li.dataset.state = bad || (j.kind === 'finished' ? (j.code === 'succeeded' ? 'ok' : 'off')
-                : (j.kind === 'started' || j.kind === 'advice' || j.kind === 'mode' ? 'info' : 'off'));
-            el('span', 'vt-sdot', li);
-            var tx = journalText(j);
-            if (j._n > 1) { tx = t('auto.a4.j.times', { text: tx.replace(/[.\s]+$/, ''), n: j._n }); }
-            el('span', 'vt-act-txt', li, tx).title = tx;
-            el('span', 'vt-act-time', li, d ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '—');
         });
-        if (shown.length > lim) {
-            var more = el('li', 'vt-auto-jmore', box);
-            var b = el('button', 'btn btn-sm btn-link', more, t('auto.a3.j.more', { n: Math.min(JMORE, shown.length - lim), left: shown.length - lim }));
-            b.type = 'button'; b.id = 'btn_auto_journal_more';
-            b.addEventListener('click', function () { S.jLimit = lim + JMORE; paintHistory(); });
-        }
     }
     function paintAlert() {
         var box = $('auto_alert');
@@ -2619,11 +2678,13 @@
         var issues = (S.report && S.report.issues) || [];
         var hot = issues.filter(function (i) { return i.level && i.level !== 'info'; });
         var list = hot.length ? hot : [];
-        box.hidden = !list.length;
+        hide(box, !list.length);
         if (!list.length) { return; }
         var i = list[list.length - 1];
-        box.dataset.state = list.some(function (x) { return /^err/.test(x.level); }) ? 'err' : 'warn';
-        clear(box);
+        setState(box, list.some(function (x) { return /^err/.test(x.level); }) ? 'err' : 'warn');
+        swap(box, function (box) { alertBox(box, i); });
+    }
+    function alertBox(box, i) {
         el('span', 'vt-attn-lab', box, t('auto.alert.label'));
         var d = Object.assign({ program: i.program || '' }, i.detail || {});
         if (d.slot) { d.slot = String(d.slot).replace('T', ' '); }
@@ -2670,8 +2731,34 @@
                     S.modeAuto = false;
                 }
                 try { localStorage.setItem(secKey(id), s.open ? '1' : '0'); } catch (e) {}
+                paintFoldAll();
             });
         });
+        paintFoldAll();
+    }
+    /* T21 A6: with many sections open (a phone: 24–30 screens) one tap folds them all; the
+       open section's head stays at the top while you scroll (CSS), so it folds from there too */
+    var FOLD_ALL_FROM = 3;
+    function paintFoldAll() {
+        var hero = $('card_calendar');
+        if (!hero) { return; }
+        var row = $('auto_foldall');
+        if (!row) {
+            row = document.createElement('div');
+            row.id = 'auto_foldall'; row.className = 'vt-auto-foldall'; row.hidden = true;
+            var b = el('button', 'btn btn-sm btn-link vt-auto-foldall-b', row);
+            b.type = 'button'; b.id = 'btn_auto_fold_all';
+            b.addEventListener('click', function () {
+                SECTIONS.forEach(function (id) { var x = $('auto_sec_' + id); if (x && x.open) { x.open = false; } });
+                setTimeout(function () { row.scrollIntoView({ block: 'nearest' }); }, 30);
+            });
+            hero.appendChild(row);      // the foot of the top card, right above the sections
+        }
+        var n = SECTIONS.filter(function (id) { var x = $('auto_sec_' + id); return x && x.open; }).length;
+        var show = n >= FOLD_ALL_FROM, tx = t('auto.a6.fold_all', { n: n });
+        if (row.hidden !== !show) { row.hidden = !show; }
+        var btn = row.firstChild;
+        if (show && btn.textContent !== tx) { btn.textContent = tx; }
     }
     function openSec(id, scroll) {
         var mm = window.map_menu;
@@ -2719,6 +2806,7 @@
             ? Object.keys(S.settings.schema).filter(function (k) { return S.settings.schema[k].locked; }).length : 0;
         head('advanced', 'off', locked ? [{ text: t('auto.tok.locked', { n: locked }) }] : []);
         if (S.link === false) { paintStale(); }
+        paintFoldAll();
     }
 
     /* Rain would refuse this manual start: ask. true = the dialog took over. */
@@ -2868,7 +2956,7 @@
         document.addEventListener('rosdisconnected', function () { S.link = false; paintStale(); });
         document.addEventListener('rosconnecting', function () { S.link = false; paintStale(); });
         document.addEventListener('vt:calendar', function () { if (S.report) { paintNow(); paintPlan(); } });
-        subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintNow(); paintRight(); });
+        subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintNow(); paintRight(); if (S.report) { paintPlan(); } });
         /* T18: the D36 box says the dock permit the Agent panel just read */
         document.addEventListener('vagent:dock', function () {
             if (!S.mode) { return; }

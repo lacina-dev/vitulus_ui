@@ -5112,4 +5112,10 @@
     "tmos.why.error": "The map could not be loaded from the robot.",
     "tmos.pick": "Which terrain map",
     "tmos.recorder": "the robot's lasting map",
+    // T21 A6 (2026-11-08): Autonomy — what holds a start in words, Fold all, the open section's head stays at the top
+    "auto.a6.short.programs.no_schedule": "Nothing planned",
+    "auto.a6.short.programs.no_mow": "No mowing",
+    "auto.a6.short.programs.wait_programs": "Program list",
+    "auto.a6.short.programs.not_on_map": "Program off the map",
+    "auto.a6.fold_all": "Fold all ({n} open)",
 };
