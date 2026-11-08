@@ -4429,7 +4429,6 @@
     if (window.VTI18n && VTI18n.onChange) {
       VTI18n.onChange(function () {
         try {
-          drawDock(VA);
           drawModels(VA);
           drawRobot(VA); drawLidar(); paintAudit();
           missionsFp = null; pollMissions(VA);
