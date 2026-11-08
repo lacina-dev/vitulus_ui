@@ -911,6 +911,7 @@
     "medits.warn.program_gone": "Program {detail} už neexistuje, zóna se vrátila bez něj.",
     // D7 editor (2026-11-08): the editor on a phone, labels, the object list
     "medits.expand_lists": "Seznamy, vrstvy a podrobnosti",
+    "medits.expand_short": "Seznamy",
     /* ---- @end editor */
 
     /* ---- @frag robot: Dock, rain, IMU calibration, calendar (dock.js, rain_alert.js, imu_calibration.js, calendar_manager.js) */

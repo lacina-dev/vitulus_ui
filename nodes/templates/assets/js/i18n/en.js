@@ -900,6 +900,7 @@
     "medits.warn.program_gone": "Program {detail} no longer exists, the zone came back without it.",
     // D7 editor (2026-11-08): the editor on a phone, labels, the object list
     "medits.expand_lists": "Lists, layers and details",
+    "medits.expand_short": "Lists",
     /* ---- @end editor */
 
     /* ---- @frag robot: Dock, rain, IMU calibration, calendar (dock.js, rain_alert.js, imu_calibration.js, calendar_manager.js) */

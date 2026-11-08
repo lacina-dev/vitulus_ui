@@ -57,8 +57,9 @@ v aplikaci. **Del** smaže vybraný vrchol, a když žádný vybraný není, vyb
 a **Ctrl+Shift+Z** jsou zpět a znovu. Kresbu bez zastavení robota zrušíš tlačítkem **Zrušit**.
 
 Na telefonu se editor otevře s malým panelem dole: lišta nástrojů a vlastnosti, nad nimi mapa.
-Tlačítko **^** vpravo nahoře ve vlastnostech přidá seznam, vrstvy a podrobnosti; výběr objektu,
-nástroje nebo dotyk mapy panel zase zmenší. Jeden prst mapou posouvá, dva prsty přibližují; ani
+Tlačítko **^ Seznamy** vpravo nahoře ve vlastnostech přidá seznam, vrstvy a podrobnosti; výběr
+objektu, nástroje nebo dotyk mapy panel zase zmenší. Při kreslení řadu nástrojů nahradí délka, magnet
+a tlačítko jízdy; vrátí se s **Dokončit** nebo **Zrušit**. Jeden prst mapou posouvá, dva prsty přibližují; ani
 jedno nepřidá bod ani nic neuloží. Na tabletu nebo telefonu naležato výběr nástroje posune
 vlastnosti s tlačítkem **Dokončit** do záběru.
 
@@ -71,9 +72,10 @@ klepnutím přejdeš na další. Seznam není nikdy vyšší než asi čtvrtina 
 uvnitř a dole slábne a jeho posouvání nepřejde do panelu. Na telefonu je seznam součástí panelu
 a posouvá se s ním.
 
-Popisky v mapě nikdy nezakryjí jeden druhý ani tečku bodu: název bodu se posune na volnou stranu
-od tečky, název plochy kousek nad nebo pod její střed. Kde volné místo není, název počká, až mapu
-přiblížíš — přednost mají pravidla a zóny, trasy jsou poslední.
+Popisky v mapě nikdy nezakryjí jeden druhý a vyhýbají se tečkám bodů: název bodu se posune na volnou
+stranu od tečky, název plochy kolem jejího středu, dokud zůstane uvnitř. Kde volné místo není, název
+počká, až mapu přiblížíš — přednost mají pravidla a zóny, trasy jsou poslední. Název pravidla nebo
+zóny kvůli bodu nikdy nezmizí: když musí, leží přes tečku.
 
 Vlastnosti mají u každého typu stejné pořadí:
 

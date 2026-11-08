@@ -529,10 +529,12 @@ window.MapEdits = (function () {
 
     // Constant size on screen for what lives in map metres. Runs each overlay
     // frame, does its work only when the zoom changed.
-    // D7 (E2): labels never cover each other or the dot of a point. A point's
-    // name tries the four corners beside its dot, then above and below; an
-    // area's name its centre, then just above or below it while still inside.
-    // A name with no free place left is hidden (rules and zones win, paths last).
+    // D7 (E2): labels never cover each other, and keep off the dots of points.
+    // A point's name tries the four corners beside its dot, then above and
+    // below; an area's name its centre, then above, below, beside and aslant
+    // while still inside. A name with no free place left is hidden (rules and
+    // zones win, paths last) - but the name of a rule or a zone is never hidden
+    // because of a dot: where it has to, it lies over it, as before D7.
     var _lastPxm = 0;
     function _rescaleLabels(force) {
         if (!_ov) return;
@@ -567,14 +569,19 @@ window.MapEdits = (function () {
                     var side = offPx + w / 2, up = offPx + h / 2 + 2;
                     cand = [[side, -offPx], [side, offPx], [-side, -offPx], [-side, offPx], [0, -up], [0, up]];
                 } else {
+                    // an area: its middle, then around it while it stays inside
+                    var room = l.extent * pxm, dy = h + 4, dx = w / 2 + 8;
                     cand = [[0, 0]];
-                    if (l.extent * pxm >= 3 * h) cand.push([0, -(h + 4)], [0, h + 4]);
+                    if (room >= 3 * h) cand.push([0, -dy], [0, dy]);
+                    if (room >= 2 * w + 16) cand.push([-dx, 0], [dx, 0], [-dx, -dy], [dx, -dy], [-dx, dy], [dx, dy]);
                 }
                 var p0 = S.toWorld(c[0] + cand[0][0], c[1] + cand[0][1]);
                 o.position.set(p0[0], p0[1], 0);
                 o.visible = !l.extent || l.extent * pxm >= LABEL_MIN_PX;
                 if (o.visible && shown) {
-                    labels.push({ x: c[0], y: c[1], w: w, h: h, prio: l.prio, order: labels.length, spr: o, cand: cand });
+                    // the name of a rule or a zone is never hidden because of a dot
+                    labels.push({ x: c[0], y: c[1], w: w, h: h, prio: l.prio, order: labels.length, spr: o, cand: cand,
+                                  over: !l.beside && l.prio <= 1 });
                 }
             });
         });
@@ -899,7 +906,7 @@ window.MapEdits = (function () {
         ctx.innerHTML =
             '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1"' + _ti('medits.inspector') + '</div>' +
             '<div class="vt-box mapedit-ctx-box">' +
-            '  <button class="btn btn-outline-secondary" id="mapedit_expand" type="button" data-i18n-title="medits.expand_lists" data-i18n-aria-label="medits.expand_lists" title="' + _escapeAttr(t('medits.expand_lists')) + '" aria-label="' + _escapeAttr(t('medits.expand_lists')) + '"><i class="la la-angle-up"></i></button>' +
+            '  <button class="btn btn-outline-secondary" id="mapedit_expand" type="button" data-i18n-title="medits.expand_lists" data-i18n-aria-label="medits.expand_lists" title="' + _escapeAttr(t('medits.expand_lists')) + '" aria-label="' + _escapeAttr(t('medits.expand_lists')) + '"><i class="la la-angle-up"></i><span class="mapedit-expand-t"' + _ti('medits.expand_short') + '</span></button>' +
             '  <div id="mapedit_sel"></div>' +
             '  <div id="mapedit_zone_slot"></div>' +
             '  <div id="mapedit_hint" class="vt-fs-sm vt-accent vt-minh-line"></div>' +
@@ -1223,6 +1230,10 @@ window.MapEdits = (function () {
         if (dv) dv.disabled = !(P && P.selected >= 0 && P.pointContainer.children.length > (P.minPoints || 0));
         var st = document.getElementById('mapedit_status');
         if (st) st.hidden = !(draw || !!_draft);
+        // a phone while drawing: the readout row alone, the tool row comes back
+        // with Finish or Cancel (vt_mapedit.css, compact sheet only)
+        var bar = document.getElementById('mapedit_bar');
+        if (bar) bar.classList.toggle('drawing', draw);
         var tr = document.getElementById('mapedit_trace');
         if (tr) tr.style.display = (draw && _tool !== 'zone_split') ? '' : 'none';
         _paintLive();

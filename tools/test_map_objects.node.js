@@ -92,6 +92,12 @@ check('all places taken: dropped',
     MO.declutter([L(0, 0, 'a'), C(0, 3, 'b', [[0, 0], [10, 0]])], 2).map((k) => k.n), ['a']);
 check('a dot blocks a label, it moves off it',
     MO.declutter([C(0, 1, 'zone', [[0, 0], [0, 20]])], 2, [{ x: 0, y: 0, w: 16, h: 16 }]).map((k) => [k.n, k.dy]), [['zone', 20]]);
+check('a dot in the middle of a rule, no other place: the rule keeps its name',
+    MO.declutter([Object.assign(L(0, 0, 'rule'), { over: true })], 2, [{ x: 0, y: 0, w: 16, h: 16 }]).map((k) => [k.n, k.dx, k.dy]), [['rule', 0, 0]]);
+check('a dot under a lesser name with no other place: that name waits',
+    MO.declutter([L(0, 3, 'path')], 2, [{ x: 0, y: 0, w: 16, h: 16 }]).map((k) => k.n), []);
+check('a rule over a dot still keeps off other names',
+    MO.declutter([Object.assign(L(0, 0, 'rule'), { over: true }), Object.assign(L(5, 1, 'zone'), { over: true })], 2, [{ x: 0, y: 0, w: 16, h: 16 }]).map((k) => k.n), ['rule']);
 check('no places given: as before',
     MO.declutter([L(0, 5, 'path'), L(10, 0, 'rule')], 2, []).map((k) => [k.n, k.dx, k.dy]), [['rule', 0, 0]]);
 

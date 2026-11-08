@@ -202,7 +202,23 @@
     #mapedit_toast { left: 8px; right: 8px; max-width: none; bottom: calc(var(--vt-frame-bottom, 60px) + 8px); z-index: 1002; }
     #vt_maprule_banner { left: 8px; right: 8px; max-width: none; z-index: 1002; }
     #ui_drawer.mapedit-compact .mapedit-sec { display: none !important; }
+    /* ^ Lists: the way to the lists says so in words */
+    /* it floats at the top right: only the lines beside it make room */
+    #ui_drawer.mapedit-compact #mapedit_expand.btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+        position: static; float: right; margin: 0 0 4px 8px;
+        width: auto; min-width: 44px; padding: 0 10px; font-size: 14px;
+    }
+    #ui_drawer.mapedit-compact #mapedit_expand .la { font-size: 18px; }
+    #ui_drawer.mapedit-compact .mapedit-sel-head,
+    #ui_drawer.mapedit-compact #mapedit_hint { padding-right: 0; }
+    #ui_drawer.mapedit-compact .mapedit-ctx-box::after { content: ""; display: block; clear: both; }
+    /* drawing: one row (the readout, snap, trace) instead of two */
+    #ui_drawer.mapedit-compact #mapedit_bar.in-panel.drawing .mapedit-bar-tools { display: none; }
 }
+.mapedit-expand-t { display: none; }
+#ui_drawer.mapedit-compact .mapedit-expand-t { display: inline; }
+@media (min-width: 576px) { #ui_drawer.mapedit-compact .mapedit-expand-t { display: none; } }
 @media (max-width: 380px) {
     #mapedit_obj_search { flex-basis: 100%; }   /* always two rows: no jump when the type changes */
 }

@@ -118,11 +118,15 @@ window.VTMapObjects = (function () {
     // items: [{x, y, w, h, prio, order, cand}] centres and sizes in pixels. -> kept items.
     // cand (optional): [[dx, dy], ...] other places to try, in order, when the
     // first one is taken; a kept item gets the offset it landed on as it.dx, it.dy.
-    // block (optional): boxes {x, y, w, h} nothing may cover (the dots of points).
+    // block (optional): boxes {x, y, w, h} that labels keep off (the dots of
+    // points); an item with over: true (the name of a rule or a zone) may lie
+    // on them, it is never hidden because of a dot.
     function declutter(items, pad, block) {
-        var m = pad || 0, kept = [], taken = (block || []).slice();
+        var m = pad || 0, kept = [], taken = [];
+        (block || []).forEach(function (b) { taken.push({ x: b.x, y: b.y, w: b.w, h: b.h, dot: true }); });
         function free(x, y, it) {
             return taken.every(function (k) {
+                if (k.dot && it.over) return true;
                 return Math.abs(k.x - x) * 2 >= k.w + it.w + m * 2 || Math.abs(k.y - y) * 2 >= k.h + it.h + m * 2;
             });
         }

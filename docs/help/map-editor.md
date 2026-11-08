@@ -59,8 +59,10 @@ point is selected. **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo. To cancel a dr
 stopping the robot, use the **Cancel** button.
 
 On a phone the editor opens on a small panel at the bottom: the tool bar and the inspector, the map
-above it. The **^** button at the inspector's top right brings the list, the layers and the details;
-picking an object, a tool or touching the map makes the panel small again. One finger moves the
+above it. The **^ Lists** button at the inspector's top right brings the list, the layers and the
+details; picking an object, a tool or touching the map makes the panel small again. While you draw,
+the tool row gives way to the length, the magnet and the trace button; it comes back with
+**Finish** or **Cancel**. One finger moves the
 map, two fingers zoom; neither adds a point or saves anything. On a tablet or a phone on its side,
 choosing a tool brings the inspector with **Finish** into view.
 
@@ -73,9 +75,10 @@ view. Where objects overlap, tap again to go to the next one. The list is never 
 a quarter of the screen; a longer one scrolls inside and fades at the bottom, and its scroll does not
 carry on into the panel. On a phone the list is part of the panel and scrolls with it.
 
-Names on the map never cover each other or the dot of a point: the name of a point moves to a free
-side of its dot, the name of an area just above or below its middle. Where there is no free place,
-the name waits until you zoom in — rules and zones keep theirs first, paths last.
+Names on the map never cover each other and keep off the dots of points: the name of a point moves
+to a free side of its dot, the name of an area around its middle while it stays inside. Where there
+is no free place, the name waits until you zoom in — rules and zones keep theirs first, paths last.
+The name of a rule or a zone never disappears because of a point: if it must, it lies over the dot.
 
 The inspector has the same order for every type:
 
