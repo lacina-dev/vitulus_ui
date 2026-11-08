@@ -132,7 +132,9 @@ anything on it except the stored language.
   one is only shown here; it is switched in the Support kit (**Open the Support dashboard**).
 - **Display** — what this device shows at the next start: the log (Hidden / Small / Full screen)
   and what it shows (Changes / ROS), the camera small or large, the joystick, whether the view
-  follows the map or the robot, and the right panel on a phone (one line or full).
+  follows the map or the robot, the right panel on a phone (one line or full), and the robot's
+  map over a background map (Dimmed / Full, the same as *Dim the robot's map over the background*
+  in [Map › Display](mapping.md#what-you-see-on-the-map-layers)).
 
 Agent, Support and Display are remembered **in this browser** (each phone or PC has its own) and
 follow what you do elsewhere in the UI — set here what the next start should look like.

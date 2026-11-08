@@ -133,8 +133,10 @@ uloženého jazyka.
   podpory**).
 - **Zobrazení** — co toto zařízení ukáže při příštím startu: **Log při startu** (**Skrytý** /
   **Malý** / **Celá obrazovka**) a **Log ukazuje** (**Změny** / **ROS**), **Kamera při startu**
-  (**Malá** / **Velká**), **Joystick při startu**, **Pohled sleduje** (**Mapu** / **Robota**) a
-  **Pravý panel na telefonu** (**Jeden řádek** / **Celý**).
+  (**Malá** / **Velká**), **Joystick při startu**, **Pohled sleduje** (**Mapu** / **Robota**),
+  **Pravý panel na telefonu** (**Jeden řádek** / **Celý**) a **Mapa robota nad podkladovou mapou**
+  (**Ztlumená** / **Plná**, totéž co *Ztlumit mapu robota nad podkladem* v
+  [Mapa › Zobrazení](mapping.md#co-vidíš-na-mapě-vrstvy)).
 
 Agent, Podpora a Zobrazení se pamatují **v tomto prohlížeči** (každý telefon a PC má svoje)
 a sledují, co děláš jinde v UI — tady nastavíš, jak má vypadat příští start.

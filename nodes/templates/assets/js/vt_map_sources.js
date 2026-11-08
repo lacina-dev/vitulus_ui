@@ -42,6 +42,28 @@
     // base map groups of the source picker (catalog "group"), in this order;
     // a base without a known group goes last, outside any group
     var GROUPS = ['photo', 'map'];
+    // T17 M2: how an overlay is drawn, when the catalog entry does not say
+    // (catalog fields blend / blend_neutral / recolor / halo win):
+    //  - blend 'multiply' (default for layer_order 'under'): the tile darkens
+    //    or tints what is under it (background AND robot map) instead of
+    //    covering it; blend_neutral = the source's flat-ground colour (0-1),
+    //    which then leaves the picture unchanged; blend_gain (1-4) deepens the
+    //    shading (2 for the relief: a garden's slopes are shallow, at 1 and the
+    //    default 50 % opacity it hardly showed). Measured on ČÚZK DMR 5G tiles
+    //    (park and villa test points): relief median grey 0.70-0.73, slope
+    //    flat colour about (0.95, 0.93, 0.78).
+    //  - recolor '#rrggbb': the pure-red part of the drawing gets this colour
+    //    (RÚIAN buildings were the same red as the robot's obstacles).
+    //  - halo: a thin dark edge around the lines (white cadastre lines on a
+    //    light map).
+    var STYLE_DEFAULTS = {
+        hillshade: { blend_neutral: [0.72, 0.72, 0.72], blend_gain: 2 },
+        slope: { blend_neutral: [0.95, 0.93, 0.78] },
+        ruian: { recolor: '#a8c8ff', halo: true },
+        kn: { halo: true },
+        contours: { halo: true },
+    };
+    var HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
     function num(v, dflt, lo, hi) {
         var n = typeof v === 'number' ? v : parseFloat(v);
@@ -67,7 +89,7 @@
         } else {
             at = at ? { en: String(at), cs: String(at) } : null;
         }
-        return {
+        var out = {
             id: id,
             kind: kind,
             // bases only: 'photo' (aerial/satellite) | 'map' (drawn) | ''
@@ -80,11 +102,32 @@
             min_zoom: Math.round(num(s.min_zoom, 0, 0, maxZ)),
             default_opacity: num(s.default_opacity, kind === 'overlay' ? 0.7 : 1, 0, 1),
             attribution: at,
-            // overlays: 'under' = a tone over the background map but UNDER
-            // the robot's maps (relief); 'over' = lines ON TOP of them
+            // overlays: 'under' = a tone (relief, slope), multiplied over the
+            // background and the robot's maps (T17 M2-2: before, it lay under
+            // the robot's map fill and was not seen inside the garden);
+            // 'over' = lines ON TOP of them
             layer_order: (kind === 'overlay' && s.layer_order === 'under') ? 'under' : 'over',
             offset_key: ID_RE.test(off) ? off : id,
         };
+        if (kind === 'overlay') { style(out, s); }
+        return out;
+    }
+
+    // the overlay look (T17 M2), see STYLE_DEFAULTS
+    function style(out, s) {
+        var d = STYLE_DEFAULTS[out.id] || {};
+        var pick = function (k) { return (s[k] !== undefined && s[k] !== null) ? s[k] : d[k]; };
+        var b = pick('blend');
+        out.blend = (b === 'multiply' || b === 'normal') ? b
+                  : (out.layer_order === 'under' ? 'multiply' : 'normal');
+        var n = pick('blend_neutral');
+        if (typeof n === 'number' || typeof n === 'string') { n = [n, n, n]; }
+        out.blend_neutral = (Array.isArray(n) && n.length === 3)
+            ? n.map(function (v) { return num(v, 1, 0.05, 1); }) : [1, 1, 1];
+        var r = pick('recolor');
+        out.recolor = (typeof r === 'string' && HEX_RE.test(r)) ? r.toLowerCase() : '';
+        out.blend_gain = num(pick('blend_gain'), 1, 1, 4);
+        out.halo = pick('halo') === true;
     }
 
     // catalog JSON -> {bases, overlays, byId, default_base, fromCatalog}
@@ -155,7 +198,7 @@
         return out.join(' · ');
     }
 
-    var api = { FALLBACK: FALLBACK, ALIASES: ALIASES, GROUPS: GROUPS, normalize: normalize,
+    var api = { FALLBACK: FALLBACK, ALIASES: ALIASES, GROUPS: GROUPS, STYLE_DEFAULTS: STYLE_DEFAULTS, normalize: normalize,
                 fallback: fallback, resolveBase: resolveBase, baseGroups: baseGroups, label: label,
                 tileUrl: tileUrl, attribution: attribution };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }

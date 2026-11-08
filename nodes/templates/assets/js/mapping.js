@@ -107,6 +107,62 @@ function vtTileLodBias(shader) {
     }
     shader.fragmentShader = fs;
 }
+/* T17 M2: the tile shader = vtTileLodBias plus an overlay look chosen by
+   material.defines (part of the program key, so one function serves every
+   look; the catalog fields come from vt_map_sources.js):
+   - VT_MULTIPLY (tone overlays: relief, slope): the tile MULTIPLIES what is
+     under it instead of covering it — darkens/tints, never washes out. The
+     colour is first divided by the source's flat-ground tone (vtNeutral), so
+     flat ground leaves the picture as it is and only the shading or the slope
+     colour shows; vtGain > 1 deepens it (a garden's relief is shallow);
+     opacity fades towards "no change". Needs premultiplied output
+     with blending dst*src + dst*(1-srcA) (set by _tileMesh).
+   - VT_RECOLOR: the pure-red part of a pixel becomes vtTint (RÚIAN draws
+     buildings in the same red as the robot's obstacles); white and grey parts
+     (label halos) stay.
+   - VT_HALO: a thin dark edge around the drawn lines (cadastre white lines
+     vanished on a light map), from the alpha of the 8 neighbouring texels. */
+var VT_BLEND = { custom: 5, add: 100, dstColor: 208, oneMinusSrcAlpha: 205 };   // ROS3D THREE r89 enums
+function vtTileShader(shader) {
+    vtTileLodBias(shader);
+    var d = this.defines || {};
+    if (!d.VT_MULTIPLY && !d.VT_RECOLOR && !d.VT_HALO) { return; }
+    var u = (this.userData && this.userData.vt) || {};
+    shader.uniforms.vtNeutral = { value: u.neutral || [1, 1, 1] };
+    shader.uniforms.vtGain = { value: u.gain || 1 };
+    shader.uniforms.vtTint = { value: u.tint || [1, 1, 1] };
+    var fs = shader.fragmentShader;
+    fs = fs.replace('void main() {',
+        'uniform vec3 vtNeutral;\nuniform float vtGain;\nuniform vec3 vtTint;\nvoid main() {');
+    fs = fs.replace('\tdiffuseColor *= texelColor;\n#endif',
+        '#ifdef VT_RECOLOR\n' +
+        '\tfloat vtS = max(0.0, texelColor.r - max(texelColor.g, texelColor.b));\n' +
+        '\ttexelColor.rgb += vtS * (vtTint - vec3(1.0, 0.0, 0.0));\n' +
+        '#endif\n' +
+        '#ifdef VT_HALO\n' +
+        '\tfloat vtT = 1.0 / 256.0, vtA = 0.0;\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv + vec2(vtT, 0.0)).a);\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv - vec2(vtT, 0.0)).a);\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv + vec2(0.0, vtT)).a);\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv - vec2(0.0, vtT)).a);\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv + vec2(vtT, vtT)).a);\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv - vec2(vtT, vtT)).a);\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv + vec2(vtT, -vtT)).a);\n' +
+        '\tvtA = max(vtA, texture2D(map, vUv - vec2(vtT, -vtT)).a);\n' +
+        '\tfloat vtH = vtA * 0.7 * (1.0 - texelColor.a);\n' +
+        '\tfloat vtO = texelColor.a + vtH;\n' +
+        '\ttexelColor.rgb = (texelColor.rgb * texelColor.a + vec3(0.06) * vtH) / max(vtO, 0.0001);\n' +
+        '\ttexelColor.a = vtO;\n' +
+        '#endif\n' +
+        '\tdiffuseColor *= texelColor;\n#endif');
+    fs = fs.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+        '#ifdef VT_MULTIPLY\n' +
+        '\tgl_FragColor = vec4(clamp(1.0 - vtGain * (1.0 - outgoingLight / vtNeutral), 0.0, 1.0) * diffuseColor.a, diffuseColor.a);\n' +
+        '#else\n' +
+        '\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n' +
+        '#endif');
+    shader.fragmentShader = fs;
+}
 /* T17 M3: the tile cache and tile maths live in vt_map_tiles.js, loaded by
    index.html. A webnode still serving the old template (Jinja cache until
    its restart) has no such tag while this file is already new: load the
@@ -821,10 +877,20 @@ class MappingV3 {
         this._persistSelect(this.sel_aerial_area, 'vitulus_aerial_area');
         this._persistRange(this.in_aerial_opacity, 'vitulus_aerial_opacity');
 
+        // T17 M2-1 (owner decision): dim the robot's map over the background
+        // map (MapLayerOpacity in map_view.js; stored as vitulus_map_dim_on_bg)
+        this.chk_bg_dim = document.getElementById('mapv3_bg_dim');
+        if (this.chk_bg_dim && typeof MapLayerOpacity !== 'undefined') {
+            this.chk_bg_dim.checked = MapLayerOpacity.dim_pref;
+            this.chk_bg_dim.addEventListener('change', () => {
+                MapLayerOpacity.setDimPref(this.chk_bg_dim.checked);
+            });
+        }
         if (this.chk_aerial) {
             this.chk_aerial.addEventListener('change', () => {
                 this._saveLayerPref('vitulus_layer_aerial', this.chk_aerial.checked);
                 this._updateAttribution();
+                this._updateBgDim();
                 if (this.chk_aerial.checked) {
                     // 2026-08-16 field fix: re-ticking the layer must RE-FETCH
                     // the datum — the cache made a toggle useless after a new
@@ -866,8 +932,10 @@ class MappingV3 {
         if (this.in_aerial_opacity) {
             this.in_aerial_opacity.addEventListener('input', () => {
                 this._applyAerialOpacity();
+                this._updateBgDim();
             });
         }
+        this._updateBgDim();
 
         // --- per-map / per-layer tile OFFSET (persisted ON THE ROBOT) -------
         this.tile_offsets = {};       // mirror of the robot store
@@ -1323,6 +1391,21 @@ class MappingV3 {
         });
     }
 
+    // T17 M2-1: is a background map painted under the robot's map? (ticked,
+    // a source, not faded out to almost nothing, not "no tile loaded")
+    _bgShown() {
+        if (!(this.chk_aerial && this.chk_aerial.checked) || this._baseNone) { return false; }
+        const op = this.in_aerial_opacity ? parseFloat(this.in_aerial_opacity.value) : 1;
+        return !(op < 0.2) && !!this._aerialBase();
+    }
+    _updateBgDim() {
+        try {
+            if (typeof MapLayerOpacity !== 'undefined' && MapLayerOpacity.setBackground) {
+                MapLayerOpacity.setBackground(this._bgShown());
+            }
+        } catch (e) { /* map_view.js older than this file */ }
+    }
+
     // the catalog entry of the chosen base (fallback: first base)
     _aerialBase() {
         const cat = this.map_sources || (window.VTMapSources && VTMapSources.fallback());
@@ -1672,6 +1755,10 @@ class MappingV3 {
                     // warn tone)
                     const report = (set, same) => {
                         const n = set.total, k = set.loaded, f = set.failed;
+                        // T17 M2-1: no tile at all (MapProxy offline) = no
+                        // picture to keep visible: the robot's map stays full
+                        const none = n > 0 && k === 0 && k + f >= n;
+                        if (none !== this._baseNone) { this._baseNone = none; this._updateBgDim(); }
                         if (k + f < n) {
                             status(() => mapT('mapping.aerial.tiles_loading',
                                 {k: k, n: n, z: z, src: label}));
@@ -2004,8 +2091,9 @@ class MappingV3 {
         return L;
     }
 
-    // a plane for one tile (hidden until its texture is there)
-    _tileMesh(T, r, opacity, renderOrder) {
+    // a plane for one tile (hidden until its texture is there); src = the
+    // catalog source (an overlay's look: vtTileShader, T17 M2)
+    _tileMesh(T, r, opacity, renderOrder, src) {
         if (!this._tilePendingTex) {
             this._tilePendingTex = new T.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1);
             this._tilePendingTex.needsUpdate = true;
@@ -2015,7 +2103,8 @@ class MappingV3 {
             map: this._tilePendingTex, transparent: true, opacity: opacity, depthWrite: false,
         });
         if (T.DoubleSide !== undefined) { mat.side = T.DoubleSide; }
-        mat.onBeforeCompile = vtTileLodBias;   // T17: see vtTileLodBias
+        mat.onBeforeCompile = vtTileShader;   // T17: see vtTileLodBias, vtTileShader
+        this._tileStyle(mat, src);
         const mesh = new T.Mesh(geo, mat);
         mesh.position.set(r.cx, r.cy, 0);
         // depthWrite off; renderOrder pins the paint order (MapLayerOrder)
@@ -2033,6 +2122,33 @@ class MappingV3 {
     }
 
     // stand-ins sit just under the layer's current tiles, finer above coarser
+    // T17 M2: an overlay's look from its catalog fields (vt_map_sources.js):
+    // blend 'multiply' (relief, slope), recolor (RÚIAN red -> tint), halo
+    _tileStyle(mat, src) {
+        if (!src || src.kind !== 'overlay') { return; }
+        const defs = {};
+        const vt = {};
+        if (src.blend === 'multiply') {
+            defs.VT_MULTIPLY = 1;
+            mat.blending = VT_BLEND.custom;
+            mat.blendEquation = VT_BLEND.add;
+            mat.blendSrc = VT_BLEND.dstColor;
+            mat.blendDst = VT_BLEND.oneMinusSrcAlpha;
+            vt.neutral = src.blend_neutral || [1, 1, 1];
+            vt.gain = src.blend_gain || 1;
+        }
+        if (src.recolor) {
+            const h = parseInt(src.recolor.slice(1), 16);
+            defs.VT_RECOLOR = 1;
+            vt.tint = [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
+        }
+        if (src.halo) { defs.VT_HALO = 1; }
+        if (Object.keys(defs).length) {
+            mat.defines = defs;
+            mat.userData.vt = vt;
+        }
+    }
+
     _tileFbOrder(L, z) { return (L.ro || 0) - 0.004 + z * 0.0001; }
 
     _tileDropFb(L, f) {
@@ -2107,7 +2223,7 @@ class MappingV3 {
         if (L.fb.some((f) => f.url === url)) { this._texRelease(url); return; }
         const r = set.tileRect(a.z, a.x, a.y);
         if (!(r.w > 0) || !(r.h > 0)) { this._texRelease(url); return; }
-        const mesh = this._tileMesh(set.T, r, set.opacity, this._tileFbOrder(L, a.z));
+        const mesh = this._tileMesh(set.T, r, set.opacity, this._tileFbOrder(L, a.z), set.src);
         const e = this._texCache().get(url);
         mesh.material.map = e.tex;
         mesh.material.needsUpdate = true;
@@ -2225,7 +2341,7 @@ class MappingV3 {
             const r = ctx.tileRect(z, x, y);
             if (!(r.w > 0) || !(r.h > 0)) { return; }
             const t = { z: z, x: x, y: y, url: this._aerialTileUrl(src, z, x, y),
-                        mesh: this._tileMesh(ctx.T, r, ctx.opacity, ctx.ro), state: 'wait', cancel: null };
+                        mesh: this._tileMesh(ctx.T, r, ctx.opacity, ctx.ro, src), state: 'wait', cancel: null };
             set.tiles.set(x + ',' + y, t);
             set.total++;
             L.group.add(t.mesh);

@@ -69,6 +69,28 @@ ok('default_base honoured', cat.default_base === 'cuzk');
 ok('no bases at all -> fallback', MS.normalize({ sources: [{ id: 'kn', kind: 'overlay', layer: 'a', grid: 'b' }] }).bases.length === 3);
 ok('garbage -> fallback', MS.normalize('nope').fromCatalog === false);
 
+console.log('\noverlay look (T17 M2)');
+const lk = MS.normalize({ sources: [
+    { id: 'sat', kind: 'base', layer: 'gm_layer', grid: 'gm_grid', blend: 'multiply', halo: true },
+    { id: 'hillshade', kind: 'overlay', layer: 'a', grid: 'g', layer_order: 'under' },
+    { id: 'slope', kind: 'overlay', layer: 'b', grid: 'g', layer_order: 'under', blend_neutral: 0.5 },
+    { id: 'ruian', kind: 'overlay', layer: 'c', grid: 'g', layer_order: 'over' },
+    { id: 'kn', kind: 'overlay', layer: 'd', grid: 'g', layer_order: 'over', halo: false },
+    { id: 'tone', kind: 'overlay', layer: 'e', grid: 'g', layer_order: 'under', blend: 'normal', recolor: 'red' },
+    { id: 'lines', kind: 'overlay', layer: 'f', grid: 'g', recolor: '#00FF00', blend_neutral: [2, -1, 'x'] },
+] });
+ok('under -> multiply by default', lk.byId.hillshade.blend === 'multiply');
+ok('over -> normal by default', lk.byId.ruian.blend === 'normal' && lk.byId.lines.blend === 'normal');
+ok('catalog blend wins over layer_order', lk.byId.tone.blend === 'normal');
+ok('built-in relief neutral (DMR 5G grey) and gain', lk.byId.hillshade.blend_neutral.join() === '0.72,0.72,0.72' &&
+   lk.byId.hillshade.blend_gain === 2 && lk.byId.slope.blend_gain === 1);
+ok('catalog neutral wins, a number -> grey', lk.byId.slope.blend_neutral.join() === '0.5,0.5,0.5');
+ok('neutral clamped to 0.05..1, junk -> 1', lk.byId.lines.blend_neutral.join() === '1,0.05,1');
+ok('RÚIAN recoloured + halo by default', lk.byId.ruian.recolor === '#a8c8ff' && lk.byId.ruian.halo === true);
+ok('catalog halo false wins', lk.byId.kn.halo === false);
+ok('recolor must be #rrggbb (lower case)', lk.byId.tone.recolor === '' && lk.byId.lines.recolor === '#00ff00');
+ok('bases carry no look', lk.byId.sat.blend === undefined && lk.byId.sat.halo === undefined);
+
 console.log('\nbase groups (picker)');
 const gcat = MS.normalize({ sources: [
     { id: 'm1', kind: 'base', group: 'map', layer: 'a', grid: 'g' },
