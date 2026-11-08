@@ -60,7 +60,9 @@ the summary, or under the right panel's row, right of the compass and the layers
 line ends in **…**). Whether the right panel is unfolded or folded, the agent's lines (a latched STOP with
 **Release STOP**, the open dock with **Lock again**, what the agent does) stand as a column on the
 map under the compass and the layers button (left of an unfolded panel) — whole words, full-width buttons;
-the panel never moves when the agent starts or stops talking. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
+the panel never moves when the agent starts or stops talking. ? and the computer are in **⋯**; on a
+narrow phone (where the menu band's keys would be under 40 px next to STOP) **Support** is there
+too, as the first item of **⋯** (then **Marker**, only if still needed). **Phone on its side**: one row — dot ·
 the panel buttons · one icon per status group · bell · Restart · ⋯ — the logo, ? and the computer
 are in **⋯**, STOP is in the corner above the right panel.
 

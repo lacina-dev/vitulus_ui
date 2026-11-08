@@ -150,6 +150,7 @@
             head.innerHTML = '<img src="assets/img/vitulusShape.svg" width="95" height="22" alt="VITULUS">';
             menu.appendChild(head);
         }
+        if (L === 'ph') { bandOver.forEach(function (b) { menu.appendChild(bandItem(b)); }); }
         if (L !== 'pc') {
             menu.appendChild(item(SVG.help, 'hdr.menu.help', function () {
                 closeMenu();
@@ -221,6 +222,51 @@
         if (more) { more.setAttribute('aria-expanded', 'false'); setCls(more, 'vt-on', false); }
     }
     function toggleMenu() { if (menu && !menu.hidden) { closeMenu(); } else { openMenu(); } }
+
+    /* ------------------------------------------------ T8 G: band overflow */
+    /* Phone upright: the STOP's collar takes the right end of the menu band,
+       so its 8 keys were 35–37 px wide. The least used panels move into ⋯
+       (first Support, then Marker) until every key left is >= 40 px; a
+       wider window gets them back. The keys stay in the page (hidden), so
+       every module still finds and drives them; the ⋯ item clicks the key. */
+    var BAND_OVER = ['btn_support', 'btn_marker'];
+    var MIN_KEY = 40;
+    var bandOver = [];
+    function bandKeys(grp) {
+        return Array.prototype.filter.call(grp.children, function (b) {
+            return b.tagName === 'BUTTON' && getComputedStyle(b).display !== 'none';
+        });
+    }
+    function fitBand() {
+        var rm = $('row_menu');
+        var grp = rm && rm.querySelector('.btn-group');
+        bandOver.forEach(function (b) { b.classList.remove('vt-band-over'); });
+        bandOver = [];
+        if (!grp || layout() !== 'ph') { return; }
+        var keys = bandKeys(grp);
+        var avail = grp.clientWidth;
+        for (var i = 0; i < BAND_OVER.length && keys.length && avail / keys.length < MIN_KEY; i++) {
+            var b = $(BAND_OVER[i]);
+            var k = b ? keys.indexOf(b) : -1;
+            if (k < 0) { continue; }
+            b.classList.add('vt-band-over');
+            bandOver.push(b);
+            keys.splice(k, 1);
+        }
+        if (more) { more.dataset.over = bandOver.length ? '1' : ''; }
+    }
+    function bandItem(b) {
+        var ico = b.querySelector('svg, i');
+        var name = b.dataset.label || b.getAttribute('aria-label') || b.title || b.id;
+        var it = el('button', 'vt-hdr-mi vt-hdr-mi-band');
+        it.type = 'button';
+        it.setAttribute('role', 'menuitem');
+        it.innerHTML = '<span class="vt-hdr-mi-ico" aria-hidden="true">' + (ico ? ico.outerHTML : '') + '</span>';
+        it.appendChild(el('span', 'vt-hdr-mi-l', String(name).split(' — ')[0]));
+        if (b.classList.contains('vt-on') || b.classList.contains('active') || b.getAttribute('aria-pressed') === 'true') { it.classList.add('vt-on'); }
+        it.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); closeMenu(); b.click(); });
+        return it;
+    }
 
     /* ------------------------------------------------ the menu band */
     /* Low window: the panel buttons are part of the one header row. The
@@ -353,6 +399,7 @@
         var root = document.documentElement;
         if (root.style.getPropertyValue('--navbar-h') !== nh) { root.style.setProperty('--navbar-h', nh); }
         if (ensureTools()) { placeMenuBand(L); }
+        fitBand();
         var key = L + '|' + W;
         if (key !== lastKey) {
             lastKey = key;
@@ -369,6 +416,9 @@
         wireNotice();
         wireBars(0);
         window.addEventListener('resize', apply);
+        var grp0 = $('row_menu') && $('row_menu').querySelector('.btn-group');
+        if (grp0 && window.MutationObserver) { new MutationObserver(function () { fitBand(); }).observe(grp0, {childList: true}); }
+        if (grp0 && window.ResizeObserver) { new ResizeObserver(function () { fitBand(); }).observe(grp0); }
         if (window.VTI18n) {
             VTI18n.onChange(function () { if (menu && !menu.hidden) { fillMenu(); } });
         }

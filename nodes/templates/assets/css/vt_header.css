@@ -563,3 +563,10 @@ html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars :is(#vagent_panic, #vagent_
                     clamp(0px, 100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px) - 980px, 240px));
     }
 }
+
+/* ---- T8 G (2026-11-08): the phone's menu band keeps >= 40-px keys ---------
+   vt_header.js fitBand moves the least used panels (Support, then Marker)
+   into ⋯ while the band (minus the STOP's collar) would give a key < 40 px;
+   the key stays in the page, hidden, and ⋯ shows it as its first item. */
+html body.vt-h-ph #row_menu .btn-group > .btn.vt-band-over { display: none !important; }
+.vt-hdr-mi.vt-hdr-mi-band.vt-on { background: rgba(var(--vt-accent-rgb), 0.16); color: #fff; }
