@@ -1569,17 +1569,28 @@ def a5_story(p, shots, label):
     p.pub('/scheduler/mode', mv)
     p.raw('/scheduler/status', {'data': 'Idle'})
     p.tick(600)
-    p.pg.evaluate("""(()=>{window.__mut={}; const ids=['card_calendar','auto_radar','auto_mode_last'];
-        window.__mo=new MutationObserver(l=>l.forEach(m=>{const e=m.target.nodeType===1?m.target:m.target.parentElement;
-            const k=ids.find(i=>document.getElementById(i).contains(e))||'?'; __mut[k]=(__mut[k]||0)+1;}));
-        ids.forEach(i=>__mo.observe(document.getElementById(i),{subtree:true,childList:true,characterData:true,attributes:true}));})()""")
-    for _ in range(4):
-        p.raw('/weather_alert/rain_alert', rain)
-        p.pub('/scheduler/mode', mv)
-        p.raw('/scheduler/status', {'data': 'Idle'})
-        p.tick(500)
-    mut = p.pg.evaluate("(()=>{__mo.disconnect(); return __mut})()")
-    check('A5 idle: the top card, the radar and the last decision are not rewritten', not mut, mut)
+    # the top card's sleep line is a clock sentence ("Falls asleep at 21:29 for 4 h 43 min"): it changes for real
+    # as time goes (its duration counts down to a fixed wake), and is written only when its text changes; it is
+    # left out here. A window that crossed a minute (the page's own clock) is watched again.
+    for _try in range(3):
+        p.pg.wait_for_function("(()=>{const s=new Date().getSeconds(); return s >= 3 && s <= 50;})()", timeout=70000)
+        p.pg.evaluate("""(()=>{window.__mut={}; window.__min=Math.floor(Date.now()/60000); const ids=['card_calendar','auto_radar','auto_mode_last'];
+            const sl=document.getElementById('auto_sleep_plan');
+            window.__mo=new MutationObserver(l=>l.forEach(m=>{const e=m.target.nodeType===1?m.target:m.target.parentElement;
+                if (sl && sl.contains(e) && e !== sl) { return; }
+                const k=ids.find(i=>document.getElementById(i).contains(e))||'?'; __mut[k]=(__mut[k]||0)+1;
+                (__mut._what=__mut._what||[]).push([e.id||e.className, m.type, m.attributeName]);}));
+            ids.forEach(i=>__mo.observe(document.getElementById(i),{subtree:true,childList:true,characterData:true,attributes:true}));})()""")
+        for _ in range(4):
+            p.raw('/weather_alert/rain_alert', rain)
+            p.pub('/scheduler/mode', mv)
+            p.raw('/scheduler/status', {'data': 'Idle'})
+            p.tick(500)
+        mut = p.pg.evaluate("(()=>{__mo.disconnect(); __mut._crossed = Math.floor(Date.now()/60000) !== __min; return __mut})()")
+        if not mut.pop('_crossed'):
+            break
+    what = mut.pop('_what', None)
+    check('A5 idle: the top card, the radar and the last decision are not rewritten', not mut, [mut, what])
 
     # no connection: said after 3 s, since when; muted; back = gone
     p.pg.evaluate("document.dispatchEvent(new Event('rosdisconnected'))")

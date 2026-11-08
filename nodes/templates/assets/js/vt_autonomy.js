@@ -800,7 +800,9 @@
         var box = $('auto_mode_last');
         if (!box) { return; }
         var d0 = mv && mv.last_decision, attn0 = $('auto_mode_attn');
-        var sig = JSON.stringify([d0, mv && mv.mode, attn0 && attn0.hidden, lang(), Math.floor(nowMs() / 60000)]);
+        var v0 = (d0 && d0.vars) || {}, end0 = parseIso(v0.until || v0.end || v0.to);
+        var sig = JSON.stringify([d0, mv && mv.mode, attn0 && attn0.hidden, lang(), !!(end0 && end0.getTime() < nowMs()),
+                                  d0 ? dayStart(new Date(nowMs())) : 0]);   // over or not; "today" turns into a date at midnight
         if (box.dataset.sig === sig) { return; }    // T21 A5: the mode comes every second
         box.dataset.sig = sig;
         clear(box);
