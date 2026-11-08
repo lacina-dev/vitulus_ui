@@ -49,8 +49,11 @@ pod 1280 px má pás
 menu jen ikony (název je v bublině), pod 1100 px ukazuje každá skupina ikon jen jednu ikonu —
 tu nejhorší ze skupiny. Logo, tečka, ?, zvonek, ⋯ a STOP jsou tam vždycky.
 
-**Telefon na výšku**: navbar (logo, tečka, zvonek, Restart, ⋯, STOP), pás menu, **souhrn** stavu
-(jedna ikona za skupinu + *Bez varování* / *2 varování* / *Bez varování · 1 bez dat*; klepnutí = karta stavu) a řádek hlášek. ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
+**Telefon na výšku**: navbar (logo, tečka, zvonek, Restart, ⋯, STOP), pás menu a **souhrn** stavu
+(jedna ikona za skupinu + *Bez varování* / *2 varování* / *Bez varování · 1 bez dat*; klepnutí = karta stavu) —
+tři řádky po 40 px, dohromady 120 px. Hlášky plavou v horní části mapy jako na PC: pod souhrnem,
+nebo pod řádkem pravého panelu, vpravo od kompasu a tlačítka vrstev (dlouhý řádek končí **…**).
+? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
 panelů · jedna ikona za skupinu stavu · zvonek · Restart · ⋯ — logo, ? a počítač jsou v **⋯**, STOP
 je v rohu nad pravým panelem.
 
@@ -74,8 +77,11 @@ panel (nebo hřbet) **až dolů ke spodní hraně**; spodní lišta začíná hn
 
 **PC** (šířka ≥ 1024 px): panel je sloupec, mapa se vedle něj zúží. **Tablet / telefon na
 šířku**: sloupec leží přes mapu. **Telefon na výšku** (< 576 px): panel je sheet vysouvaný zdola
-(60 % výšky). Na telefonu (na výšku i na šířku) má panel kompaktní hlavičku: **?** / ⤢ / ✕ (v panelu Agent
+a nad sebou nechá aspoň zhruba třetinu mapy (nejvýš 60 % výšky); panel Agent si pro konverzaci
+nechává 60 %. Na telefonu (na výšku i na šířku) má panel kompaktní hlavičku: **?** / ⤢ / ✕ (v panelu Agent
 i jeho stop **Agent**) jsou na konci řádku záložek; na výšku se název přesune do řádku s úchytem.
+V panelu Agent na výšku sedí hlavička v řádku s úchytem vedle názvu a záložky mají vlastní řádek
+přes celou šířku.
 
 **Záložky, které se nevejdou** (úzký panel, telefon, delší české popisky), zůstanou v jednom
 řádku, který se posouvá do strany: **‹** / **›** na okraji ukazuje, že jich je víc — klikni na ni,

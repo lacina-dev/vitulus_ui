@@ -2508,6 +2508,153 @@
         return false;
     }
 
+    /* D11: the phone's quick menu (see renderChat).  Keyboard: the menu keeps
+       its keys — arrows / Home / End move between its items, Esc closes it
+       and gives the focus back to the button; none of them reach the
+       keyboard driving of vt_joy.js (it listens on window: stopPropagation).
+       Esc still stops the robot as well: vt_frame.js hears it in the capture
+       phase, before this menu (owner: Esc = STOP, always).
+       On the button, ↓ / ↑ open the menu (a menu button, not a plain one). */
+    function buildQuickMenu(el, formEl, fSel, fScope) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'vagent_qbtn';
+        btn.setAttribute('aria-haspopup', 'menu');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.setAttribute('aria-controls', 'vagent_qmenu');
+        btn.innerHTML = '<i class="la la-bolt" aria-hidden="true"></i><span class="vq-dot" aria-hidden="true"></span>';
+        lt(btn, 'agent.d11.quick_tip', null, 'title');
+        lt(btn, 'agent.d11.quick_tip', null, 'aria-label');
+        var menu = document.createElement('div');
+        menu.id = 'vagent_qmenu';
+        menu.setAttribute('role', 'menu');
+        menu.hidden = true;
+        lt(menu, 'agent.d11.quick_tip', null, 'aria-label');
+        function head(key) {
+            var h = document.createElement('div');
+            h.className = 'vq-h';
+            h.setAttribute('role', 'presentation');
+            lt(h, key);
+            menu.appendChild(h);
+        }
+        head('agent.d11.quick_head');
+        Array.prototype.forEach.call(el.querySelectorAll('#vagent_quick [data-q]'), function (q) {
+            var it = document.createElement('button');
+            it.type = 'button';
+            it.className = 'vq-item';
+            it.setAttribute('role', 'menuitem');
+            it.setAttribute('data-q', q.getAttribute('data-q'));
+            var tl = document.createElement('span');
+            tl.className = 'vq-l';
+            // the label of the row's button (a key when it has one), the same words
+            var spec = q.getAttribute('data-vti-text');
+            if (spec) { tl.setAttribute('data-vti-text', spec); ltPaint(tl, 'text'); }
+            else { tl.textContent = q.textContent; }
+            it.appendChild(tl);
+            it.addEventListener('click', function () { close(false); q.click(); });
+            menu.appendChild(it);
+        });
+        head('agent.d11.view_head');
+        var fr = document.createElement('label');
+        fr.className = 'vq-row';
+        var fl = document.createElement('span');
+        fl.className = 'vq-l';
+        lt(fl, 'agent.d11.show');
+        fr.appendChild(fl);
+        fr.appendChild(fSel);
+        menu.appendChild(fr);
+        fScope.classList.add('vq-item');
+        fScope.setAttribute('role', 'menuitem');
+        menu.appendChild(fScope);
+        formEl.insertBefore(btn, formEl.firstChild);
+        formEl.appendChild(menu);
+
+        function items() {
+            return Array.prototype.filter.call(menu.querySelectorAll('button, select'),
+                function (x) { return x.offsetParent !== null; });
+        }
+        function onDoc(ev) {
+            if (!menu.contains(ev.target) && !btn.contains(ev.target)) { close(false); }
+        }
+        // the menu grows upwards from the input row and must not run under
+        // the chat's head (the pane clips it): as tall as the room above
+        function fitHeight() {
+            var pane = formEl.closest('.vagent-pane') || formEl.parentNode;
+            var top = pane.getBoundingClientRect().top;
+            var room = formEl.getBoundingClientRect().top - top - 8;
+            menu.style.maxHeight = Math.max(120, Math.round(room)) + 'px';
+        }
+        function open(focusLast) {
+            if (!menu.hidden) { return; }
+            fitHeight();
+            menu.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            btn.classList.add('vt-on');
+            document.addEventListener('pointerdown', onDoc, true);
+            var list = items();
+            if (list.length) { (focusLast ? list[list.length - 1] : list[0]).focus(); }
+        }
+        function close(refocus) {
+            if (menu.hidden) { return; }
+            menu.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+            btn.classList.remove('vt-on');
+            document.removeEventListener('pointerdown', onDoc, true);
+            if (refocus) { try { btn.focus(); } catch (e) {} }
+        }
+        btn.addEventListener('click', function () { if (menu.hidden) { open(false); } else { close(false); } });
+        btn.addEventListener('keydown', function (ev) {
+            if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                ev.stopPropagation();
+                open(ev.key === 'ArrowUp');
+            } else if (ev.key === 'Escape' && !menu.hidden) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                close(true);
+            }
+        });
+        var NAV = {ArrowDown: 1, ArrowUp: -1, ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last'};
+        menu.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') {
+                ev.preventDefault();
+                ev.stopPropagation();
+                close(true);
+                return;
+            }
+            if (ev.key === 'Tab') { close(false); return; }   // the focus walks on
+            // the picker moves its own options; its keys still stay here
+            if (ev.target && ev.target.tagName === 'SELECT') { ev.stopPropagation(); return; }
+            var step = NAV[ev.key];
+            if (!step) {
+                // letters typed here are not driving keys either (W A S D)
+                if (ev.key && ev.key.length === 1) { ev.stopPropagation(); }
+                return;
+            }
+            ev.preventDefault();
+            ev.stopPropagation();
+            var list = items(), i = list.indexOf(document.activeElement);
+            if (!list.length) { return; }
+            var n = step === 'first' ? 0 : step === 'last' ? list.length - 1
+                : (i + step + list.length) % list.length;
+            list[n].focus();
+        });
+        // a released key still goes to vt_joy (keyup is never filtered there)
+        function paint() {
+            var narrowed = (fSel.value && fSel.value !== 'all') || scope === 'mine';
+            btn.classList.toggle('vq-narrowed', !!narrowed);
+        }
+        // the panel hidden / another tab / the drawer closed: no menu left over
+        document.addEventListener('vagent:activechange', function () { close(false); });
+        window.addEventListener('resize', function () {
+            if (window.innerWidth >= 576) { close(false); } else if (!menu.hidden) { fitHeight(); }
+        });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', function () { if (!menu.hidden) { setTimeout(fitHeight, 50); } });
+        }
+        return {open: open, close: close, paint: paint, el: menu, btn: btn};
+    }
+
     function renderChat(el) {
         el.innerHTML =
             '<div id="vagent_chips">' +
@@ -2643,8 +2790,15 @@
         fScope.id = 'vagent_scope2';
         fScope.addEventListener('click', function () { scopeBtn.click(); });
         var formEl = el.querySelector('#vagent_form');
-        formEl.insertBefore(fSel, formEl.firstChild);
-        el.querySelector('#vagent_quick').appendChild(fScope);
+        /* D11 (D6 G3, ředitel 2026-11-08): on a phone the quick commands, the
+           filter picker and the people icon fold under ONE button at the start
+           of the input row (#vagent_qbtn -> #vagent_qmenu): the row of quick
+           commands (47 px) goes to the messages, the input gets the picker's
+           width.  Nothing is lost: the menu's commands click the very buttons
+           of the quick row (one handler), the picker drives the same pills.
+           A dot on the button = the chat does not show everything (a filter,
+           or this browser only).  Desktop keeps the row (CSS: < 576 px only). */
+        var qMenu = buildQuickMenu(el, formEl, fSel, fScope);
         var scopeBtn = el.querySelector('#vagent_scope');
         /* 2026-10-25: an icon, not the word — "all" here next to the
            filter pill "All" read as the same thing twice; the tooltip says
@@ -2658,6 +2812,12 @@
             fScope.innerHTML = scopeBtn.innerHTML;
             lt(fScope, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'title');
             lt(fScope, all ? 'chat.scope.all_tip' : 'chat.scope.mine_tip', null, 'aria-label');
+            // D11: in the phone menu the icon says it in words too
+            var sl = document.createElement('span');
+            sl.className = 'vq-l';
+            lt(sl, all ? 'agent.d11.scope_all' : 'agent.d11.scope_mine');
+            fScope.appendChild(sl);
+            qMenu.paint();
         }
         scopeBtn.addEventListener('click', function () {
             scope = scope === 'all' ? 'mine' : 'all';
@@ -2667,6 +2827,8 @@
         });
         paintScope();
         applyFilter();
+        fSel.addEventListener('change', function () { qMenu.paint(); qMenu.close(true); });
+        fScope.addEventListener('click', function () { qMenu.close(true); });
 
         Array.prototype.forEach.call(el.querySelectorAll('#vagent_quick [data-q]'), function (b) {
             b.addEventListener('click', function () {

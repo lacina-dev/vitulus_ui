@@ -4927,4 +4927,11 @@
     "calmgr.state.falling": "Usíná",
     "calmgr.state.hw_reset": "Tvrdý restart",
     "calmgr.state.unknown": "Jiný stav",
+    // D11 (2026-11-08): chat na telefonu — rychlé příkazy, filtr a čí konverzace pod jedním tlačítkem
+    "agent.d11.quick_tip": "Rychlé příkazy a co chat ukazuje",
+    "agent.d11.quick_head": "Rychlé příkazy",
+    "agent.d11.view_head": "Chat ukazuje",
+    "agent.d11.show": "Zobrazit",
+    "agent.d11.scope_all": "Celá konverzace ze všech zařízení",
+    "agent.d11.scope_mine": "Jen tenhle prohlížeč",
 };

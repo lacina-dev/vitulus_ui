@@ -101,18 +101,44 @@
         // notice band
         var info = $('span_status_info');
         var row = info && info.closest ? info.closest('.vt-notice-row') : null;
-        // C frame 3: on a phone in portrait the status icons and the notice
-        // band are part of the top of the C (opaque, frame surface) — the
-        // right panel's row then hangs straight from it
+        // C frame 3: on a phone in portrait the status icons are part of the
+        // top of the C (opaque, frame surface) — the right panel's row then
+        // hangs straight from it. D11: the notice band is not (it was 28 px
+        // of a 164-px frame): it floats at the top of the map like on a PC,
+        // under the frame or under the right panel's row (--vt-frame-ntop).
         if (m === 'sheet') {
             var ri = $('row_icons');
             if (visible(ri)) { top = Math.max(top, ri.getBoundingClientRect().bottom); }
-            if (row && visible(row)) { top = Math.max(top, row.getBoundingClientRect().bottom); }
         }
         setVar('--vt-frame-top', px(top));
-        setVar('--vt-frame-col-top', px(m === 'sheet' ? top : Math.max(top, colTop)));
-        var nb = top;
-        if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
+        var nb = top, colTopS = top;
+        if (m === 'sheet') {
+            // from the frame and the right panel only (never from the row
+            // itself: it is placed by this value). The folded panel is one row:
+            // the line goes under it. Unfolded it is a column down to the drive
+            // deck — the line went under the deck (D11 review) — so then the
+            // line sits right under the frame and the panel starts under the
+            // line's slot (44 px: a line with its Cancel is 40; the panel lies
+            // above the line in the page's layers, it must not cover it). The
+            // slot is kept whether a line shows or not: the panel's buttons
+            // never jump when a notice comes or goes
+            // (a STOP brings one — a finger on its way to START would miss);
+            // the agent's pills add their line.
+            var rp0 = $('right_panel');
+            var rpOn0 = visible(rp0);
+            var rpFold = rpOn0 && rp0.classList.contains('compact');
+            var ntop = (rpFold ? Math.max(top, rp0.getBoundingClientRect().bottom) : top) + 4;
+            setVar('--vt-frame-ntop', px(ntop));
+            if (row && visible(info)) {
+                // its CSS top (ntop, or one line lower under the agent's pills)
+                var rt = parseFloat(getComputedStyle(row).top);
+                nb = Math.max(nb, (isNaN(rt) ? ntop : rt) + row.offsetHeight);
+            }
+            if (rpOn0 && !rpFold) {
+                colTopS = ntop + 44 + (body.classList.contains('vagent-strip-on') ? 28 : 0);
+            }
+        } else if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
+        setVar('--vt-frame-col-top', px(m === 'sheet' ? colTopS : Math.max(top, colTop)));
         setVar('--vt-frame-notice-b', px(nb));
         // bottom bar zone
         var bm = $('div_bottom_menu');

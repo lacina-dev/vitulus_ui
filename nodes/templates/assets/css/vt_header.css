@@ -3,7 +3,8 @@
    "Navbar").
      PC          navbar 44 + menu band 36 = 80 px
                  [logo · dot | 172 px] [status icons from x = 184]  …  [system ↓ ↑ / ↓ / chip] | ? · bell · Restart · ⋯ ) STOP
-     phone up    navbar 52 + menu 44 + status summary 40 + notices 28 = 164 px
+     phone up    navbar 40 + menu 40 + status summary 40 = 120 px (D11, was 164);
+                 the notices float at the top of the map (overlay, as on a PC)
      low window  one row of 44 px: dot · panel buttons | icons per group … bell · Restart · ⋯ ) STOP
    Nothing grows to "share the rest": the left zone has a fixed width and the
    right zone fixed slots, so the icons and the system block never move when a
@@ -219,32 +220,55 @@ html body.vt-h-row #div_menu #btn_needs .vt-needs-n { top: 6px; }
 /* -------------------------------------------------- phone held upright */
 html body.vt-h-ph #div_menu .vt-hdr-row { padding-left: 14px; }
 html body.vt-h-ph #div_menu .vt-hdr-row > .vt-brand { width: auto; flex: 0 0 auto; }
-html body.vt-h-ph #div_menu .vt-hdr-tb { width: 44px; min-width: 44px; height: 44px; }
-html body.vt-h-ph #div_menu #btn_needs .vt-needs-n { top: 7px; left: 24px; }
-html body.vt-frame.vt-h-ph #row_menu { height: 44px; }
-html body.vt-frame.vt-h-ph #row_menu .btn-group { height: 44px; }
-html body.vt-frame.vt-h-ph #row_menu .btn-group > .btn { flex: 1 1 0 !important; height: 44px; min-width: 0; padding: 0 !important; }
+/* D11 (audit D8/B3): the phone's top frame 164 -> 120 px — navbar and menu
+   band 40 px each (a finger's 40 px, the tool buttons stay 44 wide), the
+   notices left the frame (an overlay at the top of the map, below) */
+html body.vt-h-ph #div_menu .vt-hdr-tb { width: 44px; min-width: 44px; height: 40px; }
+html body.vt-h-ph #div_menu #btn_needs .vt-needs-n { top: 5px; left: 24px; }
+html body.vt-frame.vt-h-ph #row_menu { height: 40px; }
+html body.vt-frame.vt-h-ph #row_menu .btn-group { height: 40px; }
+html body.vt-frame.vt-h-ph #row_menu .btn-group > .btn { flex: 1 1 0 !important; height: 40px; min-width: 0; padding: 0 !important; }
 /* the status summary: one row of 40 px (D8 H8-1: the whole row is the button
    of the status card, a finger needs 40 px — 28 px rows were too small and an
    invisible bigger hit area would steal taps from the menu band above or the
-   agent's pills / Cancel in the notices row below), notices: one row of 28 px
-   — fixed, so nothing below moves */
+   agent's pills / Cancel in the notices row below) — fixed, so nothing below
+   moves. D11: the notices are no longer a frame row (below). */
 html body.vt-frame.vt-h-ph #row_icons { height: 40px; overflow: hidden; }
 html body.vt-frame.vt-h-ph #status_div.sh-strip:not(.in-header) {
     height: 40px; max-height: 40px;
     flex-wrap: nowrap;
     column-gap: 9px;
 }
+/* D11: phone upright — the notices (the robot's line, the agent's pills) float
+   at the top of the map like on a PC: under the frame, or under the right
+   panel's row when it hangs there (vt_frame.js --vt-frame-ntop). Nothing
+   makes room for them, so the map does not move when one appears; empty =
+   nothing drawn (the row itself is transparent and lets taps through). It
+   starts right of the map's compass column (the rose and the layers button,
+   60 px at the left edge of the hollow), which it never covers. */
 html body.vt-frame.vt-h-ph .vt-notice-row {
+    position: fixed;
+    top: var(--vt-frame-ntop, 124px);
+    left: calc(var(--vt-frame-cleft, 6px) + 76px);
+    right: 8px;
     height: 28px;
+    margin: 0;
+    display: flex;
     align-items: center;
+    justify-content: center;
     flex-wrap: nowrap;
-    padding: 0 8px;
+    padding: 0 !important;
     overflow: hidden;
+    background: transparent !important;
+    z-index: 4;
+    pointer-events: none;
 }
-html body.vt-frame.vt-h-ph.vagent-strip-on .vt-notice-row { padding-left: 166px; }
+/* with the agent's pills on the first line the robot's line takes the whole
+   width on its own line below them (the D10 rule of a narrow hollow) */
+html body.vt-frame.vt-h-ph.vagent-strip-on .vt-notice-row { top: calc(var(--vt-frame-ntop, 124px) + 28px); }
 /* a finger's Cancel on the line: the row gives it room for as long as it is there */
 html body.vt-frame.vt-h-ph .vt-notice-row:has(.vt-notice-act) { height: 40px; }
+html body.vt-frame.vt-h-ph .vt-notice-row .vt-notice-act { pointer-events: auto; }
 
 /* ------------------------------------- notices: one line, in fixed slots */
 /* the robot's notice is one line with an ellipsis (the full text is its
@@ -277,8 +301,12 @@ html body.vt-frame .vt-notice-row .vt-notice {
     pointer-events: auto;
 }
 html body.vt-frame .vt-notice-row .vt-notice.vt-notice-conn { box-shadow: 0 0 0 1px var(--bs-danger, #dc3545), 0 2px 8px rgba(0, 0, 0, 0.35); }
-html body.vt-frame.vt-h-ph .vt-notice-row .vt-notice { box-shadow: none; background: transparent; padding: 0 4px; }
-html body.vt-frame.vt-h-ph .vt-notice-row .vt-notice.vt-notice-conn { color: #ffd9dc; }
+/* D11: on the phone the line is a pill over the map (PC style), a bit taller
+   for the thumb's eye */
+html body.vt-frame.vt-h-ph .vt-notice-row .vt-notice { line-height: 24px; }
+/* a long line ends in "…" (the full text is its tooltip): an inline span
+   (map_view.js / vt_notice.js show it with display:inline) ignores max-width */
+html body.vt-frame.vt-h-ph .vt-notice-row .vt-notice:not([style*="none"]) { display: inline-block !important; }
 /* PC / low window: an overlay in the top of the hollow — the agent on the
    left (max 230 px), the notice in the middle — that nothing makes room
    for: when one appears the map does not move */
@@ -366,16 +394,18 @@ html body.vt-frame #vagent_bars :is(#vagent_unlocked, #vagent_panic) {
 html body.vt-frame #vagent_bars :is(#vagent_unlocked, #vagent_panic)[style*="none"] { display: none !important; }
 html body.vt-frame #vagent_bars #vagent_panic { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 20px; }
 html body.vt-frame #vagent_bars #vagent_unlocked .vs-txt { min-width: 0; }
-/* phone upright: the left slot of the notices row (part of the top frame) */
+/* phone upright: the left slot of the notices overlay (D11: at the top of the
+   map, vt_frame.js --vt-frame-ntop; it was a row of the top frame) */
 html body.vt-frame.vt-h-ph #vagent_bars {
-    top: calc(var(--safe-top, 0px) + var(--navbar-h, 52px) + 44px + 40px + 3px) !important;
-    left: 8px;
+    top: calc(var(--vt-frame-ntop, 124px) + 3px) !important;
+    left: calc(var(--vt-frame-cleft, 6px) + 76px);
     max-width: calc(100vw - 16px);
 }
-/* one row inside the 28-px band: the pills shrink (ellipsis), never spill */
+/* one row inside the 28-px band: the pills shrink (ellipsis), never spill;
+   the bars box itself lets taps through to the map between the pills */
 html body.vt-frame.vt-h-ph #vagent_bars {
     flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 6px;
-    width: calc(100vw - 16px); max-width: calc(100vw - 16px); overflow: hidden;
+    width: max-content; max-width: calc(100vw - var(--vt-frame-cleft, 6px) - 84px); overflow: hidden;
 }
 html body.vt-frame.vt-h-ph #vagent_bars > * { flex: 0 1 auto; min-width: 0; }
 html body.vt-frame.vt-h-ph #vagent_bars #vagent_strip { height: 22px; max-width: 150px; }

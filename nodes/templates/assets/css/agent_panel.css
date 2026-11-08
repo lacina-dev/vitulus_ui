@@ -2874,3 +2874,76 @@ html body #vagent_head_right > .vagent-confirm {
     box-shadow: var(--vt-elev-2);
     font-size: var(--vt-fs);
 }
+
+/* D11 (D6 G3, 2026-11-08): phone — the quick commands, the filter picker and
+   the people icon fold under ONE button at the start of the input row
+   (#vagent_qbtn, agent_chat.js buildQuickMenu); the quick row's 47 px and the
+   picker's width go to the messages and the input.  Desktop / tablet keep the
+   row as it was (the button and the menu exist only below 576 px). */
+#vagent_qbtn, #vagent_qmenu { display: none; }
+@media (max-width: 575.98px) {
+    html body #vagent_panel #vagent_quick { display: none !important; }
+    html body #vagent_panel #vagent_form > #vagent_fsel { display: none; }
+    html body #vagent_panel #vagent_qbtn {
+        display: inline-flex; align-items: center; justify-content: center;
+        position: relative; flex: 0 0 auto; align-self: flex-end;
+        width: 44px; min-width: 44px; height: 44px; padding: 0;
+        border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl);
+        background: transparent; color: var(--vt-accent); font-size: 20px; cursor: pointer;
+    }
+    html body #vagent_panel #vagent_qbtn:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: -2px; }
+    html body #vagent_panel #vagent_qbtn.vt-on {
+        background: rgba(var(--vt-accent-rgb), 0.16); color: var(--vt-text); border-color: var(--vt-edge-info);
+    }
+    /* the chat shows only a part (a filter, or this browser only) */
+    html body #vagent_panel #vagent_qbtn .vq-dot { display: none; }
+    html body #vagent_panel #vagent_qbtn.vq-narrowed .vq-dot {
+        display: block; position: absolute; top: 5px; right: 5px;
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--vt-warn); box-shadow: 0 0 0 2px var(--vt-surface);
+    }
+    /* two columns of commands (a 2 x 2 block, not a 4-row list: the menu has
+       to fit above the input also with the keyboard up), the rest across */
+    html body #vagent_panel #vagent_qmenu:not([hidden]) {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 2px; align-content: start;
+        position: absolute; left: 8px; bottom: calc(100% + 4px); z-index: 30;
+        width: min(290px, calc(100% - 16px));
+        max-height: min(360px, 60dvh); overflow-y: auto; overscroll-behavior: contain;
+        padding: 6px;
+        border-radius: var(--vt-r-card);
+        background: var(--vt-surface-2);
+        box-shadow: 0 0 0 1px var(--vt-border), var(--vt-elev-2);
+        color: var(--vt-text);
+        font: 400 var(--vt-fs)/1.3 var(--vt-font);
+    }
+    #vagent_qmenu > :not(.vq-item[data-q]) { grid-column: 1 / -1; }
+    #vagent_qmenu .vq-h {
+        padding: 6px 8px 2px;
+        font: 600 var(--vt-fs-xs)/1.2 var(--vt-font); letter-spacing: .06em; text-transform: uppercase;
+        color: var(--vt-muted);
+    }
+    #vagent_qmenu .vq-h:not(:first-child) { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--vt-border); }
+    html body #vagent_panel #vagent_qmenu .vq-item {
+        display: flex; align-items: center; gap: 10px;
+        width: 100%; min-height: 44px; padding: 0 10px;
+        border: 0; border-radius: var(--vt-r-ctl);
+        background: transparent; color: var(--vt-text);
+        font: inherit; text-align: left; cursor: pointer;
+    }
+    html body #vagent_panel #vagent_qmenu .vq-item[data-q^="/"] { font-family: var(--vt-font-num, monospace); color: var(--vt-accent); }
+    html body #vagent_panel #vagent_qmenu .vq-item:hover,
+    html body #vagent_panel #vagent_qmenu .vq-item:focus-visible { background: rgba(255, 255, 255, 0.06); outline: none; box-shadow: inset 0 0 0 2px var(--vt-accent); }
+    html body #vagent_panel #vagent_qmenu #vagent_scope2 { display: flex; justify-content: flex-start; height: auto; }
+    html body #vagent_panel #vagent_qmenu #vagent_scope2 .la { flex: 0 0 20px; font-size: 18px; color: var(--vt-accent); text-align: center; }
+    #vagent_qmenu .vq-l { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+    #vagent_qmenu .vq-row {
+        display: flex; align-items: center; gap: 10px;
+        min-height: 44px; margin: 0; padding: 0 4px 0 10px;
+    }
+    #vagent_qmenu .vq-row > .vq-l { flex: 0 1 auto; color: var(--vt-muted); }
+    html body #vagent_panel #vagent_qmenu #vagent_fsel {
+        display: block; flex: 1 1 auto; max-width: none; height: 40px; font-size: var(--vt-fs);
+    }
+    /* the input row: button · field · send — the field takes the rest */
+    html body #vagent_panel #vagent_form { gap: 6px; }
+}

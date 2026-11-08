@@ -51,9 +51,11 @@ of CPU, RAM and disk; click = the card with the numbers), under 1280 px the menu
 the tooltip), under 1100 px each icon group shows one icon — the worst one of the group. The logo,
 the dot, ?, the bell, ⋯ and STOP are always there.
 
-**Phone upright**: the navbar (logo, dot, bell, Restart, ⋯, STOP), the menu band, the status
-**summary** (one icon per group + *No warnings* / *2 warnings* / *No warnings · 1 no data*; tap = the status card) and a row of
-notices. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
+**Phone upright**: the navbar (logo, dot, bell, Restart, ⋯, STOP), the menu band and the status
+**summary** (one icon per group + *No warnings* / *2 warnings* / *No warnings · 1 no data*; tap = the status card) —
+three rows of 40 px, 120 px in all. The notices float in the top of the map like on a PC: under
+the summary, or under the right panel's row, right of the compass and the layers button (a long
+line ends in **…**). ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
 the panel buttons · one icon per status group · bell · Restart · ⋯ — the logo, ? and the computer
 are in **⋯**, STOP is in the corner above the right panel.
 
@@ -78,8 +80,11 @@ after it.
 
 **PC** (≥ 1024 px wide): the panel is a column, the map narrows next to it. **Tablet / phone on
 its side**: the column lies over the map. **Phone upright** (< 576 px): the panel is a sheet from
-the bottom (60 % of the height). On a phone (upright or on its side) a compact head puts
+the bottom: it leaves at least about a third of the map above itself (at most 60 % of the
+height); the Agent panel keeps 60 % for the conversation. On a phone (upright or on its side) a compact head puts
 **?** / ⤢ / ✕ (in the Agent panel also its **Agent** stop) at the end of the tab row; upright the title moves into the grip row.
+In the Agent panel upright the head sits in the grip row beside the title and the tabs have
+their own row, the whole width.
 
 **Tabs that do not fit** (a narrow panel, a phone, longer Czech labels) stay in one row that
 scrolls sideways: a **‹** / **›** at the edge shows there are more — click it, turn the mouse wheel

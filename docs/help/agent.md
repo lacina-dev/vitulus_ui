@@ -19,7 +19,9 @@ Tabs: **Chat** · **Work** · **Activity** · **Findings** · **Robot** · **Mod
 
 ![The Agent panel with numbered markers](img/shot-agent.webp "1 robot state chips · 2 Stop agent (the agent's STOP) · 3 tabs · 4 type a task or question · 5 quick commands")
 
-On a phone the tab row shows two or three tabs; swipe it or tap **›**. A small orange dot on
+On a phone held upright the tabs have a row of their own (the panel's head — **Agent** stop,
+?, ⤢, ✕ — sits beside the title in the grip row), so three to five tabs are in sight; swipe the
+row or tap **›** for the rest. A small orange dot on
 **‹ / ›** means a hidden tab has a count or news (typically **Findings**).
 
 ## Give a task
@@ -66,10 +68,15 @@ ok: Report | done, or why not
 
 Above the conversation, the pills **All / Chat / Reports / Jobs** filter what you see; the people
 icon at the end of that row switches between the whole conversation from every device (two
-people) and this browser only (one person). On a phone the same filter is one small picker
-(**All ▾**) at the start of the input row and the people icon sits at the end of the quick
-commands, so the chat keeps one row more; the state chips keep their own row (they wrap to a
-second line rather than hide one).
+people) and this browser only (one person). On a phone the quick commands, the filter and the
+people switch fold under one **⚡** button at the start of the input row: tap it for a small menu
+— the four quick commands, **Show** (All / Chat / Reports / Jobs) and whose conversation (in
+words). An orange dot on **⚡** means the chat does not show everything (a filter, or this
+browser only). So the messages get the row the quick commands used to take and the input the
+filter's width; the state chips keep their own row (they wrap to a second line rather than hide
+one). With a keyboard: ↓ on **⚡** opens the menu and the arrows move in it — they never drive the
+robot. **Esc** closes the menu and, as everywhere in the UI, **also stops the robot** (the big
+STOP).
 
 ### One conversation, one brain
 

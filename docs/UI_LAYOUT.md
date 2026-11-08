@@ -139,7 +139,7 @@ nezalomí (`flex-wrap: nowrap`, užší okno věci ubírá).
 | Rozložení | Třída | Výška | Obsah |
 |---|---|---|---|
 | PC / tablet | `vt-h-pc` | navbar 44 + pás menu 36 = 80 px | vlevo logo + tečka (pevně 172 px), ikony stavu od x = 184 · vpravo systém v pevných slotech · ? · zvonek · Restart · ⋯, konec v objímce STOPu |
-| telefon na výšku (< 576 px) | `vt-h-ph` | navbar 52 + menu 44 + souhrn stavu 40 + hlášky 28 = 164 px | navbar: logo, tečka, zvonek, Restart, ⋯, STOP; ? a systém v ⋯ |
+| telefon na výšku (< 576 px) | `vt-h-ph` | navbar 40 + menu 40 + souhrn stavu 40 = 120 px (D11; hlášky jsou překryv v horní části mapy) | navbar: logo, tečka, zvonek, Restart, ⋯, STOP; ? a systém v ⋯ |
 | nízké okno (výška < 500, telefon na šířku) | `vt-h-row` | jeden řádek 44 px | tečka · tlačítka panelů (`#row_menu` se přestěhuje do navbaru) · ikony po skupinách · zvonek · Restart · ⋯; logo, ? a systém v ⋯; STOP v rohu nad pravým sloupcem |
 
 | Místo | Obsah | Poznámka |
@@ -221,8 +221,8 @@ okně je to jediný řádek hlavičky a mapa pod ním běží celou výškou).
 
 | Oblast | Panel zobrazený (sheet) | Panel skrytý |
 |---|---|---|
-| Horní lišta | navbar 52 + pás menu 44 | totéž |
-| Ikonky + hlášky | součást horní lišty (plocha rámu), pod pásem menu: souhrn stavu 40 px v jednom řádku (D8 H8-1: celý řádek je tlačítko karty stavu, dotyk ≥ 40 px), hlášky 28 px (agent vlevo + hláška s elipsou) — celkem 164 px | totéž |
+| Horní lišta | navbar 40 + pás menu 40 (D11) | totéž |
+| Ikonky + hlášky | souhrn stavu je součást horní lišty (plocha rámu), pod pásem menu, 40 px v jednom řádku (D8 H8-1: celý řádek je tlačítko karty stavu, dotyk ≥ 40 px) — rám celkem 120 px. Hlášky (agent vlevo + hláška s elipsou) od D11 nejsou řádek rámu: plavou v horní části mapy (pod rámem, nebo pod řádkem pravého panelu, vpravo od sloupce kompasu a vrstev; `--vt-frame-ntop`, vt_frame.js) | totéž |
 | Pravý stavový panel | — (při otevřeném sheetu ustoupí) | sbalený řádek visí z horní lišty u pravé hrany (📷 = large kamera, ▾ rozbalí) |
 | Levý panel | sheet od spodní lišty, 60 % výšky (celá výška ⤢) | — |
 | Hlavička panelu | panely se záložkami: STOP agenta, ⤢, ✕ na pravém konci řádku záložek, titulek panelu v řádku úchytu sheetu vlevo (P27); Marker a editor mapy beze změny | — |

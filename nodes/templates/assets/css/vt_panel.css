@@ -1509,6 +1509,17 @@ body.vt-frame.vt-m-sheet #ui_drawer_grip { background: var(--vt-frame-bg); borde
 /* the sheet sits ON the measured bottom bar (not on the token height): no
    strip of map between the sheet and the bar, whatever the bar's height */
 body.vt-frame.vt-m-sheet #ui_drawer { bottom: calc(var(--vt-frame-bottom, 40px) + var(--drawer-log-clear, 0px)); }
+/* D11 (audit B3): the sheet leaves at least ~35 % of the map's hollow above
+   itself (it was 60dvh whatever the frame: 76 px of map at 360 x 740). The
+   agent's chat keeps 60dvh — its messages are the content there, and the
+   panel's ⤢ / the grip still make every sheet full height. */
+body.vt-frame.vt-m-sheet #ui_drawer:not(.full):not(.vt-fit) {
+    height: min(var(--vt-sheet-h, 60dvh),
+                calc((100dvh - var(--vt-frame-top, 120px) - var(--vt-frame-bottom, 56px)) * 0.65));
+}
+body.vt-frame.vt-m-sheet #ui_drawer:not(.full):not(.vt-fit):has(> #ui_drawer_body > #vagent_panel:not([style*="none"])) {
+    height: var(--vt-sheet-h, 60dvh);
+}
 
 /* -- spine: the C's narrow back while the panel is hidden ----------------- */
 #vt_c_spine { display: none; }
@@ -2244,6 +2255,27 @@ html body.vt-frame.vt-m-sheet.vt-joy-on:not(.vt-panel-open) #div_log_view.log-ex
     /* the agent's tab row comes first (its status chips follow it), so the
        floating head sits on the tab row, not on the chips */
     body.vt-frame.vt-m-sheet #ui_drawer:not(.full) #vagent_panel > #vagent_tabs { order: -1; }
+}
+/* D11 (D6 G3, ředitel 2026-11-08): phone — the AGENT's head (Agent stop · ? ·
+   ⤢ · ✕) moves up into the sheet's grip row, beside the title; the six tabs
+   get a row of their own, the whole width (three to four of them in sight
+   instead of two). The grip row keeps its tap (full screen) on the title
+   side; its handle bar, which the head would cover, is not drawn — ⤢ in the
+   head is the same switch. Other panels keep P27 (owner). */
+@media (max-width: 575.98px) {
+    body.vt-frame.vt-m-sheet #ui_drawer:not(.full):has(> #ui_drawer_body > #vagent_panel:not([style*="none"]) #vagent_tabs) > #ui_drawer_head {
+        top: 0; height: var(--vt-grip-h, 44px); min-height: 40px;
+        border-bottom-left-radius: 0;
+    }
+    body.vt-frame.vt-m-sheet #ui_drawer:not(.full):has(> #ui_drawer_body > #vagent_panel:not([style*="none"]) #vagent_tabs) > #ui_drawer_body #vagent_tabs {
+        margin-right: 0 !important;
+    }
+    body.vt-frame.vt-m-sheet #ui_drawer:not(.full):has(> #ui_drawer_body > #vagent_panel:not([style*="none"]) #vagent_tabs) > #ui_drawer_grip::after {
+        display: none;
+    }
+    body.vt-frame.vt-m-sheet #ui_drawer:not(.full):has(> #ui_drawer_body > #vagent_panel:not([style*="none"]) #vagent_tabs) > #ui_drawer_grip {
+        min-height: 44px;
+    }
 }
 
 /* =========================================================================

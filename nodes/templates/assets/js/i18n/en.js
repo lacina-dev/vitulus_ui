@@ -4842,4 +4842,11 @@
     "calmgr.state.falling": "Falling asleep",
     "calmgr.state.hw_reset": "Hardware reset",
     "calmgr.state.unknown": "Other state",
+    // D11 (2026-11-08): phone chat — quick commands, filter and whose under one button
+    "agent.d11.quick_tip": "Quick commands and what the chat shows",
+    "agent.d11.quick_head": "Quick commands",
+    "agent.d11.view_head": "The chat shows",
+    "agent.d11.show": "Show",
+    "agent.d11.scope_all": "The whole conversation, every device",
+    "agent.d11.scope_mine": "This browser only",
 };

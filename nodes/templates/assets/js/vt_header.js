@@ -15,9 +15,10 @@
  *               < 1280  menu icons only            (vt-h-w1280)
  *               < 1100  one icon per status group  (vt-h-w1100 → vt-h-sum)
  *             Logo, dot, ?, bell, ⋯ and STOP are never hidden.
- *   vt-h-ph   phone upright (< 576 px): navbar 52 (logo, dot, bell, Restart,
- *             ⋯, STOP) + menu 44 + status summary 40 + notices 28 = 164 px;
- *             ? and the system are in ⋯.
+ *   vt-h-ph   phone upright (< 576 px): navbar 40 (logo, dot, bell, Restart,
+ *             ⋯, STOP) + menu 40 + status summary 40 = 120 px (D11: was 164);
+ *             the notices are an overlay at the top of the map, as on a PC
+ *             (vt_frame.js --vt-frame-ntop); ? and the system are in ⋯.
  *   vt-h-row  low window (height < 500, phone on its side): ONE row of 44 px —
  *             dot · the panel buttons (#row_menu moves into the navbar) · one
  *             icon per status group · bell · Restart · ⋯; the logo, ? and the
@@ -35,7 +36,7 @@
     'use strict';
     if (window.VTHeader) { return; }
     var SHEET_MAX_W = 576, ROW_MAX_H = 500;
-    var NAV_H = {pc: 44, ph: 52, row: 44};
+    var NAV_H = {pc: 44, ph: 40, row: 44};   // D11: phone 52 -> 40
 
     function $(id) { return document.getElementById(id); }
     function tr(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }

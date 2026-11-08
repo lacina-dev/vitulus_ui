@@ -19,7 +19,9 @@ Záložky: **Chat** · **Práce** · **Aktivita** · **Nálezy** · **Robot** ·
 
 ![Panel Agent s očíslovanými značkami](../img/shot-agent.webp "1 čipy stavu robota · 2 Zastav agenta (STOP agenta) · 3 záložky · 4 napiš úkol nebo otázku · 5 rychlé příkazy")
 
-Na telefonu je v řádku záložek vidět dvě až tři záložky; posuň ho prstem nebo ťukni na **›**.
+Na telefonu na výšku mají záložky vlastní řádek (hlavička panelu — stop **Agent**, ?, ⤢, ✕ —
+sedí vedle názvu v řádku s úchytem), takže jsou vidět tři až pět záložek; zbytek posuň prstem
+nebo ťukni na **›**.
 Malá oranžová tečka na **‹ / ›** znamená, že schovaná záložka má počet nebo novinku (typicky
 **Nálezy**).
 
@@ -65,9 +67,14 @@ ok: Hlášení | hotovo, nebo proč ne
 
 Nad konverzací filtrují pilulky **Vše / Chat / Hlášení / Úlohy**, co vidíš; ikona lidí na konci
 řádku přepíná mezi celou konverzací ze všech zařízení (dva lidé) a jen tímhle prohlížečem (jeden
-člověk). Na telefonu je tentýž filtr jeden malý výběr (**Vše ▾**) na začátku řádku pro psaní a ikona lidí
-je na konci rychlých příkazů, takže chatu zůstane o řádek víc; stavové čipy mají vlastní řádek
-(raději se zalomí na druhý řádek, než aby některý schovaly).
+člověk). Na telefonu se rychlé příkazy, filtr i přepínač lidí schovají pod jedno tlačítko **⚡**
+na začátku řádku pro psaní: ťukni na něj a otevře se malá nabídka — čtyři rychlé příkazy,
+**Zobrazit** (Vše / Chat / Hlášení / Úlohy) a čí konverzace (slovy). Oranžová tečka na **⚡**
+znamená, že chat neukazuje všechno (filtr nebo jen tenhle prohlížeč). Zprávy tak dostanou řádek,
+který dřív zabíraly rychlé příkazy, a pole pro psaní šířku filtru; stavové čipy mají vlastní
+řádek (raději se zalomí na druhý řádek, než aby některý schovaly). Na klávesnici: ↓ na **⚡**
+nabídku otevře a šipky se v ní pohybují — robotem nikdy nepohnou. **Esc** nabídku zavře a jako
+všude v UI **zároveň zastaví robota** (velký STOP).
 
 ### Jeden rozhovor, jeden mozek
 
