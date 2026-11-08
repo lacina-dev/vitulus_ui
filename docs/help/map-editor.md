@@ -21,7 +21,10 @@ widens the panel; **Close editor** or **✕** returns to the Map panel.
 ## Tools
 
 The bar holds **Select**, three groups, **Measure**, undo and redo, **Layers**, **History** and
-**⋯**. On a phone it is at the top of the panel.
+**⋯**. Where the map beside the panel is too narrow for it, the words go and only the icons stay
+(with a mouse, point at one for its name). On a phone, a tablet or a phone on its side the bar is
+one row of icons at the top of the panel, which stays there while the panel scrolls; **Layers**
+and **History** are then under **⋯**.
 
 | Group | Tool | How |
 |---|---|---|
@@ -55,15 +58,24 @@ does everywhere in the app. **Del** removes the selected point, or the selected 
 point is selected. **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo. To cancel a drawing without
 stopping the robot, use the **Cancel** button.
 
-On a phone the panel shrinks to the essentials while you work on the map. The **^** button at its
-top right brings back the tools, the list and the details.
+On a phone the editor opens on a small panel at the bottom: the tool bar and the inspector, the map
+above it. The **^** button at the inspector's top right brings the list, the layers and the details;
+picking an object, a tool or touching the map makes the panel small again. One finger moves the
+map, two fingers zoom; neither adds a point or saves anything. On a tablet or a phone on its side,
+choosing a tool brings the inspector with **Finish** into view.
 
 ## Objects and the inspector
 
 The list holds everything of the map, one row per object. **Search** looks through names, aliases,
 tags, notes and categories; the type filter narrows it down. Tap anything you can see: it is
 selected on the map and in the list at the same time, and a pick from the list also brings it into
-view. Where objects overlap, tap again to go to the next one.
+view. Where objects overlap, tap again to go to the next one. The list is never taller than about
+a quarter of the screen; a longer one scrolls inside and fades at the bottom, and its scroll does not
+carry on into the panel. On a phone the list is part of the panel and scrolls with it.
+
+Names on the map never cover each other or the dot of a point: the name of a point moves to a free
+side of its dot, the name of an area just above or below its middle. Where there is no free place,
+the name waits until you zoom in — rules and zones keep theirs first, paths last.
 
 The inspector has the same order for every type:
 

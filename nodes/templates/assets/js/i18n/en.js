@@ -898,6 +898,8 @@
     "medits.reason.program_unknown": "Program {detail} is not known.",
     "medits.reason.programs_unreadable": "The programs of this map cannot be read.",
     "medits.warn.program_gone": "Program {detail} no longer exists, the zone came back without it.",
+    // D7 editor (2026-11-08): the editor on a phone, labels, the object list
+    "medits.expand_lists": "Lists, layers and details",
     /* ---- @end editor */
 
     /* ---- @frag robot: Dock, rain, IMU calibration, calendar (dock.js, rain_alert.js, imu_calibration.js, calendar_manager.js) */

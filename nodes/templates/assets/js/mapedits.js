@@ -508,8 +508,31 @@ window.MapEdits = (function () {
     var _zoneLayer = null;
     var _ml = null;          // MapEditLayers.Layers: objects with meaning, world layers, snap ring
 
+    // Map metres <-> screen pixels (y down) around the view centre. The editor
+    // looks straight down, so this is exact for any turn of the camera.
+    function _screenAxes(pxm) {
+        var r = _ov.canvas.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        var o = _ov.screenToWorld(cx, cy), a = _ov.screenToWorld(cx + 100, cy), b = _ov.screenToWorld(cx, cy + 100);
+        var ex = [(a.x - o.x) / 100, (a.y - o.y) / 100], ey = [(b.x - o.x) / 100, (b.y - o.y) / 100];
+        var det = ex[0] * ey[1] - ey[0] * ex[1];
+        if (!r.width || !isFinite(det) || Math.abs(det) < 1e-12) {   // no canvas yet: north up
+            o = { x: 0, y: 0 }; ex = [1 / pxm, 0]; ey = [0, -1 / pxm]; det = -1 / (pxm * pxm);
+        }
+        return {
+            toScreen: function (x, y) {
+                var dx = x - o.x, dy = y - o.y;
+                return [(dx * ey[1] - dy * ey[0]) / det, (ex[0] * dy - ex[1] * dx) / det];
+            },
+            toWorld: function (sx, sy) { return [o.x + ex[0] * sx + ey[0] * sy, o.y + ex[1] * sx + ey[1] * sy]; },
+        };
+    }
+
     // Constant size on screen for what lives in map metres. Runs each overlay
     // frame, does its work only when the zoom changed.
+    // D7 (E2): labels never cover each other or the dot of a point. A point's
+    // name tries the four corners beside its dot, then above and below; an
+    // area's name its centre, then just above or below it while still inside.
+    // A name with no free place left is hidden (rules and zones win, paths last).
     var _lastPxm = 0;
     function _rescaleLabels(force) {
         if (!_ov) return;
@@ -519,33 +542,50 @@ window.MapEdits = (function () {
         var groups = [_layer && _layer.group, _zoneLayer && _zoneLayer.group,
                       _mapObjLayer && _mapObjLayer.wpGroup, _mapObjLayer && _mapObjLayer.pathGroup,
                       _ml && _ml.group, _ml && _ml.sugg];
-        var labels = [];
+        var labels = [], dots = [];
         var wpScale = Math.max(1, WP_MIN_PX / (WP_R * pxm));
+        var S = _screenAxes(pxm);
+        var dotPx = WP_R * 1.28 * wpScale * pxm, offPx = WP_R * 1.6 * wpScale * pxm;
         groups.forEach(function (g) {
             if (!g) return;
+            var shown = g.visible !== false;
             g.children.forEach(function (o) {
-                if (o.userData.wp) { o.scale.set(wpScale, wpScale, 1); return; }
+                if (o.userData.wp) {
+                    o.scale.set(wpScale, wpScale, 1);
+                    if (shown && o.visible !== false) {
+                        var d = S.toScreen(o.position.x, o.position.y);
+                        dots.push({ x: d[0], y: d[1], w: 2 * dotPx, h: 2 * dotPx });
+                    }
+                    return;
+                }
                 var l = o.userData.label;
                 if (!l) return;
                 var sw = l.w * LABEL_PX / pxm, sh = l.h * LABEL_PX / pxm;
                 o.scale.set(sw, sh, 1);
+                var w = l.w * LABEL_PX, h = l.h * LABEL_PX, c = S.toScreen(l.x, l.y), cand;
                 if (l.beside) {
-                    var off = WP_R * 1.6 * wpScale;
-                    o.position.set(l.x + off + sw / 2, l.y + off, 0);
+                    var side = offPx + w / 2, up = offPx + h / 2 + 2;
+                    cand = [[side, -offPx], [side, offPx], [-side, -offPx], [-side, offPx], [0, -up], [0, up]];
                 } else {
-                    o.position.set(l.x, l.y, 0);
+                    cand = [[0, 0]];
+                    if (l.extent * pxm >= 3 * h) cand.push([0, -(h + 4)], [0, h + 4]);
                 }
+                var p0 = S.toWorld(c[0] + cand[0][0], c[1] + cand[0][1]);
+                o.position.set(p0[0], p0[1], 0);
                 o.visible = !l.extent || l.extent * pxm >= LABEL_MIN_PX;
-                if (o.visible && g.visible !== false) {
-                    labels.push({ x: o.position.x * pxm, y: o.position.y * pxm, w: l.w * LABEL_PX, h: l.h * LABEL_PX,
-                                  prio: l.prio, order: labels.length, spr: o });
+                if (o.visible && shown) {
+                    labels.push({ x: c[0], y: c[1], w: w, h: h, prio: l.prio, order: labels.length, spr: o, cand: cand });
                 }
             });
         });
         // Fewer words and no overlap: rules and zones first, paths last.
-        var kept = MO.declutter(labels, 2);
+        var kept = MO.declutter(labels, 2, dots);
         labels.forEach(function (it) { it.spr.visible = false; });
-        kept.forEach(function (it) { it.spr.visible = true; });
+        kept.forEach(function (it) {
+            var p = S.toWorld(it.x + it.dx, it.y + it.dy);
+            it.spr.position.set(p[0], p[1], 0);
+            it.spr.visible = true;
+        });
         var P = sharedPolygon();
         if (P && P.attached) P._updateVertexScale();
     }
@@ -598,6 +638,16 @@ window.MapEdits = (function () {
         _applyAllShow();
         _setTool('off');
         _rescaleLabels(true);
+        // D7 (E1): a phone opens on the compact sheet - the tools and the
+        // inspector, the map above it; ^ brings the lists. The map was framed
+        // for the taller sheet: shift it by half of what the sheet gave back.
+        var d = document.getElementById('ui_drawer');
+        if (d && window.innerWidth < 576) {
+            var top0 = d.offsetTop;
+            _compact(true);
+            var gain = d.offsetTop - top0;
+            if (gain > 0) { try { overlay.panByPixels(0, gain / 2); } catch (e) {} }
+        }
     }
     function onExit() {
         _teardownTool();
@@ -831,6 +881,9 @@ window.MapEdits = (function () {
               btn('la-clone', 'editor.layers', ' data-goto="mapedit_sec_layers"') + btn('la-history', 'editor.history', ' data-goto="mapedit_sec_history"') +
               '<div class="mapedit-bar-group">' + btn('la-ellipsis-h', 'medits.more', ' data-group="more"') +
               '<div class="mapedit-fly" data-fly="more">' +
+              // D7: in the panel (phone, narrow map) Layers and History move in here
+              '<button type="button" class="met-tool met-panel-only" data-goto="mapedit_sec_layers"><i class="la la-clone"></i><span' + _ti('editor.layers') + '</span></button>' +
+              '<button type="button" class="met-tool met-panel-only" data-goto="mapedit_sec_history"><i class="la la-history"></i><span' + _ti('editor.history') + '</span></button>' +
               flyTool({ tool: 'geofence', ico: 'la-shield', label: 'medits.tool.geofence' }) +
               '<button type="button" class="met-tool" id="mapedit_clear_all"><i class="la la-trash"></i><span' + _ti('medits.clear_all') + '</span></button>' +
               '</div></div></div>' +
@@ -846,7 +899,7 @@ window.MapEdits = (function () {
         ctx.innerHTML =
             '<div class="text-uppercase fw-bold vt-fs-xs vt-ls vt-muted vt-mb1"' + _ti('medits.inspector') + '</div>' +
             '<div class="vt-box mapedit-ctx-box">' +
-            '  <button class="btn btn-outline-secondary" id="mapedit_expand" type="button" data-i18n-title="medits.expand" data-i18n-aria-label="medits.expand" title="' + _escapeAttr(t('medits.expand')) + '" aria-label="' + _escapeAttr(t('medits.expand')) + '"><i class="la la-angle-up"></i></button>' +
+            '  <button class="btn btn-outline-secondary" id="mapedit_expand" type="button" data-i18n-title="medits.expand_lists" data-i18n-aria-label="medits.expand_lists" title="' + _escapeAttr(t('medits.expand_lists')) + '" aria-label="' + _escapeAttr(t('medits.expand_lists')) + '"><i class="la la-angle-up"></i></button>' +
             '  <div id="mapedit_sel"></div>' +
             '  <div id="mapedit_zone_slot"></div>' +
             '  <div id="mapedit_hint" class="vt-fs-sm vt-accent vt-minh-line"></div>' +
@@ -909,7 +962,7 @@ window.MapEdits = (function () {
         bar.querySelector('#mapedit_snap').addEventListener('click', _toggleSnap);
         bar.querySelector('#mapedit_trace').addEventListener('click', function () { if (_trace) _traceStop(true); else _traceStart(); });
         bar.querySelectorAll('[data-goto]').forEach(function (b) {
-            b.addEventListener('click', function () { _reveal(b.getAttribute('data-goto')); });
+            b.addEventListener('click', function () { _closeFly(); _reveal(b.getAttribute('data-goto')); });
         });
         // finish / cancel (edits draw)
         ctx.querySelector('#mapedit_finish').addEventListener('click', _finishEditsDraw);
@@ -950,6 +1003,18 @@ window.MapEdits = (function () {
         });
         MO.onChange(_onObjects);
         window.addEventListener('resize', function () { if (_ov && _ov.editing) _showBar(true); });
+        // the right panel opening or folding changes the room for the bar
+        var rp = document.getElementById('right_panel'), rpW = -1;
+        if (rp && window.ResizeObserver) {
+            new ResizeObserver(function () {
+                if (rp.offsetWidth === rpW) return;
+                rpW = rp.offsetWidth;
+                if (_ov && _ov.editing) _showBar(true);
+            }).observe(rp);
+        }
+        // a list with more rows than it shows fades at the bottom (E3)
+        var ol = document.getElementById('mapedit_obj_list');
+        if (ol) ol.addEventListener('scroll', _listFade, { passive: true });
 
         _built = true;
         _refreshDisabled();
@@ -966,14 +1031,49 @@ window.MapEdits = (function () {
         d.open = true;
         if (d.scrollIntoView) d.scrollIntoView({ block: 'nearest' });
     }
-    // The bar floats over the map; on a phone it is part of the sheet.
+    function _listFade() {
+        var l = document.getElementById('mapedit_obj_list');
+        if (l) l.classList.toggle('vt-more-below', l.scrollHeight - l.scrollTop - l.clientHeight > 2);
+    }
+    // The bar floats over the map when it fits there in one row, with words or
+    // as icons only. Otherwise it is one row of icons at the top of the panel:
+    // always on a phone, and on a tablet or a phone on its side, where the map
+    // between the panel and the right panel is narrow (D7, E1). Its two one-row
+    // widths are measured once per language (the words change them).
+    var _barW = null;
+    function _barMode(bar) {
+        if (window.innerWidth < 576) return 'panel';
+        var tools = bar.querySelector('.mapedit-bar-tools');
+        if (!tools) return 'float';
+        if (!_barW) {
+            var home = bar.parentNode, next = bar.nextSibling, cls = bar.className;
+            document.body.appendChild(bar);
+            bar.classList.remove('in-panel', 'icons');
+            bar.classList.add('on', 'mapedit-measure');
+            var full = tools.offsetWidth;
+            bar.classList.add('icons');
+            _barW = { full: full, icons: tools.offsetWidth };
+            bar.className = cls;
+            if (home && home !== document.body) home.insertBefore(bar, next);
+        }
+        // the room as vt_mapedit.css places it: right of the compass, 22 px off the right panel
+        var d = document.getElementById('ui_drawer'), rp = document.getElementById('right_panel');
+        var left = (d && d.classList.contains('open') && !d.classList.contains('full')) ? d.offsetLeft + d.offsetWidth : 0;
+        var rpw = (rp && rp.offsetWidth) ? Math.max(0, window.innerWidth - rp.getBoundingClientRect().left) : 0;
+        var free = window.innerWidth - left - rpw - 98;
+        return free >= _barW.full ? 'float' : (free >= _barW.icons ? 'icons' : 'panel');
+    }
     function _showBar(on) {
         var bar = document.getElementById('mapedit_bar'), host = document.getElementById('mapedit_tools');
         if (!bar || !host) return;
-        var phone = window.innerWidth < 576, want = phone ? host : document.body;
+        var mode = on ? _barMode(bar) : (window.innerWidth < 576 ? 'panel' : 'float');
+        var want = mode === 'panel' ? host : document.body;
         if (bar.parentNode !== want) want.appendChild(bar);
+        bar.classList.toggle('in-panel', mode === 'panel');
+        host.classList.toggle('mapedit-tools-on', mode === 'panel' && !!on);   // sticks to the top of the panel
+        bar.classList.toggle('icons', mode === 'icons');
         bar.classList.toggle('on', !!on);
-        var h = (on && !phone) ? bar.offsetHeight + 8 : 0;
+        var h = (on && mode !== 'panel') ? bar.offsetHeight + 8 : 0;
         if (h !== _barH) {
             _barH = h;
             document.documentElement.style.setProperty('--mapedit-bar-h', h + 'px');
@@ -1358,6 +1458,22 @@ window.MapEdits = (function () {
         }
         _paintSnap();
         _refreshActions();
+        if (_tool !== 'off') _ctxIntoView(true);
+    }
+    // Tablet or phone on its side: the panel may be scrolled away from the
+    // inspector. Bring it up under the tool bar. The compact sheet of a phone
+    // shows it anyway, a panel that shows it stays. endFirst: when it is taller
+    // than the room, its end with Finish comes first (a tool), else its head.
+    function _ctxIntoView(endFirst) {
+        if (window.innerWidth < 576) return;
+        var c = document.getElementById('mapedit_context'), body = document.getElementById('ui_drawer_body');
+        var bar = document.getElementById('mapedit_bar');
+        if (!c || !body) return;
+        var rc = c.getBoundingClientRect(), rb = body.getBoundingClientRect();
+        var host = document.getElementById('mapedit_tools');
+        var top = rb.top + (bar && bar.classList.contains('in-panel') && host ? host.offsetHeight : 0);
+        if (rc.top >= top && rc.bottom <= rb.bottom) return;
+        body.scrollTop += (endFirst && rc.height > rb.bottom - top) ? rc.bottom - rb.bottom + 4 : rc.top - top - 8;
     }
     var _drawSaving = false, _splitZone = null;
     function _onDrawChange() {
@@ -1713,6 +1829,7 @@ window.MapEdits = (function () {
         if (opts && opts.frame) _frameSel();
         var body = document.getElementById('ui_drawer_body');
         if (body && window.innerWidth < 576) body.scrollTop = 0;
+        else if (!(opts && opts.frame)) _ctxIntoView(false);   // a pick from the list keeps the list where it is
         return true;
     }
     function _closeSel() {
@@ -1978,7 +2095,7 @@ window.MapEdits = (function () {
         _listQueued = true;
         (window.requestAnimationFrame || setTimeout)(function () {
             _listQueued = false;
-            if (_built) Panel.renderList(_rows());
+            if (_built) { Panel.renderList(_rows()); _listFade(); }
         });
     }
 
@@ -2699,7 +2816,9 @@ window.MapEdits = (function () {
 
     // Language switch: data-i18n parts follow by themselves; re-draw the rest.
     function _onLang() {
+        _barW = null;   // the words of the bar changed its width: measure after they are in
         if (!_built) return;
+        setTimeout(function () { if (_ov && _ov.editing) _showBar(true); }, 0);
         Panel.onLang();
         _renderSel();
         if (_hintK) _setHint(_hintK, _hintV);

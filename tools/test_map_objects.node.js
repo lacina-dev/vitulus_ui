@@ -9,7 +9,7 @@
  *   - geometry: area, length, perimeter,
  *   - snap: a vertex beats an edge, tolerance, open and closed sets, nothing near,
  *   - trace: one sample per step, bad positions dropped, simplify keeps corners,
- *   - labels: overlap is dropped by priority,
+ *   - labels: overlap is dropped by priority, or moves to the next free place (D7),
  *   - rules: active, scheduled, expired, temporary,
  *   - fields: lists, datetime-local round trip, speed and cut height limits,
  *   - search and type filter, only the changed meaning is sent,
@@ -83,6 +83,17 @@ check('two points stay', MO.simplify([[0, 0], [1, 1]], 0.05), [[0, 0], [1, 1]]);
 // ---- labels
 const L = (x, prio, n) => ({ x, y: 0, w: 40, h: 14, prio, n });
 check('overlap: the rule stays', MO.declutter([L(0, 5, 'path'), L(10, 0, 'rule'), L(100, 5, 'far')], 2).map((k) => k.n), ['rule', 'far']);
+// D7: a label with other places to try moves instead of disappearing
+const C = (x, prio, n, cand) => Object.assign(L(x, prio, n), { cand });
+check('taken spot: the next place is used',
+    MO.declutter([L(0, 0, 'zone'), C(5, 3, 'point', [[0, 0], [0, -18], [0, 18]])], 2).map((k) => [k.n, k.dx, k.dy]),
+    [['zone', 0, 0], ['point', 0, -18]]);
+check('all places taken: dropped',
+    MO.declutter([L(0, 0, 'a'), C(0, 3, 'b', [[0, 0], [10, 0]])], 2).map((k) => k.n), ['a']);
+check('a dot blocks a label, it moves off it',
+    MO.declutter([C(0, 1, 'zone', [[0, 0], [0, 20]])], 2, [{ x: 0, y: 0, w: 16, h: 16 }]).map((k) => [k.n, k.dy]), [['zone', 20]]);
+check('no places given: as before',
+    MO.declutter([L(0, 5, 'path'), L(10, 0, 'rule')], 2, []).map((k) => [k.n, k.dx, k.dy]), [['rule', 0, 0]]);
 
 // ---- rules
 check('plain rule', MO.ruleState({ active: true }, 100), { state: 'active', temporary: false });

@@ -11,10 +11,19 @@
     pointer-events: none;
 }
 #mapedit_bar.on { display: flex; }
-/* below the FINDING strip and right of the compass, both live in that corner */
+/* below the FINDING strip and right of the compass, both live in that corner;
+   it keeps 22 px off the right panel (mapedits.js _barMode uses the same room) */
 @media (min-width: 576px) {
-    #mapedit_bar { top: calc(var(--vt-frame-notice-b, 80px) + 34px); left: calc(var(--vt-frame-left, 0px) + 76px); }
+    #mapedit_bar {
+        top: calc(var(--vt-frame-notice-b, 80px) + 34px); left: calc(var(--vt-frame-left, 0px) + 76px);
+        max-width: calc(100vw - var(--vt-frame-left, 0px) - var(--vt-frame-rp-w, 0px) - 98px);
+    }
 }
+/* not enough room for the words: icons only, the words stay as tooltips */
+#mapedit_bar.icons .mapedit-bar-btn > span { display: none; }
+/* mapedits.js measures the one-row width of the bar with this */
+#mapedit_bar.mapedit-measure { display: flex; visibility: hidden; max-width: none; }
+#mapedit_bar.mapedit-measure .mapedit-bar-row { flex-wrap: nowrap; }
 #mapedit_bar > * { pointer-events: auto; }
 .mapedit-bar-row {
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px; width: fit-content; max-width: 100%;
@@ -61,11 +70,25 @@
 [data-type="slow"] { --mapedit-c: #ffab45; } [data-type="noblade"] { --mapedit-c: #b388ff; } [data-type="corridor"] { --mapedit-c: #5cc8ff; }
 .mapedit-ico[data-type], .met-tool[data-type] .la, .mapedit-sel-head > .la[data-type] { color: var(--mapedit-c); }
 
-/* ---- object list: a fixed height, so a tap never moves the inspector below */
+/* ---- object list: at most a set height, so a tap never moves the inspector
+   below; a scroll inside it never carries on into the panel, and a list with
+   more rows than it shows fades at the bottom (E3). The type filter is as wide
+   as its longest type, so no type is cut. */
 .mapedit-obj-tools { display: flex; gap: 6px; margin-bottom: 6px; }
 #mapedit_obj_search { flex: 1 1 auto; min-width: 0; }
-#mapedit_obj_filter { flex: 0 0 132px; }
-#mapedit_obj_list { position: relative; height: clamp(150px, 28dvh, 300px); overflow-y: auto; overflow-x: hidden; }
+#mapedit_obj_filter { flex: 0 0 auto; width: auto; max-width: 52%; }
+/* where the browser can, only as wide as the chosen type: more room to search */
+@supports (field-sizing: content) {
+    #mapedit_obj_filter { field-sizing: content; min-width: 96px; }
+}
+#mapedit_obj_list {
+    position: relative; max-height: clamp(150px, 28dvh, 300px); overflow-y: auto; overflow-x: hidden;
+    overscroll-behavior: contain;
+}
+#mapedit_obj_list.vt-more-below {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), rgba(0, 0, 0, 0.3));
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), rgba(0, 0, 0, 0.3));
+}
 #mapedit_obj_count, #mapedit_sugg_count {
     margin-left: auto; font-size: 11px; font-weight: 400; color: var(--vt-muted); font-variant-numeric: tabular-nums;
 }
@@ -104,6 +127,9 @@
 /* ---- layers, history, suggestions */
 .mapedit-lay-head { margin: 6px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--vt-muted); }
 .mapedit-lay { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0; cursor: pointer; }
+/* one layer per row also where the touch rule for drawer checkboxes
+   (vt_panel.css, label:has(> input)) makes labels inline */
+#ui_drawer #mapedit_layers label.mapedit-lay { display: flex; gap: 8px; }
 .mapedit-lay .form-check-input { margin: 0; width: 20px; height: 20px; flex: 0 0 auto; }
 .mapedit-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-left: 28px; font-size: 11px; }
 .mapedit-legend:empty { display: none; }
@@ -131,21 +157,54 @@
     width: auto; max-width: 640px; margin: 0;
 }
 
-/* ---- phone: the bar lives in the sheet, the map stays visible, 40 px targets */
+/* ---- the bar in the panel (phone; tablet or phone on its side when the map
+   is narrow, mapedits.js _barMode): one row of 40 px icons across the panel,
+   a group opens under the row, inside the panel. Layers and History are in ⋯. */
+#mapedit_bar.in-panel { position: static; max-width: 100%; margin: 0; }
+/* its host stays at the top of the panel while the panel scrolls */
+#mapedit_tools.mapedit-tools-on {
+    position: sticky; top: calc(-1 * var(--vt-gap-2, 8px)); z-index: 3;
+    margin-top: calc(-1 * var(--vt-gap-2, 8px)); padding: var(--vt-gap-2, 8px) 0 6px;
+    background: var(--vt-frame-bg, var(--vt-surface));
+}
+#mapedit_bar.in-panel .mapedit-bar-row { width: 100%; box-shadow: none; background: transparent; border: 0; padding: 0; }
+#mapedit_bar.in-panel .mapedit-bar-tools { gap: 0; }
+#mapedit_bar.in-panel .mapedit-bar-group { display: contents; }
+#mapedit_bar.in-panel .mapedit-bar-tools .mapedit-bar-btn { flex: 1 1 0; min-width: 40px; padding: 0; }
+#mapedit_bar.in-panel .mapedit-bar-btn > span,
+#mapedit_bar.in-panel .mapedit-bar-sep,
+#mapedit_bar.in-panel .mapedit-bar-tools > [data-goto] { display: none; }
+#mapedit_bar.in-panel .mapedit-fly { position: static; order: 10; flex: 0 0 100%; min-width: 0; margin-top: 4px; box-shadow: none; }
+#mapedit_bar.in-panel .mapedit-fly.open { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+#mapedit_bar .met-panel-only { display: none; }
+#mapedit_bar.in-panel .met-panel-only { display: flex; }
+.mapedit-fly .met-tool > span { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
+
+/* a phone on its side: the shape buttons and Finish / Cancel in one row, as
+   on the compact sheet, so they fit the low panel */
+@media (min-width: 576px) and (max-height: 500px) {
+    #ui_drawer.editor .mapedit-acts { display: flex; gap: 6px; }
+    #ui_drawer.editor .mapedit-acts > div { flex: 1 1 0; min-width: 0; }
+    #ui_drawer.editor .mapedit-acts .btn { font-size: 13px; line-height: 1.1; padding: 2px 4px; }
+    #ui_drawer.editor .mapedit-acts .la { display: none; }
+}
+
+/* ---- phone: the map stays visible, 40 px targets. The editor opens on the
+   compact sheet: the tool row and the inspector; ^ brings the lists, which
+   then scroll with the sheet (one scroll, E3) */
 @media (max-width: 575.98px) {
-    #mapedit_bar { position: static; max-width: 100%; margin-bottom: 6px; }
-    .mapedit-bar-row { width: 100%; box-shadow: none; background: transparent; border: 0; padding: 0; }
-    .mapedit-bar-btn > span { display: none; }
-    .mapedit-bar-group { position: static; }
-    .mapedit-fly { position: static; width: 100%; order: 10; flex: 1 0 100%; box-shadow: none; }
-    .mapedit-fly.open { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
-    #mapedit_obj_list { height: 30dvh; }
-    #mapedit_obj_filter { flex-basis: 120px; }
+    #mapedit_obj_list { max-height: none; overflow: visible; }
+    /* the search keeps room for its whole hint; on the narrowest phones the
+       type filter goes under it rather than cutting either */
+    .mapedit-obj-tools { flex-wrap: wrap; }
+    #mapedit_obj_search { flex: 1 1 176px; }
     .mapedit-f-row { grid-template-columns: 1fr; }
     #mapedit_toast { left: 8px; right: 8px; max-width: none; bottom: calc(var(--vt-frame-bottom, 60px) + 8px); z-index: 1002; }
     #vt_maprule_banner { left: 8px; right: 8px; max-width: none; z-index: 1002; }
-    #ui_drawer.mapedit-compact .mapedit-bar-tools,
     #ui_drawer.mapedit-compact .mapedit-sec { display: none !important; }
+}
+@media (max-width: 380px) {
+    #mapedit_obj_search { flex-basis: 100%; }   /* always two rows: no jump when the type changes */
 }
 
 /* ---- Mow load (vt_mow_trail.js): the panel, the same in the map and the editor */

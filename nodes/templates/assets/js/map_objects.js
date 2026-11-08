@@ -115,15 +115,28 @@ window.VTMapObjects = (function () {
     };
 
     // Labels that would overlap on screen: the first in priority order stays.
-    // items: [{x, y, w, h, prio, order}] centres and sizes in pixels. -> kept items.
-    function declutter(items, pad) {
-        var m = pad || 0, kept = [];
+    // items: [{x, y, w, h, prio, order, cand}] centres and sizes in pixels. -> kept items.
+    // cand (optional): [[dx, dy], ...] other places to try, in order, when the
+    // first one is taken; a kept item gets the offset it landed on as it.dx, it.dy.
+    // block (optional): boxes {x, y, w, h} nothing may cover (the dots of points).
+    function declutter(items, pad, block) {
+        var m = pad || 0, kept = [], taken = (block || []).slice();
+        function free(x, y, it) {
+            return taken.every(function (k) {
+                return Math.abs(k.x - x) * 2 >= k.w + it.w + m * 2 || Math.abs(k.y - y) * 2 >= k.h + it.h + m * 2;
+            });
+        }
         var sorted = items.slice().sort(function (a, b) { return a.prio - b.prio || (a.order || 0) - (b.order || 0); });
         sorted.forEach(function (it) {
-            var free = kept.every(function (k) {
-                return Math.abs(k.x - it.x) * 2 >= k.w + it.w + m * 2 || Math.abs(k.y - it.y) * 2 >= k.h + it.h + m * 2;
-            });
-            if (free) kept.push(it);
+            var cand = it.cand && it.cand.length ? it.cand : [[0, 0]];
+            for (var i = 0; i < cand.length; i++) {
+                var x = it.x + cand[i][0], y = it.y + cand[i][1];
+                if (!free(x, y, it)) continue;
+                it.dx = cand[i][0]; it.dy = cand[i][1];
+                kept.push(it);
+                taken.push({ x: x, y: y, w: it.w, h: it.h });
+                return;
+            }
         });
         return kept;
     }

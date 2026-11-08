@@ -21,7 +21,9 @@ nebo **✕** tě vrátí do panelu Mapa.
 ## Nástroje
 
 Na liště je **Vybrat**, tři skupiny, **Měřit**, zpět a znovu, **Vrstvy**, **Historie** a **⋯**.
-Na telefonu je lišta nahoře v panelu.
+Když je mapa vedle panelu na lištu úzká, slova zmizí a zůstanou jen ikony (název ukáže
+myš po najetí). Na telefonu, tabletu nebo telefonu naležato je lišta jedna řada ikon nahoře
+v panelu a zůstává tam, i když panelem posouváš; **Vrstvy** a **Historie** jsou pak pod **⋯**.
 
 | Skupina | Nástroj | Jak |
 |---|---|---|
@@ -54,15 +56,24 @@ Klávesy: **Esc** zruší otevřenou změnu, nástroj nebo výběr a **zastaví 
 v aplikaci. **Del** smaže vybraný vrchol, a když žádný vybraný není, vybraný objekt. **Ctrl+Z**
 a **Ctrl+Shift+Z** jsou zpět a znovu. Kresbu bez zastavení robota zrušíš tlačítkem **Zrušit**.
 
-Na telefonu se panel při práci v mapě zmenší na to nejnutnější. Tlačítko **^** vpravo nahoře v něm
-vrátí nástroje, seznam a podrobnosti.
+Na telefonu se editor otevře s malým panelem dole: lišta nástrojů a vlastnosti, nad nimi mapa.
+Tlačítko **^** vpravo nahoře ve vlastnostech přidá seznam, vrstvy a podrobnosti; výběr objektu,
+nástroje nebo dotyk mapy panel zase zmenší. Jeden prst mapou posouvá, dva prsty přibližují; ani
+jedno nepřidá bod ani nic neuloží. Na tabletu nebo telefonu naležato výběr nástroje posune
+vlastnosti s tlačítkem **Dokončit** do záběru.
 
 ## Objekty a vlastnosti
 
 V seznamu je všechno z mapy, jeden řádek na objekt. **Hledání** projde názvy, aliasy, štítky,
 poznámky a kategorie, filtr typu ho zúží. Klepni na cokoli, co vidíš: objekt se vybere v mapě
 i v seznamu zároveň a výběr ze seznamu ho navíc přivede do záběru. Kde se objekty překrývají, dalším
-klepnutím přejdeš na další.
+klepnutím přejdeš na další. Seznam není nikdy vyšší než asi čtvrtina obrazovky; delší se posouvá
+uvnitř a dole slábne a jeho posouvání nepřejde do panelu. Na telefonu je seznam součástí panelu
+a posouvá se s ním.
+
+Popisky v mapě nikdy nezakryjí jeden druhý ani tečku bodu: název bodu se posune na volnou stranu
+od tečky, název plochy kousek nad nebo pod její střed. Kde volné místo není, název počká, až mapu
+přiblížíš — přednost mají pravidla a zóny, trasy jsou poslední.
 
 Vlastnosti mají u každého typu stejné pořadí:
 
