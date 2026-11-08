@@ -1292,14 +1292,16 @@
     function onRules(st) {
         var nogo = ((st && st.in) || []).filter(function (x) { return x && x.type === 'nogo'; }).map(function (x) { return x.name; }).join(', ');
         var blade = st && st.blade;
-        var sig = nogo + '|' + blade;
+        var nbAll = ((st && st.in) || []).filter(function (x) { return x && x.type === 'noblade'; }).map(function (x) { return x.name; }).join(', ');
+        var sig = nogo + '|' + blade + '|' + ((st && st.held_by) || '') + '|' + nbAll;
         if (sig === S.n.rules) { return; }
         S.n.rules = sig;
         if (nogo) { say('rules', 0, t('maprules.in_nogo', { name: nogo })); }
         else if (blade === 'restore_failed') { say('rules', 0, t('maprules.blade_failed')); }
         else if (blade === 'stopped_by_rule') {
             var nb = ((st && st.in) || []).filter(function (x) { return x && x.type === 'noblade'; }).map(function (x) { return x.name; }).join(', ');
-            say('rules', 1, t('maprules.blade_stopped', { name: nb }));
+            // Outside the zone it mows (zone fence): a normal transit, no notice.
+            if (nb || st.held_by !== 'zone') { say('rules', 1, nb ? t('maprules.blade_stopped', { name: nb }) : t('maprules.blade_stopped_any')); }
         }
     }
     /* New entries only; the first message is the past. */

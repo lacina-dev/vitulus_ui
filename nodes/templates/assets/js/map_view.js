@@ -6862,8 +6862,9 @@ class Programs {
             this.process_program_list(message);
         });
         this.smach_status_Topic.subscribe((message) => {
-            this.map_menu.span_menu_program_status.innerText = message.data === 'Held: mower link'
-                ? vtT('smach.held_mower_link') : message.data;
+            var heldKey = { 'Held: mower link': 'smach.held_mower_link',
+                'Held: blade spinning up': 'smach.held_blade_spinup' }[message.data];
+            this.map_menu.span_menu_program_status.innerText = heldKey ? vtT(heldKey) : message.data;
             this.mission_status = message.data || '';
             this._setSmachBlocked(message.data);
             this._paintRunning();

@@ -123,6 +123,15 @@ může vrátit.
   ([Sekání](mowing.md)). Programy ho spouštějí a zastavují samy.
 - Zapnutí **napájení** sekačky nůž nespustí; jen znovu nastaví poslední výšku a otáčky.
 - **STOP** vždy zastaví i nůž.
+- Program seče jen **uvnitř zóny, kterou právě seče**. Mimo ni jet smí, k další dráze nebo při
+  objížďce, ale nůž se tam zastaví a po návratu do zóny se znovu rozjede. Okraj se poseče celý:
+  nůž se zastaví, až když je střed robota víc než 15 cm za hranicí zóny po dobu 0,2 s, a znovu se
+  rozjede do 12 cm. Při návratu do zóny během sečení dráhy robot na hraně počká, než nůž
+  naběhne na otáčky, a teprve pak jede dál; cestou na začátek dráhy na hraně nestaví, dráhy se
+  posečou celé.
+  Je to běžná součást sekání, proto nepřijde pruh ani hláška; editor mapy to ukáže jako
+  informaci a stopa sečení fialově jako oblast bez nože. Nastavení: `map_rules_guard` `~zone_edge_m`, `~zone_hysteresis_m`,
+  `~zone_hold_s`, vypnutí `~zone_fence false`.
 - Agent nůž sám nikdy nezapne — taková akce neexistuje. Smí jen spustit **uložený program
   sekání**, z doku po tvém odemčení (**Sekání** nebo **Volná jízda** v zámku doku); jeho supervisor
   snese otáčky nože jen dokud ten program běží a při STOP, převzetí nebo ztrátě heartbeatu ho

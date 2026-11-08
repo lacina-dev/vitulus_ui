@@ -123,6 +123,15 @@ the battery output and the computer (the hardest stop; the UI goes away too). Ho
 - Switching the mower **power** on does not start the blade; it only re-applies the last height
   and RPM.
 - **STOP** always stops the blade too.
+- A program cuts only **inside the zone it mows**. It may drive outside, to reach the next path
+  or around something, but there the blade stops and starts again back in the zone. The edge is
+  mowed whole: the blade stops only when the middle of the robot is more than 15 cm past the
+  zone border for 0.2 s, and it starts again within 12 cm. Coming back into the zone while
+  mowing a path, the robot waits at the edge until the blade is up to speed, then goes on; on
+  the drive to the start of a path it does not stop at the edge, the paths are mowed whole. It is a normal part of mowing, so no banner or
+  notice comes; the map editor shows it as info and the mow trail violet like a no-blade
+  area. Settings:
+  `map_rules_guard` `~zone_edge_m`, `~zone_hysteresis_m`, `~zone_hold_s`, off with `~zone_fence false`.
 - The agent never switches the blade on by itself — there is no such action. It may only run a
   **saved mowing program**, from the dock after your unlock (**Mow** or **Free drive** in the dock lock); its
   supervisor accepts blade RPM only while that program runs and stops it on STOP, a takeover or a

@@ -16,6 +16,11 @@
         return (list || []).filter(function (x) { return x && x.type === type; })
             .map(function (x) { return x.name; }).join(', ');
     }
+    // Outside the zone it mows the program drives with the blade stopped (the
+    // guard's zone fence): normal, no banner; only in the editor, as info.
+    function outsideZone(s) {
+        return s.blade === 'stopped_by_rule' && s.held_by === 'zone' && !names(s.in, 'noblade');
+    }
     // What needs a person now: red first. In the editor also what is near.
     function current() {
         var s = state || {}, inNogo = names(s.in, 'nogo');
@@ -23,12 +28,16 @@
         if (warning && warning.type === 'nogo') return { tone: 'err', text: t('maprules.in_nogo', { name: warning.name || '' }) };
         if (warning && warning.text) return { tone: 'warn', text: warning.text };
         if (inNogo) return { tone: 'err', text: t('maprules.in_nogo', { name: inNogo }) };
-        if (s.blade === 'stopped_by_rule') return { tone: 'warn', text: t('maprules.blade_stopped', { name: names(s.in, 'noblade') }) };
+        if (s.blade === 'stopped_by_rule' && !outsideZone(s)) {
+            var nb = names(s.in, 'noblade');
+            return { tone: 'warn', text: nb ? t('maprules.blade_stopped', { name: nb }) : t('maprules.blade_stopped_any') };
+        }
         if (s.blade === 'restore_failed') return { tone: 'err', text: t('maprules.blade_failed') };
         if (!editing()) return null;
         var near = names(s.near, 'nogo'), slow = names(s.in, 'slow');
         if (near) return { tone: 'warn', text: t('maprules.near_nogo', { name: near }) };
         if (slow) return { tone: 'info', text: t('maprules.in_slow', { name: slow }) };
+        if (outsideZone(s)) return { tone: 'info', text: t('maprules.blade_outside_zone', { name: (s.zone && s.zone.name) || '' }) };
         return null;
     }
     function paint() {
