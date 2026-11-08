@@ -4549,4 +4549,15 @@
     "auto.hw.r.no_cut": "Napájení se v očekávaný čas nevyplo. Zrušeno, zkontroluj napájecí modul.",
     "auto.hw.r.cancel_unconfirmed": "Zrušení nebylo potvrzeno: napájení se může ještě vypnout.",
     /* ---- @end autonomy */
+    /* ---- @frag d9: D9 i18n — texty prvního vykreslení a tooltipy z index.html / mapping.js / gloc.js / imu_calibration.js (T8 D9) */
+    "mapt.edit_tip": "Upravit detail AKTIVNÍ mapy (data plánovače, zóny, polygony)",
+    "mapping.run.waiting": "čekám na mapping_manager…",
+    "mapping.site.waiting": "uložená mapa: —",
+    "gloc.waiting": "čekám na gloc_server…",
+    "loc.auto5": "každých 5 s",
+    "bar.pose_tip": "kdo drží polohu (loc_status)",
+    "bar.gnss_fix_tip": "stav RTK fixu",
+    "bar.gnss_pos_tip": "přesnost polohy (1 sigma)",
+    "imucal.yaw.fused_lbl": "Fúze:",
+    /* ---- @end d9 */
 };

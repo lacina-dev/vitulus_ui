@@ -16,6 +16,9 @@ class Gloc {
         this.btn_apply = document.getElementById("gloc_btn_apply");
         this.btn_force = document.getElementById("gloc_btn_force");
         this.el_status = document.getElementById("gloc_status");
+        // D9 i18n: first paint until gloc_server speaks (its own lines are data)
+        this._waitTxt = glocT('gloc.waiting');
+        if (this.el_status) { this.el_status.textContent = this._waitTxt; }
         this.el_best = document.getElementById("gloc_best");
         this.el_margin = document.getElementById("gloc_margin");
         this.el_current = document.getElementById("gloc_current");
@@ -78,6 +81,10 @@ class Gloc {
         if (window.VTI18n) {
             VTI18n.onChange(() => {
                 if (this._statusLocal) { this.el_status.textContent = glocT('gloc.computing'); }
+                else if (this.el_status && this.el_status.textContent === this._waitTxt) {
+                    this._waitTxt = glocT('gloc.waiting');
+                    this.el_status.textContent = this._waitTxt;
+                }
                 if (this.lastResult) { this.renderResult(this.lastResult); }
             });
         }

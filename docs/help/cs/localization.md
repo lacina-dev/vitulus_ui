@@ -180,9 +180,9 @@ Na mapě:
 **Mapa › Loc** se ptá: *kam na nahranou mapu nejlíp sedí současný sken lidaru?* Použij ji,
 když se robot ztratí (`ODHAD`, nebo je robot na mapě zjevně jinde, než ve skutečnosti stojí).
 
-![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 auto 5 s · 3 Použít → robot · 4 Vynutit · 5 karta Detail lokalizace (poloha a odometrie, lidarový tracker, RtabMap, přijímače GNSS — klepnutím na přijímače víc) · 6 řádek lidarového trackeru")
+![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 každých 5 s · 3 Použít → robot · 4 Vynutit · 5 karta Detail lokalizace (poloha a odometrie, lidarový tracker, RtabMap, přijímače GNSS — klepnutím na přijímače víc) · 6 řádek lidarového trackeru")
 
-1. **Lokalizovat** (nebo zaškrtni **auto 5 s**) — spočítá kandidáty. Samotný výpočet robotem
+1. **Lokalizovat** (nebo zaškrtni **každých 5 s**) — spočítá kandidáty. Samotný výpočet robotem
    nikdy nepohne.
 2. Přečti výsledek: nejlepší polohu, skóre a **odstup**:
    *✓ jednoznačné*, *⚠ NEJEDNOZNAČNÉ* nebo *⚠ NESEDÍ KURZ (zrcadlová záměna?)*. Tepelná mapa

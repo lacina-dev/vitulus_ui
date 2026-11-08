@@ -84,6 +84,15 @@ class ImuYaws {
             span_imu_deg.innerHTML = t('imucal.yaw.imu_rtk', {deg: message.data[0].toFixed(2)});
             span_fuse_deg.innerHTML = t('imucal.yaw.fused', {deg: message.data[2].toFixed(2)});
         });
+        // D9 i18n: the label before the first /gnss_heading/yaws (index.html
+        // paints "Fuse:" in English); repainted on a switch while still empty
+        var fuse = document.getElementById('span_fuse_deg'), fuse0 = t('imucal.yaw.fused_lbl');
+        if (fuse) { fuse.textContent = fuse0; }
+        if (fuse && window.VTI18n) {
+            VTI18n.onChange(function () {
+                if (fuse.textContent === fuse0) { fuse0 = t('imucal.yaw.fused_lbl'); fuse.textContent = fuse0; }
+            });
+        }
     }
 }
 

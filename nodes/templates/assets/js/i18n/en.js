@@ -4470,4 +4470,15 @@
     "auto.hw.r.no_cut": "The power did not go off at the expected time. Cancelled, check the power module.",
     "auto.hw.r.cancel_unconfirmed": "The cancel was not confirmed: the power may still go off.",
     /* ---- @end autonomy */
+    /* ---- @frag d9: D9 i18n — first-paint texts and tooltips left in index.html / mapping.js / gloc.js / imu_calibration.js (T8 D9) */
+    "mapt.edit_tip": "Edit the ACTIVE map detail (planner data, zones, polygons)",
+    "mapping.run.waiting": "waiting for mapping_manager…",
+    "mapping.site.waiting": "saved map: —",
+    "gloc.waiting": "waiting for gloc_server…",
+    "loc.auto5": "auto 5 s",
+    "bar.pose_tip": "pose owner (loc_status)",
+    "bar.gnss_fix_tip": "RTK fix state",
+    "bar.gnss_pos_tip": "position accuracy (1 sigma)",
+    "imucal.yaw.fused_lbl": "Fused:",
+    /* ---- @end d9 */
 };

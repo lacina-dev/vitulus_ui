@@ -875,7 +875,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <div class="map-top">
                                             <span class="vt-fs-sm vt-dim" data-i18n="mapt.active">Active map:</span>
                                             <span class="text-info vt-fs-md vt-strong" id="active_map_name">&mdash;</span>
-                                            <button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" title="Edit the ACTIVE map detail (planner data, zones, polygons)"><i class="la la-edit text-info vt-fs-lg"></i><span class="text-info vt-fs-sm vt-ml2" data-i18n="mapt.edit">Edit map</span></button>
+                                            <button class="btn btn-primary btn-sm d-flex align-items-center" id="btn_map_detail_toggle" type="button" data-i18n-title="mapt.edit_tip" title="Edit the ACTIVE map detail (planner data, zones, polygons)"><i class="la la-edit text-info vt-fs-lg"></i><span class="text-info vt-fs-sm vt-ml2" data-i18n="mapt.edit">Edit map</span></button>
                                             <!-- the legacy Planner/Rtabmap display-source toggle (hidden since 2026-07-19,
                                                  octomap/band mapping retired) was removed 2026-10-18 (P26) -->
                                         </div>
@@ -887,8 +887,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                         <div class="vt-mt1 vt-mr0 vt-mb2 vt-ml0">
                                             <div id="mapv3_maps_header" class="vt-flex vt-aic vt-gap6 vt-wrap">
                                                 <span class="drawer-hint" data-i18n="mapt.saved">Saved maps</span>
-                                                <span id="mapv3_serving_status" class="vt-fs-sm vt-dim">active: &mdash;</span>
-                                                <button class="btn btn-outline-warning btn-sm vt-map-deact" id="mapv3_btn_deactivate" type="button" data-i18n-title="mapt.deactivate_tip" title="FACTORY-FRESH test: deactivate the map entirely — no active map, no datum, survives restarts (simulates a freshly installed robot; localization runs on GPS/odometry only). Click twice to confirm. Any Activate or Save &amp; finish restores normal operation.">Deactivate</button>
+                                                <span id="mapv3_serving_status" class="vt-fs-sm vt-dim" data-i18n="mapping.serving.none">active: &mdash;</span>
+                                                <button class="btn btn-outline-warning btn-sm vt-map-deact" id="mapv3_btn_deactivate" type="button" data-i18n-title="mapt.deactivate_tip" title="FACTORY-FRESH test: deactivate the map entirely — no active map, no datum, survives restarts (simulates a freshly installed robot; localization runs on GPS/odometry only). Click twice to confirm. Any Activate or Save &amp; finish restores normal operation."><span data-i18n="mapping.btn.deactivate">Deactivate</span></button>
                                             </div>
                                             <div id="mapv3_sites_row" class="vt-mt1"></div>
                                         </div>
@@ -923,10 +923,10 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                     <button class="btn btn-warning" id="mapv3_btn_stop" type="button" disabled title="Finishes recording and SAVES the recorded map — and immediately makes it the ACTIVE map (localization + navigation will use it)." data-i18n-title="mapt.rec.stop_tip" data-i18n="mapt.rec.stop">Save &amp; finish</button>
                                                 </div>
                                                 <div class="btn-group btn-group-sm vt-mt1" role="group">
-                                                    <button class="btn btn-outline-warning" id="mapv3_btn_reset_map" type="button" disabled data-i18n-title="mapt.rec.reset_tip" title="Erases EVERYTHING recorded so far in THIS in-progress map and keeps recording from zero (settings + session stay). Does not touch the active map. Click twice to confirm.">Erase &amp; keep recording</button>
-                                                    <button class="btn btn-outline-danger" id="mapv3_btn_discard" type="button" disabled data-i18n-title="mapt.rec.discard_tip" title="Ends recording and THROWS AWAY the in-progress map (nothing is saved). The active map stays as it is. Click twice to confirm.">Discard (no save)</button>
+                                                    <button class="btn btn-outline-warning" id="mapv3_btn_reset_map" type="button" disabled data-i18n-title="mapt.rec.reset_tip" title="Erases EVERYTHING recorded so far in THIS in-progress map and keeps recording from zero (settings + session stay). Does not touch the active map. Click twice to confirm."><span data-i18n="mapping.btn.reset_map">Erase &amp; keep recording</span></button>
+                                                    <button class="btn btn-outline-danger" id="mapv3_btn_discard" type="button" disabled data-i18n-title="mapt.rec.discard_tip" title="Ends recording and THROWS AWAY the in-progress map (nothing is saved). The active map stays as it is. Click twice to confirm."><span data-i18n="mapping.btn.discard">Discard (no save)</span></button>
                                                 </div>
-                                                <span id="mapv3_run_status" class="vt-fs-sm vt-block vt-mt1">waiting for mapping_manager&hellip;</span>
+                                                <span id="mapv3_run_status" class="vt-fs-sm vt-block vt-mt1" data-i18n="mapping.run.waiting">waiting for mapping_manager&hellip;</span>
 
                                                 <!-- 2026-07-19: octomap/band mapping retired — RTK/Force/Off mode buttons hidden below; read-only localization line KEPT. -->
                                                 <div class="vt-fs-sm vt-mt2 vt-mb1" title="Live localization quality while recording (pose source, RTK fix, hAcc, heading)." data-i18n-title="mapt.rec.loc_tip" data-i18n="mapt.rec.loc">Localization while recording</div>
@@ -967,7 +967,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <input type="range" id="mapv3_maps_opacity" min="0" max="100" step="1" value="100" class="vt-w100 vt-vam">
                                                 <div class="vt-fs-sm vt-mt1" title="Opacity of UNKNOWN (not-yet-mapped) cells only, across the occupancy layers." data-i18n-title="mapt.disp.unknown_opacity_tip"><span data-i18n="mapt.disp.unknown_opacity">Unknown opacity</span> <span id="mapv3_unknown_opacity_val" class="vt-dim">100%</span></div>
                                                 <input type="range" id="mapv3_unknown_opacity" min="0" max="100" step="1" value="100" class="vt-w100 vt-vam">
-                                                <span id="mapv3_site_status" class="vt-fs-sm vt-block vt-mt1 vt-dim">saved map: &mdash;</span>
+                                                <span id="mapv3_site_status" class="vt-fs-sm vt-block vt-mt1 vt-dim" data-i18n="mapping.site.waiting">saved map: &mdash;</span>
                                                 <hr class="vt-mt2 vt-mr0 vt-mb2 vt-ml0">
                                                 <div class="vt-fs-sm vt-mb1" title="The robot footprint outline drawn on top of every layer." data-i18n-title="mapt.disp.robot_tip" data-i18n="mapt.disp.robot">Robot marker</div>
                                                 <div class="vt-fs-sm vt-flex vt-aic vt-gap6 vt-wrap">
@@ -1221,7 +1221,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                                 <button class="btn btn-primary btn-sm" id="gloc_btn_localize" type="button" data-i18n="loc.localize">Localize</button>
                                                 <div class="form-check form-check-inline">
                                                     <input class="form-check-input" type="checkbox" id="gloc_chk_auto">
-                                                    <label class="form-check-label" for="gloc_chk_auto">auto 5 s</label>
+                                                    <label class="form-check-label" for="gloc_chk_auto" data-i18n="loc.auto5">auto 5 s</label>
                                                 </div>
                                                 <button class="btn btn-warning btn-sm" id="gloc_btn_apply" type="button" disabled data-i18n="loc.apply">Apply&nbsp;&rarr;&nbsp;robot</button>
                                                 <button class="btn btn-outline-danger btn-sm" id="gloc_btn_force" type="button" disabled data-i18n="loc.force">Force</button>
@@ -1274,7 +1274,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                      no matter which program (or none) is open below -->
                                 <div id="div_program_running" class="vt-card vt-prog-running" data-state="info" style="display: none;">
                                     <div class="vt-card-head">
-                                        <span class="vt-card-title" id="span_program_running_title">Running</span>
+                                        <span class="vt-card-title" id="span_program_running_title" data-i18n="mapview.prog.run.running">Running</span>
                                         <span class="text-info vt-prog-running-name" id="span_program_running_name"></span>
                                     </div>
                                     <div class="vt-row"><span class="vt-muted vt-grow" id="span_program_running_status"></span><button class="btn btn-warning btn-sm" id="btn_program_running_stop" type="button" onclick="programs.stopProgram()" data-i18n="common.stop">Stop</button><button class="btn btn-danger btn-sm" id="btn_program_running_reset" type="button" onclick="programs.resetSmach()" data-i18n="common.reset">Reset</button></div>
@@ -2023,12 +2023,12 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                 <div class="row no-event vt-ml0 vt-mr0">
                     <div class="col-6 no-event vt-pr0 vt-pl0">
                         <div id="div_odom" class="status-panels vt-rp-block vt-rp-odom">
-                            <div class="align-items-center vt-w-md vt-inline"><span class="no-event vt-fs-xs vt-accent" data-i18n="bar.pose">Pose</span><span id="span_odom_drive" title="pose owner (loc_status)" class="no-event vt-chip" data-state="off">&mdash;</span><span class="no-event vt-chip-sm-note" data-i18n="bar.hdg">hdg</span><span id="span_odom_hdg" title="heading source: SAT=RTK dual-antenna, IMU=fallback" data-i18n-title="bar.hdg_tip" class="no-event vt-chip vt-chip-sm" data-state="off">&mdash;</span></div>
+                            <div class="align-items-center vt-w-md vt-inline"><span class="no-event vt-fs-xs vt-accent" data-i18n="bar.pose">Pose</span><span id="span_odom_drive" title="pose owner (loc_status)" data-i18n-title="bar.pose_tip" class="no-event vt-chip" data-state="off">&mdash;</span><span class="no-event vt-chip-sm-note" data-i18n="bar.hdg">hdg</span><span id="span_odom_hdg" title="heading source: SAT=RTK dual-antenna, IMU=fallback" data-i18n-title="bar.hdg_tip" class="no-event vt-chip vt-chip-sm" data-state="off">&mdash;</span></div>
                             <div class="vt-inline vt-aic"><span id="span_odom_vo" title="visual odometry: usable (green) / active (outline)" data-i18n-title="bar.vo_tip" class="no-event vt-chip vt-chip-sm" data-state="off">VO</span><span id="span_odom_licp" title="lidar odometry" data-i18n-title="bar.licp_tip" class="no-event vt-chip vt-chip-sm" data-state="off">Li</span><span id="span_odom_wheel" title="wheel/imu odometry" data-i18n-title="bar.wheel_tip" class="no-event vt-chip vt-chip-sm" data-state="off">Wh</span><span id="span_odom_fix" title="raw RTK fix usable (independent of ownership)" data-i18n-title="bar.fix_tip" class="no-event vt-chip vt-chip-sm" data-state="off">FIX</span><span id="span_odom_prob" title="GPS proven in motion" data-i18n-title="bar.prob_tip" class="no-event vt-chip vt-chip-sm" data-state="off">PROB</span><span id="span_odom_div" title="bridge divergence from live pose" data-i18n-title="bar.div_tip" class="no-event vt-fs-xs vt-ml-auto vt-dim">&Delta;&ndash;</span></div>
                         </div>
                         <div id="div_gnss" class="status-panels vt-rp-block vt-rp-gnss">
-                            <div class="align-items-center vt-w-md vt-inline vt-aic"><span class="no-event vt-fs-xs vt-accent">GNSS</span><span id="span_gnss_fix" title="RTK fix state" class="no-event vt-chip" data-state="off">&mdash;</span><span id="span_gnss_sats" class="no-event vt-fs-xs vt-ml-auto">sats &ndash;</span></div>
-                            <div class="vt-inline vt-aic"><span id="span_gnss_pos" title="position accuracy (1 sigma)" class="no-event vt-fs-xs">pos &ndash;</span><span id="span_gnss_hdg" title="heading accuracy (1 sigma); — when no RTK heading" data-i18n-title="bar.gnss_hdg_tip" class="no-event vt-fs-xs vt-ml-auto">hdg &ndash;</span></div>
+                            <div class="align-items-center vt-w-md vt-inline vt-aic"><span class="no-event vt-fs-xs vt-accent">GNSS</span><span id="span_gnss_fix" title="RTK fix state" data-i18n-title="bar.gnss_fix_tip" class="no-event vt-chip" data-state="off">&mdash;</span><span id="span_gnss_sats" class="no-event vt-fs-xs vt-ml-auto">sats &ndash;</span></div>
+                            <div class="vt-inline vt-aic"><span id="span_gnss_pos" title="position accuracy (1 sigma)" data-i18n-title="bar.gnss_pos_tip" class="no-event vt-fs-xs">pos &ndash;</span><span id="span_gnss_hdg" title="heading accuracy (1 sigma); — when no RTK heading" data-i18n-title="bar.gnss_hdg_tip" class="no-event vt-fs-xs vt-ml-auto">hdg &ndash;</span></div>
                         </div>
                         <div id="div_gnss_rx" class="status-panels vt-gx rp-click" role="button" tabindex="0" aria-label="GNSS receivers" data-i18n-aria-label="gnssrx.aria"></div>
                         <div id="div_rtabmap" class="status-panels vt-rp-block vt-rp-rtab">
@@ -2077,7 +2077,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                     </div>
                 </div>
                 <input id="input_log_search" type="search" class="form-control form-control-sm log-search log-rosout-only" placeholder="Search text…" data-i18n-placeholder="log.search" autocomplete="off">
-                <button id="btn_log_pause" type="button" class="btn btn-sm btn-outline-info log-iconbtn" title="Pause autoscroll"><span>Live</span></button>
+                <button id="btn_log_pause" type="button" class="btn btn-sm btn-outline-info log-iconbtn" title="Pause autoscroll" data-i18n-title="mlog.pause"><span data-i18n="mlog.live">Live</span></button>
                 <button id="btn_log_clear" type="button" class="btn btn-sm btn-outline-secondary log-iconbtn" title="Clear log buffer" data-i18n-title="log.clear_tip" data-i18n="common.clear">Clear</button>
                 <button id="btn_log_collapse" type="button" class="btn btn-sm btn-outline-secondary log-iconbtn" title="Collapse to the small strip" data-i18n-title="log.collapse_tip" aria-label="Collapse log" data-i18n-aria-label="log.collapse">▼</button>
                 <span id="span_log_counter" class="log-counter">0</span>

@@ -233,6 +233,10 @@ class MappingV3 {
         this.btn_save = document.getElementById("mapv3_btn_save");
         this.btn_compare = document.getElementById("mapv3_btn_compare");
         this.el_run = document.getElementById("mapv3_run_status");
+        // D9 i18n: the first-paint lines until mapping_manager answers (the
+        // English in index.html is only the paint before this script runs)
+        this._say(this.el_serving, () => mapT('mapping.serving.none'));
+        this._say(this.el_run, () => mapT('mapping.run.waiting'));
         this.el_gate = document.getElementById("mapv3_gate_status");
         this.el_dem = document.getElementById("mapv3_dem_status");
         this.el_proj = document.getElementById("mapv3_proj_status");
@@ -405,6 +409,7 @@ class MappingV3 {
         //   #mapv3_chk_site => saved site_map, #mapv3_chk_live => live grid,
         //   #mapv3_chk_terrain => terrain elevation plane.
         this.el_site_status = document.getElementById("mapv3_site_status");
+        this._say(this.el_site_status, () => mapT('mapping.site.waiting'));   // D9 i18n: first paint
         this.chk_site = document.getElementById("mapv3_chk_site");
         this.chk_live = document.getElementById("mapv3_chk_live");
         this.chk_terrain = document.getElementById("mapv3_chk_terrain");
