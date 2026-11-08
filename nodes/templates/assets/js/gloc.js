@@ -5,6 +5,8 @@
 // on the server side; Force bypasses the gate.
 // i18n (docs/I18N.md): keys 'gloc.*'
 function glocT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
+// T8 E: gloc_server's fixed English lines in the UI language (unknown = as sent)
+function glocNode(s) { return window.VTI18n && VTI18n.node ? VTI18n.node('gloc', s) : s; }
 
 class Gloc {
     constructor(ros) {
@@ -49,7 +51,8 @@ class Gloc {
         });
         this.status_subscriber.subscribe((m) => {
             this._statusLocal = false;
-            this.el_status.textContent = m.data;
+            this._statusRaw = m.data;            // the tone below reads the raw line
+            this.el_status.textContent = glocNode(m.data);
             vtTone(this.el_status,
                 m.data.startsWith('error') || m.data.startsWith('apply refused') ? 'err' :
                 m.data.startsWith('APPLIED') ? 'warn' : '');
@@ -81,6 +84,7 @@ class Gloc {
         if (window.VTI18n) {
             VTI18n.onChange(() => {
                 if (this._statusLocal) { this.el_status.textContent = glocT('gloc.computing'); }
+                else if (this.el_status && this._statusRaw != null) { this.el_status.textContent = glocNode(this._statusRaw); }
                 else if (this.el_status && this.el_status.textContent === this._waitTxt) {
                     this._waitTxt = glocT('gloc.waiting');
                     this.el_status.textContent = this._waitTxt;

@@ -27,6 +27,9 @@
  *     tag(el, key, attr)    set data-i18n(-attr) on an element and translate it
  *     onChange(fn) → off()  fn(lang) after every switch (re-render your text)
  *     has(key, lang)        is the key in that dictionary
+ *     node(kind, line)      a robot node's fixed English line ('gloc', 'rosbag')
+ *                           in the UI language; an unknown line unchanged
+ *     watchNode(el, kind)   keep translating what another module writes into el
  * Event: document 'vt:lang' (CustomEvent, detail.lang) after every switch.
  *
  * Where the choice lives: the robot (~/.vitulus/ui/ui_settings.json through
@@ -109,6 +112,7 @@
         document.documentElement.setAttribute('lang', code);
         if (!changed) { return; }
         apply(document);
+        watched.forEach(function (w) { w.paint(); });
         subs.slice().forEach(function (fn) { try { fn(cur); } catch (e) { try { console.error(e); } catch (x) { /* no console */ } } });
         try { document.dispatchEvent(new CustomEvent('vt:lang', { detail: { lang: cur } })); } catch (e) { /* old browser */ }
     }
@@ -153,6 +157,89 @@
         }).catch(function () { /* robot unreachable: the local copy stays */ });
     }
 
+    /* T8 E: lines a robot node sends as fixed English text — gloc_server's
+       /gloc/status, the rosbag recorders' /vitulus_rosbag/<name>/status — in
+       the UI language. A known line maps to a key (numbers, names and the
+       node's own reasons stay as they came: {vars} from the pattern's
+       groups; a code word in a group, e.g. manual / force, gets its own key);
+       an unknown line is shown unchanged. The first rule that
+       matches wins. Sources: vitulus_navi/nodes/gloc_server (_set_status),
+       vitulus_rosbag/recorder_base.py (_publish_status). */
+    var NUM = '(-?[0-9.]+)';
+    var NODE = {
+        gloc: [
+            [/^idle \(no map yet\)$/, 'node.gloc.idle_nomap'],
+            [/^idle$/, 'node.gloc.idle'],
+            [/^computing\.\.\.$/, 'gloc.computing'],
+            [/^relocalizing \(auto\)\.\.\.$/, 'node.gloc.relocalizing'],
+            [new RegExp('^ok ' + NUM + 's margin ' + NUM + '%$'), 'node.gloc.ok', ['s', 'm']],
+            [new RegExp('^relock rejected: margin ' + NUM + '% < gate ' + NUM + '%$'), 'node.gloc.rej_margin', ['m', 'g']],
+            [/^relock rejected: yaw deviates from current heading \(mirror alias\?\)$/, 'node.gloc.rej_yaw'],
+            [new RegExp('^relock rejected: ' + NUM + 'm > radius ' + NUM + 'm$'), 'node.gloc.rej_radius', ['d', 'r']],
+            [new RegExp('^relock rejected: rms (\\S+) > gate ' + NUM + '$'), 'node.gloc.rej_rms', ['rms', 'g']],
+            [new RegExp('^relock rejected: far ' + NUM + 'm at margin ' + NUM + '%$'), 'node.gloc.rej_far', ['d', 'm']],
+            [/^relock rejected: (.+)$/, 'node.gloc.rej', ['why']],
+            [new RegExp('^relock probation \\(' + NUM + ', ' + NUM + '\\) ' + NUM + ' ticks / ' + NUM + ' m$'), 'node.gloc.probe', ['x', 'y', 'n', 'd']],
+            [/^relock probation failed — lost$/, 'node.gloc.probe_failed'],
+            [new RegExp('^relock probation ' + NUM + '/' + NUM + ' ticks, ' + NUM + '/' + NUM + ' m$'), 'node.gloc.probe_step', ['i', 'n', 'a', 'd']],
+            [new RegExp('^RELOCK APPLIED \\(' + NUM + ', ' + NUM + '\\) po probaci$'), 'node.gloc.relock_applied', ['x', 'y']],
+            [new RegExp('^apply refused: margin ' + NUM + '% < gate ' + NUM + '%$'), 'node.gloc.refused_margin', ['m', 'g']],
+            [new RegExp('^apply refused: candidate yaw deviates > ' + NUM + ' deg from current heading \\(mirror alias\\?\\)$'), 'node.gloc.refused_yaw', ['deg']],
+            [/^apply refused: (.+)$/, 'node.gloc.refused', ['why']],
+            [new RegExp('^APPLIED \\((\\w+)\\) -> (\\S+) \\(' + NUM + ', ' + NUM + ', ' + NUM + 'deg\\)$'), 'node.gloc.applied', ['how', 'topic', 'x', 'y', 'yaw'], { how: 'node.gloc.how.' }],
+            [/^error: (.+)$/, 'node.gloc.error', ['e']]
+        ],
+        rosbag: [
+            [/^idle$/, 'node.bag.idle'],
+            [/^recording \| fps=unlimited \| (.+)$/, 'node.bag.rec_nolimit', ['bag']],
+            [new RegExp('^recording \\| fps=' + NUM + ' \\| (.+)$'), 'node.bag.rec', ['fps', 'bag']]
+        ]
+    };
+    function nodeText(kind, s) {
+        s = s == null ? '' : String(s);
+        var rules = NODE[kind] || [];
+        for (var i = 0; i < rules.length; i++) {
+            var m = rules[i][0].exec(s);
+            if (!m) { continue; }
+            if (raw(rules[i][1], cur) === undefined && raw(rules[i][1], DEFAULT) === undefined) { return s; }
+            var vars = {};
+            var codes = rules[i][3] || {};      // {var: key prefix}: a known code word is translated too
+            (rules[i][2] || []).forEach(function (n, j) {
+                var v = m[j + 1];
+                if (codes[n] && (raw(codes[n] + v, cur) !== undefined || raw(codes[n] + v, DEFAULT) !== undefined)) {
+                    v = t(codes[n] + v);
+                }
+                vars[n] = v;
+            });
+            return t(rules[i][1], vars);
+        }
+        return s;
+    }
+    /* an element another module fills with a node's raw line: translated
+       after every write and on every language switch (the raw line is kept,
+       the module's own logic keeps reading the message, not the DOM) */
+    var watched = [];
+    function watchNode(el, kind) {
+        if (!el || typeof MutationObserver === 'undefined') { return; }
+        if (watched.some(function (x) { return x.el === el; })) { return; }
+        var w = { el: el, raw: null, out: null };
+        w.paint = function () {
+            if (w.raw === null) { return; }
+            w.out = nodeText(kind, w.raw);
+            if (el.textContent !== w.out) { el.textContent = w.out; }
+        };
+        var seen = function () {
+            if (el.textContent === w.out) { return; }
+            w.raw = el.textContent;
+            w.paint();
+        };
+        watched.push(w);
+        new MutationObserver(seen).observe(el, { childList: true, characterData: true, subtree: true });
+        seen();
+    }
+    /* filled by map_view.js RosbagControl straight from /vitulus_rosbag/<name>/status */
+    var NODE_EL = [['span_d435_rec_status', 'rosbag'], ['span_gnss_rec_status', 'rosbag']];
+
     var first = lsGet();
     cur = known(first) ? first : DEFAULT;
     document.documentElement.setAttribute('lang', cur);
@@ -168,10 +255,17 @@
             subs.push(fn);
             return function () { var i = subs.indexOf(fn); if (i >= 0) { subs.splice(i, 1); } };
         },
+        node: nodeText, watchNode: watchNode,
         DEFAULT: DEFAULT
     };
 
-    function boot() { if (cur !== DEFAULT) { apply(document); } loadServer(); }
+    function boot() {
+        if (cur !== DEFAULT) { apply(document); }
+        if (document.getElementById) {
+            NODE_EL.forEach(function (p) { watchNode(document.getElementById(p[0]), p[1]); });
+        }
+        loadServer();
+    }
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); }
     else { boot(); }
 })();

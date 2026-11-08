@@ -122,11 +122,16 @@
             // above the line in the page's layers, it must not cover it). The
             // slot is kept whether a line shows or not: the panel's buttons
             // never jump when a notice comes or goes
-            // (a STOP brings one — a finger on its way to START would miss);
-            // the agent's pills add their line.
+            // (a STOP brings one — a finger on its way to START would miss).
+            // T8 E (D11 review): the agent's pills no longer add their line
+            // above the unfolded panel (it moved 28 px down whenever the agent
+            // spoke) — they sit on the map under the slot, left of the panel
+            // (vt_header.css .vt-rp-unfold), so the panel keeps one place.
             var rp0 = $('right_panel');
             var rpOn0 = visible(rp0);
             var rpFold = rpOn0 && rp0.classList.contains('compact');
+            setCls(body, 'vt-rp-unfold', rpOn0 && !rpFold);
+            if (rpOn0) { setVar('--vt-frame-rp-left', px(rp0.getBoundingClientRect().left)); }
             var ntop = (rpFold ? Math.max(top, rp0.getBoundingClientRect().bottom) : top) + 4;
             setVar('--vt-frame-ntop', px(ntop));
             if (row && visible(info)) {
@@ -135,9 +140,21 @@
                 nb = Math.max(nb, (isNaN(rt) ? ntop : rt) + row.offsetHeight);
             }
             if (rpOn0 && !rpFold) {
-                colTopS = ntop + 44 + (body.classList.contains('vagent-strip-on') ? 28 : 0);
+                colTopS = ntop + 44;
+                // T8 E review: the agent's pills — a column on the map left of
+                // the panel, under the compass and the layers button (the rose
+                // sits above the button), down to the panel's foot at most
+                var fab = $('vt_lyr_fab'), rose = $('vt_utm_rose');
+                var ptop = colTopS + 2;
+                if (visible(fab)) { ptop = Math.max(ptop, fab.getBoundingClientRect().bottom + 8); }
+                if (visible(rose)) { ptop = Math.max(ptop, rose.getBoundingClientRect().bottom + 8); }
+                setVar('--vt-frame-pills-top', px(ptop));
+                setVar('--vt-frame-pills-max', px(Math.max(60, rp0.getBoundingClientRect().bottom - ptop)));
             }
-        } else if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
+        } else {
+            setCls(body, 'vt-rp-unfold', false);
+            if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
+        }
         setVar('--vt-frame-col-top', px(m === 'sheet' ? colTopS : Math.max(top, colTop)));
         setVar('--vt-frame-notice-b', px(nb));
         // bottom bar zone

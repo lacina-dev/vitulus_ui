@@ -84,9 +84,10 @@ zastaralé. Hodí se, když v navbaru něco svítí červeně a chceš vědět, 
 
 Nahrávání dat senzorů pro rozbor:
 
-- **Kamera D435 RGB-D** — **REC** / **STOP** a snímková frekvence (FPS, **Nastavit**).
+- **Kamera D435 RGB-D** — **REC** / **STOP** a snímková frekvence (FPS, **Nastavit**). Stav vedle:
+  *nenahrává*, nebo *nahrává · 5.0 fps · <název bagu>* (*fps bez omezení*, když je FPS 0).
 - **Forenzní záznam GNSS** — nahrává kurz z GPS, fix a to, kdo právě určuje polohu (pro problémy
-  s lokalizací).
+  s lokalizací); stejný stavový řádek.
 - **Uložené bagy** — seznam, u každého bagu **Stáhnout** a **Smazat** (koš); ↻ seznam obnoví.
   Bag, který se právě nahrává, má **● REC** a zatím nejde stáhnout ani smazat. Bag se štítkem
   **nedokončený** zbyl po nahrávání, které neskončilo (třeba po výpadku proudu), a teď se nic

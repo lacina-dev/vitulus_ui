@@ -2641,3 +2641,16 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
 .vt-map-precip.is-nowcast { color: var(--vt-info); box-shadow: inset 0 0 0 1px var(--vt-edge-info); }
 .vt-map-precip.is-warn { color: var(--vt-warn); }
 .vt-map-precip[hidden] { display: none; }
+
+/* ---- T8 E (2026-11-08): the full log's top row on a PC ---------------------
+   Its keys (Changes / ROS · DBG…FATAL · All nodes · Live · Clear · ▼) were
+   20 px tall — under the 24 px of WCAG 2.5.8 for a mouse. Now 26 px, the
+   search field the same; on touch they are 40 px already (D1). */
+@media (pointer: fine) {
+    #div_log_view .log-toolbar .btn {
+        min-height: 26px;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    #div_log_view .log-toolbar .log-source-btn { justify-content: flex-start; }
+    #div_log_view .log-toolbar .log-search { min-height: 26px; }
+}

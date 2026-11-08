@@ -84,8 +84,10 @@ Useful when something is red in the navbar and you want to know which part.
 
 Recording of sensor data for analysis:
 
-- **D435 RGB-D camera** — REC / STOP and the frame rate (FPS, **Set**).
-- **GNSS forensics** — records the GPS heading, fix and pose ownership (for localization issues).
+- **D435 RGB-D camera** — REC / STOP and the frame rate (FPS, **Set**). The state next to it:
+  *idle*, or *recording · 5.0 fps · <bag name>* (*no fps limit* when FPS is 0).
+- **GNSS forensics** — records the GPS heading, fix and pose ownership (for localization issues);
+  the same state line.
 - **Stored bags** — the list with **Download** and **Delete** (bin) on each bag (↻ refreshes).
   A bag that is being recorded shows **● REC** and cannot be downloaded or deleted yet. A bag
   tagged **unfinished** is left over from a recording that did not finish (the power went off,

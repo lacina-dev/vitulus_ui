@@ -189,6 +189,9 @@ the robot is lost (`DEAD-RECKON`, or the robot on the map is obviously in the wr
 ![The Loc tab of the Map panel with numbered buttons](img/shot-loc-tab.webp "Map › Loc: 1 Localize · 2 auto 5 s · 3 Apply → robot · 4 Force · 5 the Localization detail card (pose & odometry, lidar tracker, RtabMap, GNSS receivers — tap the receivers for more) · 6 the lidar tracker line")
 
 1. **Localize** (or tick **auto 5 s**) — computes candidates. Computing never moves the robot.
+   The status line under the buttons is what the localizer reports (*idle*, *ok · 1.2 s · margin 45%*,
+   *relock rejected: …*, *APPLIED …*) — in the UI language; a line the UI does not know yet shows
+   as the robot sent it.
 2. Read the result: best pose and score, and the **margin**:
    *✓ unambiguous*, *⚠ AMBIGUOUS* or *⚠ YAW MISMATCH (mirror alias?)*. The heatmap shows the
    match (yellow = better, blue cross = best, red cross = where the robot thinks it is).

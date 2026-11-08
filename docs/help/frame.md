@@ -43,7 +43,9 @@ The **menu band** under it opens the panels: **Panel**, **Marker**, **Settings**
 **Notices** float in the top of the map, so the map does not move when one appears: on the left
 the agent's line (e.g. *FINDING · 5 to read*, click = the agent panel; red while there is a finding
 you have not seen in Findings yet, grey otherwise), in the middle the robot's
-notice (*Waiting for dock cmd*, a lost connection…) on one line — hover it for the whole text.
+notice (*Waiting for dock cmd*, a lost connection…) on one line — a long one ends in **…**: hover it,
+or tap it, for the whole text (a box under the line; tap again to close). A notice with a button
+(*Cancel*) keeps the button on the line at full size; only the words give way.
 
 **A narrower window** takes things away instead of squeezing them: when the bar has no room for
 the whole computer block it first drops upload ↑, then it is one **chip** (its colour = the worst
@@ -55,7 +57,10 @@ the dot, ?, the bell, ⋯ and STOP are always there.
 **summary** (one icon per group + *No warnings* / *2 warnings* / *No warnings · 1 no data*; tap = the status card) —
 three rows of 40 px, 120 px in all. The notices float in the top of the map like on a PC: under
 the summary, or under the right panel's row, right of the compass and the layers button (a long
-line ends in **…**). ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
+line ends in **…**). With the right panel **unfolded** the agent's lines (a latched STOP with
+**Release STOP**, the open dock with **Lock again**, what the agent does) stand as a column on the
+map left of the panel, under the compass and the layers button — whole words, full-width buttons;
+the panel never moves when the agent starts or stops talking. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
 the panel buttons · one icon per status group · bell · Restart · ⋯ — the logo, ? and the computer
 are in **⋯**, STOP is in the corner above the right panel.
 
@@ -170,7 +175,8 @@ red = a fault or no data where there should be some · grey = off, paused or not
   correction age and RTCM rate; the detail icon in the title row opens the full card of both receivers
   ([GNSS receivers](localization.md#gnss-receivers-right-panel--gnss)).
 - **Camera** — a dot in the title row (green = live picture, orange = starting / waiting, grey =
-  off) and the switch Off / S / L; see below. While the picture has not come yet, the black slot
+  off; on a touch screen a small badge on the title's corner) and the switch Off / S / L — on a
+  touch screen three keys of at least 40 px; see below. While the picture has not come yet, the black slot
   says **Waiting for the picture…**, after ~8 s **No picture from the camera — retrying**; a picture
   that stops for 3 s or more says the latter too, and the dot turns red. When everything is unfolded
   and the panel has to scroll (a phone), the Camera section stays pinned at its bottom.

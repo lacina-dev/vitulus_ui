@@ -247,12 +247,67 @@
     function wireNotice() {
         var info = $('span_status_info');
         if (!info || !window.MutationObserver) { return; }
+        /* T8 E: a cut line (.vt-notice-cut: its words end in "…") opens on a
+           tap of its words: the whole text in a box right under the line
+           (#vt_notice_full, vt_header.css), above the map, the right panel
+           and the agent's pills — the line itself and its button (Cancel)
+           stay where they are, nothing moves. A tap on the box or the line,
+           another notice or 10 s close it. A finger has no tooltip. */
+        var row = info.closest ? info.closest('.vt-notice-row') : null;
+        var words = function () { return info.querySelector('.vt-notice-t') || info; };
+        var text = function () { return (words().textContent || '').replace(/\s+/g, ' ').trim(); };
+        var pop = null, openKey = null, openTimer = null, measure = null;
+        var place = function () {
+            var r = info.getBoundingClientRect(), rr = row ? row.getBoundingClientRect() : r;
+            var left = Math.max(6, Math.min(r.left, rr.left));
+            pop.style.left = left + 'px';
+            pop.style.top = Math.round(Math.max(r.bottom, rr.bottom) + 4) + 'px';
+            pop.style.maxWidth = Math.max(160, Math.min(rr.right, window.innerWidth - 6) - left) + 'px';
+        };
+        var setOpen = function (on) {
+            if (openTimer) { clearTimeout(openTimer); openTimer = null; }
+            openKey = on ? (info.dataset.key || text()) : null;
+            if (!on) { if (pop) { pop.hidden = true; } return; }
+            if (!pop) {
+                pop = document.createElement('div');
+                pop.id = 'vt_notice_full';
+                pop.className = 'vt-notice-full';
+                pop.addEventListener('click', function () { setOpen(false); });
+                document.body.appendChild(pop);
+            }
+            pop.dataset.level = info.dataset.level || '';
+            pop.textContent = text();
+            pop.hidden = false;
+            place();
+            openTimer = setTimeout(function () { setOpen(false); }, 10000);
+        };
+        var cutNow = function () {
+            measure = null;
+            // with a button the words are a flex item of their own; without one
+            // the line itself is the box that cuts (its inline words measure 0)
+            var w = info.style.display === 'inline-flex' ? words() : info;
+            info.classList.toggle('vt-notice-cut', info.style.display !== 'none' && w.scrollWidth > w.clientWidth + 1);
+        };
+        var cutLater = function () { if (!measure) { measure = requestAnimationFrame(cutNow); } };
         var sync = function () {
-            var txt = (info.textContent || '').replace(/\s+/g, ' ').trim();
+            var txt = text();
             if (info.title !== txt) { info.title = txt; }
+            if (openKey !== null) {
+                // another notice closes an open one; a countdown (same key) updates it
+                if (info.style.display === 'none' || openKey !== (info.dataset.key || txt)) { setOpen(false); }
+                else if (pop && pop.textContent !== txt) { pop.textContent = txt; }
+            }
+            cutLater();
         };
         sync();
-        new MutationObserver(sync).observe(info, {childList: true, characterData: true, subtree: true});
+        new MutationObserver(sync).observe(info, {childList: true, characterData: true, subtree: true,
+            attributes: true, attributeFilter: ['style', 'data-key']});
+        window.addEventListener('resize', function () { cutLater(); if (openKey !== null && pop) { place(); } });
+        info.addEventListener('click', function (ev) {
+            if (ev.target && ev.target.closest && ev.target.closest('.vt-notice-act')) { return; }
+            if (openKey !== null) { setOpen(false); }
+            else if (info.classList.contains('vt-notice-cut')) { setOpen(true); }
+        });
     }
 
     /* the agent's pills are cut to their slot: the whole text is the tooltip */

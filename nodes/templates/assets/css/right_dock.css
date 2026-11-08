@@ -646,3 +646,35 @@ body.rp-cam-clip .rp-cam-msg { display: none; }
 .rp-mhint[data-state="ok"] { color: var(--vt-ok); border-color: var(--vt-edge-ok); }
 /* mouse: the head is only ~22 px tall — two short lines at 10 px fit in it */
 @media (pointer: fine) { .rp-mhint { font-size: 10px; line-height: 1; padding: 0 5px; } }
+
+/* ---- T8 E (2026-11-08): the last small targets of the panel -------------
+   Touch: the camera switch Off / S / L was 30 px wide (three keys in a 190-px
+   head) and the "Map–GPS" line (a link to Map › Loc) 17 px tall. Now every
+   key is >= 40 x 40 px: the three keys share the head's free width (the
+   gaps go, the caret moves 2 px closer to the title) and the stream dot rides
+   on the title's top-right corner as a badge instead of taking 13 px of the
+   row; the Map–GPS line is 32 px tall + 4 px of hit area above and below
+   (into the gaps — the GNSS head below keeps its own taps).
+   Mouse: the same targets reach 24 px (WCAG 2.5.8) without moving a pixel —
+   the hit area grows into the gaps. */
+@media (pointer: coarse) {
+    #right_panel .rp-sec[data-sec="camera"] > h5 { gap: 0; padding-right: 0; }
+    #right_panel .rp-sec[data-sec="camera"] > h5 .rp-caret { margin-left: 0; margin-right: 3px; }
+    #right_panel .rp-sec[data-sec="camera"] > h5 .rp-cam-dot {
+        position: relative; top: -7px; width: 8px; height: 8px;
+        margin: 0 -9px 0 1px;                /* no width in the row */
+    }
+    #right_panel .rp-sec[data-sec="camera"] > h5 .rp-cam-seg { flex: 1 1 auto; display: flex; margin-left: 4px; }
+    #right_panel .rp-sec[data-sec="camera"] > h5 .rp-cam-seg > button.rp-cam-opt { flex: 1 1 0; min-width: 40px; padding: 0 2px; }
+    #right_panel .rp-geo1 { position: relative; min-height: 32px; }
+    #right_panel .rp-geo1::before { content: ''; position: absolute; inset: -4px 0; }
+}
+@media (pointer: fine) {
+    #right_panel .rp-cam-seg { overflow: visible; }
+    #right_panel .rp-cam-seg > button.rp-cam-opt { position: relative; }
+    #right_panel .rp-cam-seg > button.rp-cam-opt::before { content: ''; position: absolute; inset: -2px 0; }
+    #right_panel .rp-cam-opt:first-child { border-radius: var(--vt-r-ctl) 0 0 var(--vt-r-ctl); }
+    #right_panel .rp-cam-opt:last-child { border-radius: 0 var(--vt-r-ctl) var(--vt-r-ctl) 0; }
+    #right_panel .rp-geo1 { position: relative; }
+    #right_panel .rp-geo1::before { content: ''; position: absolute; inset: -4px 0; }   /* 17 → 25 px, into the gaps */
+}

@@ -183,7 +183,9 @@ když se robot ztratí (`ODHAD`, nebo je robot na mapě zjevně jinde, než ve s
 ![Záložka Loc panelu Mapa s očíslovanými tlačítky](../img/shot-loc-tab.webp "Mapa › Loc: 1 Lokalizovat · 2 každých 5 s · 3 Použít → robot · 4 Vynutit · 5 karta Detail lokalizace (poloha a odometrie, lidarový tracker, RtabMap, přijímače GNSS — klepnutím na přijímače víc) · 6 řádek lidarového trackeru")
 
 1. **Lokalizovat** (nebo zaškrtni **každých 5 s**) — spočítá kandidáty. Samotný výpočet robotem
-   nikdy nepohne.
+   nikdy nepohne. Stavový řádek pod tlačítky hlásí lokalizátor (*čeká*, *hotovo · 1.2 s · odstup
+   45 %*, *relokalizace odmítnuta: …*, *POUŽITO …*) — v jazyce UI; řádek, který UI ještě nezná,
+   ukáže tak, jak ho robot poslal.
 2. Přečti výsledek: nejlepší polohu, skóre a **odstup**:
    *✓ jednoznačné*, *⚠ NEJEDNOZNAČNÉ* nebo *⚠ NESEDÍ KURZ (zrcadlová záměna?)*. Tepelná mapa
    ukazuje shodu (žlutá = lepší, modrý křížek = nejlepší, červený křížek = kde si robot myslí, že

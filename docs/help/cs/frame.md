@@ -41,7 +41,9 @@ když se změní číslo nebo se objeví hláška, nic v liště neuskočí a ni
 **Hlášky** plavou v horní části mapy, takže se mapa při jejich objevení nepohne: vlevo řádek
 agenta (např. *NÁLEZ · 5 nepřečtených*, klik = panel agenta; červený, dokud je mezi nimi nález,
 který jsi v Nálezech ještě neviděl, jinak šedý), uprostřed hláška robota (*Waiting for
-dock cmd*, výpadek spojení…) na jednom řádku — celý text ukáže po najetí myší.
+dock cmd*, výpadek spojení…) na jednom řádku — dlouhá končí **…**: celý text ukáže najetí myší
+nebo ťuknutí (rámeček pod řádkem; dalším ťuknutím zmizí). Hláška s tlačítkem (*Zrušit*) má
+tlačítko vždy celé na řádku; ustupují jen slova.
 
 **Užší okno** věci ubírá, nemačká je: když se do lišty celý blok počítače nevejde, zmizí nejdřív
 odesílání ↑, pak je to jeden **čip** (barva = nejhorší z CPU, RAM a disku; klik = karta s čísly),
@@ -53,6 +55,10 @@ tu nejhorší ze skupiny. Logo, tečka, ?, zvonek, ⋯ a STOP jsou tam vždycky.
 (jedna ikona za skupinu + *Bez varování* / *2 varování* / *Bez varování · 1 bez dat*; klepnutí = karta stavu) —
 tři řádky po 40 px, dohromady 120 px. Hlášky plavou v horní části mapy jako na PC: pod souhrnem,
 nebo pod řádkem pravého panelu, vpravo od kompasu a tlačítka vrstev (dlouhý řádek končí **…**).
+Při **rozbaleném** pravém panelu stojí řádky agenta (zajištěný STOP se **Zrušit STOP**,
+povolený dok se **Zamknout**, co agent dělá) jako sloupec na mapě vlevo od panelu, pod kompasem a
+tlačítkem vrstev — celá slova, tlačítka přes celou šířku; panel se nepohne, když agent začne nebo
+přestane mluvit.
 ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
 panelů · jedna ikona za skupinu stavu · zvonek · Restart · ⋯ — logo, ? a počítač jsou v **⋯**, STOP
 je v rohu nad pravým panelem.
@@ -165,7 +171,8 @@ pozastaveno nebo není co ukázat.
   a ikona detailu v řádku s názvem otevře celou kartu obou přijímačů
   ([Přijímače GNSS](localization.md#přijímače-gnss-pravý-panel--gnss)).
 - **Kamera** — tečka v řádku s názvem (zelená = živý obraz, oranžová = startuje / čeká, šedá =
-  vypnuto) a přepínač Off / S / L; viz níže. Dokud obraz nepřišel, černé místo říká **Čekám na
+  vypnuto; na dotykové obrazovce malý odznak v rohu názvu) a přepínač Vyp / M / V — na dotykové
+  obrazovce tři klávesy aspoň 40 px; viz níže. Dokud obraz nepřišel, černé místo říká **Čekám na
   obraz…**, po ~8 s **Z kamery nejde obraz — zkouším znovu**; obraz, který se zastaví na 3 s a víc,
   hlásí totéž a tečka zčervená. Když je všechno rozbalené a panel se musí posouvat (telefon), sekce
   Kamera zůstává připnutá dole.
