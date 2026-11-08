@@ -39,9 +39,12 @@
     // overlays with a short hint (i18n maplyr.hint.<id>); a new catalog id
     // without one just shows its name
     var HINTS = ['kn', 'ruian', 'contours', 'hillshade', 'relief_x10', 'relief_x20', 'slope', 'aspect', 'surface_relief', 'precip'];
-    // ČÚZK DMR 5G SlopeRGBMap colour map (REST legend of the image service,
-    // sampled 2026-11-08): grey = flat, yellow, orange, brown = steep
-    var SLOPE_STOPS = ['#d1d1d1', '#fffac2', '#ffff00', '#ffbe00', '#fe7200', '#a24a1b'];
+    // ČÚZK DMR 5G SlopeRGBMap colours with their slope in degrees (T17 M11) — measured at a
+    // public hillside, 2026-11-08 (ČÚZK DMR 5G heights, slope from 2 m cells,
+    // against the SlopeRGBMap colour of each cell): grey < ~2°, pale
+    // 3–5°, yellow 5–10°, orange 10–15°, darker 15–20°, red-orange 20–30°,
+    // brown above 30°. [colour, from degrees]
+    var SLOPE_STEPS = [['#d6d5cf', 0], ['#fffac2', 3], ['#ffff00', 5], ['#ffbe00', 10], ['#fda133', 15], ['#fe7200', 20], ['#a24a1b', 30]];
     // T17 M8-6: ČÚZK DMR 5G AspectRGBMap — the colour of a slope facing N, NE,
     // E … NW, sampled around the cone of the hill Říp (public point, z16,
     // map_audit2.md 1.3); the legend is a colour wheel with the four letters
@@ -257,7 +260,13 @@
 
     function legendHtml(id) {
         if (id === 'slope') {
-            return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,' + SLOPE_STOPS.join(',') + ')"></span>' +
+            // seven steps with the degrees under each step's start
+            var n = SLOPE_STEPS.length, w = 100 / n;
+            var bg = SLOPE_STEPS.map(function (st, i) { return st[0] + ' ' + (i * w).toFixed(2) + '% ' + ((i + 1) * w).toFixed(2) + '%'; });
+            return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,' + bg.join(',') + ')"></span>' +
+                '<span class="vt-lyr-slope-deg vt-tnum">' + SLOPE_STEPS.map(function (st, i) {
+                    return '<span style="left:' + (i * w).toFixed(2) + '%">' + st[1] + '°</span>';
+                }).join('') + '</span>' +
                 '<span class="vt-lyr-legend-l"><span>' + esc(t('maplyr.legend.flat')) + '</span><span>' + esc(t('maplyr.legend.steep')) + '</span></span></div>';
         }
         if (id === 'aspect') {

@@ -172,7 +172,8 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
   ▶, *Teď*, legenda a *Celé okolí* jsou přímo v jejím řádku — tentýž ovládací prvek, který jinak je
   v Mapa › Zobrazení (vrstvy), viz níž; dokud je karta otevřená, je tady, ne tam).
   Každý zapneš přepínačem; zapnutý řádek ukáže krytí, jednu větu o tom, co ukazuje, a stav dlaždic
-  (*z19 · 3/12*); **Sklon** má i barevnou stupnici od *roviny* (šedá) po *strmé* (hnědá),
+  (*z19 · 3/12*); **Sklon** má i barevnou stupnici ve stupních od *roviny* (šedá, pod 3°) přes žlutou
+  (5–10°) a oranžovou (10–20°) po *strmé* (hnědá, přes 30°),
   **Expozice** barevné kolo se S, V, J, Z (barva svahu natočeného tím směrem: sever žlutozelená,
   východ modrá, jih fialová, západ oranžová).
 - Zdroje, které přibyly od chvíle, kdy jsi kartu otevřel naposledy, mají oranžový štítek **nové** a
@@ -287,7 +288,7 @@ nezmizí; pohled, který jsi viděl před chvílí, se vrátí hned. Stavový ř
 v závorce pro zvídavé) — a řekne, když se některé nenačetly — pak MapProxy na robotu
 není dostupný nebo tam obraz nemá (bez internetu má jen to, co si dřív uložil; čistě bílou dlaždici, kterou pak posílá, mapa
 nekreslí). Jakmile se vrátí síť, spojení s robotem nebo internet MapProxy, mapa si dlaždice sama
-načte znovu. Telefon má nižší
+načte znovu: pár chybějících dlaždic zkusí jednou rychle za 3 s; potom, a po větším výpadku, za 15 s, 30 s a pak každou minutu, dokud nepřijdou všechny (dlaždice, která neodpoví, se počítá jako chybějící, až 20 s nepřijde žádná dlaždice; na pomalou MapProxy se počká). Telefon má nižší
 limit dlaždic než počítač, aby šetřil paměť; se zapnutými překryvy dá podkladové mapě nejvýš
 polovinu (zdálky pak ukáže hrubší úroveň a její řádek hlásí *hrubší obraz: moc dlaždic*) a překryvy kreslí
 o úroveň hruběji (reliéf a sklon o dvě), aby se vešly všechny. Počítač totéž dělá s překryvy, když

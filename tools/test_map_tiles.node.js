@@ -183,5 +183,14 @@ ok('detail defaults to auto', /<option value="auto" selected/.test(zsel));
 ok('manual caps z17 … z21 kept', ['17', '18', '19', '20', '21'].every((z) => zsel.indexOf('value="' + z + '"') > 0));
 ok('no area select in the panel (coverage follows the view)', html.indexOf('id="mapv3_aerial_area"') < 0);
 
+// T17 M11: the first retry of a partial failure after 3 s, otherwise 15 / 30 / 60 s as before
+ok('retry: full failure 15 s → 30 s → 60 s → 60 s (unchanged)', MT.retryDelay(0, false) === 15000 && MT.retryDelay(15000, false) === 30000 &&
+   MT.retryDelay(30000, false) === 60000 && MT.retryDelay(60000, false) === 60000);
+ok('retry: partial failure first after 3 s, then 15 s on', MT.retryDelay(0, true) === 3000 && MT.retryDelay(3000, true) === 15000 && MT.retryDelay(15000, true) === 30000);
+ok('M11: only the quick try asks past the 10 s no-hammering window, within its own rebuild (behaviour: tools/test_tile_retry.node.js)',
+   /this\._tileRetryAt && fAt <= this\._tileRetryAt && Date\.now\(\) - this\._tileRetryAt < 1500/.test(mapping) && /if \(this\._tileRetryFast\) \{ this\._tileRetryAt = Date\.now\(\); \}/.test(mapping));
+ok('M11: a hung tile fails once no tile came for TILE_TIMEOUT_MS (behaviour: tools/test_tile_retry.node.js)', MT.TILE_TIMEOUT_MS === 20000 && /VTMapTiles\.TILE_TIMEOUT_MS \|\| 20000/.test(mapping) && /this\._tileProgressAt \|\| 0/.test(mapping));
+ok('mapping.js: partial = some tiles came and at most a quarter failed for real (timed-out tiles not counted)', /this\._tileRetrySoon\(set\.loaded > 0 && \(set\.failed - hung\) \* 4 <= set\.total, bad\)/.test(mapping));
+
 console.log('\n' + (failures.length ? 'FAILED ' + failures.length + ': ' + failures.join('; ') : 'OK — all checks passed'));
 process.exit(failures.length ? 1 : 0);

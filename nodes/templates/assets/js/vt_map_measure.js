@@ -251,8 +251,20 @@
         }
         var gp = new T.Geometry();
         S.pts.forEach(function (p) { gp.vertices.push(new T.Vector3(p.x, p.y, Z)); });
-        var dots = new T.Points(gp, mat(T.PointsMaterial, { color: 0xffffff, size: 9, sizeAttenuation: false }));
+        var dots = new T.Points(gp, mat(T.PointsMaterial, { color: 0xffffff, size: 11, sizeAttenuation: false, map: dotTexture(T), alphaTest: 0.3 }));
         dots.renderOrder = ORDER + 3; dots.frustumCulled = false; S.group.add(dots);
+    }
+
+    // T17 M11: round points (a PointsMaterial draws squares): a small disc
+    // with a dark rim, made once
+    function dotTexture(T) {
+        if (S.dotTex) { return S.dotTex; }
+        var cv = document.createElement('canvas'); cv.width = cv.height = 32;
+        var cx = cv.getContext('2d');
+        cx.beginPath(); cx.arc(16, 16, 14, 0, Math.PI * 2); cx.fillStyle = '#1c2329'; cx.fill();
+        cx.beginPath(); cx.arc(16, 16, 10, 0, Math.PI * 2); cx.fillStyle = '#ffffff'; cx.fill();
+        S.dotTex = new T.Texture(cv); S.dotTex.needsUpdate = true;
+        return S.dotTex;
     }
 
     // ---- place: under the layers button (same column), the card beside it

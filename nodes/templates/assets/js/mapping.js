@@ -2197,7 +2197,13 @@ class MappingV3 {
         const C = this._texCache();
         if (C.has(url)) { C.acquire(url); cb(true); return () => {}; }
         const fAt = this._texFailedAt.get(url);
-        if (fAt && Date.now() - fAt < 10000) { cb(false); return () => {}; }
+        // a tile that just failed is not asked again for 10 s (no hammering),
+        // except by the automatic retry itself (the rebuild it starts, within
+        // 1.5 s): a failure from before it is asked now (T17 M11: the 3 s retry
+        // hit this window and the tile waited for the next, 15 s one); a later
+        // pan or zoom keeps the window
+        if (fAt && Date.now() - fAt < 10000 &&
+            !(this._tileRetryAt && fAt <= this._tileRetryAt && Date.now() - this._tileRetryAt < 1500)) { cb(false); return () => {}; }
         let ld = this._texLoads.get(url);
         if (!ld) {
             ld = { waiters: new Set() };
@@ -2216,6 +2222,9 @@ class MappingV3 {
                 if (ok) { this._texTrim(); }
             };
             img.onload = () => {
+                clearTimeout(hang);
+                this._tileProgressAt = Date.now();
+                if (this._tileHung) { this._tileHung.delete(VTMapTiles.withoutBust(url)); }
                 let ok = false;
                 try {
                     const T = this._r3d();
@@ -2253,6 +2262,7 @@ class MappingV3 {
                     // cache / magnified level) — reload it once all is back
                     this._tileSuspect.add(VTMapTiles.withoutBust(url));
                 }
+                if (ok && this._tileFastTried) { this._tileFastTried.delete(VTMapTiles.withoutBust(url)); }
                 if (ok && wasBad) {
                     // a tile that failed / came white is real now: MapProxy
                     // (or its internet) is back — reload what it filled in
@@ -2262,10 +2272,33 @@ class MappingV3 {
                 finish(ok);
             };
             img.onerror = () => {      // missing tile / MapProxy unreachable
+                clearTimeout(hang);
+                this._tileProgressAt = Date.now();
+                if (this._tileHung) { this._tileHung.delete(VTMapTiles.withoutBust(url)); }
                 this._texFailedAt.set(url, Date.now());
                 this._tileOutage('error', url);
                 finish(false);
             };
+            // T17 M11: a tile that never answers (a hung upstream) counts as
+            // failed once NO tile came for TILE_TIMEOUT_MS: the clock starts
+            // again whenever another tile answers, so tiles only waiting in
+            // the browser's queue behind a slow MapProxy (6 at a time) do not
+            // run out. A timed-out tile is no outage (no suspects, no full
+            // outage retry mode): the automatic retry just asks for it again.
+            const asked = Date.now();
+            const hangCheck = () => {
+                if (this._texLoads.get(url) !== ld) { return; }
+                const left = (VTMapTiles.TILE_TIMEOUT_MS || 20000) -
+                    (Date.now() - Math.max(asked, this._tileProgressAt || 0));
+                if (left > 0) { hang = setTimeout(hangCheck, left + 50); return; }
+                img.onload = img.onerror = null;
+                try { img.src = ''; } catch (e) { /* old browser */ }
+                this._texFailedAt.set(url, Date.now());
+                if (!this._tileHung) { this._tileHung = new Set(); }
+                this._tileHung.add(VTMapTiles.withoutBust(url));
+                finish(false);
+            };
+            let hang = setTimeout(hangCheck, VTMapTiles.TILE_TIMEOUT_MS || 20000);
             img.src = wasBad ? VTMapTiles.withBust(url, Date.now()) : url;
         }
         ld.waiters.add(cb);
@@ -2578,14 +2611,50 @@ class MappingV3 {
     }
 
     // some tiles did not load (MapProxy unreachable, Wi-Fi gone): try again
-    // by itself after 15 s, 30 s, 60 s, then every 60 s while it fails
-    _tileRetrySoon() {
-        if (this._tileRetryT) { return; }
-        const d = this._tileRetryDelay = Math.min(60000, (this._tileRetryDelay || 7500) * 2);
+    // by itself after 15 s, 30 s, 60 s, then every 60 s while it fails; the
+    // waits grow until EVERY tile layer has loaded completely again.
+    // T17 M11: a tile that failed while most of its set came (a single tile
+    // lost while MapProxy restarts a worker, map_audit2.md §0) gets ONE quick
+    // try after 3 s — once per tile until it loads (_tileFastTried), so a tile
+    // that keeps failing (an upstream 500 in two layers, panning back and
+    // forth) never asks more often than before; the long waits go on.
+    _tileRetrySoon(partial, bad) {
+        const now = Date.now();
+        if (!this._tileFastTried) { this._tileFastTried = new Set(); }
+        const fresh = !!partial && (bad || []).some((u) => !this._tileFastTried.has(u));
+        if (this._tileRetryT) {
+            // a quick try is already pending: it covers these tiles too
+            if (fresh && this._tileRetryFast) { bad.forEach((u) => this._tileFastTried.add(u)); return; }
+            // only a long wait is cut short, and only for a tile not tried quickly yet
+            if (!(fresh && this._tileRetryDue - now > 3500)) { return; }
+            clearTimeout(this._tileRetryT); this._tileRetryT = null;
+        }
+        let d;
+        if (fresh) {
+            d = VTMapTiles.retryDelay ? VTMapTiles.retryDelay(0, true) : 3000;
+            bad.forEach((u) => this._tileFastTried.add(u));
+            this._tileRetryFast = true;
+        } else {
+            d = this._tileRetryDelay = VTMapTiles.retryDelay
+                ? VTMapTiles.retryDelay(this._tileRetryDelay || 0, false)
+                : Math.min(60000, (this._tileRetryDelay || 7500) * 2);
+            this._tileRetryFast = false;
+        }
+        this._tileRetryDue = now + d;
         this._tileRetryT = setTimeout(() => {
-            this._tileRetryT = null;
+            // only the quick try asks past the 10 s no-hammering window of
+            // _texFetch; the long waits keep it (as before M11)
+            if (this._tileRetryFast) { this._tileRetryAt = Date.now(); }
+            this._tileRetryT = null; this._tileRetryFast = false;
             if (this._tilesWanted()) { this.rebuildAerial(); }
         }, d);
+    }
+    // a set settled without failures: the waits start over only when no tile
+    // layer has a failed tile left
+    _tileRetryAllOk() {
+        let ok = true;
+        this._tileLayers.forEach((L) => { const c = L.cur; if (c && (c.failed > 0 || c.loaded < c.total)) { ok = false; } });
+        if (ok) { this._tileRetryDelay = 0; }
     }
 
     // Show tiles `range` of zoom `z` of source `src` in layer L. ctx: {T, src,
@@ -2620,7 +2689,13 @@ class MappingV3 {
             if (L.cur !== set) { return; }
             if (set.report) { set.report(set, false); }
             if (set.loaded + set.failed >= set.total) {
-                if (set.failed > 0) { this._tileRetrySoon(); } else { this._tileRetryDelay = 0; }
+                if (set.failed > 0) {
+                    const bad = [];
+                    set.tiles.forEach((t) => { if (t.state === 'err' && t.url) { bad.push(VTMapTiles.withoutBust(t.url)); } });
+                    // timed-out tiles (no answer, _texFetch) do not make it an outage
+                    const hung = this._tileHung ? bad.filter((u) => this._tileHung.has(u)).length : 0;
+                    this._tileRetrySoon(set.loaded > 0 && (set.failed - hung) * 4 <= set.total, bad);
+                } else { this._tileRetryAllOk(); }
                 // settled: another source's picture must not stay (not even
                 // over a failed tile: wrong imagery under this credit line)
                 if (L.fb.some((f) => f.src !== set.src.id)) {

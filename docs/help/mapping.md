@@ -177,7 +177,8 @@ One tap opens it, a second one picks the map:
   its row — the same control that otherwise sits in Map › Display (layers), see below; while this
   card is open it is here, not there). A switch turns each on; while it is on the row shows its opacity,
   a line on what it shows and its tile state (*z19 · 3/12*); **Slope** also has its colour scale
-  from *flat* (grey) to *steep* (brown), **Aspect** a colour wheel with N, E, S, W (the colour of a
+  in degrees, from *flat* (grey, under 3°) over yellow (5–10°) and orange (10–20°) to *steep* (brown,
+  over 30°), **Aspect** a colour wheel with N, E, S, W (the colour of a
   slope facing that way: north yellow-green, east blue, south purple, west orange).
 - Sources added since you last opened the card carry an orange **new** tag and the button an
   orange dot, until you close the card.
@@ -299,7 +300,7 @@ picture* or *loading 12 of 48 tiles…* (the zoom level in brackets for the curi
 not load — then MapProxy on the robot is not reachable or has no picture there (without internet
 it has only what it stored before; the plain white tile it sends then is not drawn). Once the
 network, the connection to the robot or MapProxy's internet is back, the map loads its tiles again
-by itself. A phone uses a lower tile limit than a computer to spare its
+by itself: a few missing tiles get one quick try after 3 s; after that, and after a bigger outage, it tries again after 15 s, 30 s and then every minute until all of them came (a tile that does not answer counts as missing once no tile came for 20 s; a slow MapProxy is waited for). A phone uses a lower tile limit than a computer to spare its
 memory; with overlays on it gives the background map at most half of it (far out the map then
 shows a coarser level and its line says *coarser picture: too many tiles*) and draws the overlays a level coarser
 (relief and slope two), so all of them fit. A computer does the same with the overlays when zoomed

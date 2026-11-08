@@ -131,6 +131,10 @@ check('nothing is new before the catalog came', w2.window.VTMapLayers._newIds(MS
 const w3 = load({ vitulus_layers_seen: JSON.stringify(cat.bases.concat(cat.overlays).map((s) => s.id)) }, cat);
 check('nothing is new once all were seen', w3.window.VTMapLayers._newIds(cat).length === 0);
 
+// ---- T17 M11: the slope legend in degrees
+check('M11 slope legend: seven steps 0/3/5/10/15/20/30°, stepped (hard edges)', /var SLOPE_STEPS = \[\['#d6d5cf', 0\], \['#fffac2', 3\], \['#ffff00', 5\], \['#ffbe00', 10\], \['#fda133', 15\], \['#fe7200', 20\], \['#a24a1b', 30\]\];/.test(code) &&
+      /st\[0\] \+ ' ' \+ \(i \* w\)\.toFixed\(2\) \+ '% ' \+ \(\(i \+ 1\) \* w\)/.test(code));
+
 // ---- T17 M8: thumbnails, background state, aspect legend, rain time line
 const tp = L._thumbPlan;
 const p = tp(14.35, 50.0817, 17, 32, 0.5);   // public test point (park Ladronka)

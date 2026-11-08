@@ -209,6 +209,19 @@
         return Math.max(0, this.minGap - (now - this.last));
     };
 
+    // T17 M11: the next automatic retry of failed tiles (ms) after the
+    // previous delay `prev` (0 = first): 15 s, 30 s, 60 s, 60 s …; a first
+    // retry of a PARTIAL failure (most tiles came) after 3 s, then 15 s on.
+    var RETRY_FIRST_PARTIAL = 3000;
+    // a tile counts as failed once no tile at all answered for this long
+    // (T17 M11; the clock starts again with every answer, mapping.js)
+    var TILE_TIMEOUT_MS = 20000;
+    function retryDelay(prev, partial) {
+        if (!prev) { return partial ? RETRY_FIRST_PARTIAL : 15000; }
+        if (prev === RETRY_FIRST_PARTIAL) { return 15000; }
+        return Math.min(60000, prev * 2);
+    }
+
     // ---- texture cache -----------------------------------------------------
     // opts: { dispose(tex), idleBytes, hardBytes }
     function TexCache(opts) {
@@ -288,7 +301,7 @@
 
     var api = { texBytes: texBytes, overlaps: overlaps, ancestor: ancestor, under: under,
                 orderByDistance: orderByDistance, budgets: budgets, zoomCap: zoomCap, baseShare: baseShare, overlayWant: overlayWant,
-                isBlankWhite: isBlankWhite, withBust: withBust, withoutBust: withoutBust, layerKey: layerKey, Outage: Outage, TexCache: TexCache, MB: MB };
+                isBlankWhite: isBlankWhite, withBust: withBust, withoutBust: withoutBust, layerKey: layerKey, Outage: Outage, retryDelay: retryDelay, TILE_TIMEOUT_MS: TILE_TIMEOUT_MS, TexCache: TexCache, MB: MB };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (root) { root.VTMapTiles = api; }
 })(typeof window !== 'undefined' ? window : null);
