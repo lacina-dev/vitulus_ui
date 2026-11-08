@@ -611,6 +611,43 @@
         if (!head_ && /^limit_/.test(str)) { return limitText(str, vars); }
         return commandWhy(str);
     }
+    /* T22: the dock permit's code (/scheduler/mode dock_why, a journal's vars.dock) in
+       words. An older master sent words (the old lock's, Czech): shown as they are. */
+    function dockWhy(code) {
+        if (!code) { return ''; }
+        var str = String(code);
+        if (!/^[a-z][a-z0-9_]*$/.test(str)) { return str; }
+        return first(['auto.check.permit.' + str]) || str.replace(/_/g, ' ');
+    }
+    /* T22 (N6): the advice's reason as data (reason_code + reason_vars) in the UI's
+       language. An older agent sends only its own words (reason, Czech): those. */
+    function localNum(v) {
+        return typeof v === 'number' ? v.toLocaleString(lang(), { maximumFractionDigits: 2 }) : v;
+    }
+    function reasonVars(src) {
+        var v = {};
+        Object.keys(src || {}).forEach(function (k) {
+            var x = src[k];
+            v[k] = Array.isArray(x) && k === 'zones' ? x.join(', ') : localNum(x);
+        });
+        return v;
+    }
+    function reasonItem(it) {
+        if (!it || typeof it !== 'object') { return ''; }
+        var key = it.code ? 'auto.t22.item.' + it.code : (it.program !== undefined ? 'auto.t22.item.recent' : '');
+        return key && has(key) ? t(key, reasonVars(it)) : '';
+    }
+    function adviceReason(code, vars, words) {
+        var key = code ? 'auto.t22.why.' + code : '';
+        if (!key || !has(key)) { return words || ''; }
+        var v = reasonVars(vars);
+        if (vars && Array.isArray(vars.items)) {
+            v.items = vars.items.map(reasonItem).filter(Boolean).join('; ') || t('auto.t22.item.due');
+        }
+        var txt = t(key, v);
+        /* vars the planner dropped (too long): the agent's own words rather than a hole */
+        return /\{\w+\}/.test(txt) ? (words || txt.replace(/\s*\{\w+\}/g, '')) : txt;
+    }
     function modeMsg(state, text) { msgOf({ msg: $('auto_mode_msg') }, state, text); }
     function buildMode() {
         var box = $('auto_mode_choice');
@@ -707,13 +744,13 @@
         }
         box.hidden = !key;
         if (!key) { return; }
-        var sig = key + JSON.stringify(vars) + (mv.dock_why || '');
+        var sig = key + JSON.stringify(vars) + (mv.dock_why || '') + lang();   // T22: + language (title)
         if (box.dataset.sig === sig) { return; }
         box.dataset.sig = sig;
         box.dataset.state = state;
         clear(box);
         var tx = el('span', 'vt-attn-txt', box, t(key, vars));
-        if (mv.dock_why) { tx.title = mv.dock_why; }   // the lock's own words (Czech, from the agent)
+        if (mv.dock_why) { tx.title = dockWhy(mv.dock_why); }   // T22: a code, in words
         var b = el('button', 'btn btn-sm ' + (state === 'warn' ? 'btn-outline-warning' : 'btn-outline-info'), box, t('auto.mode.dock.go'));
         b.type = 'button'; b.id = 'btn_auto_mode_dock';
         b.title = t('auto.mode.dock.go_tip');
@@ -755,7 +792,8 @@
         st.dataset.state = ADVICE_STATES[a.state] || 'off';
         if (typeof a.confidence === 'number') { el('span', 'vt-pill', meta, t('auto.mode.adv.conf', { pct: Math.round(a.confidence * 100) })); }
         if (a.received) { el('span', null, meta, when(a.received)); }
-        if (a.reason) { el('p', 'vt-auto-dec-why', box, t('auto.mode.adv.reason', { reason: a.reason })); }
+        var because = adviceReason(a.reason_code, a.reason_vars, a.reason);
+        if (because) { el('p', 'vt-auto-dec-why', box, t('auto.mode.adv.reason', { reason: because })); }
     }
     function paintLast(mv) {
         var box = $('auto_mode_last');
@@ -782,11 +820,12 @@
         }
         if (typeof v.confidence === 'number') { el('span', 'vt-pill', meta, t('auto.mode.adv.conf', { pct: Math.round(v.confidence * 100) })); }
         var main = box.querySelector('.vt-auto-dec-main').textContent, wv = v.why ? whyCode(v.why, v) : '';
-        var why = v.reason ? t('auto.mode.adv.reason', { reason: v.reason })
+        var because = adviceReason(v.reason_code, v.reason_vars, v.reason);
+        var why = because ? t('auto.mode.adv.reason', { reason: because })
             : (wv && main.indexOf(wv) < 0 ? t('auto.mode.why', { why: wv }) : '');
         if (why) {
             var p = el('p', 'vt-auto-dec-why', box, why);
-            if (v.dock) { p.title = v.dock; }
+            if (v.dock) { p.title = dockWhy(v.dock); }
         }
     }
     function paintMode() {
@@ -837,7 +876,7 @@
             } else if (mv.dock_permitted === false && !(adv && adv.state === 'pending' && adv.action === 'mow')) {
                 dn = note(notes, pv && pv.kind === 'scheduled' && pv.next ? 'auto.mode.dock.next' : 'auto.mode.dock.locked',
                           pv && pv.next ? { at: pv.nextAt } : null);
-                dn.title = mv.dock_why || '';
+                dn.title = dockWhy(mv.dock_why);
             }
             if (dn) {
                 var dl = el('button', 'vt-auto-notelink', dn, t('auto.mode.dock.go') + ' \u203a');
@@ -2300,7 +2339,8 @@
         el('span', 'vt-attn-lab', box, t('auto.alert.label'));
         var d = Object.assign({ program: i.program || '' }, i.detail || {});
         if (d.slot) { d.slot = String(d.slot).replace('T', ' '); }
-        var txt = first(['calmgr.issue.reason.' + d.reason, 'calmgr.issue.' + i.code], d) || i.code;
+        var rk = String(d.reason || '').replace(/^dock:/, 'dock_');   // same key as calendar_manager
+        var txt = first(['calmgr.issue.reason.' + rk, 'calmgr.issue.' + i.code], d) || i.code;
         el('span', 'vt-attn-txt', box, txt);
         var b = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.alert.more'));
         b.type = 'button';
@@ -2559,5 +2599,6 @@
 
     window.VTAutonomy = { init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {
         return S.report ? planLine() : ''; }, rawTimed: rawTimed, robotLine: robotLine, when: when,
-                          whyCode: whyCode, _state: S, _checkText: checkText, _validate: validate };
+                          whyCode: whyCode, dockWhy: dockWhy, adviceReason: adviceReason,
+                          _state: S, _checkText: checkText, _validate: validate };
 }());

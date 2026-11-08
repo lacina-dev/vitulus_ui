@@ -648,6 +648,20 @@ def mode_story(p, shots, label):
     check('M3 advice: what, reason, confidence', 'Bigger' in adv_t and 'Dry for two days' in adv_t and '80' in adv_t, adv_t)
     last = p.text('#auto_mode_last') or ''
     check('M3 last decision: what and why in words', 'Bigger' in last and '_' not in last and ('doku' if cs else 'dock') in last, last)
+    # T22 (N6): the advice's reason as a code in the page's language; the dock permit's code
+    # (dock_why) in words, an old text (above) as it was
+    adv_c = dict(adv, reason='Bigger: nejdéle 5.5 d (interval 4.0 d); nedosečeno: A, B', reason_code='mow',
+                 reason_vars={'program': 'Bigger', 'items': [{'code': 'oldest', 'days': 5.5, 'interval': 4.0},
+                                                            {'code': 'unfinished', 'zones': ['A', 'B']}]})
+    p.pub('/scheduler/mode', mode_view('agent', advice=adv_c, last_decision=dec, dock_why='not_owner'))
+    why_t = p.text('#auto_mode_advice .vt-auto-dec-why') or ''
+    check('T22 advice reason in the page language', 'Bigger' in why_t
+          and ('nedosečeno: A, B' if cs else 'unfinished: A, B') in why_t and ('5,5' if cs else '5.5') in why_t, why_t)
+    check('T22 no Czech words of the agent in an en page', cs or 'nedosečeno' not in why_t, why_t)
+    dock_tip = p.pg.evaluate("(document.querySelector('#auto_mode_attn .vt-attn-txt')||{}).title")
+    check('T22 dock_why code in words', dock_tip == p.pg.evaluate("VTI18n.t('auto.check.permit.not_owner')")
+          and 'not_owner' not in dock_tip, dock_tip)
+    p.pub('/scheduler/mode', mode_view('agent', advice=adv, last_decision=dec))
     if shots:
         p.pg.evaluate("document.getElementById('auto_sec_mode').scrollIntoView()")
         p.pg.screenshot(path=os.path.join(shots, label + '-mode-dock.png'))
@@ -744,7 +758,13 @@ def mode_fit(p, shots, label):
     frm, to = now - dt.timedelta(minutes=5), now + dt.timedelta(hours=3)
     adv = {'id': 'a1', 'action': 'mow', 'program': 'Bigger', 'from': iso(frm) + ':00', 'to': iso(to) + ':00', 'until': None,
            'expires': iso(to) + ':00', 'reason': 'Dry for two days, the grass grows fast.', 'confidence': 0.8, 'by': 'agent',
-           'received': iso(frm) + ':00', 'state': 'pending', 'fresh': True}
+           'received': iso(frm) + ':00', 'state': 'pending', 'fresh': True,
+           # T22: a long reason as a code (cs is longer): it must wrap, not cut
+           'reason_code': 'mow', 'reason_vars': {'program': 'Bigger', 'items': [
+               {'code': 'no_record', 'zones': ['Front lawn', 'Back lawn', 'Orchard']},
+               {'code': 'oldest', 'days': 12.3, 'interval': 4.2},
+               {'code': 'unfinished', 'zones': ['Front lawn', 'Orchard']},
+               {'code': 'heavy', 'zones': ['Back lawn']}]}}
     p.pub('/scheduler/report', report(now, code='waiting_dock', detail={'program': 'Bigger'},
                                       sentence={'code': 'waiting_dock', 'vars': {'program': 'Bigger'}}))
     p.pub('/scheduler/mode', mode_view('agent', advice=adv, last_decision={

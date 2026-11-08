@@ -111,7 +111,7 @@
                 // T18: the dock_permit node's own event (webnode, dedup by seq)
                 return { t: isNaN(t) ? 0 : t, side: 'agent', src: tr('activity.src.dock'),
                          state: (a.event === 'warn' || a.event === 'homeward' ||
-                                 (a.event === 'exit' && !a.permitted)) ? 'warn' : 'ok',
+                                 (a.event === 'exit' && !a.permitted && !calendarExit(a))) ? 'warn' : 'ok',
                          text: permitText(a), key: 'u:' + a.ts + ':dp:' + (a.seq || a.ref) };
             }
             var uv = { who: a.author || '?', action: a.action, ref: a.ref || '', msg: a.message };
@@ -125,6 +125,12 @@
         var d = new Date(ts * 1000);
         return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
     }
+    /* T18 Q1 / T22: a departure the window does not count (no agent's mark: a
+       calendar run or a manual Undock) — normal, needs no permit. An older node
+       sends no `counted`: the row reads as before. */
+    function calendarExit(a) {
+        return a.event === 'exit' && a.counted === false && a.agent !== true;
+    }
     function permitText(a) {
         var w = a.window || {};
         var v = { id: String(w.id || a.ref || '').replace(/^p\d+-/, '#'),
@@ -132,6 +138,7 @@
                   n: w.exits || 0, max: w.max_exits || '∞' };
         var keys = [];
         if (a.event === 'end') { keys.push('activity.permit.end.' + (a.why || ''), 'activity.permit.end'); }
+        else if (calendarExit(a)) { keys.push('activity.permit.exit_cal'); }
         else if (a.event === 'exit') { keys.push(a.permitted ? 'activity.permit.exit' : 'activity.permit.exit_un'); }
         else { keys.push('activity.permit.' + a.event); }
         for (var i = 0; i < keys.length; i++) {
@@ -347,7 +354,7 @@
         }
         renderList();
     }
-    window.VTActivity = { filterIssue: setIssue };
+    window.VTActivity = { filterIssue: setIssue, _uiRows: uiRows };   // _uiRows: tools/test_autonomy
     var registered = false;
     function tryRegister() {
         if (registered) { return true; }

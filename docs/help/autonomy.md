@@ -170,7 +170,8 @@ In the panel it is the section **Who decides**, under Plan:
 - In **Could it start now?** an advice run has the line **Dock permit** (*Allowed*, *Not allowed: the
   advice waits for your dock permit*, *The owners file is missing*, …); calendar runs do not have it.
 - **Advice in force**: what the agent advised (mow program X between …, or no mowing until …), its
-  state (waiting, carried out, missed, expired, dropped), confidence and reason in the agent's own words.
+  state (waiting, carried out, missed, expired, dropped), confidence and reason in the language of the
+  page (an older agent sends only its own words, in Czech: those show).
 - **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
   in the History. In the Calendar mode it shows only once there is a decision. While the amber box says
   that the advice waits for your dock permission, the same decision is not repeated under it.

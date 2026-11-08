@@ -107,5 +107,75 @@ check('waiting_slot stays green', p._codeLook('waiting_slot')[1] === 'ok');
 check('login reason translated', p._awakeWhy('login:robert') === en['calmgr.awake.login']);
 check('unknown reason readable', p._awakeWhy('some_new_thing') === 'some new thing');
 check('sentence code wins', p._sentence({ code: 'x', detail: {}, sentence: { code: 'held', vars: {} } }) === en['calmgr.code.held']);
+check('dock_intent_timeout issue reason translated',
+    /calmgr\.issue\.reason\.dock_intent_timeout/.test(JSON.stringify(Object.keys(en))) && both('calmgr.issue.reason.dock_intent_timeout'));
+
+// T22 (N6): the agent's advice reason as a code — every code of mow_advisor has
+// a sentence in en + cs with the same placeholders, and the UI turns it into words
+const holes = (x) => (x.match(/\{\w+\}/g) || []).sort().join();
+const advPath = [process.env.AGENT_REPO && path.join(process.env.AGENT_REPO, 'src', 'vitulus_claude', 'agent', 'mow_advisor.py'),
+    path.resolve(ROOT, '..', 'vitulus_agent', 'src', 'vitulus_claude', 'agent', 'mow_advisor.py')]
+    .filter(Boolean).find((f) => fs.existsSync(f));
+if (advPath) {
+    const py = fs.readFileSync(advPath, 'utf8');
+    const why = new Set(), items = new Set();
+    py.replace(/conf,\s*'([a-z_]+)'/g, (m, c) => { why.add(c); return m; });
+    py.replace(/code, wv = '([a-z_]+)'/g, (m, c) => { why.add(c); return m; });
+    py.replace(/code, wv = '([a-z_]+)', \{/g, (m, c) => { why.add(c); return m; });
+    py.replace(/'reason_code': '([a-z_]+)'/g, (m, c) => { why.add(c); return m; });
+    py.replace(/\{'code': '([a-z_]+)'/g, (m, c) => { items.add(c); return m; });
+    check('found the advice reason codes', why.size >= 10 && items.size >= 4, [...why, ...items].join());
+    why.forEach((c) => check('advice reason ' + c, both('auto.t22.why.' + c)
+        && holes(en['auto.t22.why.' + c]) === holes(cs['auto.t22.why.' + c])));
+    items.forEach((c) => check('advice item ' + c, both('auto.t22.item.' + c)
+        && holes(en['auto.t22.item.' + c]) === holes(cs['auto.t22.item.' + c])));
+} else { console.log('NOTE mow_advisor.py not found (AGENT_REPO=…), advice reason codes not checked'); }
+['recent', 'due'].forEach((c) => check('advice item ' + c, both('auto.t22.item.' + c)));
+
+function sandbox(lang, file, extra) {
+    const dict = lang === 'cs' ? cs : en;
+    const tf = (k, v) => (dict[k] || en[k] || k).replace(/\{(\w+)\}/g, (m, n) => (v && n in v ? v[n] : m));
+    const w = Object.assign({ VTI18n: { t: tf, lang: () => lang, has: (k) => k in dict, onChange() {} } }, extra || {});
+    const sb = { window: w, document: { getElementById: () => null, addEventListener() {} }, setTimeout, setInterval, clearInterval, location: { hash: '' } };
+    Object.assign(sb, w);
+    vm.createContext(sb);
+    vm.runInContext(read(file), sb);
+    return w;
+}
+['en', 'cs'].forEach((l) => {
+    const A = sandbox(l, 'vt_autonomy.js').VTAutonomy;
+    const r = A.adviceReason('rain_recent', { h: 1.5, need: 3 }, 'pršelo před 1.5 h (limit 3 h)');
+    check(l + ': advice reason in the page language', l === 'en' ? /^it rained 1\.5\u00a0h ago/.test(r) : /^pršelo před 1,5\u00a0h/.test(r), r);
+    const m = A.adviceReason('mow', { program: 'Front', items: [{ code: 'oldest', days: 5, interval: 4 }, { code: 'unfinished', zones: ['A', 'B'] }] }, 'x');
+    check(l + ': mow reason with its items', /^Front: / .test(m) && /A, B/.test(m) && m.indexOf('; ') > 0, m);
+    check(l + ': mow without items = its turn', A.adviceReason('mow', { program: 'Front', items: [] }, 'x') === 'Front: ' + (l === 'en' ? en : cs)['auto.t22.item.due']);
+    check(l + ': old agent (words only) as before', A.adviceReason(undefined, undefined, 'pršelo') === 'pršelo');
+    check(l + ': unknown code = the words', A.adviceReason('brand_new', {}, 'slova') === 'slova');
+    check(l + ': dropped vars = the words, no hole', A.adviceReason('rain_recent', {}, 'slova') === 'slova');
+    check(l + ': dock_why code in words', A.dockWhy('not_owner') === (l === 'en' ? en : cs)['auto.check.permit.not_owner']);
+    check(l + ': dock_why old text as it is', A.dockWhy('majitel dok nepovolil') === 'majitel dok nepovolil');
+    check(l + ': dock_why unknown code readable', A.dockWhy('brand_new') === 'brand new');
+});
+
+// T22 (T18 Q1): Activity row of an exit the window does not count (calendar / manual Undock)
+['en', 'cs'].forEach((l) => {
+    const acts = [];
+    const hub = { get: (k) => (k === 'ui.actions' ? { data: { actions: acts } } : null) };
+    const ACT = sandbox(l, 'vt_activity.js', { VTHub: hub }).VTActivity;
+    const row = (ev) => { acts.length = 0; acts.push(Object.assign({ ts: '2026-11-08T23:16:00+0100', action: 'dock-permit', author: 'robot',
+        ok: true, ref: 'p1794108289-3', seq: 7, event: 'exit', window: { id: 'p1794108289-3', exits: 0, max_exits: 1 } }, ev));
+        return ACT._uiRows()[0]; };
+    const d = l === 'en' ? en : cs;
+    let r = row({ permitted: true, counted: false, agent: false });
+    check(l + ': calendar exit says not counted', r.text === d['activity.permit.exit_cal'].replace('{id}', '#3') && r.state === 'ok', JSON.stringify(r));
+    r = row({ permitted: false, counted: false, agent: false });
+    check(l + ': calendar exit outside an open window is no warning', r.state === 'ok' && r.text === d['activity.permit.exit_cal'].replace('{id}', '#3'), JSON.stringify(r));
+    r = row({ permitted: true, counted: true, agent: true, window: { id: 'p1794108289-3', exits: 1, max_exits: 1 } });
+    check(l + ': agent exit counted n/max', r.text === d['activity.permit.exit'].replace('{id}', '#3').replace('{n}', 1).replace('{max}', 1), r.text);
+    r = row({ permitted: true });
+    check(l + ': old node (no counted) as before', r.text === d['activity.permit.exit'].replace('{id}', '#3').replace('{n}', 0).replace('{max}', 1), r.text);
+    r = row({ permitted: false, counted: false, agent: true });
+    check(l + ': agent exit without an open window warns', r.state === 'warn' && r.text === d['activity.permit.exit_un'], JSON.stringify(r));
+});
 console.log(fails ? 'FAILED ' + fails : 'OK — Autonomy texts and wiring');
 process.exit(fails ? 1 : 0);

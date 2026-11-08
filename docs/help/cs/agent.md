@@ -445,7 +445,9 @@ povolilo.
 Mise, která dok potřebuje, se sama zaparkuje a její zpráva má **Povolit dok…**, které otevře
 dlaždici; **Čeká na tebe** ji ukáže se stejným tlačítkem. Jakmile okno povolíš, mise pokračuje
 sama. Na *dok je odemčený* při čekající misi odpovídá samo povolení. Každé okno, jeho konec,
-upozornění i návrat domů jsou řádky v **Aktivitě**.
+upozornění i návrat domů jsou řádky v **Aktivitě**. Do okna (*jen 1 výjezd*) se počítá jen výjezd
+agenta; běh z kalendáře nebo ruční **Undock** v otevřeném okně má řádek *kalendář nebo ruční Undock,
+do povolení okna #N se nepočítá*.
 
 ## Co agent smí
 

@@ -463,7 +463,9 @@ once. The reply after the tap says what was allowed.
 A mission that needs the dock parks itself and its message has **Allow the dock…**, which opens
 the tile; **Needs you** shows it with the same button. Once you allow a window, the mission
 continues by itself. Writing *dok je odemčený* while a mission waits is answered from the permit
-itself. Every window, its end, the warning and the return home are rows in **Activity**.
+itself. Every window, its end, the warning and the return home are rows in **Activity**. A
+departure counts in the window (*only 1 exit*) only when it is the agent's own; a calendar run or a
+manual **Undock** in an open window reads *calendar or manual Undock, not counted in window #N*.
 
 ## What the agent may do
 

@@ -1756,6 +1756,11 @@ if __name__ == '__main__':
                 rec["why"] = why
             if kind == "exit":
                 rec["permitted"] = bool(ev.get("permitted"))
+                # T18 Q1 / T22: only the agent's exit counts in the window; an
+                # older node has neither key (the row then reads as before)
+                for key in ("counted", "agent"):
+                    if key in ev:
+                        rec[key] = bool(ev.get(key))
             if kind == "warn":
                 rec["robot_out"] = bool(ev.get("robot_out"))
             if kind == "trim":

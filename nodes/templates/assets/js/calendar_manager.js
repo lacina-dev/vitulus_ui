@@ -508,7 +508,8 @@ class CalendarManager {
                 const why = (typeof vtT === 'function') ? vtT('mapview.prog.mapgate.' + code, {program: d.program, site: ''}) : code;
                 d.reason = why === 'mapview.prog.mapgate.' + code ? code : why;
             }
-            const byReason = 'calmgr.issue.reason.' + d.reason;   // the reason says more than the code
+            // T22: the dock permit's codes (dock:intent_timeout) have their own sentence
+            const byReason = 'calmgr.issue.reason.' + String(d.reason || '').replace(/^dock:/, 'dock_');
             let text = calT(byReason, d);
             if (text === byReason) text = calT(key, d);
             if (text === key) text = i.code + ' ' + (i.program || '');

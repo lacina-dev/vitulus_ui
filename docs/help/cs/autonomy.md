@@ -161,7 +161,8 @@ V panelu je to sekce **Kdo rozhoduje** pod Plánem:
 - V **Mohl by teď vyjet?** má běh z rady řádek **Povolení doku** (*Povoleno*, *Nepovoleno: rada čeká
   na tvoje povolení doku*, *Chybí soubor ownerů*, …); běhy z kalendáře ho nemají.
 - **Platná rada**: co agent poradil (posekat program X mezi …, nebo nesekat do …), stav (čeká,
-  provedena, zmeškaná, prošlá, zrušená), jistota a důvod vlastními slovy agenta.
+  provedena, zmeškaná, prošlá, zrušená), jistota a důvod v jazyce stránky (starší agent posílá jen
+  vlastní slova, a ta se ukážou).
 - **Poslední rozhodnutí** (v režimu Kalendář jen když nějaké je): co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
   v Historii. Dokud oranžový rámeček říká, že rada čeká na tvoje povolení doku, totéž rozhodnutí se
   pod ním neopakuje.
