@@ -1368,6 +1368,10 @@ class MappingV3 {
             const o = this._currentTileOffset();
             g.position.x = o.dx;
             g.position.y = o.dy;
+            // T17 M7: the zone pictures follow a changed alignment
+            const k = o.dx + ',' + o.dy;
+            if (this._offsetSig !== undefined && this._offsetSig !== k) { this._georefChanged('offset'); }
+            this._offsetSig = k;
         } catch (e) { /* an offset must never break the 3D view */ }
         // overlays: each by its own offset key (no group / no store = no-op)
         try {
@@ -1381,6 +1385,14 @@ class MappingV3 {
                 st.group.position.y = o.dy;
             });
         } catch (e) { /* idem */ }
+    }
+
+    // T17 M7: the map's place on the ground changed (another site, a datum
+    // captured, a new tile alignment): the zone pictures of Programs
+    // (vt_map_thumbs.js) draw again. Only an event in the page.
+    _georefChanged(why) {
+        try { document.dispatchEvent(new CustomEvent('vt:map-georef', {detail: {why: why}})); }
+        catch (e) { /* old browser */ }
     }
 
     // `fn` renders the text (re-run on a language switch); '' clears it
@@ -3499,6 +3511,7 @@ class MappingV3 {
             // (it also re-applies the offset to the group).
             if (this.tile_offsets !== undefined) { this._loadTileOffsets(); }
             if (this._tilesWanted()) this.rebuildAerial();
+            this._georefChanged('site');
         }
         // 2026-08-16 UI redo: stavový přehled nahoře — JAKÁ mapa se nahrává
         const hdr = document.getElementById('mapv3_hdr_session');
@@ -3980,6 +3993,7 @@ class MappingV3 {
             this._aerialDatumCaptured = true;
             this.aerial_datum = null;
             if (this._tilesWanted()) this.rebuildAerial();
+            this._georefChanged('datum');
         } else if (!g.datum_captured) {
             this._aerialDatumCaptured = false;
         }

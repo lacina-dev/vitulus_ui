@@ -16,11 +16,19 @@ a otáčky pro všechny zóny. **Kalendář** říká, *kdy*. Programy najdeš v
 v [Autonomie › Plán](autonomy.md#plán) (vede tam odkaz *Kdy běží: kalendář v Autonomii › Plán* pod
 seznamem programů).
 
-![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů (kliknutím ho otevřeš; **Nový program** je dole v panelu) · 2 odkaz na kalendář · 3 Run · 4 Resume · 5 Ukázat / Skrýt · 6 Stop · 7 Reset")
+![Programy › Programy s otevřeným programem, očíslované značky](../img/shot-programs.webp "1 seznam programů: karta s obrázkem jeho zón (kliknutím program otevřeš; **Nový program** je dole v panelu) · 2 odkaz na kalendář · 3 Run · 4 Resume · 5 Ukázat / Skrýt · 6 Stop · 7 Reset")
 
 Každá karta v seznamu říká, jak program naposledy skončil: **hotovo**, **nedokončeno · zóna**
 (skončil v té zóně, **Resume** tam pokračuje), **selhal při startu** nebo **ještě neběžel**.
 Původní text robota je v bublině po najetí myší.
+
+Malý obrázek vlevo na kartě ukazuje zóny programu, každou v barvě, jakou ji kreslí mapa, nad
+stejným podkladem jako záložka Mapa (výchozí je letecký snímek; mění se tlačítkem vrstev na mapě).
+Když je podklad vypnutý nebo se dlaždice nenačtou (bez internetu, MapProxy neodpovídá), ukáže
+obrázek jen tvar zón na jednobarevném pozadí. Klik na obrázek otevře program a ukáže ho na mapě,
+stejně jako **Ukázat** — nikdy ho neskryje a robotem nepohne. Program jiné mapy má místo obrázku
+značku mapy: jeho zóny jsou známé, až když je jeho mapa aktivní. Obrázky se kreslí jen u karet,
+ke kterým doroluješ, a všechny dohromady načtou jen pár dlaždic.
 
 ![Nastavení a zóny programu, očíslované značky](../img/shot-program-settings.webp "1 Přepsat zóny · 2 výška sekání a otáčky pro všechny zóny · 3 co platí, slovy · 4 karta zóny: její hodnota přeškrtnutá, vedle hodnota programu · 5 Přidat zónu… · 6 Uložit · 7 Smazat")
 

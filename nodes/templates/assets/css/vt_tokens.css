@@ -86,6 +86,16 @@
     --vt-thumb-road: #f2c14e;
     --vt-thumb-street: #ffffff;
 
+    /* T17 M7: the zone pictures of Programs (vt_map_thumbs.js) — zone i in the
+       colour the planner draws it with (run_path.py ZONE_COLORS), the ground
+       when there is no background map */
+    --vt-zone-1: #0dcaf0;
+    --vt-zone-2: #ffc208;
+    --vt-zone-3: #e866ff;
+    --vt-zone-4: #8cf059;
+    --vt-zonepic-bg: #2f3a43;
+    --vt-zonepic-rim: rgba(0, 0, 0, 0.55);   /* under the zone line on a photo */
+
     /* tone = three numbers per state (U2, from the field dashboard):
        --vt-glow-*  the soft wash from the top-left corner,
        --vt-edge-*  the toned border + the 1 px glow along the top edge.

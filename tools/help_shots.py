@@ -59,6 +59,27 @@ CLICK_OK = re.compile(r'^(#btn_(marker|settings|map|programs|autonomy|agent|supp
 # The aerial photo layer is switched off in the pictures: it would show where
 # the owner lives (the help goes to every user of the kit).
 AERIAL_OFF = "const a = document.getElementById('mapv3_chk_aerial'); if (a && a.checked) a.click(); return '';"
+# --aerial-public (T17 M7): the background map may stay on only when the page's
+# datum is one of these PUBLIC test points (an init script with invented data
+# answers /api/datum, e.g. tools/help_shots_programs.js); anything else stops.
+PUBLIC_POINTS = {'Ladronka (Prague 6)': (50.0817, 14.35)}
+PUBLIC_RADIUS_M = 1500
+DATUM_JS = "async () => { try { const r = await fetch('/api/datum', {cache: 'no-store'}); return r.ok ? await r.json() : null; } catch (e) { return null; } }"
+
+
+def public_point(d):
+    """the name of the public test point the datum d lies at, or None"""
+    import math
+    try:
+        lat, lon = float(d['origin_lat']), float(d['origin_lon'])
+    except (TypeError, KeyError, ValueError):
+        return None
+    for name, (plat, plon) in PUBLIC_POINTS.items():
+        dy = (lat - plat) * 111132.0
+        dx = (lon - plon) * 111320.0 * math.cos(math.radians(plat))
+        if math.hypot(dx, dy) <= PUBLIC_RADIUS_M:
+            return name
+    return None
 ZOOM_OUT = ("const v = viewer.viewer; v.camera.position.z *= 2.2; v.cameraControls.update();" + AERIAL_OFF)
 
 # the running card is painted by the page's own code from the mission's
@@ -480,7 +501,7 @@ def box_of(pg, clip, pad):
     return {'x': x0, 'y': y0, 'width': x1 - x0, 'height': y1 - y0}
 
 
-def run(url, only, keep_png, demo=False, init=None):
+def run(url, only, keep_png, demo=False, init=None, aerial_public=False):
     base = url.rstrip('/')
     if re.search(r':7779\b', base):
         sys.exit('refused: :7779 is the live UI — start a dev instance (docs/help/README.md)')
@@ -512,7 +533,13 @@ def run(url, only, keep_png, demo=False, init=None):
             pg.wait_for_timeout(s.get('boot', 8000))
             if not pg.evaluate("document.documentElement.classList.contains('vt-mock')"):
                 sys.exit('refused: the page is not in mock mode')
-            pg.evaluate('()=>{' + AERIAL_OFF + '}')   # every picture: no aerial photo (where the owner lives)
+            if aerial_public:
+                where = public_point(pg.evaluate(DATUM_JS))
+                if not where:
+                    sys.exit('refused: --aerial-public, but the page datum is not a public test point')
+                print('  %s: background map at the public point %s' % (s['name'], where))
+            else:
+                pg.evaluate('()=>{' + AERIAL_OFF + '}')   # every picture: no aerial photo (where the owner lives)
             pg.wait_for_timeout(600)
             for st in s.get('steps', []):
                 k = st[0]
@@ -575,6 +602,9 @@ if __name__ == '__main__':
                     help='invented chat / reports instead of the real ones (use for the help pictures)')
     ap.add_argument('--init-script', default='',
                     help='a script run before the page, e.g. a fake rosbridge with invented data')
+    ap.add_argument('--aerial-public', action='store_true',
+                    help='keep the background map on — only when the page datum is a public test point '
+                         '(PUBLIC_POINTS, e.g. with --init-script tools/help_shots_programs.js); refused otherwise')
     ap.add_argument('--png', default='', help='also save a PNG copy into this directory (for a look)')
     a = ap.parse_args()
     if a.list:
@@ -583,4 +613,4 @@ if __name__ == '__main__':
         sys.exit(0)
     if not a.url:
         ap.error('--url is required')
-    run(a.url, set(x for x in a.only.split(',') if x), a.png, a.demo, a.init_script or None)
+    run(a.url, set(x for x in a.only.split(',') if x), a.png, a.demo, a.init_script or None, a.aerial_public)

@@ -109,6 +109,18 @@ The help should *show* what it talks about. Two kinds:
   owner (the aerial photo and the rain radar show where the garden is — the script switches the
   aerial layer off in every picture; at night the camera is black, hence the schematic
   `camera-overlays.svg`).
+- **A background map only at a public place:** the Programs pictures show the zone pictures over
+  a background map of park Ladronka (Prague), with invented programs — never the robot's garden:
+  ```bash
+  python3 -m http.server -b 127.0.0.1 -d nodes/templates 7862 &   # the UI of this worktree
+  # a local MapProxy on 127.0.0.1:8082 (docker-mapproxy: kartoza/mapproxy:robot with its
+  # mapproxy.yaml mounted at /mapproxy, -p 127.0.0.1:8082:8080)
+  tools/help_shots.py --url http://127.0.0.1:7862 --init-script tools/help_shots_programs.js \
+      --aerial-public --only shot-programs,shot-program-settings
+  ```
+  `--aerial-public` keeps the background map on only when the page's datum lies at a point of
+  `PUBLIC_POINTS` in the script (the init script answers `/api/datum` with it); with any other
+  datum the script stops. Without the flag the aerial layer stays off as before.
 - **No real conversations in the help:** always shoot with `--demo`. The Agent chat, the Support
   issues and Needs you then show invented, neutral content (an English test drive with its
   phases, two made-up reports, one Needs you card of each kind with an invented home page) — the browser answers those GET requests itself (`DEMO` /

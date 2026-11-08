@@ -4858,4 +4858,6 @@
     "cfg.d10.hold.quiet": "Právě zastaveno — chvíli počkej a pak podrž znovu.",
     // D10: povolení doku odmítnuto, soubor ownerů chybí / je prázdný (agent 409)
     "dockp.err.owners_missing": "dok smí povolit jen owner zapsaný v ~/.vitulus/dock_permit_owners — soubor chybí nebo je prázdný",
+    // M7 (T17, 2026-11-08): obrázek zón na kartě programu v Programech
+    "prog.m7.thumb_tip": "Zóny programu — klikni a ukáže se na mapě",
 };

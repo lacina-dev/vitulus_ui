@@ -4773,4 +4773,6 @@
     "cfg.d10.hold.quiet": "Just stopped — wait a moment, then hold again.",
     // D10: the dock permit refused because the owners file is missing / empty (agent 409)
     "dockp.err.owners_missing": "only an owner listed in ~/.vitulus/dock_permit_owners can permit the dock — the file is missing or empty",
+    // M7 (T17, 2026-11-08): the zone picture of a program card in Programs
+    "prog.m7.thumb_tip": "The program's zones — click to show it on the map",
 };

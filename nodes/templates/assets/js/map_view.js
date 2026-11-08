@@ -34,6 +34,23 @@ function vtMapPixelRatio() {
     return Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 }
 
+/* T17 M7: the zone pictures of Programs (vt_map_thumbs.js) come with a tag in
+   index.html; a webnode still serving the old template (Jinja cache until its
+   restart) has no such tag: load the module here then, once. */
+var vtMapThumbsReady = null;
+function vtMapThumbsLoad() {
+    if (vtMapThumbsReady) { return vtMapThumbsReady; }
+    vtMapThumbsReady = window.VTMapThumbs ? Promise.resolve() : new Promise(function (resolve) {
+        try {
+            var s = document.createElement('script');
+            s.src = '/assets/js/vt_map_thumbs.js';
+            s.onload = s.onerror = function () { resolve(); };
+            document.head.appendChild(s);
+        } catch (e) { resolve(); }
+    });
+    return vtMapThumbsReady;
+}
+
 ROS3D.Viewer.prototype.resize = function(width, height) {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -1009,10 +1026,15 @@ class ProgramListItemTemplate {
         const r = Programs.resultText(this.last_result);
         const st = r.state;
         const res = vtEsc(r.text);
+        // T17 M7: a small picture of its zones at the left (vt_map_thumbs.js);
+        // a click on the picture also shows the program on the map (Show)
         this.element =  `
-            <button onclick="programs.show_program(${this.program})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
+            <button onclick="programs.cardClick(${this.program}, event)" class="vt-card vt-prog-card vt-prog-has-thumb" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
+                ${Programs.thumbHtml('o' + this.program)}
+                <span class="vt-prog-txt">
                 <span class="vt-prog-name">${vtEsc(this.name)}${mapName ? ` <span class="vt-prog-map">(${vtEsc(mapName)})</span>` : ''}</span>
                 <span class="vt-prog-meta">${this.area}&nbsp;m² · ${this.last_duration || 0}&nbsp;min · <span class="vt-prog-res" title="${vtEsc(this.last_result)}">${res}</span></span>
+                </span>
             </button>
             `;
     }
@@ -1026,10 +1048,15 @@ class ForeignProgramItemTemplate {
         const r = Programs.resultText(item.last_result || '');
         const st = r.state;
         const res = vtEsc(r.text);
+        // T17 M7: the same picture slot; another map's zones are not known
+        // here (its datum neither), so it shows the map sign
         this.element = `
-            <button onclick="programs.show_foreign(${id})" class="vt-card vt-prog-card" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
+            <button onclick="programs.show_foreign(${id})" class="vt-card vt-prog-card vt-prog-has-thumb" data-state="${st}" type="button" title="${vtEsc(vtT('mapview.prog.open'))}">
+                ${Programs.thumbHtml('f' + id)}
+                <span class="vt-prog-txt">
                 <span class="vt-prog-name">${vtEsc(item.name)} <span class="vt-prog-map">(${vtEsc(item.site)})</span></span>
                 <span class="vt-prog-meta">${item.area || 0}&nbsp;m² · ${item.last_duration_minutes || 0}&nbsp;min · <span class="vt-prog-res" title="${vtEsc(item.last_result || '')}">${res}</span></span>
+                </span>
             </button>
             `;
     }
@@ -7310,6 +7337,12 @@ class Programs {
         if (/^failed: on_(init|planner|mower)$/.test(t)) return {text: vtT('prog.d4.res.start_failed'), state: 'err'};
         return {text: t, state: vtResultState(t)};
     }
+    // T17 M7: the picture slot of a card (drawn later, when it is in view);
+    // 'o<i>' = own program i, 'f<i>' = a program of another map
+    static thumbHtml(key) {
+        const own = key.charAt(0) === 'o';
+        return `<span class="vt-thumb vt-prog-thumb" data-thumb="${key}"${own ? ` title="${vtEsc(vtT('prog.m7.thumb_tip'))}"` : ''} aria-hidden="true"><i class="la la-map vt-thumb-ph"></i></span>`;
+    }
     constructor(ros, map_menu, paths_visualization) {
         this.map_menu = map_menu;
         this.paths_visualization = paths_visualization;
@@ -8023,6 +8056,42 @@ class Programs {
         });
         this.program_list = prog_list;
         this.map_menu.div_menu_program_items_row.innerHTML = this.get_html();
+        this._bindThumbs();
+    }
+    // T17 M7: zone pictures of the cards (vt_map_thumbs.js, lazy: only cards
+    // in view are drawn). Nothing is sent to the robot.
+    _bindThumbs() {
+        try {
+            const T = window.VTMapThumbs;
+            if (!T || typeof T.bind !== 'function') {
+                if (typeof vtMapThumbsLoad === 'function' && !this._thumbsWait) {
+                    this._thumbsWait = true;
+                    vtMapThumbsLoad().then(() => { if (window.VTMapThumbs && window.VTMapThumbs.bind) this._bindThumbs(); });
+                }
+                return;
+            }
+            T.bind(this.map_menu.div_menu_program_items_row, (key) => {
+                if (!key || key.charAt(0) !== 'o') return [];
+                const own = (this.program_list_msg && this.program_list_msg.program_list) || [];
+                return T.programRings(own[parseInt(key.slice(1), 10)]);
+            });
+        } catch (e) { console.warn('[programs] zone pictures failed:', e); }
+    }
+    // T17 M7: a card opens the program; a click on its zone picture also
+    // shows it on the map — the existing Show (the planner draws the paths),
+    // never a hide and nothing that moves the robot
+    // With the planner's state (marker_state) the button already says the
+    // truth after show_program (a manual Show it just cleared counts as
+    // gone); without it, Show goes at most once per program until a Hide.
+    cardClick(id, ev) {
+        const own = (this.program_list_msg && this.program_list_msg.program_list) || [];
+        const p = own[id];
+        if (!p) return;
+        this.show_program(id);
+        const t = ev && ev.target && ev.target.closest && ev.target.closest('.vt-prog-thumb[data-shape="1"]');
+        if (!t || !this.selected_program || this.selected_program.name !== p.name) return;
+        const shown = this.marker_state ? this._programShown() : this._showSentFor === p.name;
+        if (!shown) this.show_program_in_map();
     }
     get_html(){
         let prog_elements = "";
@@ -8064,13 +8133,21 @@ class Programs {
         this._paintOverride();
         this._ensureZones();
         // Another program picked: a manual Show goes, the planner draws the rest
-        // (the running program stays). Not on the restore after a page load.
+        // (the running program stays). Not on the restore after a page load,
+        // and not when the planner already draws THIS program (T17 M7: opened
+        // from another client / after a reload, it must not vanish).
         const ms = this.marker_state;
-        if (previous && previous.name !== program.name && ms && ms.manual) {
+        let cleared = false;
+        if (previous && previous.name !== program.name && ms && ms.manual && ms.manual !== program.name) {
             this.program_to_show_marker_Topic.publish(new ROSLIB.Message({ name: 'none' }));
+            cleared = true;
+            this._showSentFor = null;
         }
         this._setShowBtn(false);
-        this._syncShowBtn();
+        // just cleared: the latched state still names the old manual Show
+        this._syncShowBtn(cleared ? Object.assign({}, ms, { manual: '' }) : undefined);
+        // no planner state: what this page last showed
+        if (!ms && this._showSentFor === program.name) this._setShowBtn(true);
 
         this.map_menu.div_menu_program_detail_row.style.display = "flex";
     }
@@ -8119,6 +8196,7 @@ class Programs {
         this.program_to_show_marker_Topic.publish(new ROSLIB.Message({
             name: 'agent:' + name, map_name: this.active_map_data, zone_list: [z]
         }));
+        this._showSentFor = null;      // the agent's zone replaced a program's Show
         this._setShowBtn(true);
         return true;
     }
@@ -8130,11 +8208,12 @@ class Programs {
     }
     // The button of the selected program says what the planner really draws. An
     // agent's zone has no program of its own: its Hide is on any program.
-    _syncShowBtn() {
-        const ms = this.marker_state, prg = this.selected_program;
+    _syncShowBtn(msNow) {
+        const ms = msNow || this.marker_state, prg = this.selected_program;
         if (!ms || !prg) return;
+        const manual = ms.manual || '';
         this._setShowBtn((ms.run === prg.name && ms.run_visible)
-            || ms.manual === prg.name || ms.manual.indexOf('agent:') === 0);
+            || manual === prg.name || manual.indexOf('agent:') === 0);
     }
     show_program_in_map(){
         // The running program: Hide holds for this run, the next run shows again.
@@ -8148,10 +8227,12 @@ class Programs {
                 this.paths_visualization.markerArrayClient.removeMarker(key);
             });
             this.program_to_show_marker_Topic.publish(this.selected_program);
+            this._showSentFor = this.selected_program && this.selected_program.name;
             this._setShowBtn(true);
         }
         // OR Hide marker
         else {
+            this._showSentFor = null;
             this.program_to_show_marker_Topic.publish(new ROSLIB.Message({
                 name: 'none'
             }));
@@ -8170,6 +8251,7 @@ class Programs {
         this.program_to_show_marker_Topic.publish(new ROSLIB.Message({
             name: 'none'
         }));
+        this._showSentFor = null;
         this._setShowBtn(false);
         this.selected_program = null;
         this.map_menu.div_menu_program_detail_row.style.display = "none";
