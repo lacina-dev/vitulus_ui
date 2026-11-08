@@ -5108,4 +5108,14 @@
     "node.bag.rec": "nahrává · {fps}\u00a0fps · {bag}",
     "node.bag.rec_nolimit": "nahrává · fps bez omezení · {bag}",
     "loc.owner.relock": "relokalizace lidarem (relock)",
+    // T21 A5 (2026-11-08): Autonomie — bez spojení to řekne horní karta, proč nic není v plánu (všechny položky kalendáře vypnuté), skončené rozhodnutí, Vypnuto v řádku kalendáře
+    "auto.a5.stale": "Bez spojení s robotem od {at}: co tu vidíš, už nemusí platit.",
+    "auto.a5.connecting": "Připojuji se k robotu…",
+    "auto.a5.programs.cal_off.one": "Nic není v plánu: položka kalendáře {program} {at} je vypnutá.",
+    "auto.a5.programs.cal_off.many": "Nic není v plánu: všechny položky kalendáře ({n}) jsou vypnuté.",
+    "auto.a5.plan.cal_off.one": "{program} {at} je níž v kalendáři vypnutý, takže se nic nespustí samo. Zapni ho, ať je zase v plánu.",
+    "auto.a5.plan.cal_off.many": "Všechny položky kalendáře níž ({n}) jsou vypnuté, takže se nic nespustí samo. Zapni některou, ať je zase v plánu.",
+    "auto.a5.tok.cal_off": "Kalendář vypnutý",
+    "auto.a5.dec.over": "skončilo {at}",
+    "calmgr.a5.off": "Vypnuto",
 };

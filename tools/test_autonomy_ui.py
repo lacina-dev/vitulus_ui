@@ -1502,6 +1502,138 @@ def a4_fit(p, shots, label):
         p.pg.screenshot(path=os.path.join(shots, label + '-a4-plan.png'))
 
 
+
+def a5_story(p, shots, label):
+    """T21 A5: no connection said, why nothing is planned (every calendar entry off), a past decision muted,
+    no tiles repeating the setting rows, nothing rewritten while nothing changes. Display only."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    p.pub('/scheduler/sleep_countdown', {'active': False})
+    p.pg.evaluate("VTAutonomy._state.countdown = {active: false}")
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    off = [dict(A2_CAL[0], enabled=False)]
+    p.pub('/scheduler/calendar', off)
+    p.pub('/scheduler/report', report(now, code='no_schedule', next=None,
+                                      checks=start_checks(programs=('off', 'no_schedule', {}))))
+    p.pub('/scheduler/timeline', {'starts': [], 'sleeps': []})
+    p.open('now')
+    p.open('plan')
+    n0 = len(p.pg.evaluate('__fake.sent'))
+    say = ('položka kalendáře Bigger 23:15 je vypnutá' if cs else 'the calendar entry Bigger 23:15 is switched off')
+    chk = p.text('#auto_checks') or ''
+    check('A5 nothing planned says why: the only entry is off', say in chk, chk)
+    fix = p.pg.evaluate("""(()=>{const r=[...document.querySelectorAll('#auto_checks .vt-auto-check')].find(e=>/Bigger/.test(e.textContent));
+        const b=r&&r.querySelector('.vt-auto-go');return b?b.title:null})()""")
+    check('A5 its › opens Plan (the calendar), not Programs', fix == p.pg.evaluate("VTI18n.t('auto.fix.plan')"), fix)
+    check('A5 Plan head: Calendar off', ('Kalendář vypnutý' if cs else 'Calendar off') in (p.text('#auto_tok_plan') or ''), p.text('#auto_tok_plan'))
+    st = p.text('#auto_plan_state') or ''
+    check('A5 Plan says switch it on to plan it again', 'Bigger 23:15' in st and ('Zapni' if cs else 'Switch it on') in st, st)
+    row = p.pg.evaluate("""(()=>{const r=document.querySelector('#div_calendar_events .vt-cal-row');
+        return [getComputedStyle(r).opacity, getComputedStyle(r.querySelector('.vt-cal-name')).opacity,
+                (r.querySelector('.vt-cal-offtag')||{}).textContent||'', getComputedStyle(r.querySelector('.cal-edit')).opacity,
+                getComputedStyle(r.querySelector('.vt-cal-offtag')).opacity]})()""")
+    check('A5 calendar row off: says Off (not dimmed), Edit/Delete not dimmed, name dimmed', row[0] == '1' and float(row[1]) < 1
+          and row[2] == ('Vypnuto' if cs else 'Off') and row[3] == '1' and row[4] == '1', row)
+    p.pub('/scheduler/mode', mode_view('agent'))
+    check('A5 in the agent mode the switched-off calendar is not the reason', say not in (p.text('#auto_checks') or ''), p.text('#auto_checks'))
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/calendar', A2_CAL)
+    check('A5 an entry on: not said', say not in (p.text('#auto_checks') or '')
+          and ('Kalendář vypnutý' if cs else 'Calendar off') not in (p.text('#auto_tok_plan') or ''), p.text('#auto_checks'))
+    check('A5 calendar row on: no Off', p.pg.evaluate("document.querySelectorAll('#div_calendar_events .vt-cal-offtag').length") == 0)
+
+    # a decision whose time is over: muted, "over at"
+    past = {'t': iso(now - dt.timedelta(hours=4)) + ':00', 'kind': 'advice', 'code': 'skip', 'program': '', 'source': 'agent',
+            'vars': {'until': iso(now - dt.timedelta(hours=1)) + ':00'}}
+    p.pub('/scheduler/mode', mode_view('calendar', last_decision=past))
+    p.open('mode')
+    lst = p.text('#auto_mode_last') or ''
+    check('A5 a past decision says it is over, muted', p.pg.evaluate("document.getElementById('auto_mode_last').dataset.past") == '1'
+          and ('skončilo' if cs else 'over at') in lst, lst)
+    fut = dict(past, vars={'until': iso(now + dt.timedelta(hours=2)) + ':00'})
+    p.pub('/scheduler/mode', mode_view('calendar', last_decision=fut))
+    check('A5 a decision still in force: not "over"', not p.pg.evaluate("document.getElementById('auto_mode_last').dataset.past")
+          and ('skončilo' if cs else 'over at') not in (p.text('#auto_mode_last') or ''), p.text('#auto_mode_last'))
+
+    # tiles: only live numbers
+    p.pub('/scheduler/report', report(now, checks=start_checks(), next={'program': 'Bigger', 'at': iso(now + dt.timedelta(hours=5))}))
+    nt = p.pg.evaluate("['rain','battery','recovery','sleep'].map(s=>document.getElementById('auto_nums_'+s).children.length)")
+    check('A5 no tiles repeating the settings: rain 0, battery 1, faults 2, sleep 2', nt == [0, 1, 2, 2], nt)
+
+    # nothing rewritten while nothing changes (the status, the mode and the radar come every second)
+    rain = {'rain_alert': False, 'rain_now': 0, 'time': {'secs': 0, 'nsecs': 0}, 'status_nowcast10m': 'OK',
+            'status_nowcast20m': 'OK', 'status_nowcast30m': 'OK'}
+    mv = mode_view('calendar', last_decision=fut)
+    p.raw('/weather_alert/rain_alert', rain)
+    p.pub('/scheduler/mode', mv)
+    p.raw('/scheduler/status', {'data': 'Idle'})
+    p.tick(600)
+    p.pg.evaluate("""(()=>{window.__mut={}; const ids=['card_calendar','auto_radar','auto_mode_last'];
+        window.__mo=new MutationObserver(l=>l.forEach(m=>{const e=m.target.nodeType===1?m.target:m.target.parentElement;
+            const k=ids.find(i=>document.getElementById(i).contains(e))||'?'; __mut[k]=(__mut[k]||0)+1;}));
+        ids.forEach(i=>__mo.observe(document.getElementById(i),{subtree:true,childList:true,characterData:true,attributes:true}));})()""")
+    for _ in range(4):
+        p.raw('/weather_alert/rain_alert', rain)
+        p.pub('/scheduler/mode', mv)
+        p.raw('/scheduler/status', {'data': 'Idle'})
+        p.tick(500)
+    mut = p.pg.evaluate("(()=>{__mo.disconnect(); return __mut})()")
+    check('A5 idle: the top card, the radar and the last decision are not rewritten', not mut, mut)
+
+    # no connection: said after 3 s, since when; muted; back = gone
+    p.pg.evaluate("document.dispatchEvent(new Event('rosdisconnected'))")
+    p.tick(1000)
+    check('A5 a short drop does not flash the banner', p.pg.evaluate("!document.getElementById('auto_stale') || document.getElementById('auto_stale').hidden"))
+    p.tick(2600)
+    sb = p.text('#auto_stale') or ''
+    check('A5 no connection: the top card says since when', p.pg.evaluate("!document.getElementById('auto_stale').hidden")
+          and ('Bez spojení s robotem od' if cs else 'No connection to the robot since') in sb and re.search(r'\d\d:\d\d', sb), sb)
+    check('A5 no connection: the sections read as not current', p.pg.evaluate(
+        "document.getElementById('div_menu_autonomy').dataset.stale === '1' && parseFloat(getComputedStyle(document.getElementById('auto_sec_plan')).opacity) < 1"))
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(250)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a5-stale.png'))
+    p.pg.evaluate("document.dispatchEvent(new Event('rosconnected'))")
+    p.tick(200)
+    check('A5 connection back: banner gone, not muted', p.pg.evaluate(
+        "document.getElementById('auto_stale').hidden && !document.getElementById('div_menu_autonomy').dataset.stale"))
+    check('A5 nothing sent', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent')[n0:])
+    errs = [e for e in p.errors if 'erases' not in e]
+    check('A5 no page errors', not errs, errs[:3])
+
+
+def a5_fit(p, shots, label):
+    """The no-connection line and a switched-off calendar row on this screen: whole, wrapped, no sideways scroll."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/calendar', [dict(A2_CAL[0], enabled=False, program_name='Front lawn by the long hedge')])
+    p.pub('/scheduler/report', report(now, code='no_schedule', next=None, checks=start_checks(programs=('off', 'no_schedule', {}))))
+    p.open('now')
+    p.open('plan')
+    p.pg.evaluate("document.dispatchEvent(new Event('rosdisconnected'))")
+    p.tick(3400)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const out=q('#div_menu_autonomy *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        const over=q('#auto_stale, #div_calendar_events *, #auto_checks *, #auto_plan_state').filter(e=>e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>e.id||e.className);
+        const s=document.getElementById('auto_stale').getBoundingClientRect();
+        return {w:document.documentElement.scrollWidth, out, over, sh:Math.round(s.height), tag:q('.vt-cal-offtag').length}}""")
+    check(label + ' A5: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r['out'])
+    check(label + ' A5: no-connection line, calendar row, checks: nothing cut', not r['over'] and r['sh'] > 0 and r['tag'] == 1, r)
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(200)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a5-fit-top.png'))
+        p.pg.evaluate("document.getElementById('div_calendar_events').scrollIntoView({block: 'center'})")
+        p.pg.wait_for_timeout(200)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a5-fit-cal.png'))
+    p.pg.evaluate("document.dispatchEvent(new Event('rosconnected'))")
+    p.tick(200)
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -1556,6 +1688,8 @@ def main():
             a3_fit(p, a.shots, label)
             a4_story(p, a.shots, label)
             a4_fit(p, a.shots, label)
+            a5_story(p, a.shots, label)
+            a5_fit(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
@@ -1570,6 +1704,7 @@ def main():
             a2_fit(p, a.shots, label)
             a3_fit(p, a.shots, label)
             a4_fit(p, a.shots, label)
+            a5_fit(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

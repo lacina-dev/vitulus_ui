@@ -402,3 +402,19 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
     .vt-auto-go { width: 40px; height: 40px; }
     .vt-auto-sleepline-b, #div_calendar_events .vt-cal-row .btn, .vt-auto-ans, .vt-auto-okbtn, .vt-auto-fbtn, .vt-auto-jmore .btn { min-height: var(--vt-touch); }
 }
+
+/* ---- T21 A5: no connection says so, a switched-off calendar entry, a past decision ---- */
+/* the robot out of reach: the top card says since when, the sections read as not current */
+.vt-auto-stale { display: block; margin: var(--vt-gap-1) 0 var(--vt-gap-2); padding: 6px 10px; font-size: var(--vt-fs-sm); line-height: 1.35;
+    overflow-wrap: break-word; hyphens: auto; white-space: normal; }
+.vt-auto-stale[hidden] { display: none; }
+#div_menu_autonomy[data-stale] .vt-auto-sec, #div_menu_autonomy[data-stale] .vt-auto-sentence,
+#div_menu_autonomy[data-stale] .vt-auto-answer, #div_menu_autonomy[data-stale] .vt-auto-nextline { opacity: .55; transition: opacity .2s; }
+/* a calendar entry switched off: its name and time dimmed and "Off" said; Edit and Delete stay as they are (they work) */
+.vt-auto #div_calendar_events .vt-cal-row.is-off { opacity: 1; }
+#div_calendar_events .vt-cal-row.is-off .vt-cal-name, #div_calendar_events .vt-cal-row.is-off .vt-cal-time,
+#div_calendar_events .vt-cal-row.is-off .vt-cal-rec { opacity: .55; }
+#div_calendar_events .vt-cal-offtag { padding: 0 6px; border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-tag);
+    font-size: var(--vt-fs-xs); line-height: 1.5; color: var(--vt-muted); white-space: nowrap; }
+/* Who decides › Last decision whose time is over: muted, with "over at …" */
+#auto_mode_last[data-past] .vt-auto-dec-main, #auto_mode_last[data-past] .vt-auto-dec-why { color: var(--vt-muted); font-weight: 400; }

@@ -24,9 +24,13 @@ věta je v tooltipu. Klepnutí otevře tu sekci; nic se neodesílá. Další sta
 tlačítky jeden krátký řádek řekne spánek: *Usne na 6 h 27 min, až bude volno; drží ho: Přihlášení,
 Webové UI ›* — celá věta je v tooltipu a ve **Spánku**, kam tě klepnutí na řádek vezme.
 
+Když stránka ztratí robota (déle než 3 s), horní karta řekne *Bez spojení s robotem od 20:12: co tu vidíš,
+už nemusí platit.* a zbytek stránky zešedne: je to poslední stav, který robot poslal, ne aktuální.
+Jakmile robot zase odpoví, zmizí to.
+
 Pod kartou jsou sekce, na každé obrazovce v tomhle pořadí: **Teď**, **Plán**, **Kdo rozhoduje**, pak
 Počasí, Baterie, Spánek, Poruchy, Historie, Pokročilé. Každá má hlavičku s barvou a krátkými štítky; po
-rozbalení jsou čísla a ovládání. Co rozbalíš, zůstane rozbalené. Při první návštěvě jsou rozbalené Teď
+rozbalení jsou živá čísla (baterie teď, chyby, probuzení — ne znovu nastavení) a ovládání. Co rozbalíš, zůstane rozbalené. Při první návštěvě jsou rozbalené Teď
 a Plán; Kdo rozhoduje zůstane sbalené, dokud rozhoduje kalendář (karta to říká), a samo se rozbalí,
 když rozhoduje agent — dokud ho sám nerozbalíš nebo nesbalíš.
 
@@ -57,7 +61,10 @@ povolený čas, když omezuje (*Povoleno 07:00–21:00*). Časová osa ukazuje 7
 nahoře: den, kdy se něco děje (start, spánek, který začíná nebo končí), má svůj pruh s povoleným časem,
 starty a očekávaným spánkem (šrafovaně); dny, kdy celý den spí nebo se nic neděje, se sbalí do jednoho
 řádku, třeba *út 10. 11. – pá 13. 11.: spí celou dobu*. Každá položka kalendáře je jeden řádek: vypínač,
-program a pod ním čas a dny, **Upravit** a **Smazat**. **Přeskočit další** přeskočí jeden start (druhý řádek tlačítka říká který: *Bigger · dnes 23:15*),
+program a pod ním čas a dny, **Upravit** a **Smazat**; vypnutá položka má štítek *Vypnuto* a ztlumené je jen
+jméno a čas. Když jsou vypnuté všechny (a rozhoduje kalendář), nic se samo nespustí a stránka řekne proč:
+*Nic není v plánu: položka kalendáře Bigger 23:15 je vypnutá* v **Mohl by teď vyjet?** (› otevře Plán),
+*Kalendář vypnutý* v hlavičce Plánu a řádek v Plánu, ať ji zapneš. **Přeskočit další** přeskočí jeden start (druhý řádek tlačítka říká který: *Bigger · dnes 23:15*),
 **Dnes nesekat** vynechá dnešek. Přeskočený start je na ose přeškrtnutý a stejné tlačítko to vrátí.
 
 **Spustit Bigger teď** (jméno dalšího programu; *Spustit další plánovaný teď*, když nic naplánováno
@@ -171,7 +178,7 @@ V panelu je to sekce **Kdo rozhoduje** pod Plánem:
   provedena, zmeškaná, prošlá, zrušená), jistota a důvod v jazyce stránky (starší agent posílá jen
   vlastní slova, a ta se ukážou).
 - **Poslední rozhodnutí** (v režimu Kalendář jen když nějaké je): co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
-  v Historii. Dokud oranžový rámeček říká, že rada čeká na tvoje povolení doku, totéž rozhodnutí se
+  v Historii. Rozhodnutí, jehož čas skončil (*nesekat do 19:30* ve 20:10), je šedé se štítkem *skončilo 19:30*. Dokud oranžový rámeček říká, že rada čeká na tvoje povolení doku, totéž rozhodnutí se
   pod ním neopakuje.
 - **Pravidla a tvrdé limity** jdou sbalit: hlavička řekne *platí* nebo *teď neplatí*; když platí, samy
   se rozbalí, když neplatí, zůstanou sbalené — dokud je sám nerozbalíš nebo nesbalíš (zapamatuje se). Uvnitř nejdřív jeden řádek s [povoleným časem sekání](programs.md#povolený-čas-sekání),

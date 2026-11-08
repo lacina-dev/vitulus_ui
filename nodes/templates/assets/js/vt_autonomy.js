@@ -799,7 +799,12 @@
     function paintLast(mv) {
         var box = $('auto_mode_last');
         if (!box) { return; }
+        var d0 = mv && mv.last_decision, attn0 = $('auto_mode_attn');
+        var sig = JSON.stringify([d0, mv && mv.mode, attn0 && attn0.hidden, lang(), Math.floor(nowMs() / 60000)]);
+        if (box.dataset.sig === sig) { return; }    // T21 A5: the mode comes every second
+        box.dataset.sig = sig;
         clear(box);
+        delete box.dataset.past;
         if (!mv) { return; }
         var d = mv.last_decision;
         /* T21 A1: the calendar decides by its slots; "no decision yet" there says nothing.
@@ -815,6 +820,13 @@
         el('div', 'vt-auto-dec-main', box, journalText(d));
         var meta = el('div', 'vt-auto-dec-meta', box);
         el('span', null, meta, when(d.t));
+        /* T21 A5: a decision whose time is over (the agent's "no mowing until 19:30" at 20:10)
+           is said as over, muted — not as if it still held */
+        var end = parseIso(v.until || v.end || v.to);
+        if (end && end.getTime() < nowMs()) {
+            box.dataset.past = '1';
+            el('span', 'vt-pill', meta, t('auto.a5.dec.over', { at: soon(isoLocal(end)) }));
+        }
         if (d.source) {
             var s = el('span', 'vt-pill', meta, first(['auto.mode.src.' + d.source]) || d.source);
             s.dataset.state = d.source === 'agent' ? 'info' : '';
@@ -962,12 +974,13 @@
     }
     function ansSet(b, text, state, tip) {
         if (!b) { return; }
-        b.hidden = !text;
+        /* T21 A5: only what changed (the mode comes every second) */
+        if (b.hidden !== !text) { b.hidden = !text; }
         if (!text) { return; }
         var s = b.querySelector('.vt-auto-ans-t');
         if (s.textContent !== text) { s.textContent = text; }
-        if (state) { b.dataset.state = state; } else { delete b.dataset.state; }
-        b.title = tip || text;
+        if (state) { if (b.dataset.state !== state) { b.dataset.state = state; } } else if ('state' in b.dataset) { delete b.dataset.state; }
+        if (b.title !== (tip || text)) { b.title = tip || text; }
     }
     function paintAnsMode(mv) {
         if (!mv) { ansSet(S.ansMode, ''); return; }
@@ -1127,8 +1140,22 @@
         var p = pos.pvt || {}, sv = pos.sat ? pos.sat.used : p.num_sv;
         return { fix: GnssRx.fixText(pos), sv: sv == null ? '—' : sv };
     }
+    /* T21 A5: the calendar has entries, every one switched off (the calendar decides):
+       "nothing planned" says why. The entries, or null. */
+    function calOff() {
+        var cm = window.calendarManager, ev = cm && cm.events, mv = modeView();
+        if (!ev || !ev.length || (mv && mv.mode === 'agent')) { return null; }
+        return ev.some(function (e) { return e.enabled !== false; }) ? null : ev;
+    }
+    function calOffText(key) {
+        var ev = calOff();
+        if (!ev) { return ''; }
+        return ev.length === 1 ? t(key + '.one', { program: ev[0].program_name || '', at: ev[0].start_time || '' })
+            : t(key + '.many', { n: ev.length });
+    }
     function checkText(c) {
         var v = checkVars(c);
+        if (c.key === 'programs' && c.code === 'no_schedule' && calOff()) { return calOffText('auto.a5.programs.cal_off'); }
         if (c.key === 'gnss' && c.code === 'not_checked') {
             var g = gnssNow();
             return g ? t('auto.check.gnss.not_checked_live', g) : t('auto.check.gnss.not_checked');
@@ -1163,7 +1190,7 @@
             el('span', 'vt-sdot', r);
             var tx = el('span', 'vt-auto-check-t', r, checkText(c));
             if (c.key === 'gnss' && c.code === 'not_checked' && !quietOk) { S.gnssLive = { el: tx, c: c }; }
-            var fix = FIX[c.key];
+            var fix = c.key === 'programs' && c.code === 'no_schedule' && calOff() ? 'sec:plan' : FIX[c.key];
             /* T21 A2: the sleep list stands in Sleep now: no › to the section it is in */
             if (quietOk && fix === 'sec:sleep' && box.closest && box.closest('#auto_sec_sleep')) { fix = null; }
             if (fix && c.state !== 'ok' && (c.state !== 'off' || top(c))) {
@@ -1267,7 +1294,7 @@
         /* T21 A2: the next start is said once, in the top card right above; the head says
            the allowed time instead (when it limits), or why nothing comes */
         if (rep && !rep.enabled) { toks.push({ text: t('auto.tok.auto_off') }); }
-        else if (!next) { toks.push({ text: t('auto.tok.none') }); }
+        else if (!next) { toks.push({ text: t(calOff() ? 'auto.a5.tok.cal_off' : 'auto.tok.none') }); }
         else if (w && w.enabled) { toks.push({ text: t('auto.a2.plan.window', { start: w.start, end: w.end }) }); }
         if (skip) { toks.push({ text: t('auto.tok.skip'), state: 'warn' }); }
         if (noMow && noMow >= today()) { toks.push({ text: t('auto.tok.no_mow'), state: 'warn' }); }
@@ -1438,6 +1465,8 @@
             var parts = [];
             if (skip) { parts.push(t('auto.plan.skipped', { when: when(skip === true ? (next && next.at) : skip) })); }
             if (noMowOn) { parts.push(t('auto.plan.no_mow_until', { day: dayWord(new Date(noMow + 'T12:00')) })); }
+            var off = calOffText('auto.a5.plan.cal_off');
+            if (off) { parts.push(off); }
             st.textContent = parts.join(' ');
             st.style.display = parts.length ? '' : 'none';
         }
@@ -1559,7 +1588,9 @@
     }
     function paintRain() {
         var r = radar(), box = $('auto_radar');
-        if (box) {
+        var rsig = r.state + r.key + (S.rain ? ['status_nowcast10m', 'status_nowcast20m', 'status_nowcast30m'].map(function (f) { return S.rain[f]; }).join() : '') + (lang() || '');
+        if (box && box.dataset.sig !== rsig) {     // T21 A5: rebuilt only when it says something else
+            box.dataset.sig = rsig;
             box.dataset.state = r.state;
             clear(box);
             el('span', 'vt-sdot', box);
@@ -1578,11 +1609,9 @@
         /* T21 A2: the head says what rain does ("Always" alone said nothing) */
         if (mode) { toks.unshift({ text: first(['auto.a2.rain.tok.' + mode, 'auto.rain.mode.' + mode]) }); }
         head('rain', mode === 'ignore' ? 'warn' : r.state, toks);
-        nums('rain', [
-            { k: t('auto.num.after_rain'), v: withUnit(num('rain_after_min'), 'min') },
-            { k: t('auto.num.forecast'), v: withUnit(num('rain_forecast_min'), 'min') },
-            { k: t('auto.num.retry'), v: withUnit(num('rain_retry_h'), 'h') }
-        ]);
+        /* T21 A5: no tiles that repeat the setting rows right below (wait after rain,
+           forecast, retry): the radar line is the live part */
+        nums('rain', []);
     }
 
     /* ------------------------------------------------------- battery */
@@ -1594,11 +1623,9 @@
         var toks = [{ text: pct, state: low ? 'warn' : (have ? 'ok' : undefined) }];
         if (start !== null) { toks.push({ text: t('auto.tok.start_at', { pct: start }) }); }
         head('battery', low ? 'warn' : (have ? 'ok' : 'off'), toks);
+        /* T21 A5: the battery now; start / return / go on are the setting rows below */
         nums('battery', [
-            { k: t('auto.num.batt_now'), v: pct, state: low ? 'warn' : undefined },
-            { k: t('auto.num.batt_start'), v: withUnit(start, '%') },
-            { k: t('auto.num.batt_return'), v: withUnit(num('battery_return_pct'), '%') },
-            { k: t('auto.num.batt_resume'), v: withUnit(num('battery_resume_pct'), '%') }
+            { k: t('auto.num.batt_now'), v: pct, state: low ? 'warn' : undefined }
         ]);
     }
 
@@ -1776,9 +1803,8 @@
             /* T21 A4: before it sleeps the robot has no wake yet; the plan's wake (the sentence
                right under) then, marked as planned — not a dash beside "wakes at 23:01" */
             { k: t('auto.num.next_wake'), v: sl && sl.next_wake ? when(sl.next_wake) : planWake() },
-            { k: t('auto.num.last_wake'), v: sl && sl.last_wake && sl.last_wake.actual_epoch ? clock(sl.last_wake.actual_epoch * 1000) : '—' },
-            { k: t('auto.num.idle'), v: withUnit(num('idle_sleep_threshold_min'), 'min') }
-        ]);
+            { k: t('auto.num.last_wake'), v: sl && sl.last_wake && sl.last_wake.actual_epoch ? clock(sl.last_wake.actual_epoch * 1000) : '—' }
+        ]);     // T21 A5: "sleeps when idle" is the setting row below
         if (S.stayState) {
             var active = stay && (parseIso(stay) || 0) > new Date();
             S.stayState.textContent = active ? t('auto.stay.until', { when: when(stay) }) : '';
@@ -1822,7 +1848,7 @@
         var box = $('auto_countdown');
         if (!box) { return; }
         var p = planNow();
-        if (!live(p) || p.cancellable === false) { box.hidden = true; return; }
+        if (!live(p) || p.cancellable === false) { if (!box.hidden) { box.hidden = true; } return; }
         if (!box.firstChild) {
             el('span', 'vt-attn-lab', box, t('auto.cd.label'));
             S.cdTxt = el('span', 'vt-attn-txt', box);
@@ -1833,8 +1859,8 @@
         var c = S.countdown || {}, who = c.who || {}, n = (who.ssh || []).length + (who.ui || 0);
         var tx = planLine(p);
         if (p.kind === 'countdown' && n) { tx += ' ' + t('auto.cd.people', { n: n }); }
-        S.cdTxt.textContent = tx;
-        box.hidden = false;
+        if (S.cdTxt.textContent !== tx) { S.cdTxt.textContent = tx; }
+        if (box.hidden) { box.hidden = false; }
     }
     /* Every place that says the plan, and the clock that keeps them true. */
     /* T21 A2: the top card says the plan short (what holds it by name, the whole
@@ -1883,14 +1909,15 @@
             var e = $(id);
             if (!e) { return; }
             var show = !!tx && !(id === 'auto_sleep_plan' && live(p));
-            e.hidden = !show;
+            if (e.hidden !== !show) { e.hidden = !show; }
             var said = show ? (id === 'auto_sleep_plan' ? heroSleep(p, tx) : sleepSecLine(p, tx)) : '';
             var into = id === 'auto_sleep_plan' ? heroSleepText(e) : e;
             if (show && into.textContent !== said) { into.textContent = said; }
             var tip = show && said !== tx ? tx : '';
             if (id === 'auto_sleep_plan') { tip = show ? (tip ? tip + ' ' : '') + t('auto.fix.sleep') : ''; }
             if (e.title !== tip) { e.title = tip; }
-            e.dataset.state = (p.kind === 'soon' && p.ignored) ? 'warn' : '';
+            var ds = (p.kind === 'soon' && p.ignored) ? 'warn' : '';
+            if ((e.dataset.state || '') !== ds) { e.dataset.state = ds; }
         });
         if (RP && RP.plan) {
             var near = live(p) || (p.kind === 'soon' && p.cut && p.cut - nowMs() < 600000);
@@ -2236,8 +2263,11 @@
             if (!box || !box.dataset.built) { return; }
             var st = box.querySelector('.vt-hw-state');
             if (tx && st.textContent !== tx) { st.textContent = tx; }
-            box.querySelector('.vt-hw-go').disabled = phase !== 'idle' && phase !== 'restore';
-            box.querySelector('.vt-hw-cancel').hidden = !running;
+            /* T21 A5: attributes only on a change (this runs every second) */
+            var go = box.querySelector('.vt-hw-go'), off = phase !== 'idle' && phase !== 'restore';
+            if (go.disabled !== off) { go.disabled = off; }
+            var cx = box.querySelector('.vt-hw-cancel');
+            if (cx.hidden !== !running) { cx.hidden = !running; }
         });
         if (phase === 'armed') {
             say('hw', 0, tx, { sticky: true, action: { text: t('auto.cd.cancel'), fn: function () { h.cancel(); tick(); } } });
@@ -2341,9 +2371,8 @@
             : [{ text: t('auto.tok.no_run') }]);
         nums('recovery', [
             { k: t('auto.num.errors'), v: run ? crit + ' / ' + (lim.critical || '?') : '—' },
-            { k: t('auto.num.resumes'), v: run ? res + ' / ' + (lim.resumes || '?') : '—' },
-            { k: t('auto.num.max_age'), v: withUnit(num('run_max_age_h'), 'h') }
-        ]);
+            { k: t('auto.num.resumes'), v: run ? res + ' / ' + (lim.resumes || '?') : '—' }
+        ]);     // T21 A5: "gives up after" is the setting row below
     }
 
     /* ------------------------------------------------------- history */
@@ -2622,12 +2651,43 @@
         if (scroll) { setTimeout(function () { s.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 60); }
     }
 
+    /* T21 A5: without the robot the page keeps the last state; it says so instead of looking
+       current. Shown after 3 s without the link (a short reconnect does not flash it); the
+       sections go muted, the top card says since when. */
+    var STALE_MS = 3000;
+    function paintStale() {
+        var panel = $('div_menu_autonomy'), hero = $('card_calendar');
+        if (!panel || !hero) { return; }
+        var box = $('auto_stale');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'auto_stale'; box.className = 'vt-attn vt-auto-stale'; box.dataset.state = 'warn'; box.hidden = true;
+            box.setAttribute('role', 'status');
+            var sen = hero.querySelector('.vt-auto-sentence');
+            hero.insertBefore(box, sen || hero.firstChild);
+        }
+        clearTimeout(S.staleT);
+        if (S.link !== false) {
+            S.lostAt = 0;
+            if (!box.hidden) { box.hidden = true; }
+            if (panel.dataset.stale) { delete panel.dataset.stale; }
+            return;
+        }
+        if (!S.lostAt) { S.lostAt = Date.now(); }
+        var left = S.lostAt + STALE_MS - Date.now();
+        if (left > 0) { S.staleT = setTimeout(paintStale, left + 20); return; }
+        var tx = S.report ? t('auto.a5.stale', { at: clock(S.lostAt) }) : t('auto.a5.connecting');
+        if (box.textContent !== tx) { box.textContent = tx; }
+        box.hidden = false;
+        if (S.report) { panel.dataset.stale = '1'; }
+    }
     function paintAll() {
         paintMode(); paintNow(); paintPlan(); paintRain(); paintBattery(); paintSleep();
         paintRecovery(); paintHistory(); paintAlert(); paintRight();
         var locked = S.settings && S.settings.schema
             ? Object.keys(S.settings.schema).filter(function (k) { return S.settings.schema[k].locked; }).length : 0;
         head('advanced', 'off', locked ? [{ text: t('auto.tok.locked', { n: locked }) }] : []);
+        if (S.link === false) { paintStale(); }
     }
 
     /* Rain would refuse this manual start: ask. true = the dialog took over. */
@@ -2773,9 +2833,10 @@
         });
         buildRainMode(); buildMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
         readLimits();
-        document.addEventListener('rosconnected', function () { S.link = true; readLimits(); });
-        document.addEventListener('rosdisconnected', function () { S.link = false; });
-        document.addEventListener('rosconnecting', function () { S.link = false; });
+        document.addEventListener('rosconnected', function () { S.link = true; readLimits(); paintStale(); });
+        document.addEventListener('rosdisconnected', function () { S.link = false; paintStale(); });
+        document.addEventListener('rosconnecting', function () { S.link = false; paintStale(); });
+        document.addEventListener('vt:calendar', function () { if (S.report) { paintNow(); paintPlan(); } });
         subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintNow(); paintRight(); });
         /* T18: the D36 box says the dock permit the Agent panel just read */
         document.addEventListener('vagent:dock', function () {

@@ -96,6 +96,8 @@ class CalendarManager {
                 this.events = [];
             }
             this.render();
+            // T21 A5: the Autonomy page says why nothing is planned (every entry off)
+            document.dispatchEvent(new CustomEvent('vt:calendar'));
         });
 
         // Subscribe to scheduler status (raw line: tooltip only once the
@@ -362,7 +364,8 @@ class CalendarManager {
                     : (m ? `${Number(m[2])}. ${Number(m[1])}. ${m[3]}` : '');
                 v = (rep.enabled && m) ? `${rep.next.program} · ${at}` : '';
             }
-            el.textContent = (v && v !== 'None') ? calT('calmgr.next', {when: v}) : '';
+            const tx = (v && v !== 'None') ? calT('calmgr.next', {when: v}) : '';
+            if (el.textContent !== tx) { el.textContent = tx; }      // T21 A5: only on a change
         }
     }
 
@@ -465,17 +468,21 @@ class CalendarManager {
             // an older master_controller without the report: its line says what it does
             label = calT('calmgr.state.unknown');
         }
-        el.textContent = label;
-        el.dataset.state = tone;
-        el.title = st ? calT('calmgr.state.tip', {status: st}) : '';
+        // T21 A5: written only when it changes (the status comes every second; an idle page
+        // rewrote the top card each time)
+        const put = (e, k, v) => { if (e[k] !== v) { e[k] = v; } };
+        put(el, 'textContent', label);
+        if (el.dataset.state !== tone) { el.dataset.state = tone; }
+        put(el, 'title', st ? calT('calmgr.state.tip', {status: st}) : '');
         // Why it does not sleep is quiet information, in the tooltip of the line.
         const block = rep && rep.sleep && rep.sleep.block;
         if (line) {
-            line.textContent = sentence;
-            line.title = block ? calT('calmgr.why_awake', {why: this._awakeWhy(block)}) : '';
+            put(line, 'textContent', sentence);
+            put(line, 'title', block ? calT('calmgr.why_awake', {why: this._awakeWhy(block)}) : '');
         }
         if (card) {
-            if (tone === 'off') { delete card.dataset.state; } else { card.dataset.state = tone; }
+            if (tone === 'off') { if ('state' in card.dataset) { delete card.dataset.state; } }
+            else if (card.dataset.state !== tone) { card.dataset.state = tone; }
         }
         this._paintNext();
     }
@@ -553,6 +560,8 @@ class CalendarManager {
             html += `<label class="form-check form-switch vt-cal-sw" title="${tip}"><input class="form-check-input cal-toggle" type="checkbox" data-id="${ev.id}" aria-label="${tip}" ${enabled ? 'checked' : ''}></label>`;
             html += `<div class="vt-cal-main"><span class="vt-cal-name">${name}${ev.site ? ' <small class="vt-cal-site">' + this._escHtml(ev.site) + '</small>' : ''}</span>`;
             html += `<span class="vt-cal-when"><span class="vt-cal-time">${timeStr}</span><span class="vt-cal-rec">${recLabel}</span>`;
+            // T21 A5: an entry switched off says so in words (only its name and time are dimmed)
+            if (!enabled) html += `<span class="vt-cal-offtag">${calT('calmgr.a5.off')}</span>`;
             if (missing) html += `<span class="vt-cal-miss" title="${calT('calmgr.missing_tip')}">${calT('calmgr.missing')}</span>`;
             if (outside) html += `<span class="vt-cal-miss" title="${calT('calmgr.outside_tip', this._report.window || {})}">${calT('calmgr.outside')}</span>`;
             html += `</span></div>`;

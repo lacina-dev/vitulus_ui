@@ -5021,4 +5021,14 @@
     "node.bag.rec": "recording · {fps}\u00a0fps · {bag}",
     "node.bag.rec_nolimit": "recording · no fps limit · {bag}",
     "loc.owner.relock": "lidar relocalisation (relock)",
+    // T21 A5 (2026-11-08): Autonomy — no connection said in the top card, why nothing is planned (every calendar entry off), a past decision, Off in the calendar row
+    "auto.a5.stale": "No connection to the robot since {at}: what you see here may no longer hold.",
+    "auto.a5.connecting": "Connecting to the robot…",
+    "auto.a5.programs.cal_off.one": "Nothing is planned: the calendar entry {program} {at} is switched off.",
+    "auto.a5.programs.cal_off.many": "Nothing is planned: all {n} calendar entries are switched off.",
+    "auto.a5.plan.cal_off.one": "{program} {at} is switched off in the calendar below, so nothing starts by itself. Switch it on to plan it again.",
+    "auto.a5.plan.cal_off.many": "All {n} calendar entries below are switched off, so nothing starts by itself. Switch one on to plan it again.",
+    "auto.a5.tok.cal_off": "Calendar off",
+    "auto.a5.dec.over": "over at {at}",
+    "calmgr.a5.off": "Off",
 };

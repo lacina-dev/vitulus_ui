@@ -25,9 +25,13 @@ next start is said only here. Under the buttons one short line says the sleep: *
 free; held by: Logins, Web UI ›* — the whole sentence is in its tooltip and in **Sleep**, where a tap
 on the line takes you.
 
+When the page loses the robot (more than 3 s), the top card says *No connection to the robot since 20:12:
+what you see here may no longer hold.* and the rest of the page goes muted: it is the last state the
+robot sent, not the current one. It goes away as soon as the robot answers again.
+
 Under the card come the sections, on every screen in this order: **Now**, **Plan**, **Who decides**,
 then Weather, Battery, Sleep, Faults, History, Advanced. Each has a head with a colour and short
-tokens; open it for the numbers and the controls. What you open stays open. On a first visit Now and
+tokens; open it for the live numbers (battery now, errors, wakes — not the settings again) and the controls. What you open stays open. On a first visit Now and
 Plan are open; Who decides stays folded while the calendar decides (the card says so) and opens by
 itself while the agent decides, until you open or fold it yourself.
 
@@ -59,7 +63,10 @@ section shows the allowed time while it limits (*Allowed 07:00–21:00*). The ti
 ends) gets its track with the allowed time, the starts and the expected sleep (hatched); days asleep
 all day, or with nothing, fold into one line each, e.g. *Tue 10 Nov – Fri 13 Nov: asleep the whole
 time*. Each calendar entry is one row: its switch, the program over its time and days, **Edit** and
-**Delete**. **Skip next** skips one start (its second line names it: *Bigger · today 23:15*),
+**Delete**; an entry switched off says *Off* and only its name and time are dimmed. When every entry is
+switched off (and the calendar decides), nothing starts by itself and the page says why: *Nothing is
+planned: the calendar entry Bigger 23:15 is switched off* in **Could it start now?** (› opens Plan), *Calendar
+off* in the head of Plan and a line in Plan to switch it on. **Skip next** skips one start (its second line names it: *Bigger · today 23:15*),
 **No mowing today** skips today. A skipped start is crossed out in the timeline, and the same button
 undoes it.
 
@@ -183,7 +190,8 @@ In the panel it is the section **Who decides**, under Plan:
   state (waiting, carried out, missed, expired, dropped), confidence and reason in the language of the
   page (an older agent sends only its own words, in Czech: those show).
 - **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
-  in the History. In the Calendar mode it shows only once there is a decision. While the amber box says
+  in the History. In the Calendar mode it shows only once there is a decision. A decision whose time is over (*no mowing
+  until 19:30* at 20:10) is grey with *over at 19:30*. While the amber box says
   that the advice waits for your dock permission, the same decision is not repeated under it.
 - **Rules and hard limits** fold away: the head says *in force* or *not in force now*; they open by
   themselves while in force and stay folded while not, until you open or fold them yourself (remembered). Inside, first one line with the [allowed mowing time](programs.md#allowed-mowing-time),
