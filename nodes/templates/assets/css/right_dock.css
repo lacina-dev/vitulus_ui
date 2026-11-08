@@ -423,8 +423,8 @@ body.rp-log-top #div_log_view {
     position: relative; width: 22px; height: 22px; margin-left: 0; font-size: 12px;
 }
 .rp-odo { margin-left: 2px; }
-/* Mower head: Start ▶ / Stop ■ — green when a start is allowed, red while
-   a program runs, grey otherwise; "arm" = the first tap, tap again */
+/* Mower head: Start ▶ / Stop ■ — green when a start is allowed (hold it,
+   D10 below), red while the blade turns, grey otherwise */
 .rp-mbtn {
     position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
     width: 24px; height: 20px; padding: 0; margin-left: 2px;
@@ -434,7 +434,6 @@ body.rp-log-top #div_log_view {
 .rp-mbtn:disabled { cursor: default; opacity: 0.55; }
 .rp-mbtn[data-state="ok"]  { border-color: var(--vt-ok); color: var(--vt-ok); }
 .rp-mbtn[data-state="ok"]:hover  { background: rgba(var(--vt-ok-rgb, 25, 135, 84), 0.18); }
-.rp-mbtn[data-state="arm"] { border-color: var(--vt-ok); background: var(--vt-ok); color: #fff; }
 .rp-mbtn[data-state="err"] { border-color: var(--vt-err); background: var(--vt-err); color: #fff; }
 .rp-mbtn[data-state="err"]:hover { filter: brightness(1.12); }
 /* Mower expand: three cells + the running program */
@@ -605,3 +604,45 @@ body.rp-cam-clip .rp-cam-msg { display: none; }
 @media (pointer: coarse) {
     .rp-dq::before, .rp-mbtn::before, #right_panel .rp-sec > h5 .vth-q::before { inset: -9px -1px; }
 }
+
+/* D10 (ředitel 2026-11-08): the blade START in the Mower head is a HOLD of
+   0.5 s (map_view.js vtHoldToFire, like Settings › Mower › START MOTOR):
+   the green ▶ fills while held, full = sent. No overflow clip on the button
+   (the touch area ::before must stay larger than the key): the fill keeps
+   to the key's own rounded box instead. */
+.rp-mbtn.vt-hold {
+    isolation: isolate;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.rp-mbtn.vt-hold > .vt-hold-fill {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+    transform-origin: left center; transform: scaleX(var(--vt-hold, 0));
+    background: rgba(var(--vt-ok-rgb), 0.55);
+}
+.rp-mbtn.vt-hold > .vt-hold-txt { pointer-events: none; }
+.rp-mbtn.vt-hold.vt-holding { color: var(--vt-text); }
+.rp-mbtn.vt-hold.vt-hold-done { background: var(--vt-ok); color: var(--vt-bg); }
+.rp-mbtn.vt-hold.vt-hold-done > .vt-hold-fill { background: transparent; }
+#right_panel .rp-mbtn.vt-hold:focus-visible { outline-offset: -3px; }   /* the ring inside: the head row clips outside */
+/* the feedback of the hold ("too early — nothing sent" / "blade start
+   sent" / "just stopped — wait"): a bubble over the Mower head itself, from
+   the left edge up to the blade key (right_dock.js sets top / right / height
+   from the head), for a few seconds — never a new row and never over the
+   sections below (D10 N3); idle / holding = not shown */
+#right_panel .rp-sec[data-sec="mower"] { position: relative; }
+.rp-mhint {
+    position: absolute; left: 0; right: 40px; top: 0; z-index: 3;
+    display: flex; align-items: center; box-sizing: border-box; overflow: hidden;
+    padding: 0 7px; border-radius: var(--vt-r-ctl);
+    background: var(--vt-surface-3); border: 1px solid var(--vt-border-strong);
+    box-shadow: var(--vt-elev-1);
+    font-size: var(--vt-fs-xs); font-weight: 600; line-height: 1.2;
+    text-transform: none; letter-spacing: 0; color: var(--vt-text);
+    white-space: normal; overflow-wrap: break-word; hyphens: auto;
+    pointer-events: none;
+}
+.rp-mhint:not([data-state="warn"]):not([data-state="ok"]) { display: none; }
+.rp-mhint[data-state="warn"] { color: var(--vt-warn); border-color: var(--vt-edge-warn); }
+.rp-mhint[data-state="ok"] { color: var(--vt-ok); border-color: var(--vt-edge-ok); }
+/* mouse: the head is only ~22 px tall — two short lines at 10 px fit in it */
+@media (pointer: fine) { .rp-mhint { font-size: 10px; line-height: 1; padding: 0 5px; } }

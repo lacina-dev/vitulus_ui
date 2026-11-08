@@ -429,7 +429,8 @@ okno od teď návrat zruší.
 robotu (jedno jméno na řádek); okno povolené tady se podepíše prvním jménem ze souboru. Když soubor
 chybí, je prázdný nebo nejde přečíst (nebo otevřené okno podepsalo jméno, které v něm není),
 dlaždice ukáže **Vytvoř soubor ownerů** i s řádkem k doplnění — do té doby žádné okno neplatí
-(kalendář a tvůj Undock jedou dál).
+(kalendář a tvůj Undock jedou dál) a povolení doku (dlaždice i chat) odpoví *dok smí povolit jen owner
+zapsaný v ~/.vitulus/dock_permit_owners — soubor chybí nebo je prázdný*.
 
 **Když agent neběží**, dlaždice i pruh místo starého odpočtu napíšou *Stav neznámý (agent
 neběží)*. **Zamknout teď** a **Zamknout všechno** fungují dál: UI robota pošle zamčení rovnou uzlu

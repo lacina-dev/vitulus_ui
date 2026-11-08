@@ -14,7 +14,7 @@ keywords: [hold, hold to start, half a second, grass height, grass, calibration,
 Programs drive the mower by themselves. **Settings › Mower** is for checking and manual control.
 While the mower is switched on, the right panel shows a **Mower** section under Controls: the
 title row has the status chip, a blade dot with the RPM, — only when hot — the temperature and
-the blade buttons **▶ Start** (two taps, only while `READY`) / **■ Stop** (red while the blade
+the blade buttons **▶ Start** (hold ½ s, only while `READY`) / **■ Stop** (red while the blade
 spins), the same as START MOTOR / STOP MOTOR here; click the title to expand **Blade**, **Height** and **Temp** (always, orange from 50 °C, red
 from 60 °C) and the running program
 ([The right panel](frame.md#the-right-panel)).
@@ -27,7 +27,8 @@ from 60 °C) and the running program
 Enter / Space held on the keyboard. The button fills while you hold it; letting go earlier (or
 sliding off it) sends nothing and the line under it says so. A plain click does nothing.
 **STOP**, **STOP MOTOR**, a lost connection to the robot, a second finger or leaving the tab during the
-hold cancel it — the blade then does not start. **STOP MOTOR** acts at once (on the press itself).
+hold cancel it — the blade then does not start. For **1.5 s after any STOP** (also one sent from another device) a hold
+does not begin at all; the line says *just stopped — wait a moment*. **STOP MOTOR** acts at once (on the press itself).
 
 ![Settings › Mower with numbered markers](img/shot-mower.webp "1 ON / OFF (power) · 2 direction · 3 height in mm + Set · 4 RPM + Set · 5 Home · 6 START MOTOR (hold ½ s) / STOP MOTOR")
 

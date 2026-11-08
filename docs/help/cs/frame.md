@@ -136,8 +136,10 @@ pozastaveno nebo není co ukázat.
 - **Sekačka** — jen když je sekačka zapnutá. Řádek s názvem: čip stavu (`READY`, `RUN`, `HEIGHT`,
   `ERR`…), tečka nože (zelená = točí se) s otáčkami (`3.2k`), teplota jen když je horko a tlačítka
   nože **▶ Start** / **■ Stop** — totéž co Nastavení › Sekačka › START MOTOR / STOP MOTOR. ▶ je
-  zelené jen ve stavu `READY` se stojícím nožem a chce **dvě klepnutí** (první ho na 3 s připraví,
-  tlačítko se vyplní zeleně). ■ zčervená, když se nůž točí, a zastaví ho hned. Rozbalení: tři buňky **Nůž** (běží · otáčky / stojí), **Výška** (mm)
+  zelené jen ve stavu `READY` se stojícím nožem a nůž roztočí, až když ho **půl sekundy
+  podržíš** (během držení se plní; klepnutí nebo dřívější puštění nic nepošle a bublina přes řádek
+  to řekne; 1,5 s po STOPu nebo po přepnutí ■ zpět na ▶ se podržení nerozběhne). **STOP**, **STOP MOTOR**, ztráta spojení, druhý prst, zavření panelu nebo odchod
+  sekačky ze stavu `READY` během držení ho zruší. ■ zčervená, když se nůž točí, a zastaví ho hned. Rozbalení: tři buňky **Nůž** (běží · otáčky / stojí), **Výška** (mm)
   a **Teplota** (°C, vždy: zelená, oranžová od 50 °C, červená od 60 °C) a k tomu běžící program
   a jeho stav ([Sekání](mowing.md)). Vypnutá sekačka tu sekci vůbec nemá.
 - **Navi** — v řádku s názvem: kdo drží polohu (`DOCK`, `RTK`, `TRACKER`…), zdroj kurzu

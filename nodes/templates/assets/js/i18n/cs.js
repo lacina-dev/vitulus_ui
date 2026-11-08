@@ -277,8 +277,6 @@
     "rdock.odo.legend": "VO kamera · Li lidar · Wh kola+IMU · FIX RTK fix · PROB GPS ověřená · ANC kotva",
     "rdock.cam.msg.wait": "Čekám na obraz…",
     "rdock.cam.msg.none": "Z kamery nejde obraz — zkouším znovu",
-    "rdock.mower.start.tip": "Roztočit nůž (dvě klepnutí) — totéž jako Nastavení › Sekačka › START MOTOR",
-    "rdock.mower.start.arm": "Klepni znovu a nůž se roztočí",
     "rdock.mower.start.busy": "Nůž se už točí",
     "rdock.mower.start.notready": "Nůž jde roztočit jen ve stavu READY (teď {s})",
     "rdock.mower.stop.tip": "Zastavit nůž (/mower/set_motor_on)",
@@ -4851,4 +4849,13 @@
     "auto.mode.dock.open_until": "Dok je odemčený do {to}: rada agenta může vyjet.",
     "auto.mode.dock.next": "Dok je teď zamčený; okno je naplánované od {at}.",
     "auto.mode.dock.homeward": "Povolení doku skončilo s robotem venku: dosekne díl (asi {min} min) a vrátí se domů.",
+    // D10 (2026-11-08): start nože v pravém panelu = podržení 0,5 s
+    "rdock.d10.start.tip": "Podrž půl sekundy a nůž se roztočí — totéž jako Nastavení › Sekačka › START MOTOR",
+    "rdock.d10.hold.idle": "▶ podrž půl sekundy, až pak se nůž roztočí.",
+    "rdock.d10.hold.early": "Moc brzy — nic neodešlo",
+    "rdock.d10.hold.sent": "Rozběh nože odeslán",
+    "rdock.d10.hold.quiet": "Po STOPu chvíli počkej",
+    "cfg.d10.hold.quiet": "Právě zastaveno — chvíli počkej a pak podrž znovu.",
+    // D10: povolení doku odmítnuto, soubor ownerů chybí / je prázdný (agent 409)
+    "dockp.err.owners_missing": "dok smí povolit jen owner zapsaný v ~/.vitulus/dock_permit_owners — soubor chybí nebo je prázdný",
 };

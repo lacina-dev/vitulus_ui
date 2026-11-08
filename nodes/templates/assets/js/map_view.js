@@ -815,8 +815,15 @@ function vtSetSwitch(el, on, st, noCard) {
    can never be followed by the start. */
 var vtHoldAll = [];
 var vtHoldStopEpoch = 0;
+/* D10 (N2, ředitel 2026-11-08): after every STOP (and after the right
+   panel's ■ turns back into ▶) no hold may START for 1.5 s — a finger that
+   just hit STOP, or a STOP key that turned into START under it, must not
+   begin a blade start; the press shows "just stopped — wait a moment". */
+var VT_HOLD_QUIET_MS = 1500;
+var vtHoldStopAt = -1e9;
 function vtHoldCancelAll() {
     vtHoldStopEpoch++;
+    vtHoldStopAt = performance.now();
     vtHoldAll.forEach(function (h) { try { h.cancel(); } catch (e) { /* the others still cancel */ } });
 }
 window.vtHoldCancelAll = vtHoldCancelAll;
@@ -825,6 +832,7 @@ function vtHoldToFire(btn, ms, fire, o) {
     btn.dataset.vtHold = '1';
     o = o || {};
     var k = o.keys || {};
+    var quietKey = k.quiet || 'cfg.d10.hold.quiet';
     var t0 = 0, raf = 0, timer = 0, pid = null, back = 0, epoch = 0;
     var shown = function () { return btn.isConnected && btn.offsetParent !== null && !btn.disabled && document.visibilityState !== 'hidden'; };
     var setP = function (p) { btn.style.setProperty('--vt-hold', String(Math.max(0, Math.min(1, p)))); };
@@ -832,7 +840,7 @@ function vtHoldToFire(btn, ms, fire, o) {
         if (!o.hint || !key) return;
         clearTimeout(back);
         vtTag(o.hint, key);
-        o.hint.dataset.state = key === k.early ? 'warn' : (key === k.done ? 'ok' : '');
+        o.hint.dataset.state = (key === k.early || key === quietKey) ? 'warn' : (key === k.done ? 'ok' : '');
         if (idleAfter && k.idle) {
             back = setTimeout(function () { vtTag(o.hint, k.idle); o.hint.dataset.state = ''; }, idleAfter);
         }
@@ -856,6 +864,7 @@ function vtHoldToFire(btn, ms, fire, o) {
     };
     var start = function (pointerId) {
         if (t0 || btn.disabled) return;
+        if (performance.now() - vtHoldStopAt < VT_HOLD_QUIET_MS) { say(quietKey, 3000); return; }   // D10 N2
         t0 = performance.now();
         epoch = vtHoldStopEpoch;
         pid = pointerId;
@@ -881,6 +890,7 @@ function vtHoldToFire(btn, ms, fire, o) {
     btn.addEventListener('pointerdown', function (e) {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (!e.isPrimary) return;
+        btn.dataset.vtHoldPtr = e.pointerType || 'mouse';   // D10 N3: no focus ring after a pointer hold (vt_panel.css)
         e.preventDefault();                       // no text selection / compat mouse events
         try { btn.setPointerCapture(e.pointerId); } catch (x) { /* not capturable */ }
         try { btn.focus({preventScroll: true}); } catch (x) { /* old browser */ }
@@ -896,6 +906,7 @@ function vtHoldToFire(btn, ms, fire, o) {
     });
     btn.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        delete btn.dataset.vtHoldPtr;             // the keyboard: the ring shows again
         e.preventDefault();                       // the native click would come on its own
         if (e.repeat) return;
         start(null);
@@ -9153,6 +9164,17 @@ window.initMapView = function () {
 
     // a lost / stale robot link (heartbeat) cancels a START hold too
     ['rosdisconnected', 'roserror'].forEach(function (ev) { document.addEventListener(ev, vtHoldCancelAll); });
+
+    // D10 (N2): a STOP that reaches the robot from elsewhere (another
+    // browser or phone, the agent, a CLI) is a STOP here too — it cancels a
+    // hold and starts the 1.5 s quiet time. Read only: these subscriptions
+    // send nothing; our own blade-off comes back the same way (harmless).
+    try {
+        new ROSLIB.Topic({ ros: ros.ros, name: '/mower/set_motor_on', messageType: 'std_msgs/Bool' })
+            .subscribe(function (m) { if (m && m.data === false) vtHoldCancelAll(); });
+        new ROSLIB.Topic({ ros: ros.ros, name: '/mower_smach/stop', messageType: 'std_msgs/Bool' })
+            .subscribe(function (m) { if (m && m.data === true) vtHoldCancelAll(); });
+    } catch (e) { console.warn('[hold] STOP listeners not set up:', e); }
 
     // STOP MOTOR acts already on the press (also with a second finger, which
     // makes no click on a phone): vt_frame.js STOP_PRESS runs this handler

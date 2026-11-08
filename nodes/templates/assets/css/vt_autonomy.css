@@ -225,3 +225,15 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
                     font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
 .vt-auto-notelink:hover { color: var(--vt-text); }
 @media (pointer: coarse) { .vt-auto-notelink { display: inline-flex; align-items: center; min-height: 40px; padding: 0 6px; } }
+
+/* D10 (T4 finding): on touch the panel-wide ">= 40 px" rule made every
+   setting row's foot 40 px tall — even where Reset is hidden (value = the
+   default), so each row carried an empty strip. Reset keeps its 40 px box
+   (touch target), but negative margins let it take only the foot's 22 px
+   line: no strip, and showing / hiding it moves nothing (visibility). */
+@media (pointer: coarse) {
+    #ui_drawer .vt-auto-set-f .vt-auto-reset {
+        display: inline-flex; align-items: center; min-height: var(--vt-touch); line-height: 1.2;
+        margin-top: calc((22px - var(--vt-touch)) / 2); margin-bottom: calc((22px - var(--vt-touch)) / 2);
+    }
+}

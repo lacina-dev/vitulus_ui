@@ -298,6 +298,22 @@ html body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
     pointer-events: none;
 }
 html body.vt-frame.vt-c-rp:not(.vt-m-sheet) .vt-notice-row { padding: 0 !important; }
+/* D10 (tablet 768 px with the left panel open, T4 finding): the hollow
+   between the left and the right panel (W) was narrower than the 254 px
+   kept for the agent's pills — the notice shrank to 24 px and its Cancel
+   slid under the right panel. Where W < 560 px the notice takes the whole
+   hollow on its own line under the pills (+30 px) and keeps clear of the
+   right panel's handle (40 px on touch); a wider hollow is unchanged.
+   --vt-n-narrow = a 0 / 1 px step built from W alone (pure CSS, it follows
+   the frame's live variables). */
+html body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
+    --vt-n-w: calc(100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px));
+    --vt-n-narrow: clamp(0px, (560px - var(--vt-n-w)) * 1000, 1px);
+    top: calc(var(--vt-frame-top, 80px) + 5px + var(--vt-n-narrow) * 30);
+    left: calc(var(--vt-frame-cleft, 12px) + 254px - var(--vt-n-narrow) * 246);
+    right: calc(var(--vt-frame-rp-w, 0px) + 14px + var(--vt-n-narrow) * 34 +
+                clamp(0px, 100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px) - 980px, 240px));
+}
 /* the rows the strip used to hang from are not used outside the phone */
 html body.vt-frame:not(.vt-m-sheet) #row_icons { display: none !important; }
 

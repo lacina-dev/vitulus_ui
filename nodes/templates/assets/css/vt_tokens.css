@@ -23,6 +23,7 @@
     --vt-surface-2: #2b343c;     /* card / section inside a panel */
     --vt-surface-3: #37434d;     /* row, hover, input group text */
     --vt-overlay: rgba(28, 35, 41, 0.94);  /* floating panels over the map */
+    --vt-well: rgba(0, 0, 0, 0.12);        /* D10: a sunken box inside a card (a group of fields) */
 
     --vt-border: rgba(255, 255, 255, 0.10);
     --vt-border-strong: rgba(255, 255, 255, 0.18);
@@ -31,6 +32,7 @@
     --vt-text: #dee2e6;
     --vt-muted: #9aa4ad;
     --vt-faint: #6f7a83;
+    --vt-on-solid: #fff;         /* D10: text on a solid tone fill (danger, armed) */
 
     /* brand + semantic */
     --vt-accent: var(--bs-info, #0dcaf0);

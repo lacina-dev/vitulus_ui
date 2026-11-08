@@ -446,7 +446,8 @@ the rest carries on in the next window. A new window from now cancels the return
 may allow the dock; a window you allow here is signed with the first name in it. When the file is
 missing, empty or unreadable (or an open window is signed by a name it does not list), the tile shows
 **Create the owners file** with the line to add — until then no window counts (the calendar and your
-own Undock go as usual).
+own Undock go as usual), and allowing the dock (tile or chat) answers *only an owner listed in
+~/.vitulus/dock_permit_owners can permit the dock — the file is missing or empty*.
 
 **When the agent is not running** the tile and the bar say *State unknown (the agent is not
 running)* instead of an old countdown. **Lock now** and **Lock everything** still work: the robot UI

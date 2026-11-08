@@ -141,8 +141,11 @@ red = a fault or no data where there should be some · grey = off, paused or not
   `HEIGHT`, `ERR`…), a blade dot (green = spinning) with the RPM (`3.2k`), the temperature only
   when it is hot, and the blade buttons **▶ Start** / **■ Stop** — the same as Settings › Mower ›
   START MOTOR / STOP MOTOR. ▶ is green only while the mower is `READY` and the blade stands; it
-  needs **two taps** (the first one arms it for 3 s, the button fills green). ■ turns red while
-  the blade spins and stops it at once. Expand: three cells **Blade** (on · RPM / off),
+  starts the blade only when you **hold it for half a second** (it fills while you hold; a tap or
+  an earlier release sends nothing and a bubble over the title row says so; for 1.5 s after a STOP or
+  after ■ turns back into ▶ a hold does not begin). **STOP**, **STOP
+  MOTOR**, a lost connection, a second finger, closing the panel or the mower leaving `READY` during
+  the hold cancel it. ■ turns red while the blade spins and stops it at once. Expand: three cells **Blade** (on · RPM / off),
   **Height** (mm) and **Temp** (°C, always: green, orange from 50 °C, red from 60 °C), plus the
   running program and its state ([Mowing](mowing.md)). With the mower off the section is not there.
 - **Navi** — title row: who owns the pose (`DOCK`, `RTK`, `TRACKER`…), the heading source

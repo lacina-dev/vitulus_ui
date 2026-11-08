@@ -247,6 +247,7 @@
         cbtn.type = 'button';
         cbtn.id = 'rp_compact_btn';
         cbtn.addEventListener('click', function () {
+            cancelMowerHold();                 // D10: the panel changes shape
             lsSet(LS_COMPACT, isCompact() ? '0' : '1');
             applyCompact();
             place();
@@ -651,7 +652,9 @@
         rpm.id = 'rp_mower_rpm';
         var tmp = el('span', 'rp-tv', w);
         tmp.id = 'rp_mower_temp';
-        var ctl = buildMowerCtl(w);            // Start / Stop (the height is in the expand)
+        /* Start / Stop (the height is in the expand); the last argument
+           re-reads the mower block right before a blade start is sent */
+        var ctl = buildMowerCtl(w, h, function () { paint(); });
         neutralize(src);
         box.appendChild(src);                 // hidden (CSS), the source + visibility signal
         /* the panel is not in the document yet while it is being built:
@@ -724,59 +727,133 @@
        what Settings › Mower START MOTOR / STOP MOTOR do (map_view.js
        Mower): mower.pub_mower_set_motor_on(true / false) → /mower/set_motor_on.
        Start only while the mower reports READY (powered, idle, blade
-       stopped); the head is clickable and the button small, so Start arms on
-       the first tap (3 s) and switches the blade on with the second. Stop
-       acts at once whenever the blade turns (rpm > 0 or RUN). The section —
-       and so the buttons — only shows while the mower is on (not OFF/UNK). */
-    function buildMowerCtl(w) {
-        /* ONE blade key (owner 2026-10-19: tidy head): ▶ green = may start
-           (first tap arms for 3 s, the second switches the blade on — the
-           key is small in a clickable head), ■ red = the blade turns, one tap
-           stops it at once, grey = not ready. Same calls as Settings › Mower
-           START / STOP MOTOR: mower.pub_mower_set_motor_on(true / false). */
+       stopped) and only after a HOLD of 0.5 s (D10, ředitel 2026-11-08: the
+       same hold-to-start as START MOTOR, map_view.js vtHoldToFire, instead
+       of the old two taps). Stop acts at once whenever the blade turns
+       (rpm > 0 or RUN). The section — and so the buttons — only shows while
+       the mower is on (not OFF/UNK). */
+    var mowerHold = null;                  // the right panel's blade-start hold (vtHoldToFire)
+    function cancelMowerHold() {
+        if (mowerHold) { try { mowerHold.cancel(); } catch (e) { /* nothing held */ } }
+    }
+    function buildMowerCtl(w, h, reread) {
+        /* ONE blade slot (owner 2026-10-19: tidy head), two buttons in it,
+           one shown at a time:
+             ▶ green  #rp_mower_blade_start = may start: HOLD it 0.5 s (it
+                      fills while held; a tap or an early release sends
+                      nothing and the bubble under the head says so),
+             ■ red    #rp_mower_blade_key = the blade turns, one tap stops it
+                      at once (vt_frame.js STOP_PRESS: also on the press with
+                      a second finger), grey ▶ = not ready.
+           Same calls as Settings › Mower START / STOP MOTOR:
+           mower.pub_mower_set_motor_on(true / false). */
         var bk = el('button', 'rp-mbtn rp-mblade', w);
         bk.type = 'button';
         bk.id = 'rp_mower_blade_key';
-        var armed = 0, armTimer = null, cur = {on: false, status: '', rpm: 0};
+        var sb = el('button', 'rp-mbtn rp-mblade rp-mstart vt-hold', w);
+        sb.type = 'button';
+        sb.id = 'rp_mower_blade_start';
+        sb.dataset.state = 'ok';
+        sb.style.display = 'none';
+        el('span', 'vt-hold-fill', sb).setAttribute('aria-hidden', 'true');
+        el('span', 'vt-hold-txt', sb).textContent = '▶';
+        /* the one-line feedback of the hold: a bubble under the head, shown
+           only for "let go too early" / "sent" (right_dock.css .rp-mhint).
+           It lives in the section right after the head, not in it: the head
+           gets a hover filter (a stacking context) that would put the bubble
+           under the next section. */
+        var hint = el('span', 'rp-mhint');
+        h.parentNode.insertBefore(hint, h.nextSibling);
+        hint.id = 'rp_mower_hold_hint';
+        hint.setAttribute('role', 'status');
+        hint.setAttribute('aria-live', 'polite');
+        hint.textContent = t('rdock.d10.hold.idle');
+        tag(hint, 'rdock.d10.hold.idle');
+        sb.setAttribute('aria-describedby', hint.id);
+        /* D10 N3: the bubble lies over the Mower head itself (from the left
+           edge up to the blade key), never over the sections below it */
+        var placeHint = function () {
+            var st = hint.dataset.state;
+            if (st !== 'warn' && st !== 'ok') { return; }
+            var sec = hint.parentNode, key = sb.style.display === 'none' ? bk : sb;
+            if (!sec || !key) { return; }
+            var sr = sec.getBoundingClientRect(), kr = key.getBoundingClientRect(), hr = h.getBoundingClientRect();
+            hint.style.right = Math.max(0, Math.round(sr.right - kr.left + 4)) + 'px';
+            hint.style.top = Math.round(hr.top - sr.top) + 'px';
+            hint.style.minHeight = Math.round(hr.height) + 'px';
+            hint.style.maxHeight = Math.round(hr.height) + 'px';
+        };
+        if (window.MutationObserver) {
+            new MutationObserver(placeHint).observe(hint, {attributes: true, attributeFilter: ['data-state']});
+        }
+        var cur = {on: false, status: '', rpm: 0}, wasRun = false;
         var api = function () {
             var m = window.mower;
             return m && typeof m.pub_mower_set_motor_on === 'function' ? m : null;
         };
         var spinning = function () { return !!(cur.on && (cur.rpm > 0 || cur.status === 'RUN')); };
         var canStart = function () { return !!(api() && cur.on && cur.status === 'READY' && !spinning()); };
-        var disarm = function () { armed = 0; if (armTimer) { clearTimeout(armTimer); armTimer = null; } };
         var paint = function (st) {
             if (st) { cur = st; }
             var ok = canStart(), run = spinning();
-            if (!ok && armed) { disarm(); }
+            /* D10 N2: ■ turned back into ▶ under the finger that stopped it —
+               no hold may start for 1.5 s (map_view.js quiet time) */
+            if (wasRun && !run && typeof window.vtHoldCancelAll === 'function') { window.vtHoldCancelAll(); }
+            wasRun = run;
+            /* not ready any more (or the blade turns): a hold in progress
+               ends here, the start button goes away */
+            if (!ok) { cancelMowerHold(); }
+            var ds = ok ? 'none' : '', ss = ok ? '' : 'none';
+            if (bk.style.display !== ds) { bk.style.display = ds; }
+            if (sb.style.display !== ss) { sb.style.display = ss; }
+            sb.disabled = !ok;
             var glyph = run ? '■' : '▶';
             if (bk.textContent !== glyph) { bk.textContent = glyph; }
-            bk.disabled = !(run ? api() : ok);
-            bk.dataset.state = run ? 'err' : (ok ? (armed ? 'arm' : 'ok') : 'off');
+            bk.disabled = !(run && api());
+            bk.dataset.state = run ? 'err' : 'off';
             var tip;
             if (run) { tip = t('rdock.mower.stop.tip') + (cur.rpm ? ' · ' + Math.round(cur.rpm) + ' rpm' : ''); }
-            else if (ok) { tip = t(armed ? 'rdock.mower.start.arm' : 'rdock.mower.start.tip'); }
             else { tip = t('rdock.mower.start.notready', {s: cur.status || '—'}); }
             setTip(bk, tip);
+            setTip(sb, t('rdock.d10.start.tip'));
         };
         bk.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
             var m = api();
-            if (!m) { paint(); return; }
-            if (spinning()) {
+            if (m && spinning()) {
                 try { m.pub_mower_set_motor_on(false); } catch (e) { console.warn('[right_dock] blade off failed:', e); }
-                paint(); return;
             }
-            if (!canStart()) { paint(); return; }
-            if (!armed) {
-                armed = 1;
-                armTimer = setTimeout(function () { disarm(); paint(); }, 3000);
-                paint(); return;
-            }
-            disarm();
-            try { m.pub_mower_set_motor_on(true); } catch (e) { console.warn('[right_dock] blade on failed:', e); }
             paint();
         });
+        /* the hold (map_view.js): STOP, STOP MOTOR, any blade-off, a lost
+           link, a second finger, the window / tab losing focus and the
+           button being hidden (panel closed, compact, section gone) cancel
+           it; right before the start it checks again: no STOP since the
+           hold began, the link is up and — re-read from the mower block
+           now — the mower is still READY with the blade standing. What goes
+           out is unchanged: /mower/set_motor_on {data: true}, once. */
+        if (typeof window.vtHoldToFire === 'function') {
+            mowerHold = window.vtHoldToFire(sb, 500, function () {
+                var m = api();
+                if (!m) { return; }
+                try { m.pub_mower_set_motor_on(true); } catch (e) { console.warn('[right_dock] blade on failed:', e); }
+                paint();
+            }, {
+                canFire: function () {
+                    var r = window.ros;
+                    if (!(r && r.state === 'connected')) { return false; }
+                    try { if (reread) { reread(); } } catch (e) { return false; }
+                    return canStart();
+                },
+                hint: hint,
+                keys: {idle: 'rdock.d10.hold.idle', hold: 'cfg.d3.hold.holding',
+                       early: 'rdock.d10.hold.early', done: 'rdock.d10.hold.sent', quiet: 'rdock.d10.hold.quiet'}
+            });
+        }
+        if (!mowerHold) {
+            /* no hold helper = no start from here (never an unguarded start) */
+            canStart = function () { return false; };
+        }
         relang.push(function () { paint(); });
         return paint;
     }
@@ -1051,6 +1128,7 @@
     }
 
     function setOpen(open) {
+        if (!open) { cancelMowerHold(); }      // D10: a closed panel starts no blade
         if (!open && camLarge()) { setCamLarge(false); }   // closing the panel = camera off
         lsSet(LS_OPEN, open ? '1' : '0');
         panel.classList.toggle('closed', !open);

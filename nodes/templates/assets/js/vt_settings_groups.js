@@ -112,6 +112,7 @@
     function stick() {
         var on = getComputedStyle(groupsEl).position === 'sticky';
         tabsEl.classList.toggle('vt-cfg-sub-stick', on);
+        groupsEl.classList.toggle('vt-cfg-groups-stick', on);   // D10 (R2): its cover, vt_panel.css
         if (on) { tabsEl.style.setProperty('--vt-cfg-sub-top', groupsEl.offsetHeight + 'px'); }
     }
     window.addEventListener('resize', stick);

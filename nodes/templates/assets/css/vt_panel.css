@@ -685,6 +685,18 @@ ul.nav-tabs.vt-cfg-sub.vt-cfg-sub-stick {
     position: sticky; top: var(--vt-cfg-sub-top, 46px); z-index: 4;
     background: var(--vt-frame-bg, var(--vt-bg));
 }
+/* D10 (R2, phone 390 px): the panel body's padding is not covered by sticky
+   rows — scrolled content showed through the 8 px strip above the group row,
+   the 4 px strips beside both rows and the slit between the floating head
+   and the tab row. A shadow in the panel colour (6 px all round, lifted by
+   6 px: 12 px above, 6 px at the sides, nothing below) closes them. */
+ul.nav-tabs.vt-cfg-groups.vt-cfg-groups-stick,
+ul.nav-tabs.vt-cfg-sub.vt-cfg-sub-stick { box-shadow: 0 -6px 0 6px var(--vt-frame-bg, var(--vt-bg)); }
+/* …and the 2 px slit between the sheet's grip row and the floating head
+   (P27, phone portrait) above the scrolled content */
+@media (max-width: 575.98px) {
+    body.vt-frame.vt-m-sheet #ui_drawer:not(.full) > #ui_drawer_head { box-shadow: 0 -4px 0 var(--vt-frame-bg, var(--vt-bg)); }
+}
 ul.nav-tabs.vt-cfg-sub > .nav-item { flex: 0 0 auto; margin: 0; }
 ul.nav-tabs.vt-cfg-sub .nav-link {
     min-height: 34px; padding: 6px 12px; margin: 0 0 -1px;
@@ -753,6 +765,10 @@ ul.nav-tabs.vt-cfg-sub .nav-link.active { color: #fff; background: transparent; 
 .btn.vt-hold.vt-hold-done > .vt-hold-fill { background: var(--vt-ok); }
 .btn.vt-hold.vt-hold-done { color: #0b1a10 !important; }
 .vt-hint.vt-cfg-hold-hint { margin: 2px 0 0; min-height: calc(2 * 1.45em); }
+/* D10 N3: after a hold with a finger / mouse / pen the button keeps the
+   focus (the hold needs it) but shows no keyboard ring; Enter / Space bring
+   the ring back (map_view.js vtHoldToFire sets / clears data-vt-hold-ptr) */
+:is(#right_panel, #ui_drawer) .vt-hold[data-vt-hold-ptr]:focus-visible { outline: none !important; }
 .vt-cfg-hold-hint[data-state="warn"] { color: var(--vt-warn); }
 .vt-cfg-hold-hint[data-state="ok"] { color: var(--vt-ok); }
 

@@ -278,8 +278,6 @@
     "rdock.odo.legend": "VO camera · Li lidar · Wh wheels+IMU · FIX RTK fix · PROB GPS proven · ANC anchor",
     "rdock.cam.msg.wait": "Waiting for the picture…",
     "rdock.cam.msg.none": "No picture from the camera — retrying",
-    "rdock.mower.start.tip": "Start the blade (tap twice) — the same as Settings › Mower › START MOTOR",
-    "rdock.mower.start.arm": "Tap again to start the blade",
     "rdock.mower.start.busy": "The blade is already spinning",
     "rdock.mower.start.notready": "The blade starts only while the mower is READY (now {s})",
     "rdock.mower.stop.tip": "Stop the blade (/mower/set_motor_on)",
@@ -4766,4 +4764,13 @@
     "auto.mode.dock.open_until": "Dock unlocked until {to}: the agent's advice can leave.",
     "auto.mode.dock.next": "Dock locked now; a window is scheduled from {at}.",
     "auto.mode.dock.homeward": "The dock permit ended with the robot out: it finishes the path (about {min} min) and comes home.",
+    // D10 (2026-11-08): the blade start in the right panel is a hold of 0.5 s
+    "rdock.d10.start.tip": "Hold for half a second to start the blade — the same as Settings › Mower › START MOTOR",
+    "rdock.d10.hold.idle": "Hold ▶ for half a second to start the blade.",
+    "rdock.d10.hold.early": "Too early — nothing sent",
+    "rdock.d10.hold.sent": "Blade start sent",
+    "rdock.d10.hold.quiet": "Just stopped — wait a moment",
+    "cfg.d10.hold.quiet": "Just stopped — wait a moment, then hold again.",
+    // D10: the dock permit refused because the owners file is missing / empty (agent 409)
+    "dockp.err.owners_missing": "only an owner listed in ~/.vitulus/dock_permit_owners can permit the dock — the file is missing or empty",
 };
