@@ -4368,6 +4368,8 @@
     "calmgr.code.agent_blocked": "Agent: {program} čeká — {why}.",
     "calmgr.code.agent_advice_done": "Agent: {program} hotovo, čeká na další radu.",
     "calmgr.code.waiting_dock": "Agent: {program} čeká na tvoje povolení doku.",
+    "calmgr.code.intent_wait": "Agent: {program} čeká, až dok potvrdí výjezd.",
+    "calmgr.code.intent_timeout": "Agent: {program} zrušen — dok nepotvrdil výjezd; může zaskočit kalendář.",
     "calmgr.code.limit_night": "{program} čeká na povolený čas sekání {start}–{end}.",
     "calmgr.code.limit_rain": "{program} čeká: {hours_since_rain} h od deště, potřeba {need_h} h.",
     "calmgr.code.limit_cold": "{program} čeká: {temp} °C, potřeba aspoň {min_c} °C.",

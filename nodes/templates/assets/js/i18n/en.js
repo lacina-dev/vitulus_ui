@@ -4283,6 +4283,8 @@
     "calmgr.code.agent_blocked": "Agent: {program} waits — {why}.",
     "calmgr.code.agent_advice_done": "Agent: {program} done, waiting for the next advice.",
     "calmgr.code.waiting_dock": "Agent: {program} waits for your dock permission.",
+    "calmgr.code.intent_wait": "Agent: {program} waits for the dock to confirm the exit.",
+    "calmgr.code.intent_timeout": "Agent: {program} dropped — the dock did not confirm the exit; the calendar may stand in.",
     "calmgr.code.limit_night": "{program} waits for the allowed mowing time {start}–{end}.",
     "calmgr.code.limit_rain": "{program} waits: {hours_since_rain} h since rain, {need_h} h needed.",
     "calmgr.code.limit_cold": "{program} waits: {temp} °C, at least {min_c} °C needed.",
