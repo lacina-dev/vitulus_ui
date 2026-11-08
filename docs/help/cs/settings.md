@@ -4,15 +4,25 @@ title: Nastavení
 group: Using the UI
 order: 120
 icon: la-cog
-summary: Motory, Navi, Napájení, Sekačka, Diag, Rosbag, IMU, Kamera a Aplikace (jazyk, agent, podpora, zobrazení) — k čemu je která záložka.
-ui: [config, config/motors#motory, config/lidar#navi, config/power#napájení, config/diag#diag, config/rosbag#rosbag, config/imu#imu, config/app#aplikace]
+summary: Tři skupiny — Robot (Motory, Napájení, Sekačka), Senzory (Navi, Lidar, Kamera, IMU) a Systém (Aplikace, Diag, Rosbag) — k čemu je která záložka.
+ui: [config, config/motors#motory, config/navi#navi, config/power#napájení, config/diag#diag, config/rosbag#rosbag, config/imu#imu, config/app#aplikace]
 related: [safety, mowing, status-icons]
-keywords: [nastavení, settings, aplikace, app, jazyk, language, čeština, angličtina, english, zobrazení, motory, motors, moment, torque, navi, navigace, lidar, napájení, power, baterie, nabíjení, spánek, sleep, diagnostika, diag, rosbag, nahrávání, bag, imu, kalibrace, kamera, d435, camera]
+keywords: [nastavení, skupiny, robot, senzory, systém, settings, aplikace, app, jazyk, language, čeština, angličtina, english, zobrazení, motory, motors, moment, torque, navi, navigace, lidar, napájení, power, baterie, nabíjení, spánek, sleep, diagnostika, diag, rosbag, nahrávání, bag, imu, kalibrace, kamera, d435, camera]
 ---
 # Nastavení
 
-**Nastavení** (⚙ v pásu menu) má jednu záložku pro každou část robota a **Aplikace** pro tuhle
-aplikaci samotnou. **?** v hlavičce panelu skočí na záložku, kterou máš otevřenou.
+**Nastavení** (⚙ v pásu menu) má v horní řadě tři skupiny; řada pod ní obsahuje záložky
+otevřené skupiny:
+
+| Skupina | Záložky |
+|---|---|
+| **Robot** | Motory · Napájení · Sekačka |
+| **Senzory** | Navi · Lidar · Kamera · IMU |
+| **Systém** | Aplikace · Diag · Rosbag |
+
+Skupina se otevře na záložce, kterou jsi v ní měl naposledy. **?** v hlavičce panelu skočí na
+záložku, kterou máš otevřenou. Přepínač **ON / OFF** ukazuje stav vyplněnou polovinou: zelená =
+zapnuto, šedá = vypnuto, červená = porucha (třeba vypnutý lidar).
 
 ## Motory
 
@@ -20,11 +30,13 @@ aplikaci samotnou. **?** v hlavičce panelu skočí na záložku, kterou máš o
 
 - **ON / OFF** — napájení čtyř pojezdových motorů. **Po každém startu jsou vypnuté**
   ([Bezpečnost](safety.md#po-každém-startu-jsou-motory-vypnuté)); zapni je tady, než budeš jezdit
-  ručně nebo dokovat. Barva tlačítka sleduje skutečný stav motorů.
+  ručně nebo dokovat. Vyplněná polovina sleduje skutečný stav motorů.
 - **Moment** (0–24 Nm) a **Uložit** — omezení momentu motorů. Prázdné číselné pole ukazuje
   povolený rozsah (tady i v Napájení).
 - Jedna karta na kolo (**Přední levý**, **Přední pravý**, **Zadní levý**, **Zadní pravý**): id,
-  stav, moment, teplota, rychlost, poloha, napětí, režim (– = od motoru zatím nepřišla data). Ikony kol v navbaru ukazují jejich
+  stav, moment, teplota, rychlost, poloha, napětí, režim (– = od motoru zatím nepřišla data).
+  Řádek nad kartami řekne, proč jsou tam pomlčky — motory jsou vypnuté, ještě nic neposlaly,
+  nebo přestaly hlásit (pak karty zešednou: stará čísla). Ikony kol v navbaru ukazují jejich
   stav: zelená OK, oranžová teplé, červená horké, šedá vypnuto.
 
 ## Navi
@@ -33,19 +45,24 @@ Záložka navigace:
 
 - **Rychlost** **SLOW / MODERATE / FAST** — totéž nastavení jako **Slow / Mid /
   Fast** v pravém panelu ([rychlosti](routes.md#rychlost)).
-- **Lidar** **ON / OFF**.
+- **Lidar** **ON / OFF**; hlavička karty řekne ON, OFF nebo *stav neznámý*.
 - **RtabMap** — **Zdroj senzorů** (**Kamera** / **Lidar** / **Obojí**) a **Dosah senzorů** —
-  pro starší lokalizaci RTAB-Map; běžně se nemění.
+  pro starší lokalizaci RTAB-Map; běžně se nemění. RTAB-Map je hlásí, jen když běží (při tvorbě
+  mapy); do té doby to řekne řádek nahoře, *teď* ukazuje – a zdroj, který vybereš, se uloží pro
+  jeho příští spuštění (pošle se se vzdáleností pod jezdcem). Jakmile hlásí, jezdec ukazuje
+  jeho vzdálenost a zdroj jeho volbu; **Použít** pošle samotnou novou vzdálenost.
 - **Pokročilé (plánovač)** — uložená data plánovače a sestavení mapy s filtrem šumu, okrajem
   překážek a tvarem výplně. Přesunuto sem z editoru mapy; běžně se nemění.
 
 ## Napájení
 
 - **Zdroj** — **Vstup** z nabíječky (V, A), **Baterie** (V, A, stav nabíjení, %), **Kapacita**,
-  **Výstup NUC** (počítač) a jestli jsou zapnuté **Výstup motorů** a **Výstup sekačky**.
-- **Teplota** — teplota desky a venkovní teplota a otáčky ventilátorů.
-- **Výstupy a limity** — výstup motorů a sekačky **ON / OFF**, nabíjecí a vypínací proudy pro
-  běh a pohotovost, limit teploty desky (PCB) a vnější teploty. Měň jen, když víš proč.
+  **Výstup NUC** (počítač) a **Výstup motorů** a **Výstup sekačky** (ON / OFF slovy).
+- **Teplota** — teplota **Deska** a **Venku**, otáčky **Větrák desky** a **Vnější větrák**.
+- **Výstupy a limity** — výstup motorů a sekačky **ON / OFF** (vyplněná polovina = skutečný
+  stav), nabíjecí a vypínací proudy pro běh a pohotovost, limit teploty desky (PCB) a vnější
+  teploty. Měň jen, když víš proč.
+- **Tvrdý restart: vypnout vše na N s** — stejná karta jako v [Autonomii](autonomy.md).
 - **Pokročilé: přímé ovládání spánku** (sbalené, jen pro servis: robota uspávej v
   [Autonomie › Spánek](autonomy.md#baterie-spánek-poruchy)) — **Doba spánku**, **Uspat teď** (**Na čas** / **Do nabití**), **Prodleva
   pohotovosti**, **Posun po nabití**, **Limit vybíjení**. **Uspat teď** › **Na čas** nejdřív řekne, kolik minut bude spát, a zeptá se znovu: vezme hodnotu, kterou napíšeš, jinak tu, co drží napájecí modul (poslední zapsanou, obvykle od plánovače). Odpojí napájení bez
@@ -54,7 +71,8 @@ Záložka navigace:
 
 ## Sekačka
 
-Napájení sekačky, nůž, výška sekání a otáčky — viz [Sekací ústrojí](mowing.md).
+Napájení sekačky, nůž (**START MOTOR** zabere, až když ho půl sekundy podržíš), výška sekání
+a otáčky — viz [Sekací ústrojí](mowing.md).
 
 ## Diag
 
@@ -69,15 +87,23 @@ Nahrávání dat senzorů pro rozbor:
 - **Kamera D435 RGB-D** — **REC** / **STOP** a snímková frekvence (FPS, **Nastavit**).
 - **Forenzní záznam GNSS** — nahrává kurz z GPS, fix a to, kdo právě určuje polohu (pro problémy
   s lokalizací).
-- **Uložené bagy** — seznam, u každého bagu **Stáhnout** (⬇) a **Smazat** (✕); ↻ seznam obnoví.
+- **Uložené bagy** — seznam, u každého bagu **Stáhnout** a **Smazat** (koš); ↻ seznam obnoví.
+  Bag, který se právě nahrává, má **● REC** a zatím nejde stáhnout ani smazat. Bag se štítkem
+  **nedokončený** zbyl po nahrávání, které neskončilo (třeba po výpadku proudu), a teď se nic
+  nenahrává: stáhnout ho jde, smazat tady ne.
 
 Bagy zabírají hodně místa na disku; mazej, co už nepotřebuješ.
 
 ## IMU
 
-Kalibrace inerciálního senzoru: **Odstranit DCD**, **Reset IMU**, **Run**, **Uložit** a
-kurz podle IMU, navigace, magnetometru, RTK a fúze. Malá páčka nechá robota během kalibrace jen
-otáčet na místě. Určeno pro servis.
+Kalibrace inerciálního senzoru, určeno pro servis. Kroky jsou očíslované:
+
+1. **Run** — spustí vlastní kalibraci IMU. Robot sám **nejede**: asi minutu ho malou páčkou pod
+   kartou (umí jen otáčet) pomalu otáčej na místě.
+2. **Uložit** — uloží výsledek do IMU.
+
+Pod **Servis**: **Reset IMU** restartuje senzor (kalibrace zůstane) a **Odstranit DCD** smaže
+uloženou kalibraci. Vpravo kurz podle IMU, navigace, magnetometru, RTK a fúze.
 
 ## Kamera
 

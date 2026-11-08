@@ -119,7 +119,8 @@ the battery output and the computer (the hardest stop; the UI goes away too). Ho
 ![Where the blade is: under the middle of the body (number 4)](img/robot.svg "The blade (4) turns under the middle of the robot; the charging contacts (6) are at the rear.")
 
 - The blade has its own switch: **Settings › Mower › START MOTOR / STOP MOTOR**
-  ([Mowing](mowing.md)). Programs start and stop it by themselves.
+  ([Mowing](mowing.md)); START MOTOR acts only after you hold it for half a second. Programs
+  start and stop it by themselves.
 - Switching the mower **power** on does not start the blade; it only re-applies the last height
   and RPM.
 - **STOP** always stops the blade too.

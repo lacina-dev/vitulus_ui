@@ -653,11 +653,139 @@ ul.nav-tabs.drawer-pills, #vagent_tabs { position: relative; }
 /* segmented button rows fill the card */
 .vt-seg { display: flex; width: 100%; }
 .vt-seg > .btn { flex: 1 1 0; }
-/* switch / record groups: state ring (data-state set by vtSetState) */
-.vt-switch[data-state="ok"]   { box-shadow: 0 0 0 2px var(--vt-edge-ok);   border-radius: var(--vt-r-ctl); }
-.vt-switch[data-state="err"]  { box-shadow: 0 0 0 2px var(--vt-edge-err);  border-radius: var(--vt-r-ctl); }
-.vt-switch[data-state="warn"] { box-shadow: 0 0 0 2px var(--vt-edge-warn); border-radius: var(--vt-r-ctl); }
 .vt-card[data-state="off"] { border-color: var(--vt-border-strong); }
+
+/* ===== D3 (2026-11-08) Settings: switches and states ======================
+   S2: an ON | OFF (REC | STOP) switch fills the half that is TRUE (map_view.js
+   vtSetSwitch → .vt-sel + aria-pressed), tinted by the state — the old ring
+   around the whole group did not say which half; the card keeps its tint.
+   Same look as Settings › Camera (filled = selected), D1 sizes untouched. */
+.vt-switch[data-state="ok"]   > .btn.vt-sel { color: var(--vt-ok) !important;   background-color: rgba(var(--vt-ok-rgb), 0.20) !important;   box-shadow: inset 0 0 0 1px var(--vt-edge-ok) !important; }
+.vt-switch[data-state="err"]  > .btn.vt-sel { color: var(--vt-err) !important;  background-color: rgba(var(--vt-err-rgb), 0.20) !important;  box-shadow: inset 0 0 0 1px var(--vt-edge-err) !important; }
+.vt-switch[data-state="warn"] > .btn.vt-sel { color: var(--vt-warn) !important; background-color: rgba(var(--vt-warn-rgb), 0.18) !important; box-shadow: inset 0 0 0 1px var(--vt-edge-warn) !important; }
+.vt-switch[data-state="off"]  > .btn.vt-sel { color: #fff !important; background-color: rgba(255, 255, 255, 0.13) !important; box-shadow: inset 0 0 0 1px var(--vt-border-strong) !important; }
+.vt-switch:has(> .btn.vt-sel) > .btn:not(.vt-sel) { color: var(--vt-muted); font-weight: 400 !important; }
+.vt-switch:has(> .btn.vt-sel) > .btn:not(.vt-sel) > i { opacity: 0.45; }
+.vt-switch > .btn { white-space: nowrap; }
+
+/* the groups of Settings (vt_settings_groups.js): row 1 = 3 equal groups,
+   row 2 = the tabs of the open group, underlined (a level below the pills) */
+ul.nav-tabs.vt-cfg-groups > .nav-item:not(.vt-tabs-nav) { flex: 1 1 0; min-width: 0; }
+ul.nav-tabs.vt-cfg-groups .nav-link { width: 100%; text-align: center; font-weight: 600; }
+ul.nav-tabs.vt-cfg-sub {
+    display: flex; flex-wrap: nowrap; gap: 2px;
+    margin: calc(-1 * var(--vt-gap-1)) 0 var(--vt-gap-2); padding: 0 2px;
+    border: 0; border-bottom: 1px solid var(--vt-border);
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+ul.nav-tabs.vt-cfg-sub::-webkit-scrollbar { display: none; }
+ul.nav-tabs.vt-cfg-sub > .nav-item { flex: 0 0 auto; margin: 0; }
+ul.nav-tabs.vt-cfg-sub .nav-link {
+    min-height: 34px; padding: 6px 12px; margin: 0 0 -1px;
+    font-size: var(--vt-fs); line-height: 1.1; white-space: nowrap;
+    color: var(--vt-accent); background: transparent;
+    border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    background-image: none !important;   /* the theme's tab gradient (bootstrap.min.css) */
+}
+ul.nav-tabs.vt-cfg-sub .nav-link:hover { color: var(--vt-text); border-bottom-color: var(--vt-border-strong); }
+ul.nav-tabs.vt-cfg-sub .nav-link.active { color: #fff; background: transparent; border-bottom-color: var(--vt-accent); }
+@media (max-width: 575.98px), (pointer: coarse) {
+    ul.nav-tabs.vt-cfg-sub .nav-link { min-height: var(--vt-touch); display: flex; align-items: center; }
+}
+
+/* S5 / S3: one line that says why the numbers are dashes; old numbers grey */
+.vt-hint.vt-cfg-empty { margin: 0; padding: 6px 10px; border: 1px dashed var(--vt-border-strong); border-radius: var(--vt-r-ctl); }
+.vt-cfg-stale { opacity: 0.55; }
+.vt-cfg-kv { display: flex; align-items: baseline; gap: 6px; }
+.vt-cfg-kv > .vt-end { margin-left: auto; white-space: nowrap; }
+.vt-row.vt-cfg-range { flex-wrap: nowrap; }
+.vt-row.vt-cfg-range > .form-range { flex: 1 1 auto; min-width: 0; }
+.vt-row.vt-cfg-range > .vt-unit { min-width: 52px; text-align: right; white-space: nowrap; }
+
+/* S6: outputs say ON / OFF; each temperature / fan reading has its name */
+.vt-outputs .vt-stat.vt-cfg-onoff { min-width: 34px; }
+.vt-cfg-onoff[data-state="ok"] { color: var(--vt-ok); }
+#tab_power .vt-temps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+#tab_power .vt-temps .vt-num { min-width: 44px; }
+.vt-cfg-hw > .vt-auto-block { padding: 0; border-top: 0; }
+.vt-cfg-hw > .vt-auto-block > .vt-auto-set-l { color: var(--vt-accent); margin-bottom: 2px; }
+.vt-cfg-hw:has(> .vt-auto-block:empty) { display: none; }
+
+/* S7: Mower — state in the head, a labelled temperature, numbered console rows */
+.vt-cfg-stat b { font-weight: 600; }
+.vt-cfg-stat .vt-num { min-width: 0; }
+.vt-cfg-sep { margin: 0 6px; color: var(--vt-faint); }
+.vt-fields > .vt-field > .input-group-text.vt-cfg-n { min-width: 36px; justify-content: center; color: var(--vt-muted); }
+.vt-cfg-blade > .btn { min-height: 38px; }
+/* a narrow Settings panel (phone, tablet): number fields keep their range
+   hint readable ("500–4000" was "500–"); long labels wrap by words */
+#div_menu_config { container-type: inline-size; }
+@container (max-width: 440px) {
+    #div_menu_config .vt-field > input.form-control[type="number"] { padding-left: 5px; padding-right: 3px; font-size: var(--vt-fs-sm); }
+    #div_menu_config .vt-field > .vt-val { min-width: 44px; padding-left: 6px; padding-right: 6px; }
+    #div_menu_config .vt-fields > .vt-field > .input-group-text:first-child {
+        min-width: 0; max-width: 30%; padding: 2px 8px;
+        display: flex; align-items: center;
+        white-space: normal; line-height: 1.15; font-size: var(--vt-fs-sm); text-align: left;
+    }
+    #div_menu_config .vt-fields > .vt-field > .input-group-text.vt-cfg-n { max-width: none; }
+    #div_menu_config .vt-field > .input-group-text:not(:first-child) { padding-left: 6px; padding-right: 6px; }
+}
+
+/* D30: hold-to-start (map_view.js vtHoldToFire) — the fill grows with the
+   hold (--vt-hold 0…1), full = sent; the line under it says what happened */
+.btn.vt-hold {
+    position: relative; overflow: hidden; isolation: isolate;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.btn.vt-hold > .vt-hold-fill {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    transform-origin: left center; transform: scaleX(var(--vt-hold, 0));
+    background: rgba(var(--vt-ok-rgb), 0.55);
+}
+.btn.vt-hold.vt-holding, .btn.vt-hold.vt-hold-done { color: #fff !important; }
+.btn.vt-hold.vt-hold-done > .vt-hold-fill { background: var(--vt-ok); }
+.btn.vt-hold.vt-hold-done { color: #0b1a10 !important; }
+.vt-hint.vt-cfg-hold-hint { margin: 2px 0 0; min-height: calc(2 * 1.45em); }
+.vt-cfg-hold-hint[data-state="warn"] { color: var(--vt-warn); }
+.vt-cfg-hold-hint[data-state="ok"] { color: var(--vt-ok); }
+
+/* S10: IMU — numbered steps, service actions apart */
+.vt-cfg-imu .vt-hint { margin-bottom: var(--vt-gap-2); }
+.vt-cfg-step {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; margin-right: 6px; border-radius: 50%;
+    font-size: 11px; font-weight: 700; line-height: 1;
+    color: var(--vt-accent); background: rgba(var(--vt-accent-rgb), 0.16);
+}
+
+/* S9: stored bags — 36 px icon buttons (44 on touch) apart, a left-over
+   ".bag.active" is grey with an "unfinished" tag instead of ● REC */
+#tab_rosbag .bag-list .bag-actions { gap: var(--vt-gap-3); }
+#tab_rosbag .bag-list .bag-actions .bag-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; min-width: 36px; height: 32px; padding: 0; font-size: 17px; line-height: 1;
+}
+@media (max-width: 575.98px), (pointer: coarse) {
+    #tab_rosbag .bag-list .bag-actions .bag-btn { width: 44px; min-width: 44px; height: 44px; }
+}
+#tab_rosbag .bag-list .bag-row { flex-wrap: nowrap; }          /* phone: name … and the buttons on one row */
+#tab_rosbag .bag-list .bag-actions { width: auto; }
+#tab_rosbag .bag-list .bag-row.stale .bag-name { color: var(--vt-muted); }
+/* ● REC moves from the end of the name (index.html: cut off by the "…" on a
+   phone) to a tag in the meta line, like "unfinished" */
+#tab_rosbag .bag-list .bag-row.active .bag-name::after { content: none; }
+/* Camera / Lidar tabs (their own modules set 36 px rows): a full touch target */
+@media (pointer: coarse) {
+    #div_menu_config #div_camera_settings .btn, #div_menu_config #div_lidar_settings .btn { min-height: var(--vt-touch); }
+}
+#tab_rosbag .bag-chip.bag-chip-rec { color: var(--vt-err); border-color: var(--vt-edge-err); font-weight: 700; }
+#tab_rosbag .bag-chip {
+    display: inline-block; margin-right: 6px; padding: 0 5px;
+    font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--vt-muted); border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-tag);
+}
+/* ===== end D3 ============================================================= */
 
 .vt-console {
     margin: 0; height: 72px; overflow: auto;

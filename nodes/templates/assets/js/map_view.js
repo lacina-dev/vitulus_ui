@@ -597,6 +597,113 @@ function vtSetState(el, st) {
     var card = el.closest ? el.closest('.vt-card') : null;
     if (card) card.dataset.state = st;
 }
+/* D3 (audit S2): an ON | OFF switch shows WHICH half is on — the active half
+   is filled (vtSel, aria-pressed), tinted by the state (vt_panel.css
+   .vt-switch[data-state]). on: true = first button, false = second, null =
+   not known (neither). st as vtSetState; noCard: tint only the switch (a
+   card with several switches). Paints only; nothing is sent. */
+function vtSetSwitch(el, on, st, noCard) {
+    if (!el) return;
+    if (noCard) { el.style.removeProperty('border'); el.dataset.state = st; }
+    else { vtSetState(el, st); }
+    var b = el.querySelectorAll(':scope > button');
+    if (b.length < 2) return;
+    vtSel(b[0], on === true);
+    vtSel(b[1], on === false);
+}
+/* D3 (owner 2026-11-08, D30): a button that acts only after it is HELD for
+   `ms` (START MOTOR turns the blade). Mouse (left button), finger and pen hold
+   it; Enter / Space held do the same from the keyboard. Letting go, sliding
+   off, a cancelled touch or losing focus before the time sends NOTHING; a
+   click alone sends nothing. While held, --vt-hold (0…1) fills the button
+   (vt_panel.css .vt-hold). fire() runs at most once per hold.
+   o.hint = element for the one-line feedback, o.keys = {idle, hold, early,
+   done} i18n keys for it. */
+function vtHoldToFire(btn, ms, fire, o) {
+    if (!btn || btn.dataset.vtHold) return null;   // wired once: two wirings would fire twice
+    btn.dataset.vtHold = '1';
+    o = o || {};
+    var k = o.keys || {};
+    var t0 = 0, raf = 0, timer = 0, pid = null, back = 0;
+    var setP = function (p) { btn.style.setProperty('--vt-hold', String(Math.max(0, Math.min(1, p)))); };
+    var say = function (key, idleAfter) {
+        if (!o.hint || !key) return;
+        clearTimeout(back);
+        vtTag(o.hint, key);
+        o.hint.dataset.state = key === k.early ? 'warn' : (key === k.done ? 'ok' : '');
+        if (idleAfter && k.idle) {
+            back = setTimeout(function () { vtTag(o.hint, k.idle); o.hint.dataset.state = ''; }, idleAfter);
+        }
+    };
+    var tick = function () {
+        if (!t0) return;
+        setP((performance.now() - t0) / ms);
+        raf = requestAnimationFrame(tick);
+    };
+    var stop = function (early) {
+        if (!t0) return;
+        clearTimeout(timer);
+        cancelAnimationFrame(raf);
+        t0 = 0;
+        if (pid !== null) { try { btn.releasePointerCapture(pid); } catch (e) { /* already released */ } }
+        pid = null;
+        btn.classList.remove('vt-holding');
+        setP(0);
+        if (early) say(k.early, 3500);
+    };
+    var start = function (pointerId) {
+        if (t0 || btn.disabled) return;
+        t0 = performance.now();
+        pid = pointerId;
+        btn.classList.add('vt-holding');
+        say(k.hold);
+        tick();
+        timer = setTimeout(function () {
+            if (!t0) return;
+            t0 = 0;
+            cancelAnimationFrame(raf);
+            if (pid !== null) { try { btn.releasePointerCapture(pid); } catch (e) { /* gone */ } }
+            pid = null;
+            btn.classList.remove('vt-holding');
+            setP(1);
+            btn.classList.add('vt-hold-done');
+            setTimeout(function () { btn.classList.remove('vt-hold-done'); setP(0); }, 600);
+            say(k.done, 4000);
+            fire();
+        }, ms);
+    };
+    btn.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (!e.isPrimary) return;
+        e.preventDefault();                       // no text selection / compat mouse events
+        try { btn.setPointerCapture(e.pointerId); } catch (x) { /* not capturable */ }
+        try { btn.focus({preventScroll: true}); } catch (x) { /* old browser */ }
+        start(e.pointerId);
+    });
+    btn.addEventListener('pointermove', function (e) {
+        if (!t0 || e.pointerId !== pid) return;
+        var r = btn.getBoundingClientRect(), m = 12;   // sliding off the button = let go
+        if (e.clientX < r.left - m || e.clientX > r.right + m || e.clientY < r.top - m || e.clientY > r.bottom + m) stop(true);
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) {
+        btn.addEventListener(ev, function (e) { if (t0 && (pid === null || e.pointerId === pid)) stop(true); });
+    });
+    btn.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        e.preventDefault();                       // the native click would come on its own
+        if (e.repeat) return;
+        start(null);
+    });
+    btn.addEventListener('keyup', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        e.preventDefault();
+        if (pid === null) stop(true);
+    });
+    btn.addEventListener('blur', function () { stop(true); });
+    btn.addEventListener('click', function (e) { e.preventDefault(); e.stopImmediatePropagation(); });
+    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });   // a long press is not a menu
+    return { cancel: function () { stop(false); } };
+}
 
 class PathListItemTemplate {
     // U1 kolo 3: one list-row look (vt_panel.css .vt-item), no inline styles
@@ -2693,12 +2800,11 @@ class LidarControl {
         });
     }
     status_data(message){
-        if (message.lidar === "ON") {
-            vtSetState(this.btngroup_lidar_on_off, 'ok');
-        }
-        else {
-            vtSetState(this.btngroup_lidar_on_off, 'err');
-        }
+        const on = message.lidar === "ON";
+        // D3 (S2): the ON / OFF half that is true is filled; the head says it in words
+        vtSetSwitch(this.btngroup_lidar_on_off, on, on ? 'ok' : 'err');
+        const st = document.getElementById('span_lidar_state'), k = on ? 'cfg.d3.state.on' : 'cfg.d3.state.off';
+        if (st && st.getAttribute('data-i18n') !== k) vtTag(st, k);   // icon_status comes often: redraw on change only
     }
 }
 
@@ -2807,18 +2913,41 @@ class MotorControl {
         this.motorPowerTopic.advertise();
         this.pmMotorSwitchTopic.advertise();
         this.set_torque_topic.advertise();
+        // D3 (S5): the "no data" line follows the clock too (a silent motor goes stale)
+        setInterval(() => this.paint_empty(), 1000);
     }
 
     motor_state_data(message){
-        if (message.data){
-            vtSetState(this.btngroup_motors_on_off, 'ok');
+        // D3 (S2): the true half filled; S5: the line under it follows the power
+        this.power_on = !!message.data;
+        vtSetSwitch(this.btngroup_motors_on_off, this.power_on, this.power_on ? 'ok' : 'off');
+        this.paint_empty();
+    }
+
+    /* D3 (audit S5): the wheel cards show "–" until the motors report; say why
+       in one line, and grey the cards when their numbers are old (> 3 s). */
+    seen() {
+        const fresh = !this.last_at || (Date.now() - this.last_at) > 3000;
+        this.last_at = Date.now();
+        if (fresh) this.paint_empty();
+    }
+    paint_empty() {
+        const hint = document.getElementById('div_motors_empty');
+        const grid = document.getElementById('div_motors_grid');
+        if (!hint) return;
+        const fresh = this.last_at && (Date.now() - this.last_at) <= 3000;
+        let key = null;
+        if (!fresh) {
+            if (this.power_on === false) key = this.last_at ? 'cfg.d3.motors.off_old' : 'cfg.d3.motors.off';
+            else key = this.last_at ? 'cfg.d3.motors.stale' : 'cfg.d3.motors.wait';
         }
-        else {
-            vtSetState(this.btngroup_motors_on_off, 'off');
-        }
+        if (hint.hidden !== !key) hint.hidden = !key;
+        if (key && hint.getAttribute('data-i18n') !== key) vtTag(hint, key);
+        if (grid) grid.classList.toggle('vt-cfg-stale', !fresh && !!this.last_at);
     }
 
     motor1_data(message){
+        this.seen();
         this.span_motor1_status.textContent = message.fault;
         if (message.fault === "OK") {
             this.span_motor1_status.className = 'text-success';
@@ -2855,6 +2984,7 @@ class MotorControl {
         this.span_motor1_id.textContent = message.id;
     }
     motor2_data(message){
+        this.seen();
         this.span_motor2_status.textContent = message.fault;
         if (message.fault === "OK") {
             this.span_motor2_status.className = 'text-success';
@@ -2891,6 +3021,7 @@ class MotorControl {
         this.span_motor2_id.textContent = message.id;
     }
     motor3_data(message){
+        this.seen();
         this.span_motor3_status.textContent = message.fault;
         if (message.fault === "OK") {
             this.span_motor3_status.className = 'text-success';
@@ -2927,6 +3058,7 @@ class MotorControl {
         this.span_motor3_id.textContent = message.id;
     }
     motor4_data(message){
+        this.seen();
         this.span_motor4_status.textContent = message.fault;
         if (message.fault === "OK") {
             this.span_motor4_status.className = 'text-success';
@@ -3299,7 +3431,28 @@ class MapMenu {
             vtSel(this.btn_menu_rtabmap_camera, false);
             vtSel(this.btn_menu_rtabmap_both, true);
         }
-        this.span_rtabmap_distance.textContent = Math.round(msg.grid_sensor_distance * 100) / 100;
+        const d = Math.round(msg.grid_sensor_distance * 100) / 100;
+        this.span_rtabmap_distance.textContent = d;
+        // D3 (audit S3): RTAB-Map reports → the "not reported" line goes, the
+        // slider shows the robot's value (until the owner moves it), Apply
+        // knows the source to send with a new distance
+        this.rtabmap_reported = { sensor: msg.grid_sensor, distance: d };
+        const wait = document.getElementById('div_rtabmap_wait');
+        if (wait && !wait.hidden) wait.hidden = true;
+        if (!this.rtabmap_dragged && this.input_range_rtabmap_distance && isFinite(d)) {
+            this.input_range_rtabmap_distance.value = d;
+            this.span_menu_rtabmap_distance_apply.textContent = Number(this.input_range_rtabmap_distance.value).toFixed(1);
+        }
+        this.rtabmap_paint_apply();
+    }
+
+    // D3 (S3): Apply is live only for a distance that differs from the robot's
+    rtabmap_paint_apply() {
+        const b = document.getElementById('btn_menu_rtabmap_apply');
+        if (!b) return;
+        const r = this.rtabmap_reported;
+        const want = parseFloat(this.span_menu_rtabmap_distance_apply.textContent);
+        b.disabled = !r || !isFinite(want) || Math.abs(want - r.distance) < 0.05;
     }
 
 
@@ -6085,16 +6238,30 @@ class RosbagControl {
 
     d435_status_data(message) {
         this.span_d435_rec_status.textContent = message.data;
+        // D3 (S2, S9): the true half filled; the bag list knows what records now
+        this.rec_d435 = message.data.startsWith('recording');
+        vtSetSwitch(this.inputgroup_d435_rec, this.rec_d435, this.rec_d435 ? 'ok' : 'off');
+        this.rec_changed();
         if (message.data.startsWith('recording')) {
-            vtSetState(this.inputgroup_d435_rec, 'ok');
             this.span_d435_rec_status.className = 'text-success d-flex justify-content-end input-group-text form-control';
             const fps_match = message.data.match(/fps=(\d+\.?\d*)/);
             if (fps_match) {
                 this.span_d435_rec_fps.textContent = fps_match[1] + ' fps';
             }
         } else {
-            vtSetState(this.inputgroup_d435_rec, 'off');
             this.span_d435_rec_status.className = 'text-info d-flex justify-content-end input-group-text form-control';
+        }
+    }
+
+    /* D3 (audit S9): window.vtRosbagRec = what the recorders report (null =
+       not heard yet); the stored-bag list redraws when that changes, so a
+       left-over ".bag.active" no longer shows as recording while both are idle */
+    rec_changed() {
+        const any = !!(this.rec_d435 || this.rec_gnss);
+        const prev = window.vtRosbagRec;
+        window.vtRosbagRec = { any: any, at: Date.now() };
+        if ((!prev || prev.any !== any) && typeof bag_manager !== 'undefined' && bag_manager && bag_manager.redraw) {
+            bag_manager.redraw();
         }
     }
 
@@ -6110,11 +6277,12 @@ class RosbagControl {
 
     gnss_status_data(message) {
         this.span_gnss_rec_status.textContent = message.data;
+        this.rec_gnss = message.data.startsWith('recording');
+        vtSetSwitch(this.inputgroup_gnss_rec, this.rec_gnss, this.rec_gnss ? 'ok' : 'off');
+        this.rec_changed();
         if (message.data.startsWith('recording')) {
-            vtSetState(this.inputgroup_gnss_rec, 'ok');
             this.span_gnss_rec_status.className = 'text-success d-flex justify-content-end input-group-text form-control';
         } else {
-            vtSetState(this.inputgroup_gnss_rec, 'off');
             this.span_gnss_rec_status.className = 'text-info d-flex justify-content-end input-group-text form-control';
         }
     }
@@ -6180,6 +6348,11 @@ class BagManager {
             .finally(() => { this.in_flight = false; });
     }
 
+    // D3 (S9): the recorders' state changed — draw the last list again (no fetch)
+    redraw() {
+        if (this.div_list && this._last && this._last.data) this.render(this._last.data);
+    }
+
     render_error(err) {
         this._last = {err: err};
         this.div_list.innerHTML = '<div class="bag-empty" style="padding:12px;font-size:12px;color:var(--bs-danger);text-align:center;">' + vtEsc(vtT('mapview.bag.load_failed', {err: err})) + '</div>';
@@ -6198,23 +6371,41 @@ class BagManager {
 
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const rec = esc(vtT('mapview.bag.recording'));
+        /* D3 (audit S9): a ".bag.active" file is recording only while a
+           recorder says so. Both idle and the file untouched for 30 s (or
+           untouched for 10 min whatever they say) = left over from a recording that did
+           not finish (power cut): "unfinished", grey, downloadable; the robot
+           refuses to delete it here (webnode), so Delete stays off and says
+           why. A file a recorder writes is touched all the time, so one not
+           written for 10 min is left over even while another bag records.
+           Download and Delete are 36 px icon buttons, apart. */
+        const st = window.vtRosbagRec || null;
+        const now_s = Date.now() / 1000;
         const rows = items.map(it => {
             const loc = it.subdir ? it.subdir + ' · ' : '';
             const dl_url = '/rosbag/download?path=' + encodeURIComponent(it.path);
+            const age = now_s - (it.mtime || 0);
+            const stale = !!it.active && (age > 600 || (st && !st.any && age > 30));
+            const recording = !!it.active && !stale;
+            const name_dl = esc(vtT('common.download')) + ': ' + esc(it.name);
+            const name_del = esc(vtT('common.delete')) + ': ' + esc(it.name);
             const del_attrs = it.active
-                ? 'disabled title="' + rec + '"'
-                : 'data-path="' + esc(it.path) + '" data-name="' + esc(it.name) + '"';
-            const dl_attrs = it.active
-                ? 'disabled title="' + rec + '" href="#" onclick="return false;"'
-                : 'href="' + dl_url + '" download';
-            return '<div class="bag-row' + (it.active ? ' active' : '') + '">' +
+                ? 'disabled title="' + (stale ? esc(vtT('cfg.d3.bag.no_delete')) : rec) + '" aria-label="' + name_del + '"'
+                : 'data-path="' + esc(it.path) + '" data-name="' + esc(it.name) + '" title="' + esc(vtT('common.delete')) + '" aria-label="' + name_del + '"';
+            const dl_attrs = recording
+                ? 'aria-disabled="true" tabindex="-1" title="' + rec + '" href="#" onclick="return false;"'
+                : 'href="' + dl_url + '" download title="' + esc(vtT('common.download')) + '"';
+            const chip = stale
+                ? '<span class="bag-chip" title="' + esc(vtT('cfg.d3.bag.unfinished_tip')) + '">' + esc(vtT('cfg.d3.bag.unfinished')) + '</span>'
+                : (recording ? '<span class="bag-chip bag-chip-rec" title="' + rec + '">● REC</span>' : '');
+            return '<div class="bag-row' + (recording ? ' active' : '') + (stale ? ' stale' : '') + '">' +
                 '<div class="bag-info">' +
-                    '<div class="bag-name">' + esc(it.name) + '</div>' +
-                    '<div class="bag-meta">' + esc(loc) + this.human_size(it.size) + ' · ' + this.human_time(it.mtime) + '</div>' +
+                    '<div class="bag-name" title="' + esc(it.name) + '">' + esc(it.name) + '</div>' +
+                    '<div class="bag-meta">' + chip + esc(loc) + this.human_size(it.size) + ' · ' + this.human_time(it.mtime) + '</div>' +
                 '</div>' +
                 '<div class="bag-actions">' +
-                    '<a class="btn btn-sm btn-outline-info" ' + dl_attrs + ' title="' + esc(vtT('common.download')) + '">⬇</a>' +
-                    '<button class="btn btn-sm btn-outline-danger" type="button" ' + del_attrs + ' title="' + esc(vtT('common.delete')) + '">✕</button>' +
+                    '<a class="btn btn-sm btn-outline-info bag-btn' + (recording ? ' disabled' : '') + '" ' + dl_attrs + ' aria-label="' + name_dl + '"><i class="la la-download" aria-hidden="true"></i></a>' +
+                    '<button class="btn btn-sm btn-outline-danger bag-btn bag-del" type="button" ' + del_attrs + '><i class="la la-trash" aria-hidden="true"></i></button>' +
                 '</div>' +
             '</div>';
         }).join('');
@@ -6394,17 +6585,19 @@ class Mower {
             default:
                 this.span_mower_status.textContent = message.status;
         }
+        // D3 (S2): powered = it reports anything but OFF / UNK; that half is
+        // filled, tinted by the state (a fault keeps ON filled, red)
+        const powered = !(message.status === 'UNK' || message.status === 'OFF');
         if (message.status === 'UNK' || message.status === 'OFF' || message.status === 'ERR' || message.status === 'BLOCKED' || message.status === 'TEMP') {
             // OFF/UNK = simply off; ERR/BLOCKED/TEMP = a real fault
-            vtSetState(this.inputgroup_mower_on_off,
-                (message.status === 'UNK' || message.status === 'OFF') ? 'off' : 'err');
+            vtSetSwitch(this.inputgroup_mower_on_off, powered, powered ? 'err' : 'off');
         }
         else {
             if (message.status === 'READY' || message.status === 'RUN') {
-                vtSetState(this.inputgroup_mower_on_off, 'ok');
+                vtSetSwitch(this.inputgroup_mower_on_off, true, 'ok');
             }
             else {
-                vtSetState(this.inputgroup_mower_on_off, 'warn');
+                vtSetSwitch(this.inputgroup_mower_on_off, true, 'warn');
             }
         }
 
@@ -6413,7 +6606,8 @@ class Mower {
         // robot pracuje v mm (firmware CUTH, 20 až max_height); horní mez pole = skutečné maximum desky
         if (this.input_mower_cut_height && message.max_height > 0) { this.input_mower_cut_height.max = message.max_height; }
         this.span_mower_rpm.textContent = message.moto_rpm + "/" + message.setpoint_rpm + " rpm";
-        this.span_mower_temp.textContent = parseInt(message.temp) + "`C";
+        // D3 (S7): a labelled reading now ("Temp 21 °C"), degree sign, no-break space
+        this.span_mower_temp.textContent = isFinite(parseInt(message.temp)) ? parseInt(message.temp) + "\u00a0°C" : "–";
 
         // Update mower info panel visibility and values
         if (this.div_mower_info_panel) {
@@ -6727,6 +6921,20 @@ class PowerModule {
         }else{
             this.ico_mower_conf.src = "/assets/img/robot_icons/Nextion_ico_mower_grey.png";
         }
+        // D3 (S6): the outputs say ON / OFF in words (the icon colour alone did
+        // not); S2: the Outputs switches fill the half that is true
+        const outs = [[message.motor_out_switch, 'span_motor_out_state', 'inputgroup_motor_out_pm'],
+                      [message.bat_out_switch, 'span_mower_out_state', 'inputgroup_mower_out_pm']];
+        outs.forEach(function (o) {
+            const on = o[0] === true ? true : (o[0] === false ? false : null);
+            const sp = document.getElementById(o[1]);
+            if (sp) {
+                const k = on === null ? '' : (on ? 'common.on' : 'common.off');
+                if (k && sp.getAttribute('data-i18n') !== k) vtTag(sp, k);
+                sp.dataset.state = on === null ? '' : (on ? 'ok' : 'off');
+            }
+            vtSetSwitch(document.getElementById(o[2]), on, on ? 'ok' : 'off', true);
+        });
         // `this.` chybělo: bez něj je to nedeklarovaná globální proměnná a
         // KAŽDÁ zpráva o baterii skončila ReferenceError (a s ní i zbytek téhle
         // funkce). V konzoli to dělalo desítky výjimek za minutu, ve kterých
@@ -8216,8 +8424,24 @@ window.initMapView = function () {
         map_menu.rtabmap_apply();
     };
     map_menu.input_range_rtabmap_distance.oninput = function() {
-        map_menu.span_menu_rtabmap_distance_apply.innerText = map_menu.input_range_rtabmap_distance.value;
+        // D3 (S3): one decimal, like the robot's value; Apply follows
+        map_menu.rtabmap_dragged = true;
+        map_menu.span_menu_rtabmap_distance_apply.innerText = Number(map_menu.input_range_rtabmap_distance.value).toFixed(1);
+        map_menu.rtabmap_paint_apply();
     };
+    // D3 (S3): a new distance alone (the source buttons still send source + distance)
+    (function () {
+        const b = document.getElementById('btn_menu_rtabmap_apply');
+        if (!b) return;
+        b.onclick = function () {
+            const r = map_menu.rtabmap_reported;
+            if (!r) return;
+            map_menu.rtabmap_sensor = String(r.sensor);
+            map_menu.rtabmap_apply();
+            map_menu.rtabmap_dragged = false;
+            b.disabled = true;
+        };
+    })();
 
 
     /**
@@ -8557,6 +8781,8 @@ window.initMapView = function () {
     vtOnLang(function () { mower.render_saved(); });
 
     mower.mower_config_print_topic.subscribe(function (message) {
+        // D3: the "no answer yet" line was translated text — the board's answer is not
+        mower.paragraph_mower_config.removeAttribute('data-i18n');
         mower.paragraph_mower_config.innerHTML = message.data;
     });
 
@@ -8594,9 +8820,13 @@ window.initMapView = function () {
         mower.pub_mower_set_home(value = true);
     };
 
-    mower.btn_mower_start_motor.onclick = function() {
-        mower.pub_mower_set_motor_on(value = true);
-    };
+    // D3 (owner 2026-11-08, D30): START MOTOR turns the blade — it acts only
+    // after 0.5 s of holding (vtHoldToFire); a tap or an early release sends
+    // nothing. What it sends is unchanged: /mower/set_motor_on {data: true}, once.
+    mower.blade_hold = vtHoldToFire(mower.btn_mower_start_motor, 500, function () {
+        mower.pub_mower_set_motor_on(true);
+    }, { hint: document.getElementById('div_mower_hold_hint'),
+         keys: { idle: 'cfg.d3.hold.hint', hold: 'cfg.d3.hold.holding', early: 'cfg.d3.hold.early', done: 'cfg.d3.hold.sent' } });
 
     mower.btn_mower_stop_motor.onclick = function() {
         mower.pub_mower_set_motor_on(value = false);

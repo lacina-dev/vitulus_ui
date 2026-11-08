@@ -7,7 +7,7 @@ icon: la-cut
 summary: Napájení sekačky, nůž, výška sekání a otáčky v Nastavení › Sekačka.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [výška trávy, tráva, kalibrace, grass_calib, terén, odchylka od plánu, mimo plán, čára plánu, čára gps, čára lidaru, heading proti gnss, lhala lokalizace, zátěž sekání, zátěž, stopa, teplota, přetížení, minulé běhy, sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
+keywords: [podržet, podržení, půl sekundy, výška trávy, tráva, kalibrace, grass_calib, terén, odchylka od plánu, mimo plán, čára plánu, čára gps, čára lidaru, heading proti gnss, lhala lokalizace, zátěž sekání, zátěž, stopa, teplota, přetížení, minulé běhy, sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
 ---
 # Sekací ústrojí
 
@@ -23,23 +23,27 @@ STOP MOTOR tady; kliknutím na název se rozbalí
 > Nůž je nebezpečný. Ručně ho spouštěj jen s robotem na trávníku, nikdo nesmí být poblíž a druhou
 > ruku měj na **STOP**.
 
-![Nastavení › Sekačka s očíslovanými značkami](../img/shot-mower.webp "1 ON / OFF (napájení) · 2 směr · 3 výška v mm + Nastavit · 4 otáčky + Nastavit · 5 Domů · 6 START MOTOR / STOP MOTOR")
+**START MOTOR zabere, až když ho půl sekundy podržíš** — myší, prstem, nebo podržením Enter /
+mezerníku na klávesnici. Tlačítko se během držení plní; když pustíš dřív (nebo z něj sjedeš),
+nic se nepošle a řádek pod ním to řekne. Samotné kliknutí nedělá nic. **STOP MOTOR** zabere hned.
+
+![Nastavení › Sekačka s očíslovanými značkami](../img/shot-mower.webp "1 ON / OFF (napájení) · 2 směr · 3 výška v mm + Nastavit · 4 otáčky + Nastavit · 5 Domů · 6 START MOTOR (podržet ½ s) / STOP MOTOR")
 
 | Ovládání | Co dělá |
 |---|---|
-| **ON / OFF** | napájení sekačky. Řádek ukazuje teplotu a stav: OFF, INIT, HOME, VÝŠKA, READY, RUN, ERR, BLOCKED, TEMP |
+| **Napájení ON / OFF** | napájení sekačky; vyplněná polovina je skutečný stav. **Tepl.** vedle je teplota desky sekačky. Hlavička karty ukazuje **Stav**: OFF, INIT, HOME, VÝŠKA, READY, RUN, ERR, BLOCKED, TEMP |
 | **Směr** | **Vlevo** / **Vpravo** — směr otáčení nože. Současný řadič sekačky ho nepřebírá: hlásí vždy LEFT |
 | **Výška** | aktuální / maximum v **mm**; zadej výšku v mm (od minima sekačky, výchozí 25 mm, po maximum, třeba 45) a **Nastavit**. Hodnota mimo rozsah se ignoruje |
 | **Otáčky** | aktuální / žádané; zadej hodnotu (500–4000) a **Nastavit** |
 | **Domů** | kalibrace výšky — žací ústrojí vyjede nahoru na doraz a vezme ho jako výchozí bod |
-| **SPUSTIT MOTOR / ZASTAVIT MOTOR** | roztočí / zastaví nůž |
+| **START MOTOR / STOP MOTOR** | roztočí (podržet ½ s) / zastaví nůž |
 
 - **Robot si pamatuje výšku a otáčky, které tu nastavíš** (i joystickem nebo na displeji
   robota), přes vypnutí sekačky i restart robota. Řádek pod otáčkami ukazuje uložené hodnoty —
   i když je sekačka vypnutá nebo neodpovídá.
 - Když se sekačka zapne, její řadič začíná od nuly: žací ústrojí vyjede nahoru (**Domů**) a nůž
   zůstane stát. Jakmile sekačka hlásí READY, robot posune žací ústrojí na uloženou výšku a nastaví
-  uložené otáčky jako žádané. **Nůž nikdy nespustí** — to dál dělá jen **SPUSTIT MOTOR** nebo
+  uložené otáčky jako žádané. **Nůž nikdy nespustí** — to dál dělá jen **START MOTOR** nebo
   program. Když běží program, nedělá to.
 - Výška a otáčky programu nebo zóny a zaparkování nože na maximum po sekání nebo při zastavení
   platí jen pro tu chvíli — uložené hodnoty nemění.
@@ -193,5 +197,6 @@ Zastavení sekačky (z **Programy › Stop**, od supervizoru agenta nebo když �
 
 ## Příkazy
 
-Karta **Příkazy** posílá textové příkazy rovnou do řadiče sekačky a pod sebou ukazuje odpověď
-(**Odeslat**). Seznam vypíše `PRINT HELP`. Určeno pro servis.
+**Servis: příkazy pro desku sekačky** (sbalené, pod kartou Sekačka) posílá textové příkazy rovnou
+do řadiče sekačky — čtyři očíslované řádky, každý s **Odeslat** — a pod sebou ukazuje odpověď.
+Seznam vypíše `PRINT HELP`. Určeno pro servis.

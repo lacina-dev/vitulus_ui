@@ -119,8 +119,9 @@ může vrátit.
 
 ![Kde je nůž: pod středem těla (číslo 4)](../img/robot.svg "Nůž (4) se točí pod středem robota; nabíjecí kontakty (6) jsou vzadu.")
 
-- Nůž má vlastní spínač: **Nastavení › Sekačka › SPUSTIT MOTOR / ZASTAVIT MOTOR**
-  ([Sekání](mowing.md)). Programy ho spouštějí a zastavují samy.
+- Nůž má vlastní spínač: **Nastavení › Sekačka › START MOTOR / STOP MOTOR**
+  ([Sekání](mowing.md)); START MOTOR zabere, až když ho půl sekundy podržíš. Programy ho
+  spouštějí a zastavují samy.
 - Zapnutí **napájení** sekačky nůž nespustí; jen znovu nastaví poslední výšku a otáčky.
 - **STOP** vždy zastaví i nůž.
 - Program seče jen **uvnitř zóny, kterou právě seče**. Mimo ni jet smí, k další dráze nebo při

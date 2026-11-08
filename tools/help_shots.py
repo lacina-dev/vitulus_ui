@@ -74,6 +74,14 @@ WINDOW_DEFAULT = ("calendarManager._report = Object.assign({}, calendarManager._
                   " {enabled: true, start: '07:00', end: '21:00', stored: false, min_left_min: 30, error: null}});"
                   " calendarManager._paintWindow(); calendarManager._paintWindow = () => {}; return '';")
 
+# Settings pictures show a typical state whatever the robot (or no robot) reports:
+# motors off after a start, the mower READY at a usual height (in the page only,
+# nothing is sent; the handlers are frozen so a live message does not repaint).
+MOTORS_OFF = ("motors_control.motor_state_data({data: false}); motors_control.motor_state_data = () => {};"
+              " return '';")
+MOWER_READY = ("mower.mower_status({status: 'READY', moto_dir: 'LEFT', current_height: 45, max_height: 80,"
+               " moto_rpm: 0, setpoint_rpm: 3000, temp: 21}); mower.mower_status = () => {}; return '';")
+
 # Every shot: name, viewport, steps before the picture, what to crop, markers.
 #   steps: ('click', sel) | ('js', code) | ('wait', ms) | ('wheel', x, y, dy)
 #   clip:  None = the whole viewport, a selector (its box), or [x, y, w, h]
@@ -219,9 +227,9 @@ SHOTS = [
          marks=[('#sel_cal_program', '1', 'ri'), ('#input_cal_hour', '2', 'r'), ('#sel_cal_recurrence', '3', 'ri'),
                 ('#btn_cal_save', '4', 'l')]),
     # --- Settings (settings.md, mowing.md, safety.md)
-    dict(name='shot-motors', vp=TALL, clip='#ui_drawer_head|#tab_motors', trim=(2000, 560), steps=panel('#btn_settings', 'tab_motors'),
+    dict(name='shot-motors', vp=TALL, clip='#ui_drawer_head|#tab_motors', trim=(2000, 560), steps=panel('#btn_settings', 'tab_motors', [('js', MOTORS_OFF)]),
          marks=[('#btngroup_motors_on_off', '1', 'bl'), ('#btn_motor_torque', '2', 'ri'), ('#ico_fl_motor_conf', '3', 'l')]),
-    dict(name='shot-mower', vp=TALL, clip='#ui_drawer_head|#tab_mower', trim=(2000, 720), steps=panel('#btn_settings', 'tab_mower'),
+    dict(name='shot-mower', vp=TALL, clip='#ui_drawer_head|#tab_mower', trim=(2000, 720), steps=panel('#btn_settings', 'tab_mower', [('js', MOWER_READY)]),
          marks=[('#btn_mower_off', '1', 'ri'), ('#btn_mower_right', '2', 'ri'), ('#btn_mower_set_height', '3', 'ri'),
                 ('#btn_mower_set_rpm', '4', 'ri'), ('#btn_mower_home', '5', 'ri'), ('#btn_mower_start_motor', '6', 'ri')]),
     dict(name='shot-app', vp=TALL, clip='#ui_drawer_head|#tab_app', steps=panel('#btn_settings', 'tab_app', [('wait', 800)]),

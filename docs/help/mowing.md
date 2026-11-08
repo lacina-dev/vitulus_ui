@@ -7,7 +7,7 @@ icon: la-cut
 summary: Mower power, the blade, cut height and RPM in Settings › Mower.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [grass height, grass, calibration, grass_calib, terrain, off the plan, plan line, gps line, lidar line, heading vs gnss, cross-track, xte, localization wrong, mow load, load, trail, heat, temperature, overload, past runs, mower, blade, knife, cut height, height, rpm, remember, saved height, saved rpm, after power-off, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
+keywords: [hold, hold to start, half a second, grass height, grass, calibration, grass_calib, terrain, off the plan, plan line, gps line, lidar line, heading vs gnss, cross-track, xte, localization wrong, mow load, load, trail, heat, temperature, overload, past runs, mower, blade, knife, cut height, height, rpm, remember, saved height, saved rpm, after power-off, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
 ---
 # Mowing unit
 
@@ -23,16 +23,21 @@ from 60 °C) and the running program
 > The blade is dangerous. Start it by hand only with the robot on the lawn, nobody near it, and
 > your other hand on **STOP**.
 
-![Settings › Mower with numbered markers](img/shot-mower.webp "1 ON / OFF (power) · 2 direction · 3 height in mm + Set · 4 RPM + Set · 5 Home · 6 START MOTOR / STOP MOTOR")
+**START MOTOR acts only when you hold it for half a second** — with the mouse, a finger, or
+Enter / Space held on the keyboard. The button fills while you hold it; letting go earlier (or
+sliding off it) sends nothing and the line under it says so. A plain click does nothing.
+**STOP MOTOR** acts at once.
+
+![Settings › Mower with numbered markers](img/shot-mower.webp "1 ON / OFF (power) · 2 direction · 3 height in mm + Set · 4 RPM + Set · 5 Home · 6 START MOTOR (hold ½ s) / STOP MOTOR")
 
 | Control | What it does |
 |---|---|
-| **ON / OFF** | mower power. The row shows the temperature and status: OFF, INIT, HOME, HEIGHT, READY, RUN, ERR, BLOCKED, TEMP |
+| **Power ON / OFF** | mower power; the filled half is the real state. **Temp** next to it is the mower board's temperature. The card head shows the **State**: OFF, INIT, HOME, HEIGHT, READY, RUN, ERR, BLOCKED, TEMP |
 | **Direction** | Left / Right — the blade's direction of rotation. The current mower controller does not take it: it always reports LEFT |
 | **Height** | current / max in **mm**; type a height in mm (from the mower's minimum, 25 mm by default, up to the max, e.g. 45) and **Set**. A value outside that range is ignored |
 | **RPM** | current / setpoint; type a value (500–4000) and **Set** |
 | **Home** | height calibration — the deck drives up to its top stop and takes it as the reference |
-| **START MOTOR / STOP MOTOR** | starts / stops the blade |
+| **START MOTOR / STOP MOTOR** | starts (hold ½ s) / stops the blade |
 
 - **The robot remembers the height and RPM you set here** (also with the joystick or on the
   robot's display), over a mower power-off and a robot restart. The line under RPM shows the
@@ -196,5 +201,6 @@ joystick) acts **at once**: the blade gets *off* the moment the stop arrives.
 
 ## Commands
 
-The **Commands** card sends text commands straight to the mower's controller and shows its answer
-below. Try `PRINT HELP` to list them. Meant for service.
+**Service: commands to the mower board** (collapsed, under the Mower card) sends text commands
+straight to the mower's controller — four numbered rows, each with **Send** — and shows its
+answer below. Try `PRINT HELP` to list them. Meant for service.

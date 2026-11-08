@@ -1524,17 +1524,27 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                             <div class="row">
                                 <div class="col vt-mt2 vt-pr1 vt-pl1">
                                     <div>
-                                        <ul class="nav nav-tabs drawer-pills" role="tablist">
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_motors" data-i18n="cfg.tab.motors">Motors</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_lidar">Navi</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_power" data-i18n="cfg.tab.power">Power</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_mower" data-i18n="cfg.tab.mower">Mower</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag">Diag</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag">Rosbag</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu">IMU</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_camera" data-i18n="settings.tab.camera">Camera</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rplidar" data-i18n="settings.tab.lidar">Lidar</a></li>
-                                            <li class="nav-item" role="presentation"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_app" data-i18n="settings.tab.app">App</a></li>
+                                        <!-- D3 (owner 2026-11-08, D28): three groups, each with its own tabs.
+     Row 1 = the groups (plain buttons, vt_settings_groups.js); row 2 = the tabs of
+     the open group. Every tab keeps its <a href="#tab_…" data-bs-toggle="tab">
+     (other modules and the remembered tab open them); the tabs of the other
+     groups are only hidden. #tab_navi was #tab_lidar (the Lidar tab is #tab_rplidar). -->
+                                        <ul class="nav nav-tabs drawer-pills vt-cfg-groups" id="cfg_groups" role="tablist" aria-label="Settings" data-i18n-aria-label="cfg.grp.label">
+                                            <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-cfg-group="robot" aria-controls="cfg_tabs" data-i18n="cfg.grp.robot">Robot</button></li>
+                                            <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-cfg-group="sensors" aria-controls="cfg_tabs" aria-selected="true" data-i18n="cfg.grp.sensors">Sensors</button></li>
+                                            <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-cfg-group="system" aria-controls="cfg_tabs" data-i18n="cfg.grp.system">System</button></li>
+                                        </ul>
+                                        <ul class="nav nav-tabs vt-cfg-sub" id="cfg_tabs" role="tablist">
+                                            <li class="nav-item" role="presentation" data-cfg-group="robot" hidden><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_motors" data-i18n="cfg.tab.motors">Motors</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="robot" hidden><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_power" data-i18n="cfg.tab.power">Power</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="robot" hidden><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_mower" data-i18n="cfg.tab.mower">Mower</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="sensors"><a class="nav-link active" role="tab" data-bs-toggle="tab" href="#tab_navi" data-i18n="cfg.tab.navi">Navi</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="sensors"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rplidar" data-i18n="settings.tab.lidar">Lidar</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="sensors"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_camera" data-i18n="settings.tab.camera">Camera</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="sensors"><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_imu" data-i18n="cfg.tab.imu">IMU</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="system" hidden><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_app" data-i18n="settings.tab.app">App</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="system" hidden><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_diag" data-i18n="cfg.tab.diag">Diag</a></li>
+                                            <li class="nav-item" role="presentation" data-cfg-group="system" hidden><a class="nav-link" role="tab" data-bs-toggle="tab" href="#tab_rosbag" data-i18n="cfg.tab.rosbag">Rosbag</a></li>
                                         </ul>
                                         <div class="tab-content vt-tabs-host">
                                             <!-- U1 kolo 2: Settings tab bodies in the panel anatomy (vt_panel.css:
@@ -1550,7 +1560,9 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <div class="input-group input-group-sm vt-field vt-grow"><span class="input-group-text" data-i18n="cfg.motors.torque">Torque</span><span class="text-info input-group-text vt-val" id="span_motor_torque">&nbsp;</span><span class="input-group-text">Nm</span><input class="form-control" type="number" id="input_motor_torque" min="0" max="24" step="1" placeholder="0–24"><button class="btn btn-primary" id="btn_motor_torque" type="button" data-i18n="common.save">Save</button></div>
       </div>
     </div>
-    <div class="vt-grid2">
+    <!-- D3 (audit S5): what the dashes below mean — painted by map_view.js MotorControl.paint_empty() -->
+    <div class="vt-hint vt-cfg-empty" id="div_motors_empty" role="status" data-i18n="cfg.d3.motors.wait">No data from the motors yet.</div>
+    <div class="vt-grid2" id="div_motors_grid">
       <div class="vt-card vt-motor">
         <div class="vt-card-head"><img class="vt-ico" id="ico_fl_motor_conf" src="assets/img/robot_icons/Nextion_ico_motorLF_grey.png" alt=""><span class="vt-card-title" data-i18n="cfg.motors.fl">Front left</span></div>
         <dl class="vt-kv">
@@ -1606,22 +1618,24 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     </div>
   </div>
 </div>
-<div class="tab-pane fade show active" role="tabpanel" id="tab_lidar">
+<div class="tab-pane fade show active" role="tabpanel" id="tab_navi">
   <div class="vt-stack">
     <div class="vt-card">
       <div class="vt-card-head"><span class="vt-card-title" data-i18n="prog.speed">Speed</span></div>
       <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-primary" id="btn_menu_speed_low" type="button" data-i18n="cfg.navi.slow">SLOW</button><button class="btn btn-primary" id="btn_menu_speed_moderate" type="button" data-i18n="cfg.navi.moderate">MODERATE</button><button class="btn btn-primary" id="btn_menu_speed_fast" type="button" data-i18n="cfg.navi.fast">FAST</button></div>
     </div>
     <div class="vt-card" data-state="off">
-      <div class="vt-card-head"><span class="vt-card-title">Lidar</span></div>
-      <div class="btn-group btn-group-sm vt-switch" role="group" id="btngroup_lidar_on_off"><button class="btn btn-primary fw-bold" id="btn_menu_lidar_on" type="button"><span data-i18n="common.on">ON</span>&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_menu_lidar_off" type="button"><span data-i18n="common.off">OFF</span>&nbsp;<i class="la la-close vt-i-err"></i></button></div>
+      <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.d3.navi.lidar">Lidar</span><span class="vt-end" id="span_lidar_state" data-i18n="cfg.d3.state.unknown">state unknown</span></div>
+      <div class="btn-group btn-group-sm vt-switch" role="group" id="btngroup_lidar_on_off"><button class="btn btn-primary fw-bold" id="btn_menu_lidar_on" type="button" aria-pressed="false"><span data-i18n="common.on">ON</span>&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_menu_lidar_off" type="button" aria-pressed="false"><span data-i18n="common.off">OFF</span>&nbsp;<i class="la la-close vt-i-err"></i></button></div>
     </div>
     <div class="vt-card">
       <div class="vt-card-head"><span class="vt-card-title">RtabMap</span></div>
+      <!-- D3 (audit S3): RTAB-Map reports these only while it runs (map-making); until then the line says so -->
+      <div class="vt-hint" id="div_rtabmap_wait" role="status" data-i18n="cfg.d3.rtab.wait">RTAB-Map does not report its settings now (it runs only while a map is made). A source you pick is stored for its next start.</div>
       <span class="vt-label" data-i18n="cfg.navi.source">Sensor source</span>
-      <div class="btn-group btn-group-sm vt-seg" role="group" id="btngroup_lidar_on_off-1"><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_camera" type="button" data-i18n="cfg.navi.camera">Camera</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_lidar" type="button">Lidar</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_both" type="button" data-i18n="cfg.navi.both">Both</button></div>
-      <span class="vt-label vt-label-gap"><span data-i18n="cfg.navi.distance">Sensor distance</span> <span class="text-info" id="span_rtabmap_distance">0</span> <span id="span_rtabmap_distance-1">m</span></span>
-      <div class="vt-row"><input class="form-range vt-grow" type="range" id="input_range_rtabmap_distance" min="0.1" max="8.0" step="0.1" value="2.7"><span class="vt-unit"><span id="span_menu_rtabmap_distance_apply">0.0</span> m</span></div>
+      <div class="btn-group btn-group-sm vt-seg" role="group" id="btngroup_lidar_on_off-1"><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_camera" type="button" aria-pressed="false" data-i18n="cfg.navi.camera">Camera</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_lidar" type="button" aria-pressed="false" data-i18n="cfg.d3.navi.lidar">Lidar</button><button class="btn btn-primary fw-bold" id="btn_menu_rtabmap_both" type="button" aria-pressed="false" data-i18n="cfg.navi.both">Both</button></div>
+      <div class="vt-label vt-label-gap vt-cfg-kv"><span data-i18n="cfg.navi.distance">Sensor distance</span><span class="vt-end"><span data-i18n="cfg.d3.rtab.now">now</span> <span class="text-info vt-num" id="span_rtabmap_distance">–</span>&nbsp;<span id="span_rtabmap_distance-1">m</span></span></div>
+      <div class="vt-row vt-cfg-range"><input class="form-range vt-grow" type="range" id="input_range_rtabmap_distance" min="0.1" max="8.0" step="0.1" value="2.7" aria-label="Sensor distance" data-i18n-aria-label="cfg.navi.distance"><span class="vt-unit vt-num"><span id="span_menu_rtabmap_distance_apply">2.7</span>&nbsp;m</span><button class="btn btn-primary btn-sm" id="btn_menu_rtabmap_apply" type="button" disabled title="Sends this distance with the source the robot reports" data-i18n-title="cfg.d3.rtab.apply_tip" data-i18n="cfg.d3.rtab.apply">Apply</button></div>
     </div>
     <details class="drawer-sec" data-drawersec="planner_adv">
       <summary data-i18n="editor.adv">Advanced (planner)</summary>
@@ -1664,28 +1678,29 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <div class="vt-card">
       <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.power.supply">Supply</span></div>
       <div class="vt-reading"><img class="vt-ico" id="ico_supply_conf" src="assets/img/robot_icons/Nextion_ico_supply_grey.png" alt=""><span class="vt-name" data-i18n="cfg.power.input">Input</span><span class="text-info vt-num" id="span_supply_volts">&nbsp;</span><span class="vt-unit">V</span><span class="text-info vt-num" id="span_supply_amps">&nbsp;</span><span class="vt-unit">A</span><span class="vt-stat" id="span_supply_status"></span></div>
-      <div class="vt-reading"><span><img class="vt-ico" id="ico_batt_conf" src="assets/img/robot_icons/Nextion_ico_battCHARGE_disabled.png" alt=""></span><span class="vt-name" data-i18n="cfg.power.battery">Battery</span><span class="text-info vt-num" id="span_batt_volts">&nbsp;</span><span class="vt-unit">V</span><span class="text-info vt-num" id="span_batt_amps">&nbsp;</span><span class="vt-unit">A</span><span class="vt-stat" id="span_batt_status">DISCHARGING&nbsp;</span></div>
+      <div class="vt-reading"><span><img class="vt-ico" id="ico_batt_conf" src="assets/img/robot_icons/Nextion_ico_battCHARGE_disabled.png" alt=""></span><span class="vt-name" data-i18n="cfg.power.battery">Battery</span><span class="text-info vt-num" id="span_batt_volts">&nbsp;</span><span class="vt-unit">V</span><span class="text-info vt-num" id="span_batt_amps">&nbsp;</span><span class="vt-unit">A</span><span class="vt-stat" id="span_batt_status">&ndash;</span></div>
       <div class="vt-meter">
         <div class="progress"><div class="progress-bar progress-bar-animated" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress_batt_capacity" style="width: 0%;"><span class="visually-hidden">0%</span></div></div>
         <span class="vt-meter-label"><span data-i18n="cfg.power.capacity">Capacity</span> <span id="span_batt_capacity">&nbsp;</span> %</span>
       </div>
       <div class="vt-reading"><img class="vt-ico" id="ico_nuc_conf" src="assets/img/robot_icons/ico_nuc_grey.png" alt=""><span class="vt-name" data-i18n="cfg.power.nuc_out">NUC output</span><span class="text-info vt-num" id="span_nuc_volts">&nbsp;</span><span class="vt-unit">V</span><span class="text-info vt-num" id="span_nuc_amps">&nbsp;</span><span class="vt-unit">A</span></div>
-      <div class="vt-row vt-outputs"><span class="vt-reading"><img class="vt-ico" id="ico_motor_conf" src="assets/img/robot_icons/ico_motor_grey.png" alt=""><span class="vt-name" data-i18n="cfg.power.motors_out">Motors output</span></span><span class="vt-reading"><img class="vt-ico" id="ico_mower_conf" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" alt=""><span class="vt-name" data-i18n="cfg.power.mower_out">Mower output</span></span></div>
+      <div class="vt-row vt-outputs"><span class="vt-reading"><img class="vt-ico" id="ico_motor_conf" src="assets/img/robot_icons/ico_motor_grey.png" alt=""><span class="vt-name" data-i18n="cfg.power.motors_out">Motors output</span><span class="vt-stat vt-cfg-onoff" id="span_motor_out_state">–</span></span><span class="vt-reading"><img class="vt-ico" id="ico_mower_conf" src="assets/img/robot_icons/Nextion_ico_mower_grey.png" alt=""><span class="vt-name" data-i18n="cfg.power.mower_out">Mower output</span><span class="vt-stat vt-cfg-onoff" id="span_mower_out_state">–</span></span></div>
     </div>
     <div class="vt-card">
       <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.power.temp">Temperature</span></div>
+      <!-- D3 (audit S6): each reading says what it is (the icons alone did not) -->
       <div class="vt-row vt-temps">
-        <span class="vt-reading"><img class="vt-ico" id="ico_temp_pcb_conf" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" alt=""><span class="vt-num" id="span_curr_pcb_temp"></span><span class="vt-unit">°C</span></span>
-        <span class="vt-reading"><img class="vt-ico" id="ico_fan_pcb_conf" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" alt=""><span class="vt-num" id="span_pcb_rpm"></span><span class="vt-unit">rpm</span></span>
-        <span class="vt-reading"><img class="vt-ico" id="ico_temp_conf" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" alt=""><span class="vt-num" id="span_curr_ext_temp"></span><span class="vt-unit">°C</span></span>
-        <span class="vt-reading"><img class="vt-ico" id="ico_fan_conf" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" alt=""><span class="vt-num" id="span_ext_rpm"></span><span class="vt-unit">rpm</span></span>
+        <span class="vt-reading"><img class="vt-ico" id="ico_temp_pcb_conf" src="assets/img/robot_icons/Nextion_ico_tempPCB_grey.png" alt=""><span class="vt-name" data-i18n="cfg.d3.power.board">Board</span><span class="vt-num" id="span_curr_pcb_temp"></span><span class="vt-unit">°C</span></span>
+        <span class="vt-reading"><img class="vt-ico" id="ico_fan_pcb_conf" src="assets/img/robot_icons/Nextion_ico_fanPCB_grey.png" alt=""><span class="vt-name" data-i18n="cfg.d3.power.board_fan">Board fan</span><span class="vt-num" id="span_pcb_rpm"></span><span class="vt-unit">rpm</span></span>
+        <span class="vt-reading"><img class="vt-ico" id="ico_temp_conf" src="assets/img/robot_icons/Nextion_ico_temp_grey.png" alt=""><span class="vt-name" data-i18n="cfg.d3.power.ext">External</span><span class="vt-num" id="span_curr_ext_temp"></span><span class="vt-unit">°C</span></span>
+        <span class="vt-reading"><img class="vt-ico" id="ico_fan_conf" src="assets/img/robot_icons/Nextion_ico_fan_grey.png" alt=""><span class="vt-name" data-i18n="cfg.d3.power.ext_fan">External fan</span><span class="vt-num" id="span_ext_rpm"></span><span class="vt-unit">rpm</span></span>
       </div>
     </div>
     <div class="vt-card">
       <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.power.outputs">Outputs &amp; limits</span></div>
       <div class="vt-fields">
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.motor_out">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button" data-i18n="common.on">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button" data-i18n="common.off">OFF</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.mower_out">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button" data-i18n="common.on">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button" data-i18n="common.off">OFF</button></div>
+        <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_motor_out_pm"><span class="input-group-text" data-i18n="cfg.power.motor_out">Motor output</span><button class="btn btn-primary" id="btn_motor_on_pm" type="button" aria-pressed="false" data-i18n="common.on">ON</button><button class="btn btn-primary" id="btn_motor_off_pm" type="button" aria-pressed="false" data-i18n="common.off">OFF</button></div>
+        <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_mower_out_pm"><span class="input-group-text" data-i18n="cfg.power.mower_out">Mower output</span><button class="btn btn-primary" id="btn_mower_on_pm" type="button" aria-pressed="false" data-i18n="common.on">ON</button><button class="btn btn-primary" id="btn_mower_off_pm" type="button" aria-pressed="false" data-i18n="common.off">OFF</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.run_charge">Run charge</span><span class="text-info input-group-text vt-val" id="span_run_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_charge" min="500" max="4000" step="100" placeholder="500–4000"><button class="btn btn-primary" id="btn_run_charge" type="button" data-i18n="common.save">Save</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.run_cutoff">Run cutoff</span><span class="text-info input-group-text vt-val" id="span_run_cutoff">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_run_cutoff" min="300" max="2000" step="100" placeholder="300–2000"><button class="btn btn-primary" id="btn_run_cutoff" type="button" data-i18n="common.save">Save</button></div>
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.standby_charge">Standby charge</span><span class="text-info input-group-text vt-val" id="span_standby_charge">&nbsp;</span><span class="input-group-text">mA</span><input class="form-control" type="number" id="input_standby_charge" min="500" max="4000" step="100" placeholder="500–4000"><button class="btn btn-primary" id="btn_standby_charge" type="button" data-i18n="common.save">Save</button></div>
@@ -1694,7 +1709,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
         <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.power.ext_temp">External temp limit</span><span class="text-info input-group-text vt-val" id="span_ext_temp">&nbsp;</span><span class="input-group-text">°C</span><input class="form-control" type="number" id="input_ext_temp" min="20" max="45" step="1" placeholder="20–45"><button class="btn btn-primary" id="btn_ext_temp" type="button" data-i18n="common.save">Save</button></div>
       </div>
     </div>
-    <div class="vt-auto-block" id="auto_hw2"></div>
+    <!-- D3 (audit S6): Hardware reset in a card like the rest (content: vt_autonomy.js buildHw) -->
+    <div class="vt-card vt-cfg-hw"><div class="vt-auto-block" id="auto_hw2"></div></div>
     <details class="drawer-sec" id="details_power_raw_sleep">
       <summary data-i18n="cfg.power.raw_sleep">Advanced: raw sleep controls</summary>
       <div class="drawer-sec-body">
@@ -1714,27 +1730,38 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <div class="tab-pane fade" role="tabpanel" id="tab_mower">
   <div class="vt-stack">
     <div class="vt-card" data-state="off">
-      <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.tab.mower">Mower</span></div>
+      <!-- D3 (audit S7): temperature and state are the card's status (head, right, labelled);
+           power ON / OFF is one labelled switch row (was "ON OFF 6°C OFF" without labels) -->
+      <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.tab.mower">Mower</span><span class="vt-end vt-cfg-stat"><span title="Mower board temperature" data-i18n-title="cfg.d3.mower.temp_tip"><span data-i18n="cfg.d3.mower.temp">Temp</span>&nbsp;<b class="text-info vt-num" id="span_mower_temp">–</b></span><span class="vt-cfg-sep" aria-hidden="true">·</span><span data-i18n="cfg.d3.mower.state">State</span>&nbsp;<b class="text-info" id="span_mower_status">&ndash;</b></span></div>
       <div class="vt-fields">
-        <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_mower_on_off"><button class="btn btn-primary fw-bold" id="btn_mower_on" type="button"><span data-i18n="common.on">ON</span>&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_mower_off" type="button"><span data-i18n="common.off">OFF</span>&nbsp;<i class="la la-close vt-i-err"></i></button><span class="text-info input-group-text form-control vt-val" id="span_mower_temp">0˚C</span><span class="text-info input-group-text form-control vt-val" id="span_mower_status">UNK</span></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.direction">Direction</span><span class="text-info input-group-text form-control vt-val" id="span_mower_direction">UNK</span><button class="btn btn-primary" id="btn_mower_left" type="button" data-i18n="cfg.mower.left">Left</button><button class="btn btn-primary" id="btn_mower_right" type="button" data-i18n="cfg.mower.right">Right</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.height">Height</span><span class="text-info input-group-text form-control vt-val" id="span_mower_cut_height">0/0 mm</span><input class="form-control" type="number" id="input_mower_cut_height" min="20" max="80" step="1" placeholder="mm" title="Blade height in mm (20 to the deck maximum)" data-i18n-title="cfg.mower.height_tip"><button class="btn btn-primary" id="btn_mower_set_height" type="button" data-i18n="common.set">Set</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="prog.rpm">RPM</span><span class="text-info input-group-text form-control vt-val" id="span_mower_rpm">0/0 rpm</span><input class="form-control" type="number" id="input_mower_rpm" min="500" max="4000" placeholder="500–4000"><button class="btn btn-primary" id="btn_mower_set_rpm" type="button" data-i18n="common.set">Set</button></div>
+        <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_mower_on_off"><span class="input-group-text" data-i18n="cfg.d3.mower.power">Power</span><button class="btn btn-primary fw-bold" id="btn_mower_on" type="button" aria-pressed="false"><span data-i18n="common.on">ON</span>&nbsp;<i class="la la-check vt-i-ok"></i></button><button class="btn btn-primary fw-bold" id="btn_mower_off" type="button" aria-pressed="false"><span data-i18n="common.off">OFF</span>&nbsp;<i class="la la-close vt-i-err"></i></button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.direction">Direction</span><span class="text-info input-group-text form-control vt-val" id="span_mower_direction">&ndash;</span><button class="btn btn-primary" id="btn_mower_left" type="button" data-i18n="cfg.mower.left">Left</button><button class="btn btn-primary" id="btn_mower_right" type="button" data-i18n="cfg.mower.right">Right</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.height">Height</span><span class="text-info input-group-text form-control vt-val" id="span_mower_cut_height">&ndash;</span><input class="form-control" type="number" id="input_mower_cut_height" min="20" max="80" step="1" placeholder="mm" title="Blade height in mm (20 to the deck maximum)" data-i18n-title="cfg.mower.height_tip"><button class="btn btn-primary" id="btn_mower_set_height" type="button" data-i18n="common.set">Set</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="prog.rpm">RPM</span><span class="text-info input-group-text form-control vt-val" id="span_mower_rpm">&ndash;</span><input class="form-control" type="number" id="input_mower_rpm" min="500" max="4000" placeholder="500–4000"><button class="btn btn-primary" id="btn_mower_set_rpm" type="button" data-i18n="common.set">Set</button></div>
         <div class="vt-hint" id="div_mower_saved" hidden></div>
         <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-primary btn-sm" id="btn_mower_home" type="button" data-i18n="cfg.mower.home">Home</button><button class="btn btn-primary btn-sm" id="btn_mower_calibration" type="button" style="display: none;" data-i18n="cfg.mower.calib">Height calibration</button></div>
-        <div class="btn-group btn-group-sm vt-seg" role="group"><button class="btn btn-success btn-sm fw-bold" id="btn_mower_start_motor" type="button" data-i18n="cfg.mower.start_motor">START MOTOR</button><button class="btn btn-danger fw-bold" id="btn_mower_stop_motor" type="button" data-i18n="cfg.mower.stop_motor">STOP MOTOR</button></div>
+        <!-- D3 (owner 2026-11-08, D30): START MOTOR turns the blade — it acts only after
+             0.5 s of holding (mouse, finger, or Enter / Space held); letting go earlier
+             sends nothing. Wired by map_view.js vtHoldToFire(); STOP MOTOR acts at once. -->
+        <div class="btn-group btn-group-sm vt-seg vt-cfg-blade" role="group"><button class="btn btn-success btn-sm fw-bold vt-hold" id="btn_mower_start_motor" type="button" aria-describedby="div_mower_hold_hint"><span class="vt-hold-fill" aria-hidden="true"></span><span class="vt-hold-txt" data-i18n="cfg.mower.start_motor">START MOTOR</span></button><button class="btn btn-danger fw-bold" id="btn_mower_stop_motor" type="button" data-i18n="cfg.mower.stop_motor">STOP MOTOR</button></div>
+        <div class="vt-hint vt-cfg-hold-hint" id="div_mower_hold_hint" aria-live="polite" data-i18n="cfg.d3.hold.hint">Hold START MOTOR for half a second to start the blade.</div>
       </div>
     </div>
-    <div class="vt-card">
-      <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.mower.commands">Commands</span></div>
+    <!-- D3 (audit S7): the raw command console is service use — collapsed, one line of help,
+         numbered rows (was four identical "Command" rows) -->
+    <details class="drawer-sec" data-drawersec="mower_cmds">
+      <summary data-i18n="cfg.d3.mower.console">Service: commands to the mower board</summary>
+      <div class="drawer-sec-body">
+        <p class="vt-hint" data-i18n="cfg.d3.mower.console_hint">Text commands go straight to the mower's board; its answer shows below. Start with PRINT HELP.</p>
       <div class="vt-fields">
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.command">Command</span><input class="form-control" type="text" id="input_mower_cmd1" placeholder="PRINT HELP"><button class="btn btn-primary" id="btn_mower_cmd1_send" type="button" data-i18n="common.send">Send</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.command">Command</span><input class="form-control" type="text" id="input_mower_cmd2"><button class="btn btn-primary" id="btn_mower_cmd2_send" type="button" data-i18n="common.send">Send</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.command">Command</span><input class="form-control" type="text" id="input_mower_cmd3"><button class="btn btn-primary" id="btn_mower_cmd3_send" type="button" data-i18n="common.send">Send</button></div>
-        <div class="input-group input-group-sm vt-field"><span class="input-group-text" data-i18n="cfg.mower.command">Command</span><input class="form-control" type="text" id="input_mower_cmd4"><button class="btn btn-primary" id="btn_mower_cmd4_send" type="button" data-i18n="common.send">Send</button></div>
-        <p class="vt-console" id="paragraph_mower_config">Try "PRINT HELP" command.&nbsp;</p>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text vt-cfg-n">1</span><input class="form-control" type="text" id="input_mower_cmd1" placeholder="PRINT HELP" aria-label="Command 1" data-i18n-aria-label="cfg.d3.mower.cmd1"><button class="btn btn-primary" id="btn_mower_cmd1_send" type="button" data-i18n="common.send">Send</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text vt-cfg-n">2</span><input class="form-control" type="text" id="input_mower_cmd2" aria-label="Command 2" data-i18n-aria-label="cfg.d3.mower.cmd2"><button class="btn btn-primary" id="btn_mower_cmd2_send" type="button" data-i18n="common.send">Send</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text vt-cfg-n">3</span><input class="form-control" type="text" id="input_mower_cmd3" aria-label="Command 3" data-i18n-aria-label="cfg.d3.mower.cmd3"><button class="btn btn-primary" id="btn_mower_cmd3_send" type="button" data-i18n="common.send">Send</button></div>
+        <div class="input-group input-group-sm vt-field"><span class="input-group-text vt-cfg-n">4</span><input class="form-control" type="text" id="input_mower_cmd4" aria-label="Command 4" data-i18n-aria-label="cfg.d3.mower.cmd4"><button class="btn btn-primary" id="btn_mower_cmd4_send" type="button" data-i18n="common.send">Send</button></div>
+        <p class="vt-console" id="paragraph_mower_config" data-i18n="cfg.d3.mower.console_empty">No answer from the mower yet.</p>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 </div>
 <div class="tab-pane fade" role="tabpanel" id="tab_diag">
@@ -1750,7 +1777,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
       </div>
     </div>
     <div class="vt-card" data-state="off">
-      <div class="vt-card-head"><i class="fa fa-globe vt-fa"></i><span class="vt-card-title" data-i18n="cfg.rosbag.gnss">GNSS forensics</span><span class="vt-end" data-i18n="cfg.rosbag.gnss_sub">heading var, fix, pose ownership</span></div>
+      <div class="vt-card-head"><i class="fa fa-globe vt-fa"></i><span class="vt-card-title" data-i18n="cfg.rosbag.gnss">GNSS forensics</span><span class="vt-end" data-i18n="cfg.rosbag.gnss_sub" title="heading var, fix, pose ownership" data-i18n-title="cfg.rosbag.gnss_sub">heading var, fix, pose ownership</span></div>
       <div class="input-group input-group-sm vt-field vt-switch" id="inputgroup_gnss_rec"><button class="btn btn-primary fw-bold" id="btn_gnss_rec_start" type="button">REC&nbsp;<i class="la la-circle vt-i-err"></i></button><button class="btn btn-primary fw-bold" id="btn_gnss_rec_stop" type="button">STOP&nbsp;<i class="la la-stop vt-i-warn"></i></button><span class="text-info d-flex justify-content-end input-group-text form-control" id="span_gnss_rec_status">idle</span></div>
     </div>
     <div class="vt-card">
@@ -1768,7 +1795,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 <!-- Settings › Lidar: the rplidar — device, data flow, this scan, the mapper's lidar
      settings (the only place for them), the weak-return filter — built by
      assets/js/vt_lidar_settings.js (robot side: /api/sensor_limits). The pane is not
-     #tab_lidar: that one is the older Navi tab. -->
+     #tab_navi (the Navi tab; called #tab_lidar before D3). -->
 <div class="tab-pane fade" role="tabpanel" id="tab_rplidar"><div id="div_lidar_settings"></div></div>
 <div class="tab-pane fade" role="tabpanel" id="tab_app"><div id="div_app_settings"></div></div>
 <div class="tab-pane" role="tabpanel" id="tab_imu"><div id="div_content_imu">
@@ -1776,7 +1803,14 @@ ul.nav-tabs.drawer-pills .nav-link.active {
     <div class="vt-imu-side">
       <div class="vt-card">
         <div class="vt-card-head"><span class="vt-card-title" data-i18n="cfg.imu.calib">Calibration</span></div>
-        <div id="div_btns"><div class="btn-group btn-group-sm vt-seg" role="group" id="btngroup_imu_tools-1"><button class="btn btn-outline-danger" id="btn_remove_dcd" type="button" data-i18n="cfg.imu.remove_dcd">Remove DCD</button><button class="btn btn-outline-info" id="btn_reset_imu" type="button" data-i18n="cfg.imu.reset">Reset IMU</button><button class="btn btn-outline-info" id="btn_run_calibration" type="button" data-i18n="cfg.imu.run">Run</button><button class="btn btn-outline-info" id="btn_save_dcd" type="button" data-i18n="common.save">Save</button></div></div>
+        <!-- D3 (audit S10): the steps in order with what each does; the service
+             actions apart, the destructive one last. Same buttons, same ids. -->
+        <div id="div_btns" class="vt-cfg-imu">
+          <p class="vt-hint" data-i18n="cfg.d3.imu.intro">Run starts the IMU's own calibration — the robot does not drive by itself. Turn it slowly in place with the stick below for a minute, then Save.</p>
+          <div class="btn-group btn-group-sm vt-seg" role="group" id="btngroup_imu_tools-1"><button class="btn btn-outline-info" id="btn_run_calibration" type="button" title="Starts the calibration in the IMU (the robot does not move by itself)" data-i18n-title="cfg.d3.imu.run_tip"><span class="vt-cfg-step">1</span><span data-i18n="cfg.imu.run">Run</span></button><button class="btn btn-outline-info" id="btn_save_dcd" type="button" title="Stores the result in the IMU" data-i18n-title="cfg.d3.imu.save_tip"><span class="vt-cfg-step">2</span><span data-i18n="common.save">Save</span></button></div>
+          <span class="vt-label vt-label-gap" data-i18n="cfg.d3.imu.service">Service</span>
+          <div class="btn-group btn-group-sm vt-seg vt-cfg-imu-svc" role="group"><button class="btn btn-outline-info" id="btn_reset_imu" type="button" title="Restarts the IMU sensor; the calibration stays" data-i18n-title="cfg.d3.imu.reset_tip" data-i18n="cfg.imu.reset">Reset IMU</button><button class="btn btn-outline-danger" id="btn_remove_dcd" type="button" title="Deletes the stored calibration (DCD) in the IMU" data-i18n-title="cfg.d3.imu.remove_tip" data-i18n="cfg.imu.remove_dcd">Remove DCD</button></div>
+        </div>
       </div>
       <div class="vt-card"><div id="div_diag"></div></div>
       <div class="img" id="joy_view_imu"></div>
@@ -1789,6 +1823,8 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 </div></div>
 
                                         </div>
+                                        <!-- D3: the groups of Settings (loaded here, with the tabs it drives) -->
+                                        <script src="/assets/js/vt_settings_groups.js"></script>
                                     </div>
                                 </div>
                             </div>
