@@ -162,14 +162,22 @@ the STOP, the bottom bar and the joystick stay free), on a wider screen as a car
 One tap opens it, a second one picks the map:
 
 - **Background map** — the photos and the maps in their two groups, each tile with its name and
-  the provider under it; **None** takes the background away. The chosen one is framed, its name is
+  the provider under it and a small picture of that map around the middle of your view (about 50 m
+  across; until it loads, or when it cannot, a drawn icon), so you can compare the photos before you
+  pick one; **None** takes the background away. The chosen one is framed, its name is
   also in the card's header. **Opacity** under the tiles is the same slider as in Display (layers).
+  When the background does not load, an orange line under the heading says so (*not loading —
+  MapProxy unreachable or the robot without internet?*, or *2 of 6 tiles did not load*) and the
+  button turns orange; the map tries again by itself.
 - **Overlays** — *Lines and labels* (cadastre, buildings and house numbers, contour lines) and
   *Terrain* (shaded relief, relief ×10 and ×20, slope, aspect, trees and buildings), and
   under *Weather* the **Rain radar** and **Precipitation (mosaic)** (one map from several radars;
-  its time line with the nowcast, ▶ and the legend are in Map › Display (layers), see below). A switch turns each on; while it is on the row shows its opacity,
+  while it is on, its time line with the nowcast, ▶, *Now*, the legend and *Whole area* are right in
+  its row — the same control that otherwise sits in Map › Display (layers), see below; while this
+  card is open it is here, not there). A switch turns each on; while it is on the row shows its opacity,
   a line on what it shows and its tile state (*z19 · 3/12*); **Slope** also has its colour scale
-  from *flat* (grey) to *steep* (brown).
+  from *flat* (grey) to *steep* (brown), **Aspect** a colour wheel with N, E, S, W (the colour of a
+  slope facing that way: north yellow-green, east blue, south purple, west orange).
 - Sources added since you last opened the card carry an orange **new** tag and the button an
   orange dot, until you close the card.
 - **More settings in Map › Display ›** opens the rest (Detail, alignment, the rain radar's area);
@@ -177,6 +185,14 @@ One tap opens it, a second one picks the map:
 
 It is the same setting as the Map panel and the editor's Layers: whatever you change in one place
 shows in the others at once, and the browser remembers it. Tap outside the card, ✕ or Esc closes it.
+
+### Scale bar
+
+In the bottom-left corner, just above the credits line, a small bar shows the scale: its length on
+the ground is the distance written over it (a round number: 50 cm, 2 m, 20 m, 1 km …). It follows
+every zoom — wheel, pinch, the zoom buttons, the map editor. It is measured at the middle of the view;
+the map is seen almost straight from above, so it holds across the whole picture. With the rain
+overlay on, the time label of the radar sits just above the bar.
 
 ### Lidar range and Camera range
 

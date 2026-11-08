@@ -64,6 +64,7 @@ const D = win.VT_I18N_DICT;
 const keys = new Set([...code.matchAll(/(?<![\w.])t\('([a-z0-9_]+\.[a-z0-9_.]*[a-z0-9_])'/g)].map((m) => m[1]));
 ['kn', 'ruian', 'contours', 'hillshade', 'relief_x10', 'relief_x20', 'slope', 'aspect', 'surface_relief', 'rain']
     .forEach((id) => keys.add('maplyr.hint.' + id));
+['n', 'e', 's', 'w'].forEach((d) => keys.add('maplyr.m8.asp.' + d));      // M8-6: the wheel's letters
 const ph = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join(',');
 const missEn = [...keys].filter((k) => !(k in D.en));
 const missCs = [...keys].filter((k) => !(k in D.cs));
@@ -129,6 +130,27 @@ const w2 = load({}, MS.fallback());
 check('nothing is new before the catalog came', w2.window.VTMapLayers._newIds(MS.fallback()).length === 0);
 const w3 = load({ vitulus_layers_seen: JSON.stringify(cat.bases.concat(cat.overlays).map((s) => s.id)) }, cat);
 check('nothing is new once all were seen', w3.window.VTMapLayers._newIds(cat).length === 0);
+
+// ---- T17 M8: thumbnails, background state, aspect legend, rain time line
+const tp = L._thumbPlan;
+const p = tp(14.35, 50.0817, 17, 32, 0.5);   // public test point (park Ladronka)
+check('M8-3 thumbnail: the tile under the point (z17)', p && p.z === 17 && p.x === 70760 && p.y === 44406, JSON.stringify(p));
+check('M8-3 thumbnail: half-size tile, position inside the tile', p && p.bg === 128 && p.px <= 0 && p.px >= 32 - 128 && p.py <= 0 && p.py >= 32 - 128);
+const mid = tp((70760.5 / 131072) * 360 - 180, 50.0817, 17, 32, 0.5);
+check('M8-3 thumbnail: a point mid-tile sits in the middle of the box', mid && Math.abs(mid.px - (16 - 64)) <= 1, JSON.stringify(mid));
+check('M8-3 thumbnail: no plan for a bad point', tp(NaN, 50, 17, 34, 0.5) === null && tp(14, 89, 17, 34, 0.5) === null);
+check('M8-3 thumbnail: the tile URL comes from mapping.js (same URL, same cache as the map)', /M\._aerialTileUrl\(src, p\.z, p\.x, p\.y\)/.test(code));
+check('M8-3 thumbnail: a CSS background (no fetch, nothing new to the robot)', /backgroundImage = 'url\("/.test(code));
+check('M8-3 thumbnail: 32 px = the inside of the 34 px box (1 px border)', /THUMB_PX = 32/.test(code));
+check('M8-3 thumbnail: the zoom never above the source\'s max', /Math\.min\(THUMB_Z, src\.max_zoom/.test(code));
+check('M8-5 background state read from mapping.js _baseLoad (event vt:map-tiles)', code.includes('_baseLoad') && code.includes("'vt:map-tiles'"));
+const mapping = fs.readFileSync(path.join(JS, 'mapping.js'), 'utf8');
+check('M8-5 mapping.js publishes the state (no other change of the tile code)', /this\._baseLoad = \{ n: n, k: k, f: f, state: lsig \}/.test(mapping) && /new CustomEvent\('vt:map-tiles'/.test(mapping));
+check('M8-6 aspect legend: 8 colours from north clockwise', Array.isArray(L.ASPECT_STOPS) && L.ASPECT_STOPS.length === 8 && L.ASPECT_STOPS.every((c) => /^#[0-9a-f]{6}$/.test(c)));
+check('M8-2 the one rain time line (#mapv3_precip) moves in and back home', code.includes("$('mapv3_precip')") && /function tlDetach/.test(code) && /tlDetach\(\);\s*bodyEl\.innerHTML/.test(code));
+check('M8-2 the labels under the slider are fitted again after a move (_fixTicks)', /function tlRefit/.test(code) && /P\._fixTicks\(\)/.test(code));
+check('M8-2 closing the panel puts the time line back', /isOpen = false;\s*tlDetach\(\);/.test(code));
+check('M8-2 a slot only for a catalog overlay with a time line', /o\.timeline \? '<div class="vt-lyr-tl" data-lyr-tl="/.test(code));
 
 console.log(fails ? '\n' + fails + ' check(s) FAILED' : '\nOK — all checks passed');
 process.exit(fails ? 1 : 0);

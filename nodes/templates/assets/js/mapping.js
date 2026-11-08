@@ -1949,6 +1949,15 @@ class MappingV3 {
                         // picture to keep visible: the robot's map stays full
                         const none = n > 0 && k === 0 && k + f >= n;
                         if (none !== this._baseNone) { this._baseNone = none; this._updateBgDim(); }
+                        // T17 M8-5: the layers button / panel show it too
+                        // (vt_map_layers.js reads _baseLoad on this event)
+                        const lsig = (k + f >= n) ? (none ? 'none' : (f > 0 ? 'some' : 'ok')) : 'loading';
+                        this._baseLoad = { n: n, k: k, f: f, state: lsig };
+                        if (lsig !== this._baseLoadSig) {
+                            this._baseLoadSig = lsig;
+                            try { document.dispatchEvent(new CustomEvent('vt:map-tiles', {detail: {state: lsig}})); }
+                            catch (e) { /* old browser */ }
+                        }
                         if (k + f < n) {
                             status(() => mapT('mapping.aerial.tiles_loading',
                                 {k: k, n: n, z: z, src: label}));

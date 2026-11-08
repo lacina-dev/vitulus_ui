@@ -42,6 +42,15 @@
     // ČÚZK DMR 5G SlopeRGBMap colour map (REST legend of the image service,
     // sampled 2026-11-08): grey = flat, yellow, orange, brown = steep
     var SLOPE_STOPS = ['#d1d1d1', '#fffac2', '#ffff00', '#ffbe00', '#fe7200', '#a24a1b'];
+    // T17 M8-6: ČÚZK DMR 5G AspectRGBMap — the colour of a slope facing N, NE,
+    // E … NW, sampled around the cone of the hill Říp (public point, z16,
+    // map_audit2.md 1.3); the legend is a colour wheel with the four letters
+    var ASPECT_STOPS = ['#8ad317', '#04a152', '#046bb5', '#5511a3', '#9d039c', '#fa7158', '#fbaa48', '#f8f40c'];
+    // T17 M8-3: the base thumbnails show the real map around the view centre:
+    // one tile at this zoom (or the source's max), at half size (the 32 px
+    // inside of the 34 px thumbnail with its 1 px border covers ~64 tile px,
+    // ~50 m of ground at 50° N)
+    var THUMB_Z = 17, THUMB_SCALE = 0.5, THUMB_PX = 32;
     var ICON = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">' +
         '<path d="M12 3 2 8l10 5 10-5-10-5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>' +
         '<path d="m2 12 10 5 10-5M2 16l10 5 10-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
@@ -206,7 +215,7 @@
 
     function labels() {
         if (!fab) { return; }
-        fab.title = t('maplyr.btn_tip');
+        fab.title = fab.classList.contains('vt-lyr-warn') ? t('maplyr.m8.btn_warn') : t('maplyr.btn_tip');
         fab.setAttribute('aria-label', t('maplyr.btn'));
         $('vt_lyr_title').textContent = t('maplyr.title');
         var h = panel.querySelector('[data-lyr-help]');
@@ -244,7 +253,105 @@
             return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,' + SLOPE_STOPS.join(',') + ')"></span>' +
                 '<span class="vt-lyr-legend-l"><span>' + esc(t('maplyr.legend.flat')) + '</span><span>' + esc(t('maplyr.legend.steep')) + '</span></span></div>';
         }
+        if (id === 'aspect') {
+            // conic gradient from north, clockwise (as on a compass)
+            var stops = ASPECT_STOPS.concat([ASPECT_STOPS[0]]).map(function (c, i) { return c + ' ' + (i * 45) + 'deg'; });
+            var L = function (k, cls) { return '<span class="vt-lyr-asp-l ' + cls + '">' + esc(t('maplyr.m8.asp.' + k)) + '</span>'; };
+            return '<div class="vt-lyr-legend vt-lyr-asp"><span class="vt-lyr-asp-w" role="img" aria-label="' + esc(t('maplyr.m8.asp.aria')) + '">' +
+                '<span class="vt-lyr-asp-c" style="background:conic-gradient(' + stops.join(',') + ')"></span>' +
+                L('n', 'is-n') + L('e', 'is-e') + L('s', 'is-s') + L('w', 'is-w') + '</span>' +
+                '<span class="vt-lyr-asp-t">' + esc(t('maplyr.m8.asp.text')) + '</span></div>';
+        }
         return '';
+    }
+
+    // ---- T17 M8-3: real thumbnails of the bases
+    // The tile at zoom z under lon/lat and how to show it in a size x size box
+    // at `scale` CSS px per tile px, the point in the middle as far as the
+    // tile allows (no neighbour tiles: a point near a tile edge sits off-centre).
+    // -> {z, x, y, bg: tile size (CSS px), px, py: background position}
+    function thumbPlan(lon, lat, z, size, scale) {
+        if (!isFinite(lon) || !isFinite(lat) || Math.abs(lat) > 85) { return null; }
+        var n = Math.pow(2, z), latR = lat * Math.PI / 180;
+        var fx = (lon + 180) / 360 * n;
+        var fy = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
+        var x = Math.floor(fx), y = Math.floor(fy), bg = 256 * scale;
+        var clamp = function (v) { return Math.max(size - bg, Math.min(0, v)); };
+        return { z: z, x: x, y: y, bg: bg,
+                 px: Math.round(clamp(size / 2 - (fx - x) * bg)), py: Math.round(clamp(size / 2 - (fy - y) * bg)) };
+    }
+    // the view centre in lon/lat (mapping.js datum + camera), or null
+    function viewLonLat() {
+        var M = window.mapping_v3, d = M && M.aerial_datum;
+        var V = M && M.viewer3d, c = V && V.cameraControls && V.cameraControls.center;
+        if (!d || d.origin_lat == null || d.origin_lon == null || !c || !window.VTMapThumbs) { return null; }
+        try { return VTMapThumbs.mapToLonLat(d, c.x, c.y, null); } catch (e) { return null; }
+    }
+    // paint each base's thumbnail (only when its tile changed); the drawn
+    // icon stays under it while the tile loads or when it cannot
+    function paintThumbs() {
+        var M = window.mapping_v3, cat = catalog(), ll = viewLonLat();
+        if (!panel || !cat || !M || typeof M._aerialTileUrl !== 'function') { return; }
+        panel.querySelectorAll('[data-lyr-base]').forEach(function (el) {
+            var img = el.querySelector('.vt-lyr-thumb-img');
+            var src = cat.byId[el.getAttribute('data-lyr-base')];
+            if (!img || !src) { return; }
+            var p = ll ? thumbPlan(ll.lon, ll.lat, Math.min(THUMB_Z, src.max_zoom || THUMB_Z), THUMB_PX, THUMB_SCALE) : null;
+            var url = '';
+            if (p) { try { url = M._aerialTileUrl(src, p.z, p.x, p.y); } catch (e) { url = ''; } }
+            var key = url ? url + '|' + p.px + ',' + p.py : '';
+            if (img.getAttribute('data-k') === key) { return; }
+            img.setAttribute('data-k', key);
+            if (!url) { img.style.backgroundImage = ''; return; }
+            // CSS background: the same GET of the robot's MapProxy as the map
+            // (browser cache shared), a failed tile just leaves the icon
+            img.style.backgroundImage = 'url("' + url.replace(/["\\]/g, '') + '")';
+            img.style.backgroundSize = p.bg + 'px ' + p.bg + 'px';
+            img.style.backgroundPosition = p.px + 'px ' + p.py + 'px';
+        });
+    }
+
+    // ---- T17 M8-2: the precipitation time line inside the panel
+    // The one Timeline (vt_precip.js, mounted by mapping.js in #mapv3_precip
+    // under the overlay's row in Map › Display) moves into the panel's
+    // Precipitation row while the panel is open and the layer is on, and back
+    // when the panel closes or redraws — one control, one state, two places.
+    var tlHome = null;
+    function tlEl() { return $('mapv3_precip'); }
+    // the labels under the slider are placed for the width they had (the
+    // panel is narrower than Map › Display): let the time line hide the one
+    // that would run into "now" again, once the new width is laid out
+    function tlRefit() {
+        var go = function () {
+            try { var P = window.mapping_v3 && window.mapping_v3._precip; if (P && P._fixTicks) { P._fixTicks(); } }
+            catch (e) { /* the time line is not there yet */ }
+        };
+        if (window.requestAnimationFrame) { requestAnimationFrame(go); } else { go(); }
+    }
+    function tlDetach() {
+        var el = tlEl();
+        if (!el || !tlHome || !panel || !panel.contains(el)) { return; }
+        if (tlHome.next && tlHome.next.parentNode === tlHome.parent) { tlHome.parent.insertBefore(el, tlHome.next); }
+        else if (tlHome.parent) { tlHome.parent.appendChild(el); }
+        tlRefit();
+    }
+    function tlAttach() {
+        var el = tlEl();
+        var slot = panel && panel.querySelector('[data-lyr-tl]');
+        if (!el || !slot) { return; }
+        var on = ovOn(slot.getAttribute('data-lyr-tl'));
+        if (!on || panel.hidden) { tlDetach(); return; }
+        if (slot.contains(el)) { return; }
+        if (!panel.contains(el)) { tlHome = { parent: el.parentNode, next: el.nextSibling }; }
+        slot.appendChild(el);
+        tlRefit();
+    }
+
+    // ---- T17 M8-5: is the background map loading? (mapping.js _baseLoad,
+    // event 'vt:map-tiles'); 'none' = not one tile came (MapProxy / internet)
+    function bgLoad() {
+        var M = window.mapping_v3, s = M && M._baseLoad;
+        return (bgOn() && s && s.state) ? s : null;
     }
 
     function ovRow(key, chkId, name, hint, extra) {
@@ -270,6 +377,8 @@
         h.push('<section class="vt-lyr-sec"><div class="vt-lyr-sec-h"><span id="vt_lyr_bg_h">' + esc(t('maplyr.bg')) + '</span>' +
             '<button type="button" class="vt-lyr-none" data-lyr-none aria-pressed="false" title="' + esc(t('maplyr.bg_none_tip')) + '">' +
             esc(t('maplyr.bg_none')) + '</button></div>' +
+            // M8-5: right under the heading, seen without scrolling
+            '<div class="vt-lyr-bgst" data-lyr-bgst role="status" hidden></div>' +
             // ONE radio group over both groups: arrows walk all the bases
             '<div role="radiogroup" aria-labelledby="vt_lyr_bg_h">');
         (MS.baseGroups ? MS.baseGroups(cat) : [{ group: '', sources: cat.bases }]).forEach(function (g) {
@@ -281,7 +390,7 @@
             g.sources.forEach(function (b) {
                 var nm = splitName(MS.label(b, l));
                 h.push('<button type="button" role="radio" aria-checked="false" tabindex="-1" class="vt-lyr-base" data-lyr-base="' + esc(b.id) + '" title="' + esc(MS.label(b, l)) + '">' +
-                    '<span class="vt-lyr-thumb vt-lyr-thumb-' + esc(b.group || 'other') + '" aria-hidden="true"></span>' +
+                    '<span class="vt-lyr-thumb vt-lyr-thumb-' + esc(b.group || 'other') + '" aria-hidden="true"><span class="vt-lyr-thumb-img"></span></span>' +
                     '<span class="vt-lyr-bt"><span class="vt-lyr-bn">' + esc(nm[0]) + '</span>' +
                     (nm[1] ? '<span class="vt-lyr-bp">' + esc(nm[1]) + '</span>' : '') + '</span>' + newTag(b.id) + '</button>');
             });
@@ -296,7 +405,8 @@
             list.forEach(function (o) {
                 var nm = MS.label(o, l);
                 var hint = HINTS.indexOf(o.id) >= 0 ? t('maplyr.hint.' + o.id) : '';
-                h.push(ovRow(o.id, 'mapv3_ov_' + o.id, nm, hint, rangeHtml('mapv3_ov_' + o.id + '_op', nm) + legendHtml(o.id)));
+                h.push(ovRow(o.id, 'mapv3_ov_' + o.id, nm, hint, rangeHtml('mapv3_ov_' + o.id + '_op', nm) + legendHtml(o.id) +
+                    (o.timeline ? '<div class="vt-lyr-tl" data-lyr-tl="' + esc(o.id) + '"></div>' : '')));
             });
         };
         if (cat.overlays.length || $('mapv3_chk_rain')) {
@@ -313,6 +423,7 @@
             h.push('</section>');
         }
         h.push('<div class="vt-lyr-foot"><button type="button" class="vt-lyr-more" data-lyr-more>' + esc(t('maplyr.more')) + '</button></div>');
+        tlDetach();                    // the time line goes home before the rows are replaced
         bodyEl.innerHTML = h.join('');
         sync();
     }
@@ -335,6 +446,16 @@
         if (none) { none.setAttribute('aria-pressed', String(!on)); }
         var bop = panel.querySelector('[data-lyr-bgop]');
         if (bop) { bop.hidden = !on; }
+        // M8-5: one line when the background does not load (none / some missing)
+        var bst = panel.querySelector('[data-lyr-bgst]'), ld = bgLoad();
+        if (bst) {
+            var msg = !ld ? '' : (ld.state === 'none' ? t('maplyr.m8.bg_none')
+                : (ld.state === 'some' ? t('maplyr.m8.bg_some', { f: ld.f, n: ld.n }) : ''));
+            if (bst.textContent !== msg) { bst.textContent = msg; }
+            bst.hidden = !msg;
+        }
+        tlAttach();
+        paintThumbs();
         var cat = catalog(), meta = $('vt_lyr_meta');
         if (meta) {
             var src = on && cat && cat.byId[b];
@@ -372,6 +493,12 @@
         if (cat) { cat.overlays.forEach(function (o) { if (ovOn(o.id)) { n++; } }); }
         if (rainOn()) { n++; }
         fab.classList.toggle('vt-lyr-active', bgOn() || n > 0);
+        // M8-5: not one tile of the background came: the button says so
+        var ld = bgLoad(), warn = !!(ld && ld.state === 'none');
+        if (fab.classList.contains('vt-lyr-warn') !== warn) {
+            fab.classList.toggle('vt-lyr-warn', warn);
+            fab.title = warn ? t('maplyr.m8.btn_warn') : t('maplyr.btn_tip');
+        }
     }
 
     function onClick(e) {
@@ -446,6 +573,7 @@
     function close(refocus) {
         if (!isOpen) { return; }
         isOpen = false;
+        tlDetach();                    // M8-2: the time line back to Map › Display
         panel.hidden = true;
         fab.setAttribute('aria-expanded', 'false');
         if (timer) { clearInterval(timer); timer = null; }
@@ -530,6 +658,8 @@
         document.addEventListener('vt:map-sources', function () {
             if (isOpen) { render(); } else { paintFab(); }
         });
+        // M8-5: the background started / stopped loading (mapping.js)
+        document.addEventListener('vt:map-tiles', scheduleSync);
         if (window.VTI18n && VTI18n.onChange) {
             VTI18n.onChange(function () { labels(); sig = ''; if (isOpen) { render(); } });
         }
@@ -550,7 +680,7 @@
     }
 
     window.VTMapLayers = { open: open, close: close, toggle: toggle, sync: sync, place: place,
-                           _splitName: splitName, _newIds: newIds };
+                           _splitName: splitName, _newIds: newIds, _thumbPlan: thumbPlan, ASPECT_STOPS: ASPECT_STOPS };
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
     else { init(); }
 })();

@@ -157,15 +157,22 @@ nahráváním i bez něj.
 telefonu jako list přes spodek mapy (mapa nad ním zůstane vidět, STOP, spodní lišta a joystick zůstanou
 volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho otevře, druhé vybere mapu:
 
-- **Podklad** — snímky a mapy ve dvou skupinách, každá dlaždice se jménem a pod ním poskytovatel;
-  **Žádný** podklad schová. Vybraný je orámovaný, jeho jméno je i v hlavičce karty. **Krytí** pod
-  dlaždicemi je tentýž posuvník jako v Zobrazení (vrstvy).
+- **Podklad** — snímky a mapy ve dvou skupinách, každá dlaždice se jménem, pod ním poskytovatel
+  a malý obrázek té mapy kolem středu tvého pohledu (asi 50 m; než se načte, nebo když to nejde,
+  kreslená ikonka), takže snímky porovnáš dřív, než některý vybereš; **Žádný** podklad schová.
+  Vybraný je orámovaný, jeho jméno je i v hlavičce karty. **Krytí** pod
+  dlaždicemi je tentýž posuvník jako v Zobrazení (vrstvy). Když se podklad nenačítá, řekne to
+  oranžový řádek pod nadpisem (*nenačítá se — MapProxy nedostupný nebo robot bez internetu?*, nebo
+  *2 z 6 dlaždic se nenačetlo*) a tlačítko zoranžoví; mapa to zkouší znovu sama.
 - **Překryvy** — *Čáry a popisy* (katastr, budovy a čísla domů, vrstevnice) a *Terén* (stínovaný
   reliéf, reliéf ×10 a ×20, sklon, expozice, stromy a budovy) a pod *Počasí* **Srážkový radar**
-  a **Srážky (mozaika)** (jedna mapa z více radarů; její časová osa s předpovědí, ▶ a legendou je
-  v Mapa › Zobrazení (vrstvy), viz níž).
+  a **Srážky (mozaika)** (jedna mapa z více radarů; když je zapnutá, její časová osa s předpovědí,
+  ▶, *Teď*, legenda a *Celé okolí* jsou přímo v jejím řádku — tentýž ovládací prvek, který jinak je
+  v Mapa › Zobrazení (vrstvy), viz níž; dokud je karta otevřená, je tady, ne tam).
   Každý zapneš přepínačem; zapnutý řádek ukáže krytí, jednu větu o tom, co ukazuje, a stav dlaždic
-  (*z19 · 3/12*); **Sklon** má i barevnou stupnici od *roviny* (šedá) po *strmé* (hnědá).
+  (*z19 · 3/12*); **Sklon** má i barevnou stupnici od *roviny* (šedá) po *strmé* (hnědá),
+  **Expozice** barevné kolo se S, V, J, Z (barva svahu natočeného tím směrem: sever žlutozelená,
+  východ modrá, jih fialová, západ oranžová).
 - Zdroje, které přibyly od chvíle, kdy jsi kartu otevřel naposledy, mají oranžový štítek **nové** a
   tlačítko oranžovou tečku, dokud kartu nezavřeš.
 - **Další nastavení v Mapa › Zobrazení ›** otevře zbytek (Detail, zarovnání, oblast radaru); v editoru
@@ -173,6 +180,13 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
 
 Je to totéž nastavení jako v panelu Mapa a ve Vrstvách editoru: co změníš na jednom místě, hned se
 ukáže i na ostatních, a prohlížeč si to pamatuje. Klepnutí mimo kartu, ✕ nebo Esc ji zavře.
+
+### Měřítko
+
+V levém dolním rohu, hned nad řádkem s autory map, ukazuje malý pruh měřítko: jeho délka na zemi je
+vzdálenost napsaná nad ním (kulaté číslo: 50 cm, 2 m, 20 m, 1 km …). Sleduje každé přiblížení —
+kolečko, dva prsty, tlačítka zoomu, editor mapy. Měří se uprostřed pohledu; mapa je vidět skoro
+přímo shora, takže platí po celém obrázku. Se zapnutým deštěm je čas radaru hned nad pruhem.
 
 ### Dosah lidaru a Dosah kamery
 

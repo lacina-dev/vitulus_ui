@@ -2632,7 +2632,7 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
 .vt-precip-fit { flex: 0 0 auto; min-height: var(--vt-touch); font-size: var(--vt-fs-xs); }
 /* the time on the map, just above the credits line (bottom-left) */
 .vt-map-precip {
-    position: absolute; left: 6px; bottom: calc(var(--vt-frame-bottom, 44px) + 32px); z-index: 1;
+    position: absolute; left: 6px; bottom: calc(var(--vt-frame-bottom, 44px) + 32px + var(--vt-map-scale-h, 0px)); z-index: 1;   /* M8-1: above the scale bar */
     max-width: min(60%, 360px); padding: 2px 8px; border-radius: 6px; pointer-events: none;
     font-size: var(--vt-fs-xs); line-height: 1.6; color: var(--vt-text);
     background: var(--vt-overlay); opacity: 0.9;
