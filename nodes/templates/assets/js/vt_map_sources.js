@@ -23,7 +23,7 @@
         default_base: 'sat',
         sources: [
             { id: 'sat', kind: 'base', group: 'photo', layer: 'gm_layer', grid: 'gm_grid', format: 'png',
-              name: { en: 'Satellite (Google)', cs: 'Satelit (Google)' }, max_zoom: 21,
+              name: { en: 'Satellite (Google)', cs: 'Satelit (Google)' }, max_zoom: 21, native_zoom: 20,
               attribution: 'Imagery © Google' },
             { id: 'cuzk', kind: 'base', group: 'photo', layer: 'cuzk_layer', grid: 'gm_grid', format: 'png',
               name: { en: 'Orthophoto ČÚZK', cs: 'Ortofoto ČÚZK' }, max_zoom: 21,
@@ -95,6 +95,10 @@
             format: s.format === 'jpeg' ? 'jpeg' : 'png',
             name: { en: String(name.en), cs: name.cs ? String(name.cs) : String(name.en) },
             max_zoom: maxZ,
+            // T17 M9-2: the finest level with real detail when MapProxy serves
+            // finer ones only magnified (Google photo z20 of 21); Auto detail
+            // stops there (VTMapTiles.zoomCap). Default = max_zoom.
+            native_zoom: Math.round(num(s.native_zoom, maxZ, 0, maxZ)),
             min_zoom: Math.round(num(s.min_zoom, 0, 0, maxZ)),
             default_opacity: num(s.default_opacity, kind === 'overlay' ? 0.7 : 1, 0, 1),
             attribution: at,

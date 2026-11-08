@@ -95,13 +95,19 @@
     // background map does not take the phone's tile budget and the overlays
     // keep their detail (ředitel 2026-11-08, until the owner decides); a
     // number = a manual cap, the same on every device, never above max_zoom.
-    function zoomCap(maxZoom, sel, env) {
+    // T17 M9-2: nativeZoom (optional, <= maxZoom) = the finest level with
+    // real detail (Google photo z20: MapProxy only magnifies its z21). Nothing
+    // goes above it — finer is magnified here, with no tiles to load — and a
+    // phone keeps one level under maxZoom when that is lower (Google z20, as
+    // before; ČÚZK z19).
+    function zoomCap(maxZoom, sel, env, nativeZoom) {
         var mz = Math.max(0, maxZoom | 0);
+        var nz = (nativeZoom === undefined || nativeZoom === null || !(nativeZoom >= 0)) ? mz : Math.min(mz, nativeZoom | 0);
         if (sel === 'auto' || sel === '' || sel == null) {
-            return (env && env.coarse) ? Math.max(0, mz - 1) : mz;
+            return (env && env.coarse) ? Math.max(0, Math.min(nz, mz - 1)) : nz;
         }
         var n = parseInt(sel, 10);
-        return (n >= 0) ? Math.min(mz, n) : mz;
+        return (n >= 0) ? Math.min(nz, n) : nz;
     }
 
     // Phone with overlays on (ředitel 2026-11-08). The tile budget of a phone
@@ -117,16 +123,26 @@
     //     'under': relief, slope — smooth rasters) one level coarser still.
     //   At a 300 m view on 390x844 DPR 2: map z19 ~45 tiles, three line
     //   overlays z19 ~45 each, two tones z18 ~15 each = ~210 of 240.
-    // A desktop (fine pointer) is unchanged.
+    // A desktop (fine pointer): see overlayWant (zoomed out only, M9-6).
     function baseShare(budget, env, overlaysOn) {
         return (env && env.coarse && overlaysOn > 0) ? Math.floor(budget / 2) : budget;
     }
     // the adaptive zoom an overlay aims at; zAdaptive is in device pixels,
     // dpr = the map's pixel ratio (1-2)
+    // T17 M9-6: a desktop zoomed out (the view needs z18 or coarser: from
+    // about 300 m of view height on 1440x900 at 50° N) draws the overlays one
+    // level coarser and the tones (relief, slope: smooth 2 m rasters) two —
+    // as a phone does: a 600 m high view with cadastre + slope took 410
+    // requests and 10.9 s, now 189 and 3.1 s (map_audit2.md 1.5, §6); the
+    // background map keeps its level. Closer up a desktop is unchanged.
+    var DESK_OUT_Z = 18;
     function overlayWant(zAdaptive, src, env, dpr) {
-        if (!(env && env.coarse) || !isFinite(zAdaptive)) { return zAdaptive; }
-        var shift = Math.max(0, Math.round(Math.log(Math.max(1, dpr || 1)) / Math.LN2));
+        if (!isFinite(zAdaptive)) { return zAdaptive; }
         var tone = src && src.layer_order === 'under' ? 1 : 0;
+        if (!(env && env.coarse)) {
+            return zAdaptive <= DESK_OUT_Z ? Math.max(0, zAdaptive - 1 - tone) : zAdaptive;
+        }
+        var shift = Math.max(0, Math.round(Math.log(Math.max(1, dpr || 1)) / Math.LN2));
         return Math.max(0, zAdaptive - shift - tone);
     }
 

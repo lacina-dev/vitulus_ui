@@ -260,6 +260,13 @@
             var d = m.aerial_datum || ownDatum;
             var off = { dx: 0, dy: 0 };
             try { off = m._currentTileOffset() || off; } catch (e) { /* no offsets yet */ }
+            // T17 M9-1: + "Align Google to ČÚZK" when on (0 otherwise)
+            try {
+                if (m._alignShift && m._aerialLayerId) {
+                    var a = m._alignShift(m._aerialLayerId());
+                    off = { dx: (off.dx || 0) + a.dx, dy: (off.dy || 0) + a.dy };
+                }
+            } catch (e) { /* older mapping.js */ }
             return {
                 src: src, datum: d, off: off,
                 urlOf: function (t) { return m._aerialTileUrl(src, t.z, t.x, t.y); },

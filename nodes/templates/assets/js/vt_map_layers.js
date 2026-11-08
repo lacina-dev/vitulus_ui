@@ -231,7 +231,7 @@
         var l = lang();
         return l + '|' + cat.bases.map(function (b) { return b.id + ':' + b.group + ':' + VTMapSources.label(b, l); }).join(',') +
             '|' + cat.overlays.map(function (o) { return o.id + ':' + o.layer_order + ':' + VTMapSources.label(o, l); }).join(',') +
-            '|' + (!!$('mapv3_chk_rain')) + '|' + (!!$('mapv3_chk_trav')) + '|' + fresh.join(',');
+            '|' + (!!$('mapv3_chk_rain')) + '|' + (!!$('mapv3_chk_trav')) + '|' + (!!$('mapv3_align_etrs')) + '|' + fresh.join(',');
     }
 
     function newTag(id) {
@@ -421,7 +421,10 @@
             });
             h.push('</div>');
         });
-        h.push('</div><div data-lyr-bgop>' + rangeHtml('mapv3_aerial_opacity', t('maplyr.bg')) + '</div></section>');
+        h.push('</div><div data-lyr-bgop>' + rangeHtml('mapv3_aerial_opacity', t('maplyr.bg')) + '</div>' +
+            // M9-1: Google onto ČÚZK (only while a Google base is shown)
+            ($('mapv3_align_etrs') ? '<div data-lyr-align hidden>' + ovRow('align', 'mapv3_align_etrs', t('maplyr.m9.align'), t('maplyr.m9.align_hint'), '') + '</div>' : '') +
+            '</section>');
         // overlays: lines on top, tones under
         var weather = cat.overlays.filter(isWeather);
         var lines = cat.overlays.filter(function (o) { return !isWeather(o) && o.layer_order !== 'under'; });
@@ -477,6 +480,8 @@
         if (none) { none.setAttribute('aria-pressed', String(!on)); }
         var bop = panel.querySelector('[data-lyr-bgop]');
         if (bop) { bop.hidden = !on; }
+        var alg = panel.querySelector('[data-lyr-align]'), bsrc = on && catalog() && catalog().byId[b];
+        if (alg) { alg.hidden = !(bsrc && (bsrc.offset_key || bsrc.id) === 'sat'); }
         // M8-5: one line when the background does not load (none / some missing)
         var bst = panel.querySelector('[data-lyr-bgst]'), ld = bgLoad();
         if (bst) {

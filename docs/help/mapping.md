@@ -168,7 +168,8 @@ One tap opens it, a second one picks the map:
   also in the card's header. **Opacity** under the tiles is the same slider as in Display (layers).
   When the background does not load, an orange line under the heading says so (*not loading —
   MapProxy unreachable or the robot without internet?*, or *2 of 6 tiles did not load*) and the
-  button turns orange; the map tries again by itself.
+  button turns orange; the map tries again by itself. While a Google map is chosen, the switch
+  **Align Google to ČÚZK** under the opacity moves it about 1 m onto ČÚZK (see Display below).
 - **Overlays** — *Lines and labels* (cadastre, buildings and house numbers, contour lines) and
   *Terrain* (shaded relief, relief ×10 and ×20, slope, aspect, trees and buildings), and
   under *Weather* the **Rain radar** and **Precipitation (mosaic)** (one map from several radars;
@@ -239,27 +240,36 @@ areas it drew into the map; it appears and disappears by itself, see
 **Display (layers)** sets their opacity, the robot marker colours, the **background map** under
 the map, its **Detail** and an alignment nudge (saved on the robot for each map and tile source; the ČÚZK
 sources share one, the Google ones another), the rain radar, and shows the terrain (DEM) status.
+Above the nudge, **Align Google to ČÚZK (about 1 m)** (off by default, remembered in the browser)
+moves Google's satellite, hybrid and map 0.73 m west and 0.71 m south: Google's pictures sit about
+1 m north-east of ČÚZK's (ČÚZK uses ETRS89, Google today's WGS84; measured at three places in
+Prague). The robot's map does not move, the nudge stays as saved; the layers card has the same
+switch under the background's opacity while a Google map is chosen.
 The background maps come in two groups: **aerial and satellite photos** (Google satellite, Google
 satellite with names, ČÚZK orthophoto, Esri, Bing, three older Esri releases — *Esri archive
 2025-04, 2023-06, 2022-04 (Wayback)*, the date is the release, the photo over your place can be older —
 and the *Orthophoto 1950s (CENIA)*, black-and-white aerial photos from the 1950s, up to z18) and **maps** (Google map, ČÚZK topographic map,
 OpenTopoMap, OpenStreetMap). Each photo source has its own date and its own sharpness — when one is
 old or blurry over the garden, try another. **Detail** *Auto* (the default) loads the finest level
-each source has — Google up to z21, the ČÚZK orthophoto z20 — and closer up only magnifies it
+each source has — Google and the ČÚZK orthophoto z20 (Google's z21 holds no more detail, so it is
+not loaded) — and closer up only magnifies it
 smoothly. Zooming in stops at about 20 cm along the longer side of the screen; the background map and the robot's maps
 stay on screen all the way. On a phone the background map stops one level coarser (Google z20, ČÚZK z19) and so
 loads fewer tiles. On a slow connection
 pick a lower cap (z17–z21): fewer tiles, a softer picture. The tiles always cover what you see.
 After a move or a zoom the previous picture stays until the new tiles are in, and a coarser one
 fills the gaps meanwhile, so the map does not go blank; a view you saw a moment ago comes back at
-once. The status line counts the tiles as they come (*loading tiles 12/48*) and says when some did
+once. The status line says it in words — the source, then *finest detail*, *zoomed out, coarser
+picture* or *loading 12 of 48 tiles…* (the zoom level in brackets for the curious) — and says when some did
 not load — then MapProxy on the robot is not reachable or has no picture there (without internet
 it has only what it stored before; the plain white tile it sends then is not drawn). Once the
 network, the connection to the robot or MapProxy's internet is back, the map loads its tiles again
 by itself. A phone uses a lower tile limit than a computer to spare its
 memory; with overlays on it gives the background map at most half of it (far out the map then
-shows a coarser level and its line says *tile limit*) and draws the overlays a level coarser
-(relief and slope two), so all of them fit.
+shows a coarser level and its line says *coarser picture: too many tiles*) and draws the overlays a level coarser
+(relief and slope two), so all of them fit. A computer does the same with the overlays when zoomed
+far out (from a view about 300 m high): they come a level coarser (relief and slope two), the
+background map keeps its detail, so the view loads in a fraction of the time.
 
 **Dim the robot's map over the background** (under the background map's opacity, off by default;
 also in Settings › App › Display):

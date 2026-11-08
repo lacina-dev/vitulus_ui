@@ -283,6 +283,13 @@
         this.e_t1 = el('span', 'vt-precip-t1');
         ticks.appendChild(this.e_t0); ticks.appendChild(this.e_tnow); ticks.appendChild(this.e_t1);
         sl.appendChild(ticks);
+        // T17 M9: the labels are fitted for the width the slider has; it gets
+        // another one when its card comes into view (drawn while Map › Display
+        // was closed: no width, nothing fitted — "now" ran into the right end
+        // label by 2 px on a 360 px phone) or moves into the layers panel
+        if (typeof ResizeObserver !== 'undefined') {
+            try { new ResizeObserver(function () { self._fixTicks(); }).observe(sl); } catch (e) { /* old browser */ }
+        }
         this.b_now = el('button', 'btn btn-outline-secondary vt-precip-btn vt-precip-nowbtn');
         this.b_now.type = 'button';
         this.b_now.id = 'mapv3_precip_now';

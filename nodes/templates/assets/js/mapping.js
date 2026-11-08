@@ -83,6 +83,24 @@ function tileOffsetFormat(off) {
     return 'dx ' + o.dx.toFixed(2) + ' m / dy ' + o.dy.toFixed(2) + ' m';
 }
 
+// T17 M9-1: "Align Google to ČÚZK" (Map › Display and the layers panel,
+// default OFF, remembered in the browser: vitulus_align_etrs89). Google's
+// pictures sit ~1 m north-east of ČÚZK's (ČÚZK = ETRS89, Google = today's
+// ITRF/WGS84: the Eurasian plate moved ~2.5 cm a year since 1989). Measured
+// 2026-11 by phase correlation at 3 public points in Prague: Google minus
+// ČÚZK = +0.73 m east, +0.71 m north (map_audit2.md 1.2). With the option on,
+// the layers aligned as Google (offset_key 'sat': satellite, hybrid, map)
+// move back by that much, ON TOP of the per-map nudge stored on the robot
+// (which stays untouched). yaw = the map's rotation vs true north (rad):
+// the tile groups sit at R(-yaw) * (true east, north).
+const ALIGN_ETRS89_EN = { e: -0.73, n: -0.71 };
+function tileAlignShift(on, key, yaw) {
+    if (!on || key !== 'sat') { return { dx: 0, dy: 0 }; }
+    const y = isFinite(yaw) ? yaw : 0, c = Math.cos(y), s = Math.sin(y);
+    const e = ALIGN_ETRS89_EN.e, n = ALIGN_ETRS89_EN.n;
+    return { dx: c * e + s * n, dy: -s * e + c * n };
+}
+
 // i18n (docs/I18N.md): keys 'mapping.*'. Distinct global names — this is a
 // classic script, a top-level `t` would collide with other modules.
 function mapT(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
@@ -969,6 +987,7 @@ class MappingV3 {
         this.tile_offset_map = '';    // active map name, resolved by the robot
         this._tileOffsetPost = null;  // debounce timer for the POST
         this._initTileOffsetControl();
+        this._initAlignControl();          // T17 M9-1
         this._loadTileOffsets();
         // Switching the tile SOURCE switches the offset key too: show and apply
         // that layer's own correction immediately (the rebuild is already wired
@@ -1354,6 +1373,38 @@ class MappingV3 {
         return (s && s.offset_key) || id;
     }
 
+    // T17 M9-1: the ETRS89 shift of a layer group (0 unless the option is on
+    // and the group is Google's); the map's yaw from the last datum
+    _alignShift(key) {
+        try {
+            const d = this.aerial_datum || this._alignDatum;
+            if (this.aerial_datum) { this._alignDatum = this.aerial_datum; }
+            return tileAlignShift(!!this._alignEtrs, key, d ? this._mapTrueYaw(d) : 0);
+        } catch (e) { return { dx: 0, dy: 0 }; }
+    }
+    // the option's tick box: created next to the alignment box (outside it:
+    // the box takes the arrow keys for its nudge)
+    _initAlignControl() {
+        this._alignEtrs = this._layerPref('vitulus_align_etrs89', false);
+        const box = document.getElementById('mapv3_aerial_offset');
+        if (!box || !box.parentNode || document.getElementById('mapv3_align_etrs')) { return; }
+        const row = document.createElement('div');
+        row.className = 'vt-align-etrs vt-mt2';
+        row.innerHTML = '<label class="vt-ovl-name" for="mapv3_align_etrs"><input class="form-check-input" type="checkbox" id="mapv3_align_etrs">' +
+            '<span id="mapv3_align_etrs_lab"></span></label><div id="mapv3_align_etrs_hint" class="vt-dim vt-fs-sm"></div>';
+        box.parentNode.insertBefore(row, box);
+        const chk = row.querySelector('#mapv3_align_etrs');
+        chk.checked = this._alignEtrs;
+        this._say(row.querySelector('#mapv3_align_etrs_lab'), () => mapT('mapping.m9.align'));
+        this._say(row.querySelector('#mapv3_align_etrs_hint'), () => mapT('mapping.m9.align_hint'));
+        chk.addEventListener('change', () => {
+            this._alignEtrs = chk.checked;
+            this._saveLayerPref('vitulus_align_etrs89', chk.checked);
+            this._applyAerialOffset();
+            try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* ignore */ }
+        });
+    }
+
     _currentTileOffset() {
         return tileOffsetGet(this.tile_offsets, this.tile_offset_map,
                              this._aerialLayerId());
@@ -1366,10 +1417,11 @@ class MappingV3 {
             const g = this.aerial_group;
             if (!g || !g.position) { return; }
             const o = this._currentTileOffset();
-            g.position.x = o.dx;
-            g.position.y = o.dy;
+            const a = this._alignShift ? this._alignShift(this._aerialLayerId()) : { dx: 0, dy: 0 };   // M9-1
+            g.position.x = o.dx + a.dx;
+            g.position.y = o.dy + a.dy;
             // T17 M7: the zone pictures follow a changed alignment
-            const k = o.dx + ',' + o.dy;
+            const k = (o.dx + a.dx) + ',' + (o.dy + a.dy);
             if (this._offsetSig !== undefined && this._offsetSig !== k) { this._georefChanged('offset'); }
             this._offsetSig = k;
         } catch (e) { /* an offset must never break the 3D view */ }
@@ -1379,10 +1431,11 @@ class MappingV3 {
             Object.keys(ov).forEach((id) => {
                 const st = ov[id];
                 if (!st || !st.group || !st.group.position) { return; }
-                const o = tileOffsetGet(this.tile_offsets, this.tile_offset_map,
-                                        st.src.offset_key || id);
-                st.group.position.x = o.dx;
-                st.group.position.y = o.dy;
+                const key = st.src.offset_key || id;
+                const o = tileOffsetGet(this.tile_offsets, this.tile_offset_map, key);
+                const a = this._alignShift ? this._alignShift(key) : { dx: 0, dy: 0 };   // M9-1
+                st.group.position.x = o.dx + a.dx;
+                st.group.position.y = o.dy + a.dy;
             });
         } catch (e) { /* idem */ }
     }
@@ -1809,14 +1862,15 @@ class MappingV3 {
             // The configured zoom is the DETAIL CAP: the most detailed level we
             // ever use, clamped per source by its catalog max_zoom (gm_grid has
             // 22 levels = z21; OSM z19; OpenTopoMap z17 …). T17 M3: "auto"
-            // (the default) = each source's max_zoom on a desktop (Google z21,
-            // ČÚZK z20), one level less for the background map on a phone
+            // (the default) = each source's native_zoom on a desktop (Google
+            // z20, M9-2; ČÚZK z20), one level less for the background map on a phone
             // (VTMapTiles.zoomCap; overlays keep their max_zoom, ≤ z20); a
             // number is a manual cap.
             const zVal = this.sel_aerial_zoom ? this.sel_aerial_zoom.value : 'auto';
             const coarse = !!this._tileEnv().mobile;
+            // T17 M9-2: never above the source's native_zoom (Google z20)
             const capFor = (src) => VTMapTiles.zoomCap(src.max_zoom, zVal,
-                { coarse: coarse && src.kind !== 'overlay' });
+                { coarse: coarse && src.kind !== 'overlay' }, src.native_zoom);
 
             const { mLat, mLon } = this._metersPerDeg(d.origin_lat);
             const cornerLonLat = (e, n) => ({
@@ -1958,23 +2012,19 @@ class MappingV3 {
                             try { document.dispatchEvent(new CustomEvent('vt:map-tiles', {detail: {state: lsig}})); }
                             catch (e) { /* old browser */ }
                         }
+                        // T17 M9-5: the line in words (source first, then
+                        // what you get, the zoom level last for the curious)
                         if (k + f < n) {
-                            status(() => mapT('mapping.aerial.tiles_loading',
-                                {k: k, n: n, z: z, src: label}));
+                            status(() => mapT('mapping.m9.st_loading', {k: k, n: n, src: label}));
                         } else if (f > 0 && k === 0) {
-                            status(() => mapT('mapping.aerial.tiles_none', {n: n, z: z, src: label}), true);
+                            status(() => mapT('mapping.m9.st_none', {src: label}), true);
                         } else if (f > 0) {
-                            status(() => mapT('mapping.aerial.tiles_failed',
-                                {k: k, n: n, f: f, z: z, src: label}), true);
+                            status(() => mapT('mapping.m9.st_failed', {f: f, n: n, src: label}), true);
                         } else if (capped) {
-                            status(() => mapT('mapping.aerial.tiles_capped',
-                                {n: n, z: z, want: zWant, src: label}), true);
-                        } else if (same) {
-                            status(() => mapT('mapping.aerial.tiles_same',
-                                {n: n, z: z, src: label}));
+                            status(() => mapT('mapping.m9.st_capped', {n: n, z: z, want: zWant, src: label}), true);
                         } else {
-                            status(() => mapT((z < zCap) ? 'mapping.aerial.tiles_out' : 'mapping.aerial.tiles',
-                                {n: n, z: z, cap: zCap, src: label}));
+                            status(() => mapT((z < zCap) ? 'mapping.m9.st_out' : 'mapping.m9.st_full',
+                                {n: n, z: z, src: label}));
                         }
                     };
                     if (!fits) {

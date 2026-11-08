@@ -163,7 +163,9 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
   Vybraný je orámovaný, jeho jméno je i v hlavičce karty. **Krytí** pod
   dlaždicemi je tentýž posuvník jako v Zobrazení (vrstvy). Když se podklad nenačítá, řekne to
   oranžový řádek pod nadpisem (*nenačítá se — MapProxy nedostupný nebo robot bez internetu?*, nebo
-  *2 z 6 dlaždic se nenačetlo*) a tlačítko zoranžoví; mapa to zkouší znovu sama.
+  *2 z 6 dlaždic se nenačetlo*) a tlačítko zoranžoví; mapa to zkouší znovu sama. Když je vybraná
+  mapa Googlu, přepínač **Zarovnat Google na ČÚZK** pod krytím ji posune asi o 1 m na ČÚZK (viz
+  Zobrazení níž).
 - **Překryvy** — *Čáry a popisy* (katastr, budovy a čísla domů, vrstevnice) a *Terén* (stínovaný
   reliéf, reliéf ×10 a ×20, sklon, expozice, stromy a budovy) a pod *Počasí* **Srážkový radar**
   a **Srážky (mozaika)** (jedna mapa z více radarů; když je zapnutá, její časová osa s předpovědí,
@@ -230,26 +232,34 @@ které si nakreslil do mapy; objeví se a zmizí sám, viz
 
 **Zobrazení (vrstvy)** nastaví jejich krytí, barvy značky robota, **podkladovou mapu** pod mapou,
 její **Detail** a posun zarovnání (uložený na robotu pro každou mapu a zdroj dlaždic; zdroje ČÚZK sdílí
-jeden, zdroje Google druhý), srážkový radar a ukáže stav terénu (DEM). Podkladové mapy jsou ve dvou
+jeden, zdroje Google druhý), srážkový radar a ukáže stav terénu (DEM). Nad posunem je volba
+**Zarovnat Google na ČÚZK (asi 1 m)** (výchozí vypnuto, prohlížeč si ji pamatuje): posune satelit,
+hybrid i mapu Googlu o 0,73 m na západ a 0,71 m na jih — snímky Googlu leží asi 1 m severovýchodně
+od ČÚZK (ČÚZK je v ETRS89, Google v dnešním WGS84; změřeno na třech místech v Praze). Mapa robota se
+nehne a ruční posun zůstane, jak je uložený; karta vrstev má stejný přepínač pod krytím podkladu,
+když je vybraná mapa Googlu. Podkladové mapy jsou ve dvou
 skupinách: **letecké a satelitní snímky** (satelit Google, satelit Google s popisky, ortofoto
 ČÚZK, Esri, Bing, tři starší vydání Esri — *Archiv Esri 2025-04, 2023-06, 2022-04 (Wayback)*, datum je
 vydání, snímek nad tvým místem může být starší — a *Ortofoto 50. léta (CENIA)*, černobílé letecké snímky
 z 50. let, do z18) a **mapy** (mapa Google, topografická mapa ČÚZK, OpenTopoMap, OpenStreetMap).
 Každý zdroj snímků má jiné datum a jinou ostrost — když je nad zahradou starý nebo rozmazaný,
-zkus jiný. **Detail** *Auto* (výchozí) načte nejjemnější úroveň, jakou zdroj má — Google až z21,
-ortofoto ČÚZK z20 — a ještě blíž ji už jen plynule zvětší. Přiblížení se zastaví zhruba na 20 cm podél delší strany obrazovky; podkladová
+zkus jiný. **Detail** *Auto* (výchozí) načte nejjemnější úroveň, jakou zdroj má — Google i ortofoto
+ČÚZK z20 (z21 Googlu víc detailu nemá, a tak se nenačítá) — a ještě blíž ji už jen plynule zvětší. Přiblížení se zastaví zhruba na 20 cm podél delší strany obrazovky; podkladová
 mapa i mapy robota přitom zůstávají vidět. Na telefonu se podkladová mapa zastaví
 o úroveň hruběji (Google z20, ČÚZK z19), a načte tak méně dlaždic. Na pomalém spojení vyber nižší strop (z17–z21): méně
 dlaždic, měkčí obraz. Dlaždice vždy pokryjí to, co vidíš. Po posunu nebo přiblížení zůstane
 předchozí obraz, dokud nové dlaždice nedorazí, a mezery mezitím vyplní hrubší obraz, takže mapa
-nezmizí; pohled, který jsi viděl před chvílí, se vrátí hned. Stavový řádek počítá dlaždice, jak
-přicházejí (*načítám dlaždice 12/48*), a řekne, když se některé nenačetly — pak MapProxy na robotu
+nezmizí; pohled, který jsi viděl před chvílí, se vrátí hned. Stavový řádek to řekne slovy — zdroj, pak
+*nejjemnější detail*, *oddáleno, hrubší obraz* nebo *načítám 12 z 48 dlaždic…* (úroveň zoomu
+v závorce pro zvídavé) — a řekne, když se některé nenačetly — pak MapProxy na robotu
 není dostupný nebo tam obraz nemá (bez internetu má jen to, co si dřív uložil; čistě bílou dlaždici, kterou pak posílá, mapa
 nekreslí). Jakmile se vrátí síť, spojení s robotem nebo internet MapProxy, mapa si dlaždice sama
 načte znovu. Telefon má nižší
 limit dlaždic než počítač, aby šetřil paměť; se zapnutými překryvy dá podkladové mapě nejvýš
-polovinu (zdálky pak ukáže hrubší úroveň a její řádek hlásí *limit dlaždic*) a překryvy kreslí
-o úroveň hruběji (reliéf a sklon o dvě), aby se vešly všechny.
+polovinu (zdálky pak ukáže hrubší úroveň a její řádek hlásí *hrubší obraz: moc dlaždic*) a překryvy kreslí
+o úroveň hruběji (reliéf a sklon o dvě), aby se vešly všechny. Počítač totéž dělá s překryvy, když
+je hodně oddálený (pohled vysoký zhruba od 300 m): přijdou o úroveň hruběji (reliéf a sklon o dvě),
+podkladová mapa si detail nechá, takže se pohled načte za zlomek času.
 
 **Ztlumit mapu robota nad podkladem** (pod krytím podkladové mapy, výchozí vypnuto; také
 v Nastavení › Aplikace › Zobrazení): když je
