@@ -70,10 +70,10 @@ ROS3D.Viewer.prototype.resize = function(width, height) {
 //                                                 MULTIPLIED over the background
 //                                                 and the robot's maps, T17 M2-2)
 //   line overlays     z=-0.01  renderOrder= 13   (cadastre, buildings, contours)
-//   program paths     (lifted) renderOrder= 40+  (ribbons; their edges at 39.x
-//                                                 under every core, T17 M2-4;
-//                                                 plan / route paths 50.x)
-//   robot             (TF)     renderOrder= 55-57 (fill, ribbon outline, heading)
+//   obstacle top      (grid)   renderOrder= 11.8 (base/saved obstacles + ring
+//                                                 again above the tones, T17 M2-A)
+//   program paths     (lifted) renderOrder= 40+  (ribbons)
+//   robot             (TF)     renderOrder= 55-56 (fill, outline)
 //   terrain DEM       z=-0.02  renderOrder= 12   (opt-in elevation plane; raised
 //                                                 ABOVE the flat maps/costmaps so
 //                                                 that when the user ticks Terrain
@@ -215,14 +215,14 @@ var MapLayerOpacity = {
     LS_MAPS: 'vitulus_maps_opacity',       // 0..1
     LS_UNKNOWN: 'vitulus_unknown_opacity', // 0..1 (fraction of each layer's
                                            //       native unknown alpha)
-    // T17 M2-1 (owner decision, default "dim"): over a background map the
+    // T17 M2-1 (owner 2026-11-08: default OFF, opt-in): over a background map the
     // free-space fill of the robot's maps (base + saved) is faded and unknown
     // cells go transparent, so the lawn under the map stays visible. Without
-    // a background nothing changes. '1' (default) | '0' (full fill as before).
+    // a background nothing changes. '1' (dimmed) | '0' / unset (full fill, default).
     LS_DIM: 'vitulus_map_dim_on_bg',
     maps_opacity: 1.0,      // whole-mesh opacity (0..1)
     unknown_frac: 1.0,      // unknown-cell alpha fraction (0..1)
-    dim_pref: true,         // user choice (Display › Background map)
+    dim_pref: false,        // user choice (Display › Background map); default off (owner, M2 revert)
     bg_shown: false,        // a background map is painted (mapping.js)
     dim_active: false,      // dim_pref && bg_shown — read by getColor()
     tone_on: false,         // a tone overlay (relief, slope) is on (mapping.js)
@@ -242,7 +242,7 @@ var MapLayerOpacity = {
             if (m !== null) { this.maps_opacity = this._clamp01(m, this.maps_opacity); }
             var u = localStorage.getItem(this.LS_UNKNOWN);
             if (u !== null) { this.unknown_frac = this._clamp01(u, this.unknown_frac); }
-            this.dim_pref = localStorage.getItem(this.LS_DIM) !== '0';
+            this.dim_pref = localStorage.getItem(this.LS_DIM) === '1';
         } catch (e) { /* localStorage unavailable — keep defaults */ }
     },
 
@@ -1986,29 +1986,11 @@ class RobotVisualization {
             fillOpacity: 0.35
         });
         var self = this;
-        // T17 M2-7: the 1 px outline vanished on a light fill or map. The
-        // outline is now a ribbon (2.5 px, dark edge) rebuilt with every
-        // footprint, and a heading chevron rides on base_link.
-        try {
-            var poly = this.robotPolygon, origProc = poly.processMessage;
-            poly.processMessage = function (message) {
-                origProc.call(this, message);
-                try { vtRobotOutline(this, message, uiPrefGet('vitulus_robot_frame_color', '#ffffff')); }
-                catch (e) { /* keep the plain outline */ }
-            };
-            poly.subscribe();   // re-binds the wrapped processMessage
-            this.heading = vtRobotHeading(tf_client);
-            if (this.heading) { this.group.add(this.heading); }
-        } catch (e) { console.warn('[robot] outline ribbon unavailable:', e); }
         setInterval(function () {
             var frame = uiPrefGet('vitulus_robot_frame_color', '#ffffff');
             var fill = uiPrefGet('vitulus_robot_fill_color', '#ffffff');
             var fop = parseFloat(uiPrefGet('vitulus_robot_fill_opacity', '0.35'));
             self.group.traverse(function (o) {
-                if (o.userData && o.userData.vtRobotPart) {   // ribbon / chevron: own style
-                    vtRobotPartStyle(o, frame);
-                    return;
-                }
                 o.renderOrder = 55;   // ROBOT: above DOCK_VIZ 35 and every map layer
                 if (!o.material) { return; }
                 o.material.depthTest = false;
@@ -2072,14 +2054,6 @@ class PathsPointsVisualization {
             topic: '/navi_manager/map_path',
             color: 0x020cf9,
         });
-        // T17 M2-4: the paths were 1 px opaque lines at z=0 — drawn in the
-        // opaque pass first, so the transparent map fill painted over them
-        // (the white plan was barely seen even without a background). Each
-        // path is now a ribbon with an edge in the contrasting tone, above
-        // the zones (PROGRAM) and under the robot.
-        vtPathRibbons(this.localPlan, { widthPx: 2.5, order: 5 });
-        vtPathRibbons(this.globalPlan, { widthPx: 2.5, order: 4 });
-        vtPathRibbons(this.mapPath, { widthPx: 2.5, order: 3 });
     }
 }
 
@@ -2095,7 +2069,7 @@ function liftMarkerArrayClient(client, ribbons) {
             const marker = client.markers[key].children[0];
             if (!marker) return;
             marker.position.z = MARKER_LIFT_Z;
-            if (ribbons) lineMarkerToRibbon(marker, key);
+            if (ribbons) lineMarkerToRibbon(marker);
         });
     };
     client.on('change', lift);
@@ -2106,29 +2080,15 @@ window.liftMarkerArrayClient = liftMarkerArrayClient;
 // WebGL draws a LINE_LIST 1 px wide whatever its scale says, too thin to read on
 // a phone or from far away. The ROS3D marker (of its own THREE) gets a flat
 // ribbon instead: scale.x metres wide close up, never under scale.y screen pixels.
-// T17 M2-4: every ribbon also gets an EDGE — a second mesh over the same
-// geometry, casePx wider on each side, in the contrasting tone (dark for a
-// light line, light for a dark one), drawn under all the cores. A cyan or
-// yellow zone line, the white plan and the grey "done" stripes then read on
-// a photo, on a light map (Google map, ZTM, OSM) and on the plain fill alike.
-// Two meshes instead of one shaded ribbon: a dense path overlaps itself at
-// every joint, and an edge painted in the same pass would cut across the
-// previous segment. caseFadeM > 0 (stripes caseFadeM metres apart): the edge
-// fades out when the stripes come closer than 12 px on screen (none under
-// 6 px), so a zoomed-out zone does not turn dark.
 const PATH_RIBBON_VERTEX = `
     attribute vec2 corner;
     uniform float widthM;
     uniform float widthPx;
     uniform float viewH;
-    uniform float casePx;
-    uniform float caseFadeM;
     void main() {
         vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         float metresPerPx = 2.0 * clip.w / (projectionMatrix[1][1] * viewH);
-        float edge = casePx;
-        if (caseFadeM > 0.0) { edge *= clamp((caseFadeM / metresPerPx - 6.0) / 6.0, 0.0, 1.0); }
-        vec2 shift = corner * 0.5 * (max(widthM, widthPx * metresPerPx) + 2.0 * edge * metresPerPx);
+        vec2 shift = corner * 0.5 * max(widthM, widthPx * metresPerPx);
         gl_Position = projectionMatrix * modelViewMatrix
             * vec4(position.xy + shift, position.z, 1.0);
     }`;
@@ -2136,32 +2096,24 @@ const PATH_RIBBON_FRAGMENT = `
     uniform vec3 color;
     uniform float opacity;
     void main() { gl_FragColor = vec4(color, opacity); }`;
-const RIBBON_EDGE_ORDER = MapLayerOrder.PROGRAM - 1;   // every edge under every core
-const RIBBON_EDGE_DARK = [0.06, 0.07, 0.08];
-const RIBBON_EDGE_LIGHT = [0.96, 0.97, 0.98];
 
-// edge tone for a core colour (relative luminance, sRGB)
-function vtRibbonEdgeTone(r, g, b) {
-    const lin = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
-    const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-    return L < 0.18 ? RIBBON_EDGE_LIGHT : RIBBON_EDGE_DARK;
-}
-
-// segs: [[a, b], ...] (points with x, y, z) -> {core, edge} meshes sharing one
-// geometry. o: {r, g, b, a, widthM, widthPx, casePx, caseFadeM, order}
-function vtRibbonPair(segs, o) {
+function lineMarkerToRibbon(marker) {
+    const line = marker.children[0];
+    if (!line || !line.isLineSegments || !line.geometry.vertices) return;
     const T = ROS3D.THREE;
-    const position = new Float32Array(segs.length * 18);
-    const corner = new Float32Array(segs.length * 12);
+    const v = line.geometry.vertices;
+    const position = new Float32Array(v.length * 9);
+    const corner = new Float32Array(v.length * 6);
     let n = 0;
     const put = (p, x, y) => {
-        position.set([p.x, p.y, p.z || 0], n * 3);
+        position.set([p.x, p.y, p.z], n * 3);
         corner.set([x, y], n * 2);
         n++;
     };
-    segs.forEach(([a, b]) => {
+    for (let i = 0; i + 1 < v.length; i += 2) {
+        const a = v[i], b = v[i + 1];
         const len = Math.hypot(b.x - a.x, b.y - a.y);
-        if (!len) return;
+        if (!len) continue;
         const dx = (b.x - a.x) / len, dy = (b.y - a.y) / len;
         // two triangles; the ends go half a width out so that corners close
         put(a, -dx - dy, -dy + dx);
@@ -2170,179 +2122,39 @@ function vtRibbonPair(segs, o) {
         put(b, dx - dy, dy + dx);
         put(a, -dx + dy, -dy - dx);
         put(b, dx + dy, dy - dx);
-    });
+    }
     const geometry = new T.BufferGeometry();
     geometry.addAttribute('position', new T.BufferAttribute(position.subarray(0, n * 3), 3));
     geometry.addAttribute('corner', new T.BufferAttribute(corner.subarray(0, n * 2), 2));
-    const tone = vtRibbonEdgeTone(o.r, o.g, o.b);
-    const make = (rgb, casePx, order) => {
-        const material = new T.ShaderMaterial({
-            uniforms: {
-                color: { value: new T.Color(rgb[0], rgb[1], rgb[2]) },
-                opacity: { value: o.a },
-                widthM: { value: o.widthM },
-                widthPx: { value: o.widthPx || 2 },
-                viewH: { value: 1 },
-                casePx: { value: casePx },
-                caseFadeM: { value: o.caseFadeM || 0 },
-            },
-            vertexShader: PATH_RIBBON_VERTEX,
-            fragmentShader: PATH_RIBBON_FRAGMENT,
-            transparent: true,
-            depthTest: false,
-            depthWrite: false,
-            side: T.DoubleSide,
-        });
-        const mesh = new T.Mesh(geometry, material);
-        mesh.frustumCulled = false;
-        mesh.renderOrder = order;
-        mesh.onBeforeRender = (renderer) => {
-            const height = renderer.domElement.clientHeight || 1;
-            if (material.uniforms.viewH.value !== height) {
-                material.uniforms.viewH.value = height;
-                material.uniformsNeedUpdate = true;
-            }
-        };
-        return mesh;
-    };
-    const core = make([o.r, o.g, o.b], 0, o.order);
-    const edge = make(tone, o.casePx || 0, RIBBON_EDGE_ORDER + (o.widthPx || 2) * 0.01);
-    edge.visible = (o.casePx || 0) > 0;
-    edge.userData.vtRibbonEdge = true;
-    return { core: core, edge: edge, geometry: geometry };
-}
-
-// marker key = ns + id; vitulus_planner run_path.py layers: run_<i>_border,
-// _fill, _done, _outline (selected zone)
-function lineMarkerToRibbon(marker, key) {
-    const line = marker.children[0];
-    if (!line || !line.isLineSegments || !line.geometry.vertices) return;
-    const v = line.geometry.vertices;
-    const segs = [];
-    for (let i = 0; i + 1 < v.length; i += 2) segs.push([v[i], v[i + 1]]);
     const c = marker.msgColor;
-    const stripes = /_(fill|done)\d*$/.test(String(key || ''));
-    const px = marker.msgScale[1] || 2;
-    const pair = vtRibbonPair(segs, {
-        r: c.r, g: c.g, b: c.b, a: c.a, widthM: marker.msgScale[0], widthPx: px,
-        casePx: 1, caseFadeM: stripes ? 0.45 : 0,
-        order: MapLayerOrder.PROGRAM + px,     // outline on top
+    const material = new T.ShaderMaterial({
+        uniforms: {
+            color: { value: new T.Color(c.r, c.g, c.b) },
+            opacity: { value: c.a },
+            widthM: { value: marker.msgScale[0] },
+            widthPx: { value: marker.msgScale[1] || 2 },
+            viewH: { value: 1 },
+        },
+        vertexShader: PATH_RIBBON_VERTEX,
+        fragmentShader: PATH_RIBBON_FRAGMENT,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: T.DoubleSide,
     });
+    const mesh = new T.Mesh(geometry, material);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = MapLayerOrder.PROGRAM + marker.msgScale[1];  // outline on top
+    mesh.onBeforeRender = (renderer) => {
+        const height = renderer.domElement.clientHeight || 1;
+        if (material.uniforms.viewH.value !== height) {
+            material.uniforms.viewH.value = height;
+            material.uniformsNeedUpdate = true;
+        }
+    };
     marker.remove(line);
     line.geometry.dispose();
-    marker.add(pair.edge);
-    marker.add(pair.core);
-}
-
-// ROS3D.Path (nav_msgs/Path, a 1 px line strip) -> ribbon with an edge after
-// every message; the plain line goes. o: {widthPx, order}
-function vtPathRibbons(path, o) {
-    if (!path || typeof path.processMessage !== 'function') return;
-    const orig = path.processMessage;
-    path.processMessage = function (message) {
-        // the local plan comes several times a second: free the previous
-        // ribbon's GPU buffers before ROS3D drops its scene node
-        if (this._vtPair) {
-            try {
-                this._vtPair.geometry.dispose();
-                this._vtPair.core.material.dispose();
-                this._vtPair.edge.material.dispose();
-            } catch (e) { /* best-effort */ }
-            this._vtPair = null;
-        }
-        orig.call(this, message);
-        try {
-            const sn = this.sn, line = sn && sn.children[0];
-            if (!line || !line.isLine || !line.geometry || !line.geometry.vertices) return;
-            const v = line.geometry.vertices, segs = [];
-            for (let i = 0; i + 1 < v.length; i++) segs.push([v[i], v[i + 1]]);
-            const col = line.material.color;
-            const pair = vtRibbonPair(segs, {
-                r: col.r, g: col.g, b: col.b, a: 1, widthM: 0.05, widthPx: o.widthPx || 2.5,
-                casePx: 1.25, order: MapLayerOrder.PROGRAM + 10 + (o.order || 0) * 0.1,
-            });
-            sn.remove(line);
-            line.geometry.dispose();
-            line.material.dispose();
-            sn.add(pair.edge);
-            sn.add(pair.core);
-            this._vtPair = pair;
-        } catch (e) { /* the plain line stays */ }
-    };
-    try { path.subscribe(); } catch (e) { /* not connected yet */ }
-}
-
-// T17 M2-7: robot footprint outline as a ribbon (white core, dark edge),
-// rebuilt on every footprint message inside the polygon's own group.
-function vtRobotOutline(poly, message, frameColor) {
-    const g = poly._group;
-    const pts = message && message.polygon && message.polygon.points;
-    if (!g || !pts || pts.length < 2) return;
-    if (poly._vtRibbon) {
-        g.remove(poly._vtRibbon.core);
-        g.remove(poly._vtRibbon.edge);
-        poly._vtRibbon.geometry.dispose();
-        poly._vtRibbon.core.material.dispose();
-        poly._vtRibbon.edge.material.dispose();
-        poly._vtRibbon = null;
-    }
-    const segs = [];
-    for (let i = 0; i < pts.length; i++) segs.push([pts[i], pts[(i + 1) % pts.length]]);
-    const T = ROS3D.THREE, col = new T.Color(frameColor || '#ffffff');
-    const pair = vtRibbonPair(segs, { r: col.r, g: col.g, b: col.b, a: 1, widthM: 0.04,
-                                      widthPx: 2.5, casePx: 1.5, order: 56 });
-    pair.edge.renderOrder = 55.5;
-    pair.core.userData.vtRobotPart = 'core';
-    pair.edge.userData.vtRobotPart = 'edge';
-    g.add(pair.edge);
-    g.add(pair.core);
-    poly._vtRibbon = pair;
-    if (poly._line) poly._line.visible = false;
-}
-
-// heading chevron in base_link (inside the 0.9 x 0.64 m footprint)
-function vtRobotHeading(tfClient) {
-    if (!tfClient || !ROS3D.SceneNode) return null;
-    const T = ROS3D.THREE;
-    const tri = (pts, rgb, order, part) => {
-        const geo = new T.Geometry();
-        pts.forEach(([x, y]) => geo.vertices.push(new T.Vector3(x, y, 0)));
-        geo.faces.push(new T.Face3(0, 1, 2), new T.Face3(0, 2, 3));
-        const m = new T.Mesh(geo, new T.MeshBasicMaterial({ color: new T.Color(rgb[0], rgb[1], rgb[2]),
-            transparent: true, opacity: 1, depthTest: false, depthWrite: false, side: T.DoubleSide }));
-        m.renderOrder = order;
-        m.userData.vtRobotPart = part;
-        return m;
-    };
-    // tip, left wing, notch, right wing — about the size of the footprint,
-    // so the heading reads at the usual garden zoom (~20 px per metre)
-    const arrow = [[0.4, 0], [-0.3, 0.25], [-0.12, 0], [-0.3, -0.25]];
-    const grow = (k) => arrow.map(([x, y]) => [0.02 + (x - 0.02) * k, y * k]);
-    const holder = new T.Object3D();
-    holder.add(tri(grow(1.22), RIBBON_EDGE_DARK, 56.6, 'chev_edge'));
-    holder.add(tri(arrow, [1, 1, 1], 56.7, 'chev'));
-    return new ROS3D.SceneNode({ frameID: 'base_link', tfClient: tfClient, object: holder });
-}
-
-// sweep (RobotVisualization): the ribbon / chevron take the frame colour,
-// their edges stay in the contrasting tone
-function vtRobotPartStyle(o, frame) {
-    const part = o.userData.vtRobotPart;
-    try {
-        if (part === 'core') {
-            o.material.uniforms.color.value.set(frame);
-        } else if (part === 'edge') {
-            const c = new ROS3D.THREE.Color(frame);
-            const t = vtRibbonEdgeTone(c.r, c.g, c.b);
-            o.material.uniforms.color.value.setRGB(t[0], t[1], t[2]);
-        } else if (part === 'chev') {
-            o.material.color.set(frame);
-        } else if (part === 'chev_edge') {
-            const c = new ROS3D.THREE.Color(frame);
-            const t = vtRibbonEdgeTone(c.r, c.g, c.b);
-            o.material.color.setRGB(t[0], t[1], t[2]);
-        }
-    } catch (e) { /* best-effort */ }
+    marker.add(mesh);
 }
 
 

@@ -84,13 +84,16 @@ ok('tone overlays above the saved map and the preview', O.OVERLAY_UNDER > O.SITE
 ok('… under terrain, line overlays, edits and program paths',
    O.OVERLAY_UNDER < O.TERRAIN && O.OVERLAY_UNDER < O.OVERLAY && O.OVERLAY_UNDER < O.EDITS && O.OVERLAY_UNDER < O.PROGRAM);
 
-console.log('\ndim over a background (M2-1, owner decision: default on)');
-ok('default: dim wanted, nothing dimmed before a background shows', MLO.dim_pref === true && MLO.dim_active === false);
+console.log('\ndim over a background (M2-1, owner 2026-11-08: default OFF, opt-in)');
+ok('default: not dimmed (full fill as before M2)', MLO.dim_pref === false && MLO.dim_active === false);
 let rebuilt = 0;
 const client = { _lastMsg: { m: 1 }, processMessage: () => { rebuilt++; } };
 MLO._clients.push(client);
 MLO.setBackground(true); runTimers();
-ok('background painted -> dimmed, grids rebuilt once', MLO.dim_active === true && rebuilt === 1);
+ok('background alone does not dim by default, no rebuild', MLO.dim_active === false && rebuilt === 0);
+MLO.setDimPref(true); runTimers();
+ok('ticked + background painted -> dimmed, grids rebuilt once', MLO.dim_active === true && rebuilt === 1 &&
+   store.vitulus_map_dim_on_bg === '1');
 MLO.setBackground(true); runTimers();
 ok('same state again -> no rebuild', rebuilt === 1);
 MLO.setDimPref(false); runTimers();
@@ -100,7 +103,10 @@ ok('no background -> full fill', MLO.dim_active === false);
 store.vitulus_map_dim_on_bg = '0'; MLO.load();
 ok('stored "0" is read back', MLO.dim_pref === false);
 delete store.vitulus_map_dim_on_bg; MLO.load();
-ok('nothing stored -> dim', MLO.dim_pref === true);
+ok('nothing stored -> full fill (default off)', MLO.dim_pref === false);
+store.vitulus_map_dim_on_bg = '1'; MLO.load();
+ok('stored "1" is read back', MLO.dim_pref === true);
+delete store.vitulus_map_dim_on_bg; MLO.load();
 
 console.log('\nSettings › App › Display');
 const added = [];
@@ -255,9 +261,15 @@ ok('background gone: back to alpha', !m1.defines.VT_MULTIPLY && !m2.defines.VT_M
 const line = mk(); T._tileStyle(line, { kind: 'overlay', blend: 'normal', halo: true });
 ok('line overlays are not touched', line.defines.VT_HALO === 1 && !line.userData.vtMultiply && line.blending === 1);
 
+console.log('\nlook before M2 kept (owner 2026-11-08)');
+ok('robot outline: plain ROS3D polygon, no ribbon / heading arrow', mapView.indexOf('vtRobotOutline') < 0 &&
+   mapView.indexOf('vtRobotHeading') < 0);
+ok('paths: plain lines, no ribbons with edges', mapView.indexOf('vtPathRibbons') < 0 && mapView.indexOf('RIBBON_EDGE') < 0);
+ok('zone ribbons without edges', mapView.indexOf('casePx') < 0);
+
 console.log('\npanel');
-ok('index.html: "Dim the robot\'s map over the background", ticked',
-   /<input class="form-check-input" type="checkbox" id="mapv3_bg_dim" checked>/.test(html) &&
+ok('index.html: "Dim the robot\'s map over the background", unticked by default',
+   /<input class="form-check-input" type="checkbox" id="mapv3_bg_dim">/.test(html) &&
    /data-i18n="mapt\.aerial\.dim"/.test(html));
 
 console.log(failures.length ? '\nFAILED: ' + failures.length + '\n  ' + failures.join('\n  ') : '\nOK — all checks passed');

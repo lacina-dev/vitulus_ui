@@ -136,11 +136,6 @@ Tick the layers under the map list: **Base** (cyan, the navigation map), **Saved
 active map), **Direct** (black, the live recording), **Preview** (blue), **Terrain** (height: blue low,
 red high), **Aerial** (the background map, see below), **Rain** (radar).
 
-Zone borders, mowing stripes, the planned path and the robot have a thin edge in the opposite tone
-(dark on a light line, light on a dark one), so they read on a photo, on a light map and on the
-plain map alike; zoomed far out the stripes drop the edge so a zone does not turn dark. The robot is
-its outline with an arrow pointing where it faces.
-
 **Sensing** shows what the robot is observing right now, drawn flat on the ground around it.
 It switches on by itself when a recording starts and off when it ends (tick it by hand any time):
 
@@ -210,22 +205,22 @@ memory; with overlays on it gives the background map at most half of it (far out
 shows a coarser level and its line says *tile limit*) and draws the overlays a level coarser
 (relief and slope two), so all of them fit.
 
-**Dim the robot's map over the background** (under the background map's opacity, on by default):
+**Dim the robot's map over the background** (under the background map's opacity, off by default;
+also in Settings › App › Display):
 while a background map is shown, the free space of the robot's map is only a light tint and the
 unknown cells around it are transparent, so you see the lawn itself, not a grey-green sheet. A light
-ring stays around every obstacle, so the red (or black) obstacles read on any picture. Untick it for
-the full fill as before. Without a background map, with its opacity turned almost down, or when no
+ring stays around every obstacle, so the red (or black) obstacles read on any picture. Unticked, the
+map keeps its full fill. Without a background map, with its opacity turned almost down, or when no
 tile of it loaded, the fill is always full.
 
 **Overlays** are transparent layers, each with its own tick box and opacity, with or without the
 background map: **Cadastre** (parcel boundaries, light lines), **Buildings, house numbers** (ČÚZK
-RÚIAN: building outlines and house numbers, drawn light blue so they do not look like the robot's
-red obstacles) and **Contour lines** are drawn on top of the robot's maps, with a thin dark edge
-that keeps them visible on a light map too. **Shaded relief** and **Slope** (both from the ČÚZK
+RÚIAN: building outlines and house numbers) and **Contour lines** are drawn on top of the robot's
+maps. **Shaded relief** and **Slope** (both from the ČÚZK
 terrain model DMR 5G; slope yellow → orange → red = steeper, handy for banks and ditches) shade the
 background map and the robot's map without covering them, inside the garden too: flat ground stays
 as it is, slopes get darker or tinted (never below about a third of the brightness, even in a deep
-shadow at full opacity), and the obstacles with their light ring, the lines, zones, paths and the
+shadow at full opacity), and the obstacles, the lines, zones, paths and the
 robot stay on top. Without a background map they are laid over the map as a plain see-through tone.
 Cadastre, buildings and contour lines show only close up — the row says *zoom in* until they do.
 While an overlay loads its row counts the tiles (*z19 · 3/12*); *not loaded* or *2 missing* means

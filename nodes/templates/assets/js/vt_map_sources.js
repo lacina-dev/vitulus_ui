@@ -52,16 +52,12 @@
     //    default 50 % opacity it hardly showed). Measured on ČÚZK DMR 5G tiles
     //    (park and villa test points): relief median grey 0.70-0.73, slope
     //    flat colour about (0.95, 0.93, 0.78).
-    //  - recolor '#rrggbb': the pure-red part of the drawing gets this colour
-    //    (RÚIAN buildings were the same red as the robot's obstacles).
-    //  - halo: a thin dark edge around the lines (white cadastre lines on a
-    //    light map).
+    //  - recolor '#rrggbb': the pure-red part of the drawing gets this colour;
+    //    halo: a thin dark edge around the lines. Only when the catalog asks
+    //    (owner 2026-11-08: line overlays look as before, no built-in default).
     var STYLE_DEFAULTS = {
         hillshade: { blend_neutral: [0.72, 0.72, 0.72], blend_gain: 2 },
         slope: { blend_neutral: [0.95, 0.93, 0.78] },
-        ruian: { recolor: '#a8c8ff', halo: true },
-        kn: { halo: true },
-        contours: { halo: true },
     };
     var HEX_RE = /^#[0-9a-fA-F]{6}$/;
 

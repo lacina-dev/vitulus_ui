@@ -134,10 +134,6 @@ Zaškrtni vrstvy pod seznamem map: **Základ** (tyrkysová, navigační mapa), *
 aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (modrá), **Terén** (výška:
 modrá nízko, červená vysoko), **Letecká** (podkladová mapa, viz níž), **Déšť** (radar).
 
-Hranice zón, pruhy sečení, plánovaná trasa a robot mají tenký lem v opačném tónu (tmavý u světlé
-čáry, světlý u tmavé), takže jsou vidět na fotce, na světlé mapě i na samotné mapě robota; hodně
-zdálky pruhy lem ztratí, aby zóna nezčernala. Robot je jeho obrys se šipkou, kam je natočený.
-
 **Snímání** ukazuje, co robot právě sleduje, nakreslené naplocho na zemi kolem něj. Samo se
 zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kdykoli i ručně):
 
@@ -202,21 +198,21 @@ limit dlaždic než počítač, aby šetřil paměť; se zapnutými překryvy d�
 polovinu (zdálky pak ukáže hrubší úroveň a její řádek hlásí *limit dlaždic*) a překryvy kreslí
 o úroveň hruběji (reliéf a sklon o dvě), aby se vešly všechny.
 
-**Ztlumit mapu robota nad podkladem** (pod krytím podkladové mapy, výchozí zapnuto): když je
+**Ztlumit mapu robota nad podkladem** (pod krytím podkladové mapy, výchozí vypnuto; také
+v Nastavení › Aplikace › Zobrazení): když je
 podkladová mapa vidět, je volné místo v mapě robota jen lehce tónované a neznámé buňky kolem jsou
 průhledné, takže vidíš samotný trávník, ne šedozelenou plachtu. Kolem každé překážky zůstane světlý
-lem, takže červené (nebo černé) překážky jsou vidět na každém obrázku. Odškrtnutím vrátíš plnou
-výplň jako dřív. Bez podkladové mapy, se skoro staženým krytím podkladu nebo když se z něj nenačetla
+lem, takže červené (nebo černé) překážky jsou vidět na každém obrázku. Nezaškrtnutá volba nechá mapu
+s plnou výplní. Bez podkladové mapy, se skoro staženým krytím podkladu nebo když se z něj nenačetla
 ani jedna dlaždice, je výplň vždy plná.
 
 **Překryvy** jsou průhledné vrstvy, každá s vlastním zaškrtnutím a krytím, s podkladovou mapou
 i bez ní: **Katastr** (hranice parcel, světlé čáry), **Budovy, čísla domů** (RÚIAN ČÚZK: obrysy
-budov a čísla popisná, světle modře, aby nevypadaly jako červené překážky robota) a **Vrstevnice**
-se kreslí nad mapami robota, s tenkým tmavým lemem, aby byly vidět i na světlé mapě. **Stínovaný
+budov a čísla popisná) a **Vrstevnice** se kreslí nad mapami robota. **Stínovaný
 reliéf** a **Sklon terénu** (obojí z modelu terénu ČÚZK DMR 5G; sklon žlutá → oranžová → červená
 = prudší, hodí se na meze a příkopy) stínují podkladovou mapu i mapu robota a nezakryjí je, i uvnitř
 zahrady: rovina zůstane, jak je, svahy ztmavnou nebo se zabarví (nikdy pod zhruba třetinu jasu,
-ani v hlubokém stínu při plném krytí) a překážky se světlým lemem, čáry, zóny, trasy i robot zůstanou
+ani v hlubokém stínu při plném krytí) a překážky, čáry, zóny, trasy i robot zůstanou
 nahoře. Bez podkladové mapy se přes mapu položí jako obyčejný průsvitný tón. Katastr, budovy a vrstevnice
 jsou vidět jen zblízka — dokud ne, řádek ukazuje *přibliž*. Během načítání řádek překryvu počítá
 dlaždice (*z19 · 3/12*); *nenačteno* nebo *chybí 2* znamená, že je MapProxy nedodal. Všechny vrstvy mají

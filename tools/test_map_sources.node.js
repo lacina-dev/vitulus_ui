@@ -86,7 +86,8 @@ ok('built-in relief neutral (DMR 5G grey) and gain', lk.byId.hillshade.blend_neu
    lk.byId.hillshade.blend_gain === 2 && lk.byId.slope.blend_gain === 1);
 ok('catalog neutral wins, a number -> grey', lk.byId.slope.blend_neutral.join() === '0.5,0.5,0.5');
 ok('neutral clamped to 0.05..1, junk -> 1', lk.byId.lines.blend_neutral.join() === '1,0.05,1');
-ok('RÚIAN recoloured + halo by default', lk.byId.ruian.recolor === '#a8c8ff' && lk.byId.ruian.halo === true);
+ok('line overlays as before: no recolor / halo unless the catalog says', lk.byId.ruian.recolor === '' &&
+   lk.byId.ruian.halo === false && lk.byId.lines.recolor === '#00ff00');
 ok('catalog halo false wins', lk.byId.kn.halo === false);
 ok('recolor must be #rrggbb (lower case)', lk.byId.tone.recolor === '' && lk.byId.lines.recolor === '#00ff00');
 ok('bases carry no look', lk.byId.sat.blend === undefined && lk.byId.sat.halo === undefined);
