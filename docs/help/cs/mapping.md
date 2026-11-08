@@ -215,8 +215,9 @@ budov a čísla popisná, světle modře, aby nevypadaly jako červené překá�
 se kreslí nad mapami robota, s tenkým tmavým lemem, aby byly vidět i na světlé mapě. **Stínovaný
 reliéf** a **Sklon terénu** (obojí z modelu terénu ČÚZK DMR 5G; sklon žlutá → oranžová → červená
 = prudší, hodí se na meze a příkopy) stínují podkladovou mapu i mapu robota a nezakryjí je, i uvnitř
-zahrady: rovina zůstane, jak je, svahy ztmavnou nebo se zabarví a čáry, zóny, trasy i robot zůstanou
-nahoře. Katastr, budovy a vrstevnice
+zahrady: rovina zůstane, jak je, svahy ztmavnou nebo se zabarví (nikdy pod zhruba třetinu jasu,
+ani v hlubokém stínu při plném krytí) a překážky se světlým lemem, čáry, zóny, trasy i robot zůstanou
+nahoře. Bez podkladové mapy se přes mapu položí jako obyčejný průsvitný tón. Katastr, budovy a vrstevnice
 jsou vidět jen zblízka — dokud ne, řádek ukazuje *přibliž*. Během načítání řádek překryvu počítá
 dlaždice (*z19 · 3/12*); *nenačteno* nebo *chybí 2* znamená, že je MapProxy nedodal. Všechny vrstvy mají
 společný limit dlaždic, podkladová mapa má přednost: překryv, který se nevejde, ukáže *limit

@@ -115,14 +115,18 @@ function vtTileLodBias(shader) {
      colour is first divided by the source's flat-ground tone (vtNeutral), so
      flat ground leaves the picture as it is and only the shading or the slope
      colour shows; vtGain > 1 deepens it (a garden's relief is shallow);
-     opacity fades towards "no change". Needs premultiplied output
+     opacity fades towards "no change"; never below VT_MULT_FLOOR. Needs premultiplied output
      with blending dst*src + dst*(1-srcA) (set by _tileMesh).
    - VT_RECOLOR: the pure-red part of a pixel becomes vtTint (RÚIAN draws
      buildings in the same red as the robot's obstacles); white and grey parts
      (label halos) stay.
    - VT_HALO: a thin dark edge around the drawn lines (cadastre white lines
      vanished on a light map), from the alpha of the 8 neighbouring texels. */
-var VT_BLEND = { custom: 5, add: 100, dstColor: 208, oneMinusSrcAlpha: 205 };   // ROS3D THREE r89 enums
+// M2-A (check): the multiply never darkens below this factor — a deep
+// shadow (ČÚZK relief 0.12 on a slope, gain 2) gave 0 and the background
+// turned black at full opacity
+var VT_MULT_FLOOR = 0.35;
+var VT_BLEND = { normal: 1, custom: 5, add: 100, dstColor: 208, oneMinusSrcAlpha: 205 };   // ROS3D THREE r89 enums
 function vtTileShader(shader) {
     vtTileLodBias(shader);
     var d = this.defines || {};
@@ -133,6 +137,7 @@ function vtTileShader(shader) {
     shader.uniforms.vtTint = { value: u.tint || [1, 1, 1] };
     var fs = shader.fragmentShader;
     fs = fs.replace('void main() {',
+        '#define VT_MULT_FLOOR ' + VT_MULT_FLOOR.toFixed(2) + '\n' +
         'uniform vec3 vtNeutral;\nuniform float vtGain;\nuniform vec3 vtTint;\nvoid main() {');
     fs = fs.replace('\tdiffuseColor *= texelColor;\n#endif',
         '#ifdef VT_RECOLOR\n' +
@@ -157,7 +162,7 @@ function vtTileShader(shader) {
         '\tdiffuseColor *= texelColor;\n#endif');
     fs = fs.replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
         '#ifdef VT_MULTIPLY\n' +
-        '\tgl_FragColor = vec4(clamp(1.0 - vtGain * (1.0 - outgoingLight / vtNeutral), 0.0, 1.0) * diffuseColor.a, diffuseColor.a);\n' +
+        '\tgl_FragColor = vec4(clamp(1.0 - vtGain * (1.0 - outgoingLight / vtNeutral), VT_MULT_FLOOR, 1.0) * diffuseColor.a, diffuseColor.a);\n' +
         '#else\n' +
         '\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n' +
         '#endif');
@@ -1068,6 +1073,7 @@ class MappingV3 {
             });
         }
         this._updateAttribution();
+        this._updateToneOn();
         try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* old browser */ }
     }
 
@@ -1091,6 +1097,7 @@ class MappingV3 {
         chk.addEventListener('change', () => {
             this._saveLayerPref('vitulus_overlay_' + o.id, chk.checked);
             if (!chk.checked) { this._dropOverlay(o.id); }
+            this._updateToneOn();
             this._overlayStatus(o.id);
             this._updateAttribution();
             if (chk.checked) { this.aerial_datum = null; this.rebuildAerial(); }
@@ -1404,6 +1411,7 @@ class MappingV3 {
                 MapLayerOpacity.setBackground(this._bgShown());
             }
         } catch (e) { /* map_view.js older than this file */ }
+        this._applyToneBlend();
     }
 
     // the catalog entry of the chosen base (fallback: first base)
@@ -2124,18 +2132,25 @@ class MappingV3 {
     // stand-ins sit just under the layer's current tiles, finer above coarser
     // T17 M2: an overlay's look from its catalog fields (vt_map_sources.js):
     // blend 'multiply' (relief, slope), recolor (RÚIAN red -> tint), halo
+    // M2-B (check): the multiply needs a picture under it — without a
+    // background map it multiplied the dark viewer background, so the tone was
+    // not seen outside the robot's map. Then the tone is blended by alpha as
+    // before; _applyToneBlend switches the planes already on the map.
     _tileStyle(mat, src) {
         if (!src || src.kind !== 'overlay') { return; }
         const defs = {};
         const vt = {};
         if (src.blend === 'multiply') {
-            defs.VT_MULTIPLY = 1;
-            mat.blending = VT_BLEND.custom;
-            mat.blendEquation = VT_BLEND.add;
-            mat.blendSrc = VT_BLEND.dstColor;
-            mat.blendDst = VT_BLEND.oneMinusSrcAlpha;
             vt.neutral = src.blend_neutral || [1, 1, 1];
             vt.gain = src.blend_gain || 1;
+            mat.userData.vtMultiply = true;
+            if (this._bgShown()) {
+                defs.VT_MULTIPLY = 1;
+                mat.blending = VT_BLEND.custom;
+                mat.blendEquation = VT_BLEND.add;
+                mat.blendSrc = VT_BLEND.dstColor;
+                mat.blendDst = VT_BLEND.oneMinusSrcAlpha;
+            }
         }
         if (src.recolor) {
             const h = parseInt(src.recolor.slice(1), 16);
@@ -2143,10 +2158,44 @@ class MappingV3 {
             vt.tint = [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
         }
         if (src.halo) { defs.VT_HALO = 1; }
-        if (Object.keys(defs).length) {
-            mat.defines = defs;
-            mat.userData.vt = vt;
-        }
+        mat.defines = defs;
+        mat.userData.vt = vt;
+    }
+
+    // multiply over a background map, alpha without one (M2-B) — for every
+    // plane of the tone overlays (current tiles and stand-ins)
+    _applyToneBlend() {
+        const mult = this._bgShown();
+        Object.values(this.ov_layers || {}).forEach((st) => {
+            if (!st || !st.group) { return; }
+            st.group.children.forEach((m) => {
+                const mat = m.material;
+                if (!mat || !mat.userData || !mat.userData.vtMultiply) { return; }
+                if (!!(mat.defines && mat.defines.VT_MULTIPLY) === mult) { return; }
+                const defs = Object.assign({}, mat.defines || {});
+                if (mult) {
+                    defs.VT_MULTIPLY = 1;
+                    mat.blending = VT_BLEND.custom;
+                    mat.blendEquation = VT_BLEND.add;
+                    mat.blendSrc = VT_BLEND.dstColor;
+                    mat.blendDst = VT_BLEND.oneMinusSrcAlpha;
+                } else {
+                    delete defs.VT_MULTIPLY;
+                    mat.blending = VT_BLEND.normal;
+                }
+                mat.defines = defs;
+                mat.needsUpdate = true;
+            });
+        });
+    }
+
+    // M2-A (check): is a tone overlay (relief, slope) on? Then the robot's
+    // obstacles and their ring are drawn once more ABOVE it (MapLayerOpacity)
+    _updateToneOn() {
+        try {
+            const on = this._overlaysOn().some((o) => o.layer_order === 'under');
+            if (typeof MapLayerOpacity !== 'undefined' && MapLayerOpacity.setToneOn) { MapLayerOpacity.setToneOn(on); }
+        } catch (e) { /* map_view.js older than this file */ }
     }
 
     _tileFbOrder(L, z) { return (L.ro || 0) - 0.004 + z * 0.0001; }

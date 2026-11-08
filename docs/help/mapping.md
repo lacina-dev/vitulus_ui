@@ -224,7 +224,9 @@ red obstacles) and **Contour lines** are drawn on top of the robot's maps, with 
 that keeps them visible on a light map too. **Shaded relief** and **Slope** (both from the ČÚZK
 terrain model DMR 5G; slope yellow → orange → red = steeper, handy for banks and ditches) shade the
 background map and the robot's map without covering them, inside the garden too: flat ground stays
-as it is, slopes get darker or tinted, and the lines, zones, paths and the robot stay on top.
+as it is, slopes get darker or tinted (never below about a third of the brightness, even in a deep
+shadow at full opacity), and the obstacles with their light ring, the lines, zones, paths and the
+robot stay on top. Without a background map they are laid over the map as a plain see-through tone.
 Cadastre, buildings and contour lines show only close up — the row says *zoom in* until they do.
 While an overlay loads its row counts the tiles (*z19 · 3/12*); *not loaded* or *2 missing* means
 MapProxy did not deliver them. All layers share one tile limit, the background map first: an overlay that does not fit

@@ -14,6 +14,10 @@
  *     Display;
  *   - M2-2: tone overlays sit above the robot's maps (SITE, PREVIEW) and under
  *     the terrain / line overlays / everything drawn;
+ *   - M2-A (check): with a tone overlay on, the obstacles and their ring are
+ *     drawn once more above it, and the multiply never goes below
+ *     VT_MULT_FLOOR (ČÚZK relief 0.12 at opacity 1 turned everything black);
+ *   - M2-B (check): without a background map the tones are blended by alpha;
  *   - M2-2 / M2-3 / M2-6: vtTileShader really patches ROS3D's MeshBasicMaterial
  *     fragment shader (multiply, recolor, halo blocks), and a plain material is
  *     left alone; the dim checkbox is in index.html, ticked.
@@ -56,7 +60,15 @@ const ctx = vm.createContext({
                     removeItem: (k) => { delete store[k]; } },
     setTimeout: (fn) => { timers.push(fn); return timers.length; },
     clearTimeout: () => {},
-    ROS3D: { OccupancyGrid: function () {} },
+    ROS3D: (function () {
+        function Mesh(geometry, material) { this.geometry = geometry; this.material = material; this.children = [];
+                                            this.userData = {}; this.visible = true; this.renderOrder = 0; }
+        Mesh.prototype.add = function (c) { this.children.push(c); c.parent = this; };
+        function OccupancyGrid() {}
+        OccupancyGrid.prototype = Object.create(Mesh.prototype);
+        OccupancyGrid.prototype.constructor = OccupancyGrid;
+        return { OccupancyGrid: OccupancyGrid, Mesh: Mesh };
+    })(),
     Math: Math, Uint8Array: Uint8Array, Uint16Array: Uint16Array, console: console,
 });
 const code = slice(mapView, 'var MapLayerOrder = {', '// U1 kolo 2:') +
@@ -168,6 +180,80 @@ ok('tiles use vtTileShader and the overlay look', /mat\.onBeforeCompile = vtTile
 ok('multiply blending = dst*src + dst*(1-srcA)', /blendSrc = VT_BLEND\.dstColor/.test(mapping) &&
    /blendDst = VT_BLEND\.oneMinusSrcAlpha/.test(mapping) &&
    /var CustomBlending = 5;[\s\S]*var OneMinusSrcAlphaFactor = 205;[\s\S]*var DstColorFactor = 208;/.test(ros3d));
+
+console.log('\nobstacles above the tone overlays (M2-A)');
+const fakeGrid = () => { const g = new ctx.ROS3D.Mesh({}, { clone() { return Object.assign({}, this, { clone: undefined }); }, opacity: 1 });
+                         return g; };
+const siteC = { _layerRenderOrder: O.SITE, currentGrid: fakeGrid() }, costC = { _layerRenderOrder: O.COSTMAP, currentGrid: fakeGrid() };
+MLO.setBackground(true); MLO.setDimPref(true); runTimers();
+MLO._applyOpacityToClient(siteC); MLO._applyOpacityToClient(costC);
+const top = siteC.currentGrid._vtTop;
+ok('saved map gets an obstacle plane over the same texture, costmap none', !!top && top.parent === siteC.currentGrid &&
+   !costC.currentGrid._vtTop);
+ok('… hidden while no tone overlay is on', top.visible === false);
+MLO._clients.push(siteC); MLO.setToneOn(true);
+ok('… shown with a tone overlay, above it and under the terrain', top.visible === true &&
+   top.renderOrder > O.OVERLAY_UNDER && top.renderOrder < O.TERRAIN);
+const aDim = top.material.alphaTest;
+ok('… dimmed: keeps obstacles, probable obstacles and the ring, not the faint tint',
+   P.SITE.obstacle[3] / 255 >= aDim && P.SITE.obstacleProb[3] / 255 >= aDim && P.SITE.free[3] / 255 >= aDim &&
+   P.SITE.freeDim[3] / 255 < aDim && P.BASE.freeDim[3] / 255 < aDim);
+MLO.setDimPref(false); runTimers(); MLO._applyOpacityToClient(siteC);
+ok('… full fill: obstacles only (free has the ring\'s alpha there)', P.SITE.obstacle[3] / 255 >= top.material.alphaTest &&
+   P.SITE.free[3] / 255 < top.material.alphaTest);
+MLO.setDimPref(true); MLO.setToneOn(false); runTimers();
+ok('… tone off -> hidden again', top.visible === false);
+// the checker's case: ČÚZK relief 0.12 on a slope, opacity 1, over a dark lawn
+const MSrc = require(path.join(JS, 'vt_map_sources.js'));
+const hs = MSrc.normalize({ sources: [{ id: 'sat', kind: 'base', layer: 'a', grid: 'g' },
+                                      { id: 'hillshade', kind: 'overlay', layer: 'b', grid: 'g', layer_order: 'under' }] }).byId.hillshade;
+const floor = parseFloat((mapping.match(/var VT_MULT_FLOOR = ([0-9.]+);/) || [])[1]);
+const factor = (c) => Math.max(floor, Math.min(1, 1 - hs.blend_gain * (1 - c / hs.blend_neutral[0])));
+const over = (dst, rgba) => dst.map((d, i) => d * (1 - rgba[3] / 255) + rgba[i] * rgba[3] / 255);
+const lum = (c) => c.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); })
+                    .reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+const wcag = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const lawn = [90, 120, 60], f = factor(0.12);
+const shade = (c) => c.map((v) => v * f);
+const ground = shade(over(lawn, P.SITE.freeDim));
+const ring = over(shade(over(lawn, P.SITE.free)), P.SITE.free);         // multiplied, then the obstacle plane again
+const obst = over(shade(P.SITE.obstacle.slice(0, 3)), P.SITE.obstacle);
+ok('deep shadow 0.12, opacity 1: the ground keeps >= 35 % (floor)', floor >= 0.35 && f === floor && ground[1] >= 0.35 * lawn[1] * 0.8);
+const lab = (c) => { const l = c.map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    const xyz = [[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]].map((r, k) =>
+        (r[0] * l[0] + r[1] * l[1] + r[2] * l[2]) / [0.95047, 1, 1.08883][k]);
+    const ff = xyz.map((t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116));
+    return [116 * ff[1] - 16, 500 * (ff[0] - ff[1]), 200 * (ff[1] - ff[2])]; };
+const dE = (a, b) => Math.hypot(...lab(a).map((v, k) => v - lab(b)[k]));
+const ringNoTone = over(lawn, P.SITE.free);
+console.log('    (model, lawn ' + lawn.join() + ': obstacle/ring WCAG ' + wcag(obst, ring).toFixed(2) + ' (no tone ' +
+            wcag(P.SITE.obstacle.slice(0, 3), ringNoTone).toFixed(2) + '), dE ' + dE(obst, ring).toFixed(0) +
+            '; ring/shaded ground WCAG ' + wcag(ring, ground).toFixed(2) + ')');
+ok('… obstacle stays red, distinct from its ring (dE >= 40, >= 75 % of the no-tone contrast)',
+   obst.join() === P.SITE.obstacle.slice(0, 3).join() && dE(obst, ring) >= 40 &&
+   wcag(obst, ring) >= 0.75 * wcag(P.SITE.obstacle.slice(0, 3), ringNoTone));
+ok('… ring stands out from the shaded ground (>= 3:1)', wcag(ring, ground) >= 3);
+ok('shader clamps the multiply at VT_MULT_FLOOR', /#define VT_MULT_FLOOR ' \+ VT_MULT_FLOOR\.toFixed\(2\)/.test(mapping) &&
+   /clamp\(1\.0 - vtGain \* \(1\.0 - outgoingLight \/ vtNeutral\), VT_MULT_FLOOR, 1\.0\)/.test(mapping));
+
+console.log('\ntones without a background map (M2-B)');
+const cls = vm.runInContext('(class { ' + slice(mapping, '    _tileStyle(mat, src) {', '    // M2-A (check): is a tone overlay') +
+    ' })', vm.createContext({ VT_BLEND: { normal: 1, custom: 5, add: 100, dstColor: 208, oneMinusSrcAlpha: 205 }, Object: Object }));
+const T = new cls();
+let bg = false; T._bgShown = () => bg;
+const mk = () => ({ userData: {}, blending: 1 });
+const relief = { kind: 'overlay', blend: 'multiply', blend_neutral: [0.72, 0.72, 0.72], blend_gain: 2 };
+const m1 = mk(); T._tileStyle(m1, relief);
+ok('no background: the tone is blended by alpha (no multiply)', !m1.defines.VT_MULTIPLY && m1.blending === 1 && m1.userData.vtMultiply);
+bg = true; const m2 = mk(); T._tileStyle(m2, relief);
+ok('background: multiply (dst*src + dst*(1-srcA))', m2.defines.VT_MULTIPLY === 1 && m2.blending === 5 && m2.blendSrc === 208 && m2.blendDst === 205);
+T.ov_layers = { hillshade: { group: { children: [{ material: m1 }, { material: m2 }] } } };
+T._applyToneBlend();
+ok('background appears: planes already on the map switch to multiply', m1.defines.VT_MULTIPLY === 1 && m1.blending === 5 && m1.needsUpdate);
+bg = false; T._applyToneBlend();
+ok('background gone: back to alpha', !m1.defines.VT_MULTIPLY && !m2.defines.VT_MULTIPLY && m1.blending === 1 && m2.blending === 1);
+const line = mk(); T._tileStyle(line, { kind: 'overlay', blend: 'normal', halo: true });
+ok('line overlays are not touched', line.defines.VT_HALO === 1 && !line.userData.vtMultiply && line.blending === 1);
 
 console.log('\npanel');
 ok('index.html: "Dim the robot\'s map over the background", ticked',

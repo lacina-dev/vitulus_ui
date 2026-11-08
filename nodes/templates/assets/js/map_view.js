@@ -118,6 +118,8 @@ var MapLayerOrder = {
     PREVIEW:   11,   // per-raster mgmt RAW-raster preview (mapping.js), between
                      // SITE 10 and TERRAIN 12. Blue-tinted so it reads distinct
                      // from the served site_map when shown for A/B comparison.
+    OBSTACLE_TOP: 11.8, // T17 M2-A: the robot's obstacles + their ring once
+                     // more, above the tone overlays (MapLayerOpacity._obstacleTop)
     OVERLAY_UNDER: 11.5, // MapProxy tone overlays, catalog layer_order 'under'
                      // (shaded relief, slope — mapping.js). T17 M2-2: they
                      // used to sit right above the background map (-99), i.e.
@@ -223,6 +225,7 @@ var MapLayerOpacity = {
     dim_pref: true,         // user choice (Display › Background map)
     bg_shown: false,        // a background map is painted (mapping.js)
     dim_active: false,      // dim_pref && bg_shown — read by getColor()
+    tone_on: false,         // a tone overlay (relief, slope) is on (mapping.js)
     _clients: [],           // registered OccupancyGridClient instances
     _debounce: null,        // pending unknown-rebuild timer
 
@@ -340,8 +343,45 @@ var MapLayerOpacity = {
                     mesh.material.depthWrite = false;
                     mesh.material.needsUpdate = true;
                 }
+                this._obstacleTop(client, mesh);
             }
         } catch (e) { /* best-effort */ }
+    },
+
+    // T17 M2-A (check): tone overlays (relief, slope) are multiplied ABOVE
+    // the robot's maps (MapLayerOrder.OVERLAY_UNDER); in a deep shadow at full
+    // opacity an obstacle and its ring went dark with the ground. The base and
+    // saved map therefore get a second plane over the same texture, drawn
+    // above the tones (OBSTACLE_TOP), that keeps only the strong cells — alpha
+    // test: obstacles, probable obstacles and the ring while dimmed (alpha ≥
+    // 0.5, the faint free tint is dropped), only obstacles with the full fill
+    // (free and the ring have the same alpha there). Shown only while a tone
+    // overlay is on, so without one nothing is drawn twice.
+    _obstacleTop: function (client, mesh) {
+        var ord = client._layerRenderOrder;
+        if (ord !== MapLayerOrder.BASE && ord !== MapLayerOrder.SITE) { return; }
+        var top = mesh._vtTop;
+        if (!top) {
+            var Mesh = Object.getPrototypeOf(ROS3D.OccupancyGrid.prototype).constructor;   // ROS3D's THREE.Mesh
+            var mat = mesh.material.clone();                // shares the grid texture
+            top = new Mesh(mesh.geometry, mat);
+            top.userData.vtObstacleTop = true;
+            mesh.add(top);                                  // follows the grid (pose, visibility, removal)
+            mesh._vtTop = top;
+        }
+        top.renderOrder = MapLayerOrder.OBSTACLE_TOP + (ord === MapLayerOrder.SITE ? 0.01 : 0);
+        top.material.transparent = true;
+        top.material.depthWrite = false;
+        top.material.opacity = this.maps_opacity;
+        top.material.alphaTest = this.dim_active ? 0.5 : 0.75;
+        top.material.needsUpdate = true;
+        top.visible = this.tone_on;
+    },
+    setToneOn: function (on) {
+        on = !!on;
+        if (on === this.tone_on) { return; }
+        this.tone_on = on;
+        for (var i = 0; i < this._clients.length; i++) { this._applyOpacityToClient(this._clients[i]); }
     },
 
     // (1) whole-mesh opacity — live, cheap, no texture rebuild.
