@@ -2130,11 +2130,40 @@
                  [/^Go to zone begin$/, 'zone'], [/^Loading the map$/, 'map'], [/^Rtabmap is ready$/, 'map_ready'],
                  [/^Mower link lost/, 'link_lost'], [/^No mower status/, 'link_gap'], [/^Blade stopped during mowing/, 'blade_stopped'],
                  [/^Mower link not recovered/, 'link_home'],
-                 [/^Both GPS ready$/, 'gps'], [/^Window closed, going home$/, 'window_home'], [/^Reset accepted/, 'reset']];
+                 [/^Both GPS ready$/, 'gps'], [/^Window closed, going home$/, 'window_home'], [/^Reset accepted/, 'reset'],
+                 /* T28: dock_smach heading nudge after the undock */
+                 [/^Heading nudge: driving ([0-9.]+) m forward/, 'nudge_start'], [/^Heading nudge done: ([0-9.]+) m/, 'nudge_done'],
+                 [/^Heading nudge stopped: (.+)$/, 'nudge_stopped'], [/^Heading nudge skipped: (.+)$/, 'nudge_skipped']];
+    /* T28: why a heading nudge stopped / did not start (dock_smach + drive_primitive
+       reasons, English in the robot's code); an unknown reason stays as it is. */
+    var NUDGE_WHY = [[/^obstacle ahead ([0-9.]+) m$/, 'obstacle', 'm'], [/^(?:hold|mux hold\b.*)$/, 'hold'],
+                     [/^human takeover/, 'takeover'], [/^keepalive lost/, 'keepalive'],
+                     [/^(?:drive )?motors off$/, 'motors_off'], [/^(?:no lidar scan|lidar scan .* stale)$/, 'lidar'],
+                     [/^(?:no odometry|odometry .* stale)$/, 'odom'], [/^timeout/, 'timeout'], [/^no progress/, 'stuck'],
+                     [/^target crosses nogo (.+)$/, 'nogo', 'name'], [/^stop$/, 'stop'],
+                     [/^dock not behind the robot$/, 'dock_not_behind'], [/^dock direction unknown$/, 'dock_unknown'],
+                     [/^heading receiver carrier not FIXED$/, 'carrier'], [/^blade not stopped$/, 'blade'],
+                     [/^attempts used \((\d+)\)$/, 'attempts', 'n'], [/^distance budget used \(([0-9.]+) m\)$/, 'budget', 'm'],
+                     [/^no RTK on both receivers$/, 'no_rtk'], [/^drive_primitive busy/, 'busy'], [/^wait over$/, 'wait_over'],
+                     [/^heading anchored$/, 'anchored'], [/^no answer from drive_primitive$/, 'no_answer']];
+    function nudgeWhy(raw) {
+        for (var i = 0; i < NUDGE_WHY.length; i++) {
+            var m = NUDGE_WHY[i][0].exec(raw), v = {};
+            if (m) {
+                if (NUDGE_WHY[i][2]) { v[NUDGE_WHY[i][2]] = m[1]; }
+                return t('auto.nudge.why.' + NUDGE_WHY[i][1], v);
+            }
+        }
+        return raw;
+    }
     function robotLine(text) {
         for (var i = 0; i < LINES.length; i++) {
             var m = LINES[i][0].exec(String(text));
-            if (m) { return t('auto.line.' + LINES[i][1], { x: m[1] || '' }); }
+            if (m) {
+                var key = LINES[i][1], x = m[1] || '';
+                if (key === 'nudge_stopped' || key === 'nudge_skipped') { x = nudgeWhy(x); }
+                return t('auto.line.' + key, { x: x });
+            }
         }
         return null;
     }

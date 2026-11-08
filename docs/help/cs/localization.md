@@ -78,7 +78,12 @@ mapy N cm* — o kolik by tracker robota právě posunul; pár centimetrů zname
 Dvě ikony GPS v navbaru ([Ikony stavu](status-icons.md)) říkají totéž jednou barvou:
 zelená = RTK, oranžová = 3D fix bez RTK (nebo float), červená = špatně, šedá = žádná data.
 **Výjezd z doku čeká, až budou obě zelené** (zajetí do doku jen tehdy, když musí nejdřív nahrát
-venkovní mapu doku).
+venkovní mapu doku). Pak ještě čeká, až robot uvěří kurzu ze dvou antén. Když kurz ani po ~20 s
+čekání není ustálený, robot **popojede pomalu (0,15 m/s) rovně dopředu o 1,5 m, směrem od doku**,
+aby se kurz změřil za jízdy, a pak čeká dál — nejvýš dvakrát a celkem 2 m za výjezd. Udělá to jen s RTK fixem
+kurzu, zapnutými pojezdovými motory, zastaveným nožem, když nikdo neřídí ručně a není zmáčknutý STOP;
+běžné hlídače jízdy (překážka vpředu, lidar, zakázané zóny mapy) ho hned zastaví. Řádek nad mapou
+řekne, co dělá nebo proč nezačal; překážka nebo zastavení znamená jen obvyklé čekání.
 
 ## Přijímače GNSS (pravý panel › GNSS)
 

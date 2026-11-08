@@ -76,6 +76,51 @@ Object.keys(CHECKS).forEach((k) => {
 ['always', 'calendar', 'ignore'].forEach((m) => check('rain ' + m, both('auto.rain.mode.' + m) && both('auto.rain.mode.' + m + '.hint')));
 ['rain', 'recent_rain', 'forecast', 'rain_stale'].forEach((c) => check('run ' + c, both('auto.rainrun.' + c)));
 
+// T28: the heading-nudge lines dock_smach writes (vitulus_dock HeadingNudgeIO) are translated
+{
+    const src = read('vt_autonomy.js').match(/var LINES = (\[[\s\S]*?\]\]);/);
+    check('LINES table found', !!src);
+    const LINES = src ? vm.runInNewContext(src[1]) : [];
+    const line = (text) => {
+        for (const [re, key] of LINES) { const m = re.exec(text); if (m) { return [key, m[1] || '']; } }
+        return null;
+    };
+    [['Heading nudge: driving 1.5 m forward to measure heading (attempt 1/2)', 'nudge_start', '1.5'],
+     ['Heading nudge done: 1.48 m', 'nudge_done', '1.48'],
+     ['Heading nudge stopped: obstacle ahead 0.41 m', 'nudge_stopped', 'obstacle ahead 0.41 m'],
+     ['Heading nudge skipped: dock not behind the robot', 'nudge_skipped', 'dock not behind the robot']]
+        .forEach(([text, key, x]) => {
+            const got = line(text);
+            check('nudge line ' + key, got && got[0] === key && got[1] === x, JSON.stringify(got));
+            check('nudge text ' + key, both('auto.line.' + key) && en['auto.line.' + key].includes('{x}')
+                  && cs['auto.line.' + key].includes('{x}'));
+        });
+    // reasons: the known ones are translated (keys + the same placeholders), unknown stays raw
+    const wsrc = read('vt_autonomy.js').match(/var NUDGE_WHY = (\[[\s\S]*?\]\]);/);
+    check('NUDGE_WHY table found', !!wsrc);
+    const WHY = wsrc ? vm.runInNewContext(wsrc[1]) : [];
+    const why = (raw) => {
+        for (const [re, key, ph] of WHY) { const m = re.exec(raw); if (m) { return [key, ph ? m[1] : null]; } }
+        return null;
+    };
+    [['obstacle ahead 0.41 m', 'obstacle', '0.41'], ['hold', 'hold'], ['mux hold (STOP or a person on the controls)', 'hold'],
+     ['human takeover (ds4)', 'takeover'], ['keepalive lost (1.6 s)', 'keepalive'], ['motors off', 'motors_off'],
+     ['drive motors off', 'motors_off'], ['no lidar scan', 'lidar'], ['lidar scan 0.7 s stale', 'lidar'],
+     ['timeout (25 s)', 'timeout'], ['no progress (0.01 in 3.0 s) - stuck or slipping', 'stuck'],
+     ['target crosses nogo Flowerbed', 'nogo', 'Flowerbed'], ['dock not behind the robot', 'dock_not_behind'],
+     ['dock direction unknown', 'dock_unknown'], ['heading receiver carrier not FIXED', 'carrier'],
+     ['blade not stopped', 'blade'], ['attempts used (2)', 'attempts', '2'], ['distance budget used (2.0 m)', 'budget', '2.0'],
+     ['no RTK on both receivers', 'no_rtk'], ['wait over', 'wait_over'], ['heading anchored', 'anchored']]
+        .forEach(([raw, key, val]) => {
+            const got = why(raw);
+            check('nudge why ' + raw, got && got[0] === key && (val === undefined || got[1] === val), JSON.stringify(got));
+            const k = 'auto.nudge.why.' + key;
+            const phs = (str) => (str.match(/\{[a-z]+\}/g) || []).sort().join();
+            check('nudge why text ' + key, both(k) && phs(en[k]) === phs(cs[k]));
+        });
+    check('nudge why unknown stays raw', why('something new') === null);
+}
+
 const html = fs.readFileSync(path.join(ROOT, 'nodes', 'templates', 'index.html'), 'utf8');
 ['btn_autonomy', 'div_menu_autonomy', 'chk_scheduler_enabled', 'chk_scheduler_inhibit', 'card_mow_window', 'div_calendar_form', 'modal_rain_run']
     .forEach((id) => check('one #' + id, html.split('id="' + id + '"').length === 2));

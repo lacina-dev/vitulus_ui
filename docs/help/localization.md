@@ -81,6 +81,13 @@ few centimetres means the map still fits.
 The two GPS icons in the navbar ([Status icons](status-icons.md)) say the same in one colour:
 green = RTK, orange = a 3D fix without RTK (or float), red = bad, grey = no data. **Undocking
 waits for both to be green** (docking only when it first has to load the outdoor dock map).
+It then also waits until the robot trusts the heading from the two antennas. If that heading is
+still not settled ~20 s into the wait, the robot **drives slowly (0.15 m/s) straight ahead by
+1.5 m, away from the dock**, so the heading is measured in motion, and then goes on waiting —
+at most twice and 2 m in total per undock. It does so only with an RTK heading fix, drive motors on, the blade
+stopped, nobody on the controls and STOP not pressed; the usual drive guards (obstacle ahead,
+lidar, map no-go zones) stop it at once. The line above the map says what it does or why it did
+not start; an obstacle or a stop just means the normal wait.
 
 ## GNSS receivers (right panel › GNSS)
 
