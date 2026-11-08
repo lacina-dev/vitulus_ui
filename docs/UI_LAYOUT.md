@@ -139,13 +139,13 @@ nezalomí (`flex-wrap: nowrap`, užší okno věci ubírá).
 | Rozložení | Třída | Výška | Obsah |
 |---|---|---|---|
 | PC / tablet | `vt-h-pc` | navbar 44 + pás menu 36 = 80 px | vlevo logo + tečka (pevně 172 px), ikony stavu od x = 184 · vpravo systém v pevných slotech · ? · zvonek · Restart · ⋯, konec v objímce STOPu |
-| telefon na výšku (< 576 px) | `vt-h-ph` | navbar 52 + menu 44 + ikony 28 + hlášky 28 = 152 px | navbar: logo, tečka, zvonek, Restart, ⋯, STOP; ? a systém v ⋯ |
+| telefon na výšku (< 576 px) | `vt-h-ph` | navbar 52 + menu 44 + souhrn stavu 40 + hlášky 28 = 164 px | navbar: logo, tečka, zvonek, Restart, ⋯, STOP; ? a systém v ⋯ |
 | nízké okno (výška < 500, telefon na šířku) | `vt-h-row` | jeden řádek 44 px | tečka · tlačítka panelů (`#row_menu` se přestěhuje do navbaru) · ikony po skupinách · zvonek · Restart · ⋯; logo, ? a systém v ⋯; STOP v rohu nad pravým sloupcem |
 
 | Místo | Obsah | Poznámka |
 |---|---|---|
 | vlevo | logo VITULUS + **tečka spojení** (`#conn_status`, `data-state`), zóna pevně 172 px | zelená = spojeno, oranžová pulzující = připojuji, červená = bez spojení; slova jen v `title` + `aria-label` (en/cs, `mapview.conn.*`); klik / Enter = hned znovu připojit (`ConnectionStatus`, map_view.js) |
-| střed | **řada stavových ikon** (`#status_div`, status_header.js) od pevného x: skupiny počasí · senzory · pojezd · teploty · napájení | čárové ikony `.sh-ico` (D8: skrytý `<img>` nese stav z map_view.js, barva = tón, rohová tečka u varování / poruchy, stav slovy v `title`); skupiny kromě počasí = tlačítko `#btn_status_card` → karta stavu `#sh_status_card`; bez spojení nebo 10 s bez icon_status šedé + „no live data“; počasí = `#ico_rain` (klik = radar, rain_alert.js); `vt-h-sum` (< 1100 px a nízké okno): 1 ikona za skupinu = nejhorší (`.sh-rep`: červená > oranžová > zelená > šedá); telefon na výšku: souhrn (1 ikona za skupinu + „All OK“ / „2 warnings“) |
+| střed | **řada stavových ikon** (`#status_div`, status_header.js) od pevného x: skupiny počasí · senzory · pojezd · teploty · napájení | čárové ikony `.sh-ico` (D8: skrytý `<img>` nese stav z map_view.js, barva = tón, rohová tečka u varování / poruchy, stav slovy v `title`); skupiny kromě počasí = tlačítko `#btn_status_card` → karta stavu `#sh_status_card`; bez spojení nebo 10 s bez icon_status šedé + „no live data“; počasí = `#ico_rain` (klik = radar, rain_alert.js); `vt-h-sum` (< 1100 px a nízké okno): 1 ikona za skupinu = nejhorší (`.sh-rep`: červená > oranžová > zelená > šedá); telefon na výšku: souhrn (1 ikona za skupinu + „No warnings“ / „2 warnings“, šedé GNSS / IMU / motory / baterie jako „· N no data“; řádek 40 px = tlačítko karty) |
 | vpravo | **systém** `#system_monitor_header` (CPU · RAM · ↓ ↑) · `.vt-hdr-vdiv` · ? `#btn_help` · zvonek `#btn_needs` · Restart `#btn_robot_restart` (jen ikona, potvrzení `appjs.restart.confirm`) · ⋯ `#btn_hdr_more` | pořadí dělá CSS `order`, ne DOM (moduly vkládají tlačítka před `#btn_navbar_toggler`, který je skrytý); řádek nechává volný roh STOPu (`padding-right: --vt-stop-zone`) |
 | ⋯ menu `#vt_hdr_menu` | Fullscreen (`VTApp.toggleFs`, jen kde je Fullscreen API), jazyk EN / CS (`VTI18n.setLang`, totéž co Settings › App); na telefonu a nízkém okně i ? (`VTSupport.help`) a systém (`VTSys.section()`), na nízkém okně navíc logo | malá tečka na ⋯ (telefon, nízké okno), když systém hlásí jantar / červenou |
 
@@ -222,7 +222,7 @@ okně je to jediný řádek hlavičky a mapa pod ním běží celou výškou).
 | Oblast | Panel zobrazený (sheet) | Panel skrytý |
 |---|---|---|
 | Horní lišta | navbar 52 + pás menu 44 | totéž |
-| Ikonky + hlášky | součást horní lišty (plocha rámu), pod pásem menu: ikony 28 px v jednom řádku, hlášky 28 px (agent vlevo + hláška s elipsou) — celkem 152 px | totéž |
+| Ikonky + hlášky | součást horní lišty (plocha rámu), pod pásem menu: souhrn stavu 40 px v jednom řádku (D8 H8-1: celý řádek je tlačítko karty stavu, dotyk ≥ 40 px), hlášky 28 px (agent vlevo + hláška s elipsou) — celkem 164 px | totéž |
 | Pravý stavový panel | — (při otevřeném sheetu ustoupí) | sbalený řádek visí z horní lišty u pravé hrany (📷 = large kamera, ▾ rozbalí) |
 | Levý panel | sheet od spodní lišty, 60 % výšky (celá výška ⤢) | — |
 | Hlavička panelu | panely se záložkami: STOP agenta, ⤢, ✕ na pravém konci řádku záložek, titulek panelu v řádku úchytu sheetu vlevo (P27); Marker a editor mapy beze změny | — |

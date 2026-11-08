@@ -50,7 +50,7 @@ menu jen ikony (název je v bublině), pod 1100 px ukazuje každá skupina ikon 
 tu nejhorší ze skupiny. Logo, tečka, ?, zvonek, ⋯ a STOP jsou tam vždycky.
 
 **Telefon na výšku**: navbar (logo, tečka, zvonek, Restart, ⋯, STOP), pás menu, **souhrn** stavu
-(jedna ikona za skupinu + *Vše OK* / *2 varování*; klepnutí = karta stavu) a řádek hlášek. ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
+(jedna ikona za skupinu + *Bez varování* / *2 varování* / *Bez varování · 1 bez dat*; klepnutí = karta stavu) a řádek hlášek. ? a počítač jsou v **⋯**. **Telefon na šířku**: jeden řádek — tečka · tlačítka
 panelů · jedna ikona za skupinu stavu · zvonek · Restart · ⋯ — logo, ? a počítač jsou v **⋯**, STOP
 je v rohu nad pravým panelem.
 

@@ -43,10 +43,13 @@ it. The card only shows — nothing in it sends anything to the robot.
 ![The status card: every icon with its name and state in words](img/shot-status-card.webp "The status card: the groups, each icon with its name and state, the time of the data")
 
 On a narrow window (under 1100 px) and on a phone on its side each group shows **one icon — the
-worst one of the group** (red before orange before green before grey); the full row comes back on a
+worst one of the group** (red before orange before a grey GPS / IMU / motor / battery = no data,
+then green, then any other grey); the full row comes back on a
 wider window. On a **phone held upright** the row under the menu is a **summary**: one icon per
-group (the worst one) and the state in words — *All OK*, *2 warnings*, *1 fault* — tap it for the
-status card.
+group (the worst one) and the state in words — *No warnings*, *2 warnings*, *1 fault* — tap it
+(the whole row) for the status card. A grey **GPS, GPS-nav, IMU, drive motor or battery** means no
+data or switched off, so the summary counts it: *No warnings · 2 no data*. A grey lidar, camera,
+mower or fan is normal (off while not needed) and is not counted.
 
 **No live data.** When the page loses the robot (the dot is red or orange) or the robot sends no
 icon states for 10 s, the icons are only the **last known** state: they turn grey and *no live data*

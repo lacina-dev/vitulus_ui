@@ -192,6 +192,25 @@
         return tr('status.d8.st.' + k.st + '.' + st.tone);
     }
 
+    /* the summary in words (phone upright, the button's name). H8-2: "no
+       warnings" is not "all OK" — a grey GNSS, IMU, drive motor or battery
+       means no data / switched off, and the summary counts it:
+       "No warnings · 2 no data". Lidar, camera, mower and fans are off in
+       normal work, so their grey is not counted. */
+    var KEY_OFF = {ico_gps: 1, ico_gps_nav: 1, ico_imu: 1, ico_fl_motor: 1, ico_fr_motor: 1,
+                   ico_rl_motor: 1, ico_rr_motor: 1, ico_batt: 1};
+    function summarize(list, stale) {
+        var n = {warn: 0, err: 0, off: 0};
+        list.forEach(function (x) {
+            if (x.tone === 'warn' || x.tone === 'err') { n[x.tone]++; }
+            else if (x.tone === 'off' && KEY_OFF[x.id]) { n.off++; }
+        });
+        if (stale) { return {text: tr('status.d8.sum.stale'), tone: 'off', n: n}; }
+        var main = n.err ? tn('status.d8.sum.err', n.err) : (n.warn ? tn('status.d8.sum.warn', n.warn) : tr('status.d8.sum.ok'));
+        var text = n.off ? tr('status.d8.sum.join', {a: main, b: tn('status.d8.sum.off', n.off)}) : main;
+        return {text: text, tone: n.err ? 'err' : (n.warn ? 'warn' : (n.off ? 'off' : 'ok')), n: n};
+    }
+
     var boxes = {};           // id -> {box, img, st, key}
     var btn = null;           // the button over the non-weather groups (opens the card)
     function wrapIcon(img, id) {
@@ -256,6 +275,7 @@
         if (el.id === 'ico_rain') { return 9; }      // the weather group has one icon
         var id = el.classList.contains('sh-ico') && el.querySelector('img') ? el.querySelector('img').id : el.id;
         var b = boxes[id];
+        if (b && b.st && b.st.tone === 'off' && KEY_OFF[id]) { return 2.5; }   // H8-2: no data before green
         return b && b.st ? RANK[b.st.tone] : 1;
     }
     function rainTone() {
@@ -287,7 +307,7 @@
         if (!strip || !btn) { return; }
         var stale = isStale();
         var since = clock(lastData);
-        var nWarn = 0, nErr = 0;
+        var nWarn = 0, nErr = 0, list = [];
         Object.keys(boxes).forEach(function (id) {
             var b = boxes[id], st = stateOf(b.img);
             var name = tr(TITLES[id] || id), words = stateWords(id, st);
@@ -298,6 +318,7 @@
             b.st = st;
             if (st.tone === 'warn') { nWarn++; }
             if (st.tone === 'err') { nErr++; }
+            list.push({id: id, tone: st.tone});
             if (key === b.key) { return; }        // redraw on change only (2 Hz)
             b.key = key;
             b.box.dataset.tone = st.tone;
@@ -313,11 +334,7 @@
         strip.classList.toggle('sh-stale', stale);
         strip.classList.toggle('sh-calm', !stale && !nWarn && !nErr && rt !== 'warn' && rt !== 'err');
         // the summary (phone upright) and the button's own name
-        var sumK, sumTone;
-        if (stale) { sumK = tr('status.d8.sum.stale'); sumTone = 'off'; }
-        else if (nErr) { sumK = tn('status.d8.sum.err', nErr); sumTone = 'err'; }
-        else if (nWarn) { sumK = tn('status.d8.sum.warn', nWarn); sumTone = 'warn'; }
-        else { sumK = tr('status.d8.sum.ok'); sumTone = 'ok'; }
+        var sm = summarize(list, stale), sumK = sm.text, sumTone = sm.tone;
         var sum = btn.querySelector('.sh-sum');
         if (sum.textContent !== sumK) { sum.textContent = sumK; }
         sum.dataset.tone = sumTone;

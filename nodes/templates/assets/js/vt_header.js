@@ -16,7 +16,7 @@
  *               < 1100  one icon per status group  (vt-h-w1100 → vt-h-sum)
  *             Logo, dot, ?, bell, ⋯ and STOP are never hidden.
  *   vt-h-ph   phone upright (< 576 px): navbar 52 (logo, dot, bell, Restart,
- *             ⋯, STOP) + menu 44 + icons 28 + notices 28 = 152 px;
+ *             ⋯, STOP) + menu 44 + status summary 40 + notices 28 = 164 px;
  *             ? and the system are in ⋯.
  *   vt-h-row  low window (height < 500, phone on its side): ONE row of 44 px —
  *             dot · the panel buttons (#row_menu moves into the navbar) · one

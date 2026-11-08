@@ -3,7 +3,7 @@
    "Navbar").
      PC          navbar 44 + menu band 36 = 80 px
                  [logo · dot | 172 px] [status icons from x = 184]  …  [system ↓ ↑ / ↓ / chip] | ? · bell · Restart · ⋯ ) STOP
-     phone up    navbar 52 + menu 44 + icons 28 + notices 28 = 152 px
+     phone up    navbar 52 + menu 44 + status summary 40 + notices 28 = 164 px
      low window  one row of 44 px: dot · panel buttons | icons per group … bell · Restart · ⋯ ) STOP
    Nothing grows to "share the rest": the left zone has a fixed width and the
    right zone fixed slots, so the icons and the system block never move when a
@@ -104,6 +104,8 @@ html body #div_menu .vt-hdr-tb:is(.vt-on, [aria-expanded="true"]) {
     html body #div_menu .vt-hdr-tb { height: 40px; }
     html body #div_menu .vt-brand .vt-conn { position: relative; }
     html body #div_menu .vt-brand .vt-conn::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; }
+    /* low window: the brand is only the dot — keep its slot 40 px wide */
+    html body.vt-h-row #div_menu .vt-hdr-row > .vt-brand { min-width: 40px; justify-content: center; }
 }
 html body #div_menu .vt-hdr-restart { color: #d9825f; }
 html body #div_menu .vt-hdr-restart:hover { color: #ff9a74; }
@@ -222,10 +224,14 @@ html body.vt-h-ph #div_menu #btn_needs .vt-needs-n { top: 7px; left: 24px; }
 html body.vt-frame.vt-h-ph #row_menu { height: 44px; }
 html body.vt-frame.vt-h-ph #row_menu .btn-group { height: 44px; }
 html body.vt-frame.vt-h-ph #row_menu .btn-group > .btn { flex: 1 1 0 !important; height: 44px; min-width: 0; padding: 0 !important; }
-/* icons: one row of 28 px, notices: one row of 28 px — fixed, so nothing below moves */
-html body.vt-frame.vt-h-ph #row_icons { height: 28px; overflow: hidden; }
+/* the status summary: one row of 40 px (D8 H8-1: the whole row is the button
+   of the status card, a finger needs 40 px — 28 px rows were too small and an
+   invisible bigger hit area would steal taps from the menu band above or the
+   agent's pills / Cancel in the notices row below), notices: one row of 28 px
+   — fixed, so nothing below moves */
+html body.vt-frame.vt-h-ph #row_icons { height: 40px; overflow: hidden; }
 html body.vt-frame.vt-h-ph #status_div.sh-strip:not(.in-header) {
-    height: 28px; max-height: 28px;
+    height: 40px; max-height: 40px;
     flex-wrap: nowrap;
     column-gap: 9px;
 }
@@ -346,7 +352,7 @@ html body.vt-frame #vagent_bars #vagent_panic { display: block; overflow: hidden
 html body.vt-frame #vagent_bars #vagent_unlocked .vs-txt { min-width: 0; }
 /* phone upright: the left slot of the notices row (part of the top frame) */
 html body.vt-frame.vt-h-ph #vagent_bars {
-    top: calc(var(--safe-top, 0px) + var(--navbar-h, 52px) + 44px + 28px + 3px) !important;
+    top: calc(var(--safe-top, 0px) + var(--navbar-h, 52px) + 44px + 40px + 3px) !important;
     left: 8px;
     max-width: calc(100vw - 16px);
 }

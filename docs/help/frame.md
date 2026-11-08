@@ -52,7 +52,7 @@ the tooltip), under 1100 px each icon group shows one icon — the worst one of 
 the dot, ?, the bell, ⋯ and STOP are always there.
 
 **Phone upright**: the navbar (logo, dot, bell, Restart, ⋯, STOP), the menu band, the status
-**summary** (one icon per group + *All OK* / *2 warnings*; tap = the status card) and a row of
+**summary** (one icon per group + *No warnings* / *2 warnings* / *No warnings · 1 no data*; tap = the status card) and a row of
 notices. ? and the computer are in **⋯**. **Phone on its side**: one row — dot ·
 the panel buttons · one icon per status group · bell · Restart · ⋯ — the logo, ? and the computer
 are in **⋯**, STOP is in the corner above the right panel.

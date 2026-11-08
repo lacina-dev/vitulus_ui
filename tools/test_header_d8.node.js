@@ -12,6 +12,8 @@
  *    is GET /api/system (the card and the icons only show what the page has);
  * 3) stale data is marked: the link events and the 10-s freshness are wired,
  *    the "no live data" keys exist;
+ *    H8-2: the summary says "No warnings", never "all OK", and counts a grey
+ *    GNSS / IMU / drive motor / battery as no data ("No warnings · 2 no data");
  * 4) H2: the system block is measured (fitMonitor), not cut by fixed widths.
  */
 'use strict';
@@ -34,11 +36,19 @@ for (const lang of ['en', 'cs']) {
 
 // ---- 1) the icon section in a sandbox (pure code, no DOM)
 const a = SH.indexOf('    var G = '), b = SH.indexOf('    var boxes = {};');
+// the summary uses the real en / cs texts (plural forms by Intl.PluralRules, as VTI18n.tn)
+let LANG = 'en';
+const fill = (t, v) => String(t).replace(/\{(\w+)\}/g, (m0, k) => (v && k in v ? v[k] : m0));
 ok(a > 0 && b > a, 'icon section found in status_header.js');
 const used = new Set();
-const ctx = {tr: (k) => { used.add(k); return k; }};
+const ctx = {
+    tr: (k, v) => { used.add(k); return LANG === 'key' ? k : fill(dict[LANG][k], v); },
+    tn: (k, n) => { const c = new Intl.PluralRules(LANG === 'key' ? 'en' : LANG).select(n); const d = dict[LANG === 'key' ? 'en' : LANG];
+                    used.add(k + '.other'); return fill(d[k + '.' + c] || d[k + '.other'], {n: n}); }
+};
+LANG = 'key';
 vm.createContext(ctx);
-vm.runInContext(SH.slice(a, b) + '\nthis.stateOf = stateOf; this.stateWords = stateWords; this.KIND = KIND;' +
+vm.runInContext(SH.slice(a, b) + '\nthis.summarize = summarize; this.stateOf = stateOf; this.stateWords = stateWords; this.KIND = KIND;' +
                 'this.motorSvg = motorSvg; this.battSvg = battSvg; this.SVG = SVG;', ctx);
 const img = (src) => ({getAttribute: () => src});
 
@@ -85,6 +95,29 @@ ok(svgs.every((s) => !/#[0-9a-f]{3,6}/i.test(s.replace(/var\(--vt-frame-bg, #282
 ok(new Set(['fl', 'fr', 'rl', 'rr'].map((w) => ctx.motorSvg(w))).size === 4, 'each motor icon fills a different wheel');
 ok(new Set([0, 1, 2, 3, 4].map((l) => ctx.battSvg({lvl: l}))).size === 5, 'battery icon shows 5 different levels');
 ok(/<path d="M12.6 4.2/.test(ctx.battSvg({lvl: 2, chg: true})) && !/<path d="M12.6 4.2/.test(ctx.battSvg({lvl: 2, chg: false})), 'charging flash only while charging');
+
+// ---- H8-2: the summary in words (real texts)
+const ALL_OK = Object.keys(ctx.KIND).map((id) => ({id: id, tone: 'ok'}));
+const withT = (ch) => ALL_OK.map((x) => ({id: x.id, tone: ch[x.id] || x.tone}));
+const SUMS = [
+    ['all green', {}, 'No warnings', 'Bez varování', 'ok'],
+    ['lidar, camera, mower, fans off = normal', {ico_lidar: 'off', ico_camera: 'off', ico_mower: 'off', ico_fan: 'off', ico_fan_pcb: 'off'}, 'No warnings', 'Bez varování', 'ok'],
+    ['2 motors DISABLED + IMU OFF + GNSS no data', {ico_fl_motor: 'off', ico_fr_motor: 'off', ico_imu: 'off', ico_gps: 'off'}, 'No warnings · 4 no data', 'Bez varování · 4 bez dat', 'off'],
+    ['battery no data', {ico_batt: 'off'}, 'No warnings · 1 no data', 'Bez varování · 1 bez dat', 'off'],
+    ['1 warning + GNSS-nav no data', {ico_rr_motor: 'warn', ico_gps_nav: 'off'}, '1 warning · 1 no data', '1 varování · 1 bez dat', 'warn'],
+    ['2 warnings', {ico_rr_motor: 'warn', ico_batt: 'warn'}, '2 warnings', '2 varování', 'warn'],
+    ['fault wins over warnings', {ico_mower: 'err', ico_batt: 'warn'}, '1 fault', '1 porucha', 'err'],
+    ['3 faults', {ico_mower: 'err', ico_supply: 'err', ico_fl_motor: 'err'}, '3 faults', '3 poruchy', 'err'],
+];
+for (const [what, ch, en, cs, tone] of SUMS) {
+    LANG = 'en'; const e = ctx.summarize(withT(ch), false);
+    LANG = 'cs'; const c = ctx.summarize(withT(ch), false);
+    ok(e.text === en && c.text === cs && e.tone === tone, 'summary: ' + what + ' -> "' + e.text + '" / "' + c.text + '" (' + e.tone + ')');
+}
+LANG = 'en';
+ok(ctx.summarize(withT({ico_mower: 'err'}), true).text === 'No live data', 'summary: stale wins over everything');
+ok(!/all ok|vše ok/i.test(dict.en['status.d8.sum.ok'] + dict.cs['status.d8.sum.ok']), 'summary never claims "all OK"');
+LANG = 'key';
 
 // ---- 2) read only
 const code = SH.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

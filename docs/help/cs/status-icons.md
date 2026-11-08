@@ -43,9 +43,13 @@ ukazuje — nic z ní robotu neposílá.
 ![Karta stavu: každá ikona s názvem a stavem slovy](../img/shot-status-card.webp "Karta stavu: skupiny, každá ikona s názvem a stavem, čas dat")
 
 V užším okně (pod 1100 px) a na telefonu na šířku ukazuje každá skupina **jednu ikonu — tu
-nejhorší ze skupiny** (červená před oranžovou před zelenou před šedou); v širším okně se vrátí celá
+nejhorší ze skupiny** (červená před oranžovou před šedou GPS / IMU / motorem / baterií = bez dat,
+pak zelená a nakonec ostatní šedé); v širším okně se vrátí celá
 řada. Na **telefonu na výšku** je řádek pod menu **souhrn**: jedna ikona za skupinu (ta nejhorší)
-a stav slovy — *Vše OK*, *2 varování*, *1 porucha* — klepnutím otevřeš kartu stavu.
+a stav slovy — *Bez varování*, *2 varování*, *1 porucha* — klepnutím (kamkoli na řádek) otevřeš
+kartu stavu. Šedé **GPS, GPS navigace, IMU, pojezdový motor nebo baterie** znamenají bez dat nebo
+vypnuto, takže je souhrn počítá: *Bez varování · 2 bez dat*. Šedý lidar, kamera, sekačka nebo
+ventilátor je normální (vypnuté, když nejsou potřeba) a nepočítají se.
 
 **Bez živých dat.** Když stránka ztratí robota (tečka je červená nebo oranžová) nebo robot 10 s
 nepošle stav ikon, ukazují ikony jen **poslední známý** stav: zešednou a přes ně je *bez živých
