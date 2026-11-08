@@ -45,7 +45,15 @@
         if (e && e.classList.contains(c) !== !!on) { e.classList.toggle(c, !!on); }
     }
     var DOCK_W = 216, DOCK_H = 162;      // náhled kamery (4:3 jako zdroj 160×120)
-    var PANEL_W = 196;
+    /* the panel's own width (right_dock.css --rp-w): 196 px, 260 px from a
+       1600 px window (owner 2026-11-08), 190 px on a phone */
+    function panelW() {
+        try {
+            if (window.matchMedia('(min-width: 1600px)').matches) { return 260; }
+            if (window.matchMedia('(max-width: 575.98px)').matches) { return 190; }
+        } catch (e) { /* old browser */ }
+        return 196;
+    }
 
     /* Názvy sekcí anglicky (přání majitele) a KAŽDÁ sekce je sbalitelná —
        stav si drží každá zvlášť v localStorage, takže přežije reload. */
@@ -400,6 +408,11 @@
                    zhasne jejím sbalením (viz paintCam). Prázdný stav proto jen
                    konstatuje, nic nenabízí — a místo pro náhled zůstává
                    rezervované, ať výška neposkakuje. */
+                /* RP6: a black slot says why — waiting for the first frames /
+                   no picture (retrying); fixed over the stream's canvas */
+                camMsg = el('div', 'rp-cam-msg', document.body);
+                camMsg.id = 'rp_cam_msg';
+                camMsg.setAttribute('aria-live', 'polite');
                 var off = el('div', 'rp-cam-off', box);
                 off.id = 'rp_cam_off';
                 off.textContent = t('rdock.cam.nosignal');
@@ -565,6 +578,31 @@
             if (gw.textContent !== why) { gw.textContent = why; }
             setTip(gl, (q ? q.tip : t('rdock.geo.k')) + '\n' + t('rdock.geo.tip'));
         };
+        /* M6: what VO / Li / Wh / FIX / PROB / ANC mean — one quiet line
+           right under the chips (their tooltips say more) */
+        var odRow = box.querySelector('#div_odom');
+        while (odRow && odRow.parentNode && odRow.parentNode !== box) { odRow = odRow.parentNode; }
+        var leg = el('div', 'rp-odo-legend');
+        if (odRow && odRow.parentNode === box) { box.insertBefore(leg, odRow.nextSibling); }
+        else { box.appendChild(leg); }
+        var paintLeg = function () {
+            leg.textContent = '';
+            String(t('rdock.odo.legend')).split(' · ').forEach(function (part, i) {
+                if (i) { leg.appendChild(document.createTextNode(' · ')); }
+                var sp = part.indexOf(' ');
+                var b = el('b', null, leg);
+                b.textContent = sp > 0 ? part.slice(0, sp) : part;
+                if (sp > 0) { leg.appendChild(document.createTextNode('\u00a0' + part.slice(sp + 1))); }
+            });
+        };
+        /* on a phone it is one line ("…", CSS); a tap unfolds / folds it */
+        leg.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            setCls(leg, 'open', !leg.classList.contains('open'));
+            placeSoon();
+        });
+        paintLeg();
+        relang.push(paintLeg);
         var paintAll = function () { paint(); paintGeo(); };
         sec.onUnfold = paintAll;
         paintAll();
@@ -814,10 +852,16 @@
                 tr.dataset.state = m && m.rate && m.rate.rate != null ? m.rate.tone : 'off';
                 setTip(tr, t('gnssrx.r.rtcm') + ': ' + (m && m.rate ? m.rate.txt : '—') + ' · ' + t('gnssrx.r.rtcm_tip'));
                 cd.dataset.state = m ? m.corrState : 'off';
-                setTip(cd, t('gnssrx.r.corr') + ': ' + (m && m.corr ? m.corr : '—') + ' · ' + t('rdock.gnss.corr_code'));
+                /* the RTCM rate tints this dot too (gnssSummary): on the 196 px
+                   panel it is not written in the head, so it is in the tip */
+                setTip(cd, t('gnssrx.r.corr') + ': ' + (m && m.corr ? m.corr : '—') +
+                    ' · ' + t('gnssrx.r.rtcm') + ': ' + (m && m.rate ? m.rate.txt : '—') +
+                    ' · ' + t('rdock.gnss.corr_code'));
                 sec.dataset.tone = m ? m.worst : 'off';
             }
             paintQ();
+            setTip(wrap, m ? t('gnssrx.pos') + ' ' + m.pos[0] + ' · ' + t('gnssrx.hdg') + ' ' + m.hdg[0] +
+                ' · SV ' + m.sv + (m.rate ? ' · RTCM ' + m.rate.txt : '') : t('rdock.gnss.nodata'));
             var tip = m ? t('gnssrx.pos') + ' ' + m.pos[0] + ' · ' + t('gnssrx.hdg') + ' ' + m.hdg[0] +
                 ' · SV ' + m.sv + (m.corr ? ' · ' + t('gnssrx.r.corr') + ' ' + m.corr : '') : t('rdock.gnss.nodata');
             if (gdot) {
@@ -1048,7 +1092,7 @@
                the C keeps its open front */
             var lg = document.getElementById('div_log_view');
             var lr = (lg && !lg.classList.contains('log-expanded')) ? rectOf('div_log_view') : null;
-            if (lr && lr.height > 0 && lr.right > vw - PANEL_W) { bottomLimit = Math.min(bottomLimit, lr.top - FRAME_GAP + 6); }
+            if (lr && lr.height > 0 && lr.right > vw - panelW()) { bottomLimit = Math.min(bottomLimit, lr.top - FRAME_GAP + 6); }
             var beside = document.body.classList.contains('vt-joy-beside-rp');
             if (beside) {
                 /* the stick stands beside the column: run down to the ledge */
@@ -1098,7 +1142,7 @@
         /* Otevřený drawer ukrojí šířku: panel se zúží PŘESNĚ na to, co zbylo
            (ne na pevnou hodnotu), ať se obsah neořezává a nic nemizí pod
            panelem. Pod 150 px se schová celý (viz výše) a zbyde jen úchyt. */
-        var narrow = drawerRight > 0 && free < PANEL_W + 24;
+        var narrow = drawerRight > 0 && free < panelW() + 24;
         panel.classList.toggle('narrow', narrow);
         panel.style.width = narrow ? Math.floor(free) + 'px' : '';
 
@@ -1126,7 +1170,7 @@
             /* Ikonková lišta: v širokém okně sedí v hlavičce stránky, v užším
                zůstává nad mapou — tam pod ni panel ustoupí, ať ji nepřekrývá. */
             var ic = rectOf('status_div');
-            if (ic && ic.bottom > top && ic.right > window.innerWidth - PANEL_W - 24) {
+            if (ic && ic.bottom > top && ic.right > window.innerWidth - panelW() - 24) {
                 top = Math.round(ic.bottom + 6);
             }
             /* Textový řádek pod ikonkami (#span_status_info — „…for dock cmd")
@@ -1140,7 +1184,7 @@
         panel.style.maxHeight = Math.max(60, Math.round(bottomLimit - top)) + 'px';
         panel.style.minHeight = '';
         /* joystick vedle panelu, ať zůstane celý dosažitelný */
-        var pw = (panel.offsetWidth || PANEL_W);
+        var pw = (panel.offsetWidth || panelW());
         /* log nesmí zabíhat pod panel — zkrátí se přesně o jeho šířku */
         setCls(document.body, 'rp-panel-open', isOpen());
         document.documentElement.style.setProperty('--rp-log-right', (pw + 14) + 'px');
@@ -1150,7 +1194,7 @@
         if (handle) {                       // úchyt drží hranu vedle panelu
             handle.style.display = '';
             handle.style.top = Math.round(top + (frame ? 24 : 10)) + 'px';   // C frame: below the concave corner
-            handle.style.right = isOpen() ? (panel.offsetWidth || PANEL_W) + 'px' : '0px';
+            handle.style.right = isOpen() ? (panel.offsetWidth || panelW()) + 'px' : '0px';
             /* P9: the collapsed one-row panel (phone) is shorter than the
                handle — the handle used to hang ~30 px below the row. Fit it
                into the row, under the concave corner. */
@@ -1237,6 +1281,36 @@
         try { cv.reloadStream('rightpanel', true); } catch (e) {}
     }
 
+    /* RP6 + review: framesOk() dips for a moment even on a running stream
+       (one late frame), so the picture counts as gone only after CAM_QUIET
+       ms without frames. ONE verdict for the dot and the message. */
+    var CAM_QUIET = 3000;
+    var lastFrameAt = 0, firstMissAt = 0;
+    function camVerdict() {
+        var now = Date.now();
+        if (frames()) { lastFrameAt = now; firstMissAt = 0; return 'live'; }
+        /* measured from the first sample WITHOUT frames (paintCam samples
+           every 2 s, so the last good sample may be old already) */
+        if (!firstMissAt) { firstMissAt = now; }
+        if (lastFrameAt && now - firstMissAt < CAM_QUIET) { return 'live'; }  // a short dip
+        var since = Math.max(camAsked || 0, firstMissAt);
+        if (!since || now - since < CAM_QUIET) { return 'starting'; }        // just asked: no words yet
+        /* had a picture and lost it, or nothing for 8 s after asking */
+        return (lastFrameAt > (camAsked || 0) || now - since > 8000) ? 'none' : 'wait';
+    }
+    var camMsg = null;               // RP6: "waiting for the picture" over the slot
+    function paintCamMsg(show, verdict) {
+        if (!camMsg) { return; }
+        var key = '', st = 'warn';
+        if (show && (verdict === 'wait' || verdict === 'none')) {
+            key = verdict === 'none' ? 'rdock.cam.msg.none' : 'rdock.cam.msg.wait';
+            st = verdict === 'none' ? 'err' : 'warn';
+        }
+        setCls(camMsg, 'on', !!key);
+        var txt = key ? t(key) : '';
+        if (camMsg.textContent !== txt) { camMsg.textContent = txt; }
+        if (camMsg.dataset.state !== st) { camMsg.dataset.state = st; }
+    }
     var autoPaused = false;          // stream vypnutý kvůli odrolování z dohledu
     var camAsked = 0;                // kdy jsme naposledy požádali o zapnutí
 
@@ -1306,8 +1380,7 @@
             camAsked = camAsked || Date.now();
         }
         if (!on) { setCamSt('rdock.cam.st.starting', 'warn'); }
-        else if (frames()) { setCamSt('rdock.cam.st.large', 'ok'); }
-        else { setCamSt('rdock.cam.st.waiting', 'warn'); }
+        else { camSt(camVerdict(), 'rdock.cam.st.large'); }
         var slotOk = !narrow && !compact && !folded;
         slot.style.display = slotOk ? 'block' : 'none';
         setCls(slot, 'idle', false);
@@ -1334,6 +1407,12 @@
         setCls(document.body, 'vt-map-mini', mini);
     }
 
+    /* the dot says what the message over the picture says */
+    function camSt(v, liveKey) {
+        if (v === 'live') { setCamSt(liveKey, 'ok'); }
+        else if (v === 'none') { setCamSt('rdock.cam.msg.none', 'err'); }
+        else { setCamSt('rdock.cam.st.waiting', 'warn'); }
+    }
     function setCamSt(key, state) {
         if (!camState) { return; }
         if (camState.dataset.state !== state) { camState.dataset.state = state; }
@@ -1346,6 +1425,7 @@
         var slot = document.getElementById('rp_cam_slot');
         var off = document.getElementById('rp_cam_off');
         if (!cam || !slot || !panel) { return; }
+        paintCamMsg(false);                       // shown again below only while docked + black
         var on = cam.style.display !== 'none';
         var big = isBigCam();
         var open = !panel.classList.contains('closed') && panel.style.display !== 'none';
@@ -1363,8 +1443,7 @@
 
         if (!on) { setCamSt(autoPaused ? 'rdock.cam.st.paused' : 'rdock.cam.st.off', 'off'); }
         else if (big) { setCamSt('rdock.cam.st.large', 'ok'); }
-        else if (frames()) { setCamSt('rdock.cam.st.live', 'ok'); }
-        else { setCamSt('rdock.cam.st.waiting', 'warn'); }
+        else { camSt(camVerdict(), 'rdock.cam.st.live'); }
         slot.style.display = eligible ? 'block' : 'none';
         slot.classList.toggle('idle', !on);
         /* „no signal" až po chvíli marného čekání — jinak by problikávalo při
@@ -1435,6 +1514,21 @@
             btn.click();
         }
         if (docked && !clipped) { applyCamSize(w, h); }
+        paintCamMsg(docked && !clipped, camVerdict());
+    }
+
+    function autoTip(ev) {
+        var e = ev.target;
+        for (var i = 0; e && e !== panel && e.nodeType === 1 && i < 4; i++, e = e.parentNode) {
+            var auto = e.hasAttribute('data-rp-autotip');
+            if (e.title && !auto) { return; }             // its own tooltip wins
+            if (e.scrollWidth > e.clientWidth + 1 && e.clientWidth > 0) {
+                var tx = (e.textContent || '').replace(/\s+/g, ' ').trim();
+                if (tx && e.title !== tx) { e.title = tx; e.setAttribute('data-rp-autotip', '1'); }
+                return;
+            }
+            if (auto) { e.removeAttribute('title'); e.removeAttribute('data-rp-autotip'); }
+        }
     }
 
     // ------------------------------------------------------------- ostatní
@@ -1598,6 +1692,15 @@
             rpBody.addEventListener('scroll', paintCam, {passive: true});
         }
         setInterval(paintCam, 2000);          // 'čeká na signál' → 'živě'
+        /* the panel's width changes (1600 px threshold, narrow mode): the
+           camera slot, handle and log follow once the transition settles */
+        if (window.ResizeObserver && panel) { new ResizeObserver(placeSoon).observe(panel); }
+        /* RP1: any value cut with "…" shows its full text as a tooltip
+           (hover / keyboard focus) — written on demand, removed when it fits */
+        if (panel) {
+            panel.addEventListener('mouseover', autoTip);
+            panel.addEventListener('focusin', autoTip);
+        }
         setTimeout(function () { placeLog(); place(); }, 1500);
     }
 

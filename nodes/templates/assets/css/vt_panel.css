@@ -1149,8 +1149,13 @@ button.vt-prog-card:hover { border-color: var(--vt-accent); }
 .vt-rp-line-item { padding: 1px 2px 1px 3px; }
 #div_status_speed-1 { margin-top: 2px; }
 #div_status_speed-2 { margin-top: 3px; }
-.vt-btn-mini { height: 18px; width: 42px; padding: 0 2px 0 3px; font-size: var(--vt-fs-xs); }
+/* D1 (2026-11-08, audit RP2): Dock / Undock / Stop are motion commands —
+   26 px on a PC (was 18), a full touch target on touch / narrow screens */
+.vt-btn-mini { height: 26px; width: 42px; padding: 0 2px 0 3px; font-size: var(--vt-fs-sm); line-height: 1; }
 #dock_btn_menu_dock, #dock_btn_menu_undock, #dock_btn_menu_stop { width: 50px; }
+@media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
+    #right_panel .vt-btn-mini { height: 44px !important; min-height: 44px; }
+}
 .vt-batt-pct { font-size: var(--vt-fs-sm); font-weight: 600; color: var(--bs-secondary); margin-right: 5px; min-width: 28px; text-align: right; }
 .vt-chip-sm-note { font-size: 9px; margin-left: auto; opacity: 0.6; }
 #row_menu .btn > i, #row_menu .btn > svg, #div_bottom_menu .btn > i, #div_bottom_menu .btn > svg { font-size: 17px; font-weight: bold; }
@@ -1201,6 +1206,14 @@ body.vt-frame.vt-c-rp:not(.vt-m-sheet) .vt-notice-row {
 #btn_panel_toggle { flex: 0 0 auto; min-width: 44px; border-top-left-radius: 6px; border-bottom-left-radius: 0; }
 #btn_panel_toggle .la { font-size: 18px; }
 #btn_panel_toggle.vt-on { color: #fff; background: rgba(var(--vt-accent-rgb), 0.24); border-color: var(--vt-accent); }
+/* D1 (audit H3): the toggle shows "panel shown" by its icon only — the wash
+   and the accent edge belong to the ONE open section (Settings, Map, …), so
+   the band never has two "active" items */
+html body.vt-frame #row_menu #btn_panel_toggle.vt-on {
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #fff !important;
+}
 #row_menu #btn_marker.vt-tbar-first { border-top-left-radius: 0; }
 /* agent bars (finding / ask strip) sit right under the navbar — or at the top
    edge when the navbar is hidden on a low window */
@@ -1431,6 +1444,43 @@ body.vt-frame #div_bottom_menu #btn_log { margin-right: var(--vt-bar-gap); }
         background: var(--vt-frame-bg);
         padding-bottom: var(--safe-bottom, 0px);
     }
+}
+
+/* ===== D1 (2026-11-08, audit B1): the bar is a thumb row on a phone ======
+   The buttons fill the whole bar (the sheet bar is 56 px, the buttons were
+   40 px at its top — or 25 px in a narrow window with a mouse): >= 48 px
+   upright, >= 44 px on a landscape phone. The bar's height follows the
+   buttons; vt_frame.js measures it (--vt-frame-bottom), nothing else moves. */
+@media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
+    body.vt-frame #div_bottom_menu { display: flex; flex-direction: column; }
+    body.vt-frame #div_bottom_menu .btn-group { flex: 1 1 auto; align-items: stretch; min-height: 44px; }
+    body.vt-frame #div_bottom_menu .btn-group > .btn { min-height: 44px; }
+}
+@media (max-width: 575.98px) {
+    body.vt-frame.vt-m-sheet #div_bottom_menu .btn-group,
+    body.vt-frame.vt-m-sheet #div_bottom_menu .btn-group > .btn { min-height: 48px; }
+}
+
+/* ===== D1 (audit B2): panel head buttons — one size per device ===========
+   PC: ? / ⤢ / ✕ all 36 px (the ? was 30 px); touch keeps 40 px for all three
+   (U1 kolo 3) — on a phone they share the tab row, wider would hide a tab */
+#ui_drawer_head #btn_ui_drawer_help { width: var(--vt-iconbtn); height: var(--vt-iconbtn); }
+@media (pointer: coarse) {
+    #ui_drawer_head #btn_ui_drawer_help { width: var(--vt-touch); height: var(--vt-touch); }
+}
+
+/* ===== D1 (audit S1): no tab hidden behind an arrow ======================
+   PC (docked panel, ~470 px wide): the strip wraps to a second row instead of
+   scrolling — Settings has 10 tabs, Camera / Lidar / App were off-screen.
+   Phone / landscape (head beside the strip, P27): it still scrolls, but the
+   ‹ › arrows are real touch targets (40 px, were 28 px). */
+body.vt-frame.vt-m-dock ul.nav-tabs.drawer-pills { flex-wrap: wrap; overflow-x: visible; }
+body.vt-frame.vt-m-dock ul.nav-tabs.drawer-pills > .vt-tabs-nav { display: none !important; }
+@media (max-width: 575.98px), (max-height: 499.98px), (pointer: coarse) {
+    ul.nav-tabs.drawer-pills > .vt-tabs-nav { flex-basis: 40px; width: 40px; }
+    ul.nav-tabs.drawer-pills > .vt-tabs-nav-l { margin-right: calc(-40px - var(--vt-gap-1)) !important; }
+    ul.nav-tabs.drawer-pills > .vt-tabs-nav-r { margin-left: calc(-40px - var(--vt-gap-1)) !important; }
+    ul.nav-tabs.drawer-pills > .vt-tabs-nav .vt-tabs-btn { width: 40px; min-width: 40px; font-size: 24px !important; }
 }
 
 /* ===== the back of the C runs down to the page edge (owner 2026-10-25) ====
@@ -1724,6 +1774,17 @@ html body.vt-frame #div_log_view #btn_log_expand:hover,
 html body.vt-frame #div_log_view #btn_log_expand:focus-visible { color: var(--vt-accent); background: rgba(255, 255, 255, 0.06); box-shadow: none; }
 @media (pointer: coarse) {
     html body.vt-frame #div_log_view #btn_log_expand { width: 44px; height: 30px; line-height: 30px; top: 2px; }
+}
+/* D1 (audit B6): the small log shows the newest lines, so its top line is
+   often cut in half — it fades out instead of looking broken; the ▲ (full
+   log) is a visible control, not a speck: accent, 36×28 on a PC */
+html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+    padding-right: 48px;
+}
+@media (pointer: fine) {
+    html body.vt-frame #div_log_view #btn_log_expand { width: 36px; height: 28px; line-height: 28px; top: 3px; color: var(--vt-accent); }
 }
 /* (the log-wide case — the log under the panel — is gone: the panel runs
    down to the page edge and the log always stands beside it, 2026-10-25) */

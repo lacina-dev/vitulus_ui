@@ -132,7 +132,7 @@ window.MapEditPanel = (function () {
     // ---- layers panel
     var GROUPS = [
         { k: 'medits.layers.objects', rows: ['waypoints', 'paths', 'edits', 'zones', 'places'] },
-        { k: 'medits.layers.world', rows: ['coverage', 'mow_load', 'gnss', 'slope', 'terrain', 'aerial'] },
+        { k: 'medits.layers.world', rows: ['coverage', 'mow_load', 'grass', 'gnss', 'slope', 'terrain', 'aerial'] },
     ];
     function renderLayers() {
         var host = $('mapedit_layers');
@@ -221,11 +221,14 @@ window.MapEditPanel = (function () {
         if (k === 'mow_load') return window.VTMowTrail ? VTMowTrail.panelHost() : '';
         if (k === 'aerial') return baseSelectHtml();
         if (k === 'terrain') return '<span class="mapedit-swatch vt-sw-terrain-grad"></span> ' + esc(t('medits.legend.terrain'));
-        if (k !== 'coverage' && k !== 'gnss' && k !== 'slope') return '';
+        if (k !== 'coverage' && k !== 'gnss' && k !== 'slope' && k !== 'grass') return '';
         var stops = msg && msg.legend && msg.legend.stops;
-        if (!msg || !msg.w || !stops) return '<span class="vt-muted">' + esc(t('medits.layer.no_data')) + '</span>';
-        return (msg.legend.title ? '<div class="vt-muted">' + esc(msg.legend.title) + '</div>' : '') + stops.map(function (s) {
-            return '<span class="mapedit-stop"><i style="background:' + esc(/^#[0-9a-fA-F]{3,8}$/.test(s.color) ? s.color : '#888') + '"></i>' + esc(s.label) + '</span>';
+        if (!msg || !msg.w || !stops) return '<span class="vt-muted">' + esc(t(k === 'grass' ? 'medits.layer.grass_none' : 'medits.layer.no_data')) + '</span>';
+        // grass: classes against the cut height, translated by their key
+        var title = k === 'grass' && msg.legend.cut_mm != null ? t('medits.legend.grass_title', { cut: msg.legend.cut_mm }) : msg.legend.title;
+        return (title ? '<div class="vt-muted">' + esc(title) + '</div>' : '') + stops.map(function (s) {
+            var lab = k === 'grass' && s.key ? t('medits.legend.grass.' + s.key) : s.label;
+            return '<span class="mapedit-stop"><i style="background:' + esc(/^#[0-9a-fA-F]{3,8}$/.test(s.color) ? s.color : '#888') + '"></i>' + esc(lab) + '</span>';
         }).join('');
     }
     function setLegend(k) {

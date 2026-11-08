@@ -110,7 +110,9 @@ Agent je jiná věc (zastaví misi agenta).
 
 ## Pravý panel
 
-Visí z horního pásu u pravého okraje. Je to **přehledová deska**: na první pohled (barvou) vidíš,
+Visí z horního pásu u pravého okraje (široký 196 px; od okna širokého 1600 px má 260 px, aby se
+čísla vešla — na telefonu zůstává úzký). Hodnota, která se nevejde, končí **…**; najetím uvidíš
+celý text. Je to **přehledová deska**: na první pohled (barvou) vidíš,
 jestli je všechno v pořádku, aktuální čísla máš na jedno kliknutí a úplný detail s vysvětlením je
 v levém panelu. **Sekačka**, **Navi** a **GNSS** proto mají tři úrovně:
 
@@ -137,20 +139,24 @@ pozastaveno nebo není co ukázat.
 - **Navi** — v řádku s názvem: kdo drží polohu (`DOCK`, `RTK`, `TRACKER`…), zdroj kurzu
   (`SAT` / `IMU`) a jedna **tečka odometrie** za VO / Li / Wh dohromady (zelená = běží, oranžová =
   jedna je zhoršená, červená = jedna je ztracená, šedá = pozastavené v doku; najetí = každý zdroj).
-  Rozbalení: řádek čipů `VO Li Wh FIX PROB ANC` — najetí na čip řekne
+  Rozbalení: řádek čipů `VO Li Wh FIX PROB ANC` a pod ním jednořádková legenda (VO kamera · Li lidar ·
+  Wh kola + IMU · FIX RTK fix · PROB GPS ověřená · ANC kotva; na telefonu jeden řádek, klepnutím celá) — najetí na čip řekne
   např. *Li — lidarová odometrie: běží, sleduje · kov. 0.010*, *FIX — RTK fix je použitelný:
   nepoužitelný · stáří korekcí 0.5 s*, *ANC — kotva polohy: kotva čerstvá, naposledy posunuta
   před 12 s* — a jeden řádek trackeru (`STANDBY` / `ACTIVE` + poslední korekce); ikona detailu
   v řádku s názvem otevře zbytek ([co znamenají čipy](localization.md#jak-číst-stav-pravý-panel--navi)).
 - **GNSS** — řádek s názvem: fix Polohy, fix Kurzu (`RTK`, `FLT` = float, `DGN` = DGNSS, `3D`,
-  `NO`), použité satelity (zeleně od 12), rychlost RTCM (zpráv za sekundu, ze základny asi 5,5,
-  oranžově pod 2, červeně při 0) a tečka stáří korekcí (zelená < 2 s, oranžová < 10 s, červená
+  `NO`), použité satelity (zeleně od 12), na širokém panelu rychlost RTCM (zpráv za sekundu, ze základny asi 5,5,
+  oranžově pod 2, červeně při 0; na úzkém je v barvě a tooltipu tečky) a tečka stáří korekcí (zelená < 2 s, oranžová < 10 s, červená
   starší nebo žádné; slabá rychlost ji také zbarví oranžově). Rozbalení: dvě malé dlaždice **Poloha | Kurz** jen s rychlými
   čísly — fix, satelity použité / viditelné, přesnost (`acc` v cm, `hdg` ve °), stáří korekcí a rychlost RTCM —
   a ikona detailu v řádku s názvem otevře celou kartu obou přijímačů
   ([Přijímače GNSS](localization.md#přijímače-gnss-pravý-panel--gnss)).
 - **Kamera** — tečka v řádku s názvem (zelená = živý obraz, oranžová = startuje / čeká, šedá =
-  vypnuto) a přepínač Off / S / L; viz níže.
+  vypnuto) a přepínač Off / S / L; viz níže. Dokud obraz nepřišel, černé místo říká **Čekám na
+  obraz…**, po ~8 s **Z kamery nejde obraz — zkouším znovu**; obraz, který se zastaví na 3 s a víc,
+  hlásí totéž a tečka zčervená. Když je všechno rozbalené a panel se musí posouvat (telefon), sekce
+  Kamera zůstává připnutá dole.
 
 Každá sekce se sbalí kliknutím na název (▾ / ▸) a zůstane, jak jsi ji nechal. Sekce se stavem
 (Sekačka, GNSS) má jemný barevný nádech. Se sbalenou Sekačkou, Navi a GNSS se všechno nad kamerou

@@ -52,7 +52,7 @@ const CHECKS = {
     automation: ['on', 'off'], hold: ['clear', 'held'], dock: ['in_dock', 'not_in_dock', 'off_dock'], mission: ['ready', 'free', 'busy'],
     battery: ['ok', 'waiting_battery', 'unknown'],
     rain: ['dry', 'ignored_mode', 'ignored_once', 'rain', 'recent_rain', 'forecast', 'rain_stale', 'no_data', 'waiting_weather'],
-    gnss: ['ok', 'mux_hold', 'waiting_gps'], temperature: ['ok', 'waiting_temp', 'waiting_temp_spike'],
+    gnss: ['ok', 'mux_hold', 'waiting_gps', 'not_checked', 'not_checked_live'], temperature: ['ok', 'waiting_temp', 'waiting_temp_spike'],
     window: ['open', 'off', 'outside_window', 'too_little_left'], programs: ['ok', 'wait_programs', 'no_schedule', 'not_on_map'],
     map: ['ok', 'loading_map', 'unknown'], enabled: ['on', 'sleep_off', 'automation_off'], manual: ['free', 'busy'], agent: ['free', 'busy'],
     ssh: ['none', 'logins', 'ignored'], ui: ['none', 'clients', 'ignored'], boot: ['done', 'boot_grace'], stay_awake: ['none', 'until'],

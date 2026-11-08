@@ -7,7 +7,7 @@ icon: la-cut
 summary: Mower power, the blade, cut height and RPM in Settings › Mower.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [off the plan, plan line, gps line, lidar line, heading vs gnss, cross-track, xte, localization wrong, mow load, load, trail, heat, temperature, overload, past runs, mower, blade, knife, cut height, height, rpm, remember, saved height, saved rpm, after power-off, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
+keywords: [grass height, grass, calibration, grass_calib, terrain, off the plan, plan line, gps line, lidar line, heading vs gnss, cross-track, xte, localization wrong, mow load, load, trail, heat, temperature, overload, past runs, mower, blade, knife, cut height, height, rpm, remember, saved height, saved rpm, after power-off, start motor, stop motor, mower command, print help, mower stop, stop, idle, docking cancelled]
 ---
 # Mowing unit
 
@@ -129,6 +129,56 @@ then it is worth a look. **Heading vs GNSS** is left out in turns, where the two
 
 Runs recorded before these data existed show them in grey, no data, and have no lines or Position
 table. Torque is there from the first runs.
+
+## Grass height ahead
+
+While the robot drives or mows, the depth camera measures the grass in a strip in front of it
+(0.8–1.6 m from the robot's centre, ±0.35 m to the sides) and tells grass from terrain that rises
+or falls. The camera sees only the top of the grass, never the soil, so:
+
+- **On the map** (map editor › Layers › **Grass height**, file `grass.npz` of the site) a 0.2 m
+  cell gets a height only once its ground is known: when the wheels drive over it, or from the
+  terrain of earlier runs. Each cell keeps the last height, the median, how many times it was
+  seen and when. Colours: green = up to the cut height + 2 cm, yellow = cut + 2–4 cm, orange =
+  more. Cells are 0.2 m, so a mown | uncut edge stays sharp on the map.
+- **Right now** (`/grass/ahead`) the ground ahead is taken from the wheels or earlier runs, else
+  the robot's own plane is extended forward. Classes against the cut height: `below_cut`,
+  `+2-4cm`, `>+4cm`, or `unknown`.
+- A **smooth** surface (concrete, a path) close to the ground is ground. A gentle ramp or dip is
+  taken off; when the whole strip, the mown lane beside it included, tilts more, it is terrain:
+  without known ground the answer is `unknown` (`terrain_change`), not a height. Under grass
+  a tilt never lowers the height (the grass may just grow taller ahead), it only makes the answer
+  less sure. Lanes that differ sharply side by side: a smooth raised lane is a kerb; a taller lane
+  whose grass reaches down to the ground of the low lane is a mown | uncut edge — each lane is
+  reported (`lanes_mm`) and the answer is the tall lane; a whole lane lifted (kerb, bed border,
+  stone edging, bank) is terrain → `unknown`. On the map, a cell holding a flat bottom under a much
+  higher top (lawn and a kerb top) and a cell seen only at a corner in a turn are not written.
+- Without a calibration the numbers are raw and `/grass/ahead` says `uncalibrated`.
+
+### Calibrate the grass height
+
+Needs a ruler, flat concrete, freshly mown lawn and a patch of taller grass. The robot stands
+still for each record (no program running), the sample lies straight in front of it. Commands run
+in a terminal on the robot.
+
+1. **Concrete** (camera zero): robot on flat concrete with 2 m of concrete in front —
+   `rosrun vitulus_mapping grass_calib record --label beton --x 1.2`. Then turn the robot by
+   180° on the same concrete and record it again (that measures the IMU's tilt error; without
+   it `fit` stops with an error).
+2. **Mown grass**: robot on the lawn it just mowed. Measure the grass with the ruler at 0.8, 1.2
+   and 1.6 m from the robot's centre (half-way between the front and rear wheels), ruler on the
+   soil, read where most blades end. Average in mm.
+3. Record each distance: `grass_calib record --label posekano --true-mm <mm> --x 0.8`, then
+   `--x 1.2` and `--x 1.6`.
+4. **Taller grass** (at least 4–6 cm taller), the same way with `--label vysoka`.
+5. A wrong measurement? Just record it again: `fit` takes only the newest record of each label
+   and distance. `grass_calib list` shows the records, `grass_calib clear --label …` removes one.
+6. `grass_calib fit` computes the camera zero, the IMU tilt error and the scale, prints the error
+   on each sample (±10 mm good, ±20 mm usable), a WARNING when mown and tall grass do not lie on
+   one line (measure again) and the recommended strip. The node picks it up in 5 s.
+7. `grass_calib check` prints once a second what the camera sees now — compare with the ruler.
+
+More: `vitulus_mapping/docs/GRASS_HEIGHT.md`.
 
 ## Stop
 

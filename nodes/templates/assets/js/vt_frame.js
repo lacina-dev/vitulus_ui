@@ -127,7 +127,10 @@
         var joyOn = visible(joy);
         var band = joyOn && m === 'sheet' && joy.classList.contains('vt-joy-deck');
         var rpEl = $('right_panel');
-        var colW = COL_W;
+        // the column is as wide as the right panel: 260 px from a 1600 px
+        // window (right_dock.css --rp-w), so the deck does not jump when the
+        // panel is hidden / shown
+        var colW = window.matchMedia && window.matchMedia('(min-width: 1600px)').matches ? 260 : COL_W;
         if (m !== 'sheet' && visible(rpEl)) { colW = Math.max(COL_MIN_W, W - rpEl.getBoundingClientRect().left); }
         setVar('--vt-frame-col-w', px(colW));
         var barH = bh;

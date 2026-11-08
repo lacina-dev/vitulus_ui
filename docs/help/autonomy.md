@@ -27,8 +27,9 @@ with a colour and short tokens; open it for the numbers and the controls. What y
 ## Now
 
 **Could it start now?** lists every condition of a start: green is fine, amber waits, red is
-blocked. **Why isn't it sleeping?** shows only what keeps the robot awake. The › next to a line takes
-you to where it is fixed.
+blocked, grey is not checked now (GPS is checked when a run starts; the line shows the live fix).
+**Why isn't it sleeping?** shows only what keeps the robot awake; an open SSH session or web UI is
+blue, it keeps the robot awake on purpose. The › next to a line takes you to where it is fixed.
 
 ## Plan
 
@@ -118,6 +119,32 @@ that run. Off the dock it never cuts.
 One calendar entry runs once a day. If an entry already ran today and has a later start today, Plan
 says so, names the next start and offers **Run today anyway** (the same as deleting the entry and
 adding it again). Moving an entry to another time needs nothing: it counts as a new start.
+
+## Calendar or agent
+
+Who decides when to mow: the **calendar** (your slots, as always) or the **agent**. Switch it in the
+panel, or tell the agent in the chat: "mow as you see fit" / "switch to the agent" and "back to the
+calendar". After an update it is the calendar, nothing changes until you switch.
+
+In the agent mode the agent looks at the weather (rain history and forecast), when each zone was last
+mowed, what the last run left unfinished and how heavy the cutting was, and tells the robot *mow
+program X between these times* or *don't mow until T*, with its reason and confidence. The robot
+carries the advice out the same way as **Run next**: every check of **Could it start now?** still
+applies. **Leaving the dock stays yours:** the robot follows the agent's "mow" only while you have
+unlocked the dock (preset **Mow**); without it the agent tells you once in the chat — "I want to mow
+X between …, unlock the dock" — and the robot waits. The unlock is used up only when the robot really
+leaves. Without a fresh advice the calendar decides meanwhile (it can be switched off: then nothing
+starts without the agent). While an advice is in force, the calendar's slots are the agent's to decide
+and are not caught up later. In the agent mode the robot sleeps at most until the next morning, so the
+agent gets its daily look.
+
+**Hard limits** stay in the robot, the agent cannot override them: starts only 08:00–20:00 (a run
+already out goes on until the allowed mowing time ends, 21:00 by default), not within 3 h after rain,
+not below 5 °C, the same zone again only after 2 days (finishing an unfinished program is not held
+back). With no current weather (radar and forecast both old) the agent mode does not start. In the agent mode they always
+apply; in the calendar mode only when you turn them on. A run you start by hand, or **Run next**, is
+never limited by them. Every decision — advice received, run started, waited and why, skipped,
+refused by a limit — is in the **History**.
 
 ## Advanced
 

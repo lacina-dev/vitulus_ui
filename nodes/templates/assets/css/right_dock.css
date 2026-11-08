@@ -6,7 +6,7 @@
     position: fixed;
     right: 0;
     top: 90px;
-    width: 196px;
+    width: var(--rp-w, 196px);   /* 260 px from a 1600 px window (D2, owner 2026-11-08) */
     z-index: 5;
     display: flex;
     flex-direction: column;
@@ -15,7 +15,7 @@
     border-right: 0;
     border-radius: 6px 0 0 6px;
     box-shadow: -2px 0 12px rgba(0, 0, 0, 0.45);
-    transition: right 0.22s ease;
+    transition: right 0.22s ease, width 0.22s ease;
     overflow: hidden;          /* tělo scrolluje uvnitř, panel sám ne */
     min-height: 0;
 }
@@ -26,7 +26,7 @@
    Je to sourozenec panelu (fixed), protože skrytí je display:none. */
 .rp-handle {
     position: fixed;
-    right: 196px;
+    right: var(--rp-w, 196px);
     top: 100px;
     z-index: 6;
     width: 18px;
@@ -483,3 +483,125 @@ body.rp-log-top #div_log_view {
 /* Navi expand: the quick number "Map vs GPS" (vt_georef.js) — a link to Map › Loc */
 .rp-geo1 { cursor: pointer; }
 .rp-geo1:hover .rp-trk1-k, .rp-geo1:focus-visible .rp-trk1-k { text-decoration: underline; }
+
+/* ---- D2 "dashboard fits" (UI care 2026-11-08) --------------------------
+   Width: 196 px, 260 px from a 1600 px window (owner 2026-11-08); the phone
+   keeps 190 px. One variable: the handle, vt_frame.js and right_dock.js read
+   the real width, so the column (joystick deck, log, camera) follows. */
+@media (min-width: 1600px) { :root { --rp-w: 260px; } }
+@media (prefers-reduced-motion: reduce) { #right_panel { transition: none; } }
+
+/* RP1 nothing overflows without "…": GNSS head = Position · Heading ·
+   satellites · correction dot; the RTCM rate is in the dot's colour + tooltip
+   and in the expand — written out only where the panel is wide */
+.rp-gsum { flex: 0 1 auto; }
+.rp-gsum .rp-gsum-t {
+    flex: 0 1 auto; min-width: 2ch; text-align: right;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rp-gsum .rp-gsum-r { display: none; }
+@media (min-width: 1600px) {
+    .rp-gsum .rp-gsum-r { display: inline; min-width: 5ch; text-align: right; }
+}
+/* head tokens never push the "?" / caret out: chips keep their size, text
+   tokens give way with "…" (the full words are in the tooltips) */
+.rp-htok > .rp-tv { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* …but the satellite count never disappears: 2 digits always stay */
+.rp-htok.rp-gsum > .rp-gsum-t { min-width: 2ch; flex-shrink: 0; }
+/* quick-number cells: the first one carries the longest value ("today
+   23:15", "on · 3300"); numbers tabular so nothing jumps */
+#right_panel .rp-cells { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr); }
+#right_panel .rp-cell-v, #right_panel .rp-trk1-t, #right_panel .rp-mprog { font-variant-numeric: tabular-nums; }
+#right_panel .vt-gx-name { min-width: 0; }
+/* units glued to their number in the quick rows */
+#right_panel .vt-gx-r > b { white-space: nowrap; }
+
+/* M6 the odometry chips in the Navi expand: their tooltips work (styles.css
+   .no-event switched them off) + a one-line legend under them */
+#right_panel #div_odom .vt-chip { pointer-events: auto; cursor: help; }
+.rp-odo-legend {
+    width: 100%; font-size: 10px; line-height: 1.3; color: var(--vt-muted, #9aa4ad);
+    overflow-wrap: anywhere; hyphens: auto;
+}
+.rp-odo-legend b { font-weight: 600; color: var(--vt-text, #e6e9ec); }
+/* phone / touch: ONE line ("…"), a tap unfolds it — the camera keeps its room */
+@media (pointer: coarse), (max-width: 575.98px) {
+    .rp-odo-legend { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+    .rp-odo-legend.open { white-space: normal; }
+}
+
+/* RP6 the camera slot says why it is black (waiting / no picture), above
+   the stream canvas at the same place (the canvas sits over the slot) */
+.rp-cam-msg {
+    position: fixed; z-index: 7; pointer-events: none;
+    left: var(--rp-cam-left, 0px); top: var(--rp-cam-top, 0px);
+    width: var(--rp-cam-w, 216px); height: var(--rp-cam-h, 162px);
+    display: none; align-items: center; justify-content: center; gap: 6px;
+    padding: 6px; text-align: center; font-size: 11px; line-height: 1.3;
+    color: var(--vt-muted, #9aa4ad); overflow-wrap: anywhere;
+}
+.rp-cam-msg.on { display: flex; }
+.rp-cam-msg::before {
+    content: ''; flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid currentColor; border-right-color: transparent;
+    animation: rp-cam-spin 0.9s linear infinite;
+}
+.rp-cam-msg[data-state="err"]::before { animation: none; border-right-color: currentColor; border-radius: 2px; transform: rotate(45deg); width: 8px; height: 8px; }
+@keyframes rp-cam-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rp-cam-msg::before { animation: none; } }
+body.rp-cam-clip .rp-cam-msg { display: none; }
+
+/* RP4 the show / hide handle: a quiet tab on the panel's edge on a PC
+   (narrower, dimmed until hover); touch keeps the large target */
+@media (pointer: fine) {
+    .rp-handle { width: 14px; font-size: 9px; opacity: 0.55; transition: opacity 0.15s; }
+    .rp-handle:hover, .rp-handle:focus-visible { opacity: 1; }
+}
+
+/* Touch (phone, tablet): the generic ">= 40 px for every panel button"
+   (vt_panel.css) made the head icons 40 px wide — on a 190 px panel the head
+   then ran past the edge and the "?" / caret / camera L were cut off. Here
+   the icons stay small and the touch area grows through ::before (above),
+   so the row fits and every target still reaches ~40 px. */
+@media (pointer: coarse) {
+    #right_panel .rp-sec > h5 .rp-dq,
+    #right_panel .rp-sec > h5 .vth-q,
+    #right_panel .rp-sec > h5 .rp-dq-ph { min-width: 0; min-height: 0; width: 22px; height: 26px; }
+    /* every px counts in a 190 px head: tighter gaps, slimmer chips */
+    #right_panel .rp-sec > h5 { gap: 2px; }
+    #right_panel .rp-sec > h5 .rp-caret { margin-left: 2px; }
+    #right_panel .rp-htok { gap: 2px; }
+    #right_panel .rp-htok .vt-chip-sm { padding: 0 3px; }
+    #right_panel .rp-sec > h5 .rp-mbtn { min-width: 0; min-height: 0; }
+    /* the reserved detail slot (Controls / Mower) costs the battery its
+       room on a phone: there the tokens win over the aligned column */
+    #right_panel .rp-sec > h5 .rp-dq-ph { display: none; }
+    #right_panel .rp-cam-seg > button.rp-cam-opt { position: relative; min-width: 30px; min-height: 0; padding: 0 3px; }
+    #right_panel .rp-cam-seg > button.rp-cam-opt::before { content: ''; position: absolute; inset: -6px 0; }
+    #right_panel .rp-cell-v { font-size: 12px; }
+    #right_panel .rp-cam-seg { overflow: visible; margin-left: 4px; }
+    #right_panel .rp-cam-opt:first-child { border-radius: var(--vt-r-ctl) 0 0 var(--vt-r-ctl); }
+    #right_panel .rp-cam-opt:last-child { border-radius: 0 var(--vt-r-ctl) var(--vt-r-ctl) 0; }
+    #right_panel .rp-sec > h5 .rp-sec-title { flex: 0 0 auto; white-space: nowrap; }
+}
+
+/* Review 2026-11-08 ---------------------------------------------------------
+   Camera pinned: when everything is unfolded and the sections no longer fit
+   (phone, low window), the Camera section sticks to the bottom of the panel
+   and the sections above it scroll — the picture stays in view, the stream
+   is never paused by the scroll (paintCam measures the slot every scroll). */
+#right_panel .rp-body > .rp-sec[data-sec="camera"] {
+    position: sticky; bottom: 0; z-index: 1;
+    background: var(--vt-frame-bg, rgba(24, 32, 40, 0.98));
+    box-shadow: 0 -6px 8px -6px rgba(0, 0, 0, 0.6);
+}
+/* Controls head on the 196 px panel (cs "Ovládání" + "100%"): the reserved
+   detail slot gives its place to the battery; the wide panel keeps it */
+@media (max-width: 1599.98px) {
+    #right_panel .rp-sec > h5 .rp-dq-ph { display: none; }
+}
+/* touch: the grown hit areas of neighbouring head icons (detail ◧, "?")
+   must not overlap — they grow up and down, sideways only into the gap */
+@media (pointer: coarse) {
+    .rp-dq::before, .rp-mbtn::before, #right_panel .rp-sec > h5 .vth-q::before { inset: -9px -1px; }
+}

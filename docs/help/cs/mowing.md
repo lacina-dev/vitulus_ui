@@ -7,7 +7,7 @@ icon: la-cut
 summary: Napájení sekačky, nůž, výška sekání a otáčky v Nastavení › Sekačka.
 ui: [config/mower]
 related: [programs, safety, settings]
-keywords: [odchylka od plánu, mimo plán, čára plánu, čára gps, čára lidaru, heading proti gnss, lhala lokalizace, zátěž sekání, zátěž, stopa, teplota, přetížení, minulé běhy, sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
+keywords: [výška trávy, tráva, kalibrace, grass_calib, terén, odchylka od plánu, mimo plán, čára plánu, čára gps, čára lidaru, heading proti gnss, lhala lokalizace, zátěž sekání, zátěž, stopa, teplota, přetížení, minulé běhy, sekačka, mower, nůž, blade, knife, výška sekání, cut height, výška, height, otáčky, rpm, pamatuje, uložená výška, uložené otáčky, po vypnutí, spustit motor, start motor, zastavit motor, stop motor, příkaz, mower command, print help, zastavení, stop, nečinná, idle, zrušené dokování, docking cancelled]
 ---
 # Sekací ústrojí
 
@@ -127,6 +127,55 @@ i tehdy, když s GPS nesouhlasí (tracker hlásí *lidar nesouhlasí*) — práv
 
 Běhy nahrané dřív, než se tato data zapisovala, je ukážou šedě, bez dat, a nemají čáry ani tabulku
 Poloha. Tah kol mají i první běhy.
+
+## Výška trávy před robotem
+
+Když robot jede nebo seče, hloubková kamera měří trávu v pruhu před ním (0,8–1,6 m od středu
+robota, ±0,35 m do stran) a rozliší trávu od terénu, který stoupá nebo klesá. Kamera vidí jen vrch
+trávy, nikdy zem, proto:
+
+- **V mapě** (editor mapy › Vrstvy › **Výška trávy**, soubor `grass.npz` místa) dostane buňka
+  0,2 m výšku až když je známá její zem: když přes ni přejedou kola, nebo z terénu dřívějších
+  jízd. Každá buňka drží poslední výšku, medián, kolikrát byla vidět a kdy. Barvy: zelená = do
+  výšky sečení + 2 cm, žlutá = výška sečení + 2–4 cm, oranžová = víc. Buňky mají 0,2 m, takže
+  hrana posekané a neposekané trávy zůstane v mapě ostrá.
+- **Teď hned** (`/grass/ahead`) se zem vpředu bere z kol nebo dřívějších jízd, jinak se protáhne
+  rovina robota dopředu. Třídy proti výšce sekání: `below_cut`, `+2-4cm`, `>+4cm`, nebo `unknown`.
+- **Hladký** povrch (beton, cesta) blízko zemi je zem. Mírná rampa nebo prohlubeň se odečte;
+  když se celý pruh včetně posekaného pruhu vedle nakloní víc, je to terén: bez známé země je
+  odpověď `unknown` (`terrain_change`), ne výška. Pod trávou náklon výšku nikdy nesníží (tráva
+  může dopředu jen houstnout), jen zvětší nejistotu. Pruhy vedle sebe se ostře liší: hladký vyšší
+  pruh je obrubník; vyšší pruh, jehož tráva sahá až na zem nízkého pruhu, je hrana posekané
+  a neposekané trávy — hlásí se každý pruh (`lanes_mm`) a odpověď je vysoký pruh; zvednutý celý
+  pruh (obrubník, okraj záhonu, kamenná obruba, svah) je terén → `unknown`. Do mapy se nezapíše
+  buňka s plochým spodkem pod mnohem vyšším vrchem (trávník a vrch obrubníku) ani buňka, kterou
+  robot v zatáčce viděl jen rohem.
+- Bez kalibrace jsou čísla surová a `/grass/ahead` hlásí `uncalibrated`.
+
+### Kalibrace výšky trávy
+
+Potřebuješ pravítko, rovný beton, čerstvě posekaný trávník a kus vyšší trávy. Robot při každém
+záznamu stojí (žádný program neběží), vzorek leží přímo před ním. Příkazy se spouštějí
+v terminálu na robotu.
+
+1. **Beton** (nula kamery): robot na rovném betonu, před ním 2 m betonu —
+   `rosrun vitulus_mapping grass_calib record --label beton --x 1.2`. Pak robota na stejném
+   betonu otoč o 180° a nahraj ho znovu (tím se změří chyba sklonu IMU; bez toho `fit` skončí
+   chybou).
+2. **Posekaná tráva**: robot na trávníku, který právě posekal. Pravítkem změř trávu ve
+   vzdálenosti 0,8, 1,2 a 1,6 m od středu robota (polovina mezi předními a zadními koly), pravítko
+   na zem, odečti, kam sahá většina stébel. Průměr v mm.
+3. Nahraj každou vzdálenost: `grass_calib record --label posekano --true-mm <mm> --x 0.8`, pak
+   `--x 1.2` a `--x 1.6`.
+4. **Vyšší tráva** (aspoň o 4–6 cm vyšší) stejně s `--label vysoka`.
+5. Špatné měření? Prostě ho nahraj znovu: `fit` bere jen poslední záznam každého štítku
+   a vzdálenosti. `grass_calib list` ukáže záznamy, `grass_calib clear --label …` jeden smaže.
+6. `grass_calib fit` spočítá nulu kamery, chybu sklonu IMU a měřítko, vypíše chybu na každém
+   vzorku (±10 mm dobré, ±20 mm použitelné), VAROVÁNÍ, když posekaná a vysoká tráva neleží na
+   jedné přímce (změř znovu), a doporučený pruh. Uzel si ho načte do 5 s.
+7. `grass_calib check` vypisuje jednou za sekundu, co kamera právě vidí — porovnej s pravítkem.
+
+Víc: `vitulus_mapping/docs/GRASS_HEIGHT.md`.
 
 ## Zastavení
 

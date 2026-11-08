@@ -147,7 +147,7 @@ To **edit** a program of another map, activate that map first: its card here is 
 ![The calendar with numbered markers](img/shot-calendar.webp "1 an event: program, time, recurrence · 2 on / off · 3 Edit · 4 add an event")
 
 **Autonomy › Plan** lists events (**Calendar** in Programs leads there): program, time and recurrence (Once, Daily, Weekly with days,
-Monthly, Yearly), each with an on / off switch, **Edit** and **Del**. An event starts within 15
+Monthly, Yearly), each with an on / off switch, **Edit** and **Delete**. An event starts within 15
 minutes after its time, once a day.
 
 ![The form for a new calendar event with numbered markers](img/shot-calendar-form.webp "+ Add event: 1 program · 2 time · 3 recurrence · 4 Save")

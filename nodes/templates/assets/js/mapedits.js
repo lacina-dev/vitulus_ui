@@ -277,9 +277,10 @@ window.MapEdits = (function () {
     var SHOW_KEYS = { waypoints: 'vitulus_editor_show_waypoints', paths: 'vitulus_editor_show_paths',
                       edits: 'vitulus_editor_show_edits', zones: 'vitulus_editor_show_zones',
                       places: 'vitulus_editor_show_places', coverage: 'vitulus_editor_show_coverage',
-                      gnss: 'vitulus_editor_show_gnss', slope: 'vitulus_editor_show_slope' };
+                      gnss: 'vitulus_editor_show_gnss', slope: 'vitulus_editor_show_slope',
+                      grass: 'vitulus_editor_show_grass' };
     var _show = { waypoints: true, paths: true, edits: true, zones: true, places: true,
-                  coverage: false, gnss: false, slope: false };
+                  coverage: false, gnss: false, slope: false, grass: false };
     function _loadShow() {
         for (var k in SHOW_KEYS) {
             try { var v = localStorage.getItem(SHOW_KEYS[k]); if (v !== null) _show[k] = (v === '1'); } catch (e) {}
@@ -606,7 +607,7 @@ window.MapEdits = (function () {
         _hideWpInput();
         _compact(false);
         _showBar(false);
-        ['coverage', 'gnss', 'slope'].forEach(_dropWorld);
+        ['coverage', 'gnss', 'slope', 'grass'].forEach(_dropWorld);
         Panel.hideToast();
         if (window.VTMapRules) VTMapRules.refresh();
         // V3: the Zones chip toggles LIVE-scene program/zone markers; restore them

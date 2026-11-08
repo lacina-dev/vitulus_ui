@@ -128,7 +128,7 @@
     function when(ts) {
         if (!ts) { return '—'; }
         var d = new Date(ts * 1000);
-        try { return d.toLocaleString(I ? I.lang() : undefined, { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+        try { return d.toLocaleString(I ? I.lang() : undefined, { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }); }
         catch (e) { return d.toLocaleString(); }
     }
     function model(name) {

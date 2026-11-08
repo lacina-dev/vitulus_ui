@@ -114,7 +114,9 @@ different thing (it stops the agent's mission).
 
 ## The right panel
 
-Hangs from the top band on the right edge. It is a **dashboard**: at a glance (colour) you see
+Hangs from the top band on the right edge (196 px wide; from a 1600 px wide window 260 px, so
+there is room for the numbers — on a phone it stays narrow). A value that does not fit ends in
+**…**; hover it for the full text. It is a **dashboard**: at a glance (colour) you see
 whether everything is fine, the current numbers are one click away, and the full detail with
 explanations lives in the left panel. **Mower**, **Navi** and **GNSS** therefore have three levels:
 
@@ -141,20 +143,24 @@ red = a fault or no data where there should be some · grey = off, paused or not
 - **Navi** — title row: who owns the pose (`DOCK`, `RTK`, `TRACKER`…), the heading source
   (`SAT` / `IMU`) and one **odometry dot** for VO / Li / Wh together (green = they run, orange =
   one is degraded, red = one is lost, grey = paused in the dock; hover = each source). Expand:
-  the row of chips `VO Li Wh FIX PROB ANC` — hover a chip:
+  the row of chips `VO Li Wh FIX PROB ANC` with a one-line legend under it (VO camera · Li lidar ·
+  Wh wheels + IMU · FIX RTK fix · PROB GPS proven · ANC anchor; on a phone one line, tap it for all) — hover a chip:
   e.g. *Li — lidar odometry: live, tracking · cov 0.010*, *FIX — RTK fix usable: not usable ·
   correction age 0.5 s*, *ANC — position anchor: anchor fresh, last advanced 12 s ago* — and
   one tracker line (`STANDBY` / `ACTIVE` + the last correction); the detail icon in the title
   row opens the rest ([what the chips mean](localization.md#read-the-state-right-panel--navi)).
 - **GNSS** — title row: the Position fix, the Heading fix (`RTK`, `FLT` = float, `DGN` = DGNSS,
-  `3D`, `NO`), the satellites used (green from 12), the RTCM rate (messages per second, about 5.5 from the
-  base, orange under 2, red at 0) and a dot for the age of the corrections (green < 2 s, orange
+  `3D`, `NO`), the satellites used (green from 12), on a wide panel the RTCM rate (messages per second, about 5.5 from the
+  base, orange under 2, red at 0; on the narrow one it is in the dot's colour and tooltip) and a dot for the age of the corrections (green < 2 s, orange
   < 10 s, red older or none; a thin rate turns it orange too). Expand: two small tiles **Position | Heading**
   with the quick numbers only — fix, satellites used / visible, accuracy (`acc` in cm, `hdg` in °),
   correction age and RTCM rate; the detail icon in the title row opens the full card of both receivers
   ([GNSS receivers](localization.md#gnss-receivers-right-panel--gnss)).
 - **Camera** — a dot in the title row (green = live picture, orange = starting / waiting, grey =
-  off) and the switch Off / S / L; see below.
+  off) and the switch Off / S / L; see below. While the picture has not come yet, the black slot
+  says **Waiting for the picture…**, after ~8 s **No picture from the camera — retrying**; a picture
+  that stops for 3 s or more says the latter too, and the dot turns red. When everything is unfolded
+  and the panel has to scroll (a phone), the Camera section stays pinned at its bottom.
 
 Every section folds by its title (▾ / ▸) and stays as you left it. A section with a state
 (Mower, GNSS) is softly tinted by it. With Mower, Navi and GNSS folded everything above the camera

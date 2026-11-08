@@ -571,15 +571,31 @@
         if (v.until) { v.until = String(v.until).length === 10 ? dayWord(new Date(v.until + 'T12:00')) : when(v.until); }
         return v;
     }
+    /* GPS is only checked when a run starts (code not_checked): say so, with the
+       live fix the right panel shows, so "unknown" never sits next to FLOAT */
+    function gnssNow() {
+        var g = window.gnss_rx, d = g && g.last;
+        if (!d || Date.now() - (g.last_at || 0) > 15000 || typeof GnssRx === 'undefined') { return null; }
+        var pos = d.rx && d.rx.gnss;
+        if (!pos || !pos.alive) { return null; }
+        var p = pos.pvt || {}, sv = pos.sat ? pos.sat.used : p.num_sv;
+        return { fix: GnssRx.fixText(pos), sv: sv == null ? '—' : sv };
+    }
     function checkText(c) {
         var v = checkVars(c);
+        if (c.key === 'gnss' && c.code === 'not_checked') {
+            var g = gnssNow();
+            return g ? t('auto.check.gnss.not_checked_live', g) : t('auto.check.gnss.not_checked');
+        }
         return first(['auto.check.' + c.key + '.' + c.code,
                       'calmgr.code.' + c.code,
                       'auto.check.' + c.key + '.state.' + c.state,
                       'auto.check.state.' + c.state], Object.assign({ what: t('auto.check.key.' + c.key) }, v));
     }
+    var QUIET_HOLDS = { ssh: 1, ui: 1 };
     function paintChecks(box, list, quietOk) {
         clear(box);
+        if (!quietOk) { S.gnssLive = null; }
         var n = { ok: 0, wait: 0, block: 0 };
         var rank = { block: 0, wait: 1 };
         var order = function (c) { return c.state in rank ? rank[c.state] : 2; };
@@ -588,8 +604,11 @@
             if (quietOk && c.state === 'ok') { return; }
             var r = el('div', 'vt-auto-check', box);
             r.dataset.state = CHECK_TONE[c.state] || 'off';
+            /* someone logged in or watching keeps it awake on purpose: a fact, not a fault */
+            if (quietOk && c.state === 'block' && QUIET_HOLDS[c.key]) { r.dataset.state = 'info'; }
             el('span', 'vt-sdot', r);
-            el('span', 'vt-auto-check-t', r, checkText(c));
+            var tx = el('span', 'vt-auto-check-t', r, checkText(c));
+            if (c.key === 'gnss' && c.code === 'not_checked' && !quietOk) { S.gnssLive = { el: tx, c: c }; }
             var fix = FIX[c.key];
             if (fix && c.state !== 'ok' && c.state !== 'off') {
                 var b = el('button', 'vt-auto-go', r);
@@ -1134,6 +1153,9 @@
     }
     function tick() {
         var p = paintPlanLine();
+        /* the live fix in the GPS line follows the receiver, only the text changes */
+        var gl = S.gnssLive;
+        if (gl && gl.el.isConnected) { var gt = checkText(gl.c); if (gl.el.textContent !== gt) { gl.el.textContent = gt; } }
         paintCountdown();
         paintRight();
         paintRaw();
@@ -1856,6 +1878,6 @@
     }
 
     window.VTAutonomy = { init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {
-        return S.report ? planLine() : ''; }, rawTimed: rawTimed, robotLine: robotLine,
+        return S.report ? planLine() : ''; }, rawTimed: rawTimed, robotLine: robotLine, when: when,
                           _state: S, _checkText: checkText, _validate: validate };
 }());

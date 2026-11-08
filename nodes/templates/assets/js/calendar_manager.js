@@ -311,6 +311,8 @@ class CalendarManager {
             return;
         }
         chk.checked = !!set.enabled;
+        const card = document.getElementById('card_mow_window');
+        if (card) card.dataset.limit = set.enabled ? 'on' : 'off';
         const startPair = inputs.slice(0, 2);
         const endPair = inputs.slice(2);
         if (this._windowDirty && this._windowRead(startPair) === set.start
@@ -345,10 +347,11 @@ class CalendarManager {
             const rep = this._report;
             let v = this._nextRun || '';
             if (rep) {
-                // "2026-06-10T08:00" -> "10. 6. 08:00": local time of the robot
+                // the same words as the Plan section ("today 23:15", "Tue, 11/10 08:00")
                 const m = rep.next && /^\d+-(\d+)-(\d+)T(.+)$/.exec(rep.next.at);
-                v = (rep.enabled && m)
-                    ? `${rep.next.program} ${Number(m[2])}. ${Number(m[1])}. ${m[3]}` : '';
+                const at = (window.VTAutonomy && VTAutonomy.when) ? VTAutonomy.when(rep.next && rep.next.at)
+                    : (m ? `${Number(m[2])}. ${Number(m[1])}. ${m[3]}` : '');
+                v = (rep.enabled && m) ? `${rep.next.program} · ${at}` : '';
             }
             el.textContent = (v && v !== 'None') ? calT('calmgr.next', {when: v}) : '';
         }
