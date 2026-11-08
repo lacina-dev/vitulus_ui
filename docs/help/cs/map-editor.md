@@ -145,7 +145,7 @@ Stopa jen nahrává. Robota nerozjede, jedeš s ním sám.
 vrstva v mapě nejde vybrat. Svět, každá vrstva s legendou: **Pokrytí** (kdy se naposledy sekalo),
 **Zátěž sekání** (stopa běhu, viz Sekací ústrojí), **Výška trávy** (změřená tráva proti
 výšce sekání, viz [Sekací ústrojí](mowing.md#výška-trávy-před-robotem)), **Kvalita GNSS**, **Sklon (robot)** (sklon, který robot
-změřil sám), **Terén**, **Podklad** (když je zapnutý, hned pod ním vybereš podkladovou mapu) a **Překryvy**
+změřil sám), **Výšková plocha**, **Podklad** (když je zapnutý, hned pod ním vybereš podkladovou mapu) a **Překryvy**
 (katastr, budovy, vrstevnice, reliéf, sklon z terénního modelu ČÚZK … — tytéž přepínače jako v záložce Mapa; zapnutý
 překryv má hned pod sebou posuvník krytí). [Tlačítko vrstev na mapě](mapping.md#tlačítko-vrstev-na-mapě) funguje i
 v editoru a mění totéž nastavení; jeho **Další nastavení** otevře tyhle Vrstvy.

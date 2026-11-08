@@ -37,7 +37,8 @@
 .vt-lyr-panel {
     position: fixed; z-index: 1030;             /* over the phone sheet (1000), under modals */
     display: flex; flex-direction: column; overflow: hidden;
-    color: var(--vt-text); background: var(--vt-overlay);
+    /* T31: opaque (the translucent overlay let the open left panel's text show through) */
+    color: var(--vt-text); background: var(--vt-surface);
     border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-panel);
     box-shadow: var(--vt-shadow);
     font: 400 var(--vt-fs)/1.35 var(--vt-font);
@@ -290,3 +291,14 @@
 }
 .vt-meas-act:disabled { opacity: 0.4; cursor: default; }
 .vt-meas-act:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
+
+/* ---- T31: the mowed-area map picker */
+.vt-lyr-mpick { margin: 2px 0 6px; }
+.vt-lyr-mpick[hidden] { display: none; }
+.vt-lyr-mpick select { width: 100%; min-height: var(--vt-touch, 40px); }
+/* the picker in the dark style of the panel */
+.vt-lyr-mpick select {
+    color: var(--vt-text); background-color: var(--vt-surface-2);
+    border: 1px solid var(--vt-border-strong); border-radius: var(--vt-r-ctl);
+}
+.vt-lyr-mpick select option { color: var(--vt-text); background: var(--vt-surface-2); }

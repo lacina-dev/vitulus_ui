@@ -82,7 +82,10 @@ def list_mosaics(directory):
                 files[k] = v
         if not files:
             continue
-        stats = j.get('stats') if isinstance(j.get('stats'), dict) else {}
+        stats = dict(j.get('stats')) if isinstance(j.get('stats'), dict) else {}
+        # the recorder's export has no "stats", its known area is "area_m2"
+        if 'area_known_m2' not in stats and isinstance(j.get('area_m2'), (int, float)):
+            stats['area_known_m2'] = j['area_m2']
         out.append({
             'name': fn[:-5],
             'json': fn,
@@ -95,6 +98,13 @@ def list_mosaics(directory):
                                             'elevation_range_m', 'slope_p50_deg', 'slope_p95_deg', 'track_m',
                                             'drive_min', 'bbox_m') if k in stats},
             'bags': [b for b in j.get('bags', []) if isinstance(b, str)][:20],
+            # T31: the terrain_recorder's lasting map ("source": "terrain_recorder",
+            # "version" +1 per export, "stamp"); offline mosaics have none of these
+            'source': j.get('source') if isinstance(j.get('source'), str) else '',
+            'version': j.get('version') if isinstance(j.get('version'), (int, float)) else None,
+            'stamp': j.get('stamp') if isinstance(j.get('stamp'), (int, float)) else None,
+            'generated_unix': j.get('generated_unix') if isinstance(j.get('generated_unix'), (int, float)) else None,
+            'area_m2': j.get('area_m2') if isinstance(j.get('area_m2'), (int, float)) else None,
         })
     out.sort(key=lambda m: m['mtime'], reverse=True)
     return out

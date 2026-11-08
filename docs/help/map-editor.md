@@ -149,7 +149,7 @@ Tracing only records. It does not move the robot, you drive it yourself.
 layer cannot be selected on the map. World, each with its legend: **Coverage** (when it was last
 mowed), **Mow load** (the trail of a run, see Mowing unit), **Grass height** (measured grass
 against the cut height, see [Mowing unit](mowing.md#grass-height-ahead)), **GNSS quality**, **Slope (robot)** (the
-slope the robot measured itself), **Terrain**,
+slope the robot measured itself), **Elevation**,
 **Background map** (with it on, pick the background map right below it) and **Overlays** (cadastre,
 buildings, contour lines, relief, slope from the ČÚZK terrain model … — the same switches as in the Map tab; a switched-on
 overlay shows its opacity slider right under it). The

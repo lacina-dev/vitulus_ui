@@ -133,7 +133,7 @@ automatically after Save & finish, a layer delete or a switch; ↻ rebuilds it b
 ## What you see on the map (layers)
 
 Tick the layers under the map list: **Base** (cyan, the navigation map), **Saved** (red, the
-active map), **Direct** (black, the live recording), **Preview** (blue), **Terrain** (height: blue low,
+active map), **Direct** (black, the live recording), **Preview** (blue), **Elevation** (height: blue low,
 red high), **Background** (the background map, see below), **Rain** (the ČHMÚ radar of the weather
 service; the map from several radars is the **Precipitation (mosaic)** overlay, see below). The
 background map and the overlays are quickest to change with the [layers button on the map](#the-layers-button-on-the-map).
@@ -187,27 +187,26 @@ One tap opens it, a second one picks the map:
 It is the same setting as the Map panel and the editor's Layers: whatever you change in one place
 shows in the others at once, and the browser remembers it. Tap outside the card, ✕ or Esc closes it.
 
-### Traversability
+### Traversability (live)
 
-**Traversability** (layers card under *Robot*, also a tick in the Map tab's layers row; off by
+**Traversability (live)** (layers card under *Robot*, also a tick in the Map tab's layers row; off by
 default, remembered) shows what the robot's terrain node sees right now: a 6 × 6 m window around
 the robot in 5 cm cells, about twice a second, flat on the ground under the robot and the paths;
-where the camera has not looked yet there is nothing. Three views (the choice is remembered):
+where the camera has not looked yet there is nothing. Three views, the same as for the mowed area
+below (the choice is remembered; the legend under them says what the colours mean):
 
-- **Reason** — why a place is hard or not passable: **green** free, **yellow → orange** higher cost
-  (slope, roughness), **violet** a step (an edge over 8 cm), **blue** too steep, **red** an obstacle,
-  **grey-violet** a drop seen only from one place (a hole or a bank — not forbidden yet), **grey** in
-  the dock zone; the dock zone itself is outlined in white.
-- **Cost** — 0 free (green) … 99 hard (orange), 100 not passable (red).
-- **Height** — the ground against the robot, blue lower, brown higher (±15 cm); only when the
-  terrain node sends it (its parameter `ui_elevation`), otherwise the button is greyed out.
+- **Traversability** — from free to not passable.
+- **Reason** — why a place is hard or not passable (higher cost, step, too steep, obstacle, a drop
+  seen only from one place, dock zone); the dock zone itself is outlined in white.
+- **Height** — the ground against the robot (±15 cm); only when the terrain node sends it (its
+  parameter `ui_elevation`), otherwise the button is greyed out.
 
-The layer follows the global *Maps opacity*. The data come only while the layer is on and the page
-is shown (at most twice a second, a few kB each). Until the terrain node's detailed topic
-`/traversability/ui` is there, the layer falls back to its plain costmap — the cost only, the row says
-so. The row says *live*, *waiting…*, *old data* (nothing new for a few seconds, drawn faded), *no map
-position* (the robot does not know where the odometry sits in the map: not drawn) or *no data* —
-then the terrain node does not run or the camera gives no picture.
+It has its own opacity. The data come only while the layer is on and the page is shown (at most twice
+a second, a few kB each). Until the terrain node's detailed topic `/traversability/ui` is there, the
+layer falls back to its plain costmap — traversability only, the row says so. The row says *live*,
+*waiting…*, *old data* (nothing new for a few seconds, drawn faded), *no map position* (the robot does
+not know where the odometry sits in the map: not drawn) or *no data* — then the terrain node does not
+run or the camera gives no picture.
 ### Mowed area terrain
 
 **Mowed area terrain** (layers card under *Robot*, also a tick in the Map tab's layers row; off by
@@ -217,8 +216,11 @@ all of it at once. Three views: **Traversability** (green free, yellow → red h
 passable), **Reason** (the same colours as the live layer: step, too steep, obstacle, drop seen once,
 dock zone) and **Height** (blue lowest, brown highest; the legend says how many centimetres apart).
 It has its own opacity; the line under it names the map, how much of the area is known and what share
-is not passable. It is a still picture of the day it was made; *no map* means none was made for this
-site yet. The layer only reads the map from the robot (a few hundred kB once when shown).
+is not passable. A site can have more maps: a map of one day's mowing (a still picture of that day) and
+the robot's own lasting terrain map, which grows while it records and is looked for in a new version every
+minute (a new version replaces the picture without blinking). Shown is the map you picked in the list above
+the legend (remembered); without a choice the robot's lasting map, else the newest. *No map* means none was
+made for this site yet. The layer only reads the map from the robot (a few hundred kB once when shown).
 
 ### Scale bar
 

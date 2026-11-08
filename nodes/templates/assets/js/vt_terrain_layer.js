@@ -28,7 +28,8 @@
  * Loaded by vt_map_layers.js (no index.html change). Controls (mirrored by the
  * layers panel): #mapv3_chk_trav (Map tab layers row, remembered),
  * #mapv3_trav_mode (reason | cost | height, remembered), #mapv3_ov_trav_st.
- * Opacity: the global "Maps opacity" (MapLayerOpacity), as the other grids.
+ * Opacity: its own (#mapv3_trav_op, remembered) TIMES the global "Maps
+ * opacity" (MapLayerOpacity), on the picture and on the fallback grid alike.
  * The fallback's colours: a wrapper of ROS3D.OccupancyGrid.prototype.getColor
  * for grids whose color object carries vtTrav (map_view.js stays untouched).
  * Pure part tested in node: tools/test_terrain_layer.node.js. i18n: trav.*.
@@ -46,7 +47,7 @@
     var RESUB_MS = 15000;      // a subscription silent this long gets a second one (then 30 s, 60 s)
     var RESUB_MAX_MS = 60000;
     var OVERLAP_MS = 20000;    // the old subscription is dropped when the new one speaks, at the latest after this
-    var LS_ON = 'vitulus_layer_trav', LS_MODE = 'vitulus_layer_trav_mode';
+    var LS_ON = 'vitulus_layer_trav', LS_MODE = 'vitulus_layer_trav_mode', LS_OP = 'vitulus_layer_trav_op';
     var MODES = ['reason', 'cost', 'height'];
     var ELEV_SPAN_CM = 15;     // height colours saturate at ±15 cm (as the T10 pictures)
 
@@ -180,7 +181,7 @@
     }
 
     var S = {
-        chk: null, mode: null, st: null, onAt: 0, timer: null, stateNow: 'off', src: '',
+        chk: null, mode: null, st: null, op: null, onAt: 0, timer: null, stateNow: 'off', src: '',
         // contract source
         uiSub: null, uiRx: 0, last: null, seq: 0, decoded: null, rxUi: 0, bytesUi: 0,
         group: null, mesh: null, tex: null, canvas: null, ctx: null, img: null, zones: null, zsig: '',
@@ -203,9 +204,14 @@
             '<label class="form-check-label vt-fs-sm" for="mapv3_chk_trav"><span data-i18n="trav.layer">' + t('trav.layer') +
             '</span> <span class="vt-sw-trav">&#9632;</span></label>' +
             '<span hidden><select id="mapv3_trav_mode"><option value="reason">reason</option><option value="cost">cost</option>' +
-            '<option value="height">height</option></select><span id="mapv3_ov_trav_st"></span></span>';
+            '<option value="height">height</option></select><input type="range" id="mapv3_trav_op" min="0" max="1" step="0.05">' +
+            '<span id="mapv3_ov_trav_st"></span></span>';
         row.appendChild(div);
-        S.chk = $('mapv3_chk_trav'); S.mode = $('mapv3_trav_mode'); S.st = $('mapv3_ov_trav_st');
+        S.chk = $('mapv3_chk_trav'); S.mode = $('mapv3_trav_mode'); S.st = $('mapv3_ov_trav_st'); S.op = $('mapv3_trav_op');
+        // its own opacity (T8 check 2026-11-08: the mowed-area layer had one, this did not)
+        var op = parseFloat(lsGet(LS_OP)); S.op.value = String(op >= 0 && op <= 1 ? op : 0.85);
+        S.op.addEventListener('input', function () { lsSet(LS_OP, S.op.value); applyOpacity(); });
+        hookMapsOpacity();
         S.chk.checked = lsGet(LS_ON) === '1';
         var md = lsGet(LS_MODE);
         S.mode.value = MODES.indexOf(md) >= 0 ? md : 'reason';
@@ -371,9 +377,33 @@
         S.ctx.putImageData(S.img, 0, 0);
         S.tex.needsUpdate = true;
     }
+    function layerOpacity() {
+        var op = S.op ? parseFloat(S.op.value) : 0.85;
+        return (op >= 0 && op <= 1) ? op : 0.85;
+    }
     function applyOpacity() {
-        if (!S.mesh) { return; }
-        S.mesh.material.opacity = mapsOpacity() * (S.stateNow === 'stale' ? 0.45 : 1);
+        if (S.mesh) { S.mesh.material.opacity = layerOpacity() * mapsOpacity() * (S.stateNow === 'stale' ? 0.45 : 1); }
+        gridOpacity();
+    }
+    // the global Maps opacity sets every registered grid (also ours) to its own
+    // value: put this layer's factor back on top, and follow it on the picture
+    function hookMapsOpacity() {
+        var MLO = (typeof MapLayerOpacity !== 'undefined') ? MapLayerOpacity : null;
+        if (!MLO || MLO._vtTravHooked) { return; }
+        MLO._vtTravHooked = true;
+        var app = MLO._applyOpacityToClient, set = MLO.setMapsOpacity;
+        if (typeof app === 'function') {
+            MLO._applyOpacityToClient = function (c) { var r = app.apply(this, arguments); if (c && c === S.client) { gridOpacity(); } return r; };
+        }
+        if (typeof set === 'function') {
+            MLO.setMapsOpacity = function () { var r = set.apply(this, arguments); applyOpacity(); return r; };
+        }
+    }
+    // the fallback grid: MapLayerOpacity sets the global maps opacity on every
+    // new grid; this layer's own opacity comes on top (runs after it)
+    function gridOpacity() {
+        var g = S.client && S.client.currentGrid;
+        if (g && g.material) { g.material.opacity = layerOpacity() * mapsOpacity(); g.material.transparent = true; }
     }
 
     // ---- 2. fallback grid (ros3d client, topic throttled; the stock client has no throttle_rate)
@@ -410,8 +440,9 @@
             offsetPose: new ROSLIB.Pose({ position: new ROSLIB.Vector3({ x: 0, y: 0, z: 0.01 }),
                                           orientation: new ROSLIB.Quaternion({ x: 0, y: 0, z: 0, w: 1 }) }),
         });
-        c.on('change', function () { S.gridRx = Date.now(); S.rxGrid++; S.gridWait = RESUB_MS; show(true); tick(); });
         if (typeof MapLayerOpacity !== 'undefined' && MapLayerOpacity.registerClient) { MapLayerOpacity.registerClient(c, order()); }
+        // after MapLayerOpacity's own 'change' listener (registered above)
+        c.on('change', function () { S.gridRx = Date.now(); S.rxGrid++; S.gridWait = RESUB_MS; gridOpacity(); show(true); tick(); });
         return c;
     }
     function gridWanted(on) {

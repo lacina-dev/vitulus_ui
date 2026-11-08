@@ -28,6 +28,7 @@
     'use strict';
 
     var LS_ON = 'vitulus_layer_tmosaic', LS_MODE = 'vitulus_layer_tmosaic_mode', LS_OP = 'vitulus_layer_tmosaic_op';
+    var LS_PICK = 'vitulus_layer_tmosaic_pick';   // T31: the map chosen among several (else the newest)
     var MODES = ['cost', 'reason', 'height'];
     var REASON = {
         0: [0, 0, 0, 0], 1: [76, 175, 80, 120], 2: [255, 193, 7, 210], 3: [156, 39, 176, 235],
@@ -97,9 +98,27 @@
         return { cx: +g.origin_x + c * w / 2 - s * h / 2, cy: +g.origin_y + s * w / 2 + c * h / 2, w: w, h: h, yaw: yaw };
     }
     function reasonColor(code) { return REASON[code] || REASON[0]; }
+    // the map to show: the one chosen before when it is still there, else the
+    // terrain_recorder's lasting map (it exports into the same directory every
+    // few minutes — "newest" alone would push a day's mosaic away), else the newest
+    function choose(list, name) {
+        list = list || [];
+        var hit = list.filter(function (x) { return x.name === name; })[0];
+        // an empty export (just after delete_map: area 0) is never the default
+        var rec = list.filter(function (x) { return x.source === 'terrain_recorder' && x.area_m2 > 0; })[0];
+        return hit || rec || list[0] || null;
+    }
+    // what makes a map's pictures new (the PNGs keep their names on every
+    // export): the recorder's version together with its time — after
+    // delete_map the version starts at 1 again — else the JSON's time
+    function version(m) {
+        if (!m) { return ''; }
+        var when = m.generated_unix != null ? m.generated_unix : (m.stamp != null ? m.stamp : m.mtime);
+        return (m.version != null ? 'v' + m.version + '@' : 't') + when;
+    }
 
     var api = { pngChunks: pngChunks, unfilterGray16: unfilterGray16, heightColor: heightColor, heightRange: heightRange,
-                placement: placement, reasonColor: reasonColor, REASON: REASON, MODES: MODES };
+                placement: placement, reasonColor: reasonColor, choose: choose, version: version, REASON: REASON, MODES: MODES };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (typeof document === 'undefined') { if (root) { root.VTTerrainMosaic = api; } return; }
 
@@ -149,16 +168,34 @@
 
     function sync() {
         var on = !!(S.chk && S.chk.checked);
+        if (S.refresh && !on) { clearInterval(S.refresh); S.refresh = null; }
         if (!on) { if (S.group) { S.group.visible = false; } setState('off'); return; }
+        // while shown: look for a new export every minute (the recorder exports
+        // after writing its tiles, every few minutes while it maps)
+        if (!S.refresh) { S.refresh = setInterval(function () { if (!document.hidden) { loadList(false); } }, 60000); }
         if (S.list && Date.now() - S.listAt < 60000) { draw(); return; }
-        setState('loading');
-        fetch('/api/terrain_mosaic', { cache: 'no-cache' }).then(function (r) { return r.json(); }).then(function (j) {
+        loadList(true);
+    }
+    function loadList(first) {
+        if (first) { setState('loading'); }
+        fetch('/api/terrain_mosaic', { cache: 'no-cache' }).then(function (r) {
+            if (!r.ok) { throw new Error('HTTP ' + r.status); }      // a 500 must not look like "no map"
+            return r.json();
+        }).then(function (j) {
+            var was = S.m ? S.m.name + '|' + version(S.m) : '';
             S.list = (j && Array.isArray(j.mosaics)) ? j.mosaics : [];
             S.listAt = Date.now();
-            S.m = S.list[0] || null;
+            S.m = choose(S.list, lsGet(LS_PICK));
             if (!S.m) { setState('nomap'); if (S.group) { S.group.visible = false; } return; }
-            draw();
-        }).catch(function () { S.list = null; setState('error'); });
+            if (first) { draw(); } else if (S.m.name + '|' + version(S.m) !== was) { draw(true); } else { tell(); }
+        }).catch(function () { if (first) { S.list = null; setState('error'); } });
+    }
+
+    function pick(name) {
+        var m = choose(S.list, name);
+        if (!m) { return; }
+        lsSet(LS_PICK, m.name);
+        if (S.m !== m) { S.m = m; S.hRange = null; draw(); tell(); }
     }
 
     function viewMode() {
@@ -169,9 +206,11 @@
         return m;
     }
     function get(name, kind) {
-        var key = name + '|' + kind;
+        // keyed by the map's version: a new export under the same file names loads anew
+        var ver = version(S.m), key = name + '|' + kind + '|' + ver;
         if (S.cache[key]) { return S.cache[key]; }
-        var url = '/api/terrain_mosaic/' + encodeURIComponent(name);
+        Object.keys(S.cache).forEach(function (k) { if (k.indexOf(name + '|') === 0 && k !== key) { delete S.cache[k]; } });
+        var url = '/api/terrain_mosaic/' + encodeURIComponent(name) + '?v=' + encodeURIComponent(ver);
         var pr = kind === 'img' ? new Promise(function (res, rej) {
             var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = url;
         }) : fetch(url, { cache: 'no-cache' }).then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.arrayBuffer(); });
@@ -184,11 +223,13 @@
     }
 
     // paint the view into the canvas (w x h = the raster), then place the plane
-    function draw() {
+    // quiet = a new export of the map on screen: the old picture stays until
+    // the new one is painted, no "loading…" in between
+    function draw(quiet) {
         var m = S.m, g = m && m.georef;
         if (!m || !(S.chk && S.chk.checked)) { return; }
         var mode = viewMode(), seq = ++S.seq, f = m.files;
-        setState('loading');
+        if (!(quiet && S.state === 'ok')) { setState('loading'); }
         var job;
         if (mode === 'height') {
             job = get(f.elevation16, 'buf').then(function (buf) {
@@ -276,7 +317,7 @@
     // for the panel
     function info() {
         var f = S.m ? S.m.files : {};
-        return { state: S.state, mode: viewMode(), mosaic: S.m, hRange: S.hRange,
+        return { state: S.state, mode: viewMode(), mosaic: S.m, hRange: S.hRange, list: S.list || [],
                  views: { cost: !!(f.cost_rgba), reason: !!f.reason, height: !!f.elevation16 && S.heightOk } };
     }
 
@@ -292,7 +333,7 @@
         }
     }
 
-    api.info = info; api.sync = sync; api._S = S;
+    api.info = info; api.sync = sync; api.pick = pick; api.refresh = function () { loadList(false); }; api._S = S;
     root.VTTerrainMosaic = api;
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
     else { init(); }

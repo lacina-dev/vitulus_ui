@@ -71,6 +71,22 @@ check('placement: turned about the min corner', pt && near(pt.cx, -2) && near(pt
 check('placement: bad georeference -> null', M.placement({ resolution: 0, width: 1, height: 1 }) === null && M.placement(null) === null);
 check('reason colours as the live layer (0 clear, 5 red)', M.reasonColor(0)[3] === 0 && M.reasonColor(5)[0] > 200 && M.reasonColor(42)[3] === 0);
 
+// T31: several maps of a site (one mowing, the recorder's lasting map): the chosen one if still there, else the newest
+const L2 = [{ name: 'teren_site' }, { name: 'teren_day' }];
+check('T31 choose: remembered map, else the newest (first), none -> null',
+      M.choose(L2, 'teren_day') === L2[1] && M.choose(L2, 'gone') === L2[0] && M.choose(L2, null) === L2[0] && M.choose([], 'x') === null);
+const L3 = [{ name: 'teren_day', mtime: 9 }, { name: 'teren_site', source: 'terrain_recorder', version: 41, area_m2: 300, generated_unix: 77, mtime: 5 }];
+check('T31 default: the recorder export over a newer offline mosaic; a remembered choice still wins',
+      M.choose(L3, null) === L3[1] && M.choose(L3, 'teren_day') === L3[0]);
+check('T31 an empty recorder export (area 0, after delete_map) is not the default',
+      M.choose([{ name: 'd', mtime: 9 }, { name: 'r', source: 'terrain_recorder', area_m2: 0, version: 1 }], null).name === 'd');
+check('T31 PNG cache keyed by the export version (else stamp, else the JSON time), URL ?v= too',
+      M.version(L3[1]) === 'v41@77' && M.version({ version: 1, stamp: 7 }) === 'v1@7' && M.version({ version: 1, mtime: 8 }) === 'v1@8' && M.version({ mtime: 3 }) === 't3' &&
+      src.includes("key = name + '|' + kind + '|' + ver") && src.includes("'?v=' + encodeURIComponent(ver)"));
+check('T31 a failing list (HTTP 500) is an error, not "no map"; a new export redraws quietly', /if \(!r\.ok\) \{ throw new Error/.test(src) && /draw\(true\)/.test(src) &&
+      /if \(!\(quiet && S\.state === 'ok'\)\) \{ setState\('loading'\); \}/.test(src));
+check('T31 while shown the list is looked at every minute (a new export redraws)', /setInterval\(function \(\) \{ if \(!document\.hidden\) \{ loadList\(false\); \} \}, 60000\)/.test(src));
+check('T31 the choice is remembered and the panel picks through VTTerrainMosaic.pick', src.includes("LS_PICK = 'vitulus_layer_tmosaic_pick'") && layers.includes('VTTerrainMosaic.pick(sel.value)'));
 const win = {};
 const ctx = vm.createContext({ window: win });
 ['en', 'cs'].forEach((l) => vm.runInContext(fs.readFileSync(path.join(JS, 'i18n', l + '.js'), 'utf8'), ctx));

@@ -131,7 +131,7 @@ po **Uložit a dokončit**, po smazání vrstvy nebo po přepnutí; ↻ ji sesta
 ## Co vidíš na mapě (vrstvy)
 
 Zaškrtni vrstvy pod seznamem map: **Základ** (tyrkysová, navigační mapa), **Uložená** (červená,
-aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (modrá), **Terén** (výška:
+aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (modrá), **Výšková plocha** (výška:
 modrá nízko, červená vysoko), **Podklad** (podkladová mapa, viz níž), **Déšť** (radar ČHMÚ ze služby
 počasí; mapa z více radarů je překryv **Srážky (mozaika)**, viz níž). Podklad a překryvy změníš
 nejrychleji [tlačítkem vrstev na mapě](#tlačítko-vrstev-na-mapě).
@@ -183,26 +183,25 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
 Je to totéž nastavení jako v panelu Mapa a ve Vrstvách editoru: co změníš na jednom místě, hned se
 ukáže i na ostatních, a prohlížeč si to pamatuje. Klepnutí mimo kartu, ✕ nebo Esc ji zavře.
 
-### Průjezdnost
+### Průjezdnost (živě)
 
-**Průjezdnost** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa; výchozí
-vypnuto, pamatuje se) ukazuje, co teď vidí uzel terénu robota: okno 6 × 6 m kolem robota po 5 cm,
-zhruba dvakrát za sekundu, naplocho na zemi pod robotem a trasami; kam kamera ještě nedohlédla, tam
-není nic. Tři pohledy (volba se pamatuje):
+**Průjezdnost (živě)** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa;
+výchozí vypnuto, pamatuje se) ukazuje, co teď vidí uzel terénu robota: okno 6 × 6 m kolem robota po
+5 cm, zhruba dvakrát za sekundu, naplocho na zemi pod robotem a trasami; kam kamera ještě nedohlédla,
+tam není nic. Tři pohledy, stejné jako u sečené plochy níž (volba se pamatuje; co barvy znamenají,
+řekne legenda pod nimi):
 
-- **Důvod** — proč je místo obtížné nebo nesjízdné: **zelená** volno, **žlutá → oranžová** vyšší cena
-  (sklon, nerovnost), **fialová** schod (hrana přes 8 cm), **modrá** příliš prudký svah, **červená**
-  překážka, **šedofialová** sráz viděný jen z jednoho místa (díra nebo mez — zatím nezakázáno),
-  **šedá** v zóně doku; samotná zóna doku má bílý obrys.
-- **Cena** — 0 volno (zelená) … 99 obtížné (oranžová), 100 nesjízdné (červená).
-- **Výška** — terén proti robotu, modrá níž, hnědá výš (±15 cm); jen když ji uzel terénu posílá
-  (jeho parametr `ui_elevation`), jinak je tlačítko zašedlé.
+- **Průjezdnost** — od volna po nesjízdné.
+- **Důvod** — proč je místo obtížné nebo nesjízdné (vyšší cena, schod, příliš prudké, překážka, sráz
+  viděný jen z jednoho místa, zóna doku); samotná zóna doku má bílý obrys.
+- **Výška** — terén proti robotu (±15 cm); jen když ji uzel terénu posílá (jeho parametr
+  `ui_elevation`), jinak je tlačítko zašedlé.
 
-Vrstva se řídí společným *Krytím map*. Data chodí jen se zapnutou vrstvou a zobrazenou stránkou
-(nejvýš dvakrát za sekundu, pár kB). Dokud podrobné téma uzlu terénu `/traversability/ui` není,
-vrstva použije jeho obyčejnou costmapu — jen cenu, řádek to řekne. Řádek říká *živě*, *čekám…*,
-*stará data* (pár sekund nic nového, kreslí se vybledle), *bez polohy v mapě* (robot neví, kde je
-odometrie v mapě: nekreslí se) nebo *žádná data* — pak uzel terénu neběží nebo kamera nedává obraz.
+Má vlastní krytí. Data chodí jen se zapnutou vrstvou a zobrazenou stránkou (nejvýš dvakrát za sekundu,
+pár kB). Dokud podrobné téma uzlu terénu `/traversability/ui` není, vrstva použije jeho obyčejnou
+costmapu — jen průjezdnost, řádek to řekne. Řádek říká *živě*, *čekám…*, *stará data* (pár sekund nic
+nového, kreslí se vybledle), *bez polohy v mapě* (robot neví, kde je odometrie v mapě: nekreslí se)
+nebo *žádná data* — pak uzel terénu neběží nebo kamera nedává obraz.
 ### Terén sečené plochy
 
 **Terén sečené plochy** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa;
@@ -211,8 +210,11 @@ nahrávek sečení po 5 cm — totéž jako živé okno vrstvy výše, ale pro c
 **Průjezdnost** (zelená volno, žlutá → červená obtížnější, tmavě červená nesjízdné), **Důvod** (stejné
 barvy jako živá vrstva: schod, příliš prudké, překážka, sráz viděný jednou, zóna doku) a **Výška**
 (modrá nejníž, hnědá nejvýš; legenda řekne, o kolik centimetrů). Má vlastní krytí; řádek pod ní řekne
-název mapy, kolik plochy je známo a jaký podíl je nesjízdný. Je to pevný obraz ze dne, kdy vznikl;
-*žádná mapa* znamená, že pro toto stanoviště zatím žádná nevznikla. Vrstva mapu z robota jen čte (pár
+název mapy, kolik plochy je známo a jaký podíl je nesjízdný. Stanoviště může mít
+víc map: mapu jednoho sečení (pevný obraz toho dne) a trvalou mapu terénu robota, která roste, dokud ji
+robot nahrává, a nová verze se hledá každou minutu (nahradí obraz bez bliknutí). Zobrazí se mapa, kterou
+vybereš v seznamu nad legendou (pamatuje se); bez volby trvalá mapa robota, jinak nejnovější. *Žádná
+mapa* znamená, že pro toto stanoviště zatím žádná nevznikla. Vrstva mapu z robota jen čte (pár
 set kB jednou při zobrazení).
 
 ### Měřítko

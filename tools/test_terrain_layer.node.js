@@ -91,6 +91,14 @@ check('hotfix 2: a silent subscription gets a SECOND one next to it (no unsubscr
       V.RESUB_MS === 15000 && V.OVERLAP_MS >= 10000 && /S\.uiOld\.push\(S\.uiSub\);[\s\S]{0,80}S\.uiSub = uiTopic\(\)/.test(src) &&
       /S\.uiWait = Math\.min\(RESUB_MAX_MS, S\.uiWait \* 2\)/.test(src) && /if \(raw && raw === S\.lastRaw\) \{ return; \}/.test(src) &&
       !/S\.uiSub\.unsubscribe\(\);\s*\n\s*S\.uiSub = new ROSLIB\.Topic/.test(src));
+check('T31: its own opacity (#mapv3_trav_op, remembered), on the fallback grid after MapLayerOpacity', src.includes("LS_OP = 'vitulus_layer_trav_op'") &&
+      src.includes('id="mapv3_trav_op"') && /registerClient\(c, order\(\)\); \}\s*\n\s*\/\/ after MapLayerOpacity[^\n]*\n\s*c\.on\('change'[^\n]*gridOpacity\(\)/.test(src) &&
+      layers.includes("rangeHtml('mapv3_trav_op', t('trav.layer'))"));
+check('T31 check: own opacity TIMES the global maps opacity, on the picture and the grid, also when the global slider moves',
+      /S\.mesh\.material\.opacity = layerOpacity\(\) \* mapsOpacity\(\)/.test(src) && /g\.material\.opacity = layerOpacity\(\) \* mapsOpacity\(\)/.test(src) &&
+      /MLO\.setMapsOpacity = function \(\) \{ var r = set\.apply\(this, arguments\); applyOpacity\(\);/.test(src) &&
+      /if \(c && c === S\.client\) \{ gridOpacity\(\); \}/.test(src));
+check('T31: the views in the same order as the mowed-area layer', /\['cost', 'reason', 'height'\]\.map\(function \(m\) \{\s*\/\/ the same order/.test(layers));
 const relay = fs.readFileSync(path.join(ROOT, 'nodes', 'costmap_reframe'), 'utf8');
 check('costmap_reframe: ~in / ~out, defaults as before', /get_param\('~out', '\/local_costmap_map_framed'\)/.test(relay) &&
       /get_param\('~in', '\/move_base_flex\/local_costmap\/costmap_slow'\)/.test(relay));

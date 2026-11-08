@@ -181,6 +181,13 @@
 
         panel.addEventListener('click', onClick);
         panel.addEventListener('input', onInput);
+        // T31: the mowed-area map picker
+        panel.addEventListener('change', function (e) {
+            var sel = e.target;
+            if (sel && sel.hasAttribute && sel.hasAttribute('data-lyr-mpick') && window.VTTerrainMosaic && VTTerrainMosaic.pick) {
+                VTTerrainMosaic.pick(sel.value);
+            }
+        });
         panel.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { e.stopPropagation(); close(true); return; }
             // focus inside this card: the arrows never drive (director 2026-11-08);
@@ -392,13 +399,28 @@
             if (b.disabled !== off) { b.disabled = off; }
             b.title = off ? t(m === 'height' && I.mosaic && I.mosaic.files.elevation16 ? 'tmos.height_browser' : 'tmos.view_none') : '';
         });
+        var prow = row.querySelector('[data-lyr-mpickrow]'), psel = row.querySelector('[data-lyr-mpick]'), list = I.list || [];
+        if (prow && psel) {
+            var psig = list.map(function (x) { return x.name + '@' + x.mtime; }).join('|') + '|' + lang();
+            if (psel.getAttribute('data-sig') !== psig) {
+                psel.setAttribute('data-sig', psig);
+                var L = lang();
+                psel.innerHTML = list.map(function (x) {
+                    var d = new Date(x.mtime * 1000);
+                    var when = d.toLocaleString(L === 'cs' ? 'cs-CZ' : 'en-GB', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    return '<option value="' + esc(x.name) + '">' + esc(mosaicName(x) + ' · ' + when) + '</option>';
+                }).join('');
+            }
+            if (I.mosaic && psel.value !== I.mosaic.name && document.activeElement !== psel) { psel.value = I.mosaic.name; }
+            prow.hidden = !(chk.checked && list.length > 1);
+        }
         var rg = I.hRange, sig = I.mode + '|' + lang() + '|' + (rg ? rg.lo + '-' + rg.hi : '');
         var leg = row.querySelector('[data-lyr-mleg]');
         if (leg && (mosLegSig !== sig || !leg.firstChild)) { mosLegSig = sig; leg.innerHTML = mosaicLegendHtml(I.mode, rg); }
         var inf = row.querySelector('[data-lyr-minfo]'), m = I.mosaic, txt = '';
         if (chk.checked && m) {
             var st = m.stats || {}, L = lang(), n = function (v, d) { var x = (+v).toFixed(d); return L === 'cs' ? x.replace('.', ',') : x; };
-            txt = t('tmos.info', { name: m.name, area: st.area_known_m2 != null ? n(st.area_known_m2, 0) : '—',
+            txt = t('tmos.info', { name: mosaicName(m), area: st.area_known_m2 != null ? n(st.area_known_m2, 0) : '—',
                                    lethal: st.lethal_pct != null ? n(st.lethal_pct, 1) : '—' });
         }
         if (inf && inf.textContent !== txt) { inf.textContent = txt; }
@@ -410,6 +432,8 @@
             ms.hidden = !why;
         }
     }
+    // the robot's lasting map (terrain_recorder export) by its role, the others by name
+    function mosaicName(m) { return m.source === 'terrain_recorder' ? t('tmos.recorder') : m.name; }
     function mosaicLegendHtml(mode, rg) {
         if (mode === 'reason') { return travLegendHtml('reason'); }
         if (mode === 'height') {
@@ -434,7 +458,7 @@
     function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? (c[3] / 255).toFixed(2) : a) + ')'; }
     function travModesHtml() {
         return '<div class="vt-lyr-tmodes" role="group" aria-label="' + esc(t('trav.view')) + '">' +
-            ['reason', 'cost', 'height'].map(function (m) {
+            ['cost', 'reason', 'height'].map(function (m) {      // the same order as the mowed-area layer
                 return '<button type="button" class="vt-lyr-tmode" data-lyr-tmode="' + m + '" aria-pressed="false">' + esc(t('trav.mode.' + m)) + '</button>';
             }).join('') + '</div>';
     }
@@ -528,7 +552,7 @@
             if ($('mapv3_chk_trav')) {
                 h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>');
                 h.push(ovRow('trav', 'mapv3_chk_trav', t('trav.layer'), t('trav.hint'),
-                    travModesHtml() + '<div data-lyr-tleg></div>' +
+                    rangeHtml('mapv3_trav_op', t('trav.layer')) + travModesHtml() + '<div data-lyr-tleg></div>' +
                     '<div class="vt-lyr-hint" data-lyr-tsrc hidden></div>' +
                     '<div class="vt-lyr-tstat" data-lyr-tstat role="status" hidden></div>'));
             }
@@ -537,6 +561,9 @@
                 if (!$('mapv3_chk_trav')) { h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>'); }
                 h.push(ovRow('tmosaic', 'mapv3_chk_tmosaic', t('tmos.layer'), t('tmos.hint'),
                     rangeHtml('mapv3_tmosaic_op', t('tmos.layer')) +
+                    // more maps of the site (one mowing, the robot's lasting map …): pick one
+                    '<div class="vt-lyr-mpick" data-lyr-mpickrow hidden><select class="form-select form-select-sm" data-lyr-mpick aria-label="' +
+                    esc(t('tmos.pick')) + '"></select></div>' +
                     '<div class="vt-lyr-tmodes" role="group" aria-label="' + esc(t('trav.view')) + '">' +
                     ['cost', 'reason', 'height'].map(function (m) {
                         return '<button type="button" class="vt-lyr-tmode" data-lyr-mmode="' + m + '" aria-pressed="false">' + esc(t('tmos.mode.' + m)) + '</button>';

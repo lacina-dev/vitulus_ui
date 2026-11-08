@@ -75,6 +75,15 @@ def main():
                                                        'yaw': 0.0, 'origin_x': 1.0, 'origin_y': -2.0})
         ok('list: a listed file that is missing is left out', set(m['files']) == {'cost', 'reason'}, m['files'])
         ok('list: stats only the short numbers (no long lists)', m['stats'] == {'area_known_m2': 12.5, 'lethal_pct': 3.0})
+        mosaic(d, 'teren_site_x', now - 50, source='terrain_recorder', version=41, stamp=123.0)
+        ms2 = tm.list_mosaics(d)
+        rec = [x for x in ms2 if x['name'] == 'teren_site_x'][0]
+        ok('T31: the recorder export passes source / version / stamp', rec['source'] == 'terrain_recorder' and rec['version'] == 41 and rec['stamp'] == 123.0
+           and ms2[0]['source'] == '' and ms2[0]['version'] is None)
+        mosaic(d, 'teren_noarea', now - 60, source='terrain_recorder', version=2, area_m2=55.5, stats=None, generated_unix=99.0)
+        rec2 = [x for x in tm.list_mosaics(d) if x['name'] == 'teren_noarea'][0]
+        ok('T31: a recorder export without stats shows its area_m2; generated_unix passes', rec2['stats'].get('area_known_m2') == 55.5
+           and rec2['area_m2'] == 55.5 and rec2['generated_unix'] == 99.0)
         ok('list: missing directory -> []', tm.list_mosaics(os.path.join(root, 'nope')) == [] and tm.list_mosaics('') == [])
 
         ok('safe_file: a file of the directory', tm.safe_file(d, 'newer_cost.png') == os.path.realpath(os.path.join(d, 'newer_cost.png')))
