@@ -238,3 +238,12 @@
 /* ---- T17 M8-2: the precipitation time line moved into the panel row */
 .vt-lyr-tl:empty { display: none; }
 .vt-lyr-tl .vt-precip { margin: var(--vt-gap-1) 0 2px; }
+
+/* ---- T29: terrain layer (vt_terrain_layer.js) — swatch in the Map tab's
+   layers row, state sentence in the panel row */
+.vt-sw-trav {
+    display: inline-block; width: 0.9em; height: 0.9em; vertical-align: -0.1em; border-radius: 2px;
+    color: transparent; background: linear-gradient(90deg, #4caf50, #ffd600 50%, #ff6d00 75%, #e53935);
+}
+.vt-lyr-tstat { margin: 2px 0; color: var(--vt-warn); font-size: var(--vt-fs-sm); line-height: 1.35; overflow-wrap: anywhere; hyphens: auto; }
+.vt-lyr-tstat[hidden] { display: none; }

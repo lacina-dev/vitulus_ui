@@ -19,10 +19,14 @@ class Reframe(object):
     def __init__(self):
         self.buf = tf2_ros.Buffer(rospy.Duration(10.0))
         self.lis = tf2_ros.TransformListener(self.buf)
-        self.pub = rospy.Publisher('/local_costmap_map_framed', OccupancyGrid,
-                                   queue_size=1)
-        rospy.Subscriber('/move_base_flex/local_costmap/costmap_slow',
-                         OccupancyGrid, self.cb, queue_size=1)
+        # T29: topics as private params (defaults = the local costmap, as
+        # before); a second instance re-frames the terrain node's costmap:
+        #   rosrun vitulus_ui costmap_reframe _in:=/traversability/local_costmap
+        #       _out:=/traversability/local_costmap_map_framed __name:=costmap_reframe_t10
+        out_topic = rospy.get_param('~out', '/local_costmap_map_framed')
+        in_topic = rospy.get_param('~in', '/move_base_flex/local_costmap/costmap_slow')
+        self.pub = rospy.Publisher(out_topic, OccupancyGrid, queue_size=1)
+        rospy.Subscriber(in_topic, OccupancyGrid, self.cb, queue_size=1)
 
     def cb(self, g):
         if g.header.frame_id.lstrip('/') == 'map':

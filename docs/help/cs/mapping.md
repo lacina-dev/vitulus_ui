@@ -181,6 +181,17 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
 Je to totéž nastavení jako v panelu Mapa a ve Vrstvách editoru: co změníš na jednom místě, hned se
 ukáže i na ostatních, a prohlížeč si to pamatuje. Klepnutí mimo kartu, ✕ nebo Esc ji zavře.
 
+### Terén (T10)
+
+**Terén (T10)** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa; výchozí
+vypnuto, pamatuje se) ukazuje, co teď vidí uzel terénu robota: okno 6 × 6 m kolem robota po 5 cm,
+zhruba dvakrát za sekundu, naplocho na zemi pod robotem a trasami. **Zelená** = volno, **žlutá →
+oranžová** = obtížnější (sklon, nerovnost), **červená** = nesjízdné (schod, příliš prudký svah,
+překážka); kam kamera ještě nedohlédla, tam není nic. Data chodí jen se zapnutou vrstvou
+a zobrazenou stránkou. Řádek říká *živě*, *čekám…*, *stará data* (pár sekund nic nového) nebo
+*žádná data* — pak uzel terénu neběží, kamera nedává obraz, nebo neběží přepočet do mapy
+(`costmap_reframe_t10`).
+
 ### Měřítko
 
 V levém dolním rohu, hned nad řádkem s autory map, ukazuje malý pruh měřítko: jeho délka na zemi je

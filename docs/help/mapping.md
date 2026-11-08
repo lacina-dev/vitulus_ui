@@ -186,6 +186,17 @@ One tap opens it, a second one picks the map:
 It is the same setting as the Map panel and the editor's Layers: whatever you change in one place
 shows in the others at once, and the browser remembers it. Tap outside the card, ✕ or Esc closes it.
 
+### Terrain (T10)
+
+**Terrain (T10)** (layers card under *Robot*, also a tick in the Map tab's layers row; off by
+default, remembered) shows what the robot's terrain node sees right now: a 6 × 6 m window around
+the robot in 5 cm cells, about twice a second, flat on the ground under the robot and the paths.
+**Green** = free, **yellow → orange** = harder (slope, roughness), **red** = not passable (a step,
+a too steep slope, an obstacle); where the camera has not looked yet there is nothing. The data
+come only while the layer is on and the page is shown. The row says *live*, *waiting…*, *old data*
+(nothing new for a few seconds) or *no data* — then the terrain node does not run, the camera gives
+no picture, or the re-framing to the map (`costmap_reframe_t10`) is not running.
+
 ### Scale bar
 
 In the bottom-left corner, just above the credits line, a small bar shows the scale: its length on

@@ -231,7 +231,7 @@
         var l = lang();
         return l + '|' + cat.bases.map(function (b) { return b.id + ':' + b.group + ':' + VTMapSources.label(b, l); }).join(',') +
             '|' + cat.overlays.map(function (o) { return o.id + ':' + o.layer_order + ':' + VTMapSources.label(o, l); }).join(',') +
-            '|' + (!!$('mapv3_chk_rain')) + '|' + fresh.join(',');
+            '|' + (!!$('mapv3_chk_rain')) + '|' + (!!$('mapv3_chk_trav')) + '|' + fresh.join(',');
     }
 
     function newTag(id) {
@@ -347,11 +347,36 @@
         tlRefit();
     }
 
+    // T29: the terrain row — the state sentence when it needs one
+    function syncTrav() {
+        var row = panel && panel.querySelector('[data-lyr-row="trav"]'), chk = $('mapv3_chk_trav');
+        if (!row || !chk) { return; }
+        var I = window.VTTerrain && VTTerrain.info ? VTTerrain.info() : { state: '' };
+        var st = row.querySelector('[data-lyr-tstat]');
+        if (st) {
+            var why = chk.checked && ['nodata', 'stale', 'noros'].indexOf(I.state) >= 0 ? t('trav.why.' + I.state) : '';
+            if (st.textContent !== why) { st.textContent = why; }
+            st.hidden = !why;
+        }
+    }
+
     // ---- T17 M8-5: is the background map loading? (mapping.js _baseLoad,
     // event 'vt:map-tiles'); 'none' = not one tile came (MapProxy / internet)
     function bgLoad() {
         var M = window.mapping_v3, s = M && M._baseLoad;
         return (bgOn() && s && s.state) ? s : null;
+    }
+
+    // ---- T29: the terrain layer's legend (cost 0 … 100, vt_terrain_layer.js colours)
+    function rgba(c) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (c[3] / 255).toFixed(2) + ')'; }
+    function travLegendHtml() {
+        var V = window.VTTerrain;
+        if (!V || !V.costColor) { return ''; }
+        var cs = [0, 25, 49, 50, 75, 99].map(function (c, i, a) { return rgba(V.costColor(c)) + ' ' + Math.round(i / a.length * 100) + '%'; });
+        cs.push(rgba(V.costColor(100)) + ' 86%', rgba(V.costColor(100)) + ' 100%');
+        return '<div class="vt-lyr-legend"><span class="vt-lyr-grad" style="background:linear-gradient(90deg,' + cs.join(',') + ')"></span>' +
+            '<span class="vt-lyr-legend-l"><span>' + esc(t('trav.leg.free')) + '</span><span>' + esc(t('trav.leg.hard')) + '</span><span>' +
+            esc(t('trav.leg.lethal')) + '</span></span></div>';
     }
 
     function ovRow(key, chkId, name, hint, extra) {
@@ -409,10 +434,16 @@
                     (o.timeline ? '<div class="vt-lyr-tl" data-lyr-tl="' + esc(o.id) + '"></div>' : '')));
             });
         };
-        if (cat.overlays.length || $('mapv3_chk_rain')) {
+        if (cat.overlays.length || $('mapv3_chk_rain') || $('mapv3_chk_trav')) {
             h.push('<section class="vt-lyr-sec"><div class="vt-lyr-sec-h"><span>' + esc(t('maplyr.ov')) + '</span></div>');
             if (lines.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.lines')) + '</div>'); ovs(lines); }
             if (tones.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.terrain')) + '</div>'); ovs(tones); }
+            // T29: what the robot's terrain node sees now (vt_terrain_layer.js)
+            if ($('mapv3_chk_trav')) {
+                h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>');
+                h.push(ovRow('trav', 'mapv3_chk_trav', t('trav.layer'), t('trav.hint'),
+                    travLegendHtml() + '<div class="vt-lyr-tstat" data-lyr-tstat role="status" hidden></div>'));
+            }
             if ($('mapv3_chk_rain') || weather.length) {
                 h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.weather')) + '</div>');
                 if ($('mapv3_chk_rain')) {
@@ -456,6 +487,7 @@
         }
         tlAttach();
         paintThumbs();
+        syncTrav();
         var cat = catalog(), meta = $('vt_lyr_meta');
         if (meta) {
             var src = on && cat && cat.byId[b];
@@ -492,6 +524,8 @@
         var cat = catalog(), n = 0;
         if (cat) { cat.overlays.forEach(function (o) { if (ovOn(o.id)) { n++; } }); }
         if (rainOn()) { n++; }
+        var tv = $('mapv3_chk_trav');
+        if (tv && tv.checked) { n++; }
         fab.classList.toggle('vt-lyr-active', bgOn() || n > 0);
         // M8-5: not one tile of the background came: the button says so
         var ld = bgLoad(), warn = !!(ld && ld.state === 'none');
@@ -643,9 +677,20 @@
         syncRaf = requestAnimationFrame(function () { syncRaf = null; sync(); });
     }
 
+    // T29: the terrain layer's module, loaded from here (no index.html change)
+    function loadTerrain() {
+        if (window.VTTerrain || document.querySelector('script[data-vt-terrain]')) { return; }
+        var sc = document.createElement('script');
+        sc.src = '/assets/js/vt_terrain_layer.js';
+        sc.setAttribute('data-vt-terrain', '1');
+        sc.onload = function () { sig = ''; if (isOpen) { render(); } };
+        document.head.appendChild(sc);
+    }
+
     function init() {
         if (!document.getElementById('map_view')) { return; }
         build();
+        loadTerrain();
         place();
         // the Map tab / editor changed something: mirror it (capture: the
         // events fired by mapping.js / mapedits.js do not bubble)
