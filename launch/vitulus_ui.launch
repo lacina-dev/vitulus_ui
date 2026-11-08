@@ -3,6 +3,18 @@
   <!-- 2026-08-03: local costmapa je v odom frame (audit A19); stary ros3d ji
        neumi TF-umistit — relay ji prerammuje do map pro UI. -->
   <node pkg="vitulus_ui" type="costmap_reframe" name="costmap_reframe" respawn="true" respawn_delay="2" output="log"/>
+  <!-- T29: the same relay for the terrain node's costmap (vitulus_traversability):
+       the fallback of the map layer Traversability while /traversability/ui is
+       silent. It only relays while the terrain node publishes; without it the
+       relay idles (one subscription, no traffic). Started with the stack, so a
+       stack restart never leaves an orphan (it ran as a manual unit before).
+       traversability_reframe:=false leaves it out. -->
+  <arg name="traversability_reframe" default="true"/>
+  <node if="$(arg traversability_reframe)" pkg="vitulus_ui" type="costmap_reframe" name="costmap_reframe_t10"
+        respawn="true" respawn_delay="2" output="log">
+    <param name="in" value="/traversability/local_costmap"/>
+    <param name="out" value="/traversability/local_costmap_map_framed"/>
+  </node>
 
   <!-- 2026-10-18: camera overlays (lidar / obstacles / free / depth) for the
        UI camera, projected into the colour camera like the RViz Camera

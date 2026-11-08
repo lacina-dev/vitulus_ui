@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Map layer "Terrain (T10)" (assets/js/vt_terrain_layer.js, T29):
+ * Map layer "Traversability" (assets/js/vt_terrain_layer.js, T29):
  *     node tools/test_terrain_layer.node.js
  *   - loaded by vt_map_layers.js (no index.html change), not by index.html;
  *   - sends nothing but subscribe / unsubscribe: no publish, service, HTTP write;

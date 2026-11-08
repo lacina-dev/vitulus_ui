@@ -183,9 +183,9 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
 Je to totéž nastavení jako v panelu Mapa a ve Vrstvách editoru: co změníš na jednom místě, hned se
 ukáže i na ostatních, a prohlížeč si to pamatuje. Klepnutí mimo kartu, ✕ nebo Esc ji zavře.
 
-### Terén (T10)
+### Průjezdnost
 
-**Terén (T10)** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa; výchozí
+**Průjezdnost** (karta vrstev pod *Robot*, také zaškrtávátko v řádku vrstev v panelu Mapa; výchozí
 vypnuto, pamatuje se) ukazuje, co teď vidí uzel terénu robota: okno 6 × 6 m kolem robota po 5 cm,
 zhruba dvakrát za sekundu, naplocho na zemi pod robotem a trasami; kam kamera ještě nedohlédla, tam
 není nic. Tři pohledy (volba se pamatuje):

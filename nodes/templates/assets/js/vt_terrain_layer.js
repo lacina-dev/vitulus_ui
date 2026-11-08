@@ -1,4 +1,4 @@
-/* vt_terrain_layer.js — map layer "Terrain (T10)" (T29, 2026-11-08).
+/* vt_terrain_layer.js — map layer "Traversability" (T29, 2026-11-08).
  *
  * What the robot's terrain node (traversability_local, vitulus_traversability,
  * T10) sees right now: its 6 × 6 m window around the robot, 5 cm cells, drawn
@@ -15,9 +15,8 @@
  *      map <- odom at the data's time (no re-framing relay needed), zones;
  *   2. fallback while (1) sends nothing: /traversability/local_costmap_map_framed
  *      (nav_msgs/OccupancyGrid, the node's costmap re-framed to map by
- *      costmap_reframe_t10) — the cost view only:
- *        rosrun vitulus_ui costmap_reframe _in:=/traversability/local_costmap \
- *            _out:=/traversability/local_costmap_map_framed __name:=costmap_reframe_t10
+ *      costmap_reframe_t10, a second instance of nodes/costmap_reframe started
+ *      by launch/vitulus_ui.launch) — the cost view only
  *
  * Cost, by design: subscribed ONLY while the layer is ticked and the page is
  * visible (the node publishes /traversability/ui only while it has a

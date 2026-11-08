@@ -4970,8 +4970,8 @@
     "auto.a4.plan.skip_which": "{program} · {when}",
     "auto.a4.dur.dh": "{d} {h} h",
     "auto.a4.dur.year_plus": "more than a year",
-    // T29 (2026-11-08): map layer Terrain (T10) — what the robot's terrain node sees now
-    "trav.layer": "Terrain (T10)",
+    // T29 (2026-11-08): map layer Traversability — what the robot's terrain node sees now
+    "trav.layer": "Traversability",
     "trav.layer_tip": "What the robot's terrain node sees right now: 6\u00a0×\u00a06\u00a0m around the robot — why a place is hard or not passable, its cost or its height",
     "trav.grp": "Robot",
     "trav.hint": "The terrain node's window 6\u00a0×\u00a06\u00a0m around the robot (5\u00a0cm cells), about twice a second. Reason: green = free, yellow → orange = higher cost (slope, roughness), violet = step, blue = too steep, red = obstacle; the dock zone outlined. Nothing = not seen yet.",

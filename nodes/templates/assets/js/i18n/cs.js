@@ -5057,8 +5057,8 @@
     "auto.a4.plan.skip_which": "{program} · {when}",
     "auto.a4.dur.dh": "{d} {h} h",
     "auto.a4.dur.year_plus": "víc než rok",
-    // T29 (2026-11-08): vrstva mapy Terén (T10) — co teď vidí uzel terénu robota
-    "trav.layer": "Terén (T10)",
+    // T29 (2026-11-08): vrstva mapy Průjezdnost — co teď vidí uzel terénu robota
+    "trav.layer": "Průjezdnost",
     "trav.layer_tip": "Co teď vidí uzel terénu robota: 6\u00a0×\u00a06\u00a0m kolem robota — proč je místo obtížné nebo nesjízdné, jeho cena nebo výška",
     "trav.grp": "Robot",
     "trav.hint": "Okno uzlu terénu 6\u00a0×\u00a06\u00a0m kolem robota (buňky 5\u00a0cm), zhruba dvakrát za sekundu. Důvod: zelená = volno, žlutá → oranžová = vyšší cena (sklon, nerovnost), fialová = schod, modrá = příliš prudký svah, červená = překážka; zóna doku obrysem. Nic = zatím neviděno.",
