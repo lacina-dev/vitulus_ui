@@ -237,3 +237,47 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
         margin-top: calc((22px - var(--vt-touch)) / 2); margin-bottom: calc((22px - var(--vt-touch)) / 2);
     }
 }
+
+/* ---- T21 A1: the answer in the top card, the start list folded, the limits fold ---- */
+/* who decides + could it start now: two quiet buttons under "Next", tone by state */
+.vt-auto-answer { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 var(--vt-gap-2); }
+.vt-auto-answer:empty { display: none; }
+.vt-auto-ans { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 3px 10px;
+    border: 1px solid var(--vt-border-strong); border-radius: 999px; background: var(--vt-surface-3); color: var(--vt-text);
+    font-size: var(--vt-fs-sm); line-height: 1.25; text-align: left; cursor: pointer; }
+.vt-auto-ans > i { flex: 0 0 auto; font-size: 15px; color: var(--vt-muted); }
+.vt-auto-ans-t { overflow-wrap: break-word; hyphens: auto; }
+.vt-auto-ans:hover { border-color: var(--vt-accent); }
+.vt-auto-ans:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
+.vt-auto-ans[data-state="ok"] { border-color: rgba(var(--vt-ok-rgb), .55); }
+.vt-auto-ans[data-state="ok"] > i { color: var(--vt-ok); }
+.vt-auto-ans[data-state="info"] { border-color: rgba(var(--vt-info-rgb), .55); }
+.vt-auto-ans[data-state="info"] > i { color: var(--vt-info); }
+.vt-auto-ans[data-state="warn"] { border-color: rgba(var(--vt-warn-rgb), .7); background: rgba(var(--vt-warn-rgb), .10); }
+.vt-auto-ans[data-state="warn"] > i { color: var(--vt-warn); }
+.vt-auto-ans[data-state="err"] { border-color: rgba(var(--vt-err-rgb), .7); background: rgba(var(--vt-err-rgb), .10); }
+.vt-auto-ans[data-state="err"] > i { color: var(--vt-err); }
+/* the folded fine / not-checked lines: one muted line with its toggle */
+.vt-auto-okline .vt-auto-check-t { color: var(--vt-muted); }
+.vt-auto-okbtn { flex: 0 0 auto; padding: 0 6px; min-height: 28px; font-size: var(--vt-fs-sm); color: var(--vt-accent); border: 0; white-space: nowrap; }
+/* Who decides › Rules and hard limits as a fold; the head says whether they hold now */
+.vt-auto-fold { margin-top: var(--vt-gap-2); border-top: 1px solid var(--vt-border); }
+.vt-auto-fold > summary { display: flex; align-items: center; gap: var(--vt-gap-2); min-height: 36px; cursor: pointer; list-style: none; }
+.vt-auto-fold > summary::-webkit-details-marker { display: none; }
+.vt-auto-fold > summary::before { content: '\25B8'; flex: 0 0 auto; color: var(--vt-muted); font-size: 11px; transition: transform .15s; }
+.vt-auto-fold[open] > summary::before { transform: rotate(90deg); }
+.vt-auto-fold > summary .vt-auto-h { margin: 0; flex: 0 1 auto; }
+.vt-auto-fold > summary .vt-auto-toks { flex: 1 1 auto; }
+@media (pointer: coarse), (max-width: 575.98px) {
+    .vt-auto-ans { min-height: var(--vt-touch); }
+    .vt-auto-okbtn { min-height: var(--vt-touch); }
+    .vt-auto-fold > summary { min-height: 44px; }
+}
+/* touch: the Limit switch of the allowed time takes its label's height, the radar link a row */
+@media (pointer: coarse) {
+    #card_mow_window .vt-switch-inline { display: inline-flex; align-items: center; gap: 6px; min-height: var(--vt-touch); margin: 0; }
+    #card_mow_window .vt-switch-inline .form-check-label { display: inline-flex; align-items: center; min-height: var(--vt-touch); padding-right: 4px; }
+    #auto_link_radar { display: inline-flex; align-items: center; min-height: var(--vt-touch); }
+}
+/* expanded list: only the "Problems only" toggle, right-aligned, no dot */
+.vt-auto-okline-x { justify-content: flex-end; }

@@ -111,6 +111,10 @@
         var n = Math.round((dayStart(d) - dayStart(new Date())) / 86400000);
         if (n === 0) { return t('auto.day.today'); }
         if (n === 1) { return t('auto.day.tomorrow'); }
+        /* T21 A1: English with the month's name ("Tue 10 Nov"): 11/10 reads both ways */
+        if (String(lang() || 'en').indexOf('cs') !== 0) {
+            return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+        }
         return d.toLocaleDateString(lang(), { weekday: 'short', day: 'numeric', month: 'numeric' });
     }
     function when(iso) {
@@ -755,8 +759,11 @@
         if (!box) { return; }
         clear(box);
         if (!mv) { return; }
-        el('h6', 'vt-auto-h', box, t('auto.mode.last.h'));
         var d = mv.last_decision;
+        /* T21 A1: the calendar decides by its slots; "no decision yet" there says nothing */
+        box.hidden = !d && mv.mode !== 'agent';
+        if (box.hidden) { return; }
+        el('h6', 'vt-auto-h', box, t('auto.mode.last.h'));
         if (!d) { el('p', 'vt-auto-quiet', box, t('auto.mode.last.none')); return; }
         var v = d.vars || {};
         el('div', 'vt-auto-dec-main', box, journalText(d));
@@ -780,6 +787,8 @@
         if (!box) { return; }
         paintWindowLine();
         var mv = modeView(), ask = S.modeAsk;
+        paintAnsMode(mv);
+        paintLimitsTok(mv);
         box.querySelectorAll('.vt-auto-choice').forEach(function (b) {
             var on = !!mv && b.dataset.mode === mv.mode;
             b.classList.toggle('vt-sel', on);
@@ -832,9 +841,156 @@
     }
     /* an older master has no agent group: no heading over nothing */
     function paintLimitsHead() {
-        var h = $('auto_mode_limits_h'), g = document.querySelector('[data-auto-group="agent"]');
+        var h = $('auto_mode_limits'), g = document.querySelector('[data-auto-group="agent"]');
+        if (!h) { h = $('auto_mode_limits_h'); }
         if (h && g) { h.hidden = !g.firstChild; }
         paintWindowLine();
+    }
+    /* T21 A1: Rules and hard limits fold into their own disclosure (remembered, open by
+       default); its head says whether they hold starts now. Built once around the
+       heading and the agent group of index.html; nothing moves out of Who decides. */
+    function buildLimitsFold() {
+        var h = $('auto_mode_limits_h'), g = document.querySelector('[data-auto-group="agent"]');
+        if (!h || !g || $('auto_mode_limits')) { return; }
+        var d = document.createElement('details');
+        d.id = 'auto_mode_limits';
+        d.className = 'vt-auto-fold';
+        h.parentNode.insertBefore(d, h);
+        var s = el('summary', 'vt-auto-fold-s', d);
+        s.appendChild(h);
+        el('span', 'vt-auto-toks', s).id = 'auto_tok_limits';
+        d.appendChild(g);
+        /* folded while the limits are not in force, open while they are (director 2026-11-08);
+           once the owner opens or folds it, that choice stays */
+        var v = null;
+        try { v = localStorage.getItem(secKey('limits')); } catch (e) {}
+        S.limitsAuto = v === null;
+        d.open = v === '1';
+        d.addEventListener('toggle', function () {
+            if (S.limitsProg === d.open) { S.limitsProg = null; return; }   // our own open/fold
+            S.limitsAuto = false;
+            try { localStorage.setItem(secKey('limits'), d.open ? '1' : '0'); } catch (e) {}
+        });
+    }
+    function paintLimitsTok(mv) {
+        var box = $('auto_tok_limits');
+        if (!box) { return; }
+        clear(box);
+        if (!mv) { return; }
+        var p = el('span', 'vt-pill', box, t(mv.limits_apply ? 'auto.a1.lim.on' : 'auto.a1.lim.off'));
+        if (mv.limits_apply) { p.dataset.state = 'info'; }
+        var d = $('auto_mode_limits');
+        if (d && S.limitsAuto && d.open !== !!mv.limits_apply) {
+            S.limitsProg = !!mv.limits_apply;
+            d.open = !!mv.limits_apply;
+        }
+    }
+
+    /* ---------------------------------------- T21 A1: the answer in the top card */
+    /* Two buttons under "Next": who decides, and could it start now (the worst check).
+       Both only open their section; nothing is sent. */
+    function buildAnswer() {
+        var hero = $('card_calendar'), next = $('span_scheduler_next');
+        if (!hero || $('auto_answer')) { return; }
+        var row = document.createElement('div');
+        row.id = 'auto_answer';
+        row.className = 'vt-auto-answer';
+        var after = next && next.parentNode && next.parentNode.parentNode === hero ? next.parentNode : null;
+        hero.insertBefore(row, after ? after.nextSibling : hero.firstChild);
+        var mk = function (id, ico, sec) {
+            var b = el('button', 'vt-auto-ans', row);
+            b.type = 'button'; b.id = id; b.hidden = true;
+            el('i', 'la ' + ico, b);
+            el('span', 'vt-auto-ans-t', b);
+            b.addEventListener('click', function () { openSec(sec, true); });
+            return b;
+        };
+        S.ansMode = mk('btn_auto_ans_mode', 'la-random', 'mode');
+        S.ansNow = mk('btn_auto_ans_now', 'la-check-circle', 'now');
+    }
+    function ansSet(b, text, state, tip) {
+        if (!b) { return; }
+        b.hidden = !text;
+        if (!text) { return; }
+        var s = b.querySelector('.vt-auto-ans-t');
+        if (s.textContent !== text) { s.textContent = text; }
+        if (state) { b.dataset.state = state; } else { delete b.dataset.state; }
+        b.title = tip || text;
+    }
+    function paintAnsMode(mv) {
+        if (!mv) { ansSet(S.ansMode, ''); return; }
+        ansSet(S.ansMode, t(mv.mode === 'agent' ? 'auto.a1.ans.agent' : 'auto.a1.ans.calendar'),
+               mv.mode === 'agent' ? 'info' : '', t('auto.a1.ans.mode_tip'));
+    }
+    var RUNNING = { mowing: 1, starting: 1, loading_map: 1 };
+    /* Could a start go now: the robot's own gate (master _start_blocker: a check that
+       blocks or waits, automation / programs off; the dock permit is the advice's own
+       step after it), the hard limit in force (mode.limit_now, not in report.checks)
+       and the report's code. Green only when none of them holds; unsure = neutral.
+       One answer for the top card and the head of Now. */
+    var GATE_OFF = { automation: 1, programs: 1 };
+    var OWN_SWITCH = { automation: 1, hold: 1 };
+    function holdsStart(c) {
+        return c.state === 'block' || c.state === 'wait' || (c.state === 'off' && !!GATE_OFF[c.key]);
+    }
+    var HOLD_RANK = { block: 0, off: 1, wait: 2 };
+    var READY_CODES = { waiting_slot: 1 };
+    function startVerdict() {
+        var rep = S.report, checks = rep && rep.checks;
+        if (!rep || !checks) { return null; }
+        if (RUNNING[rep.code]) { return { hide: true, tone: 'info', short: t('calmgr.state.mowing') }; }
+        var mv = modeView();
+        var bad = checks.filter(holdsStart).sort(function (a, b) { return HOLD_RANK[a.state] - HOLD_RANK[b.state]; });
+        if (bad.length) {
+            var c = bad[0], more = bad.length - 1;
+            var what = t('auto.check.key.' + c.key) + (more > 0 ? ' +' + more : '');
+            /* the owner's own switches (automation off, Hold) are a choice, not a fault: neutral */
+            var tone = c.state === 'wait' ? 'warn' : (c.state === 'off' || OWN_SWITCH[c.key] ? 'off' : 'err');
+            return { tone: tone, text: t(c.state === 'wait' ? 'auto.a1.ans.wait' : 'auto.a1.ans.block', { what: what }),
+                     short: what, tip: bad.map(checkText).join(' ') };
+        }
+        var lim = mv && mv.limits_apply && mv.limit_now, why = String((rep.detail && rep.detail.why) || '');
+        var limCode = lim ? lim.code : (/^limit_/.test(rep.code) ? rep.code : (/^limit:/.test(why) ? why.slice(6) : null));
+        if (limCode) {
+            var nm = first(['auto.limit.name.' + limCode]) || String(limCode).replace(/^limit_/, '').replace(/_/g, ' ');
+            return { tone: 'warn', text: t('auto.a1.ans.limit', { what: nm }), short: t('auto.mode.st.limit', { what: nm }),
+                     tip: lim ? limitText(lim.code, lim.vars) : '' };
+        }
+        var cm = window.calendarManager, said = rep.sentence && rep.sentence.code;
+        var tip = cm && cm._sentence ? cm._sentence(rep) : '';
+        /* a sleep or a hardware reset counting down: about to happen, not a start */
+        if (said === 'sleep_countdown' || said === 'hw_reset_countdown' || rep.code === 'sleep_countdown' || live(planNow())) {
+            var hw = said === 'hw_reset_countdown';
+            return { tone: 'warn', text: t(hw ? 'auto.a1.ans.hw' : 'auto.a1.ans.sleep'), short: t(hw ? 'auto.a1.ans.hw' : 'auto.tok.falling'), tip: tip };
+        }
+        if (rep.code === 'agent_no_advice') {
+            return { tone: 'off', text: t('auto.a1.ans.no_advice'), short: t('auto.mode.st.no_advice'), tip: tip };
+        }
+        if (rep.code === 'agent_skip') {
+            return { tone: 'off', text: t('auto.a1.ans.skip'), short: t('auto.a1.ans.skip'), tip: tip };
+        }
+        /* the dock permit holds only an advice that wants to go; the calendar standing in
+           needs none (D37) */
+        var adv = mv && mv.advice && mv.advice.fresh ? mv.advice : null;
+        if (rep.code === 'waiting_dock' || (mv && mv.mode === 'agent' && mv.dock_permitted === false
+                                           && adv && adv.state === 'pending' && adv.action === 'mow')) {
+            var pw = t('auto.check.key.permit');
+            return { tone: 'warn', text: t('auto.a1.ans.wait', { what: pw }), short: pw, tip: tip };
+        }
+        /* green only for a code that says "ready, waiting for its start" (allow-list); any
+           other or unknown code is neutral, its sentence in the tooltip */
+        if (READY_CODES[rep.code] && (!said || READY_CODES[said])) {
+            return { tone: 'ok', text: t('auto.a1.ans.ready'), short: t('auto.tok.ready') };
+        }
+        var look = cm && cm._codeLook ? cm._codeLook(rep.code) : null;
+        var word = rep.code === 'no_schedule' ? t('auto.tok.none')
+            : (look && look[0] !== 'active' ? t('calmgr.state.' + look[0]) : '');
+        return word ? { tone: 'off', text: t('auto.a1.ans.state', { what: word }), short: word, tip: tip }
+            : { tone: 'off', text: t('auto.a1.ans.not_now'), short: t('auto.a1.ans.not_now'), tip: tip };
+    }
+    function paintAnsNow(v) {
+        if (!v || v.hide) { ansSet(S.ansNow, ''); return; }
+        ansSet(S.ansNow, v.text, v.tone === 'off' ? '' : v.tone, v.tip);
     }
     /* One window for the calendar and the agent (owner 2026-11-08): the agent's
        night limit is the Allowed mowing time of Plan. Said here in one line, set
@@ -936,10 +1092,18 @@
         if (!quietOk) { S.gnssLive = null; }
         var n = { ok: 0, wait: 0, block: 0 };
         var rank = { block: 0, wait: 1 };
-        var order = function (c) { return c.state in rank ? rank[c.state] : 2; };
+        /* T21 A1: automation / programs off hold a start (the robot's gate): on top, never folded */
+        var top = function (c) { return !quietOk && holdsStart(c); };
+        var order = function (c) { return c.state in rank ? rank[c.state] : (top(c) ? 1 : 2); };
+        /* T21 A1: the start list shows what holds a start; the fine and the not-checked
+           lines fold into one line with "Show all" (remembered) */
+        var fold = !quietOk && !S.checksAll, folded = { ok: 0, off: 0 };
         (list || []).slice().sort(function (a, b) { return order(a) - order(b); }).forEach(function (c) {
             if (n[c.state] !== undefined) { n[c.state] += 1; }
             if (quietOk && c.state === 'ok') { return; }
+            if (top(c) && c.state === 'off') { n.gate = (n.gate || 0) + 1; }
+            /* "no time limit" (window off) holds nothing: it counts as fine */
+            if (fold && !top(c)) { folded[c.state === 'ok' || (c.key === 'window' && c.state === 'off') ? 'ok' : 'off'] += 1; return; }
             var r = el('div', 'vt-auto-check', box);
             r.dataset.state = CHECK_TONE[c.state] || 'off';
             /* someone logged in or watching keeps it awake on purpose: a fact, not a fault */
@@ -948,7 +1112,7 @@
             var tx = el('span', 'vt-auto-check-t', r, checkText(c));
             if (c.key === 'gnss' && c.code === 'not_checked' && !quietOk) { S.gnssLive = { el: tx, c: c }; }
             var fix = FIX[c.key];
-            if (fix && c.state !== 'ok' && c.state !== 'off') {
+            if (fix && c.state !== 'ok' && (c.state !== 'off' || top(c))) {
                 var b = el('button', 'vt-auto-go', r);
                 b.type = 'button';
                 b.title = t('auto.fix.' + fix.replace('sec:', ''));
@@ -957,7 +1121,34 @@
                 b.addEventListener('click', function () { goFix(fix); });
             }
         });
+        if (!quietOk && (list || []).length) { okLine(box, n, folded, fold); }
         return n;
+    }
+    function okLine(box, n, folded, fold) {
+        var r = el('div', 'vt-auto-check vt-auto-okline', box);
+        r.dataset.state = 'ok';
+        var held = n.block || n.wait || n.gate;
+        if (fold) { el('span', 'vt-sdot', r); } else { r.classList.add('vt-auto-okline-x'); }
+        var tx = '';
+        if (fold) {
+            var parts = [];
+            if (folded.ok || !held) { parts.push(t(held ? 'auto.a1.ok.rest' : 'auto.a1.ok.all', { n: folded.ok })); }
+            if (folded.off) { parts.push(t('auto.a1.ok.off', { n: folded.off })); }
+            tx = parts.join(' ');
+        }
+        if (fold) { el('span', 'vt-auto-check-t', r, tx); }
+        if (fold && !folded.ok && !folded.off) { r.remove(); return; }
+        var b = el('button', 'btn btn-link btn-sm vt-auto-okbtn', r, t(fold ? 'auto.a1.ok.show' : 'auto.a1.ok.hide'));
+        b.type = 'button';
+        b.id = 'btn_auto_checks_all';
+        b.setAttribute('aria-expanded', fold ? 'false' : 'true');
+        b.addEventListener('click', function () {
+            S.checksAll = !S.checksAll;
+            try { localStorage.setItem('vitulus_auto_checks_all', S.checksAll ? '1' : '0'); } catch (e) {}
+            paintNow();
+            var nb = $('btn_auto_checks_all');
+            if (nb) { nb.focus(); }
+        });
     }
     function paintNow() {
         var rep = S.report, c = $('auto_checks'), sc = $('auto_sleep_checks');
@@ -977,15 +1168,11 @@
             el('p', 'vt-auto-quiet', sc, sleep && sleep.block ? t('calmgr.why_awake', { why: awake(sleep.block) })
                 : t(sleep ? 'auto.now.sleep_free' : (rep ? 'auto.now.old' : 'auto.now.wait')));
         }
-        var worst = n.block ? 'err' : (n.wait ? 'warn' : (checks ? 'ok' : 'off'));
-        var toks = [];
-        if (checks) {
-            var first_ = checks.filter(function (x) { return x.state === (n.block ? 'block' : 'wait'); })[0];
-            toks.push({ state: worst, text: (n.block || n.wait)
-                ? t('auto.check.key.' + first_.key) + (n.block + n.wait > 1 ? ' +' + (n.block + n.wait - 1) : '')
-                : t('auto.tok.ready') });
-        }
-        head('now', worst, toks);
+        /* T21 A1: the head says the same as the top card (one verdict) */
+        var v = startVerdict();
+        var tone = v ? v.tone : 'off';
+        head('now', tone, v ? [{ state: tone === 'off' ? undefined : tone, text: v.short }] : []);
+        paintAnsNow(v);
     }
     function awake(b) {
         var cm = window.calendarManager;
@@ -2169,6 +2356,8 @@
     function init(ros) {
         S.ros = ros;
         setupSections();
+        try { S.checksAll = localStorage.getItem('vitulus_auto_checks_all') === '1'; } catch (e) { S.checksAll = false; }
+        buildAnswer(); buildLimitsFold();
         // advertised early: the first message after an advertise can get lost
         [['/scheduler/set_settings', 'std_msgs/String'], ['/scheduler/sleep_now', 'std_msgs/String'],
          ['/scheduler/sleep_cancel', 'std_msgs/Bool'], ['/scheduler/ignore_rain_once', 'std_msgs/Bool'],
@@ -2181,7 +2370,7 @@
         document.addEventListener('rosconnected', function () { S.link = true; readLimits(); });
         document.addEventListener('rosdisconnected', function () { S.link = false; });
         document.addEventListener('rosconnecting', function () { S.link = false; });
-        subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintRight(); });
+        subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintNow(); paintRight(); });
         /* T18: the D36 box says the dock permit the Agent panel just read */
         document.addEventListener('vagent:dock', function () {
             if (!S.mode) { return; }

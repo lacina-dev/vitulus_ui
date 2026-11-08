@@ -201,6 +201,11 @@ class P(object):
         self.pg.evaluate('(s)=>document.querySelector(s).click()', sel)
         self.pg.wait_for_timeout(150)
 
+    def open_limits(self):
+        """T21 A1: Rules and hard limits fold while not in force; open them like the owner would."""
+        self.pg.evaluate("()=>{const d=document.getElementById('auto_mode_limits'); if(d&&!d.open){d.querySelector('summary').click();}}")
+        self.pg.wait_for_timeout(150)
+
     def lang(self, l):
         self.pg.evaluate('(l)=>VTI18n.set?VTI18n.set(l):VTI18n.setLang(l)', l)
         self.pg.wait_for_timeout(300)
@@ -564,6 +569,7 @@ def mode_story(p, shots, label):
     p.pub('/scheduler/report', report(now))
     p.pub('/scheduler/mode', mode_view('calendar'))
     p.open('mode')
+    p.open_limits()
     check('M0 nothing sent to set_mode on load', not p.sent('/scheduler/set_mode'), p.sent('/scheduler/set_mode'))
     check('M0 old latched answer not shown', not p.text('#auto_mode_msg'), p.text('#auto_mode_msg'))
     sel = p.pg.evaluate("[...document.querySelectorAll('#auto_mode_choice .vt-auto-choice')].map(b=>[b.dataset.mode,b.getAttribute('aria-checked'),b.disabled])")
@@ -712,6 +718,7 @@ def mode_story(p, shots, label):
 
     # a limit in the agent group is saved like any setting
     p.open('mode')
+    p.open_limits()
     n_set = len(p.sent('/scheduler/set_settings'))
     p.pg.fill('#auto_in_limit_rain_h', '99')
     p.pg.dispatch_event('#auto_in_limit_rain_h', 'change')
@@ -771,6 +778,177 @@ def mode_fit(p, shots, label):
         p.pg.screenshot(path=os.path.join(shots, label + '-mode-limits-off.png'))
 
 
+def start_checks(**over):
+    """report.checks (Could it start now?) as master_controller sends them; over: key=(state, code, vars)."""
+    base = [('automation', 'ok', 'on'), ('hold', 'ok', 'clear'), ('dock', 'ok', 'in_dock'), ('mission', 'ok', 'ready'),
+            ('battery', 'ok', 'ok'), ('rain', 'ok', 'dry'), ('gnss', 'unknown', 'not_checked'), ('mower', 'ok', 'ok'),
+            ('temperature', 'ok', 'ok'), ('window', 'off', 'off'), ('programs', 'ok', 'ok'), ('map', 'ok', 'ok')]
+    out = []
+    for k, st, c in base:
+        v = {}
+        if k in over:
+            st, c, v = over[k]
+        out.append({'key': k, 'state': st, 'code': c, 'vars': v})
+    return out
+
+
+def a1_story(p, shots, label):
+    """T21 A1: the answer in the top card, the start list folded, the limits fold. Display only: nothing sent."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    p.pub('/scheduler/sleep_countdown', {'active': False})    # layout() leaves a countdown running
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/report', report(now, checks=start_checks()))
+    p.open('now')
+    n0 = len(p.pg.evaluate('__fake.sent'))
+    vis = lambda sel: p.pg.evaluate("(s)=>{const e=document.querySelector(s);return !!(e&&e.offsetParent&&!e.hidden)}", sel)
+    check('A1 answer: who decides', vis('#btn_auto_ans_mode') and ('Rozhoduje kalendář' if cs else 'Calendar decides') in p.text('#btn_auto_ans_mode'),
+          p.text('#btn_auto_ans_mode'))
+    check('A1 answer: could start now', vis('#btn_auto_ans_now') and ('Teď by mohl vyjet' if cs else 'Could start now') in p.text('#btn_auto_ans_now')
+          and p.pg.evaluate("document.getElementById('btn_auto_ans_now').dataset.state") == 'ok', p.text('#btn_auto_ans_now'))
+    check('A1 answer sits under Next, in the top card', p.pg.evaluate(
+        "document.getElementById('auto_answer').previousElementSibling.contains(document.getElementById('span_scheduler_next'))"))
+    rows = p.pg.evaluate("[...document.querySelectorAll('#auto_checks .vt-auto-check')].map(r=>[r.classList.contains('vt-auto-okline'),r.textContent])")
+    check('A1 all fine: one folded line with the counts', len(rows) == 1 and rows[0][0] and '11' in rows[0][1] and '1.' in rows[0][1], rows)
+    p.click('#btn_auto_checks_all')
+    n_all = p.pg.evaluate("document.querySelectorAll('#auto_checks .vt-auto-check:not(.vt-auto-okline)').length")
+    check('A1 Show all lists every condition', n_all == 12, n_all)
+    check('A1 Show all remembered', p.pg.evaluate("localStorage.getItem('vitulus_auto_checks_all')") == '1')
+    p.click('#btn_auto_checks_all')
+    check('A1 folded again', p.pg.evaluate("document.querySelectorAll('#auto_checks .vt-auto-check:not(.vt-auto-okline)').length") == 0)
+    # rain waits, the battery blocks: red, the first one named, +1, both lines on top
+    p.pub('/scheduler/report', report(now, code='waiting_weather', checks=start_checks(
+        rain=('wait', 'recent_rain', {'left_s': 1500}), battery=('block', 'low', {}))))
+    ans = p.text('#btn_auto_ans_now') or ''
+    check('A1 blocked: red, named, +1', p.pg.evaluate("document.getElementById('btn_auto_ans_now').dataset.state") == 'err'
+          and '+1' in ans and ('Baterie' if cs else 'Battery') in ans, ans)
+    st = p.pg.evaluate("[...document.querySelectorAll('#auto_checks .vt-auto-check')].map(r=>r.dataset.state)")
+    check('A1 problems first, the rest folded', st == ['err', 'warn', 'ok'], st)
+    if shots:
+        p.pg.evaluate("document.getElementById('ui_drawer_body').scrollTop=0")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a1-answer.png'))
+    p.pub('/scheduler/report', report(now, code='mowing', checks=start_checks(mission=('block', 'busy', {}))))
+    check('A1 mowing: no "won\'t start" next to it', not vis('#btn_auto_ans_now'))
+    # last decision: quiet in the calendar mode without one, shown for the agent
+    p.pub('/scheduler/report', report(now, checks=start_checks()))
+    check('A1 calendar, no decision: Last decision hidden', not vis('#auto_mode_last'))
+    p.pub('/scheduler/mode', mode_view('agent'))
+    check('A1 agent: Agent decides', ('Rozhoduje agent' if cs else 'Agent decides') in (p.text('#btn_auto_ans_mode') or ''))
+    check('A1 agent: Last decision shown', vis('#auto_mode_last'))
+    check('A1 limits head: in force for the agent', ('platí' if cs else 'in force') in (p.text('#auto_tok_limits') or ''), p.text('#auto_tok_limits'))
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    check('A1 limits head: not in force for the calendar', ('teď neplatí' if cs else 'not in force') in (p.text('#auto_tok_limits') or ''))
+    p.click('#auto_mode_limits > summary')
+    check('A1 limits fold closes, remembered', not p.pg.evaluate("document.getElementById('auto_mode_limits').open")
+          and p.pg.evaluate("localStorage.getItem('vitulus_auto_sec_limits')") == '0')
+    p.click('#auto_mode_limits > summary')
+    p.click('#btn_auto_ans_mode')
+    p.pg.wait_for_timeout(300)
+    check('A1 answer › opens Who decides', p.pg.evaluate("document.getElementById('auto_sec_mode').open"))
+    p.click('#btn_auto_ans_now')
+    p.pg.wait_for_timeout(300)
+    check('A1 answer › opens Now', p.pg.evaluate("document.getElementById('auto_sec_now').open"))
+    check('A1 nothing sent by any of it', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent')[n0:])
+    # green only when nothing holds a start by the robot's own rules (master _start_blocker, the
+    # hard limit in force, the report's code); the head of Now says the same
+    cold = {'code': 'limit_cold', 'vars': {'temp': 2.8, 'min_c': 5.0}, 'program': 'Bigger'}
+    rain = {'code': 'limit_rain', 'vars': {'hours_since_rain': 1.0, 'need_h': 3.0}, 'program': 'Bigger'}
+    adv_now = {'id': 'a1', 'action': 'mow', 'program': 'Bigger', 'from': iso(now - dt.timedelta(minutes=5)) + ':00',
+               'to': iso(now + dt.timedelta(hours=2)) + ':00', 'until': None, 'reason': 'dry', 'confidence': 0.8,
+               'state': 'pending', 'fresh': True}
+    truth = [
+        ('agent + cold', report(now, code='agent_blocked', detail={'program': 'Bigger', 'why': 'limit:limit_cold'}, checks=start_checks()),
+         mode_view('agent', limits_apply=True, limit_now=cold), 'warn', 'zima' if cs else 'cold'),
+        ('automation off', report(now, code='off', enabled=False, checks=start_checks(automation=('off', 'off', {}))),
+         mode_view('calendar', automation=False), '', 'Automatika' if cs else 'Automation'),
+        ('agent limit rain', report(now, code='agent_blocked', detail={'program': 'Bigger', 'why': 'limit:limit_rain'}, checks=start_checks()),
+         mode_view('agent', limit_now=rain), 'warn', 'déšť' if cs else 'rain'),
+        ('agent skip', report(now, code='agent_skip', checks=start_checks()), mode_view('agent', dock_permitted=True), '',
+         'nesekat' if cs else 'no mowing'),
+        ('agent no advice, dock locked', report(now, code='agent_no_advice', checks=start_checks()), mode_view('agent'), '',
+         'radu agenta' if cs else 'advice'),
+        ('agent advice, dock locked', report(now, checks=start_checks()), mode_view('agent', advice=adv_now), 'warn',
+         'Povolení doku' if cs else 'Dock permit'),
+        ('agent done, dock locked', report(now, code='agent_advice_done', checks=start_checks()),
+         mode_view('agent', advice=dict(adv_now, state='used')), '', 'nevyjíždí' if cs else 'Not starting'),
+        ('intent timeout', report(now, code='intent_timeout', checks=start_checks()), mode_view('agent', dock_permitted=True), '',
+         'nevyjíždí' if cs else 'Not starting'),
+        ('sleep countdown', report(now, sentence={'code': 'sleep_countdown', 'vars': {'left_s': 60}}, checks=start_checks()),
+         mode_view('calendar'), 'warn', 'Usíná' if cs else 'sleep'),
+        ('unknown code', report(now, code='something_new', sentence={'code': 'something_new', 'vars': {}}, checks=start_checks()),
+         mode_view('calendar'), '', 'nevyjíždí' if cs else 'Not starting'),
+        ('calendar + limit rain', report(now, code='limit_rain', checks=start_checks()), mode_view('calendar', limits_apply=True, limit_now=rain),
+         'warn', 'déšť' if cs else 'rain'),
+        ('no schedule', report(now, code='no_schedule', checks=start_checks(programs=('off', 'no_schedule', {}))), mode_view('calendar'), '',
+         'Programy' if cs else 'Programs'),
+        ('sleep prepare', report(now, code='sleep_prepare', state='PREPARE_SLEEP', checks=start_checks()), mode_view('calendar'), '', ''),
+    ]
+    for name, rep_, mv, tone, word in truth:
+        p.pub('/scheduler/mode', mv)
+        p.pub('/scheduler/report', rep_)
+        r = p.pg.evaluate("""()=>{const b=document.getElementById('btn_auto_ans_now');
+            return {vis:!!(b&&b.offsetParent&&!b.hidden), st:b.dataset.state||'', tx:b.textContent,
+                    head:document.getElementById('auto_sec_now').dataset.state, tok:document.getElementById('auto_tok_now').textContent,
+                    rows:[...document.querySelectorAll('#auto_checks .vt-auto-check:not(.vt-auto-okline)')].map(x=>x.dataset.state+':'+x.textContent)}}""")
+        check('A1 truth: %s is not green' % name, r['vis'] and r['st'] == tone and r['head'] != 'ok' and word in r['tx'], r)
+        if name == 'no schedule':
+            # automation / programs off hold a start: shown on top, not folded as "not checked"
+            check('A1 no schedule: Programs off on top of the list', r['rows'][:1] and r['rows'][0].startswith('off:'), r['rows'])
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/report', report(now, checks=start_checks()))
+    # the calendar standing in for the agent (no advice) needs no dock permit (D37): ready is ready
+    p.pub('/scheduler/mode', mode_view('agent', fallback=True))
+    p.pub('/scheduler/report', report(now, checks=start_checks()))
+    tx = p.text('#btn_auto_ans_now') or ''
+    check('A1 agent, calendar stands in, dock locked: no "waits for dock permit"',
+          ('Povolení doku' if cs else 'Dock permit') not in tx and p.pg.evaluate("document.getElementById('btn_auto_ans_now').dataset.state") == 'ok', tx)
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/report', report(now, checks=start_checks()))
+    check('A1 back to ready: green again, head too', p.pg.evaluate("document.getElementById('btn_auto_ans_now').dataset.state") == 'ok'
+          and p.pg.evaluate("document.getElementById('auto_sec_now').dataset.state") == 'ok')
+    p.click('#btn_auto_checks_all')
+    ex = p.pg.evaluate("(()=>{const r=document.querySelector('#auto_checks .vt-auto-okline');return r?[r.querySelectorAll('.vt-sdot').length,r.textContent.trim()]:null})()")
+    check('A1 Show all: no empty dotted line, just the toggle', ex and ex[0] == 0 and ex[1] == ('Jen problémy' if cs else 'Problems only'), ex)
+    p.click('#btn_auto_checks_all')
+    if not cs:
+        days = p.pg.evaluate("[...document.querySelectorAll('.vt-auto-tl-day')].map(e=>e.textContent)")
+        check('A1 English days with the month name, not 11/10', not any(re.search(r'\d+/\d+', d) for d in days), days)
+
+
+def a1_fit(p, shots, label):
+    """The top card and Now on this screen: answer buttons whole, touch size, no sideways scroll."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('agent'))
+    p.pub('/scheduler/report', report(now, code='waiting_weather', checks=start_checks(
+        rain=('wait', 'recent_rain', {'left_s': 1500}), battery=('block', 'low', {}), temperature=('wait', 'cold', {}))))
+    if p.pg.evaluate("localStorage.getItem('vitulus_auto_sec_limits')") is None:
+        p.pub('/scheduler/mode', mode_view('calendar'))
+        check(label + ' A1 limits folded by default while not in force', not p.pg.evaluate("document.getElementById('auto_mode_limits').open"))
+        p.pub('/scheduler/mode', mode_view('agent'))
+        p.pg.wait_for_timeout(100)
+        check(label + ' A1 limits open by themselves while in force', p.pg.evaluate("document.getElementById('auto_mode_limits').open"))
+        check(label + ' A1 that is not remembered as a choice', p.pg.evaluate("localStorage.getItem('vitulus_auto_sec_limits')") is None)
+    p.open('now')
+    p.pg.evaluate("document.getElementById('ui_drawer_body').scrollTop=0")
+    p.pg.wait_for_timeout(200)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const els=q('#auto_answer button, #btn_auto_checks_all, #auto_mode_limits > summary');
+        const small=els.map(e=>{const b=e.getBoundingClientRect();return [e.id||e.tagName,Math.round(b.width),Math.round(b.height)]}).filter(x=>x[2]<40);
+        const out=q('#auto_answer *, #auto_checks *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        const over=q('#auto_answer *').filter(e=>e.scrollWidth>e.clientWidth+1).map(e=>e.id||e.className);
+        return {w:document.documentElement.scrollWidth, small, out, over, coarse:matchMedia('(pointer: coarse)').matches}}""")
+    check(label + ' A1: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r)
+    check(label + ' A1: answer text whole', not r['over'], r['over'])
+    if r['coarse']:
+        check(label + ' A1: touch targets >= 40 px', not r['small'], r['small'])
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-a1-fit.png'))
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -817,6 +995,8 @@ def main():
             mode_story(p, a.shots, label)
             mode_fit(p, a.shots, label)
             layout(p, a.shots, label)
+            a1_story(p, a.shots, label)
+            a1_fit(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
@@ -827,6 +1007,7 @@ def main():
             p = P(ctx, url)
             p.lang(lang)
             mode_fit(p, a.shots, label)
+            a1_fit(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

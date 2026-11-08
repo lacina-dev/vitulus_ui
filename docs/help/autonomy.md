@@ -12,8 +12,16 @@ keywords: [autonomy, autonomie, automatic, automation, hold, pause, who decides,
 # Autonomy
 
 **Autonomy** in the menu is the one place that says what the robot does on its own and why. The top
-card says in one sentence what it does now and what comes next. Under it, each section has a head
-with a colour and short tokens; open it for the numbers and the controls. What you open stays open.
+card says in one sentence what it does now and what comes next. Under the next start two buttons answer
+at a glance: **who decides** (*Calendar decides* / *Agent decides*) and **could it start now** (*Could start
+now*, amber *Waits: Weather* or *Hard limit: cold*, red *Won't start now: Battery +1* — the first thing that
+holds it and how many more; grey when it is your choice or the state of the robot, e.g. *Won't start now:
+Automation*, *Waits for the agent's advice*, *Not now: Sleeping*, *Not starting now*; amber *Going to sleep*
+while a sleep counts down). It is green only when the robot reports that it waits for its next start and
+nothing holds it by the robot's own rules: no check blocks or waits, automation and programs are on, no hard
+limit in force, an advice that wants to go has the dock permit (the calendar standing in needs none). Any
+other state is not green; its sentence is in the tooltip. A tap opens that section; nothing is sent. Under it, each section has a head with a colour and
+short tokens; open it for the numbers and the controls. What you open stays open.
 
 ![The top of Autonomy with numbered markers](img/shot-autonomy.webp "1 state tag · 2 what it does now, next under it · 3 Automatic mowing · 4 Pause (Hold) · 5 who decides: calendar or agent · 6 could it start now · 7 why it does not sleep")
 
@@ -26,10 +34,13 @@ with a colour and short tokens; open it for the numbers and the controls. What y
 
 ## Now
 
-**Could it start now?** lists every condition of a start: green is fine, amber waits, red is
-blocked, grey is not checked now (GPS is checked when a run starts; the line shows the live fix).
-**Why isn't it sleeping?** shows only what keeps the robot awake; an open SSH session or web UI is
-blue, it keeps the robot awake on purpose. The › next to a line takes you to where it is fixed.
+**Could it start now?** shows first what holds a start: amber waits, red is blocked, grey is switched
+off (automation, no programs). The head of the section says the same as the top card. The conditions
+that are fine (green; *no time limit* counts as fine) and those not checked now (grey: GPS is checked when a run starts, the line shows
+the live fix) fold into one line, *Nothing holds a start: 10 fine. Not checked now: 2.*; **Show all**
+lists every one of them, **Problems only** folds them again (remembered).
+**Why isn't it sleeping?** shows only what keeps the robot awake; someone logged in on a terminal or
+an open web UI is blue, it keeps the robot awake on purpose. The › next to a line takes you to where it is fixed.
 
 ## Plan
 
@@ -146,8 +157,9 @@ In the panel it is the section **Who decides**, right under the top card:
 - **Advice in force**: what the agent advised (mow program X between …, or no mowing until …), its
   state (waiting, carried out, missed, expired, dropped), confidence and reason in the agent's own words.
 - **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
-  in the History.
-- **Rules and hard limits**: first one line with the [allowed mowing time](programs.md#allowed-mowing-time),
+  in the History. In the Calendar mode it shows only once there is a decision.
+- **Rules and hard limits** fold away: the head says *in force* or *not in force now*; they open by
+  themselves while in force and stay folded while not, until you open or fold them yourself (remembered). Inside, first one line with the [allowed mowing time](programs.md#allowed-mowing-time),
   e.g. *Allowed mowing time 07:00–21:00 (on) — applies to the agent too* or *off*. It is the same time
   as in Plan, there is no separate one for the agent; **›** takes you to the card in Plan where you set
   it. Then *Calendar stands in without advice*, *Hard limits for the calendar too*, *Wait after rain*,

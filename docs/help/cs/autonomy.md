@@ -12,7 +12,15 @@ keywords: [autonomie, autonomy, automatika, hold, pauza, kdo rozhoduje, režim a
 # Autonomie
 
 **Autonomie** v menu je jedno místo, které říká, co robot dělá sám a proč. Horní karta jednou větou
-řekne, co dělá teď a co přijde dál. Pod ní má každá sekce hlavičku s barvou a krátkými štítky;
+řekne, co dělá teď a co přijde dál. Pod dalším startem dvě tlačítka odpoví na první pohled: **kdo
+rozhoduje** (*Rozhoduje kalendář* / *Rozhoduje agent*) a **jestli by teď vyjel** (*Teď by mohl vyjet*,
+jantarové *Čeká: Počasí* nebo *Tvrdý limit: zima*, červené *Teď nevyjede: Baterie +1* — první věc, která
+ho drží, a kolik dalších; šedé, když jde o tvoji volbu nebo stav robota, třeba *Teď nevyjede: Automatika*,
+*Čeká na radu agenta*, *Teď ne: Spí*, *Teď nevyjíždí*; jantarové *Usíná*, když běží odpočet spánku).
+Zelené je jen tehdy, když robot hlásí, že čeká na další start, a start podle jeho pravidel nic nedrží:
+žádná podmínka neblokuje ani nečeká, automatika a programy jsou zapnuté, neplatí žádný tvrdý limit a rada,
+která chce vyjet, má povolený dok (kalendář v záskoku ho nepotřebuje). Každý jiný stav zelený není; jeho
+věta je v tooltipu. Klepnutí otevře tu sekci; nic se neodesílá. Pod ní má každá sekce hlavičku s barvou a krátkými štítky;
 po rozbalení jsou čísla a ovládání. Co rozbalíš, zůstane rozbalené.
 
 ![Horní část Autonomie s očíslovanými značkami](../img/shot-autonomy.webp "1 štítek stavu · 2 co dělá teď, pod tím co dál · 3 Automatické sekání · 4 Pauza (Hold) · 5 kdo rozhoduje: kalendář nebo agent · 6 mohl by vyjet · 7 proč nespí")
@@ -26,10 +34,13 @@ po rozbalení jsou čísla a ovládání. Co rozbalíš, zůstane rozbalené.
 
 ## Teď
 
-**Mohl by teď vyjet?** ukáže každou podmínku startu: zelená je v pořádku, jantarová čeká, červená
-blokuje, šedá se teď nekontroluje (GPS se kontroluje až při startu; řádek ukáže živý fix).
-**Proč nespí?** ukáže jen to, co robota drží vzhůru; otevřené SSH připojení nebo webové UI je
-modré, robota drží vzhůru záměrně. Šipka › u řádku vede tam, kde se to řeší.
+**Mohl by teď vyjet?** ukáže nejdřív to, co start drží: jantarová čeká, červená blokuje, šedá je
+vypnutá (automatika, žádné programy). Hlavička sekce říká totéž co horní karta. Podmínky
+v pořádku (zelené; *bez časového limitu* se počítá jako v pořádku) a ty, které se teď nekontrolují (šedé: GPS se kontroluje až při startu, řádek ukáže
+živý fix), se sbalí do jednoho řádku, *Start nic nedrží: v pořádku 10. Teď se nekontroluje: 2.*;
+**Ukázat vše** vypíše každou z nich, **Jen problémy** je zase sbalí (zapamatuje se).
+**Proč nespí?** ukáže jen to, co robota drží vzhůru; někdo přihlášený v terminálu nebo otevřené webové
+UI je modré, robota drží vzhůru záměrně. Šipka › u řádku vede tam, kde se to řeší.
 
 ## Plán
 
@@ -139,9 +150,10 @@ V panelu je to sekce **Kdo rozhoduje** hned pod horní kartou:
   na tvoje povolení doku*, *Chybí soubor ownerů*, …); běhy z kalendáře ho nemají.
 - **Platná rada**: co agent poradil (posekat program X mezi …, nebo nesekat do …), stav (čeká,
   provedena, zmeškaná, prošlá, zrušená), jistota a důvod vlastními slovy agenta.
-- **Poslední rozhodnutí**: co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
+- **Poslední rozhodnutí** (v režimu Kalendář jen když nějaké je): co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
   v Historii.
-- **Pravidla a tvrdé limity**: nejdřív jeden řádek s [povoleným časem sekání](programs.md#povolený-čas-sekání),
+- **Pravidla a tvrdé limity** jdou sbalit: hlavička řekne *platí* nebo *teď neplatí*; když platí, samy
+  se rozbalí, když neplatí, zůstanou sbalené — dokud je sám nerozbalíš nebo nesbalíš (zapamatuje se). Uvnitř nejdřív jeden řádek s [povoleným časem sekání](programs.md#povolený-čas-sekání),
   třeba *Povolený čas sekání 07:00–21:00 (zapnuto) — platí i pro agenta* nebo *vypnuto*. Je to tentýž
   čas jako v Plánu, zvláštní pro agenta není; **›** tě vezme ke kartě v Plánu, kde se nastavuje. Pak
   *Bez rady zastupuje kalendář*, *Tvrdé limity i pro kalendář*, *Počkat po dešti*, *Nejnižší teplota*,
