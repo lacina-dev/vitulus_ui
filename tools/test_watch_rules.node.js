@@ -116,8 +116,8 @@ function flush() { return new Promise(r => setTimeout(r, 0)).then(() => new Prom
     ok('rule text from the core shown verbatim', text.indexOf('drive to point A') >= 0);
     ok('blocked run shown with time and reason (not "never")',
        text.indexOf(fill(EN['watchr.blocked'], {when: '23:16', why: EN['watchr.block.dock']})) >= 0);
-    ok('blocked on another day: with the date',
-       text.indexOf(fill(EN['watchr.blocked'], {when: '7. 11. 23:16',
+    ok('blocked on another day: with the date in the English format (11/7)',
+       text.indexOf(fill(EN['watchr.blocked'], {when: '11/7 23:16',
                                                 why: fill(EN['watchr.block.mission'], {n: 296})})) >= 0);
     ok('repeat once shown', text.indexOf(EN['watchr.repeat.once']) >= 0);
     const buttons = all(root, n => n.tag === 'button');

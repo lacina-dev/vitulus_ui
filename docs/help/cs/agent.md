@@ -202,7 +202,9 @@ potvrdí, co hlídá a co udělá.
 - Hlídání *jednou* po spuštění skončí; jinak platí, dokud ho nezrušíš.
 - *u hlídání 3 povol i výjezd z doku* povolí výjezd jen tomu pravidlu (*zakaž výjezd* ho vezme
   zpět). Vyjet pak smí, jen když platí i povolení doku — agent řekne, jestli platí. Povolit to
-  můžeš jen ty; otázka nic nemění.
+  můžeš jen ty; otázka nic nemění. Výjezd s podmínkou (*jen když…*) neumí — zeptá se.
+- Složená věta se zamčením (*přestaň hlídat všechno a zamkni dok*) udělá obojí; co neudělá,
+  řekne.
 
 ### Operátor: model řídí krok po kroku
 

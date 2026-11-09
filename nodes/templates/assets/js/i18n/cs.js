@@ -4754,6 +4754,7 @@
     "watchr.mode.poll": "každých {s} s",
     "watchr.last": "naposled {when}",
     "watchr.never": "zatím ne",
+    "watchr.date": "{d}. {m}. {t}",
     "watchr.blocked": "naposled {when} zablokováno ({why})",
     "watchr.block.dock": "dok",
     "watchr.block.mission": "mise #{n}",

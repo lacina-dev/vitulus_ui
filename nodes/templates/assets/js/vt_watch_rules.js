@@ -29,13 +29,14 @@
     if (s < 172800) return T('common.ago.h', {n: (s / 3600).toFixed(1)});
     return T('common.ago.d', {n: Math.round(s / 86400)});
   }
-  // Čas zablokování: dnes jen HH:MM, jindy i den („7. 11. 23:16").
+  // Čas zablokování: dnes jen HH:MM, jindy i den podle jazyka
+  // (cs „7. 11. 23:16", en „11/7 23:16" — watchr.date).
   function hhmm(ts) {
     var d = new Date(ts * 1000), now = new Date();
     var t = (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' +
       (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
     if (d.toDateString() === now.toDateString()) return t;
-    return d.getDate() + '. ' + (d.getMonth() + 1) + '. ' + t;
+    return T('watchr.date', {d: d.getDate(), m: d.getMonth() + 1, t: t});
   }
   // Poslední spuštění: zablokované (novější než provedené) má přednost —
   // „naposled 23:16 zablokováno (dok)", ne „zatím ne".

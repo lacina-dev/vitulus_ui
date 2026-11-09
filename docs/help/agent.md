@@ -208,7 +208,10 @@ and after a restart. It confirms in one sentence what it watches and what it wil
 - A rule set *once* ends after it runs; otherwise it holds until you cancel it.
 - *allow watch 3 to leave the dock* allows leaving the dock for that rule only (*forbid watch 3
   to leave the dock* takes it back). It still leaves only while the dock permit is valid too — the
-  agent tells you whether it is. Only you can allow it; a question changes nothing.
+  agent tells you whether it is. Only you can allow it; a question changes nothing. A condition (*only
+  when…*) is not supported — it asks.
+- A combined sentence with locking (*stop watching everything and lock the dock*) does both; what
+  it does not do, it says.
 
 ### The operator: a model drives step by step
 

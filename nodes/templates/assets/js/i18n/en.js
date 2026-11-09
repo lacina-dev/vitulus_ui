@@ -4669,6 +4669,7 @@
     "watchr.mode.poll": "every {s} s",
     "watchr.last": "last fired {when}",
     "watchr.never": "never",
+    "watchr.date": "{m}/{d} {t}",
     "watchr.blocked": "last {when} blocked ({why})",
     "watchr.block.dock": "dock",
     "watchr.block.mission": "mission #{n}",
