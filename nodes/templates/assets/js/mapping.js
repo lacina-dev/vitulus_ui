@@ -1862,10 +1862,10 @@ class MappingV3 {
             // The configured zoom is the DETAIL CAP: the most detailed level we
             // ever use, clamped per source by its catalog max_zoom (gm_grid has
             // 22 levels = z21; OSM z19; OpenTopoMap z17 …). T17 M3: "auto"
-            // (the default) = each source's native_zoom on a desktop (Google
-            // z20, M9-2; ČÚZK z20), one level less for the background map on a phone
-            // (VTMapTiles.zoomCap; overlays keep their max_zoom, ≤ z20); a
-            // number is a manual cap.
+            // (the default) = each source's native_zoom (Google z20, M9-2;
+            // ČÚZK z20), on a phone too since M12 (VTMapTiles.zoomCap; the
+            // phone saves its tiles in baseWant below instead); overlays keep
+            // their max_zoom, ≤ z20; a number is a manual cap.
             const zVal = this.sel_aerial_zoom ? this.sel_aerial_zoom.value : 'auto';
             const coarse = !!this._tileEnv().mobile;
             // T17 M9-2: never above the source's native_zoom (Google z20)
@@ -1920,14 +1920,22 @@ class MappingV3 {
             // still no coarser than the on-screen resolution (capped per source
             // below). At the standard zoom this lands on the cap (crisp
             // detail); dollying out steps DOWN to coarser world-scale tiles.
-            let zAdaptive = Infinity;
+            // T17 M12: zBase = the level the BACKGROUND MAP aims at: on a
+            // 2x screen a tile pixel may cover up to 1.41 device pixels (0.71
+            // CSS px) before the next finer level is loaded
+            // (VTMapTiles.baseWant) — about half the tiles of a zoomed-out
+            // phone view; a 1x screen and the overlays are unchanged.
+            let zAdaptive = Infinity, zBase = Infinity;
             if (vp && vp.heightPx > 0) {
                 const screenRes = (2.0 * vp.halfH) / vp.heightPx;   // map m / px
                 const phi = d.origin_lat * Math.PI / 180.0;
                 const mercZ0 = 156543.03392 * Math.max(0.05, Math.cos(phi));
-                zAdaptive = Math.ceil(
-                    Math.log2(mercZ0 / Math.max(1e-6, screenRes)));
+                const zExact = Math.log2(mercZ0 / Math.max(1e-6, screenRes));
+                zAdaptive = Math.ceil(zExact);
                 if (!isFinite(zAdaptive)) { zAdaptive = Infinity; }
+                zBase = (isFinite(zAdaptive) && VTMapTiles.baseWant)
+                    ? VTMapTiles.baseWant(zExact, (typeof vtMapPixelRatio === 'function') ? vtMapPixelRatio() : 1)
+                    : zAdaptive;
             }
             // (4) TILE BUDGET: one limit for all layers together, the
             // background map first, then the overlays in catalog order.
@@ -1988,7 +1996,7 @@ class MappingV3 {
                     // phone + overlays: the map takes at most half the budget
                     const CAP = Math.min(this.AERIAL_TILE_CAP,
                         VTMapTiles.baseShare(budget, { coarse: coarse }, overlays.length));
-                    const { z, zCap, zWant, range, capped } = plan(src, CAP);
+                    const { z, zCap, zWant, range, capped } = plan(src, CAP, zBase);
                     const nTiles = range.count;
                     const label = this._aerialLabel(srcKey, src);
                     const fits = nTiles > 0 && nTiles <= CAP;

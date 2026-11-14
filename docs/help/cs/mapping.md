@@ -269,7 +269,10 @@ její **Detail** a posun zarovnání (uložený na robotu pro každou mapu a zdr
 jeden, zdroje Google druhý), srážkový radar a ukáže stav terénu (DEM). Nad posunem je volba
 **Zarovnat Google na ČÚZK (asi 1 m)** (výchozí vypnuto, prohlížeč si ji pamatuje): posune satelit,
 hybrid i mapu Googlu o 0,73 m na západ a 0,71 m na jih — snímky Googlu leží asi 1 m severovýchodně
-od ČÚZK (ČÚZK je v ETRS89, Google v dnešním WGS84; změřeno na třech místech v Praze). Mapa robota se
+od ČÚZK (ČÚZK je v ETRS89, Google v dnešním WGS84; změřeno na třech místech v Praze). Skutečný posun se místo od místa liší až asi o metr, protože každý
+snímek je usazený trochu jinak (změřeno na jedné zahradě: Google 0,95 m severně od ČÚZK a na východ nic,
+Bing 1,1 m východně a 0,5 m jižně): když budovy (RÚIAN) nebo katastr na snímek Googlu nesedí, nastav pro
+tu mapu raději ruční posun mapy Googlu a tenhle přepínač nech vypnutý. Mapa robota se
 nehne a ruční posun zůstane, jak je uložený; karta vrstev má stejný přepínač pod krytím podkladu,
 když je vybraná mapa Googlu. Podkladové mapy jsou ve dvou
 skupinách: **letecké a satelitní snímky** (satelit Google, satelit Google s popisky, ortofoto
@@ -279,8 +282,9 @@ z 50. let, do z18) a **mapy** (mapa Google, topografická mapa ČÚZK, OpenTopoM
 Každý zdroj snímků má jiné datum a jinou ostrost — když je nad zahradou starý nebo rozmazaný,
 zkus jiný. **Detail** *Auto* (výchozí) načte nejjemnější úroveň, jakou zdroj má — Google i ortofoto
 ČÚZK z20 (z21 Googlu víc detailu nemá, a tak se nenačítá) — a ještě blíž ji už jen plynule zvětší. Přiblížení se zastaví zhruba na 20 cm podél delší strany obrazovky; podkladová
-mapa i mapy robota přitom zůstávají vidět. Na telefonu se podkladová mapa zastaví
-o úroveň hruběji (Google z20, ČÚZK z19), a načte tak méně dlaždic. Na pomalém spojení vyber nižší strop (z17–z21): méně
+mapa i mapy robota přitom zůstávají vidět. Telefon dostane stejnou nejjemnější
+úroveň jako počítač. Na displeji s dvojnásobnou hustotou pixelů (většina telefonů) přejde podkladová mapa při
+přibližování na jemnější úroveň o něco později, takže oddálený pohled načte zhruba polovinu dlaždic; obraz je tam o něco měkčí. Na pomalém spojení vyber nižší strop (z17–z21): méně
 dlaždic, měkčí obraz. Dlaždice vždy pokryjí to, co vidíš. Po posunu nebo přiblížení zůstane
 předchozí obraz, dokud nové dlaždice nedorazí, a mezery mezitím vyplní hrubší obraz, takže mapa
 nezmizí; pohled, který jsi viděl před chvílí, se vrátí hned. Stavový řádek to řekne slovy — zdroj, pak

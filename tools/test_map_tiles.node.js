@@ -9,7 +9,9 @@
  * first order), the per-device budgets (a phone gets less) and the texture
  * cache: references, LRU eviction of unused textures, the idle and the hard
  * limit, dispose called exactly once per evicted texture; the Detail cap
- * ("auto" = source max on a desktop, one level less on a phone); the
+ * ("auto" = the source's finest level on every device, M12) and the level
+ * the background map aims at (baseWant: a 2x screen loads the finer level
+ * later); the
  * offline fill (plain white tile), the cache-busting URL and the outage
  * bookkeeping that reloads the tiles once the network / robot is back.
  * Also checks that mapping.js uses the module and that the detail select in
@@ -64,12 +66,22 @@ ok('texture without mipmaps', MT.texBytes(256, 256, false) === 262144);
 console.log('\ndetail (zoom cap)');
 ok('auto on a desktop = the source max (Google z21)', MT.zoomCap(21, 'auto', { coarse: false }) === 21);
 ok('auto on a desktop = the source max (ČÚZK z20)', MT.zoomCap(20, 'auto', { coarse: false }) === 20);
-ok('auto on a phone = one level less (Google z20)', MT.zoomCap(21, 'auto', { coarse: true }) === 20);
-ok('auto on a phone = one level less (ČÚZK z19)', MT.zoomCap(20, 'auto', { coarse: true }) === 19);
-ok('empty choice counts as auto', MT.zoomCap(21, '', { coarse: true }) === 20 && MT.zoomCap(21, null) === 21);
+// T17 M12 (was: a phone one level less, Google z20 / ČÚZK z19): the cap is the
+// source's finest level on every device, the phone saves tiles in baseWant
+ok('auto on a phone = the source max too (Google z21 without native_zoom)', MT.zoomCap(21, 'auto', { coarse: true }) === 21);
+ok('auto on a phone = the source max too (ČÚZK z20)', MT.zoomCap(20, 'auto', { coarse: true }) === 20);
+ok('empty choice counts as auto', MT.zoomCap(21, '', { coarse: true }) === 21 && MT.zoomCap(21, null) === 21);
 ok('manual cap is the same on every device', MT.zoomCap(21, '19', { coarse: true }) === 19 && MT.zoomCap(21, '19', { coarse: false }) === 19);
 ok('manual cap never above the source max', MT.zoomCap(17, '21', { coarse: false }) === 17);
 ok('nonsense choice falls back to the source max', MT.zoomCap(19, 'x', { coarse: false }) === 19);
+
+console.log('\nbackground map level for a view (M12)');
+ok('1x screen: the next finer level, as before (ceil)', MT.baseWant(19.01, 1) === 20 && MT.baseWant(19, 1) === 19 && MT.baseWant(18.99, 1) === 19);
+ok('2x screen: the finer level only past half a level', MT.baseWant(19.49, 2) === 19 && MT.baseWant(19.51, 2) === 20);
+ok('2x screen: a tile pixel never above 1.42 device px', [17.2, 18.5, 18.51, 19.49, 19.999, 20.3].every((z) => Math.pow(2, z - MT.baseWant(z, 2)) <= 1.42));
+ok('1.5x screen: almost no slack', MT.baseWant(19.05, 1.5) === 19 && MT.baseWant(19.2, 1.5) === 20);
+ok('a pixel ratio above 2 counts as 2, nonsense as 1', MT.baseWant(19.4, 3) === 19 && MT.baseWant(19.4, 0) === 20 && MT.baseWant(19.4) === 20);
+ok('never below 0, no view stays no view', MT.baseWant(-3, 2) === 0 && MT.baseWant(Infinity, 2) === Infinity);
 
 console.log('\nphone with overlays');
 const PH = { coarse: true }, DK = { coarse: false };
@@ -174,6 +186,9 @@ ok('N1: every texture release keeps the idle limit', /_texRelease\(url\) \{\s*th
    (mapping.match(/\.release\(/g) || []).length === 2);
 ok('mapping.js shares the phone budget (baseShare, overlayWant)',
    /VTMapTiles\.baseShare\(/.test(mapping) && /VTMapTiles\.overlayWant\(/.test(mapping));
+ok('mapping.js aims the background map with baseWant, overlays keep zAdaptive',
+   /VTMapTiles\.baseWant\(zExact,/.test(mapping) && /plan\(src, CAP, zBase\)/.test(mapping) &&
+   /VTMapTiles\.overlayWant\(zAdaptive, o,/.test(mapping));
 ok('mapping.js skips the white fill and reloads after an outage',
    /VTMapTiles\.isBlankWhite\(/.test(mapping) && /addEventListener\('online'/.test(mapping) &&
    /'rosconnected'/.test(mapping) && /VTMapTiles\.withBust\(/.test(mapping));

@@ -9,9 +9,9 @@
  *     option is off by default, browser-only, outside the nudge box (the box
  *     takes the arrow keys), mirrored in the layers panel only for Google;
  *   - M9-2 native_zoom: the catalog field (normalize, ≤ max_zoom, default =
- *     max_zoom), Auto detail stops there on a desktop, a phone keeps
- *     max_zoom - 1 when lower (Google z20 as before, ČÚZK z19), a manual cap
- *     never above it; the shipped catalog gives Google satellite + hybrid 20;
+ *     max_zoom), Auto detail stops there on every device (M12: a phone no
+ *     longer keeps max_zoom - 1, ČÚZK z20 there too), a manual cap never
+ *     above it; the shipped catalog gives Google satellite + hybrid 20;
  *   - M9-6 desktop zoomed out (zAdaptive ≤ 18): overlays one level coarser,
  *     tones two; closer up unchanged; the phone rule unchanged;
  *   - M9-5 the status line keys exist en + cs with the same placeholders, the
@@ -78,9 +78,10 @@ check('M9-2 native_zoom read from the catalog', cat.byId.sat.native_zoom === 20 
 check('M9-2 native_zoom defaults to max_zoom, never above it', cat.byId.cuzk.native_zoom === 20 && cat.byId.odd.native_zoom === 18);
 check('M9-2 the built-in fallback knows Google is z20', MS.fallback().byId.sat.native_zoom === 20);
 check('M9-2 desktop Auto: Google z20, ČÚZK z20', MT.zoomCap(21, 'auto', { coarse: false }, 20) === 20 && MT.zoomCap(20, 'auto', { coarse: false }, 20) === 20);
-check('M9-2 phone Auto: Google z20 (as before), ČÚZK z19', MT.zoomCap(21, 'auto', { coarse: true }, 20) === 20 && MT.zoomCap(20, 'auto', { coarse: true }, 20) === 19);
+// T17 M12: was ČÚZK z19 on a phone (max_zoom - 1); now the source's finest level on every device
+check('M9-2 phone Auto: Google z20 (as before), ČÚZK z20 (M12)', MT.zoomCap(21, 'auto', { coarse: true }, 20) === 20 && MT.zoomCap(20, 'auto', { coarse: true }, 20) === 20);
 check('M9-2 a manual cap never above native_zoom', MT.zoomCap(21, '21', { coarse: false }, 20) === 20 && MT.zoomCap(21, '18', { coarse: false }, 20) === 18);
-check('M9-2 without native_zoom unchanged', MT.zoomCap(21, 'auto', { coarse: false }) === 21 && MT.zoomCap(21, 'auto', { coarse: true }) === 20);
+check('M9-2 without native_zoom: phone as desktop', MT.zoomCap(21, 'auto', { coarse: false }) === 21 && MT.zoomCap(21, 'auto', { coarse: true }) === 21);   // M12: phone as desktop
 check('M9-2 mapping.js passes native_zoom to zoomCap', /VTMapTiles\.zoomCap\(src\.max_zoom, zVal,\s*\{[^}]*\}, src\.native_zoom\)/.test(mapping));
 const repos = [process.env.MAPPROXY_REPO, path.join(ROOT, '..', 'docker-mapproxy'), path.join(ROOT, '..', '..', 'docker-mapproxy')].filter(Boolean)
     .map((p) => path.join(p, 'mapproxy_configuration', 'ui_sources.json')).filter((f) => fs.existsSync(f));

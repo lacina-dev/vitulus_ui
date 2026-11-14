@@ -90,24 +90,38 @@
     }
 
     // The most detailed zoom used for a source. `sel` = the Detail choice:
-    // 'auto' (or empty) = the source's max_zoom on a desktop, one level less
-    // on a phone / tablet (coarse pointer: Google z20, ČÚZK z19), so the
-    // background map does not take the phone's tile budget and the overlays
-    // keep their detail (ředitel 2026-11-08, until the owner decides); a
-    // number = a manual cap, the same on every device, never above max_zoom.
+    // 'auto' (or empty) = the finest real level of the source, the same on
+    // every device; a number = a manual cap, never above that.
     // T17 M9-2: nativeZoom (optional, <= maxZoom) = the finest level with
     // real detail (Google photo z20: MapProxy only magnifies its z21). Nothing
-    // goes above it — finer is magnified here, with no tiles to load — and a
-    // phone keeps one level under maxZoom when that is lower (Google z20, as
-    // before; ČÚZK z19).
+    // goes above it — finer is magnified here, with no tiles to load.
+    // T17 M12: a phone (env.coarse) no longer stops one level under maxZoom
+    // (ČÚZK z19, Esri z17, Bing/ZTM/OSM z18): up close, where the detail
+    // shows, that level is a handful of tiles (a 50 m high view on 390x700:
+    // 12 tiles of z20 instead of 6 of z19), and the tile pixels were twice
+    // as large as the source's. The tiles a phone must not waste are those of
+    // a zoomed-out view: baseWant saves them. `env` is kept for callers.
     function zoomCap(maxZoom, sel, env, nativeZoom) {
         var mz = Math.max(0, maxZoom | 0);
         var nz = (nativeZoom === undefined || nativeZoom === null || !(nativeZoom >= 0)) ? mz : Math.min(mz, nativeZoom | 0);
-        if (sel === 'auto' || sel === '' || sel == null) {
-            return (env && env.coarse) ? Math.max(0, Math.min(nz, mz - 1)) : nz;
-        }
+        if (sel === 'auto' || sel === '' || sel == null) { return nz; }
         var n = parseInt(sel, 10);
         return (n >= 0) ? Math.min(nz, n) : nz;
+    }
+
+    // T17 M12: the level the background map aims at for a view. zExact =
+    // log2(metres per tile pixel at z0 / metres per DEVICE pixel of the
+    // view), dpr = the map's pixel ratio (1-2). A 1x screen takes the next
+    // finer level (a tile pixel never above one screen pixel, as before). A
+    // 2x screen lets a tile pixel cover up to 1.41 device pixels = 0.71 CSS
+    // px, still finer than the eye resolves on such a screen, and so loads
+    // the finer level later: a 390x700 phone view 135-190 m high takes about
+    // 40 tiles (13 MB of textures) where it took up to 135 (45 MB).
+    function baseWant(zExact, dpr) {
+        if (!isFinite(zExact)) { return zExact; }
+        var pr = Math.max(1, Math.min(2, dpr || 1));
+        var slack = Math.max(0, Math.log(pr) / Math.LN2 - 0.5);   // 2x: 0.5, 1.5x: 0.08, 1x: 0
+        return Math.max(0, Math.ceil(zExact - slack));
     }
 
     // Phone with overlays on (ředitel 2026-11-08). The tile budget of a phone
@@ -300,7 +314,7 @@
     };
 
     var api = { texBytes: texBytes, overlaps: overlaps, ancestor: ancestor, under: under,
-                orderByDistance: orderByDistance, budgets: budgets, zoomCap: zoomCap, baseShare: baseShare, overlayWant: overlayWant,
+                orderByDistance: orderByDistance, budgets: budgets, zoomCap: zoomCap, baseWant: baseWant, baseShare: baseShare, overlayWant: overlayWant,
                 isBlankWhite: isBlankWhite, withBust: withBust, withoutBust: withoutBust, layerKey: layerKey, Outage: Outage, retryDelay: retryDelay, TILE_TIMEOUT_MS: TILE_TIMEOUT_MS, TexCache: TexCache, MB: MB };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (root) { root.VTMapTiles = api; }

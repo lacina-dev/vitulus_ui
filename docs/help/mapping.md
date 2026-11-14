@@ -279,7 +279,10 @@ sources share one, the Google ones another), the rain radar, and shows the terra
 Above the nudge, **Align Google to ČÚZK (about 1 m)** (off by default, remembered in the browser)
 moves Google's satellite, hybrid and map 0.73 m west and 0.71 m south: Google's pictures sit about
 1 m north-east of ČÚZK's (ČÚZK uses ETRS89, Google today's WGS84; measured at three places in
-Prague). The robot's map does not move, the nudge stays as saved; the layers card has the same
+Prague). The real shift differs by place by up to about a metre, because each photo is placed a little
+differently (measured at one garden: Google 0.95 m north of ČÚZK and nothing east, Bing 1.1 m east and
+0.5 m south): when buildings (RÚIAN) or the cadastre do not fit the Google photo, set the manual nudge
+of the Google map for that map instead and leave this switch off. The robot's map does not move, the nudge stays as saved; the layers card has the same
 switch under the background's opacity while a Google map is chosen.
 The background maps come in two groups: **aerial and satellite photos** (Google satellite, Google
 satellite with names, ČÚZK orthophoto, Esri, Bing, three older Esri releases — *Esri archive
@@ -290,8 +293,9 @@ old or blurry over the garden, try another. **Detail** *Auto* (the default) load
 each source has — Google and the ČÚZK orthophoto z20 (Google's z21 holds no more detail, so it is
 not loaded) — and closer up only magnifies it
 smoothly. Zooming in stops at about 20 cm along the longer side of the screen; the background map and the robot's maps
-stay on screen all the way. On a phone the background map stops one level coarser (Google z20, ČÚZK z19) and so
-loads fewer tiles. On a slow connection
+stay on screen all the way. A phone gets the same finest level as a computer. On a screen with double pixel density (most phones)
+the background map switches to the finer level a little later as you zoom in, so a zoomed-out view loads
+about half the tiles; the picture is slightly softer there. On a slow connection
 pick a lower cap (z17–z21): fewer tiles, a softer picture. The tiles always cover what you see.
 After a move or a zoom the previous picture stays until the new tiles are in, and a coarser one
 fills the gaps meanwhile, so the map does not go blank; a view you saw a moment ago comes back at
