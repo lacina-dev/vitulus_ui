@@ -114,11 +114,74 @@
                                  (a.event === 'exit' && !a.permitted && !calendarExit(a))) ? 'warn' : 'ok',
                          text: permitText(a), key: 'u:' + a.ts + ':dp:' + (a.seq || a.ref) };
             }
+            if (a.action === 'dock-unlock' || a.action === 'dock-relock') {
+                // a person's Allow / Lock in the panel (webnode door /agent-dock/*)
+                return { t: isNaN(t) ? 0 : t, side: 'field', state: a.ok ? 'ok' : 'err', src: tr('activity.src.ui'),
+                         text: dockUiText(a), key: 'u:' + a.ts + ':' + a.ref };
+            }
             var uv = { who: a.author || '?', action: a.action, ref: a.ref || '', msg: a.message };
             return { t: isNaN(t) ? 0 : t, side: 'field', state: a.ok ? 'ok' : 'err', src: tr('activity.src.ui'),
                      text: a.message ? tr('activity.ui_msg', uv) : tr('activity.ui', uv),
                      key: 'u:' + a.ts + ':' + a.ref };
         });
+    }
+    /* T8 I: the Allow / Lock rows of the dock read as a sentence in the UI
+       language. The webnode writes them as English shorthand ("dock-relock
+       dock_permit:current", "window 240 min, 1 exit", "direct clear: no
+       answer (…)" — nodes/webnode _dock_ref, _dock_post, _dock_clear_direct);
+       the robot side stays as it is, the words are put together here. A part
+       this does not know is shown as it came. */
+    function dockUiWhen(v) {
+        var d = /^\d+(\.\d+)?$/.test(v) ? new Date(Number(v) * 1000) : new Date(v);
+        if (isNaN(d.getTime())) { return v; }
+        var day = dayKey(d.getTime()) === dayKey(Date.now()) ? '' : d.getDate() + '. ' + (d.getMonth() + 1) + '. ';
+        return day + hhmm(d.getTime());
+    }
+    var DOCKUI_PART = { 'lock after return': 'lock_return', 'chat': 'chat', 'confirmed': 'confirmed' };
+    function dockUiPart(p) {
+        var m = /^(from|to) (.+)$/.exec(p);
+        if (m) { return tr('activity.dockui.p.' + m[1], { t: dockUiWhen(m[2]) }); }
+        m = /^(\d+) exits?$/.exec(p);
+        if (m) { return tr('activity.dockui.p.exits', { n: m[1] }); }
+        if (Object.prototype.hasOwnProperty.call(DOCKUI_PART, p)) { return tr('activity.dockui.p.' + DOCKUI_PART[p]); }
+        return p;                       // "240 min" reads the same in both languages
+    }
+    function dockUiWhat(a) {
+        var ref = String(a.ref || ''), m;
+        if (/^window\b/.test(ref)) {
+            var parts = ref.replace(/^window\s*/, '').split(', ').filter(Boolean).map(dockUiPart);
+            return parts.length ? tr('activity.dockui.window', { what: parts.join(', ') }) : tr('activity.dockui.window0');
+        }
+        m = /^until docked: (.*)$/.exec(ref);
+        if (m) { return tr('activity.dockui.free', { acts: m[1] }); }
+        if (ref === 'dock_permit:current') { return tr('activity.dockui.cur'); }
+        if (ref === 'dock_permit:all') { return tr('activity.dockui.all'); }
+        m = /^dock_permit:p\d+-(\d+)$/.exec(ref) || /^dock_(?:permit|release):(\d+)$/.exec(ref);
+        if (m) { return tr('activity.dockui.win', { id: m[1] }); }
+        return ref;
+    }
+    function dockUiWhy(a) {
+        var msg = String(a.message || '');
+        if (!msg) { return tr('activity.dockui.status', { st: a.status || '?' }); }
+        var s = window.VTI18n && VTI18n.node ? VTI18n.node('dockui', msg) : msg;
+        if (s !== msg) { return s; }
+        var m = /\(([a-z_]+)\)/.exec(msg);           // the node's code inside the agent's sentence
+        if (m) {
+            var k = 'dockp.err.' + m[1], c = tr(k);
+            if (c !== k) { return c; }
+        }
+        return msg;                                  // the agent's own sentence
+    }
+    function dockUiText(a) {
+        var who = String(a.author || '?');
+        var v = { who: who === 'owner' ? tr('activity.dockui.owner') : who, what: dockUiWhat(a) };
+        if (!a.ok) {
+            v.why = dockUiWhy(a);
+            return tr(a.action === 'dock-unlock' ? 'activity.dockui.unlock_fail' : 'activity.dockui.lock_fail', v);
+        }
+        if (a.action === 'dock-unlock') { return tr('activity.dockui.unlock', v); }
+        return tr(/^locked directly in the node\b/.test(String(a.message || '')) ? 'activity.dockui.lock_direct'
+                                                                               : 'activity.dockui.lock', v);
     }
     function permitHm(ts) {
         if (!ts) { return '–'; }

@@ -794,6 +794,14 @@ ul.nav-tabs.vt-cfg-sub .nav-link.active { color: #fff; background: transparent; 
 #tab_rosbag .bag-list .bag-row { flex-wrap: nowrap; }          /* phone: name … and the buttons on one row */
 #tab_rosbag .bag-list .bag-actions { width: auto; }
 #tab_rosbag .bag-list .bag-row.stale .bag-name { color: var(--vt-muted); }
+/* T8 I: the recorder's state beside REC / STOP — while it records the line is
+   long (recording · 5.0 fps · d435_2026-…bag) and ran over the two keys
+   (a flex box does not clip). Now one line that ends in „…“: the state and
+   the fps stay in view, the whole line is the tooltip (vt_i18n.js). */
+#tab_rosbag #span_d435_rec_status, #tab_rosbag #span_gnss_rec_status {
+    display: block !important; min-width: 0; align-content: center;   /* block + centred like the flex cell it was */
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+}
 /* ● REC moves from the end of the name (index.html: cut off by the "…" on a
    phone) to a tag in the meta line, like "unfinished" */
 #tab_rosbag .bag-list .bag-row.active .bag-name::after { content: none; }
@@ -1946,6 +1954,24 @@ html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content {
 }
 @media (pointer: fine) {
     html body.vt-frame #div_log_view #btn_log_expand { width: 36px; height: 28px; line-height: 28px; top: 3px; color: var(--vt-accent); }
+}
+/* T8 I (audit B6, the rest): the top line was still cut in half — a line was
+   1.4 x 11 / 12 px = 15.4 / 16.8 px tall, the strip holds 102 px (58 px in a
+   low window), so 6.6 (3.5) lines. Now a line is a whole number of px and
+   the strip a whole number of lines: 6 x 17 px (+ 2 + 2 px of padding), in a
+   low window 3 x 19 px (+ 5 px under the newest line).
+   The log always stands at its newest line, so the top line is whole; the
+   fade only hints that older lines are above (was 16 px = the whole line). */
+html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content .log-line { line-height: 17px; }
+/* the raised dot (vertical-align: 1px) would inherit the 17 px and push every line to 18 */
+html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content .log-line .event-dot { line-height: 1; }
+html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 8px);
+}
+@media (max-height: 700px) {      /* --vt-log-small-size: 62px (vt_tokens.css) */
+    html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content .log-line { line-height: 19px; }
+    html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content { padding-bottom: 5px; }   /* 62 = 3 x 19 + 5 */
 }
 /* (the log-wide case — the log under the panel — is gone: the panel runs
    down to the page edge and the log always stands beside it, 2026-10-25) */

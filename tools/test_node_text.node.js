@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /*
  * T8 E: the fixed English lines robot nodes send (gloc_server /gloc/status,
- * the rosbag recorders' /vitulus_rosbag/<name>/status) show in the UI
+ * the rosbag recorders' /vitulus_rosbag/<name>/status; T8 I: the webnode's
+ * reasons in the dock rows of Agent › Activity, kind dockui) show in the UI
  * language — VTI18n.node(kind, line) in assets/js/vt_i18n.js.
  *
  *     node tools/test_node_text.node.js
@@ -74,6 +75,11 @@ const SAMPLES = [
     ['rosbag', 'idle', []],
     ['rosbag', 'recording | fps=5.0 | d435_2026-11-08-20-00-00.bag', ['5.0', 'd435_2026-11-08-20-00-00.bag']],
     ['rosbag', 'recording | fps=unlimited | gnss_2026-11-08-20-00-00.bag', ['gnss_2026-11-08-20-00-00.bag']],
+    // T8 I: the webnode's dock door (nodes/webnode _dock_post, _dock_clear_direct) — Agent › Activity
+    ['dockui', 'no ui_token', []],
+    ['dockui', 'agent unreachable: timed out', []],
+    ['dockui', 'direct clear: no answer (agent unreachable: <urlopen error [Errno 111] Connection refused>)', []],
+    ['dockui', 'direct: unknown window 7', ['7']],
 ];
 SAMPLES.forEach(([kind, line, keep]) => {
     const c = cs.VTI18n.node(kind, line), e = en.VTI18n.node(kind, line);

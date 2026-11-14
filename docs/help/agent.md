@@ -626,7 +626,10 @@ filters. Decisions made in the UI are signed with your name and show up here. Th
 what runs now; when the kit only waits for its next check it stays grey, amber or red only when
 the kit itself reports a problem. A row that leads somewhere (a job, a finding, an issue) opens
 it on a tap; any other row unfolds to its whole text on a tap (on a phone the rows show two
-lines). Long internal ids are left out of the row text; the tooltip keeps the full line.
+lines). Long internal ids are left out of the row text; the tooltip keeps the full line. Your
+**Allow** and **Lock** of the dock are rows in plain words — *Dock allowed (robert): window
+240 min, exits: 1*, *Dock locked (robert): the running window* — and when one did not go through,
+the row is red and says why (*Dock not locked … : the agent does not answer*).
 
 ## Findings
 

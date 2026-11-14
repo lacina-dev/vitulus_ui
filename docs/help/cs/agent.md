@@ -608,7 +608,10 @@ filtry. Rozhodnutí z UI jsou podepsaná tvým jménem a objeví se tady. Řáde
 běží; když kit jen čeká na další kontrolu, je šedý, oranžový nebo červený jen tehdy, když kit sám
 hlásí problém. Řádek, který někam vede (úloha, nález, issue), ho klepnutím otevře; jakýkoli jiný
 řádek se klepnutím rozbalí na celý text (na telefonu mají řádky dva řádky textu). Dlouhá vnitřní
-id se z textu řádku vynechávají; celý řádek je v tooltipu.
+id se z textu řádku vynechávají; celý řádek je v tooltipu. Tvoje **Povolit** a **Zamknout** doku
+jsou řádky obyčejnými slovy — *Dok povolen (robert): okno 240 min, výjezdů: 1*, *Dok zamčen
+(robert): běžící okno* — a když se to nepovedlo, řádek je červený a říká proč (*Dok nezamčen … :
+agent neodpovídá*).
 
 ## Nálezy
 

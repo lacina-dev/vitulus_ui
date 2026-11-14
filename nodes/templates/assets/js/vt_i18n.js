@@ -158,8 +158,8 @@
     }
 
     /* T8 E: lines a robot node sends as fixed English text — gloc_server's
-       /gloc/status, the rosbag recorders' /vitulus_rosbag/<name>/status — in
-       the UI language. A known line maps to a key (numbers, names and the
+       /gloc/status, the rosbag recorders' /vitulus_rosbag/<name>/status, the
+       webnode's dock door (kind dockui, below) — in the UI language. A known line maps to a key (numbers, names and the
        node's own reasons stay as they came: {vars} from the pattern's
        groups; a code word in a group, e.g. manual / force, gets its own key);
        an unknown line is shown unchanged. The first rule that
@@ -193,6 +193,15 @@
             [/^idle$/, 'node.bag.idle'],
             [/^recording \| fps=unlimited \| (.+)$/, 'node.bag.rec_nolimit', ['bag']],
             [new RegExp('^recording \\| fps=' + NUM + ' \\| (.+)$'), 'node.bag.rec', ['fps', 'bag']]
+        ],
+        /* T8 I: why an Allow / Lock of the dock did not go through, as the
+           webnode writes it into the UI's action log (nodes/webnode
+           _dock_post, _dock_clear_direct) — Agent › Activity */
+        dockui: [
+            [/^no ui_token$/, 'node.dockui.no_token'],
+            [/^agent unreachable: .+$/, 'node.dockui.agent_down'],
+            [/^direct clear: no answer \(.+\)$/, 'node.dockui.no_answer'],
+            [/^direct: unknown window (\S+)$/, 'node.dockui.unknown_window', ['id']]
         ]
     };
     function nodeText(kind, s) {
@@ -227,6 +236,9 @@
             if (w.raw === null) { return; }
             w.out = nodeText(kind, w.raw);
             if (el.textContent !== w.out) { el.textContent = w.out; }
+            /* T8 I: the place may be narrower than the line (it then ends in
+               „…“): the whole line is always the tooltip */
+            if (el.getAttribute && el.getAttribute('title') !== w.out) { el.setAttribute('title', w.out); }
         };
         var seen = function () {
             if (el.textContent === w.out) { return; }

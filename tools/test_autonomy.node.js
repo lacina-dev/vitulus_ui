@@ -222,5 +222,43 @@ function sandbox(lang, file, extra) {
     r = row({ permitted: false, counted: false, agent: true });
     check(l + ': agent exit without an open window warns', r.state === 'warn' && r.text === d['activity.permit.exit_un'], JSON.stringify(r));
 });
+// T8 I: the owner's Allow / Lock rows of the dock read as a sentence (were "dock-relock dock_permit:current")
+['en', 'cs'].forEach((l) => {
+    const acts = [];
+    const hub = { get: (k) => (k === 'ui.actions' ? { data: { actions: acts } } : null) };
+    const ACT = sandbox(l, 'vt_activity.js', { VTHub: hub }).VTActivity;
+    const row = (a) => { acts.length = 0; acts.push(Object.assign({ ts: '2026-11-08T23:16:00+0100', author: 'robert', ok: true, message: '' }, a));
+        return ACT._uiRows()[0]; };
+    const d = l === 'en' ? en : cs;
+    const fill = (k, v) => d[k].replace(/\{(\w+)\}/g, (m, n) => v[n]);
+    let r = row({ action: 'dock-relock', ref: 'dock_permit:current' });
+    check(l + ': dock lock row is a sentence', r.text === fill('activity.dockui.lock', { who: 'robert', what: d['activity.dockui.cur'] }) && r.state === 'ok', r.text);
+    check(l + ': dock lock row has no robot shorthand', !/dock-relock|dock_permit/.test(r.text), r.text);
+    r = row({ action: 'dock-relock', ref: 'dock_release:22' });
+    check(l + ': dock lock of a numbered window', r.text.indexOf(fill('activity.dockui.win', { id: '22' })) > 0, r.text);
+    r = row({ action: 'dock-relock', ref: 'dock_permit:p1794157400-4', message: 'locked directly in the node (agent unreachable: timed out)', author: 'owner' });
+    check(l + ': direct lock says the agent did not answer',
+          r.text === fill('activity.dockui.lock_direct', { who: d['activity.dockui.owner'], what: fill('activity.dockui.win', { id: '4' }) }) && r.state === 'ok', r.text);
+    r = row({ action: 'dock-unlock', ref: 'window 240 min, 1 exit, lock after return' });
+    check(l + ': dock allow row with its window', r.text === fill('activity.dockui.unlock', { who: 'robert',
+          what: fill('activity.dockui.window', { what: ['240 min', fill('activity.dockui.p.exits', { n: '1' }), d['activity.dockui.p.lock_return']].join(', ') }) }), r.text);
+    r = row({ action: 'dock-unlock', ref: 'window 60 min, chat, confirmed' });
+    check(l + ': chat permit parts in words', r.text.indexOf(d['activity.dockui.p.chat'] + ', ' + d['activity.dockui.p.confirmed']) > 0, r.text);
+    r = row({ action: 'dock-unlock', ref: 'window from 1794157400, to 1794160000' });
+    check(l + ': window times as clock time, not epoch', !/1794157400|1794160000/.test(r.text) && /\d\d:\d\d/.test(r.text), r.text);
+    r = row({ action: 'dock-unlock', ref: 'window 240 min', ok: false, status: 400, message: 'řekni, co přesně odemykáš — seznam akcí' });
+    check(l + ': refused allow keeps the agent\'s sentence, error tone',
+          r.state === 'err' && r.text.indexOf('řekni, co přesně odemykáš') > 0 && r.text.indexOf(d['activity.dockui.unlock_fail'].split(' (')[0]) === 0, r.text);
+    r = row({ action: 'dock-relock', ref: 'dock_permit:all', ok: false, status: 400, message: 'zamknutí se nepovedlo (not_persisted)' });
+    check(l + ': a node code in the reason gets its words', r.text.indexOf(d['dockp.err.not_persisted']) > 0 && r.state === 'err', r.text);
+    r = row({ action: 'dock-relock', ref: 'dock_permit:all', ok: false, status: 503 });
+    check(l + ': no reason = the status', r.text.indexOf(fill('activity.dockui.status', { st: 503 })) > 0, r.text);
+    r = row({ action: 'dock-unlock', ref: 'dock.undock,motor.on' });
+    check(l + ': an old row (named actions) keeps its list', r.text.indexOf('dock.undock,motor.on') > 0, r.text);
+    r = row({ action: 'snooze', ref: '#12', message: 'Skryto.' });
+    check(l + ': other UI rows as before', r.text === fill('activity.ui_msg', { who: 'robert', action: 'snooze', ref: '#12', msg: 'Skryto.' }), r.text);
+    r = row({ action: 'dock-relock', ref: 'dock_release:21', author: 'robot', message: 'relocked: robot docked', receipt: 21 });
+    check(l + ': the robot\'s own relock row as before', r.text === fill('activity.dock_relock', { r: 21 }), r.text);
+});
 console.log(fails ? 'FAILED ' + fails : 'OK — Autonomy texts and wiring');
 process.exit(fails ? 1 : 0);

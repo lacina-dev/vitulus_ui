@@ -143,6 +143,8 @@
     --vt-head-h: 50px;           /* panel header row */
     --vt-iconbtn: 36px;          /* header icon buttons (touch ok) */
     --vt-touch: 40px;            /* min touch target */
+    --vt-sw-w: 44px;             /* the ONE on/off switch (.form-switch) of the panels: width */
+    --vt-sw-h: 24px;             /*   height; the touch area is the switch's label / row (>= 40 px) */
     --vt-drawer-w: 480px;        /* the ONE drawer width on desktop */
     --vt-sheet-h: 60dvh;         /* phone bottom sheet height */
     --vt-joy-size: 132px;        /* drive joystick pad (vt_joy.css) */

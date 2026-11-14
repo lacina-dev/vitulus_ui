@@ -332,6 +332,10 @@ The full log has a toolbar:
 - **ROS** — the raw robot console with level filters, a node filter and text search.
 - **Live** pauses / resumes autoscroll, **Clear** empties the log in this browser only.
 
+On a phone the toolbar is one row that scrolls sideways: **Changes** | **ROS**, **Live**, **Clear**
+and **▼** come first and are always in view, the ROS filters follow them. The small log always
+shows whole lines (six, three in a low window), the newest at the bottom.
+
 ## Keyboard shortcuts (PC)
 
 | Key | Does |

@@ -122,7 +122,7 @@ a.vt-prog-cal .la-calendar { font-size: 1.2em; }
 .vt-dock-sw { display: inline-flex; align-items: center; gap: 6px; padding-left: 0; }
 .vt-dock-sw .form-check-input { float: none; margin: 0; cursor: pointer; }
 /* a switch stays a switch (the touch rule makes every checkbox a 24 px square) */
-#ui_drawer .vt-dock-sw .form-check-input { width: 40px !important; height: 22px !important; min-width: 40px; border-radius: 11px; }
+#ui_drawer .vt-dock-sw .form-check-input { width: var(--vt-sw-w) !important; height: var(--vt-sw-h) !important; min-width: var(--vt-sw-w); border-radius: calc(var(--vt-sw-h) / 2); }
 .vt-dock-sw .form-check-label { min-width: 3.5em; font-size: var(--vt-fs-sm); cursor: pointer; }
 
 /* ---- M4: Deactivate is a real button at the end of the Saved maps row ------- */

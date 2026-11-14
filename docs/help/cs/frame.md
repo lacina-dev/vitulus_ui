@@ -323,6 +323,10 @@ Rozbalený log má lištu nástrojů:
 - **ROS** — surová konzole robota s filtry úrovní, filtrem nodů a hledáním textu.
 - **Živě** pozastaví / obnoví posouvání, **Vymazat** vyprázdní log jen v tomto prohlížeči.
 
+Na telefonu je lišta jeden řádek, který se posouvá do strany: **Změny** | **ROS**, **Živě**,
+**Vymazat** a **▼** jsou první a vždy vidět, filtry ROS jdou za nimi. Malý log ukazuje vždy celé
+řádky (šest, v nízkém okně tři), nejnovější dole.
+
 ## Klávesové zkratky (PC)
 
 | Klávesa | Co dělá |

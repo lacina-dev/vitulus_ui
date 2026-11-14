@@ -1011,6 +1011,14 @@ body.vt-frame.vt-m-overlay.vt-panel-open #status_div.sh-strip:not(:has(img[src*=
     #div_log_view .log-toolbar-row { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
     #div_log_view .log-toolbar-row::-webkit-scrollbar { display: none; }
     #div_log_view .log-toolbar-row > * { flex: 0 0 auto; }
+    /* T8 I: in the ROS log the row is ~780 px wide on a 390-px phone and
+       Live / Clear / ▼ (back to the small log) were off the right edge with
+       no hint that the row scrolls. The keys every mode has come first —
+       Changes | ROS · Live · Clear · ▼ stay where they are in both modes —
+       and the ROS filters (levels, nodes, search) follow; the cut key at the
+       edge shows there is more. */
+    #div_log_view .log-toolbar-row > .log-rosout-only { order: 2; }
+    #div_log_view .log-toolbar-row > .log-counter { order: 3; }
 }
 
 /* ============ P22: Programs › a NEW program: no robot actions until it is
