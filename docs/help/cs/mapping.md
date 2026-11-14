@@ -274,7 +274,29 @@ snímek je usazený trochu jinak (změřeno na jedné zahradě: Google 0,95 m se
 Bing 1,1 m východně a 0,5 m jižně): když budovy (RÚIAN) nebo katastr na snímek Googlu nesedí, nastav pro
 tu mapu raději ruční posun mapy Googlu a tenhle přepínač nech vypnutý. Mapa robota se
 nehne a ruční posun zůstane, jak je uložený; karta vrstev má stejný přepínač pod krytím podkladu,
-když je vybraná mapa Googlu. Podkladové mapy jsou ve dvou
+když je vybraná mapa Googlu. Přepínač je obecný odhad pro mapy bez měření: mapa, která má posun Googlu
+**změřený** (níž), jeho posun už nedostává, v žádném prohlížeči, a přepínač u ní hlásí *Na této mapě
+bez účinku*.
+
+**Změřit proti ČÚZK** (v rámečku posunu, u každého snímkového podkladu kromě ČÚZK) nechá robota
+najít posun pro zobrazenou mapu a podklad: porovná snímky podkladu s ortofotem ČÚZK uprostřed mapy
+(hrany střech, cest a zdí; pár sekund, asi 120 dlaždic celkem, většinou z cache robota) a výsledek
+řekne slovy, např. *Satelit (Google) tu leží 0,97 m severně od ČÚZK*. Mapa hned ukáže snímek posunutý
+na ČÚZK; **Ukázat před / Ukázat po** přepíná mezi uloženou a změřenou polohou, řádek pod tím říká,
+jak daleko je snímek od změřené polohy teď. Nic se neuloží, dokud nedáš **Uložit**; **Zrušit**
+vrátí uložený posun. Posun se čte z nejvýraznější části okolí mapy a není všude stejný (střechy se
+na každém snímku naklánějí jinak, snímky jsou sešívané): tentýž řádek říká, o kolik se liší ostatní
+výrazné části (*liší se až o 0,89 m*) — jeden posun na mapu je kompromis, proto před uložením porovnej
+na mapě a tam, kde ti na tom záleží, dolaď šipkami. Uložené měření už obsahuje posun ČÚZK té mapy
+a přepínač výš k němu nic nepřičítá; když později změníš posun ČÚZK té mapy, změř znovu. Hodnota pro
+Google platí pro satelit, hybrid i kreslenou mapu Googlu (měří se na snímku). Řádek pod šipkami říká, jak posun vznikl (*Změřeno proti ČÚZK, 14. 11. 2026* /
+*Nastaveno ručně*); doladění změřeného posunu šipkami ho nechá změřený (*pak doladěno ručně*),
+**Vynulovat vrstvu** ho smaže. Když místo nejde změřit spolehlivě — málo detailů, jen trávník a stromy,
+pohled zblízka a zdálky se liší o víc než 0,3 m, dlaždice přišly prázdné nebo se nenačetly — robot
+řekne proč a nic k uložení nenabídne: posuň
+pak snímek ručně. Posun se měří vždy pro jednu mapu a jeden podklad, jen když zmáčkneš tlačítko.
+
+Podkladové mapy jsou ve dvou
 skupinách: **letecké a satelitní snímky** (satelit Google, satelit Google s popisky, ortofoto
 ČÚZK, Esri, Bing, tři starší vydání Esri — *Archiv Esri 2025-04, 2023-06, 2022-04 (Wayback)*, datum je
 vydání, snímek nad tvým místem může být starší — a *Ortofoto 50. léta (CENIA)*, černobílé letecké snímky

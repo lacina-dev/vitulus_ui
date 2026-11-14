@@ -614,7 +614,19 @@
         var bop = panel.querySelector('[data-lyr-bgop]');
         if (bop) { bop.hidden = !on; }
         var alg = panel.querySelector('[data-lyr-align]'), bsrc = on && catalog() && catalog().byId[b];
-        if (alg) { alg.hidden = !(bsrc && (bsrc.offset_key || bsrc.id) === 'sat'); }
+        if (alg) {
+            alg.hidden = !(bsrc && (bsrc.offset_key || bsrc.id) === 'sat');
+            // M13: a map whose Google offset is measured does not get the
+            // option's shift: say so instead of ignoring the switch silently
+            var M13 = window.mapping_v3, ineff = false;
+            try { ineff = !!(M13 && M13._alignIneffective && M13._alignIneffective('sat')); } catch (e) { /* older mapping.js */ }
+            var ast = alg.querySelector('[data-lyr-st="align"]'), ahint = alg.querySelector('.vt-lyr-hint'), abtn = alg.querySelector('[data-lyr-chk]');
+            var stx = ineff ? t('maplyr.m13.align_off') : '', htx = t(ineff ? 'maplyr.m13.align_off_hint' : 'maplyr.m9.align_hint');
+            if (ast && ast.textContent !== stx) { ast.textContent = stx; }
+            if (ahint && ahint.textContent !== htx) { ahint.textContent = htx; }
+            if (abtn && abtn.title !== htx) { abtn.title = htx; }
+            alg.classList.toggle('vt-lyr-ineff', ineff);
+        }
         // M8-5: one line when the background does not load (none / some missing)
         var bst = panel.querySelector('[data-lyr-bgst]'), ld = bgLoad();
         if (bst) {
@@ -639,7 +651,7 @@
             if (x) { x.hidden = !v; }
             var key = el.parentNode.getAttribute('data-lyr-row');
             var st = el.querySelector('[data-lyr-st]');
-            if (st) {
+            if (st && key !== 'align') {      // 'align': its slot is set above (M13)
                 var src = key === 'rain' ? null : $('mapv3_ov_' + key + '_st');
                 var txt = v && src ? src.textContent : '';
                 if (st.textContent !== txt) { st.textContent = txt; }

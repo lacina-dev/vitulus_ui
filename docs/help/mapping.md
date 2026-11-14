@@ -283,7 +283,30 @@ Prague). The real shift differs by place by up to about a metre, because each ph
 differently (measured at one garden: Google 0.95 m north of ČÚZK and nothing east, Bing 1.1 m east and
 0.5 m south): when buildings (RÚIAN) or the cadastre do not fit the Google photo, set the manual nudge
 of the Google map for that map instead and leave this switch off. The robot's map does not move, the nudge stays as saved; the layers card has the same
-switch under the background's opacity while a Google map is chosen.
+switch under the background's opacity while a Google map is chosen. The switch is a general estimate
+for maps without a measurement: a map whose Google offset was **measured** (below) no longer gets its
+shift, in any browser, and the switch says *No effect on this map* there.
+
+**Measure against ČÚZK** (in the alignment box, for every photo map except ČÚZK's own) lets the robot
+find the offset for the map and background shown: it compares the background's pictures with the ČÚZK
+orthophoto in the middle of the map (edges of roofs, roads and walls; a few seconds, about 120 tiles
+in all, mostly from the robot's cache) and says the result in words, e.g. *Satellite (Google) lies
+0.97 m north of ČÚZK here*. The map shows the picture moved onto ČÚZK at once; **Show before / Show
+after** flips between the saved and the measured position, the line below says how far the picture is
+from the measured position now. Nothing is stored until **Save**; **Cancel** puts the saved offset back.
+The shift is read on the clearest part of the area around the map, and it is not the same everywhere
+(roofs lean differently in each photo, the photos are stitched): the same line says by how much the
+other clear parts differ (*differ by up to 0.89 m*) — one offset for a map is a compromise, so compare
+on the map before saving and nudge it by hand where it matters to you. A saved measurement already
+includes the ČÚZK offset of that map, and the switch above adds nothing to it; when you change the
+ČÚZK offset of the map later, measure again. The Google value is shared by Google's satellite, hybrid
+and drawn map (measured on the photo). The line under the nudge says how the offset came to be (*Measured against
+ČÚZK, 14 Nov 2026* / *Set by hand*); nudging a measured offset with the arrows keeps it measured
+(*then adjusted by hand*), **Reset layer** clears it. When the place cannot be measured reliably — too
+little detail, lawn and trees only, the close and the wide look disagree by more than 0.3 m, tiles
+that came empty or did not load — the robot says why and offers nothing to save: shift the picture by hand then. The shift is measured for
+one map and one background at a time, only when you press the button.
+
 The background maps come in two groups: **aerial and satellite photos** (Google satellite, Google
 satellite with names, ČÚZK orthophoto, Esri, Bing, three older Esri releases — *Esri archive
 2025-04, 2023-06, 2022-04 (Wayback)*, the date is the release, the photo over your place can be older —

@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from system_metrics import load_system_metrics
 import sensor_limits
 import terrain_mosaic
+import tile_shift
 
 # Robot-native geofence proposal writer (propose-only, NO signing). It lives in
 # vitulus_navi so this PUBLIC web node can serve /api/geofence/propose without
@@ -356,6 +357,13 @@ if __name__ == '__main__':
         #         (nothing else in the scene moves).
         # STORE : ~/.vitulus/ui/tile_offsets.json (outside the repo, survives
         #         restarts). Written atomically (tmp + os.replace).
+        # META  : (T17 M13) beside "offsets", "meta" {map: {layer: {src, ts,
+        #         adj}}} says how an offset came to be: src "measured" (POST
+        #         /api/tile_offsets/measure, saved with source "measured": an
+        #         ABSOLUTE offset, the browser option "Align Google to ČÚZK"
+        #         is not added to it) or "manual"; ts = when. A layer without
+        #         meta = set by hand before M13. "offsets" keeps its shape.
+        #         Details: nodes/tile_shift.py.
         # Robot-native: no dependency on the agent runtime (:8088).
         TILE_OFFSETS_DIR = os.path.expanduser('~/.vitulus/ui')
         TILE_OFFSETS_PATH = os.path.join(TILE_OFFSETS_DIR, 'tile_offsets.json')
@@ -366,22 +374,26 @@ if __name__ == '__main__':
 
         def _tile_offsets_load():
             """Read the store. A missing/corrupt file degrades to {} (logged once)."""
+            return _tile_offsets_load_all()[0]
+
+        def _tile_offsets_load_all():
+            """-> (offsets, meta); see _tile_offsets_load."""
             try:
                 with open(TILE_OFFSETS_PATH, 'r') as fh:
                     doc = json.load(fh)
             except FileNotFoundError:
-                return {}
+                return {}, {}
             except Exception as exc:
                 if not _tile_offsets_warned[0]:
                     _tile_offsets_warned[0] = True
                     rospy.logwarn("[webnode] tile_offsets.json unreadable (%s) "
                                   "- starting with no offsets", exc)
-                return {}
+                return {}, {}
             if not isinstance(doc, dict):
-                return {}
+                return {}, {}
             offsets = doc.get('offsets')
             if not isinstance(offsets, dict):
-                return {}
+                offsets = {}
             # sanitise: drop anything that is not {map: {layer: {dx, dy}}}
             clean = {}
             for map_name, layers in offsets.items():
@@ -404,13 +416,16 @@ if __name__ == '__main__':
                     cl[layer] = {'dx': dx, 'dy': dy}
                 if cl:
                     clean[map_name] = cl
-            return clean
+            return clean, tile_shift.clean_meta(doc.get('meta'), clean)
 
-        def _tile_offsets_save(offsets):
+        def _tile_offsets_save(offsets, meta):
             """Atomic write. Returns None on success or an error string."""
             try:
                 os.makedirs(TILE_OFFSETS_DIR, exist_ok=True)
                 doc = {'version': 1, 'ts': int(time.time()), 'offsets': offsets}
+                meta = tile_shift.clean_meta(meta, offsets)
+                if meta:
+                    doc['meta'] = meta
                 tmp = TILE_OFFSETS_PATH + '.tmp'
                 with open(tmp, 'w') as fh:
                     json.dump(doc, fh, indent=1, sort_keys=True)
@@ -447,9 +462,11 @@ if __name__ == '__main__':
             return ''
 
         def _tile_offsets_payload(extra=None):
+            offsets, meta = _tile_offsets_load_all()
             out = {
                 'ok': True,
-                'offsets': _tile_offsets_load(),
+                'offsets': offsets,
+                'meta': meta,
                 'active_map': _tile_offsets_active_map(),
                 'max_m': TILE_OFFSET_MAX_M,
                 'units': 'metres in the /map frame (dx=+map x, dy=+map y)',
@@ -495,25 +512,42 @@ if __name__ == '__main__':
 
         @app.route('/api/tile_offsets', methods=['POST'])
         def api_tile_offsets_set():
+            # optional "source": "measured" (the result of POST
+            # /api/tile_offsets/measure the user confirmed: an absolute offset)
+            # or "manual"; absent = a nudge (a measured offset stays measured)
+            payload = request.get_json(silent=True)
             try:
-                map_name, layer, dx, dy = _tile_offsets_args(
-                    request.get_json(silent=True))
+                map_name, layer, dx, dy = _tile_offsets_args(payload)
+                source = payload.get('source')
+                if source is not None and source not in tile_shift.META_SOURCES:
+                    raise ValueError('"source" must be "measured" or "manual"')
             except ValueError as exc:
                 return jsonify({'ok': False, 'error': str(exc)}), 400
             try:
                 with _tile_offsets_lock:
-                    offsets = _tile_offsets_load()
+                    offsets, meta = _tile_offsets_load_all()
                     layers = offsets.setdefault(map_name, {})
+                    mlayers = meta.setdefault(map_name, {})
+                    stamp = tile_shift.stamp(mlayers.get(layer), source, time.time())
                     if dx == 0.0 and dy == 0.0:
                         layers.pop(layer, None)
+                        # a measured zero is a statement ("already exact"),
+                        # a manual zero is "no offset"
+                        if stamp['src'] == 'measured':
+                            mlayers[layer] = stamp
+                        else:
+                            mlayers.pop(layer, None)
                     else:
                         layers[layer] = {'dx': dx, 'dy': dy}
+                        mlayers[layer] = stamp
                     if not layers:
                         offsets.pop(map_name, None)
-                    if len(offsets) > TILE_OFFSETS_MAX_MAPS:
+                    if not mlayers:
+                        meta.pop(map_name, None)
+                    if len(offsets) > TILE_OFFSETS_MAX_MAPS or len(meta) > TILE_OFFSETS_MAX_MAPS:
                         return jsonify({'ok': False, 'error':
                                         'too many maps stored'}), 400
-                    err = _tile_offsets_save(offsets)
+                    err = _tile_offsets_save(offsets, meta)
                 if err:
                     return jsonify({'ok': False, 'error': err}), 400
                 return jsonify(_tile_offsets_payload(
@@ -534,15 +568,17 @@ if __name__ == '__main__':
                 return jsonify({'ok': False, 'error': str(exc)}), 400
             try:
                 with _tile_offsets_lock:
-                    offsets = _tile_offsets_load()
+                    offsets, meta = _tile_offsets_load_all()
                     if layer:
-                        if map_name in offsets:
-                            offsets[map_name].pop(layer, None)
-                            if not offsets[map_name]:
-                                offsets.pop(map_name, None)
+                        for store in (offsets, meta):
+                            if map_name in store:
+                                store[map_name].pop(layer, None)
+                                if not store[map_name]:
+                                    store.pop(map_name, None)
                     else:
                         offsets.pop(map_name, None)
-                    err = _tile_offsets_save(offsets)
+                        meta.pop(map_name, None)
+                    err = _tile_offsets_save(offsets, meta)
                 if err:
                     return jsonify({'ok': False, 'error': err}), 400
                 return jsonify(_tile_offsets_payload(
@@ -550,6 +586,66 @@ if __name__ == '__main__':
             except Exception as exc:
                 rospy.logwarn("[webnode] tile_offsets reset failed: %s", exc)
                 return jsonify({'ok': False, 'error': str(exc)}), 400
+
+        # POST /api/tile_offsets/measure {map, layer} (T17 M13): how far the
+        # background map of this alignment key lies from the ČÚZK orthophoto in
+        # the middle of the served map, and the offset that would put it onto
+        # it. Reads tiles of the robot's own MapProxy (about 120 in all,
+        # mostly cached), answers in a few seconds (20 s at most), one
+        # measurement at a time, stores NOTHING (the page saves the result
+        # through POST /api/tile_offsets after the user confirms). The route,
+        # the method and the gate: nodes/tile_shift.py.
+        MAPPROXY_URL = str(rospy.get_param('~mapproxy_url', 'http://127.0.0.1:8082')).rstrip('/')
+
+        def _tile_measure_fetch(layer, grid, fmt, z, x, y):
+            import urllib.request
+            import urllib.parse
+            url = '%s/wmts/%s/%s/%d/%d/%d.%s' % (
+                MAPPROXY_URL, urllib.parse.quote(str(layer), safe=''),
+                urllib.parse.quote(str(grid), safe=''), z, x, y,
+                urllib.parse.quote(str(fmt), safe=''))
+            with urllib.request.urlopen(url, timeout=8) as resp:
+                return resp.read()
+
+        def _tile_measure_datum():
+            try:
+                with open(SITE_DATUM_PATH, 'r') as fh:
+                    return yaml.safe_load(fh) or None
+            except Exception:
+                return None
+
+        def _tile_measure_center(datum):
+            """Middle of the served raster; else where the datum was taken."""
+            try:
+                with open(os.path.expanduser('~/.vitulus/mapping_v3/.last_served'), 'r') as fh:
+                    ls = json.load(fh) or {}
+                site, raster = str(ls.get('site') or ''), str(ls.get('raster') or '')
+                if site and raster and '/' not in site + raster and '..' not in site + raster:
+                    c = tile_shift.raster_center(os.path.expanduser(
+                        '~/.vitulus/mapping_v3/%s/rasters/%s/%s.yaml' % (site, raster, raster)))
+                    if c:
+                        return tile_shift.map_point_latlon(datum, c[0], c[1])
+            except Exception:
+                pass
+            try:
+                return float(datum['robot_lat']), float(datum['robot_lon'])
+            except Exception:
+                return None
+
+        def _tile_measure_catalog():
+            with open(_map_sources_path(), 'r') as fh:
+                return (json.load(fh) or {}).get('sources') or []
+
+        tile_shift.register(app, {
+            'active_map': _tile_offsets_active_map,
+            'datum': _tile_measure_datum,
+            'center': _tile_measure_center,
+            'catalog': _tile_measure_catalog,
+            'offsets': _tile_offsets_load_all,
+            'fetch': _tile_measure_fetch,
+            'max_m': TILE_OFFSET_MAX_M,
+            'log': lambda msg: rospy.logwarn("[webnode] %s", msg),
+        })
 
         # ------------------------------------------------------------------
         # UI settings of THIS application (Settings › App), shared by every

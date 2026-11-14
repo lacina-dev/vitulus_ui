@@ -83,6 +83,32 @@ function tileOffsetFormat(off) {
     return 'dx ' + o.dx.toFixed(2) + ' m / dy ' + o.dy.toFixed(2) + ' m';
 }
 
+// T17 M13: how an offset came to be — the store's "meta" {map: {layer: {src,
+// ts, adj}}} beside the offsets. src 'measured' = measured against the ČÚZK
+// orthophoto (the Measure button): an ABSOLUTE offset, "Align Google to ČÚZK"
+// below is not added to it. No meta / 'manual' = set by hand.
+function tileOffsetMeta(meta, mapName, layer) {
+    const l = meta && typeof meta === 'object' && mapName && layer ? meta[mapName] : null;
+    const m = l && typeof l === 'object' ? l[layer] : null;
+    return (m && typeof m === 'object' && (m.src === 'measured' || m.src === 'manual')) ? m : null;
+}
+function tileOffsetMeasured(meta, mapName, layer) {
+    const m = tileOffsetMeta(meta, mapName, layer);
+    return !!m && m.src === 'measured';
+}
+
+// T17 M13: a measured shift in words. e/n = metres the picture lies east /
+// north of ČÚZK; parts under 5 cm are left out. -> [{m, dir}] (dir: n|s|e|w),
+// the larger part first; [] = "on ČÚZK".
+function tileShiftParts(e, n) {
+    const out = [];
+    const E = Number(e), N = Number(n);
+    if (isFinite(N) && Math.abs(N) >= 0.05) { out.push({ m: Math.abs(N), dir: N > 0 ? 'n' : 's' }); }
+    if (isFinite(E) && Math.abs(E) >= 0.05) { out.push({ m: Math.abs(E), dir: E > 0 ? 'e' : 'w' }); }
+    out.sort((a, b) => b.m - a.m);
+    return out;
+}
+
 // T17 M9-1: "Align Google to ČÚZK" (Map › Display and the layers panel,
 // default OFF, remembered in the browser: vitulus_align_etrs89). Google's
 // pictures sit ~1 m north-east of ČÚZK's (ČÚZK = ETRS89, Google = today's
@@ -93,6 +119,9 @@ function tileOffsetFormat(off) {
 // move back by that much, ON TOP of the per-map nudge stored on the robot
 // (which stays untouched). yaw = the map's rotation vs true north (rad):
 // the tile groups sit at R(-yaw) * (true east, north).
+// T17 M13: it is a general estimate (the real shift differs by place), so a
+// map whose Google offset was MEASURED does not get it: the callers pass
+// on = false there (_alignShift).
 const ALIGN_ETRS89_EN = { e: -0.73, n: -0.71 };
 function tileAlignShift(on, key, yaw) {
     if (!on || key !== 'sat') { return { dx: 0, dy: 0 }; }
@@ -984,6 +1013,8 @@ class MappingV3 {
 
         // --- per-map / per-layer tile OFFSET (persisted ON THE ROBOT) -------
         this.tile_offsets = {};       // mirror of the robot store
+        this.tile_offsets_meta = {};  // T17 M13: how each offset came to be
+        this._measPreview = null;     // T17 M13: a measured offset being tried on
         this.tile_offset_map = '';    // active map name, resolved by the robot
         this._tileOffsetPost = null;  // debounce timer for the POST
         this._initTileOffsetControl();
@@ -1379,8 +1410,15 @@ class MappingV3 {
         try {
             const d = this.aerial_datum || this._alignDatum;
             if (this.aerial_datum) { this._alignDatum = this.aerial_datum; }
-            return tileAlignShift(!!this._alignEtrs, key, d ? this._mapTrueYaw(d) : 0);
+            return tileAlignShift(!!this._alignEtrs && !this._alignIneffective(key), key, d ? this._mapTrueYaw(d) : 0);
         } catch (e) { return { dx: 0, dy: 0 }; }
+    }
+    // T17 M13: this map's offset of the group is measured (or a measured one
+    // is being tried on): absolute, the option adds nothing
+    _alignIneffective(key) {
+        const p = this._measPreview;
+        if (p && p.on && p.layer === key && p.map === this.tile_offset_map) { return true; }
+        return tileOffsetMeasured(this.tile_offsets_meta, this.tile_offset_map, key);
     }
     // the option's tick box: created next to the alignment box (outside it:
     // the box takes the arrow keys for its nudge)
@@ -1391,12 +1429,15 @@ class MappingV3 {
         const row = document.createElement('div');
         row.className = 'vt-align-etrs vt-mt2';
         row.innerHTML = '<label class="vt-ovl-name" for="mapv3_align_etrs"><input class="form-check-input" type="checkbox" id="mapv3_align_etrs">' +
-            '<span id="mapv3_align_etrs_lab"></span></label><div id="mapv3_align_etrs_hint" class="vt-dim vt-fs-sm"></div>';
+            '<span id="mapv3_align_etrs_lab"></span></label><div id="mapv3_align_etrs_note" class="vt-fs-sm vt-tone-info" hidden></div>' +
+            '<div id="mapv3_align_etrs_hint" class="vt-dim vt-fs-sm"></div>';
         box.parentNode.insertBefore(row, box);
         const chk = row.querySelector('#mapv3_align_etrs');
         chk.checked = this._alignEtrs;
         this._say(row.querySelector('#mapv3_align_etrs_lab'), () => mapT('mapping.m9.align'));
         this._say(row.querySelector('#mapv3_align_etrs_hint'), () => mapT('mapping.m9.align_hint'));
+        this._say(row.querySelector('#mapv3_align_etrs_note'), () => mapT('mapping.m13.align_off'));
+        this._updateAlignNote();
         chk.addEventListener('change', () => {
             this._alignEtrs = chk.checked;
             this._saveLayerPref('vitulus_align_etrs89', chk.checked);
@@ -1405,9 +1446,26 @@ class MappingV3 {
         });
     }
 
+    // T17 M13: the option stays (a browser preference for every map) but says
+    // when it does nothing on the map shown
+    _updateAlignNote() {
+        const note = document.getElementById('mapv3_align_etrs_note');
+        if (!note) { return; }
+        const off = this._alignIneffective('sat');
+        note.hidden = !off;
+        const row = note.parentNode;
+        if (row && row.classList) { row.classList.toggle('vt-align-etrs-off', off); }
+        if (this._alignNoteOff !== undefined && this._alignNoteOff !== off) {   // the layers panel mirrors it
+            try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* old browser */ }
+        }
+        this._alignNoteOff = off;
+    }
+
     _currentTileOffset() {
-        return tileOffsetGet(this.tile_offsets, this.tile_offset_map,
-                             this._aerialLayerId());
+        const key = this._aerialLayerId();
+        const p = this._measPreview;       // T17 M13: a measured offset tried on
+        if (p && p.on && p.layer === key && p.map === this.tile_offset_map) { return { dx: p.dx, dy: p.dy }; }
+        return tileOffsetGet(this.tile_offsets, this.tile_offset_map, key);
     }
 
     // THE render hook: translate the aerial tile group. `position` sits outside
@@ -1432,7 +1490,8 @@ class MappingV3 {
                 const st = ov[id];
                 if (!st || !st.group || !st.group.position) { return; }
                 const key = st.src.offset_key || id;
-                const o = tileOffsetGet(this.tile_offsets, this.tile_offset_map, key);
+                const o = (key === this._aerialLayerId()) ? this._currentTileOffset()
+                    : tileOffsetGet(this.tile_offsets, this.tile_offset_map, key);
                 const a = this._alignShift ? this._alignShift(key) : { dx: 0, dy: 0 };   // M9-1
                 st.group.position.x = o.dx + a.dx;
                 st.group.position.y = o.dy + a.dy;
@@ -1464,14 +1523,32 @@ class MappingV3 {
             this.el_tile_off_scope.textContent =
                 (this.tile_offset_map || '—') + ' / ' + this._aerialLayerId();
         }
-        const zero = (o.dx === 0 && o.dy === 0);
+        const key = this._aerialLayerId(), map = this.tile_offset_map;
+        const meta = tileOffsetMeta(this.tile_offsets_meta, map, key);
+        const zero = (o.dx === 0 && o.dy === 0) && !(meta && meta.src === 'measured');
         if (this.btn_tile_off_reset) { this.btn_tile_off_reset.disabled = zero; }
         if (this.btn_tile_off_reset_all) {
-            const layers = this.tile_offsets && this.tile_offset_map
-                ? this.tile_offsets[this.tile_offset_map] : null;
+            const layers = this.tile_offsets && map ? this.tile_offsets[map] : null;
+            const metas = this.tile_offsets_meta && map ? this.tile_offsets_meta[map] : null;
             this.btn_tile_off_reset_all.disabled =
-                !(layers && Object.keys(layers).length);
+                !((layers && Object.keys(layers).length) || (metas && Object.keys(metas).length));
         }
+        // T17 M13: how this offset came to be, the Measure button, the option's note
+        if (this.el_tile_off_origin) {
+            const stored = !!(this.tile_offsets && map && this.tile_offsets[map] && this.tile_offsets[map][key]);
+            this._say(this.el_tile_off_origin, () => {
+                const day = (meta && meta.ts) ? this._measDate(meta.ts) : '';
+                if (meta && meta.src === 'measured') {
+                    return mapT(meta.adj ? 'mapping.m13.origin_measured_adj' : 'mapping.m13.origin_measured', { date: day || '—' });
+                }
+                if (!stored) { return ''; }
+                return day ? mapT('mapping.m13.origin_manual', { date: day }) : mapT('mapping.m13.origin_manual_old');
+            });
+        }
+        const p = this._measPreview;
+        if (p && (p.layer !== key || p.map !== map)) { this._measureClose(); }   // another map / layer: the trial ends
+        this._updateMeasureButton();
+        this._updateAlignNote();
     }
 
     // Fetch the robot-side store. Called on init and whenever the served map
@@ -1483,6 +1560,7 @@ class MappingV3 {
             const j = await r.json();
             this.tile_offsets = (j && j.offsets && typeof j.offsets === 'object')
                                 ? j.offsets : {};
+            this.tile_offsets_meta = (j && j.meta && typeof j.meta === 'object') ? j.meta : {};
             this.tile_offset_map = (j && typeof j.active_map === 'string')
                                    ? j.active_map : '';
             this._tileOffsetStatus('');
@@ -1502,9 +1580,17 @@ class MappingV3 {
             return;
         }
         const layer = this._aerialLayerId();
+        this._measureClose();              // T17 M13: a nudge ends a trial (from the stored offset)
         const next = tileOffsetNudge(this._currentTileOffset(), dxStep, dyStep);
         this.tile_offsets = tileOffsetPut(this.tile_offsets,
                                           this.tile_offset_map, layer, next);
+        // T17 M13: a measured offset stays measured (absolute), marked adjusted;
+        // anything else is now set by hand
+        const mm = this.tile_offsets_meta || (this.tile_offsets_meta = {});
+        const ml = mm[this.tile_offset_map] || (mm[this.tile_offset_map] = {});
+        if (ml[layer] && ml[layer].src === 'measured') { ml[layer] = Object.assign({}, ml[layer], { adj: true }); }
+        else if (next.dx === 0 && next.dy === 0) { delete ml[layer]; }
+        else { ml[layer] = { src: 'manual', ts: Math.floor(Date.now() / 1000) }; }
         this._applyAerialOffset();
         this._updateTileOffsetReadout();
         this._queueTileOffsetPost(layer, next);
@@ -1528,6 +1614,12 @@ class MappingV3 {
                         {error: err || mapT('common.unknown')}), true);
                 } else {
                     this._tileOffsetStatus(() => mapT('mapping.offset.saved'));
+                    // T17 M13: the robot's word on how the offset came to be
+                    // (unless another nudge is already on its way)
+                    if (!this._tileOffsetPost && j.meta && typeof j.meta === 'object') {
+                        this.tile_offsets_meta = j.meta;
+                        this._updateTileOffsetReadout();
+                    }
                 }
             }).catch(() => {
                 this._tileOffsetStatus(() => mapT('mapping.offset.save_unreachable'), true);
@@ -1544,6 +1636,10 @@ class MappingV3 {
             this._tileOffsetPost = null;
         }
         const layer = this._aerialLayerId();
+        this._measureClose();
+        if (this.tile_offsets_meta && this.tile_offsets_meta[map]) {   // T17 M13
+            if (allLayers) { delete this.tile_offsets_meta[map]; } else { delete this.tile_offsets_meta[map][layer]; }
+        }
         if (allLayers) {
             if (this.tile_offsets) { delete this.tile_offsets[map]; }
         } else {
@@ -1581,6 +1677,7 @@ class MappingV3 {
         this.btn_tile_off_reset = document.getElementById('mapv3_aerial_offset_reset');
         this.btn_tile_off_reset_all = document.getElementById('mapv3_aerial_offset_reset_all');
         if (!this.el_tile_off_box) { return; }   // markup absent: state-only
+        this._initMeasureControl();              // T17 M13
 
         // step selector persists client-side like the other aerial selects
         this._persistSelect(this.sel_tile_off_step, 'vitulus_aerial_offset_step');
@@ -1627,6 +1724,244 @@ class MappingV3 {
             ev.preventDefault();
             const s = step(ev.shiftKey);
             this._nudgeTileOffset(d[0] * s, d[1] * s);
+        });
+    }
+
+    // =====================================================================
+    // T17 M13: MEASURE the offset against the ČÚZK orthophoto.
+    // ---------------------------------------------------------------------
+    // The robot compares tiles of the shown background map with ČÚZK's in the
+    // middle of the map (POST /api/tile_offsets/measure, nodes/tile_shift.py)
+    // and proposes the offset that puts the picture onto ČÚZK's. Nothing is
+    // stored until Save: the proposal is only tried on in this page (the map
+    // itself is the before/after picture: "Show before" flips it).
+    // =====================================================================
+    _initMeasureControl() {
+        const box = this.el_tile_off_box, st = this.el_tile_off_status;
+        if (!box || document.getElementById('mapv3_aerial_measure')) { return; }
+        const wrap = document.createElement('div');
+        wrap.className = 'vt-meas';
+        wrap.innerHTML =
+            '<div id="mapv3_aerial_offset_origin" class="vt-fs-sm vt-dim"></div>' +
+            '<button class="btn btn-outline-info btn-sm vt-meas-btn" type="button" id="mapv3_aerial_measure"></button>' +
+            '<div id="mapv3_aerial_measure_res" class="vt-meas-res" role="status" aria-live="polite" hidden>' +
+                '<div id="mapv3_aerial_measure_txt" class="vt-fs-sm"></div>' +
+                '<div id="mapv3_aerial_measure_ba" class="vt-fs-sm vt-dim vt-tnum"></div>' +
+                '<div class="vt-meas-acts" id="mapv3_aerial_measure_acts">' +
+                    '<button class="btn btn-info btn-sm vt-meas-btn" type="button" id="mapv3_aerial_measure_save"></button>' +
+                    '<button class="btn btn-outline-secondary btn-sm vt-meas-btn" type="button" id="mapv3_aerial_measure_flip" aria-pressed="false"></button>' +
+                    '<button class="btn btn-outline-secondary btn-sm vt-meas-btn" type="button" id="mapv3_aerial_measure_cancel"></button>' +
+                '</div>' +
+            '</div>';
+        if (st && st.parentNode === box) { box.insertBefore(wrap, st); } else { box.appendChild(wrap); }
+        const $ = (id) => document.getElementById(id);
+        this.el_tile_off_origin = $('mapv3_aerial_offset_origin');
+        this.btn_meas = $('mapv3_aerial_measure');
+        this.el_meas_res = $('mapv3_aerial_measure_res');
+        this.el_meas_txt = $('mapv3_aerial_measure_txt');
+        this.el_meas_ba = $('mapv3_aerial_measure_ba');
+        this.el_meas_acts = $('mapv3_aerial_measure_acts');
+        this.btn_meas_save = $('mapv3_aerial_measure_save');
+        this.btn_meas_flip = $('mapv3_aerial_measure_flip');
+        this.btn_meas_cancel = $('mapv3_aerial_measure_cancel');
+        this._say(this.btn_meas, () => mapT(this._measBusy ? 'mapping.m13.measuring' : 'mapping.m13.measure'));
+        this._say(this.btn_meas_save, () => mapT('mapping.m13.save'));
+        this._say(this.btn_meas_cancel, () => mapT(this._measPreview ? 'mapping.m13.cancel' : 'mapping.m13.close'));
+        this._say(this.btn_meas_flip, () => mapT(this._measPreview && !this._measPreview.on ? 'mapping.m13.show_after' : 'mapping.m13.show_before'));
+        this.btn_meas.addEventListener('click', () => this._measureStart());
+        this.btn_meas_save.addEventListener('click', () => this._measureSave());
+        this.btn_meas_cancel.addEventListener('click', () => this._measureClose());
+        this.btn_meas_flip.addEventListener('click', () => {
+            const p = this._measPreview;
+            if (!p) { return; }
+            p.on = !p.on;
+            this.btn_meas_flip.setAttribute('aria-pressed', String(!p.on));
+            this._resay(this.btn_meas_flip);
+            this._applyAerialOffset();
+            if (this.el_tile_off_val) { this.el_tile_off_val.textContent = tileOffsetFormat(this._currentTileOffset()); }
+        });
+        this._updateMeasureButton();
+    }
+    _resay(el) { if (el && el._mapSay) { this._say(el, el._mapSay, el._mapSayHtml); } }
+
+    // the name of the shown base in the UI language
+    _measSrcName() {
+        const src = this._aerialBase && this._aerialBase();
+        try { return (src && window.VTMapSources) ? VTMapSources.label(src, this._lang()) : this._aerialLayerId(); }
+        catch (e) { return this._aerialLayerId(); }
+    }
+    _measDate(ts) {
+        try {
+            return new Date(ts * 1000).toLocaleDateString(this._lang() === 'cs' ? 'cs-CZ' : 'en-GB',
+                { day: 'numeric', month: 'short', year: 'numeric' });
+        } catch (e) { return ''; }
+    }
+    _measM(v) {
+        const s = Number(v).toFixed(2);
+        return (this._lang() === 'cs' ? s.replace('.', ',') : s) + '\u00a0m';
+    }
+    // "0.97 m north" / "1.04 m east and 0.53 m south" / '' (on ČÚZK)
+    _measWords(e, n) {
+        const parts = tileShiftParts(e, n).map((p) => {
+            const v = { m: this._measM(p.m) };
+            return p.dir === 'n' ? mapT('mapping.m13.dir_n', v) : p.dir === 's' ? mapT('mapping.m13.dir_s', v)
+                : p.dir === 'e' ? mapT('mapping.m13.dir_e', v) : mapT('mapping.m13.dir_w', v);
+        });
+        return parts.length > 1 ? mapT('mapping.m13.and', { a: parts[0], b: parts[1] }) : (parts[0] || '');
+    }
+
+    // only photo maps other than ČÚZK's own can be measured, on a known map
+    _measurable() {
+        const src = this._aerialBase && this._aerialBase();
+        const key = this._aerialLayerId();
+        return !!this.tile_offset_map && key !== 'cuzk' && !!src && (src.group || 'photo') === 'photo';
+    }
+    _updateMeasureButton() {
+        if (!this.btn_meas) { return; }
+        const can = this._measurable();
+        this.btn_meas.hidden = !can;
+        this.btn_meas.disabled = !!this._measBusy;
+        if (!can && !this._measBusy && this.el_meas_res && !this.el_meas_res.hidden) { this._measureClose(); }
+    }
+
+    _measureStart() {
+        if (this._measBusy || !this._measurable()) { return; }
+        this._measureClose();
+        const map = this.tile_offset_map, layer = this._aerialLayerId(), name = this._measSrcName();
+        this._measBusy = true;
+        this._resay(this.btn_meas);
+        this.btn_meas.disabled = true;
+        this._tileOffsetStatus(() => mapT('mapping.m13.running'));
+        const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        const timer = setTimeout(() => { if (ctl) { ctl.abort(); } }, 30000);
+        fetch('/api/tile_offsets/measure', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ map: map, layer: layer }), signal: ctl ? ctl.signal : undefined,
+        }).then((r) => r.json().catch(() => (
+            // an answer that is not JSON: a robot whose UI is older than this
+            // page has no such route (404 / 405 page), anything else is odd
+            { ok: false, reason: (r.status === 404 || r.status === 405) ? 'no_route' : 'other' }
+        ))).then((j) => {
+            this._measureShow(j, map, layer, name);
+        }).catch(() => {
+            this._measureShow({ ok: false, reason: 'unreachable' }, map, layer, name);
+        }).then(() => {
+            clearTimeout(timer);
+            this._measBusy = false;
+            this._resay(this.btn_meas);
+            this._updateMeasureButton();
+        });
+    }
+
+    _measureShow(j, map, layer, name) {
+        this._tileOffsetStatus('');
+        if (!this.el_meas_res) { return; }
+        // the map or the layer changed while the robot measured: say nothing
+        if (map !== this.tile_offset_map || layer !== this._aerialLayerId()) { return; }
+        const WHY = {
+            busy: () => mapT('mapping.m13.why_busy'), timeout: () => mapT('mapping.m13.why_timeout'),
+            tiles: () => mapT('mapping.m13.why_tiles'), not_active: () => mapT('mapping.m13.why_not_active'),
+            no_datum: () => mapT('mapping.m13.why_no_datum'), unreachable: () => mapT('mapping.m13.why_unreachable'),
+            flat: () => mapT('mapping.m13.why_flat'), weak: () => mapT('mapping.m13.why_weak'),
+            disagree: () => mapT('mapping.m13.why_disagree'), far: () => mapT('mapping.m13.why_far'),
+            range: () => mapT('mapping.m13.why_range'), blank: () => mapT('mapping.m13.why_blank'),
+            no_libs: () => mapT('mapping.m13.why_no_libs'), no_route: () => mapT('mapping.m13.why_no_route'),
+        };
+        const why = (r) => (Object.prototype.hasOwnProperty.call(WHY, r) ? WHY[r]() : mapT('mapping.m13.why_other'));
+        this.el_meas_res.hidden = false;
+        vtTone(this.el_meas_txt, '');
+        if (!j || j.ok !== true) {
+            const r = j && j.reason;
+            this._say(this.el_meas_txt, () => mapT('mapping.m13.failed', { why: why(r) }));
+            vtTone(this.el_meas_txt, 'warn');
+            this._say(this.el_meas_ba, () => '');
+            this._measButtons(false);
+            return;
+        }
+        const m = j.measured || {};
+        const lies = () => {
+            const w = this._measWords(m.east, m.north);
+            return w ? mapT('mapping.m13.lies', { src: name, where: w }) : mapT('mapping.m13.lies_on', { src: name });
+        };
+        if (!j.reliable || !j.proposed) {
+            this._say(this.el_meas_txt, () => mapT('mapping.m13.unreliable', { why: why(j.reason) }));
+            vtTone(this.el_meas_txt, 'warn');
+            this._say(this.el_meas_ba, () => '');
+            this._measButtons(false);
+            return;
+        }
+        // before = how far the picture is from the measured position as
+        // shown now (stored offset + the option when it applies). The shift
+        // is read on the clearest part of the area; the other clear parts
+        // (quality.windows) differ by up to quality.spread_m: said in words,
+        // one offset for a map is a compromise.
+        const cur = tileOffsetGet(this.tile_offsets, map, layer);
+        const a = this._alignShift(layer);
+        const before = Math.hypot(cur.dx + a.dx - j.proposed.dx, cur.dy + a.dy - j.proposed.dy);
+        const q = j.quality || {};
+        const nwin = isFinite(q.windows) ? q.windows : 0, spread = isFinite(q.spread_m) ? q.spread_m : 0;
+        this._measPreview = { map: map, layer: layer, dx: j.proposed.dx, dy: j.proposed.dy, on: true };
+        this._say(this.el_meas_txt, lies);
+        this._say(this.el_meas_ba, () => mapT(before < 0.05 ? 'mapping.m13.ba_same' : 'mapping.m13.ba', {
+            before: this._measM(before),
+            dx: j.proposed.dx.toFixed(2), dy: j.proposed.dy.toFixed(2) }) + ' ' +
+            (nwin < 2 ? mapT('mapping.m13.spread_one')
+                : spread < 0.1 ? mapT('mapping.m13.spread_small', { n: nwin })
+                : mapT('mapping.m13.spread', { n: nwin, spread: this._measM(spread) })));
+        this._measButtons(true);
+        this._applyAerialOffset();
+        if (this.el_tile_off_val) { this.el_tile_off_val.textContent = tileOffsetFormat(this._currentTileOffset()); }
+        this._updateAlignNote();
+    }
+    _measButtons(offer) {
+        if (this.btn_meas_save) { this.btn_meas_save.hidden = !offer; this.btn_meas_save.disabled = false; }
+        if (this.btn_meas_flip) { this.btn_meas_flip.hidden = !offer; this.btn_meas_flip.setAttribute('aria-pressed', 'false'); }
+        this._resay(this.btn_meas_flip);
+        this._resay(this.btn_meas_cancel);
+    }
+
+    // Cancel / Close / anything that ends the trial: back to the stored offset
+    _measureClose() {
+        const had = !!this._measPreview;
+        this._measPreview = null;
+        if (this.el_meas_res) { this.el_meas_res.hidden = true; }
+        if (had) {
+            this._applyAerialOffset();
+            if (this.el_tile_off_val) { this.el_tile_off_val.textContent = tileOffsetFormat(this._currentTileOffset()); }
+            this._updateAlignNote();
+        }
+    }
+
+    // Save: the usual store route, marked as measured (absolute)
+    _measureSave() {
+        const p = this._measPreview;
+        if (!p) { return; }
+        if (this._tileOffsetPost) { clearTimeout(this._tileOffsetPost); this._tileOffsetPost = null; }
+        this.btn_meas_save.disabled = true;
+        this._tileOffsetStatus(() => mapT('mapping.offset.saving'));
+        fetch('/api/tile_offsets', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ map: p.map, layer: p.layer, dx: p.dx, dy: p.dy, source: 'measured' }),
+        }).then((r) => r.json()).then((j) => {
+            if (!j || j.ok !== true) {
+                const err = (j && j.error) || null;
+                this.btn_meas_save.disabled = false;
+                this._tileOffsetStatus(() => mapT('mapping.offset.save_failed', { error: err || mapT('common.unknown') }), true);
+                return;
+            }
+            // a robot older than M13 stores the offset but not "measured":
+            // keep it in this page at least
+            this.tile_offsets = (j.offsets && typeof j.offsets === 'object') ? j.offsets
+                : tileOffsetPut(this.tile_offsets, p.map, p.layer, p);
+            if (j.meta && typeof j.meta === 'object') { this.tile_offsets_meta = j.meta; }
+            this._measPreview = null;
+            if (this.el_meas_res) { this.el_meas_res.hidden = true; }
+            this._applyAerialOffset();
+            this._updateTileOffsetReadout();
+            this._tileOffsetStatus(() => mapT('mapping.m13.saved'));
+        }).catch(() => {
+            this.btn_meas_save.disabled = false;
+            this._tileOffsetStatus(() => mapT('mapping.offset.save_unreachable'), true);
         });
     }
 

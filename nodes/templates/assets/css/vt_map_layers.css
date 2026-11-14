@@ -305,3 +305,18 @@
 /* ---- T17 M11: slope legend with degrees under its steps */
 .vt-lyr-slope-deg { position: relative; display: block; height: 14px; margin-top: 2px; color: var(--vt-muted); font-size: var(--vt-fs-xs); line-height: 14px; }
 .vt-lyr-slope-deg span { position: absolute; top: 0; white-space: nowrap; }
+
+/* T17 M13: Map › Display, alignment box: Measure against ČÚZK (mapping.js
+   _initMeasureControl) and the "Align Google to ČÚZK" option saying it has no
+   effect on a map with a measured offset. */
+.vt-meas { display: flex; flex-direction: column; align-items: flex-start; gap: var(--vt-gap-1, 6px); margin-top: var(--vt-gap-2, 8px); }
+.vt-meas > div:empty { display: none; }
+.vt-meas-btn { min-height: 32px; }
+.vt-meas-res { align-self: stretch; display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid var(--vt-border); overflow-wrap: anywhere; hyphens: auto; }
+.vt-meas-res[hidden] { display: none; }
+.vt-meas-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.vt-align-etrs-off > label { opacity: .6; }
+.vt-lyr-ineff .vt-lyr-ovn { opacity: .6; }
+@media (pointer: coarse) {
+    .vt-meas-btn { min-height: 40px; padding-left: 12px; padding-right: 12px; }
+}
