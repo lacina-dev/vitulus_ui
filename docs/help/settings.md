@@ -51,7 +51,9 @@ grey = off, red = a fault (for example the lidar off).
   distance and the source its choice; **Apply** sends a new distance alone.
 - **Advanced (planner)** — the planner's stored data (**Save data**, **Load data**, **Reload**) and
   **Assemble map** with its noise filter, obstacle margin and fill shape. Moved here from the map
-  editor; normally left alone.
+  editor; normally left alone. The line under the buttons is what the planner said last (*Planner
+  data saved.*, *Map assembled.*) in the language of the UI; a line the UI does not know is shown
+  as the planner sent it, in English.
 
 ## Power
 
@@ -85,7 +87,8 @@ Useful when something is red in the navbar and you want to know which part.
 Recording of sensor data for analysis:
 
 - **D435 RGB-D camera** — REC / STOP and the frame rate (FPS, **Set**). The state next to it:
-  *idle*, or *recording · 5.0 fps · <bag name>* (*no fps limit* when FPS is 0).
+  *idle*, or *recording · 5.0 fps · <bag name>* (*no fps limit* when FPS is 0). On a phone the
+  state is its own line under REC / STOP, shown whole.
 - **GNSS forensics** — records the GPS heading, fix and pose ownership (for localization issues);
   the same state line.
 - **Stored bags** — the list with **Download** and **Delete** (bin) on each bag (↻ refreshes).

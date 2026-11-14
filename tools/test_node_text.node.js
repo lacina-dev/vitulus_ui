@@ -80,6 +80,47 @@ const SAMPLES = [
     ['dockui', 'agent unreachable: timed out', []],
     ['dockui', 'direct clear: no answer (agent unreachable: <urlopen error [Errno 111] Connection refused>)', []],
     ['dockui', 'direct: unknown window 7', ['7']],
+    // T8 II: the direct path's line when the node refused (the row is ok=false)
+    ['dockui', 'locked directly in the node (agent unreachable: timed out)', []],
+    // T8 II: the planner's line, Settings › Navi › Planner (vitulus_planner node_planner log_publisher, master_controller log)
+    ['plan', 'Planner data saved.', []],
+    ['plan', 'Planner map saved.', []],
+    ['plan', 'Map name is empty.', []],
+    ['plan', 'Running planner data cleaned.', []],
+    ['plan', 'Be shure that you have loaded the map with RtabMap.', []],
+    ['plan', 'Reloading map from /rtabmap/grid_map', []],
+    ['plan', 'No site served yet — planner data unavailable.', []],
+    ['plan', 'Planner data NOT loaded (saved data unusable).', []],
+    ['plan', "Not loaded!!! It's a new map. Save it in Navi Manager first.", []],
+    ['plan', 'Not saved!!! No site served / new map. Save it in Navi Manager first.', []],
+    ['plan', 'Not saved!!! No planner workspace (no map is active).', []],
+    ['plan', 'Map Assembled.', []],
+    ['plan', 'Planner programs loaded', []],
+    ['plan', 'Planner data loaded', []],
+    ['plan', "Planner data loaded (site 'Zahrada')", ['Zahrada']],
+    ['plan', 'Creating outline paths...', []],
+    ['plan', 'Creating coverage paths...', []],
+    ['plan', 'Polygon obstacle Strom u plotu saved.', ['obstacle', 'Strom u plotu']],
+    ['plan', 'Polygon Strom u plotu removed.', ['Strom u plotu']],
+    ['plan', "Zone 'ZONA_A' renamed to 'Před domem'.", ['ZONA_A', 'Před domem']],
+    ['plan', "Zone 'ZONA_A' update propagated to 2 program(s).", ['ZONA_A', '2']],
+    ['plan', "Removed zone 'ZONA_A' from 1 program(s).", ['ZONA_A', '1']],
+    ['plan', "Zone 'ZONA_A' NOT saved: internal planner error.", ['ZONA_A']],
+    ['plan', "Zone 'ZONA_A' NOT removed: internal planner error.", ['ZONA_A']],
+    ['plan', 'Zone ZONA_A selected.', ['ZONA_A']],
+    ['plan', 'Zone ZONA_A saved.', ['ZONA_A']],
+    ['plan', 'Program selected to run: Front lawn', ['Front lawn']],
+    ['plan', 'Program selected to resume: Front lawn', ['Front lawn']],
+    ['plan', "Program 'Front lawn' not found on the active map", ['Front lawn']],
+    ['plan', "Program 'Front lawn' NOT saved: it has no zones.", ['Front lawn']],
+    ['plan', "Program 'Front lawn' NOT deleted: it is running — Stop it first.", ['Front lawn']],
+    ['plan', '[Master] Program succeeded.', []],
+    ['plan', '[Master] Robot returned to dock.', []],
+    ['plan', '[Master] Robot is off the dock: sending it home.', []],
+    ['plan', '[Master] Window closed: going home after this path.', []],
+    ['plan', '[Master] Automation ON.', []],
+    ['plan', '[Master] Automation OFF.', []],
+    ['plan', '[Master] Calendar updated (3 events)', ['3']],
 ];
 SAMPLES.forEach(([kind, line, keep]) => {
     const c = cs.VTI18n.node(kind, line), e = en.VTI18n.node(kind, line);
@@ -93,7 +134,10 @@ SAMPLES.forEach(([kind, line, keep]) => {
 });
 // unknown lines and the other kind's lines stay as sent
 [['gloc', 'something the node says one day'], ['rosbag', 'paused | disk full'], ['gloc', ''],
- ['nosuch', 'idle'], ['gloc', 'idle (soon)']].forEach(([kind, line]) => {
+ ['nosuch', 'idle'], ['gloc', 'idle (soon)'],
+ // T8 II: a planner line no rule knows (a refusal with its own reason, most [Master] lines) is shown as sent
+ ['plan', "Zone 'ZONA_A' NOT saved: cut height 90 mm is outside 20–80 mm."], ['plan', '[Master] Sleep (night) for 30m.'],
+ ['plan', 'Initialized'], ['plan', 'Připraveno'], ['plan', '']].forEach(([kind, line]) => {
     check('unknown ' + kind + ' "' + line + '" unchanged (cs)', cs.VTI18n.node(kind, line) === line, cs.VTI18n.node(kind, line));
     check('unknown ' + kind + ' "' + line + '" unchanged (en)', en.VTI18n.node(kind, line) === line, en.VTI18n.node(kind, line));
 });

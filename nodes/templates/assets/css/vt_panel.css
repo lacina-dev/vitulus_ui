@@ -799,8 +799,26 @@ ul.nav-tabs.vt-cfg-sub .nav-link.active { color: #fff; background: transparent; 
    (a flex box does not clip). Now one line that ends in „…“: the state and
    the fps stay in view, the whole line is the tooltip (vt_i18n.js). */
 #tab_rosbag #span_d435_rec_status, #tab_rosbag #span_gnss_rec_status {
-    display: block !important; min-width: 0; align-content: center;   /* block + centred like the flex cell it was */
+    display: block !important; min-width: 0;   /* a block clips; its own padding centres the line (the cell is as tall as the keys) */
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+}
+/* T8 II: phone / touch — beside the two keys there is room for "recording ·
+   5.0 f…" only and a finger has no tooltip. The state gets its own line under
+   REC / STOP, whole and wrapped (the bag's path breaks anywhere); the keys
+   share the row. No `align-content` on a block any more (Safari < 17.4 and
+   Chrome < 123 ignore it: the text sat at the top of the 40 px cell). */
+@media (max-width: 575.98px), (pointer: coarse) {
+    #tab_rosbag #inputgroup_d435_rec, #tab_rosbag #inputgroup_gnss_rec { flex-wrap: wrap; }
+    #tab_rosbag #inputgroup_d435_rec > .btn, #tab_rosbag #inputgroup_gnss_rec > .btn { flex: 1 1 0; }
+    #tab_rosbag #btn_d435_rec_stop, #tab_rosbag #btn_gnss_rec_stop {
+        border-top-right-radius: var(--vt-r-ctl) !important; border-bottom-right-radius: var(--vt-r-ctl) !important;
+    }
+    #tab_rosbag #span_d435_rec_status, #tab_rosbag #span_gnss_rec_status {
+        flex: 0 0 100%; width: 100%; min-height: 0; margin: 6px 0 0 !important; padding: 0 2px;
+        border: 0; background: none; text-align: left;
+        white-space: normal; overflow: visible; overflow-wrap: anywhere;
+        font-size: var(--vt-fs-sm); line-height: 1.35; font-variant-numeric: tabular-nums;
+    }
 }
 /* ● REC moves from the end of the name (index.html: cut off by the "…" on a
    phone) to a tag in the meta line, like "unfinished" */

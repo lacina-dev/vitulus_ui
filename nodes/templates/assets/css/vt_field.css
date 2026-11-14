@@ -566,6 +566,15 @@ a.vt-needs-btn {
 .form-switch .form-check-input:checked {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%231c2329'/%3e%3c/svg%3e");
 }
+/* T8 II: ONE size of the on/off switch wherever a .form-switch stands (the
+   tokens of vt_tokens.css) — Autonomy and Dock set it per place (T8 I), this
+   is the same for any other and any future one; the phone rule of the drawer
+   (24 × 24 checkboxes, vt_panel.css) must not squash it. The layers panel of
+   the map has its own switch (not a .form-switch). */
+.form-switch .form-check-input {
+    width: var(--vt-sw-w) !important; height: var(--vt-sw-h) !important;
+    min-width: var(--vt-sw-w); border-radius: calc(var(--vt-sw-h) / 2);
+}
 .form-check-input:disabled { opacity: 0.45; cursor: default; }
 
 /* ============ P3: one slider look ========================================

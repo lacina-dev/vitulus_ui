@@ -134,8 +134,9 @@
     function dockUiWhen(v) {
         var d = /^\d+(\.\d+)?$/.test(v) ? new Date(Number(v) * 1000) : new Date(v);
         if (isNaN(d.getTime())) { return v; }
-        var day = dayKey(d.getTime()) === dayKey(Date.now()) ? '' : d.getDate() + '. ' + (d.getMonth() + 1) + '. ';
-        return day + hhmm(d.getTime());
+        if (dayKey(d.getTime()) === dayKey(Date.now())) { return hhmm(d.getTime()); }
+        /* T8 II: the date in the order of the UI language (en 11/15, cs 15. 11.) */
+        return tr('activity.dockui.date', { d: d.getDate(), m: d.getMonth() + 1, t: hhmm(d.getTime()) });
     }
     var DOCKUI_PART = { 'lock after return': 'lock_return', 'chat': 'chat', 'confirmed': 'confirmed' };
     function dockUiPart(p) {

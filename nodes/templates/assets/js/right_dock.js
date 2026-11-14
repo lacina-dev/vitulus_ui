@@ -1387,6 +1387,10 @@
             st = verdict === 'none' ? 'err' : 'warn';
         }
         setCls(camMsg, 'on', !!key);
+        /* T8 II: the stream's own loader ("camera…", map_view.js .cam-loader)
+           sits at the same place — while this message is up its spinner and
+           word are hidden (right_dock.css), the two lines ran over each other */
+        setCls(document.body, 'rp-cam-says', !!key);
         var txt = key ? t(key) : '';
         if (camMsg.textContent !== txt) { camMsg.textContent = txt; }
         if (camMsg.dataset.state !== st) { camMsg.dataset.state = st; }

@@ -251,6 +251,27 @@ function sandbox(lang, file, extra) {
           r.state === 'err' && r.text.indexOf('řekni, co přesně odemykáš') > 0 && r.text.indexOf(d['activity.dockui.unlock_fail'].split(' (')[0]) === 0, r.text);
     r = row({ action: 'dock-relock', ref: 'dock_permit:all', ok: false, status: 400, message: 'zamknutí se nepovedlo (not_persisted)' });
     check(l + ': a node code in the reason gets its words', r.text.indexOf(d['dockp.err.not_persisted']) > 0 && r.state === 'err', r.text);
+    // T8 II: the direct path writes "locked directly…" on a refusal too — the row must not say both "not locked" and "locked"
+    // (the real vt_i18n.js, for its dockui rules: the stub above has no node())
+    const rdoc = { readyState: 'complete', documentElement: { setAttribute() {} }, querySelectorAll: () => [], addEventListener() {}, dispatchEvent() {} };
+    const rwin = { document: rdoc };
+    const rctx = vm.createContext({ window: rwin, document: rdoc, console: { debug() {}, error() {} }, Intl, Promise,
+        localStorage: { getItem: (k) => (k === 'vitulus_lang' ? l : null), setItem() {} } });
+    ['i18n/en.js', 'i18n/cs.js', 'vt_i18n.js'].forEach((f) => vm.runInContext(read(f), rctx, { filename: f }));
+    const acts2 = [];
+    const ACT2 = sandbox(l, 'vt_activity.js', { VTI18n: rwin.VTI18n,
+        VTHub: { get: (k) => (k === 'ui.actions' ? { data: { actions: acts2 } } : null) } }).VTActivity;
+    acts2.push({ ts: '2026-11-08T23:16:00+0100', action: 'dock-relock', ref: 'dock_permit:current', ok: false, status: 400, author: 'owner',
+                 message: 'locked directly in the node (agent unreachable: timed out)' });
+    r = ACT2._uiRows()[0];
+    check(l + ': refused direct lock gives the reason, not "locked directly"',
+          r.state === 'err' && r.text === fill('activity.dockui.lock_fail', { who: d['activity.dockui.owner'], what: d['activity.dockui.cur'],
+                                                                             why: d['node.dockui.direct_refused'] }) &&
+          !/locked directly/.test(r.text), r.text);
+    // T8 II: a window on another day: the date in the order of the UI language
+    r = row({ action: 'dock-unlock', ref: 'window from 2031-03-04T06:05:00+0100' });
+    check(l + ': a window date in the language\'s order', r.text.indexOf(l === 'en' ? '4/3 ' : '4. 3. ') > 0 && /\d\d:05/.test(r.text) &&
+          r.text.indexOf(l === 'en' ? '4. 3.' : '4/3') < 0, r.text);   // en day first, like the rest of the en UI (en-GB)
     r = row({ action: 'dock-relock', ref: 'dock_permit:all', ok: false, status: 503 });
     check(l + ': no reason = the status', r.text.indexOf(fill('activity.dockui.status', { st: 503 })) > 0, r.text);
     r = row({ action: 'dock-unlock', ref: 'dock.undock,motor.on' });

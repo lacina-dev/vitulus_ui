@@ -52,7 +52,9 @@ Záložka navigace:
   jeho příští spuštění (pošle se se vzdáleností pod jezdcem). Jakmile hlásí, jezdec ukazuje
   jeho vzdálenost a zdroj jeho volbu; **Použít** pošle samotnou novou vzdálenost.
 - **Pokročilé (plánovač)** — uložená data plánovače a sestavení mapy s filtrem šumu, okrajem
-  překážek a tvarem výplně. Přesunuto sem z editoru mapy; běžně se nemění.
+  překážek a tvarem výplně. Přesunuto sem z editoru mapy; běžně se nemění. Řádek pod tlačítky je
+  poslední hlášení plánovače (*Data plánovače uložena.*, *Mapa sestavena.*) v jazyce UI; hlášení,
+  které UI nezná, se ukáže tak, jak ho plánovač poslal, anglicky.
 
 ## Napájení
 
@@ -85,7 +87,8 @@ zastaralé. Hodí se, když v navbaru něco svítí červeně a chceš vědět, 
 Nahrávání dat senzorů pro rozbor:
 
 - **Kamera D435 RGB-D** — **REC** / **STOP** a snímková frekvence (FPS, **Nastavit**). Stav vedle:
-  *nenahrává*, nebo *nahrává · 5.0 fps · <název bagu>* (*fps bez omezení*, když je FPS 0).
+  *nenahrává*, nebo *nahrává · 5.0 fps · <název bagu>* (*fps bez omezení*, když je FPS 0). Na
+  telefonu je stav na vlastním řádku pod REC / STOP, celý.
 - **Forenzní záznam GNSS** — nahrává kurz z GPS, fix a to, kdo právě určuje polohu (pro problémy
   s lokalizací); stejný stavový řádek.
 - **Uložené bagy** — seznam, u každého bagu **Stáhnout** a **Smazat** (koš); ↻ seznam obnoví.

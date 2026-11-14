@@ -549,6 +549,9 @@ body.rp-log-top #div_log_view {
 @keyframes rp-cam-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .rp-cam-msg::before { animation: none; } }
 body.rp-cam-clip .rp-cam-msg { display: none; }
+/* T8 II: one line in the slot — while the panel says why there is no picture,
+   the stream's loader keeps its dark ground but not its spinner and word */
+body.rp-cam-says:not(.rp-cam-clip) #div_camera_view .cam-loader > * { visibility: hidden; }
 
 /* RP4 the show / hide handle: a quiet tab on the panel's edge on a PC
    (narrower, dimmed until hover); touch keeps the large target */
@@ -666,8 +669,9 @@ body.rp-cam-clip .rp-cam-msg { display: none; }
     }
     #right_panel .rp-sec[data-sec="camera"] > h5 .rp-cam-seg { flex: 1 1 auto; display: flex; margin-left: 4px; }
     #right_panel .rp-sec[data-sec="camera"] > h5 .rp-cam-seg > button.rp-cam-opt { flex: 1 1 0; min-width: 40px; padding: 0 2px; }
-    #right_panel .rp-geo1 { position: relative; min-height: 32px; }
-    #right_panel .rp-geo1::before { content: ''; position: absolute; inset: -4px 0; }
+    /* T8 II: the row itself is the 40 px target (the ::before overhang was
+       clipped by the scrolling panel on a 360 px phone: 33 px) */
+    #right_panel .rp-geo1 { min-height: var(--vt-touch, 40px); }
 }
 @media (pointer: fine) {
     #right_panel .rp-cam-seg { overflow: visible; }

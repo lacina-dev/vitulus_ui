@@ -27,7 +27,7 @@
  *     tag(el, key, attr)    set data-i18n(-attr) on an element and translate it
  *     onChange(fn) → off()  fn(lang) after every switch (re-render your text)
  *     has(key, lang)        is the key in that dictionary
- *     node(kind, line)      a robot node's fixed English line ('gloc', 'rosbag')
+ *     node(kind, line)      a robot node's fixed English line ('gloc', 'rosbag', 'dockui', 'plan')
  *                           in the UI language; an unknown line unchanged
  *     watchNode(el, kind)   keep translating what another module writes into el
  * Event: document 'vt:lang' (CustomEvent, detail.lang) after every switch.
@@ -201,7 +201,52 @@
             [/^no ui_token$/, 'node.dockui.no_token'],
             [/^agent unreachable: .+$/, 'node.dockui.agent_down'],
             [/^direct clear: no answer \(.+\)$/, 'node.dockui.no_answer'],
-            [/^direct: unknown window (\S+)$/, 'node.dockui.unknown_window', ['id']]
+            [/^direct: unknown window (\S+)$/, 'node.dockui.unknown_window', ['id']],
+            /* T8 II: the direct path writes this line on a refusal too (ok=false):
+               as a REASON it means the node said no while the agent was down */
+            [/^locked directly in the node\b.*$/, 'node.dockui.direct_refused']
+        ],
+        /* T8 II: the planner's line under Settings › Navi › Planner (#div_log,
+           /web_plan/log): vitulus_planner/nodes/node_planner log_publisher and
+           the plainest lines of master_controller log(). Names and numbers stay
+           as they came; any other line (most [Master] lines, a refusal with
+           its own reason) is shown as sent. */
+        plan: [
+            [/^Planner data saved\.$/, 'node.plan.data_saved'],
+            [/^Planner map saved\.$/, 'node.plan.map_saved'],
+            [/^Map name is empty\.$/, 'node.plan.name_empty'],
+            [/^Running planner data cleaned\.$/, 'node.plan.cleaned'],
+            [/^Be shure that you have loaded the map with RtabMap\.$/, 'node.plan.reload_hint'],
+            [/^Reloading map from \/rtabmap\/grid_map$/, 'node.plan.reloading'],
+            [/^No site served yet — planner data unavailable\.$/, 'node.plan.no_site'],
+            [/^Planner data NOT loaded \(saved data unusable\)\.$/, 'node.plan.not_loaded_bad'],
+            [/^Not loaded!!! It's a new map\. Save it in Navi Manager first\.$/, 'node.plan.not_loaded_new'],
+            [/^Not saved!!! No site served \/ new map\. Save it in Navi Manager first\.$/, 'node.plan.not_saved_new'],
+            [/^Not saved!!! No planner workspace \(no map is active\)\.$/, 'node.plan.not_saved_ws'],
+            [/^Map Assembled\.$/, 'node.plan.assembled'],
+            [/^Planner programs loaded$/, 'node.plan.programs_loaded'],
+            [/^Planner data loaded \(site '(.+)'\)$/, 'node.plan.data_loaded_site', ['site']],
+            [/^Planner data loaded$/, 'node.plan.data_loaded'],
+            [/^Creating outline paths\.\.\.$/, 'node.plan.outline'],
+            [/^Creating coverage paths\.\.\.$/, 'node.plan.coverage'],
+            [/^Polygon (\S+) (.+) saved\.$/, 'node.plan.poly_saved', ['type', 'name']],
+            [/^Polygon (.+) removed\.$/, 'node.plan.poly_removed', ['name']],
+            [/^Zone '(.+)' renamed to '(.+)'\.$/, 'node.plan.zone_renamed', ['old', 'name']],
+            [/^Zone '(.+)' update propagated to (\d+) program\(s\)\.$/, 'node.plan.zone_propagated', ['name', 'n']],
+            [/^Removed zone '(.+)' from (\d+) program\(s\)\.$/, 'node.plan.zone_unlinked', ['name', 'n']],
+            [/^Zone '(.+)' NOT (saved|removed): internal planner error\.$/, 'node.plan.zone_internal', ['name', 'op'], { op: 'node.plan.op.' }],
+            [/^Zone (.+) selected\.$/, 'node.plan.zone_selected', ['name']],
+            [/^Zone ([^:]+) saved\.$/, 'node.plan.zone_saved', ['name']],
+            [/^Program selected to (run|resume): (.+)$/, 'node.plan.selected', ['verb', 'name'], { verb: 'node.plan.verb.' }],
+            [/^Program '(.+)' not found on the active map$/, 'node.plan.prog_missing', ['name']],
+            [/^Program '(.+)' NOT saved: it has no zones\.$/, 'node.plan.prog_no_zones', ['name']],
+            [/^Program '(.+)' NOT deleted: it is running — Stop it first\.$/, 'node.plan.prog_running', ['name']],
+            [/^\[Master\] Program succeeded\.$/, 'node.plan.m.succeeded'],
+            [/^\[Master\] Robot returned to dock\.$/, 'node.plan.m.docked'],
+            [/^\[Master\] Robot is off the dock: sending it home\.$/, 'node.plan.m.sending_home'],
+            [/^\[Master\] Window closed: going home after this path\.$/, 'node.plan.m.window_closed'],
+            [/^\[Master\] Automation (ON|OFF)\.$/, 'node.plan.m.automation', ['on'], { on: 'node.plan.onoff.' }],
+            [/^\[Master\] Calendar updated \((\d+) events\)$/, 'node.plan.m.calendar', ['n']]
         ]
     };
     function nodeText(kind, s) {
@@ -250,7 +295,9 @@
         seen();
     }
     /* filled by map_view.js RosbagControl straight from /vitulus_rosbag/<name>/status */
-    var NODE_EL = [['span_d435_rec_status', 'rosbag'], ['span_gnss_rec_status', 'rosbag']];
+    var NODE_EL = [['span_d435_rec_status', 'rosbag'], ['span_gnss_rec_status', 'rosbag'],
+                   /* T8 II: #div_log is written by vt_planner_settings.js and the map editor (the same topic) */
+                   ['div_log', 'plan']];
 
     var first = lsGet();
     cur = known(first) ? first : DEFAULT;
