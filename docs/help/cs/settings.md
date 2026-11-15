@@ -53,8 +53,10 @@ Záložka navigace:
   jeho vzdálenost a zdroj jeho volbu; **Použít** pošle samotnou novou vzdálenost.
 - **Pokročilé (plánovač)** — uložená data plánovače a sestavení mapy s filtrem šumu, okrajem
   překážek a tvarem výplně. Přesunuto sem z editoru mapy; běžně se nemění. Řádek pod tlačítky je
-  poslední hlášení plánovače (*Data plánovače uložena.*, *Mapa sestavena.*) v jazyce UI; hlášení,
-  které UI nezná, se ukáže tak, jak ho plánovač poslal, anglicky.
+  poslední hlášení plánovače (*Data plánovače uložena.*, *Mapa sestavena.*, odmítnutí jako *Zóna A
+  NEULOŽENA: žádná mapa není aktivní…*, hlášení automatiky *Okno sekání nastaveno: 08:00–20:00.*)
+  v jazyce UI; hlášení, které UI nezná — s důvodem psaným vlastní větou nebo delší než 500 znaků —
+  se ukáže tak, jak ho plánovač poslal, anglicky.
 
 ## Napájení
 

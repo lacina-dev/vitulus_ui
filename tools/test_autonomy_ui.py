@@ -190,6 +190,26 @@ class P(object):
             self.pg.wait_for_timeout(200)
         return False
 
+    def until_not(self, pattern, ms=14000):
+        """The line lets go of the pattern within ms."""
+        return bool(self.wait(lambda: not re.search(pattern, self.line() or ''), ms))
+
+    def wait(self, fn, ms=8000):
+        """Reads until fn() is truthy or ms have passed and returns the last value: a page slowed by the
+        machine's load gets its time to repaint, a quick one is not kept waiting. For what is EXPECTED to
+        appear; a check that something does NOT happen keeps its fixed pause."""
+        end = dt.datetime.now() + dt.timedelta(milliseconds=ms)
+        while True:
+            v = fn()
+            if v or dt.datetime.now() >= end:
+                return v
+            self.pg.wait_for_timeout(100)
+
+    def wait_text(self, sel, needle, ms=8000):
+        """The element's text once it holds needle (or what it holds after ms)."""
+        self.wait(lambda: needle in (self.text(sel) or ''), ms)
+        return self.text(sel)
+
     def tick(self, ms=1100):
         self.pg.wait_for_timeout(ms)
 
@@ -249,15 +269,17 @@ def story(p, shots, label):
     p.pub('/scheduler/sleep_countdown', {'active': True, 'left_s': 60, 'phase': 'announce', 'mode': 'timed', 'reason': 'auto',
                                          'who': {'ssh': [], 'ui': 1}})
     p.tick()
+    p.wait(lambda: re.search(r'\d+ s', p.text('#span_scheduler_status') or ''))
     top = p.text('#span_scheduler_status')
-    line = p.line()
     check('S3 top sentence: when, how long, wake', re.search(r'\d+ s', top) and re.search(r'\d+ h \d+ min', top), top)
     # a phone's row is short: the seconds and the wake, the rest is in the panel
     want = r'\d+ s' if p.pg.viewport_size['width'] < 600 else r'\d+ h \d+ min'
+    p.wait(lambda: re.search(want, p.line() or '') and p.pg.query_selector('#btn_notice_action'))
+    line = p.line()
     check('S3 line above the map: the plan + Cancel', re.search(want, line or '') and p.pg.query_selector('#btn_notice_action'), line)
     check('S3 countdown box on the page', p.pg.evaluate("!document.getElementById('auto_countdown').hidden"))
-    check('S3 right panel chip', re.search(r'\d+ s', p.text('.rp-auto-chip') or ''), p.text('.rp-auto-chip'))
-    check('S3 right panel Cancel', p.pg.query_selector('#btn_rp_sleep_cancel') is not None)
+    check('S3 right panel chip', p.wait(lambda: re.search(r'\d+ s', p.text('.rp-auto-chip') or '')), p.text('.rp-auto-chip'))
+    check('S3 right panel Cancel', p.wait(lambda: p.pg.query_selector('#btn_rp_sleep_cancel') is not None))
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-countdown.png'))
     # Sleep now cannot be dropped silently during a countdown
@@ -271,30 +293,30 @@ def story(p, shots, label):
     check('S4 Cancel on the line is clickable', box is not None and box['x'] + box['width'] <= p.pg.viewport_size['width'], box)
     p.pg.evaluate("document.getElementById('btn_notice_action').scrollIntoView()")
     p.pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
-    p.pg.wait_for_timeout(200)
+    p.wait(lambda: p.sent('/scheduler/sleep_cancel'))
     check('S4 cancel sent', len(p.sent('/scheduler/sleep_cancel')) == 1, p.sent('/scheduler/sleep_cancel'))
     p.pub('/scheduler/sleep_countdown', {'active': False})
     p.pub('/scheduler/report', report(now, sleep={'checks': checks(ui=('off', 'ignored', {'n': 1}), reason=('wait', 'countdown_cancelled', {'left_s': 1800})),
                                                   'block': 'countdown_cancelled'}))
     p.tick()
     until = (dt.datetime.now() + dt.timedelta(seconds=1800)).strftime('%H:')
-    check('S4 sentence: until when', until in (p.text('#auto_sleep_plan') or ''), p.text('#auto_sleep_plan'))
-    check('S4 line: cancelled until when', until in (p.line() or ''), p.line())
-    check('S4 no Cancel left', p.pg.query_selector('#btn_notice_action') is None)
+    check('S4 sentence: until when', until in (p.wait_text('#auto_sleep_plan', until) or ''), p.text('#auto_sleep_plan'))
+    # the line above the map is a queue with its own pace (and a slow machine): wait for the text, not 200 ms
+    check('S4 line: cancelled until when', p.until(re.escape(until)), p.line())
+    check('S4 no Cancel left', p.wait(lambda: p.pg.query_selector('#btn_notice_action') is None))
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-cancelled.png'))
 
     # S5 Sleep now: 5 minutes says the limit, the value and where
     p.pub('/scheduler/report', report(now))
     p.pg.fill('#input_auto_sleep_min', '5')
-    p.pg.wait_for_timeout(150)
-    tx = p.text('#auto_sleep_preview')
+    tx = p.wait_text('#auto_sleep_preview', 'sleep_min_s')
     check('S5 refused before sending: limit, value, where', '16' in tx and '5' in tx and 'sleep_min_s' in tx, tx)
     p.click('#btn_auto_sleep_timed')
     p.click('#btn_auto_sleep_timed')
     check('S5 not sent', not p.sent('/scheduler/sleep_now'))
     p.pg.fill('#input_auto_sleep_min', '16')
-    p.pg.wait_for_timeout(150)
+    p.wait(lambda: re.search(r'\d+:\d\d', p.text('#auto_sleep_preview') or ''))
     tx = p.text('#auto_sleep_preview')
     check('S5 preview', re.search(r'\d+:\d\d', tx), tx)
     p.click('#btn_auto_sleep_timed')
@@ -302,7 +324,7 @@ def story(p, shots, label):
     got = p.sent('/scheduler/sleep_now')
     check('S5 sent as typed', len(got) == 1 and json.loads(got[0]['data']) == {'mode': 'timed', 'ms': 960000}, got)
     p.pub('/scheduler/command_result', {'cmd': 'sleep_now', 'ok': False, 'code': 'login:pts/0'})
-    tx = p.text('#auto_sleep_msg')
+    tx = p.wait_text('#auto_sleep_msg', 'pts/0')
     check('S5 refusal in words: who and what to do', 'pts/0' in tx and '_' not in tx.split('pts')[0], tx)
     # a latched answer of long ago is not news
     p.pg.evaluate("document.getElementById('auto_sleep_msg').textContent=''")
@@ -321,15 +343,16 @@ def story(p, shots, label):
     p.pub('/scheduler/report', report(now, sleep={'state': 'IDLE', 'result': 'pm_no_ack', 'block': 'pm_no_ack',
                                                   'checks': checks(reason=('wait', 'pm_no_ack', {'left_s': 1790}))}))
     p.tick()
+    p.wait(lambda: re.search('nepotvrd|confirm', p.text('#auto_sleep_msg') or ''))
     check('S6 failure shown', 'nepotvrd' in (p.text('#auto_sleep_msg') or '') or 'confirm' in (p.text('#auto_sleep_msg') or ''), p.text('#auto_sleep_msg'))
+    p.wait(lambda: len(p.line() or '') > 5)
     check('S6 line shows it', p.line() and len(p.line()) > 5, p.line())
 
     # S7 a start inside the sleep: it asks
     near = now + dt.timedelta(minutes=50)
     p.pub('/scheduler/report', report(now, next={'program': 'Bigger', 'at': iso(near)}))
     p.pg.fill('#input_auto_sleep_min', '120')
-    p.pg.wait_for_timeout(150)
-    check('S7 preview warns', p.pg.evaluate("document.getElementById('auto_sleep_preview').dataset.state") == 'warn', p.text('#auto_sleep_preview'))
+    check('S7 preview warns', p.wait(lambda: p.pg.evaluate("document.getElementById('auto_sleep_preview').dataset.state") == 'warn'), p.text('#auto_sleep_preview'))
     n = len(p.sent('/scheduler/sleep_now'))
     p.click('#btn_auto_sleep_timed')
     check('S7 first tap offers the choice', p.pg.evaluate("!document.getElementById('auto_sleep_choice').hidden"))
@@ -384,24 +407,21 @@ def story(p, shots, label):
     check('S11 dock line shown and translated', p.until('(?i)dok|dock'), p.line())
     p.raw('/mower_smach/status', {'data': 'Ready'})
     p.raw('/mower_smach/status', {'data': 'Stopped'})
-    p.tick()
-    check('S11 STOP takes the line', 'STOP' in (p.line() or ''), p.line())
+    check('S11 STOP takes the line', p.until('STOP'), p.line())
     check('S11 STOP is marked', p.pg.evaluate("document.getElementById('span_status_info').dataset.level") == '0')
     p.raw('/nextion/log_info', {'data': 'Set speed: 0.5'})
     p.pg.wait_for_timeout(3000)
     check('S11 a routine line does not push it off', 'STOP' in (p.line() or ''), p.line())
     p.raw('/mower_smach/status', {'data': 'Ready'})
     p.pub('/scheduler/report', report(now, code='no_schedule'))
-    p.tick()
-    check('S11 STOP goes when it is over', 'STOP' not in (p.line() or ''), p.line())
+    check('S11 STOP goes when it is over', p.until_not('STOP'), p.line())
     p.pub('/mower/link', {'state': 'ok'})
     p.pub('/mower/link', {'state': 'silent', 'silent_s': 6})
     p.pg.wait_for_timeout(5500)
 
     # S12 raw sleep: says the number, needs a second press
     p.raw('/pm/power_status', pm())
-    p.tick()
-    check('S12 the 715 is explained', '715' in (p.text('#auto_raw_state') or ''), p.text('#auto_raw_state'))
+    check('S12 the 715 is explained', '715' in (p.wait_text('#auto_raw_state', '715') or ''), p.text('#auto_raw_state'))
     n = len(p.sent('/pm/set_robot_sleep'))
     p.click('#btn_sleep_timed')
     tx = p.text('#auto_raw_state')
@@ -411,8 +431,7 @@ def story(p, shots, label):
     p.raw('/pm/power_status', pm(True))
     p.tick()
     p.pg.fill('#input_auto_sleep_min', '60')
-    p.pg.wait_for_timeout(150)
-    check('S12 Sleep now knows of a raw sleep', p.pg.evaluate("document.getElementById('auto_sleep_preview').dataset.state") == 'warn', p.text('#auto_sleep_preview'))
+    check('S12 Sleep now knows of a raw sleep', p.wait(lambda: p.pg.evaluate("document.getElementById('auto_sleep_preview').dataset.state") == 'warn'), p.text('#auto_sleep_preview'))
     p.raw('/pm/power_status', pm())
 
     # ros3d's marker client on the fake's empty service answer, not the page
@@ -601,7 +620,8 @@ def mode_story(p, shots, label):
     check('M1 window line: over midnight said', '22:00–05:00' in win and ('půlnoc' if cs else 'midnight') in win, win)
     n = len(p.pg.evaluate('__fake.sent'))
     p.click('#btn_auto_mode_window')
-    p.pg.wait_for_timeout(700)
+    p.wait(lambda: p.pg.evaluate("document.getElementById('auto_sec_plan').open"))
+    p.pg.wait_for_timeout(700)      # the scroll to the card settles
     check('M1 window › opens Plan at the card, nothing sent', len(p.pg.evaluate('__fake.sent')) == n
           and p.pg.evaluate("document.getElementById('auto_sec_plan').open")
           and p.pg.evaluate("(()=>{const r=document.getElementById('card_mow_window').getBoundingClientRect();"
@@ -736,12 +756,12 @@ def mode_story(p, shots, label):
     n_set = len(p.sent('/scheduler/set_settings'))
     p.pg.fill('#auto_in_limit_rain_h', '99')
     p.pg.dispatch_event('#auto_in_limit_rain_h', 'change')
-    p.pg.wait_for_timeout(150)
+    p.wait(lambda: p.text('[data-key=limit_rain_h] .vt-auto-msg'))
     check('M6 out of range: not sent, said', len(p.sent('/scheduler/set_settings')) == n_set and p.text('[data-key=limit_rain_h] .vt-auto-msg'),
           p.text('[data-key=limit_rain_h] .vt-auto-msg'))
     p.pg.fill('#auto_in_limit_rain_h', '4')
     p.pg.dispatch_event('#auto_in_limit_rain_h', 'change')
-    p.pg.wait_for_timeout(150)
+    p.wait(lambda: len(p.sent('/scheduler/set_settings')) > n_set)
     got = p.sent('/scheduler/set_settings')
     body = json.loads(got[-1]['data']) if got else {}
     check('M6 a limit saved', body.get('values') == {'limit_rain_h': 4.0}, got[-1:] if got else got)
@@ -865,11 +885,9 @@ def a1_story(p, shots, label):
           and p.pg.evaluate("localStorage.getItem('vitulus_auto_sec_limits')") == '0')
     p.click('#auto_mode_limits > summary')
     p.click('#btn_auto_ans_mode')
-    p.pg.wait_for_timeout(300)
-    check('A1 answer › opens Who decides', p.pg.evaluate("document.getElementById('auto_sec_mode').open"))
+    check('A1 answer › opens Who decides', p.wait(lambda: p.pg.evaluate("document.getElementById('auto_sec_mode').open")))
     p.click('#btn_auto_ans_now')
-    p.pg.wait_for_timeout(300)
-    check('A1 answer › opens Now', p.pg.evaluate("document.getElementById('auto_sec_now').open"))
+    check('A1 answer › opens Now', p.wait(lambda: p.pg.evaluate("document.getElementById('auto_sec_now').open")))
     check('A1 nothing sent by any of it', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent')[n0:])
     # green only when nothing holds a start by the robot's own rules (master _start_blocker, the
     # hard limit in force, the report's code); the head of Now says the same
@@ -949,8 +967,7 @@ def a1_fit(p, shots, label):
         p.pub('/scheduler/mode', mode_view('calendar'))
         check(label + ' A1 limits folded by default while not in force', not p.pg.evaluate("document.getElementById('auto_mode_limits').open"))
         p.pub('/scheduler/mode', mode_view('agent'))
-        p.pg.wait_for_timeout(100)
-        check(label + ' A1 limits open by themselves while in force', p.pg.evaluate("document.getElementById('auto_mode_limits').open"))
+        check(label + ' A1 limits open by themselves while in force', p.wait(lambda: p.pg.evaluate("document.getElementById('auto_mode_limits').open")))
         check(label + ' A1 that is not remembered as a choice', p.pg.evaluate("localStorage.getItem('vitulus_auto_sec_limits')") is None)
     p.open('now')
     p.pg.evaluate("document.getElementById('ui_drawer_body').scrollTop=0")
@@ -1027,8 +1044,7 @@ def a2_story(p, shots, label):
     check('A2 Sleep: holders in the list, not again in the sentence', full in lst and full not in sec2 and sec2, [sec2, lst])
     check('A2 Sleep list: no › to the section it is in', p.pg.evaluate("document.querySelectorAll('#auto_sleep_checks .vt-auto-go').length") == 0)
     p.click('#btn_auto_sleep_more')
-    p.pg.wait_for_timeout(300)
-    check('A2 top card sleep line › opens Sleep', p.pg.evaluate("document.getElementById('auto_sec_sleep').open"))
+    check('A2 top card sleep line › opens Sleep', p.wait(lambda: p.pg.evaluate("document.getElementById('auto_sec_sleep').open")))
     # timeline: tracks only for the days something happens on, an hour scale, sleep folded
     tl = p.pg.evaluate("""()=>({rows:[...document.querySelectorAll('#auto_timeline .vt-auto-tl-row:not(.vt-auto-tl-scale)')].map(r=>r.querySelector('.vt-auto-tl-day').textContent),
         gaps:[...document.querySelectorAll('#auto_timeline .vt-auto-tl-gap')].map(g=>[g.dataset.kind,g.textContent]),

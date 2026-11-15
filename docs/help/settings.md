@@ -52,8 +52,10 @@ grey = off, red = a fault (for example the lidar off).
 - **Advanced (planner)** — the planner's stored data (**Save data**, **Load data**, **Reload**) and
   **Assemble map** with its noise filter, obstacle margin and fill shape. Moved here from the map
   editor; normally left alone. The line under the buttons is what the planner said last (*Planner
-  data saved.*, *Map assembled.*) in the language of the UI; a line the UI does not know is shown
-  as the planner sent it, in English.
+  data saved.*, *Map assembled.*, a refusal such as *Zone A NOT saved: no map is active…*, the
+  automation's *Mowing window set: 08:00–20:00.*) in the language of the UI; a line the UI does not
+  know — one whose reason is a sentence of its own, or longer than 500 characters — is shown as the
+  planner sent it, in English.
 
 ## Power
 

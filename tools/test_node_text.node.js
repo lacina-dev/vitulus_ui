@@ -121,6 +121,53 @@ const SAMPLES = [
     ['plan', '[Master] Automation ON.', []],
     ['plan', '[Master] Automation OFF.', []],
     ['plan', '[Master] Calendar updated (3 events)', ['3']],
+    // T8 III: the rest of the common lines (one per format string; vitulus_planner node_planner, program_map, master_controller, sleep_manager)
+    ['plan', 'Zone ZONA_A removed.', ['ZONA_A']],
+    ['plan', "Zone 'ZONA_A' NOT saved: no map is active — activate or record a map first.", ['ZONA_A']],
+    ['plan', "Zone 'ZONA_A' NOT removed: no map is active.", ['ZONA_A']],
+    ['plan', "Zone 'ZONA_A' NOT saved: the programs of the active map are not loaded yet — try again in a moment.", ['ZONA_A']],
+    ['plan', "Zone 'ZONA_A' NOT saved: program 'Front lawn' is running on it — stop it first.", ['ZONA_A', 'Front lawn']],
+    ['plan', "Zone 'ZONA_A' NOT saved: cut height 90 mm is outside 20-80 mm.", ['ZONA_A', '90', '20-80 mm']],
+    ['plan', "Zone 'ZONA_A' NOT saved: mowing paths could not be generated — the zone is too small or lies outside the map.", ['ZONA_A']],
+    ['plan', "Zone 'ZONA_A' NOT saved: this shape leaves no mowing path — it is too small or lies outside the free space of the map.", ['ZONA_A']],
+    ['plan', 'Zone split done: ZONA_A, ZONA_A 2.', ['ZONA_A, ZONA_A 2']],
+    ['plan', 'Zone merge done: Před domem.', ['Před domem']],
+    ['plan', 'Zone duplicate done: ZONA_A copy.', ['ZONA_A copy']],
+    ['plan', 'Map NOT assembled: no map is active — activate or record a map first.', []],
+    ['plan', "Polygon 'Strom u plotu' NOT saved: no map is active — activate or record a map first.", ['Strom u plotu']],
+    ['plan', "Polygon 'Strom u plotu' NOT removed: no map is active — activate or record a map first.", ['Strom u plotu']],
+    ['plan', "Program 'Front lawn' NOT saved: the programs of the active map are not loaded yet — try again in a moment.", ['Front lawn']],
+    ['plan', "Program 'Front lawn' NOT removed: the programs of the active map are not loaded yet — try again in a moment.", ['Front lawn']],
+    ['plan', "Program 'Front lawn' NOT saved: cut height 90 mm is outside 20-80 mm.", ['Front lawn', '90', '20-80 mm']],
+    ['plan', "Program 'Front lawn' NOT saved: no map is active — activate a map first (a program belongs to the map it is created on).", ['Front lawn']],
+    ['plan', "Program 'Front lawn': loading map 'Zahrada' before the undock.", ['Front lawn', 'Zahrada']],
+    ['plan', "Programs not loaded: zones or datum of map 'Zahrada' are not ready", ['Zahrada']],
+    ['plan', "Programs not loaded: the program list of map 'Zahrada' could not be saved to its site bundle", ['Zahrada']],
+    ['plan', '[Master] Front lawn moved: slot of 2026-11-15 is free again.', ['Front lawn', '2026-11-15']],
+    ['plan', '[Master] Window set: 08:00-20:00.', ['08:00', '20:00']],
+    ['plan', '[Master] Window set: off.', []],
+    ['plan', '[Master] Front lawn is already finished.', ['Front lawn']],
+    ['plan', '[Master] Resuming program: Front lawn (battery)', ['Front lawn']],
+    ['plan', '[Master] Starting scheduled program: Front lawn (slot)', ['Front lawn']],
+    ['plan', '[Master] Following the program that is out: Front lawn', ['Front lawn']],
+    ['plan', '[Master] Mission of Front lawn was lost.', ['Front lawn']],
+    ['plan', '[Master] Program did not start (see the planner log).', []],
+    ['plan', '[Master] Dock permit homeward cancelled: mowing on.', []],
+    ['plan', '[Master] Dock permit ended with the robot out: finishing this path (max 120 s), then home.', ['120']],
+    ['plan', '[Master] Dock permit: the path did not end in time, home now.', []],
+    ['plan', '[Master] Terminal error in the dock. Resetting SMACH, the run retries.', []],
+    ['plan', '[Master] Mower temperature sensor fault: run given up.', []],
+    ['plan', "[Master] A person took the mower's power away: no resume.", []],
+    ['plan', '[Master] Front lawn refused (dock_locked), retry 2/3.', ['Front lawn', 'dock_locked', '2', '3']],
+    ['plan', '[Master] Recovery: charge, then resume.', []],
+    ['plan', '[Master] PM confirms the cancel.', []],
+    ['plan', '[Master] Unfinished sleep of a previous run: cancelled.', []],
+    ['plan', '[Master] Awake after sleep (+3 min against plan).', ['+3']],
+    ['plan', '[Master] Awake after sleep (-12 min against plan).', ['-12']],
+    ['plan', '[Master] Sleep (night) for 30m.', ['30']],
+    ['plan', '[Master] Sleep (timed, 16.0 min).', ['16.0']],
+    ['plan', '[Sleep] PM armed, shutting the OS down.', []],
+    ['plan', '[Sleep] PM did not confirm the cancel.', []],
 ];
 SAMPLES.forEach(([kind, line, keep]) => {
     const c = cs.VTI18n.node(kind, line), e = en.VTI18n.node(kind, line);
@@ -135,12 +182,26 @@ SAMPLES.forEach(([kind, line, keep]) => {
 // unknown lines and the other kind's lines stay as sent
 [['gloc', 'something the node says one day'], ['rosbag', 'paused | disk full'], ['gloc', ''],
  ['nosuch', 'idle'], ['gloc', 'idle (soon)'],
- // T8 II: a planner line no rule knows (a refusal with its own reason, most [Master] lines) is shown as sent
- ['plan', "Zone 'ZONA_A' NOT saved: cut height 90 mm is outside 20–80 mm."], ['plan', '[Master] Sleep (night) for 30m.'],
+ // T8 II: a planner line no rule knows is shown as sent. T8 III: the two samples that stood here (a zone's cut
+ // height refusal, "[Master] Sleep (night) for 30m.") are translated now and moved to SAMPLES; here stand lines
+ // that stay as sent on purpose — their reason is a sentence or a dump of its own
+ ['plan', 'Zone split refused: the line does not cross the zone.'], ['plan', '[Master] Staying awake: ui:1.'],
+ ['plan', "Program 'Front lawn' not started: the map is not ready."], ['plan', 'Chain: Front lawn waits for Back lawn'],
+ ['plan', "[Master] Settings changed by owner: window_end, window_start."], ['plan', "Zone 'A:B' removed: maybe."],
+ ['plan', '[Master] Front: lawn is already finished.'], ['plan', '[Master] Front: lawn moved: slot of 2026-11-15 is free again.'],
+ ['plan', '[Master] Mission of Front: lawn was lost.'], ['plan', '[Master] Front: lawn refused (dock_locked), retry 2/3.'],
  ['plan', 'Initialized'], ['plan', 'Připraveno'], ['plan', '']].forEach(([kind, line]) => {
     check('unknown ' + kind + ' "' + line + '" unchanged (cs)', cs.VTI18n.node(kind, line) === line, cs.VTI18n.node(kind, line));
     check('unknown ' + kind + ' "' + line + '" unchanged (en)', en.VTI18n.node(kind, line) === line, en.VTI18n.node(kind, line));
 });
+// T8 III: "Program" before the name where Czech needs a noun; reason codes in brackets in words, unknown ones as sent
+const csl = (l) => cs.VTI18n.node('plan', l);
+check('cs: Program before the name (moved / finished / refused)', /^Program Front lawn přesunut/.test(csl('[Master] Front lawn moved: slot of 2026-11-15 is free again.')) &&
+      /^Program Front lawn je už hotový/.test(csl('[Master] Front lawn is already finished.')) && /^Program Front lawn odmítnut/.test(csl('[Master] Front lawn refused (dock_locked), retry 2/3.')));
+check('cs: reason codes translated (battery, night, timed)', /\(baterie\)/.test(csl('[Master] Resuming program: Front lawn (battery)')) &&
+      /\(noc\)/.test(csl('[Master] Sleep (night) for 30m.')) && /\(časovač,/.test(csl('[Master] Sleep (timed, 16.0 min).')));
+check('cs: unknown reason code stays as sent', /\(xyz_code\)/.test(csl('[Master] Starting scheduled program: Front lawn (xyz_code)')));
+check('en: reason codes stay as sent', /\(battery\)/.test(en.VTI18n.node('plan', '[Master] Resuming program: Front lawn (battery)')));
 // a code word inside a line gets its key (manual / force); units glued to the number in Czech
 check('cs: manual → ručně', /\(ručně\)/.test(cs.VTI18n.node('gloc', 'APPLIED (manual) -> /t (1.00, 2.00, 3.0deg)')));
 check('cs: force → vynuceně', /\(vynuceně\)/.test(cs.VTI18n.node('gloc', 'APPLIED (force) -> /t (1.00, 2.00, 3.0deg)')));
@@ -148,6 +209,38 @@ check('en: manual stays manual', /\(manual\)/.test(en.VTI18n.node('gloc', 'APPLI
 check('cs: no breaking space before %', /45\u00a0%/.test(cs.VTI18n.node('gloc', 'ok 1.23s margin 45%')) &&
       /1\.23\u00a0s/.test(cs.VTI18n.node('gloc', 'ok 1.23s margin 45%')), cs.VTI18n.node('gloc', 'ok 1.23s margin 45%'));
 check('null line → empty', cs.VTI18n.node('gloc', null) === '');
+// T8 III: a planner refusal keeps its gender in Czech (zone: NEULOŽENA, polygon / program: NEULOŽEN), a zone
+// operation is named, the non-breaking space stands before the unit
+check('cs: polygon NOT saved → NEULOŽEN', /Polygon S NEULOŽEN:/.test(cs.VTI18n.node('plan', "Polygon 'S' NOT saved: no map is active — activate or record a map first.")));
+check('cs: program NOT removed → NEODSTRANĚN', /Program P NEODSTRANĚN:/.test(cs.VTI18n.node('plan', "Program 'P' NOT removed: the programs of the active map are not loaded yet — try again in a moment.")));
+check('cs: zone split named', /^Rozdělení zóny hotovo: A, B\.$/.test(cs.VTI18n.node('plan', 'Zone split done: A, B.')), cs.VTI18n.node('plan', 'Zone split done: A, B.'));
+check('en: zone merge named', /^Zone merge done: A\.$/.test(en.VTI18n.node('plan', 'Zone merge done: A.')), en.VTI18n.node('plan', 'Zone merge done: A.'));
+check('cs: window with a dash', cs.VTI18n.node('plan', '[Master] Window set: 08:00-20:00.') === 'Okno sekání nastaveno: 08:00–20:00.', cs.VTI18n.node('plan', '[Master] Window set: 08:00-20:00.'));
+check('cs: unit after a non-breaking space', /90\u00a0mm/.test(cs.VTI18n.node('plan', "Zone 'Z' NOT saved: cut height 90 mm is outside 20-80 mm.")));
+// T8 III: a line over 500 characters is never a node's fixed line — as sent, and at once (the controller of
+// batch II measured 7 s on a pathological one)
+(() => {
+    const known = 'Planner data saved.';
+    const long1 = "Zone '" + "a' NOT saved: program '".repeat(400) + "x";
+    const long2 = '[Master] ' + '(x) refused ('.repeat(4000) + 'y';
+    const long3 = "Zone '" + 'Z'.repeat(520) + "' NOT removed: no map is active.";
+    const t0 = Date.now();
+    [long1, long2, long3].forEach((l, i) => {
+        check('long line ' + (i + 1) + ' (' + l.length + ' chars) unchanged (cs)', cs.VTI18n.node('plan', l) === l);
+        check('long line ' + (i + 1) + ' unchanged (en)', en.VTI18n.node('plan', l) === l);
+    });
+    const ms = Date.now() - t0;
+    check('long lines cost no time', ms < 200, ms + ' ms');
+    const edge = "Zone '" + 'Z'.repeat(500 - 38) + "' NOT removed: no map is active.";
+    check('a 500-character line is still translated', edge.length === 500 && cs.VTI18n.node('plan', edge) !== edge, String(edge.length));
+    check('a short line still translated after them', cs.VTI18n.node('plan', known) !== known);
+    // the worst line that still fits: every pattern runs over it
+    const worst = ("Zone '" + "' NOT saved: program '".repeat(22)).slice(0, 500);
+    const t1 = Date.now();
+    for (let i = 0; i < 200; i++) { cs.VTI18n.node('plan', worst); }
+    const per = (Date.now() - t1) / 200;
+    check('the worst 500-character line is quick', per < 5, per.toFixed(2) + ' ms a line');
+})();
 // every key the rules name is in both dictionaries
 const src = fs.readFileSync(path.join(JS, 'vt_i18n.js'), 'utf8');
 const keys = new Set();

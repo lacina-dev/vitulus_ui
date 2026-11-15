@@ -57,6 +57,9 @@
     overflow-x: hidden;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+    /* T8 III: the pinned Camera section (below) covers the bottom of the
+       scrolled rows; a row brought into view stops above it (right_dock.js camPin) */
+    scroll-padding-bottom: var(--rp-cam-pin, 0px);
 }
 .rp-body::-webkit-scrollbar { width: 6px; }
 .rp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
@@ -552,6 +555,10 @@ body.rp-cam-clip .rp-cam-msg { display: none; }
 /* T8 II: one line in the slot — while the panel says why there is no picture,
    the stream's loader keeps its dark ground but not its spinner and word */
 body.rp-cam-says:not(.rp-cam-clip) #div_camera_view .cam-loader > * { visibility: hidden; }
+/* T8 III: … and the stream's canvas is not painted: without a picture it draws
+   its own warning triangle, which showed through the loader's 85 % ground
+   under the sentence. Back the moment frames arrive (rp-cam-says goes). */
+body.rp-cam-says:not(.rp-cam-clip) #div_camera_view > canvas { visibility: hidden; }
 
 /* RP4 the show / hide handle: a quiet tab on the panel's edge on a PC
    (narrower, dimmed until hover); touch keeps the large target */

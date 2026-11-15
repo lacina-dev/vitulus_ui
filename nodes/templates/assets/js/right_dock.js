@@ -1504,11 +1504,46 @@
         if (camState.title !== tip) { camState.title = tip; camState.setAttribute('aria-label', tip); }
     }
 
+    /* T8 III: the Camera section is pinned to the panel's bottom (sticky) and
+       covers the rows scrolled under it. Its height is told to the scrolling
+       body as scroll padding (right_dock.css .rp-body), so a row brought into
+       view — keyboard focus, a link from elsewhere, scrollIntoView — always
+       lands whole ABOVE the camera (on a 360x740 phone the Map–GPS line showed
+       33 of its 40 px). Nothing moves by itself and the camera stays where it is. */
+    var camPinH = -1;
+    function camPin() {
+        var body = document.getElementById('rp_body');
+        var sec = panel && panel.querySelector('.rp-sec[data-sec="camera"]');
+        if (!body) { return; }
+        var h = 0;
+        if (sec) {
+            /* what the pinned section really covers: its own height + the body's
+               bottom edge it sits above (padding, from the computed style) + the
+               part of the camera buttons that sticks out over its top edge
+               (measured) + 2 px of reserve */
+            var sr = sec.getBoundingClientRect(), cs = null, edge = 0, over = 0;
+            try {
+                cs = window.getComputedStyle(body);
+                edge = (parseFloat(cs.paddingBottom) || 0) + (parseFloat(window.getComputedStyle(sec).marginBottom) || 0);
+                var bs = sec.querySelectorAll('.rp-cam-opt');
+                for (var i = 0; i < bs.length; i++) {
+                    var br = bs[i].getBoundingClientRect();
+                    if (br.height > 0 && sr.top - br.top > over) { over = sr.top - br.top; }
+                }
+            } catch (e) { /* the plain height */ }
+            h = Math.ceil(sr.height + edge + over + 2);
+        }
+        if (h === camPinH) { return; }
+        camPinH = h;
+        body.style.setProperty('--rp-cam-pin', h + 'px');
+    }
+
     function paintCam() {
         var cam = document.getElementById('div_camera_view');
         var slot = document.getElementById('rp_cam_slot');
         var off = document.getElementById('rp_cam_off');
         if (!cam || !slot || !panel) { return; }
+        camPin();
         paintCamMsg(false);                       // shown again below only while docked + black
         var on = cam.style.display !== 'none';
         var big = isBigCam();
@@ -1776,6 +1811,11 @@
             rpBody.addEventListener('scroll', paintCam, {passive: true});
         }
         setInterval(paintCam, 2000);          // 'čeká na signál' → 'živě'
+        /* T8 III: the pinned camera's height is the panel's scroll padding
+           (camPin) — follows the section as it folds / changes size */
+        var camSec0 = panel && panel.querySelector('.rp-sec[data-sec="camera"]');
+        if (window.ResizeObserver && camSec0) { new ResizeObserver(camPin).observe(camSec0); }
+        camPin();
         /* the panel's width changes (1600 px threshold, narrow mode): the
            camera slot, handle and log follow once the transition settles */
         if (window.ResizeObserver && panel) { new ResizeObserver(placeSoon).observe(panel); }

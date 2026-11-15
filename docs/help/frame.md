@@ -183,7 +183,8 @@ red = a fault or no data where there should be some · grey = off, paused or not
   touch screen three keys of at least 40 px; see below. While the picture has not come yet, the black slot
   says **Waiting for the picture…**, after ~8 s **No picture from the camera — retrying**; a picture
   that stops for 3 s or more says the latter too, and the dot turns red. When everything is unfolded
-  and the panel has to scroll (a phone), the Camera section stays pinned at its bottom.
+  and the panel has to scroll (a phone), the Camera section stays pinned at its bottom; a row you
+  scroll or jump to (the Map–GPS line, a section title) always stops whole above it.
 
 Every section folds by its title (▾ / ▸) and stays as you left it. A section with a state
 (Mower, GNSS) is softly tinted by it. With Mower, Navi and GNSS folded everything above the camera

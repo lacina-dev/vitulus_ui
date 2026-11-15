@@ -719,6 +719,11 @@ ul.nav-tabs.vt-cfg-sub .nav-link.active { color: #fff; background: transparent; 
 .vt-row.vt-cfg-range { flex-wrap: nowrap; }
 .vt-row.vt-cfg-range > .form-range { flex: 1 1 auto; min-width: 0; }
 .vt-row.vt-cfg-range > .vt-unit { min-width: 52px; text-align: right; white-space: nowrap; }
+/* T8 III: the button keeps its text's width — the slider (base width 100 %)
+   took a share of the shrink from it and "Apply" / „Použít“ ran 4 px over
+   its 40 px on a phone; the slider alone gives way */
+.vt-row.vt-cfg-range > .btn, .vt-row.vt-cfg-range > .vt-unit { flex: 0 0 auto; }
+.vt-row.vt-cfg-range > .btn { white-space: nowrap; }
 
 /* S6: outputs say ON / OFF; each temperature / fan reading has its name */
 .vt-outputs .vt-stat.vt-cfg-onoff { min-width: 34px; }

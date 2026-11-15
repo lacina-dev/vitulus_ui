@@ -178,7 +178,8 @@ pozastaveno nebo není co ukázat.
   obrazovce tři klávesy aspoň 40 px; viz níže. Dokud obraz nepřišel, černé místo říká **Čekám na
   obraz…**, po ~8 s **Z kamery nejde obraz — zkouším znovu**; obraz, který se zastaví na 3 s a víc,
   hlásí totéž a tečka zčervená. Když je všechno rozbalené a panel se musí posouvat (telefon), sekce
-  Kamera zůstává připnutá dole.
+  Kamera zůstává připnutá dole; řádek, ke kterému se posuneš nebo přeskočíš (Mapa–GPS, název
+  sekce), se vždy zastaví celý nad ní.
 
 Každá sekce se sbalí kliknutím na název (▾ / ▸) a zůstane, jak jsi ji nechal. Sekce se stavem
 (Sekačka, GNSS) má jemný barevný nádech. Se sbalenou Sekačkou, Navi a GNSS se všechno nad kamerou

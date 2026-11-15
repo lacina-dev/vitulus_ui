@@ -209,8 +209,8 @@
         /* T8 II: the planner's line under Settings › Navi › Planner (#div_log,
            /web_plan/log): vitulus_planner/nodes/node_planner log_publisher and
            the plainest lines of master_controller log(). Names and numbers stay
-           as they came; any other line (most [Master] lines, a refusal with
-           its own reason) is shown as sent. */
+           as they came; any other line (a refusal whose reason is a sentence
+           of its own, the master's diagnostic lines) is shown as sent. */
         plan: [
             [/^Planner data saved\.$/, 'node.plan.data_saved'],
             [/^Planner map saved\.$/, 'node.plan.map_saved'],
@@ -246,11 +246,62 @@
             [/^\[Master\] Robot is off the dock: sending it home\.$/, 'node.plan.m.sending_home'],
             [/^\[Master\] Window closed: going home after this path\.$/, 'node.plan.m.window_closed'],
             [/^\[Master\] Automation (ON|OFF)\.$/, 'node.plan.m.automation', ['on'], { on: 'node.plan.onoff.' }],
-            [/^\[Master\] Calendar updated \((\d+) events\)$/, 'node.plan.m.calendar', ['n']]
+            [/^\[Master\] Calendar updated \((\d+) events\)$/, 'node.plan.m.calendar', ['n']],
+            /* T8 III: the rest of the common lines — refusals with a fixed reason,
+               a finished zone operation, the master's run / sleep lines. Left as
+               sent on purpose: a line whose reason is itself an English sentence
+               or a dump ("Zone split refused: …", "… not started: …", "Chain: …",
+               "[Master] Settings changed by …", "Staying awake: …") — half a
+               translation would read worse than the whole line as the node wrote it. */
+            [/^Zone ([^:]+) removed\.$/, 'node.plan.zone_removed', ['name']],
+            [/^Zone '(.+)' NOT saved: no map is active — activate or record a map first\.$/, 'node.plan.zone_nosave_nomap', ['name']],
+            [/^Zone '(.+)' NOT removed: no map is active\.$/, 'node.plan.zone_noremove_nomap', ['name']],
+            [/^Zone '(.+)' NOT saved: the programs of the active map are not loaded yet — try again in a moment\.$/, 'node.plan.zone_nosave_programs', ['name']],
+            [/^Zone '(.+)' NOT saved: program '(.+)' is running on it — stop it first\.$/, 'node.plan.zone_nosave_running', ['name', 'program']],
+            [/^Zone '(.+)' NOT saved: cut height (\S+) mm is outside (.+)\.$/, 'node.plan.zone_nosave_cut', ['name', 'value', 'range']],
+            [/^Zone '(.+)' NOT saved: mowing paths could not be generated — the zone is too small or lies outside the map\.$/, 'node.plan.zone_nosave_paths', ['name']],
+            [/^Zone '(.+)' NOT saved: this shape leaves no mowing path — it is too small or lies outside the free space of the map\.$/, 'node.plan.zone_nosave_shape', ['name']],
+            [/^Zone (split|merge|duplicate) done: (.+)\.$/, 'node.plan.zop_done', ['op', 'names'], { op: 'node.plan.zop.' }],
+            [/^Map NOT assembled: no map is active — activate or record a map first\.$/, 'node.plan.map_noassemble'],
+            [/^Polygon '(.+)' NOT (saved|removed): no map is active — activate or record a map first\.$/, 'node.plan.poly_nomap', ['name', 'op'], { op: 'node.plan.pop.' }],
+            [/^Program '(.+)' NOT (saved|removed): the programs of the active map are not loaded yet — try again in a moment\.$/, 'node.plan.prog_not_ready', ['name', 'op'], { op: 'node.plan.pop.' }],
+            [/^Program '(.+)' NOT saved: cut height (\S+) mm is outside (.+)\.$/, 'node.plan.prog_nosave_cut', ['name', 'value', 'range']],
+            [/^Program '(.+)' NOT saved: no map is active — activate a map first \(a program belongs to the map it is created on\)\.$/, 'node.plan.prog_nosave_nomap', ['name']],
+            [/^Program '(.+)': loading map '(.+)' before the undock\.$/, 'node.plan.prog_loading_map', ['name', 'site']],
+            [/^Programs not loaded: zones or datum of map '(.+)' are not ready$/, 'node.plan.progs_wait_zones', ['site']],
+            [/^Programs not loaded: the program list of map '(.+)' could not be saved to its site bundle$/, 'node.plan.progs_wait_bundle', ['site']],
+            [/^\[Master\] ([^:]+) moved: slot of (\S+) is free again\.$/, 'node.plan.m.moved', ['name', 'day']],
+            [/^\[Master\] Window set: (\d\d:\d\d)-(\d\d:\d\d)\.$/, 'node.plan.m.window_set', ['from', 'to']],
+            [/^\[Master\] Window set: off\.$/, 'node.plan.m.window_off'],
+            [/^\[Master\] ([^:]+) is already finished\.$/, 'node.plan.m.already_done', ['name']],
+            [/^\[Master\] Resuming program: (.+) \(([^()]*)\)$/, 'node.plan.m.resuming', ['name', 'why'], { why: 'node.plan.why.' }],
+            [/^\[Master\] Starting scheduled program: (.+) \(([^()]*)\)$/, 'node.plan.m.starting', ['name', 'why'], { why: 'node.plan.why.' }],
+            [/^\[Master\] Following the program that is out: (.+)$/, 'node.plan.m.following', ['name']],
+            [/^\[Master\] Mission of ([^:]+) was lost\.$/, 'node.plan.m.lost', ['name']],
+            [/^\[Master\] Program did not start \(see the planner log\)\.$/, 'node.plan.m.no_start'],
+            [/^\[Master\] Dock permit homeward cancelled: mowing on\.$/, 'node.plan.m.permit_on'],
+            [/^\[Master\] Dock permit ended with the robot out: finishing this path \(max (\d+) s\), then home\.$/, 'node.plan.m.permit_ended', ['s']],
+            [/^\[Master\] Dock permit: the path did not end in time, home now\.$/, 'node.plan.m.permit_late'],
+            [/^\[Master\] Terminal error in the dock\. Resetting SMACH, the run retries\.$/, 'node.plan.m.dock_error'],
+            [/^\[Master\] Mower temperature sensor fault: run given up\.$/, 'node.plan.m.temp_fault'],
+            [/^\[Master\] A person took the mower's power away: no resume\.$/, 'node.plan.m.power_taken'],
+            [/^\[Master\] ([^:]+) refused \(([^()]+)\), retry (\d+)\/(\d+)\.$/, 'node.plan.m.refused', ['name', 'code', 'i', 'n']],
+            [/^\[Master\] Recovery: charge, then resume\.$/, 'node.plan.m.recover_charge'],
+            [/^\[Master\] PM confirms the cancel\.$/, 'node.plan.m.pm_cancel_ok'],
+            [/^\[Master\] Unfinished sleep of a previous run: cancelled\.$/, 'node.plan.m.sleep_leftover'],
+            [/^\[Master\] Awake after sleep \(([+-]\d+) min against plan\)\.$/, 'node.plan.m.awake', ['min']],
+            [/^\[Master\] Sleep \(([^,()]+)\) for (\d+)m\.$/, 'node.plan.m.sleep_for', ['why', 'min'], { why: 'node.plan.why.' }],
+            [/^\[Master\] Sleep \(([^,()]+), ([\d.]+) min\)\.$/, 'node.plan.m.sleep_mode', ['mode', 'min'], { mode: 'node.plan.why.' }],
+            [/^\[Sleep\] PM armed, shutting the OS down\.$/, 'node.plan.s.armed'],
+            [/^\[Sleep\] PM did not confirm the cancel\.$/, 'node.plan.s.no_cancel']
         ]
     };
+    var NODE_MAX = 500;
     function nodeText(kind, s) {
         s = s == null ? '' : String(s);
+        /* T8 III: a line this long is no fixed line of a node (a dump, a trace):
+           shown as sent, and the patterns never grind through it */
+        if (s.length > NODE_MAX) { return s; }
         var rules = NODE[kind] || [];
         for (var i = 0; i < rules.length; i++) {
             var m = rules[i][0].exec(s);
