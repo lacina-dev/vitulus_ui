@@ -181,6 +181,9 @@
             '<div class="vt-lyr-body" id="vt_lyr_body"></div>';
         bodyEl = panel.querySelector('#vt_lyr_body');
         document.body.appendChild(panel);
+        try {
+            bodyEl.addEventListener('scroll', unalCheckSeen, { passive: true });
+        } catch (e) { /* the 1 s check remains */ }
 
         panel.addEventListener('click', onClick);
         panel.addEventListener('input', onInput);
@@ -555,7 +558,16 @@
         };
         if (cat.overlays.length || $('mapv3_chk_rain') || $('mapv3_chk_trav') || $('mapv3_chk_tmosaic')) {
             h.push('<section class="vt-lyr-sec"><div class="vt-lyr-sec-h"><span>' + esc(t('maplyr.ov')) + '</span></div>');
-            if (lines.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.lines')) + '</div>'); ovs(lines); }
+            if (lines.length) {
+                h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.lines')) + '</div>');
+                ovs(lines);
+                // M14: lines over a Google / Bing photo that is not aligned on this map (once per map and photo)
+                h.push('<div class="vt-lyr-unal" data-lyr-unal role="note" hidden title="' + esc(t('maplyr.m14.unal_tip')) + '">' +
+                    '<span class="vt-lyr-unal-t">' + esc(t('maplyr.m14.unal')) + '</span>' +
+                    '<button type="button" class="vt-lyr-more vt-lyr-unal-go" data-lyr-unal-go>' + esc(t('mapping.m13.measure')) + '</button>' +
+                    '<button type="button" class="vt-lyr-iconbtn vt-lyr-unal-x" data-lyr-unal-x aria-label="' + esc(t('maplyr.m14.unal_close')) +
+                    '" title="' + esc(t('maplyr.m14.unal_close')) + '">×</button></div>');
+            }
             if (tones.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.terrain')) + '</div>'); ovs(tones); }
             // T29: what the robot's terrain node sees now (vt_terrain_layer.js)
             if ($('mapv3_chk_trav')) {
@@ -592,6 +604,14 @@
         h.push('<div class="vt-lyr-foot"><button type="button" class="vt-lyr-more" data-lyr-more>' + esc(t('maplyr.more')) + '</button></div>');
         tlDetach();                    // the time line goes home before the rows are replaced
         bodyEl.innerHTML = h.join('');
+        try {
+            if (unalIO) { unalIO.disconnect(); }
+            var un = bodyEl.querySelector('[data-lyr-unal]');
+            if (un && window.IntersectionObserver) {
+                unalIO = unalIO || new IntersectionObserver(unalCheckSeen, { root: bodyEl, threshold: [0, 1] });
+                unalIO.observe(un);
+            }
+        } catch (e) { /* the scroll and 1 s checks remain */ }
         sync();
     }
 
@@ -627,6 +647,7 @@
             if (abtn && abtn.title !== htx) { abtn.title = htx; }
             alg.classList.toggle('vt-lyr-ineff', ineff);
         }
+        syncUnal();
         // M8-5: one line when the background does not load (none / some missing)
         var bst = panel.querySelector('[data-lyr-bgst]'), ld = bgLoad();
         if (bst) {
@@ -662,6 +683,70 @@
             if (m && document.activeElement !== r && r.value !== m.value) { r.value = m.value; }
             var o = panel.querySelector('[data-lyr-opv="' + id + '"]');
             if (o) { o.textContent = pct(r.value); }
+        });
+    }
+
+    // ---- M14: "lines may sit off this photo" — shown once per map and photo
+    // (remembered in the browser at the first showing), stays while this page
+    // lives until closed or measured; never in the map editor (no Measure
+    // button there). The condition is mapping.js's (_unalignedInfo).
+    var UNAL_KEY = 'vitulus_unaligned_seen', unalIO = null, unalLive = {}, unalClosed = {};
+    function unalSeen() {
+        try { var o = JSON.parse(lsGet(UNAL_KEY) || '{}'); return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; }
+    }
+    function unalNow() {
+        var M = window.mapping_v3, info = null;
+        try { info = (M && M._unalignedInfo) ? M._unalignedInfo() : null; } catch (e) { info = null; }
+        return (info && !editorOpen()) ? (info.map + '|' + info.key) : '';
+    }
+    function unalMark(id) {
+        if (!id) { return; }
+        try {
+            var seen = unalSeen();
+            if (seen[id]) { return; }
+            seen[id] = 1;
+            lsSet(UNAL_KEY, JSON.stringify(seen));
+        } catch (e) { /* private mode */ }
+    }
+    // "seen" = the note's row lies inside the visible part of .vt-lyr-body
+    // (it can sit far below the fold of a phone panel); checked at every
+    // sync (1 s while open), on scroll and by an IntersectionObserver.
+    var unalPlaced = false;          // set by place(): the panel has its real size
+    function unalCheckSeen() {
+        try {
+            var el = panel && panel.querySelector('[data-lyr-unal]'), id = unalNow();
+            if (!el || el.hidden || !id || !unalLive[id] || unalSeen()[id]) { return; }
+            var body = panel.querySelector('.vt-lyr-body');
+            if (!body || panel.hidden) { return; }
+            // before the first place() the body has no max-height yet and is as tall as its whole
+            // content: only a placed panel counts, and the body is clipped by the window
+            if (!unalPlaced) { return; }
+            var r = el.getBoundingClientRect(), b = body.getBoundingClientRect();
+            var vh = (typeof window !== 'undefined' && window.innerHeight) || 0;
+            var top = Math.max(b.top, 0), bottom = vh ? Math.min(b.bottom, vh) : b.bottom;
+            if (r.height > 0 && bottom > top && r.top >= top - 1 && r.bottom <= bottom + 1) { unalMark(id); }
+        } catch (e) { /* never break the panel */ }
+    }
+    function syncUnal() {
+        var el = panel && panel.querySelector('[data-lyr-unal]');
+        if (!el) { return; }
+        var id = unalNow(), show = false;
+        if (id && !unalClosed[id]) {
+            if (unalLive[id]) { show = true; }
+            else if (!unalSeen()[id]) { show = unalLive[id] = true; }   // remembered only once seen (unalCheckSeen)
+        }
+        if (el.hidden === show) { el.hidden = !show; }
+        if (show) { unalCheckSeen(); }
+    }
+    function unalGo() {
+        var id = unalNow();
+        if (id) { unalClosed[id] = true; unalMark(id); }
+        moreSettings();
+        // twice: the menu (a sheet on a phone) is still opening the first time
+        [350, 900].forEach(function (ms) {
+            setTimeout(function () {
+                try { var M = window.mapping_v3; if (M && M._measureReveal) { M._measureReveal(); } } catch (e) { /* older mapping.js */ }
+            }, ms);
         });
     }
 
@@ -716,6 +801,13 @@
             sync();
             return;
         }
+        if (el.hasAttribute('data-lyr-unal-x')) {
+            var uid = unalNow();
+            if (uid) { unalClosed[uid] = true; unalMark(uid); }
+            syncUnal();
+            return;
+        }
+        if (el.hasAttribute('data-lyr-unal-go')) { unalGo(); return; }
         if (el.hasAttribute('data-lyr-more')) { moreSettings(); }
     }
     function onInput(e) {
@@ -758,6 +850,7 @@
 
     // ---- open / close / place
     function open() {
+        unalPlaced = false;
         build();
         isOpen = true;
         panel.hidden = false;
@@ -829,6 +922,8 @@
             st.maxHeight = Math.max(160, Math.round(H - rTop - cb - 10)) + 'px';
             panel.classList.remove('vt-lyr-sheet');
         }
+        unalPlaced = true;
+        unalCheckSeen();
     }
 
     var placeRaf = null;

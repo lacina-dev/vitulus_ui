@@ -181,12 +181,16 @@ check('the result says how much the shift differs around the map (quality.window
 check('reasons of their own: empty tiles, missing libraries, an old robot',
       /blank: \(\) => mapT\('mapping\.m13\.why_blank'\)/.test(show) && /no_libs: \(\) => mapT\('mapping\.m13\.why_no_libs'\)/.test(show) &&
       /no_route: \(\) => mapT\('mapping\.m13\.why_no_route'\)/.test(show));
+// T17 M14: the button is switched off through _updateMeasureButton (also aria-busy), the map / datum
+// condition moved from _measurable to _measBlock (the button then stays, off, with the reason);
+// behaviour: tools/test_map_m14.node.js
 check('one measurement at a time in the page, the button disabled meanwhile',
-      /if \(this\._measBusy \|\| !this\._measurable\(\)\) \{ return; \}/.test(start) && /this\.btn_meas\.disabled = true;/.test(start));
-const can = method('_measurable');
-check('the button is hidden for ČÚZK\'s own group, drawn maps and without a map',
-      /key !== 'cuzk'/.test(can) && /=== 'photo'/.test(can) && /!!this\.tile_offset_map/.test(can) &&
-      /this\.btn_meas\.hidden = !can;/.test(method('_updateMeasureButton')));
+      /if \(this\._measBusy \|\| !this\._measurable\(\)\) \{ return; \}/.test(start) && /this\._updateMeasureButton\(\);/.test(start) &&
+      /this\.btn_meas\.disabled = !!this\._measBusy \|\| !!block;/.test(method('_updateMeasureButton')));
+const can = method('_measSource');
+check('the button is hidden for ČÚZK\'s own group and drawn maps; without a map it is off (M14)',
+      /key !== 'cuzk'/.test(can) && /baseIsPhoto\(src\)/.test(can) && /if \(!this\.tile_offset_map\) \{ return 'no_map'; \}/.test(method('_measBlock')) &&
+      /this\.btn_meas\.hidden = !src;/.test(method('_updateMeasureButton')));
 
 // ---- nudging and resetting ---------------------------------------------------------------
 c = ctx(MEASURED, META, '10_2026', 'sat', true);

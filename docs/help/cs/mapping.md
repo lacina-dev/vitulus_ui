@@ -295,6 +295,14 @@ Google platí pro satelit, hybrid i kreslenou mapu Googlu (měří se na snímku
 pohled zblízka a zdálky se liší o víc než 0,3 m, dlaždice přišly prázdné nebo se nenačetly — robot
 řekne proč a nic k uložení nenabídne: posuň
 pak snímek ručně. Posun se měří vždy pro jednu mapu a jeden podklad, jen když zmáčkneš tlačítko.
+Dokud robot měří, na tlačítku je *Měřím…* a je vypnuté. Změřit jde jen aktivní mapu s uloženou polohou
+(datumem): když robot neukazuje žádnou uloženou mapu nebo mapa datum nemá, tlačítko zůstane vypnuté
+a řádek pod ním řekne proč.
+
+Když jsou nad snímkem Google nebo Bing zapnuté čáry katastru, adres nebo vrstevnic a snímek na této
+mapě nemá žádný posun (změřený ani ruční), panel vrstev to řekne jedním řádkem pod čárovými vrstvami
+— *Čáry můžou být až o 1 m vedle snímku* — s odkazem **Změřit proti ČÚZK**, který otevře rámeček
+posunu u tlačítka. Poznámka se ukáže jednou pro mapu a snímek; **×** ji skryje.
 
 Podkladové mapy jsou ve dvou
 skupinách: **letecké a satelitní snímky** (satelit Google, satelit Google s popisky, ortofoto
@@ -303,10 +311,10 @@ vydání, snímek nad tvým místem může být starší — a *Ortofoto 50. lé
 z 50. let, do z18) a **mapy** (mapa Google, topografická mapa ČÚZK, OpenTopoMap, OpenStreetMap).
 Každý zdroj snímků má jiné datum a jinou ostrost — když je nad zahradou starý nebo rozmazaný,
 zkus jiný. **Detail** *Auto* (výchozí) načte nejjemnější úroveň, jakou zdroj má — Google i ortofoto
-ČÚZK z20 (z21 Googlu víc detailu nemá, a tak se nenačítá) — a ještě blíž ji už jen plynule zvětší. Přiblížení se zastaví zhruba na 20 cm podél delší strany obrazovky; podkladová
+ČÚZK z20 (snímek Googlu na z21 víc detailu nemá, a tak se nenačítá) — a ještě blíž ji už jen plynule zvětší. Přiblížení se zastaví zhruba na 20 cm podél delší strany obrazovky; podkladová
 mapa i mapy robota přitom zůstávají vidět. Telefon dostane stejnou nejjemnější
-úroveň jako počítač. Na displeji s dvojnásobnou hustotou pixelů (většina telefonů) přejde podkladová mapa při
-přibližování na jemnější úroveň o něco později, takže oddálený pohled načte zhruba polovinu dlaždic; obraz je tam o něco měkčí. Na pomalém spojení vyber nižší strop (z17–z21): méně
+úroveň jako počítač. Na displeji s dvojnásobnou hustotou pixelů (většina telefonů) přejde snímek při
+přibližování na jemnější úroveň o něco později (o čtvrt úrovně), takže některé oddálené pohledy načtou třetinu dlaždic; obraz je tam o něco měkčí. Kreslená mapa (topografická mapa ČÚZK, OpenStreetMap, mapa Google) nečeká nikdy: její hrubší úroveň je jiná kresba s méně popisky. Na pomalém spojení vyber nižší strop (z17–z21; z21 má doopravdy jen kreslená mapa Google): méně
 dlaždic, měkčí obraz. Dlaždice vždy pokryjí to, co vidíš. Po posunu nebo přiblížení zůstane
 předchozí obraz, dokud nové dlaždice nedorazí, a mezery mezitím vyplní hrubší obraz, takže mapa
 nezmizí; pohled, který jsi viděl před chvílí, se vrátí hned. Stavový řádek to řekne slovy — zdroj, pak

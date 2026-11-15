@@ -325,3 +325,14 @@
 @media (pointer: coarse) {
     .vt-meas-btn { min-height: 40px; padding-left: 12px; padding-right: 12px; }
 }
+
+/* ---- T17 M14: layers panel, one quiet line: lines over a photo that is not
+   aligned on this map, with the way to "Measure against ČÚZK" */
+.vt-lyr-unal {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--vt-gap-2); padding: 0 0 0 6px;
+    color: var(--vt-muted); font-size: var(--vt-fs-sm); line-height: 1.35;
+}
+.vt-lyr-unal[hidden] { display: none; }
+.vt-lyr-unal-t { flex: 1 1 7em; min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.vt-lyr-unal-go { flex: 0 0 auto; white-space: nowrap; }
+.vt-lyr-unal-x { width: 40px; height: 40px; }

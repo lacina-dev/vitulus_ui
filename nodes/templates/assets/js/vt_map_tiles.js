@@ -113,14 +113,22 @@
     // log2(metres per tile pixel at z0 / metres per DEVICE pixel of the
     // view), dpr = the map's pixel ratio (1-2). A 1x screen takes the next
     // finer level (a tile pixel never above one screen pixel, as before). A
-    // 2x screen lets a tile pixel cover up to 1.41 device pixels = 0.71 CSS
-    // px, still finer than the eye resolves on such a screen, and so loads
-    // the finer level later: a 390x700 phone view 135-190 m high takes about
-    // 40 tiles (13 MB of textures) where it took up to 135 (45 MB).
-    function baseWant(zExact, dpr) {
+    // 2x screen loads the finer level of a PHOTO a quarter of a level later.
+    // T17 M14: photo = false (a drawn map: ZTM, OSM, Google's map) never
+    // waits: its coarser level is another drawing (the ZTM loses house
+    // numbers and road numbers a level up), not a softer picture. And the
+    // wait of a photo is a quarter of a level, not half (M12): the coarser
+    // level is visibly softer wherever it is used (edge energy -22 to -77 %
+    // against the finer one, measured on Google and ČÚZK), so it is used in
+    // 14 % of the views instead of 29 %, and a tile pixel covers at most 1.19
+    // device pixels (0.59 CSS px). The size of the wait is set by the tile
+    // CAP, not by sharpness: with it a 390x804 phone view tops out at 120
+    // tiles (40 MB of textures; 153 = 51 MB with no wait), exactly the half
+    // of the phone's budget (120 tiles) the map keeps while overlays are on.
+    function baseWant(zExact, dpr, photo) {
         if (!isFinite(zExact)) { return zExact; }
         var pr = Math.max(1, Math.min(2, dpr || 1));
-        var slack = Math.max(0, Math.log(pr) / Math.LN2 - 0.5);   // 2x: 0.5, 1.5x: 0.08, 1x: 0
+        var slack = (photo === false) ? 0 : Math.max(0, Math.log(pr) / Math.LN2 - 0.75);   // 2x: 0.25, 1.5x and 1x: 0
         return Math.max(0, Math.ceil(zExact - slack));
     }
 

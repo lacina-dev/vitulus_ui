@@ -305,7 +305,15 @@ and drawn map (measured on the photo). The line under the nudge says how the off
 (*then adjusted by hand*), **Reset layer** clears it. When the place cannot be measured reliably — too
 little detail, lawn and trees only, the close and the wide look disagree by more than 0.3 m, tiles
 that came empty or did not load — the robot says why and offers nothing to save: shift the picture by hand then. The shift is measured for
-one map and one background at a time, only when you press the button.
+one map and one background at a time, only when you press the button. While the robot measures, the
+button reads *Measuring…* and is switched off. Only the active map with a stored position (datum) can
+be measured: when the robot shows no saved map, or the map has no datum, the button stays switched
+off and the line under it says why.
+
+When cadastre, address or contour lines are on over a Google or Bing photo that has no offset on this
+map (neither measured nor set by hand), the layers panel says so in one line under the line layers —
+*Lines may sit up to about 1 m off this photo* — with the link **Measure against ČÚZK**, which opens the
+alignment box at the button. The note shows once for a map and a photo; **×** hides it.
 
 The background maps come in two groups: **aerial and satellite photos** (Google satellite, Google
 satellite with names, ČÚZK orthophoto, Esri, Bing, three older Esri releases — *Esri archive
@@ -313,13 +321,14 @@ satellite with names, ČÚZK orthophoto, Esri, Bing, three older Esri releases �
 and the *Orthophoto 1950s (CENIA)*, black-and-white aerial photos from the 1950s, up to z18) and **maps** (Google map, ČÚZK topographic map,
 OpenTopoMap, OpenStreetMap). Each photo source has its own date and its own sharpness — when one is
 old or blurry over the garden, try another. **Detail** *Auto* (the default) loads the finest level
-each source has — Google and the ČÚZK orthophoto z20 (Google's z21 holds no more detail, so it is
+each source has — Google and the ČÚZK orthophoto z20 (Google's photo z21 holds no more detail, so it is
 not loaded) — and closer up only magnifies it
 smoothly. Zooming in stops at about 20 cm along the longer side of the screen; the background map and the robot's maps
 stay on screen all the way. A phone gets the same finest level as a computer. On a screen with double pixel density (most phones)
-the background map switches to the finer level a little later as you zoom in, so a zoomed-out view loads
-about half the tiles; the picture is slightly softer there. On a slow connection
-pick a lower cap (z17–z21): fewer tiles, a softer picture. The tiles always cover what you see.
+a photo switches to the finer level a little later as you zoom in (a quarter of a level), so some zoomed-out
+views load a third of the tiles; the picture is slightly softer there. A drawn map (ČÚZK topographic map,
+OpenStreetMap, Google map) never waits: its coarser level is another drawing with fewer labels. On a slow connection
+pick a lower cap (z17–z21; only Google's drawn map really has z21): fewer tiles, a softer picture. The tiles always cover what you see.
 After a move or a zoom the previous picture stays until the new tiles are in, and a coarser one
 fills the gaps meanwhile, so the map does not go blank; a view you saw a moment ago comes back at
 once. The status line says it in words — the source, then *finest detail*, *zoomed out, coarser

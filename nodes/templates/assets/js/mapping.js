@@ -97,6 +97,28 @@ function tileOffsetMeasured(meta, mapName, layer) {
     return !!m && m.src === 'measured';
 }
 
+// T17 M14: lines drawn in ČÚZK's frame (cadastre, RÚIAN, contours: overlays
+// aligned as 'cuzk', not the tones under the map) lie over a Google / Bing
+// photo whose shift against ČÚZK is neither measured nor set by hand on this
+// map: the layers panel says so once (vt_map_layers.js). base = the shown
+// background source (null = none shown), overlays = the overlays that are on.
+const UNALIGNED_KEYS = ['sat', 'bing'];
+// one rule for "is this background a photo": only a source whose catalog group
+// is 'photo'. A base without a group counts as a drawn map (tiles: waits not,
+// no white fill) and is not measured nor noted. All catalog sources today
+// carry a group (ui_sources.json: 9 photo, 4 map), so this is only a safeguard.
+function baseIsPhoto(src) { return !!src && src.group === 'photo'; }
+function tileUnalignedNote(offsets, meta, mapName, base, overlays) {
+    if (!mapName || !baseIsPhoto(base)) { return null; }
+    const key = base.offset_key || base.id;
+    if (UNALIGNED_KEYS.indexOf(key) < 0) { return null; }
+    const lines = (overlays || []).some((o) => o && o.layer_order !== 'under' && (o.offset_key || o.id) === 'cuzk');
+    if (!lines) { return null; }
+    const stored = !!(offsets && offsets[mapName] && offsets[mapName][key]);
+    if (stored || tileOffsetMeta(meta, mapName, key)) { return null; }
+    return { map: mapName, key: key };
+}
+
 // T17 M13: a measured shift in words. e/n = metres the picture lies east /
 // north of ČÚZK; parts under 5 cm are left out. -> [{m, dir}] (dir: n|s|e|w),
 // the larger part first; [] = "on ČÚZK".
@@ -1015,6 +1037,7 @@ class MappingV3 {
         this.tile_offsets = {};       // mirror of the robot store
         this.tile_offsets_meta = {};  // T17 M13: how each offset came to be
         this._measPreview = null;     // T17 M13: a measured offset being tried on
+        this.MEAS_MIN_BUSY_MS = 300;  // T17 M14: the shortest "Measuring…"
         this.tile_offset_map = '';    // active map name, resolved by the robot
         this._tileOffsetPost = null;  // debounce timer for the POST
         this._initTileOffsetControl();
@@ -1743,7 +1766,8 @@ class MappingV3 {
         wrap.className = 'vt-meas';
         wrap.innerHTML =
             '<div id="mapv3_aerial_offset_origin" class="vt-fs-sm vt-dim"></div>' +
-            '<button class="btn btn-outline-info btn-sm vt-meas-btn" type="button" id="mapv3_aerial_measure"></button>' +
+            '<button class="btn btn-outline-info btn-sm vt-meas-btn" type="button" id="mapv3_aerial_measure" aria-describedby="mapv3_aerial_measure_why"></button>' +
+            '<div id="mapv3_aerial_measure_why" class="vt-fs-sm vt-dim" hidden></div>' +
             '<div id="mapv3_aerial_measure_res" class="vt-meas-res" role="status" aria-live="polite" hidden>' +
                 '<div id="mapv3_aerial_measure_txt" class="vt-fs-sm"></div>' +
                 '<div id="mapv3_aerial_measure_ba" class="vt-fs-sm vt-dim vt-tnum"></div>' +
@@ -1757,6 +1781,7 @@ class MappingV3 {
         const $ = (id) => document.getElementById(id);
         this.el_tile_off_origin = $('mapv3_aerial_offset_origin');
         this.btn_meas = $('mapv3_aerial_measure');
+        this.el_meas_why = $('mapv3_aerial_measure_why');
         this.el_meas_res = $('mapv3_aerial_measure_res');
         this.el_meas_txt = $('mapv3_aerial_measure_txt');
         this.el_meas_ba = $('mapv3_aerial_measure_ba');
@@ -1810,18 +1835,56 @@ class MappingV3 {
         return parts.length > 1 ? mapT('mapping.m13.and', { a: parts[0], b: parts[1] }) : (parts[0] || '');
     }
 
-    // only photo maps other than ČÚZK's own can be measured, on a known map
-    _measurable() {
+    // only photo maps other than ČÚZK's own can be measured …
+    _measSource() {
         const src = this._aerialBase && this._aerialBase();
         const key = this._aerialLayerId();
-        return !!this.tile_offset_map && key !== 'cuzk' && !!src && (src.group || 'photo') === 'photo';
+        return key !== 'cuzk' && baseIsPhoto(src);
     }
+    // … on the map the robot shows, and only when that map has a datum.
+    // T17 M14: '' = can be measured, else why not: 'no_map' (no served map),
+    // 'no_datum' (the page asked /api/datum and the map has no place on the
+    // ground). The button then stays, switched off, with the reason under it.
+    _measBlock() {
+        if (!this.tile_offset_map) { return 'no_map'; }
+        if (this._datumMissing && !this.aerial_datum) { return 'no_datum'; }
+        return '';
+    }
+    _measurable() { return this._measSource() && !this._measBlock(); }
     _updateMeasureButton() {
         if (!this.btn_meas) { return; }
-        const can = this._measurable();
-        this.btn_meas.hidden = !can;
-        this.btn_meas.disabled = !!this._measBusy;
+        const src = this._measSource(), block = src ? this._measBlock() : '';
+        const can = src && !block;
+        this.btn_meas.hidden = !src;
+        this.btn_meas.disabled = !!this._measBusy || !!block;
+        if (this._measBusy) { this.btn_meas.setAttribute('aria-busy', 'true'); } else { this.btn_meas.removeAttribute('aria-busy'); }
+        if (this.el_meas_why && this._measWhy !== (src ? block : null)) {
+            this._measWhy = src ? block : null;
+            this.el_meas_why.hidden = !block;
+            this._say(this.el_meas_why, () => (block === 'no_map' ? mapT('mapping.m14.blocked_no_map')
+                : block === 'no_datum' ? mapT('mapping.m14.blocked_no_datum') : ''));
+        }
         if (!can && !this._measBusy && this.el_meas_res && !this.el_meas_res.hidden) { this._measureClose(); }
+    }
+
+    // T17 M14: for the layers panel: {map, key} when lines of ČÚZK's frame
+    // lie over a Google / Bing photo with no offset on this map and it can
+    // be measured; else null
+    _unalignedInfo() {
+        try {
+            if (!this._bgShown() || this._measBlock() || this._measPreview) { return null; }
+            return tileUnalignedNote(this.tile_offsets, this.tile_offsets_meta, this.tile_offset_map,
+                this._aerialBase(), this._overlaysOn());
+        } catch (e) { return null; }
+    }
+    // … and its link: show the Measure button (Map › Display is opened by the caller)
+    _measureReveal() {
+        const b = this.btn_meas;
+        if (!b || b.hidden) { return false; }
+        for (let d = b.parentElement; d; d = d.parentElement) { if (d.tagName === 'DETAILS') { d.open = true; } }
+        try { b.scrollIntoView({ block: 'center' }); } catch (e) { /* old browser */ }
+        try { b.focus({ preventScroll: true }); } catch (e) { /* idem */ }
+        return true;
     }
 
     _measureStart() {
@@ -1830,8 +1893,12 @@ class MappingV3 {
         const map = this.tile_offset_map, layer = this._aerialLayerId(), name = this._measSrcName();
         this._measBusy = true;
         this._resay(this.btn_meas);
-        this.btn_meas.disabled = true;
+        this._updateMeasureButton();       // off (and aria-busy) for the whole measurement
         this._tileOffsetStatus(() => mapT('mapping.m13.running'));
+        // T17 M14: "Measuring…" is seen for at least MEAS_MIN_BUSY_MS, also
+        // when the robot answers at once (a refusal, a cached area)
+        const t0 = Date.now();
+        const settled = (j) => new Promise((res) => setTimeout(() => res(j), Math.max(0, this.MEAS_MIN_BUSY_MS - (Date.now() - t0))));
         const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         const timer = setTimeout(() => { if (ctl) { ctl.abort(); } }, 30000);
         fetch('/api/tile_offsets/measure', {
@@ -1841,10 +1908,10 @@ class MappingV3 {
             // an answer that is not JSON: a robot whose UI is older than this
             // page has no such route (404 / 405 page), anything else is odd
             { ok: false, reason: (r.status === 404 || r.status === 405) ? 'no_route' : 'other' }
-        ))).then((j) => {
+        ))).catch(() => ({ ok: false, reason: 'unreachable' })).then(settled).then((j) => {
             this._measureShow(j, map, layer, name);
-        }).catch(() => {
-            this._measureShow({ ok: false, reason: 'unreachable' }, map, layer, name);
+        }).catch((e) => {
+            console.warn('[mappingv3] measure result:', e);
         }).then(() => {
             clearTimeout(timer);
             this._measBusy = false;
@@ -2171,9 +2238,12 @@ class MappingV3 {
                 if (!dj || dj.ok === false) {
                     bstatus(() => mapT('mapping.aerial.no_datum'), true);
                     ostatus(() => mapT('mapping.aerial.no_datum'));
+                    // T17 M14: the robot answered "no datum" (not: no answer)
+                    if (dj && !this._datumMissing) { this._datumMissing = true; this._updateMeasureButton(); }
                     return;
                 }
                 this.aerial_datum = dj;
+                if (this._datumMissing) { this._datumMissing = false; this._updateMeasureButton(); }
             }
             if (token !== this.aerial_token) { return; }
             const d = this.aerial_datum;
@@ -2255,11 +2325,14 @@ class MappingV3 {
             // still no coarser than the on-screen resolution (capped per source
             // below). At the standard zoom this lands on the cap (crisp
             // detail); dollying out steps DOWN to coarser world-scale tiles.
-            // T17 M12: zBase = the level the BACKGROUND MAP aims at: on a
-            // 2x screen a tile pixel may cover up to 1.41 device pixels (0.71
-            // CSS px) before the next finer level is loaded
-            // (VTMapTiles.baseWant) — about half the tiles of a zoomed-out
-            // phone view; a 1x screen and the overlays are unchanged.
+            // T17 M12/M14: zBase = the level the BACKGROUND MAP aims at: on a
+            // 2x screen a PHOTO loads the next finer level a quarter of a
+            // level later (a tile pixel up to 1.19 device pixels,
+            // VTMapTiles.baseWant) — fewer tiles in a zoomed-out phone view;
+            // a drawn map (catalog group other than 'photo': its coarser
+            // level is another drawing), a 1x screen and the overlays are
+            // unchanged.
+            const basePhoto = baseIsPhoto(this._aerialBase());
             let zAdaptive = Infinity, zBase = Infinity;
             if (vp && vp.heightPx > 0) {
                 const screenRes = (2.0 * vp.halfH) / vp.heightPx;   // map m / px
@@ -2269,7 +2342,7 @@ class MappingV3 {
                 zAdaptive = Math.ceil(zExact);
                 if (!isFinite(zAdaptive)) { zAdaptive = Infinity; }
                 zBase = (isFinite(zAdaptive) && VTMapTiles.baseWant)
-                    ? VTMapTiles.baseWant(zExact, (typeof vtMapPixelRatio === 'function') ? vtMapPixelRatio() : 1)
+                    ? VTMapTiles.baseWant(zExact, (typeof vtMapPixelRatio === 'function') ? vtMapPixelRatio() : 1, basePhoto)
                     : zAdaptive;
             }
             // (4) TILE BUDGET: one limit for all layers together, the

@@ -11,7 +11,7 @@
  * limit, dispose called exactly once per evicted texture; the Detail cap
  * ("auto" = the source's finest level on every device, M12) and the level
  * the background map aims at (baseWant: a 2x screen loads the finer level
- * later); the
+ * of a photo a quarter of a level later, a drawn map never, M14); the
  * offline fill (plain white tile), the cache-busting URL and the outage
  * bookkeeping that reloads the tiles once the network / robot is back.
  * Also checks that mapping.js uses the module and that the detail select in
@@ -75,12 +75,17 @@ ok('manual cap is the same on every device', MT.zoomCap(21, '19', { coarse: true
 ok('manual cap never above the source max', MT.zoomCap(17, '21', { coarse: false }) === 17);
 ok('nonsense choice falls back to the source max', MT.zoomCap(19, 'x', { coarse: false }) === 19);
 
-console.log('\nbackground map level for a view (M12)');
+// T17 M14: the wait of a 2x screen is a quarter of a level (was half, M12: the
+// coarser level is visibly softer) and only for photos; a drawn map never waits
+console.log('\nbackground map level for a view (M12, M14)');
 ok('1x screen: the next finer level, as before (ceil)', MT.baseWant(19.01, 1) === 20 && MT.baseWant(19, 1) === 19 && MT.baseWant(18.99, 1) === 19);
-ok('2x screen: the finer level only past half a level', MT.baseWant(19.49, 2) === 19 && MT.baseWant(19.51, 2) === 20);
-ok('2x screen: a tile pixel never above 1.42 device px', [17.2, 18.5, 18.51, 19.49, 19.999, 20.3].every((z) => Math.pow(2, z - MT.baseWant(z, 2)) <= 1.42));
-ok('1.5x screen: almost no slack', MT.baseWant(19.05, 1.5) === 19 && MT.baseWant(19.2, 1.5) === 20);
-ok('a pixel ratio above 2 counts as 2, nonsense as 1', MT.baseWant(19.4, 3) === 19 && MT.baseWant(19.4, 0) === 20 && MT.baseWant(19.4) === 20);
+ok('2x screen, photo: the finer level only past a quarter of a level', MT.baseWant(19.24, 2) === 19 && MT.baseWant(19.26, 2) === 20 &&
+   MT.baseWant(19.24, 2, true) === 19 && MT.baseWant(19.49, 2, true) === 20);
+ok('2x screen, photo: a tile pixel never above 1.19 device px', [17.2, 18.25, 18.26, 19.24, 19.49, 19.999, 20.3].every((z) => Math.pow(2, z - MT.baseWant(z, 2)) <= 1.19));
+ok('2x screen, drawn map: never waits (ceil, as on a 1x screen)', MT.baseWant(19.01, 2, false) === 20 && MT.baseWant(19.24, 2, false) === 20 &&
+   MT.baseWant(19, 2, false) === 19 && [17.2, 18.01, 19.24, 19.999].every((z) => MT.baseWant(z, 2, false) === Math.ceil(z)));
+ok('1.5x screen: no wait', MT.baseWant(19.05, 1.5) === 20 && MT.baseWant(19.2, 1.5) === 20);
+ok('a pixel ratio above 2 counts as 2, nonsense as 1', MT.baseWant(19.2, 3) === 19 && MT.baseWant(19.2, 0) === 20 && MT.baseWant(19.2) === 20);
 ok('never below 0, no view stays no view', MT.baseWant(-3, 2) === 0 && MT.baseWant(Infinity, 2) === Infinity);
 
 console.log('\nphone with overlays');
@@ -186,6 +191,8 @@ ok('N1: every texture release keeps the idle limit', /_texRelease\(url\) \{\s*th
    (mapping.match(/\.release\(/g) || []).length === 2);
 ok('mapping.js shares the phone budget (baseShare, overlayWant)',
    /VTMapTiles\.baseShare\(/.test(mapping) && /VTMapTiles\.overlayWant\(/.test(mapping));
+ok('mapping.js: only a photo base waits (catalog group photo -> baseWant)',
+   /const basePhoto = baseIsPhoto\(this\._aerialBase\(\)\);/.test(mapping) && /function baseIsPhoto\(src\) \{ return !!src && src\.group === 'photo'; \}/.test(mapping) && /VTMapTiles\.baseWant\(zExact,[^\n]*, basePhoto\)/.test(mapping));
 ok('mapping.js aims the background map with baseWant, overlays keep zAdaptive',
    /VTMapTiles\.baseWant\(zExact,/.test(mapping) && /plan\(src, CAP, zBase\)/.test(mapping) &&
    /VTMapTiles\.overlayWant\(zAdaptive, o,/.test(mapping));
