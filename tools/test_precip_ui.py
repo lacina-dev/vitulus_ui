@@ -103,6 +103,7 @@ class Svc(object):
         self.gone = None          # T40b: tiles of this frame id answer 404 (it left the service's window)
         self.hang = None          # T40b: the first tile of this frame id never answers (held until release())
         self.held = []
+        self.netfail = False      # T40c: tiles fail with a network error (the index still answers)
         self.lock = threading.Lock()
 
     def index(self):
@@ -168,6 +169,8 @@ class Svc(object):
         if p == '/legend.json':
             return route.fulfill(status=200, content_type='application/json', body=json.dumps(LEGEND), headers=cors)
         m = re.match(r'^/tiles/([^/]+)/(\d+)/(\d+)/(\d+)\.png$', p)
+        if m and self.netfail:
+            return route.abort('failed')
         if m and self.gone and m.group(1) == self.gone:
             return route.fulfill(status=404, body='', headers=cors)
         if m and self.hang and m.group(1) == self.hang and not self.held:
@@ -466,6 +469,15 @@ def bar(p, shots, label, cs, phone):
     d0 = p.ev(DIST_JS)
     small = p.ev("mapping_v3._precipView().small")
     tricky = label == 'bar-nb-en'
+    late = label == 'bar-nb-cs'
+    netfail = label == 'bar-phone-cs'
+    if late:
+        # T40c: the radar 13 min late (fresh index): ▶ still starts at −2 h (no frame left out)
+        svc.age_min = 13
+        p.ev("mapping_v3._precip._fetch()")
+        p.until("(()=>{const P=mapping_v3._precip;return P.index()&&P.status().age>=12*60})()", 8000)
+    if netfail:
+        svc.netfail = True
     if tricky:
         # T40b: the oldest frame has left the service's window (404) and one tile of frame 4 never answers
         ids = p.ev("mapping_v3._precip.index().frames.map(f=>f.id)")
@@ -476,6 +488,22 @@ def bar(p, shots, label, cs, phone):
     else:
         p.pg.click('#mapv3_precip_bplay', no_wait_after=True)
     check(label + ': ▶ on the map plays', p.until("mapping_v3._precip.playing", 3000))
+    if late:
+        check(label + ': radar 13 min late: ▶ starts at the oldest frame (−2 h), none left out',
+              p.ev("mapping_v3._precip.liveFrom()") == 0 and
+              p.until("+document.getElementById('mapv3_precip_range').value===0", 3000),
+              (p.ev("mapping_v3._precip.liveFrom()"), p.ev("document.getElementById('mapv3_precip_range').value")))
+    if netfail:
+        want_r = 'některé obrázky se nenačítají, zkouším znovu' if cs else 'some pictures do not load, trying again'
+        ok_r = p.until("(w)=>{const s=document.querySelector('.vt-map-precip-sub');return s&&s.textContent===w && mapping_v3._precip.playing && !mapping_v3._precip.failed}", 20000, want_r)
+        if shots:
+            p.pg.screenshot(path=os.path.join(shots, label + '-retry.png'))
+        check(label + ': tiles fail, the service answers: the bar says it tries again (playing, no "not responding")',
+              ok_r, (p.text('.vt-map-precip-sub'), p.text('.vt-precip-state')))
+        svc.netfail = False
+        check(label + ': network back: the playback goes on by itself',
+              p.until("+document.getElementById('mapv3_precip_range').value>=2", 45000),
+              (p.ev("document.getElementById('mapv3_precip_range').value"), p.text('.vt-map-precip-sub')))
     if small:
         check(label + ': ▶ from the garden view zooms out, the bar offers Back',
               p.until("(d)=>{const v=mapping_v3.viewer3d;return v.camera.position.distanceTo(v.cameraControls.center)>d*20 && !!mapping_v3._precipBack}", 4000, d0)
@@ -496,8 +524,9 @@ def bar(p, shots, label, cs, phone):
         p.release()
     on = costs(p, 10000)
     print('     costs while playing, 10 s: %s' % on, flush=True)
-    check(label + ': playing costs a bounded amount (10 s: timer <= 110, bar <= 150, rebuilds <= 40)',
-          on['tick'] <= 110 and on['bar'] <= 150 and on['rebuild'] <= 40, on)
+    # the bar is redrawn at most 5x a second (T40c: 50 in 10 s + a little for direct redraws)
+    check(label + ': playing costs a bounded amount (10 s: timer <= 110, bar <= 55, rebuilds <= 40)',
+          on['tick'] <= 110 and on['bar'] <= 55 and on['rebuild'] <= 40, on)
     if phone:
         p.pg.locator('#mapv3_precip_bplay').tap()
     else:

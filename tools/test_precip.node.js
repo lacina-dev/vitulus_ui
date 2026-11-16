@@ -203,13 +203,18 @@ tw.idx.generatedEpoch = Math.floor(Date.now() / 1000) - 6 * 60;
 tw._fetch = () => {};
 tw.play(); clearInterval(tw._play);
 ok('▶ skips the frame the service may have dropped since the index', P.find(tw.idx, tw.selId) >= 1 && tw._frameIn(0) === 'skip');
-// T40b: the window moves with the service's NEWEST observation (+5 min + latency)
+// T40c: the index lists exactly the frames the service holds; the oldest goes only when a newer
+// observation arrives there after the index — counted from the INDEX's age, not the radar's
 let tv = tl();
 tv._fetchedMs = Date.now();
-tv.idx.generatedEpoch = tv.idx.latestEpoch + 180;           // newest 3 min old: nothing dropped yet
-ok('newest 3 min old: every frame live', tv.liveFrom() === 0 && tv.frameLive(tv.idx.frames[0].id));
-tv.idx.generatedEpoch = tv.idx.latestEpoch + 420;           // 7 min: a new one may be in, the oldest gone
-ok('newest 7 min old: the oldest frame is not asked any more', tv.liveFrom() === 1 && !tv.frameLive(tv.idx.frames[0].id));
+tv.idx.generatedEpoch = tv.idx.latestEpoch + 13 * 60;       // the radar 13 min late, the index fresh
+ok('radar 13 min late, fresh index: every frame live (start at −2 h)', tv.liveFrom() === 0 && tv.frameLive(tv.idx.frames[0].id));
+tv.idx.generatedEpoch = tv.idx.latestEpoch + 15 * 60;
+ok('radar 15 min late, fresh index: still every frame (slider too)', tv.liveFrom() === 0);
+tv._fetchedMs = Date.now() - 60000;
+ok('index 1 min old (the normal poll): nothing left out', tv.liveFrom() === 0);
+tv._fetchedMs = Date.now() - 2 * 60000;
+ok('index 2 min old (polling stalled): the oldest frame left out', tv.liveFrom() === 1 && !tv.frameLive(tv.idx.frames[0].id));
 tv.markGone(tv.idx.frames[1].id);
 ok('a frame 404 said gone: not live, skipped', !tv.frameLive(tv.idx.frames[1].id) && tv._frameIn(1) === 'skip' && tv.liveFrom() === 2);
 ok('a frame not in the index: not live', !tv.frameLive('2020-01-01T00:00Z'));
@@ -312,8 +317,9 @@ console.log('\nPreload (blobs, limits, waiters)');
     ok('… the frame is still to load (not failed)', p3.frameState('d') === 'pending' && !p3.pending('d1'));
     gate = {};
     p3.resume();
+    ok('… "trying again" stays while it resumes (no flicker)', p3.progress().down === true);
     await new Promise((r) => setTimeout(r, 10));
-    ok('resume: loads again', p3.frameReady('d'));
+    ok('resume: loads again, "trying again" gone', p3.frameReady('d') && p3.progress().down === false);
 
     console.log('\nT40b: one late tile, a frame gone on one tile, stride on a phone');
     let lateDown = 0, lateTries = 0;

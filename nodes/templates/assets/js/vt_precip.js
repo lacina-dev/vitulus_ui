@@ -426,6 +426,7 @@
             it.size = (blob && blob.size) || 0;
             self.bytes += it.size;
             it.obj = self.o.mkUrl ? self.o.mkUrl(blob) : null;
+            self.trouble = false;
             done();
         }, function (e) {
             it.ctl = null;
@@ -437,6 +438,7 @@
                 } else if (e && e.net) {
                     // the service does not answer: stop here, ask nothing more
                     it.state = 'wait';
+                    self.trouble = true;   // shown until a tile comes again (no flicker on retries)
                     if (!self.down) { self.down = true; if (self.o.onDown) { self.o.onDown(); } }
                 } else {
                     it.state = 'err';
@@ -497,7 +499,7 @@
     Preload.prototype.clear = function () {
         var self = this;
         Array.from(this.items.keys()).forEach(function (u) { self._drop(u); });
-        this.frames = []; this.byId = {}; this.prev = {}; this.key = ''; this.full = false; this.down = false;
+        this.frames = []; this.byId = {}; this.prev = {}; this.key = ''; this.full = false; this.down = false; this.trouble = false;
     };
     // the object URL of a preloaded tile (null = not preloaded / failed)
     Preload.prototype.url = function (u) {
@@ -567,7 +569,7 @@
     Preload.prototype.progress = function () {
         var k = 0, self = this;
         this.frames.forEach(function (f) { if (self.frameReady(f.id)) { k++; } });
-        return { k: k, n: this.frames.length, full: this.full, bytes: this.bytes, down: this.down };
+        return { k: k, n: this.frames.length, full: this.full, bytes: this.bytes, down: this.down || !!this.trouble };
     };
 
     // ---------------------------------------------------------------- DOM
@@ -825,17 +827,19 @@
     // (o.beforePlay; Back returns).
     // T40: the oldest frames the service has dropped since this index was
     // written (its 2 h window moves every 5 min): asking for them = 404s
-    // T40b: the service keeps 2 h before its NEWEST observation; when a new
-    // one arrives (its time + 5 min + ~1-4 min latency) the oldest frame
-    // goes — before this browser has the next index (polled every minute).
-    // So the frames that may already be gone: one per new observation
-    // possible since the index's newest (from 6 min of its age on), and those
+    // T40c: the service's index lists exactly the frames it holds (2 h
+    // before its newest observation, service.py _build_timeline); the oldest
+    // goes only when a NEWER observation arrives there — after this index.
+    // So the frames to leave out are counted from the age of the INDEX, not
+    // from the age of the newest observation (a late radar shifts nothing):
+    // a fresh index (polled every minute, ≤ 90 s) — none; an older one (the
+    // tab was hidden) — one per 5 min past that, at most 3. Plus the frames
     // the service answered 404 for. They are never asked for.
     Timeline.prototype.liveFrom = function () {
         var idx = this.idx;
-        if (!idx || !this._fetchedMs || idx.latestEpoch === null) { return 0; }
-        var now = serviceNow(idx, this._fetchedMs, Date.now());
-        var m = Math.max(0, Math.floor((now - idx.latestEpoch - 360) / 300) + 1);
+        if (!idx || !this._fetchedMs) { return 0; }
+        var age = Math.max(0, Date.now() - this._fetchedMs) / 1000;
+        var m = age <= 90 ? 0 : Math.floor((age - 90) / 300) + 1;
         m = Math.min(m, 3, idx.latestIdx > 0 ? idx.latestIdx : 0);
         while (m < idx.latestIdx && this.gone.has(idx.frames[m].id)) { m++; }
         return m;

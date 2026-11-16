@@ -1323,10 +1323,7 @@ class MappingV3 {
                     frameState: (f) => this._precipFrameIn(f),
                     // the bar at most 5x a second (each preloaded tile and each
                     // 100 ms tick while it waits used to redraw it)
-                    onRender: () => {
-                        if (this._precipBarT) { return; }
-                        this._precipBarT = setTimeout(() => { this._precipBarT = null; this._precipBadge(); }, 200);
-                    },
+                    onRender: () => this._precipBarSoon(),
                     loadState: () => (this._precipZooming && Date.now() - (this._precipZoomingAt || 0) <= 5000 ? { k: 0, n: 0, full: false, zooming: true }
                         : (this._precipPre && this._precipPre.frames.length ? this._precipPre.progress() : null)),
                     onPause: () => { this._precipZooming = false; this._precipIdleSoon(); },
@@ -1342,7 +1339,7 @@ class MappingV3 {
     }
     // a new frame on screen (slider, playback, new data) or the service is down
     _precipOnFrame(f, why) {
-        this._precipBadge();
+        this._precipBarSoon();       // T40c: every bar redraw through the 5/s limit
         this._updateAttribution();
         if (!this._precipWide && this._precip && this._precip.index()) {
             this._precipWide = true;      // the zoom-out limit now knows the area
@@ -1354,6 +1351,11 @@ class MappingV3 {
     // (its own id, so the tile set and the stand-ins follow the frame), the
     // MapProxy fallback while the service never answered, null = wait
     // is url a tile of a precipitation frame that must not be asked for? (T40b)
+    // the play bar at most 5x a second (steps, ticks, preloaded tiles)
+    _precipBarSoon() {
+        if (this._precipBarT) { return; }
+        this._precipBarT = setTimeout(() => { this._precipBarT = null; this._precipBadge(); }, 200);
+    }
     _precipUrlFrame(url) {
         const P = this._precip;
         if (!P || !P.o || !P.index() || typeof url !== 'string' || url.indexOf(P.o.base + '/tiles/') !== 0) { return null; }
