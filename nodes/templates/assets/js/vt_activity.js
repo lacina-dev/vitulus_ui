@@ -368,6 +368,11 @@
         renderNow();
         renderList();
     }
+    /* T39: the "now" line follows the field every 15 s only while this tab
+       is on screen; otherwise the bell's minute beat is enough */
+    function wantNow() {
+        if (window.VTHub && VTHub.want) { VTHub.want("field.now", 'activity', root && root.offsetParent ? 15000 : 0); }
+    }
     function start() {
         if (started || !window.VTHub) { return; }
         started = true;
@@ -375,7 +380,8 @@
         VTHub.on("field.activity", renderList);
         VTHub.on("agent.jobs", renderList);
         VTHub.on("ui.actions", renderList);
-        VTHub.poll("field.now", '/field/api/activity/current', 15000);
+        VTHub.poll("field.now", '/field/api/activity/current', 60000);
+        wantNow();
         VTHub.poll("field.activity", '/field/api/activity?hours=24&limit=200', 60000);
         VTHub.poll("agent.jobs", '/agent/api/v2/jobs?limit=50', 60000);
     }
@@ -388,11 +394,12 @@
             /* the sources start the first time the tab is opened, and every
                opening asks again (the hub keeps one poller per source) */
             onOpen: function () {
+                setTimeout(wantNow, 800);   // the shell opens every block; ask fast only if this tab is the one on screen
                 if (!started) { start(); return; }
                 ["field.now", "field.activity", "agent.jobs"].forEach(function (k) { VTHub.refresh(k); });
             }
         });
-        setInterval(function () { if (root && root.offsetParent) { renderList(); } }, 60000);  // day labels
+        setInterval(function () { wantNow(); if (root && root.offsetParent) { renderList(); } }, 60000);  // day labels
         if (window.VTI18n) {   // live language switch: everything drawn with tr()
             VTI18n.onChange(function () { if (root) { renderNow(); renderList(); paintIssue(); } });
         }

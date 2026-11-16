@@ -742,8 +742,11 @@ Which AI model does what for the agent (chat, planning, analysis) — informatio
 
 The **bell** in the navbar is quiet when nothing waits, orange with a count when something does,
 red when it is urgent or the robot would move. It counts **only what waits for you** — what the
-agents handle themselves, calm notes and information never light it up. The panel speaks the
-same language as the Support dashboard's home page:
+agents handle themselves, calm notes and information never light it up. With the panel closed
+the bell asks the Support dashboard **once a minute** (its number can be up to a minute behind);
+with the panel open it follows it every 15–45 s, and a browser tab you are not looking at asks
+nothing and catches up the moment you return — every answer costs the robot's computer. The
+panel speaks the same language as the Support dashboard's home page:
 
 ![Needs you with the three kinds of cards](img/shot-needs.webp "1 the state in one sentence · 2 the kind of the card, how long it waits, the issue · 3 the recommended option · 4 what happens next · 5 one step at a time · 6 what changes, for whom, the risk")
 

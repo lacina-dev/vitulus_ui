@@ -8,7 +8,16 @@
  * on errors, an immediate refresh when the tab comes back. Panels subscribe
  * with on(key, fn) and get the current value at once.
  *
+ * The field dashboard pays CPU on the robot's computer for every answer
+ * (T39: /api/home ~1.9 s), so its sources (/field/api/*) are not asked at
+ * all while the tab is hidden, and a panel asks faster only while it is
+ * open: want(key, who, everyMs) adds its pace, want(key, who, 0) takes it
+ * back; the poller runs at the fastest pace anybody wants (its own base
+ * pace included) and stands still when nobody wants it.
+ *
  *   VTHub.poll(key, url, everyMs)   start (idempotent) a GET poller
+ *   VTHub.pace(key, everyMs)        change its base pace; 0 = only on demand
+ *   VTHub.want(key, who, everyMs)   `who` needs it this often; 0 = no longer
  *   VTHub.put(key, data)            publish data another module already has
  *                                    (agent_chat.js puts its approvals here)
  *   VTHub.get(key) -> {data, ok, ts, err} | undefined
@@ -22,6 +31,7 @@
     'use strict';
     var HIDDEN_MS = 60000;       // slow beat while the tab is hidden
     var MAX_BACKOFF_MS = 300000;
+    var HIDDEN_OFF = /^\/field\/api\//;   // costs the robot's CPU: nothing while hidden
 
     var store = {};              // key -> {data, ok, ts, err}
     var subs = {};               // key -> [fn]
@@ -43,17 +53,46 @@
             subs[key] = (subs[key] || []).filter(function (f) { return f !== fn; });
         };
     }
+    /* the fastest pace anybody wants; 0 = nobody, the poller stands still */
+    function pace(p) {
+        var ms = p.every || 0;
+        Object.keys(p.wants).forEach(function (w) {
+            if (p.wants[w] > 0 && (!ms || p.wants[w] < ms)) { ms = p.wants[w]; }
+        });
+        return ms;
+    }
+    function resting(p) { return !pace(p) || (document.hidden && HIDDEN_OFF.test(p.url)); }
     function delay(p) {
-        var ms = p.every;
-        if (p.fails) { ms = Math.min(MAX_BACKOFF_MS, p.every * Math.pow(2, p.fails)); }
+        var ms = pace(p);
+        if (p.fails) { ms = Math.min(MAX_BACKOFF_MS, ms * Math.pow(2, p.fails)); }
         if (document.hidden) { ms = Math.max(ms, HIDDEN_MS); }
         return ms;
     }
-    function schedule(key) {
+    function schedule(key, after) {
         var p = pollers[key];
         if (!p) { return; }
         clearTimeout(p.timer);
-        p.timer = setTimeout(function () { fetchNow(key); }, delay(p));
+        p.timer = null;
+        if (resting(p)) { return; }
+        /* a pace that just got faster counts from the last answer */
+        var e = store[key], ms = delay(p);
+        if (after && e && e.ts) { ms = Math.max(0, ms - (Date.now() - e.ts)); }
+        p.timer = setTimeout(function () { fetchNow(key); }, ms);
+    }
+    function repace(key, change) {
+        var p = pollers[key];
+        if (!p) { return; }
+        var was = pace(p);
+        change(p);
+        if (pace(p) !== was && !p.busy) { schedule(key, true); }
+    }
+    function setPace(key, every) {
+        repace(key, function (p) { p.every = every > 0 ? Math.max(2000, every) : 0; });
+    }
+    function want(key, who, every) {
+        repace(key, function (p) {
+            if (every > 0) { p.wants[who] = Math.max(2000, every); } else { delete p.wants[who]; }
+        });
     }
     function fetchNow(key) {
         var p = pollers[key];
@@ -81,14 +120,21 @@
     }
     function poll(key, url, every) {
         if (pollers[key]) { return; }
-        pollers[key] = { url: url, every: Math.max(2000, every || 30000), timer: null, fails: 0, busy: false };
-        fetchNow(key);
+        pollers[key] = { url: url, every: Math.max(2000, every || 30000), wants: {}, timer: null, fails: 0, busy: false };
+        if (!resting(pollers[key])) { fetchNow(key); }   // hidden: the first ask waits for the tab
     }
     document.addEventListener('visibilitychange', function () {
-        if (document.hidden) { return; }
+        if (document.hidden) {
+            Object.keys(pollers).forEach(function (k) {   // a pending beat must not fire hidden
+                if (resting(pollers[k])) { clearTimeout(pollers[k].timer); pollers[k].timer = null; }
+            });
+            return;
+        }
         Object.keys(pollers).forEach(function (k) {
-            var e = store[k];
-            if (!e || Date.now() - e.ts > pollers[k].every) { fetchNow(k); }
+            var e = store[k], ms = pace(pollers[k]);
+            if (!ms) { return; }
+            if (!e || Date.now() - e.ts > ms) { fetchNow(k); }
+            else if (!pollers[k].timer && !pollers[k].busy) { schedule(k, true); }
         });
     });
 
@@ -102,6 +148,8 @@
     window.VTHub = {
         poll: poll,
         stop: stop,
+        pace: setPace,
+        want: want,
         put: function (key, data) { put(key, data, true); },
         get: function (key) { return store[key]; },
         on: on,

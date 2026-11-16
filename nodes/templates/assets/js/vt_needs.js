@@ -25,7 +25,13 @@
     function t(k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; }
     function tn(k, n, v) { return window.VTI18n ? VTI18n.tn(k, n, v) : k; }
     var drawerTitle = '';   // the text this panel put into #ui_drawer_title
-    var FIELD_EVERY = 30000, HOME_EVERY = 45000;
+    /* T39: every answer costs the robot's computer (/api/home ~1.9 s of CPU,
+       /api/attention ~0.75 s). The closed panel shows only the bell and its
+       number, and that comes from /api/home alone - so closed: home and "now"
+       once a minute, the attention list not at all (only while home has not
+       answered); open: the paces below. Hidden tab: nothing (vt_hub.js). */
+    var FIELD_EVERY = 30000, HOME_EVERY = 45000, NOW_EVERY = 15000, IDLE_EVERY = 60000;
+    var FRESH_MS = 90000;   // an attention list older than this does not colour the bell
     var panel = null, active = false, bell = null, bellN = null;
     var openGroups = {};
 
@@ -99,7 +105,8 @@
         var urgent = a.some(function (x) { return x.moves; }) ||
             w.some(function (x) { return x.code === 'safety'; }) ||
             al.some(function (x) { return x.tone === 'bad'; }) ||
-            ((field && field.data && field.data.items) || []).some(function (x) { return x.urgency === 'high'; });
+            (field && field.ok && Date.now() - field.ts < FRESH_MS &&
+             ((field.data && field.data.items) || []).some(function (x) { return x.urgency === 'high'; }));
         return { asks: a, work: w, field: f, todo: todo, stav: hd && hd.stav, home: home, hd: hd, cur: cur,
                  fieldEntry: field, askEntry: asks, fieldN: fieldN, alerts: al,
                  n: a.length + w.length + fieldN + al.length, urgent: urgent };
@@ -501,6 +508,7 @@
         var bd = document.getElementById('ui_drawer_backdrop');
         if (bd) { bd.style.display = window.innerWidth < 576 ? 'block' : 'none'; }
         active = true;
+        pace();
         lsSet('vitulus_needs_open', '1');
         if (window.VTHub) { VTHub.refresh("field.attention"); VTHub.refresh("field.home"); }
         if (!VTHub.get("agent.asks") && window.VAgent && VAgent.pollApprovals) {
@@ -511,6 +519,7 @@
     function deactivate(slideOut) {
         if (!active) { return; }
         active = false;
+        pace();
         panel.style.display = 'none';
         var meta = document.getElementById('vt_needs_meta');
         if (meta) { panel.appendChild(meta); }
@@ -577,6 +586,18 @@
         if (xb) { xb.addEventListener('click', function () { if (active) { deactivate(true); } }); }
     }
 
+    /* who asks the field dashboard how often: fast only while the panel is
+       open; closed, the attention list is asked only as a stand-in while
+       /api/home has no good answer */
+    function pace() {
+        var H = window.VTHub;
+        if (!H || !H.want) { return; }
+        var home = H.get("field.home");
+        H.want("field.home", 'needs', active ? HOME_EVERY : 0);
+        H.want("field.now", 'needs', active ? NOW_EVERY : 0);
+        H.want("field.attention", 'needs', active ? FIELD_EVERY : (home && home.ok && home.data ? 0 : IDLE_EVERY));
+    }
+
     function init() {
         if (!window.VTHub) { return; }
         try { openGroups = JSON.parse(lsGet('vitulus_needs_groups') || '{}') || {}; } catch (e) { openGroups = {}; }
@@ -591,13 +612,15 @@
         VTHub.on("agent.needs", render);
         VTHub.on("field.attention", render);
         VTHub.poll("field.attention", '/field/api/attention', FIELD_EVERY);
+        if (VTHub.pace) { VTHub.pace("field.attention", 0); }   // from here on only on demand: pace()
         /* the field's own words for people: stav + todo (one poller, shared
            with Support › Releases / Signal) */
-        VTHub.on("field.home", render);
+        VTHub.on("field.home", function () { pace(); render(); });
         /* what runs now + the watcher / Signal state (the field's 5 s "busy") */
         VTHub.on("field.now", render);
-        VTHub.poll("field.now", '/field/api/activity/current', 15000);
-        VTHub.poll("field.home", '/field/api/home', HOME_EVERY);
+        VTHub.poll("field.now", '/field/api/activity/current', IDLE_EVERY);
+        VTHub.poll("field.home", '/field/api/home', IDLE_EVERY);
+        pace();
         VTHub.on("ui.actions", render);
         VTHub.poll("ui.actions", '/field/ui_actions?limit=50', 60000);   // I5: switch + audit
         setInterval(function () { if (active) { render(); } }, 30000);   // ages tick

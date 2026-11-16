@@ -720,7 +720,10 @@ Který AI model co pro agenta dělá (chat, plánování, rozbor) — jen pro in
 
 **Zvonek** v navbaru je tichý, když nic nečeká, oranžový s počtem, když něco čeká, a červený,
 když je to naléhavé nebo by se robot pohnul. Počítá **jen to, co čeká na tebe** — co agenti
-vyřeší sami, klidné poznámky a informace ho nerozsvítí. Panel mluví stejně jako úvodní stránka
+vyřeší sami, klidné poznámky a informace ho nerozsvítí. Se zavřeným panelem se zvonek ptá
+dashboardu Podpory **jednou za minutu** (číslo může být až minutu pozadu); s otevřeným panelem
+ho sleduje po 15–45 s a karta prohlížeče, na kterou se nedíváš, se neptá vůbec a dožene to hned,
+jak se vrátíš — každá odpověď stojí výkon počítače robota. Panel mluví stejně jako úvodní stránka
 dashboardu Podpory:
 
 ![Čeká na tebe se třemi druhy karet](../img/shot-needs.webp "1 stav jednou větou · 2 druh karty, jak dlouho čeká, issue · 3 doporučená možnost · 4 co bude dál · 5 jeden krok po druhém · 6 co se změní, koho se týká, riziko")

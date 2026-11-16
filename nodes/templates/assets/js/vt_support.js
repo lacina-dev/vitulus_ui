@@ -355,13 +355,20 @@
     function startData() {
         if (!window.VTHub) { return; }
         VTHub.poll("field.issues", '/field/api/issues', 60000);
-        /* field.home is polled all the time by vt_needs.js (the bell) */
-        VTHub.poll("field.home", '/field/api/home', 45000);
+        /* field.home is polled by vt_needs.js (the bell, once a minute);
+           this panel wants it faster only while it is open (T39) */
+        VTHub.poll("field.home", '/field/api/home', 60000);
+        if (VTHub.want) {
+            VTHub.want("field.home", 'support', 45000);
+            /* the write cards of an issue detail take their text from the attention list */
+            VTHub.want("field.attention", 'support', 30000);
+        }
         if (detailKey) { VTHub.poll(detailKey, '/field/api/issue/' + detailN, 60000); }
     }
     function stopData() {
         if (!window.VTHub) { return; }
         VTHub.stop("field.issues");
+        if (VTHub.want) { VTHub.want("field.home", 'support', 0); VTHub.want("field.attention", 'support', 0); }
         if (detailKey) { VTHub.stop(detailKey); }
     }
 
