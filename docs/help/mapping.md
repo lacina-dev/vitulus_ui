@@ -370,19 +370,30 @@ companies' own imagery. **Clear costmaps** forgets the obstacles the robot curre
 change any saved map.
 
 **Precipitation (mosaic)** is one rain map put together from several weather radars — the Czech
-ČHMÚ composite, the European EUMETNET OPERA network and RainViewer — by the robot's own
-precipitation service (it runs on the robot next to MapProxy, port 8097). Tick it and a time line
-opens under the row: the time of the picture on the map and what it is (*newest radar*, *radar
-−25 min*, or *nowcast +20 min*, a short forecast drawn in the info colour), how old the newest radar
-picture is, a slider over the last two hours plus the nowcast (the striped part right of *now*),
-**▶** to play it, **Now** to jump back to the newest picture (the layer then follows the new ones by
-itself), the colour legend in mm/h (rain, and snow where the radar knows it), the sources of the
-picture with links, and **Whole area** to zoom out over the whole region around the garden. The
-time is also written in the map's bottom-left corner. Light rain is see-through, heavy rain solid;
-where no radar measures, the map stays empty (that is not "dry"). *Data N min old* means the radars
-have not sent a new picture for a while; *service not responding* means the precipitation service on
-the robot is not running — the **Rain** layer from the weather service is separate and keeps
-working. The map is meant for this robot's own use: RainViewer's terms allow personal use only.
+ČHMÚ composite, the German DWD composite and RainViewer (and the European EUMETNET OPERA network
+when it publishes data) — by the robot's own precipitation service (it runs on the robot next to
+MapProxy, port 8097). Tick it and a small play bar appears on the map, bottom left — **▶**, the
+time of the picture, whether it rains around the garden, and **Whole area** — always in sight while
+the layer is on. The full time line opens under the row (in the layers panel too): the time of the picture on the map and what it is (*newest radar*,
+*radar −25 min*, or *nowcast +20 min*, a short forecast drawn in the info colour), how old the
+newest radar picture is, **▶** to play, **Whole area** right next to it, **Now** to jump back to the
+newest picture (the layer then follows the new ones by itself), and a slider over the last two hours
+plus the nowcast — the white mark is *now*, the striped part right of it is the forecast. **▶** plays
+from the oldest picture (−2 h) through *now* to the end of the nowcast and starts again. It first
+loads the pictures of every frame for the view on screen (*loading frames 12/49*), then each step
+shows at once; on a view that needs many tiles it plays every second or third frame. The radar has
+pixels of about 1 km, so close up on the garden you see a single one: the time line says so and
+**▶** zooms out to the whole area by itself — **Back to garden** returns to your view, and so does
+unticking the layer. A line says whether it rains around the garden now (*No rain within 150 km
+now*, *Nearest rain about 25 km away*, measured from the area around the garden, roughly). Below are the
+colour legend in mm/h (rain, and snow where the radar knows it) and the sources of the picture with
+links. The time is also written in the map's bottom-left corner. Light rain is see-through, heavy
+rain solid; where no radar measures, the map stays empty (that is not "dry"). *Data N min old*
+means the radars have not sent a new picture for a while; *Without: …* names a source that fails
+right now, *No data from: …* one that answers but has nothing to give (since when) — the map goes on
+with the others; *service not responding* means the precipitation service on the robot is not
+running — the **Rain** layer from the weather service is separate and keeps working. The map is
+meant for this robot's own use: RainViewer's terms allow personal use only.
 
 > [!NOTE]
 > A map layer that does not show is not necessarily missing — reload the page first. More in

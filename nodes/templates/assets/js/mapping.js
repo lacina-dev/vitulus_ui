@@ -1193,18 +1193,31 @@ class MappingV3 {
         op.value = String(o.default_opacity);
         this._persistRange(op, 'vitulus_overlay_' + o.id + '_op');
         if (o.timeline) {
-            const tl = document.createElement('div');
-            tl.id = 'mapv3_precip';
-            tl.className = 'vt-precip';
-            tl.hidden = true;
-            row.appendChild(tl);
+            // the card under its row (one card only, also when the rows are
+            // drawn again; vt_map_layers moves it into the layers panel while
+            // that is open). T40: its controls are on the map as well (play bar)
+            let tl = document.getElementById('mapv3_precip');
+            if (!tl) {
+                tl = document.createElement('div');
+                tl.id = 'mapv3_precip';
+                tl.className = 'vt-precip';
+                tl.hidden = true;
+            }
+            this._precipPlace(tl, row);
         }
         chk.addEventListener('change', () => {
             this._saveLayerPref('vitulus_overlay_' + o.id, chk.checked);
             if (!chk.checked) { this._dropOverlay(o.id); }
             this._updateToneOn();
             this._overlayStatus(o.id);
-            if (o.timeline) { this._precipSync(); }
+            if (o.timeline) {
+                this._precipSync();
+                // T40: the card opens under the row just ticked: into view
+                const tl = document.getElementById('mapv3_precip');
+                if (chk.checked && tl && window.requestAnimationFrame) {
+                    requestAnimationFrame(() => { try { tl.scrollIntoView({ block: 'nearest' }); } catch (e) { /* old browser */ } });
+                }
+            }
             this._updateAttribution();
             if (chk.checked) { this.aerial_datum = null; this.rebuildAerial(); }
             try { document.dispatchEvent(new CustomEvent('vt:map-sources')); } catch (e) { /* ignore */ }
@@ -1276,6 +1289,12 @@ class MappingV3 {
         if (mount) { mount.hidden = !on; }
         if (!on) {
             if (this._precip) { this._precip.stop(); }
+            this._precipPreClear();
+            // T40: the layer off after Whole area / the playback's zoom-out:
+            // back to the garden view (unless zoomed in by hand meanwhile,
+            // which already dropped the way back)
+            if (this._precipBack) { this._precipRestoreView(); }
+            this._precipBack = null;
             this._precipBadge();
             if (this._precipWide) { this._precipWide = false; this._applyZoomLimit(); }
             return;
@@ -1287,11 +1306,25 @@ class MappingV3 {
             const base = VTPrecip.base(window.location.hostname, o.timeline);
             if (!this._precip || this._precip.o.base !== base || this._precip.o.mount !== m) {
                 if (this._precip) { this._precip.stop(); }
+                this._precipPreClear();
                 this._precip = new VTPrecip.Timeline({
                     mount: m, base: base,
                     onFrame: (f, why) => this._precipOnFrame(f, why),
                     ready: () => this._precipReady(),
-                    onFit: (km) => this.fitPrecipArea(km),
+                    // T40: Whole area / Back, the view for the hint, the preload
+                    onFit: () => { this._precipSaveView(false); this.fitPrecipArea(); },
+                    onRestore: () => this._precipRestoreView(),
+                    view: () => this._precipView(),
+                    beforePlay: () => {
+                        // the preload waits for the new view's tiles (_precipViewSync)
+                        if (this._precipView().small) { this._precipSaveView(true); this._precipZooming = true; this._precipZoomingAt = Date.now(); this.fitPrecipArea(); }
+                    },
+                    prepare: () => this._precipPrepare(),
+                    frameState: (f) => this._precipFrameIn(f),
+                    onRender: () => this._precipBadge(),
+                    loadState: () => (this._precipZooming && Date.now() - (this._precipZoomingAt || 0) <= 5000 ? { k: 0, n: 0, full: false, zooming: true }
+                        : (this._precipPre && this._precipPre.frames.length ? this._precipPre.progress() : null)),
+                    onPause: () => { this._precipZooming = false; this._precipIdleSoon(); },
                 });
                 if (!this._precipRelabel) {
                     this._precipRelabel = true;
@@ -1317,8 +1350,12 @@ class MappingV3 {
     // MapProxy fallback while the service never answered, null = wait
     _precipTileSrc(o) {
         const P = this._precip;
-        const f = P && P.frame();
+        let f = P && P.frame();
         if (f) {
+            // T40: a frame whose new version is still loading is drawn in
+            // its old one (preloaded) — the playback does not wait for it
+            const pre = this._precipPre, v = pre && pre.frames.length ? pre.useV(f.id) : null;
+            if (v && v !== f.v) { f = Object.assign({}, f, { v: v }); }
             return Object.assign({}, o, { id: o.id + '_' + f.id.replace(/[^0-9A-Za-z]/g, '') + '_' + f.v,
                                           frame: f, tile_base: P.o.base });
         }
@@ -1335,24 +1372,51 @@ class MappingV3 {
         return set.loaded + set.failed >= set.total;
     }
     // the small label on the map: the time the layer shows (nowcast in the info colour)
+    // T40: the play bar ON THE MAP (bottom left, where the time label was):
+    // [▶] time · what it is / rain or loading [Whole area | Back] — always in
+    // sight while the layer is on (the full card with the legend and the
+    // sources stays in Map › Display and the layers panel, which may be
+    // scrolled away or closed). Same controls as the card (one Timeline).
     _precipBadge() {
         const host = document.getElementById('map_view');
         if (!host) { return; }
         let b = document.getElementById('mapv3_precip_badge');
         const P = this._precip;
-        const f = (this._precipOn() && P && window.VTPrecip) ? P.frame() : null;
-        if (!f) { if (b) { b.hidden = true; } return; }
+        const on = !!(this._precipOn() && P && window.VTPrecip && P.barInfo);
+        if (!on) { if (b) { b.hidden = true; } return; }
         if (!b) {
             b = document.createElement('div');
             b.id = 'mapv3_precip_badge';
             b.className = 'vt-map-precip vt-tnum';
-            b.setAttribute('aria-live', 'off');
+            b.setAttribute('role', 'group');
+            b.innerHTML = '<button type="button" class="vt-map-precip-btn vt-map-precip-play" id="mapv3_precip_bplay"></button>' +
+                '<span class="vt-map-precip-txt"><span class="vt-map-precip-t"></span><span class="vt-map-precip-sub"></span></span>' +
+                '<button type="button" class="vt-map-precip-btn vt-map-precip-fit" id="mapv3_precip_bfit"></button>';
             host.appendChild(b);
+            b.querySelector('#mapv3_precip_bplay').addEventListener('click', () => { if (this._precip) { this._precip.toggle(); } });
+            b.querySelector('#mapv3_precip_bfit').addEventListener('click', () => { if (this._precip) { this._precip.fitOrBack(); } });
         }
-        b.textContent = VTPrecip.badgeText(P.index(), f);
-        b.classList.toggle('is-nowcast', f.kind === 'nowcast');
-        const s = P.status();
-        b.classList.toggle('is-warn', s.state === 'down' || s.state === 'stale');
+        const I = P.barInfo();
+        const set = (el, txt) => { if (el.textContent !== txt) { el.textContent = txt; } };
+        const bp = b.querySelector('#mapv3_precip_bplay'), bf = b.querySelector('#mapv3_precip_bfit');
+        const t = b.querySelector('.vt-map-precip-t'), sub = b.querySelector('.vt-map-precip-sub');
+        set(bp, I.playing ? '❚❚' : '▶');
+        const pt = mapT(I.playing ? 'mapt.precip.pause' : 'mapt.precip.play');
+        if (bp.title !== pt) { bp.title = pt; bp.setAttribute('aria-label', pt); }
+        bp.setAttribute('aria-pressed', I.playing ? 'true' : 'false');
+        bp.disabled = !I.canPlay;
+        set(bf, mapT(I.back ? 'mapt.precip.bar_back' : 'mapt.precip.bar_fit'));
+        const ft = mapT(I.back ? 'mapt.precip.back_tip' : 'mapt.precip.fit_tip');
+        if (bf.title !== ft) { bf.title = ft; }
+        bf.classList.toggle('is-hot', I.hot);
+        set(t, I.label);
+        set(sub, I.sub);
+        sub.hidden = !I.sub;
+        const tip = I.sub ? I.label + ' — ' + I.sub : I.label;
+        if (b.title !== tip) { b.title = tip; }
+        b.setAttribute('aria-label', mapT('mapt.precip.title'));
+        b.classList.toggle('is-nowcast', I.nowcast);
+        b.classList.toggle('is-warn', I.warn);
         b.hidden = false;
     }
     // the side (m) of the area the zoom-out limit opens for the precipitation
@@ -1379,6 +1443,188 @@ class MappingV3 {
         if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
         this._scheduleAerialFollow();
         this._updateBeacon();
+        if (this._precip) { this._precip.viewChanged(); }
+    }
+
+    // ---------------------------------------------------------------------
+    // T40 — precipitation playback that shows the rain move
+    // ---------------------------------------------------------------------
+    // The card's place (A4): the top of Map › Display, unless the layers
+    // panel holds it (vt_map_layers.js moves it there and back). `row` = the
+    // overlay row it belongs to, only for the first build without Display.
+    _precipPlace(tl, row) {
+        const panel = document.getElementById('vt_lyr_panel');
+        if (panel && panel.contains(tl)) { return; }
+        if (row && tl.parentNode !== row) { row.appendChild(tl); }
+    }
+
+    // the shorter side of the view on the ground (m); 0 = unknown
+    _viewSideM() {
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        if (!cam || !ctrl || !ctrl.center || !cam.position) { return 0; }
+        let d = 0;
+        try { d = cam.position.distanceTo(ctrl.center); } catch (e) { return 0; }
+        const t = Math.tan(((cam.fov > 0 ? cam.fov : 40) * Math.PI / 180.0) / 2.0);
+        const aspect = cam.aspect > 0 ? cam.aspect : 1.0;
+        return (d > 0 && t > 0) ? 2.0 * d * t * Math.min(1.0, aspect) : 0;
+    }
+    // {small: the view shows a few radar pixels, back: a view to return to,
+    //  auto: the playback zoomed out by itself}
+    _precipView() {
+        const side = this._viewSideM();
+        const small = side > 0 && side < (window.VTPrecip ? VTPrecip.SMALL_VIEW_M : 20000);
+        return { small: small, back: !!this._precipBack, auto: !!(this._precipBack && this._precipBack.auto) };
+    }
+    // remember the garden view before Whole area (only a close view: from a
+    // wide one there is nothing worth going back to)
+    _precipSaveView(auto) {
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        if (this._precipBack || !cam || !ctrl || !ctrl.center || !cam.position) { return; }
+        if (!this._precipView().small) { return; }
+        this._precipBack = { pos: cam.position.clone(), center: ctrl.center.clone(), auto: !!auto };
+    }
+    _precipRestoreView() {
+        const b = this._precipBack;
+        const cam = this.viewer3d && this.viewer3d.camera;
+        const ctrl = this.viewer3d && this.viewer3d.cameraControls;
+        this._precipBack = null;
+        if (!b || !cam || !ctrl || !ctrl.center) { if (this._precip) { this._precip.viewChanged(); } return; }
+        ctrl.center.copy(b.center);
+        cam.position.copy(b.pos);
+        this._onCamChange();
+        if (cam.updateProjectionMatrix) { cam.updateProjectionMatrix(); }
+        this._scheduleAerialFollow();
+        this._updateBeacon();
+        if (this._precip) { this._precip.viewChanged(); }
+    }
+    // after every rebuild with the layer on: the hint follows the view; a
+    // view zoomed in by hand again drops the way back; the preload follows
+    // a new tile range while it plays (or is kept for the slider)
+    _precipViewSync() {
+        if (!this._precip || !this._precipOn()) { return; }
+        this._precipZooming = false;
+        if (this._precipBack && this._precipView().small) { this._precipBack = null; }
+        const pre = this._precipPre;
+        if (this._precip.playing || (pre && pre.frames.length)) { this._precipPrepare(); }
+        this._precip.viewChanged();
+    }
+
+    // The preload (VTPrecip.Preload): the PNGs of the frames to play for the
+    // tiles of the view on screen. Limits per device: tiles (the robot
+    // renders every tile it has not cached; a stride of 10-15 min when the
+    // view needs many) and bytes (blobs, a few kB a tile). _texFetch takes a
+    // preloaded tile from memory and waits for one that is on its way.
+    _precipPreLimits() {
+        const mobile = !!this._tileEnv().mobile;
+        return { maxTiles: mobile ? 240 : 450, maxBytes: (mobile ? 16 : 48) * 1024 * 1024, conc: mobile ? 2 : 3 };
+    }
+    // the playback's zoom cap applies (playing, or its preload kept for the slider)
+    _precipPlayZoom() {
+        const P = this._precip, pre = this._precipPre;
+        return !!(window.VTPrecip && VTPrecip.PLAY_MAX_Z && P && (P.playing || (pre && pre.frames.length)));
+    }
+    _precipPreGet() {
+        if (this._precipPre || !window.VTPrecip || !VTPrecip.Preload) { return this._precipPre || null; }
+        const lim = this._precipPreLimits();
+        this._precipPre = new VTPrecip.Preload({
+            conc: lim.conc, maxBytes: lim.maxBytes,
+            get: (url, signal) => {
+                // a tile the map already holds as a texture is not asked again
+                // (no blob: _texFetch paints it from the texture cache)
+                if (this._tcache && this._tcache.has(url)) { return Promise.resolve(null); }
+                // own timeout (20 s), the preload's abort passes through
+                const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+                const to = setTimeout(() => { if (ctl) { ctl.abort(); } }, 20000);
+                if (signal && ctl) { signal.addEventListener('abort', () => ctl.abort()); }
+                // errors: {status} = the service answered (404: the frame left
+                // its window), {net} = it did not answer (or 20 s passed)
+                return fetch(url, { mode: 'cors', credentials: 'omit', signal: ctl ? ctl.signal : undefined })
+                    .then((r) => { clearTimeout(to); if (!r.ok) { throw { status: r.status }; } return r.blob(); },
+                          (e) => { clearTimeout(to); throw { net: true, aborted: !!(signal && signal.aborted), e: e }; });
+            },
+            mkUrl: (blob) => (blob ? URL.createObjectURL(blob) : null),
+            revoke: (u) => { try { URL.revokeObjectURL(u); } catch (e) { /* gone */ } },
+            onChange: () => { if (this._precip) { this._precip._renderState(); } },
+            // a frame the service no longer has: a new index (once per 10 s)
+            onGone: () => {
+                const now = Date.now();
+                if (this._precip && this._precip.on && !(now - (this._precipGoneAt || 0) < 10000)) {
+                    this._precipGoneAt = now;
+                    this._precip._fetch();
+                }
+            },
+            // no answer: stop the playback and say so (Preload stops asking)
+            onDown: () => { if (this._precip) { this._precip.serviceDown(); } },
+        });
+        return this._precipPre;
+    }
+    _precipPreClear() {
+        if (this._precipIdleT) { clearTimeout(this._precipIdleT); this._precipIdleT = null; }
+        if (this._precipPre) { this._precipPre.clear(); }
+    }
+    // paused for 10 min: the blobs go (the slider then loads as before)
+    _precipIdleSoon() {
+        if (this._precipIdleT) { clearTimeout(this._precipIdleT); }
+        this._precipIdleT = setTimeout(() => {
+            this._precipIdleT = null;
+            if (!(this._precip && this._precip.playing)) { this._precipPreClear(); }
+        }, 600000);
+    }
+    // (re)plan the preload for the frames of the index and the precipitation
+    // tiles on screen (the current set's zoom and range); frames in play
+    // order from the one on screen
+    _precipPrepare() {
+        if (this._precipIdleT) { clearTimeout(this._precipIdleT); this._precipIdleT = null; }
+        const P = this._precip, idx = P && P.index();
+        const o = this._precipSrc();
+        const st = o && this.ov_layers[o.id];
+        const set = st && st.L && st.L.cur;
+        const pre = this._precipPreGet();
+        if (!pre || !idx || !idx.frames.length || this._precipZooming) { return; }
+        if (!set || !set.src || !set.src.frame || !set.tiles.size) { pre.clear(); return; }
+        // the layer is still drawn finer than the playback draws it: wait for
+        // the rebuild at the playback's zoom (_precipViewSync calls again)
+        if (this._precipPlayZoom() && set.z > VTPrecip.PLAY_MAX_Z) {
+            this._precipZooming = true; this._precipZoomingAt = Date.now();
+            this._scheduleAerialFollow();
+            return;
+        }
+        const tiles = [];
+        set.tiles.forEach((t) => tiles.push([t.x, t.y]));
+        const lim = this._precipPreLimits();
+        const n = idx.frames.length;
+        const live = P.liveFrom ? P.liveFrom() : 0;     // frames the service has dropped: not asked
+        const pick = VTPrecip.plan(n, idx.latestIdx, tiles.length, lim.maxTiles,
+                                   idx.frames.map((f) => f.epoch)).filter((i) => i >= live);
+        const cur = Math.max(0, VTPrecip.find(idx, P.selId));
+        // play order: from the frame on screen onwards, then around
+        const order = pick.filter((i) => i >= cur).concat(pick.filter((i) => i < cur));
+        const z = set.z;
+        const jobs = order.map((i) => {
+            const f = idx.frames[i];
+            const src = { frame: f, tile_base: P.o.base };
+            return { id: f.id, v: f.v, urls: tiles.map(([x, y]) => this._aerialTileUrl(src, z, x, y)) };
+        });
+        // the same view and the same frames: nothing to do (every step of the
+        // playback rebuilds the layer and lands here)
+        const r = set.range;
+        const key = z + ':' + r.tx0 + ',' + r.tx1 + ',' + r.ty0 + ',' + r.ty1 + '#' + (this._tileRefreshN || 0) + '|' +
+            pick.map((i) => idx.frames[i].id + '@' + idx.frames[i].v).join(',');
+        if (pre.key === key) { pre.resume(); return; }
+        pre.want(key, jobs);
+    }
+    // may the playback show this frame? 'ready' (preloaded for this view;
+    // without a preload every frame, as before) | 'pending' (wait) | 'skip'
+    _precipFrameIn(f) {
+        const pre = this._precipPre;
+        // no rebuild within 5 s (no map datum yet, robot not connected): no
+        // preload, the frames as they come (the playback must not hang)
+        if (this._precipZooming && Date.now() - (this._precipZoomingAt || 0) > 5000) { this._precipZooming = false; }
+        if (this._precipZooming) { return 'pending'; }
+        if (!pre || !pre.frames.length) { return 'ready'; }
+        return pre.frameState(f.id);
     }
 
     // the small credit line in the map corner: every layer on screen, once
@@ -1393,6 +1639,10 @@ class MappingV3 {
         this._overlaysOn().forEach((o) => {
             // the precipitation layer credits the sources of the frame on screen
             const a = (o.timeline && this._precip) ? this._precip.attribution() : '';
+            // T40: with the service's index the frame's own credits only — the
+            // catalog's fixed line (it names OPERA, which sends no data now)
+            // only while the service never answered (MapProxy's layer is drawn)
+            if (!a && o.timeline && this._precip && this._precip.index()) { return; }
             on.push(a ? Object.assign({}, o, { attribution: { en: a, cs: a } }) : o);
         });
         const txt = MS.attribution(on, this._lang());
@@ -2482,8 +2732,15 @@ class MappingV3 {
                 }
                 st.group.rotation.z = -yaw;
                 st.group.visible = true;
-                const zA = VTMapTiles.overlayWant(zAdaptive, o, { coarse: coarse },
+                let zA = VTMapTiles.overlayWant(zAdaptive, o, { coarse: coarse },
                     (typeof vtMapPixelRatio === 'function') ? vtMapPixelRatio() : 1);
+                // T40: the playback (and the slider over its preload) draws the
+                // precipitation at most at VTPrecip.PLAY_MAX_Z: the radars have
+                // ~1 km pixels, z7 is 0.8 km/px here — a quarter of z8's tiles
+                // for the robot to render and the browser to hold
+                if (o.timeline && this._precipPlayZoom && this._precipPlayZoom()) {
+                    zA = Math.min(zA, VTPrecip.PLAY_MAX_Z);
+                }
                 const { z, zWant, range, capped } = plan(o, Math.max(0, budget), zA);
                 if (zWant < o.min_zoom) {
                     // the server draws nothing this far out: say so, keep no planes
@@ -2530,6 +2787,8 @@ class MappingV3 {
                 st.sig = L.cur ? L.cur.sig : '';
                 st.meshes = L.cur ? Array.from(L.cur.tiles.values(), (t) => t.mesh) : [];
             });
+            // T40: the precipitation hint / Back / preload follow the view
+            if (this._precipViewSync) { this._precipViewSync(); }
             this._applyAerialOffset();
         } catch (e) {
             console.error('[mappingv3] rebuildAerial failed:', e);
@@ -2621,6 +2880,19 @@ class MappingV3 {
         if (fAt && Date.now() - fAt < 10000 &&
             !(this._tileRetryAt && fAt <= this._tileRetryAt && Date.now() - this._tileRetryAt < 1500)) { cb(false); return () => {}; }
         let ld = this._texLoads.get(url);
+        // T40: a precipitation tile the playback preload is fetching: wait
+        // for it (one request, not two), then take it from memory
+        const pre = this._precipPre;
+        if (!ld && pre && !fAt && pre.pending(url)) {
+            ld = { waiters: new Set() };
+            this._texLoads.set(url, ld);
+            pre.whenDone(url, () => {
+                if (this._texLoads.get(url) === ld) { this._texLoads.delete(url); }
+                const ws = Array.from(ld.waiters);
+                ld.waiters.clear();
+                ws.forEach((w) => this._texFetch(url, white, w));
+            });
+        }
         if (!ld) {
             ld = { waiters: new Set() };
             this._texLoads.set(url, ld);
@@ -2715,7 +2987,9 @@ class MappingV3 {
                 finish(false);
             };
             let hang = setTimeout(hangCheck, VTMapTiles.TILE_TIMEOUT_MS || 20000);
-            img.src = wasBad ? VTMapTiles.withBust(url, Date.now()) : url;
+            // T40: a preloaded precipitation tile comes from memory (blob URL)
+            const mem = (!wasBad && pre) ? pre.url(url) : null;
+            img.src = wasBad ? VTMapTiles.withBust(url, Date.now()) : (mem || url);
         }
         ld.waiters.add(cb);
         return () => { ld.waiters.delete(cb); };

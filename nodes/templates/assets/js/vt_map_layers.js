@@ -364,6 +364,12 @@
         if (!panel.contains(el)) { tlHome = { parent: el.parentNode, next: el.nextSibling }; }
         slot.appendChild(el);
         tlRefit();
+        // T40 (A4): the weather rows are at the end of the panel; the time
+        // line comes into view by itself (opening the panel with the layer
+        // on, ticking it) instead of waiting below the fold
+        var row = slot.closest ? (slot.closest('[data-lyr-row]') || slot) : slot;
+        var go = function () { try { row.scrollIntoView({ block: 'nearest' }); } catch (e) { /* old browser */ } };
+        if (window.requestAnimationFrame) { requestAnimationFrame(go); } else { go(); }
     }
 
     // T29: the terrain row — view buttons (only views with data), legend of

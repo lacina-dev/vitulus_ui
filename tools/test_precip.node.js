@@ -131,9 +131,187 @@ ok('credit linked to the source page', cr[1].url.indexOf('https://eumetnet') ===
 ok('nowcast frame credits ČHMÚ only', P.credits(idx, idx.frames[4]).length === 1);
 ok('failing sources listed by name', P.failing(idx).join() === 'EUMETNET OPERA');
 
+console.log('\nsources without data (T40, service status no_data)');
+const nd = JSON.parse(JSON.stringify(INDEX));
+nd.sources[1] = Object.assign(nd.sources[1], { last_error: null, status: 'no_data',
+    no_data: { since: '2026-11-08T07:00Z', reason: 'the provider lists no files', next_check: '2026-11-08T09:40Z' } });
+const ndi = P.parseIndex(nd);
+ok('no_data parsed with since', ndi.byId.opera.noData === true && ndi.byId.opera.noDataSince === T0 - 8100);
+ok('no data is not a failure', P.failing(ndi).length === 0);
+ok('no data named', P.noData(ndi).length === 1 && P.noData(ndi)[0].name === 'EUMETNET OPERA');
+ok('older service (no status): nothing named', P.noData(idx).length === 0);
+
+console.log('\nrain around the garden (T40 check, index.rain_nearby)');
+const rIdx = (rn) => P.parseIndex(Object.assign({}, INDEX, { rain_nearby: rn }));
+ok('dry: no rain within the radius', P.rainText(rIdx({ radius_km: 150, nearest_rain_km: null, covered_fraction: 0.9 })) === 'mapt.precip.rain_none');
+ok('rain far: nearest rain', P.rainText(rIdx({ radius_km: 150, nearest_rain_km: 25, covered_fraction: 0.9 })) === 'mapt.precip.rain_near');
+ok('rain close: raining around the garden', P.rainText(rIdx({ radius_km: 150, nearest_rain_km: 5, covered_fraction: 0.9 })) === 'mapt.precip.rain_here');
+ok('no radar coverage / older service: nothing said', P.rainText(rIdx({ radius_km: 150, nearest_rain_km: null, covered_fraction: 0.1 })) === '' && P.rainText(idx) === '');
+
+console.log('\nplayback plan + order (T40)');
+ok('few tiles: every frame', P.plan(49, 24, 4, 900).length === 49);
+const pl = P.plan(49, 24, 25, 900);          // 25 tiles a frame, 900 tiles -> every 2nd
+ok('many tiles: a stride, within the limit (+ last)', pl.length <= 36 + 1 && pl.length >= 24, pl.length);
+ok('the stride keeps "now" and the last frame', pl.indexOf(24) >= 0 && pl[pl.length - 1] === 48);
+ok('ascending, no duplicates', pl.every((v, i) => !i || v > pl[i - 1]));
+const ph = P.plan(49, 24, 25, 360);          // a phone
+ok('phone: fewer frames, still now + last', ph.length <= 360 / 25 + 2 && ph.indexOf(24) >= 0 && ph[ph.length - 1] === 48, ph);
+ok('no frames -> empty plan', P.plan(0, -1, 4, 100).length === 0);
+const ep = (sh) => Array.from({ length: 49 }, (_, i) => T0 + (i + sh) * 300);
+const pa = P.plan(49, 24, 25, 450, ep(0)), pb = P.plan(49, 24, 25, 450, ep(1));
+const fa = new Set(pa.map((i) => ep(0)[i])), fb = pb.map((i) => ep(1)[i]);
+ok('stride on the clock: an index one frame later keeps the frames', fb.filter((e) => fa.has(e)).length >= fb.length - 3);
+ok('stride on the clock: still now + last', pb.indexOf(24) >= 0 && pb[pb.length - 1] === 48);
+const pc = P.plan(46, 22, 15, 240, ep(0).slice(0, 46)), pd = P.plan(49, 24, 15, 240, ep(0));
+const fc = new Set(pc.map((i) => ep(0)[i]));
+ok('a shorter index (46 frames) keeps the stride: the same frames', pd.map((i) => ep(0)[i]).filter((e) => e <= ep(0)[45] && !fc.has(e)).length <= 2);
+const okAll = () => true;
+ok('next frame after i', P.nextReady(5, 1, okAll) === 2);
+ok('after the last: back to the first (loop)', P.nextReady(5, 4, okAll) === 0);
+ok('skips frames not loaded', P.nextReady(6, 1, (j) => j === 4) === 4);
+ok('nothing else loaded: -1 (stay)', P.nextReady(5, 2, (j) => j === 2) === -1);
+ok('next one still loading: stay (no jump back to the start)', P.nextReady(6, 3, (j) => (j === 4 ? 'pending' : 'ready')) === -1);
+ok('a skipped frame is passed over', P.nextReady(6, 3, (j) => (j === 4 ? 'skip' : 'ready')) === 5);
+ok('frames ready ahead (skips not counted)', P.leadReady(6, 0, (j) => (j === 3 ? 'pending' : j === 1 ? 'skip' : 'ready')) === 2);
+
+console.log('\nTimeline playback order (no DOM)');
+function tl(hooks) {
+    const t = new P.Timeline(Object.assign({ mount: null }, hooks || {}));
+    t.idx = P.parseIndex(INDEX);            // 3 radar (latest = 2) + 2 nowcast
+    t.selId = t.idx.frames[2].id; t.follow = true;
+    return t;
+}
+function step(t, n) {                       // n steps, time moved past each wait
+    const seen = [];
+    for (let s = 0; s < n; s++) { t._t0 -= 5000; t._warmT -= 60000; t._tick(); seen.push(P.find(t.idx, t.selId)); }
+    clearInterval(t._play);
+    return seen;
+}
+let t1 = tl();
+t1.play();
+clearInterval(t1._play);
+ok('▶ from "now": starts at the oldest frame (−10 min here, −2 h live)', P.find(t1.idx, t1.selId) === 0);
+const seq = step(t1, 6);                     // the first tick ends the (empty) preload wait
+ok('then through now into the nowcast, then loops', seq.join() === '0,1,2,3,4,0');
+let t2 = tl();
+t2.selId = t2.idx.frames[3].id; t2.follow = false;
+t2.play(); clearInterval(t2._play);
+ok('▶ on a frame picked by hand goes on from there', P.find(t2.idx, t2.selId) === 3);
+let tw = tl();
+tw._fetchedMs = Date.now() - 6 * 60000;          // the index came 6 min ago: the oldest frame is gone by now
+tw.idx.generatedEpoch = Math.floor(Date.now() / 1000) - 6 * 60;
+tw._fetch = () => {};
+tw.play(); clearInterval(tw._play);
+ok('▶ skips the frame the service dropped since the index', P.find(tw.idx, tw.selId) >= 1 && tw._frameIn(0) === 'skip');
+// preload: wait (warm), then only frames that are in
+let ls = { k: 0, n: 3, full: false };
+const inSet = new Set([0, 2]);
+let t3 = tl({ loadState: () => ls, frameReady: (f) => inSet.has(P.find(t3.idx, f.id)) });
+t3.play(); clearInterval(t3._play);
+t3._t0 -= 5000; t3._tick();
+ok('while it preloads: no step (warm)', P.find(t3.idx, t3.selId) === 0 && t3._warm === true);
+ls = { k: 3, n: 3, full: false };
+const s3 = step(t3, 4);
+ok('preloaded: steps only through frames that are in', s3.join() === '0,2,0,2', s3);
+let t4 = tl({ loadState: () => ({ k: 2, n: 9, full: false }), frameReady: () => true });
+t4.play(); clearInterval(t4._play);
+t4._warmT -= 9000; t4._tick();
+ok('slow preload: plays what is in after the wait (4 s)', t4._warm === false);
+// the loader is behind: the playback waits at the edge, then goes on
+const st6 = ['ready', 'ready', 'pending', 'pending', 'pending'];
+let t6 = tl({ loadState: () => ({ k: 2, n: 5, full: false }), frameState: (f) => st6[P.find(t6.idx, f.id)] });
+t6.play(); clearInterval(t6._play);
+const s6 = step(t6, 4);
+ok('loader behind: steps to the edge and waits there', s6.join() === '0,1,1,1', s6);
+st6[2] = 'ready';
+ok('… and goes on once the next frame is in', step(t6, 1).join() === '2');
+let calls = 0;
+let t5 = tl({ beforePlay: () => { calls++; }, prepare: () => { calls += 10; } });
+t5.play(); clearInterval(t5._play);
+ok('▶ asks to zoom out (beforePlay) and to preload (prepare)', calls === 11);
+t5.pause();
+ok('pause stops', !t5.playing && !t5._play);
+
+console.log('\nPreload (blobs, limits, waiters)');
+(async () => {
+    const asked = [];
+    const urls = { a: ['a1', 'a2'], b: ['b1', 'b2'], c: ['c1', 'c2'] };
+    let fail = new Set(['b2']);
+    const pre = new P.Preload({
+        conc: 2, maxBytes: 0,
+        get: (u) => { asked.push(u); return fail.has(u) ? Promise.reject(new Error('x')) : Promise.resolve({ size: 1000 }); },
+        mkUrl: (b) => 'blob:' + asked.length, revoke: () => {},
+    });
+    const jobs = (ids) => ids.map((id) => ({ id: id, urls: urls[id] }));
+    let woke = 0;
+    pre.want('k1', jobs(['a', 'b', 'c']));
+    ok('a tile on its way is pending', pre.pending('a1'));
+    pre.whenDone('a1', () => { woke++; });
+    await new Promise((r) => setTimeout(r, 20));
+    ok('every tile asked once', asked.length === 6 && new Set(asked).size === 6, asked);
+    ok('waiter woken when it came', woke === 1);
+    ok('frames ready (a failed tile counts as done)', pre.frameReady('a') && pre.frameReady('b') && pre.frameReady('c'));
+    ok('blob URL of a loaded tile, none for a failed one', pre.url('a1') && pre.url('b2') === null);
+    ok('progress k/n', pre.progress().k === 3 && pre.progress().n === 3 && pre.progress().bytes === 5000);
+    ok('frame state: ready / skip (not planned)', pre.frameState('a') === 'ready' && pre.frameState('zz') === 'skip');
+    pre.want('k2', jobs(['b', 'c']));
+    ok('a new view keeps what it needs (nothing asked again)', asked.length === 6 && pre.url('b1') && !pre.url('a1'));
+    ok('bytes of dropped tiles freed', pre.progress().bytes === 3000);
+    const small = new P.Preload({ conc: 1, maxBytes: 1500, get: () => Promise.resolve({ size: 1000 }), mkUrl: () => 'blob:x' });
+    small.want('s', jobs(['a', 'b']));
+    await new Promise((r) => setTimeout(r, 20));
+    ok('byte limit: stops loading, says full', small.progress().full && small.progress().k === 1, small.progress());
+    ok('byte limit: the frames that will not load are skipped', small.frameState('a') === 'ready' && small.frameState('b') === 'skip');
+    pre.clear();
+    ok('clear: nothing kept', pre.items.size === 0 && pre.progress().n === 0);
+
+    console.log('\nPreload: new versions, frames gone, service down (T40 check)');
+    let gate = {};
+    let asked2 = [], gone = 0, down = 0;
+    const p2 = new P.Preload({
+        conc: 4, maxBytes: 0,
+        get: (u) => { asked2.push(u); return gate[u] ? gate[u] : Promise.resolve({ size: 10 }); },
+        mkUrl: (b) => 'blob:' + Math.random(), revoke: () => {},
+        onGone: () => { gone++; }, onDown: () => { down++; },
+    });
+    p2.want('v1', [{ id: 'n1', v: 'a', urls: ['n1a'] }, { id: 'n2', v: 'a', urls: ['n2a'] }]);
+    await new Promise((r) => setTimeout(r, 10));
+    ok('two frames in', p2.progress().k === 2);
+    let release;
+    gate.n1b = new Promise((r) => { release = r; }).then(() => ({ size: 10 }));
+    p2.want('v2', [{ id: 'n1', v: 'b', urls: ['n1b'] }, { id: 'n2', v: 'a', urls: ['n2a'] }]);
+    await new Promise((r) => setTimeout(r, 10));
+    ok('new nowcast run: the old version stays drawable meanwhile', p2.frameReady('n1') && p2.useV('n1') === 'a' && p2.url('n1a'));
+    ok('… progress does not fall back', p2.progress().k === 2);
+    ok('unchanged frame not asked again', asked2.filter((u) => u === 'n2a').length === 1);
+    release();
+    await new Promise((r) => setTimeout(r, 10));
+    ok('new version in: drawn, the old one dropped', p2.useV('n1') === 'b' && !p2.items.has('n1a'));
+    gate.g1 = Promise.reject({ status: 404 });
+    gate.g1.catch(() => {});
+    p2.want('v3', [{ id: 'g', v: 'a', urls: ['g1'] }, { id: 'n2', v: 'a', urls: ['n2a'] }]);
+    await new Promise((r) => setTimeout(r, 10));
+    ok('a frame the service no longer has (404): skipped + new index asked', p2.frameState('g') === 'skip' && gone === 1);
+    const before = asked2.length;
+    gate = { d1: Promise.reject({ net: true }), d2: Promise.reject({ net: true }), d3: Promise.reject({ net: true }) };
+    Object.values(gate).forEach((x) => x.catch(() => {}));
+    const p3 = new P.Preload({ conc: 1, maxBytes: 0, get: (u) => { asked2.push(u); return gate[u]; }, mkUrl: () => 'b', onDown: () => { down++; } });
+    p3.want('d', [{ id: 'd', v: 'a', urls: ['d1', 'd2', 'd3'] }]);
+    await new Promise((r) => setTimeout(r, 10));
+    ok('service down: one request, then it stops and says so', asked2.length - before === 1 && down === 1 && p3.progress().down);
+    ok('… the frame is still to load (not failed)', p3.frameState('d') === 'pending' && !p3.pending('d1'));
+    gate = {};
+    p3.resume();
+    await new Promise((r) => setTimeout(r, 10));
+    ok('resume: loads again', p3.frameReady('d'));
+    finish();
+})();
+
+function finish() {
 console.log('');
 if (failures.length) {
     console.log(failures.length + ' check(s) FAILED');
     process.exit(1);
 }
 console.log('all checks passed');
+}

@@ -17,7 +17,11 @@ rain blob that moves from frame to frame. It shows:
   - every request to the service is a GET, the precipitation steps send nothing else anywhere;
   - the old Rain layer (weather_alert rain_img) is still there, unchanged;
   - phone 390/360 (touch), desktop 1440/1920, en + cs: no horizontal scroll, nothing sticks out of
-    the card, touch targets >= 40 px, no console errors.
+    the card, touch targets >= 40 px, no console errors;
+  - T40: after ticking the layer (a real click in Map › Display on a 1366x768 notebook, a tap in the layers
+    panel then closed on a 390x844 phone) the play bar is on the map with ▶ and Whole area in sight, covering
+    no map control; it says "no rain within 150 km" (index rain_nearby); ▶ there zooms out from the garden
+    view and plays, ❚❚ pauses, unticking the layer returns the garden view and hides the bar.
 
     python3 tools/test_precip_ui.py [--shots DIR]
 
@@ -92,6 +96,9 @@ class Svc(object):
         self.age_min = 3          # newest observation this old
         self.opera_error = None
         self.shift = 0            # the service's clock ahead of this machine's (s)
+        # T40: rain around the area (index.rain_nearby): dry
+        self.rain = {'frame': None, 'radius_km': 150, 'covered_fraction': 0.9, 'raining_fraction': 0.0,
+                     'max_mmh': 0.0, 'nearest_rain_km': None}
         self.reqs = []            # (method, path)
         self.lock = threading.Lock()
 
@@ -111,7 +118,7 @@ class Svc(object):
                            'stale': False, 'sources': [{'id': s, 'time': fid, 'age_s': 0, 'kind': kind} for s in srcs],
                            'attribution': [att[s] for s in srcs],
                            'tiles': '/tiles/%s/{z}/{x}/{y}.png?v=sv%x' % (fid, (e // 300 * 7 + (k > 0)) % 0xfffff)})
-        return {'version': 1, 'generated': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime(now)), 'mode':
+        return {'version': 1, 'rain_nearby': self.rain, 'generated': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime(now)), 'mode':
                 {'world': None, 'area': {'radius_km': 150.0, 'zoom': [3, 8]}}, 'slot_s': 300,
                 'latest': frames[24]['id'], 'frames': frames, 'legend': '/legend.json',
                 'sources': [
@@ -366,6 +373,86 @@ def story(p, shots, label, cs):
     check('no page errors', not p.errors, p.errors[:3])
 
 
+BAR_JS = r"""() => {
+  const b = document.getElementById('mapv3_precip_badge');
+  if (!b || b.hidden) { return { shown: false }; }
+  const r = b.getBoundingClientRect();
+  const inView = (e) => { const q = e.getBoundingClientRect(); return q.width > 0 && q.top >= 0 && q.bottom <= innerHeight && q.left >= 0 && q.right <= innerWidth; };
+  const hit = (e) => { const q = e.getBoundingClientRect(); const t = document.elementFromPoint(q.x + q.width / 2, q.y + q.height / 2); return !!t && (t === e || e.contains(t)); };
+  const play = document.getElementById('mapv3_precip_bplay'), fit = document.getElementById('mapv3_precip_bfit');
+  // other controls on the map the bar must not cover (layers / measure buttons, labels column …)
+  const host = document.getElementById('map_view');
+  const covered = [...document.querySelectorAll('button, a, [role=button]')].filter(e => !b.contains(e) && e.offsetParent && host.contains(e))
+      .filter(e => { const q = e.getBoundingClientRect(); return q.width && q.height && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top; })
+      .map(e => e.id || e.className);
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  return { shown: true, playIn: inView(play), playHit: hit(play), fitIn: inView(fit), fitHit: hit(fit),
+           small: [play, fit].map(e => e.getBoundingClientRect()).filter(q => q.height < (coarse ? 40 : 28)).length,
+           text: b.textContent, sub: (b.querySelector('.vt-map-precip-sub') || {}).textContent, covered,
+           hs: document.scrollingElement.scrollWidth > innerWidth + 1, box: [r.x | 0, r.y | 0, r.width | 0, r.height | 0] };
+}"""
+
+DIST_JS = "(()=>{const v=mapping_v3.viewer3d;return v.camera.position.distanceTo(v.cameraControls.center)})()"
+
+
+def bar(p, shots, label, cs, phone):
+    """T40 check: after ticking the layer the play bar is on the map, in sight without scrolling, not covering
+    the map's buttons; it says whether it rains; ▶ from the garden view zooms out, unticking returns."""
+    svc = p.svc
+    if phone:
+        p.ev("()=>{window.VTMapLayers.open()}")
+        p.pg.wait_for_timeout(600)
+        p.pg.locator('#vt_lyr_panel [data-lyr-chk=mapv3_ov_precip]').tap()
+        p.pg.wait_for_timeout(600)
+        p.ev("()=>{window.VTMapLayers.close()}")
+    else:
+        p.open_layers()
+        p.pg.click('#mapv3_ov_precip')          # a real click: Playwright scrolls to the row like a user
+    ok = p.until("(()=>{const b=document.getElementById('mapv3_precip_badge');return b&&!b.hidden&&/\\d\\d:\\d\\d/.test(b.textContent)})()", 12000)
+    r = p.ev(BAR_JS)
+    check(label + ': play bar on the map after ticking', ok and r.get('shown'), r)
+    check(label + ': ▶ and Whole area in sight without scrolling, not covered',
+          r.get('playIn') and r.get('playHit') and r.get('fitIn') and r.get('fitHit'), r)
+    check(label + ': bar covers no map control', not r.get('covered'), r.get('covered'))
+    check(label + ': bar touch targets', not r.get('small'), r)
+    check(label + ': no horizontal scroll', not r.get('hs'), r)
+    want = 'V okruhu 150 km teď neprší' if cs else 'No rain within 150 km now'
+    check(label + ': says it does not rain around (bar + card)',
+          p.until("(w)=>{const s=document.querySelector('.vt-map-precip-sub');const c=document.querySelector('.vt-precip-rain');return s&&c&&(s.textContent===w||/zblízka|close/i.test(s.textContent))&&c.textContent===w}", 8000, want),
+          (p.text('.vt-map-precip-sub'), p.text('.vt-precip-rain')))
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-bar.png'))
+    d0 = p.ev(DIST_JS)
+    small = p.ev("mapping_v3._precipView().small")
+    if phone:
+        p.pg.locator('#mapv3_precip_bplay').tap()
+    else:
+        p.pg.click('#mapv3_precip_bplay')
+    check(label + ': ▶ on the map plays', p.until("mapping_v3._precip.playing", 3000))
+    if small:
+        check(label + ': ▶ from the garden view zooms out, the bar offers Back',
+              p.until("(d)=>{const v=mapping_v3.viewer3d;return v.camera.position.distanceTo(v.cameraControls.center)>d*20 && !!mapping_v3._precipBack}", 4000, d0)
+              and p.text('#mapv3_precip_bfit') == ('Zpět' if cs else 'Back'), (d0, p.ev(DIST_JS), p.text('#mapv3_precip_bfit')))
+    check(label + ': plays from −2 h onwards', p.until("+document.getElementById('mapv3_precip_range').value>=2", 15000),
+          p.ev("document.getElementById('mapv3_precip_range').value"))
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-bar-playing.png'))
+    if phone:
+        p.pg.locator('#mapv3_precip_bplay').tap()
+    else:
+        p.pg.click('#mapv3_precip_bplay')
+    check(label + ': ❚❚ on the map pauses', p.until("!mapping_v3._precip.playing", 3000))
+    # unticking the layer returns the garden view
+    p.ev("()=>{const c=document.getElementById('mapv3_ov_precip'); c.click();}")
+    p.pg.wait_for_timeout(600)
+    if small:
+        d2 = p.ev(DIST_JS)
+        check(label + ': layer off: back to the view before the zoom-out', abs(d2 - d0) < max(1.0, d0 * 0.01), (d0, d2))
+    check(label + ': layer off: bar gone', p.ev("document.getElementById('mapv3_precip_badge').hidden"))
+    check(label + ': no page errors', not p.errors, p.errors[:3])
+    check(label + ': every request to the service is a GET', all(m == 'GET' for m, _ in svc.reqs))
+
+
 FIT_JS = r"""() => {
   const card = document.getElementById('mapv3_precip');
   const cb = card.getBoundingClientRect();
@@ -436,6 +523,15 @@ def main():
                                     service_workers='block', timezone_id='Europe/Prague')
                 p = P(ctx, url, Svc(), lang)
                 story(p, a.shots, label, lang == 'cs')
+                ctx.close()
+            # T40 check: the play bar on the map (a notebook 1366x768, a phone), en + cs
+            for lang, vp, phone, label in (('en', (1366, 768), False, 'bar-nb-en'), ('cs', (1366, 768), False, 'bar-nb-cs'),
+                                           ('cs', (390, 844), True, 'bar-phone-cs'), ('en', (390, 844), True, 'bar-phone-en')):
+                print('--- bar %s' % label, flush=True)
+                ctx = b.new_context(viewport={'width': vp[0], 'height': vp[1]}, is_mobile=phone, has_touch=phone,
+                                    service_workers='block', timezone_id='Europe/Prague')
+                p = P(ctx, url, Svc(), lang)
+                bar(p, a.shots, label, lang == 'cs', phone)
                 ctx.close()
             for lang, vp, phone, label in (('en', (390, 844), True, 'phone-en'), ('cs', (360, 740), True, 'small-cs'),
                                            ('cs', (844, 390), True, 'land-cs'), ('cs', (1440, 900), False, 'desk-cs'),

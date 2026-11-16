@@ -2616,7 +2616,7 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
 
 /* ---- T20 E2: precipitation mosaic — time line under its overlay row ------ */
 /* one card across the whole row (flex-basis 100 %): time · kind · state,
-   [play] slider (observations | nowcast) [Now], legend, credits + Whole area.
+   [play] [Whole area] … [Now], slider (observations | now | nowcast), legend, credits (T40).
    Fixed slots and tabular numbers: nothing jumps while it plays. */
 .vt-precip { flex: 1 1 100%; min-width: 0; margin: 2px 0 6px; padding: var(--vt-gap-2) var(--vt-gap-2) var(--vt-gap-1);
              border: 1px solid var(--vt-border); border-radius: var(--vt-r-card);
@@ -2627,10 +2627,22 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
 .vt-precip-kind { flex: 0 1 auto; min-width: 0; color: var(--vt-muted); overflow-wrap: anywhere; }
 .vt-precip-kind.is-nowcast { color: var(--vt-info); }
 .vt-precip-state { margin-left: auto; text-align: right; font-size: var(--vt-fs-xs); overflow-wrap: anywhere; }
-.vt-precip-row { display: flex; align-items: center; gap: var(--vt-gap-2); margin-top: var(--vt-gap-1); }
+.vt-precip-row { display: flex; align-items: center; gap: var(--vt-gap-2); margin-top: 2px; }
+/* T40: [▶] [Whole area | Back] … [Now] above the slider, which gets the full width */
+.vt-precip-ctl { display: flex; align-items: center; flex-wrap: wrap; gap: var(--vt-gap-1) var(--vt-gap-2); margin-top: var(--vt-gap-1); }
+.vt-precip-gap { flex: 1 1 0; min-width: 0; }
 .vt-precip-btn { flex: 0 0 auto; min-width: var(--vt-touch); min-height: var(--vt-touch); padding: 0 var(--vt-gap-2);
                  border-radius: var(--vt-r-ctl); font-size: var(--vt-fs-sm); line-height: 1; }
+.vt-precip-playbtn { min-width: calc(var(--vt-touch) + 12px); }
 .vt-precip-nowbtn { min-width: 3.6em; }
+/* "now" across the track: measured left of it, nowcast (striped) right */
+.vt-precip-nowmark { position: absolute; top: calc(var(--vt-touch) / 2 - 8px); height: 16px; width: 2px; margin-left: -1px;
+                     border-radius: 1px; background: var(--vt-text); opacity: 0.85; pointer-events: none; }
+.vt-precip-nowmark[hidden] { display: none; }
+.vt-precip-hint { margin-top: var(--vt-gap-1); color: var(--vt-info); overflow-wrap: anywhere; }
+.vt-precip-hint[hidden] { display: none; }
+.vt-precip-nodata { margin-top: var(--vt-gap-1); overflow-wrap: anywhere; }
+.vt-precip-nodata[hidden] { display: none; }
 .vt-precip-slide { position: relative; flex: 1 1 auto; min-width: 0; padding-bottom: 14px; }
 /* the coloured track under the native slider: observations neutral, nowcast
    in the info colour (striped) — what is a forecast is visible at a glance */
@@ -2678,18 +2690,37 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
 .vt-precip-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--vt-gap-1) var(--vt-gap-2); margin-top: var(--vt-gap-1); }
 .vt-precip-attr { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
 .vt-precip-attr a { color: inherit; text-decoration: underline dotted; }
-.vt-precip-fit { flex: 0 0 auto; min-height: var(--vt-touch); font-size: var(--vt-fs-xs); }
-/* the time on the map, just above the credits line (bottom-left) */
+.vt-precip-fit { white-space: nowrap; }
+.vt-precip-fit.is-hot { color: var(--vt-info); border-color: var(--vt-info); background-color: rgba(var(--vt-info-rgb), 0.14); }
+/* T40: the play bar on the map, just above the credits line (bottom-left):
+   [▶] time · kind / rain or loading [Whole area | Back]. Always in sight while
+   the layer is on; touch targets like the card's, text cut with … + title. */
 .vt-map-precip {
     position: absolute; left: 6px; bottom: calc(var(--vt-frame-bottom, 44px) + 32px + var(--vt-map-scale-h, 0px)); z-index: 1;   /* M8-1: above the scale bar */
-    max-width: min(60%, 360px); padding: 2px 8px; border-radius: 6px; pointer-events: none;
-    font-size: var(--vt-fs-xs); line-height: 1.6; color: var(--vt-text);
-    background: var(--vt-overlay); opacity: 0.9;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 6px; max-width: min(calc(100% - 12px), 440px);
+    padding: 3px; border-radius: 10px; color: var(--vt-text);
+    background: var(--vt-overlay); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
-.vt-map-precip.is-nowcast { color: var(--vt-info); box-shadow: inset 0 0 0 1px var(--vt-edge-info); }
-.vt-map-precip.is-warn { color: var(--vt-warn); }
+.vt-map-precip.is-nowcast { box-shadow: inset 0 0 0 1px var(--vt-edge-info), 0 1px 4px rgba(0, 0, 0, 0.35); }
 .vt-map-precip[hidden] { display: none; }
+.vt-map-precip-btn { flex: 0 0 auto; min-width: var(--vt-touch); min-height: var(--vt-touch); padding: 0 10px;
+    border: 1px solid rgba(var(--vt-info-rgb), 0.45); border-radius: 8px; background: transparent;
+    color: var(--vt-info); font-size: var(--vt-fs-sm); line-height: 1; white-space: nowrap; cursor: pointer; }
+.vt-map-precip-btn:hover { background: rgba(var(--vt-info-rgb), 0.12); }
+.vt-map-precip-btn:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
+.vt-map-precip-btn:disabled { opacity: 0.45; cursor: default; }
+.vt-map-precip-play { min-width: calc(var(--vt-touch) + 6px); }
+.vt-map-precip-fit { color: var(--vt-text); border-color: var(--vt-border); }
+.vt-map-precip-fit.is-hot { color: var(--vt-info); border-color: var(--vt-info); background: rgba(var(--vt-info-rgb), 0.14); }
+.vt-map-precip-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.vt-map-precip-t, .vt-map-precip-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vt-map-precip-t { font-size: var(--vt-fs-sm); }
+.vt-map-precip-sub { font-size: var(--vt-fs-xs); color: var(--vt-muted); }
+.vt-map-precip-sub[hidden] { display: none; }
+.vt-map-precip.is-nowcast .vt-map-precip-t { color: var(--vt-info); }
+.vt-map-precip.is-warn .vt-map-precip-t, .vt-map-precip.is-warn .vt-map-precip-sub { color: var(--vt-warn); }
+.vt-precip-rain { margin-top: var(--vt-gap-1); color: var(--vt-text); overflow-wrap: anywhere; }
+.vt-precip-rain[hidden] { display: none; }
 
 /* ---- T8 E (2026-11-08): the full log's top row on a PC ---------------------
    Its keys (Changes / ROS · DBG…FATAL · All nodes · Live · Clear · ▼) were

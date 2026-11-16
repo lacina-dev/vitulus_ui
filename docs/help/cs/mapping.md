@@ -355,18 +355,28 @@ těch firem. **Vymazat costmapy** zapomene překážky,
 které si robot právě pamatuje — žádnou uloženou mapu nemění.
 
 **Srážky (mozaika)** jsou jedna mapa deště složená z několika meteoradarů — českého kompozitu
-ČHMÚ, evropské sítě EUMETNET OPERA a RainVieweru — kterou skládá vlastní služba srážek robota (běží
-na robotu vedle MapProxy, port 8097). Po zaškrtnutí se pod řádkem otevře časová osa: čas obrázku
-na mapě a co je to zač (*nejnovější radar*, *radar −25 min* nebo *předpověď +20 min*, krátkodobá
-předpověď v barvě info), jak starý je nejnovější snímek radaru, posuvník přes poslední dvě hodiny
-a předpověď (šrafovaná část vpravo od *teď*), **▶** pro přehrání, **Teď** pro návrat na nejnovější
-snímek (vrstva pak sama sleduje nové), legenda barev v mm/h (déšť, a sníh, kde ho radar pozná),
-zdroje obrázku s odkazy a **Celé okolí**, které oddálí mapu na celou oblast kolem zahrady. Čas je
-napsaný i v levém dolním rohu mapy. Slabý déšť je průsvitný, silný plný; kde žádný radar neměří,
-zůstane mapa prázdná (to neznamená „sucho“). *Data stará N min* znamená, že radary už chvíli
-neposlaly nový snímek; *služba neodpovídá* znamená, že služba srážek na robotu neběží — vrstva
-**Déšť** ze služby počasí je samostatná a funguje dál. Mapa je jen pro vlastní potřebu robota:
-podmínky RainVieweru povolují jen osobní použití.
+ČHMÚ, německého kompozitu DWD a RainVieweru (a evropské sítě EUMETNET OPERA, když data zveřejňuje)
+— kterou skládá vlastní služba srážek robota (běží na robotu vedle MapProxy, port 8097). Po
+zaškrtnutí se na mapě vlevo dole objeví malá lišta přehrávání — **▶**, čas obrázku, jestli v okolí
+zahrady prší, a **Celé okolí** — vidět je pořád, dokud je vrstva zapnutá. Celá časová osa se otevře
+pod řádkem vrstvy (i v panelu vrstev): čas obrázku na mapě a co je to zač (*nejnovější radar*, *radar −25 min* nebo *předpověď +20 min*,
+krátkodobá předpověď v barvě info), jak starý je nejnovější snímek radaru, **▶** pro přehrání,
+hned vedle **Celé okolí**, **Teď** pro návrat na nejnovější snímek (vrstva pak sama sleduje nové)
+a posuvník přes poslední dvě hodiny a předpověď — bílá značka je *teď*, šrafovaná část vpravo od ní
+je předpověď. **▶** přehrává od nejstaršího snímku (−2 h) přes *teď* do konce předpovědi a pak
+znovu. Nejdřív načte obrázky všech snímků pro pohled na obrazovce (*načítám snímky 12/49*), pak se
+každý krok ukáže hned; u pohledu, který potřebuje hodně dlaždic, přehrává každý druhý nebo třetí
+snímek. Radar má pixely asi 1 km, takže zblízka na zahradě vidíš jediný: časová osa to řekne a
+**▶** sám oddálí na celé okolí — **Zpět k zahradě** vrátí tvůj pohled, stejně jako vypnutí vrstvy.
+Jedna věta říká, jestli v okolí zahrady teď prší (*V okruhu 150 km teď neprší*, *Nejbližší déšť
+asi 25 km*, měřeno zhruba od okolí zahrady). Pod tím je legenda barev
+v mm/h (déšť, a sníh, kde ho radar pozná) a zdroje obrázku s odkazy. Čas je napsaný i v levém
+dolním rohu mapy. Slabý déšť je průsvitný, silný plný; kde žádný radar neměří, zůstane mapa prázdná
+(to neznamená „sucho“). *Data stará N min* znamená, že radary už chvíli neposlaly nový snímek;
+*Bez: …* jmenuje zdroj, který právě selhává, *Bez dat: …* zdroj, který odpovídá, ale nemá co dát
+(a od kdy) — mapa jede z ostatních; *služba neodpovídá* znamená, že služba srážek na robotu neběží
+— vrstva **Déšť** ze služby počasí je samostatná a funguje dál. Mapa je jen pro vlastní potřebu
+robota: podmínky RainVieweru povolují jen osobní použití.
 
 > [!NOTE]
 > Když se vrstva mapy neukáže, nemusí chybět — nejdřív obnov stránku. Víc v

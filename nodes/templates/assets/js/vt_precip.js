@@ -1,7 +1,7 @@
 /* vt_precip.js — the precipitation mosaic layer's time line (T20 E2).
  *
  * The robot's own precip-mosaic service (package vitulus_precip, HTTP on
- * port 8097, one map from several radars: ČHMÚ, EUMETNET OPERA, RainViewer …)
+ * port 8097, one map from several radars: ČHMÚ, DWD, RainViewer, EUMETNET OPERA …)
  * serves XYZ tiles per time frame. The catalog entry of the overlay
  * (ui_sources.json in docker-mapproxy, id "precip") carries
  *     "timeline": {"port": 8097}
@@ -16,6 +16,12 @@
  * nowcast run for the same time, a nowcast slot turned observation), so the
  * browser and the texture cache never keep an outdated picture under a
  * frame id; the service ignores it.
+ *
+ * T40 (playback): ▶ runs from the oldest picture (−2 h) through "now" to the
+ * end of the nowcast, in a loop; the tiles of every frame for the view on
+ * screen are preloaded first (Preload: blobs, "loading k/n"), so each step
+ * paints from memory; a view too close for the radar (< 20 km) says so and
+ * ▶ zooms out to the whole area by itself, Back returns to the garden.
  *
  * The first part is pure (no DOM): node test tools/test_precip.node.js.
  * Timeline() builds the controls (slider + play, nowcast marked, legend,
@@ -32,6 +38,11 @@
     var STEP_MS = 700;           // playback: one frame per step …
     var WAIT_MS = 3000;          // … waiting at most this long for its tiles
     var HOLD_MS = 1500;          // pause on the last frame before the loop
+    var NOW_HOLD_MS = 600;       // a short stop on "now" (measured -> nowcast)
+    var WARM_MS = 4000;          // T40: Play waits for the preload at most this long (or until 4 frames ahead are in) …
+    var LEAD = 4;                // … then steps on, waiting at a frame still on its way (never jumps back)
+    var SMALL_VIEW_M = 20000;    // T40: a view narrower than this shows a few radar pixels (~0.6-1 km each)
+    var PLAY_MAX_Z = 7;          // T40: the playback draws at most z7 (0.8 km/px at 50° N, the radars ~1 km)
     var LEGEND_MARKS = [0.1, 1, 5, 20, 50];
 
     function num(v) {
@@ -54,6 +65,22 @@
         // the service writes minutes (2026-11-08T09:30Z); full ISO also works
         var t = Date.parse(/T\d\d:\d\dZ$/.test(raw) ? raw.replace(/Z$/, ':00Z') : raw);
         return isFinite(t) ? t / 1000 : null;
+    }
+
+    // T40: index.rain_nearby -> {radius, near (km|null), max, covered} | null
+    function rainOf(r) {
+        if (!r || typeof r !== 'object') { return null; }
+        var rad = num(r.radius_km), cov = num(r.covered_fraction);
+        if (rad === null) { return null; }
+        return { radius: rad, near: num(r.nearest_rain_km), max: num(r.max_mmh), covered: cov === null ? 1 : cov };
+    }
+    // the sentence about rain around the garden ('' = nothing to say)
+    function rainText(idx) {
+        var r = idx && idx.rain;
+        if (!r || r.covered < 0.3) { return ''; }
+        if (r.near === null) { return tr('mapt.precip.rain_none', { r: Math.round(r.radius) }); }
+        if (r.near <= 10) { return tr('mapt.precip.rain_here'); }
+        return tr('mapt.precip.rain_near', { km: Math.round(r.near) });
     }
 
     // ?v=<signature> of a frames[].tiles template
@@ -103,6 +130,10 @@
                 id: String(s.id), name: String(s.name || s.id), attribution: String(s.attribution || ''),
                 url: /^https:\/\//.test(String(s.attribution_url || '')) ? String(s.attribution_url) : '',
                 error: s.last_error ? String(s.last_error) : '',
+                // T40: the source answers but has no data (the service says
+                // status "no_data", since when); an older service never does
+                noData: s.status === 'no_data',
+                noDataSince: (s.no_data && s.no_data.since) ? epochOf({ time: s.no_data.since }) : null,
             };
         });
         var byId = {};
@@ -118,6 +149,8 @@
             // the service's clock when it wrote the index (data age is measured
             // against it, not against this browser's clock)
             generatedEpoch: epochOf({ time: j.generated }),
+            // T40: rain around the area now (service >= T40; null = unknown)
+            rain: rainOf(j.rain_nearby),
         };
     }
 
@@ -201,9 +234,273 @@
         return idx ? idx.sources.filter(function (s) { return s.error; }).map(function (s) { return s.name; }) : [];
     }
 
+    // T40: sources that answer but have nothing (status "no_data" from the
+    // service, e.g. OPERA with an empty bucket) -> [{name, since}]
+    function noData(idx) {
+        return idx ? idx.sources.filter(function (s) { return s.noData && !s.error; })
+            .map(function (s) { return { name: s.name, since: s.noDataSince }; }) : [];
+    }
+
+    // ---------------------------------------------------------- playback (T40)
+    // The frames to preload for playback, ascending: every k-th so that
+    // frames x tiles stays within maxTiles (the robot renders every tile it
+    // has not cached yet, a phone has little memory). With the frames' times
+    // (epochs) the stride is laid on the clock (every 10 / 15 min), so a new
+    // index a minute later picks the same frames and the preload keeps them;
+    // "now" and the last frame are always in.
+    function plan(n, latestIdx, tilesPerFrame, maxTiles, epochs) {
+        if (!(n > 0)) { return []; }
+        var per = Math.max(1, Math.round(tilesPerFrame) || 1);
+        var fit = Math.max(2, Math.floor((maxTiles > 0 ? maxTiles : 1e9) / per));
+        // the stride from the window's full size (2 h + 2 h of 5 min = 49):
+        // an index with a frame more or less keeps the same stride and frames
+        var k = Math.max(1, Math.ceil(Math.max(n, 49) / fit));
+        var a = latestIdx >= 0 && latestIdx < n ? latestIdx : 0;
+        var on = function (i) {
+            if (k === 1) { return true; }
+            if (epochs && isFinite(epochs[i])) { return Math.round(epochs[i] / 300) % k === 0; }
+            return ((i - a) % k + k) % k === 0;
+        };
+        var out = [];
+        for (var i = 0; i < n; i++) {
+            if (on(i) || i === a || i === n - 1) { out.push(i); }
+        }
+        return out;
+    }
+
+    // the next frame after i (wrapping) to show: st(j) = 'ready' | 'pending'
+    // (on its way: wait for it) | 'skip' (not planned / never loads);
+    // -1 = stay (the next one is still loading, or no other one)
+    function nextReady(n, i, st) {
+        for (var s = 1; s < n + 1; s++) {
+            var j = ((i + s) % n + n) % n;
+            if (j === i) { return -1; }
+            var x = st(j);
+            if (x === true || x === 'ready') { return j; }
+            if (x === 'pending') { return -1; }
+        }
+        return -1;
+    }
+    // how many frames from i on (skips not counted) are ready in a row
+    function leadReady(n, i, st) {
+        var k = 0;
+        for (var s = 0; s < n; s++) {
+            var x = st(((i + s) % n + n) % n);
+            if (x === 'skip' || x === false) { continue; }
+            if (x === 'pending') { break; }
+            k++;
+        }
+        return k;
+    }
+
+    // Preload of the playback tiles: the PNGs (a few kB each) are fetched
+    // once, kept as blobs and handed to the map as object URLs, so a step of
+    // the playback paints from memory — no request, no waiting, nothing
+    // cancelled. Bounded by bytes; a new view keeps what it still needs.
+    // T40 (check): a frame whose content changed (a new nowcast run every
+    // 5 min: a new ?v=) keeps its old pictures until the new ones are in —
+    // the playback runs on, the progress does not fall back; a frame the
+    // service no longer has (404, it left the 2 h window) is skipped and
+    // o.onGone() asks for a new index; the service unreachable (network
+    // error) stops the loading at once and calls o.onDown() (no request
+    // storm), want()/resume() go on.
+    // o: {get(url, signal) -> Promise<Blob|null> (rejects {status} / {net}),
+    //     mkUrl(blob), revoke(objUrl), conc, maxBytes, onChange(), onGone(), onDown()}
+    function Preload(o) {
+        this.o = o || {};
+        this.items = new Map();    // url -> {state wait|load|ok|err, gone, obj, size, ctl, waiters}
+        this.frames = [];          // [{id, v, urls}] in load order
+        this.byId = {};
+        this.prev = {};            // id -> the frame's previous version while the new one loads
+        this.key = '';
+        this.bytes = 0;
+        this.active = 0;
+        this.full = false;
+        this.down = false;
+    }
+    // frames: [{id, v, urls[]}] in the order they should load
+    Preload.prototype.want = function (key, frames) {
+        var keep = new Set(), self = this, prev = {};
+        frames.forEach(function (f) {
+            f.urls.forEach(function (u) { keep.add(u); });
+            // a new version of a frame that is in: the old one stays meanwhile
+            var old = self.prev[f.id] && self.prev[f.id].v !== f.v ? self.prev[f.id] : self.byId[f.id];
+            if (old && old.v !== f.v && self._jobReady(old) && !self._jobReady(f)) {
+                prev[f.id] = old;
+                old.urls.forEach(function (u) { keep.add(u); });
+            }
+        });
+        Array.from(this.items.keys()).forEach(function (u) { if (!keep.has(u)) { self._drop(u); } });
+        this.key = key;
+        this.frames = frames;
+        this.byId = {};
+        this.prev = prev;
+        frames.forEach(function (f) {
+            self.byId[f.id] = f;
+            f.urls.forEach(function (u) { if (!self.items.has(u)) { self.items.set(u, { state: 'wait' }); } });
+        });
+        this.full = false;
+        this.down = false;
+        this._pump();
+    };
+    Preload.prototype.resume = function () { if (this.down) { this.down = false; this._pump(); } };
+    Preload.prototype._pump = function () {
+        if (this.down) { return; }
+        var conc = this.o.conc > 0 ? this.o.conc : 3;
+        for (var fi = 0; fi < this.frames.length && this.active < conc; fi++) {
+            var urls = this.frames[fi].urls;
+            for (var ui = 0; ui < urls.length && this.active < conc; ui++) {
+                var it = this.items.get(urls[ui]);
+                if (!it || it.state !== 'wait') { continue; }
+                if (this.o.maxBytes > 0 && this.bytes >= this.o.maxBytes) { this.full = true; return; }
+                this._load(urls[ui], it);
+            }
+        }
+    };
+    // a new version is in: its old one goes
+    Preload.prototype._settle = function () {
+        var self = this;
+        Object.keys(this.prev).forEach(function (id) {
+            var f = self.byId[id];
+            if (!f || !self._jobReady(f)) { return; }
+            var old = self.prev[id];
+            delete self.prev[id];
+            var keep = new Set(f.urls);
+            old.urls.forEach(function (u) { if (!keep.has(u)) { self._drop(u); } });
+        });
+    };
+    Preload.prototype._load = function (u, it) {
+        var self = this;
+        it.state = 'load';
+        it.ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        this.active++;
+        var done = function () {
+            self.active--;
+            var ws = it.waiters;
+            it.waiters = null;
+            if (ws) { ws.forEach(function (w) { try { w(); } catch (e) { /* the map's business */ } }); }
+            self._settle();
+            self._pump();
+            if (self.o.onChange) { self.o.onChange(); }
+        };
+        Promise.resolve().then(function () { return self.o.get(u, it.ctl ? it.ctl.signal : undefined); }).then(function (blob) {
+            it.ctl = null;
+            if (self.items.get(u) !== it) { done(); return; }   // dropped meanwhile
+            it.state = 'ok';
+            it.size = (blob && blob.size) || 0;
+            self.bytes += it.size;
+            it.obj = self.o.mkUrl ? self.o.mkUrl(blob) : null;
+            done();
+        }, function (e) {
+            it.ctl = null;
+            if (self.items.get(u) === it) {
+                if (e && e.net) {
+                    // the service does not answer: stop here, ask nothing more
+                    it.state = 'wait';
+                    if (!self.down) { self.down = true; if (self.o.onDown) { self.o.onDown(); } }
+                } else {
+                    it.state = 'err';
+                    it.gone = !!(e && e.status === 404);
+                    if (it.gone && self.o.onGone) { self.o.onGone(); }
+                }
+            }
+            done();
+        });
+    };
+    Preload.prototype._drop = function (u) {
+        var it = this.items.get(u);
+        if (!it) { return; }
+        this.items.delete(u);
+        if (it.ctl) { try { it.ctl.abort(); } catch (e) { /* old browser */ } }
+        if (it.obj && this.o.revoke) { this.o.revoke(it.obj); }
+        this.bytes -= it.size || 0;
+        var ws = it.waiters;
+        it.waiters = null;
+        if (ws) { ws.forEach(function (w) { try { w(); } catch (e) { /* ignore */ } }); }
+    };
+    Preload.prototype.clear = function () {
+        var self = this;
+        Array.from(this.items.keys()).forEach(function (u) { self._drop(u); });
+        this.frames = []; this.byId = {}; this.prev = {}; this.key = ''; this.full = false; this.down = false;
+    };
+    // the object URL of a preloaded tile (null = not preloaded / failed)
+    Preload.prototype.url = function (u) {
+        var it = this.items.get(u);
+        return it && it.state === 'ok' ? it.obj : null;
+    };
+    // the tile is on its way: cb() once it is in (or failed / dropped)
+    Preload.prototype.pending = function (u) {
+        var it = this.items.get(u);
+        return !!(it && !this.down && (it.state === 'wait' || it.state === 'load'));
+    };
+    Preload.prototype.whenDone = function (u, cb) {
+        var it = this.items.get(u);
+        if (!it || !(it.state === 'wait' || it.state === 'load')) { cb(); return; }
+        (it.waiters || (it.waiters = [])).push(cb);
+    };
+    Preload.prototype._jobReady = function (f) {
+        for (var i = 0; i < f.urls.length; i++) {
+            var it = this.items.get(f.urls[i]);
+            if (!it || it.state === 'wait' || it.state === 'load') { return false; }
+        }
+        return true;
+    };
+    Preload.prototype._jobGone = function (f) {
+        if (!f.urls.length) { return false; }
+        for (var i = 0; i < f.urls.length; i++) {
+            var it = this.items.get(f.urls[i]);
+            if (!it || !it.gone) { return false; }
+        }
+        return true;
+    };
+    // 'ready' | 'pending' | 'skip' (not planned, gone from the service, or
+    // the byte limit stops it)
+    Preload.prototype.frameState = function (id) {
+        var f = this.byId[id];
+        if (!f) { return 'skip'; }
+        if (this._jobGone(f)) { return 'skip'; }
+        if (this.frameReady(id)) { return 'ready'; }
+        if (this.full) {
+            for (var i = 0; i < f.urls.length; i++) {
+                var it = this.items.get(f.urls[i]);
+                if (it && it.state === 'load') { return 'pending'; }
+            }
+            return 'skip';
+        }
+        return 'pending';
+    };
+    // every tile of the frame (or of its previous version) is in
+    Preload.prototype.frameReady = function (id) {
+        var f = this.byId[id];
+        if (!f) { return false; }
+        if (this._jobReady(f)) { return true; }
+        return !!(this.prev[id] && this._jobReady(this.prev[id]));
+    };
+    // the version of the frame to draw: the new one once it is in, the old
+    // one meanwhile (null = not planned)
+    Preload.prototype.useV = function (id) {
+        var f = this.byId[id];
+        if (!f) { return null; }
+        if (!this._jobReady(f) && this.prev[id] && this._jobReady(this.prev[id])) { return this.prev[id].v; }
+        return f.v;
+    };
+    Preload.prototype.progress = function () {
+        var k = 0, self = this;
+        this.frames.forEach(function (f) { if (self.frameReady(f.id)) { k++; } });
+        return { k: k, n: this.frames.length, full: this.full, bytes: this.bytes, down: this.down };
+    };
+
     // ---------------------------------------------------------------- DOM
     function tr(k, v) { return root && root.VTI18n ? root.VTI18n.t(k, v) : k; }
     function langOf() { return (root && root.VTI18n && root.VTI18n.lang && root.VTI18n.lang()) || 'en'; }
+    // T40: "since" of a source without data: the time today, else the date
+    function sinceText(epoch) {
+        var d = new Date(epoch * 1000), now = new Date();
+        if (d.toDateString() === now.toDateString()) { return hhmm(epoch); }
+        try {
+            return d.toLocaleDateString(langOf() === 'cs' ? 'cs-CZ' : 'en-GB', { day: 'numeric', month: 'numeric' });
+        } catch (e) { return d.getDate() + '. ' + (d.getMonth() + 1) + '.'; }
+    }
     function hhmm(epoch) {
         try {
             return new Date(epoch * 1000).toLocaleTimeString(langOf() === 'cs' ? 'cs-CZ' : 'en-GB',
@@ -256,17 +553,27 @@
         head.appendChild(this.e_time); head.appendChild(this.e_kind); head.appendChild(this.e_state);
         m.appendChild(head);
 
-        var row = el('div', 'vt-precip-row');
-        this.b_play = el('button', 'btn btn-outline-info vt-precip-btn');
+        // T40: [▶] [Whole area | Back] … [Now] above, the slider below at full
+        // width (a phone has room for the frames, the buttons keep their text)
+        var ctl = el('div', 'vt-precip-ctl');
+        this.b_play = el('button', 'btn btn-outline-info vt-precip-btn vt-precip-playbtn');
         this.b_play.type = 'button';
         this.b_play.id = 'mapv3_precip_play';
         this.b_play.addEventListener('click', function () { self.toggle(); });
+        this.b_fit = el('button', 'btn btn-outline-primary vt-precip-btn vt-precip-fit');
+        this.b_fit.type = 'button';
+        this.b_fit.id = 'mapv3_precip_fit';
+        this.b_fit.addEventListener('click', function () { self.fitOrBack(); });
+        var row = el('div', 'vt-precip-row');
         var sl = el('div', 'vt-precip-slide');
         this.e_track = el('div', 'vt-precip-track');
         this.e_track.setAttribute('aria-hidden', 'true');
         this.e_obs = el('span', 'vt-precip-seg-obs');
         this.e_nc = el('span', 'vt-precip-seg-nc');
         this.e_track.appendChild(this.e_obs); this.e_track.appendChild(this.e_nc);
+        // T40: "now" as a mark across the track (measured left, nowcast right)
+        this.e_nowmark = el('span', 'vt-precip-nowmark');
+        this.e_nowmark.setAttribute('aria-hidden', 'true');
         this.in_range = el('input', 'vt-precip-range');
         this.in_range.type = 'range';
         this.in_range.id = 'mapv3_precip_range';
@@ -275,7 +582,7 @@
             self.pause();
             self._select(parseInt(self.in_range.value, 10), true);
         });
-        sl.appendChild(this.e_track); sl.appendChild(this.in_range);
+        sl.appendChild(this.e_track); sl.appendChild(this.e_nowmark); sl.appendChild(this.in_range);
         var ticks = el('div', 'vt-precip-ticks vt-dim vt-tnum');
         ticks.setAttribute('aria-hidden', 'true');
         this.e_t0 = el('span', 'vt-precip-t0');
@@ -294,21 +601,33 @@
         this.b_now.type = 'button';
         this.b_now.id = 'mapv3_precip_now';
         this.b_now.addEventListener('click', function () { self.pause(); self.follow = true; self._select(-1, true); });
-        row.appendChild(this.b_play); row.appendChild(sl); row.appendChild(this.b_now);
+        ctl.appendChild(this.b_play); ctl.appendChild(this.b_fit);
+        ctl.appendChild(el('span', 'vt-precip-gap')); ctl.appendChild(this.b_now);
+        m.appendChild(ctl);
+        row.appendChild(sl);
         m.appendChild(row);
+        // T40: one short sentence when the view is too close for the radar
+        // (or the playback zoomed out by itself)
+        // T40: is it raining around the garden now (one sentence)
+        this.e_rain = el('div', 'vt-precip-rain vt-fs-xs');
+        this.e_rain.hidden = true;
+        m.appendChild(this.e_rain);
+        this.e_hint = el('div', 'vt-precip-hint vt-fs-xs');
+        this.e_hint.hidden = true;
+        m.appendChild(this.e_hint);
 
         this.e_legend = el('div', 'vt-precip-legend');
         m.appendChild(this.e_legend);
         this.e_fail = el('div', 'vt-precip-fail vt-fs-xs');
         this.e_fail.hidden = true;
         m.appendChild(this.e_fail);
+        // T40: sources that answer but deliver nothing (not an error, not silent)
+        this.e_nodata = el('div', 'vt-precip-nodata vt-fs-xs vt-dim');
+        this.e_nodata.hidden = true;
+        m.appendChild(this.e_nodata);
         var foot = el('div', 'vt-precip-foot');
         this.e_attr = el('div', 'vt-precip-attr vt-fs-xs vt-dim');
-        this.b_fit = el('button', 'btn btn-outline-primary btn-sm vt-precip-fit');
-        this.b_fit.type = 'button';
-        this.b_fit.id = 'mapv3_precip_fit';
-        this.b_fit.addEventListener('click', function () { if (self.o.onFit) { self.o.onFit(self.sideKm()); } });
-        foot.appendChild(this.e_attr); foot.appendChild(this.b_fit);
+        foot.appendChild(this.e_attr);
         m.appendChild(foot);
         if (typeof window !== 'undefined' && window.addEventListener) {
             window.addEventListener('resize', function () { if (self.on) { self._fixTicks(); } });
@@ -378,11 +697,15 @@
             self._fetchedMs = Date.now();
             var i = pick(idx, self.selId, self.follow, self.selEpoch);
             self._select(i, false, before);
+            // T40: new frames while it plays: the preload follows the index
+            // (what is in stays, a new frame or signature is fetched)
+            if (self.playing && self.o.prepare) { self.o.prepare(); }
             if (!self.leg) { self._fetchLegend(); }
         }).catch(function (e) {
             self._busy = false;
             var was = self.failed;
             self.failed = true;
+            self.pause();          // T40: no playback over a dead service
             if (!was) { try { console.warn('[precip] service not reachable:', e && e.message); } catch (x) { /* ignore */ } }
             self._render();
             if (!was && self.o.onFrame) { self.o.onFrame(self.frame(), 'down'); }
@@ -407,12 +730,36 @@
 
     Timeline.prototype.toggle = function () { if (this.playing) { this.pause(); } else { this.play(); } };
 
+    // T40: ▶ plays from the oldest picture (−2 h) through "now" to the end of
+    // the nowcast, in a loop. A frame picked by hand (paused in the middle)
+    // goes on from there. Before the first step the tiles of the frames are
+    // preloaded for this view (o.prepare; "loading k/n" in the state line),
+    // at most WARM_MS — then it steps through the frames that are in while
+    // the rest comes. A view too close for the radar zooms out first
+    // (o.beforePlay; Back returns).
+    // T40: the oldest frames the service has dropped since this index was
+    // written (its 2 h window moves every 5 min): asking for them = 404s
+    Timeline.prototype.liveFrom = function () {
+        var idx = this.idx;
+        if (!idx || !this._fetchedMs || idx.generatedEpoch === null || idx.generatedEpoch === undefined) { return 0; }
+        var now = serviceNow(idx, this._fetchedMs, Date.now());
+        var crossed = Math.floor(now / 300) - Math.floor(idx.generatedEpoch / 300);
+        // (the index is polled every minute: 0 or 1; at most 2 = 10 min)
+        return Math.max(0, Math.min(crossed, 2, idx.latestIdx > 0 ? idx.latestIdx : 0));
+    };
+
     Timeline.prototype.play = function () {
         var idx = this.idx;
         if (!idx || idx.frames.length < 2) { return; }
+        // an index more than 30 s old: a fresh one (the window may have moved)
+        if (this._fetchedMs && Date.now() - this._fetchedMs > 30000) { this._fetch(); }
+        if (this.o.beforePlay) { this.o.beforePlay(); }
         this.playing = true;
+        this._warm = true;
+        this._warmT = Date.now();
+        if (this.o.prepare) { this.o.prepare(); }
         var i = find(idx, this.selId);
-        if (i >= idx.frames.length - 1) { this._select(0, true); }
+        if (this.follow || i < this.liveFrom() || i >= idx.frames.length - 1) { this._select(this.liveFrom(), true); }
         this._t0 = Date.now();
         var self = this;
         if (this._play) { clearInterval(this._play); }
@@ -422,26 +769,110 @@
 
     Timeline.prototype.pause = function () {
         if (this._play) { clearInterval(this._play); this._play = null; }
-        if (this.playing) { this.playing = false; this._render(); }
+        this._warm = false;
+        if (this.playing) {
+            this.playing = false;
+            this._render();
+            if (this.o.onPause) { this.o.onPause(); }
+        }
+    };
+
+    // the preload: {k, n, full} (null = no preload, every frame counts as in)
+    Timeline.prototype._load = function () { return this.o.loadState ? this.o.loadState() : null; };
+    // 'ready' | 'pending' | 'skip' of frame j for the playback
+    Timeline.prototype._frameIn = function (j) {
+        if (j < this.liveFrom()) { return 'skip'; }
+        var f = this.idx.frames[j];
+        if (this.o.frameState) { return this.o.frameState(f); }
+        return (!this.o.frameReady || this.o.frameReady(f)) ? 'ready' : 'skip';
     };
 
     Timeline.prototype._tick = function () {
         var idx = this.idx;
         if (!idx || !this.playing) { return; }
+        var ls = this._load(), self = this;
+        var stf = function (k) { return self._frameIn(k); };
+        if (this._warm) {
+            var all = !ls || (!ls.n && !ls.zooming) || ls.k >= ls.n || ls.full;
+            var el = Date.now() - this._warmT;
+            var go = all || el > WARM_MS || (el > 1000 && leadReady(idx.frames.length, find(idx, this.selId), stf) >= LEAD);
+            if (!go) { this._renderState(); return; }
+            this._warm = false;
+            this._t0 = Date.now();
+            this._renderState();
+            return;
+        }
+        var n = idx.frames.length;
         var i = find(idx, this.selId), dt = Date.now() - this._t0;
-        var last = i >= idx.frames.length - 1;
+        var j = nextReady(n, i, stf);
+        if (j < 0) { this._renderState(); return; }          // nothing else in yet: stay
+        var hold = j <= i ? HOLD_MS : (i === idx.latestIdx ? NOW_HOLD_MS : 0);
         var ready = !this.o.ready || this.o.ready();
-        if (dt < (last ? STEP_MS + HOLD_MS : STEP_MS)) { return; }
+        if (dt < STEP_MS + hold) { return; }
         if (!ready && dt < WAIT_MS) { return; }
-        this._select(last ? 0 : i + 1, true);
+        this._select(j, true);
+    };
+
+    // T40: the view (mapping.js): {small: too close for the radar, back: a
+    // view to go back to, auto: the playback zoomed out by itself}
+    Timeline.prototype._view = function () {
+        var v = this.o.view ? this.o.view() : null;
+        return v || { small: false, back: false, auto: false };
+    };
+    Timeline.prototype.viewChanged = function () { this._renderView(); };
+    // Whole area, or Back to the view before it (card and map bar)
+    Timeline.prototype.fitOrBack = function () {
+        var v = this._view();
+        if (v.back && this.o.onRestore) { this.o.onRestore(); }
+        else if (this.o.onFit) { this.o.onFit(this.sideKm()); }
+        this._renderView();
+    };
+    // T40: the service stopped answering while it plays: stop, say so now
+    // (the index check confirms it and keeps asking at its own pace)
+    Timeline.prototype.serviceDown = function () {
+        this.pause();
+        var was = this.failed;
+        this.failed = true;
+        this._render();
+        if (!was && this.o.onFrame) { this.o.onFrame(this.frame(), 'down'); }
+        if (this.on) { this._fetch(); }
+    };
+    // T40: what the play bar on the map shows (mapping.js draws it)
+    Timeline.prototype.barInfo = function () {
+        var idx = this.idx, f = this.frame(), s = this.status(), v = this._view();
+        var ls = this.playing ? this._load() : null;
+        var loading = !!(ls && ls.n && ls.k < ls.n && !ls.full && s.state !== 'down');
+        var sub = s.state === 'down' ? tr('mapt.precip.st_down')
+            : loading ? tr('mapt.precip.st_preload', { k: ls.k, n: ls.n })
+            : (v.small && !v.back) ? tr('mapt.precip.bar_small') : rainText(idx);
+        return {
+            playing: this.playing, canPlay: !!(idx && idx.frames.length >= 2),
+            label: f ? badgeText(idx, f) : tr('mapt.precip.title'),
+            sub: sub, warn: s.state === 'down' || s.state === 'stale',
+            nowcast: !!(f && f.kind === 'nowcast'), back: !!v.back, hot: !v.back && !!v.small,
+        };
+    };
+    Timeline.prototype._changed = function () { if (this.o.onRender) { this.o.onRender(); } };
+
+    Timeline.prototype._renderView = function () {
+        if (!this.b_fit) { return; }
+        var v = this._view();
+        var back = !!v.back;
+        this.b_fit.textContent = tr(back ? 'mapt.precip.back' : 'mapt.precip.fit');
+        this.b_fit.title = tr(back ? 'mapt.precip.back_tip' : 'mapt.precip.fit_tip');
+        this.b_fit.disabled = !this.idx && !back;
+        // too close: the button is the way out, in the info colour
+        this.b_fit.classList.toggle('is-hot', !back && !!v.small);
+        var h = back && v.auto ? tr('mapt.precip.hint_zoomed') : (v.small ? tr('mapt.precip.hint_small') : '');
+        if (this.e_hint.textContent !== h) { this.e_hint.textContent = h; }
+        this.e_hint.hidden = !h;
+        this._changed();
     };
 
     Timeline.prototype.relabel = function () {
         if (!this.b_play) { return; }
         this.b_now.textContent = tr('mapt.precip.now_btn');
         this.b_now.title = tr('mapt.precip.now_tip');
-        this.b_fit.textContent = tr('mapt.precip.fit');
-        this.b_fit.title = tr('mapt.precip.fit_tip');
         this.in_range.setAttribute('aria-label', tr('mapt.precip.slider'));
         this._render();
         this._renderLegend();
@@ -475,6 +906,9 @@
         var lastF = n ? idx.frames[n - 1] : null;
         this.e_t1.textContent = (lastF && lastF.kind === 'nowcast') ? relText(relMin(idx, lastF)) : '';
         this.e_tnow.hidden = !(li > 0 && li < n - 1);
+        // the mark spans the track between the thumb's end positions (9 px in)
+        this.e_nowmark.style.left = 'calc(9px + (100% - 18px) * ' + (Math.round(nowPos * 1000) / 1000) + ')';
+        this.e_nowmark.hidden = this.e_tnow.hidden;
         this._fixTicks();
         // time + kind of the frame on screen
         this.e_time.textContent = f ? hhmm(f.epoch) : '--:--';
@@ -490,21 +924,19 @@
             k.textContent = tr('mapt.precip.kind_past', { m: relText(relMin(idx, f)) });
         }
         if (this.o.mount) { this.o.mount.classList.toggle('is-nowcast', !!(f && f.kind === 'nowcast')); }
-        // state: age of the newest observation, outage
-        var s = this.status(), st = this.e_state;
-        var txt = s.state === 'down' ? tr('mapt.precip.st_down')
-            : s.state === 'loading' ? tr('common.loading')
-            : s.state === 'empty' ? tr('mapt.precip.st_empty')
-            : s.state === 'stale' ? tr('mapt.precip.st_stale', { m: Math.round(s.age / 60) })
-            : tr('mapt.precip.st_ok', { m: Math.round(s.age / 60) });
-        st.textContent = txt;
-        st.title = s.state === 'down' ? tr('mapt.precip.st_down_tip') : txt;
-        st.classList.toggle('vt-tone-warn', s.state === 'down' || s.state === 'stale');
-        st.classList.toggle('vt-dim', !(s.state === 'down' || s.state === 'stale'));
+        this._renderState();
         // sources that fail right now (the mosaic goes on with the others)
         var bad = failing(idx);
         this.e_fail.hidden = !bad.length;
         this.e_fail.textContent = bad.length ? tr('mapt.precip.src_fail', { list: bad.join(', ') }) : '';
+        // T40: sources without data (answer, but nothing to give) — named
+        // with since when, not counted as an error
+        var nd = noData(idx);
+        this.e_nodata.hidden = !nd.length;
+        this.e_nodata.textContent = nd.length ? tr('mapt.precip.src_nodata', {
+            list: nd.map(function (x) { return x.since ? x.name + ' (' + tr('mapt.precip.since', { t: sinceText(x.since) }) + ')' : x.name; }).join(', '),
+        }) : '';
+        this._renderView();
         // credits of this frame, linked
         var a = this.e_attr;
         a.innerHTML = '';
@@ -518,9 +950,32 @@
                 a.appendChild(document.createTextNode(c.text));
             }
         });
-        this.b_fit.disabled = !idx;
         // already on the newest picture and following it: nothing to go back to
         this.b_now.disabled = !idx || (this.follow && i === li && !pl);
+    };
+
+    // state: age of the newest observation, outage; while the playback
+    // preloads: "loading k/n" (T40)
+    Timeline.prototype._renderState = function () {
+        var st = this.e_state;
+        if (!st) { return; }
+        var s = this.status(), ls = this.playing ? this._load() : null;
+        var loading = !!(ls && ls.n && ls.k < ls.n && !ls.full && s.state !== 'down');
+        var txt = loading ? tr('mapt.precip.st_preload', { k: ls.k, n: ls.n })
+            : s.state === 'down' ? tr('mapt.precip.st_down')
+            : s.state === 'loading' ? tr('common.loading')
+            : s.state === 'empty' ? tr('mapt.precip.st_empty')
+            : s.state === 'stale' ? tr('mapt.precip.st_stale', { m: Math.round(s.age / 60) })
+            : tr('mapt.precip.st_ok', { m: Math.round(s.age / 60) });
+        if (st.textContent !== txt) { st.textContent = txt; }
+        st.title = loading ? tr('mapt.precip.st_preload_tip') : s.state === 'down' ? tr('mapt.precip.st_down_tip') : txt;
+        var warn = !loading && (s.state === 'down' || s.state === 'stale');
+        st.classList.toggle('vt-tone-warn', warn);
+        st.classList.toggle('vt-dim', !warn);
+        var rt = s.state === 'down' ? '' : rainText(this.idx);
+        if (this.e_rain.textContent !== rt) { this.e_rain.textContent = rt; }
+        this.e_rain.hidden = !rt;
+        this._changed();
     };
 
     // the end labels under the slider must not run into "now" (a narrow
@@ -580,6 +1035,7 @@
     var api = {
         PORT: PORT, STALE_S: STALE_S, parseIndex: parseIndex, vOf: vOf, serviceNow: serviceNow, base: base, tileUrl: tileUrl, find: find,
         pick: pick, state: state, relMin: relMin, legend: legend, credits: credits, failing: failing,
+        noData: noData, rainText: rainText, plan: plan, nextReady: nextReady, leadReady: leadReady, Preload: Preload, SMALL_VIEW_M: SMALL_VIEW_M, PLAY_MAX_Z: PLAY_MAX_Z,
         hash: hash, Timeline: Timeline, badgeText: badgeText, relText: relText,
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
