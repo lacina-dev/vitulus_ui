@@ -1398,7 +1398,7 @@ class ROS {
         //
         // Stage 2 (active): If no data has arrived for >5 s (robot idle or WiFi half-open),
         //   fire a lightweight rosapi service call. rosbridge is configured with
-        //   websocket_ping_interval=1/timeout=4, so the server already knows we're here;
+        //   websocket_ping_interval=1/timeout=15 (4 before T39), so the server already knows we're here;
         //   we just need the reverse confirm. If no service response within 4 s → dead.
         //
         // Detection time: ≤ 5 s (passive silence window) + ≤ 4 s (service timeout) = ≤ 9 s.
