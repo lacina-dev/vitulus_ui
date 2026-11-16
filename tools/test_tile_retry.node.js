@@ -121,7 +121,7 @@ function fetchSim(n, delay, stuck) {
         _texFailedAt: new Map(), _texLoads: new Map(), _tileSuspect: new Set(),
         _texCache: () => ({ has: (u) => store.has(u), acquire: () => {}, put: (u, t) => store.set(u, t) }),
         _r3d: () => ({}), _tileTexture: () => ({ generateMipmaps: false }), _texTrim: () => {},
-        _tileIsWhite: () => false, _tileOutage: () => { outages++; }, _tileRecovered: () => {},
+        _tileIsWhite: () => false, _tileOutage: () => { outages++; }, _tileRecovered: () => {}, _precipUrlGone: () => false, _precipUrlFrame: () => null, _precipPreGet: () => null, _precipPre: null,
     });
     for (let i = 0; i < n; i++) {
         const url = (i === 0 && stuck ? stuck : 'base') + '/' + i;
