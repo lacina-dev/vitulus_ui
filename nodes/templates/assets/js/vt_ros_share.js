@@ -30,7 +30,9 @@
  * the closing op goes out when the last Topic leaves. The wire parameters are
  * the merge rosbridge itself would make (rosbridge_library subscribe.py
  * update_params), re-sent with the same id when the merge changes, so what the
- * server streams is exactly what it streamed before. Messages still reach every
+ * server streams is exactly what it streamed before — except that a topic without
+ * a queue gets one (T39, see subParams: a page that stalls must not hold the
+ * topic for the other pages). Messages still reach every
  * Topic through ros.on(name), as in roslib; publish() is unchanged (it calls
  * advertise() when the Topic is not advertised yet).
  *
@@ -41,6 +43,7 @@
     if (!window.ROSLIB || !ROSLIB.Topic || !ROSLIB.Topic.prototype) { return; }
     var T = ROSLIB.Topic.prototype;
     var COMP = { 'none': 0, 'png': 1, 'cbor': 2, 'cbor-raw': 3 };
+    var QUEUE_ALL = 50;      // bridge-side queue of a topic that asked for none (see subParams)
 
     function reg(ros) {
         if (ros.__vtShare) { return ros.__vtShare; }
@@ -65,7 +68,20 @@
             if ((COMP[t.compression] || 0) > (COMP[comp] || 0)) { comp = t.compression; }
             if (!type && t.messageType) { type = t.messageType; }
         });
-        return { type: type, throttle_rate: thr || 0, queue_length: q || 0, compression: comp };
+        // T39: never 0 on the wire. Without a queue rosbridge writes a topic's message to
+        // every client in turn in that topic's one thread, and a subscribe hands a latched
+        // message out while it holds the lock of ALL subscriptions: a page that is not
+        // taking data (frozen tab, lost Wi-Fi, a busy main thread) then stops that topic
+        // for every other page, and nobody can subscribe anything, until rosbridge drops
+        // it (websocket_ping_timeout). With a queue each subscription has its own thread
+        // on the bridge and only that one waits (measured on a private rosbridge 0.11.17:
+        // next to a frozen client a healthy one lost /tf for 4.2 s and a new one waited
+        // 2.5 s for its first message; with a queue on the frozen one: 0 s and 0 s).
+        // "No queue" used to mean every message: QUEUE_ALL keeps that for bursts; a
+        // throttled topic wants only the newest one (a longer queue would hand out old
+        // messages one per period).
+        return { type: type, throttle_rate: thr || 0, queue_length: q || (thr ? 1 : QUEUE_ALL),
+                 compression: comp };
     }
 
     function sendSub(ros, sh, force) {

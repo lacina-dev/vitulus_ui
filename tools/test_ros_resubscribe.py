@@ -164,6 +164,14 @@ async () => {
   lb.subscribe(() => nlb++); await wait(60);
   out.latched = [nla >= 1, nlb, count('/t11/latched')];
   la.unsubscribe(); lb.unsubscribe();
+  // 6) T39: never without a bridge-side queue (a stalled page must not hold the topic for the others)
+  const q0 = mk('/t11/q0'), qt = mk('/t11/qt', { throttle_rate: 500 }), q1 = mk('/t11/q1', { queue_length: 1 });
+  q0.subscribe(() => {}); qt.subscribe(() => {}); q1.subscribe(() => {});
+  out.queue = [live().last['/t11/q0'].queue_length, live().last['/t11/qt'].queue_length, live().last['/t11/q1'].queue_length];
+  const q1b = mk('/t11/q1'); q1b.subscribe(() => {});      // one member wants every message
+  out.queue_mixed = live().last['/t11/q1'].queue_length;
+  q1b.unsubscribe(); out.queue_back = live().last['/t11/q1'].queue_length;
+  q0.unsubscribe(); qt.unsubscribe(); q1.unsubscribe();
   d.unsubscribe(); f.unsubscribe(); c.unadvertise();
   out.cleanup = [count('/t11/d'), count('/t11/f'), Object.values(live().adv).filter((x) => x === '/t11/c').length];
   return out;
@@ -183,6 +191,8 @@ def units(pg, label):
     check('%s: subscribed while down: one op on the next socket' % label, u['f_ops'] == 1, u)
     check('%s: merged params survive a reconnect' % label, u['d_after'] == [1, 1000], u)
     check('%s: latched topic: a later subscriber gets the value, still one live id' % label, u['latched'] == [True, 1, 1], u)
+    check('%s: a topic without a queue gets one on the bridge (50; throttled: 1; asked: as asked)' % label, u['queue'] == [50, 1, 1], u)
+    check('%s: a member that wants every message keeps the long queue, back to 1 when it leaves' % label, [u['queue_mixed'], u['queue_back']] == [50, 1], u)
     check('%s: last unsubscribe / unadvertise close the wire' % label, u['cleanup'] == [0, 0, 0], u)
 
 
