@@ -6968,6 +6968,13 @@ class Mower {
             name: '/mower/status',
             messageType: 'vitulus_msgs/Mower'
         });
+        // T8 dávka V-c: /mower/link (node_mower LinkView, JSON): says "silent" itself —
+        // a board that went quiet before the page loaded sends no /mower/status at all
+        this.mower_link_topic = new ROSLIB.Topic({
+            ros: ros.ros,
+            name: '/mower/link',
+            messageType: 'std_msgs/String'
+        });
         this.mower_config_print_topic = new ROSLIB.Topic({
             ros: ros.ros,
             name: '/mower/config_print',
@@ -7096,6 +7103,9 @@ class Mower {
             if (this.span_mower_panel_status) this.span_mower_panel_status.dataset.status = message.status || '';
             if (message.status === 'UNK' || message.status === 'OFF') {
                 this.div_mower_info_panel.style.display = 'none';
+                // V-c: off = the blade stands; an old "1200 rpm" from before the OFF must
+                // not live on as "the blade turns" (a silent board shows the panel again)
+                if (this.span_mower_panel_rpm) this.span_mower_panel_rpm.textContent = '0 rpm';
             } else {
                 this.div_mower_info_panel.style.display = 'inline-flex';
                 this.span_mower_panel_rpm.textContent = message.moto_rpm + " rpm";
@@ -7118,6 +7128,36 @@ class Mower {
                 this.span_mower_panel_status.style.color = statusColor;
             }
         }
+    }
+
+    /* V-c: /mower/link. The right panel (right_dock.js) shows a silent board by THIS
+       message (state "silent"), never by the absence of /mower/status: its last known
+       state and values go into the hidden source panel, marked data-link="silent". */
+    mower_link(message) {
+        let j = null;
+        try { j = JSON.parse(message.data); } catch (e) { return; }
+        const st = this.span_mower_panel_status;
+        if (!j || !st) return;
+        let state = String(j.state || '');
+        // The link says "silent" after 3 s already, also in a short planned pause of a
+        // run (its banner stays quiet then). The panel turns red only for a silence the
+        // link itself announces (banner) or one that lasts: never a few-second flash.
+        if (state === 'silent') {
+            const banner = String(j.banner || '');
+            const secs = (typeof j.silent_s === 'number' && isFinite(j.silent_s)) ? j.silent_s : 0;
+            if (banner !== 'silent' && banner !== 'failed' && secs < 10) state = 'pause';
+        }
+        if ((st.dataset.link || '') !== state) st.dataset.link = state;
+        if (state !== 'silent') return;
+        const code = String(j.status || '').toUpperCase();
+        if (code && st.dataset.status !== code) st.dataset.status = code;
+        const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
+        const rpm = num(j.rpm), h = num(j.height), tc = num(j.temp);
+        // OFF / UNK: the blade stands whatever the last rpm was
+        const rpmTxt = (code === 'OFF' || code === 'UNK' || rpm === null) ? '0 rpm' : Math.round(rpm) + ' rpm';
+        if (this.span_mower_panel_rpm && this.span_mower_panel_rpm.textContent !== rpmTxt) this.span_mower_panel_rpm.textContent = rpmTxt;
+        if (this.span_mower_panel_height && h !== null) this.span_mower_panel_height.textContent = Math.round(h) + ' mm';
+        if (this.span_mower_panel_temp && tc !== null) this.span_mower_panel_temp.textContent = Math.round(tc) + '°C';
     }
 
     pub_mower_set_power(value) {
@@ -9423,6 +9463,9 @@ window.initMapView = function () {
     mower = new Mower(ros);
     mower.mower_status_topic.subscribe(function (message) {
         mower.mower_status(message);
+    });
+    mower.mower_link_topic.subscribe(function (message) {
+        mower.mower_link(message);
     });
 
 

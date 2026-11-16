@@ -180,7 +180,7 @@ check('cs: "sekačka", never "sečka"', !Object.values(D.cs).some((v) => /[Ss]e�
     // but only once a /mower/status came since the page loaded (data-status set for every message)
     check('V-b: silent + a message seen -> the Mower section shows even after OFF / UNK',
           /var seen = !!\(st && typeof st\.dataset\.status === 'string' && st\.dataset\.status !== ''\);/.test(RD) &&
-          /var on = powered \|\| \(silent && seen\);/.test(RD) &&
+          /var on = powered \|\| \(silent && \(seen \|\| linkSilent\)\);/.test(RD) &&
           /span_mower_panel_status\.dataset\.status = message\.status \|\| '';\s*if \(message\.status === 'UNK' \|\| message\.status === 'OFF'\)/.test(MV));
     check('V-b: the STOP (■) still works on the last RUN of a silent board (run = code, only the start is cleared)',
           /run: on \? code : ''/.test(RD) && /\(cur\.run !== undefined \? cur\.run : cur\.status\) === 'RUN'/.test(RD) &&
@@ -190,6 +190,25 @@ check('cs: "sekačka", never "sečka"', !Object.values(D.cs).some((v) => /[Ss]e�
     check('header: the silent mark has its own words and repaints on it',
           /img\.dataset && img\.dataset\.vtSilent === '1'/.test(SH) && /'status\.d8\.st\.' \+ k\.st \+ '\.silent'/.test(SH) &&
           /attributeFilter: \['src', 'style', 'data-vt-silent'\]/.test(SH) && both('status.d8.st.mower.silent'));
+}
+
+// V-c: a page loaded while the board is ALREADY silent gets no /mower/status: /mower/link
+// says "silent" itself; the template placeholders ("RUN", "0 rpm", "0°C") are never data
+{
+    const MV = fs.readFileSync(path.join(JS, 'map_view.js'), 'utf8');
+    const RD = fs.readFileSync(path.join(JS, 'right_dock.js'), 'utf8');
+    check('V-c: map_view subscribes /mower/link and marks data-link (+ last known state / values when silent)',
+          /name: '\/mower\/link'/.test(MV) && /mower\.mower_link_topic\.subscribe/.test(MV) && /st\.dataset\.link = state/.test(MV) &&
+          /if \(state !== 'silent'\) return;/.test(MV));
+    check('V-c: right panel decides by the link message, not by missing data',
+          /var linkSilent = !!\(st && st\.dataset\.link === 'silent'\);/.test(RD) &&
+          /var on = powered \|\| \(silent && \(seen \|\| linkSilent\)\);/.test(RD) && /'data-link'\]/.test(RD));
+    check('V-c: silent board: the blade cell says "—" (state unknown), not "stands"', /if \(silent && on\) \{ bt = '—'; \}/.test(RD));
+    check('V-c: the template placeholders are cleared until the first data',
+          /if \(st && !st\.dataset\.status\) \{\s*\[st, vR, vH, vT\]\.forEach\(function \(e\) \{ if \(e\) \{ e\.textContent = ''; \} \}\);/.test(RD));
+    check('V-c: OFF / UNK zero the rpm (no stale "the blade turns" after RUN -> OFF -> silence)',
+          /style\.display = 'none';\s*\/\/ V-c[^\n]*\n[^\n]*\n\s*if \(this\.span_mower_panel_rpm\) this\.span_mower_panel_rpm\.textContent = '0 rpm';/.test(MV) &&
+          /\(code === 'OFF' \|\| code === 'UNK' \|\| rpm === null\) \? '0 rpm'/.test(MV));
 }
 
 // 4) coverage of a real log (report only)

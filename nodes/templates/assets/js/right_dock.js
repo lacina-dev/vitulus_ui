@@ -665,6 +665,12 @@
         var vT = src.querySelector('#span_mower_panel_temp');
         var mdot = panel.querySelector('#rp_sum_dot_mower');
         var ico = document.getElementById('ico_mower');
+        /* V-c: the template's placeholders (index.html: "RUN", "0 rpm", "0 mm", "0°C")
+           are not data: empty until the first /mower/status or /mower/link fills them,
+           so nothing claims "RUN" / "0 °C" (cells "—", a neutral tooltip) */
+        if (st && !st.dataset.status) {
+            [st, vR, vH, vT].forEach(function (e) { if (e) { e.textContent = ''; } });
+        }
         var paint = function () {
             var powered = src.style.display !== 'none';
             var txt = st ? (st.textContent || '').trim() : '';
@@ -676,7 +682,11 @@
                dock), but only once a /mower/status came since the page loaded */
             var silent = !!(ico && ico.dataset.vtSilent === '1');
             var seen = !!(st && typeof st.dataset.status === 'string' && st.dataset.status !== '');
-            var on = powered || (silent && seen);
+            /* V-c: /mower/link "silent" is a message of its own (map_view.js mower_link):
+               after a fresh load a silent board sends no /mower/status, the link says it */
+            var linkSilent = !!(st && st.dataset.link === 'silent');
+            silent = silent || linkSilent;
+            var on = powered || (silent && (seen || linkSilent));
             var startCode = code;
             if (silent && on) { txt = t('rdock.mower.silent'); state = 'err'; startCode = ''; }
             if (chip.textContent !== txt) { chip.textContent = txt; }
@@ -695,6 +705,8 @@
             setTip(tmp, t('rdock.mower.temp') + ': ' + (tc != null ? Math.round(tc) + ' °C' : '—'));
             /* the expand */
             var bt = r ? t('rdock.mower.on') + ' · ' + Math.round(r) : t('rdock.mower.off');
+            // V-c: a silent board's blade state is unknown (the banner says so): not "stands"
+            if (silent && on) { bt = '—'; }
             if (cB.textContent !== bt) { cB.textContent = bt; }
             cB.dataset.state = r ? 'ok' : 'off';
             setTip(cB.parentNode, t('rdock.mower.blade') + ': ' + (r ? Math.round(r) + ' rpm' : t('rdock.mower.blade_off')));
@@ -729,7 +741,7 @@
         };
         paint();
         relang.push(paint);
-        new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style', 'data-status'],
+        new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style', 'data-status', 'data-link'],
             childList: true, characterData: true, subtree: true});
         if (ico) { new MutationObserver(paint).observe(ico, {attributes: true, attributeFilter: ['data-vt-silent']}); }
         setInterval(paint, 2000);              // the running program

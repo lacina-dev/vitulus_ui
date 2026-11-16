@@ -568,6 +568,8 @@ def link_story(p, shots, label):
     p.raw('/mower/status', ms)
     icon['mower'] = 'ON'
     p.raw('/device_state_pub/icon_status', icon)
+    # V-c: the board answers = the link says so too (its "silent" alone keeps the section silent)
+    p.pub('/mower/link', {'state': 'ok', 'banner': None})
     chip = p.wait(lambda: (p.text('#rp_mower_chip') or '') == ('Čeká' if cs else 'Waiting') and p.text('#rp_mower_chip'))
     check('… it answers again: its state in words (WAIT -> %s)' % ('Čeká' if cs else 'Waiting'), chip == ('Čeká' if cs else 'Waiting'), chip)
     p.pub('/mower/link', {'state': 'ok', 'banner': None})
@@ -583,6 +585,40 @@ def link_story(p, shots, label):
     check('with Cancel', p.pg.locator('#auto_countdown button').count() > 0, box)
     p.pub('/scheduler/sleep_countdown', {'active': False})
     p.pub('/scheduler/report', report(now))
+
+
+def fresh_silent(p, shots, label):
+    """V-c: a fresh page while the mower board is ALREADY silent: no /mower/status ever comes, /mower/link
+    says "silent" (node_mower LinkView) and the device icon INVALID. Before any data: no template "RUN"."""
+    cs = label.endswith('cs')
+    st = p.pg.evaluate("""(()=>{const c=document.getElementById('rp_mower_chip');const s=c&&c.closest('.rp-sec');
+        const cells=[...document.querySelectorAll('#right_panel .rp-cell-v')].map(e=>e.textContent);
+        return {chip:c?c.textContent:null,tip:c?(c.title||''):null,shown:!!(s&&s.style.display!=='none'),cells:cells,
+                key:(document.getElementById('rp_mower_blade_key')||{}).title||''}})()""")
+    check('V-c fresh page, no data yet: the Mower section stays hidden, no template "RUN" / "0 °C"',
+          not st['shown'] and 'RUN' not in (st['chip'] or '') + st['tip'] + st['key'] and not any('0 °C' == c or '0 mm' == c for c in st['cells']), st)
+    icon = {k: 'ON' for k in 'fan_int fan_ext imu lidar d435'.split()}
+    icon.update(supply='ONLINE', batt='FULL_CHARGE', temp_int='OK', temp_ext='OK', mot_lf='DISABLED', mot_rf='DISABLED',
+                mot_lr='DISABLED', mot_rr='DISABLED', mower='INVALID', gnss_nav='3DFIX', gnss='3DFIX', wifi='MEDIUM', t265='',
+                header={'stamp': {'secs': 0, 'nsecs': 0}, 'frame_id': '', 'seq': 0})
+    p.raw('/device_state_pub/icon_status', icon)
+    p.tick(600)
+    shown = p.pg.evaluate("(()=>{const c=document.getElementById('rp_mower_chip');const s=c&&c.closest('.rp-sec');return !!(s&&s.style.display!=='none')})()")
+    check('V-c: the icon INVALID alone (no state ever received) does not invent a Mower section', not shown)
+    p.pub('/mower/link', {'state': 'silent', 'banner': 'silent', 'status': 'OFF', 'silent_s': 2086.9, 'rpm': 1200, 'height': 80,
+                          'temp': 10.8, 'setpoint': 2000, 'bat_out': False, 'mission': {}})
+    silent = 'Neodpovídá' if cs else 'Silent'
+    ok = p.wait(lambda: p.pg.evaluate("(()=>{const c=document.getElementById('rp_mower_chip');const s=c&&c.closest('.rp-sec');"
+                                      "return !!(s&&s.style.display!=='none'&&c.textContent===%s&&c.dataset.state==='err')})()" % json.dumps(silent)))
+    check('V-c: /mower/link "silent" after a fresh load shows the Mower section: "%s", red' % silent, ok)
+    v = p.pg.evaluate("""(()=>{const cells=[...document.querySelectorAll('#right_panel .rp-cell-v')].map(e=>e.textContent);
+        const sb=document.getElementById('rp_mower_blade_start'),bk=document.getElementById('rp_mower_blade_key');
+        return {cells:cells,start:!sb||sb.style.display==='none'||sb.disabled,stop:bk?bk.textContent:'',tip:bk?bk.title:''}})()""")
+    check('V-c: … last known values from the link (80 mm, 11 °C), last OFF = blade stands (not 1200 rpm), no start',
+          '80 mm' in v['cells'] and '11 °C' in v['cells'] and not any('1200' in c for c in v['cells']) and v['start'] and v['stop'] != '■'
+          and 'RUN' not in v['tip'], v)
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-vc-fresh-silent.png'))
 
 
 AGENT_SCHEMA = {
@@ -2185,6 +2221,10 @@ def main():
             story(p, a.shots, label)
             hw_story(p, a.shots, label)
             link_story(p, a.shots, label)
+            q = P(ctx, url)            # V-c: a second, fresh page (its own fake rosbridge, nothing latched)
+            q.lang(lang)
+            fresh_silent(q, a.shots, label)
+            q.pg.close()
             mode_story(p, a.shots, label)
             mode_fit(p, a.shots, label)
             layout(p, a.shots, label)
