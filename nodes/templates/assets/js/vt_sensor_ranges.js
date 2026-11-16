@@ -740,6 +740,7 @@
         S.cardView = el('div', 'btn-group btn-group-sm vt-seg vt-rng-view');
         S.cardView.setAttribute('role', 'group');
         S.cardView.setAttribute('aria-label', t('ranges.view.label'));
+        if (root.VTI18n && root.VTI18n.tag) { root.VTI18n.tag(S.cardView, 'ranges.view.label', 'aria-label'); }   // V-f: follows the language
         c.appendChild(S.cardView);
         S.viewBtns = [['nav', 'ranges.view.nav'], ['map', 'ranges.view.map']].map(function (v) {
             var b = el('button', 'btn btn-primary');

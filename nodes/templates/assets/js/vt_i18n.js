@@ -337,6 +337,10 @@
             if (el.getAttribute && el.getAttribute('title') !== w.out) { el.setAttribute('title', w.out); }
         };
         var seen = function () {
+            /* V-f: while the place still holds a text of the page itself (a data-i18n child: the
+               template's "Initialized"), it is not a node's line — apply() translates it; kept as
+               "raw" it was written back in the language of the page load on every switch */
+            if (el.querySelector && el.querySelector('[data-i18n]')) { w.raw = null; w.out = null; return; }
             if (el.textContent === w.out) { return; }
             w.raw = el.textContent;
             w.paint();

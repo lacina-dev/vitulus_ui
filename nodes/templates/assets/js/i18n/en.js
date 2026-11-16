@@ -5937,4 +5937,12 @@
     "calmgr.issue.mower_link_idle.back.no_since": "The mower board was silent; it answers again.",
     "auto.j.waited.mower_link_idle.no_since": "Mower board silent in the dock (no program).",
     "auto.j.waited.mower_link_idle.off_dock.no_since": "Mower board silent (no program).",
+    /* V-f: template texts that had no key (they stayed English in cs) */
+    "legacy.rtab.mapping": "Mapping",
+    "legacy.rtab.localization": "Localization",
+    "medit.poly.name": "Name",
+    "medit.poly.name_ph": "Polygon name",
+    "medit.poly.type": "Type",
+    "medit.poly.obstacle": "obstacle",
+    "medit.poly.free": "free",
 };

@@ -1567,7 +1567,8 @@ class ConnectionStatus {
         if (link && link.waiting()) { this.stopWait = true; }
         var key = this.stopWait ? 'mapview.conn.lost_stop' : 'mapview.conn.lost';
         if (window.VTNotice) {
-            VTNotice.say({ key: 'conn', text: vtT(key), level: 0, sticky: true, conn: true, urgent: true });
+            // V-f: tr = said again in the new language while the link stays down (vt_notice.js retext)
+            VTNotice.say({ key: 'conn', text: vtT(key), tr: function () { return vtT(key); }, level: 0, sticky: true, conn: true, urgent: true });
             this.outage = true;
             return;
         }
@@ -5143,6 +5144,19 @@ class StatusLog {
         let arr;
         try { arr = JSON.parse(message.data); } catch (e) { return; }
         if (!Array.isArray(arr)) return;
+        // V-f: the newest line's epoch + the robot's local time: how the robot's clock stands to
+        // this browser's (Autonomy counts "silent since HH:MM" by it; no second subscription there)
+        for (let i = arr.length - 1; i >= 0 && i >= arr.length - 20; i--) {
+            const e = arr[i];
+            if (e && typeof e.seq === 'number' && typeof e.iso === 'string' && isFinite(e.t)) {
+                const was = window.VTRobotClock;
+                if (!was || was.iso.slice(0, 13) !== e.iso.slice(0, 13)) {      // once, then when the hour turns
+                    window.VTRobotClock = {t: e.t, iso: e.iso};
+                    try { document.dispatchEvent(new CustomEvent('vt:robotclock', {detail: window.VTRobotClock})); } catch (err) { /* old browser */ }
+                }
+                break;
+            }
+        }
 
         // Detect a logger restart/reset (seq numbers went backwards) and rebuild.
         let maxSeq = -1;
@@ -6061,7 +6075,15 @@ class Odom{
         // static data-i18n-title of the template would overwrite them
         [this.span_odom_vo, this.span_odom_licp, this.span_odom_wheel, this.span_odom_fix,
          this.span_odom_prob, this.span_odom_hdg, this.span_odom_drive].forEach(function (e) {
-            if (e) e.removeAttribute('data-i18n-title');
+            if (!e) return;
+            // V-f: until its first data the chip keeps the template's tooltip — in the UI's
+            // language, also after a switch (it stayed in the language of the page load)
+            var k = e.getAttribute('data-i18n-title');
+            e.removeAttribute('data-i18n-title');
+            if (!k) return;
+            var said = vtT(k);
+            e.title = said;
+            vtOnLang(function () { if (e.title === said) { said = vtT(k); e.title = said; } });
         });
         this.span_trk_state = document.getElementById("span_trk_state");
         this.span_trk_note  = document.getElementById("span_trk_note");
@@ -7021,6 +7043,15 @@ class Mower {
         this.span_mower_rpm = document.getElementById("span_mower_rpm");
         this.div_mower_info_panel = document.getElementById("div_mower_info_panel");
         this.span_mower_panel_status = document.getElementById("span_mower_panel_status");
+        // V-f: the mower's state word follows the language at once (it waited for the board's
+        // next message — with a silent board it never came); the code is kept in data-status
+        vtOnLang(() => {
+            const e = this.span_mower_panel_status, code = e && e.dataset.status;
+            if (!code) return;
+            const k = 'mapview.mower.st.' + String(code).toUpperCase(), w = vtT(k);
+            const said = w && w !== k ? w : code;
+            if (e.textContent !== said) e.textContent = said;
+        });
         this.span_mower_panel_rpm = document.getElementById("span_mower_panel_rpm");
         this.span_mower_panel_height = document.getElementById("span_mower_panel_height");
         this.span_mower_panel_temp = document.getElementById("span_mower_panel_temp");

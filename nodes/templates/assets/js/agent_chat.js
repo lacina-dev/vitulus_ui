@@ -2964,6 +2964,8 @@
     var legacyJobs = [], legacySched = [], legacySchedOk = null;
     var lastJobs = [];               // last normalised list (for forced redraws)
     var jobsErr = '';                // inline note when nothing can be fetched
+    var jobsErrFn = null;            // V-f: how to say it again when the language changes
+    function sayJobsErr(fn) { jobsErrFn = fn; jobsErr = fn(); }
 
     var dismissed = {};
     try { dismissed = JSON.parse(lsGet(LS_JOBS) || '{}') || {}; } catch (e) { dismissed = {}; }
@@ -4570,8 +4572,8 @@
         return api('/api/schedules').then(function (d) {
             if (!d || d.ok === false) {
                 legacySchedOk = false; legacySched = [];
-                jobsErr = (d && d.error) ? _t('ajob.err.sched', {err: d.error})
-                    : _t('ajob.err.sched_missing');
+                sayJobsErr((d && d.error) ? function () { return _t('ajob.err.sched', {err: d.error}); }
+                    : function () { return _t('ajob.err.sched_missing'); });
                 return;
             }
             legacySchedOk = true;
@@ -4580,7 +4582,7 @@
         }).catch(function (e) {
             legacySchedOk = false;
             legacySched = [];
-            if (/HTTP 404/.test(String(e))) { jobsErr = _t('ajob.err.sched_missing') + '.'; }
+            if (/HTTP 404/.test(String(e))) { sayJobsErr(function () { return _t('ajob.err.sched_missing') + '.'; }); }
         });
     }
 
@@ -4608,7 +4610,7 @@
                 jobsErr = '';
                 return pollLegacySchedules().then(function () { renderJobsPane(composeJobs()); });
             }
-            jobsErr = _t('ajob.err.down');
+            sayJobsErr(function () { return _t('ajob.err.down'); });
             renderJobsPane(lastJobs, true);
             return null;
         });
@@ -6615,6 +6617,7 @@
         if (paintStatusStrip) { paintStatusStrip(); }
         jobCards = {};
         jobsFp = null;
+        if (jobsErr && jobsErrFn) { jobsErr = jobsErrFn(); }       // V-f: the note under the list too
         if (jobsListBox) { renderJobsPane(lastJobs, true); }
         lastAskFp = null;
         if (gateBody) { renderApprovals(lastAsks); }

@@ -909,7 +909,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
                                             <div class="form-check form-check-inline" title="Base navigation map (/navi_manager/map) — when no map is active this IS the factory bootstrap scan" data-i18n-title="mapt.layer.base_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_base" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_base"><span data-i18n="mapt.layer.base">Base</span> <span class="vt-sw-00e5e5">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Saved map obstacles" data-i18n-title="mapt.layer.site_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_site" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_site"><span data-i18n="mapt.layer.site">Saved</span> <span class="vt-sw-ff4d4d">&#9632;</span></label></div>
                                             <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — the band /mapping/obstacle_map "Live" (orange) layer is gone; the Direct (black) layer is the live map now. ID kept present for mapping.js. -->
-                                            <div class="form-check form-check-inline" title="Live mapping obstacles" style="display: none;"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_live">Live <span class="vt-sw-ff7800">&#9632;</span></label></div>
+                                            <div class="form-check form-check-inline" title="Live mapping obstacles" style="display: none;"><input class="form-check-input" type="checkbox" id="mapv3_chk_live" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_live"><span data-i18n="mlog.live">Live</span> <span class="vt-sw-ff7800">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Direct 2D raster mapper — live raster built straight from sensor rays (lidar + camera), independent of the octomap/DEM pipeline" data-i18n-title="mapt.layer.direct_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_direct" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_direct"><span data-i18n="mapt.layer.direct">Direct</span> <span class="vt-sw-000000">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Raw-raster preview overlay (per-raster management A/B compare; blue)" data-i18n-title="mapt.layer.preview_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_preview" checked><label class="form-check-label vt-fs-sm" for="mapv3_chk_preview"><span data-i18n="mapt.layer.preview">Preview</span> <span class="vt-sw-2a8cff">&#9632;</span></label></div>
                                             <div class="form-check form-check-inline" title="Terrain elevation plane (blue = low, red = high)" data-i18n-title="mapt.layer.terrain_tip"><input class="form-check-input" type="checkbox" id="mapv3_chk_terrain"><label class="form-check-label vt-fs-sm" for="mapv3_chk_terrain"><span data-i18n="mapt.layer.terrain">Elevation</span> <span class="vt-sw-terrain">&#9632;</span></label></div>
@@ -957,7 +957,7 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 
                                                 <!-- hidden 2026-07-19: octomap/band mapping retired, direct mapper is the mapper — octomap Actions (Raster regen from octomap+DEM / full Snapshot / Compare-vs-rtabmap) and the band projector_status line. IDs kept present for mapping.js (btn_raster.parentNode also hosts the dynamically-appended "Clear 3D" octomap-archive button, which inherits this hidden state). -->
                                                 <div style="display: none;">
-                                                <div class="vt-fs-sm vt-mt2 vt-mb1">Actions</div>
+                                                <div class="vt-fs-sm vt-mt2 vt-mb1" data-i18n="agent.dock.l.actions">Actions</div>
                                                 <div class="btn-group btn-group-sm" role="group">
                                                     <button class="btn btn-primary" id="mapv3_btn_raster" type="button" disabled title="Regenerate the obstacle raster from octomap + DEM">Raster</button>
                                                     <button class="btn btn-primary" id="mapv3_btn_save" type="button" disabled title="Save full snapshot: 3D archive (.ot) + DEM + raster">Snapshot</button>
@@ -1063,16 +1063,16 @@ ul.nav-tabs.drawer-pills .nav-link.active {
 
                                         <!-- ===== Hidden legacy controls (superseded by mapping v3; kept for JS bindings / runtime files until site_native flip) ===== -->
                                         <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
-                                        <div style="display: none;"><span>New map</span>
+                                        <div style="display: none;"><span data-i18n="dock.new_map">New map</span>
                                             <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_new_indoor" type="button"><i class="material-icons">home</i></button><button class="btn btn-primary" id="btn_menu_map_new_outdoor" type="button"><i class="fa fa-tree"></i></button></div>
                                         </div>
                                         <!-- hidden 2026-07-18: legacy navi-map management, superseded by mapping v3 sites (files still used at runtime until site_native flip) -->
                                         <div style="display: none;"><span>Save map as</span>
-                                            <div class="input-group input-group-sm"><input class="bg-secondary form-control" type="text" id="input_menu_map_new" placeholder="Map name"><button class="btn btn-primary" id="btn_menu_map_new_save" type="button">Save</button></div>
+                                            <div class="input-group input-group-sm"><input class="bg-secondary form-control" type="text" id="input_menu_map_new" placeholder="Map name"><button class="btn btn-primary" id="btn_menu_map_new_save" type="button" data-i18n="app.save">Save</button></div>
                                         </div>
                                         <!-- hidden 2026-07-18: legacy rtabmap mapping, superseded by mapping v3 -->
                                         <div style="display: none;"><span>RtabMap</span>
-                                            <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button">Localization</button></div>
+                                            <div class="btn-group btn-group-sm" role="group"><button class="btn btn-primary" id="btn_menu_map_rtabmap_mapping" type="button" data-i18n="legacy.rtab.mapping">Mapping</button><button class="btn btn-primary" id="btn_menu_map_rtabmap_localization" type="button" data-i18n="legacy.rtab.localization">Localization</button></div>
                                         </div>
                                         <!-- hidden 2026-07-18: legacy navi-map management, superseded by mapping v3 sites (files still used at runtime until site_native flip) -->
                                         <div class="row g-0" id="div_menu_map_items_row" style="display: none;">
@@ -1965,14 +1965,14 @@ ul.nav-tabs.drawer-pills .nav-link.active {
       <button class="btn btn-primary btn-sm ms-auto" id="btn_new_poly" type="button">New polygon</button>
     </div>
     <div id="div_poly_template" class="vt-box vt-mb2 vt-aie vt-gap6 vt-wrap">
-      <div><span class="vt-fs-sm">Name</span><input class="form-control form-control-sm vt-w-lg" id="input_poly_template_name" type="text" placeholder="Polygon name"></div>
-      <div><span class="vt-fs-sm">Type</span><select class="form-select form-select-sm vt-w-md" id="input_poly_template_type">
-        <option value="obstacle">obstacle</option>
-        <option value="free">free</option>
+      <div><span class="vt-fs-sm" data-i18n="medit.poly.name">Name</span><input class="form-control form-control-sm vt-w-lg" id="input_poly_template_name" type="text" placeholder="Polygon name" data-i18n-placeholder="medit.poly.name_ph"></div>
+      <div><span class="vt-fs-sm" data-i18n="medit.poly.type">Type</span><select class="form-select form-select-sm vt-w-md" id="input_poly_template_type">
+        <option value="obstacle" data-i18n="medit.poly.obstacle">obstacle</option>
+        <option value="free" data-i18n="medit.poly.free">free</option>
       </select></div>
       <div class="d-flex vt-gap6">
-        <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button">Save</button>
-        <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button">Cancel</button>
+        <button class="btn btn-success btn-sm" id="btn_poly_template_save" type="button" data-i18n="app.save">Save</button>
+        <button class="btn btn-warning btn-sm" id="btn_poly_template_cancel" type="button" data-i18n="common.cancel">Cancel</button>
       </div>
     </div>
     <div id="div_poly_list"></div>

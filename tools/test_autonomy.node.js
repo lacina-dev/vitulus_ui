@@ -325,10 +325,12 @@ function sandbox(lang, file, extra) {
         // the clocks come from the robot's log: a line's epoch and its local time, exact to the quarter hour
         const lp = (n) => String(n).padStart(2, '0'), ep = Math.floor(Date.now() / 1000);
         const isoOf = (ms) => { const d = new Date(ms); return d.getFullYear() + '-' + lp(d.getMonth() + 1) + '-' + lp(d.getDate()) + 'T' + lp(d.getHours()) + ':' + lp(d.getMinutes()) + ':' + lp(d.getSeconds()); };
-        const hist = (ms) => JSON.stringify([{ seq: 1, t: ep - 500.25, iso: isoOf((ep - 500) * 1000 + ms), msg: 'Old' }, { seq: 2, t: ep + 0.6351, iso: isoOf(ep * 1000 + ms), msg: 'Starting docking' }]).replace(/":/g, '": ').replace(/,"/g, ', "');
-        check(l + ': the robot\'s clock from its log: same zone 0, two hours ahead, 5:30 behind; none from an empty log',
-              F.shiftFromLog(hist(0)) === 0 && F.shiftFromLog(hist(2 * 3600e3)) === 2 * 3600e3 && F.shiftFromLog(hist(-5.5 * 3600e3)) === -5.5 * 3600e3
-              && F.shiftFromLog('[]') === null && F.shiftFromLog('') === null, [F.shiftFromLog(hist(0)), F.shiftFromLog(hist(7200e3))].join());
+        const pair = (ms) => F.shiftFromLog(ep + 0.6351, isoOf(ep * 1000 + ms));
+        check(l + ': the robot\'s clock from a line of its log: same zone 0, two hours ahead, 5:30 behind; none without a line',
+              pair(0) === 0 && pair(2 * 3600e3) === 2 * 3600e3 && pair(-5.5 * 3600e3) === -5.5 * 3600e3
+              && F.shiftFromLog(undefined, undefined) === null && F.shiftFromLog(12, 'x') === null, [pair(0), pair(7200e3)].join());
+        check(l + ': … handed on by the log view, not a second subscription', /vt:robotclock/.test(src) && /window\.VTRobotClock = \{t: e\.t, iso: e\.iso\}/.test(read('map_view.js'))
+              && !/name: '\/status_logger\/history'/.test(src));
         // T21 A9: no "since" (an older master): no "since {at}", no empty brackets
         const ns = frozen({ since: undefined }), nsOff = frozen({ since: undefined, in_dock: false });
         check(l + ': … without "since": whole sentence, no {at}, no empty brackets', /\b3\s*min/.test(ns) && !/\{|\(\s*[;)]|since ;|od ;/.test(ns) && /dock|doku/.test(ns)

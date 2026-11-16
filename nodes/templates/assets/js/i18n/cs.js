@@ -6023,4 +6023,12 @@
     "calmgr.issue.mower_link_idle.back.no_since": "Deska sekačky mlčela, už odpovídá.",
     "auto.j.waited.mower_link_idle.no_since": "Deska sekačky v doku mlčí (žádný program).",
     "auto.j.waited.mower_link_idle.off_dock.no_since": "Deska sekačky mlčí (žádný program).",
+    /* V-f: template texts that had no key (they stayed English in cs) */
+    "legacy.rtab.mapping": "Mapování",
+    "legacy.rtab.localization": "Lokalizace",
+    "medit.poly.name": "Název",
+    "medit.poly.name_ph": "Název polygonu",
+    "medit.poly.type": "Typ",
+    "medit.poly.obstacle": "překážka",
+    "medit.poly.free": "volno",
 };

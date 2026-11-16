@@ -2220,6 +2220,63 @@ def a7_fit(p, shots, label):
     p.pub('/scheduler/calendar', A2_CAL)
 
 
+LANG_SWEEP_JS = r"""(from)=>{
+  const D=window.VT_I18N_DICT, A=D[from], B=D[from==='en'?'cs':'en'];
+  const other=new Set(Object.values(B).map(v=>String(v).trim()));
+  const only=new Map();
+  for (const k in A) { const v=String(A[k]).trim();
+    if (v.length<4 || /\{\w+\}/.test(v) || !(k in B) || String(B[k]).trim()===v || other.has(v) || !/[A-Za-zÀ-ž]{3}/.test(v)) continue;
+    if (!only.has(v)) only.set(v,k); }
+  const out=[], seen=new Set();
+  const where=(e)=>{const p=[]; for(let x=e; x&&x!==document.body&&p.length<4; x=x.parentElement){p.push(x.id?('#'+x.id):(x.tagName.toLowerCase()+(x.className&&typeof x.className==='string'?'.'+x.className.trim().split(/\s+/)[0]:'')));} return p.reverse().join(' > ')};
+  /* a box put away with the hidden attribute is painted again when it is shown (its old text is not on the page);
+     #span_menu_program_status is the robot's own state word (/mower_smach/status), shown as sent */
+  const skip=(e)=>!!(e.closest&&(e.closest('[hidden]')||e.closest('#span_menu_program_status')));
+  const hit=(txt,e,how)=>{const v=String(txt||'').trim(); if(!only.has(v)||skip(e)) return; const sig=how+'|'+v+'|'+where(e); if(seen.has(sig)) return; seen.add(sig); out.push([only.get(v), v.slice(0,60), how, where(e)]);};
+  const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n=w.nextNode(); n; n=w.nextNode()) { const e=n.parentElement; if(!e||/^(SCRIPT|STYLE|TEMPLATE)$/.test(e.tagName)) continue; hit(n.nodeValue,e,'text'); }
+  for (const e of document.body.querySelectorAll('[title],[aria-label],[placeholder]')) { for (const a of ['title','aria-label','placeholder']) { if(e.hasAttribute(a)) hit(e.getAttribute(a),e,a); } }
+  return out; }"""
+
+
+def lang_sweep(p, shots, label):
+    """V-f: after a language switch nothing on the page stays in the language it was built in. Every text node,
+    title, aria-label and placeholder that equals an i18n value of the OLD language (one that reads differently in
+    the new one) is a text composed once that does not follow the language. Both directions."""
+    cs = label.endswith('cs')
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    here, there = ('cs', 'en') if cs else ('en', 'cs')
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/calendar', A2_CAL)
+    p.pub('/scheduler/report', report(now, checks=start_checks(), sleep={'checks': checks(ssh=('block', 'logins', {'who': ['pts/0']})), 'block': 'login:pts/0'}))
+    p.pub('/scheduler/journal', {'entries': a3_journal(now)})
+    p.pub('/mower/link', {'banner': 'silent', 'state': 'silent', 'silent_s': 300, 'status': 'OFF', 'rpm': 0, 'bat_out': False,
+                          'mission': {'armed': False, 'failed': False, 'phase': None, 'recoveries': 0, 'why': None}})
+    for o in ('now', 'plan', 'mode', 'rain', 'battery', 'sleep', 'recovery', 'history', 'advanced'):
+        p.open(o)
+    # the link down: its sticky notice (map_view.js ConnStatus) is on the page while the language changes
+    p.pg.evaluate("document.dispatchEvent(new Event('rosdisconnected'))")
+    p.pg.wait_for_timeout(3500)
+    p.lang(here)
+    p.pg.wait_for_timeout(600)
+    p.lang(there)
+    p.pg.wait_for_timeout(1500)
+    left = p.pg.evaluate(LANG_SWEEP_JS, here)
+    if shots and left:
+        json.dump(left, open(os.path.join(shots, label + '-lang-left.json'), 'w'), ensure_ascii=False, indent=0)
+    check(label + ' V-f: after %s → %s nothing stays in %s' % (here, there, here), not left, left[:12])
+    p.lang(here)
+    p.pg.wait_for_timeout(1500)
+    back = p.pg.evaluate(LANG_SWEEP_JS, there)
+    if shots and back:
+        json.dump(back, open(os.path.join(shots, label + '-lang-back.json'), 'w'), ensure_ascii=False, indent=0)
+    check(label + ' V-f: … and back (%s → %s) nothing stays in %s' % (there, here, there), not back, back[:12])
+    p.pg.evaluate("document.dispatchEvent(new Event('rosconnected'))")
+    p.pub('/mower/link', {'banner': '', 'state': 'ok', 'silent_s': 0})
+    return left, back
+
+
 def agent_slot(p, label):
     """T8 dávka IV: the agent's pills (a dock pill, a finding, a STOP latch) beside a LONG notice: inside
     their slot, never over the right panel or its handle, the notice and the compass rose not under them,
@@ -2352,6 +2409,7 @@ def main():
             a6_fit(p, a.shots, label)
             a7_story(p, a.shots, label)
             a7_fit(p, a.shots, label)
+            lang_sweep(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),

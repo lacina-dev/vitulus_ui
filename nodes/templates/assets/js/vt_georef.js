@@ -234,6 +234,21 @@
         if (Math.abs(sx) + Math.abs(sy) < 1e-9) { return null; }
         return Math.atan2(sx, sy);
     }
+    /* V-f: the rose turned on a 200 ms timer for the whole life of the page; it turns with the
+       camera (its controls' change, one paint per frame) and is looked at once a second for the
+       rest (the datum, the layout) */
+    var roseHooked = false, roseQueued = false;
+    function roseSoon() {
+        if (roseQueued) { return; }
+        roseQueued = true;
+        (window.requestAnimationFrame || setTimeout)(function () { roseQueued = false; if (!document.hidden) { paintRose(); } });
+    }
+    function hookRose() {
+        var V = v3();
+        if (roseHooked || !V || !V.cameraControls || !V.cameraControls.addEventListener) { return; }
+        roseHooked = true;
+        V.cameraControls.addEventListener('change', roseSoon);
+    }
     function paintRose() {
         buildRose();
         var f = frame();
@@ -391,8 +406,8 @@
         ensureCheckbox();
         fetchDatum();
         setInterval(fetchDatum, 30000);           // a newly served site
-        setInterval(function () { trySubscribe(); paintCard(); paintGrid(); }, 1000);
-        setInterval(function () { if (!document.hidden) { paintRose(); } }, 200);
+        setInterval(function () { trySubscribe(); paintCard(); paintGrid(); hookRose(); if (!document.hidden) { paintRose(); } }, 1000);
+        window.addEventListener('resize', roseSoon);
         if (window.VTI18n) { VTI18n.onChange(function () { cardLast = ''; paintCard(); }); }
         trySubscribe();
     }

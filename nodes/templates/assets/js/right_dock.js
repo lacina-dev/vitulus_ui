@@ -472,7 +472,10 @@
         };
         paint();
         relang.push(paint);
-        setInterval(paint, 1500);
+        /* V-f: no timer — the joystick says when the motors' state changes (vt_joy.js);
+           one late look for a joystick built after this panel */
+        document.addEventListener('vt:joy-motors', paint);
+        setTimeout(paint, 2500);
     }
 
     /* Navi head: who owns the pose (chip) + heading source SAT / IMU; the

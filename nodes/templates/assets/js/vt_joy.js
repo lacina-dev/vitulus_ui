@@ -736,7 +736,11 @@
             if (speedPend && now - speedPendT > PENDING_MS) { speedPend = null; }
             if (motorPend !== null && now - motorPendT > PENDING_MS) { motorPend = null; }
             var ms = motors === true ? 'ok' : (motors === false ? 'warn' : 'off');
-            chipMotors.setAttribute('data-state', ms);
+            if (chipMotors.getAttribute('data-state') !== ms) {
+                chipMotors.setAttribute('data-state', ms);
+                /* V-f: the right panel's motor chip follows this instead of asking every 1.5 s */
+                try { document.dispatchEvent(new CustomEvent('vt:joy-motors', { detail: ms })); } catch (e) { /* old browser */ }
+            }
             root.classList.toggle('vt-joy-nomotors', motors === false);
             root.classList.toggle('vt-joy-dim', motors !== true);
             root.setAttribute('data-tone', tone());

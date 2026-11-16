@@ -90,31 +90,30 @@
     /* How far the robot's wall clock, read as this browser's local time, stands from the true
        time, in ms (0 = same zone, 2 h = the robot two hours ahead); null until known. Exact, from
        the robot's own log: every line of /status_logger/history has both its epoch (t) and the
-       robot's local time (iso). One message is read for it (watchClock), then the page lets go. */
+       robot's local time (iso); the log view hands the newest pair on (watchClock). */
     function robotShift() {
         if (typeof S !== 'object' || !S) { return null; }
         return S.clockShift === undefined ? null : S.clockShift;
     }
-    /* the newest line's pair out of the history's JSON text (its tail only: the list is long) */
-    function shiftFromLog(data) {
-        var tail = String(data || '').slice(-1500), re = /"t":\s*([0-9.]+),\s*"iso":\s*"([^"]+)"/g, m, last = null;
-        while ((m = re.exec(tail))) { last = m; }
-        var d = last ? parseIso(last[2]) : null, t0 = last ? parseFloat(last[1]) : NaN;
+    /* one line's pair (epoch s, the robot's local ISO time) as the shift, to the quarter hour */
+    function shiftFromLog(t0, iso) {
+        var d = parseIso(iso);
+        t0 = Number(t0);
         if (!d || !isFinite(t0) || t0 < 1e9) { return null; }
         return Math.round((d.getTime() - t0 * 1000) / 900000) * 900000;
     }
-    function watchClock(ros) {
-        try {
-            var topic = new ROSLIB.Topic({ ros: ros, name: '/status_logger/history', messageType: 'std_msgs/String' });
-            var on = function (m) {
-                var sh = shiftFromLog(m && m.data);
-                if (sh === null) { return; }
-                S.clockShift = sh;
-                topic.unsubscribe(on);
-                if (S.report) { paintAlert(); }
-            };
-            topic.subscribe(on);
-        } catch (e) { /* the silence keeps to what is certain */ }
+    /* V-f: the log view (map_view.js StatusLog) already reads /status_logger/history and hands
+       its newest line's pair on (window.VTRobotClock + 'vt:robotclock'); no second subscription
+       (a latched topic is not sent twice to one client: the shift came only with the next line) */
+    function watchClock() {
+        var take = function (c) {
+            var sh = c ? shiftFromLog(c.t, c.iso) : null;
+            if (sh === null || sh === S.clockShift) { return; }
+            S.clockShift = sh;
+            if (S.report) { paintAlert(); }
+        };
+        take(window.VTRobotClock);
+        document.addEventListener('vt:robotclock', function (e) { take(e && e.detail); });
     }
     /* /mower/link says the board answers (state ok) */
     function linkAnswers() {
@@ -2625,8 +2624,11 @@
         if (name === 'rec') { return known('auto.line.rec.' + raw, raw); }
         /* " (since 17:25)" out of the issue's dict; nothing when it has no since */
         if (name === 'since') {
-            var sm = /'since':\s*'\d{4}-\d\d-\d\dT(\d\d:\d\d)/.exec(raw);
-            return sm ? t('auto.line.since', { at: sm[1] }) : '';
+            var sm = /'since':\s*'(\d{4})-(\d\d)-(\d\d)T(\d\d:\d\d)/.exec(raw);
+            if (!sm) { return ''; }
+            /* V-f: with its day when that is not today (a silence since yesterday read as today's) */
+            var nd = new Date(), sameDay = +sm[1] === nd.getFullYear() && +sm[2] === nd.getMonth() + 1 && +sm[3] === nd.getDate();
+            return t('auto.line.since', { at: sameDay ? sm[4] : t('watchr.date', { d: +sm[3], m: +sm[2], t: sm[4] }) });
         }
         if (name === 'motors') {
             return raw.replace(/\b([A-Z]+_[A-Z]+) \(([^)]*)\)/g, function (m0, w, why) {
@@ -3454,7 +3456,7 @@
         sub('/mower_smach/active_program', 'std_msgs/String', function (m) { S.program = String(m.data || '').trim(); });
         subJson('/mower/link', onLink);
         subJson('/map_rules/state', onRules);
-        watchClock(ros);
+        watchClock();
         document.addEventListener('vt:watchrules', paintAnsWatch);
         setInterval(tick, 1000);
         var a = $('auto_link_radar');

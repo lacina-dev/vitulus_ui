@@ -99,6 +99,7 @@ check('unknown line -> null (shown raw)', ctx.robotLine('Something the UI never 
 check('unknown speed / wheel word stays raw', ctx.robotLine('Set speed: TURBO') === 'Rychlost: TURBO'
       && ctx.robotLine('[SAFETY] Motor failure: MID_AXLE (smoke). Motors OFF.') === '[BEZPEČNOST] Porucha motoru pohonu: MID_AXLE (smoke). Motory VYPNUTY.');
 // V-b: the master's diary, the reasons after a colon, the reset's second sentence
+const TODAY = (() => { const d = new Date(), p2 = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); })();
 const MASTER = [
     ['[Master] Settings changed by owner: sleep_ignore_ui.', /^\[Plánovač\] Nastavení změnil majitel: /],
     ['[Master] Sleep not confirmed. Fail-safe shutdown.', /^\[Plánovač\] Spánek se nepotvrdil: pojistné vypnutí\.$/],
@@ -112,8 +113,10 @@ const MASTER = [
     ['[Master] Sleep in 60 s, with {\'ssh\': [\'pts/0\'], \'ui\': 1} connected.', /^\[Plánovač\] Spánek za 60 s, připojeno: SSH pts\/0 · otevřené UI: 1\.$/],
     ['[Master] Sleep in 60 s, with {\'ssh\': [\'pts/0\', \'pts/1\'], \'ui\': 0} connected.', /připojeno: SSH pts\/0, pts\/1\.$/],
     ['[Master] Sleep in 60 s, with {\'ssh\': [], \'ui\': 2} connected.', /připojeno: otevřené UI: 2\.$/],
-    ['[Master] mower_link_idle  {\'silent_s\': 151, \'since\': \'2026-11-16T17:25\', \'in_dock\': True, \'repeat\': 0}', /^\[Plánovač\] Deska sekačky v doku mlčí \(od 17:25\)\.$/],
-    ['[Master] mower_link_idle  {\'silent_s\': 600, \'since\': \'2026-11-16T17:25\', \'in_dock\': False, \'repeat\': 1}', /^\[Plánovač\] Deska sekačky mlčí \(od 17:25\)\.$/],
+    ['[Master] mower_link_idle  {\'silent_s\': 151, \'since\': \'' + TODAY + 'T17:25\', \'in_dock\': True, \'repeat\': 0}', /^\[Plánovač\] Deska sekačky v doku mlčí \(od 17:25\)\.$/],
+    ['[Master] mower_link_idle  {\'silent_s\': 600, \'since\': \'' + TODAY + 'T17:25\', \'in_dock\': False, \'repeat\': 1}', /^\[Plánovač\] Deska sekačky mlčí \(od 17:25\)\.$/],
+    // V-f: with its day when it is not today
+    ['[Master] mower_link_idle  {\'silent_s\': 90000, \'since\': \'2025-03-07T17:25\', \'in_dock\': True, \'repeat\': 2}', /^\[Plánovač\] Deska sekačky v doku mlčí \(od 7\. 3\. 17:25\)\.$/],
     ['[Master] mower_link_idle  {\'silent_s\': 151, \'in_dock\': True}', /^\[Plánovač\] Deska sekačky v doku mlčí\.$/],
     ['[Master] Next VinoKolem (12_3) in 40m. Sleeping for 30m.', /Další VinoKolem \(12_3\) za 40 min\. Spím 30 min\.$/],
     ['[Sleep] PM armed, shutting the OS down.', /^\[Spánek\] /]];
@@ -161,6 +164,27 @@ check('cs: "sekačka", never "sečka"', !Object.values(D.cs).some((v) => /[Ss]e�
         lang2 = 'cs'; q2.retext(() => null);
         check('notice: a sticky notice with its own text function is said again in the new language', shown === 'Deska sekačky neodpovídá.', String(shown));
         check('… a waiting one too, one without the function keeps its text', q2._queue().some((x) => x.text === 'No text function'));
+        // V-f: the other places that composed a text once and did not follow the language
+        const MV = read('map_view.js');
+        check('V-f the mower\'s state word in the right panel is said again on a language switch (from data-status)',
+              /vtOnLang\(\(\) => \{\s*const e = this\.span_mower_panel_status, code = e && e\.dataset\.status;/.test(MV));
+        check('V-f the lost-link notice (sticky) carries its text function', /key: 'conn', text: vtT\(key\), tr: function \(\) \{ return vtT\(key\); \}/.test(MV));
+        check('V-f the odom chips keep the template tooltip in the UI language until their first data',
+              /var k = e\.getAttribute\('data-i18n-title'\);[\s\S]{0,200}vtOnLang\(function \(\) \{ if \(e\.title === said\)/.test(MV));
+        check('V-f a watched node line: a text of the page itself (data-i18n child) is not kept as the node\'s raw line',
+              /el\.querySelector\('\[data-i18n\]'\)\) \{ w\.raw = null; w\.out = null; return; \}/.test(read('vt_i18n.js')));
+        check('V-f the ranges card\'s group label is tagged', /VTI18n\.tag\(S\.cardView, 'ranges\.view\.label', 'aria-label'\)/.test(read('vt_sensor_ranges.js')));
+        const HTML = fs.readFileSync(path.join(JS, '..', '..', 'index.html'), 'utf8');
+        const poly = HTML.slice(HTML.indexOf('id="div_poly_template"'), HTML.indexOf('id="btn_poly_template_cancel"') + 120);
+        check('V-f the polygon form of the template has its keys (name, type, options, Save, Cancel)',
+              ['medit.poly.name', 'medit.poly.name_ph', 'medit.poly.type', 'medit.poly.obstacle', 'medit.poly.free', 'app.save', 'common.cancel'].every((k) => poly.indexOf('"' + k + '"') > 0 && k in D.en && k in D.cs));
+        check('V-f the agent\'s job list says its note again in the new language', /if \(jobsErr && jobsErrFn\) \{ jobsErr = jobsErrFn\(\); \}/.test(read('agent_chat.js')));
+        // V-f: two standing timers replaced by events
+        check('V-f the right panel\'s motor chip follows the joystick\'s event, no 1.5 s timer',
+              /document\.addEventListener\('vt:joy-motors', paint\)/.test(read('right_dock.js')) && !/setInterval\(paint, 1500\)/.test(read('right_dock.js'))
+              && /new CustomEvent\('vt:joy-motors'/.test(read('vt_joy.js')));
+        check('V-f the compass rose turns with the camera, no 200 ms timer', /cameraControls\.addEventListener\('change', roseSoon\)/.test(read('vt_georef.js'))
+              && !/, 200\);/.test(read('vt_georef.js')));
         check('Autonomy gives the function for what stays (the board, STOP)', /say\('link', [^;]*function \(\) \{ return t\('auto\.link\.' \+ banner\); \}/.test(AU)
               && /say\('stop', 0, function \(\) \{ return t\(stop\); \}/.test(AU));
     }

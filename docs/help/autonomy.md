@@ -176,8 +176,9 @@ The time in the notice keeps running while the board stays silent (not just the 
 moment it was raised), and the notice says what to do: *Switching the robot off and on helps*; **Hardware
 reset ›** next to it takes you to Hardware reset in Sleep (it only goes there, it starts nothing); off the
 dock, where that block refuses, the link is not shown. Once the board answers again the notice turns grey
-(the time is counted on the robot's clock, so a phone in another time zone shows the same; the notice over the map
-follows the language too) and says *The mower board was silent since 17:25; it answers again* — nothing to do, it stays until you clear it.
+(the time is counted on the robot's clock, so a phone in another time zone shows the same; the notices over the map,
+also *No connection to the robot*, follow the language; in the log the line *Mower board silent in the dock (since 17:25)*
+carries its day when that is not today) and says *The mower board was silent since 17:25; it answers again* — nothing to do, it stays until you clear it.
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping
