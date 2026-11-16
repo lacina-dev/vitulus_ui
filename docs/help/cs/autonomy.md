@@ -147,6 +147,15 @@ někdo připojený a **Ignorovat přihlášení** / **Ignorovat otevřené UI** 
 vědět a čeká, až odejde. Terminál použitý v posledních 10 minutách ho zastaví i se zapnutým **Ignorovat
 přihlášení**. Zrušení platí pro celý běh. Mimo dok proud nikdy nevypne.
 
+**Ohlásit, když deska sekačky mlčí** (Poruchy, výchozí je zapnuto): když neběží žádný program a deska
+neodpovídá déle než 2 minuty, robot to ohlásí — *Deska sekačky 7 h 30 min neodpovídá (od 23:10; v doku,
+žádný program)*, mimo dok bez „v doku" — a nejvýš dvakrát připomene (po 1 hodině, pak po 4 hodinách);
+bez desky nesekne. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala.
+**Mlčící desku restartovat i bez programu** (Poruchy, výchozí je vypnuto): robot pak udělá stejný tvrdý
+restart, i když neběží žádný program — vypne a znovu zapne napájení, i počítače; stejné pojistky (ne když
+je někdo připojený, ani když na robotu pracuje Claude, 60 s předem se **Zrušit**, nejvýš dvakrát za 24 hodin). Bez programu hlášky
+nezačínají jeho jménem.
+
 ### Start, který dnes nepojede
 
 Jedna položka kalendáře běží jednou denně. Když položka dnes už běžela a má dnes ještě pozdější start,

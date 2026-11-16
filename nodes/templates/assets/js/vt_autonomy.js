@@ -29,6 +29,32 @@
     var t = function (k, v) { return window.VTI18n ? VTI18n.t(k, v) : k; };
     var has = function (k) { return !window.VTI18n || VTI18n.t(k) !== k; };
     /* first key that has a text */
+    /* T37 (mower board watch): an issue or a journal line without a run (the board silent
+       in the dock, a hardware reset with no program) has its own sentence — not
+       ": the mower board…" with an empty program; {min} = the silence in minutes */
+    /* review: the board silent off the dock says so (in_dock), a reset held for Claude
+       at work on the robot (who "claude:N") is not "somebody is connected" */
+    function issueSfx(code, d) {
+        d = d || {};
+        var out = [];
+        if (code === 'hw_reset_person' && /^claude:/.test(String(d.who || ''))) { out.push('.claude'); }
+        if (code === 'mower_link_idle' && d.in_dock === false) { out.push('.off_dock'); }
+        if (!d.program) { out.push('.no_run'); }
+        return out;
+    }
+    function issueKeys(code, d) {
+        var k = 'calmgr.issue.' + code;
+        return issueSfx(code, d).map(function (x) { return k + x; }).concat([k]);
+    }
+    /* {dur} the silence as "7 h 30 min" (fmtDur), {at} when it began (since) */
+    function issueVars(d) {
+        if (!d) { return d; }
+        var s = Number(d.silent_s);
+        if (d.dur === undefined && isFinite(s) && s > 0) { d.dur = fmtDur(s); }
+        var at = d.since ? parseIso(d.since) : null;
+        if (d.at === undefined && at) { d.at = clock(at.getTime()); }
+        return d;
+    }
     function first(keys, v) {
         for (var i = 0; i < keys.length; i++) { if (has(keys[i])) { return t(keys[i], v); } }
         return '';
@@ -2178,7 +2204,7 @@
             else if (j.kind === 'skipped') { say('skip', 1, t('auto.n.skipped', Object.assign(v, { why: first(['auto.tl.reason.' + j.code, 'auto.tl.state.' + j.code]) || j.code }))); }
             else if (j.kind === 'missed') { say('skip', 1, t('auto.n.missed', v)); }
             else if (j.kind === 'woke') { say('woke', 2, t('auto.n.woke')); }
-            else if (j.code === 'hw_reset_person' || j.code === 'hw_reset_spent') { say('hw_reset', 0, t('calmgr.issue.' + j.code, v)); }
+            else if (j.code === 'hw_reset_person' || j.code === 'hw_reset_spent') { say('hw_reset', 0, first(issueKeys(j.code, v), issueVars(v))); }
         });
     }
     /* The robot's common lines are English in its code. */
@@ -2474,7 +2500,7 @@
     var JPROBLEM = {
         finished: { run_failed: 'err', run_no_progress: 'err', run_too_many_resumes: 'err', run_terminal: 'err',
                     run_rejected: 'err', run_stranded: 'err', run_expired: 'warn', run_event_removed: 'warn' },
-        waited: { mower_link: 'err', hw_reset_spent: 'err', hw_reset: 'warn', hw_reset_person: 'warn', rejected: 'warn',
+        waited: { mower_link: 'err', mower_link_idle: 'err', hw_reset_spent: 'err', hw_reset: 'warn', hw_reset_person: 'warn', rejected: 'warn',
                   critical: 'warn', gps: 'warn', lost: 'warn' },
         skipped: { intent_timeout: 'warn' },
         advice: { rejected: 'warn', missed: 'warn' },
@@ -2550,6 +2576,7 @@
         if (v.blocked_by) { v.why = first(['calmgr.code.' + v.blocked_by]) || v.blocked_by; }
         if (Array.isArray(v.keys)) { v.keys = v.keys.join(', '); }
         if (v.ms) { v.dur = fmtDur(v.ms / 1000); }
+        issueVars(v);
         if (j.kind === 'advice') {
             if (v.why) { v.why = whyCode(v.why, v); }
             if (v.until) { v.until = when(v.until); }
@@ -2584,6 +2611,9 @@
             if (v.left_s) { v.left = fmtDur(v.left_s); } else { code = 'homeward_plain'; }
         }
         if (j.kind === 'mode' && ((j.vars || {}).by === 'owner' || (j.vars || {}).by === 'agent')) { code = code + '_' + j.vars.by; }
+        // T37: no run, no "{program}:"; off the dock; a reset held for Claude
+        keys = keys.concat(issueSfx(j.code, Object.assign({ program: j.program }, j.vars || {})).map(function (x) {
+            return 'auto.j.' + j.kind + '.' + j.code + x; }));
         return first(keys.concat(['auto.a3.j.' + j.kind + '.' + code, 'auto.j.' + j.kind + '.' + j.code, 'auto.a3.j.' + j.kind, 'auto.j.' + j.kind]), v)
             || (first(['auto.j.kind.' + j.kind]) || j.kind) + (j.program ? ' ' + j.program : '');
     }
@@ -2689,7 +2719,7 @@
         var d = Object.assign({ program: i.program || '' }, i.detail || {});
         if (d.slot) { d.slot = String(d.slot).replace('T', ' '); }
         var rk = String(d.reason || '').replace(/^dock:/, 'dock_');   // same key as calendar_manager
-        var txt = first(['calmgr.issue.reason.' + rk, 'calmgr.issue.' + i.code], d) || i.code;
+        var txt = first(['calmgr.issue.reason.' + rk].concat(issueKeys(i.code, d)), issueVars(d)) || i.code;
         el('span', 'vt-attn-txt', box, txt);
         var b = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.alert.more'));
         b.type = 'button';
@@ -3005,7 +3035,7 @@
         paintSettings(); paintAll();
     }
 
-    window.VTAutonomy = { init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {
+    window.VTAutonomy = { issueKeys: issueKeys, issueVars: issueVars, init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {
         return S.report ? planLine() : ''; }, rawTimed: rawTimed, robotLine: robotLine, when: when,
                           whyCode: whyCode, dockWhy: dockWhy, adviceReason: adviceReason,
                           _state: S, _checkText: checkText, _validate: validate };

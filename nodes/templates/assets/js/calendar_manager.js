@@ -520,7 +520,15 @@ class CalendarManager {
             }
             // T22: the dock permit's codes (dock:intent_timeout) have their own sentence
             const byReason = 'calmgr.issue.reason.' + String(d.reason || '').replace(/^dock:/, 'dock_');
+            // T37: the variants (no run, off the dock, held for Claude) and {dur}/{at} as in Autonomy
+            const VA = window.VTAutonomy;
+            const keys = VA && VA.issueKeys ? VA.issueKeys(i.code, d) : [key];
+            if (VA && VA.issueVars) VA.issueVars(d);
             let text = calT(byReason, d);
+            if (text === byReason) {
+                const k2 = keys.find((k) => calT(k, d) !== k);
+                if (k2) text = calT(k2, d);
+            }
             if (text === byReason) text = calT(key, d);
             if (text === key) text = i.code + ' ' + (i.program || '');
             const why = d.blocked_by ? calT('calmgr.code.' + d.blocked_by) : '';

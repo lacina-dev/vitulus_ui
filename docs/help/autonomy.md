@@ -158,6 +158,16 @@ run and at most twice in 24 hours; after that it tells you and waits. If somebod
 gone. A terminal used in the last 10 minutes stops it even with **Ignore logins** on. Cancel holds for
 that run. Off the dock it never cuts.
 
+**Tell me when the mower board goes silent** (Faults, on by default): with no program running, when
+the board does not answer for more than 2 minutes, the robot says so — *The mower board has not
+answered for 7 h 30 min (since 23:10; in the dock, no program)*, off the dock without "in the dock" —
+and reminds you at most twice (after 1 hour, then after 4 hours); it will not mow without the board.
+The history shows since when it is silent and when it answers again. **Reset a silent board also with no
+program** (Faults, off by default): then the robot does the same hardware reset with no program
+running too — the power goes off and on again, the computer as well; the same safeguards (not while
+somebody is connected, nor while Claude is working on the robot, 60 s ahead with **Cancel**, at most twice in 24 hours). Without a program the
+messages have no program name in front.
+
 ### A start that does not run today
 
 One calendar entry runs once a day. If an entry already ran today and has a later start today, Plan

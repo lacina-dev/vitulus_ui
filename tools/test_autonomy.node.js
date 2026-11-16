@@ -281,5 +281,46 @@ function sandbox(lang, file, extra) {
     r = row({ action: 'dock-relock', ref: 'dock_release:21', author: 'robot', message: 'relocked: robot docked', receipt: 21 });
     check(l + ': the robot\'s own relock row as before', r.text === fill('activity.dock_relock', { r: 21 }), r.text);
 });
+// T37: the mower board watch with no run — its own sentences, readable silence, no ": …" prefix,
+// off the dock without "in the dock", a reset held for Claude says so (review 2026-11-16)
+{
+    const src = read('vt_autonomy.js');
+    const grab = (name) => { const i = src.indexOf('function ' + name + '('); let d = 0;
+        for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') { d++; } else if (src[j] === '}' && --d === 0) { return src.slice(i, j + 1); } } };
+    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    ['en', 'cs'].forEach((l) => {
+        const D = win.VT_I18N_DICT[l];
+        const T = (k, v) => String(k in D ? D[k] : k).replace(/\{(\w+)\}/g, (m, x) => (v && x in v ? String(v[x]) : m));
+        const has = (k) => k in D;
+        const F = new Function('t', 'has', 'nowMs', 'S', 'window', fns.filter((n) => src.indexOf('function ' + n + '(') >= 0).map(grab).join('\n') +
+            '\nreturn {issueKeys, issueVars, first};')(T, has, () => Date.now(), {}, {});
+        const say = (code, d) => F.first(F.issueKeys(code, d), F.issueVars(d));
+        const since = new Date(Date.now() - 7.5 * 3600e3); const pad = (n) => String(n).padStart(2, '0');
+        const iso = since.getFullYear() + '-' + pad(since.getMonth() + 1) + '-' + pad(since.getDate()) + 'T' + pad(since.getHours()) + ':' + pad(since.getMinutes());
+        const hm = pad(since.getHours()) + ':' + pad(since.getMinutes());
+        const idle = say('mower_link_idle', { program: '', silent_s: 7.5 * 3600, since: iso, in_dock: true });
+        check(l + ': board silent with no run: "7 h 30 min", since when, in the dock', /7\s*h\s*30\s*min/.test(idle) && idle.indexOf(hm) >= 0 &&
+              /dock|doku/.test(idle) && !/\{|^:|450/.test(idle), idle);
+        const off = say('mower_link_idle', { program: '', silent_s: 600, since: iso, in_dock: false });
+        check(l + ': … off the dock it does not say "in the dock"', !/in the dock|v doku/.test(off) && /10\s*min/.test(off) && !/\{/.test(off), off);
+        ['hw_reset', 'hw_reset_person', 'hw_reset_spent'].forEach((c) => {
+            const a = say(c, { program: '', left_s: 60 }), b = say(c, { program: 'Bigger', left_s: 60 });
+            check(l + ': ' + c + ' without a program reads whole', !/^\s*:|\{/.test(a) && a.indexOf('Bigger') < 0, a);
+            check(l + ': ' + c + ' with a program keeps it', b.indexOf('Bigger:') === 0, b);
+        });
+        const cl = say('hw_reset_person', { program: '', who: 'claude:2' });
+        check(l + ': a reset held for Claude says Claude, not "somebody is connected"', /Claude/.test(cl) && !/Somebody is connected|Někdo je připojený/.test(cl), cl);
+        const pp = say('hw_reset_person', { program: '', who: 'login:pts/0' });
+        check(l + ': … a person is still "somebody is connected"', /Somebody is connected|Někdo je připojený/.test(pp), pp);
+        ['mower_link_idle', 'mower_link_idle.off_dock', 'mower_link_back', 'hw_reset.no_run', 'hw_reset_cancelled.no_run', 'hw_reset_person.claude'].forEach((k) =>
+            check(l + ': journal line auto.j.waited.' + k, has('auto.j.waited.' + k) && !/\{program\}/.test(D['auto.j.waited.' + k])));
+        check(l + ': the journal carries since when (auto.j.waited.mower_link_idle has {at})', /\{at\}/.test(D['auto.j.waited.mower_link_idle']) && /\{at\}/.test(D['auto.j.waited.mower_link_idle.off_dock']));
+        check(l + ': the hint promises the reminders, not "once"', /twice|dvakrát/.test(D['auto.set.mower_idle_notify.hint']) && !/once|jednou/.test(D['auto.set.mower_idle_notify.hint']));
+    });
+    check('journal: the variants are asked for there too', /issueSfx\(j\.code, Object\.assign\(\{ program: j\.program \}, j\.vars \|\| \{\}\)\)/.test(src) && /issueVars\(v\);/.test(src));
+    const cal = read('calendar_manager.js');
+    check('calendar card: the same variants and {dur}/{at} (VTAutonomy.issueKeys / issueVars)', /VA\.issueKeys\(i\.code, d\)/.test(cal) && /VA\.issueVars\(d\)/.test(cal) &&
+          /issueKeys: issueKeys, issueVars: issueVars/.test(src));
+}
 console.log(fails ? 'FAILED ' + fails : 'OK — Autonomy texts and wiring');
 process.exit(fails ? 1 : 0);
