@@ -25,11 +25,13 @@
  *        a few times a minute — measured 2026-11-08); else
  *        dropped — never replayed later. While driving the guard probes so a quiet
  *        but healthy link stays "fresh";
- *      any other publish / call_service (an ACTION, see kind()) while up but nothing
- *        arrived within DRIVE_FRESH_MS: not sent, not queued, the page is told (onDrop
- *        with stale: true), a service call gets a failed answer (T8: an "open" socket
- *        of a lost network keeps what is written to it and the robot would run it when
- *        the network is back);
+ *      any other publish / call_service (an ACTION, see kind()) while up: at once only
+ *        when a frame arrived within ACT_DIRECT_MS; else it waits for the robot's next
+ *        frame (a probe asks for one) and goes out then; none within ACT_WAIT_MS: not
+ *        sent, the page is told (onDrop with stale: true), a service call gets a failed
+ *        answer (T8: an "open" socket of a lost network keeps what is written to it and
+ *        the robot would run it when the network is back). A STOP drops what waits;
+ *      a 'halt' (stop_autopath, scheduler inhibit): sent whenever the socket is open;
  *      any other publish / call_service while not up: queued, sent on the next
  *        connection only if it is at most CMD_KEEP_MS old (a "motors ON", Undock,
  *        Go or a map delete must not go out seconds later) — else dropped, a dropped
@@ -68,6 +70,8 @@
     var CMD_KEEP_MS = 2000;      // another command waiting for the link longer than this is dropped
     var DRIVE_FRESH_MS = 2000;   // drive only when a frame arrived this recently
     var DRIVE_PROBE_MS = 1000;   // while driving: probe after this much silence
+    var ACT_DIRECT_MS = 300;     // an action goes out at once only when a frame arrived this recently
+    var ACT_WAIT_MS = 1000;      // else it waits this long for the robot's next frame (a probe asks for one)
 
     var CANCEL = /^\/(move_base_flex\/[a-z_]+|move_base|smach_goal)\/cancel$/;
     var STOP_BOOL = {
@@ -77,6 +81,16 @@
         '/base/motor_power': false,      // traction motors off
         '/pm/set_motor_switch': false    // power-module motor switch open
     };
+    // Only stop or forbid something, a late one does no harm: sent whenever the socket is open,
+    // never held back by a silent link. Unlike the STOPs above they are not kept and repeated.
+    //   /navi_manager/stop_autopath  navi_man forgets the path being recorded (any value)
+    //   /scheduler/inhibit true      master_controller: no scheduled run until allowed again
+    // NOT here, on purpose (they stay actions): /mapping_manager/stop (ends the session, SAVES a
+    // raster and switches the served map; payload "discard" throws the session away),
+    // /scheduler/sleep_cancel (keeps the robot awake: a late one cancels a later sleep),
+    // service /stop_motor (stops the lidar: the robot is blind to obstacles after it).
+    var HALT_ANY = { '/navi_manager/stop_autopath': 1 };
+    var HALT_BOOL = { '/scheduler/inhibit': true };
     var CMD_VEL = /(^|\/)cmd_vel$/;
     // read-only plumbing: asks the robot to SEND data, never changes it
     var PLUMBING = /^\/(republish_tfs$|tf2_web_republisher\/|rosapi\/|interactive_marker\/)/;
@@ -98,6 +112,11 @@
         }
         return CMD_VEL.test(m.topic) && zeroTwist(m.msg);
     }
+    function isHalt(m) {
+        if (!m || m.op !== 'publish' || typeof m.topic !== 'string') { return false; }
+        if (Object.prototype.hasOwnProperty.call(HALT_ANY, m.topic)) { return true; }
+        return Object.prototype.hasOwnProperty.call(HALT_BOOL, m.topic) && !!(m.msg && m.msg.data === HALT_BOOL[m.topic]);
+    }
     function isDrive(m) {
         return !!(m && m.op === 'publish' && typeof m.topic === 'string' && CMD_VEL.test(m.topic) &&
                   m.msg && m.msg.linear && !zeroTwist(m.msg));
@@ -113,6 +132,7 @@
 
     // What a rosbridge op is for the link guard (T8, 2026-11-16):
     //   'stop'     only stops or switches off (isStop): always sent, kept, confirmed;
+    //   'halt'     only stops or forbids, not urgent (isHalt): sent whenever the socket is open;
     //   'drive'    a non-zero cmd_vel: only on a fresh link, never later;
     //   'plumbing' / 'query'  asks the robot to SEND data: never changes it;
     //   'action'   EVERYTHING else that is published or called — motors ON, blade, Undock /
@@ -124,6 +144,7 @@
         if (!m) { return 'other'; }
         if (m.op === 'publish') {
             if (isStop(m)) { return 'stop'; }
+            if (isHalt(m)) { return 'halt'; }
             if (isDrive(m)) { return 'drive'; }
             if (PLUMBING.test(m.topic || '')) { return 'plumbing'; }
             return QUERY.test(m.topic || '') ? 'query' : 'action';
@@ -141,13 +162,15 @@
         var g = {};
         var pending = [];            // STOPs: {topic, enc, seq, sock, t}
         var queue = [];              // the rest while down: {enc, m, t, cmd}
+        var held = [];               // actions waiting for the robot's next frame: {enc, m, t}
+        var heldTimer = false;
         var seq = 0, probeN = 0;
         var probe = null;            // {id, t, seq, sock, stop, fn}
         var probeSoon = false;
         var lastRx = now(), connStart = now(), rxSock = null;
         var everUp = false, connIdx = 0, lastDrive = -1e9, connSock = null, t0 = now();
         var st = { sent: 0, queued: 0, resent: 0, acked: 0, dropped_drive: 0, stale_drive: 0,
-                   stale_cmd: 0, expired: 0, dropped_cmd: 0, kills: 0, probes: 0, last_kill: '' };
+                   stale_cmd: 0, held_cmd: 0, expired: 0, dropped_cmd: 0, kills: 0, probes: 0, last_kill: '' };
 
         function emitStop(ev, info) { try { if (o.onStop) { o.onStop(ev, info || {}); } } catch (e) { /* UI only */ } }
         function emitDrop(info) { try { if (o.onDrop) { o.onDrop(info); } } catch (e) { /* UI only */ } }
@@ -158,7 +181,42 @@
         }
         function fresh() { return up() && now() - lastRx <= DRIVE_FRESH_MS; }
         function rawSend(enc) { sock().send(enc); }
-        function onRx() { lastRx = now(); }
+        function onRx() { lastRx = now(); if (held.length) { releaseHeld(); } }
+        // T8: the actions that waited for a sign of life. A frame came: the robot hears us now,
+        // they go out in the order they were pressed (one older than ACT_WAIT_MS is refused).
+        function releaseHeld() {
+            var h = held, t = now();
+            held = [];
+            h.forEach(function (q) {
+                if (up() && t - q.t <= ACT_WAIT_MS) { rawSend(q.enc); } else { refuse(q.m); }
+            });
+        }
+        function refuse(m) {
+            st.stale_cmd++;
+            failCall(m);
+            emitDrop({ n: 1, what: [m.topic || m.service || m.op], stale: true });
+        }
+        function refuseHeld() {
+            var h = held;
+            held = [];
+            h.forEach(function (q) { refuse(q.m); });
+        }
+        function hold(enc, m) {
+            st.held_cmd++;
+            held.push({ enc: enc, m: m, t: now() });
+            sendProbe(false);
+            if (heldTimer) { return; }
+            heldTimer = true;
+            (function wait() {
+                later(function () {
+                    var t = now();
+                    var old = held.filter(function (q) { return t - q.t >= ACT_WAIT_MS; });
+                    held = held.filter(function (q) { return t - q.t < ACT_WAIT_MS; });
+                    old.forEach(function (q) { refuse(q.m); });
+                    if (held.length) { wait(); } else { heldTimer = false; }
+                }, held.length ? Math.max(1, ACT_WAIT_MS - (now() - held[0].t)) : ACT_WAIT_MS);
+            }());
+        }
         function watch() {
             var s = sock();
             if (!s || s === rxSock || !s.addEventListener) { return; }
@@ -180,6 +238,7 @@
             try { s.close(); } catch (e) { /* already closing */ }
             ros.socket = null;
             dropProbe();
+            refuseHeld();
             try { if (o.onDead) { o.onDead(reason); } } catch (e) { /* UI only */ }
             if (typeof oc === 'function') {
                 try { oc.call(s, { type: 'close', code: 4000, reason: 'vt_link: ' + reason, wasClean: false }); } catch (e) { /* listeners */ }
@@ -203,6 +262,7 @@
                 if (probe !== p) { return; }
                 lastRx = now();
                 probe = null;
+                if (held.length) { releaseHeld(); }
                 var n0 = pending.length;
                 pending = pending.filter(function (q) { return !(q.sock === p.sock && q.seq <= p.seq); });
                 if (pending.length < n0) {
@@ -254,6 +314,9 @@
         }
 
         function stop(topic, enc) {
+            // an action still waiting for the robot (motors ON pressed a moment ago) must not
+            // come out after this STOP
+            if (held.length) { refuseHeld(); }
             seq++;
             pending = pending.filter(function (q) { return q.topic !== topic; });
             var q = { topic: topic, enc: enc, seq: seq, sock: null, t: now() };
@@ -333,11 +396,14 @@
                 // only while the robot's data is arriving (as a drive command does); else it
                 // is refused NOW, told (onDrop, stale: true) and never sent later. The probe
                 // makes a quiet but healthy link fresh for the next press.
-                if (m && kind(m) === 'action' && now() - lastRx > DRIVE_FRESH_MS) {
-                    st.stale_cmd++;
-                    failCall(m);
-                    emitDrop({ n: 1, what: [m.topic || m.service || m.op], stale: true });
-                    sendProbe(false);
+                // Even 2 s was a gap (a press 1 s into an outage went out and came 5 s late):
+                // an action goes out at once only when a frame arrived within ACT_DIRECT_MS
+                // (the page's subscriptions bring ~250 frames/s, so normally at once); else
+                // it waits for the robot's next frame — a probe asks for one — and goes out
+                // then, one round trip late; no frame within ACT_WAIT_MS = refused, told.
+                // While something waits, later actions wait behind it (their order holds).
+                if (m && kind(m) === 'action' && (held.length || now() - lastRx > ACT_DIRECT_MS)) {
+                    hold(enc, m);
                     return;
                 }
                 rawSend(enc);
@@ -360,7 +426,7 @@
             watch();
             later(flush, 0);
         });
-        ros.on('close', function () { dropProbe(); connStart = now(); });
+        ros.on('close', function () { dropProbe(); refuseHeld(); connStart = now(); });
 
         every(function () {
             var t = now(), s = sock();
@@ -407,6 +473,7 @@
             Object.keys(st).forEach(function (k) { r[k] = st[k]; });
             r.pending = pending.length;
             r.queue = queue.length;
+            r.held = held.length;
             r.probe = probe ? { age_ms: now() - probe.t, stop: probe.stop } : null;
             r.silence_ms = now() - lastRx;
             r.connect_ms = CONNECT_MS[connIdx];
@@ -417,9 +484,10 @@
     }
 
     root.VTLink = {
-        install: install, isStop: isStop, isDrive: isDrive, isCommand: isCommand, kind: kind,
+        install: install, isStop: isStop, isHalt: isHalt, isDrive: isDrive, isCommand: isCommand, kind: kind,
         T: { TICK_MS: TICK_MS, PROBE_AFTER_MS: PROBE_AFTER_MS, PROBE_DEAD_MS: PROBE_DEAD_MS,
              STOP_DEAD_MS: STOP_DEAD_MS, STOP_STUCK_MS: STOP_STUCK_MS, CONNECT_MS: CONNECT_MS,
-             ZERO_KEEP_MS: ZERO_KEEP_MS, CMD_KEEP_MS: CMD_KEEP_MS, DRIVE_FRESH_MS: DRIVE_FRESH_MS }
+             ZERO_KEEP_MS: ZERO_KEEP_MS, CMD_KEEP_MS: CMD_KEEP_MS, DRIVE_FRESH_MS: DRIVE_FRESH_MS,
+             ACT_DIRECT_MS: ACT_DIRECT_MS, ACT_WAIT_MS: ACT_WAIT_MS }
     };
 }(typeof window !== 'undefined' ? window : globalThis));

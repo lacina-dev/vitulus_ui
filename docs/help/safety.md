@@ -53,10 +53,13 @@ drives only while the robot's data is arriving. Any other command pressed withou
 *Offline · command NOT sent*; press it again once the dot is green.
 
 The same holds while the dot is still green but the robot's data stopped arriving (a Wi-Fi gap the
-page has not called dead yet): after 2 s without data a command is **not** sent and never goes out
+page has not called dead yet): a command goes out only when the robot is heard — at once while its
+data is arriving, otherwise after the robot answers a short check; with no answer within 1 s the
+command is **not** sent and never goes out
 later — the band says *No data from the robot · command NOT sent — press again*. Without this the
 command would wait in the network and the robot would carry it out when the Wi-Fi came back,
-seconds late. STOP, motors OFF, blade OFF and cancelling are always sent (a late STOP only stops).
+seconds late. STOP, motors OFF, blade OFF and cancelling are always sent (a late STOP only stops); so are
+forbidding the scheduled runs and ending a path recording.
 
 > [!NOTE]
 > The agent panel has its own red **STOP** in its head. It stops the agent's mission and is

@@ -437,6 +437,11 @@ const CMD = {
     // the same topics with the other value switch something ON: actions
     stop_other: [['/mower_smach/stop', { data: false }], ['/dock_smach/stop', { data: false }], ['/mower/set_motor_on', { data: true }],
                  ['/base/motor_power', { data: true }], ['/pm/set_motor_switch', { data: true }]],
+    // only stop / forbid, not urgent: sent whenever the socket is open (never kept or repeated)
+    halt: [['/navi_manager/stop_autopath', { data: true }], ['/navi_manager/stop_autopath', { data: false }], ['/scheduler/inhibit', { data: true }]],
+    halt_other: [['/scheduler/inhibit', { data: false }]],     // allowing the scheduled runs again is an action
+    // stop-like names that stay actions on purpose (see HALT_* in vt_link.js for the reasons)
+    stay_action: ['/mapping_manager/stop', '/scheduler/sleep_cancel'],
     drive: ['/teleop/cmd_vel', '/cmd_vel'],
     query: ['/web_plan/reload', '/web_plan/republish', '/dock_manager/send_programs', '/navi_manager/publish_path', '/navi_manager/publish_point'],
     plumbing: ['/tf2_web_republisher/cancel', '/tf2_web_republisher/goal', '/interactive_marker/feedback'],
@@ -464,12 +469,12 @@ const CMD = {
         '/navi_manager/remove_point', '/navi_manager/rtabmap_settings_set', '/navi_manager/save_map',
         '/navi_manager/save_path', '/navi_manager/save_path_at', '/navi_manager/save_path_point',
         '/navi_manager/save_waypoint', '/navi_manager/save_waypoint_at', '/navi_manager/show_map',
-        '/navi_manager/speed', '/navi_manager/start_new_autopath', '/navi_manager/stop_autopath',
+        '/navi_manager/speed', '/navi_manager/start_new_autopath', 
         '/pm/set_bat_out_switch', '/pm/set_charge_current_running', '/pm/set_charge_current_standby',
         '/pm/set_precharge_current_running', '/pm/set_precharge_current_standby', '/pm/set_robot_sleep',
         '/pm/set_sleep_time', '/pm/set_sleep_until_charged', '/pm/set_sleep_wait_before_standby',
         '/pm/set_sleep_wait_charged_offset', '/pm/set_standby_timeout_discharging', '/pm/set_temp2_setpoint',
-        '/pm/set_temp_setpoint', '/scheduler/clear_issues', '/scheduler/ignore_rain_once', '/scheduler/inhibit',
+        '/pm/set_temp_setpoint', '/scheduler/clear_issues', '/scheduler/ignore_rain_once', 
         '/scheduler/run_next', '/scheduler/set_calendar', '/scheduler/set_enabled', '/scheduler/set_mode',
         '/scheduler/set_settings', '/scheduler/set_window', '/scheduler/sleep_cancel', '/scheduler/sleep_now',
         '/set_motor_switch', '/undock_intensity', '/vitulus_rosbag/d435/record', '/vitulus_rosbag/d435/set_fps',
@@ -484,6 +489,10 @@ const CMD = {
     const pub = (topic, msg) => ({ op: 'publish', topic, msg: msg || { data: true } });
     CMD.stop.forEach(([t, m]) => ok('kind stop: ' + t, K(pub(t, m)) === 'stop', K(pub(t, m))));
     CMD.stop_other.forEach(([t, m]) => ok('kind action (switches on): ' + t, K(pub(t, m)) === 'action', K(pub(t, m))));
+    CMD.halt.forEach(([t, m]) => ok('kind halt: ' + t, K(pub(t, m)) === 'halt' && !V.isStop(pub(t, m)), K(pub(t, m))));
+    CMD.halt_other.forEach(([t, m]) => ok('kind action (allows again): ' + t, K(pub(t, m)) === 'action', K(pub(t, m))));
+    CMD.stay_action.forEach((t) => ok('kind action (stop-like, on purpose): ' + t, CMD.action.indexOf(t) >= 0 && K(pub(t)) === 'action'));
+    ok('kind action (stop-like, on purpose): service /stop_motor', K({ op: 'call_service', service: '/stop_motor' }) === 'action');
     CMD.drive.forEach((t) => ok('kind drive: ' + t, K(pub(t, { linear: { x: 0.2, y: 0, z: 0 }, angular: { x: 0, y: 0, z: 0 } })) === 'drive'));
     CMD.query.forEach((t) => ok('kind query: ' + t, K(pub(t)) === 'query', K(pub(t))));
     CMD.plumbing.forEach((t) => ok('kind plumbing: ' + t, K(pub(t, {})) === 'plumbing', K(pub(t, {}))));
@@ -495,7 +504,7 @@ const CMD = {
     ok('kind: subscribe / advertise are not commands', K({ op: 'subscribe', topic: '/base/motor_power' }) === 'other' && K({ op: 'advertise', topic: '/base/motor_power' }) === 'other');
 
     // the sources: every topic that is published / advertised and every service must be listed above
-    const known = new Set([].concat(CMD.stop.map((x) => x[0]), CMD.drive, CMD.query, CMD.plumbing, CMD.plumbing_svc, CMD.action_svc, CMD.action));
+    const known = new Set([].concat(CMD.stop.map((x) => x[0]), CMD.halt.map((x) => x[0]), CMD.drive, CMD.query, CMD.plumbing, CMD.plumbing_svc, CMD.action_svc, CMD.action));
     const SKIP = /(_bak|\.bak|\.min\.js$)|^(three|ros3d|ros2d|roslib|jquery|easeljs|eventemitter2|nipplejs|pgmjs|mjpegcanvas|vt_mock|vt_link|vt_ros_share)/;
     const found = {};
     const abs = (nm) => (nm[0] === '/' ? nm : '/' + nm);
@@ -527,29 +536,26 @@ const CMD = {
 // what the page wrote into the socket (a lost network keeps it in TCP and may still deliver it)
 function wrote(s, topic) { return s.sent.map((d) => JSON.parse(d)).filter((m) => m.op === 'publish' && (!topic || m.topic === topic)); }
 {
-    const W = world(); connected(W);
-    const s = W.sock(), T = (name, type) => new W.R.Topic({ ros: W.ros, name, messageType: type });
-    const undock = T('/dock_detector/undock', 'std_msgs/Bool'), go = T('/navi_manager/goal_point', 'std_msgs/String');
-    const reload = T('/web_plan/reload', 'std_msgs/Bool');
-    const srv = new W.R.Service({ ros: W.ros, name: '/rtabmap/set_mode_mapping', serviceType: 'std_srvs/Empty' });
-    undock.advertise(); go.advertise(); reload.advertise(); W.top.power.advertise(); W.top.blade.advertise();
-    s.toClient({ op: 'publish', topic: '/mower_smach/busy', msg: { data: false } }); W.run(10);
-    // data arriving: everything goes out as before
-    W.top.power.publish({ data: true }); undock.publish({ data: true });
-    ok('fresh: motors ON and Undock sent', wrote(s, '/base/motor_power').length === 1 && wrote(s, '/dock_detector/undock').length === 1);
-    // the network goes away: the socket stays "open", nothing arrives, nothing is answered
-    s.alive = false;
-    const tried = [];
-    [500, 1000, 1500, 1900, 2100, 3000, 5000, 7000].forEach((at, i, a) => {
-        W.run(at - (i ? a[i - 1] : 0));
-        const n0 = wrote(s, '/navi_manager/goal_point').length;
+    // the network goes away right after a frame: the socket stays "open", nothing arrives, nothing is answered
+    const tried = [100, 250, 500, 1000, 1500, 2100, 3000, 5000].map((at) => {
+        const W = world(); connected(W);
+        const s = W.sock(), go = new W.R.Topic({ ros: W.ros, name: '/navi_manager/goal_point', messageType: 'std_msgs/String' });
+        go.advertise();
+        s.toClient({ op: 'publish', topic: '/mower_smach/busy', msg: { data: false } });
+        s.alive = false;
+        W.run(at);
+        const up0 = W.g.up();
         go.publish({ data: 'P' + at });
-        tried.push([at, wrote(s, '/navi_manager/goal_point').length - n0, W.g.up()]);
+        const direct = wrote(s, '/navi_manager/goal_point').length;
+        let told = null;
+        for (let k = 0; k <= 30 && told === null; k++) { if (W.ev.some((e) => e[0] === 'drop' && e[1].stale)) { told = k * 50; } else { W.run(50); } }
+        return [at, direct, wrote(s, '/navi_manager/goal_point').length, up0, told];
     });
-    console.log('     Go pressed N ms after the last frame -> [ms, sent, link still "up"]: ' + JSON.stringify(tried));
-    ok('silent link: a Go within 2 s of the last frame is sent', tried.filter((x) => x[0] <= 2000).every((x) => x[1] === 1), tried);
-    ok('silent link: a Go later than 2 s is NOT sent although the link is still "up"', tried.filter((x) => x[0] > 2000 && x[2]).length >= 3 &&
-        tried.filter((x) => x[0] > 2000).every((x) => x[1] === 0), tried);
+    console.log('     Go pressed N ms after the last frame -> [ms, written at once, written at all, link "up", refused after ms]: ' + JSON.stringify(tried));
+    ok('silent link: a Go within 300 ms of the last frame is sent at once', tried.filter((x) => x[0] <= 300).every((x) => x[1] === 1), tried);
+    ok('silent link: a Go 0.5 / 1 / 1.5 s and later is never written to the socket', tried.filter((x) => x[0] > 300).length === 6 &&
+        tried.filter((x) => x[0] > 300).every((x) => x[2] === 0 && x[3]), tried);
+    ok('silent link: the page is told ~1 s after the press', tried.filter((x) => x[0] > 300).every((x) => x[4] !== null && x[4] >= 950 && x[4] <= 1050), tried);
 }
 {
     const W = world(); connected(W);
@@ -566,17 +572,28 @@ function wrote(s, topic) { return s.sent.map((d) => JSON.parse(d)).filter((m) =>
     W.top.speed.publish({ data: '0.5' });
     srv.callService(new W.R.ServiceRequest({}), () => { answer = 'ok'; }, (e) => { answer = 'failed: ' + e; });
     W.run(20);
+    ok('silent 3 s: the six commands wait for the robot, one probe at most asks', W.g.stats().held === 6 && s.sent.slice(n0).map((d) => JSON.parse(d)).filter((m) => /^vt_link:/.test(m.id || '')).length <= 1, W.g.stats());
+    W.run(1000);
     const sent = s.sent.slice(n0).map((d) => JSON.parse(d)).filter((m) => m.op === 'publish' || (m.op === 'call_service' && !/^vt_link:/.test(m.id || '')));
     ok('silent 3 s: motors ON, blade ON, Undock, program, speed, a service call: none sent', sent.length === 0, sent.map((m) => m.topic || m.service));
     const drops = W.ev.filter((e) => e[0] === 'drop');
-    ok('silent 3 s: the page is told at once, once per command, marked stale', drops.length === 6 && drops.every((e) => e[1].stale === true && e[1].n === 1), drops);
+    ok('silent 3 s: the page is told after 1 s, once per command, marked stale', drops.length === 6 && drops.every((e) => e[1].stale === true && e[1].n === 1), drops);
     ok('silent 3 s: the service caller gets a failed answer', /^failed/.test(String(answer)), answer);
-    ok('silent 3 s: counted', W.g.stats().stale_cmd === 6 && W.g.stats().queue === 0, W.g.stats());
+    ok('silent 3 s: counted', W.g.stats().stale_cmd === 6 && W.g.stats().queue === 0 && W.g.stats().held === 0, W.g.stats());
     // what only asks for data, and everything that stops, still goes out
+    const inh = T('/scheduler/inhibit', 'std_msgs/Bool'), sap = T('/navi_manager/stop_autopath', 'std_msgs/Bool');
+    inh.advertise(); sap.advertise();
+    inh.publish({ data: true }); sap.publish({ data: true }); inh.publish({ data: false });
+    ok('silent 3 s: scheduler inhibit (forbid) and stop_autopath go out at once, the allow does not',
+        wrote(s, '/scheduler/inhibit').length === 1 && wrote(s, '/scheduler/inhibit')[0].msg.data === true && wrote(s, '/navi_manager/stop_autopath').length === 1);
+    // motors ON pressed, then STOP while it still waits: the ON never comes out
+    W.top.power.publish({ data: true });
+    ok('silent 3 s: motors ON waits (with the allow)', W.g.stats().held === 2, W.g.stats());
     reload.publish({ data: true });
     ok('silent 3 s: a reload request (query) is sent', wrote(s, '/web_plan/reload').length === 1);
     W.STOP();
     ok('silent 3 s: the big STOP goes out, every topic', W.STOPS.map((t) => wrote(s, t).length).join() === '1,1,1,1,1,1', W.STOPS.map((t) => wrote(s, t).length));
+    ok('silent 3 s: the STOP dropped the waiting motors ON (never written)', W.g.stats().held === 0 && !wrote(s, '/base/motor_power').some((m) => m.msg.data === true));
     W.top.vel.publish(W.twist(0));
     ok('silent 3 s: the zero of the stick goes out', wrote(s, '/teleop/cmd_vel').length === 1);
     W.top.vel.publish(W.twist(0.3));
@@ -600,8 +617,27 @@ function wrote(s, topic) { return s.sent.map((d) => JSON.parse(d)).filter((m) =>
     const W = world(); connected(W);
     const s = W.sock(), go = new W.R.Topic({ ros: W.ros, name: '/navi_manager/goal_point', messageType: 'std_msgs/String' });
     go.advertise(); W.run(20000);
-    go.publish({ data: 'P' });
-    ok('quiet healthy link (20 s without topic data): a Go is sent', W.pubs(s, '/navi_manager/goal_point').length === 1 && W.g.stats().kills === 0, W.g.stats());
+    const sp = new W.R.Topic({ ros: W.ros, name: '/navi_manager/speed', messageType: 'std_msgs/String' }); sp.advertise();
+    const lat = [];
+    for (let k = 0; k < 20; k++) {
+        W.run(700);                                   // quiet again (> ACT_DIRECT_MS since the last answer)
+        const t1 = W.t, n1 = W.pubs(s, '/navi_manager/goal_point').length;
+        go.publish({ data: 'P' + k });
+        let d = null;
+        for (let q = 0; q < 40 && d === null; q++) { if (W.pubs(s, '/navi_manager/goal_point').length > n1) { d = W.t - t1; } else { W.run(1); } }
+        lat.push(d);
+    }
+    ok('quiet healthy link (20 s without topic data): every Go is sent, at most one probe answer late (5 ms here)', lat.every((d) => d !== null && d <= 6) && W.g.stats().kills === 0 && W.g.stats().stale_cmd === 0, lat);
+    // a slider / a double click: a quick row of commands waits for ONE answer and keeps its order
+    W.run(700);
+    const p0 = W.g.stats().probes, n2 = W.pubs(s, '/navi_manager/speed').length;
+    ['0.1', '0.2', '0.3', '0.4'].forEach((v) => sp.publish({ data: v })); go.publish({ data: 'dbl' }); go.publish({ data: 'dbl' });
+    W.run(10);
+    const row = W.pubs(s, '/navi_manager/speed').slice(n2).map((m) => m.msg.data);
+    ok('quiet link: a row of 6 commands: one probe at most, all sent, in order', row.join() === '0.1,0.2,0.3,0.4' && W.g.stats().probes - p0 <= 1 &&
+        W.pubs(s, '/navi_manager/goal_point').filter((m) => m.msg.data === 'dbl').length === 2, [row, W.g.stats().probes - p0]);
+    sp.publish({ data: '0.5' }); sp.publish({ data: '0.6' });
+    ok('quiet link: the commands right after go out at once (the answer is fresh)', W.pubs(s, '/navi_manager/speed').length === n2 + 6 && W.g.stats().held === 0);
 }
 
 console.log((fails ? 'FAIL' : 'OK') + ' — ' + (n - fails) + '/' + n + ' checks' + (SHARE ? ' (with vt_ros_share.js)' : ''));

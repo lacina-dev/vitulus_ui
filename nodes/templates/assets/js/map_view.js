@@ -1535,7 +1535,7 @@ class ConnectionStatus {
         });
         document.addEventListener('vtcmddropped', function (e) {
             var d = (e && e.detail) || {};
-            if (d.stale && !d.press && Date.now() - lastInput > 1500) return;
+            if (d.stale && !d.press && Date.now() - lastInput > 2500) return;   // told 1 s after the press (vt_link ACT_WAIT_MS)
             if (window.VTNotice) VTNotice.say({ key: 'cmd_drop', text: vtT(d.stale ? 'mapview.conn.stale_notsent' : 'mapview.conn.notsent'), level: 0, ttl: 8000, urgent: true, repeat_ms: 3000 });
         });
         vtOnLang(function () { self.set(self._state); });

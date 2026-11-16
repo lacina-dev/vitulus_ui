@@ -50,10 +50,12 @@ jezdí, jen když od robota chodí data. Jiný příkaz zmáčknutý bez spojen�
 start programu…) **neodejde** — pás napíše *Offline · příkaz NEODEŠEL*; až bude tečka zelená, zmáčkni ho znovu.
 
 Totéž platí, když je tečka ještě zelená, ale od robota přestala chodit data (výpadek Wi-Fi, který
-stránka ještě neoznačila za mrtvé spojení): po 2 s bez dat příkaz **neodejde** a nepošle se ani
-později — pás napíše *Robot neposílá data · příkaz NEODEŠEL — stiskněte znovu*. Jinak by příkaz
+stránka ještě neoznačila za mrtvé spojení): příkaz odejde, jen když je robota slyšet — hned, dokud
+od něj chodí data, jinak až robot odpoví na krátkou kontrolu; bez odpovědi do 1 s příkaz **neodejde**
+a nepošle se ani později — pás napíše *Robot neposílá data · příkaz NEODEŠEL — stiskněte znovu*. Jinak by příkaz
 čekal v síti a robot by ho provedl, až se Wi-Fi vrátí, o vteřiny později. STOP, motory OFF, nůž OFF
-a zrušení odejdou vždy (pozdní STOP jen zastaví).
+a zrušení odejdou vždy (pozdní STOP jen zastaví); stejně tak zákaz plánovaných výjezdů a ukončení
+záznamu trasy.
 
 > [!NOTE]
 > Panel agenta má ve své hlavičce vlastní červený **STOP**. Ten zastaví misi agenta a odpovídá na
