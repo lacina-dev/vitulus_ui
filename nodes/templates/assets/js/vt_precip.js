@@ -78,9 +78,11 @@
     function rainText(idx) {
         var r = idx && idx.rain;
         if (!r || r.covered < 0.3) { return ''; }
+        // T40b: measured from the centre of the privacy grid cell, up to
+        // ~17 km from the garden: rough words, 10 km steps, "close" up to 20
         if (r.near === null) { return tr('mapt.precip.rain_none', { r: Math.round(r.radius) }); }
-        if (r.near <= 10) { return tr('mapt.precip.rain_here'); }
-        return tr('mapt.precip.rain_near', { km: Math.round(r.near) });
+        if (r.near <= 20) { return tr('mapt.precip.rain_here'); }
+        return tr('mapt.precip.rain_near', { km: Math.round(r.near / 10) * 10 });
     }
 
     // ?v=<signature> of a frames[].tiles template
@@ -330,7 +332,11 @@
                 old.urls.forEach(function (u) { keep.add(u); });
             }
         });
-        Array.from(this.items.keys()).forEach(function (u) { if (!keep.has(u)) { self._drop(u); } });
+        Array.from(this.items.keys()).forEach(function (u) {
+            var it = self.items.get(u);
+            if (!keep.has(u) && !(it && it.fid && it.state === 'load')) { self._drop(u); }
+        });
+        this.extra = (this.extra || []).filter(function (u) { return self.items.has(u); });
         this.key = key;
         this.frames = frames;
         this.byId = {};
@@ -343,10 +349,40 @@
         this.down = false;
         this._pump();
     };
+    // T40b: a tile the map needs now (the frame on screen), outside the
+    // plan: fetched first, through the same limits — so a frame the service
+    // dropped shows with one 404, not with a request per tile and zoom
+    Preload.prototype.ensure = function (u, fid) {
+        // only the frame on screen counts: waiting tiles of a frame the map
+        // has moved past (slider, playback) are not fetched any more
+        if (fid && this.extraFid && fid !== this.extraFid) { this._dropExtra(); }
+        this.extraFid = fid || this.extraFid;
+        if (this.items.has(u)) { return; }
+        this.items.set(u, { state: 'wait', fid: fid || null });
+        (this.extra || (this.extra = [])).push(u);
+        this._pump();
+    };
+    Preload.prototype._dropExtra = function () {
+        var self = this, inJob = {};
+        this.frames.forEach(function (f) { f.urls.forEach(function (x) { inJob[x] = 1; }); });
+        (this.extra || []).forEach(function (u) {
+            var it = self.items.get(u);
+            if (it && it.state === 'wait' && !inJob[u]) { self._drop(u); }
+        });
+        this.extra = [];
+    };
     Preload.prototype.resume = function () { if (this.down) { this.down = false; this._pump(); } };
     Preload.prototype._pump = function () {
         if (this.down) { return; }
         var conc = this.o.conc > 0 ? this.o.conc : 3;
+        if (this.extra && this.extra.length) {
+            var self = this;
+            this.extra = this.extra.filter(function (u) { var it = self.items.get(u); return it && it.state === 'wait'; });
+            for (var ei = 0; ei < this.extra.length && this.active < conc; ei++) {
+                var et = this.items.get(this.extra[ei]);
+                if (et && et.state === 'wait') { this._load(this.extra[ei], et); }
+            }
+        }
         for (var fi = 0; fi < this.frames.length && this.active < conc; fi++) {
             var urls = this.frames[fi].urls;
             for (var ui = 0; ui < urls.length && this.active < conc; ui++) {
@@ -394,18 +430,58 @@
         }, function (e) {
             it.ctl = null;
             if (self.items.get(u) === it) {
-                if (e && e.net) {
+                if (e && e.timeout) {
+                    // T40b: ONE tile without an answer (20 s) does not stop
+                    // the playback: it counts as missing, tried again later
+                    self._late(u, it);
+                } else if (e && e.net) {
                     // the service does not answer: stop here, ask nothing more
                     it.state = 'wait';
                     if (!self.down) { self.down = true; if (self.o.onDown) { self.o.onDown(); } }
                 } else {
                     it.state = 'err';
                     it.gone = !!(e && e.status === 404);
-                    if (it.gone && self.o.onGone) { self.o.onGone(); }
+                    // (a local refusal — a frame already known to be dropped —
+                    // tells nothing new: no new index for it)
+                    if (it.gone && !(e && e.local) && self.o.onGone) { self.o.onGone(self._frameOf(u)); }
                 }
             }
             done();
         });
+    };
+    // the frame a tile URL belongs to (id or null)
+    Preload.prototype._frameOf = function (u) {
+        var it = this.items.get(u);
+        if (it && it.fid) { return it.fid; }
+        for (var id in this.byId) {
+            if (this.byId[id].urls.indexOf(u) >= 0) { return id; }
+        }
+        return null;
+    };
+    Preload.prototype.RETRY_MS = 30000;
+    // a tile that timed out: done for now (its frame plays without it), one
+    // try again in the background after RETRY_MS (at most 2, one at a time)
+    Preload.prototype._late = function (u, it) {
+        var self = this;
+        it.state = 'err';
+        it.late = (it.late || 0) + 1;
+        if (it.late > 2) { return; }
+        setTimeout(function () {
+            if (self.items.get(u) !== it || it.state !== 'err' || self.retrying) { return; }
+            self.retrying = true;
+            Promise.resolve().then(function () { return self.o.get(u); }).then(function (blob) {
+                self.retrying = false;
+                if (self.items.get(u) !== it) { return; }
+                it.state = 'ok';
+                it.size = (blob && blob.size) || 0;
+                self.bytes += it.size;
+                it.obj = self.o.mkUrl ? self.o.mkUrl(blob) : null;
+                if (self.o.onChange) { self.o.onChange(); }
+            }, function (e) {
+                self.retrying = false;
+                if (self.items.get(u) === it && e && (e.timeout || e.net)) { self._late(u, it); }
+            });
+        }, this.RETRY_MS);
     };
     Preload.prototype._drop = function (u) {
         var it = this.items.get(u);
@@ -445,13 +521,17 @@
         }
         return true;
     };
+    // one tile answered 404: the frame left the service's window (T40b)
     Preload.prototype._jobGone = function (f) {
-        if (!f.urls.length) { return false; }
         for (var i = 0; i < f.urls.length; i++) {
             var it = this.items.get(f.urls[i]);
-            if (!it || !it.gone) { return false; }
+            if (it && it.gone) { return true; }
         }
-        return true;
+        return false;
+    };
+    Preload.prototype.isGone = function (u) {
+        var it = this.items.get(u);
+        return !!(it && it.gone);
     };
     // 'ready' | 'pending' | 'skip' (not planned, gone from the service, or
     // the byte limit stops it)
@@ -537,6 +617,7 @@
         this._play = null;
         this._busy = false;
         this.on = false;
+        this.gone = new Set();     // T40b: frames the service answered 404 for
         this._build();
     }
 
@@ -580,7 +661,9 @@
         this.in_range.min = '0'; this.in_range.max = '0'; this.in_range.step = '1'; this.in_range.value = '0';
         this.in_range.addEventListener('input', function () {
             self.pause();
-            self._select(parseInt(self.in_range.value, 10), true);
+            // T40b: not onto a frame the service has dropped
+            var i = Math.max(parseInt(self.in_range.value, 10), self.liveFrom());
+            self._select(i, true);
         });
         sl.appendChild(this.e_track); sl.appendChild(this.e_nowmark); sl.appendChild(this.in_range);
         var ticks = el('div', 'vt-precip-ticks vt-dim vt-tnum');
@@ -683,7 +766,7 @@
         }).catch(function () { /* next poll tries again */ });
     };
 
-    Timeline.prototype._fetch = function () {
+    Timeline.prototype._fetch = function (cb) {
         if (this._busy) { return; }
         this._busy = true;
         var self = this;
@@ -695,6 +778,9 @@
             var before = self.frame();
             self.idx = idx;
             self._fetchedMs = Date.now();
+            // a frame 404 said gone and no longer in the index: forgotten
+            self.gone.forEach(function (id) { if (find(idx, id) < 0) { self.gone.delete(id); } });
+            if (cb) { cb(); }
             var i = pick(idx, self.selId, self.follow, self.selEpoch);
             self._select(i, false, before);
             // T40: new frames while it plays: the preload follows the index
@@ -705,7 +791,7 @@
             self._busy = false;
             var was = self.failed;
             self.failed = true;
-            self.pause();          // T40: no playback over a dead service
+            self.pause();          // T40: no playback over a dead service (it says so)
             if (!was) { try { console.warn('[precip] service not reachable:', e && e.message); } catch (x) { /* ignore */ } }
             self._render();
             if (!was && self.o.onFrame) { self.o.onFrame(self.frame(), 'down'); }
@@ -739,13 +825,30 @@
     // (o.beforePlay; Back returns).
     // T40: the oldest frames the service has dropped since this index was
     // written (its 2 h window moves every 5 min): asking for them = 404s
+    // T40b: the service keeps 2 h before its NEWEST observation; when a new
+    // one arrives (its time + 5 min + ~1-4 min latency) the oldest frame
+    // goes — before this browser has the next index (polled every minute).
+    // So the frames that may already be gone: one per new observation
+    // possible since the index's newest (from 6 min of its age on), and those
+    // the service answered 404 for. They are never asked for.
     Timeline.prototype.liveFrom = function () {
         var idx = this.idx;
-        if (!idx || !this._fetchedMs || idx.generatedEpoch === null || idx.generatedEpoch === undefined) { return 0; }
+        if (!idx || !this._fetchedMs || idx.latestEpoch === null) { return 0; }
         var now = serviceNow(idx, this._fetchedMs, Date.now());
-        var crossed = Math.floor(now / 300) - Math.floor(idx.generatedEpoch / 300);
-        // (the index is polled every minute: 0 or 1; at most 2 = 10 min)
-        return Math.max(0, Math.min(crossed, 2, idx.latestIdx > 0 ? idx.latestIdx : 0));
+        var m = Math.max(0, Math.floor((now - idx.latestEpoch - 360) / 300) + 1);
+        m = Math.min(m, 3, idx.latestIdx > 0 ? idx.latestIdx : 0);
+        while (m < idx.latestIdx && this.gone.has(idx.frames[m].id)) { m++; }
+        return m;
+    };
+    Timeline.prototype.markGone = function (id) {
+        if (!id || this.gone.has(id)) { return; }
+        this.gone.add(id);
+        this._render();
+    };
+    // may a tile of frame id be asked for? (in the index, not dropped)
+    Timeline.prototype.frameLive = function (id) {
+        var i = find(this.idx, id);
+        return i >= 0 && i >= this.liveFrom() && !this.gone.has(id);
     };
 
     Timeline.prototype.play = function () {
@@ -783,6 +886,7 @@
     Timeline.prototype._frameIn = function (j) {
         if (j < this.liveFrom()) { return 'skip'; }
         var f = this.idx.frames[j];
+        if (this.gone.has(f.id)) { return 'skip'; }
         if (this.o.frameState) { return this.o.frameState(f); }
         return (!this.o.frameReady || this.o.frameReady(f)) ? 'ready' : 'skip';
     };
@@ -829,13 +933,12 @@
     };
     // T40: the service stopped answering while it plays: stop, say so now
     // (the index check confirms it and keeps asking at its own pace)
-    Timeline.prototype.serviceDown = function () {
-        this.pause();
-        var was = this.failed;
-        this.failed = true;
-        this._render();
-        if (!was && this.o.onFrame) { this.o.onFrame(this.frame(), 'down'); }
-        if (this.on) { this._fetch(); }
+    // T40b: tiles fail with a network error: ask the index. No answer =
+    // the service is down (pause + "service not responding", see _fetch);
+    // an answer = only tiles failed: ok() resumes them (the playback waits
+    // at the edge meanwhile and says "tiles do not load, trying again")
+    Timeline.prototype.serviceDown = function (ok) {
+        if (this.on) { this._busy = false; this._fetch(ok); }
     };
     // T40: what the play bar on the map shows (mapping.js draws it)
     Timeline.prototype.barInfo = function () {
@@ -843,12 +946,13 @@
         var ls = this.playing ? this._load() : null;
         var loading = !!(ls && ls.n && ls.k < ls.n && !ls.full && s.state !== 'down');
         var sub = s.state === 'down' ? tr('mapt.precip.st_down')
+            : (loading && ls.down) ? tr('mapt.precip.st_retry')
             : loading ? tr('mapt.precip.st_preload', { k: ls.k, n: ls.n })
             : (v.small && !v.back) ? tr('mapt.precip.bar_small') : rainText(idx);
         return {
             playing: this.playing, canPlay: !!(idx && idx.frames.length >= 2),
             label: f ? badgeText(idx, f) : tr('mapt.precip.title'),
-            sub: sub, warn: s.state === 'down' || s.state === 'stale',
+            sub: sub, subTip: (sub && sub === rainText(idx)) ? tr('mapt.precip.rain_tip') : '', warn: s.state === 'down' || s.state === 'stale',
             nowcast: !!(f && f.kind === 'nowcast'), back: !!v.back, hot: !v.back && !!v.small,
         };
     };
@@ -961,7 +1065,8 @@
         if (!st) { return; }
         var s = this.status(), ls = this.playing ? this._load() : null;
         var loading = !!(ls && ls.n && ls.k < ls.n && !ls.full && s.state !== 'down');
-        var txt = loading ? tr('mapt.precip.st_preload', { k: ls.k, n: ls.n })
+        var txt = (loading && ls.down) ? tr('mapt.precip.st_retry')
+            : loading ? tr('mapt.precip.st_preload', { k: ls.k, n: ls.n })
             : s.state === 'down' ? tr('mapt.precip.st_down')
             : s.state === 'loading' ? tr('common.loading')
             : s.state === 'empty' ? tr('mapt.precip.st_empty')
@@ -973,7 +1078,7 @@
         st.classList.toggle('vt-tone-warn', warn);
         st.classList.toggle('vt-dim', !warn);
         var rt = s.state === 'down' ? '' : rainText(this.idx);
-        if (this.e_rain.textContent !== rt) { this.e_rain.textContent = rt; }
+        if (this.e_rain.textContent !== rt) { this.e_rain.textContent = rt; this.e_rain.title = rt ? tr('mapt.precip.rain_tip') : ''; }
         this.e_rain.hidden = !rt;
         this._changed();
     };

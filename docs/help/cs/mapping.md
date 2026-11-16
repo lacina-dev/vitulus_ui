@@ -369,11 +369,13 @@ hned vedle **Celé okolí**, **Teď** pro návrat na nejnovější snímek (vrst
 a posuvník přes poslední dvě hodiny a předpověď — bílá značka je *teď*, šrafovaná část vpravo od ní
 je předpověď. **▶** přehrává od nejstaršího snímku (−2 h) přes *teď* do konce předpovědi a pak
 znovu. Nejdřív načte obrázky všech snímků pro pohled na obrazovce (*načítám snímky 12/49*), pak se
-každý krok ukáže hned; u pohledu, který potřebuje hodně dlaždic, přehrává každý druhý nebo třetí
-snímek. Radar má pixely asi 1 km, takže zblízka na zahradě vidíš jediný: časová osa to řekne a
+každý krok ukáže hned; u pohledu, který potřebuje hodně dlaždic, přehrává každý druhý snímek (telefon každý třetí, po
+15 min); obrázek, který nepřijde, přeskočí a zkusí později, snímek, který už služba zahodila,
+nežádá. Radar má pixely asi 1 km, takže zblízka na zahradě vidíš jediný: časová osa to řekne a
 **▶** sám oddálí na celé okolí — **Zpět k zahradě** vrátí tvůj pohled, stejně jako vypnutí vrstvy.
-Jedna věta říká, jestli v okolí zahrady teď prší (*V okruhu 150 km teď neprší*, *Nejbližší déšť
-asi 25 km*, měřeno zhruba od okolí zahrady). Pod tím je legenda barev
+Jedna věta říká, jestli v okolí zahrady teď prší (*V okolí (asi 150 km) teď neprší*,
+*Déšť v okolí, zhruba 30 km daleko*). Je to schválně zhruba: měří se od okolí zahrady (kvůli
+soukromí neurčitě), přesnost asi ±15 km. Pod tím je legenda barev
 v mm/h (déšť, a sníh, kde ho radar pozná) a zdroje obrázku s odkazy. Čas je napsaný i v levém
 dolním rohu mapy. Slabý déšť je průsvitný, silný plný; kde žádný radar neměří, zůstane mapa prázdná
 (to neznamená „sucho“). *Data stará N min* znamená, že radary už chvíli neposlaly nový snímek;

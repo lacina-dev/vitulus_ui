@@ -202,7 +202,17 @@ tw._fetchedMs = Date.now() - 6 * 60000;          // the index came 6 min ago: th
 tw.idx.generatedEpoch = Math.floor(Date.now() / 1000) - 6 * 60;
 tw._fetch = () => {};
 tw.play(); clearInterval(tw._play);
-ok('▶ skips the frame the service dropped since the index', P.find(tw.idx, tw.selId) >= 1 && tw._frameIn(0) === 'skip');
+ok('▶ skips the frame the service may have dropped since the index', P.find(tw.idx, tw.selId) >= 1 && tw._frameIn(0) === 'skip');
+// T40b: the window moves with the service's NEWEST observation (+5 min + latency)
+let tv = tl();
+tv._fetchedMs = Date.now();
+tv.idx.generatedEpoch = tv.idx.latestEpoch + 180;           // newest 3 min old: nothing dropped yet
+ok('newest 3 min old: every frame live', tv.liveFrom() === 0 && tv.frameLive(tv.idx.frames[0].id));
+tv.idx.generatedEpoch = tv.idx.latestEpoch + 420;           // 7 min: a new one may be in, the oldest gone
+ok('newest 7 min old: the oldest frame is not asked any more', tv.liveFrom() === 1 && !tv.frameLive(tv.idx.frames[0].id));
+tv.markGone(tv.idx.frames[1].id);
+ok('a frame 404 said gone: not live, skipped', !tv.frameLive(tv.idx.frames[1].id) && tv._frameIn(1) === 'skip' && tv.liveFrom() === 2);
+ok('a frame not in the index: not live', !tv.frameLive('2020-01-01T00:00Z'));
 // preload: wait (warm), then only frames that are in
 let ls = { k: 0, n: 3, full: false };
 const inSet = new Set([0, 2]);
@@ -304,6 +314,28 @@ console.log('\nPreload (blobs, limits, waiters)');
     p3.resume();
     await new Promise((r) => setTimeout(r, 10));
     ok('resume: loads again', p3.frameReady('d'));
+
+    console.log('\nT40b: one late tile, a frame gone on one tile, stride on a phone');
+    let lateDown = 0, lateTries = 0;
+    const g5 = {};
+    const p5 = new P.Preload({ conc: 2, maxBytes: 0, mkUrl: () => 'b', onDown: () => { lateDown++; },
+        get: (u) => { if (u === 'l2') { lateTries++; return lateTries === 1 ? Promise.reject({ net: true, timeout: true }) : Promise.resolve({ size: 5 }); }
+                      return g5[u] || Promise.resolve({ size: 5 }); } });
+    p5.RETRY_MS = 20;
+    p5.want('l', [{ id: 'L', v: 'a', urls: ['l1', 'l2', 'l3'] }]);
+    await new Promise((r) => setTimeout(r, 10));
+    ok('a tile without an answer (20 s): the frame plays on, no "down"', p5.frameState('L') === 'ready' && lateDown === 0 && !p5.progress().down);
+    await new Promise((r) => setTimeout(r, 60));
+    ok('… and is tried again later in the background', lateTries === 2 && p5.url('l2') === 'b');
+    g5.x2 = Promise.reject({ status: 404 }); g5.x2.catch(() => {});
+    let goneId = null;
+    p5.o.onGone = (id) => { goneId = id; };
+    p5.want('x', [{ id: 'X', v: 'a', urls: ['x1', 'x2', 'x3'] }]);
+    await new Promise((r) => setTimeout(r, 10));
+    ok('one tile 404: the whole frame is gone (skipped), its id reported', p5.frameState('X') === 'skip' && goneId === 'X' && p5.isGone('x2'));
+    const phone = P.plan(46, 22, 15, 360, ep(0).slice(0, 46));
+    const gaps = phone.slice(1).map((v, i) => v - phone[i]);
+    ok('phone (15 tiles a frame, 360): every third frame (15 min), as the help says', gaps.filter((g) => g === 3).length >= gaps.length - 3);
     finish();
 })();
 

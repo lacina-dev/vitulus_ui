@@ -100,6 +100,9 @@ class Svc(object):
         self.rain = {'frame': None, 'radius_km': 150, 'covered_fraction': 0.9, 'raining_fraction': 0.0,
                      'max_mmh': 0.0, 'nearest_rain_km': None}
         self.reqs = []            # (method, path)
+        self.gone = None          # T40b: tiles of this frame id answer 404 (it left the service's window)
+        self.hang = None          # T40b: the first tile of this frame id never answers (held until release())
+        self.held = []
         self.lock = threading.Lock()
 
     def index(self):
@@ -132,7 +135,10 @@ class Svc(object):
                      'redistributable': True}]}
 
     @staticmethod
+    @functools.lru_cache(maxsize=4096)
     def tile(fid, z, x, y):
+        # (cached: the playback preload asks every frame's tiles; on a loaded robot drawing each one
+        # again in this single route thread made the fake service the bottleneck, T40b)
         """A rain blob that moves with the frame time (so the frames differ on the map)."""
         m = re.match(r'(\d+)-(\d+)-(\d+)T(\d+):(\d+)Z', fid)
         k = (int(m.group(4)) * 60 + int(m.group(5))) // 5 if m else 0
@@ -162,6 +168,11 @@ class Svc(object):
         if p == '/legend.json':
             return route.fulfill(status=200, content_type='application/json', body=json.dumps(LEGEND), headers=cors)
         m = re.match(r'^/tiles/([^/]+)/(\d+)/(\d+)/(\d+)\.png$', p)
+        if m and self.gone and m.group(1) == self.gone:
+            return route.fulfill(status=404, body='', headers=cors)
+        if m and self.hang and m.group(1) == self.hang and not self.held:
+            self.held.append(route)
+            return None
         if m:
             return route.fulfill(status=200, content_type='image/png', headers=cors,
                                  body=self.tile(m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4))))
@@ -231,6 +242,14 @@ class P(object):
                 return True
             self.pg.wait_for_timeout(150)
         return False
+
+    def release(self):
+        for r in self.svc.held:
+            try:
+                r.fulfill(status=200, content_type='image/png', body=empty_png(), headers={'Access-Control-Allow-Origin': '*'})
+            except Exception:
+                pass
+        self.svc.held = []
 
     def tiles(self):
         with self.svc.lock:
@@ -394,11 +413,33 @@ BAR_JS = r"""() => {
 
 DIST_JS = "(()=>{const v=mapping_v3.viewer3d;return v.camera.position.distanceTo(v.cameraControls.center)})()"
 
+# T40b: what the precipitation layer costs the page — calls of its timer step (_tick, 10/s while playing),
+# of the play bar redraw, of the preload pump and of the map rebuild, counted per window
+COUNT_JS = r"""() => {
+  if (window.__pc) { return; }
+  const c = window.__pc = { tick: 0, bar: 0, pump: 0, rebuild: 0 };
+  const wrap = (o, k, n) => { const f = o[k]; o[k] = function () { c[n]++; return f.apply(this, arguments); }; };
+  wrap(VTPrecip.Timeline.prototype, '_tick', 'tick');
+  wrap(VTPrecip.Preload.prototype, '_pump', 'pump');
+  wrap(mapping_v3, '_precipBadge', 'bar');
+  wrap(mapping_v3, 'rebuildAerial', 'rebuild');
+}"""
+
+
+def costs(p, ms):
+    p.ev(COUNT_JS)
+    p.ev("()=>{for (const k in window.__pc) window.__pc[k]=0;}")
+    p.pg.wait_for_timeout(ms)
+    return p.ev("({...window.__pc})")
+
 
 def bar(p, shots, label, cs, phone):
     """T40 check: after ticking the layer the play bar is on the map, in sight without scrolling, not covering
     the map's buttons; it says whether it rains; ▶ from the garden view zooms out, unticking returns."""
     svc = p.svc
+    off = costs(p, 5000)
+    check(label + ': layer off: no precipitation timer, bar or preload work (5 s)',
+          off['tick'] == 0 and off['bar'] == 0 and off['pump'] == 0, off)
     if phone:
         p.ev("()=>{window.VTMapLayers.open()}")
         p.pg.wait_for_timeout(600)
@@ -407,7 +448,7 @@ def bar(p, shots, label, cs, phone):
         p.ev("()=>{window.VTMapLayers.close()}")
     else:
         p.open_layers()
-        p.pg.click('#mapv3_ov_precip')          # a real click: Playwright scrolls to the row like a user
+        p.pg.click('#mapv3_ov_precip', no_wait_after=True)          # a real click: Playwright scrolls to the row like a user
     ok = p.until("(()=>{const b=document.getElementById('mapv3_precip_badge');return b&&!b.hidden&&/\\d\\d:\\d\\d/.test(b.textContent)})()", 12000)
     r = p.ev(BAR_JS)
     check(label + ': play bar on the map after ticking', ok and r.get('shown'), r)
@@ -416,7 +457,7 @@ def bar(p, shots, label, cs, phone):
     check(label + ': bar covers no map control', not r.get('covered'), r.get('covered'))
     check(label + ': bar touch targets', not r.get('small'), r)
     check(label + ': no horizontal scroll', not r.get('hs'), r)
-    want = 'V okruhu 150 km teď neprší' if cs else 'No rain within 150 km now'
+    want = 'V okolí (asi 150 km) teď neprší' if cs else 'No rain around now (about 150 km)'
     check(label + ': says it does not rain around (bar + card)',
           p.until("(w)=>{const s=document.querySelector('.vt-map-precip-sub');const c=document.querySelector('.vt-precip-rain');return s&&c&&(s.textContent===w||/zblízka|close/i.test(s.textContent))&&c.textContent===w}", 8000, want),
           (p.text('.vt-map-precip-sub'), p.text('.vt-precip-rain')))
@@ -424,10 +465,16 @@ def bar(p, shots, label, cs, phone):
         p.pg.screenshot(path=os.path.join(shots, label + '-bar.png'))
     d0 = p.ev(DIST_JS)
     small = p.ev("mapping_v3._precipView().small")
+    tricky = label == 'bar-nb-en'
+    if tricky:
+        # T40b: the oldest frame has left the service's window (404) and one tile of frame 4 never answers
+        ids = p.ev("mapping_v3._precip.index().frames.map(f=>f.id)")
+        svc.gone, svc.hang = ids[0], ids[4]
+        n0 = len(p.tiles())
     if phone:
         p.pg.locator('#mapv3_precip_bplay').tap()
     else:
-        p.pg.click('#mapv3_precip_bplay')
+        p.pg.click('#mapv3_precip_bplay', no_wait_after=True)
     check(label + ': ▶ on the map plays', p.until("mapping_v3._precip.playing", 3000))
     if small:
         check(label + ': ▶ from the garden view zooms out, the bar offers Back',
@@ -437,10 +484,24 @@ def bar(p, shots, label, cs, phone):
           p.ev("document.getElementById('mapv3_precip_range').value"))
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-bar-playing.png'))
+    if tricky:
+        moved = p.until("+document.getElementById('mapv3_precip_range').value>=8", 45000)
+        gone_reqs = len([t for t in p.tiles()[n0:] if t.startswith('/tiles/%s/' % svc.gone)])
+        st = p.text('.vt-precip-state') or ''
+        check(label + ': a frame gone from the service is asked at most once per preload slot (any zoom)', gone_reqs <= 3, gone_reqs)
+        check(label + ': one tile without an answer does not stop the playback (no "not responding")',
+              moved and p.ev("mapping_v3._precip.playing && !mapping_v3._precip.failed"),
+              (p.ev("document.getElementById('mapv3_precip_range').value"), st))
+        svc.gone = svc.hang = None
+        p.release()
+    on = costs(p, 10000)
+    print('     costs while playing, 10 s: %s' % on, flush=True)
+    check(label + ': playing costs a bounded amount (10 s: timer <= 110, bar <= 150, rebuilds <= 40)',
+          on['tick'] <= 110 and on['bar'] <= 150 and on['rebuild'] <= 40, on)
     if phone:
         p.pg.locator('#mapv3_precip_bplay').tap()
     else:
-        p.pg.click('#mapv3_precip_bplay')
+        p.pg.click('#mapv3_precip_bplay', no_wait_after=True)
     check(label + ': ❚❚ on the map pauses', p.until("!mapping_v3._precip.playing", 3000))
     # unticking the layer returns the garden view
     p.ev("()=>{const c=document.getElementById('mapv3_ov_precip'); c.click();}")
@@ -449,6 +510,8 @@ def bar(p, shots, label, cs, phone):
         d2 = p.ev(DIST_JS)
         check(label + ': layer off: back to the view before the zoom-out', abs(d2 - d0) < max(1.0, d0 * 0.01), (d0, d2))
     check(label + ': layer off: bar gone', p.ev("document.getElementById('mapv3_precip_badge').hidden"))
+    after = costs(p, 5000)
+    check(label + ': layer off again: no precipitation work left (5 s)', after['tick'] == 0 and after['bar'] == 0 and after['pump'] == 0, after)
     check(label + ': no page errors', not p.errors, p.errors[:3])
     check(label + ': every request to the service is a GET', all(m == 'GET' for m, _ in svc.reqs))
 

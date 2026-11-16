@@ -1321,7 +1321,12 @@ class MappingV3 {
                     },
                     prepare: () => this._precipPrepare(),
                     frameState: (f) => this._precipFrameIn(f),
-                    onRender: () => this._precipBadge(),
+                    // the bar at most 5x a second (each preloaded tile and each
+                    // 100 ms tick while it waits used to redraw it)
+                    onRender: () => {
+                        if (this._precipBarT) { return; }
+                        this._precipBarT = setTimeout(() => { this._precipBarT = null; this._precipBadge(); }, 200);
+                    },
                     loadState: () => (this._precipZooming && Date.now() - (this._precipZoomingAt || 0) <= 5000 ? { k: 0, n: 0, full: false, zooming: true }
                         : (this._precipPre && this._precipPre.frames.length ? this._precipPre.progress() : null)),
                     onPause: () => { this._precipZooming = false; this._precipIdleSoon(); },
@@ -1348,9 +1353,22 @@ class MappingV3 {
     // the source drawn for the precipitation overlay: the frame on screen
     // (its own id, so the tile set and the stand-ins follow the frame), the
     // MapProxy fallback while the service never answered, null = wait
+    // is url a tile of a precipitation frame that must not be asked for? (T40b)
+    _precipUrlFrame(url) {
+        const P = this._precip;
+        if (!P || !P.o || !P.index() || typeof url !== 'string' || url.indexOf(P.o.base + '/tiles/') !== 0) { return null; }
+        const m = /\/tiles\/([^/]+)\//.exec(url.slice(P.o.base.length));
+        return m ? m[1] : null;
+    }
+    _precipUrlGone(url) {
+        const id = this._precipUrlFrame(url);
+        return !!(id && !this._precip.frameLive(id));
+    }
     _precipTileSrc(o) {
         const P = this._precip;
         let f = P && P.frame();
+        // T40b: the frame on screen was dropped by the service: keep what is drawn
+        if (f && !P.frameLive(f.id)) { return null; }
         if (f) {
             // T40: a frame whose new version is still loading is drawn in
             // its old one (preloaded) — the playback does not wait for it
@@ -1412,7 +1430,7 @@ class MappingV3 {
         set(t, I.label);
         set(sub, I.sub);
         sub.hidden = !I.sub;
-        const tip = I.sub ? I.label + ' — ' + I.sub : I.label;
+        const tip = (I.sub ? I.label + ' — ' + I.sub : I.label) + (I.subTip ? ' (' + I.subTip + ')' : '');
         if (b.title !== tip) { b.title = tip; }
         b.setAttribute('aria-label', mapT('mapt.precip.title'));
         b.classList.toggle('is-nowcast', I.nowcast);
@@ -1516,9 +1534,11 @@ class MappingV3 {
     // renders every tile it has not cached; a stride of 10-15 min when the
     // view needs many) and bytes (blobs, a few kB a tile). _texFetch takes a
     // preloaded tile from memory and waits for one that is on its way.
+    // T40b: a phone 360 tiles — at the whole area (~15 tiles a frame) every
+    // third frame (15 min), as the help says; 240 gave every fourth (20 min)
     _precipPreLimits() {
         const mobile = !!this._tileEnv().mobile;
-        return { maxTiles: mobile ? 240 : 450, maxBytes: (mobile ? 16 : 48) * 1024 * 1024, conc: mobile ? 2 : 3 };
+        return { maxTiles: mobile ? 360 : 450, maxBytes: (mobile ? 16 : 48) * 1024 * 1024, conc: mobile ? 2 : 3 };
     }
     // the playback's zoom cap applies (playing, or its preload kept for the slider)
     _precipPlayZoom() {
@@ -1534,29 +1554,41 @@ class MappingV3 {
                 // a tile the map already holds as a texture is not asked again
                 // (no blob: _texFetch paints it from the texture cache)
                 if (this._tcache && this._tcache.has(url)) { return Promise.resolve(null); }
+                // T40b: a frame the service has dropped is not asked at all
+                if (this._precipUrlGone(url)) { return Promise.reject({ status: 404, local: true }); }
                 // own timeout (20 s), the preload's abort passes through
                 const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-                const to = setTimeout(() => { if (ctl) { ctl.abort(); } }, 20000);
+                let timedOut = false;
+                const to = setTimeout(() => { timedOut = true; if (ctl) { ctl.abort(); } }, 20000);
                 if (signal && ctl) { signal.addEventListener('abort', () => ctl.abort()); }
                 // errors: {status} = the service answered (404: the frame left
                 // its window), {net} = it did not answer (or 20 s passed)
                 return fetch(url, { mode: 'cors', credentials: 'omit', signal: ctl ? ctl.signal : undefined })
-                    .then((r) => { clearTimeout(to); if (!r.ok) { throw { status: r.status }; } return r.blob(); },
-                          (e) => { clearTimeout(to); throw { net: true, aborted: !!(signal && signal.aborted), e: e }; });
+                // {timeout} = this one tile had no answer in 20 s (the rest goes on)
+                    .then((r) => { clearTimeout(to); if (!r.ok) { throw { status: r.status }; } this._precipRetryMs = 0; return r.blob(); },
+                          (e) => { clearTimeout(to); throw { net: true, timeout: timedOut, aborted: !!(signal && signal.aborted), e: e }; });
             },
             mkUrl: (blob) => (blob ? URL.createObjectURL(blob) : null),
             revoke: (u) => { try { URL.revokeObjectURL(u); } catch (e) { /* gone */ } },
             onChange: () => { if (this._precip) { this._precip._renderState(); } },
             // a frame the service no longer has: a new index (once per 10 s)
-            onGone: () => {
+            onGone: (id) => {
+                if (this._precip && id) { this._precip.markGone(id); }
                 const now = Date.now();
                 if (this._precip && this._precip.on && !(now - (this._precipGoneAt || 0) < 10000)) {
                     this._precipGoneAt = now;
                     this._precip._fetch();
                 }
             },
-            // no answer: stop the playback and say so (Preload stops asking)
-            onDown: () => { if (this._precip) { this._precip.serviceDown(); } },
+            // no answer: the index decides — down = pause + "service not
+            // responding"; up = only tiles failed: resume them after 2, 4 … 30 s
+            onDown: () => {
+                if (!this._precip) { return; }
+                this._precip.serviceDown(() => {
+                    const d = this._precipRetryMs = Math.min(30000, Math.max(2000, (this._precipRetryMs || 1000) * 2));
+                    setTimeout(() => { if (this._precipPre) { this._precipPre.resume(); } }, d);
+                });
+            },
         });
         return this._precipPre;
     }
@@ -2879,7 +2911,17 @@ class MappingV3 {
         // pan or zoom keeps the window
         if (fAt && Date.now() - fAt < 10000 &&
             !(this._tileRetryAt && fAt <= this._tileRetryAt && Date.now() - this._tileRetryAt < 1500)) { cb(false); return () => {}; }
+        // T40b: a precipitation tile of a frame the service has dropped (or
+        // not in the index any more): never asked, on no zoom (stand-ins too)
+        if (this._precipUrlGone(url)) { cb(false); return () => {}; }
         let ld = this._texLoads.get(url);
+        // T40b: every precipitation tile goes through the preload (fetch: a
+        // 404 is seen as such, the frame is marked gone after ONE answer)
+        const pfid = (!ld && !C.has(url)) ? this._precipUrlFrame(url) : null;
+        if (pfid && !this._texFailedAt.get(url)) {
+            const pp = this._precipPreGet();
+            if (pp && !pp.down) { pp.ensure(url, pfid); }
+        }
         // T40: a precipitation tile the playback preload is fetching: wait
         // for it (one request, not two), then take it from memory
         const pre = this._precipPre;

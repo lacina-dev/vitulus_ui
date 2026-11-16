@@ -386,11 +386,14 @@ newest picture (the layer then follows the new ones by itself), and a slider ove
 plus the nowcast — the white mark is *now*, the striped part right of it is the forecast. **▶** plays
 from the oldest picture (−2 h) through *now* to the end of the nowcast and starts again. It first
 loads the pictures of every frame for the view on screen (*loading frames 12/49*), then each step
-shows at once; on a view that needs many tiles it plays every second or third frame. The radar has
+shows at once; on a view that needs many tiles it plays every second frame (a phone: every third, 15 min); a picture
+that does not come is skipped and tried again later, a frame the service has already dropped is not
+asked for. The radar has
 pixels of about 1 km, so close up on the garden you see a single one: the time line says so and
 **▶** zooms out to the whole area by itself — **Back to garden** returns to your view, and so does
-unticking the layer. A line says whether it rains around the garden now (*No rain within 150 km
-now*, *Nearest rain about 25 km away*, measured from the area around the garden, roughly). Below are the
+unticking the layer. A line says whether it rains around the garden now (*No rain around now (about
+150 km)*, *Rain around, roughly 30 km away*). It is rough on purpose: measured from the area around
+the garden (kept vague for privacy), give or take about 15 km. Below are the
 colour legend in mm/h (rain, and snow where the radar knows it) and the sources of the picture with
 links. The time is also written in the map's bottom-left corner. Light rain is see-through, heavy
 rain solid; where no radar measures, the map stays empty (that is not "dry"). *Data N min old*
