@@ -27,8 +27,12 @@
        its ~114 subscriptions again (measured: all 159 disconnects of 16. 11. were this timer;
        on the loaded robot's own computer page start-up kept the main thread 3-6 s and the
        pong came up to 4.6 s late).
-       15 s: longer than those stalls and than the page's own dead-link check (vt_link.js drops
-       a silent link after 8 s and opens a new one), but NOT the rosbridge default 30 s: while a
+       8 s: longer than those stalls (latest pong measured 4.3-4.6 s) and equal to the page's
+       own dead-link check (vt_link.js drops a silent link after 8 s and opens a new one), so
+       the server never keeps a connection longer than the client does. NOT longer: this timeout
+       is also the upper bound for how late a command stuck in TCP during a network drop
+       (motors ON, Undock, Go, a program start) can still be executed after the link returns.
+       And NOT the rosbridge default 30 s: while a
        frozen client is connected, rosbridge holds every topic it subscribed without a queue for
        ALL other clients (measured: a healthy client's stream stopped for 4.5 s = this timeout),
        so the timeout is also the longest such freeze. It was 4 s since "more clients fix"
@@ -36,7 +40,7 @@
        command lives 0.25 s (mobile_base_controller cmd_vel_timeout), cmd_vel_mux never repeats
        one. To go back: timeout 4. -->
   <arg name="websocket_ping_interval" default="1" />
-  <arg name="websocket_ping_timeout" default="15" />
+  <arg name="websocket_ping_timeout" default="8" />
   <arg name="websocket_null_origin" default="true" />
 
   <arg name="topics_glob" default="[*]" />
