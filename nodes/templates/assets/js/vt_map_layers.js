@@ -892,7 +892,7 @@
         place();
         try { panel.focus({ preventScroll: true }); } catch (e) { /* old browser */ }
         // the overlay rows count their tiles: refresh their state while open
-        if (!timer) { timer = setInterval(sync, 1000); }
+        if (!timer) { timer = setInterval(function () { if (!document.hidden) { sync(); } }, 1000); }   // M16: rests in a hidden tab
     }
     function close(refocus) {
         if (!isOpen) { return; }
@@ -908,6 +908,33 @@
     function toggle() { if (isOpen) { close(true); } else { open(); } }
 
     var lastRoseH = 0;
+    // T17 M16: the compass rose is watched by events only, from the first
+    // place() that finds it (vt_frame.js calls place() at the end of each of
+    // its passes; before, a 1 s timer waited for the rose and a 5 s one
+    // re-checked the button for ever — on an idle page nothing runs now):
+    // its style (shown / hidden / moved) and its size (its content changes
+    // without a style change, T8 dávka IV)
+    var roseSeen = null;
+    function watchRose(r) {
+        if (!r || roseSeen === r) { return; }
+        roseSeen = r;
+        try {
+            new MutationObserver(schedulePlace).observe(r, { attributes: true, attributeFilter: ['style'] });
+            if (window.ResizeObserver) { new ResizeObserver(schedulePlace).observe(r); }
+        } catch (e) { /* old browser */ }
+        // a move nobody announces ends a CSS transition / animation of the rose
+        // or of something around it (the old 5 s check caught those late):
+        // when one ends and the button is off the rose's bottom + 8, place it
+        var off = function (e) {
+            var f = $('vt_lyr_fab'), tg = e && e.target;
+            if (!f || f.hidden || r.style.display === 'none' || !r.offsetHeight) { return; }
+            if (tg && tg !== r && !(tg.contains && tg.contains(r))) { return; }
+            var want = Math.round(r.getBoundingClientRect().bottom + 8);
+            if (Math.abs(f.getBoundingClientRect().top - want) > 1) { schedulePlace(); }
+        };
+        document.addEventListener('transitionend', off, true);
+        document.addEventListener('animationend', off, true);
+    }
     function place() {
         if (!fab) { return; }
         var root = document.documentElement, cs = getComputedStyle(root);
@@ -918,6 +945,7 @@
         // under the compass rose (vt_georef.js); while the rose is hidden the
         // button keeps its place (no jump when it comes)
         var rose = $('vt_utm_rose'), rTop = ftop + 10, top;
+        watchRose(rose);
         if (rose) {
             var rcs = getComputedStyle(rose);
             if (rcs.display !== 'none' && rose.offsetHeight) {
@@ -1037,27 +1065,7 @@
             var mo = new MutationObserver(schedulePlace);
             mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
             mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-            var hook = setInterval(function () {
-                var r = $('vt_utm_rose');
-                if (r) {
-                    mo.observe(r, { attributes: true, attributeFilter: ['style'] }); clearInterval(hook); schedulePlace();
-                    // T8 dávka IV (review): once after the first load the button stood 28 px
-                    // too high — the rose changed its size (content) without a style change
-                    if (window.ResizeObserver) { new ResizeObserver(schedulePlace).observe(r); }
-                    // …and it moves through chains of the frame's variables (the pills' bottom →
-                    // the notice line → the rose): since T8 dávka V vt_frame.js calls place()
-                    // itself at the end of each pass, in the same frame. What is left is a
-                    // sparse safety net for a change nobody announces (place() writes only
-                    // what changed)
-                    setInterval(function () {
-                        var f = $('vt_lyr_fab');
-                        if (!f || f.hidden || r.style.display === 'none' || !r.offsetHeight) { return; }
-                        var want = Math.round(r.getBoundingClientRect().bottom + 8);
-                        if (Math.abs(f.getBoundingClientRect().top - want) > 1) { schedulePlace(); }
-                    }, 5000);
-                }
-            }, 1000);
-        } catch (e) { setInterval(place, 1000); }
+        } catch (e) { /* very old browser: resize and the frame's own passes still place it */ }
         paintFab();
     }
 

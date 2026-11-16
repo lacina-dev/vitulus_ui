@@ -175,14 +175,16 @@ check('pointer: the camera\'s matrices are brought up to date before the project
     check('pointer: the position comes again → live again', made.getAttribute('data-state') === 'live');
     tfc.ros.isConnected = false; tick();
     check('pointer: the link down → last known position at once', made.getAttribute('data-state') === 'stale');
-    tfc.ros.isConnected = true; delete tfc.frameInfos.base_link.transform; clock += 46000; tick();
-    check('pointer: no position at all (page up > 45 s) → a note without an arrow, the tap does nothing', !made.hidden && made.getAttribute('data-state') === 'none' && made._kids[1].textContent === 'maprobot.unknown' &&
+    tfc.ros.isConnected = true; delete tfc.frameInfos.base_link.transform; tick(); clock += 40000; tick();
+    check('pointer: no position, the link up for 40 s → nothing yet (M16: counted from the link, not from the page)', made.hidden === true);
+    clock += 6000; tick();
+    check('pointer: no position at all (link up > 45 s) → a note without an arrow, the tap does nothing', !made.hidden && made.getAttribute('data-state') === 'none' && made._kids[1].textContent === 'maprobot.unknown' &&
         (() => { const c = cam.position.x; made._on.click(); return cam.position.x === c; })());
 }
 check('pose state: live / stale after 3 s / stale with the link down / none; an older page (no time noted) counts as live',
     R.poseState({ x: 1, y: 1 }, 1000, 3900, true) === 'live' && R.poseState({ x: 1, y: 1 }, 1000, 4100, true) === 'stale' && R.poseState({ x: 1, y: 1 }, 1000, 1100, false) === 'stale' &&
     R.poseState(null, 1000, 1100, true) === 'none' && R.poseState({ x: 1, y: 1 }, undefined, 9e9, true) === 'live' && R.STALE_MS === 3000);
-check('pointer: no position is said only after 45 s (the page still coming up)', /st === 'none' && now - t0 < UNKNOWN_MS/.test(robot) && R.UNKNOWN_MS === 45000);
+check('pointer: no position is said only 45 s after the LINK came up (M16; not from the page\'s start), never with the link down', /upSince = up \? \(upSince \|\| now\) : 0;/.test(robot) && /st === 'none' && \(!upSince \|\| now - upSince < UNKNOWN_MS\)/.test(robot) && R.UNKNOWN_MS === 45000);
 {
     const rc = { l: 60, t: 100, r: 340, b: 760 }, w = 112, h = 40;
     const ov = (e, o) => e.x - w / 2 < o.r && e.x + w / 2 > o.l && e.y - h / 2 < o.b && e.y + h / 2 > o.t;
@@ -257,7 +259,7 @@ check('pointer: no position is said only after 45 s (the page still coming up)',
     run(11000);                                       // the first transforms come 4 s after the answer
     check('TF watchdog: right after the answer the new topic gets a moment (no second request 3 s after it)', calls.length === 1, calls);
     c.tfClientMap.frameInfos.base_link.transform = {}; c.tfClientMap.frameInfos.odom.transform = {};
-    st(function beat() { c.tfClientMap.processTFArray({ transforms: [] }); st(beat, 500); }, 0);      // the stream is live
+    st(function beat() { c.tfClientMap.processTFArray({ transforms: [{ child_frame_id: 'base_link' }] }); st(beat, 500); }, 0);      // the stream is live
     run(120000);
     check('TF watchdog: transforms come and the stream is live → done: one request, one topic, no warning', calls.length === 1 && topics.length === 1 && !warns.length, { calls: calls.length, topics, warns });
     // (b) answers out of order: an older request's answer never switches the subscription
@@ -266,7 +268,7 @@ check('pointer: no position is said only after 45 s (the page still coming up)',
     c.tfClientMap.updateGoal();                       // request 1 (answer after 9 s)
     run(500); c.tfClientMap.frameInfos.d435 = { cbs: [] }; c.tfClientMap.updateGoal();   // roslib: a frame subscribed later → request 2 (answer at 1.5 s)
     run(1600); c.tfClientMap.frameInfos.base_link.transform = {}; c.tfClientMap.frameInfos.odom.transform = {}; c.tfClientMap.frameInfos.d435.transform = {};
-    st(function beat() { c.tfClientMap.processTFArray({ transforms: [] }); st(beat, 500); }, 0);
+    st(function beat() { c.tfClientMap.processTFArray({ transforms: [{ child_frame_id: 'base_link' }] }); st(beat, 500); }, 0);
     run(9500);
     check('TF watchdog: a late answer to an OLDER request does not switch the subscription (the newest request names every frame)',
         topics.join(' ') === '+/tf_repub_2' && calls[1].frames.length === 3, topics);
@@ -281,14 +283,14 @@ check('pointer: no position is said only after 45 s (the page still coming up)',
     check('TF watchdog: each answer replaces the one subscribed topic (the old one is let go)', topics.filter((x) => x[0] === '+').length - topics.filter((x) => x[0] === '-').length === 1);
     // … and once they come it stops
     c.tfClientMap.frameInfos.base_link.transform = {}; c.tfClientMap.frameInfos.odom.transform = {};
-    st(function beat() { c.tfClientMap.processTFArray({ transforms: [] }); st(beat, 500); }, 0);
+    st(function beat() { c.tfClientMap.processTFArray({ transforms: [{ child_frame_id: 'base_link' }] }); st(beat, 500); }, 0);
     const nBefore = calls.length; run(now + 120000);
     check('TF watchdog: … and stops once the transforms come', calls.length <= nBefore + 1, [nBefore, calls.length]);
     // (d) only a frame that does not exist in TF is missing: bounded as before
     answerDelay = () => 500;
     c = mk();
     c.tfClientMap.frameInfos.base_link.transform = {};
-    st(function beat() { c.tfClientMap.processTFArray({ transforms: [] }); st(beat, 500); }, 0);
+    st(function beat() { c.tfClientMap.processTFArray({ transforms: [{ child_frame_id: 'base_link' }] }); st(beat, 500); }, 0);
     c.tfClientMap.updateGoal();
     run(1200000);
     check('TF watchdog: only another frame missing (one that does not exist) → stops after 5 re-requests with a warning, no endless topics',
@@ -369,7 +371,7 @@ check('from robot: off = greyed but still answering a tap (no tooltip on a phone
 
 // ---- 5. the 1 s check only while measuring ----------------------------------
 check('measuring: no check running while it is off', !/setInterval\(function \(\) \{ if \(S\.on\)/.test(meas) &&
-    /if \(S\.on && !S\.watch\) \{ S\.watch = setInterval\(card, 1000\); \}/.test(meas) && /if \(!S\.on && S\.watch\) \{ clearInterval\(S\.watch\); S\.watch = null; \}/.test(meas));
+    /if \(S\.on && !S\.watch\) \{ S\.watch = setInterval\(function \(\) \{ if \(!document\.hidden\) \{ card\(\); \} \}, 1000\); \}/.test(meas) && /if \(!S\.on && S\.watch\) \{ clearInterval\(S\.watch\); S\.watch = null; \}/.test(meas));
 {
     // setOn() as written, with stubs: the timer starts once, stops with measuring
     const timers = []; let cleared = 0;

@@ -5303,6 +5303,7 @@
     "maprobot.tip": "The robot is out of view, {d} from the middle of the view in this direction. Tap to move the map onto it.",
     "maprobot.stale": "Robot · last known position",
     "maprobot.stale_tip": "The robot's position stopped coming (no connection?). This is where it was last, {d} from the middle of the view. Tap to move the map there.",
+    "maprobot.stale_here_tip": "The robot's position stopped coming (no connection?). The map shows where it was last, not where it is now.",
     "maprobot.unknown": "Robot: position unknown",
     "maprobot.unknown_tip": "The robot has not sent its position on the map yet — no connection, or the robot does not know where it is.",
     "measure.m15.rb.stale": "The robot's position is old (no connection?).",

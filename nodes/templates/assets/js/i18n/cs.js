@@ -5387,6 +5387,7 @@
     "maprobot.tip": "Robot je mimo obraz, {d} od středu pohledu tímto směrem. Klepnutím na něj mapu posuneš.",
     "maprobot.stale": "Robot · poslední známá poloha",
     "maprobot.stale_tip": "Poloha robota přestala chodit (bez spojení?). Tady byl naposledy, {d} od středu pohledu. Klepnutím mapu posuneš tam.",
+    "maprobot.stale_here_tip": "Poloha robota přestala chodit (bez spojení?). Mapa ukazuje, kde byl naposledy, ne kde je teď.",
     "maprobot.unknown": "Robot: poloha neznámá",
     "maprobot.unknown_tip": "Robot zatím neposlal svou polohu v mapě — není spojení, nebo robot neví, kde je.",
     "measure.m15.rb.stale": "Poloha robota je stará (bez spojení?).",

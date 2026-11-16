@@ -240,10 +240,13 @@ under a panel), a small pill stands at the edge of the map on the side where the
 **Robot** and how far it is from the middle of your view. Tap it and the map moves onto the robot;
 zoom and rotation stay and **Follow** is not changed. With the robot in view there is no pill. When the robot's position stops coming (no connection, more
 than about 3 s without it), the pill turns grey with a dashed edge and says **Robot · last known
-position** — it points to where the robot was last, not where it is now. When the robot has sent no
-position at all (about 45 s after the page opened), a grey note **Robot: position unknown** stands at
+position** — it points to where the robot was last, not where it is now; with the robot in view the same
+grey note stands at the bottom of the map (without an arrow), because the robot drawn there is where it
+was, not where it is. When the robot has sent no
+position at all (about 45 s after the connection came up), a grey note **Robot: position unknown** stands at
 the bottom of the map instead. The pill steps around the compass, the buttons, the rain bar, the scale
-and the right panel's handle; where a card or a panel stands at that edge, it is not shown over it. It only moves the map in your browser; nothing goes to the robot.
+and the right panel's handle; where a card or a panel stands at that edge, it is not shown over it. While the map editor is open there
+is no pill (every tap there edits). It only moves the map in your browser; nothing goes to the robot.
 
 ### Scale bar
 

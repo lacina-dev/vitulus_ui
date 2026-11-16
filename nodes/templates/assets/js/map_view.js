@@ -1868,9 +1868,23 @@ class TfClient {
         // hold the (stale) cached transforms, so "no transform yet" alone would
         // never fire again — a silent stream is the second trigger.
         this._tfLastRx = 0;
+        // T17 M16: time of the last transform of the robot itself (base_link).
+        // The watchdog used to end for good once everything had come; a stream
+        // that went silent later on a LIVE link (the republisher dropped the
+        // topic, restarted …) then stayed silent until a reconnect. Now the
+        // watchdog can be woken (tfStreamCheck below) and asks again while the
+        // robot's position has not come for _tfPoseQuietMs.
+        this._tfPoseRx = 0;
+        this._tfPoseQuietMs = 10000;
         var _origProcessTFArray = this.tfClientMap.processTFArray;
         this.tfClientMap.processTFArray = function(tf) {
-            self._tfLastRx = Date.now();
+            var now = Date.now();
+            self._tfLastRx = now;
+            var a = tf && tf.transforms;
+            for (var i = 0; a && i < a.length; i++) {
+                var id = a[i].child_frame_id;
+                if (id === 'base_link' || id === '/base_link') { self._tfPoseRx = now; break; }
+            }
             return _origProcessTFArray.call(this, tf);
         };
         this._armTfWatchdog();
@@ -1918,6 +1932,27 @@ class TfClient {
         return (Date.now() - this._tfLastRx) > 2000;
     }
 
+    // true when the robot's position came once and then stopped for
+    // _tfPoseQuietMs (measured from the last one, or from the last answer to
+    // a request — a fresh topic gets its time)
+    _tfPoseQuiet() {
+        var info = (this.tfClientMap.frameInfos || {}).base_link;
+        if (!info || !info.transform) { return false; }          // never came: "missing" covers that
+        return (Date.now() - Math.max(this._tfPoseRx, this._tfAnsAt)) > this._tfPoseQuietMs;
+    }
+
+    // T17 M16: wake the watchdog when the robot's position went quiet on a
+    // live link. No timer of its own: called by who already looks (the
+    // "robot out of view" pill of vt_map_robot.js on the scale bar's poll);
+    // does nothing while the watchdog runs, the link is down or the position comes.
+    tfStreamCheck() {
+        if (this._tfWatchTimer) { return false; }
+        if (!(this.tfClientMap.ros && this.tfClientMap.ros.isConnected)) { return false; }
+        if (!this._tfPoseQuiet()) { return false; }
+        this._tfWatchStep();                 // attempts go on from where they were: the gaps keep growing to 30 s
+        return true;
+    }
+
     // (Re)start the bounded missing-transform watchdog (see constructor).
     _armTfWatchdog() {
         if (this._tfWatchTimer) { clearTimeout(this._tfWatchTimer); this._tfWatchTimer = null; }
@@ -1943,8 +1978,9 @@ class TfClient {
             var missing = self._tfMissingFrames();
             var connected = !!(self.tfClientMap.ros && self.tfClientMap.ros.isConnected);
             var subscribed = Object.keys(self.tfClientMap.frameInfos || {}).length > 0;
-            var silent = subscribed && self._tfSilent();
+            var silent = subscribed && (self._tfSilent() || self._tfPoseQuiet());
             if (connected && subscribed && !missing.length && !silent) {
+                self._tfWatchAttempt = 0;    // healthy: a later silence starts with the short gap again
                 return;                      // all frames have a transform and the stream is live — done
             }
             if (connected && (missing.length || silent)) {
@@ -1959,7 +1995,7 @@ class TfClient {
                     self._tfWatchAttempt++;
                     console.warn('[TfClient] ' + (missing.length
                             ? 'no transform yet for: ' + missing.join(', ')
-                            : 'TF stream silent for > 2 s') +
+                            : 'TF stream silent') +
                         ' — re-requesting TF (attempt ' + self._tfWatchAttempt + ')');
                     try { self.tfClientMap.updateGoal(); }
                     catch (e) { console.warn('[TfClient] updateGoal failed:', e); }

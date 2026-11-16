@@ -234,10 +234,12 @@ panelem), stojí u okraje mapy na straně, kde robot je, malý štítek: šipka,
 od středu tvého pohledu. Klepni na něj a mapa se posune na robota; přiblížení a natočení zůstanou
 a **Sledovat** se nepřepne. Když je robot vidět, štítek není. Když poloha robota přestane chodit (bez spojení, déle než asi
 3 s), štítek zešedne, dostane čárkovaný okraj a píše **Robot · poslední známá poloha** — ukazuje, kde
-robot byl naposledy, ne kde je teď. Když robot neposlal žádnou polohu (asi 45 s po otevření stránky),
+robot byl naposledy, ne kde je teď; když je robot vidět, stojí dole na mapě tatáž šedá poznámka (bez
+šipky), protože robot nakreslený v mapě je tam, kde byl, ne kde je. Když robot neposlal žádnou polohu
+(asi 45 s po navázání spojení),
 stojí dole na mapě místo něj šedá poznámka **Robot: poloha neznámá**. Štítek se vyhýbá kompasu,
 tlačítkům, liště srážek, měřítku a úchytu pravého panelu; kde u toho okraje stojí karta nebo panel,
-přes ně se neukáže. Hýbe jen mapou
+přes ně se neukáže. Dokud je otevřený editor mapy, štítek není (každé klepnutí tam upravuje). Hýbe jen mapou
 ve tvém prohlížeči; robotu nic nejde.
 
 ### Měřítko

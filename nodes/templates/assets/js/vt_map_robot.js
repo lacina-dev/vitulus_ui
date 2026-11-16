@@ -37,7 +37,7 @@
     var IN_PAD = 10;            // the robot this close to the edge of the free part counts as out
     var ARROW_STEP = 5;         // degrees: the arrow turns in steps (fewer DOM writes)
     var STALE_MS = 3000;        // no base_link transform for this long: the position is old (the stream ticks at 20 Hz)
-    var UNKNOWN_MS = 45000;     // no position at all this long after the page came up: say so (the first pose takes 15-40 s on a busy robot)
+    var UNKNOWN_MS = 45000;     // no position at all this long after the link to the robot came up: say so (the first pose takes 15-40 s on a busy robot)
     var GAP = 6;                // px kept free around what stands on the map
 
     // ---- pure ------------------------------------------------------------
@@ -159,7 +159,7 @@
         '<path d="M4 12h13M12 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
     var el = null, arrow = null, txt = null, vec = null;
-    var lastIn = '', lastOut = '', dirty = true, hooked = false, t0 = Date.now();
+    var lastIn = '', lastOut = '', dirty = true, hooked = false, upSince = 0;
     // what stands ON the map inside #map_view or beside it (covered() sees
     // only what lies over the map from outside)
     var OBSTACLES = ['vt_utm_rose', 'vt_lyr_fab', 'vt_meas_btn', 'vt_map_scale', 'mapv3_attr', 'mapv3_precip_badge', 'rp_handle', 'right_panel'];
@@ -172,6 +172,9 @@
             out.push({ l: r.left, t: r.top, r: r.right, b: r.bottom });
         }
         return out;
+    }
+    function editorOpen() {
+        try { return !!(root.MapEditor && root.MapEditor.controller && root.MapEditor.controller().active); } catch (e) { return false; }
     }
     function linkUp() {
         try { var c = root.__tf_client_map; return !!(c && c.ros && c.ros.isConnected); } catch (e) { return true; }
@@ -205,7 +208,7 @@
     // the tap: the view goes onto the robot, once
     function go() {
         var V = viewer(), p = tfPose(root.__tf_client_map);
-        if (!V || !p) { return; }
+        if (!V || !p || !el || el.getAttribute('data-state') === 'none') { return; }      // the note takes no tap
         recenter(V.camera.position, V.cameraControls.center, p);
         // tell the camera's listeners (the stored view of map_view.js)
         try { V.cameraControls.dispatchEvent({ type: 'change' }); } catch (e) { /* controls without events */ }
@@ -231,13 +234,25 @@
         var tfc = root.__tf_client_map, p = tfPose(tfc), now = Date.now();
         var cv = V.renderer && V.renderer.domElement;
         if (!cv) { hide(); return; }
-        var st = poseState(p, tfc && tfc._vtPoseAt, now, linkUp());
-        // no position at all: said only after a while (the page is still coming up)
-        if (st === 'none' && now - t0 < UNKNOWN_MS) { hide(); return; }
-        var cam = V.camera, c = V.cameraControls.center, cp = cam.position;
-        // nothing moved since the last look: done (the usual case)
+        var up = linkUp();
+        // "no position" counts from the moment the link came up (T17 M16), not from the page's start
+        upSince = up ? (upSince || now) : 0;
+        var st = poseState(p, tfc && tfc._vtPoseAt, now, up);
+        // the position went quiet on a live link: the TF watchdog of map_view.js is woken (it asks again, with growing gaps)
+        if (st === 'stale' && up && root.tf_client && root.tf_client.tfStreamCheck) {
+            try { root.tf_client.tfStreamCheck(); } catch (e) { /* older map_view.js */ }
+        }
+        // the map editor: its tools own the map's edges and every tap there edits — no pill to hit by mistake
+        if (editorOpen()) { if (el && !el.hidden) { hide(); } lastIn = ''; return; }
+        // no position at all: said only after a while (the first one takes 15-40 s on a busy robot);
+        // with the link down the frame's own notice says it
+        if (st === 'none' && (!upSince || now - upSince < UNKNOWN_MS)) { hide(); return; }
+        var cam = V.camera, c = V.cameraControls.center, cp = cam.position, q = cam.quaternion || {};
+        // nothing moved since the last look: done (the usual case). The camera's turn is in it too:
+        // straight above the middle a rotation of the map moves neither the camera nor its target
         var sigIn = st + '|' + (p ? p.x.toFixed(2) + ',' + p.y.toFixed(2) : '-') + '|' + cp.x.toFixed(2) + ',' + cp.y.toFixed(2) + ',' + cp.z.toFixed(2) + '|' +
-            c.x.toFixed(2) + ',' + c.y.toFixed(2) + '|' + cam.rotation.z.toFixed(3) + '|' + window.innerWidth + 'x' + window.innerHeight;
+            c.x.toFixed(2) + ',' + c.y.toFixed(2) + '|' + (+q.x || 0).toFixed(3) + ',' + (+q.y || 0).toFixed(3) + ',' + (+q.z || 0).toFixed(3) + ',' + (+q.w || 0).toFixed(3) + '|' +
+            window.innerWidth + 'x' + window.innerHeight;
         if (!dirty && sigIn === lastIn) { return; }
         lastIn = sigIn;
         dirty = false;
@@ -249,7 +264,7 @@
         var ftop = cssPx(cs, '--vt-frame-top', 72), fbot = cssPx(cs, '--vt-frame-bottom', 44);
         var cleft = cssPx(cs, '--vt-frame-cleft', 0), rpw = cssPx(cs, '--vt-frame-rp-w', 0), rpb = cssPx(cs, '--vt-frame-rp-b', 0);
         var free = { l: Math.max(cleft, cr.left), t: Math.max(ftop, cr.top), r: Math.min(W, cr.right), b: Math.min(H - fbot, cr.bottom) };
-        var s = null;
+        var s = null, note = !p;
         if (p) {
             // the camera's matrices are those of the last DRAWN picture: a tick
             // between a move of the camera (the tap here, Follow on every
@@ -263,15 +278,21 @@
             s = ndcToPx(vec, { l: cr.left, t: cr.top, w: cr.width, h: cr.height });
             if (!s) { hide(); return; }
             var holes = (rpw > 0 && rpb > free.t) ? [{ l: W - rpw, t: free.t, r: W, b: rpb }] : [];
-            if (inView(s.x, s.y, free, holes)) { hide(); return; }
+            // in view: no pill — but an OLD position drawn on the map looks like the present one,
+            // so then the grey note stands at the bottom (no arrow: the robot's picture is right there)
+            if (inView(s.x, s.y, free, holes)) {
+                if (st !== 'stale') { hide(); return; }
+                note = true;
+            }
         }
         // the pill: text first (its size decides where it fits)
         var L = lang(), dist = p ? fmtDist(Math.hypot(p.x - c.x, p.y - c.y), L) : '';
         var lab = st === 'none' ? t('maprobot.unknown') : (st === 'stale' ? t('maprobot.stale') : t('maprobot.label', { d: dist }));
-        var tip = st === 'none' ? t('maprobot.unknown_tip') : (st === 'stale' ? t('maprobot.stale_tip', { d: dist }) : t('maprobot.tip', { d: dist }));
+        var tip = st === 'none' ? t('maprobot.unknown_tip') : (st === 'stale' ? t(note ? 'maprobot.stale_here_tip' : 'maprobot.stale_tip', { d: dist }) : t('maprobot.tip', { d: dist }));
         if (txt.textContent !== lab) { txt.textContent = lab; }
         if (el.title !== tip) { el.title = tip; el.setAttribute('aria-label', tip); }
-        if (el.getAttribute('data-state') !== st) { el.setAttribute('data-state', st); }
+        var look = note ? 'none' : st;        // 'none' = the note: no arrow, no tap
+        if (el.getAttribute('data-state') !== look) { el.setAttribute('data-state', look); }
         var wasHidden = el.hidden;
         if (wasHidden) { el.style.visibility = 'hidden'; el.hidden = false; }
         var w = el.offsetWidth || 110, h = el.offsetHeight || 40;
@@ -280,7 +301,7 @@
         var nb = cssPx(cs, '--vt-frame-notice-b', 0);
         var rect = { l: free.l + 8 + w / 2, t: Math.max(free.t, nb) + 8 + h / 2, r: free.r - 8 - w / 2, b: free.b - 8 - h / 2 };
         // no position: no direction either — the note stands at the bottom, in the middle
-        var e = p ? placeClear(s.x, s.y, rect, w, h, obstacles())
+        var e = !note ? placeClear(s.x, s.y, rect, w, h, obstacles())
             : placeClear((rect.l + rect.r) / 2, rect.b + 1000, rect, w, h, obstacles());
         if (!e || covered(e.x, e.y)) { el.style.visibility = ''; hide(); return; }
         var deg = Math.round(e.deg / ARROW_STEP) * ARROW_STEP;

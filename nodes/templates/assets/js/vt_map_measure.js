@@ -181,7 +181,7 @@
         // the Marker panel / the editor may open while measuring: say why taps
         // do nothing, and the robot may get / lose its position (From robot).
         // T17 M15: this 1 s check lives only while measuring (it ran always)
-        if (S.on && !S.watch) { S.watch = setInterval(card, 1000); }
+        if (S.on && !S.watch) { S.watch = setInterval(function () { if (!document.hidden) { card(); } }, 1000); }   // M16: rests in a hidden tab
         if (!S.on && S.watch) { clearInterval(S.watch); S.watch = null; }
         wire();
         redraw();

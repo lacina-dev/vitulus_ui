@@ -100,8 +100,12 @@ check('layers button: re-placed on the rose\'s resize and when it is off the ros
           /agentPlace\(\);\s*\}\s*\/\/ Large camera/.test(fr));
     check('… the pills\' ResizeObserver re-runs the pass when their edges changed (bounded depth)',
           /new ResizeObserver\(agentResized\)\.observe\(bars\)/.test(fr) && /agentPlace\(\) && agentDepth < 2/.test(ap));
-    const iv = /\}, (\d+)\);\s*\}\s*\}, 1000\);\s*\} catch/.exec(layers);
-    check('… the layers module\'s position check is only a sparse safety net (>= 5 s)', !!iv && +iv[1] >= 5000, iv && iv[1]);
+    // T17 M16: the 5-s safety net (and the 1-s wait for the rose) are gone — events only, nothing runs on an idle page
+    const lInit = layers.slice(layers.indexOf('    function init() {'), layers.indexOf('window.VTMapLayers = {'));
+    check('… the layers module\'s position check has no timer at all (it was a sparse safety net, >= 5 s): the rose is watched by events',
+          !/setInterval\(/.test(lInit) && /function watchRose\(r\)/.test(layers) && /watchRose\(rose\);/.test(layers) &&
+          /new MutationObserver\(schedulePlace\)\.observe\(r, \{ attributes: true, attributeFilter: \['style'\] \}\)/.test(layers) &&
+          /new ResizeObserver\(schedulePlace\)\.observe\(r\)/.test(layers));
 }
 console.log(fails ? '\n' + fails + ' check(s) FAILED' : '\nOK — all checks passed');
 process.exit(fails ? 1 : 0);
