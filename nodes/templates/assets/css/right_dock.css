@@ -689,3 +689,12 @@ body.rp-cam-says:not(.rp-cam-clip) #div_camera_view > canvas { visibility: hidde
     #right_panel .rp-geo1 { position: relative; }
     #right_panel .rp-geo1::before { content: ''; position: absolute; inset: -4px 0; }   /* 17 → 25 px, into the gaps */
 }
+
+/* ---- T8 dávka V: the Mower head's state chip now says the state in words
+   ("Not answering", "Setting height", "Zablokovaná" — RUN / WAIT were 3-4 letters).
+   On a phone the head is ~180 px: the chip never grows over the title or the
+   blade key, a longer word ends in "…" (the whole one is its tooltip). */
+#right_panel #rp_mower_chip {
+    max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; min-width: 0;
+}
+@media (min-width: 576px) { #right_panel #rp_mower_chip { max-width: 120px; } }

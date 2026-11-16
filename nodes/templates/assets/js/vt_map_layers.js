@@ -1003,14 +1003,16 @@
                     // too high — the rose changed its size (content) without a style change
                     if (window.ResizeObserver) { new ResizeObserver(schedulePlace).observe(r); }
                     // …and it moves through chains of the frame's variables (the pills' bottom →
-                    // the notice line → the rose) that can end after the last style mutation:
-                    // a cheap check once a second (place() writes only what changed)
+                    // the notice line → the rose): since T8 dávka V vt_frame.js calls place()
+                    // itself at the end of each pass, in the same frame. What is left is a
+                    // sparse safety net for a change nobody announces (place() writes only
+                    // what changed)
                     setInterval(function () {
                         var f = $('vt_lyr_fab');
                         if (!f || f.hidden || r.style.display === 'none' || !r.offsetHeight) { return; }
                         var want = Math.round(r.getBoundingClientRect().bottom + 8);
                         if (Math.abs(f.getBoundingClientRect().top - want) > 1) { schedulePlace(); }
-                    }, 1000);
+                    }, 5000);
                 }
             }, 1000);
         } catch (e) { setInterval(place, 1000); }

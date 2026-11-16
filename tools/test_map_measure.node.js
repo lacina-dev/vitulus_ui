@@ -87,5 +87,21 @@ check('layers button: re-placed on the rose\'s resize and when it is off the ros
           /var\(--vt-frame-rp-w, 0px\) - 54px\);/.test(css) && !/\.vagent-strip-on \.vt-utm-rose/.test(css) &&
           /vt-n-below:not\(\.vt-m-sheet\) \.vt-notice-row \{ --vt-n-narrow: 1px; \}/.test(css));
 }
+// T8 dávka V: the layers button stood 0.2–0.9 s ~32 px off the rose after a pill / notice
+// change (a style-mutation → rAF hop). The frame places it itself at the end of each pass,
+// in the same frame; the pills' resize re-measures the notice line at once; the 1-s timer
+// is only a sparse safety net
+{
+    const fr = fs.readFileSync(path.join(JS, 'vt_frame.js'), 'utf8');
+    const ap = fr.slice(fr.indexOf('function agentPlace()'), fr.indexOf('function update()'));
+    const mc = fr.slice(fr.indexOf('function mapColPlace()'), fr.indexOf('function agentPlace()'));
+    check('frame: agentPlace (end of every update()) places the layers button directly',
+          /window\.VTMapLayers\.place\(\)/.test(mc) && /mapColPlace\(\);\s*return was !==/.test(ap) &&
+          /agentPlace\(\);\s*\}\s*\/\/ Large camera/.test(fr));
+    check('… the pills\' ResizeObserver re-runs the pass when their edges changed (bounded depth)',
+          /new ResizeObserver\(agentResized\)\.observe\(bars\)/.test(fr) && /agentPlace\(\) && agentDepth < 2/.test(ap));
+    const iv = /\}, (\d+)\);\s*\}\s*\}, 1000\);\s*\} catch/.exec(layers);
+    check('… the layers module\'s position check is only a sparse safety net (>= 5 s)', !!iv && +iv[1] >= 5000, iv && iv[1]);
+}
 console.log(fails ? '\n' + fails + ' check(s) FAILED' : '\nOK — all checks passed');
 process.exit(fails ? 1 : 0);

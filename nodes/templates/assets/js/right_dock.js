@@ -664,13 +664,19 @@
         var vH = src.querySelector('#span_mower_panel_height');
         var vT = src.querySelector('#span_mower_panel_temp');
         var mdot = panel.querySelector('#rp_sum_dot_mower');
+        var ico = document.getElementById('ico_mower');
         var paint = function () {
             var on = src.style.display !== 'none';
             var txt = st ? (st.textContent || '').trim() : '';
+            var code = st ? String(st.dataset.status || txt).toUpperCase() : '';
             var state = on ? moverState(st) : 'off';
+            /* T8 dávka V (T37): the board is silent (device state INVALID): the last
+               /mower/status is old news — the chip says so, red; no blade start */
+            var silent = !!(ico && ico.dataset.vtSilent === '1');
+            if (silent && on) { txt = t('rdock.mower.silent'); state = 'err'; code = ''; }
             if (chip.textContent !== txt) { chip.textContent = txt; }
             if (chip.dataset.state !== state) { chip.dataset.state = state; }
-            setTip(chip, t('rdock.sec.mower') + ': ' + (txt || '—'));
+            setTip(chip, t('rdock.sec.mower') + ': ' + (silent && on ? t('rdock.mower.silent.tip') : (txt || '—')));
             if (sec.dataset.tone !== state) { sec.dataset.tone = state; }
             var r = num(vR), hh = num(vH), tc = num(vT);
             blade.dataset.state = r ? 'ok' : 'off';
@@ -694,7 +700,7 @@
             if (cT.textContent !== tt) { cT.textContent = tt; }
             cT.dataset.state = tc == null ? 'off' : (tc >= MOWER_TOO_HOT ? 'err' : (tc >= MOWER_HOT ? 'warn' : 'ok'));
             setTip(cT.parentNode, t('rdock.mower.temp.tip', {a: MOWER_HOT, b: MOWER_TOO_HOT}));
-            ctl({on: on, status: on ? txt.toUpperCase() : '', rpm: r || 0});
+            ctl({on: on, status: on ? code : '', word: txt, rpm: r || 0});
             var pg = window.programs, pn = '', ps = '';
             try {
                 if (pg && pg.mission_program && pg._isRunning && pg._isRunning(pg.mission_program)) {
@@ -716,8 +722,9 @@
         };
         paint();
         relang.push(paint);
-        new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style'],
+        new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style', 'data-status'],
             childList: true, characterData: true, subtree: true});
+        if (ico) { new MutationObserver(paint).observe(ico, {attributes: true, attributeFilter: ['data-vt-silent']}); }
         setInterval(paint, 2000);              // the running program
         return 1;
     }
@@ -813,7 +820,7 @@
             bk.dataset.state = run ? 'err' : 'off';
             var tip;
             if (run) { tip = t('rdock.mower.stop.tip') + (cur.rpm ? ' · ' + Math.round(cur.rpm) + ' rpm' : ''); }
-            else { tip = t('rdock.mower.start.notready', {s: cur.status || '—'}); }
+            else { tip = t('rdock.mower.start.notready', {s: cur.word || cur.status || '—'}); }
             setTip(bk, tip);
             setTip(sb, t('rdock.d10.start.tip'));
         };

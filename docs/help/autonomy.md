@@ -162,7 +162,9 @@ that run. Off the dock it never cuts.
 the board does not answer for more than 2 minutes, the robot says so — *The mower board has not
 answered for 7 h 30 min (since 23:10; in the dock, no program)*, off the dock without "in the dock" —
 and reminds you at most twice (after 1 hour, then after 4 hours); it will not mow without the board.
-The history shows since when it is silent and when it answers again. **Reset a silent board also with no
+The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
+header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
+instead of the board's last state (the values under it are the last ones it sent). **Reset a silent board also with no
 program** (Faults, off by default): then the robot does the same hardware reset with no program
 running too — the power goes off and on again, the computer as well; the same safeguards (not while
 somebody is connected, nor while Claude is working on the robot, 60 s ahead with **Cancel**, at most twice in 24 hours). Without a program the
@@ -260,7 +262,10 @@ One line says what the robot is doing, and what is about to happen: a sleep ahea
 in 5 min for 11 h 55 min") when that is known, the countdown with **Cancel**, *Sleep cancelled*, *Leaving:
 Bigger*, *Waiting for RTK*, *Mowing finished*. STOP and errors come first and stay until they are over.
 The robot's routine lines wait their turn, each stays at least 2.5 seconds, and all of them stay in
-the **Log**. On a phone the line is shorter; the whole sentence is in the panel.
+the **Log**. On a phone the line is shorter; the whole sentence is in the panel. The robot writes its
+lines in English; the line and the **Log** show the ones the UI knows (nearly all of them) in your
+language, a line it does not know as the robot wrote it. In the **Log** the robot's original is in the
+tooltip of the row.
 
 ## Outside the panel
 

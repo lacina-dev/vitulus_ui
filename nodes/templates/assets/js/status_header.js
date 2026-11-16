@@ -168,6 +168,8 @@
     /* the state from the file name map_view.js set (the same rules the PNGs
        had: the four colours live in the file names, UI_FIELD_STYLE §8) */
     function stateOf(img) {
+        // T8 dávka V (T37): device_state_publisher's INVALID (map_view.js data-vt-silent)
+        if (img.dataset && img.dataset.vtSilent === '1') { return {tone: 'err', silent: true}; }
         var s = (img.getAttribute('src') || '').toLowerCase();
         var m = /batt(charge)?_(full|34|half|14|empty|disabled)\./.exec(s);
         if (m) {
@@ -189,6 +191,7 @@
             var w = tr(BATT_K[st.lvl] || BATT_K[0]);
             return st.chg ? tr('status.d8.st.batt.chg', {level: w}) : w;
         }
+        if (st.silent) { return tr('status.d8.st.' + k.st + '.silent'); }
         return tr('status.d8.st.' + k.st + '.' + st.tone);
     }
 
@@ -371,7 +374,7 @@
             }
             if (t) { return; }
             t = setTimeout(function () { t = null; paintIcons(); }, 120);
-        }).observe(strip, {attributes: true, attributeFilter: ['src', 'style'], subtree: true});
+        }).observe(strip, {attributes: true, attributeFilter: ['src', 'style', 'data-vt-silent'], subtree: true});
         paintIcons();
     }
 

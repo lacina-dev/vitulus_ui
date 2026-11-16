@@ -2506,6 +2506,14 @@ class IconStatus {
             if (message.mower === "DISABLED") {
                 this.ico_mower.src = "/assets/img/robot_icons/Nextion_ico_mower_grey.png";
             }
+            // T8 dávka V (T37): INVALID = device_state_publisher hears no /mower/status
+            // (the board went silent). The icon kept its last colour; now red, and the
+            // mark says "not answering" in the header card and the right panel
+            const mSilent = message.mower === "INVALID" ? '1' : '';
+            if ((this.ico_mower.dataset.vtSilent || '') !== mSilent) { this.ico_mower.dataset.vtSilent = mSilent; }
+            if (mSilent) {
+                this.ico_mower.src = "/assets/img/robot_icons/Nextion_ico_mower_red.png";
+            }
             // FL MOTOR
             if (message.mot_lf === "OK") {
                 this.ico_fl_motor.src = "/assets/img/robot_icons/Nextion_ico_motorLF_green.png";
@@ -5153,8 +5161,14 @@ class StatusLog {
         source.textContent = (srcKey ? vtT(srcKey) : entry.source) + ' · ';
         span.appendChild(source);
         // robot / agent text is data; only the browser's own events carry a key
-        span.appendChild(document.createTextNode(entry.key ? vtT(entry.key) : entry.msg));
-        span.title = t.toLocaleString((window.VTI18n ? VTI18n.lang() : undefined));
+        // T8 dávka V: the robot's own lines (status_logger, numeric seq) in the UI's
+        // language by their stable pattern (VTAutonomy.robotLine); an unknown line and
+        // the agent's free text stay as written. The English original is in the tooltip.
+        let shown = entry.msg;
+        if (entry.key) shown = vtT(entry.key);
+        else if (typeof entry.seq === 'number' && window.VTAutonomy && VTAutonomy.robotLine) shown = VTAutonomy.robotLine(entry.msg) || entry.msg;
+        span.appendChild(document.createTextNode(shown));
+        span.title = t.toLocaleString((window.VTI18n ? VTI18n.lang() : undefined)) + (shown !== entry.msg && !entry.key ? ' · ' + entry.msg : '');
         return span;
     }
 
@@ -7084,11 +7098,14 @@ class Mower {
                 this.span_mower_panel_height.textContent = message.current_height + " mm";
                 this.span_mower_panel_temp.textContent = parseInt(message.temp) + "°C";
 
-                // Status text and color
-                let statusText = message.status;
+                // Status text and color. T8 dávka V: the mower's word in words (the
+                // right panel's chip shows this text); the code itself stays in
+                // data-status for whoever decides by it (right_dock.js blade start)
+                const stKey = 'mapview.mower.st.' + String(message.status || '').toUpperCase();
+                const stWord = vtT(stKey);
+                let statusText = stWord && stWord !== stKey ? stWord : message.status;
                 let statusColor = 'var(--bs-warning)';
-                if (message.status === 'CALIBRATING') statusText = vtT('mapview.mower.calib');
-                if (message.status === 'CHANGE_HEIGHT') statusText = vtT('mapview.mower.height');
+                this.span_mower_panel_status.dataset.status = message.status || '';
                 if (message.status === 'READY' || message.status === 'RUN') {
                     statusColor = 'var(--bs-success)';
                 } else if (message.status === 'ERR' || message.status === 'BLOCKED' || message.status === 'TEMP') {

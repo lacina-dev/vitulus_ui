@@ -64,7 +64,7 @@ se barvy vrátí.
 | ![IMU](../img/status/imu.svg) | IMU | zapnuto | — | — | vypnuto |
 | ![Lidar](../img/status/lidar.svg) | Lidar | zapnuto | — | — | vypnuto |
 | ![Kamera](../img/status/camera.svg) | Kamera (D435) | zapnuto | — | — | vypnuto |
-| ![Sekačka](../img/status/mower.svg) | Sekačka | zapnutá | pracuje | chyba | vypnutá |
+| ![Sekačka](../img/status/mower.svg) | Sekačka | zapnutá | pracuje | chyba · *neodpovídá* (deska mlčí) | vypnutá |
 | ![Pojezdový motor](../img/status/motor.svg) | Pojezdový motor (jeden na kolo — vyplněné kolo je to jeho) | OK | teplý | horký | vypnuto |
 | ![Teplota desky](../img/status/temp_pcb.svg) | Teplota desky | OK | teplá | horká | bez dat |
 | ![Ventilátor desky](../img/status/fan_pcb.svg) | Ventilátor desky | běží | — | — | stojí |

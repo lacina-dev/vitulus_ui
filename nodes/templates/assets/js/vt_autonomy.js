@@ -1684,8 +1684,10 @@
                 var line = el('span', 'vt-auto-steps', box);
                 ['status_nowcast10m', 'status_nowcast20m', 'status_nowcast30m'].forEach(function (f, i) {
                     var s = el('span', 'vt-auto-step', line, '+' + ((i + 1) * 10));
-                    s.dataset.s = S.rain[f] || 'UNAVAILABLE';
-                    s.title = (S.rain[f] || 'UNAVAILABLE');
+                    var st = S.rain[f] || 'UNAVAILABLE';
+                    s.dataset.s = st;
+                    // T8 dávka V: the radar's word in words, not "UNAVAILABLE" (weather_alert values.py)
+                    s.title = t('auto.rain.step.tip', { min: (i + 1) * 10, state: known('auto.rain.step.' + st, st) });
                 });
             }
         }
@@ -2217,6 +2219,201 @@
                  /* T28: dock_smach heading nudge after the undock */
                  [/^Heading nudge: driving ([0-9.]+) m forward/, 'nudge_start'], [/^Heading nudge done: ([0-9.]+) m/, 'nudge_done'],
                  [/^Heading nudge stopped: (.+)$/, 'nudge_stopped'], [/^Heading nudge skipped: (.+)$/, 'nudge_skipped']];
+    /* T8 dávka V: every other line the robot writes to /nextion/log_info (dock_smach,
+       mower_smach, navi_man, exe_goal, safety_node, weather_alert, the GPS watchdog, the
+       agent; ~175 forms seen in the source and in status_log.jsonl since 2026-05) by a
+       stable pattern of the English text -> auto.line.<code> with its numbers / names as
+       {placeholders}. A line no pattern knows stays as the robot wrote it; the robot's own
+       code is not touched. LINES above goes first (older keys). */
+    var ROBOT_TEXT = [
+        [/^Rain alert!$/, "rain_alert"],
+        [/^Rain now ([0-9.]+) ?%\.?$/, "rain_now", ["p"]],
+        [/^Start rejected: recent rain$/, "start_no_recent_rain"],
+        [/^Start rejected: rain forecast$/, "start_no_forecast"],
+        [/^Start rejected: motors are OFF/, "start_no_motors"],
+        [/^Start rejected: (.+)$/, "start_rejected", ["x"]],
+        [/^No current weather data, starting anyway$/, "no_weather"],
+        [/^([23])DFIX acquired$/, "fix_d", ["d"]],
+        [/^RTK fix acquired$/i, "rtk_fix"],
+        [/^GPS fix acquired$/, "gps_fix"],
+        [/^GNSS FIX lost!?$/, "gnss_lost"],
+        [/^RTK fix lost, waiting again$/, "rtk_lost"],
+        [/^Waiting for RTK fix$/, "rtk_wait"],
+        [/^Waiting for RTK: main (\S+), heading (\S+) - ([0-9:]+) \/ ([0-9:]+), after a reboot usually ~(\d+) min$/, "rtk_wait_full", ["main", "head", "t", "max", "min"]],
+        [/^RTK not ready in time \((.+)\) - returning to dock$/, "rtk_late", ["x"]],
+        [/^GPS not ready$/, "gps_not_ready"],
+        [/^GPS stable, stabilizing$/, "gps_stable"],
+        [/^GPS driver (\S+) restarted\.?$/, "gps_restart", ["x"]],
+        [/^GPS watchdog switched off: hold released\.?$/, "gps_wd_off"],
+        [/^Waiting for odometry$/, "odom_wait"],
+        [/^Waiting for odometry: (.+)$/, "odom_wait_x", ["x"]],
+        [/^Odom wait: (.+)$/, "odom_wait_why", ["x"]],
+        [/^Waiting for localization$/, "loc_wait"],
+        [/^Waiting for system ready$/, "sys_wait"],
+        [/^Navigation system ready$/, "nav_ready"],
+        [/^Navigation readiness timeout$/, "nav_ready_timeout"],
+        [/^Waiting for map loading$/, "map_wait"],
+        [/^Loading rtabmap\.\.\. wait$/, "map"],
+        [/^Loading map$/, "map"],
+        [/^(?:Map is ready|Map ready|Rtabmap ready)$/, "map_ready"],
+        [/^Outdoor map loaded$/, "map_outdoor"],
+        [/^Loading indoor map$/, "map_indoor"],
+        [/^Using the active map$/, "map_active"],
+        [/^Using dock lidar map$/, "map_dock_lidar"],
+        [/^Enabling undock map$/, "map_undock"],
+        [/^Backup current map\.?$/, "map_backup"],
+        [/^New map created$/, "map_new"],
+        [/^Saving the map\.?$/, "map_saving"],
+        [/^Could not get map point list\.?$/, "map_points_fail"],
+        [/^No map is active - activate a map first \((\d+) s\)$/, "map_none", ["s"]],
+        [/^Timed out waiting for planner map \((\d+) s\)$/, "map_planner_timeout", ["s"]],
+        [/^Received dock cmd$/, "dock_cmd"],
+        [/^Starting dock program$/, "dock_program"],
+        [/^Evaluating program$/, "evaluating"],
+        [/^Dock wait preempted$/, "dock_wait_preempted"],
+        [/^Stopping docking$/, "dock_stopping"],
+        [/^Starting docking$/, "dock_start"],
+        [/^Docking aborted$/, "dock_aborted"],
+        [/^Docking preempted\.?$/, "dock_preempted"],
+        [/^Docking failed\.?$/, "dock_failed"],
+        [/^Docking timed out\.?$/, "dock_timeout"],
+        [/^Docking stalled: no progress for (\d+) s \(([0-9.]+) m to go\): (.+)$/, "dock_stalled", ["s", "m", "x"]],
+        [/^Docking retry (\d+)\/(\d+): (.+)$/, "dock_retry", ["i", "n", "x"]],
+        [/^Enabling intensity dock$/, "dock_intensity"],
+        [/^Intensity enable preempted$/, "dock_intensity_preempted"],
+        [/^Intensity timeout$/, "dock_intensity_timeout"],
+        [/^Navigating to dock$/, "nav_dock"],
+        [/^Navigating from dock$/, "nav_from_dock"],
+        [/^Navigating to (.+)$/, "nav_to", ["x"]],
+        [/^Dock power on - seating$/, "dock_seating"],
+        [/^Mower successfully docked\.?$/, "docked"],
+        [/^No dock status, robot is off the charger\.?$/, "dock_no_status"],
+        [/^Waiting for dock status$/, "dock_status_wait"],
+        [/^Waiting for dock status, current: (.+)$/, "dock_status_wait_x", ["x"]],
+        [/^Dock check: waiting for docking controller status not arriving$/, "dock_check_silent"],
+        [/^Dock check: waiting for docking controller (.+)$/, "dock_check", ["x"]],
+        [/^Undock check: waiting for docking controller status not arriving$/, "undock_check_silent"],
+        [/^Undock check: waiting for docking controller not ready$/, "undock_check_not_ready"],
+        [/^Undock check: waiting for docking controller (.+)$/, "undock_check", ["x"]],
+        [/^DOCK point found\.?$/, "dock_point"],
+        [/^DOCK point not found\.?$/, "dock_point_none"],
+        [/^Map has no DOCK point$/, "dock_point_missing"],
+        [/^Received dock program\.?$/, "prog_dock_in"],
+        [/^Received undock program\.?$/, "prog_undock_in"],
+        [/^Sent dock program\.?$/, "prog_dock_out"],
+        [/^Sent undock program\.?$/, "prog_undock_out"],
+        [/^Powering motors for undocking$/, "undock_power"],
+        [/^Motors did not power on - undocking not started$/, "undock_no_power"],
+        [/^Starting undocking$/, "undock_start"],
+        [/^System ready for undocking$/, "undock_ready"],
+        [/^Sending undock command$/, "undock_send"],
+        [/^Undocking from dock$/, "undock_go"],
+        [/^Undocking$/, "undock_go"],
+        [/^Undocking \((\d+) s\)$/, "undock_go_s", ["s"]],
+        [/^(?:Undocked|Mower undocked\.?)$/, "undocked"],
+        [/^Left dock successfully$/, "undock_left"],
+        [/^Undock localized$/, "undock_loc"],
+        [/^Undock localization timeout$/, "undock_loc_timeout"],
+        [/^Undocking aborted$/, "undock_aborted"],
+        [/^Undock preempted$/, "undock_preempted"],
+        [/^Undocking failed$/, "undock_failed"],
+        [/^Mower is docked, starting undock\.?$/, "undock_auto"],
+        [/^Mower is already undocked\.?$/, "undock_already"],
+        [/^Driving out by map$/, "undock_by_map"],
+        [/^Goal received$/, "goal_in"],
+        [/^Executing goal\.?$/, "goal_exec"],
+        [/^Goal canceled$/, "goal_cancel"],
+        [/^Navigation complete$/, "nav_done"],
+        [/^Navigation success$/, "nav_ok"],
+        [/^Navigation preempted$/, "nav_preempted"],
+        [/^Navigation wait preempted$/, "nav_wait_preempted"],
+        [/^Navigation: (\d+) lines blocked, giving up$/, "nav_blocked", ["n"]],
+        [/^Motors are OFF - turn motors on to move$/, "motors_off_move"],
+        [/^Motors are OFF - turn motors on to dock$/, "motors_off_dock"],
+        [/^Set speed:? (\w+)$/, "speed", ["speed"]],
+        [/^Pre-start checks passed$/, "prestart_ok"],
+        [/^Setting (?:mower )?height$/, "height"],
+        [/^Set rpm$/, "rpm"],
+        [/^Raising blade to max$/, "blade_up"],
+        [/^Mowing started(?:\.\.\.)?$/, "mowing"],
+        [/^(.+): go to path (\d+)\/(\d+)$/, "path_go", ["zone", "i", "n"]],
+        [/^(.+): exe path (\d+)\/(\d+)$/, "path_exe", ["zone", "i", "n"]],
+        [/^(.+): path (\d+)\/(\d+) chunk done$/, "path_chunk", ["zone", "i", "n"]],
+        [/^(.+): path (\d+)\/(\d+) done$/, "path_done", ["zone", "i", "n"]],
+        [/^(.+) done, next: (.+)$/, "zone_next", ["zone", "next"]],
+        [/^EXE_PATH_TO_BEGIN aborted \(outcome=(.+)\)$/, "path_begin_aborted", ["x"]],
+        [/^Detouring around obstacle \((\d+) cm ahead\)$/, "detour_cm", ["cm"]],
+        [/^Detour around obstacle$/, "detour"],
+        [/^Obstacle ahead - planning detour$/, "detour_plan"],
+        [/^Rejoined mowing line after obstacle$/, "detour_back"],
+        [/^No detour possible around obstacle$/, "detour_none"],
+        [/^Path skipped: obstacle, no detour possible$/, "path_skipped"],
+        [/^Re-mowing (\d+) skipped span\(s\)$/, "remow", ["n"]],
+        [/^Re-mowing skipped spans$/, "remow_any"],
+        [/^Re-mow done: (\d+)\/(\d+) spans$/, "remow_done", ["i", "n"]],
+        [/^Re-mow aborted: mower blocked$/, "remow_blocked"],
+        [/^Recovery$/, "recovery"],
+        [/^Recovery \(path begin\)$/, "recovery_path"],
+        [/^Recovery \(zone start\)$/, "recovery_zone"],
+        [/^BLOCKED recovery failed - critical$/, "recovery_failed"],
+        [/^Blade did not come back after a no-blade area$/, "blade_not_back"],
+        [/^Blade off: temperature reading, checking$/, "blade_temp"],
+        [/^Temperature spike: not a real overheat, mission goes on$/, "temp_spike_ok"],
+        [/^Mower power switched off: going home$/, "mower_off_home"],
+        [/^Held: mower link$/, "held_link"],
+        [/^Done$/, "done"],
+        [/^Ready$/, "ready"],
+        [/^Stopped$/, "stopped"],
+        [/^Initiating$/, "init"],
+        [/^Initiating unfinished$/, "init_unfinished"],
+        [/^Mission stopped\. Press Reset, then Run to continue\.?$/, "mission_stopped"],
+        [/^Mission ended with an error \((.+)\)\. Press Reset to continue\.?$/, "mission_error", ["x"]],
+        [/^Stopped\. Resume via \/mower_smach\/reset\.?$/, "stopped_reset"],
+        [/^TERMINAL: (.+)\. Reset via \/mower_smach\/reset$/, "terminal", ["x"]],
+        [/^TERMINAL ERROR$/, "terminal_any"],
+        [/^CRITICAL ERROR: (.+)$/, "critical", ["x"]],
+        [/^Critical error$/, "critical_any"],
+        [/^\[SAFETY\] Motor failure: (.+)\. Motors OFF\.?$/, "safety_motor", ["motors"]],
+        [/^\[SAFETY\] Tilt exceeded! roll=(-?[0-9.]+) pitch=(-?[0-9.]+)\. Mower OFF\.?$/, "safety_tilt", ["roll", "pitch"]],
+        [/^\[SAFETY\] Mower overtemp: ([0-9.]+) ?C\. Mower OFF\.?$/, "safety_overtemp", ["c"]],
+        [/^\[SAFETY\] Mower temp sensor spike: ([0-9.]+) -> ([0-9.]+) ?C in ([0-9.]+) ?s\./, "safety_temp_spike", ["a", "b", "s"]],
+        [/^\[SAFETY\] Mower rpm implausible: ([^.]+)\. Sample ignored/, "safety_rpm", ["x"]],
+        [/^Agent: task done$/, "agent_done"],
+        [/^Agent: starting task$/, "agent_start"],
+        [/^Agent: task failed$/, "agent_failed"],
+        [/^Agent: task cancelled$/, "agent_cancelled"],
+        [/^Agent: waiting for dock unlock$/, "agent_wait_unlock"],
+        [/^Agent: waiting: owner unlock dock$/, "agent_wait_owner"],
+        [/^Agent: dock unlocked - going$/, "agent_unlocked"],
+        [/^Agent: undocking$/, "agent_undock"],
+        [/^Agent: docking$/, "agent_dock"],
+        [/^Agent: back in dock \(owner\)$/, "agent_back"],
+        [/^Agent: owner: returning to dock$/, "agent_owner_home"],
+        [/^Agent: turning$/, "agent_turn"],
+        [/^Agent: waiting for supervisor$/, "agent_wait_sup"],
+        [/^Agent: driving to (.+)$/, "agent_drive_to", ["x"]],
+        [/^Agent: driving path (.+)$/, "agent_drive_path", ["x"]],
+        [/^Agent: waiting RTK \((.+)\)$/, "agent_wait_rtk", ["x"]],
+        [/^Agent: waiting (\d+) s$/, "agent_wait_s", ["s"]],
+        [/^Agent: retrying dock: (.+)$/, "agent_dock_retry", ["x"]],
+        [/^Point (.+) added$/, "point_added", ["x"]],
+        [/^Point (.+) removed$/, "point_removed", ["x"]],
+        [/^Path (.+) removed$/, "path_removed", ["x"]],
+        [/^(.+) renamed to (.+)$/, "renamed", ["a", "b"]],
+        [/^(.+) saved\.$/, "saved", ["x"]],
+        [/^(.+) changed$/, "changed", ["x"]]];
+    /* placeholder values that are words of the robot: SLOW / MEDIUM / FAST, the wheels */
+    var WHEEL_WHY = { 'timeout': 'timeout', 'no data': 'no_data', 'fault: MOTOR_DRV_FAULT': 'drv_fault' };
+    function known(k, raw) { var s = t(k); return s && s !== k ? s : raw; }
+    function robotSub(name, raw) {
+        if (name === 'speed') { return known('auto.line.speed.' + raw, raw); }
+        if (name === 'motors') {
+            return raw.replace(/\b([A-Z]+_[A-Z]+) \(([^)]*)\)/g, function (m0, w, why) {
+                return known('auto.line.wheel.' + w, w) + ' (' + (WHEEL_WHY[why] ? known('auto.line.wheel_why.' + WHEEL_WHY[why], why) : why) + ')';
+            });
+        }
+        return raw;
+    }
     /* T28: why a heading nudge stopped / did not start (dock_smach + drive_primitive
        reasons, English in the robot's code); an unknown reason stays as it is. */
     var NUDGE_WHY = [[/^obstacle ahead ([0-9.]+) m$/, 'obstacle', 'm'], [/^(?:hold|mux hold\b.*)$/, 'hold'],
@@ -2246,6 +2443,16 @@
                 var key = LINES[i][1], x = m[1] || '';
                 if (key === 'nudge_stopped' || key === 'nudge_skipped') { x = nudgeWhy(x); }
                 return t('auto.line.' + key, { x: x });
+            }
+        }
+        var raw = String(text).trim();
+        for (var j = 0; j < ROBOT_TEXT.length; j++) {
+            var r = ROBOT_TEXT[j][0].exec(raw);
+            if (r) {
+                var names = ROBOT_TEXT[j][2] || [], v = {};
+                for (var n = 0; n < names.length; n++) { v[names[n]] = robotSub(names[n], r[n + 1] || ''); }
+                var k2 = 'auto.line.' + ROBOT_TEXT[j][1], out = t(k2, v);
+                return out && out !== k2 ? out : null;
             }
         }
         return null;

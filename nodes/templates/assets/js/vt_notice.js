@@ -90,7 +90,7 @@
         function say(o) {
             var key = o.key || o.text;
             var item = { key: key, text: o.text, level: o.level === undefined ? 2 : o.level, sticky: !!o.sticky,
-                         ttl: o.ttl, action: o.action || null, conn: !!o.conn, t: now() };
+                         ttl: o.ttl, action: o.action || null, conn: !!o.conn, raw: o.raw || null, t: now() };
             if (cur && cur.key === key) {
                 var same = cur.text === item.text;
                 item.shown = cur.shown;
@@ -137,7 +137,7 @@
             if (!raw) { return; }
             /* the master's own diary: Autonomy says it in words, the log keeps it */
             if (/^\[(Master|Sleep)\]/.test(raw)) { return; }
-            var o = { key: 'robot:' + raw, text: text || raw, level: classify(raw), repeat_ms: 8000 };
+            var o = { key: 'robot:' + raw, text: text || raw, raw: raw, level: classify(raw), repeat_ms: 8000 };
             if (now() < burstUntil) {
                 burstLine = o;
                 if (burstTimer === null) {
@@ -153,7 +153,14 @@
             say(o);
         }
         function connected() { burstUntil = now() + BURST_MS; }
-        return { say: say, clear: clear, robot: robot, connected: connected, pump: pump,
+        /* T8 dávka V: the language changed — the robot's lines (shown and waiting) are
+           translated again from their English original; the shown one is repainted */
+        function retext(tr) {
+            var re = function (q) { if (q && q.raw) { var s = tr(q.raw); q.text = s || q.raw; } };
+            queue.forEach(re);
+            if (cur && cur.raw) { var was = cur.text; re(cur); if (cur.text !== was) { paint(cur); } }
+        }
+        return { say: say, clear: clear, robot: robot, connected: connected, pump: pump, retext: retext,
                  _cur: function () { return cur; }, _queue: function () { return queue; } };
     }
 
@@ -202,4 +209,11 @@
     }
     root.VTNotice = make({ paint: paint });
     document.addEventListener('rosconnected', function () { root.VTNotice.connected(); });
+    (function hookLang(n) {
+        if (root.VTI18n && root.VTI18n.onChange) {
+            root.VTI18n.onChange(function () {
+                root.VTNotice.retext(function (raw) { return root.VTAutonomy && root.VTAutonomy.robotLine ? root.VTAutonomy.robotLine(raw) : null; });
+            });
+        } else if (n < 20) { setTimeout(function () { hookLang(n + 1); }, 250); }
+    })(0);
 }(typeof window !== 'undefined' ? window : globalThis));

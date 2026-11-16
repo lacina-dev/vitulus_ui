@@ -150,7 +150,9 @@ přihlášení**. Zrušení platí pro celý běh. Mimo dok proud nikdy nevypne.
 **Ohlásit, když deska sekačky mlčí** (Poruchy, výchozí je zapnuto): když neběží žádný program a deska
 neodpovídá déle než 2 minuty, robot to ohlásí — *Deska sekačky 7 h 30 min neodpovídá (od 23:10; v doku,
 žádný program)*, mimo dok bez „v doku" — a nejvýš dvakrát připomene (po 1 hodině, pak po 4 hodinách);
-bez desky nesekne. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala.
+bez desky nesekne. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
+a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
+posledního stavu desky (hodnoty pod ním jsou poslední, co poslala).
 **Mlčící desku restartovat i bez programu** (Poruchy, výchozí je vypnuto): robot pak udělá stejný tvrdý
 restart, i když neběží žádný program — vypne a znovu zapne napájení, i počítače; stejné pojistky (ne když
 je někdo připojený, ani když na robotu pracuje Claude, 60 s předem se **Zrušit**, nejvýš dvakrát za 24 hodin). Bez programu hlášky
@@ -242,7 +244,8 @@ Jeden řádek říká, co robot dělá a co přijde: spánek předem („Za 5 mi
 je to známé, odpočet se **Zrušit**, *Spánek zrušen*, *Vyjíždím: Bigger*, *Čekám na RTK*, *Sekání
 dokončeno*. STOP a chyby jdou první a drží se, dokud neskončí. Běžné hlášky robota čekají ve frontě,
 každá zůstane aspoň 2,5 sekundy a všechny zůstávají v **Logu**. Na telefonu je řádek kratší, celá věta
-je v panelu.
+je v panelu. Robot píše hlášky anglicky; řádek i **Log** ukazují ty, které UI zná (skoro všechny), česky,
+neznámou hlášku tak, jak ji robot napsal. V **Logu** je původní text robota v bublině řádku.
 
 ## Mimo panel
 

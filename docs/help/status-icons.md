@@ -64,7 +64,7 @@ when. The colours come back with the next data.
 | ![IMU](img/status/imu.svg) | IMU | on | — | — | off |
 | ![Lidar](img/status/lidar.svg) | Lidar | on | — | — | off |
 | ![Camera](img/status/camera.svg) | Camera (D435) | on | — | — | off |
-| ![Mower](img/status/mower.svg) | Mower | on | busy | error | disabled |
+| ![Mower](img/status/mower.svg) | Mower | on | busy | error · *not answering* (the board is silent) | disabled |
 | ![Drive motor](img/status/motor.svg) | Drive motor (one per wheel — the filled wheel is the one) | OK | warm | hot | disabled |
 | ![Board temperature](img/status/temp_pcb.svg) | Board temperature | OK | warm | hot | no data |
 | ![Board fan](img/status/fan_pcb.svg) | Board fan | running | — | — | off |

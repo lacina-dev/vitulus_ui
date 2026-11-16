@@ -62,9 +62,21 @@
        under them (vt_header.css, the D10 narrow rule). .vt-agent-narrow: the pills'
        slot is < 240 px wide, the STOP latch wraps instead of "STO…". */
     var NOTICE_MIN = 300, PILLS_NARROW = 240;
+    /* T8 dávka V: the map's column (compass rose → layers button → measure button)
+       hangs on these values. The layers button is placed right here, in the same
+       frame (it waited for a style-mutation → rAF hop, 0.2–0.9 s off by ~32 px on
+       a loaded tablet); the measure button follows it through its own observer. */
+    function mapColPlace() {
+        if (window.VTMapLayers && typeof window.VTMapLayers.place === 'function') {
+            try { window.VTMapLayers.place(); } catch (e) { /* the map column is not built yet */ }
+        }
+    }
     function agentPlace() {
         var bars = $('vagent_bars'), body = document.body;
-        if (!bars || !body) { return; }
+        if (!bars || !body) { mapColPlace(); return false; }
+        var cs0 = document.documentElement.style;
+        var was = cs0.getPropertyValue('--vt-agent-b') + '|' + cs0.getPropertyValue('--vt-agent-r') + '|' +
+                  body.classList.contains('vt-n-below') + '|' + body.classList.contains('vt-agent-narrow');
         var r = bars.getBoundingClientRect(), on = r.height > 0, right = 0;
         if (on) {
             for (var i = 0; i < bars.children.length; i++) {
@@ -80,6 +92,21 @@
         setCls(body, 'vt-n-below', pc && on && room < NOTICE_MIN);
         var mw = parseFloat(getComputedStyle(bars).maxWidth);
         setCls(body, 'vt-agent-narrow', pc && isFinite(mw) && mw < PILLS_NARROW);
+        mapColPlace();
+        return was !== cs0.getPropertyValue('--vt-agent-b') + '|' + cs0.getPropertyValue('--vt-agent-r') + '|' +
+                       body.classList.contains('vt-n-below') + '|' + body.classList.contains('vt-agent-narrow');
+    }
+    // the pills changed size (ResizeObserver, after layout): when that moved their
+    // bottom / right edge or the notice's rule, the notice line's bottom
+    // (--vt-frame-notice-b, the rose's floor in the overlay mode) is measured again
+    // now instead of on the next frame's mutation pass (one stale frame less)
+    var agentDepth = 0;
+    function agentResized() {
+        if (agentPlace() && agentDepth < 2) {
+            agentDepth++;
+            try { if (raf) { (window.cancelAnimationFrame || clearTimeout)(raf); } update(); }
+            finally { agentDepth--; }
+        }
     }
 
     function update() {
@@ -806,7 +833,7 @@
             // hollow a pill takes two lines and covered the rose
             if (bars && !bars._vtFrameW && window.ResizeObserver) {
                 bars._vtFrameW = 1;
-                new ResizeObserver(agentPlace).observe(bars);
+                new ResizeObserver(agentResized).observe(bars);
                 agentPlace();
             }
             if (lp && !lp._vtFrameW) { lp._vtFrameW = 1; watch(lp, {attributes: true, attributeFilter: ['hidden', 'class', 'style']}); }

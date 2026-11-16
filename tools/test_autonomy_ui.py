@@ -532,6 +532,29 @@ def link_story(p, shots, label):
     check('banner on the page', p.pg.locator('#auto_link').is_visible() and len(text) > 10, text)
     check('in the right panel', p.pg.locator('.rp-auto-link').text_content() == text)
     check('above the map', p.until(re.escape(text[:20])), p.line())
+    # T8 dávka V (T37): the device state INVALID (silent board) in words — the right panel's Mower
+    # chip and the header icon, not the board's last state (WAIT) nor "disabled"; the Auto chip says why
+    cs = label.endswith('cs')
+    icon = {k: 'ON' for k in 'fan_int fan_ext imu lidar d435'.split()}
+    icon.update(supply='ONLINE', batt='FULL_CHARGE', temp_int='OK', temp_ext='OK', mot_lf='DISABLED', mot_rf='DISABLED',
+                mot_lr='DISABLED', mot_rr='DISABLED', mower='INVALID', gnss_nav='3DFIX', gnss='3DFIX', wifi='MEDIUM', t265='',
+                header={'stamp': {'secs': 0, 'nsecs': 0}, 'frame_id': '', 'seq': 0})
+    p.raw('/mower/status', {'header': {'stamp': {'secs': 0, 'nsecs': 0}, 'frame_id': '', 'seq': 0}, 'status': 'WAIT', 'moto_dir': 'L',
+                            'moto_rpm': 0, 'setpoint_rpm': 0, 'current_height': 45, 'max_height': 70, 'temp': 21})
+    p.raw('/device_state_pub/icon_status', icon)
+    silent = 'Neodpovídá' if cs else 'Silent'
+    chip = p.wait(lambda: (p.text('#rp_mower_chip') or '') == silent and p.text('#rp_mower_chip'))
+    check('silent board: the Mower chip says so, not its last state (WAIT)', chip == silent, chip)
+    check('… red', p.pg.evaluate("document.getElementById('rp_mower_chip').dataset.state") == 'err')
+    ht = p.wait(lambda: (p.pg.evaluate("(document.querySelector('.sh-ico[data-ico=mower]')||{}).title||''") or '').find('neodpovídá' if cs else 'not answering') >= 0
+                and p.pg.evaluate("document.querySelector('.sh-ico[data-ico=mower]').title"))
+    check('… the header icon says "not answering", not "disabled"', bool(ht), ht)
+    auto = p.text('.rp-auto-chip')
+    check('… the Auto chip says the mower is silent, not just "Mower"', ('mlčí' if cs else 'silent') in (auto or '').lower(), auto)
+    icon['mower'] = 'ON'
+    p.raw('/device_state_pub/icon_status', icon)
+    chip = p.wait(lambda: (p.text('#rp_mower_chip') or '') == ('Čeká' if cs else 'Waiting') and p.text('#rp_mower_chip'))
+    check('… it answers again: its state in words (WAIT -> %s)' % ('Čeká' if cs else 'Waiting'), chip == ('Čeká' if cs else 'Waiting'), chip)
     p.pub('/mower/link', {'state': 'ok', 'banner': None})
     p.tick()
     check('gone when it answers', p.pg.locator('#auto_link').is_hidden())
