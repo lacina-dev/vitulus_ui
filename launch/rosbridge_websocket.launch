@@ -38,6 +38,14 @@
 
   <group if="$(arg ssl)">
     <node name="rosbridge_websocket" pkg="rosbridge_server" type="rosbridge_websocket" output="$(arg output)">
+      <!-- T39: rosbridge runs ~290 threads (one per subscription and connection) and glibc
+           gives them up to 64 malloc arenas (8 per core). Every big message packed in a
+           thread (the 2 MB base map, grids, images) inflates that thread's arena and the
+           freed memory is not returned: RSS grew by ~50-70 MB with every page that
+           connected (443 MB after 4 short clients, 756 MB after 7, 2.1 GB within an hour
+           of UI tests). Two arenas keep the freed memory reusable; Python holds the GIL,
+           so the allocator lock is not contended. Takes effect on the next stack start. -->
+      <env name="MALLOC_ARENA_MAX" value="2" />
       <param name="certfile" value="$(arg certfile)" />
       <param name="keyfile" value="$(arg keyfile)" />
       <param name="authenticate" value="$(arg authenticate)" />
@@ -62,6 +70,14 @@
   </group>
   <group unless="$(arg ssl)">
     <node name="rosbridge_websocket" pkg="rosbridge_server" type="rosbridge_websocket" output="$(arg output)">
+      <!-- T39: rosbridge runs ~290 threads (one per subscription and connection) and glibc
+           gives them up to 64 malloc arenas (8 per core). Every big message packed in a
+           thread (the 2 MB base map, grids, images) inflates that thread's arena and the
+           freed memory is not returned: RSS grew by ~50-70 MB with every page that
+           connected (443 MB after 4 short clients, 756 MB after 7, 2.1 GB within an hour
+           of UI tests). Two arenas keep the freed memory reusable; Python holds the GIL,
+           so the allocator lock is not contended. Takes effect on the next stack start. -->
+      <env name="MALLOC_ARENA_MAX" value="2" />
       <param name="authenticate" value="$(arg authenticate)" />
       <param name="port" value="$(arg port)"/>
       <param name="address" value="$(arg address)"/>
