@@ -211,6 +211,22 @@ check('cs: "sekačka", never "sečka"', !Object.values(D.cs).some((v) => /[Ss]e�
           /\(code === 'OFF' \|\| code === 'UNK' \|\| rpm === null\) \? '0 rpm'/.test(MV));
 }
 
+// V-d: back from a silence the blade START waits for a NEW /mower/status (the link's code and the
+// one from before are old news); a settings key without a label is no raw key in the master's lines
+{
+    const MV = fs.readFileSync(path.join(JS, 'map_view.js'), 'utf8');
+    const RD = fs.readFileSync(path.join(JS, 'right_dock.js'), 'utf8');
+    check('V-d: every real /mower/status stamps data-status-at; the link does not',
+          /span_mower_panel_status\.dataset\.statusAt = String\(Date\.now\(\)\)/.test(MV) &&
+          !/statusAt/.test(MV.slice(MV.indexOf('mower_link(message) {'), MV.indexOf('pub_mower_set_power(value) {'))));
+    check('V-d: right panel: START only on a status newer than the last silence seen, STOP untouched',
+          /if \(silent\) \{ lastSilentAt = Date\.now\(\); \}/.test(RD) &&
+          /if \(lastSilentAt && !\(Number\(st && st\.dataset\.statusAt\) > lastSilentAt\)\) \{ startCode = ''; \}/.test(RD) &&
+          /'data-status-at', 'data-link'\]/.test(RD) && /run: on \? code : ''/.test(RD));
+    check('V-d: "[Master] Settings changed by owner: stay_awake_until." has a label',
+          !/stay_awake_until/.test(ctx.robotLine('[Master] Settings changed by owner: stay_awake_until.') || 'stay_awake_until'));
+}
+
 // 4) coverage of a real log (report only)
 {
     const f = process.argv[2] || path.join(process.env.HOME || '', '.ros', 'vitulus_status_log', 'status_log.jsonl');

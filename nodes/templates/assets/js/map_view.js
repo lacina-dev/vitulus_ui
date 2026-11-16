@@ -7107,6 +7107,9 @@ class Mower {
             // T8 dávka V-b: the code of every message (OFF / UNK too): the right panel
             // shows a silent board even when its last word was OFF — it knows a
             // message came (without one since the page loaded it says nothing)
+            // T8 V-d: when the last REAL /mower/status came (a code written from /mower/link
+            // is old news): after a silence the blade start waits for a newer one
+            if (this.span_mower_panel_status) this.span_mower_panel_status.dataset.statusAt = String(Date.now());
             if (this.span_mower_panel_status) this.span_mower_panel_status.dataset.status = message.status || '';
             if (message.status === 'UNK' || message.status === 'OFF') {
                 this.div_mower_info_panel.style.display = 'none';

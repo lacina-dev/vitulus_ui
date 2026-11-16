@@ -32,7 +32,7 @@ never wraps onto a second line:
   in words), and when no live data comes they turn grey with *no live data* over them — see
   [Status icons](status-icons.md).
 - **Right** — the robot's **computer** (CPU · RAM · download ↓ · upload ↑, click = a card with
-  more), then **?** help, the bell (**Needs you**, the number on it counts what waits for you),
+  more), then **?** help, the bell (**Needs you**, the number on it counts what waits for you; until the first answer after a load it says *loading*),
   **Restart** (the power icon — restarts the whole robot after you confirm) and **⋯** more:
   **Fullscreen** and the **language** (EN / CS, the same choice as Settings › App).
 - **The corner** — the round **STOP** (below); the bar runs into it from the left.

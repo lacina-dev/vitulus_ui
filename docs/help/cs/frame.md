@@ -30,7 +30,7 @@ když se změní číslo nebo se objeví hláška, nic v liště neuskočí a ni
   klik na ostatní otevře **kartu stavu** (každá ikona se stavem slovy), a když nejdou živá data,
   zešednou a přes ně je *bez živých dat* — viz [Ikony stavu](status-icons.md).
 - **Vpravo** — **počítač** robota (CPU · RAM · stahování ↓ · odesílání ↑, klik = karta s dalšími
-  čísly), pak **?** nápověda, zvonek (**Čeká na tebe**, číslo na něm počítá, co na tebe čeká),
+  čísly), pak **?** nápověda, zvonek (**Čeká na tebe**, číslo na něm počítá, co na tebe čeká; do první odpovědi po načtení říká *načítám*),
   **Restart** (ikona vypínače — po potvrzení restartuje celého robota) a **⋯** další:
   **Celá obrazovka** a **jazyk** (EN / CS, stejná volba jako Settings › App).
 - **Roh** — kulatý **STOP** (níž); lišta do něj vbíhá zleva.

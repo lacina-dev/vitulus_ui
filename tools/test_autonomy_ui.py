@@ -572,6 +572,19 @@ def link_story(p, shots, label):
     p.pub('/mower/link', {'state': 'ok', 'banner': None})
     chip = p.wait(lambda: (p.text('#rp_mower_chip') or '') == ('Čeká' if cs else 'Waiting') and p.text('#rp_mower_chip'))
     check('… it answers again: its state in words (WAIT -> %s)' % ('Čeká' if cs else 'Waiting'), chip == ('Čeká' if cs else 'Waiting'), chip)
+    # V-d: back from a silence the START waits for a NEW /mower/status: the link said READY (before the
+    # silence), the link turns ok a moment before the first status -> no start yet; a fresh READY -> start
+    p.pub('/mower/link', {'state': 'silent', 'banner': 'silent', 'status': 'READY', 'silent_s': 40, 'rpm': 0, 'height': 45, 'temp': 21})
+    p.tick(600)
+    p.pub('/mower/link', {'state': 'ok', 'banner': None})
+    p.tick(1200)
+    offered = "(()=>{const b=document.getElementById('rp_mower_blade_start');return !!(b&&b.style.display!=='none'&&!b.disabled)})()"
+    check('V-d: back from silence, code READY only from before / the link: no blade start offered', not p.pg.evaluate(offered))
+    ms['status'] = 'READY'
+    p.raw('/mower/status', ms)
+    check('V-d: … a NEW /mower/status READY: the start is offered again', bool(p.wait(lambda: p.pg.evaluate(offered))))
+    ms['status'] = 'WAIT'
+    p.raw('/mower/status', ms)
     p.pub('/mower/link', {'state': 'ok', 'banner': None})
     p.tick()
     check('gone when it answers', p.pg.locator('#auto_link').is_hidden())

@@ -165,7 +165,7 @@ tam dojde, nic nespustí); mimo dok, kde by blok restart odmítl, se odkaz neuka
 zešedne a řekne *Deska sekačky mlčela od 17:25, už odpovídá* — není co řešit, zůstane, dokud ji nesmažeš. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
 posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
-dál, roztočit ne.
+dál, roztočit ne, a po návratu desky až poté, co znovu ohlásí *připraveno*.
 **Mlčící desku restartovat i bez programu** (Poruchy, výchozí je vypnuto): robot pak udělá stejný tvrdý
 restart, i když neběží žádný program — vypne a znovu zapne napájení, i počítače; stejné pojistky (ne když
 je někdo připojený, ani když na robotu pracuje Claude, 60 s předem se **Zrušit**, nejvýš dvakrát za 24 hodin). Bez programu hlášky

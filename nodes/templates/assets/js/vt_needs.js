@@ -115,7 +115,10 @@
                 ((field.data && field.data.items) || []).some(function (x) { return x.urgency === 'high'; })));
         return { asks: a, work: w, field: f, todo: todo, stav: hd && hd.stav, home: home, hd: hd, cur: cur,
                  fieldEntry: field, askEntry: asks, fieldN: fieldN, alerts: al,
-                 n: a.length + w.length + fieldN + al.length, urgent: urgent };
+                 n: a.length + w.length + fieldN + al.length, urgent: urgent,
+                 /* T8 V-d: the field dashboard has answered once (home or attention, ok or
+                    not): before that "nothing waits" would be a guess */
+                 loaded: !!(home || field) };
     }
 
     /* ------------------------------------------------------------- bell */
@@ -150,7 +153,9 @@
         bellN.textContent = m.n ? (m.n > 99 ? '99+' : String(m.n)) : '';
         bell.classList.toggle('vt-on', active);
         bell.title = t('needs.bell.tip');
-        bell.setAttribute('aria-label', m.n ? t('needs.bell.n', { n: m.n }) : t('needs.bell.none'));
+        var wait = !m.n && !m.loaded;   // T8 V-d: no answer yet: "loading", not "nothing waits"
+        if (wait) { bell.setAttribute('data-loading', '1'); } else { bell.removeAttribute('data-loading'); }
+        bell.setAttribute('aria-label', m.n ? t('needs.bell.n', { n: m.n }) : t(wait ? 'needs.bell.loading' : 'needs.bell.none'));
     }
 
     /* ------------------------------------------------------------ panel */
@@ -402,7 +407,7 @@
         paintBell(m);
         if (!panel || !active) { return; }
         var meta = document.getElementById('vt_needs_meta');
-        if (meta) { meta.textContent = m.n ? tn('needs.waiting', m.n) : t('needs.nothing_waits'); }
+        if (meta) { meta.textContent = m.n ? tn('needs.waiting', m.n) : t(m.loaded ? 'needs.nothing_waits' : 'needs.loading'); }
         var root = panel.querySelector('.vt-needs-body');
         // keep the reader's place: a poll must not throw the list back to the top
         var sc = root.closest('#ui_drawer_body') || root.parentNode;

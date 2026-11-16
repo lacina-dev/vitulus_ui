@@ -180,7 +180,8 @@ and says *The mower board was silent since 17:25; it answers again* — nothing 
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping
-the blade there still works; starting it does not. **Reset a silent board also with no
+the blade there still works; starting it does not, and after the board answers again only once it
+reports *ready* anew. **Reset a silent board also with no
 program** (Faults, off by default): then the robot does the same hardware reset with no program
 running too — the power goes off and on again, the computer as well; the same safeguards (not while
 somebody is connected, nor while Claude is working on the robot, 60 s ahead with **Cancel**, at most twice in 24 hours). Without a program the

@@ -671,6 +671,7 @@
         if (st && !st.dataset.status) {
             [st, vR, vH, vT].forEach(function (e) { if (e) { e.textContent = ''; } });
         }
+        var lastSilentAt = 0;           // T8 V-d: when this page last saw the board silent
         var paint = function () {
             var powered = src.style.display !== 'none';
             var txt = st ? (st.textContent || '').trim() : '';
@@ -689,6 +690,11 @@
             var on = powered || (silent && (seen || linkSilent));
             var startCode = code;
             if (silent && on) { txt = t('rdock.mower.silent'); state = 'err'; startCode = ''; }
+            /* V-d: back from a silence (/mower/link "ok" comes a moment before the first
+               /mower/status) the code is still the one from before / from the link: the
+               START waits for a NEW /mower/status (a fresh READY); the STOP is unchanged */
+            if (silent) { lastSilentAt = Date.now(); }
+            if (lastSilentAt && !(Number(st && st.dataset.statusAt) > lastSilentAt)) { startCode = ''; }
             if (chip.textContent !== txt) { chip.textContent = txt; }
             if (chip.dataset.state !== state) { chip.dataset.state = state; }
             setTip(chip, t('rdock.sec.mower') + ': ' + (silent && on ? t('rdock.mower.silent.tip') : (txt || '—')));
@@ -741,7 +747,7 @@
         };
         paint();
         relang.push(paint);
-        new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style', 'data-status', 'data-link'],
+        new MutationObserver(paint).observe(src, {attributes: true, attributeFilter: ['style', 'data-status', 'data-status-at', 'data-link'],
             childList: true, characterData: true, subtree: true});
         if (ico) { new MutationObserver(paint).observe(ico, {attributes: true, attributeFilter: ['data-vt-silent']}); }
         setInterval(paint, 2000);              // the running program
