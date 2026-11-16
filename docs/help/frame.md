@@ -59,7 +59,7 @@ three rows of 40 px, 120 px in all. The notices float in the top of the map like
 the summary, or under the right panel's row, right of the compass and the layers button (a long
 line ends in **…**). Whether the right panel is unfolded or folded, the agent's lines (a latched STOP with
 **Release STOP**, the open dock with **Lock again**, what the agent does) stand as a column on the
-map under the compass and the layers button (left of an unfolded panel; with the left panel open,
+map under the compass, the layers and the measure button — never over one of them (left of an unfolded panel; with the left panel open,
 beside them, above it) — whole words, full-width buttons;
 the panel never moves when the agent starts or stops talking. ? and the computer are in **⋯**; on a
 narrow phone (where the menu band's keys would be under 40 px next to STOP) **Support** is there

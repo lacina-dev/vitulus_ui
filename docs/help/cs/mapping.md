@@ -300,8 +300,8 @@ Dokud robot měří, na tlačítku je *Měřím…* a je vypnuté. Změřit jde 
 a řádek pod ním řekne proč.
 
 Když jsou nad snímkem Google nebo Bing zapnuté čáry katastru, adres nebo vrstevnic a snímek na této
-mapě nemá žádný posun (změřený ani ruční), panel vrstev to řekne jedním řádkem pod čárovými vrstvami
-— *Čáry můžou být až o 1 m vedle snímku* — s odkazem **Změřit proti ČÚZK**, který otevře rámeček
+mapě nemá žádný posun (změřený ani ruční), panel vrstev to řekne krátkou poznámkou pod čárovými vrstvami
+— *Čáry můžou být až o 1 m vedle snímku* — s odkazem **Změřit proti ČÚZK** pod ní, který otevře rámeček
 posunu u tlačítka. Poznámka se ukáže jednou pro mapu a snímek; **×** ji skryje.
 
 Podkladové mapy jsou ve dvou

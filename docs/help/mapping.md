@@ -311,8 +311,8 @@ be measured: when the robot shows no saved map, or the map has no datum, the but
 off and the line under it says why.
 
 When cadastre, address or contour lines are on over a Google or Bing photo that has no offset on this
-map (neither measured nor set by hand), the layers panel says so in one line under the line layers —
-*Lines may sit up to about 1 m off this photo* — with the link **Measure against ČÚZK**, which opens the
+map (neither measured nor set by hand), the layers panel says so in a short note under the line layers —
+*Lines may sit up to about 1 m off this photo* — with the link **Measure against ČÚZK** under it, which opens the
 alignment box at the button. The note shows once for a map and a photo; **×** hides it.
 
 The background maps come in two groups: **aerial and satellite photos** (Google satellite, Google

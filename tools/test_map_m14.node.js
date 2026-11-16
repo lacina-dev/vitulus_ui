@@ -195,6 +195,16 @@ check('the store is read and written inside try/catch', /function lsGet\(k\) \{ 
 check('the note is a line in the panel, not a dialog; the link is a button of 40 px',
       /data-lyr-unal role="note" hidden/.test(LYR) && /class="vt-lyr-more vt-lyr-unal-go" data-lyr-unal-go/.test(LYR) &&
       /\.vt-lyr-more \{\s*min-height: 40px;/.test(fs.readFileSync(path.join(ROOT, 'nodes', 'templates', 'assets', 'css', 'vt_map_layers.css'), 'utf8')));
+{
+    // T8 dávka IV: beside the link the words broke into three short lines (desktop en)
+    const CSS = fs.readFileSync(path.join(ROOT, 'nodes', 'templates', 'assets', 'css', 'vt_map_layers.css'), 'utf8');
+    const rule = (sel) => { const m = CSS.match(new RegExp('\\n' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}')); return m ? m[1] : ''; };
+    check('note layout: a grid, the words with × beside them, the link on its own row under the words',
+          /display: grid/.test(rule('.vt-lyr-unal')) && /grid-template-columns: minmax\(0, 1fr\) auto/.test(rule('.vt-lyr-unal')) &&
+          /grid-row: 1/.test(rule('.vt-lyr-unal-t')) && /grid-column: 2; grid-row: 1/.test(rule('.vt-lyr-unal-x')) &&
+          /grid-column: 1 \/ -1; grid-row: 2/.test(rule('.vt-lyr-unal-go')));
+    check('note layout: no flex basis that squeezes the words to 7em beside the link', !/flex: 1 1 7em/.test(rule('.vt-lyr-unal-t')));
+}
 
 // ---- i18n -----------------------------------------------------------------------
 const en = fs.readFileSync(path.join(JS, 'i18n', 'en.js'), 'utf8'), cs = fs.readFileSync(path.join(JS, 'i18n', 'cs.js'), 'utf8');

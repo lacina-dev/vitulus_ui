@@ -56,8 +56,8 @@ tu nejhorší ze skupiny. Logo, tečka, ?, zvonek, ⋯ a STOP jsou tam vždycky.
 tři řádky po 40 px, dohromady 120 px. Hlášky plavou v horní části mapy jako na PC: pod souhrnem,
 nebo pod řádkem pravého panelu, vpravo od kompasu a tlačítka vrstev (dlouhý řádek končí **…**).
 Ať je pravý panel rozbalený, nebo sbalený, řádky agenta (zajištěný STOP se **Zrušit STOP**,
-povolený dok se **Zamknout**, co agent dělá) stojí jako sloupec na mapě pod kompasem a tlačítkem
-vrstev (u rozbaleného panelu vlevo od něj; při otevřeném levém panelu vedle nich, nad ním) — celá slova, tlačítka přes celou šířku; panel se nepohne, když agent začne nebo
+povolený dok se **Zamknout**, co agent dělá) stojí jako sloupec na mapě pod kompasem, tlačítkem
+vrstev a tlačítkem měření — nikdy přes ně (u rozbaleného panelu vlevo od něj; při otevřeném levém panelu vedle nich, nad ním) — celá slova, tlačítka přes celou šířku; panel se nepohne, když agent začne nebo
 přestane mluvit.
 ? a počítač jsou v **⋯**; na úzkém telefonu (kde by klávesy pásu menu vedle STOP měly pod 40 px) je
 tam i **Podpora**, jako první položka **⋯** (pak **Značka**, jen když je to ještě potřeba); dokud je ten panel otevřený,

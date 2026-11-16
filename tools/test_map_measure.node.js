@@ -55,5 +55,37 @@ const ph = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join(',');
 const miss = [...keys].filter((k) => !(k in D.en) || !(k in D.cs));
 check('measure.* keys in en + cs (' + keys.size + ')', !miss.length, miss.join(', '));
 check('same placeholders en / cs', [...keys].every((k) => !(k in D.en) || ph(D.en[k]) === ph(D.cs[k])));
+// T8 dávka IV: on a phone the agent's pills ("FINDING 16 to read") covered the
+// measure button under the layers button — the pills column (vt_frame.js) starts
+// below the measure button too, its bottom taken from the layers button as place() does
+{
+    const fr = fs.readFileSync(path.join(JS, 'vt_frame.js'), 'utf8');
+    const blk = fr.slice(fr.indexOf("var meas = $('vt_meas_btn');"), fr.indexOf("var pw = unf ?"));
+    check('pills column: the measure button is one of what it starts under',
+          /\[fab, rose, meas\]\.forEach/.test(blk) && /ptop = Math\.max\(ptop, bot \+ 8\)/.test(blk));
+    check('… its bottom from the layers button (fab bottom + 8 + its height, as place() puts it)',
+          /fr\.bottom \+ 8 \+ e\.offsetHeight/.test(blk) && /var top = Math\.round\(r\.bottom \+ 8\);/.test(src));
+    const fl = fr.slice(fr.indexOf('var sheetOpen ='), fr.indexOf("var meas = $('vt_meas_btn');"));
+    check('… and with the layers sheet or the measure strip open it stands beside the buttons, above the sheet',
+          /\['vt_lyr_panel', 'vt_meas_card'\]\.forEach/.test(fl) && /pbot = Math\.min\(pbot, e\.getBoundingClientRect\(\)\.top\)/.test(fl));
+    check('… which the frame watches (opening the sheet lays the pills out again)',
+          /watch\(lp, \{attributes: true, attributeFilter: \['hidden', 'class', 'style'\]\}\)/.test(fr) && /watch\(mc, /.test(fr));
+}
+// T8 dávka IV (review): after a load the layers button once stood 28 px over the rose —
+// it follows the rose's size and, once a second, its position (the frame's variable chains)
+check('layers button: re-placed on the rose\'s resize and when it is off the rose\'s bottom + 8',
+      /new ResizeObserver\(schedulePlace\)\.observe\(r\)/.test(layers) && /var want = Math\.round\(r\.getBoundingClientRect\(\)\.bottom \+ 8\);/.test(layers) &&
+      /var top = Math\.round\(r\.bottom \+ 8\);/.test(src));
+{
+    const fr = fs.readFileSync(path.join(JS, 'vt_frame.js'), 'utf8');
+    const ap = fr.slice(fr.indexOf('function agentPlace()'), fr.indexOf('function update()'));
+    check('pills: the notice steps under them when < 300 px is left after them (vt-n-below), the bottom and right edge as variables',
+          /NOTICE_MIN = 300/.test(fr) && /setCls\(body, 'vt-n-below', pc && on && room < NOTICE_MIN\)/.test(ap) &&
+          /'--vt-agent-r'/.test(ap) && /'--vt-agent-b'/.test(ap) && /window\.innerWidth - rpw - 54/.test(ap));
+    const css = fs.readFileSync(path.join(TPL, 'assets', 'css', 'vt_header.css'), 'utf8');
+    check('… the bars keep clear of the right panel\'s 40-px handle (−54 px), the old two-pill rose rule is gone',
+          /var\(--vt-frame-rp-w, 0px\) - 54px\);/.test(css) && !/\.vagent-strip-on \.vt-utm-rose/.test(css) &&
+          /vt-n-below:not\(\.vt-m-sheet\) \.vt-notice-row \{ --vt-n-narrow: 1px; \}/.test(css));
+}
 console.log(fails ? '\n' + fails + ' check(s) FAILED' : '\nOK — all checks passed');
 process.exit(fails ? 1 : 0);

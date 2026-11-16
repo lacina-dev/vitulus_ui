@@ -1165,6 +1165,19 @@ def a2_fit(p, shots, label):
     if r['coarse']:
         check(label + ' A2: touch targets >= 40 px (calendar switch, Edit, Delete, Limit, sleep line)',
               all(h[2] >= 40 for h in r['hits']) and len(r['hits']) >= 6, r['hits'])
+    # T8 dávka IV (T4 backlog): a setting row's foot — the hidden Reset (value = default) leaves
+    # no empty strip, a shown one is a finger's size on touch, and showing it moves nothing
+    ft = p.pg.evaluate("""()=>[...document.querySelectorAll('#div_menu_autonomy .vt-auto-set-f')].filter(e=>e.offsetParent).map(f=>{
+        const b=f.querySelector('.vt-auto-reset'), fb=f.getBoundingClientRect(), bb=b?b.getBoundingClientRect():null;
+        const tops=new Set([...f.children].map(c=>c.getBoundingClientRect()).filter(c=>c.width>0).map(c=>Math.round((c.top+c.bottom)/2/12)));
+        return {h:Math.round(fb.height), lines:Math.max(1,tops.size), shown:!!b&&b.style.visibility!=='hidden',
+                bh:bb?Math.round(bb.height):0, k:(f.parentNode.dataset||{}).key||''}})""")
+    check(label + ' A2: setting feet found', len(ft) >= 3, ft)
+    tall = [f for f in ft if f['lines'] == 1 and f['h'] > 26]
+    check(label + ' A2: a one-line setting foot keeps its 22-px line (no empty strip for a hidden Reset)', not tall, tall[:4])
+    if r['coarse']:
+        small = [f for f in ft if f['shown'] and f['bh'] < 40]
+        check(label + ' A2: a shown Reset is >= 40 px on touch', not small, small[:4])
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-a2-calendar.png'))
         p.pg.evaluate("document.getElementById('auto_timeline').scrollIntoView({block: 'center'})")
@@ -1780,6 +1793,46 @@ def a6_fit(p, shots, label):
     p.open('plan')
 
 
+def agent_slot(p, label):
+    """T8 dávka IV: the agent's pills (a dock pill, a finding, a STOP latch) beside a LONG notice: inside
+    their slot, never over the right panel or its handle, the notice and the compass rose not under them,
+    the STOP latch readable (not "STO…")."""
+    bp = p.pg.evaluate("""async ()=>{const u=document.getElementById('vagent_unlocked'), st=document.getElementById('vagent_strip'), pa=document.getElementById('vagent_panic'), b=document.getElementById('vagent_bars');
+        const ln=document.getElementById('span_status_info');
+        if(!u||!st||!ln) return null;
+        const was=[u.innerHTML,u.style.display,st.innerHTML,st.className,st.style.display,pa&&pa.innerHTML,pa&&pa.style.display,ln.textContent];
+        u.innerHTML='<span class="vs-lab">DOCK OPEN</span><span class="vs-txt">until 09:00 · 8:20:24</span><button type="button" class="vs-btn">Lock again</button>'; u.style.display='';
+        st.innerHTML='<span class="vs-lab">Finding</span><span class="vs-txt">16 to read</span>'; st.className='va-finding'; st.style.display='';
+        if(pa){pa.innerHTML='<span class="vs-txt">STOP IS LATCHED by robert — the agent will not act until you release it.</span><button type="button" class="vs-btn">Release STOP</button>'; pa.style.display='';}
+        const tn=[...ln.childNodes].find(n=>n.nodeType===3); if(tn){tn.textContent='No connection to the robot · reconnecting… ';} else {ln.insertBefore(document.createTextNode('No connection to the robot · reconnecting… '),ln.firstChild);}
+        window.dispatchEvent(new Event('resize')); await new Promise(r=>setTimeout(r,600));
+        const R=e=>{const r=e.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom].map(Math.round)};
+        const rp=document.getElementById('right_panel'), ro=document.getElementById('vt_utm_rose'), hd=document.getElementById('rp_handle');
+        const vis=e=>!!(e&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0&&getComputedStyle(e).display!=='none');
+        const pt=pa&&pa.querySelector('.vs-txt');
+        const o={bars:R(b), u:R(u), st:R(st), pa:pa?R(pa):null, btn:R(u.querySelector('.vs-btn')), rp:vis(rp)?R(rp):null, hd:vis(hd)?R(hd):null,
+                 rose:vis(ro)?R(ro):null, line:vis(ln)?R(ln):null, paCut:pt?(pt.scrollHeight<=pt.clientHeight+1&&pt.scrollWidth>pt.clientWidth+1):false,
+                 paW:pt?Math.round(pt.getBoundingClientRect().width):0};
+        [u.innerHTML,u.style.display,st.innerHTML,st.className,st.style.display]=was; if(pa){pa.innerHTML=was[5];pa.style.display=was[6];}
+        if(tn){tn.textContent=was[7];}
+        window.dispatchEvent(new Event('resize'));
+        return o}""")
+    if not bp:
+        return
+    ov = lambda a, c: bool(a and c and not (a[2] <= c[0] or a[0] >= c[2] or a[3] <= c[1] or a[1] >= c[3]))
+    pills = [x for x in (bp['u'], bp['st'], bp['pa']) if x]
+    check(label + ' the agent pills stay inside their slot (Lock again too)',
+          all(x[2] <= bp['bars'][2] + 1 for x in pills + [bp['btn']]) and bp['btn'][2] <= bp['u'][2] + 1, bp)
+    if bp['rp']:
+        check(label + ' … never over the right panel or its handle', not any(ov(x, bp['rp']) or ov(x, bp['hd']) for x in pills), bp)
+    if bp['line']:
+        check(label + ' … and a long notice line is not under them', not any(ov(x, bp['line']) for x in pills), bp)
+    if bp['pa']:
+        check(label + ' … the STOP latch keeps its words (not cut to "STO…")', bp['paW'] >= 100, bp)
+    if bp['rose']:
+        check(label + ' … and the compass rose stands under them', bp['rose'][1] >= bp['bars'][3], bp)
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -1792,9 +1845,37 @@ def layout(p, shots, label):
     r = p.pg.evaluate("""()=>{const r=document.getElementById('span_status_info').getBoundingClientRect(),
         b=document.getElementById('btn_notice_action').getBoundingClientRect();
         const hit=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);
-        return {l:r.left,r:r.right,t:r.top,h:r.height,bh:b.height,bw:b.width,hit:hit&&hit.id,w:document.documentElement.scrollWidth}}""")
+        const rp=document.getElementById('right_panel'), rr=rp&&rp.getBoundingClientRect();
+        const rpOn=!!(rp&&rr.width>0&&getComputedStyle(rp).display!=='none'&&!rp.classList.contains('compact'));
+        return {l:r.left,r:r.right,t:r.top,h:r.height,lw:r.width,bh:b.height,bw:b.width,hit:hit&&hit.id,w:document.documentElement.scrollWidth,
+                rpOn:rpOn, rpL:rpOn?rr.left:null}}""")
     check(label + ' line inside the screen', r['l'] >= 0 and r['r'] <= vw + 1 and r['t'] >= 0, r)
     check(label + ' Cancel reachable, nothing over it', r['hit'] == 'btn_notice_action', r)
+    # T8 dávka IV (T4 backlog): at 768 px with the right panel open the line was ~24 px wide
+    if r['rpOn'] and vw >= 600:
+        check(label + ' right panel open: the line has room (>= 100 px) and ends left of the panel',
+              r['lw'] >= 100 and r['r'] <= r['rpL'] + 1, r)
+    # T8 dávka IV: the agent's "FINDING 16 to read" pill covered the measure button under the
+    # layers button (phone); a long count is put in the strip here, the frame lays out again
+    pl = p.pg.evaluate("""async ()=>{const st=document.getElementById('vagent_strip'), m=document.getElementById('vt_meas_btn'), f=document.getElementById('vt_lyr_fab');
+        if(!st||!m||!f||m.hidden||!f.getBoundingClientRect().width) return null;
+        const was=[st.innerHTML, st.className, st.style.display];
+        st.innerHTML='<span class="vs-lab">Finding</span><span class="vs-txt">1234 to read, a long strip text</span>'; st.className='va-finding'; st.style.display='';
+        window.dispatchEvent(new Event('resize')); await new Promise(r=>setTimeout(r,400));
+        const a=st.getBoundingClientRect(), b=m.getBoundingClientRect();
+        const hit=!(a.right<=b.left||a.left>=b.right||a.bottom<=b.top||a.top>=b.bottom);
+        [st.innerHTML, st.className, st.style.display]=was; window.dispatchEvent(new Event('resize'));
+        return {hit, s:[a.left,a.top,a.right,a.bottom].map(Math.round), m:[b.left,b.top,b.right,b.bottom].map(Math.round)}}""")
+    if pl is not None:
+        check(label + ' the agent pill does not cover the measure button', not pl['hit'], pl)
+    # T8 dávka IV (audit, 768 px with the left panel open): the dock-open pill stood out of its
+    # ~130-px hollow over the right panel's head, and two-line pills covered the compass rose
+    if vw >= 600:
+        agent_slot(p, label)
+        # review: right panel open, left closed (hollow 560 px): a 380-px dock pill covered a long notice
+        p.pg.evaluate("(()=>{const b=document.getElementById('btn_ui_drawer_close');if(b&&document.getElementById('ui_drawer').classList.contains('open'))b.click()})()")
+        p.pg.wait_for_timeout(500)
+        agent_slot(p, label + ' left closed')
     if vw < 600:
         check(label + ' Cancel big enough for a finger', r['bh'] >= 36, r)
     check(label + ' no sideways scroll', r['w'] <= vw + 1, r)

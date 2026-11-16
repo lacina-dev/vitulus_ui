@@ -346,7 +346,8 @@ html body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
     --vt-n-w: calc(100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px));
     --vt-n-narrow: clamp(0px, (560px - var(--vt-n-w)) * 1000, 1px);
     top: calc(var(--vt-frame-top, 80px) + 5px + var(--vt-n-narrow) * 30);
-    left: calc(var(--vt-frame-cleft, 12px) + 254px - var(--vt-n-narrow) * 246);
+    left: max(calc(var(--vt-frame-cleft, 12px) + 254px - var(--vt-n-narrow) * 246),
+              calc(var(--vt-agent-r, 0px) + 8px - var(--vt-n-narrow) * 10000));   /* T8 IV: after the pills */
     right: calc(var(--vt-frame-rp-w, 0px) + 14px + var(--vt-n-narrow) * 34 +
                 clamp(0px, 100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px) - 980px, 240px));
 }
@@ -361,7 +362,8 @@ html body.vt-frame #vagent_bars {
     left: calc(var(--vt-frame-cleft, 12px) + 14px);
     right: auto;
     width: max-content;
-    max-width: calc(100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px) - 40px);
+    /* T8 dávka IV: 14 px + the right panel's 40-px handle (it was 40: the pills reached 14 px under it) */
+    max-width: calc(100vw - var(--vt-frame-cleft, 12px) - var(--vt-frame-rp-w, 0px) - 54px);
     padding: 0 !important;
     background: transparent !important;
     display: flex;
@@ -478,10 +480,6 @@ html body.vt-frame:not(.vt-m-sheet) .vt-utm-rose { top: calc(var(--vt-frame-top,
     .vt-hdr-mi, .vt-hdr-mlang { min-height: 44px; }
     .vt-hdr-segb { height: 34px; line-height: 34px; min-width: 44px; }
 }
-/* …and below both pills when the agent shows two (dock unlocked / STOP latch) */
-html body.vt-frame:not(.vt-m-sheet):has(#vagent_bars > :is(#vagent_unlocked, #vagent_panic):not([style*="none"])).vagent-strip-on .vt-utm-rose {
-    top: calc(var(--vt-frame-top, 80px) + 66px);
-}
 /* the weather group keeps its slot before its first data (no icon yet):
    the groups after it do not jump when the forecast arrives */
 html body #status_div.sh-strip.in-header .sh-group[data-group="weather"]:not(:has(svg:not([style*="none"]))) {
@@ -542,6 +540,11 @@ html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip {
 }
 html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip .vs-lab { align-self: flex-start; }
 html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip .vs-txt { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+/* T8 dávka IV: in a narrow column (beside the buttons over an open sheet, 120 px)
+   the words broke inside ("nepřečten|ých"): there the words go under the label
+   and break between words only */
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip { flex-wrap: wrap; row-gap: 2px; }
+html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars #vagent_strip .vs-txt { min-width: min(100%, 7em); overflow-wrap: break-word; hyphens: auto; padding-left: 3px; }
 html body.vt-frame.vt-h-ph.vt-pills-col #vagent_bars :is(#vagent_panic, #vagent_unlocked):not([style*="none"]) {
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
     max-width: none; padding: 5px 6px; white-space: normal; line-height: 1.3; text-align: left;
@@ -584,3 +587,42 @@ html body.vt-h-ph #btn_hdr_more[data-over-on="1"] {
 html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars :is(#vagent_panic, #vagent_unlocked):not([style*="none"]) { flex-wrap: nowrap; }
 html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-txt { flex: 1 1 auto; }
 html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars :is(#vagent_panic, #vagent_unlocked) .vs-btn { flex: 0 0 auto; padding: 0 12px; }
+
+/* ---- T8 dávka IV (audit, tablet 768 px with a left panel open): the hollow
+   between the panels is ~130 px; the dock-open pill (max 380 px) stood out of
+   the bars box over the right panel's head. A pill is never wider than the
+   bars box: what does not fit on its line (the time, Lock again) goes to the
+   next one, the button keeps its size; a wide hollow keeps the one row. */
+html body.vt-frame:not(.vt-h-ph) #vagent_bars #vagent_unlocked { max-width: min(380px, 100%); }
+html body.vt-frame:not(.vt-h-ph) #vagent_bars #vagent_strip { max-width: min(230px, 100%); }
+html body.vt-frame:not(.vt-h-ph) #vagent_bars #vagent_panic:not([style*="none"]) { max-width: min(300px, 100%); }
+html body.vt-frame:not(.vt-h-ph) #vagent_bars #vagent_unlocked:not([style*="none"]) { flex-wrap: wrap; row-gap: 4px; }
+/* …and the compass rose (with the layers and measure buttons under it) stands
+   under the pills however tall they are (vt_frame.js --vt-agent-b = their bottom) */
+html body.vt-frame:not(.vt-m-sheet):not(.vt-h-ph) .vt-utm-rose {
+    top: max(calc(var(--vt-frame-top, 80px) + 38px), calc(var(--vt-agent-b, 0px) + 6px)) !important;
+}
+html body.vt-frame.vt-m-overlay:not(.vt-h-ph) .vt-utm-rose {
+    top: max(calc(var(--vt-frame-top, 72px) + 42px), calc(var(--vt-frame-notice-b, 0px) + 10px), calc(var(--vt-agent-b, 0px) + 6px)) !important;
+}
+/* …and in a narrow hollow (D10: the notice on its own line under the pills)
+   the line stands under the pills however tall they are, not 30 px down
+   under the first one (a two-line pill covered the notice) */
+html body.vt-frame:not(.vt-m-sheet) .vt-notice-row {
+    top: max(calc(var(--vt-frame-top, 80px) + 5px + var(--vt-n-narrow) * 30),
+             calc(var(--vt-agent-b, 0px) + 4px - (1px - var(--vt-n-narrow)) * 10000));
+}
+/* T8 dávka IV (review): the hollow was exactly 560 px, so the narrow rule did not
+   apply, but a 380-px dock pill covered the start of a long notice. vt_frame.js
+   agentPlace measures the pills: under 300 px left of the handle after them
+   (.vt-n-below) the notice takes the narrow rule's own line under them. */
+html body.vt-frame.vt-n-below:not(.vt-m-sheet) .vt-notice-row { --vt-n-narrow: 1px; }
+/* …and a slot narrower than 240 px: the STOP latch wraps (it was cut to "STO…"),
+   at most three lines; the whole text stays its tooltip */
+html body.vt-frame.vt-agent-narrow:not(.vt-h-ph) #vagent_bars #vagent_panic:not([style*="none"]) {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; white-space: normal; line-height: 1.25;
+}
+html body.vt-frame.vt-agent-narrow:not(.vt-h-ph) #vagent_bars #vagent_panic .vs-txt {
+    flex: 1 1 100%; min-width: 0; white-space: normal; overflow-wrap: break-word; hyphens: auto;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}

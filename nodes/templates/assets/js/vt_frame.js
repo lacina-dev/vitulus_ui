@@ -55,6 +55,33 @@
 
     var lastDock = null, resizeTimer = null, raf = null, lastTop = null, lastMini = null;
 
+    /* T8 dávka IV: where the agent's pills end on a PC / tablet. --vt-agent-b (their
+       bottom: the compass rose stands under them), --vt-agent-r (their right edge:
+       the notice starts after them) and .vt-n-below: the hollow left of the right
+       panel's handle has < 300 px after the pills, so the notice takes its own line
+       under them (vt_header.css, the D10 narrow rule). .vt-agent-narrow: the pills'
+       slot is < 240 px wide, the STOP latch wraps instead of "STO…". */
+    var NOTICE_MIN = 300, PILLS_NARROW = 240;
+    function agentPlace() {
+        var bars = $('vagent_bars'), body = document.body;
+        if (!bars || !body) { return; }
+        var r = bars.getBoundingClientRect(), on = r.height > 0, right = 0;
+        if (on) {
+            for (var i = 0; i < bars.children.length; i++) {
+                var c = bars.children[i].getBoundingClientRect();
+                if (c.height > 0) { right = Math.max(right, c.right); }
+            }
+        }
+        setVar('--vt-agent-b', on ? Math.round(r.bottom) + 'px' : '0px');
+        setVar('--vt-agent-r', on ? Math.round(right) + 'px' : '0px');
+        var pc = !body.classList.contains('vt-h-ph') && !body.classList.contains('vt-m-sheet');
+        var rpw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--vt-frame-rp-w')) || 0;
+        var room = window.innerWidth - rpw - 54 - (right + 8);
+        setCls(body, 'vt-n-below', pc && on && room < NOTICE_MIN);
+        var mw = parseFloat(getComputedStyle(bars).maxWidth);
+        setCls(body, 'vt-agent-narrow', pc && isFinite(mw) && mw < PILLS_NARROW);
+    }
+
     function update() {
         raf = null;
         var root = document.documentElement, body = document.body;
@@ -158,11 +185,29 @@
             // compass and the layers button instead of under them.
             var sheetOpen = open && drawer && visible(drawer);
             if (sheetOpen) { pbot = Math.min(pbot, drawer.getBoundingClientRect().top); }
-            [fab, rose].forEach(function (e) {
+            // T8 dávka IV: the map layers sheet and the measure strip over the
+            // bottom of the map are sheets too (the column covered the layers
+            // sheet's head once it starts under the measure button): their top
+            // is the floor and the column stands beside the buttons, as above
+            ['vt_lyr_panel', 'vt_meas_card'].forEach(function (id) {
+                var e = $(id);
+                if (e && !e.hidden && visible(e)) { sheetOpen = true; pbot = Math.min(pbot, e.getBoundingClientRect().top); }
+            });
+            // T8 dávka IV: the map's own column has the measure button under
+            // the layers button too (vt_map_measure.js: fab bottom + 8) — the
+            // pills covered it. Its bottom is taken from the layers button, as
+            // measure places it, so the order of the two layouts does not matter.
+            var meas = $('vt_meas_btn');
+            [fab, rose, meas].forEach(function (e) {
                 if (!visible(e)) { return; }
-                var r = e.getBoundingClientRect();
+                var r = e.getBoundingClientRect(), bot = r.bottom;
+                if (e === meas && visible(fab)) {
+                    var fr = fab.getBoundingClientRect();
+                    bot = Math.max(bot, fr.bottom + 8 + e.offsetHeight);
+                    r = {top: Math.min(r.top, fr.bottom + 8), right: Math.max(r.right, fr.left + e.offsetWidth)};
+                }
                 if (sheetOpen && r.top < pbot) { pleft = Math.max(pleft, r.right + 8); }
-                else if (!sheetOpen) { ptop = Math.max(ptop, r.bottom + 8); }
+                else if (!sheetOpen) { ptop = Math.max(ptop, bot + 8); }
             });
             var pw = unf ? rp0.getBoundingClientRect().left - pleft - 10 : Math.min(W - pleft - 12, 320);
             ['joy_view', 'div_log_view', 'vt_map_scale'].forEach(function (id) {
@@ -383,6 +428,7 @@
             lastTop = tk;
             if (window.VtRightDock) { window.VtRightDock.place(); }
         }
+        agentPlace();
     }
 
     // Large camera geometry. With the map in the right panel (the swap) the
@@ -751,6 +797,21 @@
         watch(document.body, {attributes: true, attributeFilter: ['class']});
         watch($('joy_view'), {attributes: true, attributeFilter: ['style', 'class']});
         watch($('div_camera_view'), {attributes: true, attributeFilter: ['style']});
+        // T8 dávka IV: the layers sheet / measure strip (built later by their modules) bound the agent's pills
+        (function late(n) {
+            var lp = $('vt_lyr_panel'), mc = $('vt_meas_card'), bars = $('vagent_bars');
+            if ((!lp || !mc || !bars) && n < 60) { setTimeout(function () { late(n + 1); }, 500); }
+            // …and the bottom of the agent's pills on a PC / tablet: the compass
+            // rose stands under them (vt_header.css --vt-agent-b) — in a narrow
+            // hollow a pill takes two lines and covered the rose
+            if (bars && !bars._vtFrameW && window.ResizeObserver) {
+                bars._vtFrameW = 1;
+                new ResizeObserver(agentPlace).observe(bars);
+                agentPlace();
+            }
+            if (lp && !lp._vtFrameW) { lp._vtFrameW = 1; watch(lp, {attributes: true, attributeFilter: ['hidden', 'class', 'style']}); }
+            if (mc && !mc._vtFrameW) { mc._vtFrameW = 1; watch(mc, {attributes: true, attributeFilter: ['hidden', 'style']}); }
+        })(0);
         var fb = $('btn_follow');
         if (fb) { fb.addEventListener('click', function () { setTimeout(schedule, 50); }); }
         if (window.ResizeObserver) {

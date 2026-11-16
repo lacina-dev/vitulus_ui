@@ -997,7 +997,21 @@
             mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
             var hook = setInterval(function () {
                 var r = $('vt_utm_rose');
-                if (r) { mo.observe(r, { attributes: true, attributeFilter: ['style'] }); clearInterval(hook); schedulePlace(); }
+                if (r) {
+                    mo.observe(r, { attributes: true, attributeFilter: ['style'] }); clearInterval(hook); schedulePlace();
+                    // T8 dávka IV (review): once after the first load the button stood 28 px
+                    // too high — the rose changed its size (content) without a style change
+                    if (window.ResizeObserver) { new ResizeObserver(schedulePlace).observe(r); }
+                    // …and it moves through chains of the frame's variables (the pills' bottom →
+                    // the notice line → the rose) that can end after the last style mutation:
+                    // a cheap check once a second (place() writes only what changed)
+                    setInterval(function () {
+                        var f = $('vt_lyr_fab');
+                        if (!f || f.hidden || r.style.display === 'none' || !r.offsetHeight) { return; }
+                        var want = Math.round(r.getBoundingClientRect().bottom + 8);
+                        if (Math.abs(f.getBoundingClientRect().top - want) > 1) { schedulePlace(); }
+                    }, 1000);
+                }
             }, 1000);
         } catch (e) { setInterval(place, 1000); }
         paintFab();
