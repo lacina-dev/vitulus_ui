@@ -105,7 +105,16 @@ const MASTER = [
     ['[Master] Init. automation=True window=off', /automatika zapnutá, časové okno vypnuté$/],
     ['[Master] Staying awake: login:pts/0,pts/1.', /^\[Plánovač\] Zůstávám vzhůru: přihlášení \(pts\/0, pts\/1\)\.$/],
     ['[Master] Mowing decided by: calendar (owner).', /O sekání rozhoduje: kalendář \(majitel\)\.$/],
-    ['[Master] Program rejected:recent_rain -> recovery \'weather\'.', /Program odmítnut \(nedávno pršelo\): zotavení „weather“\.$/],
+    ['[Master] Program rejected:recent_rain -> recovery \'weather\'.', /Program odmítnut \(nedávno pršelo\): zotavení „počasí“\.$/],
+    // T21 A9: the master's raw words (a Python dict, the recovery's code, the board watch's issue line)
+    ['[Master] Program Bigger -> recovery \'mower_link\'.', /zotavení „deska sekačky“\.$/],
+    ['[Master] Program Bigger -> recovery \'temp_spike\'.', /zotavení „vychladnutí“\.$/],
+    ['[Master] Sleep in 60 s, with {\'ssh\': [\'pts/0\'], \'ui\': 1} connected.', /^\[Plánovač\] Spánek za 60 s, připojeno: SSH pts\/0 · otevřené UI: 1\.$/],
+    ['[Master] Sleep in 60 s, with {\'ssh\': [\'pts/0\', \'pts/1\'], \'ui\': 0} connected.', /připojeno: SSH pts\/0, pts\/1\.$/],
+    ['[Master] Sleep in 60 s, with {\'ssh\': [], \'ui\': 2} connected.', /připojeno: otevřené UI: 2\.$/],
+    ['[Master] mower_link_idle  {\'silent_s\': 151, \'since\': \'2026-11-16T17:25\', \'in_dock\': True, \'repeat\': 0}', /^\[Plánovač\] Deska sekačky v doku mlčí \(od 17:25\)\.$/],
+    ['[Master] mower_link_idle  {\'silent_s\': 600, \'since\': \'2026-11-16T17:25\', \'in_dock\': False, \'repeat\': 1}', /^\[Plánovač\] Deska sekačky mlčí \(od 17:25\)\.$/],
+    ['[Master] mower_link_idle  {\'silent_s\': 151, \'in_dock\': True}', /^\[Plánovač\] Deska sekačky v doku mlčí\.$/],
     ['[Master] Next VinoKolem (12_3) in 40m. Sleeping for 30m.', /Další VinoKolem \(12_3\) za 40 min\. Spím 30 min\.$/],
     ['[Sleep] PM armed, shutting the OS down.', /^\[Spánek\] /]];
 const mw = MASTER.filter(([raw, re]) => !re.test(ctx.robotLine(raw) || '')).map(([raw]) => raw + ' -> ' + ctx.robotLine(raw));
@@ -142,6 +151,19 @@ check('cs: "sekačka", never "sečka"', !Object.values(D.cs).some((v) => /[Ss]e�
     check('notice: a language switch re-translates the shown robot line from its original', painted === 'Jedu k cíli');
     q.retext(() => null);
     check('… and an unknown one falls back to the original English', painted === 'Executing goal.');
+    // T21 A9: a notice of the page itself (the silent mower board, sticky) follows the language too
+    {
+        let lang2 = 'en', shown = null;
+        const q2 = c2.VTNoticeMake({ paint: (it) => { shown = it && it.text; }, later: () => 1, stop: () => {}, now: () => 1000 });
+        const tr = () => (lang2 === 'cs' ? 'Deska sekačky neodpovídá.' : 'The mower board is not answering.');
+        q2.say({ key: 'a:link', level: 0, text: tr(), tr: tr, sticky: true });
+        q2.say({ key: 'plain', level: 0, text: 'No text function', sticky: true });
+        lang2 = 'cs'; q2.retext(() => null);
+        check('notice: a sticky notice with its own text function is said again in the new language', shown === 'Deska sekačky neodpovídá.', String(shown));
+        check('… a waiting one too, one without the function keeps its text', q2._queue().some((x) => x.text === 'No text function'));
+        check('Autonomy gives the function for what stays (the board, STOP)', /say\('link', [^;]*function \(\) \{ return t\('auto\.link\.' \+ banner\); \}/.test(AU)
+              && /say\('stop', 0, function \(\) \{ return t\(stop\); \}/.test(AU));
+    }
     check('notice: VTI18n.onChange hooked to retext with VTAutonomy.robotLine',
           /VTI18n\.onChange\(function \(\) \{\s*root\.VTNotice\.retext\(/.test(N) && /root\.VTAutonomy\.robotLine\(raw\)/.test(N));
     const MV = fs.readFileSync(path.join(JS, 'map_view.js'), 'utf8');

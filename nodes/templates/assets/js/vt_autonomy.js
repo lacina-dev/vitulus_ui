@@ -39,8 +39,11 @@
         var out = [];
         if (code === 'hw_reset_person' && /^claude:/.test(String(d.who || ''))) { out.push('.claude'); }
         /* T21 A8: the board answers again while the issue stays listed until cleared: said as over */
-        if (code === 'mower_link_idle' && linkAnswers()) { out.push('.back'); }
-        if (code === 'mower_link_idle' && d.in_dock === false) { out.push('.off_dock'); }
+        /* T21 A9: without "since" (an older master) the sentence has no "since {at}" at all */
+        var ns = code === 'mower_link_idle' && !d.since ? '.no_since' : '';
+        if (code === 'mower_link_idle' && linkAnswers()) { out.push('.back' + ns); }
+        if (code === 'mower_link_idle' && d.in_dock === false) { out.push('.off_dock' + ns); }
+        if (ns) { out.push(ns); }
         if (!d.program) { out.push('.no_run'); }
         return out;
     }
@@ -58,8 +61,20 @@
         if (isFinite(s) && s > 0 && liveS !== null && liveS >= s) { s = liveS; }
         /* T21 A8: the link's own count starts again with its node (live 2026-11-16: 55 min by
            the link, 63 min in the report, 115 min in truth): still silent = the time since it began */
-        var began = d.since ? parseIso(d.since) : null;
-        if (liveS !== null && began && isFinite(s) && s > 0) { s = Math.max(s, (Date.now() - began.getTime()) / 1000); }
+        /* T21 A9: "since" is the robot's wall clock without a zone; the browser reads it as its own.
+           Counted from it only once the page knows how the two clocks stand (robotShift: from the
+           robot's own log), and never when it would be before the report;
+           until then what is certain: the report's or the link's number, plus the time this page
+           has watched the issue. A phone in another zone no longer adds its hours. */
+        var began = d.since ? parseIso(d.since) : null, shift = robotShift();
+        if (liveS !== null && isFinite(s) && s > 0) {
+            var seen = typeof S === 'object' && S ? (S.issueSeen = S.issueSeen || {}) : {};
+            var sk = String(d.since || '') + '|' + Number(d.silent_s);
+            if (!seen[sk]) { seen[sk] = Date.now(); }
+            var base = Math.max(s, Number(d.silent_s) + (Date.now() - seen[sk]) / 1000);
+            var el = began && shift !== null ? (Date.now() - (began.getTime() - shift)) / 1000 : null;
+            s = el !== null && el >= base - 120 ? Math.max(base, el) : base;
+        }
         if (d.dur === undefined && isFinite(s) && s > 0) { d.dur = fmtDur(s); }
         var at = d.since ? parseIso(d.since) : null;
         if (d.at === undefined && at) { d.at = clock(at.getTime()); }
@@ -71,6 +86,35 @@
         var l = typeof S === 'object' && S ? S.linkMsg : null;
         if (!l || l.state !== 'silent' || !isFinite(Number(l.silent_s))) { return null; }
         return Number(l.silent_s) + Math.max(0, (Date.now() - (S.linkAt || Date.now())) / 1000);
+    }
+    /* How far the robot's wall clock, read as this browser's local time, stands from the true
+       time, in ms (0 = same zone, 2 h = the robot two hours ahead); null until known. Exact, from
+       the robot's own log: every line of /status_logger/history has both its epoch (t) and the
+       robot's local time (iso). One message is read for it (watchClock), then the page lets go. */
+    function robotShift() {
+        if (typeof S !== 'object' || !S) { return null; }
+        return S.clockShift === undefined ? null : S.clockShift;
+    }
+    /* the newest line's pair out of the history's JSON text (its tail only: the list is long) */
+    function shiftFromLog(data) {
+        var tail = String(data || '').slice(-1500), re = /"t":\s*([0-9.]+),\s*"iso":\s*"([^"]+)"/g, m, last = null;
+        while ((m = re.exec(tail))) { last = m; }
+        var d = last ? parseIso(last[2]) : null, t0 = last ? parseFloat(last[1]) : NaN;
+        if (!d || !isFinite(t0) || t0 < 1e9) { return null; }
+        return Math.round((d.getTime() - t0 * 1000) / 900000) * 900000;
+    }
+    function watchClock(ros) {
+        try {
+            var topic = new ROSLIB.Topic({ ros: ros, name: '/status_logger/history', messageType: 'std_msgs/String' });
+            var on = function (m) {
+                var sh = shiftFromLog(m && m.data);
+                if (sh === null) { return; }
+                S.clockShift = sh;
+                topic.unsubscribe(on);
+                if (S.report) { paintAlert(); }
+            };
+            topic.subscribe(on);
+        } catch (e) { /* the silence keeps to what is certain */ }
     }
     /* /mower/link says the board answers (state ok) */
     function linkAnswers() {
@@ -2150,7 +2194,10 @@
     }
 
     /* ------------------------------------------- the line above the map */
+    /* T21 A9: text may be a function: a notice that stays (sticky) is said again in the new
+       language when it changes (vt_notice.js retext) */
     function say(key, level, text, o) {
+        if (typeof text === 'function') { o = Object.assign({ tr: text }, o || {}); text = text(); }
         if (window.VTNotice) { VTNotice.say(Object.assign({ key: 'a:' + key, level: level, text: text }, o || {})); }
     }
     function unsay(key) { if (window.VTNotice) { VTNotice.clear('a:' + key); } }
@@ -2177,7 +2224,7 @@
             if (n.stop) { unsay('stop'); }
             n.stop = stop;
         }
-        if (stop) { say('stop', 0, t(stop), { sticky: true }); }
+        if (stop) { say('stop', 0, function () { return t(stop); }, { sticky: true }); }
 
         /* the sleep */
         if (live(p)) { unsay('sleep_soon'); }
@@ -2259,7 +2306,7 @@
         if (banner === was) { return; }
         S.n.link = banner;
         paintLink();
-        if (banner) { say('link', banner === 'recovering' ? 1 : 0, t('auto.link.' + banner), { sticky: true }); }
+        if (banner) { say('link', banner === 'recovering' ? 1 : 0, function () { return t('auto.link.' + banner); }, { sticky: true }); }
         else if (was) { unsay('link'); say('link_ok', 2, t('auto.n.link_ok')); }
     }
     /* /mower/link's banner: the Autonomy page and the right panel */
@@ -2508,7 +2555,10 @@
         [/^\[Master\] Staying awake: (.+)\.$/, "m_awake", ["stay"]],
         [/^\[Master\] Sleep countdown ended: (.+)\.$/, "m_cd_end", ["stay"]],
         [/^\[Master\] Settings changed by (\w+): (.+)\.$/, "m_settings", ["who", "set"]],
-        [/^\[Master\] Sleep in (\d+) s, with (.+) connected\.$/, "m_sleep_in", ["s", "x"]],
+        [/^\[Master\] Sleep in (\d+) s, with (.+) connected\.$/, "m_sleep_in", ["s", "conn"]],
+        /* T21 A9: the board watch's issue line (code, empty program, the detail as a Python dict) */
+        [/^\[Master\] mower_link_idle\s+\{(.*'in_dock': False.*)\}$/, "m_link_idle_off", ["since"]],
+        [/^\[Master\] mower_link_idle\s+\{(.*)\}$/, "m_link_idle", ["since"]],
         [/^\[Master\] Sleep \(timed, ([0-9.]+) min\)\.$/, "m_sleep_timed", ["min"]],
         [/^\[Master\] Sleep \(next (.+)\) for (\d+)m\.$/, "m_sleep_next", ["prog", "min"]],
         [/^\[Master\] Timed sleep (\d+)m\.$/, "m_timed", ["min"]],
@@ -2563,6 +2613,21 @@
             return known('auto.line.stay.' + slug(raw), raw);
         }
         if (name === 'speed') { return known('auto.line.speed.' + raw, raw); }
+        /* T21 A9: who is connected, from the master's dict {'ssh': ['pts/0'], 'ui': 1} */
+        if (name === 'conn') {
+            var ssh = /'ssh':\s*\[([^\]]*)\]/.exec(raw), ui = /'ui':\s*(\d+)/.exec(raw), parts = [];
+            var who = ssh ? ssh[1].replace(/['"\s]/g, '').split(',').filter(Boolean) : [];
+            if (who.length) { parts.push('SSH ' + who.join(', ')); }
+            if (ui && +ui[1] > 0) { parts.push(t('auto.line.conn.ui', { n: ui[1] })); }
+            return parts.length ? parts.join(' \u00b7 ') : raw;
+        }
+        /* what the run waits for (master_controller RUN_WAIT_KEY) */
+        if (name === 'rec') { return known('auto.line.rec.' + raw, raw); }
+        /* " (since 17:25)" out of the issue's dict; nothing when it has no since */
+        if (name === 'since') {
+            var sm = /'since':\s*'\d{4}-\d\d-\d\dT(\d\d:\d\d)/.exec(raw);
+            return sm ? t('auto.line.since', { at: sm[1] }) : '';
+        }
         if (name === 'motors') {
             return raw.replace(/\b([A-Z]+_[A-Z]+) \(([^)]*)\)/g, function (m0, w, why) {
                 return known('auto.line.wheel.' + w, w) + ' (' + (WHEEL_WHY[why] ? known('auto.line.wheel_why.' + WHEEL_WHY[why], why) : why) + ')';
@@ -3389,6 +3454,7 @@
         sub('/mower_smach/active_program', 'std_msgs/String', function (m) { S.program = String(m.data || '').trim(); });
         subJson('/mower/link', onLink);
         subJson('/map_rules/state', onRules);
+        watchClock(ros);
         document.addEventListener('vt:watchrules', paintAnsWatch);
         setInterval(tick, 1000);
         var a = $('auto_link_radar');

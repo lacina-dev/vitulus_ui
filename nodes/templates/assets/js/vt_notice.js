@@ -90,7 +90,7 @@
         function say(o) {
             var key = o.key || o.text;
             var item = { key: key, text: o.text, level: o.level === undefined ? 2 : o.level, sticky: !!o.sticky,
-                         ttl: o.ttl, action: o.action || null, conn: !!o.conn, raw: o.raw || null, t: now() };
+                         ttl: o.ttl, action: o.action || null, conn: !!o.conn, raw: o.raw || null, tr: typeof o.tr === 'function' ? o.tr : null, t: now() };
             if (cur && cur.key === key) {
                 var same = cur.text === item.text;
                 item.shown = cur.shown;
@@ -156,9 +156,14 @@
         /* T8 dávka V: the language changed — the robot's lines (shown and waiting) are
            translated again from their English original; the shown one is repainted */
         function retext(tr) {
-            var re = function (q) { if (q && q.raw) { var s = tr(q.raw); q.text = s || q.raw; } };
+            /* T21 A9: a notice of the page itself that carries its own text function (tr) is
+               said again too — a sticky one (the silent mower board) stayed in the old language */
+            var re = function (q) {
+                if (q && q.raw) { var s = tr(q.raw); q.text = s || q.raw; }
+                else if (q && q.tr) { try { var s2 = q.tr(); if (s2) { q.text = s2; } } catch (e) { /* keeps its text */ } }
+            };
             queue.forEach(re);
-            if (cur && cur.raw) { var was = cur.text; re(cur); if (cur.text !== was) { paint(cur); } }
+            if (cur && (cur.raw || cur.tr)) { var was = cur.text; re(cur); if (cur.text !== was) { paint(cur); } }
         }
         return { say: say, clear: clear, robot: robot, connected: connected, pump: pump, retext: retext,
                  _cur: function () { return cur; }, _queue: function () { return queue; } };

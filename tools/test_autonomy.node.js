@@ -287,14 +287,14 @@ function sandbox(lang, file, extra) {
     const src = read('vt_autonomy.js');
     const grab = (name) => { const i = src.indexOf('function ' + name + '('); let d = 0;
         for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') { d++; } else if (src[j] === '}' && --d === 0) { return src.slice(i, j + 1); } } };
-    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'robotShift', 'shiftFromLog', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
     const LIVE = {};
     ['en', 'cs'].forEach((l) => {
         const D = win.VT_I18N_DICT[l];
         const T = (k, v) => String(k in D ? D[k] : k).replace(/\{(\w+)\}/g, (m, x) => (v && x in v ? String(v[x]) : m));
         const has = (k) => k in D;
         const F = new Function('t', 'has', 'nowMs', 'S', 'window', fns.filter((n) => src.indexOf('function ' + n + '(') >= 0).map(grab).join('\n') +
-            '\nreturn {issueKeys, issueVars, first};')(T, has, () => Date.now(), LIVE, {});
+            '\nreturn {issueKeys, issueVars, first, shiftFromLog};')(T, has, () => Date.now(), LIVE, {});
         const say = (code, d) => F.first(F.issueKeys(code, d), F.issueVars(d));
         // T21 A7: the silence of the report (151 s) is frozen; while /mower/link still says silent, its time is said
         const ago = (min) => { const d = new Date(Date.now() - min * 60e3), p2 = (n) => String(n).padStart(2, '0');
@@ -307,7 +307,32 @@ function sandbox(lang, file, extra) {
         // T21 A8: the link's own count restarts with its node (live: 55 min by the link, 115 min in truth):
         // while it is silent the time since it began is said, never less
         LIVE.linkMsg = { state: 'silent', silent_s: 20 };
-        check(l + ': … the link counting from its restart (20 s): still the time since it began (35 min)', /\b3[56]\s*min/.test(frozen()), frozen());
+        // T21 A9: "since" has no zone. Counted from it only once the page knows how the robot's clock
+        // stands to the browser's; until then only what is certain (the report's number)
+        LIVE.issueSeen = {}; LIVE.clockShift = null;
+        check(l + ': … the clocks not compared yet: the report\'s time, not a guess from "since"', /\b3\s*min/.test(frozen()), frozen());
+        LIVE.clockShift = 0;
+        check(l + ': … the link counting from its restart (20 s), same zone: the time since it began (35 min)', /\b3[56]\s*min/.test(frozen()), frozen());
+        LIVE.clockShift = 2 * 3600e3;      // the robot two hours ahead of this phone
+        const ahead = say('mower_link_idle', { program: '', silent_s: 151, since: ago(35 - 120), in_dock: true });
+        check(l + ': … a phone two hours behind the robot: still 35 min, not 2 h more or less', /\b3[56]\s*min/.test(ahead) && !/\bh\b/.test(ahead), ahead);
+        LIVE.clockShift = 0;               // a wrong zone that puts "since" after the report: the report's time
+        const future = say('mower_link_idle', { program: '', silent_s: 151, since: ago(-60), in_dock: true });
+        check(l + ': … "since" later than now: the report\'s time', /\b3\s*min/.test(future), future);
+        LIVE.issueSeen = { [S35 + '|151']: Date.now() - 20 * 60e3 }; LIVE.clockShift = null;
+        check(l + ': … clocks unknown, the page has watched it for 20 min: 3 + 20 min', /\b2[23]\s*min/.test(frozen()), frozen());
+        LIVE.issueSeen = {}; LIVE.clockShift = 0;
+        // the clocks come from the robot's log: a line's epoch and its local time, exact to the quarter hour
+        const lp = (n) => String(n).padStart(2, '0'), ep = Math.floor(Date.now() / 1000);
+        const isoOf = (ms) => { const d = new Date(ms); return d.getFullYear() + '-' + lp(d.getMonth() + 1) + '-' + lp(d.getDate()) + 'T' + lp(d.getHours()) + ':' + lp(d.getMinutes()) + ':' + lp(d.getSeconds()); };
+        const hist = (ms) => JSON.stringify([{ seq: 1, t: ep - 500.25, iso: isoOf((ep - 500) * 1000 + ms), msg: 'Old' }, { seq: 2, t: ep + 0.6351, iso: isoOf(ep * 1000 + ms), msg: 'Starting docking' }]).replace(/":/g, '": ').replace(/,"/g, ', "');
+        check(l + ': the robot\'s clock from its log: same zone 0, two hours ahead, 5:30 behind; none from an empty log',
+              F.shiftFromLog(hist(0)) === 0 && F.shiftFromLog(hist(2 * 3600e3)) === 2 * 3600e3 && F.shiftFromLog(hist(-5.5 * 3600e3)) === -5.5 * 3600e3
+              && F.shiftFromLog('[]') === null && F.shiftFromLog('') === null, [F.shiftFromLog(hist(0)), F.shiftFromLog(hist(7200e3))].join());
+        // T21 A9: no "since" (an older master): no "since {at}", no empty brackets
+        const ns = frozen({ since: undefined }), nsOff = frozen({ since: undefined, in_dock: false });
+        check(l + ': … without "since": whole sentence, no {at}, no empty brackets', /\b3\s*min/.test(ns) && !/\{|\(\s*[;)]|since ;|od ;/.test(ns) && /dock|doku/.test(ns)
+              && !/\{|\(\s*[;)]/.test(nsOff) && !/in the dock|v doku/.test(nsOff), ns + ' | ' + nsOff);
         // T21 A8: the board answers again while the issue stays listed: said as over, no present tense, no advice
         LIVE.linkMsg = { state: 'ok', silent_s: 0 };
         const back = frozen(), backOff = frozen({ in_dock: false });
@@ -315,6 +340,8 @@ function sandbox(lang, file, extra) {
               && back.indexOf(S35.slice(11)) >= 0 && !/\{/.test(back), back);
         check(l + ': … and nothing in the present tense, no duration, no advice', !/has not answered|neodpovídá|\d\s*min|off and on|vypnout a zapnout/.test(back), back);
         check(l + ': … the same off the dock', backOff === back, backOff);
+        const backNs = frozen({ since: undefined });
+        check(l + ': … answers again without "since": no "since {at}"', /answers again|už odpovídá/.test(backNs) && !/\{|since|\bod\b/.test(backNs), backNs);
         LIVE.linkMsg = { state: 'recovering', silent_s: 0 };
         check(l + ': … a recovery under way is not "answers again"', /\b3\s*min/.test(frozen()) && !/answers again|už odpovídá/.test(frozen()), frozen());
         delete LIVE.linkMsg;
