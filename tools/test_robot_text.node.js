@@ -98,8 +98,36 @@ LANG = 'cs';
 check('unknown line -> null (shown raw)', ctx.robotLine('Something the UI never heard of 42') === null && ctx.robotLine('') === null);
 check('unknown speed / wheel word stays raw', ctx.robotLine('Set speed: TURBO') === 'Rychlost: TURBO'
       && ctx.robotLine('[SAFETY] Motor failure: MID_AXLE (smoke). Motors OFF.') === '[BEZPEČNOST] Porucha motoru pohonu: MID_AXLE (smoke). Motory VYPNUTY.');
-check('[Master] lines are not matched by the generic "… changed / saved" forms',
-      ctx.robotLine('[Master] Settings changed by owner: sleep_ignore_ui.') === null);
+// V-b: the master's diary, the reasons after a colon, the reset's second sentence
+const MASTER = [
+    ['[Master] Settings changed by owner: sleep_ignore_ui.', /^\[Plánovač\] Nastavení změnil majitel: /],
+    ['[Master] Sleep not confirmed. Fail-safe shutdown.', /^\[Plánovač\] Spánek se nepotvrdil: pojistné vypnutí\.$/],
+    ['[Master] Init. automation=True window=off', /automatika zapnutá, časové okno vypnuté$/],
+    ['[Master] Staying awake: login:pts/0,pts/1.', /^\[Plánovač\] Zůstávám vzhůru: přihlášení \(pts\/0, pts\/1\)\.$/],
+    ['[Master] Mowing decided by: calendar (owner).', /O sekání rozhoduje: kalendář \(majitel\)\.$/],
+    ['[Master] Program rejected:recent_rain -> recovery \'weather\'.', /Program odmítnut \(nedávno pršelo\): zotavení „weather“\.$/],
+    ['[Master] Next VinoKolem (12_3) in 40m. Sleeping for 30m.', /Další VinoKolem \(12_3\) za 40 min\. Spím 30 min\.$/],
+    ['[Sleep] PM armed, shutting the OS down.', /^\[Spánek\] /]];
+const mw = MASTER.filter(([raw, re]) => !re.test(ctx.robotLine(raw) || '')).map(([raw]) => raw + ' -> ' + ctx.robotLine(raw));
+check('cs: the master\'s diary ([Master] / [Sleep]) translated (' + MASTER.length + ' samples)', !mw.length, mw.join(' | '));
+check('"Reset accepted. Ready for Run." keeps its second sentence (en + cs)',
+      ctx.robotLine('Reset accepted. Ready for Run.') === D.cs['auto.line.reset_ready'] && /Run/.test(D.cs['auto.line.reset_ready']) &&
+      /Ready for Run/.test(D.en['auto.line.reset_ready']) && ctx.robotLine('Reset accepted') === D.cs['auto.line.reset']);
+const WHYS = [['CRITICAL ERROR: BLOCKED_FAILED', 'Kritická chyba: sekačka je zablokovaná a zotavení selhalo'],
+    ['CRITICAL ERROR: UNKNOWN', 'Kritická chyba: neznámá příčina'],
+    ['Agent: retrying dock: dock manoeuvre failed', 'Agent: dokuji znovu: dokovací manévr selhal'],
+    ['Mission ended with an error (mower_link). Press Reset to continue.', 'Mise skončila chybou (deska sekačky mlčí). Pokračuj tlačítkem Reset.'],
+    ['Docking retry 1/2: stalled: no progress for 20 s (0.4 m to go): dock reflector not visible',
+     'Dokuji znovu (1/2): uvázlo, 20 s bez postupu (zbývá 0.4 m): odrazka doku není vidět'],
+    ['CRITICAL ERROR: SOMETHING_NEW', 'Kritická chyba: SOMETHING_NEW']];
+const ww = WHYS.filter(([raw, want]) => ctx.robotLine(raw) !== want).map(([raw]) => raw + ' -> ' + ctx.robotLine(raw));
+check('cs: reasons after the colon from a finite set translated, an unknown one raw', !ww.length, ww.join(' | '));
+// the robot's [SAFETY] lines keep their level: the notice classifies the English original
+{
+    const N = read('vt_notice.js');
+    check('notice: the level comes from the English original (classify(raw))', /level: classify\(raw\)/.test(N));
+}
+check('cs: "sekačka", never "sečka"', !Object.values(D.cs).some((v) => /[Ss]eč(ka|ku|ky|ce|kou)\b/.test(v)));
 
 // 3) the notice and the log strip
 {
@@ -144,10 +172,19 @@ check('[Master] lines are not matched by the generic "… changed / saved" forms
           /message\.mower === "INVALID" \? '1' : ''/.test(MV) && /ico_mower\.dataset\.vtSilent = mSilent/.test(MV));
     const RD = fs.readFileSync(path.join(JS, 'right_dock.js'), 'utf8');
     check('right panel: the blade start decides by the code (data-status), not by the shown word',
-          /var code = st \? String\(st\.dataset\.status \|\| txt\)\.toUpperCase\(\) : ''/.test(RD) && /status: on \? code : ''/.test(RD) &&
+          /var code = st \? String\(st\.dataset\.status \|\| txt\)\.toUpperCase\(\) : ''/.test(RD) && /status: on \? startCode : ''/.test(RD) &&
           /cur\.status === 'READY'/.test(RD));
     check('right panel: a silent board = "Not answering", red, and no start',
-          /if \(silent && on\) \{ txt = t\('rdock\.mower\.silent'\); state = 'err'; code = ''; \}/.test(RD) && both('rdock.mower.silent') && both('rdock.mower.silent.tip'));
+          /if \(silent && on\) \{ txt = t\('rdock\.mower\.silent'\); state = 'err'; startCode = ''; \}/.test(RD) && both('rdock.mower.silent') && both('rdock.mower.silent.tip'));
+    // V-b: in the dock the last word is OFF / UNK (section hidden): a silent board shows it anyway,
+    // but only once a /mower/status came since the page loaded (data-status set for every message)
+    check('V-b: silent + a message seen -> the Mower section shows even after OFF / UNK',
+          /var seen = !!\(st && typeof st\.dataset\.status === 'string' && st\.dataset\.status !== ''\);/.test(RD) &&
+          /var on = powered \|\| \(silent && seen\);/.test(RD) &&
+          /span_mower_panel_status\.dataset\.status = message\.status \|\| '';\s*if \(message\.status === 'UNK' \|\| message\.status === 'OFF'\)/.test(MV));
+    check('V-b: the STOP (■) still works on the last RUN of a silent board (run = code, only the start is cleared)',
+          /run: on \? code : ''/.test(RD) && /\(cur\.run !== undefined \? cur\.run : cur\.status\) === 'RUN'/.test(RD) &&
+          /var canStart = function \(\) \{ return !!\(api\(\) && cur\.on && cur\.status === 'READY' && !spinning\(\)\); \};/.test(RD));
     check('the blade start tooltip has no raw READY', !/READY/.test(D.en['rdock.mower.start.notready']) && !/READY/.test(D.cs['rdock.mower.start.notready']));
     const SH = fs.readFileSync(path.join(JS, 'status_header.js'), 'utf8');
     check('header: the silent mark has its own words and repaints on it',
@@ -163,7 +200,7 @@ check('[Master] lines are not matched by the generic "… changed / saved" forms
         fs.readFileSync(f, 'utf8').split('\n').forEach((l) => {
             let j; try { j = JSON.parse(l); } catch (e) { return; }
             const m = String(j.msg || '').trim();
-            if (!m || /^\[(Master|Sleep)\]/.test(m)) { return; }     // the master's diary is not shown (vt_notice.js)
+            if (!m) { return; }      // V-b: the master's diary too (it is in the Log)
             all++;
             if (ctx.robotLine(m) !== null) { hit++; } else { const k = m.replace(/\d+(\.\d+)?/g, '#'); miss.set(k, (miss.get(k) || 0) + 1); }
         });

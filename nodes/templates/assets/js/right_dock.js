@@ -666,14 +666,19 @@
         var mdot = panel.querySelector('#rp_sum_dot_mower');
         var ico = document.getElementById('ico_mower');
         var paint = function () {
-            var on = src.style.display !== 'none';
+            var powered = src.style.display !== 'none';
             var txt = st ? (st.textContent || '').trim() : '';
             var code = st ? String(st.dataset.status || txt).toUpperCase() : '';
-            var state = on ? moverState(st) : 'off';
+            var state = powered ? moverState(st) : 'off';
             /* T8 dávka V (T37): the board is silent (device state INVALID): the last
-               /mower/status is old news — the chip says so, red; no blade start */
+               /mower/status is old news — the chip says so, red; no blade start.
+               V-b: shown also when its last word was OFF / UNK (the usual state in the
+               dock), but only once a /mower/status came since the page loaded */
             var silent = !!(ico && ico.dataset.vtSilent === '1');
-            if (silent && on) { txt = t('rdock.mower.silent'); state = 'err'; code = ''; }
+            var seen = !!(st && typeof st.dataset.status === 'string' && st.dataset.status !== '');
+            var on = powered || (silent && seen);
+            var startCode = code;
+            if (silent && on) { txt = t('rdock.mower.silent'); state = 'err'; startCode = ''; }
             if (chip.textContent !== txt) { chip.textContent = txt; }
             if (chip.dataset.state !== state) { chip.dataset.state = state; }
             setTip(chip, t('rdock.sec.mower') + ': ' + (silent && on ? t('rdock.mower.silent.tip') : (txt || '—')));
@@ -700,7 +705,9 @@
             if (cT.textContent !== tt) { cT.textContent = tt; }
             cT.dataset.state = tc == null ? 'off' : (tc >= MOWER_TOO_HOT ? 'err' : (tc >= MOWER_HOT ? 'warn' : 'ok'));
             setTip(cT.parentNode, t('rdock.mower.temp.tip', {a: MOWER_HOT, b: MOWER_TOO_HOT}));
-            ctl({on: on, status: on ? code : '', word: txt, rpm: r || 0});
+            /* the START needs a fresh READY (startCode); the STOP keeps what it had
+               before dávka V: the last RUN or rpm > 0 is enough (run) */
+            ctl({on: on, status: on ? startCode : '', run: on ? code : '', word: txt, rpm: r || 0});
             var pg = window.programs, pn = '', ps = '';
             try {
                 if (pg && pg.mission_program && pg._isRunning && pg._isRunning(pg.mission_program)) {
@@ -798,7 +805,7 @@
             var m = window.mower;
             return m && typeof m.pub_mower_set_motor_on === 'function' ? m : null;
         };
-        var spinning = function () { return !!(cur.on && (cur.rpm > 0 || cur.status === 'RUN')); };
+        var spinning = function () { return !!(cur.on && (cur.rpm > 0 || (cur.run !== undefined ? cur.run : cur.status) === 'RUN')); };
         var canStart = function () { return !!(api() && cur.on && cur.status === 'READY' && !spinning()); };
         var paint = function (st) {
             if (st) { cur = st; }

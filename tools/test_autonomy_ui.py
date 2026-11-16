@@ -551,6 +551,21 @@ def link_story(p, shots, label):
     check('… the header icon says "not answering", not "disabled"', bool(ht), ht)
     auto = p.text('.rp-auto-chip')
     check('… the Auto chip says the mower is silent, not just "Mower"', ('mlčí' if cs else 'silent') in (auto or '').lower(), auto)
+    # V-b: in the dock the last word is usually OFF: the section stays visible while the board is silent
+    ms = {'header': {'stamp': {'secs': 0, 'nsecs': 0}, 'frame_id': '', 'seq': 0}, 'status': 'OFF', 'moto_dir': 'L',
+          'moto_rpm': 0, 'setpoint_rpm': 0, 'current_height': 45, 'max_height': 70, 'temp': 21}
+    p.raw('/mower/status', ms)
+    vis = p.wait(lambda: p.pg.evaluate("(()=>{const c=document.getElementById('rp_mower_chip');const s=c&&c.closest('.rp-sec');"
+                                       "return !!(s&&s.style.display!=='none'&&c.textContent===%s)})()" % json.dumps(silent)))
+    check('V-b: silent board after OFF (in the dock): the Mower section shows "%s"' % silent, vis)
+    # V-b: the stop stays as before dávka V: a last RUN (0 rpm) of a silent board can be stopped, not started
+    ms['status'] = 'RUN'
+    p.raw('/mower/status', ms)
+    stop = p.wait(lambda: p.pg.evaluate("(()=>{const b=document.getElementById('rp_mower_blade_key');return !!(b&&!b.disabled&&b.textContent==='■')})()"))
+    check('V-b: … a last RUN with 0 rpm can still be stopped (■ enabled)', stop)
+    check('… and no start offered', p.pg.evaluate("(()=>{const b=document.getElementById('rp_mower_blade_start');return !b||b.style.display==='none'||b.disabled})()"))
+    ms['status'] = 'WAIT'
+    p.raw('/mower/status', ms)
     icon['mower'] = 'ON'
     p.raw('/device_state_pub/icon_status', icon)
     chip = p.wait(lambda: (p.text('#rp_mower_chip') or '') == ('Čeká' if cs else 'Waiting') and p.text('#rp_mower_chip'))

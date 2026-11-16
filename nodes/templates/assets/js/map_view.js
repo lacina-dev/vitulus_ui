@@ -7090,6 +7090,10 @@ class Mower {
 
         // Update mower info panel visibility and values
         if (this.div_mower_info_panel) {
+            // T8 dávka V-b: the code of every message (OFF / UNK too): the right panel
+            // shows a silent board even when its last word was OFF — it knows a
+            // message came (without one since the page loaded it says nothing)
+            if (this.span_mower_panel_status) this.span_mower_panel_status.dataset.status = message.status || '';
             if (message.status === 'UNK' || message.status === 'OFF') {
                 this.div_mower_info_panel.style.display = 'none';
             } else {
@@ -7105,7 +7109,6 @@ class Mower {
                 const stWord = vtT(stKey);
                 let statusText = stWord && stWord !== stKey ? stWord : message.status;
                 let statusColor = 'var(--bs-warning)';
-                this.span_mower_panel_status.dataset.status = message.status || '';
                 if (message.status === 'READY' || message.status === 'RUN') {
                     statusColor = 'var(--bs-success)';
                 } else if (message.status === 'ERR' || message.status === 'BLOCKED' || message.status === 'TEMP') {

@@ -126,7 +126,7 @@ před vypnutím napájení, nejdelší kus spánku, odpočet a dobu, na kterou Z
 ### Tvrdý restart
 
 **Tvrdý restart: vypnout vše na N s** (i v Nastavení › Napájení) není spánek. Napájení počítače, motorů
-a sečky se na N sekund vypne, výchozí je 60, zůstane jen napájecí modul. Jde to v doku na nabíječce,
+a sekačky se na N sekund vypne, výchozí je 60, zůstane jen napájecí modul. Jde to v doku na nabíječce,
 když nic neběží. Řekne, co se stane, a zeptá se, napájení pak jde pryč za 20 s a do té doby je **Zrušit**.
 Je to tvrdé odpojení bez čistého vypnutí a vypne se i tahle stránka a Claude sessions; robot je zpět asi
 za 2 minuty. Plánovač o tom neví. Stránka, která restart spustila, se znovu připojí, řekne, jak to
@@ -152,7 +152,8 @@ neodpovídá déle než 2 minuty, robot to ohlásí — *Deska sekačky 7 h 30 m
 žádný program)*, mimo dok bez „v doku" — a nejvýš dvakrát připomene (po 1 hodině, pak po 4 hodinách);
 bez desky nesekne. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
-posledního stavu desky (hodnoty pod ním jsou poslední, co poslala).
+posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
+dál, roztočit ne.
 **Mlčící desku restartovat i bez programu** (Poruchy, výchozí je vypnuto): robot pak udělá stejný tvrdý
 restart, i když neběží žádný program — vypne a znovu zapne napájení, i počítače; stejné pojistky (ne když
 je někdo připojený, ani když na robotu pracuje Claude, 60 s předem se **Zrušit**, nejvýš dvakrát za 24 hodin). Bez programu hlášky

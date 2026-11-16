@@ -2215,7 +2215,7 @@
                  [/^Go to zone begin$/, 'zone'], [/^Loading the map$/, 'map'], [/^Rtabmap is ready$/, 'map_ready'],
                  [/^Mower link lost/, 'link_lost'], [/^No mower status/, 'link_gap'], [/^Blade stopped during mowing/, 'blade_stopped'],
                  [/^Mower link not recovered/, 'link_home'],
-                 [/^Both GPS ready$/, 'gps'], [/^Window closed, going home$/, 'window_home'], [/^Reset accepted/, 'reset'],
+                 [/^Both GPS ready$/, 'gps'], [/^Window closed, going home$/, 'window_home'], [/^Reset accepted\.?$/, 'reset'],
                  /* T28: dock_smach heading nudge after the undock */
                  [/^Heading nudge: driving ([0-9.]+) m forward/, 'nudge_start'], [/^Heading nudge done: ([0-9.]+) m/, 'nudge_done'],
                  [/^Heading nudge stopped: (.+)$/, 'nudge_stopped'], [/^Heading nudge skipped: (.+)$/, 'nudge_skipped']];
@@ -2231,7 +2231,7 @@
         [/^Start rejected: recent rain$/, "start_no_recent_rain"],
         [/^Start rejected: rain forecast$/, "start_no_forecast"],
         [/^Start rejected: motors are OFF/, "start_no_motors"],
-        [/^Start rejected: (.+)$/, "start_rejected", ["x"]],
+        [/^Start rejected: (.+)$/, "start_rejected", ["why"]],
         [/^No current weather data, starting anyway$/, "no_weather"],
         [/^([23])DFIX acquired$/, "fix_d", ["d"]],
         [/^RTK fix acquired$/i, "rtk_fix"],
@@ -2277,8 +2277,9 @@
         [/^Docking preempted\.?$/, "dock_preempted"],
         [/^Docking failed\.?$/, "dock_failed"],
         [/^Docking timed out\.?$/, "dock_timeout"],
-        [/^Docking stalled: no progress for (\d+) s \(([0-9.]+) m to go\): (.+)$/, "dock_stalled", ["s", "m", "x"]],
-        [/^Docking retry (\d+)\/(\d+): (.+)$/, "dock_retry", ["i", "n", "x"]],
+        [/^Docking stalled: no progress for (\d+) s \(([0-9.]+) m to go\): (.+)$/, "dock_stalled", ["s", "m", "why"]],
+        [/^Docking retry (\d+)\/(\d+): stalled: no progress for (\d+) s \(([0-9.]+) m to go\): (.+)$/, "dock_retry_stall", ["i", "n", "s", "m", "why"]],
+        [/^Docking retry (\d+)\/(\d+): (.+)$/, "dock_retry", ["i", "n", "why"]],
         [/^Enabling intensity dock$/, "dock_intensity"],
         [/^Intensity enable preempted$/, "dock_intensity_preempted"],
         [/^Intensity timeout$/, "dock_intensity_timeout"],
@@ -2366,12 +2367,14 @@
         [/^Stopped$/, "stopped"],
         [/^Initiating$/, "init"],
         [/^Initiating unfinished$/, "init_unfinished"],
+        [/^Reset accepted\. Ready for Run\.?$/, "reset_ready"],
+        [/^Reset accepted\. Returning to idle\.?$/, "reset_idle"],
         [/^Mission stopped\. Press Reset, then Run to continue\.?$/, "mission_stopped"],
-        [/^Mission ended with an error \((.+)\)\. Press Reset to continue\.?$/, "mission_error", ["x"]],
+        [/^Mission ended with an error \((.+)\)\. Press Reset to continue\.?$/, "mission_error", ["why"]],
         [/^Stopped\. Resume via \/mower_smach\/reset\.?$/, "stopped_reset"],
-        [/^TERMINAL: (.+)\. Reset via \/mower_smach\/reset$/, "terminal", ["x"]],
+        [/^TERMINAL: (.+)\. Reset via \/mower_smach\/reset$/, "terminal", ["why"]],
         [/^TERMINAL ERROR$/, "terminal_any"],
-        [/^CRITICAL ERROR: (.+)$/, "critical", ["x"]],
+        [/^CRITICAL ERROR: (.+)$/, "critical", ["why"]],
         [/^Critical error$/, "critical_any"],
         [/^\[SAFETY\] Motor failure: (.+)\. Motors OFF\.?$/, "safety_motor", ["motors"]],
         [/^\[SAFETY\] Tilt exceeded! roll=(-?[0-9.]+) pitch=(-?[0-9.]+)\. Mower OFF\.?$/, "safety_tilt", ["roll", "pitch"]],
@@ -2395,7 +2398,46 @@
         [/^Agent: driving path (.+)$/, "agent_drive_path", ["x"]],
         [/^Agent: waiting RTK \((.+)\)$/, "agent_wait_rtk", ["x"]],
         [/^Agent: waiting (\d+) s$/, "agent_wait_s", ["s"]],
-        [/^Agent: retrying dock: (.+)$/, "agent_dock_retry", ["x"]],
+        [/^Agent: retrying dock: (.+)$/, "agent_dock_retry", ["why"]],
+        [/^\[Master\] Sleep not confirmed\. Fail-safe shutdown\.$/, "m_failsafe"],
+        [/^\[Master\] Automation DISABLED via parameter\.$/, "m_auto_param"],
+        [/^\[Master\] Init\. automation=(True|False) window=(.+)$/, "m_init_win", ["onoff", "win"]],
+        [/^\[Master\] Init\. automation=(True|False)$/, "m_init", ["onoff"]],
+        [/^\[Master\] Initialized, waiting startup delay of (\d+) ?s\.*$/, "m_boot", ["s"]],
+        [/^\[Master\] Calendar updated \((\d+) events\)$/, "m_cal", ["n"]],
+        [/^\[Master\] Staying awake: (.+)\.$/, "m_awake", ["stay"]],
+        [/^\[Master\] Sleep countdown ended: (.+)\.$/, "m_cd_end", ["stay"]],
+        [/^\[Master\] Settings changed by (\w+): (.+)\.$/, "m_settings", ["who", "set"]],
+        [/^\[Master\] Sleep in (\d+) s, with (.+) connected\.$/, "m_sleep_in", ["s", "x"]],
+        [/^\[Master\] Sleep \(timed, ([0-9.]+) min\)\.$/, "m_sleep_timed", ["min"]],
+        [/^\[Master\] Sleep \(next (.+)\) for (\d+)m\.$/, "m_sleep_next", ["prog", "min"]],
+        [/^\[Master\] Timed sleep (\d+)m\.$/, "m_timed", ["min"]],
+        [/^\[Master\] Next (.+) in (\d+)m\. Sleeping for (\d+)m\.$/, "m_next", ["prog", "a", "b"]],
+        [/^\[Master\] Sleep not done: (.+)\.$/, "m_sleep_not", ["why"]],
+        [/^\[Master\] Unfinished sleep of a previous run: cancelled\.$/, "m_sleep_old"],
+        [/^\[Master\] Awake after sleep \(([+-]?\d+) min against plan\)\.$/, "m_awake_after", ["d"]],
+        [/^\[Sleep\] PM armed, shutting the OS down\.$/, "s_armed"],
+        [/^\[Sleep\] cancelling: (.+)$/, "s_cancel", ["why"]],
+        [/^\[Master\] Program succeeded\.$/, "m_ok"],
+        [/^\[Master\] Automation (ON|OFF)\.$/, "m_auto", ["onoff"]],
+        [/^\[Master\] Window set: (.+)\.$/, "m_window", ["win"]],
+        [/^\[Master\] Window closed: going home after this path\.$/, "m_window_home"],
+        [/^\[Master\] Program (.+) -> recovery '(.+)'\.$/, "m_recovery", ["why", "rec"]],
+        [/^\[Master\] Starting scheduled program: (.+) \((slot|weather|catchup)\)$/, "m_start_why", ["prog", "why"]],
+        [/^\[Master\] Starting scheduled program: (.+)$/, "m_start", ["prog"]],
+        [/^\[Master\] Program stopped: (.+) \(no auto-sleep\)$/, "m_stopped", ["why"]],
+        [/^\[Master\] Robot returned to dock\.$/, "m_home"],
+        [/^\[Master\] Robot is off the dock: sending it home\.$/, "m_send_home"],
+        [/^\[Master\] Mowing decided by: (\w+) \((\w+)\)\.$/, "m_decides", ["dec", "who"]],
+        [/^\[Master\] Recovery: charge, then resume\.$/, "m_charge"],
+        [/^\[Master\] Program did not start \(see the planner log\)\.$/, "m_no_start"],
+        [/^\[Master\] Mower temperature sensor fault: run given up\.$/, "m_temp_fault"],
+        [/^\[Master\] A person took the mower's power away: no resume\.$/, "m_power_person"],
+        [/^\[Master\] Dock permit homeward cancelled: mowing on\.$/, "m_permit_on"],
+        [/^\[Master\] Dock permit: the path did not end in time, home now\.$/, "m_permit_home"],
+        [/^\[Master\] PM confirms the cancel\.$/, "m_pm_cancel"],
+        [/^\[Master\] Mission of (.+) was lost\.$/, "m_lost", ["prog"]],
+        [/^\[Master\] Slot of (.+) skipped: (.+)\.$/, "m_skip", ["prog", "why"]],
         [/^Point (.+) added$/, "point_added", ["x"]],
         [/^Point (.+) removed$/, "point_removed", ["x"]],
         [/^Path (.+) removed$/, "path_removed", ["x"]],
@@ -2405,7 +2447,21 @@
     /* placeholder values that are words of the robot: SLOW / MEDIUM / FAST, the wheels */
     var WHEEL_WHY = { 'timeout': 'timeout', 'no data': 'no_data', 'fault: MOTOR_DRV_FAULT': 'drv_fault' };
     function known(k, raw) { var s = t(k); return s && s !== k ? s : raw; }
+    /* V-b: a reason from a finite set (smach error_reason codes, the agent's failure
+       classes, the master's codes) by its slug: "BLOCKED_FAILED", "dock manoeuvre failed",
+       "rejected:recent_rain" -> auto.line.why.<slug>; an unknown reason stays raw */
+    function slug(raw) { return String(raw).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
     function robotSub(name, raw) {
+        if (name === 'why') { return known('auto.line.why.' + slug(raw), raw); }
+        if (name === 'onoff' || name === 'win' || name === 'who' || name === 'dec') { return known('auto.line.' + name + '.' + raw, raw); }
+        if (name === 'set') {      // settings keys, as their labels on the Autonomy page
+            return raw.split(/,\s*/).map(function (k) { return known('auto.set.' + k + '.label', k); }).join(', ');
+        }
+        if (name === 'stay') {     // login:pts/0,pts/1 | ui:2 | claude:1 | stay_awake | too_short …
+            var m = /^(login|ui|claude):(.*)$/.exec(raw);
+            if (m) { return known('auto.line.stay.' + m[1], m[1]) + ' (' + m[2].replace(/,/g, ', ') + ')'; }
+            return known('auto.line.stay.' + slug(raw), raw);
+        }
         if (name === 'speed') { return known('auto.line.speed.' + raw, raw); }
         if (name === 'motors') {
             return raw.replace(/\b([A-Z]+_[A-Z]+) \(([^)]*)\)/g, function (m0, w, why) {

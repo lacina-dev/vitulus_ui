@@ -16,10 +16,15 @@ const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
 const JS = path.join(ROOT, 'nodes', 'templates', 'assets', 'js');
-const candidates = [process.argv[2],
-    path.resolve(ROOT, '..', 'vitulus_planner', 'nodes', 'master_controller'),
-    path.resolve(ROOT, '..', '..', '..', '..', 'vitulus_planner', '.claude', 'worktrees',
-        'cal-core', 'nodes', 'master_controller')].filter(Boolean);
+// the planner beside vitulus_ui: from the live tree (ROOT/..) and from a worktree
+// (vitulus_ui/.claude/worktrees/<name>: its ancestors) alike — the first ancestor
+// that has vitulus_planner/nodes/master_controller (T8 dávka V-b)
+const up = [];
+for (let d = path.resolve(ROOT, '..'); ; d = path.dirname(d)) {
+    up.push(path.join(d, 'vitulus_planner', 'nodes', 'master_controller'));
+    if (path.dirname(d) === d) break;
+}
+const candidates = [process.argv[2]].concat(up).filter(Boolean);
 const master = candidates.find((p) => fs.existsSync(p));
 
 let fails = 0;
