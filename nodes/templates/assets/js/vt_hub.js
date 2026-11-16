@@ -31,6 +31,7 @@
     'use strict';
     var HIDDEN_MS = 60000;       // slow beat while the tab is hidden
     var MAX_BACKOFF_MS = 300000;
+    var TIMEOUT_MS = 60000;      // above the proxy's own longest wait (webnode FIELD_FIRST_WAIT_S 45 s)
     var HIDDEN_OFF = /^\/field\/api\//;   // costs the robot's CPU: nothing while hidden
 
     var store = {};              // key -> {data, ok, ts, err}
@@ -99,24 +100,47 @@
         if (!p || p.busy) { return; }
         p.busy = true;
         clearTimeout(p.timer);
-        fetch(p.url, { method: 'GET', cache: 'no-store', credentials: 'same-origin',
-                       headers: { 'Accept': 'application/json' } })
+        /* an answer that never comes (the dashboard stuck, a half-open
+           connection) must not hold the source until the page is reloaded:
+           after TIMEOUT_MS the ask is given up (and aborted where the browser
+           can) and counts as a failure - backoff, the last good data kept */
+        var over = false;
+        var ac = window.AbortController ? new AbortController() : null;
+        var settle = function (good, j, e) {
+            if (over) { return; }
+            over = true;
+            clearTimeout(guard);
+            if (pollers[key] !== p) {              // stopped (or restarted) meanwhile: no beat,
+                if (good) { put(key, j, true); }   // the answer itself is still good data
+                return;
+            }
+            if (good) { p.fails = 0; put(key, j, true); }
+            else {
+                p.fails = Math.min(p.fails + 1, 8);
+                var prev = store[key];
+                /* keep the last good data, mark it stale */
+                store[key] = { data: prev ? prev.data : null, ok: false,
+                               ts: prev ? prev.ts : 0, err: String(e && e.message || e) };
+                emit(key);
+            }
+            p.busy = false;
+            schedule(key);
+        };
+        var guard = setTimeout(function () {
+            if (ac) { try { ac.abort(); } catch (e) { /* old browser */ } }
+            settle(false, null, new Error('timeout'));
+        }, TIMEOUT_MS);
+        var opts = { method: 'GET', cache: 'no-store', credentials: 'same-origin',
+                     headers: { 'Accept': 'application/json' } };
+        if (ac) { opts.signal = ac.signal; }
+        fetch(p.url, opts)
             .then(function (r) {
                 return r.json().catch(function () { return null; }).then(function (j) {
                     if (!r.ok) { throw new Error((j && j.error) || ('HTTP ' + r.status)); }
                     return j;
                 });
             })
-            .then(function (j) { p.fails = 0; put(key, j, true); },
-                  function (e) {
-                      p.fails = Math.min(p.fails + 1, 8);
-                      var prev = store[key];
-                      /* keep the last good data, mark it stale */
-                      store[key] = { data: prev ? prev.data : null, ok: false,
-                                     ts: prev ? prev.ts : 0, err: String(e && e.message || e) };
-                      emit(key);
-                  })
-            .then(function () { p.busy = false; schedule(key); });
+            .then(function (j) { settle(true, j); }, function (e) { settle(false, null, e); });
     }
     function poll(key, url, every) {
         if (pollers[key]) { return; }

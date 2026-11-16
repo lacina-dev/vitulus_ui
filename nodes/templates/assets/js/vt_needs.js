@@ -102,11 +102,17 @@
         var now = (H && H.get("field.now")) || null;
         var cur = now && now.data;
         var al = hd && window.VTField && VTField.alerts ? VTField.alerts(hd, cur) : [];
+        var high = todo && typeof todo.mine.high === 'number' ? todo.mine.high : null;
         var urgent = a.some(function (x) { return x.moves; }) ||
             w.some(function (x) { return x.code === 'safety'; }) ||
             al.some(function (x) { return x.tone === 'bad'; }) ||
-            (field && field.ok && Date.now() - field.ts < FRESH_MS &&
-             ((field.data && field.data.items) || []).some(function (x) { return x.urgency === 'high'; }));
+            /* the field's own red (kit 0.9.66: /api/home todo.mine.high = the count of
+               its menu bubble - an undelivered notification, something blocked, the
+               kit, dependencies); an older kit does not send it: then a fresh
+               attention list decides, as before */
+            (high !== null ? high > 0 :
+             !!(field && field.ok && Date.now() - field.ts < FRESH_MS &&
+                ((field.data && field.data.items) || []).some(function (x) { return x.urgency === 'high'; })));
         return { asks: a, work: w, field: f, todo: todo, stav: hd && hd.stav, home: home, hd: hd, cur: cur,
                  fieldEntry: field, askEntry: asks, fieldN: fieldN, alerts: al,
                  n: a.length + w.length + fieldN + al.length, urgent: urgent };
