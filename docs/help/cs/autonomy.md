@@ -24,6 +24,12 @@ věta je v tooltipu. Klepnutí otevře tu sekci; nic se neodesílá. Další sta
 tlačítky jeden krátký řádek řekne spánek: *Usne na 6 h 27 min, až bude volno; drží ho: Přihlášení,
 Webové UI ›* — celá věta je v tooltipu a ve **Spánku**, kam tě klepnutí na řádek vezme.
 
+Třetí tlačítko se ukáže, jen když agent drží nějaké trvalé hlídání (*když X, udělej Y*, viz
+[Agent](agent.md#trvalé-hlídání-když-x-udělej-y)): *Agent hlídá: 2*, pravidla tvými slovy má v tooltipu.
+Když by některé vyjelo z doku a ty jsi mu to nepovolil, tlačítko zežloutne a řekne *Hlídání #12 čeká na
+tvoje slovo*: pravidlo stojí, dokud agentovi nenapíšeš *u hlídání 12 povol výjezd z doku*. Klepnutí
+otevře **Hlídání** v panelu Agent; nic se neodesílá. Pozastavená hlídání ani žádná hlídání tlačítko nemají.
+
 Když stránka ztratí robota (déle než 3 s), horní karta řekne *Bez spojení s robotem od 20:12: co tu vidíš,
 už nemusí platit.* a zbytek stránky zešedne: je to poslední stav, který robot poslal, ne aktuální.
 Jakmile robot zase odpoví, zmizí to.
@@ -51,7 +57,8 @@ vypnutá (automatika, žádné programy). Hlavička sekce říká totéž co hor
 v pořádku (zelené; *bez časového limitu* se počítá jako v pořádku) a ty, které se teď nekontrolují (šedé: GPS se kontroluje až při startu, řádek ukáže
 živý fix), se sbalí do jednoho řádku, *Start nic nedrží: v pořádku 10. Teď se nekontroluje: 2.*;
 **Ukázat vše** vypíše každou z nich, **Jen problémy** je zase sbalí (zapamatuje se).
-Šipka › u řádku vede tam, kde se to řeší. Co robota drží vzhůru, je ve **Spánku**.
+Šipka › u řádku vede tam, kde se to řeší; řádek, který přejde sám (*Právě nastartoval: 4 min*), ji nemá.
+Co robota drží vzhůru, je ve **Spánku**.
 
 ## Plán
 
@@ -65,7 +72,7 @@ starty a očekávaným spánkem (šrafovaně); dny, kdy celý den spí nebo se n
 program a pod ním čas a dny, **Upravit** a **Smazat**; vypnutá položka má štítek *Vypnuto* a ztlumené je jen
 jméno a čas. Když jsou vypnuté všechny (a rozhoduje kalendář), nic se samo nespustí a stránka řekne proč:
 *Nic není v plánu: položka kalendáře Bigger 23:15 je vypnutá* v **Mohl by teď vyjet?** (› otevře Plán),
-*Kalendář vypnutý* v hlavičce Plánu a řádek v Plánu, ať ji zapneš. **Přeskočit další** přeskočí jeden start (druhý řádek tlačítka říká který: *Bigger · dnes 23:15*),
+*Kalendář vypnutý* v hlavičce Plánu a řádek v Plánu, ať ji zapneš (obyčejně šedý: je to tvoje volba, ne varování; přeskočený start nebo den bez sekání zůstává jantarový). **Přeskočit další** přeskočí jeden start (druhý řádek tlačítka říká který: *Bigger · dnes 23:15*),
 **Dnes nesekat** vynechá dnešek. Přeskočený start je na ose přeškrtnutý a stejné tlačítko to vrátí.
 
 **Spustit Bigger teď** (jméno dalšího programu; *Spustit další plánovaný teď*, když nic naplánováno
@@ -122,6 +129,8 @@ v pravém panelu i nahoře, dokud se spánek odpočítává. Podle časování r
 
 Některé limity zatím nejsou nastavení. **Pokročilé** je ukazuje s hodnotami: nejkratší spánek, čekání
 před vypnutím napájení, nejdelší kus spánku, odpočet a dobu, na kterou Zrušit odloží spánek.
+Jeden řádek nad seznamem říká, kde se zatím nastavují (nastavení robota, změna chce restart); vlastní
+poznámku má jen limit hardwaru.
 
 ### Tvrdý restart
 
@@ -150,7 +159,9 @@ přihlášení**. Zrušení platí pro celý běh. Mimo dok proud nikdy nevypne.
 **Ohlásit, když deska sekačky mlčí** (Poruchy, výchozí je zapnuto): když neběží žádný program a deska
 neodpovídá déle než 2 minuty, robot to ohlásí — *Deska sekačky 7 h 30 min neodpovídá (od 23:10; v doku,
 žádný program)*, mimo dok bez „v doku" — a nejvýš dvakrát připomene (po 1 hodině, pak po 4 hodinách);
-bez desky nesekne. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
+bez desky nesekne. Doba v hlášce běží s časem, dokud deska mlčí (ne jen ty 2–3 minuty z okamžiku ohlášení), a hláška
+radí, co s tím: *Pomůže vypnout a zapnout robota*; **Tvrdý restart ›** u ní tě vezme k Tvrdému restartu ve Spánku (jen
+tam dojde, nic nespustí). Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
 posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
 dál, roztočit ne.
@@ -191,7 +202,7 @@ V panelu je to sekce **Kdo rozhoduje** pod Plánem:
   provedena, zmeškaná, prošlá, zrušená), jistota a důvod v jazyce stránky (starší agent posílá jen
   vlastní slova, a ta se ukážou).
 - **Poslední rozhodnutí** (v režimu Kalendář jen když nějaké je): co se rozhodlo, kdy, kdo (agent nebo kalendář) a proč — stejná věta jako
-  v Historii. Rozhodnutí, jehož čas skončil (*nesekat do 19:30* ve 20:10), je šedé se štítkem *skončilo 19:30*. Dokud oranžový rámeček říká, že rada čeká na tvoje povolení doku, totéž rozhodnutí se
+  v Historii. Rozhodnutí, jehož čas skončil (*nesekat do 19:30* ve 20:10), je šedé se štítkem *skončilo 19:30*; když rozhoduje kalendář, rozhodnutí agenta, které skončilo před víc než dnem, se už neukazuje (má ho Historie). Dokud oranžový rámeček říká, že rada čeká na tvoje povolení doku, totéž rozhodnutí se
   pod ním neopakuje.
 - **Pravidla a tvrdé limity** jdou sbalit: hlavička řekne *platí* nebo *teď neplatí*; když platí, samy
   se rozbalí, když neplatí, zůstanou sbalené — dokud je sám nerozbalíš nebo nesbalíš (zapamatuje se). Uvnitř nejdřív jeden řádek s [povoleným časem sekání](programs.md#povolený-čas-sekání),

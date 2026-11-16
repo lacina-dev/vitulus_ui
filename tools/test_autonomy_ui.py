@@ -1831,6 +1831,249 @@ def a6_fit(p, shots, label):
     p.open('plan')
 
 
+def a7_rules(**over):
+    """GET /agent/api/watch as webchat._api_watch builds it: one rule that would leave the dock."""
+    r = {'id': 12, 'state': 'active', 'why': None, 'when': 'baterie (%) nad 50', 'action': 'provedu dock.undock', 'moves': True,
+         'mode': 'poll', 'every_s': 60.0, 'window': None, 'until': None, 'fired': 0, 'last_fired': None, 'repeat': 'once',
+         'last_blocked': None, 'last': 'zatím ne', 'owner_text': 'Hlídej baterii: až bude nad 50 %, vyjeď z doku.'}
+    r.update(over)
+    return r
+
+
+A7_NO_WORD = {'ts': 1794842887.5, 'kind': 'dock', 'mission': None, 'why': 'robot je v doku a výjezd jsi pro tohle hlídání nepovolil'}
+
+
+def a7_watch(p, rules, **over):
+    d = {'ok': True, 'rules': rules, 'shadow_motion': False}
+    d.update(over)
+    # no agent behind the test: the panel's own question (every 30 s) would answer "agent down" over what the test says
+    p.pg.evaluate('(d)=>{VTWatchRules.refresh=()=>false; VTWatchRules._set(d)}', d)
+    p.pg.wait_for_timeout(120)
+
+
+def a7_story(p, shots, label):
+    """T21 A7: the agent's watches in the top card (a rule waiting for the owner's word by its number), the Watching
+    card in the owner's words, no › where there is nothing to do, the owner's own choice not in amber, the sleep
+    timing note once, an old agent decision not shown while the calendar decides. Display only."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    cs = label.endswith('cs')
+    p.pub('/scheduler/sleep_countdown', {'active': False})
+    p.pg.evaluate("VTAutonomy._state.countdown = {active: false}")
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/calendar', [dict(A2_CAL[0], enabled=False)])
+    # the robot as it stood on 2026-11-16: in the dock, just booted, the only calendar entry off
+    boot = report(now, code='boot_grace', next=None, detail={'left_s': 173}, sentence={'code': 'boot_grace', 'vars': {'left_s': 173}},
+                  checks=start_checks(mission=('wait', 'boot_grace', {'left_s': 173}), programs=('off', 'no_schedule', {}),
+                                      rain=('wait', 'recent_rain', {'min': 20})))
+    p.pub('/scheduler/report', boot)
+    p.open('now')
+    p.open('plan')
+    vis = lambda sel: p.pg.evaluate("(s)=>{const e=document.querySelector(s);return !!(e&&!e.hidden&&e.offsetParent)}", sel)
+    chip = lambda: p.pg.evaluate("""(()=>{const b=document.getElementById('btn_auto_ans_watch');
+        return {vis:!!(b&&!b.hidden&&b.offsetParent), text:b?b.textContent:'', state:b?(b.dataset.state||''):'', tip:b?b.title:''}})()""")
+
+    # 1 the agent's watches in the top card
+    check('A7 the Watching block shares what it read', p.pg.evaluate("!!(window.VTWatchRules&&VTWatchRules._set&&VTWatchRules.waits)"))
+    r2 = p.pg.evaluate("[VTWatchRules.refresh(30000), VTWatchRules.refresh(30000)]")
+    check('A7 the agent is asked at most once per interval', r2[1] is False, r2)
+    p.pg.wait_for_timeout(400)
+    a7_watch(p, [])
+    check('A7 nothing watched: no chip', not chip()['vis'], chip())
+    p.pg.evaluate("VTWatchRules._set({error: 'agent'})")
+    check('A7 the agent silent: no chip', not chip()['vis'], chip())
+    a7_watch(p, [a7_rules(), a7_rules(id=13, moves=False, action='řeknu ti', owner_text='Když vypadne kamera, řekni mi.')])
+    c = chip()
+    check('A7 two watches: "Agent watches: 2", quiet tone', c['vis'] and (('Agent hlídá: 2' if cs else 'Agent watches: 2') in c['text'])
+          and c['state'] == '', c)
+    check('A7 … the rules in the owner\'s words in the tooltip', 'Hlídej baterii' in c['tip'] and '#13' in c['tip'], c['tip'])
+    a7_watch(p, [a7_rules(state='paused', why='STOP')])
+    check('A7 only paused watches: no chip', not chip()['vis'], chip())
+    a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD), a7_rules(id=13, moves=False)])
+    c = chip()
+    check('A7 a watch waiting for the owner\'s word: by its number, amber', c['vis'] and c['state'] == 'warn'
+          and (('Hlídání #12 čeká na tvoje slovo' if cs else 'Watch #12 waits for your word') in c['text']), c)
+    check('A7 … the sentence to write is in its tooltip', 'u hlídání 12 povol výjezd z doku' in c['tip'], c['tip'])
+    a7_watch(p, [a7_rules(last_blocked=dict(A7_NO_WORD, why='robot je v doku'))])
+    check('A7 blocked by the dock for another reason: not "waits for your word"', chip()['state'] == '' and chip()['vis'], chip())
+    a7_watch(p, [a7_rules(needs_undock_word=True)])
+    check('A7 the core\'s own flag (needs_undock_word) is believed', chip()['state'] == 'warn', chip())
+    a7_watch(p, [a7_rules(needs_undock_word=False, last_blocked=A7_NO_WORD)])
+    check('A7 … and its "no" too', chip()['state'] == '', chip())
+
+    # 2 + 3 the card: the owner's words first, how the agent reads it, what it waits for
+    a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD)])
+    n0 = len(p.pg.evaluate('__fake.sent'))
+    # the Agent panel opens its own socket; the fake keeps talking to the robot's one
+    p.pg.evaluate("(()=>{const ros=__fake.sock; Object.defineProperty(__fake,'sock',{get:()=>ros,set:()=>{},configurable:true});})()")
+    posts = []
+    on_req = lambda rq: posts.append(rq.url) if rq.method != 'GET' else None
+    p.pg.on('request', on_req)
+    p.click('#btn_auto_ans_watch')
+    p.pg.wait_for_timeout(500)
+    where = p.pg.evaluate("""(()=>{const b=VTWatchRules.box(), d=b&&b.closest('details'), pn=document.getElementById('vagent_panel');
+        return {box:!!b, panel:VAgent.isVisible(), tab:pn&&pn.getAttribute('data-tab'), open:!!(d&&d.open)}})()""")
+    check('A7 the chip opens Watching in the Agent panel (its tab, the block unfolded)', where['box'] and where['panel']
+          and where['tab'] == 'work' and where['open'], where)
+    p.click('#btn_auto_ans_watch')
+    p.pg.wait_for_timeout(300)
+    check('A7 … a second tap keeps it open (opens, never toggles)', p.pg.evaluate('VAgent.isVisible()'))
+    # no agent behind this test: the panel shows "agent down" over its blocks; lift it to see the card as with the agent up
+    p.pg.evaluate("""(()=>{const b=document.getElementById('vagent_blocks'), d=document.getElementById('vagent_down');
+        if(b){b.classList.remove('vagent-hidden');} if(d){d.style.display='none';}})()""")
+    check('A7 … and sends nothing', len(p.pg.evaluate('__fake.sent')) == n0 and not posts, posts)
+    p.pg.remove_listener('request', on_req)
+    # the block asked the agent when it opened; there is none in this test: its answer again
+    a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD)])
+    card = p.pg.evaluate("""(()=>{const c=document.querySelector('.vwr-card'); if(!c) return null;
+        const q=s=>{const e=c.querySelector(s);return e?e.textContent:''}; const b=c.getBoundingClientRect();
+        const kids=[...c.children].map(e=>e.className);
+        return {cls:c.className, state:q('.vwr-state'), said:q('.vwr-said'), reads:q('.vwr-sub.vwr-main'), ask:q('.vwr-ask'), kids,
+                vis:!!c.offsetParent, w:Math.round(b.width), right:Math.round(b.right), open:!!(c.closest('details')||{open:true}).open,
+                tone:getComputedStyle(c.querySelector('.vwr-state')).color}})()""")
+    check('A7 card: drawn in the open block', bool(card) and card['vis'] and card['open'], card)
+    if card:
+        check('A7 card: "waits for you", not "running"', card['state'] == ('čeká na tebe' if cs else 'waits for you')
+              and 'waits' in card['cls'], card)
+        check('A7 card: says what to write, with the rule\'s number', 'u hlídání 12 povol výjezd z doku' in card['ask'], card['ask'])
+        check('A7 card: the owner\'s own words first', 'Hlídej baterii: až bude nad 50 %, vyjeď z doku.' in card['said']
+              and card['kids'].index('vwr-said') < card['kids'].index('vwr-sub vwr-main'), card)
+        check('A7 card: how the agent reads it below', 'baterie (%) nad 50' in card['reads']
+              and (('Agent tomu rozumí' if cs else 'The agent reads it as') in card['reads']), card['reads'])
+        check('A7 card: inside the screen', card['right'] <= p.pg.viewport_size['width'] + 1, card)
+        if shots:
+            p.pg.evaluate("document.querySelector('.vwr-card').scrollIntoView({block: 'center'})")
+            p.pg.wait_for_timeout(200)
+            p.pg.screenshot(path=os.path.join(shots, label + '-a7-watch-card.png'))
+    a7_watch(p, [a7_rules(owner_text='', last_blocked=dict(A7_NO_WORD, why='robot je v doku'))])
+    plain = p.pg.evaluate("""(()=>{const c=document.querySelector('.vwr-card'); if(!c) return null;
+        return {state:c.querySelector('.vwr-state').textContent, ask:!!c.querySelector('.vwr-ask'), said:!!c.querySelector('.vwr-said'),
+                main:(c.querySelector('.vwr-main')||{}).textContent||''}})()""")
+    check('A7 card without the owner\'s text and not waiting: as before', bool(plain) and not plain['ask'] and not plain['said']
+          and 'baterie (%) nad 50' in plain['main'] and plain['state'] == ('běží' if cs else 'running'), plain)
+    a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD)])
+    p.pg.evaluate("VAgent.close()")
+    p.pg.wait_for_timeout(200)
+    p.open('now')       # back to Autonomy
+    check('A7 back in Autonomy', p.wait(lambda: vis('#auto_checks')), p.pg.evaluate("window.map_menu&&map_menu.current_submenu"))
+    p.pg.wait_for_timeout(300)
+
+    # 4 no › where nothing can be done
+    rows = p.pg.evaluate("""[...document.querySelectorAll('#auto_checks .vt-auto-check')].map(r=>[r.textContent, !!r.querySelector('.vt-auto-go')])""")
+    bootrow = [r for r in rows if ('Právě nastartoval' if cs else 'Just started') in r[0]]
+    rainrow = [r for r in rows if r[1] and r not in bootrow]
+    check('A7 just booted: the line has no ›', len(bootrow) == 1 and not bootrow[0][1], rows)
+    check('A7 … the other holds keep theirs', len(rainrow) >= 2, rows)
+
+    # 5 the owner's own choice is not amber
+    tone = lambda: p.pg.evaluate("""(()=>{const e=document.getElementById('auto_plan_state'), m=document.createElement('span');
+        m.style.color='var(--vt-muted)'; e.appendChild(m); const mc=getComputedStyle(m).color; m.remove();
+        m.style.color='var(--vt-warn)'; e.appendChild(m); const wc=getComputedStyle(m).color; m.remove();
+        return {state:e.dataset.state||'', color:getComputedStyle(e).color, muted:mc, warn:wc, text:e.textContent}})()""")
+    tn = tone()
+    check('A7 Plan: a switched-off calendar is said plainly (not amber)', tn['state'] == 'off' and tn['color'] == tn['muted']
+          and 'Bigger 23:15' in tn['text'], tn)
+    p.pub('/scheduler/settings', dict(agent_settings(), values=dict(agent_settings()['values'], no_mow_until=now.strftime('%Y-%m-%d'))))
+    p.wait(lambda: tone()['state'] == '')      # the settings repaint in their own time on a loaded machine
+    tn = tone()
+    check('A7 … a no-mow day keeps the amber', tn['state'] == '' and tn['color'] == tn['warn'], tn)
+    p.pub('/scheduler/settings', agent_settings())
+
+    # 6 where the sleep timing is set: once
+    p.open('advanced')
+    lim = p.text('#auto_limits') or ''
+    check('A7 sleep timing: the place is said once, not under every row', lim.count('master_controller.yaml') == 1
+          and p.pg.evaluate("document.querySelectorAll('#auto_limits .vt-auto-limit small').length") == 1, lim)
+    check('A7 … the hardware limit keeps its own note, every value stays', p.pg.evaluate("VTI18n.t('auto.limits.where.hw')") in lim
+          and p.pg.evaluate("document.querySelectorAll('#auto_limits .vt-auto-limit-v').length") == 8, lim)
+
+    # 7 an old agent decision while the calendar decides
+    old = {'t': iso(now - dt.timedelta(days=8)) + ':00', 'kind': 'advice', 'code': 'skip', 'program': '', 'source': 'agent',
+           'vars': {'until': iso(now - dt.timedelta(hours=25)) + ':00', 'reason': 'zima: 2.3 °C (pod 5 °C)'}}
+    p.pub('/scheduler/mode', mode_view('calendar', last_decision=old))
+    p.open('mode')
+    check('A7 calendar decides: an agent decision over for more than a day is not shown', not vis('#auto_mode_last'), p.text('#auto_mode_last'))
+    recent = dict(old, vars=dict(old['vars'], until=iso(now - dt.timedelta(hours=23)) + ':00'))
+    p.pub('/scheduler/mode', mode_view('calendar', last_decision=recent))
+    check('A7 … one over for less than a day still is (muted)', vis('#auto_mode_last')
+          and p.pg.evaluate("document.getElementById('auto_mode_last').dataset.past") == '1', p.text('#auto_mode_last'))
+    p.pub('/scheduler/mode', mode_view('agent', last_decision=old, dock_permitted=True))
+    check('A7 … and while the agent decides its last decision stays', vis('#auto_mode_last'), p.text('#auto_mode_last'))
+    # 8 the silent mower board: how long NOW, what to do, the way to Hardware reset
+    since = now - dt.timedelta(minutes=33)
+    issue = {'code': 'mower_link_idle', 'level': 'error', 'program': '', 't': iso(since + dt.timedelta(minutes=2)),
+             'detail': {'in_dock': True, 'repeat': 0, 'silent_s': 151, 'since': iso(since)}}
+    link = {'banner': 'silent', 'state': 'silent', 'silent_s': 33 * 60 + 5, 'status': 'OFF', 'rpm': 0, 'bat_out': False,
+            'mission': {'armed': False, 'failed': False, 'phase': None, 'recoveries': 0, 'why': None}}
+    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    p.pub('/scheduler/report', dict(boot, issues=[issue]))
+    al = p.wait_text('#auto_alert', since.strftime('%H:%M'))
+    check('A7 board silent, the link not saying so: the time of the report (3 min), since when', re.search(r'\b3\s*min', al or '')
+          and since.strftime('%H:%M') in al, al)
+    p.pub('/mower/link', link)
+    al = p.wait_text('#auto_alert', '33')
+    check('A7 … still silent: the time runs with the link (33 min, not the frozen 3)', re.search(r'\b33\s*min', al or '')
+          and not re.search(r'\b3\s*min', al or ''), al)
+    check('A7 … and says what to do', ('Pomůže vypnout a zapnout robota' if cs else 'Switching the robot off and on helps') in (al or ''), al)
+    cal = p.text('#div_scheduler_issues') or ''
+    check('A7 … the calendar card says the same time', re.search(r'\b33\s*min', cal), cal)
+    n1 = len(p.pg.evaluate('__fake.sent'))
+    p.click('#btn_auto_alert_hw')
+    p.pg.wait_for_timeout(400)
+    check('A7 Hardware reset ›: opens Sleep at the block, sends nothing', p.pg.evaluate("document.getElementById('auto_sec_sleep').open")
+          and vis('#auto_hw') and len(p.pg.evaluate('__fake.sent')) == n1, p.pg.evaluate('__fake.sent.slice(-2)'))
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(200)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a7-silent.png'))
+    fit = p.pg.evaluate("""(()=>{const b=document.getElementById('auto_alert'), r=b.getBoundingClientRect();
+        const cut=[...b.querySelectorAll('*')].filter(e=>e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>e.className);
+        return {right:Math.round(r.right), cut, btn:Math.round(document.getElementById('btn_auto_alert_hw').getBoundingClientRect().height),
+                txt:Math.round(b.querySelector('.vt-attn-txt').getBoundingClientRect().width)}})()""")
+    check('A7 … the notice fits: inside the screen, nothing cut', fit['right'] <= p.pg.viewport_size['width'] + 1 and not fit['cut'], fit)
+    check('A7 … its sentence keeps a readable width beside the two links (>= 180 px)', fit['txt'] >= 180, fit)
+    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    p.pub('/scheduler/report', boot)
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    check('A7 nothing published by the whole story', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent.slice(-3)'))
+    errs = [e for e in p.errors if 'erases' not in e]
+    check('A7 no page errors', not errs, errs[:3])
+
+
+def a7_fit(p, shots, label):
+    """The watch chip beside the two answers and the timing note on this screen: touch size, nothing cut, no sideways scroll."""
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/settings', agent_settings())
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.pub('/scheduler/calendar', [dict(A2_CAL[0], enabled=False)])
+    p.pub('/scheduler/report', report(now, code='boot_grace', next=None, detail={'left_s': 173},
+                                      sentence={'code': 'boot_grace', 'vars': {'left_s': 173}},
+                                      checks=start_checks(mission=('wait', 'boot_grace', {'left_s': 173}), programs=('off', 'no_schedule', {}))))
+    a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD)])
+    for o in ('now', 'plan', 'advanced'):
+        p.open(o)
+    vw = p.pg.viewport_size['width']
+    r = p.pg.evaluate("""()=>{const q=s=>[...document.querySelectorAll(s)].filter(e=>e.offsetParent);
+        const out=q('#div_menu_autonomy *').filter(e=>{const b=e.getBoundingClientRect();return b.width&&(b.right>innerWidth+1||b.left<-1)}).map(e=>e.id||e.className);
+        const over=q('#card_calendar *, #auto_limits *, #auto_plan_state').filter(e=>e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).overflowX!=='visible').map(e=>e.id||e.className);
+        const b=document.getElementById('btn_auto_ans_watch').getBoundingClientRect(), m=document.getElementById('btn_auto_ans_mode').getBoundingClientRect();
+        return {w:document.documentElement.scrollWidth, coarse:matchMedia('(pointer: coarse)').matches, out, over,
+                h:Math.round(b.height), mh:Math.round(m.height), bw:Math.round(b.width), vis:!!document.getElementById('btn_auto_ans_watch').offsetParent}}""")
+    floor = 40 if r['coarse'] else 36
+    check(label + ' A7: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r['out'])
+    check(label + ' A7: top card, timing list, Plan line: nothing cut', not r['over'], r['over'])
+    check(label + ' A7: the watch chip >= %d px, as high as the other answers' % floor, r['vis'] and r['h'] >= floor and r['bw'] > 0, r)
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(200)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a7-top.png'))
+        p.pg.evaluate("document.getElementById('auto_limits').scrollIntoView({block: 'center'})")
+        p.pg.wait_for_timeout(200)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a7-limits.png'))
+    a7_watch(p, [])
+    p.pub('/scheduler/calendar', A2_CAL)
+
+
 def agent_slot(p, label):
     """T8 dávka IV: the agent's pills (a dock pill, a finding, a STOP latch) beside a LONG notice: inside
     their slot, never over the right panel or its handle, the notice and the compass rose not under them,
@@ -1957,6 +2200,8 @@ def main():
             a5_fit(p, a.shots, label)
             a6_story(p, a.shots, label)
             a6_fit(p, a.shots, label)
+            a7_story(p, a.shots, label)
+            a7_fit(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
         for lang, vp, phone, label in (('cs', (390, 844), True, 'phone-cs'), ('en', (1440, 900), False, 'desk-en'),
@@ -1973,6 +2218,7 @@ def main():
             a4_fit(p, a.shots, label)
             a5_fit(p, a.shots, label)
             a6_fit(p, a.shots, label)
+            a7_fit(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

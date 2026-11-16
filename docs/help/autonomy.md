@@ -25,6 +25,13 @@ next start is said only here. Under the buttons one short line says the sleep: *
 free; held by: Logins, Web UI ›* — the whole sentence is in its tooltip and in **Sleep**, where a tap
 on the line takes you.
 
+A third button appears only while the agent keeps a standing watch (*if X, do Y*, see
+[Agent](agent.md#standing-watch-if-x-do-y)): *Agent watches: 2*, the rules in your own words in its tooltip.
+When one of them would leave the dock and you have not allowed that for it, the button turns amber and
+says *Watch #12 waits for your word*: the rule stays put until you write to the agent *u hlídání 12
+povol výjezd z doku*. A tap opens **Watching** in the Agent panel; nothing is sent. Paused watches and
+no watches: no button.
+
 When the page loses the robot (more than 3 s), the top card says *No connection to the robot since 20:12:
 what you see here may no longer hold.* and the rest of the page goes muted: it is the last state the
 robot sent, not the current one. It goes away as soon as the robot answers again.
@@ -52,7 +59,8 @@ off (automation, no programs). The head of the section says the same as the top 
 that are fine (green; *no time limit* counts as fine) and those not checked now (grey: GPS is checked when a run starts, the line shows
 the live fix) fold into one line, *Nothing holds a start: 10 fine. Not checked now: 2.*; **Show all**
 lists every one of them, **Problems only** folds them again (remembered).
-The › next to a line takes you to where it is fixed. What keeps the robot awake is in **Sleep**.
+The › next to a line takes you to where it is fixed; a line that passes by itself (*Just started: 4 min*)
+has none. What keeps the robot awake is in **Sleep**.
 
 ## Plan
 
@@ -67,7 +75,7 @@ time*. Each calendar entry is one row: its switch, the program over its time and
 **Delete**; an entry switched off says *Off* and only its name and time are dimmed. When every entry is
 switched off (and the calendar decides), nothing starts by itself and the page says why: *Nothing is
 planned: the calendar entry Bigger 23:15 is switched off* in **Could it start now?** (› opens Plan), *Calendar
-off* in the head of Plan and a line in Plan to switch it on. **Skip next** skips one start (its second line names it: *Bigger · today 23:15*),
+off* in the head of Plan and a line in Plan to switch it on (plain grey: it is your choice, not a warning; a skipped start or a no-mow day stays amber). **Skip next** skips one start (its second line names it: *Bigger · today 23:15*),
 **No mowing today** skips today. A skipped start is crossed out in the timeline, and the same button
 undoes it.
 
@@ -130,6 +138,8 @@ the time you ask for by those 3 minutes.
 
 Some limits are not settings yet. **Advanced** lists them with their values: the shortest sleep, the
 wait before the power goes, the longest piece of sleep, the countdown and the time a Cancel holds.
+One line above the list says where they are set for now (the robot's configuration, a change needs a
+restart); only the hardware limit carries its own note.
 
 ### Hardware reset
 
@@ -162,6 +172,9 @@ that run. Off the dock it never cuts.
 the board does not answer for more than 2 minutes, the robot says so — *The mower board has not
 answered for 7 h 30 min (since 23:10; in the dock, no program)*, off the dock without "in the dock" —
 and reminds you at most twice (after 1 hour, then after 4 hours); it will not mow without the board.
+The time in the notice keeps running while the board stays silent (not just the 2–3 minutes of the
+moment it was raised), and the notice says what to do: *Switching the robot off and on helps*; **Hardware
+reset ›** next to it takes you to Hardware reset in Sleep (it only goes there, it starts nothing).
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping
@@ -205,7 +218,8 @@ In the panel it is the section **Who decides**, under Plan:
   page (an older agent sends only its own words, in Czech: those show).
 - **Last decision**: what was decided, when, by whom (agent or calendar) and why — the same sentence as
   in the History. In the Calendar mode it shows only once there is a decision. A decision whose time is over (*no mowing
-  until 19:30* at 20:10) is grey with *over at 19:30*. While the amber box says
+  until 19:30* at 20:10) is grey with *over at 19:30*; while the calendar decides, an agent's decision that
+  ended more than a day ago is not shown any more (History keeps it). While the amber box says
   that the advice waits for your dock permission, the same decision is not repeated under it.
 - **Rules and hard limits** fold away: the head says *in force* or *not in force now*; they open by
   themselves while in force and stay folded while not, until you open or fold them yourself (remembered). Inside, first one line with the [allowed mowing time](programs.md#allowed-mowing-time),

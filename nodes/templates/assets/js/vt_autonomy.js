@@ -50,10 +50,21 @@
     function issueVars(d) {
         if (!d) { return d; }
         var s = Number(d.silent_s);
+        /* T21 A7: silent_s is the silence when the master raised the issue (2–3 min) and never
+           moves; while the board is still silent the page says how long it is NOW (/mower/link) */
+        var liveS = linkSilentNow();
+        if (isFinite(s) && s > 0 && liveS !== null && liveS >= s) { s = liveS; }
         if (d.dur === undefined && isFinite(s) && s > 0) { d.dur = fmtDur(s); }
         var at = d.since ? parseIso(d.since) : null;
         if (d.at === undefined && at) { d.at = clock(at.getTime()); }
         return d;
+    }
+    /* the mower board's silence now, in s, from /mower/link (its number plus the time since it
+       came); null when the board answers or nothing came yet */
+    function linkSilentNow() {
+        var l = typeof S === 'object' && S ? S.linkMsg : null;
+        if (!l || l.state !== 'silent' || !isFinite(Number(l.silent_s))) { return null; }
+        return Number(l.silent_s) + Math.max(0, (Date.now() - (S.linkAt || Date.now())) / 1000);
     }
     function first(keys, v) {
         for (var i = 0; i < keys.length; i++) { if (has(keys[i])) { return t(keys[i], v); } }
@@ -842,12 +853,14 @@
         var because = adviceReason(a.reason_code, a.reason_vars, a.reason);
         if (because) { el('p', 'vt-auto-dec-why', box, t('auto.mode.adv.reason', { reason: because })); }
     }
+    var LAST_KEEP_MS = 24 * 3600 * 1000;
     function paintLast(mv) {
         var box = $('auto_mode_last');
         if (!box) { return; }
         var d0 = mv && mv.last_decision, attn0 = $('auto_mode_attn');
         var v0 = (d0 && d0.vars) || {}, end0 = parseIso(v0.until || v0.end || v0.to);
         var sig = JSON.stringify([d0, mv && mv.mode, attn0 && attn0.hidden, lang(), !!(end0 && end0.getTime() < nowMs()),
+                                  !!(end0 && nowMs() - end0.getTime() > LAST_KEEP_MS),
                                   d0 ? dayStart(new Date(nowMs())) : 0]);   // over or not; "today" turns into a date at midnight
         if (box.dataset.sig === sig) { return; }    // T21 A5: the mode comes every second
         box.dataset.sig = sig;
@@ -860,7 +873,10 @@
            the permit); the same decision is not said a second time under it */
         var attn = $('auto_mode_attn');
         var dockSaid = !!(d && attn && !attn.hidden && d.kind === 'advice' && /^dock:/.test(String((d.vars || {}).why || '')));
-        hide(box, (!d && mv.mode !== 'agent') || dockSaid);
+        /* T21 A7: while the calendar decides, an agent's decision that ended more than a day
+           ago says nothing about today (History keeps it) */
+        var stale = !!(d && mv.mode !== 'agent' && end0 && nowMs() - end0.getTime() > LAST_KEEP_MS);
+        hide(box, (!d && mv.mode !== 'agent') || dockSaid || stale);
         if (box.hidden && !dockSaid) { return; }
         el('h6', 'vt-auto-h', box, t('auto.mode.last.h'));
         if (!d) { el('p', 'vt-auto-quiet', box, t('auto.mode.last.none')); return; }
@@ -1024,6 +1040,57 @@
         };
         S.ansMode = mk('btn_auto_ans_mode', 'la-random', 'mode');
         S.ansNow = mk('btn_auto_ans_now', 'la-check-circle', 'now');
+        /* T21 A7: the agent's standing watches ("if X, do Y") — shown only while there is one */
+        S.ansWatch = el('button', 'vt-auto-ans', row);
+        S.ansWatch.type = 'button'; S.ansWatch.id = 'btn_auto_ans_watch'; S.ansWatch.hidden = true;
+        el('i', 'la la-eye', S.ansWatch);
+        el('span', 'vt-auto-ans-t', S.ansWatch);
+        S.ansWatch.addEventListener('click', openWatch);
+    }
+    /* T21 A7: what the agent watches, as the Agent panel's Watching block read it
+       (vt_watch_rules.js shares its answer; one question to the agent for both). Nothing
+       watched or the agent silent: no chip. A watch that would leave the dock and waits for
+       the owner's word is the one thing here that needs him: said by number, in the warn tone. */
+    var WATCH_EVERY_MS = 30000;
+    function watchView() {
+        var W = window.VTWatchRules, d = W && W.last ? W.last() : null;
+        if (!d || d.error || !Array.isArray(d.rules)) { return null; }
+        var live_ = d.rules.filter(function (r) { return r && r.state !== 'paused' && r.state !== 'done'; });
+        var waits = live_.filter(function (r) { return W.waits(r); });
+        return { n: live_.length, waits: waits, rules: live_, paused: d.rules.length - live_.length };
+    }
+    function paintAnsWatch() {
+        var v = watchView();
+        if (!v || !v.n) { ansSet(S.ansWatch, ''); return; }
+        var said = function (r) { return '#' + r.id + ' ' + (String(r.owner_text || '').trim() || (r.when + ' \u2192 ' + r.action)); };
+        var tip = v.rules.map(said).join('\n');
+        if (v.waits.length) {
+            var w = v.waits[0];
+            ansSet(S.ansWatch, v.waits.length === 1 ? t('auto.a7.watch.waits', { id: w.id }) : t('auto.a7.watch.waits_n', { n: v.waits.length }),
+                   'warn', t('auto.a7.watch.waits_tip', { id: w.id }) + '\n' + tip);
+        } else {
+            ansSet(S.ansWatch, t('auto.a7.watch.n', { n: v.n }), '', tip + '\n' + t('auto.a7.watch.tip'));
+        }
+    }
+    /* asks again only while the Autonomy panel is on screen */
+    function tickWatch() {
+        var W = window.VTWatchRules, panel = $('div_menu_autonomy');
+        if (!W || !W.refresh || !panel || !panel.offsetParent || document.hidden) { return; }
+        W.refresh(WATCH_EVERY_MS);
+    }
+    /* to the Agent panel's Watching block; opening it changes nothing */
+    function openWatch() {
+        /* open, never toggle: with the Agent panel already there its button would close it */
+        try { if (window.VAgent && VAgent.open) { VAgent.open(); } else { goFix('agent'); } } catch (e) { goFix('agent'); }
+        setTimeout(function () {
+            try {
+                if (window.VAgent && VAgent.activateTab) { VAgent.activateTab('work'); }
+                var W = window.VTWatchRules, box = W && W.box ? W.box() : null;
+                var card = box && box.closest ? box.closest('details') : null;
+                if (card && !card.open) { card.open = true; }
+                if (box && box.scrollIntoView) { (card || box).scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+            } catch (e) { /* agent panel not loaded */ }
+        }, 120);
     }
     function ansSet(b, text, state, tip) {
         if (!b) { return; }
@@ -1224,6 +1291,7 @@
                       'auto.check.state.' + c.state], Object.assign({ what: t('auto.check.key.' + c.key) }, v));
     }
     var QUIET_HOLDS = { ssh: 1, ui: 1 };
+    var NO_FIX_CODE = { boot_grace: 1 };
     /* what the list says depends on: the checks, the fold, the switched-off calendar entries
        (their names and times), the language and the day ("today" / "tomorrow" in the lines) */
     function checksSig(list, quietOk) {
@@ -1261,6 +1329,8 @@
             var fix = c.key === 'programs' && c.code === 'no_schedule' && calOff() ? 'sec:plan' : FIX[c.key];
             /* T21 A2: the sleep list stands in Sleep now: no › to the section it is in */
             if (quietOk && fix === 'sec:sleep' && box.closest && box.closest('#auto_sec_sleep')) { fix = null; }
+            /* T21 A7: just booted — it passes by itself, there is nowhere to go and nothing to do */
+            if (NO_FIX_CODE[c.code]) { fix = null; }
             if (fix && c.state !== 'ok' && (c.state !== 'off' || top(c))) {
                 var b = el('button', 'vt-auto-go', r);
                 b.type = 'button';
@@ -1549,6 +1619,9 @@
             var off = calOffText('auto.a5.plan.cal_off');
             if (off) { parts.push(off); }
             setText(st, parts.join(' '));
+            /* T21 A7: a calendar the owner switched off himself is his choice, not a warning:
+               said in the plain tone; a skip or a no-mow day (a passing override) keeps the amber */
+            setState(st, off && !skip && !noMowOn ? 'off' : '');
             if (st.style.display !== (parts.length ? '' : 'none')) { st.style.display = parts.length ? '' : 'none'; }
         }
     }
@@ -1923,11 +1996,14 @@
         box.dataset.sig = sig;
         clear(box);
         if (!l.from_robot) { el('p', 'vt-auto-quiet', box, t('auto.limits.defaults')); }
+        /* T21 A7: where they are set is said once for the list (it was the same line under
+           seven rows); only the one that differs (the hardware limit) keeps its own note */
+        el('p', 'vt-auto-quiet vt-auto-limits-where', box, t('auto.a7.limits.where'));
         rows.forEach(function (x) {
             var r = el('div', 'vt-auto-limit', box);
             var c = el('div', 'vt-auto-limit-t', r);
             el('span', null, c, t('auto.limits.' + x[0]));
-            el('small', null, c, t('auto.limits.where.' + x[2]));
+            if (x[2] !== 'yaml') { el('small', null, c, t('auto.limits.where.' + x[2])); }
             el('span', 'vt-auto-limit-v', r, x[1]);
         });
     }
@@ -2025,6 +2101,7 @@
         paintRight();
         paintRaw();
         tickHw();
+        tickWatch();
         watchSleep(p);
         notices(p);
         var cm = window.calendarManager;
@@ -2156,6 +2233,17 @@
         if (!l) { return; }
         var was = S.n.link, banner = l.banner || '';
         S.mowerLink = banner;
+        var wasSilent = !!(S.linkMsg && S.linkMsg.state === 'silent');
+        S.linkMsg = l; S.linkAt = Date.now();
+        /* the issue's "for N min" follows, in the notice here and in the calendar card: only when
+           the minute said changes (the link comes often; the card's Clear button is not rebuilt under a finger) */
+        var live_ = linkSilentNow(), mark = live_ === null ? (wasSilent ? 'back' : '') : String(Math.round(live_ / 60));
+        if (mark !== (S.linkMark || '') && S.report && (S.report.issues || []).length) {
+            paintAlert();
+            var cm = window.calendarManager;
+            try { if (cm && cm._paintIssues) { cm._paintIssues(); } } catch (e) { /* the card repaints with the next report */ }
+        }
+        S.linkMark = mark;
         if (banner === was) { return; }
         S.n.link = banner;
         paintLink();
@@ -2977,6 +3065,7 @@
         setState(box, list.some(function (x) { return /^err/.test(x.level); }) ? 'err' : 'warn');
         swap(box, function (box) { alertBox(box, i); });
     }
+    var HW_ADVICE = { mower_link_idle: 1 };
     function alertBox(box, i) {
         el('span', 'vt-attn-lab', box, t('auto.alert.label'));
         var d = Object.assign({ program: i.program || '' }, i.detail || {});
@@ -2984,6 +3073,17 @@
         var rk = String(d.reason || '').replace(/^dock:/, 'dock_');   // same key as calendar_manager
         var txt = first(['calmgr.issue.reason.' + rk].concat(issueKeys(i.code, d)), issueVars(d)) || i.code;
         el('span', 'vt-attn-txt', box, txt);
+        /* T21 A7: the advice is "switch the robot off and on": the way to the Hardware reset
+           block in Sleep (its own two steps and checks); this button only goes there */
+        if (HW_ADVICE[i.code]) {
+            var h = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.a7.alert.hw'));
+            h.type = 'button'; h.id = 'btn_auto_alert_hw';
+            h.title = t('auto.a7.alert.hw_tip');
+            h.addEventListener('click', function () {
+                openSec('sleep', false);
+                setTimeout(function () { var x = $('auto_hw'); if (x) { x.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }, 80);
+            });
+        }
         var b = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.alert.more'));
         b.type = 'button';
         b.addEventListener('click', function () { openSec('history', true); });
@@ -3273,6 +3373,7 @@
         sub('/mower_smach/active_program', 'std_msgs/String', function (m) { S.program = String(m.data || '').trim(); });
         subJson('/mower/link', onLink);
         subJson('/map_rules/state', onRules);
+        document.addEventListener('vt:watchrules', paintAnsWatch);
         setInterval(tick, 1000);
         var a = $('auto_link_radar');
         if (a) { a.addEventListener('click', function (e) { e.preventDefault(); goFix('rainmap'); }); }
@@ -3292,10 +3393,10 @@
                 var cd = $('auto_countdown'); clear(cd);
                 buildMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
                 var lim = $('auto_limits'); if (lim) { delete lim.dataset.sig; }
-                paintSettings(); paintAll(); tick();
+                paintSettings(); paintAll(); paintAnsWatch(); tick();
             });
         }
-        paintSettings(); paintAll();
+        paintSettings(); paintAll(); paintAnsWatch();
     }
 
     window.VTAutonomy = { issueKeys: issueKeys, issueVars: issueVars, init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {

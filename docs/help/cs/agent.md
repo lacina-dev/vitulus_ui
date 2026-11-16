@@ -198,10 +198,14 @@ potvrdí, co hlídá a co udělá.
 - *co hlídáš?* je vypíše; *přestaň hlídat X* / *zruš hlídání 3*, *pozastav hlídání 3*, *obnov
   hlídání 3* — bez modelu. Blok **Hlídání** v panelu agenta ukazuje totéž s tlačítky Pozastavit /
   Obnovit / Zrušit; u každého pravidla i poslední spuštění, a když ho něco zablokovalo, tak čím
-  (*naposled 23:16 zablokováno (dok)*).
+  (*naposled 23:16 zablokováno (dok)*). Karta říká pravidlo nejdřív tvými slovy a pod nimi, jak mu agent
+  rozumí. Pravidlo, které by vyjelo z doku a nemá k tomu tvoje slovo, má štítek *čeká na tebe* a větu,
+  kterou máš napsat (*u hlídání 12 povol výjezd z doku*); horní karta **Autonomie** totéž ukáže jako
+  *Hlídání #12 čeká na tvoje slovo*.
 - Hlídání *jednou* po spuštění skončí; jinak platí, dokud ho nezrušíš.
-- *u hlídání 3 povol i výjezd z doku* povolí výjezd jen tomu pravidlu (*zakaž výjezd* ho vezme
-  zpět). Vyjet pak smí, jen když platí i povolení doku — agent řekne, jestli platí. Povolit to
+- *u hlídání 3 povol výjezd z doku* povolí výjezd jen tomu pravidlu (*u hlídání 3 zakaž výjezd z doku*
+  ho vezme zpět). Napiš to přesně takhle, samostatnou zprávou a s číslem pravidla — jinou větu agent jako
+  povolení nevezme. Vyjet pak smí, jen když platí i povolení doku — agent řekne, jestli platí. Povolit to
   můžeš jen ty; otázka nic nemění. Výjezd s podmínkou (*jen když…*) neumí — zeptá se.
 - Složená věta se zamčením (*přestaň hlídat všechno a zamkni dok*) udělá obojí; co neudělá,
   řekne.

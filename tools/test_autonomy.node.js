@@ -287,14 +287,26 @@ function sandbox(lang, file, extra) {
     const src = read('vt_autonomy.js');
     const grab = (name) => { const i = src.indexOf('function ' + name + '('); let d = 0;
         for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') { d++; } else if (src[j] === '}' && --d === 0) { return src.slice(i, j + 1); } } };
-    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    const LIVE = {};
     ['en', 'cs'].forEach((l) => {
         const D = win.VT_I18N_DICT[l];
         const T = (k, v) => String(k in D ? D[k] : k).replace(/\{(\w+)\}/g, (m, x) => (v && x in v ? String(v[x]) : m));
         const has = (k) => k in D;
         const F = new Function('t', 'has', 'nowMs', 'S', 'window', fns.filter((n) => src.indexOf('function ' + n + '(') >= 0).map(grab).join('\n') +
-            '\nreturn {issueKeys, issueVars, first};')(T, has, () => Date.now(), {}, {});
+            '\nreturn {issueKeys, issueVars, first};')(T, has, () => Date.now(), LIVE, {});
         const say = (code, d) => F.first(F.issueKeys(code, d), F.issueVars(d));
+        // T21 A7: the silence of the report (151 s) is frozen; while /mower/link still says silent, its time is said
+        const frozen = () => say('mower_link_idle', { program: '', silent_s: 151, since: '2026-11-16T17:25', in_dock: true });
+        check(l + ': board silent, no link message: the time of the report (3 min)', /\b3\s*min/.test(frozen()), frozen());
+        LIVE.linkMsg = { state: 'silent', silent_s: 2090.8 }; LIVE.linkAt = Date.now();
+        check(l + ': … the link still silent: its time (35 min), not the frozen 3', /\b35\s*min/.test(frozen()) && !/\b3\s*min/.test(frozen()), frozen());
+        LIVE.linkMsg = { state: 'ok', silent_s: 0 };
+        check(l + ': … the board answers again: the time of the report stays', /\b3\s*min/.test(frozen()), frozen());
+        LIVE.linkMsg = { state: 'silent', silent_s: 20 };
+        check(l + ': … a new, shorter silence does not shorten the reported one', /\b3\s*min/.test(frozen()), frozen());
+        delete LIVE.linkMsg;
+        check(l + ': the notice says what to do (switch the robot off and on)', /off and on helps|vypnout a zapnout robota/.test(frozen()), frozen());
         const since = new Date(Date.now() - 7.5 * 3600e3); const pad = (n) => String(n).padStart(2, '0');
         const iso = since.getFullYear() + '-' + pad(since.getMonth() + 1) + '-' + pad(since.getDate()) + 'T' + pad(since.getHours()) + ':' + pad(since.getMinutes());
         const hm = pad(since.getHours()) + ':' + pad(since.getMinutes());

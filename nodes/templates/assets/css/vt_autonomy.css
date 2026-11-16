@@ -22,6 +22,11 @@
 .vt-auto-hero .vt-attn { flex-wrap: nowrap; padding: 4px 8px; }
 .vt-auto-hero .vt-attn-txt { flex: 1 1 auto; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; font-size: var(--vt-fs-sm); line-height: 1.3; }
 .vt-auto-hero .vt-attn-lab { flex: 0 0 auto; }
+/* T21 A7: with two links beside it the notice's sentence was squeezed into a 70 px column on a phone:
+   the sentence keeps a readable width and the links go under it */
+#auto_alert { flex-wrap: wrap; }
+#auto_alert .vt-attn-txt { flex: 1 1 14em; }
+#auto_alert .vt-attn-txt + .vt-auto-alert-go { margin-left: auto; }
 .vt-auto-alert-go { flex: 0 0 auto; padding: 0 4px; min-height: 32px; color: var(--vt-accent); font-size: var(--vt-fs-sm); }
 
 /* sections */
@@ -122,6 +127,8 @@
 /* plan */
 .vt-auto-sub { font-size: var(--vt-fs-sm); color: var(--vt-warn); margin-bottom: var(--vt-gap-1); }
 .vt-auto-sub:empty { display: none; }
+/* T21 A7: the owner's own choice (a calendar he switched off) is said plainly, not in amber */
+.vt-auto-sub[data-state="off"] { color: var(--vt-muted); }
 .vt-auto-actions { display: flex; flex-wrap: wrap; gap: var(--vt-gap-2); margin: var(--vt-gap-2) 0; }
 .vt-auto-actions .btn { flex: 1 1 auto; min-height: 36px; }
 #auto_sec_plan .vt-card { margin-top: var(--vt-gap-2); }
@@ -176,6 +183,8 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
 .vt-auto-limit-t { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
 .vt-auto-limit-t small { color: var(--vt-muted); }
 .vt-auto-limit-v { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* T21 A7: where the timing is set, once above the list */
+.vt-auto-limits-where { margin: 0 0 var(--vt-gap-1); overflow-wrap: break-word; }
 #auto_ignore_warn { flex-wrap: wrap; }
 /* these say what happens to the robot: never cut to one line */
 #auto_ignore_warn .vt-attn-txt, #auto_countdown .vt-attn-txt, .vt-auto-used .vt-attn-txt { white-space: normal; overflow: visible; }

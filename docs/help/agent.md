@@ -204,10 +204,15 @@ and after a restart. It confirms in one sentence what it watches and what it wil
 - *what are you watching?* lists them; *stop watching X* / *cancel watch 3*, *pause watch 3*,
   *resume watch 3* — no model needed. The **Watching** block in the agent panel shows the same list
   with Pause / Resume / Cancel; for each rule also its last run, and when something blocked it, what
-  (*last 23:16 blocked (dock)*).
+  (*last 23:16 blocked (dock)*). Each card says the rule in your own words first and under them how the
+  agent reads it. A rule that would leave the dock without your word for it says *waits for you* and
+  the sentence to write (*u hlídání 12 povol výjezd z doku*); the top card of **Autonomy** shows the
+  same as *Watch #12 waits for your word*.
 - A rule set *once* ends after it runs; otherwise it holds until you cancel it.
-- *allow watch 3 to leave the dock* allows leaving the dock for that rule only (*forbid watch 3
-  to leave the dock* takes it back). It still leaves only while the dock permit is valid too — the
+- *u hlídání 3 povol výjezd z doku* allows leaving the dock for that rule only (*u hlídání 3 zakaž
+  výjezd z doku* takes it back). Write it in Czech, exactly like this and as a message of its own, with
+  the rule's number: the agent accepts only this sentence, an English one (*allow watch 3 to leave the
+  dock*) does not work. It still leaves only while the dock permit is valid too — the
   agent tells you whether it is. Only you can allow it; a question changes nothing. A condition (*only
   when…*) is not supported — it asks.
 - A combined sentence with locking (*stop watching everything and lock the dock*) does both; what
