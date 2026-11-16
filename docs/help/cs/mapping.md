@@ -135,6 +135,10 @@ aktivní mapa), **Živá** (černá, právě nahrávaná mapa), **Náhled** (mod
 modrá nízko, červená vysoko), **Podklad** (podkladová mapa, viz níž), **Déšť** (radar ČHMÚ ze služby
 počasí; mapa z více radarů je překryv **Srážky (mozaika)**, viz níž). Podklad a překryvy změníš
 nejrychleji [tlačítkem vrstev na mapě](#tlačítko-vrstev-na-mapě).
+Vypnutá vrstva robota nic nestojí: bez zaškrtnutého **Základu** si stránka navigační mapu od robota
+vůbec nežádá (vrátí se hned po zaškrtnutí). Totéž platí pro kartu prohlížeče, na kterou se nedíváš —
+po deseti sekundách na pozadí přestane dostávat sken lidaru, body překážek a země, navigační mapu
+a lokální costmapu a po návratu je dostane znovu. Stav, STOP, motory, nůž a dok se nepozastavují nikdy.
 
 **Snímání** ukazuje, co robot právě sleduje, nakreslené naplocho na zemi kolem něj. Samo se
 zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kdykoli i ručně):

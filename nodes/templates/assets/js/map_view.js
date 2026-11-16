@@ -3350,27 +3350,32 @@ class MotorControl {
         this.front_left_wheel_state_topic = new ROSLIB.Topic({
             ros: ros,
             name: '/base/front_left_wheel_state',
-            messageType: 'vitulus_msgs/Moteus_controller_state'
+            messageType: 'vitulus_msgs/Moteus_controller_state',
+            throttle_rate: 250, queue_length: 1   // T39: a panel of numbers, the base sends 50 Hz
         });
         this.rear_left_wheel_state_topic = new ROSLIB.Topic({
             ros: ros,
             name: '/base/rear_left_wheel_state',
-            messageType: 'vitulus_msgs/Moteus_controller_state'
+            messageType: 'vitulus_msgs/Moteus_controller_state',
+            throttle_rate: 250, queue_length: 1   // T39: a panel of numbers, the base sends 50 Hz
         });
         this.front_right_wheel_state_topic = new ROSLIB.Topic({
             ros: ros,
             name: '/base/front_right_wheel_state',
-            messageType: 'vitulus_msgs/Moteus_controller_state'
+            messageType: 'vitulus_msgs/Moteus_controller_state',
+            throttle_rate: 250, queue_length: 1   // T39: a panel of numbers, the base sends 50 Hz
         });
         this.rear_right_wheel_state_topic = new ROSLIB.Topic({
             ros: ros,
             name: '/base/rear_right_wheel_state',
-            messageType: 'vitulus_msgs/Moteus_controller_state'
+            messageType: 'vitulus_msgs/Moteus_controller_state',
+            throttle_rate: 250, queue_length: 1   // T39: a panel of numbers, the base sends 50 Hz
         });
         this.get_torque_set_topic = new ROSLIB.Topic({
             ros: ros,
             name: '/base/get_torque_set',
-            messageType: 'std_msgs/Float32'
+            messageType: 'std_msgs/Float32',
+            throttle_rate: 250, queue_length: 1   // T39: one number on the panel, sent at 50 Hz
         });
         this.set_torque_topic = new ROSLIB.Topic({
             ros : ros,
@@ -5928,11 +5933,13 @@ class Odom{
         this.loc_status_topic.subscribe(function (m) { self.process_loc_status(m.data); });
         // GNSS detail
         this.gnss_fix_topic = new ROSLIB.Topic({
-            ros : ros, name : '/gnss/fix', messageType : 'sensor_msgs/NavSatFix'
+            ros : ros, name : '/gnss/fix', messageType : 'sensor_msgs/NavSatFix',
+            throttle_rate : 500, queue_length : 1   // T39: text in the GNSS detail, sent at 5 Hz
         });
         this.gnss_fix_topic.subscribe(function (m) { self.process_gnss_fix(m); });
         this.navpvt_topic = new ROSLIB.Topic({
-            ros : ros, name : '/gnss/navpvt', messageType : 'ublox_msgs/NavPVT'
+            ros : ros, name : '/gnss/navpvt', messageType : 'ublox_msgs/NavPVT',
+            throttle_rate : 500, queue_length : 1   // T39: as /gnss/fix
         });
         this.navpvt_topic.subscribe(function (m) { self.process_navpvt(m); });
         this.navheading_topic = new ROSLIB.Topic({
@@ -8780,6 +8787,8 @@ window.initMapView = function () {
     // tf_client_dock = new TfClient(ros, viewer.viewer);
 
     laser_scan = new LaserScan(ros, tf_client.tfClientMap, viewer.viewer);
+    // T39: not asked from rosbridge while the tab is in the background (vt_ros_idle.js)
+    if (window.VTRosIdle) { VTRosIdle.add('scan', function () { return laser_scan.laser.rosTopic; }); }
 
     viewer_grid = new ViewerGrid(viewer);
 
@@ -8791,6 +8800,10 @@ window.initMapView = function () {
     });
 
     clouds = new Clouds(ros.ros, tf_client.tfClientMap, viewer.viewer);
+    if (window.VTRosIdle) {   // T39: as the scan
+        VTRosIdle.add('ground_cloud', function () { return clouds.groung_cloud.rosTopic; });
+        VTRosIdle.add('obstacle_cloud', function () { return clouds.obstacle_cloud.rosTopic; });
+    }
 
     robot_visualization = new RobotVisualization(ros.ros, tf_client.tfClientMap, viewer.viewer);
 
@@ -9455,6 +9468,13 @@ window.initMapView = function () {
     diag.diag_topic.subscribe(function (message) {
         diag.diag_data(message, diag.diag_arr);
     });
+    // T39: /diagnostics (16 Hz, the whole list redrawn on every message) only while
+    // its card is on screen; every source repeats itself within ~1 s, so the list is
+    // complete a moment after the card opens
+    if (window.VTRosIdle) {
+        VTRosIdle.add('diagnostics', function () { return diag.diag_topic; },
+            function () { return !!(diag.div_diag_all && diag.div_diag_all.offsetParent !== null); });
+    }
 
     /**
      *  Mower
@@ -9778,10 +9798,22 @@ window.initMapView = function () {
             chk.addEventListener('change', function () {
                 try { localStorage.setItem(KEY, chk.checked ? '1' : '0'); } catch (e) {}
                 applyBaseVis();
+                if (window.VTRosIdle) { VTRosIdle.sync(); }   // T39: layer off = not asked for
             });
             maps.map.on('change', applyBaseVis);
             applyBaseVis();
         })();
+        // T39: the base map is ~2 MB and navi_man sends it again every 5 s; rosbridge
+        // packs it for this page each time. Asked for only while the Base layer is on
+        // and the tab is in front (it is latched: it comes back at once). The local
+        // costmap rests with the tab only.
+        if (window.VTRosIdle) {
+            VTRosIdle.add('base_map', function () { return maps.map.rosTopic; }, function () {
+                var c = document.getElementById('mapv3_chk_base');
+                return !c || c.checked;
+            });
+            VTRosIdle.add('local_costmap', function () { return maps.local_costmap.rosTopic; });
+        }
 
         // Map editor V1/V3: expose the live local-costmap grid client and the
         // program/zone MarkerArray client so the map editor (mapeditor.js /

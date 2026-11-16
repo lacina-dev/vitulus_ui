@@ -64,6 +64,17 @@ robot on a private network; do not expose these ports to the internet.
 | `camera_overlay` | Projects the lidar (`/scan`), the obstacle / free clouds (`/obstacles_cloud`, `/ground_cloud`) into the colour camera's pixels (camera_info + TF at the data and image stamps through `odom`, like the RViz Camera display) and colour-maps the aligned depth, for the camera overlays (`vt_cam_overlay.js`). Outputs `/camera_overlay/{scan,obstacles,free}` (compact `UInt8MultiArray`, format in the node's docstring) and `/camera_overlay/depth` (bgr8, via web_video_server). Lazy: no input (not even `/tf`) is subscribed while no layer is on. Check: `tools/test_camera_overlay.py`. |
 | `status_logger` | Caches the transient `/nextion/log_info` status strip into a size-rotated JSONL log and republishes recent history as a latched topic, independent of any browser. |
 
+What the page asks rosbridge for (T39): the scan, the clouds and the grids go as CBOR with
+`queue_length: 1` (`ros3d.js`); wheel states, the torque read-back and the GNSS detail are
+throttled (250 / 500 ms, `map_view.js`); `assets/js/vt_ros_idle.js` takes the scan, the clouds,
+the base map, the local costmap and `/diagnostics` off the server while the tab is in the
+background (after 10 s), the Base layer is off or the diagnostics card is closed, and puts them
+back when they can be seen. Safety and control topics (STOP, motor power, blade, joystick,
+dock) are neither throttled nor paused. Check: `node tools/test_ros_idle.node.js`.
+`launch/rosbridge_websocket.launch` starts rosbridge with `MALLOC_ARENA_MAX=2` (its ~290
+threads otherwise spread over 64 glibc arenas that keep freed memory: +50-70 MB per page that
+connects).
+
 `launch/vitulus_ui.launch` also starts `rosbridge_server`, `web_video_server`,
 `tf2_web_republisher` and the `mapping_manager` node from
 [`vitulus_mapping`](https://github.com/lacina-dev/vitulus_mapping).

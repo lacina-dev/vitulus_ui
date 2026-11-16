@@ -260,6 +260,15 @@ class ImuDiag {
             });
             div_diag.innerHTML = diag_html_content;
             });
+        // T39: the second /diagnostics listener of the page (16 Hz): only while its
+        // lines are on screen (vt_ros_idle.js; not loaded on the standalone page)
+        if (window.VTRosIdle) {
+            var diagTopic = this.diag_topic;
+            VTRosIdle.add('imu_diagnostics', function () { return diagTopic; }, function () {
+                var d = document.getElementById('div_diag');
+                return !!(d && d.offsetParent !== null);
+            });
+        }
     }
 }
 

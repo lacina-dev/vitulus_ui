@@ -137,6 +137,11 @@ active map), **Direct** (black, the live recording), **Preview** (blue), **Eleva
 red high), **Background** (the background map, see below), **Rain** (the ČHMÚ radar of the weather
 service; the map from several radars is the **Precipitation (mosaic)** overlay, see below). The
 background map and the overlays are quickest to change with the [layers button on the map](#the-layers-button-on-the-map).
+A layer that is off costs the robot nothing: with **Base** unticked the page does not ask the robot
+for the navigation map at all (it is back the moment you tick it). The same holds for a browser tab
+you are not looking at — after ten seconds in the background it stops receiving the lidar scan, the
+obstacle and ground points, the navigation map and the local costmap, and gets them again as soon as
+you return. Status, STOP, motors, the blade and the dock are never paused.
 
 **Sensing** shows what the robot is observing right now, drawn flat on the ground around it.
 It switches on by itself when a recording starts and off when it ends (tick it by hand any time):
