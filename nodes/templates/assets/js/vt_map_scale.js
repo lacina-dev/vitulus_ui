@@ -135,15 +135,28 @@
         }
     }
 
+    // T17 M15: others that follow the camera (the "robot is out of view"
+    // pointer, vt_map_robot.js) ride on this one poll instead of a timer of
+    // their own; not called while the page is hidden
+    var riders = [];
+    function tick() {
+        update();
+        if (document.hidden) { return; }
+        for (var i = 0; i < riders.length; i++) {
+            try { riders[i](); } catch (e) { /* a rider never stops the scale */ }
+        }
+    }
+
     function init() {
         if (!host()) { return; }
-        if (!timer) { timer = setInterval(update, POLL_MS); }
+        if (!timer) { timer = setInterval(tick, POLL_MS); }
         document.addEventListener('visibilitychange', update);
         if (root.VTI18n && root.VTI18n.onChange) { root.VTI18n.onChange(function () { last = ''; update(); }); }
         update();
     }
 
     api.update = update;
+    api.onTick = function (fn) { if (typeof fn === 'function' && riders.indexOf(fn) < 0) { riders.push(fn); } };
     root.VTMapScale = api;
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
     else { init(); }

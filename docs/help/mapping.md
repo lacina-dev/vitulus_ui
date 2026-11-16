@@ -185,6 +185,11 @@ One tap opens it, a second one picks the map:
   in degrees, from *flat* (grey, under 3°) over yellow (5–10°) and orange (10–20°) to *steep* (brown,
   over 30°), **Aspect** a colour wheel with N, E, S, W (the colour of a
   slope facing that way: north yellow-green, east blue, south purple, west orange).
+- Under *Robot* in the overlays are the robot's own layers, each with the colour it has on the map:
+  **Navigation map** (the map the robot drives by: known obstacles and free ground), **Saved
+  obstacles** (of the active map) and **What the robot sees now** (violet = the lidar's reach,
+  stronger up to an obstacle it hits; yellow = the camera's view cone) — the same switches as
+  Base, Saved and Sensing in the Map tab's layers row, here two taps away on a phone.
 - Sources added since you last opened the card carry an orange **new** tag and the button an
   orange dot, until you close the card.
 - **More settings in Map › Display ›** opens the rest (Detail, alignment, the rain radar's area);
@@ -228,6 +233,18 @@ minute (a new version replaces the picture without blinking). Shown is the map y
 the legend (remembered); without a choice the robot's lasting map, else the newest. *No map* means none was
 made for this site yet. The layer only reads the map from the robot (a few hundred kB once when shown).
 
+### Robot out of view
+
+When the robot is not on the visible part of the map (you moved or zoomed the map away, or it is
+under a panel), a small pill stands at the edge of the map on the side where the robot is: an arrow,
+**Robot** and how far it is from the middle of your view. Tap it and the map moves onto the robot;
+zoom and rotation stay and **Follow** is not changed. With the robot in view there is no pill. When the robot's position stops coming (no connection, more
+than about 3 s without it), the pill turns grey with a dashed edge and says **Robot · last known
+position** — it points to where the robot was last, not where it is now. When the robot has sent no
+position at all (about 45 s after the page opened), a grey note **Robot: position unknown** stands at
+the bottom of the map instead. The pill steps around the compass, the buttons, the rain bar, the scale
+and the right panel's handle; where a card or a panel stands at that edge, it is not shown over it. It only moves the map in your browser; nothing goes to the robot.
+
 ### Scale bar
 
 In the bottom-left corner, just above the credits line, a small bar shows the scale: its length on
@@ -244,8 +261,10 @@ also the **area** they enclose and the length **round** (the closed shape) — e
 lawn is or how far the fence runs. Dragging and pinching still move the map (only a tap without
 dragging adds a point). **Undo** removes the last point, **Clear** all, **×** or Esc ends measuring.
 Distances are on the ground in the map's own metres. While the Marker panel or the map editor is open
-measuring takes no taps (a tap there places the goal marker or edits) and the card says so. Measuring
-sends nothing to the robot.
+measuring takes no taps (a tap there places the goal marker or edits) and the card says so. **From robot**
+adds the robot's present position as a point, so the next tap tells how far the robot is from that
+place (greyed out while the robot's position is not known or is old — no connection; a tap on it says why); the point stays where the robot was at
+that moment. Measuring sends nothing to the robot.
 
 ### Lidar range and Camera range
 

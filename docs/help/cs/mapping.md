@@ -180,6 +180,11 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
   (5–10°) a oranžovou (10–20°) po *strmé* (hnědá, přes 30°),
   **Expozice** barevné kolo se S, V, J, Z (barva svahu natočeného tím směrem: sever žlutozelená,
   východ modrá, jih fialová, západ oranžová).
+- Pod *Robot* v překryvech jsou vlastní vrstvy robota, každá s barvou, jakou má v mapě:
+  **Navigační mapa** (mapa, podle které robot jezdí: známé překážky a volná plocha), **Uložené
+  překážky** (aktivní mapy) a **Co robot právě vidí** (fialová = dosah lidaru, sytější až k překážce,
+  kterou zasáhne; žlutá = zorný kužel kamery) — tytéž přepínače jako Základ, Uložená a Snímání
+  v řádku vrstev panelu Mapa, tady na telefonu na dvě klepnutí.
 - Zdroje, které přibyly od chvíle, kdy jsi kartu otevřel naposledy, mají oranžový štítek **nové** a
   tlačítko oranžovou tečku, dokud kartu nezavřeš.
 - **Další nastavení v Mapa › Zobrazení ›** otevře zbytek (Detail, zarovnání, oblast radaru); v editoru
@@ -222,6 +227,19 @@ vybereš v seznamu nad legendou (pamatuje se); bez volby trvalá mapa robota, ji
 mapa* znamená, že pro toto stanoviště zatím žádná nevznikla. Vrstva mapu z robota jen čte (pár
 set kB jednou při zobrazení).
 
+### Robot mimo obraz
+
+Když robot není ve viditelné části mapy (mapu jsi posunul nebo přiblížil jinam, nebo je pod
+panelem), stojí u okraje mapy na straně, kde robot je, malý štítek: šipka, **Robot** a jak daleko je
+od středu tvého pohledu. Klepni na něj a mapa se posune na robota; přiblížení a natočení zůstanou
+a **Sledovat** se nepřepne. Když je robot vidět, štítek není. Když poloha robota přestane chodit (bez spojení, déle než asi
+3 s), štítek zešedne, dostane čárkovaný okraj a píše **Robot · poslední známá poloha** — ukazuje, kde
+robot byl naposledy, ne kde je teď. Když robot neposlal žádnou polohu (asi 45 s po otevření stránky),
+stojí dole na mapě místo něj šedá poznámka **Robot: poloha neznámá**. Štítek se vyhýbá kompasu,
+tlačítkům, liště srážek, měřítku a úchytu pravého panelu; kde u toho okraje stojí karta nebo panel,
+přes ně se neukáže. Hýbe jen mapou
+ve tvém prohlížeči; robotu nic nejde.
+
 ### Měřítko
 
 V levém dolním rohu, hned nad řádkem s autory map, ukazuje malý pruh měřítko: jeho délka na zemi je
@@ -237,7 +255,10 @@ a délku **dokola** (uzavřený tvar) — třeba jak velký je kus trávníku ne
 a dva prsty mapou dál hýbou (bod přidá jen klepnutí bez tažení). **Zpět** odebere poslední bod,
 **Smazat** všechny, **×** nebo Esc měření ukončí. Vzdálenosti jsou na zemi ve vlastních metrech mapy.
 Když je otevřený panel Značka nebo editor mapy, měření klepnutí nebere (tam klepnutí umisťuje cílovou
-značku nebo upravuje) a karta to řekne. Měření robotu nic neposílá.
+značku nebo upravuje) a karta to řekne. **Od robota** přidá současnou
+polohu robota jako bod, takže další klepnutí řekne, jak daleko je robot od toho místa (zašedlé,
+dokud poloha robota není známá nebo je stará — bez spojení; klepnutí na něj řekne proč); bod zůstane tam, kde robot v tu chvíli byl. Měření robotu nic
+neposílá.
 
 ### Dosah lidaru a Dosah kamery
 

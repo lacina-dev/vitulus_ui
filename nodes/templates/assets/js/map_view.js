@@ -1820,14 +1820,50 @@ class TfClient {
         this.tfClientMap.transThres = 0;
 
         var self = this;
-        // Safety net (bounded): if some subscribed frame still has no transform
-        // a while after a connect, re-issue the request — at most
-        // _tfWatchDelays.length times, then give up with a console.warn. A frame
-        // that does not exist in TF must never make us create republisher
-        // topics endlessly.
-        this._tfWatchDelays = [2000, 4000, 8000, 16000, 32000];
+        // Safety net: if some subscribed frame still has no transform a while
+        // after a connect, re-issue the request.
+        // T17 M15 (2026-11-16, measured on the loaded robot: rosbridge answered
+        // the first request after 7 s; the old watchdog asked again after 2 s
+        // and 4 s, every late answer switched the subscription to a new topic —
+        // six tf_repub topics in 20 s — and after 5 attempts (~62 s) it gave up,
+        // the robot then missing on the map until a reload):
+        //  - the first look comes later and the gaps grow (5, 10, 20, then 30 s);
+        //  - while the robot has not answered the last request yet (up to
+        //    _tfPendingMs) nothing is asked again — it would only open one
+        //    more republisher topic;
+        //  - an answer to an OLDER request never switches the subscription (its
+        //    topic is not subscribed; the republisher drops it after
+        //    topicTimeout) — only the newest request, which names every frame;
+        //  - while the robot's own position (base_link) is missing or the
+        //    stream is silent the attempts do not end (one request per 30 s at
+        //    most); a frame that does not exist in TF still must not make us
+        //    create topics endlessly: with only OTHER frames missing it stops
+        //    after _tfOtherMax attempts with a console.warn.
+        this._tfWatchDelays = [5000, 10000, 20000, 30000];
+        this._tfPendingMs = 20000;
+        this._tfOtherMax = 5;
         this._tfWatchTimer = null;
         this._tfWatchAttempt = 0;
+        this._tfReqSeq = 0;                  // requests sent
+        this._tfReqDone = 0;                 // the newest request answered
+        this._tfReqAt = 0;                   // when the newest one went out
+        this._tfAnsAt = 0;                   // when its answer came
+        this._tfSettleMs = 5000;
+        var _origUpdateGoal = this.tfClientMap.updateGoal;
+        var _origProcessResponse = this.tfClientMap.processResponse;
+        this.tfClientMap.updateGoal = function() {
+            var seq = ++self._tfReqSeq;
+            self._tfReqAt = Date.now();
+            // roslib binds this.processResponse at the call, so each request
+            // carries its own number into its answer
+            this.processResponse = function(response) {
+                if (seq > self._tfReqDone) { self._tfReqDone = seq; }
+                if (seq !== self._tfReqSeq) { return; }      // a late answer to an older request
+                self._tfAnsAt = Date.now();
+                return _origProcessResponse.call(this, response);
+            };
+            return _origUpdateGoal.call(this);
+        };
         // Time of the last received TFArray. After a reconnect frameInfos still
         // hold the (stale) cached transforms, so "no transform yet" alone would
         // never fire again — a silent stream is the second trigger.
@@ -1890,44 +1926,49 @@ class TfClient {
         this._tfWatchStep();
     }
 
+    // true while the newest TF request has no answer yet (and is not too old
+    // to still expect one), or its answer came only a moment ago
+    _tfPending() {
+        if (this._tfReqSeq > this._tfReqDone && (Date.now() - this._tfReqAt) < this._tfPendingMs) { return true; }
+        // the answer just came: the new topic's first transforms need a moment
+        // (live run 2026-11-16: asked again 0.4 s after the answer — one more topic for nothing)
+        return (Date.now() - this._tfAnsAt) < this._tfSettleMs;
+    }
+
     _tfWatchStep() {
         var self = this;
         var delays = this._tfWatchDelays;
-        if (this._tfWatchAttempt >= delays.length) {
-            // Out of attempts: one last look (no further request), then stop.
-            this._tfWatchTimer = setTimeout(function() {
-                self._tfWatchTimer = null;
-                var left = self._tfMissingFrames();
-                if (left.length || self._tfSilent()) {
-                    console.warn('[TfClient] giving up after ' + delays.length +
-                        ' TF re-requests; ' + (left.length
-                            ? 'still no transform for: ' + left.join(', ')
-                            : 'the TF stream is silent'));
-                }
-            }, 5000);
-            return;
-        }
         this._tfWatchTimer = setTimeout(function() {
             self._tfWatchTimer = null;
             var missing = self._tfMissingFrames();
-            // Nothing subscribed yet (page still loading) or not connected: this
-            // slot is simply used up — the run stays bounded either way.
             var connected = !!(self.tfClientMap.ros && self.tfClientMap.ros.isConnected);
             var subscribed = Object.keys(self.tfClientMap.frameInfos || {}).length > 0;
             var silent = subscribed && self._tfSilent();
-            self._tfWatchAttempt++;
-            if (connected && (missing.length || silent)) {
-                console.warn('[TfClient] ' + (missing.length
-                        ? 'no transform yet for: ' + missing.join(', ')
-                        : 'TF stream silent for > 2 s') +
-                    ' — re-requesting TF (attempt ' + self._tfWatchAttempt + '/' + delays.length + ')');
-                try { self.tfClientMap.updateGoal(); }
-                catch (e) { console.warn('[TfClient] updateGoal failed:', e); }
-            } else if (connected && subscribed) {
+            if (connected && subscribed && !missing.length && !silent) {
                 return;                      // all frames have a transform and the stream is live — done
             }
+            if (connected && (missing.length || silent)) {
+                var poseMissing = missing.indexOf('base_link') >= 0;
+                if (!silent && !poseMissing && self._tfWatchAttempt >= self._tfOtherMax) {
+                    // the robot's position comes; what is left does not exist in TF
+                    console.warn('[TfClient] giving up after ' + self._tfWatchAttempt +
+                        ' TF re-requests; still no transform for: ' + missing.join(', '));
+                    return;
+                }
+                if (!self._tfPending()) {
+                    self._tfWatchAttempt++;
+                    console.warn('[TfClient] ' + (missing.length
+                            ? 'no transform yet for: ' + missing.join(', ')
+                            : 'TF stream silent for > 2 s') +
+                        ' — re-requesting TF (attempt ' + self._tfWatchAttempt + ')');
+                    try { self.tfClientMap.updateGoal(); }
+                    catch (e) { console.warn('[TfClient] updateGoal failed:', e); }
+                }
+                // else: the robot has not answered the last request yet — wait for it
+            }
+            // nothing subscribed yet (page still loading) or not connected: look again later
             self._tfWatchStep();
-        }, delays[this._tfWatchAttempt]);
+        }, delays[Math.min(this._tfWatchAttempt, delays.length - 1)]);
     }
 
     follow_robot_set(viewer, tf){
@@ -8761,6 +8802,9 @@ window.initMapView = function () {
     // map editor's zone preview, mapeditor.js).
     window.__tf_client_map = tf_client.tfClientMap;
     tf_client.tfClientMap.subscribe('base_link', function(tf) {
+        // T17 M15: when the robot's position last came — the "robot out of
+        // view" pill and measuring From robot must not pass an old one off as current
+        tf_client.tfClientMap._vtPoseAt = Date.now();
         tf_client.follow_robot_set(viewer.viewer, tf);
     });
 

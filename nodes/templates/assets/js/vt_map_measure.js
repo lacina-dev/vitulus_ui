@@ -6,6 +6,8 @@
  * the points and, from three points on, the area they enclose (closed
  * polygon). Undo removes the last point, Clear all of them, × or Esc ends.
  * Points and lines are drawn flat on the ground, above everything else.
+ * From robot (T17 M15) adds the robot's present position as a point (read
+ * from the transform the page's TF client already holds).
  *
  * Distances are in the map frame, which is metric (ENU, metres), so they hold
  * for the ground as the map shows it; the area by the shoelace formula.
@@ -46,6 +48,33 @@
         for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) { a += (pts[j].x + pts[i].x) * (pts[j].y - pts[i].y); }
         return Math.abs(a) / 2;
     }
+    // T17 M15 "From robot": may the robot's position p ({x, y} in the map
+    // frame, null = not known) be added to pts? Not while taps are blocked,
+    // not past the limit, not twice in a row on the same spot.
+    function robotState(p, pts, blockedNow, stale) {
+        if (blockedNow) { return { ok: false, why: 'blocked' }; }
+        if (!p || !isFinite(p.x) || !isFinite(p.y)) { return { ok: false, why: 'nopose' }; }
+        if (stale) { return { ok: false, why: 'stale' }; }
+        if (pts.length >= MAX_POINTS) { return { ok: false, why: 'full' }; }
+        var l = pts[pts.length - 1];
+        if (l && Math.hypot(l.x - p.x, l.y - p.y) < 0.005) { return { ok: false, why: 'same' }; }
+        return { ok: true, why: '' };
+    }
+    // the map -> base_link transform as the TF client last got it (roslib
+    // TFClient.frameInfos), read only: nothing is subscribed or sent here
+    function tfXY(tfc) {
+        var f = tfc && tfc.frameInfos && tfc.frameInfos.base_link;
+        var tr = f && f.transform && f.transform.translation;
+        return (tr && isFinite(tr.x) && isFinite(tr.y)) ? { x: +tr.x, y: +tr.y } : null;
+    }
+    // an old position is not measured from: the link is down, or no transform
+    // came for 3 s (map_view.js notes the time; an older page without the
+    // note = not known, taken as fresh)
+    function tfStale(tfc, now) {
+        if (!tfc) { return false; }
+        if (tfc.ros && tfc.ros.isConnected === false) { return true; }
+        return typeof tfc._vtPoseAt === 'number' && now - tfc._vtPoseAt > 3000;
+    }
     function num(v, dec, lang) {
         var s = v.toFixed(dec);
         return lang === 'cs' ? s.replace('.', ',') : s;
@@ -64,7 +93,8 @@
     }
 
     var api = { rayToGround: rayToGround, pathLength: pathLength, polygonArea: polygonArea,
-                fmtLen: fmtLen, fmtArea: fmtArea, MAX_POINTS: MAX_POINTS };
+                fmtLen: fmtLen, fmtArea: fmtArea, MAX_POINTS: MAX_POINTS,
+                robotState: robotState, tfXY: tfXY, tfStale: tfStale };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     if (typeof document === 'undefined') { if (root) { root.VTMapMeasure = api; } return; }
 
@@ -106,15 +136,17 @@
             '<div class="vt-meas-len vt-tnum" data-meas-len aria-live="polite"></div>' +
             '<div class="vt-meas-sub vt-tnum" data-meas-sub></div>' +
             '<div class="vt-meas-acts"><button type="button" class="vt-meas-act" data-meas-undo></button>' +
-            '<button type="button" class="vt-meas-act" data-meas-clear></button></div>';
+            '<button type="button" class="vt-meas-act" data-meas-clear></button>' +
+            '<button type="button" class="vt-meas-act vt-meas-robot" data-meas-robot></button></div>';
         document.body.appendChild(c);
         S.card = c;
         c.addEventListener('click', function (e) {
             var el = e.target.closest('button');
             if (!el) { return; }
             if (el.hasAttribute('data-meas-close')) { setOn(false); }
-            else if (el.hasAttribute('data-meas-undo')) { S.pts.pop(); redraw(); }
-            else if (el.hasAttribute('data-meas-clear')) { S.pts = []; redraw(); }
+            else if (el.hasAttribute('data-meas-undo')) { S.note = ''; S.pts.pop(); redraw(); }
+            else if (el.hasAttribute('data-meas-clear')) { S.note = ''; S.pts = []; redraw(); }
+            else if (el.hasAttribute('data-meas-robot')) { addRobot(); }
         });
         // keys in the card never reach the keyboard driving (vt_joy.js on window)
         c.addEventListener('keydown', function (e) {
@@ -136,6 +168,7 @@
         x.title = t('measure.end'); x.setAttribute('aria-label', t('measure.end'));
         S.card.querySelector('[data-meas-undo]').textContent = t('measure.undo');
         S.card.querySelector('[data-meas-clear]').textContent = t('measure.clear');
+        S.card.querySelector('[data-meas-robot]').textContent = t('measure.m15.robot');
         redraw();
     }
 
@@ -144,7 +177,12 @@
         S.on = !!on;
         S.btn.setAttribute('aria-pressed', String(S.on));
         S.card.hidden = !S.on;
-        if (!S.on) { S.pts = []; }
+        if (!S.on) { S.pts = []; S.note = ''; }
+        // the Marker panel / the editor may open while measuring: say why taps
+        // do nothing, and the robot may get / lose its position (From robot).
+        // T17 M15: this 1 s check lives only while measuring (it ran always)
+        if (S.on && !S.watch) { S.watch = setInterval(card, 1000); }
+        if (!S.on && S.watch) { clearInterval(S.watch); S.watch = null; }
         wire();
         redraw();
         place();
@@ -191,6 +229,7 @@
             if (!S.on || a.multi || a.moved || far(a, pt(ev)) || !a.ray || blocked() || a.panel || panelOpen()) { card(); return; }
             var p = rayToGround(a.ray.origin, a.ray.direction);
             if (!p || S.pts.length >= MAX_POINTS) { return; }
+            S.note = '';
             S.pts.push(p);
             redraw();
         }
@@ -207,21 +246,40 @@
     }
 
     // ---- 3D: the line (closed from three points on), a faint area fill, the points
+    function robotXY() { return tfXY(root.__tf_client_map); }
+    function robotStale() { return tfStale(root.__tf_client_map, Date.now()); }
+    function addRobot() {
+        var p = robotXY(), rs = robotState(p, S.pts, !!blocked(), robotStale());
+        if (!S.on || !rs.ok) { S.note = rs.why; S.noteUntil = Date.now() + 4000; card(); return; }
+        S.note = '';
+        S.pts.push(p);
+        redraw();
+        place();
+    }
     function redraw() { card(); draw3d(); }
     function card() {
         if (S.card) {
             var L = lang(), n = S.pts.length, why = S.on ? blocked() : '';
             var len = S.card.querySelector('[data-meas-len]'), sub = S.card.querySelector('[data-meas-sub]');
             len.textContent = n >= 2 ? fmtLen(pathLength(S.pts), L) : (n === 1 ? fmtLen(0, L) : '');
+            // a refused From robot says why for a few seconds (a phone shows no tooltip)
+            var note = (!why && S.note && Date.now() < S.noteUntil) ? S.note : '';
             sub.textContent = why ? t('measure.blocked.' + why)
+                : note ? t('measure.m15.rb.' + note)
                 : n === 0 ? t('measure.hint_first')
                 : n === 1 ? t('measure.hint_next')
                 : n === 2 ? t('measure.pts', { n: n })
                 : t('measure.pts_area', { n: n, area: fmtArea(polygonArea(S.pts), L),
                                           round: fmtLen(pathLength(S.pts.concat([S.pts[0]])), L) });
-            sub.classList.toggle('is-warn', !!why);
+            sub.classList.toggle('is-warn', !!why || !!note);
             S.card.querySelector('[data-meas-undo]').disabled = n === 0;
             S.card.querySelector('[data-meas-clear]').disabled = n === 0;
+            // T17 M15: the robot's position as a point ("how far is it from …")
+            var rb = S.card.querySelector('[data-meas-robot]'), rs = robotState(robotXY(), S.pts, !!why, robotStale());
+            // not `disabled`: a tap on it still answers (the reason, above)
+            if (rb.getAttribute('aria-disabled') !== String(!rs.ok)) { rb.setAttribute('aria-disabled', String(!rs.ok)); rb.classList.toggle('is-off', !rs.ok); }
+            var rt = t('measure.m15.rb.' + (rs.ok ? 'tip' : rs.why));
+            if (rb.title !== rt) { rb.title = rt; }
         }
     }
     function draw3d() {
@@ -329,8 +387,6 @@
             } catch (e) { setInterval(place, 1000); }
         }, 300);
         window.addEventListener('resize', place);
-        // the Marker panel / the editor may open while measuring: say why taps do nothing
-        setInterval(function () { if (S.on) { card(); } }, 1000);
         if (root.VTI18n && root.VTI18n.onChange) { root.VTI18n.onChange(labels); }
     }
 

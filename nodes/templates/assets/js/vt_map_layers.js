@@ -244,7 +244,8 @@
         var l = lang();
         return l + '|' + cat.bases.map(function (b) { return b.id + ':' + b.group + ':' + VTMapSources.label(b, l); }).join(',') +
             '|' + cat.overlays.map(function (o) { return o.id + ':' + o.layer_order + ':' + VTMapSources.label(o, l); }).join(',') +
-            '|' + (!!$('mapv3_chk_rain')) + '|' + (!!$('mapv3_chk_trav')) + '|' + (!!$('mapv3_chk_tmosaic')) + '|' + (!!$('mapv3_align_etrs')) + '|' + fresh.join(',');
+            '|' + (!!$('mapv3_chk_rain')) + '|' + (!!$('mapv3_chk_trav')) + '|' + (!!$('mapv3_chk_tmosaic')) + '|' + (!!$('mapv3_align_etrs')) + '|' + fresh.join(',') +
+            '|' + robotRows().map(function (r) { return r[0]; }).join(',');
     }
 
     function newTag(id) {
@@ -504,15 +505,37 @@
         }).join('') + '<span class="vt-lyr-treason"><span class="vt-lyr-tchip is-zone"></span>' + esc(t('trav.r.zone_line')) + '</span></div>';
     }
 
-    function ovRow(key, chkId, name, hint, extra) {
+    // opt (T17 M15, the robot's own layers): sw = colour classes of the
+    // layer on the map (the Map tab's swatches), tipOnly = the hint stays a
+    // tooltip (a layer that is on by default must not grow a paragraph)
+    function ovRow(key, chkId, name, hint, extra, opt) {
+        opt = opt || {};
+        var sw = (opt.sw || []).map(function (c) { return '<span class="vt-lyr-swatch ' + esc(c) + '" aria-hidden="true">\u25a0</span>'; }).join('');
         return '<div class="vt-lyr-ov" data-lyr-row="' + esc(key) + '">' +
             '<button type="button" class="vt-lyr-ovt" role="switch" aria-checked="false" data-lyr-chk="' + esc(chkId) + '"' +
             (hint ? ' title="' + esc(hint) + '"' : '') + '>' +
             '<span class="vt-lyr-sw-ui" aria-hidden="true"></span>' +
-            '<span class="vt-lyr-ovn">' + esc(name) + newTag(key) + '</span>' +
+            '<span class="vt-lyr-ovn">' + esc(name) + newTag(key) + '</span>' + sw +
             '<span class="vt-lyr-ovs vt-tnum" data-lyr-st="' + esc(key) + '"></span></button>' +
             '<div class="vt-lyr-ovx" hidden>' + extra +
-            (hint ? '<div class="vt-lyr-hint">' + esc(hint) + '</div>' : '') + '</div></div>';
+            (hint && !opt.tipOnly ? '<div class="vt-lyr-hint">' + esc(hint) + '</div>' : '') + '</div></div>';
+    }
+    // T17 M15: the robot's own layers of the Map tab (Map > Display), mirrored
+    // here like the rest — where it may go (its navigation map, the saved
+    // obstacles) and what it sees right now (Sensing). [row key, Map tab
+    // checkbox, i18n stem, swatches, hint as a tooltip only]
+    var ROBOT_ROWS = [
+        ['rbase', 'mapv3_chk_base', 'base', ['vt-sw-00e5e5'], true],
+        ['rsite', 'mapv3_chk_site', 'site', ['vt-sw-ff4d4d'], true],
+        ['rsense', 'mapv3_chk_sensing', 'sense', ['vt-sw-b388ff', 'vt-sw-ffd23f'], false]
+    ];
+    function robotRows() { return ROBOT_ROWS.filter(function (r) { return !!$(r[1]); }); }
+    // the rows of the group "Robot" (its heading is the caller's: the group
+    // also holds the terrain layers of T29 / T30)
+    function robotHtml() {
+        return robotRows().map(function (r) {
+            return ovRow(r[0], r[1], t('maplyr.m15.' + r[2]), t('maplyr.m15.' + r[2] + '_hint'), '', { sw: r[3], tipOnly: r[4] });
+        }).join('');
     }
 
     function render() {
@@ -562,7 +585,8 @@
                     (o.timeline ? '<div class="vt-lyr-tl" data-lyr-tl="' + esc(o.id) + '"></div>' : '')));
             });
         };
-        if (cat.overlays.length || $('mapv3_chk_rain') || $('mapv3_chk_trav') || $('mapv3_chk_tmosaic')) {
+        var robot = robotHtml();
+        if (cat.overlays.length || robot || $('mapv3_chk_rain') || $('mapv3_chk_trav') || $('mapv3_chk_tmosaic')) {
             h.push('<section class="vt-lyr-sec"><div class="vt-lyr-sec-h"><span>' + esc(t('maplyr.ov')) + '</span></div>');
             if (lines.length) {
                 h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.lines')) + '</div>');
@@ -576,8 +600,10 @@
             }
             if (tones.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.terrain')) + '</div>'); ovs(tones); }
             // T29: what the robot's terrain node sees now (vt_terrain_layer.js)
+            // T17 M15: the robot's own layers lead the group "Robot"
+            if (robot) { h.push('<div class="vt-lyr-grp-h" data-lyr-robot>' + esc(t('trav.grp')) + '</div>' + robot); }
             if ($('mapv3_chk_trav')) {
-                h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>');
+                if (!robot) { h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>'); }
                 h.push(ovRow('trav', 'mapv3_chk_trav', t('trav.layer'), t('trav.hint'),
                     rangeHtml('mapv3_trav_op', t('trav.layer')) + travModesHtml() + '<div data-lyr-tleg></div>' +
                     '<div class="vt-lyr-hint" data-lyr-tsrc hidden></div>' +
@@ -585,7 +611,7 @@
             }
             // T30: the terrain map of the whole mowed area (vt_terrain_mosaic.js)
             if ($('mapv3_chk_tmosaic')) {
-                if (!$('mapv3_chk_trav')) { h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>'); }
+                if (!robot && !$('mapv3_chk_trav')) { h.push('<div class="vt-lyr-grp-h">' + esc(t('trav.grp')) + '</div>'); }
                 h.push(ovRow('tmosaic', 'mapv3_chk_tmosaic', t('tmos.layer'), t('tmos.hint'),
                     rangeHtml('mapv3_tmosaic_op', t('tmos.layer')) +
                     // more maps of the site (one mowing, the robot's lasting map …): pick one
@@ -675,7 +701,7 @@
             var c = $(el.getAttribute('data-lyr-chk')), v = !!(c && c.checked);
             el.setAttribute('aria-checked', String(v));
             var x = el.parentNode.querySelector('.vt-lyr-ovx');
-            if (x) { x.hidden = !v; }
+            if (x) { x.hidden = !v || !x.firstChild; }
             var key = el.parentNode.getAttribute('data-lyr-row');
             var st = el.querySelector('[data-lyr-st]');
             if (st && key !== 'align') {      // 'align': its slot is set above (M13)
@@ -962,6 +988,15 @@
         document.head.appendChild(sc);
     }
 
+    // T17 M15: the "robot is out of view" pointer, loaded the same way
+    function loadRobot() {
+        if (window.VTMapRobot || document.querySelector('script[data-vt-maprobot]')) { return; }
+        var sc = document.createElement('script');
+        sc.src = '/assets/js/vt_map_robot.js';
+        sc.setAttribute('data-vt-maprobot', '1');
+        document.head.appendChild(sc);
+    }
+
     function loadMeasure() {
         if (window.VTMapMeasure || document.querySelector('script[data-vt-measure]')) { return; }
         var sc = document.createElement('script');
@@ -976,6 +1011,7 @@
         loadTerrain();
         loadMeasure();
         loadMosaic();
+        loadRobot();
         place();
         // the Map tab / editor changed something: mirror it (capture: the
         // events fired by mapping.js / mapedits.js do not bubble)

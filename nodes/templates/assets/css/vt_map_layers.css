@@ -340,3 +340,37 @@
 .vt-lyr-unal-t { grid-column: 1; grid-row: 1; min-width: 0; overflow-wrap: break-word; hyphens: auto; }
 .vt-lyr-unal-x { grid-column: 2; grid-row: 1; align-self: start; width: 40px; height: 40px; }
 .vt-lyr-unal-go { grid-column: 1 / -1; grid-row: 2; justify-self: start; margin-left: -4px; white-space: normal; }   /* its words under the note's */
+
+/* ---- T17 M15: the robot's own layers in the panel — the colour the layer
+   has on the map, right after its name */
+.vt-lyr-swatch { flex: 0 0 auto; font-size: 14px; line-height: 1; margin-left: -4px; }
+.vt-lyr-swatch + .vt-lyr-swatch { margin-left: -8px; }
+
+/* ---- T17 M15: measuring from the robot — the third action keeps its whole
+   text, Undo and Clear give way */
+.vt-meas-act.vt-meas-robot { flex: 0 0 auto; }
+.vt-meas-act.is-off { opacity: 0.45; }   /* not `disabled`: a tap says why (the line above the buttons) */
+
+/* ---- T17 M15: the "robot is out of view" pointer (vt_map_robot.js): a pill
+   at the edge of the map in the robot's direction; under the layers button
+   and every panel (z-index), a touch target of 40 px */
+.vt-map-robot {
+    position: fixed; z-index: 4; left: 0; top: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: var(--vt-touch, 40px); padding: 0 12px 0 8px; margin: 0;
+    color: var(--vt-text); background: var(--vt-overlay);
+    border: 1px solid var(--vt-border-strong); border-radius: 20px;
+    box-shadow: var(--vt-elev-1); cursor: pointer;
+    font-size: var(--vt-fs-sm); line-height: 1.2; white-space: nowrap;
+    transition: border-color var(--vt-ease);
+}
+.vt-map-robot[hidden] { display: none; }
+.vt-map-robot:hover { border-color: rgba(var(--vt-accent-rgb), 0.6); }
+.vt-map-robot:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 2px; }
+.vt-map-robot-a { display: grid; place-items: center; width: 22px; height: 22px; color: var(--vt-brand); }
+.vt-map-robot-a svg { display: block; }
+/* an old position (grey, dashed) and no position at all (no arrow) are not passed off as current */
+.vt-map-robot[data-state="stale"], .vt-map-robot[data-state="none"] { color: var(--vt-muted); border-style: dashed; }
+.vt-map-robot[data-state="stale"] .vt-map-robot-a { color: var(--vt-muted); }
+.vt-map-robot[data-state="none"] { cursor: default; padding-left: 12px; }
+.vt-map-robot[data-state="none"] .vt-map-robot-a { display: none; }
