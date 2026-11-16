@@ -5976,4 +5976,9 @@
     "auto.a7.alert.hw": "Tvrdý restart ›",
     "auto.a7.alert.hw_tip": "Otevře Tvrdý restart ve Spánku. Nic se neodesílá.",
     "auto.a7.limits.where": "Zatím pevně v nastavení robota (config/master_controller.yaml); změna chce restart.",
+    /* T21 A8: the board answers again, the exact permit sentence from the agent */
+    "calmgr.issue.mower_link_idle.back": "Deska sekačky mlčela od {at}, už odpovídá.",
+    "auto.a8.alert.over": "Vyřešeno",
+    "auto.a8.watch.waits_tip": "Z doku nevyjede, dokud agentovi nenapíšeš „{word}“.",
+    "watchr.ask.undock_word": "Čeká na tvoje slovo: z doku kvůli tomu nevyjede, dokud agentovi v chatu nenapíšeš „{word}“.",
 };

@@ -5890,4 +5890,9 @@
     "auto.a7.alert.hw": "Hardware reset ›",
     "auto.a7.alert.hw_tip": "Opens Hardware reset in Sleep. Nothing is sent.",
     "auto.a7.limits.where": "Fixed in the robot's configuration for now (config/master_controller.yaml); a change needs a restart.",
+    /* T21 A8: the board answers again, the exact permit sentence from the agent */
+    "calmgr.issue.mower_link_idle.back": "The mower board was silent since {at}; it answers again.",
+    "auto.a8.alert.over": "Over",
+    "auto.a8.watch.waits_tip": "It will not leave the dock until you write to the agent “{word}”.",
+    "watchr.ask.undock_word": "Waits for your word: it will not leave the dock for this until you write to the agent in the chat “{word}” (it allows this watch to leave the dock).",
 };

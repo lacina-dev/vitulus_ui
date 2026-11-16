@@ -446,3 +446,12 @@ a.vt-auto-link { display: inline-flex; align-items: center; gap: 2px; }
     .vt-auto-answer { margin-bottom: 2px; }
     .vt-auto-sleepline-b { padding: 0; }
 }
+
+/* T21 A8: the on/off switches keep their look (44×24) and take a finger: on touch the hit area
+   is at least 44×44 around the switch (an invisible ::after of the input itself, so a tap
+   beside the knob still toggles it; where a label already gives the area this adds nothing seen) */
+@media (pointer: coarse) {
+    .vt-auto .form-check-input[type="checkbox"] { position: relative; overflow: visible; }
+    .vt-auto .form-check-input[type="checkbox"]::after { content: ""; position: absolute; left: 50%; top: 50%;
+        width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }
+}

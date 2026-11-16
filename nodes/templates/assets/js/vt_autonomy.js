@@ -38,6 +38,8 @@
         d = d || {};
         var out = [];
         if (code === 'hw_reset_person' && /^claude:/.test(String(d.who || ''))) { out.push('.claude'); }
+        /* T21 A8: the board answers again while the issue stays listed until cleared: said as over */
+        if (code === 'mower_link_idle' && linkAnswers()) { out.push('.back'); }
         if (code === 'mower_link_idle' && d.in_dock === false) { out.push('.off_dock'); }
         if (!d.program) { out.push('.no_run'); }
         return out;
@@ -54,6 +56,10 @@
            moves; while the board is still silent the page says how long it is NOW (/mower/link) */
         var liveS = linkSilentNow();
         if (isFinite(s) && s > 0 && liveS !== null && liveS >= s) { s = liveS; }
+        /* T21 A8: the link's own count starts again with its node (live 2026-11-16: 55 min by
+           the link, 63 min in the report, 115 min in truth): still silent = the time since it began */
+        var began = d.since ? parseIso(d.since) : null;
+        if (liveS !== null && began && isFinite(s) && s > 0) { s = Math.max(s, (Date.now() - began.getTime()) / 1000); }
         if (d.dur === undefined && isFinite(s) && s > 0) { d.dur = fmtDur(s); }
         var at = d.since ? parseIso(d.since) : null;
         if (d.at === undefined && at) { d.at = clock(at.getTime()); }
@@ -65,6 +71,11 @@
         var l = typeof S === 'object' && S ? S.linkMsg : null;
         if (!l || l.state !== 'silent' || !isFinite(Number(l.silent_s))) { return null; }
         return Number(l.silent_s) + Math.max(0, (Date.now() - (S.linkAt || Date.now())) / 1000);
+    }
+    /* /mower/link says the board answers (state ok) */
+    function linkAnswers() {
+        var l = typeof S === 'object' && S ? S.linkMsg : null;
+        return !!(l && l.state === 'ok');
     }
     function first(keys, v) {
         for (var i = 0; i < keys.length; i++) { if (has(keys[i])) { return t(keys[i], v); } }
@@ -1067,7 +1078,8 @@
         if (v.waits.length) {
             var w = v.waits[0];
             ansSet(S.ansWatch, v.waits.length === 1 ? t('auto.a7.watch.waits', { id: w.id }) : t('auto.a7.watch.waits_n', { n: v.waits.length }),
-                   'warn', t('auto.a7.watch.waits_tip', { id: w.id }) + '\n' + tip);
+                   'warn', (w.undock_word ? t('auto.a8.watch.waits_tip', { word: String(w.undock_word) })
+                                           : t('auto.a7.watch.waits_tip', { id: w.id })) + '\n' + tip);
         } else {
             ansSet(S.ansWatch, t('auto.a7.watch.n', { n: v.n }), '', tip + '\n' + t('auto.a7.watch.tip'));
         }
@@ -2237,7 +2249,7 @@
         S.linkMsg = l; S.linkAt = Date.now();
         /* the issue's "for N min" follows, in the notice here and in the calendar card: only when
            the minute said changes (the link comes often; the card's Clear button is not rebuilt under a finger) */
-        var live_ = linkSilentNow(), mark = live_ === null ? (wasSilent ? 'back' : '') : String(Math.round(live_ / 60));
+        var live_ = linkSilentNow(), mark = live_ === null ? (l.state === 'ok' ? 'ok' : (wasSilent ? 'back' : '')) : String(Math.round(live_ / 60));
         if (mark !== (S.linkMark || '') && S.report && (S.report.issues || []).length) {
             paintAlert();
             var cm = window.calendarManager;
@@ -3062,12 +3074,15 @@
         hide(box, !list.length);
         if (!list.length) { return; }
         var i = list[list.length - 1];
-        setState(box, list.some(function (x) { return /^err/.test(x.level); }) ? 'err' : 'warn');
+        /* T21 A8: what is over needs nobody: grey while every listed issue is of that kind */
+        var over = list.every(issueOver);
+        setState(box, over ? 'off' : (list.some(function (x) { return /^err/.test(x.level); }) ? 'err' : 'warn'));
         swap(box, function (box) { alertBox(box, i); });
     }
     var HW_ADVICE = { mower_link_idle: 1 };
+    function issueOver(i) { return !!i && i.code === 'mower_link_idle' && linkAnswers(); }
     function alertBox(box, i) {
-        el('span', 'vt-attn-lab', box, t('auto.alert.label'));
+        el('span', 'vt-attn-lab', box, t(issueOver(i) ? 'auto.a8.alert.over' : 'auto.alert.label'));
         var d = Object.assign({ program: i.program || '' }, i.detail || {});
         if (d.slot) { d.slot = String(d.slot).replace('T', ' '); }
         var rk = String(d.reason || '').replace(/^dock:/, 'dock_');   // same key as calendar_manager
@@ -3075,7 +3090,8 @@
         el('span', 'vt-attn-txt', box, txt);
         /* T21 A7: the advice is "switch the robot off and on": the way to the Hardware reset
            block in Sleep (its own two steps and checks); this button only goes there */
-        if (HW_ADVICE[i.code]) {
+        /* T21 A8: only where the block would take it (in the dock) and while there is something to fix */
+        if (HW_ADVICE[i.code] && d.in_dock !== false && !issueOver(i)) {
             var h = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.a7.alert.hw'));
             h.type = 'button'; h.id = 'btn_auto_alert_hw';
             h.title = t('auto.a7.alert.hw_tip');
@@ -3393,7 +3409,7 @@
                 var cd = $('auto_countdown'); clear(cd);
                 buildMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
                 var lim = $('auto_limits'); if (lim) { delete lim.dataset.sig; }
-                paintSettings(); paintAll(); paintAnsWatch(); tick();
+                paintSettings(); paintAll(); paintAnsWatch(); paintLink(); tick();   // A8: the board's banner too (it stayed in the old language)
             });
         }
         paintSettings(); paintAll(); paintAnsWatch();

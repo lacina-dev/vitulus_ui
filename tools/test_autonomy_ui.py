@@ -2041,18 +2041,19 @@ def a7_story(p, shots, label):
              'detail': {'in_dock': True, 'repeat': 0, 'silent_s': 151, 'since': iso(since)}}
     link = {'banner': 'silent', 'state': 'silent', 'silent_s': 33 * 60 + 5, 'status': 'OFF', 'rpm': 0, 'bat_out': False,
             'mission': {'armed': False, 'failed': False, 'phase': None, 'recoveries': 0, 'why': None}}
-    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    p.pub('/mower/link', dict(link, banner='recovering', state='recovering', silent_s=0))
     p.pub('/scheduler/report', dict(boot, issues=[issue]))
     al = p.wait_text('#auto_alert', since.strftime('%H:%M'))
     check('A7 board silent, the link not saying so: the time of the report (3 min), since when', re.search(r'\b3\s*min', al or '')
           and since.strftime('%H:%M') in al, al)
     p.pub('/mower/link', link)
-    al = p.wait_text('#auto_alert', '33')
-    check('A7 … still silent: the time runs with the link (33 min, not the frozen 3)', re.search(r'\b33\s*min', al or '')
+    p.wait(lambda: re.search(r'\b3[34]\s*min', p.text('#auto_alert') or ''))
+    al = p.text('#auto_alert')
+    check('A7 … still silent: the time runs with the link (33 min, not the frozen 3)', re.search(r'\b3[34]\s*min', al or '')
           and not re.search(r'\b3\s*min', al or ''), al)
     check('A7 … and says what to do', ('Pomůže vypnout a zapnout robota' if cs else 'Switching the robot off and on helps') in (al or ''), al)
     cal = p.text('#div_scheduler_issues') or ''
-    check('A7 … the calendar card says the same time', re.search(r'\b33\s*min', cal), cal)
+    check('A7 … the calendar card says the same time', re.search(r'\b3[34]\s*min', cal), cal)
     n1 = len(p.pg.evaluate('__fake.sent'))
     p.click('#btn_auto_alert_hw')
     p.pg.wait_for_timeout(400)
@@ -2068,8 +2069,59 @@ def a7_story(p, shots, label):
                 txt:Math.round(b.querySelector('.vt-attn-txt').getBoundingClientRect().width)}})()""")
     check('A7 … the notice fits: inside the screen, nothing cut', fit['right'] <= p.pg.viewport_size['width'] + 1 and not fit['cut'], fit)
     check('A7 … its sentence keeps a readable width beside the two links (>= 180 px)', fit['txt'] >= 180, fit)
+    # A8: the link's own count starts again with its node: still the time since it began
+    p.pub('/mower/link', dict(link, silent_s=40))
+    p.wait(lambda: re.search(r'\b3[34]\s*min', p.text('#auto_alert') or ''))
+    al = p.text('#auto_alert')
+    check('A8 the link counting from its restart: still 33 min since it began', re.search(r'\b3[34]\s*min', al or ''), al)
+    # A8: off the dock the Hardware reset block refuses: no link to it, the advice stays
+    p.pub('/scheduler/report', dict(boot, issues=[dict(issue, detail=dict(issue['detail'], in_dock=False))]))
+    al = p.wait_text('#auto_alert', 'nebude sekat' if cs else 'will not mow')
+    check('A8 off the dock: no Hardware reset ›, the advice stays', not p.pg.evaluate("!!document.getElementById('btn_auto_alert_hw')")
+          and ('Pomůže vypnout a zapnout robota' if cs else 'Switching the robot off and on helps') in (al or ''), al)
+    p.pub('/scheduler/report', dict(boot, issues=[issue]))
+    p.wait(lambda: p.pg.evaluate("!!document.getElementById('btn_auto_alert_hw')"))
+    # A8: the board answers again, the issue still listed: grey, in the past, nothing to do
+    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    al = p.wait_text('#auto_alert', 'už odpovídá' if cs else 'answers again')
+    over = p.pg.evaluate("""(()=>{const b=document.getElementById('auto_alert');
+        return {state:b.dataset.state, hw:!!document.getElementById('btn_auto_alert_hw'), lab:b.querySelector('.vt-attn-lab').textContent,
+                hist:b.querySelectorAll('.vt-auto-alert-go').length}})()""")
+    check('A8 the board answers again: "was silent since HH:MM, answers again"', (('mlčela od ' if cs else 'was silent since ') + since.strftime('%H:%M')) in (al or '')
+          and not re.search(r'neodpovídá|has not answered|\d\s*min|vypnout a zapnout|off and on', al or ''), al)
+    check('A8 … grey, labelled as over, no Hardware reset ›, History stays', over['state'] == 'off' and not over['hw'] and over['hist'] == 1
+          and over['lab'] == ('Vyřešeno' if cs else 'Over'), over)
+    cal = p.wait_text('#div_scheduler_issues', 'už odpovídá' if cs else 'answers again')
+    check('A8 … the calendar card says the same', ('už odpovídá' if cs else 'answers again') in (cal or ''), cal)
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
+        p.pg.wait_for_timeout(200)
+        p.pg.screenshot(path=os.path.join(shots, label + '-a8-back.png'))
+    p.pub('/mower/link', link)
+    p.wait(lambda: re.search(r'\b3[34]\s*min', p.text('#auto_alert') or ''))
+    al = p.text('#auto_alert')
+    # A8 (seen live): the board's banner follows a language switch, not only the next change of the link
+    p.lang('en' if cs else 'cs')
+    other = [p.text('#auto_link'), p.pg.evaluate("VTI18n.t('auto.link.silent')")]
+    p.lang('cs' if cs else 'en')
+    back_ = [p.text('#auto_link'), p.pg.evaluate("VTI18n.t('auto.link.silent')")]
+    check('A8 the silent-board banner follows the language', other[0] == other[1] and back_[0] == back_[1] and other[0] != back_[0], [other, back_])
+    p.wait(lambda: re.search(r'\b3[34]\s*min', p.text('#auto_alert') or ''))
+    al = p.text('#auto_alert')
+    check('A8 … silent again: red and present again', re.search(r'\b3[34]\s*min', al or '')
+          and p.pg.evaluate("document.getElementById('auto_alert').dataset.state") == 'err', al)
     p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
     p.pub('/scheduler/report', boot)
+    # A8: the exact sentence comes from the agent (undock_word); without it the page composes it as before
+    a7_watch(p, [a7_rules(needs_undock_word=True, undock_word='u hlídání 12 povol výjezd z doku TEST')])
+    wt = p.pg.evaluate("""(()=>{const c=document.querySelector('.vwr-card .vwr-ask'), b=document.getElementById('btn_auto_ans_watch');
+        return {ask:c?c.textContent:'', tip:b?b.title:''}})()""")
+    check('A8 the permit sentence is the agent\'s own (card and chip tooltip)', 'u hlídání 12 povol výjezd z doku TEST' in wt['ask']
+          and 'u hlídání 12 povol výjezd z doku TEST' in wt['tip'], wt)
+    a7_watch(p, [a7_rules(needs_undock_word=True)])
+    wt = p.pg.evaluate("(()=>{const c=document.querySelector('.vwr-card .vwr-ask');return c?c.textContent:''})()")
+    check('A8 … an older agent without it: composed as before', 'u hlídání 12 povol výjezd z doku' in wt and 'TEST' not in wt, wt)
+    a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD)])
     p.pub('/scheduler/mode', mode_view('calendar'))
     check('A7 nothing published by the whole story', len(p.pg.evaluate('__fake.sent')) == n0, p.pg.evaluate('__fake.sent.slice(-3)'))
     errs = [e for e in p.errors if 'erases' not in e]
@@ -2095,6 +2147,17 @@ def a7_fit(p, shots, label):
         const b=document.getElementById('btn_auto_ans_watch').getBoundingClientRect(), m=document.getElementById('btn_auto_ans_mode').getBoundingClientRect();
         return {w:document.documentElement.scrollWidth, coarse:matchMedia('(pointer: coarse)').matches, out, over,
                 h:Math.round(b.height), mh:Math.round(m.height), bw:Math.round(b.width), vis:!!document.getElementById('btn_auto_ans_watch').offsetParent}}""")
+    # A8: a switch keeps its look and takes a finger: a tap 9 px above or below its edge still hits it
+    sw = p.pg.evaluate("""()=>{const out=[]; for (const e of document.querySelectorAll('#div_menu_autonomy input.form-check-input[type=checkbox]')) {
+        if(!e.offsetParent||(e.checkVisibility&&!e.checkVisibility())) continue;   // not in a folded section
+        e.scrollIntoView({block:'center'}); const b=e.getBoundingClientRect(), x=b.left+b.width/2;
+        const hit=(y)=>{const h=document.elementFromPoint(x,y); return h===e||(!!h&&h.tagName==='LABEL'&&(h.control===e||h.contains(e)))};
+        out.push([e.id||e.className, Math.round(b.width), Math.round(b.height), hit(b.top-9), hit(b.bottom+9), hit(b.top+b.height/2)]);}
+        return out}""")
+    check(label + ' A8: the switches look as before (44×24)', len(sw) >= 4 and all(x[1] == 44 and x[2] == 24 for x in sw), [x for x in sw if x[1:3] != [44, 24]] or len(sw))
+    if r['coarse']:
+        check(label + ' A8: on touch each takes a finger 44 px high (a tap 9 px over its edge toggles it)', all(x[3] and x[4] and x[5] for x in sw),
+              [x for x in sw if not (x[3] and x[4] and x[5])])
     floor = 40 if r['coarse'] else 36
     check(label + ' A7: no sideways scroll', r['w'] <= vw + 1 and not r['out'], r['out'])
     check(label + ' A7: top card, timing list, Plan line: nothing cut', not r['over'], r['over'])

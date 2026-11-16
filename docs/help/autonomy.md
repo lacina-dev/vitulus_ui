@@ -174,7 +174,9 @@ answered for 7 h 30 min (since 23:10; in the dock, no program)*, off the dock wi
 and reminds you at most twice (after 1 hour, then after 4 hours); it will not mow without the board.
 The time in the notice keeps running while the board stays silent (not just the 2–3 minutes of the
 moment it was raised), and the notice says what to do: *Switching the robot off and on helps*; **Hardware
-reset ›** next to it takes you to Hardware reset in Sleep (it only goes there, it starts nothing).
+reset ›** next to it takes you to Hardware reset in Sleep (it only goes there, it starts nothing); off the
+dock, where that block refuses, the link is not shown. Once the board answers again the notice turns grey
+and says *The mower board was silent since 17:25; it answers again* — nothing to do, it stays until you clear it.
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping

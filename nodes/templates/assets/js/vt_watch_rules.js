@@ -170,7 +170,11 @@
           card.appendChild(el('div', 'vwr-main', reads));
         }
         if (waits) {
-          var ask = el('div', 'vwr-ask', T('watchr.ask.undock', {id: r.id}));
+          /* T21 A8: přesná věta od jádra (undock_word), ať se UI a agent nerozejdou; starší
+             jádro ji neposílá — pak ji skládá UI jako dosud */
+          var word = typeof r.undock_word === 'string' ? r.undock_word.trim() : '';
+          var ask = el('div', 'vwr-ask', word ? T('watchr.ask.undock_word', {word: word})
+                                              : T('watchr.ask.undock', {id: r.id}));
           ask.setAttribute('role', 'status');
           card.appendChild(ask);
         }

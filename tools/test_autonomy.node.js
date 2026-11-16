@@ -287,7 +287,7 @@ function sandbox(lang, file, extra) {
     const src = read('vt_autonomy.js');
     const grab = (name) => { const i = src.indexOf('function ' + name + '('); let d = 0;
         for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') { d++; } else if (src[j] === '}' && --d === 0) { return src.slice(i, j + 1); } } };
-    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
     const LIVE = {};
     ['en', 'cs'].forEach((l) => {
         const D = win.VT_I18N_DICT[l];
@@ -297,14 +297,26 @@ function sandbox(lang, file, extra) {
             '\nreturn {issueKeys, issueVars, first};')(T, has, () => Date.now(), LIVE, {});
         const say = (code, d) => F.first(F.issueKeys(code, d), F.issueVars(d));
         // T21 A7: the silence of the report (151 s) is frozen; while /mower/link still says silent, its time is said
-        const frozen = () => say('mower_link_idle', { program: '', silent_s: 151, since: '2026-11-16T17:25', in_dock: true });
+        const ago = (min) => { const d = new Date(Date.now() - min * 60e3), p2 = (n) => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+        const S35 = ago(35);
+        const frozen = (extra) => say('mower_link_idle', Object.assign({ program: '', silent_s: 151, since: S35, in_dock: true }, extra || {}));
         check(l + ': board silent, no link message: the time of the report (3 min)', /\b3\s*min/.test(frozen()), frozen());
         LIVE.linkMsg = { state: 'silent', silent_s: 2090.8 }; LIVE.linkAt = Date.now();
-        check(l + ': … the link still silent: its time (35 min), not the frozen 3', /\b35\s*min/.test(frozen()) && !/\b3\s*min/.test(frozen()), frozen());
-        LIVE.linkMsg = { state: 'ok', silent_s: 0 };
-        check(l + ': … the board answers again: the time of the report stays', /\b3\s*min/.test(frozen()), frozen());
+        check(l + ': … the link still silent: its time (35 min), not the frozen 3', /\b3[56]\s*min/.test(frozen()) && !/\b3\s*min/.test(frozen()), frozen());
+        // T21 A8: the link's own count restarts with its node (live: 55 min by the link, 115 min in truth):
+        // while it is silent the time since it began is said, never less
         LIVE.linkMsg = { state: 'silent', silent_s: 20 };
-        check(l + ': … a new, shorter silence does not shorten the reported one', /\b3\s*min/.test(frozen()), frozen());
+        check(l + ': … the link counting from its restart (20 s): still the time since it began (35 min)', /\b3[56]\s*min/.test(frozen()), frozen());
+        // T21 A8: the board answers again while the issue stays listed: said as over, no present tense, no advice
+        LIVE.linkMsg = { state: 'ok', silent_s: 0 };
+        const back = frozen(), backOff = frozen({ in_dock: false });
+        check(l + ': … the board answers again: "was silent since HH:MM, answers again"', /was silent since|mlčela od/.test(back) && /answers again|už odpovídá/.test(back)
+              && back.indexOf(S35.slice(11)) >= 0 && !/\{/.test(back), back);
+        check(l + ': … and nothing in the present tense, no duration, no advice', !/has not answered|neodpovídá|\d\s*min|off and on|vypnout a zapnout/.test(back), back);
+        check(l + ': … the same off the dock', backOff === back, backOff);
+        LIVE.linkMsg = { state: 'recovering', silent_s: 0 };
+        check(l + ': … a recovery under way is not "answers again"', /\b3\s*min/.test(frozen()) && !/answers again|už odpovídá/.test(frozen()), frozen());
         delete LIVE.linkMsg;
         check(l + ': the notice says what to do (switch the robot off and on)', /off and on helps|vypnout a zapnout robota/.test(frozen()), frozen());
         const since = new Date(Date.now() - 7.5 * 3600e3); const pad = (n) => String(n).padStart(2, '0');

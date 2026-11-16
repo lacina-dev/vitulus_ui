@@ -161,7 +161,8 @@ neodpovídá déle než 2 minuty, robot to ohlásí — *Deska sekačky 7 h 30 m
 žádný program)*, mimo dok bez „v doku" — a nejvýš dvakrát připomene (po 1 hodině, pak po 4 hodinách);
 bez desky nesekne. Doba v hlášce běží s časem, dokud deska mlčí (ne jen ty 2–3 minuty z okamžiku ohlášení), a hláška
 radí, co s tím: *Pomůže vypnout a zapnout robota*; **Tvrdý restart ›** u ní tě vezme k Tvrdému restartu ve Spánku (jen
-tam dojde, nic nespustí). Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
+tam dojde, nic nespustí); mimo dok, kde by blok restart odmítl, se odkaz neukazuje. Jakmile se deska zase ozve, hláška
+zešedne a řekne *Deska sekačky mlčela od 17:25, už odpovídá* — není co řešit, zůstane, dokud ji nesmažeš. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
 posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
 dál, roztočit ne.
