@@ -1440,6 +1440,13 @@ class ROS {
         return !!(s && s.readyState === 1 && this.ros.isConnected);
     }
 
+    // T8: up AND the robot's data arrived in the last 2 s — only then does vt_link.js
+    // send a command (an "open" socket of a lost network would hand it over late)
+    fresh() {
+        if (!this.up()) return false;
+        return this.link ? this.link.fresh() : true;
+    }
+
     // vitulus_ui: pause/resume the whole map-view ROS connection so its heavy
     // subscriptions (SLAM occupancy grid, laser, point clouds, camera) stop
     // consuming CPU/GC while the user is on another section. Mirrors a normal
@@ -1519,8 +1526,17 @@ class ConnectionStatus {
         });
         // N2: a command pressed while the link was down did not go out (it is
         // not sent seconds later either) — say so once
-        document.addEventListener('vtcmddropped', function () {
-            if (window.VTNotice) VTNotice.say({ key: 'cmd_drop', text: vtT('mapview.conn.notsent'), level: 0, ttl: 8000, urgent: true, repeat_ms: 3000 });
+        // T8: the same for a command pressed while the link still looks up but the
+        // robot's data stopped arriving (stale: true). The page also sends things by
+        // itself; those are refused too, but only a press is worth a notice.
+        var lastInput = 0;
+        ['pointerdown', 'keydown', 'click'].forEach(function (ev) {
+            document.addEventListener(ev, function () { lastInput = Date.now(); }, true);
+        });
+        document.addEventListener('vtcmddropped', function (e) {
+            var d = (e && e.detail) || {};
+            if (d.stale && !d.press && Date.now() - lastInput > 1500) return;
+            if (window.VTNotice) VTNotice.say({ key: 'cmd_drop', text: vtT(d.stale ? 'mapview.conn.stale_notsent' : 'mapview.conn.notsent'), level: 0, ttl: 8000, urgent: true, repeat_ms: 3000 });
         });
         vtOnLang(function () { self.set(self._state); });
         if (this.el) {
@@ -9435,9 +9451,12 @@ window.initMapView = function () {
         '#undock_btn_by_intensity, #btn_run_calibration, [onclick*="point_clicked_goal"], [onclick*="path_clicked_exec"]';
     document.addEventListener('click', function (e) {
         var t = e.target && e.target.closest ? e.target.closest(MOVE_SEL) : null;
-        if (!t || !ros || typeof ros.up !== 'function' || ros.up()) return;
+        if (!t || !ros || typeof ros.up !== 'function') return;
+        var isUp = ros.up();
+        // T8: also while the link looks up but the robot's data stopped arriving
+        if (isUp && (typeof ros.fresh !== 'function' || ros.fresh())) return;
         e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-        try { document.dispatchEvent(new CustomEvent('vtcmddropped', {detail: {n: 1, what: [t.id || 'button'], press: true}})); } catch (err) { /* old browser */ }
+        try { document.dispatchEvent(new CustomEvent('vtcmddropped', {detail: {n: 1, what: [t.id || 'button'], press: true, stale: isUp}})); } catch (err) { /* old browser */ }
     }, true);
 
     map_menu.btn_stop_all.onclick = function () {

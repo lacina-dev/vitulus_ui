@@ -25,6 +25,11 @@
  *        a few times a minute — measured 2026-11-08); else
  *        dropped — never replayed later. While driving the guard probes so a quiet
  *        but healthy link stays "fresh";
+ *      any other publish / call_service (an ACTION, see kind()) while up but nothing
+ *        arrived within DRIVE_FRESH_MS: not sent, not queued, the page is told (onDrop
+ *        with stale: true), a service call gets a failed answer (T8: an "open" socket
+ *        of a lost network keeps what is written to it and the robot would run it when
+ *        the network is back);
  *      any other publish / call_service while not up: queued, sent on the next
  *        connection only if it is at most CMD_KEEP_MS old (a "motors ON", Undock,
  *        Go or a map delete must not go out seconds later) — else dropped, a dropped
@@ -44,7 +49,7 @@
  *
  *   var g = VTLink.install(ros, { onStop(ev, info), onDead(reason), onDrop(info) })
  *   g.up() · g.fresh() · g.pending() · g.stats() · g.kill(reason)
- *   VTLink.isStop(msg) · VTLink.isDrive(msg)      (msg = a rosbridge op object)
+ *   VTLink.isStop(msg) · VTLink.isDrive(msg) · VTLink.kind(msg)   (msg = a rosbridge op object)
  */
 (function (root) {
     'use strict';
@@ -76,6 +81,8 @@
     // read-only plumbing: asks the robot to SEND data, never changes it
     var PLUMBING = /^\/(republish_tfs$|tf2_web_republisher\/|rosapi\/|interactive_marker\/)/;
     var ALWAYS_Q = { subscribe: 1, unsubscribe: 1, advertise: 1, unadvertise: 1 };
+    // publishes that only ask a node to send its data again (the page sends them by itself)
+    var QUERY = /^\/(web_plan\/(reload|republish)|dock_manager\/send_programs|navi_manager\/publish_(path|point))$/;
 
     function zeroTwist(m) {
         var l = m && m.linear, a = m && m.angular;
@@ -104,6 +111,27 @@
         return false;
     }
 
+    // What a rosbridge op is for the link guard (T8, 2026-11-16):
+    //   'stop'     only stops or switches off (isStop): always sent, kept, confirmed;
+    //   'drive'    a non-zero cmd_vel: only on a fresh link, never later;
+    //   'plumbing' / 'query'  asks the robot to SEND data: never changes it;
+    //   'action'   EVERYTHING else that is published or called — motors ON, blade, Undock /
+    //              Dock, Go, a program, a setting, a save: only on a fresh link, never later.
+    //   'other'    subscribe / advertise / …
+    // A topic or service nobody listed is an action: a new command is safe by default.
+    // tools/test_vt_link.node.js holds the list of what the page sends and fails on a new name.
+    function kind(m) {
+        if (!m) { return 'other'; }
+        if (m.op === 'publish') {
+            if (isStop(m)) { return 'stop'; }
+            if (isDrive(m)) { return 'drive'; }
+            if (PLUMBING.test(m.topic || '')) { return 'plumbing'; }
+            return QUERY.test(m.topic || '') ? 'query' : 'action';
+        }
+        if (m.op === 'call_service') { return PLUMBING.test(m.service || '') ? 'plumbing' : 'action'; }
+        return 'other';
+    }
+
     function install(ros, o) {
         o = o || {};
         if (ros.__vtLink) { return ros.__vtLink; }
@@ -119,7 +147,7 @@
         var lastRx = now(), connStart = now(), rxSock = null;
         var everUp = false, connIdx = 0, lastDrive = -1e9, connSock = null, t0 = now();
         var st = { sent: 0, queued: 0, resent: 0, acked: 0, dropped_drive: 0, stale_drive: 0,
-                   expired: 0, dropped_cmd: 0, kills: 0, probes: 0, last_kill: '' };
+                   stale_cmd: 0, expired: 0, dropped_cmd: 0, kills: 0, probes: 0, last_kill: '' };
 
         function emitStop(ev, info) { try { if (o.onStop) { o.onStop(ev, info || {}); } } catch (e) { /* UI only */ } }
         function emitDrop(info) { try { if (o.onDrop) { o.onDrop(info); } } catch (e) { /* UI only */ } }
@@ -202,6 +230,15 @@
             }
         }
 
+        // a service call that was not sent gets a failed answer (its caller must not wait)
+        function failCall(m) {
+            if (!(m && m.op === 'call_service' && m.id)) { return; }
+            var id = m.id;
+            later(function () {
+                try { ros.emit(id, { op: 'service_response', id: id, result: false, values: 'vt_link: no connection to the robot, not sent' }); } catch (e) { /* caller gone */ }
+            }, 0);
+        }
+
         // the commands queued while down that are too old now: dropped, told
         function expireQueue() {
             if (!queue.length) { return; }
@@ -212,15 +249,7 @@
             });
             if (!gone.length) { return; }
             st.dropped_cmd += gone.length;
-            gone.forEach(function (q) {
-                // a service call waiting for an answer gets a failed one
-                if (q.m && q.m.op === 'call_service' && q.m.id) {
-                    var id = q.m.id;
-                    later(function () {
-                        try { ros.emit(id, { op: 'service_response', id: id, result: false, values: 'vt_link: no connection to the robot, not sent' }); } catch (e) { /* caller gone */ }
-                    }, 0);
-                }
-            });
+            gone.forEach(function (q) { failCall(q.m); });
             emitDrop({ n: gone.length, what: gone.map(function (q) { return q.m ? (q.m.topic || q.m.service || q.m.op) : '?'; }) });
         }
 
@@ -296,7 +325,24 @@
                 rawSend(enc);
                 return;
             }
-            if (up()) { rawSend(enc); return; }
+            if (up()) {
+                // T8: the socket says "open" for seconds after the network is gone (the guard
+                // itself needs ~8 s to call it dead). What is written to it then stays in TCP
+                // and the robot would carry it out when the network comes back: motors ON, an
+                // Undock, a Go, a program start seconds or minutes late. So an action goes out
+                // only while the robot's data is arriving (as a drive command does); else it
+                // is refused NOW, told (onDrop, stale: true) and never sent later. The probe
+                // makes a quiet but healthy link fresh for the next press.
+                if (m && kind(m) === 'action' && now() - lastRx > DRIVE_FRESH_MS) {
+                    st.stale_cmd++;
+                    failCall(m);
+                    emitDrop({ n: 1, what: [m.topic || m.service || m.op], stale: true });
+                    sendProbe(false);
+                    return;
+                }
+                rawSend(enc);
+                return;
+            }
             st.queued++;
             // the page's own start-up (first BOOT_MS) waits for the first connection as in
             // roslib; anything later — a button pressed while the first connection does not
@@ -371,7 +417,7 @@
     }
 
     root.VTLink = {
-        install: install, isStop: isStop, isDrive: isDrive, isCommand: isCommand,
+        install: install, isStop: isStop, isDrive: isDrive, isCommand: isCommand, kind: kind,
         T: { TICK_MS: TICK_MS, PROBE_AFTER_MS: PROBE_AFTER_MS, PROBE_DEAD_MS: PROBE_DEAD_MS,
              STOP_DEAD_MS: STOP_DEAD_MS, STOP_STUCK_MS: STOP_STUCK_MS, CONNECT_MS: CONNECT_MS,
              ZERO_KEEP_MS: ZERO_KEEP_MS, CMD_KEEP_MS: CMD_KEEP_MS, DRIVE_FRESH_MS: DRIVE_FRESH_MS }

@@ -49,6 +49,12 @@ STOP čeká, dokud je stránka otevřená. Příkazy k jízdě z té doby se poz
 jezdí, jen když od robota chodí data. Jiný příkaz zmáčknutý bez spojení (motory ON, Undock, Go,
 start programu…) **neodejde** — pás napíše *Offline · příkaz NEODEŠEL*; až bude tečka zelená, zmáčkni ho znovu.
 
+Totéž platí, když je tečka ještě zelená, ale od robota přestala chodit data (výpadek Wi-Fi, který
+stránka ještě neoznačila za mrtvé spojení): po 2 s bez dat příkaz **neodejde** a nepošle se ani
+později — pás napíše *Robot neposílá data · příkaz NEODEŠEL — stiskněte znovu*. Jinak by příkaz
+čekal v síti a robot by ho provedl, až se Wi-Fi vrátí, o vteřiny později. STOP, motory OFF, nůž OFF
+a zrušení odejdou vždy (pozdní STOP jen zastaví).
+
 > [!NOTE]
 > Panel agenta má ve své hlavičce vlastní červený **STOP**. Ten zastaví misi agenta a odpovídá na
 > něj jádro robota, nikdy model.

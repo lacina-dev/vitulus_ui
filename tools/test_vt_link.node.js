@@ -418,5 +418,191 @@ function connected(W) { W.sock().open(); W.run(50); }
     ok('n3: dead link: blind driving stops <= 2.05 s', firstDrop !== null && firstDrop <= 2050, firstDrop);
 }
 
+/* ------------------------------------------------------------ T8: every command of the page has its class */
+// What the page publishes and calls (from the sources and from a load of the page, 2026-11-16).
+//   stop: only stops / switches off with that value -> always sent, kept, confirmed
+//   drive: a non-zero cmd_vel   query / plumbing: asks the robot to send data
+//   action: moves the robot, switches something on, changes or saves something
+// A NEW name in the sources fails this test until it is put into one of the lists: decide
+// whether it only stops (then it also belongs to STOP_BOOL / CANCEL in vt_link.js, else a STOP
+// pressed on a bad link is refused) or acts. vt_link.js treats every unlisted name as an action.
+const CMD = {
+    stop: [   // [topic, the message that stops]
+        ['/mower_smach/stop', { data: true }], ['/dock_smach/stop', { data: true }], ['/mower/set_motor_on', { data: false }],
+        ['/base/motor_power', { data: false }], ['/pm/set_motor_switch', { data: false }],
+        ['/move_base_flex/exe_path/cancel', {}], ['/smach_goal/cancel', {}],
+        ['/teleop/cmd_vel', { linear: { x: 0, y: 0, z: 0 }, angular: { x: 0, y: 0, z: 0 } }],
+        ['/cmd_vel', { linear: { x: 0, y: 0, z: 0 }, angular: { x: 0, y: 0, z: 0 } }],
+    ],
+    // the same topics with the other value switch something ON: actions
+    stop_other: [['/mower_smach/stop', { data: false }], ['/dock_smach/stop', { data: false }], ['/mower/set_motor_on', { data: true }],
+                 ['/base/motor_power', { data: true }], ['/pm/set_motor_switch', { data: true }]],
+    drive: ['/teleop/cmd_vel', '/cmd_vel'],
+    query: ['/web_plan/reload', '/web_plan/republish', '/dock_manager/send_programs', '/navi_manager/publish_path', '/navi_manager/publish_point'],
+    plumbing: ['/tf2_web_republisher/cancel', '/tf2_web_republisher/goal', '/interactive_marker/feedback'],
+    plumbing_svc: ['/republish_tfs', '/rosapi/get_param', '/rosapi/get_time', '/interactive_marker/tunneled/get_init'],
+    action_svc: ['/rtabmap/set_mode_localization', '/rtabmap/set_mode_mapping', '/start_motor', '/stop_motor',
+                 '/move_base_flex/clear_costmaps', '/laser_filter_scan_rplidar/intensity/set_parameters'],
+    action: [
+        '/base/set_torque', '/bno085/reset_calibration', '/bno085/restart', '/bno085/run_calibration',
+        '/camera_calib/cmd', '/camera_overlay/source', '/depth_obstacles/set', '/dock_detector/dock',
+        '/dock_detector/intensity/dock', '/dock_detector/intensity/undock', '/dock_detector/mapping',
+        '/dock_detector/new_map', '/dock_detector/undock', '/dock_manager/enable_intensity',
+        '/dock_manager/enable_map', '/dock_manager/save_dock_program', '/dock_manager/save_undock_program',
+        '/dock_smach/start_docking', '/gloc/apply', '/gloc/compute', '/map_objects/op', '/mapping/clear',
+        '/mapping/compare', '/mapping/gate_mode', '/mapping/regenerate', '/mapping/reset_direct', '/mapping/save',
+        '/mapping/set_band', '/mapping/set_ranges', '/mapping_manager/layer_enable',
+        '/mapping_manager/preview_raster', '/mapping_manager/profile_cmd', '/mapping_manager/rebuild_combined',
+        '/mapping_manager/remove_edit', '/mapping_manager/remove_raster', '/mapping_manager/remove_site',
+        '/mapping_manager/save_edit', '/mapping_manager/serve_site', '/mapping_manager/show_site',
+        '/mapping_manager/start', '/mapping_manager/stop', '/mower/pref/set_cut_height', '/mower/pref/set_motor_rpm',
+        '/mower/set_calibrate', '/mower/set_cmd', '/mower/set_cut_height', '/mower/set_home', '/mower/set_motor_dir',
+        '/mower/set_motor_rpm', '/mower/set_power', '/mower_smach/reset', '/nav_tf/set_dock_pose',
+        '/navi_manager/execute_path', '/navi_manager/goal_point', '/navi_manager/interactive_marker_goal',
+        '/navi_manager/load_map', '/navi_manager/load_map_rtabmap', '/navi_manager/new_interactive_marker',
+        '/navi_manager/new_map', '/navi_manager/remove_map', '/navi_manager/remove_path',
+        '/navi_manager/remove_point', '/navi_manager/rtabmap_settings_set', '/navi_manager/save_map',
+        '/navi_manager/save_path', '/navi_manager/save_path_at', '/navi_manager/save_path_point',
+        '/navi_manager/save_waypoint', '/navi_manager/save_waypoint_at', '/navi_manager/show_map',
+        '/navi_manager/speed', '/navi_manager/start_new_autopath', '/navi_manager/stop_autopath',
+        '/pm/set_bat_out_switch', '/pm/set_charge_current_running', '/pm/set_charge_current_standby',
+        '/pm/set_precharge_current_running', '/pm/set_precharge_current_standby', '/pm/set_robot_sleep',
+        '/pm/set_sleep_time', '/pm/set_sleep_until_charged', '/pm/set_sleep_wait_before_standby',
+        '/pm/set_sleep_wait_charged_offset', '/pm/set_standby_timeout_discharging', '/pm/set_temp2_setpoint',
+        '/pm/set_temp_setpoint', '/scheduler/clear_issues', '/scheduler/ignore_rain_once', '/scheduler/inhibit',
+        '/scheduler/run_next', '/scheduler/set_calendar', '/scheduler/set_enabled', '/scheduler/set_mode',
+        '/scheduler/set_settings', '/scheduler/set_window', '/scheduler/sleep_cancel', '/scheduler/sleep_now',
+        '/set_motor_switch', '/undock_intensity', '/vitulus_rosbag/d435/record', '/vitulus_rosbag/d435/set_fps',
+        '/vitulus_rosbag/gnss/record', '/web_plan/assemble_map', '/web_plan/program_new', '/web_plan/program_remove',
+        '/web_plan/program_select', '/web_plan/program_select_resume', '/web_plan/program_to_show_marker',
+        '/web_plan/remove_polygon', '/web_plan/remove_zone', '/web_plan/run_path_show', '/web_plan/save_polygon',
+        '/web_plan/save_zone', '/web_plan/selected_zone', '/web_plan/zone_check', '/web_plan/zone_op',
+    ],
+};
+{
+    const V = world().V, K = V.kind;
+    const pub = (topic, msg) => ({ op: 'publish', topic, msg: msg || { data: true } });
+    CMD.stop.forEach(([t, m]) => ok('kind stop: ' + t, K(pub(t, m)) === 'stop', K(pub(t, m))));
+    CMD.stop_other.forEach(([t, m]) => ok('kind action (switches on): ' + t, K(pub(t, m)) === 'action', K(pub(t, m))));
+    CMD.drive.forEach((t) => ok('kind drive: ' + t, K(pub(t, { linear: { x: 0.2, y: 0, z: 0 }, angular: { x: 0, y: 0, z: 0 } })) === 'drive'));
+    CMD.query.forEach((t) => ok('kind query: ' + t, K(pub(t)) === 'query', K(pub(t))));
+    CMD.plumbing.forEach((t) => ok('kind plumbing: ' + t, K(pub(t, {})) === 'plumbing', K(pub(t, {}))));
+    CMD.plumbing_svc.forEach((s) => ok('kind plumbing: ' + s, K({ op: 'call_service', service: s }) === 'plumbing'));
+    CMD.action_svc.forEach((s) => ok('kind action: ' + s, K({ op: 'call_service', service: s }) === 'action'));
+    const wrong = CMD.action.filter((t) => K(pub(t)) !== 'action' || K(pub(t, { data: false })) !== 'action' || K(pub(t, {})) !== 'action');
+    ok('kind action: all ' + CMD.action.length + ' listed topics, whatever the value', !wrong.length, wrong);
+    ok('kind: a name nobody listed is an action', K(pub('/some/new_thing')) === 'action' && K({ op: 'call_service', service: '/some/new_srv' }) === 'action');
+    ok('kind: subscribe / advertise are not commands', K({ op: 'subscribe', topic: '/base/motor_power' }) === 'other' && K({ op: 'advertise', topic: '/base/motor_power' }) === 'other');
+
+    // the sources: every topic that is published / advertised and every service must be listed above
+    const known = new Set([].concat(CMD.stop.map((x) => x[0]), CMD.drive, CMD.query, CMD.plumbing, CMD.plumbing_svc, CMD.action_svc, CMD.action));
+    const SKIP = /(_bak|\.bak|\.min\.js$)|^(three|ros3d|ros2d|roslib|jquery|easeljs|eventemitter2|nipplejs|pgmjs|mjpegcanvas|vt_mock|vt_link|vt_ros_share)/;
+    const found = {};
+    const abs = (nm) => (nm[0] === '/' ? nm : '/' + nm);
+    const note = (nm, f) => { (found[abs(nm)] = found[abs(nm)] || []).push(f); };
+    fs.readdirSync(JS).filter((f) => /\.js$/.test(f) && !SKIP.test(f)).forEach((f) => {
+        const s = fs.readFileSync(path.join(JS, f), 'utf8');
+        let m;
+        // X = new ROSLIB.Topic({ ... name: 'N' ... }) with X.publish( / X.advertise( in the file
+        const reT = /([\w.$]+)\s*=\s*new ROSLIB\.Topic\(\{([\s\S]{0,300}?)\}\)/g;
+        while ((m = reT.exec(s))) {
+            const nm = /name\s*:\s*['"]([^'"]+)['"]/.exec(m[2]);
+            const v = m[1].replace(/[.$]/g, '\\$&');
+            if (nm && new RegExp(v + '\\.(publish|advertise)\\(').test(s)) { note(nm[1], f); }
+        }
+        // helpers: pub('/name', ...), publish('/name' ...
+        const reH = /\b(?:pub|publish|_pub|send|call|svc)\w*\(\s*(?:ros\s*,\s*)?['"](\/[A-Za-z0-9_\/]+)['"]/g;
+        while ((m = reH.exec(s))) { note(m[1], f); }
+        // services
+        const reS = /ROSLIB\.Service\(\{[^}]*?name\s*:\s*['"]([^'"]+)['"]/g;
+        while ((m = reS.exec(s))) { note(m[1], f); }
+    });
+    const names = Object.keys(found);
+    const unlisted = names.filter((n) => !known.has(n)).map((n) => n + ' (' + found[n][0] + ')');
+    ok('sources: the scan still finds the commands (' + names.length + ' names)', names.length >= 100, names.length);
+    ok('sources: every published topic / service has its class in CMD', !unlisted.length, unlisted);
+}
+
+/* ------------------------------------------------------------ T8: no action on a silent link */
+// what the page wrote into the socket (a lost network keeps it in TCP and may still deliver it)
+function wrote(s, topic) { return s.sent.map((d) => JSON.parse(d)).filter((m) => m.op === 'publish' && (!topic || m.topic === topic)); }
+{
+    const W = world(); connected(W);
+    const s = W.sock(), T = (name, type) => new W.R.Topic({ ros: W.ros, name, messageType: type });
+    const undock = T('/dock_detector/undock', 'std_msgs/Bool'), go = T('/navi_manager/goal_point', 'std_msgs/String');
+    const reload = T('/web_plan/reload', 'std_msgs/Bool');
+    const srv = new W.R.Service({ ros: W.ros, name: '/rtabmap/set_mode_mapping', serviceType: 'std_srvs/Empty' });
+    undock.advertise(); go.advertise(); reload.advertise(); W.top.power.advertise(); W.top.blade.advertise();
+    s.toClient({ op: 'publish', topic: '/mower_smach/busy', msg: { data: false } }); W.run(10);
+    // data arriving: everything goes out as before
+    W.top.power.publish({ data: true }); undock.publish({ data: true });
+    ok('fresh: motors ON and Undock sent', wrote(s, '/base/motor_power').length === 1 && wrote(s, '/dock_detector/undock').length === 1);
+    // the network goes away: the socket stays "open", nothing arrives, nothing is answered
+    s.alive = false;
+    const tried = [];
+    [500, 1000, 1500, 1900, 2100, 3000, 5000, 7000].forEach((at, i, a) => {
+        W.run(at - (i ? a[i - 1] : 0));
+        const n0 = wrote(s, '/navi_manager/goal_point').length;
+        go.publish({ data: 'P' + at });
+        tried.push([at, wrote(s, '/navi_manager/goal_point').length - n0, W.g.up()]);
+    });
+    console.log('     Go pressed N ms after the last frame -> [ms, sent, link still "up"]: ' + JSON.stringify(tried));
+    ok('silent link: a Go within 2 s of the last frame is sent', tried.filter((x) => x[0] <= 2000).every((x) => x[1] === 1), tried);
+    ok('silent link: a Go later than 2 s is NOT sent although the link is still "up"', tried.filter((x) => x[0] > 2000 && x[2]).length >= 3 &&
+        tried.filter((x) => x[0] > 2000).every((x) => x[1] === 0), tried);
+}
+{
+    const W = world(); connected(W);
+    const s = W.sock(), T = (name, type) => new W.R.Topic({ ros: W.ros, name, messageType: type });
+    const undock = T('/dock_detector/undock', 'std_msgs/Bool'), reload = T('/web_plan/reload', 'std_msgs/Bool');
+    const prog = T('/web_plan/program_select', 'std_msgs/String');
+    const srv = new W.R.Service({ ros: W.ros, name: '/rtabmap/set_mode_mapping', serviceType: 'std_srvs/Empty' });
+    undock.advertise(); reload.advertise(); prog.advertise(); W.top.power.advertise(); W.top.blade.advertise();
+    s.alive = false; W.run(3000);
+    ok('silent 3 s: the link still counts as up', W.g.up() && !W.g.fresh());
+    const n0 = s.sent.length; W.ev.length = 0;
+    let answer = null;
+    W.top.power.publish({ data: true }); W.top.blade.publish({ data: true }); undock.publish({ data: true }); prog.publish({ data: 'A' });
+    W.top.speed.publish({ data: '0.5' });
+    srv.callService(new W.R.ServiceRequest({}), () => { answer = 'ok'; }, (e) => { answer = 'failed: ' + e; });
+    W.run(20);
+    const sent = s.sent.slice(n0).map((d) => JSON.parse(d)).filter((m) => m.op === 'publish' || (m.op === 'call_service' && !/^vt_link:/.test(m.id || '')));
+    ok('silent 3 s: motors ON, blade ON, Undock, program, speed, a service call: none sent', sent.length === 0, sent.map((m) => m.topic || m.service));
+    const drops = W.ev.filter((e) => e[0] === 'drop');
+    ok('silent 3 s: the page is told at once, once per command, marked stale', drops.length === 6 && drops.every((e) => e[1].stale === true && e[1].n === 1), drops);
+    ok('silent 3 s: the service caller gets a failed answer', /^failed/.test(String(answer)), answer);
+    ok('silent 3 s: counted', W.g.stats().stale_cmd === 6 && W.g.stats().queue === 0, W.g.stats());
+    // what only asks for data, and everything that stops, still goes out
+    reload.publish({ data: true });
+    ok('silent 3 s: a reload request (query) is sent', wrote(s, '/web_plan/reload').length === 1);
+    W.STOP();
+    ok('silent 3 s: the big STOP goes out, every topic', W.STOPS.map((t) => wrote(s, t).length).join() === '1,1,1,1,1,1', W.STOPS.map((t) => wrote(s, t).length));
+    W.top.vel.publish(W.twist(0));
+    ok('silent 3 s: the zero of the stick goes out', wrote(s, '/teleop/cmd_vel').length === 1);
+    W.top.vel.publish(W.twist(0.3));
+    ok('silent 3 s: a drive command does not', wrote(s, '/teleop/cmd_vel').length === 1);
+    // the guard calls the link dead, the page reconnects: nothing refused comes out later
+    W.run(9000);
+    ok('then: the guard dropped the silent link', W.g.stats().kills >= 1, W.g.stats());
+    W.reconnect(); connected(W); W.run(3000);
+    const s2 = W.sock();
+    const late = W.pubs(s2).filter((m) => ['/base/motor_power', '/mower/set_motor_on', '/dock_detector/undock', '/web_plan/program_select', '/navi_manager/speed'].indexOf(m.topic) >= 0 &&
+        !(m.topic === '/base/motor_power' && m.msg.data === false) && !(m.topic === '/mower/set_motor_on' && m.msg.data === false));
+    ok('after the reconnect: none of the refused commands is sent', late.length === 0 && !s2.got.some((m) => m.service === '/rtabmap/set_mode_mapping'), late);
+    ok('after the reconnect: the STOPs are sent again (not confirmed before)', W.stopCount(s2).every((n) => n === 1), W.stopCount(s2));
+    // back on a live link a press works again
+    s2.toClient({ op: 'publish', topic: '/mower_smach/busy', msg: { data: false } }); W.run(10);
+    undock.publish({ data: true });
+    ok('live again: Undock is sent', W.pubs(s2, '/dock_detector/undock').length === 1);
+}
+{
+    // a quiet but healthy link (nothing subscribed talks): the heartbeat keeps it fresh
+    const W = world(); connected(W);
+    const s = W.sock(), go = new W.R.Topic({ ros: W.ros, name: '/navi_manager/goal_point', messageType: 'std_msgs/String' });
+    go.advertise(); W.run(20000);
+    go.publish({ data: 'P' });
+    ok('quiet healthy link (20 s without topic data): a Go is sent', W.pubs(s, '/navi_manager/goal_point').length === 1 && W.g.stats().kills === 0, W.g.stats());
+}
+
 console.log((fails ? 'FAIL' : 'OK') + ' — ' + (n - fails) + '/' + n + ' checks' + (SHARE ? ' (with vt_ros_share.js)' : ''));
 process.exit(fails ? 1 : 0);

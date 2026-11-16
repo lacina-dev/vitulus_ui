@@ -52,6 +52,12 @@ drives only while the robot's data is arriving. Any other command pressed withou
 (motors ON, Undock, Go, a program start…) is **not** sent — the band says
 *Offline · command NOT sent*; press it again once the dot is green.
 
+The same holds while the dot is still green but the robot's data stopped arriving (a Wi-Fi gap the
+page has not called dead yet): after 2 s without data a command is **not** sent and never goes out
+later — the band says *No data from the robot · command NOT sent — press again*. Without this the
+command would wait in the network and the robot would carry it out when the Wi-Fi came back,
+seconds late. STOP, motors OFF, blade OFF and cancelling are always sent (a late STOP only stops).
+
 > [!NOTE]
 > The agent panel has its own red **STOP** in its head. It stops the agent's mission and is
 > answered by the robot core, never by a model.

@@ -1739,6 +1739,7 @@
     "mapview.conn.lost": "No connection to the robot · reconnecting…",
     "mapview.conn.lost_stop": "Offline · STOP goes out on reconnect",
     "mapview.conn.notsent": "Offline · command NOT sent",
+    "mapview.conn.stale_notsent": "No data from the robot · command NOT sent — press again",
     "mapview.webgl.title": "3D map disabled — WebGL is not available in this browser.",
     "mapview.webgl.body": "Robot status and controls still work, but the 3D map, laser and point cloud cannot be shown. This usually means hardware acceleration is turned off. Enable it (e.g. Chrome: Settings → System → “Use hardware acceleration when available”, or chrome://gpu) and reload the page.",
     "mapview.cam.resize": "Click to enlarge / shrink the camera view",

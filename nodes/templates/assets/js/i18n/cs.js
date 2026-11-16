@@ -1780,6 +1780,7 @@
     "mapview.conn.lost": "Bez spojení s robotem · připojuji znovu…",
     "mapview.conn.lost_stop": "Offline · STOP odejde po připojení",
     "mapview.conn.notsent": "Offline · příkaz NEODEŠEL",
+    "mapview.conn.stale_notsent": "Robot neposílá data · příkaz NEODEŠEL — stiskněte znovu",
     "mapview.webgl.title": "3D mapa je vypnutá — tento prohlížeč nemá WebGL.",
     "mapview.webgl.body": "Stav robota a ovládání fungují dál, jen 3D mapu, laser a mračno bodů nejde zobrazit. Obvykle to znamená vypnutou hardwarovou akceleraci. Zapni ji (např. Chrome: Nastavení → Systém → „Používat hardwarovou akceleraci, je-li k dispozici“, nebo chrome://gpu) a stránku znovu načti.",
     "mapview.cam.resize": "Klikni pro zvětšení / zmenšení obrazu kamery",
