@@ -178,7 +178,12 @@ reset ›** next to it takes you to Hardware reset in Sleep (it only goes there,
 dock, where that block refuses, the link is not shown. Once the board answers again the notice turns grey
 (the time is counted on the robot's clock, so a phone in another time zone shows the same; the notices over the map,
 also *No connection to the robot*, follow the language; in the log the line *Mower board silent in the dock (since 17:25)*
-carries its day when that is not today) and says *The mower board was silent since 17:25; it answers again* — nothing to do, it stays until you clear it.
+carries its day when that is not today) and says *The mower board was silent from Mon, 16 Nov 17:25 to 20:40 (27 h 15 min); it answers again* — nothing to do: the right
+panel and the head of History no longer show it in red, and **Clear** right in the notice puts it away (History keeps
+the two lines, the return with how long the silence lasted; from two days on the length is said in days, *3 d 1 h*).
+The page says *it answers again* only on what it knows — a message from the board just now, or the return in the robot's
+journal. Without the robot, or without a fresh message from the board, the notice stays as it was with *(No fresh word
+from the board right now.)* and offers no Clear; a fault that still lasts always comes first in the box.
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping

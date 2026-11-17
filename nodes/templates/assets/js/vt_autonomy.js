@@ -41,7 +41,10 @@
         /* T21 A8: the board answers again while the issue stays listed until cleared: said as over */
         /* T21 A9: without "since" (an older master) the sentence has no "since {at}" at all */
         var ns = code === 'mower_link_idle' && !d.since ? '.no_since' : '';
-        if (code === 'mower_link_idle' && linkAnswers()) { out.push('.back' + ns); }
+        /* T21 A11: with the time it came back (the journal's mower_link_back): from when to when and how long */
+        var over = code === 'mower_link_idle' && silenceOver(d);
+        if (over && !ns && backOf(d.since)) { out.push('.back.until'); }
+        if (over) { out.push('.back' + ns); }
         if (code === 'mower_link_idle' && d.in_dock === false) { out.push('.off_dock' + ns); }
         if (ns) { out.push(ns); }
         if (!d.program) { out.push('.no_run'); }
@@ -52,8 +55,43 @@
         return issueSfx(code, d).map(function (x) { return k + x; }).concat([k]);
     }
     /* {dur} the silence as "7 h 30 min" (fmtDur), {at} when it began (since) */
+    /* when the board answered again after a silence that began at since: the journal's entry
+       (robot's local time, as since), or null */
+    function backOf(since) {
+        var a = since ? parseIso(since) : null, list = typeof S === 'object' && S ? S.journal : null, best = null;
+        if (!a || !list) { return null; }
+        list.forEach(function (j) {
+            var b = j && j.kind === 'waited' && j.code === 'mower_link_back' ? parseIso(j.t) : null;
+            if (b && b.getTime() > a.getTime() && (!best || b.getTime() < best.getTime())) { best = b; }
+        });
+        return best;
+    }
+    /* A692: no-break spaces — nb: everywhere; nbDay: inside the day, the time may go to the next line */
+    function nb(s) { return String(s).replace(/ /g, '\u00a0'); }
+    function nbDay(s) {
+        var m = /^(.*) (\d\d:\d\d)$/.exec(String(s));
+        return m ? nb(m[1]) + ' ' + m[2] : String(s);
+    }
+    /* A692: is this silence over? Only on what the page really knows: the board's link said "ok"
+       just now, or the robot's journal has the return after this silence began. A page that lost
+       the robot knows neither (the last "ok" may be minutes old): not over. */
+    function silenceOver(d) {
+        if (!d || (typeof S === 'object' && S && S.link === false)) { return false; }
+        return linkAnswers() || !!(d.since && backOf(d.since));
+    }
     function issueVars(d) {
         if (!d) { return d; }
+        /* T21 A11: over — "silent since {at} until {to} ({dur})"; both times are the robot's, the
+           length between them needs no zone */
+        var bk = d.since && silenceOver(d) ? backOf(d.since) : null;
+        if (bk) {
+            /* A692: days from two days on ("3 d 1 h", not "73 h 13 min"); the pieces of a date and of
+               a length do not break apart on a narrow screen ("13. / 11.", "73 / h") */
+            var len = (bk.getTime() - parseIso(d.since).getTime()) / 1000;
+            d.to = nbDay(clock(bk.getTime()));
+            d.dur = nb(len >= 2 * 86400 ? longDur(len) : fmtDur(len));
+            if (d.at === undefined) { d.at = nbDay(clock(parseIso(d.since).getTime())); }
+        }
         var s = Number(d.silent_s);
         /* T21 A7: silent_s is the silence when the master raised the issue (2–3 min) and never
            moves; while the board is still silent the page says how long it is NOW (/mower/link) */
@@ -84,7 +122,7 @@
        came); null when the board answers or nothing came yet */
     function linkSilentNow() {
         var l = typeof S === 'object' && S ? S.linkMsg : null;
-        if (!l || l.state !== 'silent' || !isFinite(Number(l.silent_s))) { return null; }
+        if (!l || l.state !== 'silent' || !isFinite(Number(l.silent_s)) || !linkFresh()) { return null; }
         return Number(l.silent_s) + Math.max(0, (Date.now() - (S.linkAt || Date.now())) / 1000);
     }
     /* How far the robot's wall clock, read as this browser's local time, stands from the true
@@ -116,9 +154,14 @@
         document.addEventListener('vt:robotclock', function (e) { take(e && e.detail); });
     }
     /* /mower/link says the board answers (state ok) */
+    /* A692: only a message that came just now counts (the topic comes at 1 Hz; the master itself
+       takes one older than 5 s as "not known") and only while the page has the robot */
+    function linkFresh() {
+        if (typeof S !== 'object' || !S || !S.linkMsg || S.link === false) { return false; }
+        return Date.now() - (S.linkAt || 0) <= 6000;
+    }
     function linkAnswers() {
-        var l = typeof S === 'object' && S ? S.linkMsg : null;
-        return !!(l && l.state === 'ok');
+        return linkFresh() && S.linkMsg.state === 'ok';
     }
     function first(keys, v) {
         for (var i = 0; i < keys.length; i++) { if (has(keys[i])) { return t(keys[i], v); } }
@@ -2149,6 +2192,12 @@
     }
     function tick() {
         var p = paintPlanLine();
+        /* A692: what the page knows about the board changes with time too (a link message grows old) */
+        var know = linkAnswers() ? 'ok' : (linkFresh() ? 'live' : 'unknown');
+        if (know !== S.linkKnow) {
+            S.linkKnow = know;
+            if (S.report && (S.report.issues || []).length) { paintAlert(); paintHistory(); paintRight(); var cmK = window.calendarManager; try { if (cmK && cmK._paintIssues) { cmK._paintIssues(); } } catch (e) { /* next report */ } }
+        }
         /* the live fix in the GPS line follows the receiver, only the text changes */
         var gl = S.gnssLive;
         if (gl && gl.el.isConnected) { var gt = checkText(gl.c); if (gl.el.textContent !== gt) { gl.el.textContent = gt; } }
@@ -2297,7 +2346,7 @@
            the minute said changes (the link comes often; the card's Clear button is not rebuilt under a finger) */
         var live_ = linkSilentNow(), mark = live_ === null ? (l.state === 'ok' ? 'ok' : (wasSilent ? 'back' : '')) : String(Math.round(live_ / 60));
         if (mark !== (S.linkMark || '') && S.report && (S.report.issues || []).length) {
-            paintAlert();
+            paintAlert(); paintHistory(); paintRight();     // A11: the head of History and the right panel's chip follow too
             var cm = window.calendarManager;
             try { if (cm && cm._paintIssues) { cm._paintIssues(); } } catch (e) { /* the card repaints with the next report */ }
         }
@@ -3030,6 +3079,19 @@
                      { dur: off >= 86400 ? longDur(off) : fmtDur(off) });
         }
         var code = j.code, reason = String(v.reason || ''), keys = [];
+        /* T21 A11: the board is back — after how long (from the silence's own entry before it) */
+        if (j.kind === 'waited' && j.code === 'mower_link_back') {
+            var jt = parseIso(j.t), began = null;
+            (S.journal || []).forEach(function (x) {
+                var s0 = x && x.kind === 'waited' && x.code === 'mower_link_idle' && x.vars ? parseIso(x.vars.since) : null;
+                if (s0 && jt && s0.getTime() < jt.getTime() && (!began || s0.getTime() > began.getTime())) { began = s0; }
+            });
+            if (began) {
+                var blen = (jt.getTime() - began.getTime()) / 1000;
+                v.dur = nb(blen >= 2 * 86400 ? longDur(blen) : fmtDur(blen));
+                keys.push('auto.j.waited.mower_link_back.dur');
+            }
+        }
         if (j.kind === 'finished' && code === 'stopped' && /user/.test(reason)) { code = 'stopped_user'; }
         /* given up for one cause (a sensor, the mower's power, a terminal error) = ended;
            only an exhausted limit is "gave up after repeated errors" */
@@ -3082,13 +3144,17 @@
     function paintHistory() {
         var rep = S.report, box = $('auto_journal');
         if (!box) { return; }
-        var issues = (rep && rep.issues) || [], list = S.journal;
+        /* T21 A11: the head counts what is still to look at; what is over is in the list, not in red */
+        var issues = ((rep && rep.issues) || []).filter(function (i) { return !issueOver(i); }), list = S.journal;
         var worst = issues.some(function (i) { return i.level === 'err' || i.level === 'error'; }) ? 'err' : (issues.length ? 'warn' : 'off');
         var toks = [];
         if (issues.length) { toks.push({ text: t('auto.tok.issues', { n: issues.length }), state: worst }); }
         if (list && list.length) { toks.push({ text: when(list[list.length - 1].t) }); }
         head('history', worst, toks);
-        var nProb = (list || []).filter(jProblem).length;
+        /* A692: the filter's number is what is still a problem — a silence with its return in the journal is not */
+        var nProb = (list || []).filter(function (j) {
+            return jProblem(j) && !(j.code === 'mower_link_idle' && j.vars && j.vars.since && backOf(j.vars.since));
+        }).length;
         document.querySelectorAll('.vt-auto-fbtn').forEach(function (b) {
             b.classList.toggle('vt-sel', b.dataset.f === S.filter);
             var n = b.querySelector('.vt-auto-fn');
@@ -3140,21 +3206,29 @@
         var list = hot.length ? hot : [];
         hide(box, !list.length);
         if (!list.length) { return; }
-        var i = list[list.length - 1];
+        /* A692: what is live comes first — the newest issue that is not over; one that is over
+           is shown only when nothing else is listed */
+        var liveOnes = list.filter(function (x) { return !issueOver(x); });
+        var i = liveOnes.length ? liveOnes[liveOnes.length - 1] : list[list.length - 1];
         /* T21 A8: what is over needs nobody: grey while every listed issue is of that kind */
         var over = list.every(issueOver);
         setState(box, over ? 'off' : (list.some(function (x) { return /^err/.test(x.level); }) ? 'err' : 'warn'));
         swap(box, function (box) { alertBox(box, i); });
     }
     var HW_ADVICE = { mower_link_idle: 1 };
-    function issueOver(i) { return !!i && i.code === 'mower_link_idle' && linkAnswers(); }
+    function issueOver(i) { return !!i && i.code === 'mower_link_idle' && silenceOver(i.detail || {}); }
     function alertBox(box, i) {
         el('span', 'vt-attn-lab', box, t(issueOver(i) ? 'auto.a8.alert.over' : 'auto.alert.label'));
         var d = Object.assign({ program: i.program || '' }, i.detail || {});
         if (d.slot) { d.slot = String(d.slot).replace('T', ' '); }
         var rk = String(d.reason || '').replace(/^dock:/, 'dock_');   // same key as calendar_manager
         var txt = first(['calmgr.issue.reason.' + rk].concat(issueKeys(i.code, d)), issueVars(d)) || i.code;
+        /* A692: the board's issue stands, but the page has no fresh word from the board (no link
+           message just now, or no robot): it says so instead of claiming either way */
+        if (i.code === 'mower_link_idle' && !issueOver(i) && !linkFresh()) { txt += ' ' + t('auto.a11.link_unknown'); }
         el('span', 'vt-attn-txt', box, txt);
+        /* A692: the links stay together (Clear fell alone onto a second line on a phone) */
+        box = el('span', 'vt-auto-alert-acts', box);
         /* T21 A7: the advice is "switch the robot off and on": the way to the Hardware reset
            block in Sleep (its own two steps and checks); this button only goes there */
         /* T21 A8: only where the block would take it (in the dock) and while there is something to fix */
@@ -3170,6 +3244,18 @@
         var b = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.alert.more'));
         b.type = 'button';
         b.addEventListener('click', function () { openSec('history', true); });
+        /* T21 A11: what is over can be put away right here (the same Clear as the calendar card's,
+           /scheduler/clear_issues); only when every listed issue is over — nothing live is cleared by it */
+        var all = (S.report && S.report.issues || []).filter(function (x) { return x.level && x.level !== 'info'; });
+        var cm = window.calendarManager;
+        if (issueOver(i) && all.every(issueOver) && cm && cm.clearIssuesPub) {
+            var c = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('calmgr.issues_clear'));
+            c.type = 'button'; c.id = 'btn_auto_alert_clear';
+            c.title = t('auto.a11.alert.clear_tip');
+            c.addEventListener('click', function () {
+                try { cm.clearIssuesPub.publish(new ROSLIB.Message({ data: true })); } catch (e) { /* no link: the box stays */ }
+            });
+        }
     }
 
     /* ------------------------------------------------- panel, sections */
@@ -3357,7 +3443,8 @@
         var cm = window.calendarManager;
         /* T21 A2: the same tag as the card (calendarManager._stateLook) */
         var look = cm && cm._stateLook ? cm._stateLook(rep) : (cm && cm._codeLook ? cm._codeLook(rep.code) : ['unknown', 'off']);
-        var issues = (rep.issues || []).filter(function (i) { return i.level && i.level !== 'info'; });
+        /* T21 A11: an issue that is over (the board answers again) needs nobody: no "Attention", no red */
+        var issues = (rep.issues || []).filter(function (i) { return i.level && i.level !== 'info' && !issueOver(i); });
         var tone = issues.length ? (issues.some(function (i) { return /^err/.test(i.level); }) ? 'err' : 'warn')
             : (look[1] === 'ok' || look[1] === 'off' ? 'off' : look[1]);
         var word = issues.length ? t('auto.alert.label') : t('calmgr.state.' + look[0]);
@@ -3429,7 +3516,7 @@
         buildRainMode(); buildMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
         readLimits();
         document.addEventListener('rosconnected', function () { S.link = true; readLimits(); paintStale(); });
-        document.addEventListener('rosdisconnected', function () { S.link = false; paintStale(); });
+        document.addEventListener('rosdisconnected', function () { S.link = false; paintStale(); tick(); });
         document.addEventListener('rosconnecting', function () { S.link = false; paintStale(); });
         document.addEventListener('vt:calendar', function () { if (S.report) { paintNow(); paintPlan(); } });
         subJson('/scheduler/mode', function (o) { S.mode = o; paintMode(); paintNow(); paintRight(); if (S.report) { paintPlan(); } });
@@ -3441,7 +3528,10 @@
         });
         subJson('/scheduler/report', function (r) { S.report = r; S.reportAt = Date.now(); if (r && r.mode) { S.mode = r.mode; } paintAll(); paintSettings(); afterReport(); tick(); });
         subJson('/scheduler/timeline', function (o) { S.timeline = o; paintTimeline(); paintUsed(); });
-        subJson('/scheduler/journal', function (o) { S.journal = o.entries || []; paintHistory(); onJournal(S.journal); });
+        subJson('/scheduler/journal', function (o) {
+            S.journal = o.entries || []; paintHistory(); onJournal(S.journal);
+            if (S.report && (S.report.issues || []).length) { paintAlert(); }      // A11: "until …" comes from the journal
+        });
         subJson('/scheduler/settings', function (o) { S.settings = o; paintSettings(); paintAll(); });
         subJson('/scheduler/settings_result', onResult);
         subJson('/scheduler/command_result', onCommand);
@@ -3483,7 +3573,7 @@
         paintSettings(); paintAll(); paintAnsWatch();
     }
 
-    window.VTAutonomy = { issueKeys: issueKeys, issueVars: issueVars, init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {
+    window.VTAutonomy = { issueKeys: issueKeys, issueVars: issueVars, issueOver: issueOver, init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {
         return S.report ? planLine() : ''; }, rawTimed: rawTimed, robotLine: robotLine, when: when,
                           whyCode: whyCode, dockWhy: dockWhy, adviceReason: adviceReason,
                           _state: S, _checkText: checkText, _validate: validate };

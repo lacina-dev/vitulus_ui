@@ -163,7 +163,12 @@ bez desky nesekne. Doba v hlášce běží s časem, dokud deska mlčí (ne jen 
 radí, co s tím: *Pomůže vypnout a zapnout robota*; **Tvrdý restart ›** u ní tě vezme k Tvrdému restartu ve Spánku (jen
 tam dojde, nic nespustí); mimo dok, kde by blok restart odmítl, se odkaz neukazuje. Jakmile se deska zase ozve, hláška
 zešedne (doba se počítá podle hodin robota, takže telefon v jiném časovém pásmu ukáže totéž; upozornění nad mapou, i *Bez spojení
-s robotem*, se přepnou s jazykem; řádek v logu *Deska sekačky v doku mlčí (od 17:25)* má u času i den, když není dnešní) a řekne *Deska sekačky mlčela od 17:25, už odpovídá* — není co řešit, zůstane, dokud ji nesmažeš. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
+s robotem*, se přepnou s jazykem; řádek v logu *Deska sekačky v doku mlčí (od 17:25)* má u času i den, když není dnešní) a řekne *Deska sekačky mlčela od po 16. 11. 17:25 do 20:40 (27 h 15 min), už odpovídá* — není co řešit: pravý panel ani
+hlavička Historie ji už neukazují červeně a **Smazat** přímo v hlášce ji uklidí (Historie si oba řádky nechá, návrat
+i s délkou mlčení; od dvou dnů je délka ve dnech, *3 dny 1 h*). Stránka říká *už odpovídá* jen z toho, co ví — z čerstvé
+zprávy od desky nebo z návratu zapsaného v historii robota. Bez robota nebo bez čerstvé zprávy od desky hláška zůstane,
+jak byla, s dovětkem *(Teď bez čerstvé zprávy od desky.)* a Smazat nenabídne; porucha, která ještě trvá, má v rámečku
+vždy přednost. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
 posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
 dál, roztočit ne, a po návratu desky až poté, co znovu ohlásí *připraveno*.

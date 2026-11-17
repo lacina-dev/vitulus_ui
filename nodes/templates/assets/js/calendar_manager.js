@@ -532,7 +532,9 @@ class CalendarManager {
             if (text === byReason) text = calT(key, d);
             if (text === key) text = i.code + ' ' + (i.program || '');
             const why = d.blocked_by ? calT('calmgr.code.' + d.blocked_by) : '';
-            html += `<div class="vt-cal-issue" title="${this._escHtml(why)}">${this._escHtml(text)}</div>`;
+            // A692: what is over (the board answers again) is said in the quiet tone, as in the top card
+            const over = !!(VA && VA.issueOver && VA.issueOver(i));
+            html += `<div class="vt-cal-issue${over ? ' vt-cal-issue-over' : ''}" title="${this._escHtml(why)}">${this._escHtml(text)}</div>`;
         });
         html += `<button class="btn btn-sm btn-outline-secondary" type="button" id="btn_scheduler_issues_clear">${calT('calmgr.issues_clear')}</button>`;
         box.innerHTML = html;

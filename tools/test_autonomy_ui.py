@@ -2130,17 +2130,93 @@ def a7_story(p, shots, label):
                 hist:b.querySelectorAll('.vt-auto-alert-go').length}})()""")
     check('A8 the board answers again: "was silent since HH:MM, answers again"', (('mlčela od ' if cs else 'was silent since ') + since.strftime('%H:%M')) in (al or '')
           and not re.search(r'neodpovídá|has not answered|\d\s*min|vypnout a zapnout|off and on', al or ''), al)
-    check('A8 … grey, labelled as over, no Hardware reset ›, History stays', over['state'] == 'off' and not over['hw'] and over['hist'] == 1
-          and over['lab'] == ('Vyřešeno' if cs else 'Over'), over)
+    check('A8 … grey, labelled as over, no Hardware reset ›, History stays (A11: and Clear beside it)', over['state'] == 'off' and not over['hw']
+          and over['hist'] == 2 and over['lab'] == ('Vyřešeno' if cs else 'Over'), over)
     cal = p.wait_text('#div_scheduler_issues', 'už odpovídá' if cs else 'answers again')
     check('A8 … the calendar card says the same', ('už odpovídá' if cs else 'answers again') in (cal or ''), cal)
+    # A11 (seen live 2026-11-17): what is over lights nothing; from when to when and how long; put away here
+    rp = p.pg.evaluate("(()=>{const c=document.querySelector('.rp-auto-chip');return c?[c.textContent,c.dataset.state]:null})()")
+    check('A11 over: the right panel does not say "Attention" in red', bool(rp) and rp[1] != 'err' and rp[0] != p.pg.evaluate("VTI18n.t('auto.alert.label')"), rp)
+    p.open('history')
+    hh = p.pg.evaluate("[document.getElementById('auto_sec_history').dataset.state, document.getElementById('auto_tok_history').textContent]")
+    check('A11 over: the History head is not red and counts nothing "to see"', hh[0] == 'off' and not re.search(r'k vidění|to see', hh[1]), hh)
+    back_at = since + dt.timedelta(minutes=30)
+    p.pub('/scheduler/journal', {'entries': [
+        {'t': iso(since + dt.timedelta(minutes=2)) + ':41', 'kind': 'waited', 'code': 'mower_link_idle', 'program': '', 'vars': dict(issue['detail'])},
+        {'t': iso(back_at) + ':09', 'kind': 'waited', 'code': 'mower_link_back', 'program': '', 'vars': {}}]})
+    want = ('od %s do %s (30 min)' if cs else 'from %s to %s (30 min)') % (since.strftime('%H:%M'), back_at.strftime('%H:%M'))
+    norm = lambda sel: (p.text(sel) or '').replace('\xa0', ' ')
+    p.wait(lambda: want in norm('#auto_alert'))
+    al = norm('#auto_alert')
+    check('A11 over: from when to when and how long, one sentence', want in al and ('už odpovídá' if cs else 'answers again') in al, al)
+    check('A692 … the length does not break apart (no-break space)', '30\xa0min' in (p.text('#auto_alert') or ''), repr(p.text('#auto_alert')))
+    p.wait(lambda: '30 min' in norm('#auto_journal'))
+    jl = norm('#auto_journal')
+    check('A11 History: the return says how long the board was silent', ('se zase ozvala (mlčela 30 min)' if cs else 'answers again (it was silent for 30 min)') in jl, jl[:200])
+    fn = p.pg.evaluate("(()=>{const b=[...document.querySelectorAll('.vt-auto-fbtn')].find(x=>x.dataset.f==='problems'), n=b&&b.querySelector('.vt-auto-fn'); return n?[n.hidden, n.textContent]:null})()")
+    check('A692 History: a silence with its return is not counted on the Problems filter', bool(fn) and (fn[0] or fn[1] in ('', '0')), fn)
+    calc = p.pg.evaluate("(()=>{const e=document.querySelector('#div_scheduler_issues .vt-cal-issue'), m=document.createElement('span'); if(!e) return null; m.style.color='var(--vt-muted)'; e.appendChild(m); const mc=getComputedStyle(m).color; m.remove(); return [e.className, getComputedStyle(e).color, mc]})()")
+    check('A692 the calendar card says what is over in the quiet tone', bool(calc) and 'vt-cal-issue-over' in calc[0] and calc[1] == calc[2], calc)
+    row = p.pg.evaluate("""(()=>{const b=document.getElementById('auto_alert'); const g=[...b.querySelectorAll('.vt-auto-alert-go')].map(e=>Math.round(e.getBoundingClientRect().top));
+        return {tops:g, txt:Math.round(b.querySelector('.vt-attn-txt').getBoundingClientRect().width), right:Math.round(b.getBoundingClientRect().right)}})()""")
+    check('A692 History and Clear stand together on one line, the sentence keeps its width', len(set(row['tops'])) == 1 and row['txt'] >= 180
+          and row['right'] <= p.pg.viewport_size['width'] + 1, row)
+    # A692: a live fault listed BEFORE the one that is over: the box is the live one's (label, text, red)
+    live_first = [{'code': 'run_failed', 'level': 'error', 'program': 'Bigger', 't': iso(now), 'detail': {'reason': 'critical'}}, issue]
+    p.pub('/scheduler/report', dict(boot, issues=live_first))
+    p.wait(lambda: 'Bigger' in (p.text('#auto_alert') or ''))
+    mix = p.pg.evaluate("(()=>{const b=document.getElementById('auto_alert');return {state:b.dataset.state, lab:b.querySelector('.vt-attn-lab').textContent, text:b.querySelector('.vt-attn-txt').textContent, clr:!!document.getElementById('btn_auto_alert_clear')}})()")
+    check('A692 a live fault + one that is over: the box carries the live one (label, text, red), no Clear', mix['state'] == 'err' and 'Bigger' in mix['text']
+          and mix['lab'] == p.pg.evaluate("VTI18n.t('auto.alert.label')") and not mix['clr'], mix)
+    # A692: the first silence is over (its return is in the journal), a second one lasts: one "to see", not two
+    second = dict(issue, t=iso(now), detail=dict(issue['detail'], since=iso(now - dt.timedelta(minutes=2)), silent_s=120))
+    p.pub('/mower/link', dict(link, silent_s=120))
+    p.pub('/scheduler/report', dict(boot, issues=[issue, second]))
+    p.wait(lambda: re.search(r'[12] (k vidění|to see)', p.text('#auto_tok_history') or ''))
+    hh = p.text('#auto_tok_history') or ''
+    check('A692 an old silence that ended + one that lasts: the History head counts one', re.search(r'\b1 (k vidění|to see)', hh), hh)
+    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    p.pub('/scheduler/report', dict(boot, issues=[issue]))
+    p.wait(lambda: want in norm('#auto_alert'))
+    # A692: the page claims "answers again" only on what it knows: an "ok" that is minutes old, a lost robot
+    p.pub('/scheduler/journal', {'entries': []})
+    p.wait(lambda: ('už odpovídá' if cs else 'answers again') in norm('#auto_alert'))
+    p.pg.evaluate("VTAutonomy._state.linkAt = Date.now() - 600e3")
+    p.wait(lambda: p.pg.evaluate("document.getElementById('auto_alert').dataset.state") != 'off', 6000)
+    old = p.pg.evaluate("(()=>{const b=document.getElementById('auto_alert'), c=document.querySelector('.rp-auto-chip');return {state:b.dataset.state, lab:b.querySelector('.vt-attn-lab').textContent, text:b.querySelector('.vt-attn-txt').textContent, clr:!!document.getElementById('btn_auto_alert_clear'), chip:c&&c.dataset.state, hist:document.getElementById('auto_sec_history').dataset.state}})()")
+    check('A692 the last "ok" is 10 min old: not "answers again", not grey, no Clear; it says it has no fresh word', old['state'] == 'err'
+          and not re.search(r'už odpovídá|answers again', old['text']) and not old['clr'] and p.pg.evaluate("VTI18n.t('auto.a11.link_unknown')") in old['text']
+          and old['lab'] == p.pg.evaluate("VTI18n.t('auto.alert.label')"), old)
+    check('A692 … the right panel\'s chip and the History head are lit again', old['chip'] == 'err' and old['hist'] == 'err', old)
+    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    p.wait(lambda: p.pg.evaluate("document.getElementById('auto_alert').dataset.state") == 'off')
+    p.pg.evaluate("document.dispatchEvent(new Event('rosdisconnected'))")
+    p.pg.wait_for_timeout(400)
+    gone = p.pg.evaluate("(()=>{const b=document.getElementById('auto_alert');return {state:b.dataset.state, text:b.querySelector('.vt-attn-txt').textContent, clr:!!document.getElementById('btn_auto_alert_clear')}})()")
+    check('A692 the page lost the robot: at once not "answers again", no Clear', gone['state'] == 'err' and not re.search(r'už odpovídá|answers again', gone['text']) and not gone['clr'], gone)
+    p.pg.evaluate("document.dispatchEvent(new Event('rosconnected'))")
+    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    p.wait(lambda: p.pg.evaluate("document.getElementById('auto_alert').dataset.state") == 'off')
+    p.pub('/scheduler/journal', {'entries': [
+        {'t': iso(since + dt.timedelta(minutes=2)) + ':41', 'kind': 'waited', 'code': 'mower_link_idle', 'program': '', 'vars': dict(issue['detail'])},
+        {'t': iso(back_at) + ':09', 'kind': 'waited', 'code': 'mower_link_back', 'program': '', 'vars': {}}]})
+    p.wait(lambda: want in norm('#auto_alert'))
+    clr = p.pg.evaluate("""(()=>{const cm=window.calendarManager, b=document.getElementById('btn_auto_alert_clear'); if(!b) return null;
+        const real=cm.clearIssuesPub.publish; let n=0; cm.clearIssuesPub.publish=function(){n++}; b.click(); cm.clearIssuesPub.publish=real;
+        return {n, text:b.textContent, h:Math.round(b.getBoundingClientRect().height)}})()""")
+    check('A11 over: Clear right in the notice asks the robot to clear its issues (once, on the tap)', bool(clr) and clr['n'] == 1
+          and clr['text'] == p.pg.evaluate("VTI18n.t('calmgr.issues_clear')"), clr)
     if shots:
         p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
         p.pg.wait_for_timeout(200)
         p.pg.screenshot(path=os.path.join(shots, label + '-a8-back.png'))
+    p.pub('/scheduler/journal', {'entries': []})
     p.pub('/mower/link', link)
     p.wait(lambda: re.search(r'\b3[34]\s*min', p.text('#auto_alert') or ''))
     al = p.text('#auto_alert')
+    rp = p.pg.evaluate("(()=>{const c=document.querySelector('.rp-auto-chip');return c?[c.textContent,c.dataset.state]:null})()")
+    check('A11 silent again: no Clear in the notice, the right panel is red again', not p.pg.evaluate("!!document.getElementById('btn_auto_alert_clear')")
+          and bool(rp) and rp[1] == 'err', rp)
     # A8 (seen live): the board's banner follows a language switch, not only the next change of the link
     p.lang('en' if cs else 'cs')
     other = [p.text('#auto_link'), p.pg.evaluate("VTI18n.t('auto.link.silent')")]

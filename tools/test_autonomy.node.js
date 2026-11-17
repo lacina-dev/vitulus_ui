@@ -287,7 +287,7 @@ function sandbox(lang, file, extra) {
     const src = read('vt_autonomy.js');
     const grab = (name) => { const i = src.indexOf('function ' + name + '('); let d = 0;
         for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') { d++; } else if (src[j] === '}' && --d === 0) { return src.slice(i, j + 1); } } };
-    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'robotShift', 'shiftFromLog', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'linkFresh', 'silenceOver', 'nb', 'nbDay', 'longDur', 'robotShift', 'shiftFromLog', 'backOf', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
     const LIVE = {};
     ['en', 'cs'].forEach((l) => {
         const D = win.VT_I18N_DICT[l];
@@ -342,6 +342,37 @@ function sandbox(lang, file, extra) {
               && back.indexOf(S35.slice(11)) >= 0 && !/\{/.test(back), back);
         check(l + ': … and nothing in the present tense, no duration, no advice', !/has not answered|neodpovídá|\d\s*min|off and on|vypnout a zapnout/.test(back), back);
         check(l + ': … the same off the dock', backOff === back, backOff);
+        // T21 A11: with the journal's "back" entry: from when to when and how long (27 h as the robot's 2026-11-17)
+        LIVE.journal = [{ t: '2026-11-16T17:27:41', kind: 'waited', code: 'mower_link_idle', vars: { since: '2026-11-16T17:25' } },
+                        { t: '2026-11-17T20:40:09', kind: 'waited', code: 'mower_link_back', vars: {} }];
+        const until = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
+        check(l + ': … with the time it came back: from … to … (27 h 15 min), no {placeholder}', /27\s*h\s*15\s*min/.test(until) && /17:25/.test(until) && /20:40/.test(until)
+              && /answers again|už odpovídá/.test(until) && !/\{/.test(until), until);
+        // A692: a length and a date do not break apart on a narrow screen; days from two days on
+        check(l + ': … the length and the day keep together (no-break spaces)', /27\u00a0h\u00a015\u00a0min/.test(until) && /16\.?\u00a0(11\.|Nov)/.test(until), JSON.stringify(until));
+        LIVE.journal = [{ t: '2026-11-16T09:12:00', kind: 'waited', code: 'mower_link_back', vars: {} }];
+        const days = say('mower_link_idle', { program: '', silent_s: 151, since: '2026-11-13T08:00', in_dock: true });
+        check(l + ': … over three days: "3 d 1 h", not "73 h 13 min"', /\b3\s*(d|dny|days)\s*1\s*h/.test(days) && !/73/.test(days), days);
+        // A692: what the page does not know it does not claim — an old "ok", a lost robot
+        delete LIVE.journal;
+        LIVE.linkMsg = { state: 'ok', silent_s: 0 }; LIVE.linkAt = Date.now() - 600e3;
+        const old = frozen();
+        check(l + ': … the last "ok" 10 min old: not "answers again"', !/answers again|už odpovídá/.test(old) && /\b3\s*min/.test(old), old);
+        LIVE.linkAt = Date.now(); LIVE.link = false;
+        check(l + ': … the page lost the robot: not "answers again" (a fresh-looking ok, a return in the journal)', !/answers again|už odpovídá/.test(frozen()), frozen());
+        LIVE.journal = [{ t: '2026-11-17T20:40:09', kind: 'waited', code: 'mower_link_back', vars: {} }];
+        const lost = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
+        check(l + ': … lost robot + the return in the journal: still not claimed', !/answers again|už odpovídá/.test(lost), lost);
+        delete LIVE.link;
+        LIVE.linkAt = Date.now() - 600e3;
+        const byJournal = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
+        check(l + ': … the robot\'s journal has the return: over also without a fresh link message', /20:40/.test(byJournal), byJournal);
+        LIVE.linkAt = Date.now();
+        LIVE.journal = [{ t: '2026-11-16T17:27:41', kind: 'waited', code: 'mower_link_idle', vars: { since: '2026-11-16T17:25' } },
+                        { t: '2026-11-17T20:40:09', kind: 'waited', code: 'mower_link_back', vars: {} }];
+        const other = say('mower_link_idle', { program: '', silent_s: 151, since: '2026-11-18T09:00', in_dock: true });
+        check(l + ': … a "back" from before this silence is not its end', !/20:40/.test(other) && /answers again|už odpovídá/.test(other), other);
+        delete LIVE.journal;
         const backNs = frozen({ since: undefined });
         check(l + ': … answers again without "since": no "since {at}"', /answers again|už odpovídá/.test(backNs) && !/\{|since|\bod\b/.test(backNs), backNs);
         LIVE.linkMsg = { state: 'recovering', silent_s: 0 };

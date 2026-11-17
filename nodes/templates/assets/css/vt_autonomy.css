@@ -25,8 +25,10 @@
 /* T21 A7: with two links beside it the notice's sentence was squeezed into a 70 px column on a phone:
    the sentence keeps a readable width and the links go under it */
 #auto_alert { flex-wrap: wrap; }
-#auto_alert .vt-attn-txt { flex: 1 1 14em; }
-#auto_alert .vt-attn-txt + .vt-auto-alert-go { margin-left: auto; }
+#auto_alert .vt-attn-txt { flex: 1 1 16em; }   /* A692: 14em let two short links squeeze the sentence to 169 px on a phone */
+#auto_alert .vt-auto-alert-acts { display: inline-flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: 2px; margin-left: auto; }
+/* A692: an issue that is over, in the calendar card: quiet, like the top card's grey notice */
+.vt-cal-issue.vt-cal-issue-over { color: var(--vt-muted); }
 .vt-auto-alert-go { flex: 0 0 auto; padding: 0 4px; min-height: 32px; color: var(--vt-accent); font-size: var(--vt-fs-sm); }
 
 /* sections */
