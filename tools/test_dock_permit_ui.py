@@ -103,6 +103,8 @@ class Agent(object):
         self.refuse = None        # the next grant: (status, body)
         self.tasks = []
         self.granted = None
+        self.tickets = 0          # T8: tickets handed out
+        self.no_ticket = False    # T8: the agent does not hand one out (HTTP 500)
         self.down = False         # the agent's web API is not running (webnode answers 503 on /agent)
 
     def state(self):
@@ -153,6 +155,12 @@ class Agent(object):
             if method != 'GET':
                 self.posts.append((method, path, {}, {}))
                 return route.fulfill(status=200, content_type='application/json', body='{"ok": true}')
+            if path == '/agent/api/ticket':      # T8: an action (allowing the dock) asks for a one-time ticket first
+                self.tickets += 1
+                if self.no_ticket:
+                    return route.fulfill(status=500, content_type='application/json', body='{"ok": false}')
+                return route.fulfill(status=200, content_type='application/json', body=json.dumps(
+                    {'ok': True, 'ticket': 'TK-%d' % self.tickets, 'ttl_s': 5.0, 'enabled': True}))
             if path == '/agent/api/v2/dock':
                 return route.fulfill(status=200, content_type='application/json', body=json.dumps(self.state()))
             if path == '/agent/api/tasks':
@@ -262,6 +270,8 @@ def story(p, shots, label):
     g = grants[-1][2] if grants else {}
     check('%s the window: 120 min, one exit, no by/token from the page' % label,
           g.get('minutes') == 120 and g.get('one_exit') is True and 'by' not in g and 'channel' not in g, g)
+    check('%s T8: the Allow carries the agent\'s one-time ticket (the repeat the same one)' % label,
+          len(grants) == 2 and str(grants[0][2].get('ticket', '')).startswith('TK-') and grants[0][2]['ticket'] == grants[1][2].get('ticket'), grants)
     hdr = a.posts[-1][3] if a.posts else {}
     check('%s the door: JSON + X-Vitulus-UI' % label, hdr.get('x-vitulus-ui') == '1', hdr)
     p.pg.wait_for_timeout(400)

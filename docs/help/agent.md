@@ -78,6 +78,22 @@ one). With a keyboard: ↓ on **⚡** opens the menu and the arrows move in it �
 robot. **Esc** closes the menu and, as everywhere in the UI, **also stops the robot** (the big
 STOP).
 
+### A command that did not go out, or came late
+
+Everything that starts or allows something — a task or a message, **Allow**, a run, resume or
+edit of a job or a plan, a tool, allowing the dock — first asks the agent for a one-time ticket
+(valid 5 s) and carries it along. That is the check that the agent hears the page right now:
+
+- **No connection to the agent — the command was NOT sent.** The agent did not answer within
+  2.5 s. Nothing went out and nothing will go out later; press again once the agent answers.
+- **The command reached the agent N s after the press — it was NOT carried out.** The network
+  held it (a Wi-Fi gap) and delivered it late; the agent refused it, so a robot nobody is
+  watching any more does not set off. Look at the robot and send it again — the page never
+  repeats it by itself. A late message that begins with a stop (*zastav a jeď na TEST*) only
+  stops; one that begins with a cancelling passes on only the cancelling — the band says which.
+- What only stops is never held back or refused: **Stop agent**, **Deny**, auto-approval off,
+  pause, cancel, delete, locking the dock.
+
 ### One conversation, one brain
 
 Every message you write — on this page or on Discord — goes to **the same conversation** with the

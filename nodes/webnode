@@ -1737,7 +1737,17 @@ if __name__ == '__main__':
                    "ref": ("until docked: " if free else "") + ",".join(body["actions"]),
                    "author": DOCK_AUDIT_AUTHOR,
                    "client": request.remote_addr}
+            _dock_ticket(b, body)
             return _dock_post("/api/v2/dock", body, rec)
+
+        def _dock_ticket(src, body):
+            """T8: the agent's one-time ticket (GET /agent/api/ticket) rides in the
+            JSON body of an action; this door builds its own body, so the field is
+            carried over. The agent refuses a late or reused one with 409, which
+            _dock_post hands back as it is."""
+            tk = src.get("ticket")
+            if isinstance(tk, str) and 0 < len(tk) <= 200:
+                body["ticket"] = tk
 
         @app.route("/agent-dock/grant", methods=["POST"])
         def agent_dock_grant():
@@ -1755,6 +1765,7 @@ if __name__ == '__main__':
             rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "action": "dock-unlock",
                    "ref": _dock_ref(body), "author": DOCK_AUDIT_AUTHOR,
                    "client": request.remote_addr}
+            _dock_ticket(b, body)
             return _dock_post("/api/v2/dock", body, rec)
 
         @app.route("/agent-dock/revoke/<rel_id>", methods=["POST"])

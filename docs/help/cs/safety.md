@@ -51,7 +51,7 @@ start programu…) **neodejde** — pás napíše *Offline · příkaz NEODEŠEL
 
 Totéž platí, když je tečka ještě zelená, ale od robota přestala chodit data (výpadek Wi-Fi, který
 stránka ještě neoznačila za mrtvé spojení): příkaz odejde, jen když je robota slyšet — hned, dokud
-od něj chodí data, jinak až robot odpoví na krátkou kontrolu; bez odpovědi do 1 s příkaz **neodejde**
+od něj chodí data, jinak až robot odpoví na krátkou kontrolu; bez odpovědi do 2 s příkaz **neodejde**
 a nepošle se ani později — pás napíše *Robot neposílá data · příkaz NEODEŠEL — stiskněte znovu*. Jinak by příkaz
 čekal v síti a robot by ho provedl, až se Wi-Fi vrátí, o vteřiny později. STOP, motory OFF, nůž OFF
 a zrušení odejdou vždy (pozdní STOP jen zastaví); stejně tak zákaz plánovaných výjezdů a ukončení

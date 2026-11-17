@@ -548,14 +548,14 @@ function wrote(s, topic) { return s.sent.map((d) => JSON.parse(d)).filter((m) =>
         go.publish({ data: 'P' + at });
         const direct = wrote(s, '/navi_manager/goal_point').length;
         let told = null;
-        for (let k = 0; k <= 30 && told === null; k++) { if (W.ev.some((e) => e[0] === 'drop' && e[1].stale)) { told = k * 50; } else { W.run(50); } }
+        for (let k = 0; k <= 50 && told === null; k++) { if (W.ev.some((e) => e[0] === 'drop' && e[1].stale)) { told = k * 50; } else { W.run(50); } }
         return [at, direct, wrote(s, '/navi_manager/goal_point').length, up0, told];
     });
     console.log('     Go pressed N ms after the last frame -> [ms, written at once, written at all, link "up", refused after ms]: ' + JSON.stringify(tried));
     ok('silent link: a Go within 300 ms of the last frame is sent at once', tried.filter((x) => x[0] <= 300).every((x) => x[1] === 1), tried);
     ok('silent link: a Go 0.5 / 1 / 1.5 s and later is never written to the socket', tried.filter((x) => x[0] > 300).length === 6 &&
         tried.filter((x) => x[0] > 300).every((x) => x[2] === 0 && x[3]), tried);
-    ok('silent link: the page is told ~1 s after the press', tried.filter((x) => x[0] > 300).every((x) => x[4] !== null && x[4] >= 950 && x[4] <= 1050), tried);
+    ok('silent link: the page is told ~2 s after the press', tried.filter((x) => x[0] > 300).every((x) => x[4] !== null && x[4] >= 1950 && x[4] <= 2050), tried);
 }
 {
     const W = world(); connected(W);
@@ -573,11 +573,11 @@ function wrote(s, topic) { return s.sent.map((d) => JSON.parse(d)).filter((m) =>
     srv.callService(new W.R.ServiceRequest({}), () => { answer = 'ok'; }, (e) => { answer = 'failed: ' + e; });
     W.run(20);
     ok('silent 3 s: the six commands wait for the robot, one probe at most asks', W.g.stats().held === 6 && s.sent.slice(n0).map((d) => JSON.parse(d)).filter((m) => /^vt_link:/.test(m.id || '')).length <= 1, W.g.stats());
-    W.run(1000);
+    W.run(2000);
     const sent = s.sent.slice(n0).map((d) => JSON.parse(d)).filter((m) => m.op === 'publish' || (m.op === 'call_service' && !/^vt_link:/.test(m.id || '')));
     ok('silent 3 s: motors ON, blade ON, Undock, program, speed, a service call: none sent', sent.length === 0, sent.map((m) => m.topic || m.service));
     const drops = W.ev.filter((e) => e[0] === 'drop');
-    ok('silent 3 s: the page is told after 1 s, once per command, marked stale', drops.length === 6 && drops.every((e) => e[1].stale === true && e[1].n === 1), drops);
+    ok('silent 3 s: the page is told after 2 s, once per command, marked stale', drops.length === 6 && drops.every((e) => e[1].stale === true && e[1].n === 1), drops);
     ok('silent 3 s: the service caller gets a failed answer', /^failed/.test(String(answer)), answer);
     ok('silent 3 s: counted', W.g.stats().stale_cmd === 6 && W.g.stats().queue === 0 && W.g.stats().held === 0, W.g.stats());
     // what only asks for data, and everything that stops, still goes out

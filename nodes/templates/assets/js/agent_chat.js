@@ -478,6 +478,13 @@
         return box;
     }
 
+    // T8: why an action did not go out / was refused as late — on the notice band, whatever
+    // the caller does with the failure
+    function ticketSay(text) {
+        if (!text) { return; }
+        try { if (window.VTNotice) { VTNotice.say({ key: 'agent_ticket', text: text, level: 0, ttl: 10000, urgent: true, repeat_ms: 3000 }); } } catch (e) { /* notice only */ }
+    }
+
     function api(path, opts) {
         opts = opts || {};
         // Single chokepoint: while the agent is known down, no caller (chat
@@ -494,6 +501,23 @@
         var mockMethod = opts.method || (opts.body !== undefined ? 'POST' : 'GET');
         if (window.VTMock && window.VTMock.blocks(mockMethod, AGENT_HTTP + path)) {
             return Promise.resolve({ ok: false, mock: true, error: 'blocked in ?mock' });
+        }
+        // T8: an ACTION (a task, an Allow, a run, a resume…) first takes a one-time
+        // ticket from the agent and carries it in its body — the agent refuses one
+        // that arrives late (a POST held by a lost network). No ticket = the agent
+        // does not hear us now: the action is NOT sent. What only stops (STOP, Deny,
+        // pause, cancel…) goes out at once, without one. See vt_agent_ticket.js.
+        var TK = window.VTAgentTicket;
+        if (TK && !opts._ticketed && TK.kind(path, mockMethod, opts.body) === 'action') {
+            return TK.withTicket(function (u, i) { return fetch(u, i); }, AGENT_HTTP, opts.body || {}).then(function (b) {
+                var o2 = {};
+                Object.keys(opts).forEach(function (k) { o2[k] = opts[k]; });
+                o2.body = b; o2._ticketed = true;
+                return api(path, o2);
+            }, function (err) {
+                ticketSay(err && err.vt_text);
+                throw err;
+            });
         }
         var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var timer = ctl ? setTimeout(function () { ctl.abort(); }, opts.timeout_ms || 8000) : null;
@@ -514,6 +538,19 @@
             }
             conn.okTs = Date.now();
             paintConn();
+            if (r.status === 409 && TK) {
+                // T8: the agent refused a late action (or one with a used ticket): it did
+                // nothing (or only stopped / cancelled, it says so). Never sent again by
+                // itself — the person looks at the robot and presses again.
+                return r.json().catch(function () { return null; }).then(function (body) {
+                    var ref = TK.refusal(409, body);
+                    var err = new Error(ref ? TK.text(ref) : 'HTTP 409');
+                    err.status = 409;
+                    if (ref) { err.stale = true; err.no_retry = true; err.vt_text = err.message; err.body = body; ticketSay(err.message); }
+                    else if (opts.keep_error_body) { err.body = body; }
+                    throw err;
+                });
+            }
             if (!r.ok) {
                 // Some endpoints put the ONLY useful text in the body of a
                 // refusal — /api/models answers 400 with ready-made sentences
@@ -2451,8 +2488,10 @@
            hláška „Could not send" by nedorazila nikdy. */
         var sendFailed = false, onFail = null;
         var sending = api('/api/task', {body: body});
-        sending.catch(function () {
+        var sendWhy = '';
+        sending.catch(function (e) {
             sendFailed = true;
+            sendWhy = (e && e.vt_text) || '';      // T8: no ticket / refused as late: say that, not "unreachable"
             if (onFail) { onFail(); }
         });
 
@@ -2467,7 +2506,7 @@
                 }
                 // a UI line drawn as a bubble: it keeps the language of
                 // the moment it was drawn (like a log line)
-                turn('bot', 'vagent-err', _t('chat.send.failed'), []);
+                turn('bot', 'vagent-err', sendWhy || _t('chat.send.failed'), []);
             };
             if (sendFailed) { onFail(); }
         }
@@ -5999,7 +6038,20 @@
         if (opts.one_exit) { body.one_exit = true; }
         if (opts.lock_on_return) { body.lock_on_return = true; }
         if (opts.channel === 'chat') { body.channel = 'chat'; body.confirmed = opts.confirmed === true; }
-        return dockSend('/agent-dock/grant', body, 3).then(function (d) {
+        // T8: allowing the dock is an action: it carries the agent's one-time ticket
+        // (webnode passes the field on); no ticket = not sent, a late one = refused (409)
+        var TK = window.VTAgentTicket;
+        var ready = TK ? TK.withTicket(function (u, i) { return fetch(u, i); }, AGENT_HTTP, body) : Promise.resolve(body);
+        return ready.then(function (b) {
+            return dockSend('/agent-dock/grant', b, 3);
+        }, function (err) {
+            ticketSay(err && err.vt_text);
+            return {ok: false, status: 0, code: 'nolink', error: (err && err.vt_text) || 'no ticket'};
+        }).then(function (d) {
+            if (TK && d && d.ok === false && d.status === 409 && /^(stale|ticket_unknown|ticket_required)$/.test(d.code || '')) {
+                d.error = TK.text({code: d.code});
+                ticketSay(d.error);
+            }
             return pollDock(true).then(function () { return d; }, function () { return d; });
         });
     }

@@ -71,7 +71,7 @@
     var DRIVE_FRESH_MS = 2000;   // drive only when a frame arrived this recently
     var DRIVE_PROBE_MS = 1000;   // while driving: probe after this much silence
     var ACT_DIRECT_MS = 300;     // an action goes out at once only when a frame arrived this recently
-    var ACT_WAIT_MS = 1000;      // else it waits this long for the robot's next frame (a probe asks for one)
+    var ACT_WAIT_MS = 2000;      // else it waits this long for the robot's next frame (a probe asks for one)
 
     var CANCEL = /^\/(move_base_flex\/[a-z_]+|move_base|smach_goal)\/cancel$/;
     var STOP_BOOL = {

@@ -76,6 +76,22 @@ který dřív zabíraly rychlé příkazy, a pole pro psaní šířku filtru; st
 nabídku otevře a šipky se v ní pohybují — robotem nikdy nepohnou. **Esc** nabídku zavře a jako
 všude v UI **zároveň zastaví robota** (velký STOP).
 
+### Povel neodešel, nebo dorazil pozdě
+
+Všechno, co něco spouští nebo povoluje — úkol či zpráva, **Povolit**, spuštění, obnovení nebo
+úprava úlohy či plánu, nástroj, povolení doku — si nejdřív vyžádá od agenta jednorázovou
+stvrzenku (platí 5 s) a nese ji s sebou. Tím se ověří, že agent stránku právě teď slyší:
+
+- **Bez spojení s agentem — povel NEODEŠEL.** Agent do 2,5 s neodpověděl. Nic neodešlo a neodejde
+  ani později; stiskni znovu, až agent odpoví.
+- **Povel dorazil k agentovi N s po stisku — NEBYL proveden.** Síť ho zadržela (výpadek Wi-Fi)
+  a doručila pozdě; agent ho odmítl, aby se nerozjel robot, na kterého se už nikdo nedívá.
+  Podívej se na robota a zadej to znovu — stránka povel sama neopakuje. Pozdní zpráva, která
+  začíná zastavením (*zastav a jeď na TEST*), jen zastaví; ta, která začíná zrušením, předá
+  jen zrušení — pás hlášek řekne, co se stalo.
+- Co jen zastavuje, se nikdy nezdržuje ani neodmítá: **Stop agenta**, **Zamítnout**, vypnutí
+  automatického schvalování, pauza, zrušení, smazání, zamčení doku.
+
 ### Jeden rozhovor, jeden mozek
 
 Každá zpráva, kterou napíšeš — tady i na Discordu — jde do **téhož rozhovoru** s operátorem

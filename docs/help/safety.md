@@ -54,7 +54,7 @@ drives only while the robot's data is arriving. Any other command pressed withou
 
 The same holds while the dot is still green but the robot's data stopped arriving (a Wi-Fi gap the
 page has not called dead yet): a command goes out only when the robot is heard — at once while its
-data is arriving, otherwise after the robot answers a short check; with no answer within 1 s the
+data is arriving, otherwise after the robot answers a short check; with no answer within 2 s the
 command is **not** sent and never goes out
 later — the band says *No data from the robot · command NOT sent — press again*. Without this the
 command would wait in the network and the robot would carry it out when the Wi-Fi came back,
