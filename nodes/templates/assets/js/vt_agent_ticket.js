@@ -21,7 +21,8 @@
  * A chat message is always an action here: the agent itself recognises the wording
  * that only stops and never refuses that one. And because it may be a STOP in words,
  * a chat message is the one action that still goes out when no ticket can be had —
- * without one, the person is told; the agent then refuses it unless it only stops.
+ * without one. The page says that it does so, and afterwards what the agent answered
+ * (took it / refused it): what the agent does with such a message is its own setting.
  * A refusal (409 stale) is never repeated automatically: the person looks at the
  * robot and presses again.
  *
@@ -124,13 +125,14 @@
         ref = ref || {};
         if (ref.code === 'nolink') { return t('agent.ticket.nolink'); }
         if (ref.code === 'chat_unconfirmed') { return t('agent.ticket.chat_unconfirmed'); }
+        if (ref.code === 'chat_accepted') { return t('agent.ticket.chat_accepted'); }
         if (ref.stopped) { return t('agent.ticket.late_stopped'); }
         if (ref.cancelled) { return t('agent.ticket.late_cancelled', { text: ref.cancel_text }); }
         if (ref.code === 'stale') {
             if (!(+ref.age_s > 0)) { return t('agent.ticket.late_noage'); }
             return t('agent.ticket.late', { age: Math.round(+ref.age_s), max: Math.round(+ref.max_age_s || 0) });
         }
-        if (ref.code === 'ticket_required') { return t('agent.ticket.required'); }
+        if (ref.code === 'ticket_required') { return t(ref.unconfirmed ? 'agent.ticket.chat_refused' : 'agent.ticket.required'); }
         return t('agent.ticket.unknown');
     }
 

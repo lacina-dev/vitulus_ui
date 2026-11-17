@@ -86,8 +86,9 @@ stvrzenku (platí 5 s) a nese ji s sebou. Tím se ověří, že agent stránku p
   ani později; stiskni znovu, až agent odpoví.
 - **Zpráva napsaná do chatu je výjimka** — může to být zastavení slovy (*zastav*, *zruš misi*)
   a zastavení na stvrzenku nikdy nečeká. Když agent neodpovídá, zpráva odejde i tak a pás hlášek
-  napíše *Agent neodpovídá — zprávu posílám bez potvrzení čerstvosti*: zastavení se provede,
-  pokyn k akci agent odmítne.
+  pak napíše, co agent odpověděl: *Agent zprávu přijal, bez kontroly čerstvosti* (pokud k němu
+  dorazila pozdě, mohl ji provést pozdě — podívej se do chatu a na robota), nebo *Agent zprávu
+  odmítl … NEBYLA provedena*.
 - **Povel dorazil k agentovi N s po stisku — NEBYL proveden.** Síť ho zadržela (výpadek Wi-Fi)
   a doručila pozdě; agent ho odmítl, aby se nerozjel robot, na kterého se už nikdo nedívá.
   Podívej se na robota a zadej to znovu — stránka povel sama neopakuje. Pozdní zpráva, která

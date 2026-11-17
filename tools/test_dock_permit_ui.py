@@ -270,8 +270,9 @@ def story(p, shots, label):
     g = grants[-1][2] if grants else {}
     check('%s the window: 120 min, one exit, no by/token from the page' % label,
           g.get('minutes') == 120 and g.get('one_exit') is True and 'by' not in g and 'channel' not in g, g)
-    check('%s T8: the Allow carries the agent\'s one-time ticket (the repeat the same one)' % label,
-          len(grants) == 2 and str(grants[0][2].get('ticket', '')).startswith('TK-') and grants[0][2]['ticket'] == grants[1][2].get('ticket'), grants)
+    check('%s T8: the Allow carries the agent\'s one-time ticket, the repeat a NEW one (same req_id)' % label,
+          len(grants) == 2 and str(grants[0][2].get('ticket', '')).startswith('TK-') and str(grants[1][2].get('ticket', '')).startswith('TK-')
+          and grants[0][2]['ticket'] != grants[1][2]['ticket'] and grants[0][2]['req_id'] == grants[1][2]['req_id'], grants)
     hdr = a.posts[-1][3] if a.posts else {}
     check('%s the door: JSON + X-Vitulus-UI' % label, hdr.get('x-vitulus-ui') == '1', hdr)
     p.pg.wait_for_timeout(400)

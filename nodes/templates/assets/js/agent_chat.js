@@ -483,9 +483,9 @@
 
     // T8: why an action did not go out / was refused as late — on the notice band, whatever
     // the caller does with the failure
-    function ticketSay(text) {
+    function ticketSay(text, key) {
         if (!text) { return; }
-        try { if (window.VTNotice) { VTNotice.say({ key: 'agent_ticket', text: text, level: 0, ttl: 10000, urgent: true, repeat_ms: 3000 }); } } catch (e) { /* notice only */ }
+        try { if (window.VTNotice) { VTNotice.say({ key: key || 'agent_ticket', text: text, level: 0, ttl: 10000, urgent: true, repeat_ms: 3000 }); } } catch (e) { /* notice only */ }
     }
 
     function api(path, opts) {
@@ -520,14 +520,18 @@
             }, function (err) {
                 if (err && err.no_send && TK.chat(path)) {
                     // A chat message may be a STOP in words ("zastav", "zruš misi"): stopping
-                    // must never depend on a ticket. It goes out without one and the person is
-                    // told the truth; the agent decides — it carries out what only stops and
-                    // refuses an action that comes without a ticket (409 ticket_required).
-                    ticketSay(TK.text({code: 'chat_unconfirmed'}));
+                    // must never depend on a ticket. It goes out without one. What becomes of it
+                    // is the agent's decision (it may refuse an action without a ticket, or — set
+                    // to accept — take it), so the page says only what it knows: now that it is
+                    // sending without the check, and afterwards what the agent ANSWERED.
+                    ticketSay(TK.text({code: 'chat_unconfirmed'}), 'agent_ticket_wait');
                     var o3 = {};
                     Object.keys(opts).forEach(function (k) { o3[k] = opts[k]; });
-                    o3._ticketed = true;
-                    return api(path, o3);
+                    o3._ticketed = true; o3._unconfirmed = true;
+                    return api(path, o3).then(function (d) {
+                        if (d && d.ok !== false && !d.agent_down && !d.mock) { ticketSay(TK.text({code: 'chat_accepted'})); }
+                        return d;
+                    });
                 }
                 ticketSay(err && err.vt_text);
                 throw err;
@@ -558,6 +562,7 @@
                 // itself — the person looks at the robot and presses again.
                 return r.json().catch(function () { return null; }).then(function (body) {
                     var ref = TK.refusal(409, body);
+                    if (ref && opts._unconfirmed) { ref.unconfirmed = true; }     // a chat message sent without a ticket
                     var err = new Error(ref ? TK.text(ref) : 'HTTP 409');
                     err.status = 409;
                     if (ref) { err.stale = true; err.no_retry = true; err.vt_text = err.message; err.body = body; ticketSay(err.message); }
@@ -6062,15 +6067,29 @@
         if (opts.lock_on_return) { body.lock_on_return = true; }
         if (opts.channel === 'chat') { body.channel = 'chat'; body.confirmed = opts.confirmed === true; }
         // T8: allowing the dock is an action: it carries the agent's one-time ticket
-        // (webnode passes the field on); no ticket = not sent, a late one = refused (409)
+        // (webnode passes the field on); no ticket = not sent, a late one = refused (409).
+        // A lost answer is asked again as before (same req_id: the agent does it once), but
+        // every try takes a NEW ticket — a ticket is good for one request, and a try that
+        // did arrive would make the repeat a 409 "not carried out" over an open dock.
         var TK = window.VTAgentTicket;
-        var ready = TK ? TK.withTicket(function (u, i) { return fetch(u, i); }, AGENT_HTTP, body) : Promise.resolve(body);
-        return ready.then(function (b) {
-            return dockSend('/agent-dock/grant', b, 3);
-        }, function (err) {
-            ticketSay(err && err.vt_text);
-            return {ok: false, status: 0, code: 'nolink', error: (err && err.vt_text) || 'no ticket'};
-        }).then(function (d) {
+        function attempt(tries) {
+            var ready = TK ? TK.withTicket(function (u, i) { return fetch(u, i); }, AGENT_HTTP, body) : Promise.resolve(body);
+            return ready.then(function (b) {
+                return dockWrite('/agent-dock/grant', b);
+            }, function (err) {
+                ticketSay(err && err.vt_text);
+                return {ok: false, status: -1, code: 'nolink', error: (err && err.vt_text) || 'no ticket'};
+            }).then(function (d) {
+                var lost = d && d.ok === false && (d.status === 0 || d.status === 502 ||
+                                                   d.status === 503 || d.status === 504);
+                if (lost && tries > 1) {
+                    return new Promise(function (res) { setTimeout(res, 800); })
+                        .then(function () { return attempt(tries - 1); });
+                }
+                return d;
+            });
+        }
+        return attempt(3).then(function (d) {
             if (TK && d && d.ok === false && d.status === 409 && /^(stale|ticket_unknown|ticket_required)$/.test(d.code || '')) {
                 d.error = TK.text({code: d.code});
                 ticketSay(d.error);

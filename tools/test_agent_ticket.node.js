@@ -122,7 +122,7 @@ function apiOf(A) {
     vm.runInContext(fs.readFileSync(path.join(JS, 'vt_agent_ticket.js'), 'utf8'), c);
     c.fetch = A.fetch;
     vm.runInContext("var AGENT_HTTP = '/agent', agentUp = true, conn = {}; function paintConn() {} function markAgentDown() {}\n" +
-                    cut('    function ticketSay(text) {') + '\n' + cut('    function api(path, opts) {') + '\nthis.api = api;', c);
+                    cut('    function ticketSay(text, key) {') + '\n' + cut('    function api(path, opts) {') + '\nthis.api = api;', c);
     return c.api;
 }
 
@@ -183,14 +183,27 @@ function apiOf(A) {
         const A = agent({ ticket: how }), api = apiOf(A); said.length = 0;
         const r = await api('/api/task', { body: { text: 'zastav', author: 'ui' } });
         ok('api: agent ' + how + ' at the ticket -> a chat message is still SENT, without a ticket, the person is told', r && r.ok === true && A.posts().length === 1 &&
-            A.posts()[0].url === '/agent/api/task' && A.posts()[0].body.ticket === undefined && A.posts()[0].body.text === 'zastav' && said.join() === 'agent.ticket.chat_unconfirmed', [A.calls.map((c) => c.url), said]);
+            A.posts()[0].url === '/agent/api/task' && A.posts()[0].body.ticket === undefined && A.posts()[0].body.text === 'zastav' && said.join() === 'agent.ticket.chat_unconfirmed,agent.ticket.chat_accepted', [A.calls.map((c) => c.url), said]);
+        ok('api: ... and the words claim nothing the agent did not answer (no "will refuse", no "will stop")', said.every((t) => !/refus|stop/.test(t.replace('agent.ticket.', ''))), said);
     }
     {
         // ... and the agent (require_web) refuses it when it was an action: the reason is shown, nothing is repeated
         const A = agent({ ticket: 'down', post: [409, { ok: false, stale: true, code: 'ticket_required' }] }), api = apiOf(A); said.length = 0;
         let e = null; try { await api('/api/task', { body: { text: 'jeď na TEST' } }); } catch (x) { e = x; }
-        ok('api: chat without a ticket refused by the agent (ticket_required) -> told, not repeated', e && e.stale === true && e.vt_text === 'agent.ticket.required' && A.posts().length === 1 &&
-            said.join() === 'agent.ticket.chat_unconfirmed,agent.ticket.required', [said, A.calls.length]);
+        ok('api: chat without a ticket refused by the agent (ticket_required) -> "refused, not carried out" only then, not repeated', e && e.stale === true && e.vt_text === 'agent.ticket.chat_refused' && A.posts().length === 1 &&
+            said.join() === 'agent.ticket.chat_unconfirmed,agent.ticket.chat_refused', [said, A.calls.length]);
+    }
+    {
+        // the agent answers late with its own refusal of a message that begins with a stop: its words, not ours
+        const A = agent({ ticket: 'down', post: [409, { ok: false, stale: true, code: 'ticket_required', stopped: true }] }), api = apiOf(A); said.length = 0;
+        let e = null; try { await api('/api/task', { body: { text: 'zastav a jeď' } }); } catch (x) { e = x; }
+        ok('api: chat without a ticket, the agent only stopped -> says so', e && e.vt_text === 'agent.ticket.late_stopped', e && e.vt_text);
+    }
+    {
+        // the POST itself fails: no "accepted", the caller gets the failure
+        const A = agent({ ticket: 'down', post: [500, { ok: false }] }), api = apiOf(A); said.length = 0;
+        let e = null; try { await api('/api/task', { body: { text: 'jeď' } }); } catch (x) { e = x; }
+        ok('api: chat without a ticket and the POST fails -> no "accepted"', e && said.join() === 'agent.ticket.chat_unconfirmed', said);
     }
     for (const how of ['down', 500]) {
         const A = agent({ ticket: how }), api = apiOf(A); said.length = 0;
@@ -226,8 +239,10 @@ function apiOf(A) {
     const chat = fs.readFileSync(path.join(JS, 'agent_chat.js'), 'utf8');
     const grant = chat.slice(chat.indexOf('    function dockGrant(opts) {'), chat.indexOf('    function dockLock(target) {'));
     const lock = chat.slice(chat.indexOf('    function dockLock(target) {'), chat.indexOf('    function dockRelock() {'));
-    ok('dock: allowing the dock takes a ticket before /agent-dock/grant', /withTicket\([\s\S]*dockSend\('\/agent-dock\/grant', b, 3\)/.test(grant));
-    ok('dock: no ticket -> not sent (answers ok:false, told)', /ticketSay\(err && err\.vt_text\);\s*return \{ok: false, status: 0, code: 'nolink'/.test(grant));
+    ok('dock: allowing the dock takes a ticket before /agent-dock/grant', /withTicket\([\s\S]*dockWrite\('\/agent-dock\/grant', b\)/.test(grant));
+    ok('dock: every try takes a NEW ticket (the ticket request is inside the repeated attempt, the old body-reusing dockSend is not used)',
+        /function attempt\(tries\) \{\s*var ready = TK \? TK\.withTicket\(/.test(grant) && /return attempt\(tries - 1\)/.test(grant) && !/dockSend\(/.test(grant));
+    ok('dock: no ticket -> not sent, not tried again (answers ok:false, told)', /ticketSay\(err && err\.vt_text\);\s*return \{ok: false, status: -1, code: 'nolink'/.test(grant));
     ok('dock: locking never waits for a ticket', !/withTicket|VTAgentTicket/.test(lock) && /dockSend\('\/agent-dock\/revoke\//.test(lock));
     const web = fs.readFileSync(path.join(__dirname, '..', 'nodes', 'webnode'), 'utf8');
     ok('webnode: the dock door carries the ticket over (both grant shapes)', (web.match(/_dock_ticket\(b, body\)/g) || []).length === 2 && /body\["ticket"\] = tk/.test(web));
@@ -241,7 +256,7 @@ function apiOf(A) {
     ok('index.html: vt_agent_ticket.js is loaded before agent_chat.js', idx.indexOf('/assets/js/vt_agent_ticket.js') > 0 && idx.indexOf('/assets/js/vt_agent_ticket.js') < idx.indexOf('/assets/js/agent_chat.js'));
     ['en', 'cs'].forEach((l) => {
         const d = fs.readFileSync(path.join(JS, 'i18n', l + '.js'), 'utf8');
-        const miss = ['nolink', 'chat_unconfirmed', 'late', 'late_noage', 'unknown', 'required', 'late_stopped', 'late_cancelled'].filter((k) => d.indexOf('"agent.ticket.' + k + '"') < 0);
+        const miss = ['nolink', 'chat_unconfirmed', 'chat_accepted', 'chat_refused', 'late', 'late_noage', 'unknown', 'required', 'late_stopped', 'late_cancelled'].filter((k) => d.indexOf('"agent.ticket.' + k + '"') < 0);
         ok('i18n ' + l + ': every agent.ticket.* text', !miss.length, miss);
     });
 

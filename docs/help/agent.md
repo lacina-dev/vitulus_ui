@@ -88,8 +88,9 @@ edit of a job or a plan, a tool, allowing the dock — first asks the agent for 
   2.5 s. Nothing went out and nothing will go out later; press again once the agent answers.
 - **A message typed into the chat is the exception** — it may be a stop in words (*zastav*, *zruš
   misi*), and stopping never waits for a ticket. When the agent does not answer, the message is
-  sent anyway and the band says *The agent is not answering — the message was sent without the
-  freshness check*: a stop will be carried out, an action will be refused by the agent.
+  sent anyway, without the check, and the band then says what the agent answered: *The agent took
+  the message, without the freshness check* (if it reached the agent late it may have been carried
+  out late — look at the chat and the robot), or *The agent refused the message … NOT carried out*.
 - **The command reached the agent N s after the press — it was NOT carried out.** The network
   held it (a Wi-Fi gap) and delivered it late; the agent refused it, so a robot nobody is
   watching any more does not set off. Look at the robot and send it again — the page never
