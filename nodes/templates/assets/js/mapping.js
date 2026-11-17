@@ -1538,8 +1538,16 @@ class MappingV3 {
     // preloaded tile from memory and waits for one that is on its way.
     // T40b: a phone 360 tiles — at the whole area (~15 tiles a frame) every
     // third frame (15 min), as the help says; 240 gave every fourth (20 min)
+    // T40d: a slow or metered connection (Save-Data, 2G/3G, where the browser
+    // tells) preloads a third: every ~sixth frame on a phone, one at a time
     _precipPreLimits() {
         const mobile = !!this._tileEnv().mobile;
+        let slow = false;
+        try {
+            const c = navigator.connection;
+            slow = !!(c && (c.saveData || /(^|-)(2g|3g)$/.test(String(c.effectiveType || ''))));
+        } catch (e) { slow = false; }
+        if (slow) { return { maxTiles: 120, maxBytes: 6 * 1024 * 1024, conc: 1, slow: true }; }
         return { maxTiles: mobile ? 360 : 450, maxBytes: (mobile ? 16 : 48) * 1024 * 1024, conc: mobile ? 2 : 3 };
     }
     // the playback's zoom cap applies (playing, or its preload kept for the slider)

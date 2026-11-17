@@ -400,8 +400,8 @@ change any saved map.
 ČHMÚ composite, the German DWD composite and RainViewer (and the European EUMETNET OPERA network
 when it publishes data) — by the robot's own precipitation service (it runs on the robot next to
 MapProxy, port 8097). Tick it and a small play bar appears on the map, bottom left — **▶**, the
-time of the picture, whether it rains around the garden, and **Whole area** — always in sight while
-the layer is on. The full time line opens under the row (in the layers panel too): the time of the picture on the map and what it is (*newest radar*,
+time of the picture and what it is (*now*, *−30 min* measured, or *nowcast +20 min*), whether it
+rains around the garden, and **Whole area** — always in sight while the layer is on. The full time line opens under the row (in the layers panel too): the time of the picture on the map and what it is (*newest radar*,
 *radar −25 min*, or *nowcast +20 min*, a short forecast drawn in the info colour), how old the
 newest radar picture is, **▶** to play, **Whole area** right next to it, **Now** to jump back to the
 newest picture (the layer then follows the new ones by itself), and a slider over the last two hours
@@ -410,12 +410,19 @@ from the oldest picture (−2 h) through *now* to the end of the nowcast and sta
 loads the pictures of every frame for the view on screen (*loading frames 12/49*), then each step
 shows at once; on a view that needs many tiles it plays every second frame (a phone: every third, 15 min); a picture
 that does not come is skipped and tried again later, a frame the service has already dropped is not
-asked for. The radar has
+asked for. On a slow or metered connection (the phone saves data, 2G/3G) it preloads a third as
+much and plays the frames it has. The radar has
 pixels of about 1 km, so close up on the garden you see a single one: the time line says so and
 **▶** zooms out to the whole area by itself — **Back to garden** returns to your view, and so does
 unticking the layer. A line says whether it rains around the garden now (*No rain around now (about
 150 km)*, *Rain around, roughly 30 km away*). It is rough on purpose: measured from the area around
-the garden (kept vague for privacy), give or take about 15 km. Below are the
+the garden (kept vague for privacy), give or take about 15 km. Where the nowcast reaches, the line
+also says when rain may reach the area around the garden or stop there (*nowcast: rain may reach
+the area around the garden in about 30 min*), counted from now, at most an hour ahead — a nowcast
+(ČHMÚ, DWD), often wrong in detail, not a promise; nothing is said where it does not reach, beyond
+an hour, or while the data are being updated. After a long pause the
+first picture may be hours old for a moment: the line says *updating…* and the newest comes within
+seconds. Below are the
 colour legend in mm/h (rain, and snow where the radar knows it) and the sources of the picture with
 links. The time is also written in the map's bottom-left corner. Light rain is see-through, heavy
 rain solid; where no radar measures, the map stays empty (that is not "dry"). *Data N min old*

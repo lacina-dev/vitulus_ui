@@ -384,8 +384,8 @@ které si robot právě pamatuje — žádnou uloženou mapu nemění.
 **Srážky (mozaika)** jsou jedna mapa deště složená z několika meteoradarů — českého kompozitu
 ČHMÚ, německého kompozitu DWD a RainVieweru (a evropské sítě EUMETNET OPERA, když data zveřejňuje)
 — kterou skládá vlastní služba srážek robota (běží na robotu vedle MapProxy, port 8097). Po
-zaškrtnutí se na mapě vlevo dole objeví malá lišta přehrávání — **▶**, čas obrázku, jestli v okolí
-zahrady prší, a **Celé okolí** — vidět je pořád, dokud je vrstva zapnutá. Celá časová osa se otevře
+zaškrtnutí se na mapě vlevo dole objeví malá lišta přehrávání — **▶**, čas obrázku a co je to zač
+(*teď*, *−30 min* naměřeno, nebo *předpověď +20 min*), jestli v okolí zahrady prší, a **Celé okolí** — vidět je pořád, dokud je vrstva zapnutá. Celá časová osa se otevře
 pod řádkem vrstvy (i v panelu vrstev): čas obrázku na mapě a co je to zač (*nejnovější radar*, *radar −25 min* nebo *předpověď +20 min*,
 krátkodobá předpověď v barvě info), jak starý je nejnovější snímek radaru, **▶** pro přehrání,
 hned vedle **Celé okolí**, **Teď** pro návrat na nejnovější snímek (vrstva pak sama sleduje nové)
@@ -394,11 +394,16 @@ je předpověď. **▶** přehrává od nejstaršího snímku (−2 h) přes *te
 znovu. Nejdřív načte obrázky všech snímků pro pohled na obrazovce (*načítám snímky 12/49*), pak se
 každý krok ukáže hned; u pohledu, který potřebuje hodně dlaždic, přehrává každý druhý snímek (telefon každý třetí, po
 15 min); obrázek, který nepřijde, přeskočí a zkusí později, snímek, který už služba zahodila,
-nežádá. Radar má pixely asi 1 km, takže zblízka na zahradě vidíš jediný: časová osa to řekne a
+nežádá. Na pomalém nebo měřeném připojení (telefon šetří data, 2G/3G) načítá jen třetinu a přehrává
+snímky, které má. Radar má pixely asi 1 km, takže zblízka na zahradě vidíš jediný: časová osa to řekne a
 **▶** sám oddálí na celé okolí — **Zpět k zahradě** vrátí tvůj pohled, stejně jako vypnutí vrstvy.
 Jedna věta říká, jestli v okolí zahrady teď prší (*V okolí (asi 150 km) teď neprší*,
 *Déšť v okolí, zhruba 30 km daleko*). Je to schválně zhruba: měří se od okolí zahrady (kvůli
-soukromí neurčitě), přesnost asi ±15 km. Pod tím je legenda barev
+soukromí neurčitě), přesnost asi ±15 km. Kam dosáhne předpověď, řekne věta i to, kdy může déšť
+dojít do okolí zahrady nebo tam ustat (*podle předpovědi může déšť dojít do okolí zahrady asi za
+30 min*), počítáno od teď a nejvýš hodinu dopředu — je to předpověď (ČHMÚ, DWD), v detailu se často
+mýlí, ne slib; kam nedosáhne, dál než hodinu nebo během aktualizace dat neřekne nic. Po delší pauze může být první obrázek na chvíli hodiny starý: řádek
+pak říká *aktualizuji…* a nejnovější přijde během pár sekund. Pod tím je legenda barev
 v mm/h (déšť, a sníh, kde ho radar pozná) a zdroje obrázku s odkazy. Čas je napsaný i v levém
 dolním rohu mapy. Slabý déšť je průsvitný, silný plný; kde žádný radar neměří, zůstane mapa prázdná
 (to neznamená „sucho“). *Data stará N min* znamená, že radary už chvíli neposlaly nový snímek;

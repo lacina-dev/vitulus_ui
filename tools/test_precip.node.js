@@ -148,6 +148,39 @@ ok('rain far: nearest rain', P.rainText(rIdx({ radius_km: 150, nearest_rain_km: 
 ok('rain close: raining around the garden', P.rainText(rIdx({ radius_km: 150, nearest_rain_km: 5, covered_fraction: 0.9 })) === 'mapt.precip.rain_here');
 ok('no radar coverage / older service: nothing said', P.rainText(rIdx({ radius_km: 150, nearest_rain_km: null, covered_fraction: 0.1 })) === '' && P.rainText(idx) === '');
 
+console.log('\nT40d: when rain comes / stops (nowcast every 15 min), an old time line being rebuilt, bar label');
+const oc = (near, outl) => P.parseIndex(Object.assign({}, INDEX, { rain_nearby: { radius_km: 150, nearest_rain_km: near, covered_fraction: 0.9,
+    outlook: outl.map((o) => ({ min: o[0], near_km: o[1], covered: o[2] })) } })).rain;
+ok('dry now, nowcast brings it within 20 km at +30: "in about 30 min"', P.rainWhen(oc(null, [[15, 60, 0.9], [30, 15, 0.9], [45, 0, 0.9]])) === 'mapt.precip.rain_comes');
+ok('raining now, nowcast dry from +45: "stops in about 45 min"', P.rainWhen(oc(0, [[15, 0, 0.9], [30, 10, 0.9], [45, null, 0.9]])) === 'mapt.precip.rain_stops');
+ok('the nowcast does not reach here: nothing said (no guess)', P.rainWhen(oc(null, [[15, null, 0.1], [30, 5, 0.9]])) === '');
+ok('no change within 2 h / older service: nothing said', P.rainWhen(oc(null, [[15, null, 0.9], [30, 40, 0.9]])) === '' && P.rainWhen(oc(null, [])) === '');
+ok('the sentence gets the nowcast part', P.rainText(P.parseIndex(Object.assign({}, INDEX, { rain_nearby: { radius_km: 150, nearest_rain_km: null, covered_fraction: 0.9,
+    outlook: [{ min: 15, near_km: 10, covered: 0.9 }] } }))) === 'mapt.precip.rain_none · mapt.precip.rain_comes');
+// (check A653) honest limits of the nowcast sentence
+ok('minutes from NOW: +15 slot, newest picture 6 min old -> "about 10 min"',
+   P.rainWhen(oc(null, [[15, 10, 0.9]]), 360) === 'mapt.precip.rain_comes');
+ok('… slot already reached (+15, picture 14 min old): "within the next few minutes"',
+   P.rainWhen(oc(null, [[15, 10, 0.9]]), 840) === 'mapt.precip.rain_comes_soon');
+ok('not beyond +60 min (the nowcast weakens): rain at +75 says nothing', P.rainWhen(oc(null, [[15, null, 0.9], [30, null, 0.9], [45, null, 0.9], [60, null, 0.9], [75, 5, 0.9]])) === '');
+ok('coarser nowcast grid: 25 km at +15 while it rains is no "stops" (needs > 30 km)', P.rainWhen(oc(0, [[15, 25, 0.9]])) === '');
+ok('time line being rebuilt (outlook one index old): nothing said', P.rainWhen(oc(null, [[15, 10, 0.9]]), 0, true) === '');
+const fs2 = require('fs');
+const lines = (f) => fs2.readFileSync(path.join(__dirname, '..', 'nodes', 'templates', 'assets', 'js', 'i18n', f), 'utf8')
+    .split('\n').filter((l) => /"mapt\.precip\.rain_(comes|stops)/.test(l));
+ok('cs wording: no "u zahrady" without "okolí" (it is ~37 km, not the garden)', lines('cs.js').length === 4 &&
+   lines('cs.js').every((l) => !/u zahrady/.test(l) || /okolí/.test(l)) && lines('cs.js').every((l) => /okolí/.test(l)));
+ok('en wording: "the area around the garden", never "at the garden"', lines('en.js').length === 4 &&
+   lines('en.js').every((l) => !/at the garden|close to the garden/.test(l) && /around/.test(l)));
+const rf = P.parseIndex(Object.assign({}, INDEX, { refreshing: true, timeline_age_s: 3 * 3600 }));
+ok('an old time line being rebuilt: "updating", no stale warning', P.state(rf, false, T0 + 3 * 3600).state === 'updating');
+ok('a normal refresh (time line 40 s old) is not "updating"', P.state(P.parseIndex(Object.assign({}, INDEX, { refreshing: true, timeline_age_s: 40 })), false, T0 + 700).state === 'ok');
+ok('bar label of a measured frame says how old (now / −10 min)', P.badgeText(idx, idx.frames[0]) === 'mapt.precip.badge_obs');
+let tr2 = new P.Timeline({ mount: null });
+tr2.idx = P.parseIndex(Object.assign({}, INDEX, { refreshing: true, timeline_age_s: 610 }));
+tr2._fetchedMs = Date.now();
+ok('time line 10 min old being rebuilt: its 2 oldest frames are not asked', tr2.liveFrom() === 2);
+
 console.log('\nplayback plan + order (T40)');
 ok('few tiles: every frame', P.plan(49, 24, 4, 900).length === 49);
 const pl = P.plan(49, 24, 25, 900);          // 25 tiles a frame, 900 tiles -> every 2nd

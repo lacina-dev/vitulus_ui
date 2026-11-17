@@ -104,6 +104,7 @@ class Svc(object):
         self.hang = None          # T40b: the first tile of this frame id never answers (held until release())
         self.held = []
         self.netfail = False      # T40c: tiles fail with a network error (the index still answers)
+        self.refreshing = False   # T40d: the index carries an old time line, a new one is being built
         self.lock = threading.Lock()
 
     def index(self):
@@ -122,7 +123,8 @@ class Svc(object):
                            'stale': False, 'sources': [{'id': s, 'time': fid, 'age_s': 0, 'kind': kind} for s in srcs],
                            'attribution': [att[s] for s in srcs],
                            'tiles': '/tiles/%s/{z}/{x}/{y}.png?v=sv%x' % (fid, (e // 300 * 7 + (k > 0)) % 0xfffff)})
-        return {'version': 1, 'rain_nearby': self.rain, 'generated': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime(now)), 'mode':
+        return {'version': 1, 'rain_nearby': self.rain, 'refreshing': self.refreshing,
+                'timeline_age_s': 3 * 3600 if self.refreshing else 20, 'generated': time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime(now)), 'mode':
                 {'world': None, 'area': {'radius_km': 150.0, 'zoom': [3, 8]}}, 'slot_s': 300,
                 'latest': frames[24]['id'], 'frames': frames, 'legend': '/legend.json',
                 'sources': [
@@ -471,6 +473,29 @@ def bar(p, shots, label, cs, phone):
     tricky = label == 'bar-nb-en'
     late = label == 'bar-nb-cs'
     netfail = label == 'bar-phone-cs'
+    if label == 'bar-nb-cs':
+        # T40d: the nowcast brings rain close to the garden at +30 min: the line says when
+        svc.rain = dict(svc.rain, outlook=[{'min': 15, 'near_km': 60, 'covered': 0.9}, {'min': 30, 'near_km': 15, 'covered': 0.9}])
+        p.ev("mapping_v3._precip._fetch()")
+        # +30 slot, the newest picture 3-8 min old: "asi za 20/25 min" from now, the area around (not "u zahrady")
+        check(label + ': nowcast: "může déšť dojít do okolí zahrady asi za 20–25 min" (from now) in the card',
+              p.until("(()=>{const c=document.querySelector('.vt-precip-rain');return c&&/do okolí zahrady asi za (20|25) min/.test(c.textContent)})()", 8000),
+              p.text('.vt-precip-rain'))
+        svc.rain = {k: v for k, v in svc.rain.items() if k != 'outlook'}
+    if label == 'bar-nb-en':
+        # T40d: after an idle spell the index carries an old time line: "updating…", asked again in seconds
+        svc.refreshing = True
+        n_idx = len([1 for m, q in svc.reqs if q.startswith('/index.json')])
+        p.ev("mapping_v3._precip._fetch()")
+        check(label + ': old time line being rebuilt: "updating…", no stale warning',
+              p.until("(()=>{const s=document.querySelector('.vt-precip-state');return s&&s.textContent==='updating…'&&!s.classList.contains('vt-tone-warn')})()", 8000),
+              p.text('.vt-precip-state'))
+        svc.refreshing = False
+        check(label + ': … and a new index within seconds (not after the minute poll)',
+              p.until("(n)=>false", 6000) or len([1 for m, q in svc.reqs if q.startswith('/index.json')]) >= n_idx + 2,
+              len([1 for m, q in svc.reqs if q.startswith('/index.json')]) - n_idx)
+        check(label + ': … then the normal state again',
+              p.until("(()=>{const s=document.querySelector('.vt-precip-state');return s&&s.textContent!=='updating…'})()", 8000), p.text('.vt-precip-state'))
     if late:
         # T40c: the radar 13 min late (fresh index): ▶ still starts at −2 h (no frame left out)
         svc.age_min = 13
@@ -507,7 +532,9 @@ def bar(p, shots, label, cs, phone):
     if small:
         check(label + ': ▶ from the garden view zooms out, the bar offers Back',
               p.until("(d)=>{const v=mapping_v3.viewer3d;return v.camera.position.distanceTo(v.cameraControls.center)>d*20 && !!mapping_v3._precipBack}", 4000, d0)
-              and p.text('#mapv3_precip_bfit') == ('Zpět' if cs else 'Back'), (d0, p.ev(DIST_JS), p.text('#mapv3_precip_bfit')))
+              # (the bar is redrawn at most 5x a second since T40c: its label within a moment)
+              and p.until("(w)=>document.getElementById('mapv3_precip_bfit').textContent===w", 2000, 'Zpět' if cs else 'Back'),
+              (d0, p.ev(DIST_JS), p.text('#mapv3_precip_bfit')))
     check(label + ': plays from −2 h onwards', p.until("+document.getElementById('mapv3_precip_range').value>=2", 15000),
           p.ev("document.getElementById('mapv3_precip_range').value"))
     if shots:
@@ -522,6 +549,12 @@ def bar(p, shots, label, cs, phone):
               (p.ev("document.getElementById('mapv3_precip_range').value"), st))
         svc.gone = svc.hang = None
         p.release()
+    # T40d (check A653): the bar keeps its width while it plays (time, kind, rain words change)
+    ws = []
+    for _ in range(8):
+        ws.append(p.ev("Math.round(document.getElementById('mapv3_precip_badge').getBoundingClientRect().width)"))
+        p.pg.wait_for_timeout(700)
+    check(label + ': the bar keeps its width while it plays (spread <= 2 px)', max(ws) - min(ws) <= 2, ws)
     on = costs(p, 10000)
     print('     costs while playing, 10 s: %s' % on, flush=True)
     # the bar is redrawn at most 5x a second (T40c: 50 in 10 s + a little for direct redraws)

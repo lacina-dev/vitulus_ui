@@ -72,17 +72,53 @@
         if (!r || typeof r !== 'object') { return null; }
         var rad = num(r.radius_km), cov = num(r.covered_fraction);
         if (rad === null) { return null; }
-        return { radius: rad, near: num(r.nearest_rain_km), max: num(r.max_mmh), covered: cov === null ? 1 : cov };
+        // T40d: the nowcast every 15 min (service T40d; [] before)
+        var outlook = (Array.isArray(r.outlook) ? r.outlook : []).map(function (o) {
+            return { min: num(o && o.min), near: num(o && o.near_km), covered: num(o && o.covered) };
+        }).filter(function (o) { return o.min !== null && o.min > 0 && o.covered !== null; })
+            .sort(function (a, b) { return a.min - b.min; });
+        return { radius: rad, near: num(r.nearest_rain_km), max: num(r.max_mmh), covered: cov === null ? 1 : cov, outlook: outlook };
     }
-    // the sentence about rain around the garden ('' = nothing to say)
-    function rainText(idx) {
+    // T40d: when the nowcast may bring rain into the area around the garden
+    // (or end it there). Honest limits (check A653):
+    //  - "close" = within 20 km of the privacy grid cell's centre (up to ~17 km
+    //    from the garden): the words say "the area around the garden";
+    //  - only up to +60 min (ČHMÚ reaches +60, DWD +105, the extrapolation
+    //    weakens) and only from slots the nowcast covers, in a row;
+    //  - the nowcast grid is coarser (10 km) than "now" (5 km): ending needs
+    //    the slot clearly dry (> 30 km), coming needs it clearly close (<= 20);
+    //  - minutes from NOW: the slot's minutes minus the newest picture's age,
+    //    5-min steps; <= 0 = "within the next few minutes";
+    //  - nothing while the time line is being rebuilt (one index old).
+    // '' = nothing to say (no "it will not rain").
+    var OUTLOOK_MAX_MIN = 60;
+    function rainWhen(r, ageS, refreshing) {
+        if (refreshing || !r || !r.outlook || !r.outlook.length) { return ''; }
+        var nowClose = r.near !== null && r.near <= 20;
+        var fromNow = function (min) { return Math.round((min * 60 - (ageS || 0)) / 300) * 5; };
+        for (var i = 0; i < r.outlook.length; i++) {
+            var o = r.outlook[i];
+            if (o.min > OUTLOOK_MAX_MIN || o.covered < 0.3) { return ''; }
+            var m = fromNow(o.min);
+            if (!nowClose && o.near !== null && o.near <= 20) {
+                return m <= 0 ? tr('mapt.precip.rain_comes_soon') : tr('mapt.precip.rain_comes', { m: m });
+            }
+            if (nowClose && (o.near === null || o.near > 30)) {
+                return m <= 0 ? tr('mapt.precip.rain_stops_soon') : tr('mapt.precip.rain_stops', { m: m });
+            }
+        }
+        return '';
+    }
+    // ageS: age of the newest picture (s), for the nowcast minutes "from now"
+    function rainText(idx, ageS) {
         var r = idx && idx.rain;
         if (!r || r.covered < 0.3) { return ''; }
         // T40b: measured from the centre of the privacy grid cell, up to
         // ~17 km from the garden: rough words, 10 km steps, "close" up to 20
-        if (r.near === null) { return tr('mapt.precip.rain_none', { r: Math.round(r.radius) }); }
-        if (r.near <= 20) { return tr('mapt.precip.rain_here'); }
-        return tr('mapt.precip.rain_near', { km: Math.round(r.near / 10) * 10 });
+        var w = rainWhen(r, ageS, idx.refreshing), add = function (t) { return w ? t + ' · ' + w : t; };
+        if (r.near === null) { return add(tr('mapt.precip.rain_none', { r: Math.round(r.radius) })); }
+        if (r.near <= 20) { return add(tr('mapt.precip.rain_here')); }
+        return add(tr('mapt.precip.rain_near', { km: Math.round(r.near / 10) * 10 }));
     }
 
     // ?v=<signature> of a frames[].tiles template
@@ -153,6 +189,10 @@
             generatedEpoch: epochOf({ time: j.generated }),
             // T40: rain around the area now (service >= T40; null = unknown)
             rain: rainOf(j.rain_nearby),
+            // T40d: the service is building a newer time line (after an idle
+            // spell this index still carries the old one): ask again soon
+            refreshing: !!j.refreshing && (num(j.timeline_age_s) || 0) > 120,
+            timelineAge: num(j.timeline_age_s) || 0,
         };
     }
 
@@ -193,6 +233,7 @@
         if (!idx) { return { state: 'loading', age: null }; }
         if (idx.latestIdx < 0) { return { state: 'empty', age: null }; }
         var age = Math.max(0, Math.round(nowS - idx.latestEpoch));
+        if (idx.refreshing) { return { state: 'updating', age: age }; }
         return { state: (age > STALE_S || idx.frames[idx.latestIdx].stale) ? 'stale' : 'ok', age: age };
     }
 
@@ -783,6 +824,10 @@
             // a frame 404 said gone and no longer in the index: forgotten
             self.gone.forEach(function (id) { if (find(idx, id) < 0) { self.gone.delete(id); } });
             if (cb) { cb(); }
+            // T40d: an old time line being rebuilt: a new index in 4 s (at most 8x)
+            if (idx.refreshing && self.on && (self._quick = (self._quick || 0) + 1) <= 8) {
+                setTimeout(function () { if (self.on) { self._fetch(); } }, 4000);
+            } else if (!idx.refreshing) { self._quick = 0; }
             var i = pick(idx, self.selId, self.follow, self.selEpoch);
             self._select(i, false, before);
             // T40: new frames while it plays: the preload follows the index
@@ -840,7 +885,11 @@
         if (!idx || !this._fetchedMs) { return 0; }
         var age = Math.max(0, Date.now() - this._fetchedMs) / 1000;
         var m = age <= 90 ? 0 : Math.floor((age - 90) / 300) + 1;
-        m = Math.min(m, 3, idx.latestIdx > 0 ? idx.latestIdx : 0);
+        m = Math.min(m, 3);
+        // T40d: an old time line being rebuilt (after an idle spell): its
+        // oldest frames are about to go — one per 5 min of its age
+        if (idx.refreshing) { m = Math.max(m, Math.floor(idx.timelineAge / 300)); }
+        m = Math.min(m, idx.latestIdx > 0 ? idx.latestIdx : 0);
         while (m < idx.latestIdx && this.gone.has(idx.frames[m].id)) { m++; }
         return m;
     };
@@ -952,11 +1001,11 @@
         var sub = s.state === 'down' ? tr('mapt.precip.st_down')
             : (loading && ls.down) ? tr('mapt.precip.st_retry')
             : loading ? tr('mapt.precip.st_preload', { k: ls.k, n: ls.n })
-            : (v.small && !v.back) ? tr('mapt.precip.bar_small') : rainText(idx);
+            : (v.small && !v.back) ? tr('mapt.precip.bar_small') : rainText(idx, s.age);
         return {
             playing: this.playing, canPlay: !!(idx && idx.frames.length >= 2),
             label: f ? badgeText(idx, f) : tr('mapt.precip.title'),
-            sub: sub, subTip: (sub && sub === rainText(idx)) ? tr('mapt.precip.rain_tip') : '', warn: s.state === 'down' || s.state === 'stale',
+            sub: sub, subTip: (sub && sub === rainText(idx, s.age)) ? tr('mapt.precip.rain_tip') : '', warn: s.state === 'down' || s.state === 'stale',
             nowcast: !!(f && f.kind === 'nowcast'), back: !!v.back, hot: !v.back && !!v.small,
         };
     };
@@ -1074,6 +1123,7 @@
             : s.state === 'down' ? tr('mapt.precip.st_down')
             : s.state === 'loading' ? tr('common.loading')
             : s.state === 'empty' ? tr('mapt.precip.st_empty')
+            : s.state === 'updating' ? tr('mapt.precip.st_updating')
             : s.state === 'stale' ? tr('mapt.precip.st_stale', { m: Math.round(s.age / 60) })
             : tr('mapt.precip.st_ok', { m: Math.round(s.age / 60) });
         if (st.textContent !== txt) { st.textContent = txt; }
@@ -1081,7 +1131,7 @@
         var warn = !loading && (s.state === 'down' || s.state === 'stale');
         st.classList.toggle('vt-tone-warn', warn);
         st.classList.toggle('vt-dim', !warn);
-        var rt = s.state === 'down' ? '' : rainText(this.idx);
+        var rt = s.state === 'down' ? '' : rainText(this.idx, s.age);
         if (this.e_rain.textContent !== rt) { this.e_rain.textContent = rt; this.e_rain.title = rt ? tr('mapt.precip.rain_tip') : ''; }
         this.e_rain.hidden = !rt;
         this._changed();
@@ -1137,14 +1187,15 @@
     function badgeText(idx, f) {
         if (!f) { return ''; }
         var m = relMin(idx, f);
+        // T40d: in the bar too — measured "now" / "−30 min", or nowcast "+20 min"
         return f.kind === 'nowcast' ? tr('mapt.precip.badge_nowcast', { t: hhmm(f.epoch), m: relText(m) })
-                                    : tr('mapt.precip.badge', { t: hhmm(f.epoch) });
+            : tr('mapt.precip.badge_obs', { t: hhmm(f.epoch), m: m === 0 ? tr('mapt.precip.rel_now') : relText(m) });
     }
 
     var api = {
         PORT: PORT, STALE_S: STALE_S, parseIndex: parseIndex, vOf: vOf, serviceNow: serviceNow, base: base, tileUrl: tileUrl, find: find,
         pick: pick, state: state, relMin: relMin, legend: legend, credits: credits, failing: failing,
-        noData: noData, rainText: rainText, plan: plan, nextReady: nextReady, leadReady: leadReady, Preload: Preload, SMALL_VIEW_M: SMALL_VIEW_M, PLAY_MAX_Z: PLAY_MAX_Z,
+        noData: noData, rainText: rainText, rainWhen: rainWhen, plan: plan, nextReady: nextReady, leadReady: leadReady, Preload: Preload, SMALL_VIEW_M: SMALL_VIEW_M, PLAY_MAX_Z: PLAY_MAX_Z,
         hash: hash, Timeline: Timeline, badgeText: badgeText, relText: relText,
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
