@@ -344,6 +344,9 @@ def story(p, shots, label, cs):
     p.pg.wait_for_timeout(200)
     p.ev("document.getElementById('mapv3_precip_play').click()")
     check('Play: pressed, label Pause', p.ev("document.getElementById('mapv3_precip_play').getAttribute('aria-pressed')") == 'true')
+    # (check A682: under load 37 the preload before the first step ate the 9 s: wait for the
+    # preload wait to end — a state, not a time — then the same 9 s for two steps)
+    p.until("!mapping_v3._precip._warm", 30000)
     moved = p.until("+document.getElementById('mapv3_precip_range').value>=7", 9000)
     check('Play steps through the frames', moved, p.ev("document.getElementById('mapv3_precip_range').value"))
     p.ev("document.getElementById('mapv3_precip_play').click()")

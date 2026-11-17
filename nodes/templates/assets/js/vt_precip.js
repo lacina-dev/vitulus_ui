@@ -1001,11 +1001,25 @@
         var sub = s.state === 'down' ? tr('mapt.precip.st_down')
             : (loading && ls.down) ? tr('mapt.precip.st_retry')
             : loading ? tr('mapt.precip.st_preload', { k: ls.k, n: ls.n })
-            : (v.small && !v.back) ? tr('mapt.precip.bar_small') : rainText(idx, s.age);
+            // T40e: the rain sentence first, also in the garden view (live: the
+            // bar said only "too close for the radar" there — the useful part
+            // was hidden); "too close" only when there is nothing to say about
+            // rain, the highlighted Whole area + its tooltip say it anyway
+            // T40e (check A682): data not fresh — nothing about "now": their age
+            // ("data N min old") or "updating…", never "no rain now"
+            : s.state === 'stale' ? tr('mapt.precip.st_stale', { m: Math.round(s.age / 60) })
+            : s.state === 'updating' ? tr('mapt.precip.st_updating')
+            : (rainText(idx, s.age) || ((v.small && !v.back) ? tr('mapt.precip.bar_small') : ''));
+        var fresh = s.state === 'ok';
+        var label = f ? badgeText(idx, f) : tr('mapt.precip.title');
+        // the newest picture of old data is no "now": its age instead
+        if (f && !fresh && s.age !== null && f.kind !== 'nowcast' && find(idx, f.id) === idx.latestIdx) {
+            label = tr('mapt.precip.badge_obs', { t: hhmm(f.epoch), m: relText(-Math.round(s.age / 60)) });
+        }
         return {
             playing: this.playing, canPlay: !!(idx && idx.frames.length >= 2),
-            label: f ? badgeText(idx, f) : tr('mapt.precip.title'),
-            sub: sub, subTip: (sub && sub === rainText(idx, s.age)) ? tr('mapt.precip.rain_tip') : '', warn: s.state === 'down' || s.state === 'stale',
+            label: label,
+            sub: sub, subTip: (fresh && sub && sub === rainText(idx, s.age)) ? tr('mapt.precip.rain_tip') : '', warn: s.state === 'down' || s.state === 'stale',
             nowcast: !!(f && f.kind === 'nowcast'), back: !!v.back, hot: !v.back && !!v.small,
         };
     };
@@ -1131,7 +1145,8 @@
         var warn = !loading && (s.state === 'down' || s.state === 'stale');
         st.classList.toggle('vt-tone-warn', warn);
         st.classList.toggle('vt-dim', !warn);
-        var rt = s.state === 'down' ? '' : rainText(this.idx, s.age);
+        // T40e (check A682): nothing about rain "now" unless the data are fresh
+        var rt = s.state === 'ok' ? rainText(this.idx, s.age) : '';
         if (this.e_rain.textContent !== rt) { this.e_rain.textContent = rt; this.e_rain.title = rt ? tr('mapt.precip.rain_tip') : ''; }
         this.e_rain.hidden = !rt;
         this._changed();

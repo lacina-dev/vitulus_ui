@@ -401,7 +401,8 @@ change any saved map.
 when it publishes data) — by the robot's own precipitation service (it runs on the robot next to
 MapProxy, port 8097). Tick it and a small play bar appears on the map, bottom left — **▶**, the
 time of the picture and what it is (*now*, *−30 min* measured, or *nowcast +20 min*), whether it
-rains around the garden, and **Whole area** — always in sight while the layer is on. The full time line opens under the row (in the layers panel too): the time of the picture on the map and what it is (*newest radar*,
+rains around the garden (in the garden view too — then **Whole area** is highlighted, the radar
+being too coarse to see anything this close), and **Whole area** — always in sight while the layer is on. The full time line opens under the row (in the layers panel too): the time of the picture on the map and what it is (*newest radar*,
 *radar −25 min*, or *nowcast +20 min*, a short forecast drawn in the info colour), how old the
 newest radar picture is, **▶** to play, **Whole area** right next to it, **Now** to jump back to the
 newest picture (the layer then follows the new ones by itself), and a slider over the last two hours
@@ -426,7 +427,8 @@ seconds. Below are the
 colour legend in mm/h (rain, and snow where the radar knows it) and the sources of the picture with
 links. The time is also written in the map's bottom-left corner. Light rain is see-through, heavy
 rain solid; where no radar measures, the map stays empty (that is not "dry"). *Data N min old*
-means the radars have not sent a new picture for a while; *Without: …* names a source that fails
+means the radars have not sent a new picture for a while (the bar on the map then says that instead
+of anything about rain now); *Without: …* names a source that fails
 right now, *No data from: …* one that answers but has nothing to give (since when) — the map goes on
 with the others; *service not responding* means the precipitation service on the robot is not
 running — the **Rain** layer from the weather service is separate and keeps working. The map is

@@ -181,6 +181,32 @@ tr2.idx = P.parseIndex(Object.assign({}, INDEX, { refreshing: true, timeline_age
 tr2._fetchedMs = Date.now();
 ok('time line 10 min old being rebuilt: its 2 oldest frames are not asked', tr2.liveFrom() === 2);
 
+// T40e: in the garden view the bar shows the rain sentence (not only "too close")
+let tb = new P.Timeline({ mount: null, view: () => ({ small: true, back: false, auto: false }) });
+tb.idx = P.parseIndex(Object.assign({}, INDEX, { rain_nearby: { radius_km: 150, nearest_rain_km: null, covered_fraction: 0.9 } }));
+tb._fetchedMs = Date.now();
+ok('garden view: the bar says the rain sentence', tb.barInfo().sub === 'mapt.precip.rain_none' && tb.barInfo().hot === true);
+tb.idx = P.parseIndex(INDEX);
+ok('… "too close" only without anything about rain', tb.barInfo().sub === 'mapt.precip.bar_small');
+
+// T40e (check A682): old data — the bar says their age / "updating", nothing about rain now
+for (const small of [true, false]) {
+    const view = small ? 'garden view' : 'wide view';
+    let ts = new P.Timeline({ mount: null, view: () => ({ small: small, back: false, auto: false }) });
+    ts.idx = P.parseIndex(Object.assign({}, INDEX, { rain_nearby: { radius_km: 150, nearest_rain_km: null, covered_fraction: 0.9 } }));
+    ts._fetchedMs = Date.now();
+    ts.idx.generatedEpoch = ts.idx.latestEpoch + 3 * 3600;     // the newest picture 3 h old
+    ts.selId = ts.idx.frames[ts.idx.latestIdx].id;
+    const bi = ts.barInfo();
+    ok(view + ', data 3 h old: "data N min old", no "no rain now", no "now" in the label',
+       bi.sub === 'mapt.precip.st_stale' && bi.label === 'mapt.precip.badge_obs' && bi.subTip === '' && bi.warn);
+    ts.idx = P.parseIndex(Object.assign({}, INDEX, { refreshing: true, timeline_age_s: 3 * 3600,
+        rain_nearby: { radius_km: 150, nearest_rain_km: null, covered_fraction: 0.9 } }));
+    ok(view + ', time line being rebuilt: "updating…", no rain sentence', ts.barInfo().sub === 'mapt.precip.st_updating');
+    ts.idx.refreshing = false; ts.idx.generatedEpoch = ts.idx.latestEpoch + 120;
+    ok(view + ', fresh data: the rain sentence again', ts.barInfo().sub === 'mapt.precip.rain_none');
+}
+
 console.log('\nplayback plan + order (T40)');
 ok('few tiles: every frame', P.plan(49, 24, 4, 900).length === 49);
 const pl = P.plan(49, 24, 25, 900);          // 25 tiles a frame, 900 tiles -> every 2nd

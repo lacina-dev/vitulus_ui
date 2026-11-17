@@ -385,7 +385,8 @@ které si robot právě pamatuje — žádnou uloženou mapu nemění.
 ČHMÚ, německého kompozitu DWD a RainVieweru (a evropské sítě EUMETNET OPERA, když data zveřejňuje)
 — kterou skládá vlastní služba srážek robota (běží na robotu vedle MapProxy, port 8097). Po
 zaškrtnutí se na mapě vlevo dole objeví malá lišta přehrávání — **▶**, čas obrázku a co je to zač
-(*teď*, *−30 min* naměřeno, nebo *předpověď +20 min*), jestli v okolí zahrady prší, a **Celé okolí** — vidět je pořád, dokud je vrstva zapnutá. Celá časová osa se otevře
+(*teď*, *−30 min* naměřeno, nebo *předpověď +20 min*), jestli v okolí zahrady prší (i v pohledu na
+zahradu — tehdy je zvýrazněné **Celé okolí**, radar je na takovou blízkost moc hrubý), a **Celé okolí** — vidět je pořád, dokud je vrstva zapnutá. Celá časová osa se otevře
 pod řádkem vrstvy (i v panelu vrstev): čas obrázku na mapě a co je to zač (*nejnovější radar*, *radar −25 min* nebo *předpověď +20 min*,
 krátkodobá předpověď v barvě info), jak starý je nejnovější snímek radaru, **▶** pro přehrání,
 hned vedle **Celé okolí**, **Teď** pro návrat na nejnovější snímek (vrstva pak sama sleduje nové)
@@ -406,7 +407,8 @@ mýlí, ne slib; kam nedosáhne, dál než hodinu nebo během aktualizace dat ne
 pak říká *aktualizuji…* a nejnovější přijde během pár sekund. Pod tím je legenda barev
 v mm/h (déšť, a sníh, kde ho radar pozná) a zdroje obrázku s odkazy. Čas je napsaný i v levém
 dolním rohu mapy. Slabý déšť je průsvitný, silný plný; kde žádný radar neměří, zůstane mapa prázdná
-(to neznamená „sucho“). *Data stará N min* znamená, že radary už chvíli neposlaly nový snímek;
+(to neznamená „sucho“). *Data stará N min* znamená, že radary už chvíli neposlaly nový snímek
+(lišta na mapě to pak řekne místo čehokoli o dešti „teď“);
 *Bez: …* jmenuje zdroj, který právě selhává, *Bez dat: …* zdroj, který odpovídá, ale nemá co dát
 (a od kdy) — mapa jede z ostatních; *služba neodpovídá* znamená, že služba srážek na robotu neběží
 — vrstva **Déšť** ze služby počasí je samostatná a funguje dál. Mapa je jen pro vlastní potřebu
