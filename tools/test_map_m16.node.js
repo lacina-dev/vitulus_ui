@@ -114,7 +114,7 @@ const meas = strip(rd(JS, 'vt_map_measure.js'));
 {
     const mkEl = (id) => {
         const a = {}, e = { id: id || '', hidden: false, style: {}, title: '', _kids: [], offsetWidth: 110, offsetHeight: 40, textContent: '', _on: {},
-            setAttribute(k, v) { a[k] = String(v); }, getAttribute(k) { return k in a ? a[k] : null; }, addEventListener(t, f) { e._on[t] = f; },
+            hasAttribute(k) { return k in a; }, removeAttribute(k) { delete a[k]; }, setAttribute(k, v) { a[k] = String(v); }, getAttribute(k) { return k in a ? a[k] : null; }, addEventListener(t, f) { e._on[t] = f; },
             contains(x) { return e._kids.indexOf(x) >= 0; }, getBoundingClientRect() { return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }; } };
         Object.defineProperty(e, 'innerHTML', { set() { e._kids = [mkEl(), mkEl()]; e.firstChild = e._kids[0]; e.lastChild = e._kids[1]; } });
         return e;
@@ -148,7 +148,7 @@ const meas = strip(rd(JS, 'vt_map_measure.js'));
     tfc.ros.isConnected = true; tick(160);
     check('unknown: 40 s after the link came up → still nothing (counted from the link, not from the page\'s 2 min)', !shown());
     tick(24);
-    check('unknown: 46 s after the link came up → "Robot: position unknown"', shown() && state() === 'none' && made._kids[1].textContent === 'maprobot.unknown');
+    check('unknown: 46 s after the link came up → "Robot: position unknown"', shown() && state() === 'none' && made.hasAttribute('data-note') && made._kids[1].textContent === 'maprobot.unknown');
     tfc.ros.isConnected = false; tick(); tfc.ros.isConnected = true; tick(8);
     check('unknown: the link dropped and came back → the 45 s start again', !shown());
     // the position comes: robot 30 m east, 40 m north of the view's middle → off the map (20 m to an edge of the fake picture)
@@ -175,10 +175,10 @@ const meas = strip(rd(JS, 'vt_map_measure.js'));
     // an old position with the robot IN VIEW: the note
     win.viewer.viewer.cameraControls.center.x = 30; win.viewer.viewer.cameraControls.center.y = 40; cam.position.x = 30; cam.position.y = 40; tick();
     check('in view, live → nothing', !shown());
-    live = false; tick(11); const w0 = woken;
-    check('in view, live for 2.75 s of silence → still nothing, the watchdog not woken', !shown() && w0 === 0);
+    live = false; tick(15); const w0 = woken;
+    check('in view, live for 3.75 s of silence → still nothing, the watchdog not woken', !shown() && w0 === 0);
     tick(3);
-    check('in view, the position old (3 s) → grey note "last known position" without an arrow (the robot drawn there is where it WAS)', shown() && state() === 'none' &&
+    check('in view, the position old (4 s) → grey note "last known position" without an arrow (the robot drawn there is where it WAS); M17: its state says stale, the note is its own mark', shown() && state() === 'stale' && made.hasAttribute('data-note') &&
         made._kids[1].textContent === 'maprobot.stale' && /^maprobot\.stale_here_tip/.test(made.title), [state(), made && made._kids[1].textContent, made && made.title]);
     check('… and the TF watchdog is woken on a live link', woken > 0);
     const cx = cam.position.x; made._on.click();
@@ -187,8 +187,8 @@ const meas = strip(rd(JS, 'vt_map_measure.js'));
     check('… with the link down the note stays, the watchdog is left alone', shown() && woken === w1);
     tfc.ros.isConnected = true; live = true; tick();
     check('in view, the position comes again → the note goes', !shown());
-    cam.position.x = 0; cam.position.y = 0; win.viewer.viewer.cameraControls.center.x = 0; win.viewer.viewer.cameraControls.center.y = 0; live = false; tick(15);
-    check('out of view, old → the grey pill WITH its arrow (as M15)', shown() && state() === 'stale' && deg() === d0);
+    cam.position.x = 0; cam.position.y = 0; win.viewer.viewer.cameraControls.center.x = 0; win.viewer.viewer.cameraControls.center.y = 0; live = false; tick(19);
+    check('out of view, old → the grey pill WITH its arrow (as M15), no note mark', shown() && state() === 'stale' && !made.hasAttribute('data-note') && deg() === d0);
 }
 check('pill: the camera\'s turn is in the "nothing moved" signature', /\(\+q\.x \|\| 0\)\.toFixed\(3\)/.test(robot) && /\(\+q\.w \|\| 0\)\.toFixed\(3\)/.test(robot));
 check('pill: still no timer, nothing sent', !/setInterval|setTimeout|requestAnimationFrame/.test(robot) && ['fetch(', 'WebSocket', '.publish(', 'callService', '.subscribe('].every((w) => !robot.includes(w)));

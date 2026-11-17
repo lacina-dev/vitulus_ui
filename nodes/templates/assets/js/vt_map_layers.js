@@ -588,18 +588,8 @@
         var robot = robotHtml();
         if (cat.overlays.length || robot || $('mapv3_chk_rain') || $('mapv3_chk_trav') || $('mapv3_chk_tmosaic')) {
             h.push('<section class="vt-lyr-sec"><div class="vt-lyr-sec-h"><span>' + esc(t('maplyr.ov')) + '</span></div>');
-            if (lines.length) {
-                h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.lines')) + '</div>');
-                ovs(lines);
-                // M14: lines over a Google / Bing photo that is not aligned on this map (once per map and photo)
-                h.push('<div class="vt-lyr-unal" data-lyr-unal role="note" hidden title="' + esc(t('maplyr.m14.unal_tip')) + '">' +
-                    '<span class="vt-lyr-unal-t">' + esc(t('maplyr.m14.unal')) + '</span>' +
-                    '<button type="button" class="vt-lyr-more vt-lyr-unal-go" data-lyr-unal-go>' + esc(t('mapping.m13.measure')) + '</button>' +
-                    '<button type="button" class="vt-lyr-iconbtn vt-lyr-unal-x" data-lyr-unal-x aria-label="' + esc(t('maplyr.m14.unal_close')) +
-                    '" title="' + esc(t('maplyr.m14.unal_close')) + '">×</button></div>');
-            }
-            if (tones.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.terrain')) + '</div>'); ovs(tones); }
-            // T29: what the robot's terrain node sees now (vt_terrain_layer.js)
+            // T17 M17: the group "Robot" comes first — where the robot may go and what it sees is what the
+            // map is opened for; on a phone it sat under nine map overlays, two screens down the sheet
             // T17 M15: the robot's own layers lead the group "Robot"
             if (robot) { h.push('<div class="vt-lyr-grp-h" data-lyr-robot>' + esc(t('trav.grp')) + '</div>' + robot); }
             if ($('mapv3_chk_trav')) {
@@ -624,6 +614,18 @@
                     '<div class="vt-lyr-hint vt-tnum" data-lyr-minfo hidden></div>' +
                     '<div class="vt-lyr-tstat" data-lyr-mstat role="status" hidden></div>'));
             }
+            if (lines.length) {
+                h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.lines')) + '</div>');
+                ovs(lines);
+                // M14: lines over a Google / Bing photo that is not aligned on this map (once per map and photo)
+                h.push('<div class="vt-lyr-unal" data-lyr-unal role="note" hidden title="' + esc(t('maplyr.m14.unal_tip')) + '">' +
+                    '<span class="vt-lyr-unal-t">' + esc(t('maplyr.m14.unal')) + '</span>' +
+                    '<button type="button" class="vt-lyr-more vt-lyr-unal-go" data-lyr-unal-go>' + esc(t('mapping.m13.measure')) + '</button>' +
+                    '<button type="button" class="vt-lyr-iconbtn vt-lyr-unal-x" data-lyr-unal-x aria-label="' + esc(t('maplyr.m14.unal_close')) +
+                    '" title="' + esc(t('maplyr.m14.unal_close')) + '">×</button></div>');
+            }
+            if (tones.length) { h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.terrain')) + '</div>'); ovs(tones); }
+            // T29: what the robot's terrain node sees now (vt_terrain_layer.js)
             if ($('mapv3_chk_rain') || weather.length) {
                 h.push('<div class="vt-lyr-grp-h">' + esc(t('maplyr.grp.weather')) + '</div>');
                 if ($('mapv3_chk_rain')) {

@@ -9,7 +9,8 @@
  * How: the 3D view looks almost straight down through a very narrow lens
  * (FOV ~1.4°, mapping.js), so one screen pixel at the centre covers
  *     2 · distance · tan(fov / 2) / canvas height
- * metres. Read from the camera 4× a second while the page is visible (the
+ * metres. Read from the camera 4× a second while the page is visible and
+ * something moves, once a second while nothing does (T17 M17; the
  * camera has no single "changed" event across ROS3D, the editor and the
  * saved-view restore); the DOM is touched only when the label or the bar
  * length changes. Hidden while the map is the small swapped picture or the
@@ -26,6 +27,8 @@
     var MIN_M = 0.01;           // shortest bar: 1 cm (the camera can come very close, T23)
     var MAX_M = 50000;          // longest: 50 km (the rain radar far out)
     var POLL_MS = 250;
+    var SLOW_MS = 1000;         // T17 M17: the poll's pace while nothing changes
+    var QUIET_LOOKS = 8;        // this many looks without a change (2 s) before it slows
     var MIN_MAP_W = 220;        // a smaller map (the swapped mini picture) shows no bar
 
     // ---- pure ------------------------------------------------------------
@@ -124,6 +127,7 @@
         var sig = lab + '|' + px;
         if (sig !== last) {
             last = sig;
+            moved = true;
             txt.textContent = lab;
             bar.style.width = px + 'px';
             el.setAttribute('aria-label', t('mapscale.aria', { d: lab }));
@@ -137,25 +141,49 @@
 
     // T17 M15: others that follow the camera (the "robot is out of view"
     // pointer, vt_map_robot.js) ride on this one poll instead of a timer of
-    // their own; not called while the page is hidden
-    var riders = [];
+    // their own; not called while the page is hidden.
+    // T17 M17: the poll rests when nothing happens. A look that found nothing
+    // new (the scale's text, and every rider says whether IT saw a change: the
+    // camera, the robot's position) counts; after QUIET_LOOKS of them the poll
+    // slows from POLL_MS to SLOW_MS, and any touch of the page (pointer, wheel,
+    // key, resize) or a change seen at a slow look makes it quick again. In a
+    // hidden tab there is no timer at all; it starts again when the tab shows.
+    // (It cannot stop altogether: the camera has no single "changed" event and
+    // the robot moves without any input.)
+    var riders = [], moved = false, quiet = 0, slow = false;
     function tick() {
+        timer = null;
+        if (document.hidden) { return; }           // no timer in a hidden tab (visibilitychange starts it again)
+        moved = false;
         update();
-        if (document.hidden) { return; }
         for (var i = 0; i < riders.length; i++) {
-            try { riders[i](); } catch (e) { /* a rider never stops the scale */ }
+            try { if (riders[i]() === true) { moved = true; } } catch (e) { /* a rider never stops the scale */ }
         }
+        quiet = moved ? 0 : quiet + 1;
+        slow = quiet >= QUIET_LOOKS;
+        timer = setTimeout(tick, slow ? SLOW_MS : POLL_MS);
+    }
+    function wake() {
+        quiet = 0;
+        if (document.hidden) { return; }
+        if (!timer) { timer = setTimeout(tick, 0); return; }
+        if (slow) { slow = false; clearTimeout(timer); timer = setTimeout(tick, POLL_MS); }
     }
 
     function init() {
         if (!host()) { return; }
-        if (!timer) { timer = setInterval(tick, POLL_MS); }
-        document.addEventListener('visibilitychange', update);
-        if (root.VTI18n && root.VTI18n.onChange) { root.VTI18n.onChange(function () { last = ''; update(); }); }
+        document.addEventListener('visibilitychange', wake);
+        ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(function (ty) {
+            document.addEventListener(ty, wake, { capture: true, passive: true });
+        });
+        root.addEventListener('resize', wake);
+        if (root.VTI18n && root.VTI18n.onChange) { root.VTI18n.onChange(function () { last = ''; update(); wake(); }); }
         update();
+        wake();
     }
 
     api.update = update;
+    api.wake = wake;
     api.onTick = function (fn) { if (typeof fn === 'function' && riders.indexOf(fn) < 0) { riders.push(fn); } };
     root.VTMapScale = api;
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }

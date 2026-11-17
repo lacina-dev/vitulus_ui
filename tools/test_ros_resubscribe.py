@@ -154,6 +154,8 @@ async () => {
   ros._reconnect_delay = 200; live().drop();
   const f = mk('/t11/f'); f.subscribe(() => {});
   await new Promise((r) => { const iv = setInterval(() => { if (ros.state === 'connected') { clearInterval(iv); r(); } }, 50); });
+  // T17 M17: after a connection the non-safety subscribes go out in batches (map_view.js vtStartOrder): wait for them
+  for (let i = 0; i < 300; i++) { const s = ros.order && ros.order.stats(); if (!s || (s.open && s.waiting === 0)) { break; } await wait(50); }
   await wait(300);
   out.c_after = [count('/t11/c'), Object.values(live().adv).filter((x) => x === '/t11/c').length];
   out.f_ops = live().ops['/t11/f'];
@@ -236,6 +238,7 @@ def main():
             pg.add_init_script(FAKE)
             pg.goto(url, wait_until='domcontentloaded')
             pg.wait_for_function("window.ros && ros.state === 'connected'", timeout=30000)
+            pg.wait_for_function("!ros.order || (ros.order.stats().open && ros.order.stats().waiting === 0)", timeout=20000)   # T17 M17: the start-up batches are out
             pg.wait_for_timeout(4000)      # late subscribers (timers, lazy panels) are in
             base = snapshot(pg)
             main_url = pg.evaluate('ros._url')
@@ -250,6 +253,10 @@ def main():
                 pg.evaluate(KINDS_JS[kind])
                 pg.wait_for_function("ros.state !== 'connected'", timeout=30000)
                 pg.wait_for_function("ros.state === 'connected'", timeout=40000)
+                # T17 M17: the fault that forced the reconnect is over on the NEW socket (a half-open link that was
+                # replaced is healthy again); a link kept mute would be killed again before the batches are out
+                pg.evaluate("() => { __fake.mute = false; }")
+                pg.wait_for_function("!ros.order || (ros.order.stats().open && ros.order.stats().waiting === 0)", timeout=20000)   # T17 M17: the start-up batches are out
                 pg.wait_for_timeout(2500)
                 rep = snapshot(pg)
                 d = dupes(rep)

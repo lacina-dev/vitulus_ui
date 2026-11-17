@@ -68,12 +68,12 @@
         return (tr && isFinite(tr.x) && isFinite(tr.y)) ? { x: +tr.x, y: +tr.y } : null;
     }
     // an old position is not measured from: the link is down, or no transform
-    // came for 3 s (map_view.js notes the time; an older page without the
+    // came for 4 s (map_view.js notes the time; an older page without the
     // note = not known, taken as fresh)
     function tfStale(tfc, now) {
         if (!tfc) { return false; }
         if (tfc.ros && tfc.ros.isConnected === false) { return true; }
-        return typeof tfc._vtPoseAt === 'number' && now - tfc._vtPoseAt > 3000;
+        return typeof tfc._vtPoseAt === 'number' && now - tfc._vtPoseAt > 4000;
     }
     function num(v, dec, lang) {
         var s = v.toFixed(dec);

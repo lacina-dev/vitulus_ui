@@ -180,7 +180,7 @@ volné), na širší obrazovce jako kartu vedle tlačítka. Jedno klepnutí ho o
   (5–10°) a oranžovou (10–20°) po *strmé* (hnědá, přes 30°),
   **Expozice** barevné kolo se S, V, J, Z (barva svahu natočeného tím směrem: sever žlutozelená,
   východ modrá, jih fialová, západ oranžová).
-- Pod *Robot* v překryvech jsou vlastní vrstvy robota, každá s barvou, jakou má v mapě:
+- Pod *Robot*, hned na začátku překryvů, jsou vlastní vrstvy robota, každá s barvou, jakou má v mapě:
   **Navigační mapa** (mapa, podle které robot jezdí: známé překážky a volná plocha), **Uložené
   překážky** (aktivní mapy) a **Co robot právě vidí** (fialová = dosah lidaru, sytější až k překážce,
   kterou zasáhne; žlutá = zorný kužel kamery) — tytéž přepínače jako Základ, Uložená a Snímání
@@ -233,7 +233,7 @@ Když robot není ve viditelné části mapy (mapu jsi posunul nebo přiblížil
 panelem), stojí u okraje mapy na straně, kde robot je, malý štítek: šipka, **Robot** a jak daleko je
 od středu tvého pohledu. Klepni na něj a mapa se posune na robota; přiblížení a natočení zůstanou
 a **Sledovat** se nepřepne. Když je robot vidět, štítek není. Když poloha robota přestane chodit (bez spojení, déle než asi
-3 s), štítek zešedne, dostane čárkovaný okraj a píše **Robot · poslední známá poloha** — ukazuje, kde
+4 s), štítek zešedne, dostane čárkovaný okraj a píše **Robot · poslední známá poloha** — ukazuje, kde
 robot byl naposledy, ne kde je teď; když je robot vidět, stojí dole na mapě tatáž šedá poznámka (bez
 šipky), protože robot nakreslený v mapě je tam, kde byl, ne kde je. Když robot neposlal žádnou polohu
 (asi 45 s po navázání spojení),

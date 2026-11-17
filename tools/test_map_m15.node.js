@@ -57,7 +57,7 @@ check('pointer: loaded by vt_map_layers.js, index.html unchanged', !html.include
 check('pointer: no timer and no animation loop of its own', !/setInterval|setTimeout|requestAnimationFrame/.test(robot));
 check('pointer: rides the scale\'s poll, and without it does nothing', /S\.onTick\(update\)/.test(robot) && /if \(!S \|\| !S\.onTick\) \{ return; \}/.test(robot));
 check('pointer: nothing moved since the last look → ends before any DOM or style work',
-    (() => { const u = strip(fn('update', robotSrc)); return /if \(!dirty && sigIn === lastIn\) \{ return; \}/.test(u) && u.indexOf('sigIn === lastIn') < u.indexOf('getBoundingClientRect') &&
+    (() => { const u = strip(fn('look', robotSrc)); return /if \(!dirty && sigIn === lastIn\) \{ return; \}/.test(u) && u.indexOf('sigIn === lastIn') < u.indexOf('getBoundingClientRect') &&
         u.indexOf('sigIn === lastIn') < u.indexOf('getComputedStyle') && u.indexOf('sigIn === lastIn') < u.indexOf('updateMatrixWorld') && u.indexOf('sigIn === lastIn') < u.indexOf('obstacles()'); })());
 check('pointer: place and arrow written only when they change', /if \(sigOut !== lastOut\)/.test(robot) && /if \(txt\.textContent !== lab\)/.test(robot));
 check('pointer: arrow keys on it never drive (vt_joy.js)', /el\.addEventListener\('keydown'[^\n]*Arrow[^\n]*stopPropagation/.test(robot));
@@ -122,7 +122,7 @@ check('pointer: the camera\'s matrices are brought up to date before the project
     // last DRAWN picture (matrixWorldInverse) — exactly what THREE does — and nothing draws here.
     const mkEl = (id) => {
         const a = {}, e = { id: id || '', hidden: false, style: {}, title: '', _kids: [], offsetWidth: 110, offsetHeight: 40, textContent: '', _on: {},
-            setAttribute(k, v) { a[k] = String(v); }, getAttribute(k) { return k in a ? a[k] : null }, addEventListener(t, f) { e._on[t] = f; },
+            hasAttribute(k) { return k in a; }, removeAttribute(k) { delete a[k]; }, setAttribute(k, v) { a[k] = String(v); }, getAttribute(k) { return k in a ? a[k] : null }, addEventListener(t, f) { e._on[t] = f; },
             contains(x) { return e._kids.indexOf(x) >= 0; }, getBoundingClientRect() { return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }; } };
         Object.defineProperty(e, 'innerHTML', { set() { e._kids = [mkEl(), mkEl()]; e.firstChild = e._kids[0]; e.lastChild = e._kids[1]; } });
         return e;
@@ -166,10 +166,10 @@ check('pointer: the camera\'s matrices are brought up to date before the project
     cam.position.x = 50; win.viewer.viewer.cameraControls.center.x = 50; tick();
     check('pointer: live position → the distance, state live', !made.hidden && made.getAttribute('data-state') === 'live' && /^maprobot\.label /.test(made._kids[1].textContent), made._kids[1].textContent);
     live = false;
-    for (let i = 0; i < 11; i++) { tick(); }          // 2.75 s of silence: still live
+    for (let i = 0; i < 15; i++) { tick(); }          // 3.75 s of silence: still live
     const before = made.getAttribute('data-state');
-    for (let i = 0; i < 3; i++) { tick(); }           // 3.5 s
-    check('pointer: no transform for 3 s → grey "last known position", no distance passed off as current', before === 'live' && made.getAttribute('data-state') === 'stale' &&
+    for (let i = 0; i < 3; i++) { tick(); }           // 4.5 s
+    check('pointer: no transform for 4 s (M17: was 3 s, too close to the 2 s gaps of a busy robot) → grey "last known position", no distance passed off as current', before === 'live' && made.getAttribute('data-state') === 'stale' &&
         made._kids[1].textContent === 'maprobot.stale' && /^maprobot\.stale_tip/.test(made.title) && !made.hidden, [before, made.getAttribute('data-state'), made._kids[1].textContent]);
     live = true; tick();
     check('pointer: the position comes again → live again', made.getAttribute('data-state') === 'live');
@@ -178,12 +178,12 @@ check('pointer: the camera\'s matrices are brought up to date before the project
     tfc.ros.isConnected = true; delete tfc.frameInfos.base_link.transform; tick(); clock += 40000; tick();
     check('pointer: no position, the link up for 40 s → nothing yet (M16: counted from the link, not from the page)', made.hidden === true);
     clock += 6000; tick();
-    check('pointer: no position at all (link up > 45 s) → a note without an arrow, the tap does nothing', !made.hidden && made.getAttribute('data-state') === 'none' && made._kids[1].textContent === 'maprobot.unknown' &&
+    check('pointer: no position at all (link up > 45 s) → a note without an arrow, the tap does nothing', !made.hidden && made.getAttribute('data-state') === 'none' && made.hasAttribute('data-note') && made._kids[1].textContent === 'maprobot.unknown' &&
         (() => { const c = cam.position.x; made._on.click(); return cam.position.x === c; })());
 }
-check('pose state: live / stale after 3 s / stale with the link down / none; an older page (no time noted) counts as live',
-    R.poseState({ x: 1, y: 1 }, 1000, 3900, true) === 'live' && R.poseState({ x: 1, y: 1 }, 1000, 4100, true) === 'stale' && R.poseState({ x: 1, y: 1 }, 1000, 1100, false) === 'stale' &&
-    R.poseState(null, 1000, 1100, true) === 'none' && R.poseState({ x: 1, y: 1 }, undefined, 9e9, true) === 'live' && R.STALE_MS === 3000);
+check('pose state: live / stale after 4 s / stale with the link down / none; an older page (no time noted) counts as live',
+    R.poseState({ x: 1, y: 1 }, 1000, 4900, true) === 'live' && R.poseState({ x: 1, y: 1 }, 1000, 5100, true) === 'stale' && R.poseState({ x: 1, y: 1 }, 1000, 1100, false) === 'stale' &&
+    R.poseState(null, 1000, 1100, true) === 'none' && R.poseState({ x: 1, y: 1 }, undefined, 9e9, true) === 'live' && R.STALE_MS === 4000);
 check('pointer: no position is said only 45 s after the LINK came up (M16; not from the page\'s start), never with the link down', /upSince = up \? \(upSince \|\| now\) : 0;/.test(robot) && /st === 'none' && \(!upSince \|\| now - upSince < UNKNOWN_MS\)/.test(robot) && R.UNKNOWN_MS === 45000);
 {
     const rc = { l: 60, t: 100, r: 340, b: 760 }, w = 112, h = 40;
@@ -302,17 +302,17 @@ check('pointer: no position is said only 45 s after the LINK came up (M16; not f
 }
 
 // ---- 2. the scale's poll carries riders -------------------------------------
-check('scale: still ONE timer, now the tick', (scale.match(/setInterval\(/g) || []).length === 1 && /timer = setInterval\(tick, POLL_MS\)/.test(scale));
+check('scale: still ONE timer — a timeout chain now (M17), no interval', !/setInterval\(/.test(scale) && (scale.match(/timer = setTimeout\(tick, /g) || []).length === 3);
 {
     const calls = [];
-    const T = new Function('update', 'document', 'var riders = [];\n' + fn('tick', scaleSrc) + '\nreturn { tick: tick, riders: riders };');
+    const T = new Function('update', 'document', 'setTimeout', 'var riders = [], moved = false, quiet = 0, slow = false, timer = null, QUIET_LOOKS = 8, SLOW_MS = 1000, POLL_MS = 250;\n' + fn('tick', scaleSrc) + '\nreturn { tick: tick, riders: riders };');
     const doc = { hidden: false };
-    const t = T(() => calls.push('scale'), doc);
+    const t = T(() => calls.push('scale'), doc, () => 1);
     t.riders.push(() => calls.push('a'), () => { throw new Error('x'); }, () => calls.push('c'));
     t.tick();
     check('scale tick: the scale first, then every rider; a failing rider stops nothing', calls.join(',') === 'scale,a,c', calls);
     calls.length = 0; doc.hidden = true; t.tick();
-    check('scale tick: no rider while the page is hidden', calls.join(',') === 'scale', calls);
+    check('scale tick: nothing at all while the page is hidden', calls.join(',') === '', calls);
 }
 check('scale: onTick takes a function once', /api\.onTick = function \(fn\) \{ if \(typeof fn === 'function' && riders\.indexOf\(fn\) < 0\) \{ riders\.push\(fn\); \} \};/.test(scale));
 
@@ -357,8 +357,8 @@ check('from robot: not while the position is unknown', M.robotState(null, [], fa
 check('from robot: not while taps are blocked (Marker panel, editor)', M.robotState(P, [], true).why === 'blocked');
 check('from robot: not past the limit of points', M.robotState(P, new Array(M.MAX_POINTS).fill({ x: 9, y: 9 }), false).why === 'full');
 check('from robot: not twice in a row on the same spot, again once the robot moved', M.robotState(P, [{ x: 1.001, y: 2 }], false).why === 'same' && M.robotState(P, [{ x: 1.2, y: 2 }], false).ok);
-check('from robot: not from an old position (no transform for 3 s, or the link down); an older page without the time counts as fresh',
-    M.robotState(P, [], false, true).why === 'stale' && M.tfStale({ _vtPoseAt: 1000, ros: { isConnected: true } }, 4100) === true && M.tfStale({ _vtPoseAt: 1000, ros: { isConnected: true } }, 3900) === false &&
+check('from robot: not from an old position (no transform for 4 s, or the link down); an older page without the time counts as fresh',
+    M.robotState(P, [], false, true).why === 'stale' && M.tfStale({ _vtPoseAt: 1000, ros: { isConnected: true } }, 5100) === true && M.tfStale({ _vtPoseAt: 1000, ros: { isConnected: true } }, 4900) === false &&
     M.tfStale({ _vtPoseAt: 1000, ros: { isConnected: false } }, 1100) === true && M.tfStale({ ros: { isConnected: true } }, 9e9) === false &&
     /robotState\(robotXY\(\), S\.pts, !!why, robotStale\(\)\)/.test(meas) && /robotState\(p, S\.pts, !!blocked\(\), robotStale\(\)\)/.test(meas));
 check('from robot: the position is the TF client\'s last transform (read only)', JSON.stringify(M.tfXY(tfc)) === JSON.stringify({ x: 3.5, y: -2 }) && M.tfXY({ frameInfos: {} }) === null);
@@ -412,7 +412,7 @@ const pill = /\.vt-map-robot \{[^}]*\}/.exec(css);
 check('css: the pill is a 40 px touch target, fixed, under the layers button (z-index 4 < 5), tokens only', !!pill && /min-height: var\(--vt-touch, 40px\)/.test(pill[0]) && /position: fixed; z-index: 4;/.test(pill[0]) &&
     /white-space: nowrap/.test(pill[0]) && !/#[0-9a-f]{3,6}\b/i.test(pill[0]) && /\.vt-lyr-fab \{\s*position: fixed; z-index: 5;/.test(css));
 check('css: an old / unknown position looks different (muted, dashed; no arrow without a position)', /\.vt-map-robot\[data-state="stale"\], \.vt-map-robot\[data-state="none"\] \{ color: var\(--vt-muted\); border-style: dashed; \}/.test(css) &&
-    /\.vt-map-robot\[data-state="none"\] \.vt-map-robot-a \{ display: none; \}/.test(css));
+    /\.vt-map-robot\[data-note\] \.vt-map-robot-a \{ display: none; \}/.test(css));
 check('css: hidden pill is gone; From robot keeps its whole text', /\.vt-map-robot\[hidden\] \{ display: none; \}/.test(css) && /\.vt-meas-act\.vt-meas-robot \{ flex: 0 0 auto; \}/.test(css));
 
 console.log(fails ? '\n' + fails + ' of ' + count + ' FAILED' : '\nall ' + count + ' checks passed');

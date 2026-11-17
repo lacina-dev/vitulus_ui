@@ -185,7 +185,7 @@ One tap opens it, a second one picks the map:
   in degrees, from *flat* (grey, under 3°) over yellow (5–10°) and orange (10–20°) to *steep* (brown,
   over 30°), **Aspect** a colour wheel with N, E, S, W (the colour of a
   slope facing that way: north yellow-green, east blue, south purple, west orange).
-- Under *Robot* in the overlays are the robot's own layers, each with the colour it has on the map:
+- Under *Robot*, first among the overlays, are the robot's own layers, each with the colour it has on the map:
   **Navigation map** (the map the robot drives by: known obstacles and free ground), **Saved
   obstacles** (of the active map) and **What the robot sees now** (violet = the lidar's reach,
   stronger up to an obstacle it hits; yellow = the camera's view cone) — the same switches as
@@ -239,7 +239,7 @@ When the robot is not on the visible part of the map (you moved or zoomed the ma
 under a panel), a small pill stands at the edge of the map on the side where the robot is: an arrow,
 **Robot** and how far it is from the middle of your view. Tap it and the map moves onto the robot;
 zoom and rotation stay and **Follow** is not changed. With the robot in view there is no pill. When the robot's position stops coming (no connection, more
-than about 3 s without it), the pill turns grey with a dashed edge and says **Robot · last known
+than about 4 s without it), the pill turns grey with a dashed edge and says **Robot · last known
 position** — it points to where the robot was last, not where it is now; with the robot in view the same
 grey note stands at the bottom of the map (without an arrow), because the robot drawn there is where it
 was, not where it is. When the robot has sent no

@@ -1289,6 +1289,192 @@ class MapListItemTemplate {
 }
 
 
+/* ---- T17 M17 (2026-11-17): the order of what the page asks of rosbridge ------
+ *
+ * rosbridge handles one page's requests one after another (~22 ms each: a
+ * registration at the ROS master). After every connect the page sent ~112
+ * advertise + ~115 subscribe in one burst and the request for the robot's
+ * position (TF, /republish_tfs) was the 249th of 255 — and the subscription
+ * of the TF topic it answers with waited behind the same queue again: the
+ * robot appeared on the map 13–27 s after the page opened on a busy robot.
+ *
+ * vtStartOrder(ros) stands at roslib's one door for outgoing requests
+ * (Ros.callOnConnection; vt_link.js guards the next one, sendEncodedMessage)
+ * and only changes WHEN an advertise / subscribe goes out. EVERY advertise
+ * and subscribe the page asks for goes out, by itself, on every connection —
+ * nothing waits for a first use (a first version advertised settings topics
+ * lazily, at the first publish: rosbridge keeps the first messages of a new
+ * publisher for 1 s only, so a subscriber that connects later on a busy robot
+ * would have lost the command silently — review of M17).
+ *
+ *  A. AT ONCE, as before: EVERY advertise of a command — what stops, switches
+ *     off or cancels, what moves or starts something, every
+ *     setting and every save (all of them "actions" for vt_link.js), the
+ *     page's own "send me your data again" topics, and any topic nobody
+ *     listed. So a command pressed at any moment finds its publisher as old
+ *     as it was before M17 and goes to vt_link.js at once (review A668: no
+ *     command may wait behind its advertise). Subscribe of the states that say
+ *     whether the robot runs (VT_ORDER_STATE) and of the TF topic.
+ *  B. AHEAD — the subscriptions of the first picture (VT_ORDER_PICTURE: the
+ *     base map, the footprint, localisation).
+ *  C. THE REST of the subscriptions.
+ *  D. LAST — advertise of what is no command at all (VT_ORDER_LAST: the
+ *     read-only plumbing vt_link.js names so too — the unused action
+ *     interface of the TF republisher, the marker feedback).
+ *     B, C and D wait until the robot's position is on its way — the TF
+ *     topic's subscribe has gone out (the answer to /republish_tfs came, so
+ *     rosbridge has worked through A) — or VT_ORDER_HOLD_MS after the
+ *     connection at the latest; then they go in small batches (VT_ORDER_BATCH
+ *     per VT_ORDER_GAP_MS, about rosbridge's own pace, so its queue stays
+ *     short and a later A waits one batch at most), in that order. Once the
+ *     queues are empty everything goes straight through, as before — until
+ *     the next connection.
+ *
+ * A publish and a service call are NEVER kept here and never reordered: they
+ * pass to vt_link.js at the moment of the press, so every protection of the
+ * link guard counts from the press (a fresh frame, the command's age, a STOP
+ * throws away what waits). There is no queue of commands in this function
+ * (a first version kept a publish back 1.5 s behind a young advertise: a STOP
+ * pressed meanwhile did not know of it and the command went out AFTER the
+ * STOP — review A668).
+ * A publish on a topic whose advertise still waits in a batch (class D only)
+ * takes that advertise out ahead of itself; both go at once.
+ * On a closed link the waiting advertise / subscribe are forgotten
+ * (vt_ros_share.js sends every live one again on the next connection).
+ * Tested: tools/test_map_m17.node.js (the lists against what the page sends
+ * and against vt_link.js, the race with a STOP, a late command).
+ */
+var VT_ORDER_BATCH = 8, VT_ORDER_GAP_MS = 150, VT_ORDER_HOLD_MS = 2500;
+// A: the states that say whether the robot runs (subscribe), with the TF topic
+var VT_ORDER_STATE = new RegExp('^/(' + [
+    'tf2_web_republisher/tf_repub_\\d+',
+    'base/motor_power_state', 'base/get_torque_set', 'cmd_vel_mux/active', 'device_state_pub/icon_status', 'pm/power_status',
+    'mower_smach/(status|busy|stop)', 'mower/(status|link|set_motor_on)',
+    'dock_smach/dock_status', 'dock_manager/is_in_dock_confirmed', 'move_base_flex/exe_path/status'
+].join('|') + ')$');
+var VT_ORDER_TF_TOPIC = /^\/tf2_web_republisher\/tf_repub_\d+$/;
+// B: subscriptions of the first picture
+var VT_ORDER_PICTURE = /^\/(navi_manager\/(map|active_map)|move_base_flex\/local_costmap\/footprint|nav_tf\/loc_status|dock_idle\/status|mower_smach\/active_program)$/;
+// D: advertisements that go last (still by themselves, on every connection): no commands —
+// the same read-only plumbing as vt_link.js PLUMBING
+var VT_ORDER_LAST = /^\/(tf2_web_republisher|interactive_marker)\//;
+
+// what an advertise / subscribe is for the order: 'A', 'B', 'C' or 'D'
+function vtOrderClass(op, topic) {
+    topic = String(topic || '');
+    if (op === 'advertise') {
+        return VT_ORDER_LAST.test(topic) ? 'D' : 'A';           // every command, and any topic nobody listed: at once
+    }
+    if (op === 'subscribe') {
+        if (VT_ORDER_STATE.test(topic)) { return 'A'; }
+        return VT_ORDER_PICTURE.test(topic) ? 'B' : 'C';
+    }
+    return '';
+}
+
+function vtStartOrder(ros, o) {
+    o = o || {};
+    if (ros.__vtOrder) { return ros.__vtOrder; }
+    var now = o.now || function () { return Date.now(); };
+    var later = o.later || function (fn, ms) { return setTimeout(fn, ms); };
+    var unlater = o.unlater || function (id) { clearTimeout(id); };
+    var send = ros.callOnConnection;          // roslib's own (prototype) door
+    // waiting for their batch, in this order: B subscribe (the first picture), B advertise, C, D
+    var held = [[], [], [], []];
+    var early = {};                           // topics published while the link was down
+    var timer = null, holdTimer = null, winAt = 0;
+    var open = false;                         // B / C / D may go: the TF topic is subscribed on this socket (or the hold ran out)
+    var st = { a: 0, b: 0, c: 0, d: 0, cancelled: 0 };
+
+    function out(m) { return send.call(ros, m); }
+    function up() { return !!(ros.socket && ros.socket.readyState === 1); }
+    function waiting() { return held[0].length + held[1].length + held[2].length + held[3].length; }
+    function next() { for (var k = 0; k < 4; k++) { if (held[k].length) { return held[k].shift(); } } return null; }
+    function pump() {
+        timer = null;
+        if (!up() || !open) { return; }
+        // a busy page fires its timers late (live run 2026-11-17: the batches took 12 s instead
+        // of 2.5 s): a late batch is as much bigger as it is late (4 batches at most), so the
+        // pace holds on average and rosbridge still never gets the whole burst at once
+        var t = now(), due = winAt > 0 ? Math.floor((t - winAt) / VT_ORDER_GAP_MS) : 1;
+        var n = VT_ORDER_BATCH * Math.max(1, Math.min(4, due)), k = 0;
+        winAt = t;
+        while (waiting() && k < n) { k++; out(next()); }
+        if (waiting()) { timer = later(pump, VT_ORDER_GAP_MS); }
+    }
+    function start() {
+        if (open) { return; }
+        open = true;
+        winAt = 0;
+        if (holdTimer) { unlater(holdTimer); holdTimer = null; }
+        if (waiting() && !timer && up()) { timer = later(pump, 0); }
+    }
+    function queue(m, cls) {
+        st[cls.toLowerCase()]++;
+        // the start is over (nothing waits): straight through, as before M17
+        if (up() && open && !waiting()) { out(m); return; }
+        held[cls === 'B' ? (m.op === 'subscribe' ? 0 : 1) : (cls === 'C' ? 2 : 3)].push(m);
+        if (up() && open && !timer) { timer = later(pump, Math.max(0, VT_ORDER_GAP_MS - (now() - winAt))); }
+    }
+    // take a waiting op of this kind and topic (and id, when given) out of the batches
+    function take(op, topic, id) {
+        for (var k = 0; k < 4; k++) {
+            for (var i = 0; i < held[k].length; i++) {
+                var h = held[k][i];
+                if (h.op === op && h.topic === topic && (id === undefined || h.id === id)) { return held[k].splice(i, 1)[0]; }
+            }
+        }
+        return null;
+    }
+    ros.callOnConnection = function (m) {
+        var op = m && m.op, topic = m && m.topic, cls;
+        if (op === 'subscribe' || op === 'advertise') {
+            cls = vtOrderClass(op, topic);
+            if (op === 'advertise' && early[topic]) { delete early[topic]; cls = 'A'; }      // its publish is already on its way
+            if (cls === 'A') {
+                st.a++;
+                var r = out(m);
+                if (op === 'subscribe' && VT_ORDER_TF_TOPIC.test(topic)) { start(); }      // the position is on its way: the rest may go
+                return r;
+            }
+            return queue(m, cls);
+        }
+        if (op === 'unsubscribe' || op === 'unadvertise') {
+            // its subscribe / advertise has not gone out yet: neither goes
+            if (waiting() && take(op === 'unsubscribe' ? 'subscribe' : 'advertise', topic, m.id)) { st.cancelled++; return; }
+            return out(m);
+        }
+        if (op === 'publish' && typeof topic === 'string') {
+            // published while the link is down (vt_link.js keeps a fresh command for the next
+            // connection): its advertise must be there before it, as it was before M17
+            if (!up()) { early[topic] = true; return out(m); }
+            // an advertise still waiting in a batch (class D: plumbing) goes out ahead of its publish
+            var a = waiting() ? take('advertise', topic) : null;
+            if (a) { out(a); }
+        }
+        return out(m);
+    };
+    ros.on('connection', function () {
+        // a new socket: B / C / D wait for the TF topic again, VT_ORDER_HOLD_MS at most
+        open = false;
+        if (holdTimer) { unlater(holdTimer); }
+        holdTimer = later(function () { holdTimer = null; start(); }, VT_ORDER_HOLD_MS);
+    });
+    ros.on('close', function () {
+        // vt_ros_share.js sends every live advertise / subscribe again on the next connection
+        held = [[], [], [], []];
+        open = false;
+        if (timer) { unlater(timer); timer = null; }
+        if (holdTimer) { unlater(holdTimer); holdTimer = null; }
+    });
+    ros.__vtOrder = {
+        stats: function () { return { a: st.a, b: st.b, c: st.c, d: st.d, cancelled: st.cancelled,
+                                      waiting: waiting(), open: open }; }
+    };
+    return ros.__vtOrder;
+}
+
+
 class ROS {
     constructor() {
         this._url = 'ws://' + location.hostname + ':' + (window.__ROSBRIDGE_PORT || 9090);
@@ -1312,6 +1498,10 @@ class ROS {
         // it has had no subscribers for `topicTimeout` — dead tabs clean
         // themselves up.
         this.ros = new ROSLIB.Ros({url: this._url, groovyCompatibility: false});
+        // T17 M17: safety and the first picture first, the rest in batches
+        try {
+            this.order = vtStartOrder(this.ros);
+        } catch (e) { console.warn('[ROS] start order not installed:', e); }
         var self = this;
 
         var emit = function(name, detail) {
@@ -1866,6 +2056,8 @@ class TfClient {
         this._tfReqAt = 0;                   // when the newest one went out
         this._tfAnsAt = 0;                   // when its answer came
         this._tfSettleMs = 5000;
+        this._tfReaskMs = 4000;              // after a reconnect: ask once more when no answer came
+        this._tfReaskTimer = null;
         var _origUpdateGoal = this.tfClientMap.updateGoal;
         var _origProcessResponse = this.tfClientMap.processResponse;
         this.tfClientMap.updateGoal = function() {
@@ -1925,15 +2117,24 @@ class TfClient {
                     self.tfClientMap.currentTopic = false;
                 }
             } catch (e) { console.warn('[TfClient] cleanup of stale topic failed:', e); }
-            // Small grace period so rosbridge has finished re-advertising service /
-            // action topics after reconnect, then re-issue.
-            setTimeout(function() {
-                try {
-                    self.tfClientMap.updateGoal();
-                    console.log('[TfClient] re-issued TF goal after reconnect');
-                } catch (e) { console.warn('[TfClient] updateGoal failed:', e); }
-                self._armTfWatchdog();       // fresh bounded run per (re)connect
-            }, 500);
+            // T17 M17: the request goes out at once (it waited 500 ms "so rosbridge has
+            // finished re-advertising" — with a restarted robot the service may indeed not
+            // be there yet and that call is then lost without an answer, so it is asked
+            // once more if no answer came in _tfReaskMs; the watchdog covers the rest).
+            try {
+                self.tfClientMap.updateGoal();
+                console.log('[TfClient] re-issued TF goal after reconnect');
+            } catch (e) { console.warn('[TfClient] updateGoal failed:', e); }
+            self._armTfWatchdog();           // fresh run per (re)connect
+            var asked = self._tfReqSeq;
+            if (self._tfReaskTimer) { clearTimeout(self._tfReaskTimer); }
+            self._tfReaskTimer = setTimeout(function() {
+                self._tfReaskTimer = null;
+                var connected = !!(self.tfClientMap.ros && self.tfClientMap.ros.isConnected);
+                if (!connected || self._tfReqDone >= asked || self._tfReqSeq !== asked) { return; }
+                try { self.tfClientMap.updateGoal(); }
+                catch (e) { console.warn('[TfClient] updateGoal failed:', e); }
+            }, self._tfReaskMs);
         });
     }
 
@@ -2316,21 +2517,29 @@ class RobotVisualization {
             fillColor: 0xffffff,    // filled interior
             fillOpacity: 0.35
         });
+        // T17 M17: the colours are applied when the footprint is redrawn (every
+        // footprint message rebuilds the meshes) and when a colour is changed in
+        // Display — it was a 700 ms timer running for ever, also with no robot
+        // and in a hidden tab. The colours are read when they change, not per message.
         var self = this;
-        setInterval(function () {
-            var frame = uiPrefGet('vitulus_robot_frame_color', '#ffffff');
-            var fill = uiPrefGet('vitulus_robot_fill_color', '#ffffff');
+        var col = null;
+        var readColours = function () {
             var fop = parseFloat(uiPrefGet('vitulus_robot_fill_opacity', '0.35'));
+            col = { frame: uiPrefGet('vitulus_robot_frame_color', '#ffffff'), fill: uiPrefGet('vitulus_robot_fill_color', '#ffffff'),
+                    fop: isFinite(fop) ? fop : 0.35 };
+        };
+        this.applyColours = function () {
+            if (!col) { readColours(); }
             self.group.traverse(function (o) {
                 o.renderOrder = 55;   // ROBOT: above DOCK_VIZ 35 and every map layer
                 if (!o.material) { return; }
                 o.material.depthTest = false;
                 if (o.isMesh) {
-                    o.material.color.set(fill);
+                    o.material.color.set(col.fill);
                     o.material.transparent = true;
-                    o.material.opacity = isFinite(fop) ? fop : 0.35;
+                    o.material.opacity = col.fop;
                 } else if (o.isLine || o.isLineSegments) {
-                    o.material.color.set(frame);
+                    o.material.color.set(col.frame);
                     // 2026-09-20: THREE draws every opaque object BEFORE the
                     // transparent pass regardless of renderOrder, so the
                     // (transparent) fill painted over the opaque outline and a
@@ -2343,7 +2552,24 @@ class RobotVisualization {
                     o.renderOrder = 56;
                 }
             });
-        }, 700);
+        };
+        // after the polygon's own handler (listeners run in the order they joined);
+        // a polygon that subscribes anew (a new ROSLIB.Topic) is joined again
+        var join = function () {
+            try { if (self.robotPolygon.rosTopic) { self.robotPolygon.rosTopic.subscribe(self.applyColours); } } catch (e) { /* stub polygon */ }
+        };
+        var polySubscribe = this.robotPolygon.subscribe;
+        if (typeof polySubscribe === 'function') {
+            this.robotPolygon.subscribe = function () { var r = polySubscribe.apply(this, arguments); join(); return r; };
+        }
+        join();
+        // the colour inputs of Map > Display (mapping.js stores the value on 'input', before this runs:
+        // its listener is on the element, this one on the document)
+        document.addEventListener('input', function (e) {
+            var id = e.target && e.target.id;
+            if (id === 'mapv3_robot_frame' || id === 'mapv3_robot_fill' || id === 'mapv3_robot_fill_op') { readColours(); self.applyColours(); }
+        });
+        this.applyColours();
     }
 }
 

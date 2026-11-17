@@ -36,7 +36,8 @@
     var MIN_MAP_W = 220;        // a smaller map (the swapped mini picture) gets no pill
     var IN_PAD = 10;            // the robot this close to the edge of the free part counts as out
     var ARROW_STEP = 5;         // degrees: the arrow turns in steps (fewer DOM writes)
-    var STALE_MS = 3000;        // no base_link transform for this long: the position is old (the stream ticks at 20 Hz)
+    var STALE_MS = 4000;        // no base_link transform for this long: the position is old (the stream ticks at 20 Hz;
+                                // gaps of up to 2.0 s were measured on a busy robot — M17: 3 s left too little room)
     var UNKNOWN_MS = 45000;     // no position at all this long after the link to the robot came up: say so (the first pose takes 15-40 s on a busy robot)
     var GAP = 6;                // px kept free around what stands on the map
 
@@ -208,7 +209,7 @@
     // the tap: the view goes onto the robot, once
     function go() {
         var V = viewer(), p = tfPose(root.__tf_client_map);
-        if (!V || !p || !el || el.getAttribute('data-state') === 'none') { return; }      // the note takes no tap
+        if (!V || !p || !el || el.hasAttribute('data-note')) { return; }      // the note takes no tap
         recenter(V.camera.position, V.cameraControls.center, p);
         // tell the camera's listeners (the stored view of map_view.js)
         try { V.cameraControls.dispatchEvent({ type: 'change' }); } catch (e) { /* controls without events */ }
@@ -228,7 +229,11 @@
         return false;
     }
 
-    function update() {
+    // -> true when the view, the robot's position or its state changed since the last look
+    // (the scale's poll stays quick while something moves, T17 M17)
+    var changed = false;
+    function update() { changed = false; look(); return changed; }
+    function look() {
         var V = viewer(), T = root.ROS3D && root.ROS3D.THREE;
         if (!V || !T) { hide(); return; }
         var tfc = root.__tf_client_map, p = tfPose(tfc), now = Date.now();
@@ -254,6 +259,7 @@
             c.x.toFixed(2) + ',' + c.y.toFixed(2) + '|' + (+q.x || 0).toFixed(3) + ',' + (+q.y || 0).toFixed(3) + ',' + (+q.z || 0).toFixed(3) + ',' + (+q.w || 0).toFixed(3) + '|' +
             window.innerWidth + 'x' + window.innerHeight;
         if (!dirty && sigIn === lastIn) { return; }
+        if (sigIn !== lastIn) { changed = true; }
         lastIn = sigIn;
         dirty = false;
         if (!el) { build(); }
@@ -291,8 +297,10 @@
         var tip = st === 'none' ? t('maprobot.unknown_tip') : (st === 'stale' ? t(note ? 'maprobot.stale_here_tip' : 'maprobot.stale_tip', { d: dist }) : t('maprobot.tip', { d: dist }));
         if (txt.textContent !== lab) { txt.textContent = lab; }
         if (el.title !== tip) { el.title = tip; el.setAttribute('aria-label', tip); }
-        var look = note ? 'none' : st;        // 'none' = the note: no arrow, no tap
-        if (el.getAttribute('data-state') !== look) { el.setAttribute('data-state', look); }
+        // data-state = what is known of the position (live / stale / none); data-note = the note:
+        // no arrow, no tap (no position, or an old one with the robot in view)
+        if (el.getAttribute('data-state') !== st) { el.setAttribute('data-state', st); }
+        if (el.hasAttribute('data-note') !== note) { if (note) { el.setAttribute('data-note', '1'); } else { el.removeAttribute('data-note'); } }
         var wasHidden = el.hidden;
         if (wasHidden) { el.style.visibility = 'hidden'; el.hidden = false; }
         var w = el.offsetWidth || 110, h = el.offsetHeight || 40;

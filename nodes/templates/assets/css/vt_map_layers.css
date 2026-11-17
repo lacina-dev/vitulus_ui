@@ -372,5 +372,5 @@
 /* an old position (grey, dashed) and no position at all (no arrow) are not passed off as current */
 .vt-map-robot[data-state="stale"], .vt-map-robot[data-state="none"] { color: var(--vt-muted); border-style: dashed; }
 .vt-map-robot[data-state="stale"] .vt-map-robot-a { color: var(--vt-muted); }
-.vt-map-robot[data-state="none"] { cursor: default; padding-left: 12px; }
-.vt-map-robot[data-state="none"] .vt-map-robot-a { display: none; }
+.vt-map-robot[data-note] { cursor: default; padding-left: 12px; }
+.vt-map-robot[data-note] .vt-map-robot-a { display: none; }
