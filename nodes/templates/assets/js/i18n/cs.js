@@ -2962,6 +2962,7 @@
     "chat.history.failed": "Historii se nepodařilo načíst. Psát můžeš i tak.",
     "chat.history.begin": "Začátek historie",
     "chat.send.failed": "Nepodařilo se odeslat — agent (/agent) je nedostupný.",
+    "agent.ticket.chat_unconfirmed": "Agent neodpovídá — zprávu posílám bez potvrzení čerstvosti. Zastavení se provede; pokyn k akci agent po obnovení spojení odmítne.",
     "agent.ticket.nolink": "Bez spojení s agentem — povel NEODEŠEL. Stiskněte znovu, až agent odpoví.",
     "agent.ticket.late": "Povel dorazil k agentovi {age} s po stisku (mez {max} s) — NEBYL proveden. Podívejte se na robota a zadejte ho znovu.",
     "agent.ticket.late_noage": "Povel dorazil k agentovi pozdě — NEBYL proveden. Podívejte se na robota a zadejte ho znovu.",

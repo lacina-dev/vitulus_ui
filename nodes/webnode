@@ -1563,11 +1563,18 @@ if __name__ == '__main__':
                 rec.update(ok=False, status=503, message="no ui_token")
                 _ui_audit(rec)
                 return jsonify({"ok": False, "error": "the unlock token cannot be created (~/.vitulus/agent/ui_token)"}), 503
+            hdrs = {"Content-Type": "application/json", "Accept": "application/json",
+                    "X-Vitulus-Token": tok}
+            # T8: this door is a browser's click too. With the browser's address the
+            # agent treats it like every other request of the page (http_guard
+            # `require_web`): allowing the dock without a one-time ticket — an old
+            # tab — is refused (409 ticket_required), not carried out late.
+            if request.remote_addr:
+                hdrs["X-Forwarded-For"] = request.remote_addr
             req = urllib.request.Request(
                 AGENT_UPSTREAM + path, method="POST",
                 data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
-                headers={"Content-Type": "application/json", "Accept": "application/json",
-                         "X-Vitulus-Token": tok})
+                headers=hdrs)
             try:
                 with urllib.request.urlopen(req, timeout=AGENT_TIMEOUT_S) as up:
                     raw, st = up.read(), up.status

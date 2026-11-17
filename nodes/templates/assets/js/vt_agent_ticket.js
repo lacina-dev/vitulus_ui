@@ -15,10 +15,13 @@
  *             (agent not reachable) -> NOT sent, the caller gets an error with
  *             no_send: true and the words for the person; {enabled: false} or a core
  *             without /api/ticket (HTTP 404) -> sent without one, as before;
- *   'other'   changes nothing on the robot (models, notes, a fence proposal): as before;
+ *   'other'   known to change nothing on the robot (models, incident notes, a fence proposal):
+ *             as before. A path nobody listed is an ACTION (the safe side);
  *   'read'    GET.
  * A chat message is always an action here: the agent itself recognises the wording
- * that only stops and never refuses that one.
+ * that only stops and never refuses that one. And because it may be a STOP in words,
+ * a chat message is the one action that still goes out when no ticket can be had —
+ * without one, the person is told; the agent then refuses it unless it only stops.
  * A refusal (409 stale) is never repeated automatically: the person looks at the
  * robot and presses again.
  *
@@ -43,7 +46,7 @@
         if (path === '/agent-dock/grant') { return 'action'; }
         if (/^\/agent-dock\/revoke\/[^/]+$/.test(path)) { return 'stop'; }
         if (path === '/api/stop') { return 'stop'; }
-        if (path === '/api/task' || path === '/api/v2/chat') { return 'action'; }
+        if (chat(path)) { return 'action'; }
         if (path === '/api/approvals/decide') {
             return String(b.decision || '').trim().toLowerCase() === 'allow' ? 'action' : 'stop';
         }
@@ -51,22 +54,30 @@
         if ((m = /^\/api\/watch\/\d+\/(cancel|pause|resume)$/.exec(path))) { return m[1] === 'resume' ? 'action' : 'stop'; }
         if (path === '/api/schedules' || path === '/api/unified/jobs') { return 'action'; }
         if ((m = /^\/api\/schedules\/\d+\/(\w+)$/.exec(path))) {
-            return (m[1] === 'pause' || m[1] === 'delete') ? 'stop'
-                : ((m[1] === 'resume' || m[1] === 'run' || m[1] === 'edit') ? 'action' : 'other');
+            return (m[1] === 'pause' || m[1] === 'delete') ? 'stop' : 'action';
         }
         if ((m = /^\/api\/unified\/jobs\/[^/]+\/(\w+)$/.exec(path))) {
             if (m[1] === 'pause' || m[1] === 'delete') { return 'stop'; }
             if (m[1] === 'autoapprove') { return truthy(b.on) ? 'action' : 'stop'; }
-            return /^(run|resume|rerun|edit|policy)$/.test(m[1]) ? 'action' : 'other';
+            return 'action';
         }
-        if ((m = /^\/api\/incidents\/[^/]+\/(\w+)$/.exec(path))) { return m[1] === 'investigate' ? 'action' : 'other'; }
+        if ((m = /^\/api\/incidents\/[^/]+\/(\w+)$/.exec(path))) { return /^(ack|resolve|comment)$/.test(m[1]) ? 'other' : 'action'; }
         if (/^\/api\/v2\/tools\/[^/]+\/run$/.test(path) || path === '/api/v2/dock' || path === '/api/doctor/visit' ||
                 /^\/api\/v2\/(findings\/[^/]+\/fix|records\/[^/]+\/decide)$/.test(path)) { return 'action'; }
         if (/^\/api\/v2\/dock\/[^/]+\/revoke$/.test(path) || /^\/api\/v2\/rules\/[^/]+\/revoke$/.test(path)) { return 'stop'; }
         if ((m = /^\/api\/v2\/jobs\/[^/]+\/(\w+)$/.exec(path))) {
-            return m[1] === 'cancel' ? 'stop' : (/^(resume|budget|touches)$/.test(m[1]) ? 'action' : 'other');
+            return m[1] === 'cancel' ? 'stop' : 'action';
         }
-        return 'other';
+        // what is known to change nothing on the robot
+        if (path === '/api/models' || path === '/api/models/revert' || path === '/api/geofence/propose') { return 'other'; }
+        // A path nobody listed (also one the agent itself hands to the page, records' "way.path"):
+        // an action — the safe side, as in vt_link.js. The agent strips the ticket from the body
+        // of every POST, so one too many does no harm.
+        return 'action';
+    }
+    function chat(path) {
+        path = String(path || '').split('?')[0].replace(/\/+$/, '');
+        return path === '/api/task' || path === '/api/v2/chat';
     }
 
     function noLink(why) {
@@ -112,6 +123,7 @@
         var t = (root.VTI18n && root.VTI18n.t) ? function (k, v) { return root.VTI18n.t(k, v); } : function (k) { return k; };
         ref = ref || {};
         if (ref.code === 'nolink') { return t('agent.ticket.nolink'); }
+        if (ref.code === 'chat_unconfirmed') { return t('agent.ticket.chat_unconfirmed'); }
         if (ref.stopped) { return t('agent.ticket.late_stopped'); }
         if (ref.cancelled) { return t('agent.ticket.late_cancelled', { text: ref.cancel_text }); }
         if (ref.code === 'stale') {
@@ -122,5 +134,5 @@
         return t('agent.ticket.unknown');
     }
 
-    root.VTAgentTicket = { kind: kind, withTicket: withTicket, refusal: refusal, text: text, TICKET_MS: TICKET_MS };
+    root.VTAgentTicket = { kind: kind, chat: chat, withTicket: withTicket, refusal: refusal, text: text, TICKET_MS: TICKET_MS };
 }(typeof window !== 'undefined' ? window : globalThis));

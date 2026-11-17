@@ -55,7 +55,12 @@ const PATHS = [
     ['/api/v2/jobs/j1/cancel', {}, 'stop'],
     ['/api/doctor/visit', {}, 'action'],
     ['/api/models', { planner: 'x' }, 'other'], ['/api/models/revert', {}, 'other'], ['/api/geofence/propose', {}, 'other'],
+    ['/api/incidents/i9/comment', { text: 'x' }, 'other'],
+    // nobody listed these: an action (the safe side) — also a path the agent hands to the page (records: way.path, undo.path)
+    ['/api/something/new', {}, 'action'], ['/api/v2/records/r1/undo', {}, 'action'], ['/api/schedules/5/skip', {}, 'action'],
+    ['/api/unified/jobs/a1/boost', {}, 'action'], ['/api/v2/jobs/j1/whatever', {}, 'action'], ['/api/incidents/i9/escalate', {}, 'action'],
 ];
+ok('chat(): only the two chat paths', TK.chat('/api/task') && TK.chat('/api/v2/chat/') && !TK.chat('/api/approvals/decide') && !TK.chat('/api/tasks'));
 PATHS.forEach(([p, b, k]) => ok('kind ' + k + ': POST ' + p + ' ' + JSON.stringify(b), TK.kind(p, 'POST', b) === k, TK.kind(p, 'POST', b)));
 ok('kind: a GET is a read, whatever the path', TK.kind('/api/task', 'GET') === 'read' && TK.kind('/api/ticket') === 'read');
 ok('kind: query string and trailing slash do not matter', TK.kind('/api/stop/?x=1', 'POST') === 'stop' && TK.kind('/api/v2/dock/', 'POST', {}) === 'action');
@@ -173,10 +178,27 @@ function apiOf(A) {
             'GET /api/ticket', 'POST /api/v2/tools/photo/run', 'GET /api/ticket', 'POST /api/watch/3/resume'].join(), seq);
         ok('api: the ticket rides in the JSON body, the rest of the body is kept', A.posts().map((c) => c.body.ticket).join() === 'T1,T2,T3,T4,T5' && A.posts()[0].body.text === 'jeď na TEST' && A.posts()[1].body.decision === 'allow');
     }
+    for (const how of ['down', 500, 'hang']) {
+        // a chat message may be a STOP in words: it goes out even when no ticket can be had — without one, told
+        const A = agent({ ticket: how }), api = apiOf(A); said.length = 0;
+        const r = await api('/api/task', { body: { text: 'zastav', author: 'ui' } });
+        ok('api: agent ' + how + ' at the ticket -> a chat message is still SENT, without a ticket, the person is told', r && r.ok === true && A.posts().length === 1 &&
+            A.posts()[0].url === '/agent/api/task' && A.posts()[0].body.ticket === undefined && A.posts()[0].body.text === 'zastav' && said.join() === 'agent.ticket.chat_unconfirmed', [A.calls.map((c) => c.url), said]);
+    }
+    {
+        // ... and the agent (require_web) refuses it when it was an action: the reason is shown, nothing is repeated
+        const A = agent({ ticket: 'down', post: [409, { ok: false, stale: true, code: 'ticket_required' }] }), api = apiOf(A); said.length = 0;
+        let e = null; try { await api('/api/task', { body: { text: 'jeď na TEST' } }); } catch (x) { e = x; }
+        ok('api: chat without a ticket refused by the agent (ticket_required) -> told, not repeated', e && e.stale === true && e.vt_text === 'agent.ticket.required' && A.posts().length === 1 &&
+            said.join() === 'agent.ticket.chat_unconfirmed,agent.ticket.required', [said, A.calls.length]);
+    }
     for (const how of ['down', 500]) {
         const A = agent({ ticket: how }), api = apiOf(A); said.length = 0;
-        let e = null; try { await api('/api/task', { body: { text: 'jeď' } }); } catch (x) { e = x; }
-        ok('api: agent ' + how + ' at the ticket -> the action is NOT sent, the person is told', A.posts().length === 0 && e && e.no_send === true && said.join() === 'agent.ticket.nolink', [A.calls.length, said]);
+        let e = null; try { await api('/api/approvals/decide', { body: { id: 1, decision: 'allow' }, keep_error_body: true }); } catch (x) { e = x; }
+        let e2 = null; try { await api('/api/v2/tools/photo/run', { body: { args: {} } }); } catch (x) { e2 = x; }
+        let e3 = null; try { await api('/api/v2/records/r1/undo', { method: 'POST', body: { by: 'ui' } }); } catch (x) { e3 = x; }
+        ok('api: agent ' + how + ' at the ticket -> Allow, a tool run, an unlisted path are NOT sent, the person is told', A.posts().length === 0 && e && e.no_send === true && e2 && e2.no_send && e3 && e3.no_send &&
+            said[0] === 'agent.ticket.nolink' && said.length === 3, [A.calls.length, said]);
         await api('/api/stop', { body: { author: 'ui' } }).catch(() => {});
         ok('api: agent ' + how + ' at the ticket -> STOP is still sent', A.posts().length === 1 && A.posts()[0].url === '/agent/api/stop');
     }
@@ -211,11 +233,15 @@ function apiOf(A) {
     ok('webnode: the dock door carries the ticket over (both grant shapes)', (web.match(/_dock_ticket\(b, body\)/g) || []).length === 2 && /body\["ticket"\] = tk/.test(web));
     ok('webnode: /agent/* sends the POST body on unchanged and hands the agent\'s 4xx back with its body',
         /data = request\.get_data\(cache=False\)\[:AGENT_MAX_BODY\]/.test(web) && /except urllib\.error\.HTTPError as exc:\s+# the agent's own 4xx\/5xx\s+body = exc\.read\(\)/.test(web) && /status = exc\.code/.test(web));
+    const post = web.slice(web.indexOf('def _dock_post(path, body, rec, fallback=None):'), web.indexOf('# -- T18: the dock permit is a time window'));
+    ok('webnode: the dock door tells the agent the browser\'s address (the agent then asks for the ticket like from any page)',
+        /hdrs\["X-Forwarded-For"\] = request\.remote_addr/.test(post) && /headers=hdrs\)/.test(post));
+    ok('page: the agent going down marks the dock state unknown at once', /function markAgentDown\(why\) \{[\s\S]{0,700}dockMarkDown\(\)/.test(chat));
     const idx = fs.readFileSync(path.join(__dirname, '..', 'nodes', 'templates', 'index.html'), 'utf8');
     ok('index.html: vt_agent_ticket.js is loaded before agent_chat.js', idx.indexOf('/assets/js/vt_agent_ticket.js') > 0 && idx.indexOf('/assets/js/vt_agent_ticket.js') < idx.indexOf('/assets/js/agent_chat.js'));
     ['en', 'cs'].forEach((l) => {
         const d = fs.readFileSync(path.join(JS, 'i18n', l + '.js'), 'utf8');
-        const miss = ['nolink', 'late', 'late_noage', 'unknown', 'required', 'late_stopped', 'late_cancelled'].filter((k) => d.indexOf('"agent.ticket.' + k + '"') < 0);
+        const miss = ['nolink', 'chat_unconfirmed', 'late', 'late_noage', 'unknown', 'required', 'late_stopped', 'late_cancelled'].filter((k) => d.indexOf('"agent.ticket.' + k + '"') < 0);
         ok('i18n ' + l + ': every agent.ticket.* text', !miss.length, miss);
     });
 

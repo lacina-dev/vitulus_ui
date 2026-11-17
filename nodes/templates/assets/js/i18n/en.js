@@ -2891,6 +2891,7 @@
     "chat.history.failed": "History could not be loaded. You can still write.",
     "chat.history.begin": "Beginning of history",
     "chat.send.failed": "Could not send — the agent (/agent) is unreachable.",
+    "agent.ticket.chat_unconfirmed": "The agent is not answering — the message was sent without the freshness check. A stop will be carried out; an action will be refused by the agent when the connection is back.",
     "agent.ticket.nolink": "No connection to the agent — the command was NOT sent. Press again once the agent answers.",
     "agent.ticket.late": "The command reached the agent {age} s after the press (limit {max} s) — it was NOT carried out. Check the robot and send it again.",
     "agent.ticket.late_noage": "The command reached the agent too late — it was NOT carried out. Check the robot and send it again.",

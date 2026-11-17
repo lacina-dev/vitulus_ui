@@ -344,6 +344,9 @@
                                '); agent panel polling paused, retrying with backoff.'); } catch (e) {}
         }
         applyAgentState();
+        // the dock bar at once too: it used to keep "DOCK OPEN" with a running countdown
+        // until the next dock poll although the box below already said "unknown"
+        try { dockMarkDown(); } catch (e) { /* the dock part is not built yet */ }
         probeDelay = PROBE_MIN_MS;
         nextProbe(probeDelay);
     }
@@ -515,6 +518,17 @@
                 o2.body = b; o2._ticketed = true;
                 return api(path, o2);
             }, function (err) {
+                if (err && err.no_send && TK.chat(path)) {
+                    // A chat message may be a STOP in words ("zastav", "zruš misi"): stopping
+                    // must never depend on a ticket. It goes out without one and the person is
+                    // told the truth; the agent decides — it carries out what only stops and
+                    // refuses an action that comes without a ticket (409 ticket_required).
+                    ticketSay(TK.text({code: 'chat_unconfirmed'}));
+                    var o3 = {};
+                    Object.keys(opts).forEach(function (k) { o3[k] = opts[k]; });
+                    o3._ticketed = true;
+                    return api(path, o3);
+                }
                 ticketSay(err && err.vt_text);
                 throw err;
             });
@@ -5927,6 +5941,15 @@
                 channel: a.channel, note: a.note,
                 until_docked: !!a.until_docked,
                 left_dock_ago: a.left_dock ? Math.max(0, (d.ts || 0) - a.left_dock) : null};
+    }
+
+    /* N2: the agent is known to be down: the permit's last state may be stale —
+       "unknown", no countdown; the bar stays when the dock was open (Lock works). */
+    function dockMarkDown() {
+        if (dockState.down) { return; }
+        dockState.lastLive = dockLive();
+        dockState.down = true;
+        announceDock();
     }
 
     function pollDock(force) {
