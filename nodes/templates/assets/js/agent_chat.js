@@ -5246,6 +5246,27 @@
         var d = (item && item.detail) || {}, p = d.payload || {};
         return String((item && item.command) || p.text || '').trim();
     }
+    /* T8 V-l (check A768): is the request HELD the strict way (red card, second tap)? The stricter of
+       the two readings: the page's own guard over the words (askMoves, as before) OR the core's
+       effects naming motion / the mower. Never milder than askMoves alone. */
+    function askHeld(item) {
+        var ef = item && Array.isArray(item.effects) ? item.effects : [];
+        return askMoves(item) || ef.indexOf('motion') >= 0 || ef.indexOf('mower') >= 0;
+    }
+    /* … and which of several waiting requests the line over the map speaks of: the strictest
+       (movement and mower > movement > mower > another robot command > class not known); among
+       equals the one that waits longest (the list's order). Returns its index, -1 = none is held. */
+    var CLASS_RANK = {both: 4, move: 3, mower: 2, robot: 1, cmd: 0};
+    function askStrictest(list) {
+        var best = -1, rank = -1;
+        for (var i = 0; i < (list || []).length; i++) {
+            if (!askHeld(list[i])) { continue; }
+            var r = CLASS_RANK[askClass(list[i])];
+            if (r === undefined) { r = 0; }
+            if (r > rank) { rank = r; best = i; }
+        }
+        return best;
+    }
     function askMoves(item) {
         var d = item.detail || {};
         var p = d.payload || {};
@@ -5397,7 +5418,7 @@
         row.appendChild(src);
 
         // ---- 2. the ask, in one plain sentence ---------------------------
-        var moves = askMoves(item);
+        var moves = askHeld(item);     // V-l: the words OR the core's effects, whichever is stricter
         if (moves) {
             row.classList.add('moves');
             var mv = document.createElement('div');
@@ -5678,8 +5699,8 @@
         var sorted = (list || []).slice().sort(function (a, b) {
             // anything that can move the machine sits at the very top of the
             // pinned cards — that decision is the owner's alone
-            var ma = askMoves(a) ? 0 : 1;
-            var mb = askMoves(b) ? 0 : 1;
+            var ma = askHeld(a) ? 0 : 1;
+            var mb = askHeld(b) ? 0 : 1;
             if (ma !== mb) { return ma - mb; }
             var ra = ASK_RANK[askKind(a)];
             var rb = ASK_RANK[askKind(b)];
@@ -5785,7 +5806,7 @@
                 window.VTHub.put("agent.asks",   // a hub key, not i18n (double quotes: test_i18n)
                 stripAsks.map(function (a) {
                     return {id: a.id, what: (a.detail && a.detail.what) || a.plain || a.command || '',
-                            waiting_s: a.waiting_s, moves: !!askMoves(a),
+                            waiting_s: a.waiting_s, moves: !!askHeld(a),
                             kind: askKind(a), capability: a.capability || null,
                             recommend: ((a.detail || {}).payload || {}).recommend || null};
                 }));
@@ -6413,17 +6434,16 @@
     /* The one thing worth a row of screen, or null. */
     function stripPick() {
         if (stripAsks.length) {
-            var a = stripAsks[0];
-            for (var q = 0; q < stripAsks.length; q++) {
-                if (askMoves(stripAsks[q])) { a = stripAsks[q]; break; }
-            }
+            /* V-l: of several the strictest one speaks, and says how many more wait */
+            var si = askStrictest(stripAsks), a = stripAsks[si >= 0 ? si : 0];
             var what = (a.detail && a.detail.what) || a.plain || a.command || '';
-            if (askMoves(a)) {
+            if (si >= 0) {
                 /* V-j: said by what it is (movement / mower / another robot command), with the command's own text */
                 var ac = askClass(a), cmd = askCommand(a);
+                var more = stripAsks.length > 1 ? _t('appr.strip.more', {n: stripAsks.length - 1}) + ' \u00b7 ' : '';
                 return {kind: 'move', tab: 'work',
                         label: _t(ac === 'move' ? 'appr.strip.move' : 'appr.strip.' + ac),
-                        text: cmd ? cutWords(cmd, 60) : cut(what, 40),
+                        text: more + (cmd ? cutWords(cmd, 60) : cut(what, 40)),
                         age: shortAge(a.waiting_s)};
             }
             return {kind: 'ask', tab: 'work',

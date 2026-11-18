@@ -442,7 +442,8 @@ very end of the row. **+ new job** opens the form for a new job. When the agent 
 **Approve** / **Deny**. If the robot would move, the card says
 *THE ROBOT WOULD MOVE — only you may allow this* and the button needs a second tap. A held command that is not movement is said
 by what it is — *THIS REACHES FOR THE MOWER*, *THE ROBOT WOULD MOVE AND MOW*, *A COMMAND ON THE ROBOT*, with the agent's reason in small print (*Why: …*) — and the line over the map shows the command itself
-(*MOWER COMMAND NEEDS YOUR YES · rostopic pub -1 /mower/…*); the second tap stays.
+(*MOWER COMMAND NEEDS YOUR YES · rostopic pub -1 /mower/…*); the second tap stays. When several requests wait, the line
+speaks of the strictest one (movement and mower before movement, before the mower, before another command) and says how many more wait (*and 2 more*).
 
 ### Journey and the morning report
 

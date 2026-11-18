@@ -425,7 +425,8 @@ na konci řádku, oddělené, **smazat** (🗑, dvě klepnutí). **+ nová úloh
 **Schválit** / **Zamítnout**. Kdyby se robot pohnul, karta píše
 *ROBOT BY SE POHNUL — povolit to smíš jen ty* a tlačítko potřebuje druhé klepnutí. Držený příkaz, který pohyb není, se řekne
 podle toho, co je — *SAHÁ NA SEKAČKU*, *ROBOT BY SE POHNUL A SEKAL*, *PŘÍKAZ NA ROBOTU*, s důvodem agenta drobným písmem (*Proč: …*) — a řádek nad mapou ukáže samotný příkaz
-(*PŘÍKAZ SEKAČCE ČEKÁ NA TVOJE ANO · rostopic pub -1 /mower/…*); druhé klepnutí zůstává.
+(*PŘÍKAZ SEKAČCE ČEKÁ NA TVOJE ANO · rostopic pub -1 /mower/…*); druhé klepnutí zůstává. Když čeká víc žádostí, řádek
+mluví o té nejpřísnější (pohyb a sekačka před pohybem, před sekačkou, před jiným příkazem) a řekne, kolik jich čeká ještě (*a ještě 2*).
 
 ### Cesta a ranní hlášení
 

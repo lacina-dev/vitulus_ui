@@ -37,6 +37,24 @@ check('effects empty but the rule says mower: stays mower (never milder)', E([],
 check('effects mower but the rule says motion: both (never milder)', E(['mower'], { rule: 'motion:rostopic:pub' }) === 'both');
 check('effects empty but stopped by a movement word: stays movement', E([], { moves_why: 'undock' }) === 'move');
 check('effects not a list: as without it', F.askClass(Object.assign({}, live, { effects: 'mower' })) === 'mower' && F.askClass({ command: 'undock', effects: null }) === 'move');
+// T8 V-l (check A768): held = the page's words OR the core's effects; of several the strictest one speaks
+const m0 = src.indexOf('var MOVE_RE = new RegExp'), m1 = src.indexOf('/* The whole point of the card');
+check('agent_chat.js: MOVE_RE … askMoves can be taken out', m0 > 0 && m1 > m0);
+const G = new Function(src.slice(m0, m1) + '\nreturn {askHeld, askStrictest, askMoves, askClass};')();
+const quiet = { command: 'rosparam set /x 1', plain: 'nastavím parametr', rule: 'ros:rosparam', moves: false };
+check('a request the words do not catch and without effects is not held', G.askMoves(quiet) === false && G.askHeld(quiet) === false);
+check('… with effects motion it is held (red card, second tap)', G.askHeld(Object.assign({}, quiet, { effects: ['motion'] })) === true);
+check('… with effects mower too', G.askHeld(Object.assign({}, quiet, { effects: ['mower'] })) === true);
+check('… empty or unknown effects do not hold it', G.askHeld(Object.assign({}, quiet, { effects: [] })) === false && G.askHeld(Object.assign({}, quiet, { effects: ['x'] })) === false && G.askHeld(Object.assign({}, quiet, { effects: 'motion' })) === false);
+check('never milder: what the words catch stays held whatever effects says', G.askHeld({ command: 'rostopic pub /cmd_vel', effects: [] }) === true && G.askHeld({ command: 'undock' }) === true);
+const four = [Object.assign({}, live, { id: 1, effects: ['mower'] }), Object.assign({}, quiet, { id: 2 }),
+              { id: 3, command: 'rostopic pub /web_plan/program_select std_msgs/String Bigger', rule: 'mower:rostopic:pub', moves: true, effects: ['motion', 'mower'] },
+              { id: 4, command: 'rostopic pub /cmd_vel geometry_msgs/Twist', rule: 'motion:rostopic:pub', moves: true, effects: ['motion'] }];
+check('four waiting (mower, plain, both, movement): the line speaks of "movement and mower"', G.askStrictest(four) === 2 && G.askClass(four[2]) === 'both', G.askStrictest(four));
+check('without the "both" one: movement before the mower one', G.askStrictest([four[0], four[1], four[3]]) === 2);
+check('equal classes: the first in the list (waits longest)', G.askStrictest([four[0], Object.assign({}, four[0], { id: 9 })]) === 0);
+check('none held: -1 (the calm "approval waiting" line as before)', G.askStrictest([quiet, quiet]) === -1 && G.askStrictest([]) === -1);
+check('the strip says how many more wait, the card and the order use askHeld', /_t\('appr\.strip\.more', \{n: stripAsks\.length - 1\}\)/.test(src) && /var moves = askHeld\(item\)/.test(src) && !/var m[ab] = askMoves/.test(src));
 const cw = F.cutWords(live.command, 60);   // the strip's limit: "rostopic pub -1 /mower/zkouska_brany_neexistuje…"
 check('the command is cut between words, with "…", within the limit', cw.length <= 60 && /neexistuje…$/.test(cw) && /…$/.test(cw) && live.command.indexOf(cw.slice(0, -1) + ' ') === 0, cw);
 check('a short command stays whole', F.cutWords('rostopic list', 40) === 'rostopic list');
@@ -47,7 +65,7 @@ const win = {}; const ctx = vm.createContext({ window: win });
 ['en', 'cs'].forEach((l) => vm.runInContext(fs.readFileSync(path.join(JS, 'i18n', l + '.js'), 'utf8'), ctx));
 ['en', 'cs'].forEach((l) => {
     const D = win.VT_I18N_DICT[l];
-    ['appr.strip.both', 'appr.gate.banner.both', 'appr.gate.why', 'appr.strip.mower', 'appr.strip.robot', 'appr.strip.cmd', 'appr.gate.banner.mower', 'appr.gate.banner.robot', 'appr.gate.banner.cmd', 'appr.gate.tip', 'appr.gate.allow', 'appr.gate.allow_tip', 'appr.gate.confirm']
+    ['appr.strip.more', 'appr.strip.both', 'appr.gate.banner.both', 'appr.gate.why', 'appr.strip.mower', 'appr.strip.robot', 'appr.strip.cmd', 'appr.gate.banner.mower', 'appr.gate.banner.robot', 'appr.gate.banner.cmd', 'appr.gate.tip', 'appr.gate.allow', 'appr.gate.allow_tip', 'appr.gate.confirm']
         .forEach((k) => check(l + ': ' + k, typeof D[k] === 'string' && D[k].length > 3));
     check(l + ': the mower / robot / unknown labels do not say "movement"', ['appr.strip.mower', 'appr.strip.robot', 'appr.strip.cmd', 'appr.gate.allow', 'appr.gate.confirm'].every((k) => !/POHYB|MOVEMENT|\bjet\b|jede|\bmove\b/i.test(D[k])));
 });

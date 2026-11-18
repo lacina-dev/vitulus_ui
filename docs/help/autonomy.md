@@ -173,7 +173,7 @@ the board does not answer for more than 2 minutes, the robot says so — *The mo
 answered for 7 h 30 min (since 23:10; in the dock, no program)*, off the dock without "in the dock" —
 and reminds you at most twice (after 1 hour, then after 4 hours); it will not mow without the board.
 The time in the notice keeps running while the board stays silent (not just the 2–3 minutes of the
-moment it was raised), and the notice says what to do: *Switching the robot off and on helps*; **Hardware
+moment it was raised), and the notice says what to do: *Switching the robot off and on helps, but only for a while: the board freezes about 18.6 hours after power-on, most likely because of its old firmware* (the hardware reset cuts the on-board computer too, for about a minute — everything running on the robot goes down); **Hardware
 reset ›** next to it takes you to Hardware reset in Sleep (it only goes there, it starts nothing); off the
 dock, where that block refuses, the link is not shown. Once the board answers again the notice turns grey
 (the time is counted on the robot's clock, so a phone in another time zone shows the same; the notices over the map,
