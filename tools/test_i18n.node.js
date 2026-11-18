@@ -11,6 +11,7 @@
  *   - help topics of docs/help/*.md without docs/help/cs/<id>.md.
  * FAILS when
  *   - a dictionary does not load, or a value is not a string;
+ *   - a dictionary has the same key twice (the later one would silently win);
  *   - cs.js has a key en.js does not (English is the source: add it there);
  *   - a translation has other {placeholders} than the English text;
  *   - index.html uses a data-i18n* key that en.js does not have;
@@ -52,6 +53,16 @@ function loadDicts() {
     return win.VT_I18N_DICT || {};
 }
 const D = loadDicts();
+/* a key written twice: the later one silently wins and the first is dead text (T8 A723: loc.owner.relock) */
+['en'].concat(LANGS).forEach((l) => {
+    const seen = {}, src = fs.readFileSync(path.join(JS, 'i18n', l + '.js'), 'utf8').split('\n');
+    src.forEach((line, n) => {
+        const m = /^\s*"((?:[^"\\]|\\.)+)"\s*:/.exec(line);
+        if (!m) { return; }
+        if (seen[m[1]]) { fail(l + '.js: the key ' + m[1] + ' is written twice (lines ' + seen[m[1]] + ' and ' + (n + 1) + ')'); }
+        seen[m[1]] = n + 1;
+    });
+});
 const en = D.en || {};
 if (!Object.keys(en).length) { fail('i18n/en.js is empty'); }
 const ph = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join(',');

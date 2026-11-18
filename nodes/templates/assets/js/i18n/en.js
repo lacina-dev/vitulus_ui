@@ -4540,6 +4540,8 @@
     "calmgr.issue.mower_link_idle": "The mower board has not answered for {dur} (since {at}; in the dock, no program). The robot will not leave without it. Switching the robot off and on helps.",
     "calmgr.issue.mower_link_idle.off_dock": "The mower board has not answered for {dur} (since {at}; no program). The robot will not mow without it. Switching the robot off and on helps.",
     "calmgr.issue.mower_link_idle.back.until": "The mower board was silent from {at} to {to} ({dur}); it answers again.",
+    // A12: silent again before the robot lists the new silence
+    "calmgr.issue.mower_link_idle.again": "The mower board has stopped answering again ({dur}). The robot will not leave or mow without it.",
     "calmgr.issue.hw_reset_person.claude": "The mower board does not answer and a hardware reset would help. Claude is working on the robot, so the robot waits until it is done.",
     "calmgr.issue.hw_reset.no_run": "The mower board does not answer in the dock. Hardware reset in {left_s} s.",
     "calmgr.issue.hw_reset_person.no_run": "The mower board does not answer and a hardware reset would help. Somebody is connected, so the robot waits for them.",
@@ -5050,6 +5052,7 @@
     "watchr.mode.poll": "every {s} s",
     "watchr.last": "last fired {when}",
     "watchr.never": "never",
+    "watchr.not_fired": "has not fired yet",
     "watchr.date": "{d}/{m} {t}",
     "watchr.blocked": "last {when} blocked ({why})",
     "watchr.block.dock": "dock",
@@ -5676,7 +5679,6 @@
     "node.plan.zop.duplicate": "Zone copy",
     "node.plan.pop.saved": "saved",
     "node.plan.pop.removed": "removed",
-    "loc.owner.relock": "lidar relocalisation (relock)",
     // T21 A5 (2026-11-08): Autonomy — no connection said in the top card, why nothing is planned (every calendar entry off), a past decision, Off in the calendar row
     "auto.a5.stale": "No connection to the robot since {at}: what you see here may no longer hold.",
     "auto.a5.connecting": "Connecting to the robot…",

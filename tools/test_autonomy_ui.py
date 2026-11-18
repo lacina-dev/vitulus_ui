@@ -2210,6 +2210,38 @@ def a7_story(p, shots, label):
         p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block: 'start'})")
         p.pg.wait_for_timeout(200)
         p.pg.screenshot(path=os.path.join(shots, label + '-a8-back.png'))
+    # A12 (check A698): the old notice has its return in History and the board goes silent AGAIN; the robot
+    # lists the new silence only after 2-3 min. The box must show the live fault at once: red, in the present,
+    # the board's own count, no "answers again", no Clear; the chip and the History head with it
+    p.pub('/mower/link', dict(link, silent_s=40))
+    p.wait(lambda: p.pg.evaluate("document.getElementById('auto_alert').dataset.state") != 'off', 4000)
+    again = p.pg.evaluate("""(()=>{const b=document.getElementById('auto_alert'), c=document.querySelector('.rp-auto-chip'), k=document.querySelector('#div_scheduler_issues .vt-cal-issue');
+        return {state:b.dataset.state, lab:b.querySelector('.vt-attn-lab').textContent, text:b.querySelector('.vt-attn-txt').textContent.replace(/\u00a0/g,' '),
+                clr:!!document.getElementById('btn_auto_alert_clear'), chip:c&&c.dataset.state, hist:document.getElementById('auto_sec_history').dataset.state,
+                cal:k?[k.className, k.textContent.replace(/\u00a0/g,' ')]:null}})()""")
+    check('A12 silent again with the return in History: the box is the live fault at once (red, "again", the board\'s 40 s), no "answers again", no Clear',
+          again['state'] == 'err' and again['lab'] == p.pg.evaluate("VTI18n.t('auto.alert.label')") and not again['clr']
+          and re.search(r'(znovu neodpovídá|answering again) \([45]\d s\)', again['text'])
+          and not re.search(r'už odpovídá|answers again|mlčela|was silent|\{', again['text']), again)
+    check('A12 … the right panel\'s chip and the History head are red, the calendar card says the same sentence, not in the quiet tone',
+          again['chip'] == 'err' and again['hist'] == 'err' and bool(again['cal']) and 'vt-cal-issue-over' not in again['cal'][0]
+          and re.search(r'znovu neodpovídá|answering again', again['cal'][1]), again)
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-a12-again.png'))
+    # … and once the robot lists the new silence, that one carries the fault; the old one is over again (one "to see")
+    newer = dict(issue, t=iso(now), detail=dict(issue['detail'], since=iso(now - dt.timedelta(minutes=2)), silent_s=120))
+    p.pub('/mower/link', dict(link, silent_s=125))
+    p.pub('/scheduler/report', dict(boot, issues=[issue, newer]))
+    p.wait(lambda: re.search(r'\b1 (k vidění|to see)', p.text('#auto_tok_history') or ''), 4000)
+    al2 = (p.text('#auto_alert') or '').replace('\xa0', ' ')
+    check('A12 … the robot lists the new silence: the box says that one ("has not answered for 2 min"), History counts one',
+          re.search(r'\b1 (k vidění|to see)', p.text('#auto_tok_history') or '') and re.search(r'\b[23] min', al2)
+          and not re.search(r'znovu neodpovídá|answering again|už odpovídá|answers again', al2), [al2, p.text('#auto_tok_history')])
+    p.pub('/mower/link', dict(link, banner='', state='ok', silent_s=0))
+    p.pub('/scheduler/report', dict(boot, issues=[issue]))
+    p.wait(lambda: want in norm('#auto_alert'))
+    check('A12 … the board answers: grey and "answers again" back, Clear offered', p.pg.evaluate("document.getElementById('auto_alert').dataset.state") == 'off'
+          and p.pg.evaluate("!!document.getElementById('btn_auto_alert_clear')"), norm('#auto_alert'))
     p.pub('/scheduler/journal', {'entries': []})
     p.pub('/mower/link', link)
     p.wait(lambda: re.search(r'\b3[34]\s*min', p.text('#auto_alert') or ''))

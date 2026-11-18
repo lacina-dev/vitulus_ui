@@ -168,7 +168,8 @@ hlavička Historie ji už neukazují červeně a **Smazat** přímo v hlášce j
 i s délkou mlčení; od dvou dnů je délka ve dnech, *3 dny 1 h*). Stránka říká *už odpovídá* jen z toho, co ví — z čerstvé
 zprávy od desky nebo z návratu zapsaného v historii robota. Bez robota nebo bez čerstvé zprávy od desky hláška zůstane,
 jak byla, s dovětkem *(Teď bez čerstvé zprávy od desky.)* a Smazat nenabídne; porucha, která ještě trvá, má v rámečku
-vždy přednost. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
+vždy přednost. Když deska zmlkne znovu dřív, než to robot stihne zapsat (trvá to 2–3 minuty), šedá hláška hned zčervená:
+*Deska sekačky znovu neodpovídá (40 s)* — Smazat se nabídne, až zase odpoví. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
 posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
 dál, roztočit ne, a po návratu desky až poté, co znovu ohlásí *připraveno*.

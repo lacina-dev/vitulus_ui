@@ -43,6 +43,9 @@
         var ns = code === 'mower_link_idle' && !d.since ? '.no_since' : '';
         /* T21 A11: with the time it came back (the journal's mower_link_back): from when to when and how long */
         var over = code === 'mower_link_idle' && silenceOver(d);
+        /* A12: silent AGAIN before the robot wrote the new silence down: its own short sentence
+           (the listed "since" belongs to the silence that ended) */
+        if (code === 'mower_link_idle' && silentAgain(d)) { out.push('.again'); }
         if (over && !ns && backOf(d.since)) { out.push('.back.until'); }
         if (over) { out.push('.back' + ns); }
         if (code === 'mower_link_idle' && d.in_dock === false) { out.push('.off_dock' + ns); }
@@ -77,10 +80,29 @@
        the robot knows neither (the last "ok" may be minutes old): not over. */
     function silenceOver(d) {
         if (!d || (typeof S === 'object' && S && S.link === false)) { return false; }
+        if (silentAgain(d)) { return false; }
         return linkAnswers() || !!(d.since && backOf(d.since));
+    }
+    /* A12 (check A698): the listed silence has its return in the journal, and the board is silent
+       AGAIN right now (/mower/link, fresh). The robot lists the new silence only after 2-3 min;
+       until then this one stands for it: live, red, no Clear - unless another listed silence
+       without a return already carries the live one. */
+    function silentAgain(d) {
+        if (!d || !d.since || linkSilentNow() === null || !backOf(d.since)) { return false; }
+        var list = typeof S === 'object' && S && S.report ? (S.report.issues || []) : [];
+        return !list.some(function (i) {
+            var x = i && i.code === 'mower_link_idle' ? (i.detail || {}) : null;
+            return !!x && !(x.since && backOf(x.since));
+        });
     }
     function issueVars(d) {
         if (!d) { return d; }
+        /* A12: silent again: the length is the board's own count now, not the old report's */
+        if (silentAgain(d)) {
+            d.dur = nb(fmtDur(linkSilentNow()));
+            if (d.at === undefined) { d.at = nbDay(clock(parseIso(d.since).getTime())); }
+            return d;
+        }
         /* T21 A11: over — "silent since {at} until {to} ({dur})"; both times are the robot's, the
            length between them needs no zone */
         var bk = d.since && silenceOver(d) ? backOf(d.since) : null;
@@ -2344,7 +2366,9 @@
         S.linkMsg = l; S.linkAt = Date.now();
         /* the issue's "for N min" follows, in the notice here and in the calendar card: only when
            the minute said changes (the link comes often; the card's Clear button is not rebuilt under a finger) */
-        var live_ = linkSilentNow(), mark = live_ === null ? (l.state === 'ok' ? 'ok' : (wasSilent ? 'back' : '')) : String(Math.round(live_ / 60));
+        var live_ = linkSilentNow(), mark = live_ === null ? (l.state === 'ok' ? 'ok' : (wasSilent ? 'back' : ''))
+            /* A12: under a minute the length is said in seconds: followed by ten seconds, so "40 s" does not stand for a minute */
+            : (live_ < 60 ? 's' + Math.floor(live_ / 10) : String(Math.round(live_ / 60)));
         if (mark !== (S.linkMark || '') && S.report && (S.report.issues || []).length) {
             paintAlert(); paintHistory(); paintRight();     // A11: the head of History and the right panel's chip follow too
             var cm = window.calendarManager;

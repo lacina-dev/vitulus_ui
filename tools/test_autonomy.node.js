@@ -287,7 +287,7 @@ function sandbox(lang, file, extra) {
     const src = read('vt_autonomy.js');
     const grab = (name) => { const i = src.indexOf('function ' + name + '('); let d = 0;
         for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') { d++; } else if (src[j] === '}' && --d === 0) { return src.slice(i, j + 1); } } };
-    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'linkFresh', 'silenceOver', 'nb', 'nbDay', 'longDur', 'robotShift', 'shiftFromLog', 'backOf', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'linkFresh', 'silenceOver', 'silentAgain', 'nb', 'nbDay', 'longDur', 'robotShift', 'shiftFromLog', 'backOf', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
     const LIVE = {};
     ['en', 'cs'].forEach((l) => {
         const D = win.VT_I18N_DICT[l];
@@ -372,6 +372,16 @@ function sandbox(lang, file, extra) {
                         { t: '2026-11-17T20:40:09', kind: 'waited', code: 'mower_link_back', vars: {} }];
         const other = say('mower_link_idle', { program: '', silent_s: 151, since: '2026-11-18T09:00', in_dock: true });
         check(l + ': … a "back" from before this silence is not its end', !/20:40/.test(other) && /answers again|už odpovídá/.test(other), other);
+        // A12 (check A698): the listed silence has its return in the journal and the board is silent AGAIN right now
+        LIVE.linkMsg = { state: 'silent', silent_s: 40 }; LIVE.linkAt = Date.now();
+        const again = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
+        check(l + ': A12 silent again after a return: "again" with the board\'s own 40 s, not "answers again", not the old 5 h', /again|znovu/.test(again) && /\b4\d\s*s\b/.test(again)
+              && !/answers again|už odpovídá|\d\s*h\b|\{/.test(again), again);
+        LIVE.report = { issues: [{ code: 'mower_link_idle', detail: { since: '2026-11-16T17:25' } }, { code: 'mower_link_idle', detail: { since: '2026-11-18T09:00' } }] };
+        const carried = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
+        check(l + ': A12 … once a newer silence is listed, the old one is over again (from … to …)', /20:40/.test(carried) && /answers again|už odpovídá/.test(carried), carried);
+        delete LIVE.report;
+        LIVE.linkMsg = { state: 'ok', silent_s: 0 }; LIVE.linkAt = Date.now();
         delete LIVE.journal;
         const backNs = frozen({ since: undefined });
         check(l + ': … answers again without "since": no "since {at}"', /answers again|už odpovídá/.test(backNs) && !/\{|since|\bod\b/.test(backNs), backNs);

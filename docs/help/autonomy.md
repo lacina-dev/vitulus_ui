@@ -183,7 +183,9 @@ panel and the head of History no longer show it in red, and **Clear** right in t
 the two lines, the return with how long the silence lasted; from two days on the length is said in days, *3 d 1 h*).
 The page says *it answers again* only on what it knows — a message from the board just now, or the return in the robot's
 journal. Without the robot, or without a fresh message from the board, the notice stays as it was with *(No fresh word
-from the board right now.)* and offers no Clear; a fault that still lasts always comes first in the box.
+from the board right now.)* and offers no Clear; a fault that still lasts always comes first in the box. When the board
+goes silent again before the robot has written the new silence down (it takes 2–3 minutes), the grey notice turns red at once:
+*The mower board has stopped answering again (40 s)* — no Clear until it answers.
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping

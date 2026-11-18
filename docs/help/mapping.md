@@ -402,7 +402,7 @@ when it publishes data) — by the robot's own precipitation service (it runs on
 MapProxy, port 8097). Tick it and a small play bar appears on the map, bottom left — **▶**, the
 time of the picture and what it is (*now*, *−30 min* measured, or *nowcast +20 min*), whether it
 rains around the garden (in the garden view too — then **Whole area** is highlighted, the radar
-being too coarse to see anything this close), and **Whole area** — always in sight while the layer is on. The full time line opens under the row (in the layers panel too): the time of the picture on the map and what it is (*newest radar*,
+being too coarse to see anything this close; a longer sentence with the outlook wraps to a few lines, on a phone too), and **Whole area** — always in sight while the layer is on. The full time line opens under the row (in the layers panel too): the time of the picture on the map and what it is (*newest radar*,
 *radar −25 min*, or *nowcast +20 min*, a short forecast drawn in the info colour), how old the
 newest radar picture is, **▶** to play, **Whole area** right next to it, **Now** to jump back to the
 newest picture (the layer then follows the new ones by itself), and a slider over the last two hours

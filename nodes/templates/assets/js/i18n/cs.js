@@ -4625,6 +4625,8 @@
     "calmgr.issue.mower_link_idle": "Deska sekačky {dur} neodpovídá (od {at}; v doku, žádný program). Bez ní robot nevyjede. Pomůže vypnout a zapnout robota.",
     "calmgr.issue.mower_link_idle.off_dock": "Deska sekačky {dur} neodpovídá (od {at}; žádný program). Bez ní robot nebude sekat. Pomůže vypnout a zapnout robota.",
     "calmgr.issue.mower_link_idle.back.until": "Deska sekačky mlčela od {at} do {to} ({dur}), už odpovídá.",
+    // A12: silent again before the robot lists the new silence
+    "calmgr.issue.mower_link_idle.again": "Deska sekačky znovu neodpovídá ({dur}). Bez ní robot nevyjede ani nebude sekat.",
     "calmgr.issue.hw_reset_person.claude": "Deska sekačky neodpovídá a pomohl by tvrdý restart. Na robotu ale pracuje Claude, takže robot čeká, až skončí.",
     "calmgr.issue.hw_reset.no_run": "Deska sekačky v doku neodpovídá. Tvrdý restart za {left_s} s.",
     "calmgr.issue.hw_reset_person.no_run": "Deska sekačky neodpovídá a pomohl by tvrdý restart. Někdo je připojený, takže robot čeká na něj.",
@@ -5135,6 +5137,7 @@
     "watchr.mode.poll": "každých {s} s",
     "watchr.last": "naposled {when}",
     "watchr.never": "zatím ne",
+    "watchr.not_fired": "zatím nezasáhlo",
     "watchr.date": "{d}. {m}. {t}",
     "watchr.blocked": "naposled {when} zablokováno ({why})",
     "watchr.block.dock": "dok",
@@ -5762,7 +5765,6 @@
     "node.plan.zop.duplicate": "Kopie zóny",
     "node.plan.pop.saved": "NEULOŽEN",
     "node.plan.pop.removed": "NEODSTRANĚN",
-    "loc.owner.relock": "relokalizace lidarem (relock)",
     // T21 A5 (2026-11-08): Autonomie — bez spojení to řekne horní karta, proč nic není v plánu (všechny položky kalendáře vypnuté), skončené rozhodnutí, Vypnuto v řádku kalendáře
     "auto.a5.stale": "Bez spojení s robotem od {at}: co tu vidíš, už nemusí platit.",
     "auto.a5.connecting": "Připojuji se k robotu…",

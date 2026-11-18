@@ -2717,9 +2717,12 @@ body.vt-frame.vt-m-sheet #row_icons > .col-10 { flex: 1 1 auto; width: auto; max
    not fit ends in "…", the bar's title has it all */
 .vt-map-precip-txt { display: flex; flex-direction: column; flex: 0 0 auto; width: min(16em, calc(100vw - 200px));
     min-width: 0; line-height: 1.3; }
-.vt-map-precip-t, .vt-map-precip-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vt-map-precip-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vt-map-precip-t { font-size: var(--vt-fs-sm); }
-.vt-map-precip-sub { font-size: var(--vt-fs-xs); color: var(--vt-muted); }
+/* T8 A723: the rain sentence with its outlook was cut after ~30 letters ("… · podle před…", live on the
+   phone and on a PC): it wraps by words inside the fixed width, at most 4 lines (then "…", the title has it all) */
+.vt-map-precip-sub { font-size: var(--vt-fs-xs); color: var(--vt-muted); white-space: normal; overflow: hidden;
+    overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; }
 .vt-map-precip-sub[hidden] { display: none; }
 .vt-map-precip.is-nowcast .vt-map-precip-t { color: var(--vt-info); }
 .vt-map-precip.is-warn .vt-map-precip-t, .vt-map-precip.is-warn .vt-map-precip-sub { color: var(--vt-warn); }

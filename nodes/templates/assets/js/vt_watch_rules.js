@@ -52,6 +52,8 @@
       return T('watchr.blocked', {when: hhmm(b.ts),
         why: T('watchr.block.' + (b.kind || 'other'), {n: b.mission || ''})});
     }
+    // T8 A723 (live, rule #16): „naposled zatím ne" / „last fired never" → jedna věta
+    if (!r.last_fired) return T('watchr.not_fired');
     return T('watchr.last', {when: ago(r.last_fired)});
   }
 

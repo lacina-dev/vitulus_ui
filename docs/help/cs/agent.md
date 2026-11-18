@@ -219,7 +219,7 @@ potvrdí, co hlídá a co udělá.
 - *co hlídáš?* je vypíše; *přestaň hlídat X* / *zruš hlídání 3*, *pozastav hlídání 3*, *obnov
   hlídání 3* — bez modelu. Blok **Hlídání** v panelu agenta ukazuje totéž s tlačítky Pozastavit /
   Obnovit / Zrušit; u každého pravidla i poslední spuštění, a když ho něco zablokovalo, tak čím
-  (*naposled 23:16 zablokováno (dok)*). Karta říká pravidlo nejdřív tvými slovy a pod nimi, jak mu agent
+  (*naposled 23:16 zablokováno (dok)*; *zatím nezasáhlo*, dokud se ani jednou nespustilo). Karta říká pravidlo nejdřív tvými slovy a pod nimi, jak mu agent
   rozumí. Pravidlo, které by vyjelo z doku a nemá k tomu tvoje slovo, má štítek *čeká na tebe* a větu,
   kterou máš napsat (*u hlídání 12 povol výjezd z doku*); horní karta **Autonomie** totéž ukáže jako
   *Hlídání #12 čeká na tvoje slovo*.

@@ -476,6 +476,28 @@ def bar(p, shots, label, cs, phone):
     tricky = label == 'bar-nb-en'
     late = label == 'bar-nb-cs'
     netfail = label == 'bar-phone-cs'
+    # T8 A723 (seen live): the longest sentence (rain around + the outlook) was cut in the bar after ~30 letters
+    # ("… · podle před…"): now it wraps inside the fixed width and is whole, the buttons stay in reach
+    dry = svc.rain
+    svc.rain = dict(dry, nearest_rain_km=30, raining_fraction=0.1, max_mmh=1.0,
+                    outlook=[{'min': 15, 'near_km': 60, 'covered': 0.9}, {'min': 30, 'near_km': 15, 'covered': 0.9}])
+    p.ev("mapping_v3._precip._fetch()")
+    p.until("(()=>{const s=document.querySelector('.vt-map-precip-sub');return s&&/asi za \\d+ min|in about \\d+ min/.test(s.textContent)})()", 8000)
+    lg = p.ev("""(()=>{const s=document.querySelector('.vt-map-precip-sub'), c=document.querySelector('.vt-precip-rain'), b=document.getElementById('mapv3_precip_badge').getBoundingClientRect();
+        const r=document.createRange(); r.selectNodeContents(s); const q=r.getBoundingClientRect(), o=s.getBoundingClientRect();
+        return {text:s.textContent, same:!!c&&c.textContent===s.textContent, cutH:s.scrollHeight>s.clientHeight+1, cutW:s.scrollWidth>s.clientWidth+1,
+                inBox:q.bottom<=o.bottom+1&&q.right<=o.right+1, lines:Math.round(o.height/parseFloat(getComputedStyle(s).lineHeight)),
+                barIn:b.left>=0&&b.right<=innerWidth&&b.top>=0, w:Math.round(o.width)}})()""")
+    rl = p.ev(BAR_JS)
+    check(label + ': A723 the long rain sentence with its outlook is whole in the bar (wrapped, nothing cut)',
+          re.search(r'asi za \d+ min|in about \d+ min', lg['text'] or '') and lg['same'] and not lg['cutH'] and not lg['cutW'] and lg['inBox'] and lg['lines'] <= 4, lg)
+    check(label + ': A723 … the bar stays on the screen, ▶ and Whole area in reach, no map control covered, no horizontal scroll',
+          lg['barIn'] and rl.get('playIn') and rl.get('playHit') and rl.get('fitIn') and rl.get('fitHit') and not rl.get('covered') and not rl.get('hs'), (lg, rl))
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-bar-long.png'))
+    svc.rain = dry
+    p.ev("mapping_v3._precip._fetch()")
+    p.until("(w)=>{const s=document.querySelector('.vt-map-precip-sub');return s&&!/min/.test(s.textContent)}", 8000)
     if label == 'bar-nb-cs':
         # T40d: the nowcast brings rain close to the garden at +30 min: the line says when
         svc.rain = dict(svc.rain, outlook=[{'min': 15, 'near_km': 60, 'covered': 0.9}, {'min': 30, 'near_km': 15, 'covered': 0.9}])

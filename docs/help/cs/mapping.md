@@ -386,7 +386,7 @@ které si robot právě pamatuje — žádnou uloženou mapu nemění.
 — kterou skládá vlastní služba srážek robota (běží na robotu vedle MapProxy, port 8097). Po
 zaškrtnutí se na mapě vlevo dole objeví malá lišta přehrávání — **▶**, čas obrázku a co je to zač
 (*teď*, *−30 min* naměřeno, nebo *předpověď +20 min*), jestli v okolí zahrady prší (i v pohledu na
-zahradu — tehdy je zvýrazněné **Celé okolí**, radar je na takovou blízkost moc hrubý), a **Celé okolí** — vidět je pořád, dokud je vrstva zapnutá. Celá časová osa se otevře
+zahradu — tehdy je zvýrazněné **Celé okolí**, radar je na takovou blízkost moc hrubý; delší věta s výhledem se zalomí na pár řádků, i na telefonu), a **Celé okolí** — vidět je pořád, dokud je vrstva zapnutá. Celá časová osa se otevře
 pod řádkem vrstvy (i v panelu vrstev): čas obrázku na mapě a co je to zač (*nejnovější radar*, *radar −25 min* nebo *předpověď +20 min*,
 krátkodobá předpověď v barvě info), jak starý je nejnovější snímek radaru, **▶** pro přehrání,
 hned vedle **Celé okolí**, **Teď** pro návrat na nejnovější snímek (vrstva pak sama sleduje nové)

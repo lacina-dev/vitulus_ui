@@ -225,7 +225,7 @@ and after a restart. It confirms in one sentence what it watches and what it wil
 - *what are you watching?* lists them; *stop watching X* / *cancel watch 3*, *pause watch 3*,
   *resume watch 3* — no model needed. The **Watching** block in the agent panel shows the same list
   with Pause / Resume / Cancel; for each rule also its last run, and when something blocked it, what
-  (*last 23:16 blocked (dock)*). Each card says the rule in your own words first and under them how the
+  (*last 23:16 blocked (dock)*; *has not fired yet* until its first run). Each card says the rule in your own words first and under them how the
   agent reads it. A rule that would leave the dock without your word for it says *waits for you* and
   the sentence to write (*u hlídání 12 povol výjezd z doku*); the top card of **Autonomy** shows the
   same as *Watch #12 waits for your word*.
