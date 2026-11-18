@@ -94,19 +94,27 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
     const kindOf = g0.VTLink.kind;
     check('order: put off (D, ' + D.length + ') is only read-only plumbing — exactly what vt_link.js calls plumbing; nothing it calls an action, a stop, a drive or a query',
         D.length >= 2 && D.length <= 4 && D.every((t) => kindOf({ op: 'publish', topic: t, msg: { data: true } }) === 'plumbing'), D.map((t) => [t, kindOf({ op: 'publish', topic: t, msg: { data: true } })]));
-    check('order: EVERY topic vt_link.js treats as a command (action, stop, drive, query) is advertised at once (' + A.length + ' of ' + advs.length + ' advertisements; decision after review A668)',
-        B.length === 0 && A.length + D.length === advs.length && advs.every((t) => kindOf({ op: 'publish', topic: t, msg: { data: true } }) === 'plumbing' || cls('advertise', t) === 'A'), [A.length, B.length, D.length]);
-    check('order: settings, saving and managing are advertised AT ONCE too (vt_link.js: every publish that is not plumbing is an action): scheduler, power module, maps / paths / programs, dock manager, mapping',
-        ['/scheduler/set_enabled', '/scheduler/set_mode', '/scheduler/set_window', '/scheduler/set_calendar', '/scheduler/set_settings', '/scheduler/ignore_rain_once', '/scheduler/clear_issues',
+    check('order (M19 + A762): at once goes only what stops, switches off or cancels (' + A.length + '); the main commands right behind the TF topic (' + by(advs, 'advertise', 'Q').length + '); every other command is put off behind the subscriptions (' + by(advs, 'advertise', 'P').length + ') and advertised on demand; plumbing last (' + D.length + ')',
+        A.length >= 15 && A.length <= 25 && by(advs, 'advertise', 'Q').length >= 15 && by(advs, 'advertise', 'Q').length <= 25 && A.length + by(advs, 'advertise', 'Q').length + by(advs, 'advertise', 'P').length + D.length === advs.length && advs.every((t) => kindOf({ op: 'publish', topic: t, msg: { data: true } }) !== 'plumbing' || cls('advertise', t) === 'D'), [A.length, D.length]);
+    check('order (M19): everything vt_link.js itself calls a stop is at once: its STOP_BOOL topics with their stopping value, every cancel, a zero cmd_vel',
+        stopBool.every((t) => cls('advertise', t) === 'A') && ['/smach_goal/cancel', '/move_base_flex/exe_path/cancel', '/teleop/cmd_vel'].every((t) => cls('advertise', t) === 'A') &&
+        kindOf({ op: 'publish', topic: '/mower_smach/stop', msg: { data: true } }) === 'stop' && kindOf({ op: 'publish', topic: '/smach_goal/cancel', msg: {} }) === 'stop');
+    check('order (M19): settings, saving and managing are put off (advertised by themselves after the subscriptions, on demand at once): scheduler, power module, maps / paths / programs, dock manager, mapping',
+        ['/scheduler/set_mode', '/scheduler/set_window', '/scheduler/set_calendar', '/scheduler/set_settings', '/scheduler/ignore_rain_once', '/scheduler/clear_issues',
          '/pm/set_sleep_time', '/pm/set_sleep_wait_before_standby', '/pm/set_charge_current_running', '/pm/set_temp_setpoint', '/pm/set_standby_timeout_discharging',
          '/navi_manager/save_map', '/navi_manager/save_path', '/navi_manager/save_path_point', '/navi_manager/save_waypoint', '/navi_manager/load_map', '/navi_manager/load_map_rtabmap', '/navi_manager/remove_map',
          '/navi_manager/remove_point', '/navi_manager/remove_path', '/navi_manager/new_map', '/web_plan/program_new', '/web_plan/program_remove', '/dock_manager/enable_map', '/dock_manager/save_dock_program',
-         '/mapping_manager/start', '/mapping_manager/remove_site', '/mapping/save', '/mapping/set_band'].every((t) => cls('advertise', t) === 'A' && advs.includes(t)));
-    check('order: every command that moves or starts something is advertised AT ONCE, with safety (review A668: no command may wait behind its advertise) — dock / undock, go, programs, mower, apply localisation',
-        ['/dock_detector/dock', '/dock_detector/undock', '/dock_smach/start_docking', '/navi_manager/goal_point', '/navi_manager/execute_path', '/web_plan/program_select', '/web_plan/program_select_resume',
-         '/mower/set_cut_height', '/mower/set_motor_rpm', '/scheduler/run_next', '/gloc/apply', '/navi_manager/speed', '/navi_manager/interactive_marker_goal', '/navi_manager/start_new_autopath',
-         '/dock_detector/intensity/dock', '/dock_detector/intensity/undock', '/undock_intensity', '/mower_smach/reset', '/nav_tf/set_dock_pose'].every((t) => cls('advertise', t) === 'A' && advs.includes(t)));
-    check('order: a topic nobody listed is advertised at once (safe by default), a new stop too', cls('advertise', '/some/new_command') === 'A' && cls('advertise', '/some/new/stop') === 'A' && cls('advertise', '/mapping_manager/stop') === 'A');
+         '/mapping_manager/remove_site', '/mapping/save', '/mapping/set_band'].every((t) => cls('advertise', t) === 'P' && advs.includes(t)));
+    const MAIN_N = 20;
+    const MAIN = ['/navi_manager/goal_point', '/navi_manager/interactive_marker_goal', '/navi_manager/execute_path', '/navi_manager/start_new_autopath', '/navi_manager/speed',
+        '/dock_detector/dock', '/dock_detector/undock', '/dock_detector/intensity/dock', '/dock_detector/intensity/undock', '/undock_intensity', '/dock_smach/start_docking',
+        '/web_plan/program_select', '/web_plan/program_select_resume', '/mower_smach/reset', '/scheduler/run_next', '/scheduler/set_enabled',
+        '/mower/set_cut_height', '/mower/set_motor_rpm', '/mower/set_motor_dir', '/mapping_manager/start'];
+    check('order (A762): the main commands (' + MAIN.length + ') — go and navigation, dock / undock, program select / start, mower, mapping start, scheduler on / off — are the priority group, each really advertised by the page',
+        MAIN.every((t) => cls('advertise', t) === 'Q' && advs.includes(t)) && by(advs, 'advertise', 'Q').length === MAIN.length, MAIN.filter((t) => cls('advertise', t) !== 'Q' || !advs.includes(t)));
+    check('order (A762): motors, blade and mower power are not in it only because they are stops (at once)', ['/base/motor_power', '/mower/set_motor_on', '/mower/set_power', '/mapping_manager/stop'].every((t) => cls('advertise', t) === 'A'));
+    check('order (M19): rare commands stay put off (on demand): apply a localisation estimate, set the dock pose', cls('advertise', '/gloc/apply') === 'P' && cls('advertise', '/nav_tf/set_dock_pose') === 'P');
+    check('order (M19): a topic nobody listed is put off like any command; a new stop / cancel / cmd_vel goes at once', cls('advertise', '/some/new_command') === 'P' && cls('advertise', '/some/new/stop') === 'A' && cls('advertise', '/x/cancel') === 'A' && cls('advertise', '/some/cmd_vel') === 'A' && cls('advertise', '/mapping_manager/stop') === 'A');
     check('order: states of motors / STOP / mux / mower / dock / power and the TF topic are subscribed at once',
         ['/base/motor_power_state', '/cmd_vel_mux/active', '/mower_smach/status', '/mower_smach/busy', '/mower_smach/stop', '/mower/status', '/mower/link', '/mower/set_motor_on', '/dock_smach/dock_status',
          '/dock_manager/is_in_dock_confirmed', '/pm/power_status', '/device_state_pub/icon_status', '/move_base_flex/exe_path/status', '/tf2_web_republisher/tf_repub_7'].every((t) => cls('subscribe', t) === 'A') &&
@@ -126,8 +134,8 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
     const iTf = idx((x) => x.m.service === '/republish_tfs');
     check('start: the TF request is the ' + iTf + 'th request on the wire (was the 249th of 255)', iTf > 0 && iTf <= 150, iTf);
     const nAS = first.filter((x) => x.m.op === 'advertise' || x.m.op === 'subscribe').length;
-    check('start: only class A is on the wire before the position is on its way (' + nAS + ' advertise + subscribe, was 227)', nAS <= 130 &&
-        first.filter((x) => x.m.op === 'advertise' || x.m.op === 'subscribe').every((x) => cls(x.m.op, x.m.topic) === 'A'), nAS);
+    check('start: before the position is on its way only class A is on the wire, plus the advertise the page\'s own first publishes took out on demand (' + nAS + ' advertise + subscribe, was 227)', nAS <= 40 &&
+        first.filter((x) => x.m.op === 'advertise' || x.m.op === 'subscribe').every((x) => cls(x.m.op, x.m.topic) === 'A' || ['/web_plan/reload', '/dock_manager/send_programs'].includes(x.m.topic)), nAS);
     const before = (t) => FIX.findIndex((x) => x[1] === t && x[0] !== 'publish') + 1;
     const lateNow = ['/base/motor_power', '/pm/set_motor_switch', '/mower_smach/stop', '/dock_smach/stop', '/smach_goal/cancel', '/move_base_flex/exe_path/cancel', '/mower/set_motor_on',
         '/base/motor_power_state', '/cmd_vel_mux/active', '/mower_smach/status', '/dock_smach/dock_status', '/mower/status', '/pm/set_sleep_until_charged', '/scheduler/sleep_cancel'].filter((t) => idx((x) => x.m.topic === t && x.m.op !== 'publish') > before(t));
@@ -144,6 +152,13 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
         const ia = first.findIndex((x) => x.m.op === 'advertise' && x.m.topic === t), ip = first.findIndex((x) => x.m.op === 'publish' && x.m.topic === t);
         check('start: ' + t + ' — advertised before its first publish, as before M17', ia >= 0 && ip > ia, [ia, ip]);
     });
+    // M19: the order on the wire — stops' advertise, then the TF request, the other advertisements only after the TF topic
+    {
+        const stopsAdv = first.map((x, i) => [i + 1, x]).filter(([i, x]) => x.m.op === 'advertise' && cls('advertise', x.m.topic) === 'A');
+        check('order on the wire (M19): every stop advertise (' + stopsAdv.length + ') goes out before the TF request (#' + iTf + ')', stopsAdv.length >= 15 && stopsAdv.every(([i]) => i < iTf), stopsAdv.filter(([i]) => i >= iTf).map(([i, x]) => x.m.topic));
+        const others = first.filter((x) => x.m.op === 'advertise' && cls('advertise', x.m.topic) !== 'A').map((x) => x.m.topic);
+        check('order on the wire (M19): no other advertise before the TF topic is subscribed — but the two the page itself published on at once (on demand)', others.sort().join() === '/dock_manager/send_programs,/web_plan/reload', others);
+    }
     // nothing more goes while the TF answer is not there …
     K.run(1000);
     check('start: while the TF answer is on its way nothing else is put in rosbridge\'s queue', K.sent.length === first.length);
@@ -160,13 +175,18 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
     check('start: a safety request that comes while the batches run goes at once', K.sent.length === n1 + 1);
     K.run(t0 + 60000);
     const rest = K.sent.slice(n0 + 1).filter((x) => !/tf_repub/.test(x.m.topic || ''));
-    const order = rest.map((x) => (cls(x.m.op, x.m.topic) === 'B' ? (x.m.op === 'subscribe' ? '1' : '2') : (cls(x.m.op, x.m.topic) === 'C' ? '3' : '4'))).join('');
-    check('start: the first picture, then the rest of the subscriptions (C), the last advertises (D) at the very end', /^1+3+4+$/.test(order), order.replace(/(.)\1+/g, (m, c) => c + '×' + m.length + ' '));
+    const order = rest.map((x) => ({ Q: '0', B: '1', C: '3' }[cls(x.m.op, x.m.topic)] || '4')).join('');
+    check('start (A762): behind the TF topic the main commands\' advertise (0), the first picture (1), the rest of the subscriptions (3), then the put-off advertisements (4)', /^0+1+3+4+$/.test(order), order.replace(/(.)\1+/g, (m, c) => c + '×' + m.length + ' '));
     const tOf = (f) => { const r = rest.filter(f); return r.length ? r[r.length - 1].t - t0 : null; };
     const tB = 0, tC = tOf((x) => x.m.op === 'subscribe'), tEnd = rest[rest.length - 1].t - t0;
     console.log('     after the TF topic: last subscribe ' + tC + ' ms · last advertise of all (D) ' + tEnd + ' ms (timers on time)');
-    check('start: every advertise is out by itself ' + tEnd + ' ms after the TF topic (' + rest.length + ' requests, never more than ' + K.api.BATCH + ' per ' + K.api.GAP + ' ms)', tEnd <= 4500 && tB <= 2000 &&
-        (() => { const per = {}; rest.forEach((x) => { per[x.t] = (per[x.t] || 0) + 1; }); return Math.max(...Object.values(per)) <= K.api.BATCH; })(), [tB, tC, tEnd]);
+    const isQ = (x) => cls('advertise', x.m.topic) === 'Q';
+    const qT = rest.filter((x) => x.m.op === 'advertise' && isQ(x)).map((x) => x.t - t0);
+    check('start (A762): all the main commands are advertised ' + Math.max(...qT) + ' ms after the TF topic\'s subscribe (≤ 450 ms), before any other subscription', qT.length === MAIN_N && Math.max(...qT) <= 450 && order.indexOf('1') === qT.length, [qT.length, Math.max(...qT)]);
+    const advT = rest.filter((x) => x.m.op === 'advertise' && !isQ(x)).map((x) => x.t - t0), perAdv = {}; rest.filter((x) => x.m.op === 'advertise' && !isQ(x)).forEach((x) => { perAdv[x.t] = (perAdv[x.t] || 0) + 1; });
+    check('start (M19): the subscriptions are out ' + tC + ' ms after the TF topic (never more than ' + K.api.BATCH + ' per ' + K.api.GAP + ' ms); the put-off advertisements start 1 s after the last of them and go 2 per ' + K.api.GAP + ' ms, all out by themselves after ' + tEnd + ' ms',
+        tC <= 2500 && advT[0] >= tC + 1000 && Math.max(...Object.values(perAdv)) <= 2 && tEnd <= 12000 &&
+        (() => { const per = {}; rest.forEach((x) => { per[x.t] = (per[x.t] || 0) + 1; }); return Math.max(...Object.values(per)) <= K.api.BATCH; })(), [tC, advT[0], tEnd]);
     // nothing lost, nothing twice — EVERY advertise and subscribe of the page
     const wire = K.sent.filter((x) => x.m.op === 'advertise' || x.m.op === 'subscribe').map(key);
     const want = FIX.filter((x) => x[0] === 'subscribe' || x[0] === 'advertise').map((x) => x[0] + ' ' + x[1]);
@@ -186,8 +206,8 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
     const n4 = K.sent.length;
     FIX.forEach((x) => { if (x[0] === 'advertise' || x[0] === 'subscribe') { K.send(x[0], x[1]); } });
     const again = K.sent.slice(n4).map(key);
-    check('reconnect: the advertise of every command again at once, the rest waits for the TF topic', again.includes('advertise /base/motor_power') && again.includes('subscribe /base/motor_power_state') && again.includes('advertise /pm/set_sleep_until_charged') &&
-        again.includes('advertise /dock_detector/dock') && again.includes('advertise /web_plan/program_select') && again.includes('advertise /scheduler/set_calendar') && again.includes('advertise /gloc/compute') && !again.includes('subscribe /scan') && !again.includes('advertise /interactive_marker/feedback'), again.length);
+    check('reconnect: the stops and the states again at once, the rest waits for the TF topic', again.includes('advertise /base/motor_power') && again.includes('subscribe /base/motor_power_state') && again.includes('advertise /pm/set_sleep_until_charged') && again.includes('advertise /dock_smach/stop') &&
+        !again.includes('advertise /dock_detector/dock') && !again.includes('advertise /scheduler/set_calendar') && !again.includes('subscribe /scan') && !again.includes('advertise /interactive_marker/feedback'), again.length);
     // the TF answer never comes: the hold runs out
     K.run(K.at() + K.api.HOLD - 10); const n5 = K.sent.length; K.run(K.at() + 20);
     check('reconnect: no TF answer → the rest starts after ' + K.api.HOLD + ' ms anyway', n5 === K.sent.length - K.api.BATCH && n5 === n4 + again.length, [n4 + again.length, n5, K.sent.length]);
@@ -207,19 +227,30 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
     const cmds = ['/dock_detector/undock', '/navi_manager/goal_point', '/navi_manager/save_map', '/scheduler/set_calendar', '/vitulus_rosbag/d435/record', '/gloc/compute', '/mapping_manager/start', '/base/motor_power', '/mower_smach/stop', '/pm/set_sleep_until_charged'];
     cmds.forEach((t) => K.send('advertise', t)); K.send('advertise', '/interactive_marker/feedback');
     K.send('subscribe', '/scan');
-    check('commands: every command\'s advertise is on the wire at the connection (stops, sleep cancel, moving / starting, settings, saving, recording); only plumbing waits',
-        K.names().join() === cmds.map((t) => 'advertise ' + t).join());
+    check('commands (M19): at the connection only the stops\' advertise is on the wire; the other commands\' advertise waits',
+        K.names().join() === ['/base/motor_power', '/mower_smach/stop', '/pm/set_sleep_until_charged'].map((t) => 'advertise ' + t).join());
     let n = K.sent.length;
-    K.run(300); cmds.forEach((t) => K.send('publish', t, { msg: { data: true } })); K.send('publish', '/teleop/cmd_vel', { msg: {} });
-    check('commands: any of them pressed in the first second → handed to the link guard at the moment of the press, in order, alone (no advertise pulled, nothing kept)',
-        K.sent.length === n + cmds.length + 1 && K.sent.slice(n).every((x) => x.m.op === 'publish' && x.t === 300) && K.timers() === 1 /* only the hold */, [K.sent.length - n, K.timers()]);
+    K.run(300);
+    // STOPs first: at once, alone
+    K.send('publish', '/mower_smach/stop', { msg: { data: true } }); K.send('publish', '/pm/set_sleep_until_charged', { msg: { data: false } }); K.send('publish', '/base/motor_power', { msg: { data: false } }); K.send('publish', '/teleop/cmd_vel', { msg: {} });
+    check('commands: a STOP, the sleep cancel, motors off, a cmd_vel in the first ms → at once, alone (their advertise went first)', K.sent.length === n + 4 && K.sent.slice(n).every((x) => x.m.op === 'publish' && x.t === 300));
+    // a command whose advertise still waits: advertise on demand, then the command, both NOW
+    const acts = ['/dock_detector/undock', '/navi_manager/goal_point', '/navi_manager/save_map', '/scheduler/set_calendar', '/vitulus_rosbag/d435/record', '/gloc/compute', '/mapping_manager/start'];
+    n = K.sent.length; acts.forEach((t) => K.send('publish', t, { msg: { data: true } }));
+    const pairs = acts.every((t, i) => key(K.sent[n + 2 * i]) === 'advertise ' + t && key(K.sent[n + 2 * i + 1]) === 'publish ' + t);
+    check('commands (M19): a command pressed before its topic is advertised → its advertise goes out on demand and the command right behind it, both at the moment of the press, nothing in between, nothing kept',
+        K.sent.length === n + 2 * acts.length && pairs && K.sent.slice(n).every((x) => x.t === 300) && K.timers() === 1 /* only the hold */, [K.sent.length - n, K.timers()]);
+    n = K.sent.length; acts.forEach((t) => K.send('publish', t, { msg: { data: true } }));
+    check('commands: the next command on the same topic goes alone (advertised once)', K.sent.length === n + acts.length && K.sent.slice(n).every((x) => x.m.op === 'publish'));
     // plumbing published while its advertise waits: the advertise goes ahead, both at once
     n = K.sent.length; K.send('publish', '/interactive_marker/feedback', { msg: {} });
     check('plumbing: a publish whose (put-off) advertise still waits → the advertise, then the publish, at once', K.sent.length === n + 2 && key(K.sent[n]) === 'advertise /interactive_marker/feedback' && K.sent[n + 1].m.op === 'publish' && K.sent[n + 1].t === 300);
+    K.run(60000);
+    check('commands: what was advertised on demand is not advertised again by the batches', acts.every((t) => K.sent.filter((x) => key(x) === 'advertise ' + t).length === 1));
     // a topic the page advertises only at the click, long after the start: straight through, as before M17
-    K.send('subscribe', '/tf2_web_republisher/tf_repub_1'); K.run(60000);
+    K.send('subscribe', '/tf2_web_republisher/tf_repub_1'); K.run(120000);
     n = K.sent.length; K.send('advertise', '/vt_terrain/some_cmd'); K.send('publish', '/vt_terrain/some_cmd', { msg: {} });
-    check('commands: a topic advertised at the click long after the start is not held (advertise, publish at once — as before M17)', K.sent.length === n + 2 && K.sent.slice(n).map((x) => x.m.op).join() === 'advertise,publish' && K.sent[n + 1].t === 60000);
+    check('commands: a topic advertised at the click long after the start is not held (advertise, publish at once — as before M17)', K.sent.length === n + 2 && K.sent.slice(n).map((x) => x.m.op).join() === 'advertise,publish' && K.sent[n + 1].t === 120000);
 }
 {
     // ---- with the real link guard (vt_link.js) behind it, as on the page: the race with a STOP, a late command ----
@@ -263,6 +294,21 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
         check('race with STOP: ' + act + ' pressed at 300 ms, STOP at 500 ms → nothing of the command goes out after the STOP (it went at the press, or not at all)',
             iStop >= 0 && after.length === 0 && p.filter((x) => x.endsWith(' ' + act)).every((x) => x === '300 ' + act) && STOPS.every((x) => p.includes('500 ' + x[0])), p);
     });
+    // M19, after a reconnect: STOP in the first ms and a command ahead of its advertise, with the real link guard
+    {
+        const K = mkBoth(); K.connect(); const t0 = K.at();
+        const all = ACTIONS.concat(STOPS.map((x) => x[0]));
+        all.forEach((t) => K.send('advertise', t)); K.frames(t0 + 1500);
+        K.close(); K.run(t0 + 3000); K.connect(); const t1 = K.at();
+        all.forEach((t) => K.send('advertise', t));                 // vt_ros_share.js: everything again on the new socket
+        STOPS.forEach((x) => K.send('publish', x[0], x[1]));         // STOP in the first ms of the new connection
+        K.frames(t1 + 200); K.send('publish', '/dock_detector/undock', { data: true });
+        K.frames(t1 + 9000);
+        const w = K.wire.filter((x) => x.t >= t1).map((x) => (x.t - t1) + ' ' + x.m.op + ' ' + x.m.topic);
+        check('reconnect (M19): the stops\' advertise and a STOP pressed in the first ms go out at 0 ms, the STOP after its advertise', STOPS.every((x) => w.indexOf('0 advertise ' + x[0]) >= 0 && w.indexOf('0 publish ' + x[0]) > w.indexOf('0 advertise ' + x[0])), w.slice(0, 8));
+        const ia = w.indexOf('200 advertise /dock_detector/undock');
+        check('reconnect (M19): a command 200 ms after the reconnect, its topic not advertised yet → advertise on demand and the command right behind it, both at 200 ms (through the link guard)', ia >= 0 && w[ia + 1] === '200 publish /dock_detector/undock' && w.filter((x) => / advertise \/dock_detector\/undock$/.test(x)).length === 1, w.filter((x) => /undock/.test(x)));
+    }
     // a late command: the age counts from the press (the link guard gets it at the press)
     {
         const K = mkBoth(); K.connect(); const t0 = K.at();
@@ -321,7 +367,7 @@ const key = (x) => x.m.op + ' ' + x.m.topic;
     // before the first connection nothing of B / C leaks into the link guard's queue
     const Q = mkOrder(); Q.send('subscribe', '/scan'); Q.send('advertise', '/tf2_web_republisher/goal'); Q.send('subscribe', '/base/motor_power_state'); Q.run(30000);
     check('edge: with the link down only safety is handed on (the link guard keeps it for the connection); the rest waits here', Q.names().join() === 'subscribe /base/motor_power_state');
-    Q.connect(); Q.run(Q.at() + Q.api.HOLD + 500);
+    Q.connect(); Q.run(Q.at() + Q.api.HOLD + 5000);
     check('edge: … and goes after the connection', Q.names().includes('subscribe /scan') && Q.names().includes('advertise /tf2_web_republisher/goal'));
 }
 check('order: installed on the page\'s main link, before anything is sent; a failure to install never stops the page', /try \{\s*this\.order = vtStartOrder\(this\.ros\);/.test(mv) && /\} catch \(e\) \{ console\.warn\('\[ROS\] start order not installed:', e\); \}/.test(mv) &&

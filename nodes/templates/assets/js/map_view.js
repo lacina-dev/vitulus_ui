@@ -1307,44 +1307,56 @@ class MapListItemTemplate {
  * publisher for 1 s only, so a subscriber that connects later on a busy robot
  * would have lost the command silently — review of M17).
  *
- *  A. AT ONCE, as before: EVERY advertise of a command — what stops, switches
- *     off or cancels, what moves or starts something, every
- *     setting and every save (all of them "actions" for vt_link.js), the
- *     page's own "send me your data again" topics, and any topic nobody
- *     listed. So a command pressed at any moment finds its publisher as old
- *     as it was before M17 and goes to vt_link.js at once (review A668: no
- *     command may wait behind its advertise). Subscribe of the states that say
- *     whether the robot runs (VT_ORDER_STATE) and of the TF topic.
- *  B. AHEAD — the subscriptions of the first picture (VT_ORDER_PICTURE: the
- *     base map, the footprint, localisation).
- *  C. THE REST of the subscriptions.
- *  D. LAST — advertise of what is no command at all (VT_ORDER_LAST: the
- *     read-only plumbing vt_link.js names so too — the unused action
- *     interface of the TF republisher, the marker feedback).
- *     B, C and D wait until the robot's position is on its way — the TF
- *     topic's subscribe has gone out (the answer to /republish_tfs came, so
- *     rosbridge has worked through A) — or VT_ORDER_HOLD_MS after the
- *     connection at the latest; then they go in small batches (VT_ORDER_BATCH
- *     per VT_ORDER_GAP_MS, about rosbridge's own pace, so its queue stays
- *     short and a later A waits one batch at most), in that order. Once the
- *     queues are empty everything goes straight through, as before — until
- *     the next connection.
+ *  T17 M19 (2026-11-18) — the order on every (re)connection:
+ *  1. AT ONCE: advertise of what stops, switches off or cancels
+ *     (VT_ORDER_STOP: motors, torque, cancel, stop, blade, power, sleep and
+ *     its cancel, cmd_vel) and subscribe of the states that say whether the
+ *     robot runs (VT_ORDER_STATE) and of the TF topic.
+ *  2. The robot's position: the TF request passes like every service call;
+ *     when the TF topic's subscribe has gone out (or VT_ORDER_HOLD_MS after
+ *     the connection at the latest) the advertise of the MAIN commands goes
+ *     first (VT_ORDER_PRIORITY, ~20: go, dock / undock, programs, mower,
+ *     mapping start, scheduler on / off — the buttons seen right after the
+ *     page opens; A762: their first press must find its publisher already
+ *     there, not made on demand), then the subscriptions, in small batches
+ *     (VT_ORDER_BATCH per VT_ORDER_GAP_MS): the first picture
+ *     (VT_ORDER_PICTURE: base map, footprint, localisation), then the rest.
+ *  3. LAST, by themselves, VT_ORDER_SETTLE_MS after the last subscribe and
+ *     slowly (VT_ORDER_ADV_BATCH per VT_ORDER_GAP_MS): the advertise of every
+ *     other command (settings, saving, calibration, rare actions …) and at
+ *     the very end the read-only plumbing (VT_ORDER_LAST).
+ *     Why last: right after a restart rosbridge needs ~54 ms for each of the
+ *     109 advertisements (measured live 2026-11-18); sent ahead of the TF
+ *     request (M17, A672) they held the first position back 9–12 s whenever
+ *     the page was the only one connected. Why slowly: so that no pile of
+ *     requests stands between an advertise and a publish that follows it
+ *     (rosbridge keeps a new publisher's first messages for 1 s only; with
+ *     120 requests between the two, 2 of 6 first messages were lost on a
+ *     private rosbridge; right behind its advertise 6 of 6 arrived, also
+ *     with 120 requests queued before it).
  *
  * A publish and a service call are NEVER kept here and never reordered: they
  * pass to vt_link.js at the moment of the press, so every protection of the
  * link guard counts from the press (a fresh frame, the command's age, a STOP
- * throws away what waits). There is no queue of commands in this function
- * (a first version kept a publish back 1.5 s behind a young advertise: a STOP
- * pressed meanwhile did not know of it and the command went out AFTER the
- * STOP — review A668).
- * A publish on a topic whose advertise still waits in a batch (class D only)
- * takes that advertise out ahead of itself; both go at once.
+ * throws away what waits). There is no queue of commands in this function.
+ * A command whose advertise has not gone out yet takes it out of the waiting
+ * ones and sends it IMMEDIATELY ahead of itself — advertise, then the publish,
+ * nothing in between — exactly what a topic advertised only at the click
+ * (vt_terrain_panel.js) has always done. A STOP never waits for anything: its
+ * advertise is among the first requests of the connection.
  * On a closed link the waiting advertise / subscribe are forgotten
  * (vt_ros_share.js sends every live one again on the next connection).
- * Tested: tools/test_map_m17.node.js (the lists against what the page sends
- * and against vt_link.js, the race with a STOP, a late command).
+ * Tested: tools/test_map_m17.node.js (the lists against what the page sends and against
+ * vt_link.js, the order, a command ahead of its advertise, the race with a STOP, reconnect).
  */
-var VT_ORDER_BATCH = 8, VT_ORDER_GAP_MS = 150, VT_ORDER_HOLD_MS = 2500;
+var VT_ORDER_BATCH = 8, VT_ORDER_GAP_MS = 150, VT_ORDER_HOLD_MS = 4000;
+var VT_ORDER_ADV_BATCH = 2, VT_ORDER_SETTLE_MS = 1000;
+// 1: what stops, switches off or cancels (advertise) — the first requests of every connection
+var VT_ORDER_STOP = new RegExp('(^|/)cmd_vel$|/cancel$|/stop$|^/(' + [
+    'base/motor_power', 'set_motor_switch', 'pm/set_motor_switch', 'base/set_torque', 'pm/set_bat_out_switch',
+    'pm/set_robot_sleep', 'pm/set_sleep_until_charged',          // sleep — and the CANCEL of a sleep (vt_autonomy.js sends false)
+    'mower/(set_power|set_motor_on|set_cmd)', 'navi_manager/stop_autopath', 'scheduler/(inhibit|sleep_now|sleep_cancel)'
+].join('|') + ')$');
 // A: the states that say whether the robot runs (subscribe), with the TF topic
 var VT_ORDER_STATE = new RegExp('^/(' + [
     'tf2_web_republisher/tf_repub_\\d+',
@@ -1359,11 +1371,23 @@ var VT_ORDER_PICTURE = /^\/(navi_manager\/(map|active_map)|move_base_flex\/local
 // the same read-only plumbing as vt_link.js PLUMBING
 var VT_ORDER_LAST = /^\/(tf2_web_republisher|interactive_marker)\//;
 
-// what an advertise / subscribe is for the order: 'A', 'B', 'C' or 'D'
+// 2: the main commands — the buttons seen right after the page opens (main bar, robot panel, map):
+// advertised right behind the TF topic's subscribe, ahead of the other subscriptions
+var VT_ORDER_PRIORITY = new RegExp('^/(' + [
+    'navi_manager/(goal_point|interactive_marker_goal|execute_path|start_new_autopath|speed)',
+    'dock_detector/(dock|undock|intensity/dock|intensity/undock)', 'undock_intensity', 'dock_smach/start_docking',
+    'web_plan/(program_select|program_select_resume)', 'mower_smach/reset', 'scheduler/(run_next|set_enabled)',
+    'mower/(set_cut_height|set_motor_rpm|set_motor_dir)', 'mapping_manager/start'
+].join('|') + ')$');
+// what an advertise / subscribe is for the order: 'A' at once; subscribe 'B' (first picture), 'C' (the rest);
+// advertise 'Q' (a main command: first behind the TF topic), 'P' (any other command, put off behind the
+// subscriptions; on demand at once), 'D' (plumbing, last)
 function vtOrderClass(op, topic) {
     topic = String(topic || '');
     if (op === 'advertise') {
-        return VT_ORDER_LAST.test(topic) ? 'D' : 'A';           // every command, and any topic nobody listed: at once
+        if (VT_ORDER_LAST.test(topic)) { return 'D'; }
+        if (VT_ORDER_STOP.test(topic)) { return 'A'; }
+        return VT_ORDER_PRIORITY.test(topic) ? 'Q' : 'P';
     }
     if (op === 'subscribe') {
         if (VT_ORDER_STATE.test(topic)) { return 'A'; }
@@ -1379,33 +1403,47 @@ function vtStartOrder(ros, o) {
     var later = o.later || function (fn, ms) { return setTimeout(fn, ms); };
     var unlater = o.unlater || function (id) { clearTimeout(id); };
     var send = ros.callOnConnection;          // roslib's own (prototype) door
-    // waiting for their batch, in this order: B subscribe (the first picture), B advertise, C, D
-    var held = [[], [], [], []];
+    // waiting for their batch, in this order: Q advertise (main commands), B subscribe (the first picture),
+    // C subscribe, P advertise, D advertise
+    var held = [[], [], [], [], []];
     var early = {};                           // topics published while the link was down
-    var timer = null, holdTimer = null, winAt = 0;
+    var timer = null, holdTimer = null, winAt = 0, subAt = 0;
     var open = false;                         // B / C / D may go: the TF topic is subscribed on this socket (or the hold ran out)
-    var st = { a: 0, b: 0, c: 0, d: 0, cancelled: 0 };
+    var st = { a: 0, q: 0, b: 0, c: 0, p: 0, d: 0, cancelled: 0, on_demand: 0 };
 
     function out(m) { return send.call(ros, m); }
     function up() { return !!(ros.socket && ros.socket.readyState === 1); }
-    function waiting() { return held[0].length + held[1].length + held[2].length + held[3].length; }
-    function next() { for (var k = 0; k < 4; k++) { if (held[k].length) { return held[k].shift(); } } return null; }
+    function waiting() { return held[0].length + held[1].length + held[2].length + held[3].length + held[4].length; }
+    function early3() { return held[0].length + held[1].length + held[2].length; }      // main commands + subscriptions
+    function next() { for (var k = 0; k < 5; k++) { if (held[k].length) { return held[k].shift(); } } return null; }
     function pump() {
         timer = null;
         if (!up() || !open) { return; }
-        // a busy page fires its timers late (live run 2026-11-17: the batches took 12 s instead
-        // of 2.5 s): a late batch is as much bigger as it is late (4 batches at most), so the
-        // pace holds on average and rosbridge still never gets the whole burst at once
-        var t = now(), due = winAt > 0 ? Math.floor((t - winAt) / VT_ORDER_GAP_MS) : 1;
-        var n = VT_ORDER_BATCH * Math.max(1, Math.min(4, due)), k = 0;
+        var t = now(), k = 0, n;
+        if (early3()) {
+            // the main commands' advertise and the subscriptions. A busy page fires its timers late (live run 2026-11-17: the batches
+            // took 12 s instead of 2.5 s): a late batch is as much bigger as it is late (4 batches
+            // at most), so the pace holds on average and rosbridge still never gets the whole burst
+            var due = winAt > 0 ? Math.floor((t - winAt) / VT_ORDER_GAP_MS) : 1;
+            n = VT_ORDER_BATCH * Math.max(1, Math.min(4, due));
+            winAt = t;
+            while (early3() && k < n) { k++; out(next()); }
+            subAt = t;
+            if (waiting()) { timer = later(pump, early3() ? VT_ORDER_GAP_MS : VT_ORDER_SETTLE_MS); }
+            return;
+        }
+        // advertisements: after the subscriptions have had their time, a few at a time and never
+        // more because a timer was late — nothing must pile up between an advertise and a publish
+        if (t - subAt < VT_ORDER_SETTLE_MS) { timer = later(pump, VT_ORDER_SETTLE_MS - (t - subAt)); return; }
         winAt = t;
-        while (waiting() && k < n) { k++; out(next()); }
+        while (waiting() && k < VT_ORDER_ADV_BATCH) { k++; out(next()); }
         if (waiting()) { timer = later(pump, VT_ORDER_GAP_MS); }
     }
     function start() {
         if (open) { return; }
         open = true;
         winAt = 0;
+        subAt = now();
         if (holdTimer) { unlater(holdTimer); holdTimer = null; }
         if (waiting() && !timer && up()) { timer = later(pump, 0); }
     }
@@ -1413,12 +1451,12 @@ function vtStartOrder(ros, o) {
         st[cls.toLowerCase()]++;
         // the start is over (nothing waits): straight through, as before M17
         if (up() && open && !waiting()) { out(m); return; }
-        held[cls === 'B' ? (m.op === 'subscribe' ? 0 : 1) : (cls === 'C' ? 2 : 3)].push(m);
+        held[cls === 'Q' ? 0 : (cls === 'B' ? 1 : (cls === 'C' ? 2 : (cls === 'P' ? 3 : 4)))].push(m);
         if (up() && open && !timer) { timer = later(pump, Math.max(0, VT_ORDER_GAP_MS - (now() - winAt))); }
     }
     // take a waiting op of this kind and topic (and id, when given) out of the batches
     function take(op, topic, id) {
-        for (var k = 0; k < 4; k++) {
+        for (var k = 0; k < 5; k++) {
             for (var i = 0; i < held[k].length; i++) {
                 var h = held[k][i];
                 if (h.op === op && h.topic === topic && (id === undefined || h.id === id)) { return held[k].splice(i, 1)[0]; }
@@ -1448,27 +1486,28 @@ function vtStartOrder(ros, o) {
             // published while the link is down (vt_link.js keeps a fresh command for the next
             // connection): its advertise must be there before it, as it was before M17
             if (!up()) { early[topic] = true; return out(m); }
-            // an advertise still waiting in a batch (class D: plumbing) goes out ahead of its publish
+            // its advertise has not gone out yet: it goes NOW, right ahead of the publish (on demand,
+            // nothing in between) — the command itself is never kept
             var a = waiting() ? take('advertise', topic) : null;
-            if (a) { out(a); }
+            if (a) { st.on_demand++; out(a); }
         }
         return out(m);
     };
     ros.on('connection', function () {
-        // a new socket: B / C / D wait for the TF topic again, VT_ORDER_HOLD_MS at most
+        // a new socket: everything but class A waits for the TF topic again, VT_ORDER_HOLD_MS at most
         open = false;
         if (holdTimer) { unlater(holdTimer); }
         holdTimer = later(function () { holdTimer = null; start(); }, VT_ORDER_HOLD_MS);
     });
     ros.on('close', function () {
         // vt_ros_share.js sends every live advertise / subscribe again on the next connection
-        held = [[], [], [], []];
+        held = [[], [], [], [], []];
         open = false;
         if (timer) { unlater(timer); timer = null; }
         if (holdTimer) { unlater(holdTimer); holdTimer = null; }
     });
     ros.__vtOrder = {
-        stats: function () { return { a: st.a, b: st.b, c: st.c, d: st.d, cancelled: st.cancelled,
+        stats: function () { return { a: st.a, q: st.q, b: st.b, c: st.c, p: st.p, d: st.d, cancelled: st.cancelled, on_demand: st.on_demand,
                                       waiting: waiting(), open: open }; }
     };
     return ros.__vtOrder;
