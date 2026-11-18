@@ -2228,7 +2228,8 @@ def a7_story(p, shots, label):
     again = p.pg.evaluate("""(()=>{const b=document.getElementById('auto_alert'), c=document.querySelector('.rp-auto-chip'), k=document.querySelector('#div_scheduler_issues .vt-cal-issue');
         return {state:b.dataset.state, lab:b.querySelector('.vt-attn-lab').textContent, text:b.querySelector('.vt-attn-txt').textContent.replace(/\u00a0/g,' '),
                 clr:!!document.getElementById('btn_auto_alert_clear'), chip:c&&c.dataset.state, hist:document.getElementById('auto_sec_history').dataset.state,
-                cal:k?[k.className, k.textContent.replace(/\u00a0/g,' ')]:null}})()""")
+                hw:!!document.getElementById('btn_auto_alert_hw'), cal:k?[k.className, k.textContent.replace(/\u00a0/g,' ')]:null}})()""")
+    check('V-i silent again in the dock: the way to Hardware reset is there at once (the board is silent now)', again['hw'], again)
     check('A12 silent again with the return in History: the box is the live fault at once (red, "again", the board\'s 40 s), no "answers again", no Clear',
           again['state'] == 'err' and again['lab'] == p.pg.evaluate("VTI18n.t('auto.alert.label')") and not again['clr']
           and re.search(r'(znovu neodpovídá|answering again) \([45]\d s\)', again['text'])
@@ -2484,6 +2485,12 @@ def vh_dock_note(p, shots, label):
           and ('zbývá 2 z 3 výjezdů' if cs else '2 of 3 exits left') in chip['tip'] and chip['right'] <= chip['vw'] and chip['h'] >= 32, chip)
     tx = dock({'kind': 'scheduled', 'active': None, 'next': {'from': to.timestamp(), 'to': to.timestamp() + 600}})
     check(label + ' V-h … locked with a window scheduled', (('naplánované od %s' if cs else 'scheduled from %s') % hm) in tx, tx)
+    tx = dock({'kind': 'waiting_clock', 'active': None, 'next': None})
+    wc = p.pg.evaluate("(()=>{const b=document.getElementById('btn_auto_ans_dock');return [b.hidden,b.textContent,b.dataset.state||'']})()")
+    check(label + ' V-i … permitted, waiting for a GPS-checked time: said so, not "locked … until you allow it"',
+          ('Dok je povolený, ale okno čeká na čas ověřený proti GPS' if cs else 'The dock is permitted, but its window waits for a GPS-checked time') in tx
+          and not re.search(r'zamčený|nepovolíš|is locked|until you allow', tx) and not wc[0] and wc[2] == 'warn'
+          and wc[1] == ('Dok povolený · čeká na čas z GPS' if cs else 'Dock permitted · waiting for GPS time'), [tx, wc])
     tx = dock({'kind': 'exits_used', 'active': None, 'next': None})
     check(label + ' V-h … exits used up', ('vyčerpané' if cs else 'used up') in tx, tx)
     tx = dock({'kind': 'unknown', 'active': None, 'next': None})
@@ -2493,6 +2500,25 @@ def vh_dock_note(p, shots, label):
     lk = p.pg.evaluate("(()=>{const b=document.getElementById('btn_auto_ans_dock');return [b.hidden,b.textContent,b.dataset.state||'']})()")
     check(label + ' V-h … locked: the chip says so in the neutral tone (the owner\'s choice)', not lk[0] and lk[1] == ('Dok zamčený' if cs else 'Dock locked') and lk[2] == '', lk)
     p.pg.evaluate("(()=>{ if(window.__dockWas!==undefined){VAgent.dock=window.__dockWas;} delete window.__dockWas; document.dispatchEvent(new CustomEvent('vagent:dock')) })()")
+    # V-i: a wait reported without its seconds: the notice over the map has no "{min}" (with them: the minutes).
+    # Only after the full story (the fit-only screens still hold a sleep notice in the line, which goes first)
+    if label not in ('desk-cs', 'phone-en'):
+        return
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    p.pub('/scheduler/report', report(now))
+    p.pg.wait_for_timeout(200)
+    p.pub('/scheduler/report', report(now, code='waiting_weather', detail={'program': 'Bigger'}))
+    shown = p.until(r'Bigger', 14000)
+    ln = p.line() or ''
+    # (a sleep notice may hold the line on a loaded machine: then only "no {placeholder} on screen" can be said)
+    check(label + ' V-i a rain wait without left_s: the notice has no "{min}"' + ('' if shown else ' (line held by another notice)'), '{' not in ln, ln)
+    p.pub('/scheduler/report', report(now))
+    p.pg.wait_for_timeout(200)
+    p.pub('/scheduler/report', report(now, code='waiting_weather', detail={'program': 'Bigger', 'left_s': 1500}))
+    p.until(r'25 min', 6000)
+    ln = p.line() or ''
+    check(label + ' V-i … and with left_s it says the minutes (25 min)', '25 min' in ln and '{' not in ln, ln)
+    p.pub('/scheduler/report', report(now))
 
 
 def vh_sheet_pills(p, shots, label):

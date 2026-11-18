@@ -4705,6 +4705,13 @@
     "auto.n.code.waiting_rejected": "{program} odmítnut při startu, další pokus za {min} min",
     "auto.n.code.waiting_battery": "Nabíjím, pak {program}",
     "auto.n.code.waiting_mower_link": "Deska sekačky neodpovídá: čekám {min} min",
+    // T8 V-i: the same without minutes (a report without left_s)
+    "auto.n.code.waiting_weather.no_min": "Déšť: čekám, pak {program}",
+    "auto.n.code.waiting_temp.no_min": "Sekačka chladne, pak {program}",
+    "auto.n.code.waiting_temp_spike.no_min": "Sekačka chladne, pak {program}",
+    "auto.n.code.waiting_critical.no_min": "{program} to po chybě zkusí znovu",
+    "auto.n.code.waiting_rejected.no_min": "{program} odmítnut při startu, zkusí to znovu",
+    "auto.n.code.waiting_mower_link.no_min": "Deska sekačky neodpovídá: čekám",
     "auto.n.code.run_off_dock": "{program} není dosekaný a robot je mimo dok",
     "auto.n.code.off_dock_stuck": "Robot se do doku nevrátil",
     "auto.n.code.blocked_pm_armed": "Spánek v modulu běží, nic se nespustí",
@@ -5332,6 +5339,8 @@
     "auto.vh.chip.open_exits": "Dok povolený do {to} · zbývá {left} z {max} výjezdů",
     "auto.vh.chip.next": "Dok zamčený · okno od {at}",
     "auto.vh.chip.exits_used": "Dok: výjezdy vyčerpané",
+    "auto.vh.dock.waiting_clock": "Dok je povolený, ale okno čeká na čas ověřený proti GPS: do té doby agent s robotem nevyjede. Běhy z kalendáře se na dok neptají.",
+    "auto.vh.chip.waiting_clock": "Dok povolený · čeká na čas z GPS",
     // D10 (2026-11-08): start nože v pravém panelu = podržení 0,5 s
     "rdock.d10.start.tip": "Podrž půl sekundy a nůž se roztočí — totéž jako Nastavení › Sekačka › START MOTOR",
     "rdock.d10.hold.idle": "▶ podrž půl sekundy, až pak se nůž roztočí.",

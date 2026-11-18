@@ -416,6 +416,9 @@ function sandbox(lang, file, extra) {
         check(l + ': … a person is still "somebody is connected"', /Somebody is connected|Někdo je připojený/.test(pp), pp);
         ['mower_link_idle', 'mower_link_idle.off_dock', 'mower_link_back', 'hw_reset.no_run', 'hw_reset_cancelled.no_run', 'hw_reset_person.claude'].forEach((k) =>
             check(l + ': journal line auto.j.waited.' + k, has('auto.j.waited.' + k) && !/\{program\}/.test(D['auto.j.waited.' + k])));
+        // V-i: every notice of a wait that says minutes has a form without them (a report without left_s)
+        const noMin = Object.keys(D).filter((k) => /^auto\.n\.code\.[a-z_]+$/.test(k) && /\{min\}/.test(D[k])).filter((k) => !D[k + '.no_min'] || /\{min\}/.test(D[k + '.no_min']));
+        check(l + ': V-i every auto.n.code.* with {min} has a .no_min without it', noMin.length === 0, noMin.join(', '));
         check(l + ': the journal carries since when (auto.j.waited.mower_link_idle has {at})', /\{at\}/.test(D['auto.j.waited.mower_link_idle']) && /\{at\}/.test(D['auto.j.waited.mower_link_idle.off_dock']));
         check(l + ': the hint promises the reminders, not "once"', /twice|dvakrát/.test(D['auto.set.mower_idle_notify.hint']) && !/once|jednou/.test(D['auto.set.mower_idle_notify.hint']));
     });

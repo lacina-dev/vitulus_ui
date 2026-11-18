@@ -4620,6 +4620,13 @@
     "auto.n.code.waiting_rejected": "{program} refused at start, next try in {min} min",
     "auto.n.code.waiting_battery": "Charging, then {program}",
     "auto.n.code.waiting_mower_link": "Mower board not answering: waiting {min} min",
+    // T8 V-i: the same without minutes (a report without left_s)
+    "auto.n.code.waiting_weather.no_min": "Rain: waiting, then {program}",
+    "auto.n.code.waiting_temp.no_min": "Mower cooling, then {program}",
+    "auto.n.code.waiting_temp_spike.no_min": "Mower cooling, then {program}",
+    "auto.n.code.waiting_critical.no_min": "{program} tries again after an error",
+    "auto.n.code.waiting_rejected.no_min": "{program} refused at start, it will try again",
+    "auto.n.code.waiting_mower_link.no_min": "Mower board not answering: waiting",
     "auto.n.code.run_off_dock": "{program} unfinished and the robot is off the dock",
     "auto.n.code.off_dock_stuck": "The robot did not come back to the dock",
     "auto.n.code.blocked_pm_armed": "Power module sleep is on, nothing starts",
@@ -5247,6 +5254,8 @@
     "auto.vh.chip.open_exits": "Dock open until {to} · {left} of {max} exits left",
     "auto.vh.chip.next": "Dock locked · window from {at}",
     "auto.vh.chip.exits_used": "Dock: exits used up",
+    "auto.vh.dock.waiting_clock": "The dock is permitted, but its window waits for a GPS-checked time: until then the agent will not drive the robot out. Calendar runs do not ask for the dock permit.",
+    "auto.vh.chip.waiting_clock": "Dock permitted · waiting for GPS time",
     // D10 (2026-11-08): the blade start in the right panel is a hold of 0.5 s
     "rdock.d10.start.tip": "Hold for half a second to start the blade — the same as Settings › Mower › START MOTOR",
     "rdock.d10.hold.idle": "Hold ▶ for half a second to start the blade.",

@@ -193,7 +193,7 @@ nastavený kalendář, nic se nemění, dokud nepřepneš.
 
 V panelu je to sekce **Kdo rozhoduje** pod Plánem. Horní karta má vždy čip doku (*Dok zamčený*, *Dok povolený do 06:00*; ťuknutí otevře
 povolení doku) a dokud rozhoduje kalendář, sekce říká dok i jednou větou — *Dok je zamčený: agent s robotem nevyjede, dokud dok nepovolíš*,
-*Dok je povolený do 06:00* (se *zbývá 2 z 3 výjezdů*, když je povolení počítá) — s odkazem **Povolení doku ›**; běhy z kalendáře se na dok neptají.
+*Dok je povolený do 06:00* (se *zbývá 2 z 3 výjezdů*, když je povolení počítá; *Dok je povolený, ale okno čeká na čas ověřený proti GPS*, dokud hodiny robota nejsou ověřené) — s odkazem **Povolení doku ›**; běhy z kalendáře se na dok neptají.
 
 ![Kdo rozhoduje s očíslovanými značkami](../img/shot-autonomy-mode.webp "1 Kalendář | Agent · 2 čeká na povolení doku, Povolení doku › · 3 platná rada · 4 pravidla a tvrdé limity")
 

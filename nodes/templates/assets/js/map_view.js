@@ -2099,6 +2099,11 @@ class TfClient {
         // of the TF topic — follows. A frame not listed here still works as before
         // (roslib asks again with it added). A listed frame that does not exist in
         // TF is what the watchdog's "other frames" rule is for (bounded, warned).
+        // T8 V-i: the list is written here on purpose - the first request must name every frame
+        // BEFORE the modules that use them load (asking them would bring back the second request
+        // and the switch of the TF topic this avoids). A new module with another frame: add its
+        // frame here in the same change (and in tools/test_map_m18.node.js); forgetting
+        // it breaks nothing, it only costs one more request a few seconds after the start.
         this._tfFrames = ['base_link', 'odom', 'base_scan', 'd435_link', 'd435_color_optical_frame'];
         var _origSubscribe = this.tfClientMap.subscribe;
         if (typeof _origSubscribe === 'function') {

@@ -212,7 +212,7 @@ calendar". After an update it is the calendar, nothing changes until you switch.
 In the panel it is the section **Who decides**, under Plan. The top card always carries a dock chip (*Dock locked*, *Dock open until 06:00*;
 a tap opens the dock permit), and while the calendar decides the section also says the dock in one
 sentence — *The dock is locked: the agent will not drive the robot out until you allow it*, *The dock is open until 06:00*
-(with *2 of 3 exits left* when the permit counts them) — with **Dock permit ›** beside it; calendar runs do not ask for the permit.
+(with *2 of 3 exits left* when the permit counts them; *The dock is permitted, but its window waits for a GPS-checked time* while the robot's clock is not verified) — with **Dock permit ›** beside it; calendar runs do not ask for the permit.
 
 ![Who decides with numbered markers](img/shot-autonomy-mode.webp "1 Calendar | Agent · 2 waits for the dock permission, Dock permit › · 3 the advice in force · 4 rules and hard limits")
 

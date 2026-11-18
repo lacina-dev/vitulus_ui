@@ -978,7 +978,9 @@
         }
         if (ck === 'scheduled' && pc.next) { return { k: 'next', v: { at: pc.nextAt }, tone: '' }; }
         if (ck === 'exits_used') { return { k: 'exits_used', v: null, tone: '' }; }
-        if (ck === 'locked' || ck === 'waiting_clock') { return { k: 'locked', v: null, tone: '' }; }
+        /* V-i (check A736): permitted, the window only waits for a GPS-checked time - not "locked … until you allow it" */
+        if (ck === 'waiting_clock') { return { k: 'waiting_clock', v: null, tone: 'warn' }; }
+        if (ck === 'locked') { return { k: 'locked', v: null, tone: '' }; }
         return null;
     }
     /* V-h: … and as a chip in the top card, in sight whoever decides (Who decides stays folded while the
@@ -2392,6 +2394,9 @@
                 var key = 'auto.n.code.' + rep.code;
                 var d = Object.assign({ program: (rep.run && rep.run.program) || '' }, rep.detail || {});
                 if (d.left_s !== undefined) { d.min = Math.max(1, Math.ceil(d.left_s / 60)); }
+                /* V-i: a wait without its seconds (left_s; the master sends it with every wait, a report without
+                   it was seen only in tests): the sentence without minutes, never "{min}" */
+                if (d.min === undefined && has(key) && /\{min\}/.test(t(key, {}))) { key += '.no_min'; }
                 var tx = has(key) ? t(key, d) : (cm && cm._sentence ? cm._sentence(rep) : '');
                 if (tx) { say(rep.code === 'starting' ? 'run_start' : 'state', lvl, tx); }
             }
@@ -3305,7 +3310,10 @@
         /* T21 A7: the advice is "switch the robot off and on": the way to the Hardware reset
            block in Sleep (its own two steps and checks); this button only goes there */
         /* T21 A8: only where the block would take it (in the dock) and while there is something to fix */
-        if (HW_ADVICE[i.code] && d.in_dock !== false && !issueOver(i) && !silentAgain(i.detail || {})) {
+        /* V-i (check A736): silent again in the dock is a plain silence - the link is back at once; only during a
+           mission's own recovery (recovering / failed, the robot is out) it is not offered */
+        var away = silentAgain(i.detail || {}) && linkDown() !== 'silent';
+        if (HW_ADVICE[i.code] && d.in_dock !== false && !issueOver(i) && !away) {
             var h = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.a7.alert.hw'));
             h.type = 'button'; h.id = 'btn_auto_alert_hw';
             h.title = t('auto.a7.alert.hw_tip');
