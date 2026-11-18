@@ -219,7 +219,9 @@ potvrdí, co hlídá a co udělá.
 - *co hlídáš?* je vypíše; *přestaň hlídat X* / *zruš hlídání 3*, *pozastav hlídání 3*, *obnov
   hlídání 3* — bez modelu. Blok **Hlídání** v panelu agenta ukazuje totéž s tlačítky Pozastavit /
   Obnovit / Zrušit; u každého pravidla i poslední spuštění, a když ho něco zablokovalo, tak čím
-  (*naposled 23:16 zablokováno (dok)*; *zatím nezasáhlo*, dokud se ani jednou nespustilo). Karta říká pravidlo nejdřív tvými slovy a pod nimi, jak mu agent
+  (*naposled 23:16 zablokováno (dok)*; *zatím nezasáhlo*, dokud se ani jednou nespustilo). Kartu uvádí krátký titulek od agenta
+  (*Prší ≥ 30 s a mimo dok → do doku*); tvoje vlastní slova a celá věta agenta se rozbalí pod ním. Pravidlo, které agent
+  neumí přečíst, hlásí oranžově *nečitelné pravidlo* — zruš ho a zadej znovu. Karta říká pravidlo nejdřív tvými slovy a pod nimi, jak mu agent
   rozumí. Pravidlo, které by vyjelo z doku a nemá k tomu tvoje slovo, má štítek *čeká na tebe* a větu,
   kterou máš napsat (*u hlídání 12 povol výjezd z doku*); horní karta **Autonomie** totéž ukáže jako
   *Hlídání #12 čeká na tvoje slovo*.
@@ -422,7 +424,7 @@ na konci řádku, oddělené, **smazat** (🗑, dvě klepnutí). **+ nová úloh
 úlohy. Když agent chce udělat něco, k čemu je potřeba člověk, zeptá se:
 **Schválit** / **Zamítnout**. Kdyby se robot pohnul, karta píše
 *ROBOT BY SE POHNUL — povolit to smíš jen ty* a tlačítko potřebuje druhé klepnutí. Držený příkaz, který pohyb není, se řekne
-podle toho, co je — *SAHÁ NA SEKAČKU*, *PŘÍKAZ NA ROBOTU* — a řádek nad mapou ukáže samotný příkaz
+podle toho, co je — *SAHÁ NA SEKAČKU*, *ROBOT BY SE POHNUL A SEKAL*, *PŘÍKAZ NA ROBOTU*, s důvodem agenta drobným písmem (*Proč: …*) — a řádek nad mapou ukáže samotný příkaz
 (*PŘÍKAZ SEKAČCE ČEKÁ NA TVOJE ANO · rostopic pub -1 /mower/…*); druhé klepnutí zůstává.
 
 ### Cesta a ranní hlášení

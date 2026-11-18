@@ -5211,7 +5211,20 @@
        An older core without `moves`: as before, the page's own guess says "movement". */
     var CLASS_MOWER = /mower|mow_|mow\.|sekack|sekačk|set_motor/i;
     var CLASS_MOVE = /cmd_vel|move_base|mbf|dock|motor_switch|motor_power|navigate|nav_goal|goal|waypoint|follow_path|exe_path|teleop|joy_vel|twist|drive|motion/i;
+    /* T8 V-k: the core now says what the request can set off (effects, a subset of motion / mower):
+       both -> 'both'. Never milder than the older reading below: what that calls movement stays
+       movement, a mower / robot command stays one when effects is empty. No effects: as before. */
     function askClass(item) {
+        var old = askClassOld(item);
+        var ef = item && Array.isArray(item.effects) ? item.effects : null;
+        if (!ef) { return old; }
+        var m = ef.indexOf('motion') >= 0 || old === 'move', w = ef.indexOf('mower') >= 0 || old === 'mower';
+        if (m && w) { return 'both'; }
+        if (m) { return 'move'; }
+        if (w) { return 'mower'; }
+        return old === 'robot' ? 'robot' : 'cmd';
+    }
+    function askClassOld(item) {
         item = item || {};
         var rule = String(item.rule || '').split(':')[0], why = String(item.moves_why || '');
         if (rule === 'mower') { return 'mower'; }
@@ -5391,8 +5404,16 @@
             mv.className = 'amove';
             var cls = askClass(item);
             mv.textContent = _t(cls === 'move' ? 'appr.move.banner' : 'appr.gate.banner.' + cls);
-            mv.title = _t(cls === 'move' ? 'appr.move.tip' : 'appr.gate.tip');
+            mv.title = _t(cls === 'move' || cls === 'both' ? 'appr.move.tip' : 'appr.gate.tip');
             row.appendChild(mv);
+            /* V-k: why the core says so (effects_why), small, as plain text */
+            var ew = String(item.effects_why || '').trim();
+            if (ew) {
+                var wy = document.createElement('div');
+                wy.className = 'amove-why';
+                wy.textContent = _t('appr.gate.why', {why: ew.slice(0, 120)});
+                row.appendChild(wy);
+            }
         }
         var say = document.createElement('div');
         say.className = 'asay';
@@ -5428,7 +5449,7 @@
         yes.className = 'ay' + (moves ? ' moves' : '');
         yes.type = 'button';
         /* V-j: "let it move" only for a request that is movement; a held mower / robot command says "run it" */
-        var isMove = askClass(item) === 'move';
+        var isMove = askClass(item) === 'move' || askClass(item) === 'both';
         var K_ALLOW = isMove ? 'appr.move.allow' : 'appr.gate.allow', K_CONFIRM = isMove ? 'appr.move.confirm' : 'appr.gate.confirm';
         yes.textContent = moves ? _t(K_ALLOW) : _t('appr.approve');
         yes.title = moves

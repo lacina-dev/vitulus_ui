@@ -100,6 +100,15 @@
     '.vwr-ask{margin-top:.3rem;font-size:.86rem;overflow-wrap:anywhere}',
     /* T8 V-i: slova celá (lámalo se i uvnitř slova a uvozovek); jen slovo delší než řádek se zlomí */
     '.vwr-said{margin-top:.25rem;overflow-wrap:break-word}',
+    /* T8 V-k: titulek pravidla, rozklik s původním textem, poškozené pravidlo */
+    '.vwr-title{margin-top:.25rem;font-weight:600;overflow-wrap:break-word}',
+    '.vwr-more{margin-top:.2rem}',
+    '.vwr-more>summary{cursor:pointer;font-size:.82rem;opacity:.8;min-height:28px;display:flex;align-items:center;gap:.3rem}',
+    '@media (pointer:coarse){.vwr-more>summary{min-height:40px}}',
+    '.vwr-more .vwr-said{font-size:.86rem;opacity:.9}',
+    '.vwr-card.broken{background:rgba(var(--vt-warn-rgb,255,193,7),.07);border-color:rgba(var(--vt-warn-rgb,255,193,7),.45)}',
+    '.vwr-card.broken .vwr-state{background:rgba(var(--vt-warn-rgb,255,193,7),.22);color:var(--vt-warn,#ffc107)}',
+    '.vwr-broken{color:var(--vt-warn,#ffc107);opacity:1}',
     '.vwr-head{display:flex;align-items:center;gap:.5rem;min-width:0}',
     '.vwr-id{font-variant-numeric:tabular-nums;opacity:.75;flex:0 0 auto}',
     '.vwr-state{margin-left:auto;flex:0 0 auto;font-size:.78rem;padding:.05rem .45rem;',
@@ -161,22 +170,48 @@
       var list = el('div', 'vwr-list');
       rules.forEach(function (r) {
         var waits = waitsWord(r);
-        var card = el('div', 'vwr-card ' + (r.state || '') + (waits ? ' waits' : ''));
+        /* T8 V-k: krátký titulek od agenta v jazyce UI (title_cs / title_en); poškozené pravidlo
+           (broken) varovně. Starší agent titulek neposílá — karta pak vypadá jako dřív. */
+        var lang = (window.VTI18n && VTI18n.lang && VTI18n.lang()) || 'en';
+        var title = String((lang === 'cs' ? r.title_cs : r.title_en) || r.title_en || r.title_cs || '').trim();
+        var broken = r.broken === true;
+        var card = el('div', 'vwr-card ' + (r.state || '') + (waits ? ' waits' : '') + (broken ? ' broken' : ''));
         var head = el('div', 'vwr-head');
         head.appendChild(el('span', 'vwr-id', '#' + r.id));
         head.appendChild(el('span', '', r.moves ? T('watchr.kind.move') : T('watchr.kind.say')));
         head.appendChild(el('span', 'vwr-state',
-          T(waits ? 'watchr.state.waits' : 'watchr.state.' + (r.state || 'active'))));
+          T(broken ? 'watchr.state.broken' : (waits ? 'watchr.state.waits' : 'watchr.state.' + (r.state || 'active')))));
         card.appendChild(head);
+        var body = card;
+        if (title || broken) {
+          card.appendChild(el('div', 'vwr-title', title || T('watchr.broken')));
+          if (broken) {
+            var be = el('div', 'vwr-sub vwr-broken', T('watchr.broken.note') + (r.error ? ' (' + String(r.error).slice(0, 160) + ')' : ''));
+            be.setAttribute('role', 'status');
+            card.appendChild(be);
+          }
+          /* původní pokyn a věta agenta až v rozkliku; rozkliknuté si pamatuje podle čísla pravidla */
+          var det = document.createElement('details');
+          det.className = 'vwr-more';
+          var key = 'vt_watch_more_' + r.id;
+          try { det.open = localStorage.getItem(key) === '1'; } catch (e) { /* bez úložiště zůstane sbalené */ }
+          det.appendChild(el('summary', null, T('watchr.more')));
+          det.addEventListener('toggle', function () {
+            try { localStorage.setItem(key, det.open ? '1' : '0'); } catch (e) { /* jen pohodlí */ }
+          });
+          card.appendChild(det);
+          body = det;
+        }
         /* T21 A7: majitelova vlastní slova nahoře, pod nimi, jak to agent pochopil */
         var said = String(r.owner_text || '').trim();
         var reads = r.when + ' → ' + r.action;
         if (said) {
-          card.appendChild(el('div', 'vwr-said', T('watchr.said', {text: said})));
-          card.appendChild(el('div', 'vwr-sub vwr-main', T('watchr.reads', {what: reads})));
-        } else {
-          card.appendChild(el('div', 'vwr-main', reads));
+          body.appendChild(el('div', 'vwr-said', T('watchr.said', {text: said})));
+          body.appendChild(el('div', 'vwr-sub vwr-main', T('watchr.reads', {what: reads})));
+        } else if (!broken) {
+          body.appendChild(el('div', body === card ? 'vwr-main' : 'vwr-sub vwr-main', reads));
         }
+        if (body !== card && !said && broken) { card.removeChild(body); }   // nic k rozkliknutí
         if (waits) {
           /* T21 A8: přesná věta od jádra (undock_word), ať se UI a agent nerozejdou; starší
              jádro ji neposílá — pak ji skládá UI jako dosud */

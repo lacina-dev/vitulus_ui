@@ -2010,6 +2010,40 @@ def a7_story(p, shots, label):
     fh = p.pg.evaluate("(()=>{const c=document.querySelector('.vwr-card');return c?c.textContent:''})()") or ''
     check('V-h a rule that fired two hours ago: "%s"' % ('naposled před 2,0 h' if cs else 'last fired 2.0 h ago'),
           ('naposled před 2,0 h' if cs else 'last fired 2.0 h ago') in fh, fh)
+    # T8 V-k: the agent's short title (in the UI's language) heads the card, the long text is folded under it and
+    # remembered; a broken rule says so in the warn tone; without a title the card is as before (checked above)
+    a7_watch(p, [a7_rules(id=17, needs_undock_word=False, title_cs='Prší ≥ 30 s a mimo dok → do doku', title_en='Raining ≥ 30 s and outside dock → dock',
+                          owner_text='Hlídej déšť (trvalý pokyn majitele z 18. 11.): kdykoli začne pršet a robot je mimo dok, přeruš, co právě děláš, vrať se do doku a zadokuj, a napiš mi to.',
+                          when='prší déle než 30 s a neplatí „robot je v doku"', action='zajedu do doku'),
+                 {'id': 19, 'state': 'active', 'why': None, 'broken': True, 'error': 'when is not an object', 'title_cs': 'nečitelné pravidlo', 'title_en': 'unreadable rule',
+                  'when_struct': None, 'then': None, 'when': '?', 'action': '?', 'moves': True, 'mode': 'poll', 'every_s': 30.0, 'fired': 0, 'last_fired': None, 'repeat': 'each',
+                  'last_blocked': None, 'owner_text': ''}])
+    p.pg.evaluate("(()=>{try{localStorage.removeItem('vt_watch_more_17')}catch(e){}})()")
+    p.pg.wait_for_timeout(200)
+    tc = p.pg.evaluate("""(()=>{const cs=[...document.querySelectorAll('.vwr-card')]; if(cs.length<2) return null; const c=cs[0], b=cs[1], d=c.querySelector('details.vwr-more'), t=c.querySelector('.vwr-title');
+        const sm=d&&d.querySelector('summary'), said=c.querySelector('.vwr-said');
+        return {title:t&&t.textContent, titleCut:t?(t.scrollWidth>t.clientWidth+1):null, fw:t?getComputedStyle(t).fontWeight:'', open:d&&d.open, saidVis:!!(said&&said.checkVisibility()),
+                saidIn:!!(d&&said&&d.contains(said)), sumH:sm?Math.round(sm.getBoundingClientRect().height):0, right:Math.round(c.getBoundingClientRect().right), vw:innerWidth,
+                bCls:b.className, bState:b.querySelector('.vwr-state').textContent, bTitle:(b.querySelector('.vwr-title')||{}).textContent, bNote:(b.querySelector('.vwr-broken')||{}).textContent||'',
+                bMore:!!b.querySelector('details'), bBtns:[...b.querySelectorAll('button')].map(x=>x.textContent)}})()""")
+    check('V-k the card is headed by the agent\'s short title in the UI\'s language, bold, whole', bool(tc) and tc['title'] == ('Prší ≥ 30 s a mimo dok → do doku' if cs else 'Raining ≥ 30 s and outside dock → dock')
+          and not tc['titleCut'] and int(tc['fw'] or 0) >= 600 and tc['right'] <= tc['vw'], tc)
+    check('V-k … the owner\'s long text and the agent\'s sentence are folded under it (closed at first, a finger-size row on touch)',
+          bool(tc) and tc['open'] is False and tc['saidIn'] and not tc['saidVis'] and tc['sumH'] >= (40 if p.pg.evaluate("matchMedia('(pointer: coarse)').matches") else 28), tc)
+    check('V-k a broken rule: "%s", the warn tone, a sentence what to do, Cancel still there, nothing to unfold' % ('nečitelné pravidlo' if cs else 'unreadable rule'),
+          bool(tc) and 'broken' in tc['bCls'] and tc['bState'] == ('nečitelné' if cs else 'unreadable') and tc['bTitle'] == ('nečitelné pravidlo' if cs else 'unreadable rule')
+          and ('when is not an object' in tc['bNote']) and not tc['bMore'] and p.pg.evaluate("VTI18n.t('watchr.cancel')") in tc['bBtns'], tc)
+    p.pg.evaluate("(()=>{const d=document.querySelector('.vwr-card details.vwr-more'); d.open=true; d.dispatchEvent(new Event('toggle'));})()")
+    p.pg.wait_for_timeout(150)
+    a7_watch(p, [a7_rules(id=17, needs_undock_word=False, title_cs='Prší ≥ 30 s a mimo dok → do doku', title_en='Raining ≥ 30 s and outside dock → dock')])
+    p.pg.wait_for_timeout(200)
+    kept = p.pg.evaluate("(()=>{const d=document.querySelector('.vwr-card details.vwr-more'), s=document.querySelector('.vwr-card .vwr-said'); return d?[d.open, !!(s&&s.checkVisibility())]:null})()")
+    check('V-k … unfolded stays unfolded after the next answer of the agent (remembered by the rule\'s number)', kept == [True, True], kept)
+    if shots:
+        p.pg.evaluate("document.querySelector('.vwr-card').scrollIntoView({block: 'center'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-vk-watch-title.png'))
+    p.pg.evaluate("(()=>{try{localStorage.removeItem('vt_watch_more_17')}catch(e){}})()")
     a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD)])
     p.pg.evaluate("VAgent.close()")
     p.pg.wait_for_timeout(200)

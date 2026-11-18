@@ -225,7 +225,9 @@ and after a restart. It confirms in one sentence what it watches and what it wil
 - *what are you watching?* lists them; *stop watching X* / *cancel watch 3*, *pause watch 3*,
   *resume watch 3* — no model needed. The **Watching** block in the agent panel shows the same list
   with Pause / Resume / Cancel; for each rule also its last run, and when something blocked it, what
-  (*last 23:16 blocked (dock)*; *has not fired yet* until its first run). Each card says the rule in your own words first and under them how the
+  (*last 23:16 blocked (dock)*; *has not fired yet* until its first run). A card is headed by the agent's short title
+  (*Raining ≥ 30 s and outside dock → dock*); your own words and the agent's full sentence unfold under it. A rule the agent
+  cannot read says *unreadable rule* in amber — cancel it and say it again. Each card says the rule in your own words first and under them how the
   agent reads it. A rule that would leave the dock without your word for it says *waits for you* and
   the sentence to write (*u hlídání 12 povol výjezd z doku*); the top card of **Autonomy** shows the
   same as *Watch #12 waits for your word*.
@@ -439,7 +441,7 @@ report setting and auto-approve on the right, and **delete** (🗑, two taps) st
 very end of the row. **+ new job** opens the form for a new job. When the agent wants to do something that needs a person, it asks:
 **Approve** / **Deny**. If the robot would move, the card says
 *THE ROBOT WOULD MOVE — only you may allow this* and the button needs a second tap. A held command that is not movement is said
-by what it is — *THIS REACHES FOR THE MOWER*, *A COMMAND ON THE ROBOT* — and the line over the map shows the command itself
+by what it is — *THIS REACHES FOR THE MOWER*, *THE ROBOT WOULD MOVE AND MOW*, *A COMMAND ON THE ROBOT*, with the agent's reason in small print (*Why: …*) — and the line over the map shows the command itself
 (*MOWER COMMAND NEEDS YOUR YES · rostopic pub -1 /mower/…*); the second tap stays.
 
 ### Journey and the morning report
