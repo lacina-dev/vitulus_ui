@@ -590,9 +590,11 @@ html body.vt-frame.vt-h-ph.vt-pills-col:not(.vt-rp-unfold) #vagent_bars :is(#vag
 /* T8 V-h: over an open sheet (vt_frame.js .vt-sheet-low) the hollow is low: the one "needs you"
    line is a single row (label + words cut with "…", all of it in the tooltip and in the panel it
    opens) - with the dock pill it took 100 px of the ~110 there are */
-html body.vt-frame.vt-h-ph.vt-pills-col.vt-sheet-low #vagent_bars #vagent_strip { flex-wrap: nowrap; white-space: nowrap; min-height: 26px; }
-html body.vt-frame.vt-h-ph.vt-pills-col.vt-sheet-low #vagent_bars #vagent_strip .vs-lab { align-self: center; }
-html body.vt-frame.vt-h-ph.vt-pills-col.vt-sheet-low #vagent_bars #vagent_strip .vs-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* T8 V-j (seen live, a request waiting): a long label ("MOVEMENT NEEDS YOUR YES" + the command) ran out of the
+   screen uncut - the line never leaves the column; words that do not fit beside the label go under it, cut with "…" */
+html body.vt-frame.vt-h-ph.vt-pills-col.vt-sheet-low #vagent_bars #vagent_strip { flex-wrap: wrap; white-space: nowrap; min-height: 26px; max-width: 100%; box-sizing: border-box; }
+html body.vt-frame.vt-h-ph.vt-pills-col.vt-sheet-low #vagent_bars #vagent_strip .vs-lab { align-self: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+html body.vt-frame.vt-h-ph.vt-pills-col.vt-sheet-low #vagent_bars #vagent_strip .vs-txt { flex: 1 1 7em; min-width: min(100%, 7em); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- T8 dávka IV (audit, tablet 768 px with a left panel open): the hollow
    between the panels is ~130 px; the dock-open pill (max 380 px) stood out of

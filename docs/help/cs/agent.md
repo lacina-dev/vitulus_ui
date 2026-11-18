@@ -421,7 +421,9 @@ spustit, spustit hned, archivovat), vpravo nastavení hlášení a automatické 
 na konci řádku, oddělené, **smazat** (🗑, dvě klepnutí). **+ nová úloha** otevře formulář nové
 úlohy. Když agent chce udělat něco, k čemu je potřeba člověk, zeptá se:
 **Schválit** / **Zamítnout**. Kdyby se robot pohnul, karta píše
-*ROBOT BY SE POHNUL — povolit to smíš jen ty* a tlačítko potřebuje druhé klepnutí.
+*ROBOT BY SE POHNUL — povolit to smíš jen ty* a tlačítko potřebuje druhé klepnutí. Držený příkaz, který pohyb není, se řekne
+podle toho, co je — *SAHÁ NA SEKAČKU*, *PŘÍKAZ NA ROBOTU* — a řádek nad mapou ukáže samotný příkaz
+(*PŘÍKAZ SEKAČCE ČEKÁ NA TVOJE ANO · rostopic pub -1 /mower/…*); druhé klepnutí zůstává.
 
 ### Cesta a ranní hlášení
 

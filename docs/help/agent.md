@@ -438,7 +438,9 @@ red. On a job card the icon buttons (pause / run, run now, archive) are on the l
 report setting and auto-approve on the right, and **delete** (🗑, two taps) stands apart at the
 very end of the row. **+ new job** opens the form for a new job. When the agent wants to do something that needs a person, it asks:
 **Approve** / **Deny**. If the robot would move, the card says
-*THE ROBOT WOULD MOVE — only you may allow this* and the button needs a second tap.
+*THE ROBOT WOULD MOVE — only you may allow this* and the button needs a second tap. A held command that is not movement is said
+by what it is — *THIS REACHES FOR THE MOWER*, *A COMMAND ON THE ROBOT* — and the line over the map shows the command itself
+(*MOWER COMMAND NEEDS YOUR YES · rostopic pub -1 /mower/…*); the second tap stays.
 
 ### Journey and the morning report
 

@@ -371,9 +371,17 @@
     }
 
     /* ---- the state: one sentence, the numbers, what needs the owner ---- */
+    /* T8 V-j (check A756): the dock view as the tile reads it - a view without its lists (an older
+       agent_chat.js, a stand-in in a test) must not throw in the middle of a repaint */
+    function dkView(VA) {
+      var v = (VA && VA.dock && VA.dock.view && VA.dock.view()) || {kind: 'reading'};
+      if (!Array.isArray(v.scheduled)) { v.scheduled = []; }
+      return v;
+    }
+
     function paintDock(VA) {
       if (!dockStat || !VA.dock) { return; }
-      var v = VA.dock.view(), a = v.active;
+      var v = dkView(VA), a = v.active;
       /* redraw only when something the owner reads changed: a 5 s poll must
          not pull a button from under his finger (the countdowns tick alone) */
       var sig = JSON.stringify([v.kind, a && [a.id, a.to, a.exits, a.max_exits, a.lock_on_return],
@@ -574,7 +582,7 @@
       tog.id = 'btn_dockp_change';
       tog.addEventListener('click', function () {
         setOpen('dkp_form', !isOpen('dkp_form', false));
-        paintForm(VA, VA.dock.view());
+        paintForm(VA, dkView(VA));
       });
       dockForm.appendChild(tog);
       var body = el('div', 'dkp-fbody');
@@ -663,7 +671,7 @@
         if (to.getTime() <= start + 60000) { cErr.textContent = T('dockp.c.err.order'); return; }
         if (to.getTime() - start > 12 * 3600 * 1000) { cErr.textContent = T('dockp.c.err.long'); return; }
         if (from && from.getTime() - now > 7 * 86400 * 1000) { cErr.textContent = T('dockp.c.err.far'); return; }
-        if (from && !VA.dock.view().clockOk) { cErr.textContent = T('dockp.c.clock'); return; }
+        if (from && !dkView(VA).clockOk) { cErr.textContent = T('dockp.c.clock'); return; }
         var sel = {to: dkEpoch(to)};
         if (from) { sel.from = dkEpoch(from); }
         choose(VA, sel);
@@ -760,7 +768,7 @@
       sum.textContent = '';
       if (!dockSel) { sum.hidden = true; return; }
       sum.hidden = false;
-      var s = selSpan(dockSel), v = VA.dock.view();
+      var s = selSpan(dockSel), v = dkView(VA);
       sum.appendChild(el('div', 'dkp-h6', T('dockp.sum.h')));
       var main = dockSel.from ? T('dockp.sum.later', {span: dkSpan(s.from, s.to), dur: dkDur(s.to - s.from)})
                               : T('dockp.sum.now', {to: VA.dock.hm(s.to), dur: dkDur(s.to - s.from)});
@@ -812,7 +820,7 @@
           out.textContent = T('dockp.err.allow', {err: VA.dock.errText(d)});
         });
       });
-      no.addEventListener('click', function () { dockSel = null; paintSummary(VA); paintForm(VA, VA.dock.view()); });
+      no.addEventListener('click', function () { dockSel = null; paintSummary(VA); paintForm(VA, dkView(VA)); });
       row.appendChild(yes);
       row.appendChild(no);
       sum.appendChild(row);

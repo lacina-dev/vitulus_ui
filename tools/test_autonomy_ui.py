@@ -2500,6 +2500,9 @@ def vh_dock_note(p, shots, label):
     lk = p.pg.evaluate("(()=>{const b=document.getElementById('btn_auto_ans_dock');return [b.hidden,b.textContent,b.dataset.state||'']})()")
     check(label + ' V-h … locked: the chip says so in the neutral tone (the owner\'s choice)', not lk[0] and lk[1] == ('Dok zamčený' if cs else 'Dock locked') and lk[2] == '', lk)
     p.pg.evaluate("(()=>{ if(window.__dockWas!==undefined){VAgent.dock=window.__dockWas;} delete window.__dockWas; document.dispatchEvent(new CustomEvent('vagent:dock')) })()")
+    # V-j (check A756): a dock view without its lists (as these stand-ins are) must not break the dock tile's repaint
+    bad = [e for e in getattr(p, 'errors', []) if "reading 'map'" in str(e) or 'scheduled' in str(e)]
+    check(label + ' V-j a dock view without "scheduled": no page error from the dock tile', not bad, bad[:3])
     # V-i: a wait reported without its seconds: the notice over the map has no "{min}" (with them: the minutes).
     # Only after the full story (the fit-only screens still hold a sleep notice in the line, which goes first)
     if label not in ('desk-cs', 'phone-en'):
@@ -2560,6 +2563,18 @@ def vh_sheet_pills(p, shots, label):
     check(label + ' V-h … the finding is one line, both pills end above the sheet, no sideways scroll',
           o['stH'] <= 32 and all((not o['sheet']) or x[3] <= o['sheet'][1] + 1 for x in pills) and not o['hs'], o)
     check(label + ' V-h … the agent\'s plan card steps back while the sheet is open', o['card'] is None and 'vt-sheet-low' in o['cls'], o)
+    # V-j (seen live): a held request with a long label and the command's text never leaves the screen
+    lg = p.pg.evaluate("""async ()=>{const st=document.getElementById('vagent_strip'), dr=document.getElementById('ui_drawer');
+        st.innerHTML='<span class="vs-lab">PŘÍKAZ SEKAČCE ČEKÁ NA TVOJE ANO</span><span class="vs-txt">rostopic pub -1 /mower/zkouska_brany_neexistuje…</span>'; st.className='va-move'; st.style.display='';
+        window.dispatchEvent(new Event('resize')); await new Promise(r=>setTimeout(r,600));
+        const r=st.getBoundingClientRect(), t=st.querySelector('.vs-txt'), l=st.querySelector('.vs-lab').getBoundingClientRect(), tr=t.getBoundingClientRect(), d=dr.getBoundingClientRect();
+        return {right:Math.round(r.right), bottom:Math.round(r.bottom), vw:innerWidth, sheet:Math.round(d.top), labRight:Math.round(l.right), txtRight:Math.round(tr.right), txtW:Math.round(tr.width),
+                ell:getComputedStyle(t).textOverflow, hs:document.scrollingElement.scrollWidth>innerWidth+1}}""")
+    check(label + ' V-j sheet open: a waiting request (long label + command) stays on the screen and above the sheet, its words cut with "…"',
+          lg['right'] <= lg['vw'] and lg['labRight'] <= lg['vw'] and lg['txtRight'] <= lg['vw'] and lg['bottom'] <= lg['sheet'] + 1 and lg['txtW'] >= 80
+          and lg['ell'] == 'ellipsis' and not lg['hs'], lg)
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-vj-sheet-request.png'))
     back = p.pg.evaluate("""async (r)=>{const mm=window.map_menu; try{ if(mm&&mm.close_drawer) mm.close_drawer(); }catch(e){}
         window.dispatchEvent(new Event('resize')); await new Promise(x=>setTimeout(x,700));
         const card=document.getElementById('vt_aplan_card'), u=document.getElementById('vagent_unlocked'), st=document.getElementById('vagent_strip');

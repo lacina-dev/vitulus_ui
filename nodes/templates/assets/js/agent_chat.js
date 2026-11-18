@@ -5204,6 +5204,35 @@
         'motor_power|motor power|pohon|undocking|mow|sekac|sekač|sekat|' +
         'program\\s*#?\\d', 'i');
 
+    /* T8 V-j: WHAT the held request is, for the words only (how strictly it is held stays with
+       askMoves): from what the core says about it - its gate rule ("mower:rostopic:pub") and the
+       identifier that stopped it (moves_why: "mower", "cmd_vel", "undock" ...). 'move' | 'mower' |
+       'robot' (a write on the robot the core holds, neither of the two) | 'cmd' (class not known).
+       An older core without `moves`: as before, the page's own guess says "movement". */
+    var CLASS_MOWER = /mower|mow_|mow\.|sekack|sekačk|set_motor/i;
+    var CLASS_MOVE = /cmd_vel|move_base|mbf|dock|motor_switch|motor_power|navigate|nav_goal|goal|waypoint|follow_path|exe_path|teleop|joy_vel|twist|drive|motion/i;
+    function askClass(item) {
+        item = item || {};
+        var rule = String(item.rule || '').split(':')[0], why = String(item.moves_why || '');
+        if (rule === 'mower') { return 'mower'; }
+        if (rule === 'motion') { return 'move'; }
+        if (CLASS_MOWER.test(why)) { return 'mower'; }
+        if (CLASS_MOVE.test(why)) { return 'move'; }
+        if (item.moves === true) { return 'robot'; }
+        if (typeof item.moves !== 'boolean') { return 'move'; }
+        return 'cmd';
+    }
+    /* the request's own command, cut between words (never inside one) */
+    function cutWords(s, n) {
+        s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+        if (s.length <= n) { return s; }
+        var head = s.slice(0, n - 1), sp = head.lastIndexOf(' ');
+        return (sp > n * 0.5 ? head.slice(0, sp) : head) + '\u2026';
+    }
+    function askCommand(item) {
+        var d = (item && item.detail) || {}, p = d.payload || {};
+        return String((item && item.command) || p.text || '').trim();
+    }
     function askMoves(item) {
         var d = item.detail || {};
         var p = d.payload || {};
@@ -5360,8 +5389,9 @@
             row.classList.add('moves');
             var mv = document.createElement('div');
             mv.className = 'amove';
-            mv.textContent = _t('appr.move.banner');
-            mv.title = _t('appr.move.tip');
+            var cls = askClass(item);
+            mv.textContent = _t(cls === 'move' ? 'appr.move.banner' : 'appr.gate.banner.' + cls);
+            mv.title = _t(cls === 'move' ? 'appr.move.tip' : 'appr.gate.tip');
             row.appendChild(mv);
         }
         var say = document.createElement('div');
@@ -5397,9 +5427,12 @@
         var yes = document.createElement('button');
         yes.className = 'ay' + (moves ? ' moves' : '');
         yes.type = 'button';
-        yes.textContent = moves ? _t('appr.move.allow') : _t('appr.approve');
+        /* V-j: "let it move" only for a request that is movement; a held mower / robot command says "run it" */
+        var isMove = askClass(item) === 'move';
+        var K_ALLOW = isMove ? 'appr.move.allow' : 'appr.gate.allow', K_CONFIRM = isMove ? 'appr.move.confirm' : 'appr.gate.confirm';
+        yes.textContent = moves ? _t(K_ALLOW) : _t('appr.approve');
         yes.title = moves
-            ? _t('appr.move.allow_tip', {id: item.id})
+            ? _t(isMove ? 'appr.move.allow_tip' : 'appr.gate.allow_tip', {id: item.id})
             : _t('appr.approve_tip', {id: item.id});
         if (moves) {
             // The irreversible half of the card is the one that gets the
@@ -5408,11 +5441,11 @@
             yes.addEventListener('click', function () {
                 if (!yArmed) {
                     yArmed = true;
-                    yes.textContent = _t('appr.move.confirm');
+                    yes.textContent = _t(K_CONFIRM);
                     yes.classList.add('armed');
                     yTimer = setTimeout(function () {
                         yArmed = false;
-                        yes.textContent = _t('appr.move.allow');
+                        yes.textContent = _t(K_ALLOW);
                         yes.classList.remove('armed');
                     }, 6000);
                     return;
@@ -6365,9 +6398,11 @@
             }
             var what = (a.detail && a.detail.what) || a.plain || a.command || '';
             if (askMoves(a)) {
+                /* V-j: said by what it is (movement / mower / another robot command), with the command's own text */
+                var ac = askClass(a), cmd = askCommand(a);
                 return {kind: 'move', tab: 'work',
-                        label: _t('appr.strip.move'),
-                        text: cut(what, 40),
+                        label: _t(ac === 'move' ? 'appr.strip.move' : 'appr.strip.' + ac),
+                        text: cmd ? cutWords(cmd, 60) : cut(what, 40),
                         age: shortAge(a.waiting_s)};
             }
             return {kind: 'ask', tab: 'work',
