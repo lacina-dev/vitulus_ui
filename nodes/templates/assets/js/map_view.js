@@ -2060,19 +2060,62 @@ class TfClient {
         this._tfReaskTimer = null;
         var _origUpdateGoal = this.tfClientMap.updateGoal;
         var _origProcessResponse = this.tfClientMap.processResponse;
+        // T17 M18 (2026-11-18): which answer may (re)subscribe the TF topic.
+        // The page used to send three requests in its first seconds (frames were
+        // added one module after another) and only the answer to the NEWEST request
+        // counted (M15). When the first answer came after the second request had
+        // gone out, and the second after the third, the robot's position waited
+        // for the third answer: 10–19 s after the connection instead of ~2 s
+        // (measured live 2026-11-18; tools/test_map_m18.node.js replays it). Now:
+        //  - an answer is taken when no NEWER request's answer has been taken yet
+        //    (an older answer brings the same live stream, only another topic);
+        //    an older answer AFTER a newer one is still ignored — that is what M15
+        //    was for (late answers must not switch the subscription back);
+        //  - an answer to a request of an EARLIER connection is never taken
+        //    (_tfGen counts the disconnects): it names a topic of the republisher
+        //    as it was before, possibly one that no longer exists.
+        this._tfAccepted = 0;                // the newest request whose answer was taken
+        this._tfGen = 0;                     // connection generation (one more per connection lost)
+        this._tfLinkUp = false;
         this.tfClientMap.updateGoal = function() {
-            var seq = ++self._tfReqSeq;
+            var seq = ++self._tfReqSeq, gen = self._tfGen;
             self._tfReqAt = Date.now();
             // roslib binds this.processResponse at the call, so each request
             // carries its own number into its answer
             this.processResponse = function(response) {
+                if (gen !== self._tfGen) { return; }         // an answer from a connection that is gone
                 if (seq > self._tfReqDone) { self._tfReqDone = seq; }
-                if (seq !== self._tfReqSeq) { return; }      // a late answer to an older request
+                if (seq <= self._tfAccepted) { return; }     // a late answer to an older request, a newer one is in use
+                self._tfAccepted = seq;
                 self._tfAnsAt = Date.now();
                 return _origProcessResponse.call(this, response);
             };
             return _origUpdateGoal.call(this);
         };
+        // T17 M18: ONE request for all the frames the page uses. They are entered
+        // at the first subscribe (before roslib sends its request 50 ms later), so
+        // the modules that ask for theirs seconds later (lidar and camera ranges,
+        // the mapping view) find them there and no further request — and no switch
+        // of the TF topic — follows. A frame not listed here still works as before
+        // (roslib asks again with it added). A listed frame that does not exist in
+        // TF is what the watchdog's "other frames" rule is for (bounded, warned).
+        this._tfFrames = ['base_link', 'odom', 'base_scan', 'd435_link', 'd435_color_optical_frame'];
+        var _origSubscribe = this.tfClientMap.subscribe;
+        if (typeof _origSubscribe === 'function') {
+            var entered = false;
+            this.tfClientMap.subscribe = function(frameID, callback) {
+                if (!entered) {
+                    entered = true;
+                    var fresh = String(frameID || '').replace(/^\//, '');
+                    for (var i = 0; i < self._tfFrames.length; i++) {
+                        var f = self._tfFrames[i];
+                        // (the frame being subscribed now is left to roslib: its new entry is what makes it send the request)
+                        if (f !== fresh && !this.frameInfos[f]) { this.frameInfos[f] = { cbs: [] }; }
+                    }
+                }
+                return _origSubscribe.call(this, frameID, callback);
+            };
+        }
         // Time of the last received TFArray. After a reconnect frameInfos still
         // hold the (stale) cached transforms, so "no transform yet" alone would
         // never fire again — a silent stream is the second trigger.
@@ -2105,8 +2148,13 @@ class TfClient {
         // transforms for all subscribed frames.
         document.addEventListener('rosdisconnected', function() {
             self._was_disconnected = true;
+            // answers to requests of the connection that just ended are void from now on. Only a
+            // connection that WAS up counts: a first attempt that fails must not void the request
+            // waiting (in vt_link.js) for the first connection
+            if (self._tfLinkUp) { self._tfLinkUp = false; self._tfGen++; }
         });
         document.addEventListener('rosconnected', function() {
+            self._tfLinkUp = true;
             if (!self._was_disconnected) return;     // skip first-time connect
             self._was_disconnected = false;
             // Drop the stale topic handle so processResponse re-subscribes to the
