@@ -169,7 +169,8 @@ i s délkou mlčení; od dvou dnů je délka ve dnech, *3 dny 1 h*). Stránka ř
 zprávy od desky nebo z návratu zapsaného v historii robota. Bez robota nebo bez čerstvé zprávy od desky hláška zůstane,
 jak byla, s dovětkem *(Teď bez čerstvé zprávy od desky.)* a Smazat nenabídne; porucha, která ještě trvá, má v rámečku
 vždy přednost. Když deska zmlkne znovu dřív, než to robot stihne zapsat (trvá to 2–3 minuty), šedá hláška hned zčervená:
-*Deska sekačky znovu neodpovídá (40 s)* — Smazat se nabídne, až zase odpoví. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
+*Deska sekačky znovu neodpovídá (40 s)* — Smazat se nabídne, až zase odpoví. Stejně tak když robot desku za mise obnovuje nebo to vzdal:
+*… znovu neodpovídá: robot stojí a obnovuje ji* / *… a nevrátila se: robot jede domů bez nože*. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
 posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
 dál, roztočit ne, a po návratu desky až poté, co znovu ohlásí *připraveno*.
@@ -190,7 +191,9 @@ Kdo rozhoduje, kdy sekat: **kalendář** (tvoje sloty, jako dosud), nebo **agent
 nebo agentovi v chatu: „sekej podle sebe" / „přepni na agenta" a „zpět na kalendář". Po aktualizaci je
 nastavený kalendář, nic se nemění, dokud nepřepneš.
 
-V panelu je to sekce **Kdo rozhoduje** pod Plánem:
+V panelu je to sekce **Kdo rozhoduje** pod Plánem. Horní karta má vždy čip doku (*Dok zamčený*, *Dok povolený do 06:00*; ťuknutí otevře
+povolení doku) a dokud rozhoduje kalendář, sekce říká dok i jednou větou — *Dok je zamčený: agent s robotem nevyjede, dokud dok nepovolíš*,
+*Dok je povolený do 06:00* (se *zbývá 2 z 3 výjezdů*, když je povolení počítá) — s odkazem **Povolení doku ›**; běhy z kalendáře se na dok neptají.
 
 ![Kdo rozhoduje s očíslovanými značkami](../img/shot-autonomy-mode.webp "1 Kalendář | Agent · 2 čeká na povolení doku, Povolení doku › · 3 platná rada · 4 pravidla a tvrdé limity")
 

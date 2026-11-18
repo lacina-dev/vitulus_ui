@@ -495,6 +495,15 @@ def bar(p, shots, label, cs, phone):
           lg['barIn'] and rl.get('playIn') and rl.get('playHit') and rl.get('fitIn') and rl.get('fitHit') and not rl.get('covered') and not rl.get('hs'), (lg, rl))
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-bar-long.png'))
+    # T8 V-h (check A727): the longest sentence there is ("no rain around … · … within minutes") filled all 4 lines
+    # on an English phone; it is shorter now - one line to spare in every language and on every screen
+    svc.rain = dict(dry, nearest_rain_km=None, outlook=[{'min': 5, 'near_km': 15, 'covered': 0.9}])
+    p.ev("mapping_v3._precip._fetch()")
+    p.until("(()=>{const s=document.querySelector('.vt-map-precip-sub');return s&&/nejbližších minutách|within minutes/.test(s.textContent)})()", 8000)
+    lg2 = p.ev("""(()=>{const s=document.querySelector('.vt-map-precip-sub'), o=s.getBoundingClientRect();
+        return {text:s.textContent, n:s.textContent.length, cutH:s.scrollHeight>s.clientHeight+1, lines:Math.round(o.height/parseFloat(getComputedStyle(s).lineHeight)), w:Math.round(o.width)}})()""")
+    check(label + ': V-h the longest rain sentence ("… within minutes") takes at most 3 of the 4 lines',
+          re.search(r'nejbližších minutách|within minutes', lg2['text'] or '') and not lg2['cutH'] and lg2['lines'] <= 3, lg2)
     svc.rain = dry
     p.ev("mapping_v3._precip._fetch()")
     p.until("(w)=>{const s=document.querySelector('.vt-map-precip-sub');return s&&!/min/.test(s.textContent)}", 8000)

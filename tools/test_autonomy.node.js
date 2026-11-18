@@ -287,7 +287,7 @@ function sandbox(lang, file, extra) {
     const src = read('vt_autonomy.js');
     const grab = (name) => { const i = src.indexOf('function ' + name + '('); let d = 0;
         for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') { d++; } else if (src[j] === '}' && --d === 0) { return src.slice(i, j + 1); } } };
-    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'linkFresh', 'silenceOver', 'silentAgain', 'nb', 'nbDay', 'longDur', 'robotShift', 'shiftFromLog', 'backOf', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
+    const fns = ['issueSfx', 'issueKeys', 'issueVars', 'linkSilentNow', 'linkAnswers', 'linkFresh', 'silenceOver', 'silentAgain', 'linkDown', 'nb', 'nbDay', 'longDur', 'robotShift', 'shiftFromLog', 'backOf', 'first', 'fmtDur', 'parseIso', 'clock', 'dayStart', 'dayWord', 'pad', 'lang'];
     const LIVE = {};
     ['en', 'cs'].forEach((l) => {
         const D = win.VT_I18N_DICT[l];
@@ -377,6 +377,14 @@ function sandbox(lang, file, extra) {
         const again = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
         check(l + ': A12 silent again after a return: "again" with the board\'s own 40 s, not "answers again", not the old 5 h', /again|znovu/.test(again) && /\b4\d\s*s\b/.test(again)
               && !/answers again|už odpovídá|\d\s*h\b|\{/.test(again), again);
+        // V-h (check A727): … and while the robot restores the board in a mission, or gave up
+        ['recovering', 'failed'].forEach((st) => {
+            LIVE.linkMsg = { state: st === 'failed' ? 'silent' : st, banner: st, silent_s: 0 }; LIVE.linkAt = Date.now();
+            const x = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
+            check(l + ': V-h the link says "' + st + '" after a return: the live state, not "answers again"', /again|znovu/.test(x) && !/answers again|už odpovídá|20:40|\{/.test(x)
+                  && (st === 'failed' ? /home|domů/ : /restoring|obnovuje/).test(x), x);
+        });
+        LIVE.linkMsg = { state: 'silent', silent_s: 40 }; LIVE.linkAt = Date.now();
         LIVE.report = { issues: [{ code: 'mower_link_idle', detail: { since: '2026-11-16T17:25' } }, { code: 'mower_link_idle', detail: { since: '2026-11-18T09:00' } }] };
         const carried = say('mower_link_idle', { program: '', silent_s: 18203, since: '2026-11-16T17:25', in_dock: true });
         check(l + ': A12 … once a newer silence is listed, the old one is over again (from … to …)', /20:40/.test(carried) && /answers again|už odpovídá/.test(carried), carried);

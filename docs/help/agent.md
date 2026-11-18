@@ -352,7 +352,7 @@ around that zone.
 When it starts, the same plan appears on **your live map** as the layer **Agent's plan**
 (Map › Layers, amber ◆; warnings red, helper lines blue). If the agent changes the plan on the
 way, the map gets the new version before the next move; a free map point the agent drives to is
-always on the map first. A card in the bottom-left corner of the map says which mission it belongs
+always on the map first. A card in the bottom-left corner of the map (on a phone it steps back while a panel is open over the map) says which mission it belongs
 to: **Show** moves the map onto the plan, **Clear** removes it from your view (the agent keeps its
 plan). A fresh plan brings the map forward once per mission (a large camera view steps back). The
 plan disappears by itself when the mission ends — also when it stops.

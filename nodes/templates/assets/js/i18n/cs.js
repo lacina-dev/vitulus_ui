@@ -4627,6 +4627,8 @@
     "calmgr.issue.mower_link_idle.back.until": "Deska sekačky mlčela od {at} do {to} ({dur}), už odpovídá.",
     // A12: silent again before the robot lists the new silence
     "calmgr.issue.mower_link_idle.again": "Deska sekačky znovu neodpovídá ({dur}). Bez ní robot nevyjede ani nebude sekat.",
+    "calmgr.issue.mower_link_idle.again.recovering": "Deska sekačky znovu neodpovídá: robot stojí a obnovuje ji.",
+    "calmgr.issue.mower_link_idle.again.failed": "Deska sekačky znovu neodpovídá a nevrátila se: robot jede domů bez nože.",
     "calmgr.issue.hw_reset_person.claude": "Deska sekačky neodpovídá a pomohl by tvrdý restart. Na robotu ale pracuje Claude, takže robot čeká, až skončí.",
     "calmgr.issue.hw_reset.no_run": "Deska sekačky v doku neodpovídá. Tvrdý restart za {left_s} s.",
     "calmgr.issue.hw_reset_person.no_run": "Deska sekačky neodpovídá a pomohl by tvrdý restart. Někdo je připojený, takže robot čeká na něj.",
@@ -5319,6 +5321,17 @@
     "auto.mode.dock.open_until": "Dok je odemčený do {to}: rada agenta může vyjet.",
     "auto.mode.dock.next": "Dok je teď zamčený; okno je naplánované od {at}.",
     "auto.mode.dock.homeward": "Povolení doku skončilo s robotem venku: dosekne díl (asi {min} min) a vrátí se domů.",
+    // T8 V-h: the dock in one sentence while the calendar decides (Autonomy › Who decides)
+    "auto.vh.dock.open": "Dok je povolený do {to}: agent smí s robotem vyjet. Běhy z kalendáře se na dok neptají.",
+    "auto.vh.dock.open_exits": "Dok je povolený do {to}, zbývá {left} z {max} výjezdů: agent smí s robotem vyjet. Běhy z kalendáře se na dok neptají.",
+    "auto.vh.dock.locked": "Dok je zamčený: agent s robotem nevyjede, dokud dok nepovolíš. Běhy z kalendáře se na dok neptají.",
+    "auto.vh.dock.exits_used": "Výjezdy z doku jsou vyčerpané: agent s robotem už nevyjede. Běhy z kalendáře se na dok neptají.",
+    "auto.vh.dock.next": "Dok je teď zamčený, povolení je naplánované od {at}. Běhy z kalendáře se na dok neptají.",
+    "auto.vh.chip.locked": "Dok zamčený",
+    "auto.vh.chip.open": "Dok povolený do {to}",
+    "auto.vh.chip.open_exits": "Dok povolený do {to} · zbývá {left} z {max} výjezdů",
+    "auto.vh.chip.next": "Dok zamčený · okno od {at}",
+    "auto.vh.chip.exits_used": "Dok: výjezdy vyčerpané",
     // D10 (2026-11-08): start nože v pravém panelu = podržení 0,5 s
     "rdock.d10.start.tip": "Podrž půl sekundy a nůž se roztočí — totéž jako Nastavení › Sekačka › START MOTOR",
     "rdock.d10.hold.idle": "▶ podrž půl sekundy, až pak se nůž roztočí.",

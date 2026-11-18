@@ -337,7 +337,7 @@ kolem té zóny vést nemusí.
 Při spuštění se tentýž plán objeví na **tvé živé mapě** jako vrstva **Plán agenta**
 (Mapa › Vrstvy, jantarový ◆; varování červeně, pomocné čáry modře). Když agent plán cestou
 změní, mapa dostane novou verzi před dalším pohybem; volný bod v mapě, na který agent jede, je
-na mapě vždycky dřív. Karta v levém dolním rohu mapy říká, ke které misi patří: **Ukázat** posune
+na mapě vždycky dřív. Karta v levém dolním rohu mapy (na telefonu ustoupí, dokud je nad mapou otevřený panel) říká, ke které misi patří: **Ukázat** posune
 mapu na plán, **Smazat** ho odebere z tvého zobrazení (agent svůj plán má dál). Čerstvý plán
 jednou za misi vytáhne mapu dopředu (velký obraz kamery ustoupí). Když mise skončí — i když se
 zastaví — plán zmizí sám.

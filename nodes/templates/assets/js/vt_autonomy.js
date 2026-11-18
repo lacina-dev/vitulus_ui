@@ -45,7 +45,12 @@
         var over = code === 'mower_link_idle' && silenceOver(d);
         /* A12: silent AGAIN before the robot wrote the new silence down: its own short sentence
            (the listed "since" belongs to the silence that ended) */
-        if (code === 'mower_link_idle' && silentAgain(d)) { out.push('.again'); }
+        /* V-h: … and while the robot restores the board during a mission, or gave up (recovering / failed) */
+        if (code === 'mower_link_idle' && silentAgain(d)) {
+            var ls = linkDown();
+            if (ls === 'recovering' || ls === 'failed') { out.push('.again.' + ls); }
+            out.push('.again');
+        }
         if (over && !ns && backOf(d.since)) { out.push('.back.until'); }
         if (over) { out.push('.back' + ns); }
         if (code === 'mower_link_idle' && d.in_dock === false) { out.push('.off_dock' + ns); }
@@ -87,8 +92,18 @@
        AGAIN right now (/mower/link, fresh). The robot lists the new silence only after 2-3 min;
        until then this one stands for it: live, red, no Clear - unless another listed silence
        without a return already carries the live one. */
+    /* V-h (check A727): what /mower/link says is wrong right now - 'silent', 'recovering' (the robot
+       stands and restores the board), 'failed' (it did not come back) - or '' when the board answers
+       or the page has no fresh word */
+    function linkDown() {
+        if (!linkFresh()) { return ''; }
+        var l = S.linkMsg, st = String(l.state || ''), bn = String(l.banner || '');
+        if (bn === 'recovering' || bn === 'failed') { return bn; }
+        if (st === 'recovering' || st === 'failed') { return st; }
+        return st === 'silent' || bn === 'silent' ? 'silent' : '';
+    }
     function silentAgain(d) {
-        if (!d || !d.since || linkSilentNow() === null || !backOf(d.since)) { return false; }
+        if (!d || !d.since || !linkDown() || !backOf(d.since)) { return false; }
         var list = typeof S === 'object' && S && S.report ? (S.report.issues || []) : [];
         return !list.some(function (i) {
             var x = i && i.code === 'mower_link_idle' ? (i.detail || {}) : null;
@@ -99,7 +114,7 @@
         if (!d) { return d; }
         /* A12: silent again: the length is the board's own count now, not the old report's */
         if (silentAgain(d)) {
-            d.dur = nb(fmtDur(linkSilentNow()));
+            d.dur = nb(fmtDur(linkSilentNow() || 0));
             if (d.at === undefined) { d.at = nbDay(clock(parseIso(d.since).getTime())); }
             return d;
         }
@@ -950,8 +965,30 @@
             var v = D.view();
             if (!v || v.kind === 'reading' || v.kind === 'unsupported') { return null; }
             return { kind: v.kind, active: v.active, next: v.next,
-                     to: v.active ? D.hm(v.active.to) : '', nextAt: v.next ? D.hm(v.next.from) : '' };
+                     to: v.active ? D.hm(v.active.to) : '', nextAt: v.next ? D.hm(v.next.from) : '',
+                     exits: v.active ? Number(v.active.exits) || 0 : 0, max: v.active ? Number(v.active.max_exits) || 0 : 0 };
         } catch (e) { return null; }
+    }
+    /* V-h: the dock permit in one word-pair: which sentence (auto.vh.dock.*) and chip (auto.vh.chip.*)
+       and their values; null while it is not known (agent down, still reading, permit not verified) */
+    function dockSay() {
+        var pc = permitView(), ck = pc ? pc.kind : '';
+        if ((ck === 'open' || ck === 'ending') && pc.to) {
+            return { k: pc.max ? 'open_exits' : 'open', v: { to: pc.to, left: Math.max(0, pc.max - pc.exits), max: pc.max }, tone: 'info' };
+        }
+        if (ck === 'scheduled' && pc.next) { return { k: 'next', v: { at: pc.nextAt }, tone: '' }; }
+        if (ck === 'exits_used') { return { k: 'exits_used', v: null, tone: '' }; }
+        if (ck === 'locked' || ck === 'waiting_clock') { return { k: 'locked', v: null, tone: '' }; }
+        return null;
+    }
+    /* V-h: … and as a chip in the top card, in sight whoever decides (Who decides stays folded while the
+       calendar does); the whole sentence is its tooltip, a tap opens the dock permit (sends nothing) */
+    function paintAnsDock() {
+        var ds = dockSay();
+        if (!ds) { ansSet(S.ansDock, ''); return; }
+        ansSet(S.ansDock, t('auto.vh.chip.' + ds.k, ds.v), ds.tone, t('auto.vh.dock.' + ds.k, ds.v) + '\n' + t('auto.mode.dock.go_tip'));
+        var ic = S.ansDock.querySelector('i'), want = 'la ' + (ds.tone === 'info' ? 'la-unlock' : 'la-lock');
+        if (ic && ic.className !== want) { ic.className = want; }
     }
     function paintAdvice(mv) {
         var box = $('auto_mode_advice');
@@ -1061,6 +1098,7 @@
         paintDock(mv); paintAdvice(mv); paintLast(mv);
     }
     function modeNotes(notes, mv) {
+        var dn = null;
         if (!mv.automation) { note(notes, 'auto.mode.note.auto_off', null, 'warn'); }
         else if (mv.held) { note(notes, 'auto.mode.note.held', null, 'warn'); }
         if (mv.mode === 'agent') {
@@ -1069,7 +1107,7 @@
             if (mv.limit_now) { note(notes, 'auto.mode.limit_now', { what: limitText(mv.limit_now.code, mv.limit_now.vars) }); }
             /* the dock permit, quietly (the box above speaks only when an advice waits);
                T18: with the window's end and the way to the tile */
-            var pv = permitView(), dn = null;
+            var pv = permitView();
             if (mv.dock_permitted === true) {
                 dn = note(notes, pv && pv.active ? 'auto.mode.dock.open_until' : 'auto.mode.dock.open',
                           pv && pv.active ? { to: pv.to } : null);
@@ -1078,15 +1116,20 @@
                           pv && pv.next ? { at: pv.nextAt } : null);
                 dn.title = dockWhy(mv.dock_why);
             }
-            if (dn) {
-                var dl = el('button', 'vt-auto-notelink', dn, t('auto.mode.dock.go') + ' \u203a');
-                dl.type = 'button'; dl.id = 'btn_auto_mode_dock_note';
-                dl.title = t('auto.mode.dock.go_tip');
-                dl.addEventListener('click', openPermit);
-            }
         } else {
             note(notes, mv.limits_apply ? 'auto.mode.note.calendar_limits' : 'auto.mode.note.calendar');
             if (mv.limit_now) { note(notes, 'auto.mode.limit_now', { what: limitText(mv.limit_now.code, mv.limit_now.vars) }); }
+            /* V-h (seen live 2026-11-18): with the calendar deciding the panel said nothing about the
+               dock. One sentence from what the Agent panel just read (the same as the bar over the map):
+               locked / open until HH:MM / N of M exits left; nothing while that is not known */
+            var ds = dockSay();
+            if (ds) { dn = note(notes, 'auto.vh.dock.' + ds.k, ds.v); }
+        }
+        if (dn) {
+            var dl = el('button', 'vt-auto-notelink', dn, t('auto.mode.dock.go') + ' \u203a');
+            dl.type = 'button'; dl.id = 'btn_auto_mode_dock_note';
+            dl.title = t('auto.mode.dock.go_tip');
+            dl.addEventListener('click', openPermit);
         }
     }
     /* an older master has no agent group: no heading over nothing */
@@ -1159,6 +1202,12 @@
         };
         S.ansMode = mk('btn_auto_ans_mode', 'la-random', 'mode');
         S.ansNow = mk('btn_auto_ans_now', 'la-check-circle', 'now');
+        /* V-h: the dock permit (locked / open until / exits left) - shown once the Agent panel has read it */
+        S.ansDock = el('button', 'vt-auto-ans', row);
+        S.ansDock.type = 'button'; S.ansDock.id = 'btn_auto_ans_dock'; S.ansDock.hidden = true;
+        el('i', 'la la-lock', S.ansDock);
+        el('span', 'vt-auto-ans-t', S.ansDock);
+        S.ansDock.addEventListener('click', openPermit);
         /* T21 A7: the agent's standing watches ("if X, do Y") — shown only while there is one */
         S.ansWatch = el('button', 'vt-auto-ans', row);
         S.ansWatch.type = 'button'; S.ansWatch.id = 'btn_auto_ans_watch'; S.ansWatch.hidden = true;
@@ -2366,7 +2415,7 @@
         S.linkMsg = l; S.linkAt = Date.now();
         /* the issue's "for N min" follows, in the notice here and in the calendar card: only when
            the minute said changes (the link comes often; the card's Clear button is not rebuilt under a finger) */
-        var live_ = linkSilentNow(), mark = live_ === null ? (l.state === 'ok' ? 'ok' : (wasSilent ? 'back' : ''))
+        var live_ = linkSilentNow(), mark = live_ === null ? (l.state === 'ok' ? 'ok' : (wasSilent ? 'back' : '') + '|' + (banner || l.state || ''))
             /* A12: under a minute the length is said in seconds: followed by ten seconds, so "40 s" does not stand for a minute */
             : (live_ < 60 ? 's' + Math.floor(live_ / 10) : String(Math.round(live_ / 60)));
         if (mark !== (S.linkMark || '') && S.report && (S.report.issues || []).length) {
@@ -3256,7 +3305,7 @@
         /* T21 A7: the advice is "switch the robot off and on": the way to the Hardware reset
            block in Sleep (its own two steps and checks); this button only goes there */
         /* T21 A8: only where the block would take it (in the dock) and while there is something to fix */
-        if (HW_ADVICE[i.code] && d.in_dock !== false && !issueOver(i)) {
+        if (HW_ADVICE[i.code] && d.in_dock !== false && !issueOver(i) && !silentAgain(i.detail || {})) {
             var h = el('button', 'btn btn-sm btn-link vt-auto-alert-go', box, t('auto.a7.alert.hw'));
             h.type = 'button'; h.id = 'btn_auto_alert_hw';
             h.title = t('auto.a7.alert.hw_tip');
@@ -3548,7 +3597,7 @@
         document.addEventListener('vagent:dock', function () {
             if (!S.mode) { return; }
             var sig = JSON.stringify(permitView());
-            if (sig !== S.permitSig) { S.permitSig = sig; paintMode(); }
+            if (sig !== S.permitSig) { S.permitSig = sig; paintMode(); paintAnsDock(); }
         });
         subJson('/scheduler/report', function (r) { S.report = r; S.reportAt = Date.now(); if (r && r.mode) { S.mode = r.mode; } paintAll(); paintSettings(); afterReport(); tick(); });
         subJson('/scheduler/timeline', function (o) { S.timeline = o; paintTimeline(); paintUsed(); });
@@ -3591,10 +3640,10 @@
                 var cd = $('auto_countdown'); clear(cd);
                 buildMode(); buildPlanActions(); buildSleep(); buildFilter(); buildHw();
                 var lim = $('auto_limits'); if (lim) { delete lim.dataset.sig; }
-                paintSettings(); paintAll(); paintAnsWatch(); paintLink(); tick();   // A8: the board's banner too (it stayed in the old language)
+                paintSettings(); paintAll(); paintAnsWatch(); paintAnsDock(); paintLink(); tick();   // A8: the board's banner too (it stayed in the old language)
             });
         }
-        paintSettings(); paintAll(); paintAnsWatch();
+        paintSettings(); paintAll(); paintAnsWatch(); paintAnsDock();
     }
 
     window.VTAutonomy = { issueKeys: issueKeys, issueVars: issueVars, issueOver: issueOver, init: init, runGate: runGate, open: openSec, rightSection: rightSection, planLine: function () {

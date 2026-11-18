@@ -31,7 +31,12 @@
     var s = Math.max(0, Date.now() / 1000 - ts);
     if (s < 90) return T('common.ago.s', {n: Math.round(s)});
     if (s < 5400) return T('common.ago.min', {n: Math.round(s / 60)});
-    if (s < 172800) return T('common.ago.h', {n: (s / 3600).toFixed(1)});
+    if (s < 172800) {
+      // T8 V-h (živě: „před 2.0 h"): desetinná čárka v češtině
+      var h = (s / 3600).toFixed(1);
+      if (window.VTI18n && VTI18n.lang && VTI18n.lang() === 'cs') h = h.replace('.', ',');
+      return T('common.ago.h', {n: h});
+    }
     return T('common.ago.d', {n: Math.round(s / 86400)});
   }
   // Čas zablokování: dnes jen HH:MM, jindy i den podle jazyka

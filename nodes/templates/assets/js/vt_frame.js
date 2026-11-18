@@ -244,6 +244,11 @@
                 if (r.left < pleft + pw && r.right > pleft && r.top > ptop) { pbot = Math.min(pbot, r.top); }
             });
             setCls(body, 'vt-pills-col', true);
+            // T8 V-h (live 2026-11-18, a phone with the Agent sheet open): the map hollow is ~170 px
+            // high then. The pills stand beside the map's buttons in one-line form and the agent's
+            // plan card (anchored to the hollow's bottom, ~95 px) steps back - it lay over the
+            // compass, the layers and the measure button and under the pills (vt_header.css, vt_panel.css)
+            setCls(body, 'vt-sheet-low', !!sheetOpen);
             setVar('--vt-frame-pills-top', px(ptop));
             setVar('--vt-frame-pills-left', px(pleft));
             setVar('--vt-frame-pills-w', px(Math.max(120, pw)));
@@ -251,6 +256,7 @@
         } else {
             setCls(body, 'vt-rp-unfold', false);
             setCls(body, 'vt-pills-col', false);
+            setCls(body, 'vt-sheet-low', false);
             if (row && visible(info)) { nb = Math.max(nb, row.getBoundingClientRect().bottom); }
         }
         setVar('--vt-frame-col-top', px(m === 'sheet' ? colTopS : Math.max(top, colTop)));

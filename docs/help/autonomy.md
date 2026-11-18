@@ -185,7 +185,8 @@ The page says *it answers again* only on what it knows — a message from the bo
 journal. Without the robot, or without a fresh message from the board, the notice stays as it was with *(No fresh word
 from the board right now.)* and offers no Clear; a fault that still lasts always comes first in the box. When the board
 goes silent again before the robot has written the new silence down (it takes 2–3 minutes), the grey notice turns red at once:
-*The mower board has stopped answering again (40 s)* — no Clear until it answers.
+*The mower board has stopped answering again (40 s)* — no Clear until it answers. The same while the robot restores the board
+during a mission or gave up: *… again: the robot stands and is restoring it* / *… did not come back: the robot goes home without the blade*.
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping
@@ -208,7 +209,10 @@ Who decides when to mow: the **calendar** (your slots, as always) or the **agent
 panel, or tell the agent in the chat: "mow as you see fit" / "switch to the agent" and "back to the
 calendar". After an update it is the calendar, nothing changes until you switch.
 
-In the panel it is the section **Who decides**, under Plan:
+In the panel it is the section **Who decides**, under Plan. The top card always carries a dock chip (*Dock locked*, *Dock open until 06:00*;
+a tap opens the dock permit), and while the calendar decides the section also says the dock in one
+sentence — *The dock is locked: the agent will not drive the robot out until you allow it*, *The dock is open until 06:00*
+(with *2 of 3 exits left* when the permit counts them) — with **Dock permit ›** beside it; calendar runs do not ask for the permit.
 
 ![Who decides with numbered markers](img/shot-autonomy-mode.webp "1 Calendar | Agent · 2 waits for the dock permission, Dock permit › · 3 the advice in force · 4 rules and hard limits")
 

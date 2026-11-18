@@ -2000,6 +2000,16 @@ def a7_story(p, shots, label):
                 main:(c.querySelector('.vwr-main')||{}).textContent||''}})()""")
     check('A7 card without the owner\'s text and not waiting: as before', bool(plain) and not plain['ask'] and not plain['said']
           and 'baterie (%) nad 50' in plain['main'] and plain['state'] == ('běží' if cs else 'running'), plain)
+    # T8 V-g/V-h in the browser: a rule that never fired says so in one phrase; hours with the language's decimal mark
+    a7_watch(p, [a7_rules(needs_undock_word=False)])
+    nf = p.wait(lambda: p.pg.evaluate("(()=>{const c=document.querySelector('.vwr-card');return c?c.textContent:''})()"), 4000) or ''
+    check('V-h a rule that never fired: "%s", not "last fired never"' % ('zatím nezasáhlo' if cs else 'has not fired yet'),
+          ('zatím nezasáhlo' if cs else 'has not fired yet') in nf and not re.search(r'naposled zatím ne|last fired never', nf), nf)
+    a7_watch(p, [a7_rules(needs_undock_word=False, fired=1, last_fired=dt.datetime.now().timestamp() - 7200)])
+    p.wait(lambda: re.search(r'2[.,]0 h', p.pg.evaluate("(()=>{const c=document.querySelector('.vwr-card');return c?c.textContent:''})()") or ''), 4000)
+    fh = p.pg.evaluate("(()=>{const c=document.querySelector('.vwr-card');return c?c.textContent:''})()") or ''
+    check('V-h a rule that fired two hours ago: "%s"' % ('naposled před 2,0 h' if cs else 'last fired 2.0 h ago'),
+          ('naposled před 2,0 h' if cs else 'last fired 2.0 h ago') in fh, fh)
     a7_watch(p, [a7_rules(last_blocked=A7_NO_WORD)])
     p.pg.evaluate("VAgent.close()")
     p.pg.wait_for_timeout(200)
@@ -2228,6 +2238,19 @@ def a7_story(p, shots, label):
           and re.search(r'znovu neodpovídá|answering again', again['cal'][1]), again)
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-a12-again.png'))
+    # V-h (check A727): the same while the robot restores the board during a mission, or gave up (recovering / failed):
+    # the box says the live state, red / amber, no "answers again", no Clear, no Hardware reset link
+    for st_, word in (('recovering', 'obnovuje' if cs else 'restoring'), ('failed', 'domů' if cs else 'home')):
+        p.pub('/mower/link', dict(link, banner=st_, state='silent' if st_ == 'failed' else st_, silent_s=0))
+        p.wait(lambda: word in (p.text('#auto_alert') or ''), 4000)
+        rf = p.pg.evaluate("""(()=>{const b=document.getElementById('auto_alert'), c=document.querySelector('.rp-auto-chip');
+            return {state:b.dataset.state, lab:b.querySelector('.vt-attn-lab').textContent, text:b.querySelector('.vt-attn-txt').textContent.replace(/\u00a0/g,' '),
+                    clr:!!document.getElementById('btn_auto_alert_clear'), hw:!!document.getElementById('btn_auto_alert_hw'), chip:c&&c.dataset.state,
+                    hist:document.getElementById('auto_sec_history').dataset.state}})()""")
+        check('V-h the link says "%s" with the old notice\'s return in History: the box is the live state, no "answers again", no Clear, no Hardware reset' % st_,
+              rf['state'] == 'err' and word in rf['text'] and re.search(r'znovu|again', rf['text']) and not rf['clr'] and not rf['hw']
+              and rf['lab'] == p.pg.evaluate("VTI18n.t('auto.alert.label')") and not re.search(r'už odpovídá|answers again|mlčela|was silent|\{', rf['text'])
+              and rf['chip'] in ('warn', 'err') and rf['hist'] == 'err', rf)
     # … and once the robot lists the new silence, that one carries the fault; the old one is over again (one "to see")
     newer = dict(issue, t=iso(now), detail=dict(issue['detail'], since=iso(now - dt.timedelta(minutes=2)), silent_s=120))
     p.pub('/mower/link', dict(link, silent_s=125))
@@ -2425,6 +2448,103 @@ def agent_slot(p, label):
         check(label + ' … and the compass rose stands under them', bp['rose'][1] >= bp['bars'][3], bp)
 
 
+def vh_dock_note(p, shots, label):
+    """T8 V-h: while the calendar decides, Who decides says the dock in one sentence, from what the Agent panel read
+    (the same as the bar over the map): locked / open until HH:MM / N of M exits left / scheduled; nothing unknown."""
+    cs = label.endswith('cs')
+    p.pub('/scheduler/mode', mode_view('calendar'))
+    p.open('mode')
+    def dock(v):
+        p.pg.evaluate("""(v)=>{window.VAgent=window.VAgent||{}; const real=VAgent.dock||{}; window.__dockWas=window.__dockWas||VAgent.dock;
+            VAgent.dock=Object.assign({}, real, {view:()=>v, hm:(s)=>{const d=new Date(s*1000);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}});
+            document.dispatchEvent(new CustomEvent('vagent:dock'))}""", v)
+        p.pg.wait_for_timeout(250)
+        return (p.text('#auto_mode_notes') or '').replace('\xa0', ' ')
+    to = dt.datetime.now().replace(hour=23, minute=40, second=0, microsecond=0)
+    hm = to.strftime('%H:%M')
+    tx = dock({'kind': 'locked', 'active': None, 'next': None})
+    check(label + ' V-h calendar decides, dock locked: one sentence says the agent will not drive out, calendar runs do not ask',
+          ('Dok je zamčený: agent s robotem nevyjede' if cs else 'The dock is locked: the agent will not drive the robot out') in tx
+          and ('z kalendáře se na dok neptají' if cs else 'Calendar runs do not ask') in tx, tx)
+    tx = dock({'kind': 'open', 'active': {'to': to.timestamp(), 'exits': 0, 'max_exits': 0}, 'next': None})
+    check(label + ' V-h … open until HH:MM', (('Dok je povolený do %s:' if cs else 'The dock is open until %s:') % hm) in tx and '{' not in tx, tx)
+    tx = dock({'kind': 'ending', 'active': {'to': to.timestamp(), 'exits': 1, 'max_exits': 3}, 'next': None})
+    check(label + ' V-h … with the exits left (2 of 3)', (('do %s, zbývá 2 z 3 výjezdů' if cs else 'until %s, 2 of 3 exits left') % hm) in tx, tx)
+    fit = p.pg.evaluate("""(()=>{const n=document.getElementById('auto_mode_notes'), b=document.getElementById('btn_auto_mode_dock_note'); const r=n.getBoundingClientRect();
+        return {cut:n.scrollWidth>n.clientWidth+1, right:Math.round(r.right), vw:innerWidth, link:!!b, hs:document.scrollingElement.scrollWidth>innerWidth+1}})()""")
+    check(label + ' V-h … the sentence wraps inside the panel, the way to the dock permit is there, no sideways scroll',
+          not fit['cut'] and fit['right'] <= fit['vw'] + 1 and fit['link'] and not fit['hs'], fit)
+    if shots:
+        p.pg.evaluate("document.getElementById('auto_mode_notes').scrollIntoView({block:'center'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-vh-dock-note.png'))
+    chip = p.pg.evaluate("(()=>{const b=document.getElementById('btn_auto_ans_dock');const r=b.getBoundingClientRect();return {vis:!b.hidden&&r.height>0,text:b.textContent,state:b.dataset.state||'',tip:b.title,h:Math.round(r.height),right:Math.round(r.right),vw:innerWidth}})()")
+    check(label + ' V-h the top card carries the dock chip (open until, exits left), the sentence is its tooltip, inside the card',
+          chip['vis'] and (('do %s · zbývá 2 z 3' if cs else 'until %s · 2 of 3') % hm) in chip['text'] and chip['state'] == 'info'
+          and ('zbývá 2 z 3 výjezdů' if cs else '2 of 3 exits left') in chip['tip'] and chip['right'] <= chip['vw'] and chip['h'] >= 32, chip)
+    tx = dock({'kind': 'scheduled', 'active': None, 'next': {'from': to.timestamp(), 'to': to.timestamp() + 600}})
+    check(label + ' V-h … locked with a window scheduled', (('naplánované od %s' if cs else 'scheduled from %s') % hm) in tx, tx)
+    tx = dock({'kind': 'exits_used', 'active': None, 'next': None})
+    check(label + ' V-h … exits used up', ('vyčerpané' if cs else 'used up') in tx, tx)
+    tx = dock({'kind': 'unknown', 'active': None, 'next': None})
+    check(label + ' V-h … state unknown (agent down): nothing claimed about the dock, no chip', not re.search(r'[Dd]ok |[Dd]ock', tx)
+          and p.pg.evaluate("document.getElementById('btn_auto_ans_dock').hidden"), tx)
+    tx = dock({'kind': 'locked', 'active': None, 'next': None})
+    lk = p.pg.evaluate("(()=>{const b=document.getElementById('btn_auto_ans_dock');return [b.hidden,b.textContent,b.dataset.state||'']})()")
+    check(label + ' V-h … locked: the chip says so in the neutral tone (the owner\'s choice)', not lk[0] and lk[1] == ('Dok zamčený' if cs else 'Dock locked') and lk[2] == '', lk)
+    p.pg.evaluate("(()=>{ if(window.__dockWas!==undefined){VAgent.dock=window.__dockWas;} delete window.__dockWas; document.dispatchEvent(new CustomEvent('vagent:dock')) })()")
+
+
+def vh_sheet_pills(p, shots, label):
+    """T8 V-h (seen live on a phone, the Agent sheet open): over an open sheet the map hollow is low. The pills
+    (dock open + a finding) stand beside the map's buttons, cover none of them, nor STOP; Lock stays in reach above
+    the sheet; the finding is one line; the agent's plan card steps back while the sheet is open."""
+    if p.pg.viewport_size['width'] > 500:
+        return
+    p.open('now')
+    r = p.pg.evaluate("""async ()=>{const u=document.getElementById('vagent_unlocked'), st=document.getElementById('vagent_strip'), b=document.getElementById('vagent_bars');
+        if(!u||!st||!b) return null;
+        const was=[u.innerHTML,u.style.display,st.innerHTML,st.className,st.style.display];
+        u.innerHTML='<span class="vs-lab">DOK POVOLEN</span><span class="vs-txt">do 06:00 · 3:55:40</span><button type="button" class="vs-btn">Zamknout</button>'; u.style.display='';
+        st.innerHTML='<span class="vs-lab">NÁLEZ</span><span class="vs-txt">13 nepřečtených nálezů k přečtení</span>'; st.className='va-finding'; st.style.display='';
+        let card=document.getElementById('vt_aplan_card'), made=false, cwas=card?card.style.display:null;
+        if(!card){card=document.createElement('div'); card.id='vt_aplan_card'; card.className='vt-aplan-card'; card.innerHTML='<div class="vt-aplan-head">◆ Plán agenta</div><div class="vt-aplan-sub">Testovací jízda</div><div class="vt-aplan-btns"><button class="btn btn-sm vt-aplan-btn">Ukázat</button></div>'; document.body.appendChild(card); made=true;}
+        card.style.display='';
+        window.dispatchEvent(new Event('resize')); await new Promise(r=>setTimeout(r,700));
+        const vis=e=>!!(e&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0);
+        const R=e=>vis(e)?[e.getBoundingClientRect().left,e.getBoundingClientRect().top,e.getBoundingClientRect().right,e.getBoundingClientRect().bottom].map(Math.round):null;
+        const g=id=>document.getElementById(id), btn=u.querySelector('.vs-btn'), q=btn.getBoundingClientRect(), hit=document.elementFromPoint(q.left+q.width/2,q.top+q.height/2);
+        const dr=g('ui_drawer');
+        const o={cls:document.body.className, u:R(u), st:R(st), btn:R(btn), btnHit:hit===btn, rose:R(g('vt_utm_rose')), fab:R(g('vt_lyr_fab')), meas:R(g('vt_meas_btn')),
+                 stop:R(g('vt_stop_big')), card:R(card), sheet:R(dr), stH:Math.round(st.getBoundingClientRect().height), stTitle:st.title||'',
+                 hs:document.scrollingElement.scrollWidth>innerWidth+1, vw:innerWidth};
+        return {o, was, made, cwas}}""")
+    if not r:
+        check(label + ' V-h the agent pills exist on the page', False, 'no #vagent_bars')
+        return
+    o = r['o']
+    ov = lambda a, c: bool(a and c and not (a[2] <= c[0] or a[0] >= c[2] or a[3] <= c[1] or a[1] >= c[3]))
+    pills = [x for x in (o['u'], o['st']) if x]
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-vh-sheet-pills.png'))
+    check(label + ' V-h sheet open: the pills cover no map button (compass, layers, measure) and not STOP',
+          len(pills) == 2 and not any(ov(x, c) for x in pills for c in (o['rose'], o['fab'], o['meas'], o['stop'])), o)
+    check(label + ' V-h … Lock is whole above the sheet, on the screen and under the finger (>= 40 px)',
+          bool(o['btn']) and o['btnHit'] and o['btn'][2] <= o['vw'] and (not o['sheet'] or o['btn'][3] <= o['sheet'][1] + 1) and o['btn'][3] - o['btn'][1] >= 40, o)
+    check(label + ' V-h … the finding is one line, both pills end above the sheet, no sideways scroll',
+          o['stH'] <= 32 and all((not o['sheet']) or x[3] <= o['sheet'][1] + 1 for x in pills) and not o['hs'], o)
+    check(label + ' V-h … the agent\'s plan card steps back while the sheet is open', o['card'] is None and 'vt-sheet-low' in o['cls'], o)
+    back = p.pg.evaluate("""async (r)=>{const mm=window.map_menu; try{ if(mm&&mm.close_drawer) mm.close_drawer(); }catch(e){}
+        window.dispatchEvent(new Event('resize')); await new Promise(x=>setTimeout(x,700));
+        const card=document.getElementById('vt_aplan_card'), u=document.getElementById('vagent_unlocked'), st=document.getElementById('vagent_strip');
+        const vis=e=>!!(e&&getComputedStyle(e).display!=='none'&&e.getBoundingClientRect().height>0);
+        const out={card:vis(card), low:document.body.classList.contains('vt-sheet-low')};
+        [u.innerHTML,u.style.display,st.innerHTML,st.className,st.style.display]=r.was;
+        if(r.made){card.remove();} else {card.style.display=r.cwas;}
+        window.dispatchEvent(new Event('resize')); return out}""", r)
+    check(label + ' V-h … and is back once the sheet is closed', back['card'] and not back['low'], back)
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -2517,6 +2637,8 @@ def main():
             a6_fit(p, a.shots, label)
             a7_story(p, a.shots, label)
             a7_fit(p, a.shots, label)
+            vh_dock_note(p, a.shots, label)
+            vh_sheet_pills(p, a.shots, label)
             lang_sweep(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
@@ -2535,6 +2657,8 @@ def main():
             a5_fit(p, a.shots, label)
             a6_fit(p, a.shots, label)
             a7_fit(p, a.shots, label)
+            vh_dock_note(p, a.shots, label)
+            vh_sheet_pills(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
             ctx.close()
         b.close()

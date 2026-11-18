@@ -418,8 +418,8 @@ pixels of about 1 km, so close up on the garden you see a single one: the time l
 unticking the layer. A line says whether it rains around the garden now (*No rain around now (about
 150 km)*, *Rain around, roughly 30 km away*). It is rough on purpose: measured from the area around
 the garden (kept vague for privacy), give or take about 15 km. Where the nowcast reaches, the line
-also says when rain may reach the area around the garden or stop there (*nowcast: rain may reach
-the area around the garden in about 30 min*), counted from now, at most an hour ahead — a nowcast
+also says when rain may reach the area around the garden or stop there (*nowcast: rain may come
+around the garden in about 30 min*), counted from now, at most an hour ahead — a nowcast
 (ČHMÚ, DWD), often wrong in detail, not a promise; nothing is said where it does not reach, beyond
 an hour, or while the data are being updated. After a long pause the
 first picture may be hours old for a moment: the line says *updating…* and the newest comes within
