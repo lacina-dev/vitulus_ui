@@ -152,9 +152,15 @@ check('roslib: TFClient.subscribe asks the republisher again only for a frame it
     // a frame nobody listed: as before M18
     K.st(() => K.tf.subscribe('some_new_frame', () => { got.other = got.other || K.at(); }), 0); K.run(K.at() + 5000);
     check('one request: a frame that is not listed still works as before — one more request with it added, its answer taken', K.calls.length === 2 && K.calls[1].frames.includes('some_new_frame') && /\+t2$/.test(K.topics()) && got.other > 20000, [K.calls.length, K.topics(), got.other]);
-    check('one request: the list is the frames the page\'s modules ask for (map_view, mapping, sensor ranges)', /this\._tfFrames = \['base_link', 'odom', 'base_scan', 'd435_link', 'd435_color_optical_frame'\];/.test(mv) &&
-        /subscribe\('base_scan'/.test(fs.readFileSync(path.join(JS, 'vt_sensor_ranges.js'), 'utf8')) && /subscribe\('d435_link'/.test(fs.readFileSync(path.join(JS, 'vt_sensor_ranges.js'), 'utf8')) &&
-        /camFrame: 'd435_link'/.test(fs.readFileSync(path.join(JS, 'mapping.js'), 'utf8')));
+    check('one request: the list is the frames the page\'s modules ask for (map_view, mapping, sensor ranges)', /static get FRAMES\(\) \{\s*return \{ base: 'base_link', odom: 'odom', lidar: 'base_scan', cam: 'd435_link', camOptical: 'd435_color_optical_frame' \};/.test(mv) &&
+        /window\.VT_TF_FRAMES = TfClient\.FRAMES;/.test(mv) &&
+        /subscribe\(FR\.lidar,/.test(fs.readFileSync(path.join(JS, 'vt_sensor_ranges.js'), 'utf8')) && /subscribe\(FR\.cam,/.test(fs.readFileSync(path.join(JS, 'vt_sensor_ranges.js'), 'utf8')) &&
+        /get camFrame\(\) \{ return window\.VT_TF_FRAMES\.cam; \}/.test(fs.readFileSync(path.join(JS, 'mapping.js'), 'utf8')));
+    // T8 V-m: one source of truth - the frame names are written once in the page's code
+    const lit = (f, re) => (fs.readFileSync(path.join(JS, f), 'utf8').replace(/\/\/.*$/gm, '').match(re) || []).length;
+    check('one list: the lidar / camera frame names are written once (map_view.js), not in mapping.js or vt_sensor_ranges.js',
+        lit('map_view.js', /'base_scan'/g) === 1 && lit('map_view.js', /'d435_link'/g) === 1 && lit('mapping.js', /'base_scan'|'d435_link'/g) === 0 && lit('vt_sensor_ranges.js', /'base_scan'|'d435_link'/g) === 0,
+        [lit('map_view.js', /'base_scan'/g), lit('mapping.js', /'base_scan'|'d435_link'/g), lit('vt_sensor_ranges.js', /'base_scan'|'d435_link'/g)]);
 }
 {
     // the first frame asked for is not base_link: still one request with everything

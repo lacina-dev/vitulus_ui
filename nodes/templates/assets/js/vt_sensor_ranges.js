@@ -653,8 +653,9 @@
         if (S.tfOn || !tf) { return; }
         S.tfOn = true;
         tf.subscribe('base_link', function (x) { D.tfBase = x; S.tfB = x; });
-        tf.subscribe('base_scan', function (x) { S.tfL = x; if (S.gL && S.gL.visible) { place(S.gL, x); } });
-        tf.subscribe('d435_link', function (x) {
+        var FR = window.VT_TF_FRAMES;      // T8 V-m: the one list of TF frames (map_view.js)
+        tf.subscribe(FR.lidar, function (x) { S.tfL = x; if (S.gL && S.gL.visible) { place(S.gL, x); } });
+        tf.subscribe(FR.cam, function (x) {
             D.tfCam = x;
             if (S.gC && S.gC.visible) { place(S.gC, x); }
             /* the robot drives under the view: labels keep their size on the screen */

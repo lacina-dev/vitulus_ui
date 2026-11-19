@@ -2029,6 +2029,10 @@ class ViewerGrid{
 
 
 class TfClient {
+    // T8 V-m: the TF frames the page asks for, by what they are (order = the order in the request)
+    static get FRAMES() {
+        return { base: 'base_link', odom: 'odom', lidar: 'base_scan', cam: 'd435_link', camOptical: 'd435_color_optical_frame' };
+    }
     constructor(ros, viewer) {
         this.robot_cam_position = new THREE.Vector3();
         this.robot_cam_position.copy(viewer.camera.position);
@@ -2138,12 +2142,12 @@ class TfClient {
         // of the TF topic — follows. A frame not listed here still works as before
         // (roslib asks again with it added). A listed frame that does not exist in
         // TF is what the watchdog's "other frames" rule is for (bounded, warned).
-        // T8 V-i: the list is written here on purpose - the first request must name every frame
-        // BEFORE the modules that use them load (asking them would bring back the second request
-        // and the switch of the TF topic this avoids). A new module with another frame: add its
-        // frame here in the same change (and in tools/test_map_m18.node.js); forgetting
-        // it breaks nothing, it only costs one more request a few seconds after the start.
-        this._tfFrames = ['base_link', 'odom', 'base_scan', 'd435_link', 'd435_color_optical_frame'];
+        // T8 V-m: ONE list (TfClient.FRAMES below, also window.VT_TF_FRAMES) - the first request names
+        // every frame BEFORE the modules that use them load, and those modules (mapping.js sensing view,
+        // vt_sensor_ranges.js) take their frame's name from the same place. A new module with another
+        // frame: add it to FRAMES and read it from there; a frame missing there breaks nothing, it only
+        // costs one more request a few seconds after the start.
+        this._tfFrames = Object.keys(TfClient.FRAMES).map(function (k) { return TfClient.FRAMES[k]; });
         var _origSubscribe = this.tfClientMap.subscribe;
         if (typeof _origSubscribe === 'function') {
             var entered = false;
@@ -2351,6 +2355,7 @@ class TfClient {
         // vitulus_ui: the 'camera' ("Robot front" / chase) follow mode was removed.
     }
 }
+window.VT_TF_FRAMES = TfClient.FRAMES;   // T8 V-m: for the modules loaded after this file
 
 
 class Maps{

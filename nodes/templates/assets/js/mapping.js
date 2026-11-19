@@ -5085,8 +5085,9 @@ class MappingV3 {
 const SENSING_CFG = {
     scanTopic: '/rplidar/scan_filtered',        // direct_raster ~lidar_scan_topic
     camInfoTopic: '/rtabmap/rgb/camera_info_out', // intrinsics of the depth cloud
-    lidarFrame: 'base_scan',
-    camFrame: 'd435_link',
+    // T8 V-m: the names come from the one list in map_view.js (TfClient.FRAMES), read when used
+    get lidarFrame() { return window.VT_TF_FRAMES.lidar; },
+    get camFrame() { return window.VT_TF_FRAMES.cam; },
     lidarMaxRange: 8.0,          // the view's margin, until the profile arrives
     // half-FOV left/right of the optical axis (rad) for K 640×480 fx 616.78
     // cx 326.22: atan(cx/fx), atan((w-cx)/fx) — 54.9° in total
