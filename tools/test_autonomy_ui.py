@@ -2620,6 +2620,64 @@ def vh_sheet_pills(p, shots, label):
     check(label + ' V-h … and is back once the sheet is closed', back['card'] and not back['low'], back)
 
 
+def vo_board(p, shots, label):
+    """T8 V-o: the mower board's freeze forecast from the agent (/agent/api/state mower_board): a quiet line in the top
+    card only when under 6 h are left (amber under 2 h), the agent's sentence as its tooltip; nothing when it is far,
+    not predicted or the field is missing; with the board silent the notice says what the agent adds, once."""
+    cs = label.endswith('cs')
+    p.open('now')
+    def board(b):
+        p.pg.evaluate("""(b)=>{window.VAgent=window.VAgent||{}; window.__apiWas=window.__apiWas||VAgent.api; VAgent.api=(path)=>Promise.resolve(path==='/api/state'?(b===null?{state:{}}:{state:{},mower_board:b}):{});
+            VTAutonomy._state.boardAsked=0;}""", b)
+        p.wait(lambda: p.pg.evaluate("VTAutonomy._state.boardAsked>0 && !!document.getElementById('auto_board')"), 5000)
+        p.pg.wait_for_timeout(1300)
+        return p.pg.evaluate("(()=>{const e=document.getElementById('auto_board'); return e?{hidden:e.hidden, text:e.textContent, state:e.dataset.state||'', tip:e.title, right:Math.round(e.getBoundingClientRect().right), vw:innerWidth}:null})()")
+    import time as _t
+    at = _t.time() + 3 * 3600
+    hm = dt.datetime.fromtimestamp(at).strftime('%H:%M')
+    say = {'text_cs': 'Deska sekačky zamrzne kolem 22. 11. 08:53.', 'text_en': 'Mower board will freeze around 22. 11. 08:53.'}
+    r = board(dict(say, predicting=True, freeze_at=at, freeze_in_s=3 * 3600, silent_since=None))
+    check(label + ' V-o the board freezes in 3 h: one quiet line with the time, the agent\'s sentence as the tooltip, inside the card',
+          bool(r) and not r['hidden'] and hm in r['text'] and r['text'].startswith('Deska sekačky: zamrzne ~' if cs else 'Mower board: freezes ~') and r['state'] == ''
+          and r['tip'] == say['text_cs' if cs else 'text_en'] and r['right'] <= r['vw'] and len(r['text']) < 60, r)
+    if shots:
+        p.pg.evaluate("document.getElementById('card_calendar').scrollIntoView({block:'start'})")
+        p.pg.wait_for_timeout(150)
+        p.pg.screenshot(path=os.path.join(shots, label + '-vo-board.png'))
+    r = board(dict(say, predicting=True, freeze_at=_t.time() + 3000, freeze_in_s=3000, silent_since=None))
+    check(label + ' V-o … under 2 h: the amber tone', bool(r) and not r['hidden'] and r['state'] == 'warn', r)
+    r = board(dict(say, predicting=True, freeze_at=_t.time() + 10 * 3600, freeze_in_s=10 * 3600, silent_since=None))
+    check(label + ' V-o … 10 h away: nothing shown', bool(r) and r['hidden'], r)
+    r = board(dict(say, predicting=False, freeze_at=None, freeze_in_s=None, silent_since=None))
+    check(label + ' V-o … not predicting: nothing shown', bool(r) and r['hidden'], r)
+    r = board(None)
+    check(label + ' V-o … an older agent without the field: nothing shown, no page error', bool(r) and r['hidden'] and not [e for e in p.errors if 'board' in e.lower()], [r, p.errors[-2:]])
+    # the board silent: the notice gets what the agent adds beyond "silent since", once
+    now = dt.datetime.now().replace(second=0, microsecond=0)
+    since = now - dt.timedelta(minutes=33)
+    issue = {'code': 'mower_link_idle', 'level': 'error', 'program': '', 't': iso(since + dt.timedelta(minutes=2)),
+             'detail': {'in_dock': True, 'repeat': 0, 'silent_s': 151, 'since': iso(since)}}
+    p.pub('/mower/link', {'banner': 'silent', 'state': 'silent', 'silent_s': 33 * 60, 'status': 'OFF', 'rpm': 0, 'bat_out': False,
+                          'mission': {'armed': False, 'failed': False, 'phase': None, 'recoveries': 0, 'why': None}})
+    p.pub('/scheduler/journal', {'entries': []})
+    p.pub('/scheduler/report', report(now, issues=[issue]))
+    extra = 'Podle předpovědi zamrzla kolem 18. 11. 15:18.' if cs else 'It was predicted to freeze around 18. 11. 15:18.'
+    board({'predicting': False, 'freeze_at': None, 'freeze_in_s': None, 'silent_since': 1795011420.0, 'predicted_freeze_at': 1795011481.5,
+           'text_cs': 'Deska sekačky mlčí od 18. 11. 15:17. Podle předpovědi zamrzla kolem 18. 11. 15:18.',
+           'text_en': 'Mower board silent since 18. 11. 15:17. It was predicted to freeze around 18. 11. 15:18.'})
+    p.wait(lambda: extra in (p.text('#auto_alert') or ''), 5000)
+    al = p.text('#auto_alert') or ''
+    check(label + ' V-o board silent: the notice adds what the agent knows beyond "silent since", once, and not its "silent since" again',
+          al.count(extra) == 1 and not re.search(r'mlčí od 18\. 11\.|silent since 18\. 11\.', al) and p.pg.evaluate("document.getElementById('auto_board').hidden"), al)
+    board({'predicting': False, 'freeze_at': None, 'freeze_in_s': None, 'silent_since': 1795011420.0, 'text_cs': 'Deska sekačky mlčí od 18. 11. 15:17.', 'text_en': 'Mower board silent since 18. 11. 15:17.'})
+    p.wait(lambda: extra not in (p.text('#auto_alert') or ''), 5000)
+    al = p.text('#auto_alert') or ''
+    check(label + ' V-o … the agent says nothing more than "silent since": the notice is as before', extra not in al and not re.search(r'18\. 11\. 15:17', al), al)
+    p.pg.evaluate("(()=>{ if(window.__apiWas){VAgent.api=window.__apiWas;} delete window.__apiWas; VTAutonomy._state.board=null; })()")
+    p.pub('/mower/link', {'banner': '', 'state': 'ok', 'silent_s': 0})
+    p.pub('/scheduler/report', report(now))
+
+
 def vn_agent_full(p, shots, label):
     """T8 V-n: on a narrow phone (<= 480 px) the Agent panel opens over the whole screen under the header: the robot's
     STOP, the panel's close and the way back to a sheet in reach, the chat input on the screen, no sideways scroll.
@@ -2749,6 +2807,7 @@ def main():
             vh_dock_note(p, a.shots, label)
             vh_sheet_pills(p, a.shots, label)
             vn_agent_full(p, a.shots, label)
+            vo_board(p, a.shots, label)
             lang_sweep(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits

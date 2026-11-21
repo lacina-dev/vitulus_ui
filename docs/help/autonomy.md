@@ -187,6 +187,8 @@ from the board right now.)* and offers no Clear; a fault that still lasts always
 goes silent again before the robot has written the new silence down (it takes 2–3 minutes), the grey notice turns red at once:
 *The mower board has stopped answering again (40 s)* — no Clear until it answers. The same while the robot restores the board
 during a mission or gave up: *… again: the robot stands and is restoring it* / *… did not come back: the robot goes home without the blade*.
+When the agent runs, it also forecasts the freeze: under six hours before it the top card says *Mower board: freezes ~08:53*
+(amber under two hours; the agent's whole sentence is the tooltip), and a notice about a silent board adds what the agent knows (*It was predicted to freeze around …*).
 The history shows since when it is silent and when it answers again. Meanwhile the mower icon in the
 header is red and says *not answering*, and the right panel's **Mower** row says **Silent** in red
 instead of the board's last state, in the dock too (the values under it are the last ones it sent). Stopping

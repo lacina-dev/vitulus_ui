@@ -1244,6 +1244,58 @@
         }
     }
     /* asks again only while the Autonomy panel is on screen */
+    /* T8 V-o: the mower board's freeze forecast, as the agent sends it (/agent/api/state mower_board:
+       predicting, freeze_at, freeze_in_s, text_cs / text_en). Nothing is computed here but the time left
+       since the answer came. Shown only when it concerns the owner: a quiet line in the top card when
+       less than 6 h are left (amber under 2 h); the agent's own sentence is the tooltip. With the board
+       silent the notice gets what the agent's sentence says beyond "silent since" (boardExtra). An older
+       agent without the field: nothing changes. */
+    var BOARD_EVERY_MS = 60000, BOARD_SOON_S = 6 * 3600, BOARD_WARN_S = 2 * 3600, BOARD_OLD_MS = 5 * 60000;
+    function boardText() {
+        var b = S.board;
+        if (!b) { return ''; }
+        var lg = window.VTI18n && VTI18n.lang ? VTI18n.lang() : 'en';
+        return String((lg === 'cs' ? b.text_cs : b.text_en) || b.text_en || b.text_cs || '').trim();
+    }
+    function boardFresh() { return !!S.board && Date.now() - (S.boardAt || 0) <= BOARD_OLD_MS && S.link !== false; }
+    function boardExtra() {
+        if (!boardFresh() || S.board.predicting || !S.board.silent_since) { return ''; }
+        var parts = boardText().split(/(?<=\.)\s+/);
+        return parts.length > 1 ? parts.slice(1).join(' ').trim() : '';
+    }
+    function paintBoard() {
+        var after = $('auto_sleep_plan'), box = $('auto_board');
+        if (!box && after && after.parentNode) {
+            box = document.createElement('p');
+            box.id = 'auto_board'; box.className = 'vt-auto-sleepline'; box.hidden = true;
+            after.parentNode.insertBefore(box, after);
+        }
+        if (!box) { return; }
+        var b = S.board, left = b && boardFresh() && b.predicting === true && isFinite(Number(b.freeze_in_s)) && isFinite(Number(b.freeze_at))
+            ? Number(b.freeze_in_s) - (Date.now() - S.boardAt) / 1000 : null;
+        var show = left !== null && left > 0 && left < BOARD_SOON_S;
+        if (box.hidden !== !show) { box.hidden = !show; }
+        if (!show) { return; }
+        var txt = t('auto.vo.board.soon', { at: clock(Number(b.freeze_at) * 1000) }), st = left < BOARD_WARN_S ? 'warn' : '';
+        if (box.textContent !== txt) { box.textContent = txt; }
+        if ((box.dataset.state || '') !== st) { if (st) { box.dataset.state = st; } else { delete box.dataset.state; } }
+        var tip = boardText() || txt;
+        if (box.title !== tip) { box.title = tip; }
+    }
+    function onBoard(b) {
+        var was = boardExtra();
+        S.board = b && typeof b === 'object' ? b : null; S.boardAt = Date.now();
+        paintBoard();
+        if (boardExtra() !== was && S.report && (S.report.issues || []).length) { paintAlert(); }
+    }
+    /* asked only while the Autonomy panel is on screen, once a minute; no agent: nothing */
+    function tickBoard() {
+        var panel = $('div_menu_autonomy'), VA = window.VAgent;
+        paintBoard();                                    // the 6 h / 2 h marks pass without a new answer
+        if (!VA || !VA.api || !panel || !panel.offsetParent || document.hidden || Date.now() - (S.boardAsked || 0) < BOARD_EVERY_MS) { return; }
+        S.boardAsked = Date.now();
+        try { VA.api('/api/state').then(function (d) { onBoard(d && d.mower_board); }).catch(function () { /* agent down: the line goes with its age */ }); } catch (e) { /* no agent */ }
+    }
     function tickWatch() {
         var W = window.VTWatchRules, panel = $('div_menu_autonomy');
         if (!W || !W.refresh || !panel || !panel.offsetParent || document.hidden) { return; }
@@ -2278,7 +2330,7 @@
         paintRight();
         paintRaw();
         tickHw();
-        tickWatch();
+        tickWatch(); tickBoard();
         watchSleep(p);
         notices(p);
         var cm = window.calendarManager;
@@ -3304,6 +3356,9 @@
         /* A692: the board's issue stands, but the page has no fresh word from the board (no link
            message just now, or no robot): it says so instead of claiming either way */
         if (i.code === 'mower_link_idle' && !issueOver(i) && !linkFresh()) { txt += ' ' + t('auto.a11.link_unknown'); }
+        /* V-o: what the agent knows beyond "silent since" (e.g. when it was predicted to freeze), said once */
+        var bx = i.code === 'mower_link_idle' && !issueOver(i) ? boardExtra() : '';
+        if (bx && txt.indexOf(bx) < 0) { txt += ' ' + bx; }
         el('span', 'vt-attn-txt', box, txt);
         /* A692: the links stay together (Clear fell alone onto a second line on a phone) */
         box = el('span', 'vt-auto-alert-acts', box);

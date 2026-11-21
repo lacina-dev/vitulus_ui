@@ -5359,6 +5359,8 @@
     "auto.vh.chip.open_exits": "Dok povolený do {to} · zbývá {left} z {max} výjezdů",
     "auto.vh.chip.next": "Dok zamčený · okno od {at}",
     "auto.vh.chip.exits_used": "Dok: výjezdy vyčerpané",
+    // T8 V-o: the agent's freeze forecast of the mower board (top card of Autonomy)
+    "auto.vo.board.soon": "Deska sekačky: zamrzne ~{at}",
     "auto.vh.dock.waiting_clock": "Dok je povolený, ale okno čeká na čas ověřený proti GPS: do té doby agent s robotem nevyjede. Běhy z kalendáře se na dok neptají.",
     "auto.vh.chip.waiting_clock": "Dok povolený · čeká na čas z GPS",
     // D10 (2026-11-08): start nože v pravém panelu = podržení 0,5 s

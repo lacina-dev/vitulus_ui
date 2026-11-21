@@ -5274,6 +5274,8 @@
     "auto.vh.chip.open_exits": "Dock open until {to} · {left} of {max} exits left",
     "auto.vh.chip.next": "Dock locked · window from {at}",
     "auto.vh.chip.exits_used": "Dock: exits used up",
+    // T8 V-o: the agent's freeze forecast of the mower board (top card of Autonomy)
+    "auto.vo.board.soon": "Mower board: freezes ~{at}",
     "auto.vh.dock.waiting_clock": "The dock is permitted, but its window waits for a GPS-checked time: until then the agent will not drive the robot out. Calendar runs do not ask for the dock permit.",
     "auto.vh.chip.waiting_clock": "Dock permitted · waiting for GPS time",
     // D10 (2026-11-08): the blade start in the right panel is a hold of 0.5 s

@@ -170,7 +170,9 @@ zprávy od desky nebo z návratu zapsaného v historii robota. Bez robota nebo b
 jak byla, s dovětkem *(Teď bez čerstvé zprávy od desky.)* a Smazat nenabídne; porucha, která ještě trvá, má v rámečku
 vždy přednost. Když deska zmlkne znovu dřív, než to robot stihne zapsat (trvá to 2–3 minuty), šedá hláška hned zčervená:
 *Deska sekačky znovu neodpovídá (40 s)* — Smazat se nabídne, až zase odpoví. Stejně tak když robot desku za mise obnovuje nebo to vzdal:
-*… znovu neodpovídá: robot stojí a obnovuje ji* / *… a nevrátila se: robot jede domů bez nože*. Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
+*… znovu neodpovídá: robot stojí a obnovuje ji* / *… a nevrátila se: robot jede domů bez nože*. Když běží agent, zamrznutí i předpovídá: méně než šest hodin předem řekne horní karta *Deska sekačky: zamrzne ~08:53*
+(pod dvě hodiny oranžově; celá věta agenta je v bublině) a hláška o mlčící desce doplní, co agent ví (*Podle předpovědi zamrzla kolem …*).
+Historie ukáže, od kdy deska mlčí a kdy se zase ozvala. Mezitím je ikona sekačky v záhlaví červená
 a říká *neodpovídá* a řádek **Sekačka** v pravém panelu ukazuje červeně **Neodpovídá** místo
 posledního stavu desky, i v doku (hodnoty pod ním jsou poslední, co poslala). Zastavit nůž tam jde
 dál, roztočit ne, a po návratu desky až poté, co znovu ohlásí *připraveno*.
