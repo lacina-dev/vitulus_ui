@@ -29,6 +29,7 @@ import functools
 import http.server
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -301,6 +302,62 @@ def story(p, label, shots, mp_url):
     check('%s: zooming sent nothing to the robot (no publish / service but the TF republisher)' % label,
           all(x == '/republish_tfs' for x in sent), sent[:5])
     check('%s: zooming made no HTTP write' % label, len(p.writes) == writes0, p.writes[writes0:writes0 + 5])
+    # T17 M20: a pan in a TILTED view must not take the view's target off the ground (owner 2026-11-21: "no photo,
+    # zoomed in everything disappears, the robot is 2.11 km away" — the target was in the air / under the ground)
+    C = "() => { const v = window.__ros3d_map, k = v.cameraControls, c = v.camera; return {c: [k.center.x, k.center.y, k.center.z], p: [c.position.x, c.position.y, c.position.z]}; }"
+    p.source('sat')
+    p.ev("() => { const v = window.__ros3d_map, k = v.cameraControls; k.center.set(0, 0, 0); v.camera.position.set(0, -330, 220); k.update(); }")   # tilted 56 deg
+    p.pg.wait_for_timeout(300)
+    t0 = p.ev(C)
+    check('%s: (the view is tilted: camera %.0f m south of its target, %.0f m up)' % (label, -t0['p'][1], t0['p'][2]), t0['p'][1] < -300 and 200 < t0['p'][2] < 240, t0)
+    b = p.canvas()
+    cx, cy = b['x'] + b['w'] / 2, b['y'] + b['h'] / 2
+    for btn in ('middle',):                       # the middle button pans (ros3d OrbitControls: left rotates / tilts)
+        for _ in range(2):
+            p.pg.mouse.move(cx, cy + min(120, b['h'] / 4)); p.pg.mouse.down(button=btn)
+            p.pg.mouse.move(cx + 8, cy - min(160, b['h'] / 4), steps=6); p.pg.mouse.up(button=btn)
+            p.pg.wait_for_timeout(150)
+    p.pg.wait_for_timeout(400)
+    t1 = p.ev(C)
+    moved = abs(t1['c'][0] - t0['c'][0]) + abs(t1['c'][1] - t0['c'][1])
+    if not p.phone:
+        check('%s: tilted view, pan by drag: the view moved (%.1f m) and its target stayed on the ground (z = %.4f)' % (label, moved, t1['c'][2]),
+              moved > 0.5 and abs(t1['c'][2]) < 1e-3, (t0, t1))
+    # the controls' own pan in a tilted view (touch and mouse use the same step): target + camera moved in the view plane
+    p.ev("""() => { const v = window.__ros3d_map, k = v.cameraControls, c = v.camera;
+        c.updateMatrixWorld(); const up = new ROS3D.THREE.Vector3(0, 1, 0).applyQuaternion(c.quaternion).multiplyScalar(60);
+        k.center.add(up); c.position.add(up); k.update(); }""")
+    t2 = p.ev(C)
+    check('%s: tilted view, the target pushed 60 m along the view plane (off the ground) comes back onto the ground (z = %.4f), the camera stays above it' % (label, t2['c'][2]),
+          abs(t2['c'][2]) < 1e-3 and t2['p'][2] > 1, t2)
+    vp = p.ev("() => { const a = window.mapping_v3._aerialViewParams(); return a && [a.cx, a.cy]; }")
+    check('%s: … and the background tiles are planned around that ground point' % label,
+          vp and abs(vp[0] - t2['c'][0]) < 1e-6 and abs(vp[1] - t2['c'][1]) < 1e-6, (vp, t2))
+    p.zoom_in_max()
+    st = p.ev(STATE)
+    t3 = p.ev(C)
+    left, right = p.halves(os.path.join(shots, '%s_tilted_limit.png' % label) if shots else None)
+    check('%s: zoomed in to the limit from the tilted view: still on the ground (z = %.4f), the background is on screen (not the empty viewer)' % (label, t3['c'][2]),
+          abs(t3['c'][2]) < 1e-3 and not is_bg(left), (t3, left))
+    # the tilt has a limit: a drag never takes the camera to the horizon or under the ground (ROS3D: left drag tilts)
+    p.camera(400)
+    if not p.phone:
+        for _ in range(3):
+            p.pg.mouse.move(cx, cy + min(140, b['h'] / 4)); p.pg.mouse.down(button='left')
+            p.pg.mouse.move(cx, cy - min(160, b['h'] / 4), steps=6); p.pg.mouse.up(button='left')
+            p.pg.wait_for_timeout(150)
+    else:
+        p.ev("() => { const k = window.__ros3d_map.cameraControls; k.rotateUp(-2.5); k.update(); k.rotateUp(-2.5); k.update(); }")   # the touch tilt's own step, far past the horizon
+    p.pg.wait_for_timeout(300)
+    t5 = p.ev(C)
+    tilt = math.degrees(math.atan2(math.hypot(t5['p'][0] - t5['c'][0], t5['p'][1] - t5['c'][1]), t5['p'][2] - t5['c'][2]))
+    check('%s: tilting as far as it goes: the camera stays above the ground (z = %.0f m), tilt %.1f deg <= 60' % (label, t5['p'][2], tilt), t5['p'][2] > 1 and 30 < tilt <= 60.5, t5)
+    # a stored view whose target is off the ground (what the owner's browser held) is healed at the load, the picture kept
+    p.pg.add_init_script("""try { localStorage.setItem('vitulus_cam_map', JSON.stringify({p: [0, -800, 600], c: [0, 0, -1500]})); } catch (e) {}""")
+    p.load(reload=True)
+    t4 = p.ev(C)
+    check('%s: a stored view with its target 1500 m under the ground: after the load the target is where the line of sight meets the ground (y = %.1f, z = %.4f), the camera did not move' % (label, t4['c'][1], t4['c'][2]),
+          abs(t4['c'][2]) < 1e-3 and abs(t4['c'][1] - (-800 + 800 * 600 / 2100.0)) < 0.5 and abs(t4['c'][0]) < 0.5 and abs(t4['p'][1] + 800) < 0.5 and abs(t4['p'][2] - 600) < 0.5, t4)
     # a stored close pose comes back with the map visible (old code: blank below 20 m)
     p.source('sat')
     p.pg.add_init_script("""try { localStorage.setItem('vitulus_cam_map', JSON.stringify({p: [1, 0, 10], c: [0, 0, 0]})); } catch (e) {}""")

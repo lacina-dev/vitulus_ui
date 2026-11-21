@@ -48,6 +48,89 @@ function vtMapCamLimits(ctrl) {
     ctrl.nearMax = MAP_NEAR_MAX;
     ctrl.nearRatio = 0.25;
     ctrl.nearMin = 0.05;
+    vtMapKeepTargetOnGround(ctrl);
+}
+
+/* T17 M20 (2026-11-21, owner: "no photo background, zoomed in everything disappears and the robot
+   is said to be 2.11 km away"): the view's target must stay ON THE GROUND (z = 0).
+   ROS3D pans in the view plane. Looking straight down that is the ground; in a TILTED view the
+   drag also moves the target up or down, off the ground. From then on everything that reads the
+   target was wrong, and stayed wrong over reloads (the view is remembered):
+     - the wheel zooms towards the target, a point in the air or under the ground, so the picture
+       slides away from the map as you zoom in until nothing is left;
+     - the background tiles are fetched around the target's x / y — kilometres from the ground that
+       is on screen, so the photo is not where you look;
+     - the "robot out of view" pill measures from the target's x / y (2.11 km).
+   vtGroundTarget() puts the target back onto the ground along the line of sight:
+     - after a PAN (target and camera moved by the same step) the camera goes with it by the same
+       amount: the step's vertical part is taken back along the line of sight, so the drag becomes
+       a pan over the ground — the camera keeps its height, tilt and distance (in ROS3D a tilted
+       pan also sank / lifted the camera, in the end under the ground);
+     - otherwise (a remembered view whose target is already off the ground) only the target moves:
+       the camera stays, so the picture is exactly the one before.
+   A view too flat for that (the line of sight hardly meets the ground) or a camera under the
+   ground: target and camera are lowered together by the target's height instead.
+   -> null (nothing to do) | { c: {x, y, z: 0}, dp: {x, y, z} the camera's step }
+   And the TILT has a limit (MAP_MAX_TILT_DEG from the vertical): ROS3D let a drag tilt the view
+   past the horizon and on under the ground — the map seen from below, mirrored, the photo a smear
+   (measured live 2026-11-21: one drag of 300 px from a top-down view put the camera 360 m under
+   the ground). vtTiltLimit() gives the camera's place at the limit, same side, same distance. */
+var MAP_MAX_TILT_DEG = 60;
+// p camera, c target -> null (within the limit) | { p: {x, y, z}, up: {x, y, z} }
+function vtTiltLimit(p, c) {
+    if (!p || !c) { return null; }
+    var ox = p.x - c.x, oy = p.y - c.y, oz = p.z - c.z;
+    var h = Math.sqrt(ox * ox + oy * oy), r = Math.sqrt(h * h + oz * oz);
+    if (!(r > 0) || !isFinite(r)) { return null; }
+    var max = MAP_MAX_TILT_DEG * Math.PI / 180;
+    if (Math.atan2(h, oz) <= max + 1e-9) { return null; }
+    var th = Math.atan2(oy, ox), sm = Math.sin(max), cm = Math.cos(max);
+    return { p: { x: c.x + r * sm * Math.cos(th), y: c.y + r * sm * Math.sin(th), z: c.z + r * cm },
+             up: { x: -cm * Math.cos(th), y: -cm * Math.sin(th), z: sm } };
+}
+var MAP_GROUND_MIN_DIP = 0.05;      // sin of the least angle under the horizon for the move along the line of sight (~3 deg)
+function vtGroundTarget(p, c, pan) {
+    if (!p || !c || !isFinite(c.z) || Math.abs(c.z) < 1e-6) { return null; }
+    var dx = c.x - p.x, dy = c.y - p.y, dz = c.z - p.z;
+    var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (len > 0 && dz < 0 && (-dz / len) >= MAP_GROUND_MIN_DIP && (pan || p.z > 0)) {
+        var k = c.z / -dz;                      // target + k * (target - camera) lies on z = 0
+        var sx = k * dx, sy = k * dy, sz = k * dz;
+        if (isFinite(sx) && isFinite(sy) && (pan ? (p.z + sz > 0) : true)) {
+            return { c: { x: c.x + sx, y: c.y + sy, z: 0 }, dp: pan ? { x: sx, y: sy, z: sz } : { x: 0, y: 0, z: 0 } };
+        }
+    }
+    return { c: { x: c.x, y: c.y, z: 0 }, dp: { x: 0, y: 0, z: -c.z } };
+}
+function vtMapKeepTargetOnGround(ctrl) {
+    if (!ctrl || ctrl.__vtGround || typeof ctrl.update !== 'function' || !ctrl.camera || !ctrl.center) { return; }
+    ctrl.__vtGround = true;
+    var update = ctrl.update;
+    var last = null;                 // the camera's offset from the target after the last update
+    ctrl.update = function () {
+        var r = update.apply(this, arguments);
+        var p = this.camera.position, c = this.center;
+        var tl = vtTiltLimit(p, c);
+        if (tl) {
+            p.x = tl.p.x; p.y = tl.p.y; p.z = tl.p.z;
+            if (this.camera.up && this.camera.up.set) { this.camera.up.set(tl.up.x, tl.up.y, tl.up.z); }
+            this.camera.lookAt(c);
+        }
+        if (Math.abs(c.z) >= 1e-6) {
+            // a pan = the offset is what it was (both moved by the same step)
+            var ox = p.x - c.x, oy = p.y - c.y, oz = p.z - c.z;
+            var pan = !!last && (Math.abs(ox - last.x) + Math.abs(oy - last.y) + Math.abs(oz - last.z)) <= 1e-6 * (1 + Math.abs(ox) + Math.abs(oy) + Math.abs(oz));
+            var g = vtGroundTarget(p, c, pan);
+            if (g) {
+                c.x = g.c.x; c.y = g.c.y; c.z = 0;
+                p.x += g.dp.x; p.y += g.dp.y; p.z += g.dp.z;
+                this.camera.lookAt(c);
+                if (this.axes && this.axes.position) { this.axes.position.copy(c); }
+            }
+        }
+        last = { x: p.x - c.x, y: p.y - c.y, z: p.z - c.z };
+        return r;
+    };
 }
 
 /* T17 M7: the zone pictures of Programs (vt_map_thumbs.js) come with a tag in

@@ -233,6 +233,15 @@ minute (a new version replaces the picture without blinking). Shown is the map y
 the legend (remembered); without a choice the robot's lasting map, else the newest. *No map* means none was
 made for this site yet. The layer only reads the map from the robot (a few hundred kB once when shown).
 
+### Moving, turning and tilting the map
+
+The wheel (two fingers on a phone) zooms about the middle of the view. Dragging with the left button
+turns the map and tilts it; dragging with the middle button moves it. The view can be tilted up to
+60° from straight down and no further — the camera never goes to the horizon or under the ground —
+and moving a tilted map slides it over the ground, so the middle of the view is always a place on
+the ground: that is where the wheel zooms to, where the background photo is loaded and where the
+*Robot … m* pill measures from. Lost the robot? Tap that pill, or **Follow** in the bottom bar.
+
 ### Robot out of view
 
 When the robot is not on the visible part of the map (you moved or zoomed the map away, or it is

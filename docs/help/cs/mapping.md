@@ -227,6 +227,15 @@ vybereš v seznamu nad legendou (pamatuje se); bez volby trvalá mapa robota, ji
 mapa* znamená, že pro toto stanoviště zatím žádná nevznikla. Vrstva mapu z robota jen čte (pár
 set kB jednou při zobrazení).
 
+### Posun, otáčení a naklánění mapy
+
+Kolečko (na telefonu dva prsty) přibližuje ke středu pohledu. Tažení levým tlačítkem mapu otáčí
+a naklání, tažení prostředním ji posouvá. Pohled jde naklonit nejvýš o 60° od kolmého a dál ne —
+kamera se nikdy nedostane k obzoru ani pod zem — a posun nakloněné mapy ji sune po zemi, takže střed
+pohledu je vždy místo na zemi: k němu přibližuje kolečko, kolem něj se načítá fotopodklad a od něj
+měří štítek *Robot … m*. Ztratil se ti robot? Klepni na ten štítek, nebo na **Sledovat** ve spodní
+liště.
+
 ### Robot mimo obraz
 
 Když robot není ve viditelné části mapy (mapu jsi posunul nebo přiblížil jinam, nebo je pod

@@ -2480,7 +2480,22 @@ class MappingV3 {
         // phone (DPR 2-3) gets the one-finer tile level its screen can show
         // instead of a magnified coarser one.
         heightPx *= (typeof vtMapPixelRatio === 'function') ? vtMapPixelRatio() : 1;
-        return { cx: ctrl.center.x, cy: ctrl.center.y, halfW, halfH, heightPx };
+        // T17 M20: the ground the tiles must cover. The frame is halfW x halfH only looking straight
+        // down with north up; turned, its box on the map is wider, and tilted the frame reaches
+        // 1 / cos(tilt) farther along the line of sight (the tiles covered an upright rectangle
+        // whatever the view: a tilted or turned view showed the photo only in a strip)
+        let covW = halfW, covH = halfH;
+        try {
+            const cz = Math.max(0.2, Math.min(1.0, (cam.position.z - ctrl.center.z) / dist));   // cos(tilt), at most 5x
+            let ux = 0, uy = 1;
+            const u = cam.up, ul = u ? Math.hypot(u.x, u.y) : 0;
+            if (ul > 1e-6) { ux = u.x / ul; uy = u.y / ul; }                 // screen-up on the ground
+            const along = halfH / cz;
+            covW = Math.abs(ux) * along + Math.abs(uy) * halfW;
+            covH = Math.abs(uy) * along + Math.abs(ux) * halfW;
+            if (!(covW > 0) || !(covH > 0) || !isFinite(covW + covH)) { covW = halfW; covH = halfH; }
+        } catch (e) { covW = halfW; covH = halfH; }
+        return { cx: ctrl.center.x, cy: ctrl.center.y, halfW, halfH, covW, covH, heightPx };
     }
 
     // Debounced camera-follow: after the view stops moving, refit the aerial
@@ -2584,7 +2599,7 @@ class MappingV3 {
             let enCorners;
             if (vp) {
                 const M = 1.25;   // reach a little past the frame edges
-                const hw = vp.halfW * M, hh = vp.halfH * M;
+                const hw = (vp.covW || vp.halfW) * M, hh = (vp.covH || vp.halfH) * M;
                 enCorners = [[-hw, -hh], [hw, -hh], [-hw, hh], [hw, hh]].map(
                     ([dx, dy]) => {
                         const mx = vp.cx + dx, my = vp.cy + dy;
