@@ -2620,6 +2620,40 @@ def vh_sheet_pills(p, shots, label):
     check(label + ' V-h … and is back once the sheet is closed', back['card'] and not back['low'], back)
 
 
+def vn_agent_full(p, shots, label):
+    """T8 V-n: on a narrow phone (<= 480 px) the Agent panel opens over the whole screen under the header: the robot's
+    STOP, the panel's close and the way back to a sheet in reach, the chat input on the screen, no sideways scroll.
+    Wider screens as before (a sheet on a 390-wide phone is full too by the rule; a tablet and a PC keep the side panel)."""
+    w = p.pg.viewport_size['width']
+    p.pg.evaluate("(()=>{try{localStorage.removeItem('vitulus_drawer_full_agent')}catch(e){} VAgent.open(); })()")
+    p.pg.wait_for_timeout(900)
+    r = p.pg.evaluate("""(()=>{const g=id=>document.getElementById(id), d=g('ui_drawer'), R=e=>{if(!e||!e.checkVisibility())return null; const q=e.getBoundingClientRect(); return [q.left,q.top,q.right,q.bottom].map(Math.round)};
+        const hit=e=>{if(!e) return false; const q=e.getBoundingClientRect(), t=document.elementFromPoint(q.left+q.width/2,q.top+q.height/2); return !!t&&(t===e||e.contains(t)||t.contains(e))};
+        const inp=document.querySelector('#ui_drawer textarea, #ui_drawer input[type=text]'), send=[...document.querySelectorAll('#ui_drawer button')].find(b=>/send|odesl/i.test((b.id||'')+(b.className||'')+(b.title||'')));
+        return {vw:innerWidth, vh:innerHeight, full:d.classList.contains('full'), drawer:R(d), stop:R(g('vt_stop_big')), stopHit:hit(g('vt_stop_big')), close:R(g('btn_ui_drawer_close')), closeHit:hit(g('btn_ui_drawer_close')),
+                fullBtn:R(g('btn_ui_drawer_full')), fullHit:hit(g('btn_ui_drawer_full')), agentStop:R(g('vagent_stop')), input:R(inp), inputHit:hit(inp), send:R(send),
+                stored:localStorage.getItem('vitulus_drawer_full_agent'), bar:R(g('div_bottom_menu')), hs:document.scrollingElement.scrollWidth>innerWidth+1}})()""")
+    if shots:
+        p.pg.screenshot(path=os.path.join(shots, label + '-vn-agent.png'))
+    if w <= 480:
+        d = r['drawer'] or [0, 0, 0, 0]
+        check(label + ' V-n narrow phone: the Agent panel opens over the whole screen under the header (no strip of map left)',
+              r['full'] and d[0] <= 0 and d[2] >= r['vw'] and d[1] <= 130 and d[3] >= r['vh'] - 70, r)
+        check(label + ' V-n … the robot\'s STOP is not covered and the panel\'s close is a finger-size key under the thumb',
+              bool(r['stop']) and r['stopHit'] and bool(r['close']) and r['closeHit'] and r['close'][2] <= r['vw'] and min(r['close'][2] - r['close'][0], r['close'][3] - r['close'][1]) >= 40, r)
+        check(label + ' V-n … the way back to a sheet is there, the chat input is on the screen and under the finger, no sideways scroll',
+              r['fullHit'] and (not r['input'] or (r['inputHit'] and r['input'][3] <= r['vh'] and r['input'][0] >= 0 and r['input'][2] <= r['vw'])) and not r['hs'], r)
+        if not r['input']:
+            print('note ' + label + ' V-n: no chat input on this page (no agent behind the test) - the input is not checked', flush=True)
+        check(label + ' V-n … the choice remembered for wide screens is not overwritten by it', r['stored'] is None, r['stored'])
+        back = p.pg.evaluate("(()=>{document.getElementById('btn_ui_drawer_full').click(); const d=document.getElementById('ui_drawer'); return d.classList.contains('full')})()")
+        check(label + ' V-n … ⤢ still takes it back to a sheet', back is False, back)
+    else:
+        check(label + ' V-n a wider screen: the Agent panel is not forced over the whole screen', not r['full'] and (r['drawer'] or [0, 0, 9999])[2] - (r['drawer'] or [0])[0] < r['vw'], r)
+    p.pg.evaluate("(()=>{try{localStorage.removeItem('vitulus_drawer_full_agent')}catch(e){} VAgent.close(); })()")
+    p.pg.wait_for_timeout(300)
+
+
 def layout(p, shots, label):
     """The line, its button and the right panel on this screen."""
     now = dt.datetime.now().replace(second=0, microsecond=0)
@@ -2714,6 +2748,7 @@ def main():
             a7_fit(p, a.shots, label)
             vh_dock_note(p, a.shots, label)
             vh_sheet_pills(p, a.shots, label)
+            vn_agent_full(p, a.shots, label)
             lang_sweep(p, a.shots, label)
             ctx.close()
         # the other language on the other screen: only that it fits
@@ -2735,6 +2770,7 @@ def main():
             vh_dock_note(p, a.shots, label)
             vh_sheet_pills(p, a.shots, label)
             layout(p, a.shots, label)   # D10: at 768 px too (the line takes the narrow hollow, vt_header.css)
+            vn_agent_full(p, a.shots, label)
             ctx.close()
         b.close()
     srv.shutdown()

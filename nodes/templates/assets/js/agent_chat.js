@@ -1313,9 +1313,16 @@
         d.drawer.setAttribute('aria-hidden', 'false');
         if (d.title) { d.title.textContent = 'Agent'; }
         if (mm) { mm._drawer_last = 'agent'; }        // full-toggle persists per panel
-        var full = lsGet('vitulus_drawer_full_agent') === '1';
+        /* T8 V-n (director's decision 2026-11-19): on a narrow phone (<= 480 px) the Agent panel opens
+           over the whole screen below the header - as a sheet it left a ~120-px strip of map nobody
+           could use (360x740). The header with STOP, the panel's X and the ⤢ back to a sheet stay in
+           reach. What the owner chose on a wide screen is not overwritten by this. */
+        var stored = lsGet('vitulus_drawer_full_agent');
+        var narrow = window.innerWidth <= 480;
+        var full = stored === '1' || narrow;
         if (mm && typeof mm.set_drawer_full === 'function') { mm.set_drawer_full(full); }
         else { d.drawer.classList.toggle('full', full); }
+        if (narrow && stored !== '1') { if (stored === null || stored === undefined) { try { localStorage.removeItem('vitulus_drawer_full_agent'); } catch (e) {} } else { lsSet('vitulus_drawer_full_agent', stored); } }
         settleDrawer(d.drawer);   // width/transform change: same stall applies
         if (d.backdrop) { d.backdrop.style.display = window.innerWidth < 576 ? 'block' : 'none'; }
 

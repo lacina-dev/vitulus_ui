@@ -77,7 +77,7 @@ zprávy agenta, které jsi ještě neviděl.
 | Co | PC | Telefon |
 |---|---|---|
 | skrýt / zobrazit panel | **Panel** v pásu menu, **Alt+P**, **✕** | **Panel**, **✕**, stáhnout sheet dolů |
-| celá obrazovka | **⤢** v hlavičce | vytáhnout sheet nahoru / ťuknout na úchyt |
+| celá obrazovka | **⤢** v hlavičce | vytáhnout sheet nahoru / ťuknout na úchyt; panel **Agent** se na úzkém telefonu (do 480 px) otevře přes celou obrazovku sám, ⤢ ho vrátí na sheet |
 | nápověda k němu | **?** v hlavičce | **?** v hlavičce |
 
 Skrytý panel nechá na levém okraji tenký hřbet — klikni na něj a panel se vrátí. UI si pamatuje,

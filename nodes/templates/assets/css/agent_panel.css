@@ -641,6 +641,13 @@
     #ui_drawer.full .vagent-pane.active:not([data-pane="chat"]) { overflow-y: auto; }
     #ui_drawer.full #vagent_tabs, #ui_drawer.full #vagent_ctx { display: flex; }
     #ui_drawer.full .vagent-pane::before { content: none; }
+    /* T8 V-n (check A792): the chat column kept its wide-screen height (100vh - 190 px) and its
+       sticky place here too - taller than the panel, so the input and Send lay 128 px under the
+       bottom edge of a phone with no way to scroll to them. In the single column the chat is as
+       tall as the panel: its messages scroll (#vagent_msgs), the input row stays at the bottom. */
+    #ui_drawer.full .vagent-pane[data-pane="chat"] {
+        height: auto; max-height: 100%; position: static; grid-column: auto; grid-row: auto; align-self: stretch;
+    }
 }
 
 /* ------------------------------------------- darker chat surface (Robert) */
@@ -2859,6 +2866,15 @@ html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob:hover { back
 @media (pointer: coarse) {
     html body #vagent_panel .vagent-ujob button.ja.ico { min-width: 44px; height: 44px; line-height: 42px; font-size: 17px; }
     html body #vagent_panel .vagent-schedform > button.ja.vagent-newjob { min-height: 44px; line-height: 42px; }
+}
+/* T8 V-n: full screen on a narrow phone the head has two more keys (log, clear) - the row was 6 px
+   wider than a 390-px screen and the X was cut. The row closes up; on the narrowest screens the title
+   gives way (the lit Agent key in the band and the tabs say where you are), the X is always whole. */
+@media (max-width: 480px) {
+    html body #ui_drawer.full #ui_drawer_head:has(#vagent_head_right) { gap: 2px; padding-left: 8px; padding-right: 2px; }
+    html body #ui_drawer.full #ui_drawer_head:has(#vagent_head_right) #vagent_head_right { gap: 2px; margin-right: 2px; }
+    html body #ui_drawer.full #ui_drawer_head:has(#vagent_head_right) > #ui_drawer_title { flex-shrink: 1; min-width: 0; }
+    html body #ui_drawer.full #ui_drawer_head:has(#vagent_head_right) > #btn_ui_drawer_close { flex: 0 0 auto; }
 }
 /* H5: the wider stop button must not squeeze the panel title ("AGENT") */
 html body #ui_drawer_head:has(#vagent_head_right) > #ui_drawer_title { flex-shrink: 0; }

@@ -79,7 +79,7 @@ the agent's messages you have not seen yet.
 | Do | PC | Phone |
 |---|---|---|
 | hide / show the panel | **Panel** in the menu band, **Alt+P**, **✕** | **Panel**, **✕**, drag the sheet down |
-| full screen | **⤢** in the head | drag the sheet up / tap its grip |
+| full screen | **⤢** in the head | drag the sheet up / tap its grip; the **Agent** panel opens full screen by itself on a narrow phone (up to 480 px), ⤢ takes it back to a sheet |
 | help for it | **?** in the head | **?** in the head |
 
 A hidden panel leaves a thin spine on the left edge — click it to bring the panel back. The UI
