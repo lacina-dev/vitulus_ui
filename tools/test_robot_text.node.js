@@ -85,6 +85,13 @@ const CASES = [
     ['Point wp_3 added', 'Bod wp_3 přidán'],
     ['Stopped. Resume via /mower_smach/reset.', 'Zastaveno. Pokračuj přes /mower_smach/reset.'],
     ['Heading nudge done: 1.48 m', 'Popojetí pro kurz hotové (1.48 m), čekám na kurz'],
+    // T8 V-p: dock_smach T36 (heading receiver without RTK)
+    ['Heading nudge: heading receiver without RTK 180 s, main in RTK', 'Kurzový přijímač GPS je 180 s bez RTK (hlavní ho má): popojedu kousek rovně, ať se chytí'],
+    ['Heading nudge skipped: heading receiver sends no data', 'Popojetí pro kurz nespuštěno (kurzový přijímač GPS neposílá data), čekám jako obvykle'],
+    ['RTK not ready: heading receiver without RTK 600 s (main RTK, heading FLOAT)', 'Výjezd skončil: kurzový přijímač GPS byl 600 s bez RTK (méně přesné řešení, FLOAT). Robot stojí venku před dokem.'],
+    ['RTK not ready: heading receiver without RTK 600 s (main RTK, heading 3DFIX)', 'Výjezd skončil: kurzový přijímač GPS byl 600 s bez RTK (bez korekcí, 3DFIX). Robot stojí venku před dokem.'],
+    ['RTK not ready: heading receiver without RTK 600 s (main RTK, heading NO DATA)', 'Výjezd skončil: kurzový přijímač GPS byl 600 s bez RTK (neposílá data). Robot stojí venku před dokem.'],
+    ['RTK not ready: heading receiver without RTK 600 s (main RTK, heading ?)', 'Výjezd skončil: kurzový přijímač GPS byl 600 s bez RTK (?). Robot stojí venku před dokem.'],
     ['ZoneA done, next: Test', 'ZoneA hotovo, další: Test'],
     ['Mission stopped. Press Reset, then Run to continue.', 'Mise zastavena. Pokračuj tlačítkem Reset a potom Run.'],
 ];

@@ -88,7 +88,10 @@ Object.keys(CHECKS).forEach((k) => {
     [['Heading nudge: driving 1.5 m forward to measure heading (attempt 1/2)', 'nudge_start', '1.5'],
      ['Heading nudge done: 1.48 m', 'nudge_done', '1.48'],
      ['Heading nudge stopped: obstacle ahead 0.41 m', 'nudge_stopped', 'obstacle ahead 0.41 m'],
-     ['Heading nudge skipped: dock not behind the robot', 'nudge_skipped', 'dock not behind the robot']]
+     ['Heading nudge skipped: dock not behind the robot', 'nudge_skipped', 'dock not behind the robot'],
+     // T8 V-p: dock_smach T36
+     ['Heading nudge: heading receiver without RTK 180 s, main in RTK', 'nudge_float', '180'],
+     ['Heading nudge skipped: heading receiver sends no data', 'nudge_skipped', 'heading receiver sends no data']]
         .forEach(([text, key, x]) => {
             const got = line(text);
             check('nudge line ' + key, got && got[0] === key && got[1] === x, JSON.stringify(got));

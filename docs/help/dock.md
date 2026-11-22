@@ -50,7 +50,9 @@ ok: Ready | motors stay on
 - The limit is 10 minutes. While the receivers make progress (the main one reaches RTK, the
   heading one switches to RTK) it grows by 15 minutes, but never past ~25 minutes after the GPS
   came up — after a reboot the heading receiver needs ~15–17 minutes. Then the undock aborts with
-  *RTK not ready in time*. In a mowing program the robot then drives back to the dock and the
+  *RTK not ready in time*. When only the GPS heading receiver stays without RTK, the robot first drives a short way
+  straight to help it (*GPS heading receiver 180 s without RTK … driving a short way straight*); if that does not help, the undock ends with
+  *Undock ended: the GPS heading receiver was … s without RTK … The robot stands outside the dock.* In a mowing program the robot then drives back to the dock and the
   program is retried later (like after any other error); a manual Undock leaves it standing.
 
 ## Dock

@@ -2542,6 +2542,8 @@
                  [/^Mower link not recovered/, 'link_home'],
                  [/^Both GPS ready$/, 'gps'], [/^Window closed, going home$/, 'window_home'], [/^Reset accepted\.?$/, 'reset'],
                  /* T28: dock_smach heading nudge after the undock */
+                 /* T8 V-p (dock_smach T36): the nudge started because the heading receiver stays without RTK */
+                 [/^Heading nudge: heading receiver without RTK ([0-9.]+) s, main in RTK/, 'nudge_float'],
                  [/^Heading nudge: driving ([0-9.]+) m forward/, 'nudge_start'], [/^Heading nudge done: ([0-9.]+) m/, 'nudge_done'],
                  [/^Heading nudge stopped: (.+)$/, 'nudge_stopped'], [/^Heading nudge skipped: (.+)$/, 'nudge_skipped']];
     /* T8 dávka V: every other line the robot writes to /nextion/log_info (dock_smach,
@@ -2565,6 +2567,11 @@
         [/^RTK fix lost, waiting again$/, "rtk_lost"],
         [/^Waiting for RTK fix$/, "rtk_wait"],
         [/^Waiting for RTK: main (\S+), heading (\S+) - ([0-9:]+) \/ ([0-9:]+), after a reboot usually ~(\d+) min$/, "rtk_wait_full", ["main", "head", "t", "max", "min"]],
+        /* T8 V-p (dock_smach T36, heading_wait.py): the undock ended - the heading receiver never got RTK; by its state */
+        [/^RTK not ready: heading receiver without RTK ([0-9.]+) s \(main RTK, heading FLOAT\)$/, "rtk_heading_float", ["s"]],
+        [/^RTK not ready: heading receiver without RTK ([0-9.]+) s \(main RTK, heading 3DFIX\)$/, "rtk_heading_3dfix", ["s"]],
+        [/^RTK not ready: heading receiver without RTK ([0-9.]+) s \(main RTK, heading NO DATA\)$/, "rtk_heading_nodata", ["s"]],
+        [/^RTK not ready: heading receiver without RTK ([0-9.]+) s \(main RTK, heading (.+)\)$/, "rtk_heading", ["s", "st"]],
         [/^RTK not ready in time \((.+)\) - returning to dock$/, "rtk_late", ["x"]],
         [/^GPS not ready$/, "gps_not_ready"],
         [/^GPS stable, stabilizing$/, "gps_stable"],
@@ -2827,7 +2834,7 @@
                      [/^heading receiver carrier not FIXED$/, 'carrier'], [/^blade not stopped$/, 'blade'],
                      [/^attempts used \((\d+)\)$/, 'attempts', 'n'], [/^distance budget used \(([0-9.]+) m\)$/, 'budget', 'm'],
                      [/^no RTK on both receivers$/, 'no_rtk'], [/^drive_primitive busy/, 'busy'], [/^wait over$/, 'wait_over'],
-                     [/^heading anchored$/, 'anchored'], [/^no answer from drive_primitive$/, 'no_answer']];
+                     [/^heading receiver sends no data$/, 'no_data'], [/^heading anchored$/, 'anchored'], [/^no answer from drive_primitive$/, 'no_answer']];
     function nudgeWhy(raw) {
         for (var i = 0; i < NUDGE_WHY.length; i++) {
             var m = NUDGE_WHY[i][0].exec(raw), v = {};

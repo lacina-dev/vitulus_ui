@@ -49,6 +49,8 @@ ok: Hotovo | motory zůstanou zapnuté
 - Limit je 10 minut. Když přijímače postupují (hlavní dosáhne RTK, heading přepne na RTK),
   prodlouží se o 15 minut, nejvýš ale do ~25 minut od naběhnutí GPS — po restartu potřebuje
   heading přijímač ~15–17 minut. Pak se výjezd přeruší s hláškou *RTK not ready in time*.
+  Když bez RTK zůstává jen kurzový přijímač GPS, robot nejdřív popojede kousek rovně, ať se chytí (*Kurzový přijímač GPS je 180 s bez RTK …
+  popojedu kousek rovně*); když to nepomůže, výjezd skončí hláškou *Výjezd skončil: kurzový přijímač GPS byl … s bez RTK … Robot stojí venku před dokem.*
   V programu sekání robot potom zajede zpátky do doku a program se zkusí později (jako po jiné
   chybě); ruční Undock ho nechá stát.
 
