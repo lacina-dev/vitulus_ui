@@ -167,14 +167,35 @@ Object.keys(THROTTLED).forEach((name) => {
 });
 ok('odometry sources throttled with a queue of 1',
     /\/mobile_base_controller\/odom[\s\S]{0,300}throttle_rate\s*:\s*500,\s*queue_length\s*:\s*1/.test(mv));
-/* safety / control: left exactly as they were */
-['/base/motor_power_state', '/base/motor_power', '/set_motor_switch', '/base/set_torque'].forEach((name) => {
+/* commands: left exactly as they were */
+['/base/motor_power', '/set_motor_switch', '/base/set_torque'].forEach((name) => {
     const d = topicDef(mv, name);
     ok(name + ' is defined', d);
     ok(name + ' is not throttled', d && !/throttle_rate|queue_length/.test(d));
 });
+/* T39 A845: robot states sent at 5-50 Hz: throttled, never more than 500 ms, with a queue of 1
+   (rosbridge then hands out the NEWEST message at the end of the period: a change is never lost,
+   only up to the throttle late) */
 const dock = fs.readFileSync(path.join(JS, 'dock.js'), 'utf8');
+[[mv, '/base/motor_power_state', 200], [dock, '/dock_smach/dock_status', 250],
+ [dock, '/dock_manager/is_in_dock_confirmed', 500], [dock, '/dock_localization_seed/status', 500],
+ [dock, '/dock_detector/intensity/status', 500], [dock, '/dock_manager/map_enabled', 1000],
+ [dock, '/dock_manager/intensity_enabled', 1000]].forEach(([src, name, ms]) => {
+    const d = topicDef(src, name);
+    const m = d && d.match(/throttle_rate\s*:\s*(\d+)/);
+    ok(name + ' throttled ' + ms + ' ms with queue_length 1', m && Number(m[1]) === ms && /queue_length\s*:\s*1\b/.test(d));
+});
+ok('the stick owner watch: dock status throttled as dock.js',
+    /sub\('\/dock_smach\/dock_status'[^\n]*\}, 250\)/.test(mv));
 ok('dock.js is not touched by the idle module', dock.indexOf('VTRosIdle') < 0);
+/* T39 A845: scan / clouds 5 Hz, the base map throttled + asked again on a map / source switch */
+ok('scan throttled 200 ms', /topic: '\/scan',\s*throttle_rate: 200,/.test(mv));
+ok('ground cloud throttled 200 ms', /topic: '\/ground_cloud',\s*throttle_rate: 200,/.test(mv));
+ok('obstacle cloud throttled 200 ms', /topic: '\/obstacles_cloud',\s*throttle_rate: 200,/.test(mv));
+ok('base map throttled VT_BASE_MAP_MS', /topic: '\/navi_manager\/map',[\s\S]{0,300}throttle_rate: VT_BASE_MAP_MS,/.test(mv)
+    && /var VT_BASE_MAP_MS = 15000, VT_BASE_MAP_REFETCH_MS = \[1500, 6000\];/.test(mv));
+ok('base map asked again on active_map + map_source', /vtBaseMapRefetch\(ros\.ros, function \(\) \{ return maps\.map\.rosTopic; \}\);/.test(mv)
+    && /watch\('\/navi_manager\/active_map'\);\s*watch\('\/navi_manager\/map_source'\);/.test(mv));
 /* the heavy ones rest with the tab; nothing else is registered */
 const reg = [];
 [mv, fs.readFileSync(path.join(JS, 'imu_calibration.js'), 'utf8')].forEach((src) => {
@@ -191,6 +212,8 @@ const r3 = fs.readFileSync(path.join(JS, 'ros3d.js'), 'utf8');
 ['class OccupancyGridClient extends', 'class LaserScan extends', 'class PointCloud2 extends'].forEach((cls) => {
     const i = r3.indexOf(cls), body = r3.slice(i, i + 4000);
     ok(cls.split(' ')[1] + ': queue_length 1 + cbor', /queue_length\s*:\s*1/.test(body) && /compression\s*\|\|\s*'cbor'/.test(body));
+    ok(cls.split(' ')[1] + ': throttle_rate passed to the topic (T39)', /this\.throttle_rate = options\.throttle_rate \|\| (0|null)/.test(body)
+        && /throttle_rate\s*:\s*this\.throttle_rate/.test(body));
 });
 
 /* the rosbridge launch caps the malloc arenas (both node variants) */

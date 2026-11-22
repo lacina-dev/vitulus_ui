@@ -139,6 +139,8 @@ Vypnutá vrstva robota nic nestojí: bez zaškrtnutého **Základu** si stránka
 vůbec nežádá (vrátí se hned po zaškrtnutí). Totéž platí pro kartu prohlížeče, na kterou se nedíváš —
 po deseti sekundách na pozadí přestane dostávat sken lidaru, body překážek a země, navigační mapu
 a lokální costmapu a po návratu je dostane znovu. Stav, STOP, motory, nůž a dok se nepozastavují nikdy.
+Navigační mapa se obnovuje nejvýš jednou za 15 s (přepnutí na jinou mapu se ukáže do pár sekund); sken
+lidaru a body se kreslí pětkrát za sekundu.
 
 **Snímání** ukazuje, co robot právě sleduje, nakreslené naplocho na zemi kolem něj. Samo se
 zapne, když začne nahrávání, a vypne, když skončí (zaškrtnout ho jde kdykoli i ručně):

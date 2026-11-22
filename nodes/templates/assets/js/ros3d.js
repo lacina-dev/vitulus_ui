@@ -56125,6 +56125,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	    this.ros = options.ros;
 	    this.topicName = options.topic || '/map';
 	    this.compression = options.compression || 'cbor';
+	    this.throttle_rate = options.throttle_rate || 0; /* vitulus_ui T39 */
 	    this.continuous = options.continuous;
 	    this.tfClient = options.tfClient;
 	    this.rootObject = options.rootObject || new THREE.Object3D();
@@ -56155,6 +56156,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      name : this.topicName,
 	      messageType : 'nav_msgs/OccupancyGrid',
 	      queue_length : 1,
+	      throttle_rate : this.throttle_rate,
 	      compression : this.compression
 	    });
 	    this.sceneNode = null;
@@ -57903,6 +57905,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	    options = options || {};
 	    this.ros = options.ros;
 	    this.topicName = options.topic || '/scan';
+	    this.throttle_rate = options.throttle_rate || 0; /* vitulus_ui T39: as PointCloud2 */
 	    this.compression = options.compression || 'cbor';
 	    this.points = new Points(options);
 	    this.rosTopic = undefined;
@@ -57925,6 +57928,7 @@ var ROS3D = (function (exports, ROSLIB) {
 	      ros : this.ros,
 	      name : this.topicName,
 	      compression : this.compression,
+	      throttle_rate : this.throttle_rate,
 	      queue_length : 1,
 	      messageType : 'sensor_msgs/LaserScan'
 	    });

@@ -69,8 +69,14 @@ What the page asks rosbridge for (T39): the scan, the clouds and the grids go as
 throttled (250 / 500 ms, `map_view.js`); `assets/js/vt_ros_idle.js` takes the scan, the clouds,
 the base map, the local costmap and `/diagnostics` off the server while the tab is in the
 background (after 10 s), the Base layer is off or the diagnostics card is closed, and puts them
-back when they can be seen. Safety and control topics (STOP, motor power, blade, joystick,
-dock) are neither throttled nor paused. Check: `node tools/test_ros_idle.node.js`.
+back when they can be seen. Commands (STOP, motor power, blade, joystick, dock) are neither
+throttled nor paused. T39 A845: the scan and the clouds come at 5 Hz (200 ms); the robot states
+sent at 5-50 Hz are throttled with a queue of 1 (newest message at the end of the period, a change
+is never lost): motor power state 200 ms, dock status 250 ms, in-dock confirmed / seed / intensity
+status 500 ms, dock enable flags 1 s; the base map (`/navi_manager/map`, ~2 MB, re-sent every 5 s)
+at most every 15 s (`VT_BASE_MAP_MS`), and a switch of `/navi_manager/active_map` or
+`/navi_manager/map_source` asks for it again after 1.5 s and 6 s (latched: it comes at once).
+Check: `node tools/test_ros_idle.node.js`.
 `launch/rosbridge_websocket.launch` starts rosbridge with `MALLOC_ARENA_MAX=2` (its ~290
 threads otherwise spread over 64 glibc arenas that keep freed memory: +50-70 MB per page that
 connects).

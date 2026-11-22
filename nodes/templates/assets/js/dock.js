@@ -217,7 +217,8 @@ class Dock {
         this.intensity_enabled_status_subscriber = new ROSLIB.Topic({
             ros: ros,
             name: '/dock_manager/intensity_enabled',
-            messageType: 'std_msgs/Bool'
+            messageType: 'std_msgs/Bool',
+            throttle_rate: 1000, queue_length: 1   // T39: a setting shown as a tag, sent at ~5 Hz
         });
 
         this.intensity_enabled_status_subscriber.subscribe(this.handleIntensityEnabledStatus.bind(this));
@@ -243,7 +244,8 @@ class Dock {
         _dvg.visible = false;
         var _dvgStatus = new ROSLIB.Topic({
             ros: ros, name: '/dock_smach/dock_status',
-            messageType: 'std_msgs/Int8'
+            messageType: 'std_msgs/Int8',
+            throttle_rate: 250, queue_length: 1   // T39: sent at 20 Hz; the newest within 250 ms
         });
         _dvgStatus.subscribe(function (m) {
             var v = Number(m.data);
@@ -284,7 +286,8 @@ class Dock {
         this.dock_status_subscriber = new ROSLIB.Topic({
             ros: ros,
             name: '/dock_detector/intensity/status',
-            messageType: 'vitulus_dock/DockingStatus'
+            messageType: 'vitulus_dock/DockingStatus',
+            throttle_rate: 500, queue_length: 1   // T39: a line of text in the dock card, sent at 10 Hz
         });
 
         this.dock_status_subscriber.subscribe(this.handleDockStatus.bind(this));
@@ -333,7 +336,8 @@ class Dock {
         this.map_enabled_status_subscriber = new ROSLIB.Topic({
             ros: ros,
             name: '/dock_manager/map_enabled',
-            messageType: 'std_msgs/Bool'
+            messageType: 'std_msgs/Bool',
+            throttle_rate: 1000, queue_length: 1   // T39: a setting shown as a tag, sent at ~5 Hz
         });
 
         this.map_enabled_status_subscriber.subscribe(this.handleMapEnabledStatus.bind(this));
@@ -343,7 +347,8 @@ class Dock {
         this.is_in_dock_confirmed_subscriber = new ROSLIB.Topic({
             ros: ros,
             name: '/dock_manager/is_in_dock_confirmed',
-            messageType: 'std_msgs/Bool'
+            messageType: 'std_msgs/Bool',
+            throttle_rate: 500, queue_length: 1   // T39: the dock icon colour, sent at ~5 Hz; <= 0.5 s late
         });
         this.is_in_dock_confirmed_subscriber.subscribe(this.handleIsInDockConfirmed.bind(this));
 
@@ -352,7 +357,8 @@ class Dock {
         this.dock_seed_status_subscriber = new ROSLIB.Topic({
             ros: ros,
             name: '/dock_localization_seed/status',
-            messageType: 'std_msgs/String'
+            messageType: 'std_msgs/String',
+            throttle_rate: 500, queue_length: 1   // T39: a line of text in the dock card, sent at 26 Hz
         });
         this.dock_seed_status_subscriber.subscribe(this.handleDockSeedStatus.bind(this));
 

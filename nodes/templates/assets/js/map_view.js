@@ -1432,6 +1432,9 @@ class MapListItemTemplate {
  * Tested: tools/test_map_m17.node.js (the lists against what the page sends and against
  * vt_link.js, the order, a command ahead of its advertise, the race with a STOP, reconnect).
  */
+// T39: the base map (/navi_manager/map, ~2 MB, navi_man sends it again every 5 s) at most once
+// per VT_BASE_MAP_MS; a switch of map or map source asks again after these delays (vtBaseMapRefetch)
+var VT_BASE_MAP_MS = 15000, VT_BASE_MAP_REFETCH_MS = [1500, 6000];
 var VT_ORDER_BATCH = 8, VT_ORDER_GAP_MS = 150, VT_ORDER_HOLD_MS = 4000;
 var VT_ORDER_ADV_BATCH = 2, VT_ORDER_SETTLE_MS = 1000;
 // 1: what stops, switches off or cancels (advertise) — the first requests of every connection
@@ -2463,6 +2466,7 @@ class LaserScan{
             tfClient: tf_client,
             rootObject : viewer.scene,
             topic: '/scan',
+            throttle_rate: 200,     // T39: 10 Hz -> 5 Hz (each one redraws the points)
             material: { size: 3, color: 0x007bff }
         });
     }
@@ -2656,6 +2660,7 @@ class Clouds {
             tfClient: tf_client,
             rootObject : viewer.scene,
             topic: '/ground_cloud',
+            throttle_rate: 200,     // T39: 15 Hz -> 5 Hz (each one redraws the points)
             max_pts: 10000,
             // max_age: 0,
             // opacity: 1.0,
@@ -2668,6 +2673,7 @@ class Clouds {
             tfClient: tf_client,
             rootObject : viewer.scene,
             topic: '/obstacles_cloud',
+            throttle_rate: 200,     // T39: as /ground_cloud
             max_pts: 10000,
             // max_age: 60,
             // opacity: 1.0,
@@ -3388,7 +3394,7 @@ class JoyTeleop {
         sub('/cmd_vel_mux/active', 'std_msgs/String', (m) => { st.mux = m.data; });
         sub('/mower_smach/busy', 'std_msgs/Bool', (m) => { st.busy = !!m.data; });
         sub('/mower_smach/active_program', 'std_msgs/String', (m) => { st.prog = String(m.data || '').trim(); });
-        sub('/dock_smach/dock_status', 'std_msgs/Int8', (m) => { st.dock = Number(m.data); });
+        sub('/dock_smach/dock_status', 'std_msgs/Int8', (m) => { st.dock = Number(m.data); }, 250);   // T39: 20 Hz -> 4 Hz (as dock.js)
         // a navigation goal being driven (MBF exe_path ACTIVE / PREEMPTING)
         sub('/move_base_flex/exe_path/status', 'actionlib_msgs/GoalStatusArray', (m) => {
             st.nav = (m.status_list || []).some((g) => g.status === 1 || g.status === 6);
@@ -3834,7 +3840,8 @@ class MotorControl {
         this.motorPowerStateTopic = new ROSLIB.Topic({
             ros : ros,
             name : '/base/motor_power_state',
-            messageType : 'std_msgs/Bool'
+            messageType : 'std_msgs/Bool',
+            throttle_rate : 200, queue_length : 1   // T39: the base sends it at 50 Hz; the newest within 200 ms
         });
         this.pmMotorSwitchTopic = new ROSLIB.Topic({
             ros : ros,
@@ -10288,6 +10295,38 @@ window.initMapView = function () {
         layout_man.set_layout();
     });
 
+    // T39: the base map is throttled (VT_BASE_MAP_MS). When the robot switches to another
+    // map (/navi_manager/active_map) or map source (/navi_manager/map_source: planner,
+    // rtabmap, octomap, bootstrap) the page asks for it again: a new subscription on the
+    // bridge gets the LATCHED map at once, so a switch is not up to VT_BASE_MAP_MS late.
+    // Asked twice (VT_BASE_MAP_REFETCH_MS) because navi_man may send the new grid just
+    // before or just after the new name. Only a topic that is subscribed now is touched
+    // (a layer turned off / a hidden tab stays off, vt_ros_idle.js).
+    function vtBaseMapRefetch(rosConn, topicFn) {
+        var seen = {}, timers = [];
+        function again() {
+            var t = null;
+            try { t = topicFn(); } catch (e) { t = null; }
+            if (!t || !t.subscribeId) { return; }
+            t.unsubscribe();        // no callback: only the server is told, the listener stays
+            t.subscribe();
+        }
+        function watch(name) {
+            new ROSLIB.Topic({ ros: rosConn, name: name, messageType: 'std_msgs/String',
+                               throttle_rate: 500, queue_length: 1 }).subscribe(function (m) {
+                var v = String(m && m.data);
+                if (!(name in seen)) { seen[name] = v; return; }   // the first value: nothing switched
+                if (seen[name] === v) { return; }
+                seen[name] = v;
+                timers.forEach(clearTimeout);
+                timers = VT_BASE_MAP_REFETCH_MS.map(function (ms) { return setTimeout(again, ms); });
+            });
+        }
+        watch('/navi_manager/active_map');
+        watch('/navi_manager/map_source');
+        return { again: again };
+    }
+
     function post_load() {
 
         maps.local_costmap = new ROS3D.OccupancyGridClient({
@@ -10309,6 +10348,9 @@ window.initMapView = function () {
             rootObject : viewer.viewer.scene,
             continuous: true,
             topic: '/navi_manager/map',
+            // T39: ~2 MB that navi_man sends again every 5 s, mostly unchanged; at most
+            // one per VT_BASE_MAP_MS (a new map comes at once: see vtBaseMapRefetch below)
+            throttle_rate: VT_BASE_MAP_MS,
             color: {r:0,g:255,b:255},  // {r:0,g:255,b:255} gridmap, {r:255,g:0,b:255} loc costmap, {r:255,g:255,b:0} glob costmap
             opacity: 0.7,
             offsetPose: maps.map_offset,
@@ -10353,6 +10395,7 @@ window.initMapView = function () {
             });
             VTRosIdle.add('local_costmap', function () { return maps.local_costmap.rosTopic; });
         }
+        vtBaseMapRefetch(ros.ros, function () { return maps.map.rosTopic; });
 
         // Map editor V1/V3: expose the live local-costmap grid client and the
         // program/zone MarkerArray client so the map editor (mapeditor.js /

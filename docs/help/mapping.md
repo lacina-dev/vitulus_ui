@@ -141,7 +141,9 @@ A layer that is off costs the robot nothing: with **Base** unticked the page doe
 for the navigation map at all (it is back the moment you tick it). The same holds for a browser tab
 you are not looking at — after ten seconds in the background it stops receiving the lidar scan, the
 obstacle and ground points, the navigation map and the local costmap, and gets them again as soon as
-you return. Status, STOP, motors, the blade and the dock are never paused.
+you return. Status, STOP, motors, the blade and the dock are never paused. The navigation map is
+refreshed at most every 15 s (a switch to another map shows within seconds); the lidar scan and the
+points are drawn five times a second.
 
 **Sensing** shows what the robot is observing right now, drawn flat on the ground around it.
 It switches on by itself when a recording starts and off when it ends (tick it by hand any time):
