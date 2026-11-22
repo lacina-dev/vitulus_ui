@@ -335,7 +335,9 @@ The full log has a toolbar:
 
 On a phone the toolbar is one row that scrolls sideways: **Changes** | **ROS**, **Live**, **Clear**
 and **▼** come first and are always in view, the ROS filters follow them. The small log always
-shows whole lines (six, three in a low window), the newest at the bottom.
+shows whole lines (six, three in a low window), the newest at the bottom. A live log (small or full) never
+shows the tail of an older message cut by its top edge — that place stays blank; opened, the full log stands
+at its newest message and stays **Live**.
 
 ## Keyboard shortcuts (PC)
 

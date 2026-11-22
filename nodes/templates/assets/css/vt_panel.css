@@ -1996,6 +1996,10 @@ html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content {
     html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content .log-line { line-height: 19px; }
     html body.vt-frame #div_log_view:not(.log-expanded) #div_log_content { padding-bottom: 5px; }   /* 62 = 3 x 19 + 5 */
 }
+/* A848: the entry cut by the top edge of a live log (map_view.js
+   LogPanel._mark_cut) — only its tail rows were left, without time and
+   source; it keeps its place (no jump) and just is not drawn */
+#div_log_view #div_log_content > .log-line.log-cut { visibility: hidden; }
 /* (the log-wide case — the log under the panel — is gone: the panel runs
    down to the page edge and the log always stands beside it, 2026-10-25) */
 

@@ -326,7 +326,9 @@ Rozbalený log má lištu nástrojů:
 
 Na telefonu je lišta jeden řádek, který se posouvá do strany: **Změny** | **ROS**, **Živě**,
 **Vymazat** a **▼** jsou první a vždy vidět, filtry ROS jdou za nimi. Malý log ukazuje vždy celé
-řádky (šest, v nízkém okně tři), nejnovější dole.
+řádky (šest, v nízkém okně tři), nejnovější dole. Živý log (malý i plný) nikdy neukáže konec starší zprávy
+uříznuté horním okrajem – to místo zůstane prázdné; plný log se otevře na nejnovější zprávě a zůstane
+**Živě**.
 
 ## Klávesové zkratky (PC)
 

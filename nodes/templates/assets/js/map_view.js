@@ -5868,6 +5868,7 @@ class LogPanel {
             const a = this.active;
             a._set_autoscroll(!a.autoscroll);
             if (a.autoscroll) a.scroll_to_bottom();
+            this._queue_cut();
         });
         clearBtn.addEventListener('click', () => { this.active.clear(); });
         // settings-persistence: expanded is saved only on these explicit
@@ -5893,7 +5894,62 @@ class LogPanel {
             const atBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 16;
             if (!atBottom && a.autoscroll) a._set_autoscroll(false);
             else if (atBottom && !a.autoscroll) a._set_autoscroll(true);
+            this._queue_cut();
         }, { passive: true });
+        // A848 (backlog "log top line"): the log stands at its newest line, so
+        // its top edge cuts the oldest shown entry — a wrapped entry left only
+        // its tail ("A", "mowing window 08:00–20:00") without time or source,
+        // a one-row entry a 2 px sliver. That cut entry steps back (blank under
+        // the fade) while the log is live; scrolled by hand, nothing hides.
+        if (typeof MutationObserver === 'function') {
+            new MutationObserver(() => this._queue_cut()).observe(this.contentEl, { childList: true });
+        }
+        // the strip's own height changes too (small ↔ full, the frame's layout).
+        // A live log stays at its newest line through it: the full log on a
+        // phone settles ~26 px lower a frame after it opens (vt_frame.js), the
+        // newest line was left under the bottom edge and the late scroll event
+        // turned Live into Paused (A848)
+        const onResize = () => {
+            const a = this.active;
+            if (a && a.autoscroll) a.scroll_to_bottom();
+            this._queue_cut();
+        };
+        if (typeof ResizeObserver === 'function') new ResizeObserver(onResize).observe(this.contentEl);
+        else window.addEventListener('resize', onResize, { passive: true });
+    }
+
+    _queue_cut() {
+        if (this._cutQueued) return;
+        this._cutQueued = true;
+        const fn = () => { this._cutQueued = false; this._mark_cut(); };
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fn);
+        else setTimeout(fn, 16);
+    }
+
+    _mark_cut() {
+        const el = this.contentEl;
+        if (!el) return;
+        const old = el.querySelector(':scope > .log-cut');
+        let cut = null;
+        const a = this.active;
+        if (a && a.autoscroll && el.clientHeight > 0) {
+            const top = el.getBoundingClientRect().top + el.clientTop;
+            const kids = el.children, n = kids.length;
+            // the first entry reaching below the top edge (entries stand in
+            // order: a binary search, the full log holds hundreds)
+            let lo = 0, hi = n - 1;
+            while (lo < hi) {
+                const mid = (lo + hi) >> 1;
+                if (kids[mid].getBoundingClientRect().bottom <= top + 0.5) lo = mid + 1; else hi = mid;
+            }
+            if (n > 1 && lo < n - 1) {                          // never the newest entry
+                const r = kids[lo].getBoundingClientRect();
+                // cut at the top, and not most of the strip (a huge entry stays)
+                if (r.top < top - 0.5 && r.bottom > top + 0.5 && (r.bottom - top) < el.clientHeight / 2) cut = kids[lo];
+            }
+        }
+        if (old && old !== cut) old.classList.remove('log-cut');
+        if (cut && cut !== old) cut.classList.add('log-cut');
     }
 
     _apply_mode_visibility() {
