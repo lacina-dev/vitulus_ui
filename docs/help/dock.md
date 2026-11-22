@@ -85,7 +85,7 @@ For setting up and for manual tests; normally the right panel's Dock / Undock is
 | Dock by lidar map | finds the dock by the lidar picture of its surroundings; the **On / Off** switch runs the dock detector (the buttons and the picture need it); Predock, Dock, Undock, Stop — this stage alone |
 | Dock by intensity | finds the dock by its reflector; the **On / Off** switch runs the docking controller; Dock, Undock, Stop — this stage alone |
 | Dock / undock points | **Navi** drives to the DOCK or UNDOCK point; **Update** saves the robot's *current* position as that point |
-| Dock detector map | New map, Edit map, Save map — the lidar picture of the dock |
+| Dock detector map | New map, Edit map, Save map — the lidar picture of the dock; the status under it says the mode (*mapping* / *localization*), the score and the dock navigation (*idle* / *driving* / *finished*, *obstacle detected*) in the UI language |
 | Localization seed | the *DOCKED* pose used to localize in the dock; says *DOCKED waypoint MISSING* when it is not set |
 | Dock program / Undock program | tick the steps (map point, lidar map path, intensity action), then **Execute** or **Save** |
 

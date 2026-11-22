@@ -84,7 +84,7 @@ Slouží k nastavení a ručním zkouškám; běžně stačí **Dock** / **Undoc
 | Dok podle lidarové mapy | najde dok podle lidarového obrazu okolí; přepínač **Zapnuto / Vypnuto** spouští detektor doku (tlačítka a obraz ho potřebují); **Před dok**, **Dock**, **Undock**, **Stop** — jen tenhle krok |
 | Dok podle odrazivosti | najde dok podle odrazky; přepínač **Zapnuto / Vypnuto** spouští řadič dokování; **Dock**, **Undock**, **Stop** — jen tenhle krok |
 | Body doku / výjezdu | **Navi** dojede na bod DOCK nebo UNDOCK; **Aktualizovat** uloží *současnou* polohu robota jako ten bod |
-| Mapa detektoru doku | **Nová mapa**, **Upravit mapu**, **Uložit mapu** — lidarový obraz doku |
+| Mapa detektoru doku | **Nová mapa**, **Upravit mapu**, **Uložit mapu** — lidarový obraz doku; stav pod ním říká režim (*mapování* / *lokalizace*), skóre a navigaci k doku (*stojí* / *jede* / *dojel*, *překážka v cestě*) v jazyce UI |
 | Počáteční lokalizace | poloha *DOCKED*, podle které se robot v doku lokalizuje; když chybí, píše *CHYBÍ bod polohy v doku* |
 | Program zajetí do doku / výjezdu z doku | zaškrtni kroky (bod z mapy, trasa z lidarové mapy, akce podle odrazivosti) a dej **Provést** nebo **Uložit** |
 

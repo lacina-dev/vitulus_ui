@@ -68,6 +68,14 @@ function dockTag(el, key) {
 function dockSpan(cls, key) {
     return '<span class="' + cls + '" data-i18n="' + key + '">' + dockT(key) + '</span>';
 }
+/* T8 V-q: a fixed English code word a node puts in a message (dock_status_visualizer:
+   status_mode mapping / localization, nav_status idle / navigate / finished, nav_error
+   "Obstacle detected") → its key <prefix><slug>; an unknown word is shown as sent */
+function dockWord(prefix, raw) {
+    const s = raw == null ? '' : String(raw);
+    const k = prefix + s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return (window.VTI18n && VTI18n.has && VTI18n.has(k)) ? VTI18n.t(k) : s;
+}
 // a form error: {key, vars, reason (another error)} → text in the current language
 function dockErrText(err) {
     if (!err) { return ''; }
@@ -615,7 +623,7 @@ class Dock {
         let mapStatusHtml = `
             <div >
                 <div>
-                    <span>${dockT('docking.map.mode', {mode: message.status_mode})}</span>
+                    <span>${dockT('docking.map.mode', {mode: dockWord('docking.map.mode.', message.status_mode)})}</span>
                     <span>${dockT('docking.map.scans', {scans: message.scan_count, points: message.total_points})}</span>
                     <span>${dockT('docking.map.path_points', {n: message.path_points_count})}</span>
                 </div>
@@ -633,11 +641,11 @@ class Dock {
                 </div>
                 <div>
                     <span>${dockT('docking.map.nav')}</span>
-                    <span>${message.nav_status}</span>
+                    <span>${dockWord('docking.map.nav.', message.nav_status)}</span>
                     <span>(${message.nav_progress.toFixed(1)}%)</span>
                     <span>${dockT('docking.map.distance', {m: message.distance_to_goal.toFixed(2)})}</span>
                     <span>${dockT('docking.map.eta', {s: message.estimated_time.toFixed(1)})}</span>
-                    ${message.nav_error ? `<span class="vt-tone-err">${dockT('docking.map.error', {error: message.nav_error})}</span>` : ''}
+                    ${message.nav_error ? `<span class="vt-tone-err">${dockT('docking.map.error', {error: dockWord('docking.map.err.', message.nav_error)})}</span>` : ''}
                 </div>
             </div>
         `;

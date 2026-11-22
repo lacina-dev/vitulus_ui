@@ -289,20 +289,28 @@ def story(p, shots, label):
     check('S3 Sleep now in a countdown: not sent, says why', not p.sent('/scheduler/sleep_now') and p.text('#auto_sleep_msg'), p.text('#auto_sleep_msg'))
 
     # S4 Cancel from the line above the map; the time it holds is stated
+    # T8 V-q: measured AFTER scrolling it into view (the box from before the scroll was clicked: a
+    # scroll / a repaint of the ticking line in between and the click went past the button)
+    p.pg.evaluate("document.getElementById('btn_notice_action').scrollIntoView({block: 'nearest'})")
     box = p.pg.query_selector('#btn_notice_action').bounding_box()
     check('S4 Cancel on the line is clickable', box is not None and box['x'] + box['width'] <= p.pg.viewport_size['width'], box)
-    p.pg.evaluate("document.getElementById('btn_notice_action').scrollIntoView()")
     p.pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
     p.wait(lambda: p.sent('/scheduler/sleep_cancel'))
     check('S4 cancel sent', len(p.sent('/scheduler/sleep_cancel')) == 1, p.sent('/scheduler/sleep_cancel'))
+    # T8 V-q: the page counts the 30 min from ITS moment of the report; this script's clock read once
+    # after it gave another hour when hh:00 fell in between (a run around hh:29:59): the hour of the
+    # moment before the report and the one after the checks are both the right answer
+    t_lo = dt.datetime.now() + dt.timedelta(seconds=1800)
     p.pub('/scheduler/sleep_countdown', {'active': False})
     p.pub('/scheduler/report', report(now, sleep={'checks': checks(ui=('off', 'ignored', {'n': 1}), reason=('wait', 'countdown_cancelled', {'left_s': 1800})),
                                                   'block': 'countdown_cancelled'}))
     p.tick()
-    until = (dt.datetime.now() + dt.timedelta(seconds=1800)).strftime('%H:')
-    check('S4 sentence: until when', until in (p.wait_text('#auto_sleep_plan', until) or ''), p.text('#auto_sleep_plan'))
+    hours = lambda: {t_lo.strftime('%H:'), (dt.datetime.now() + dt.timedelta(seconds=1800)).strftime('%H:')}
+    has_until = lambda s: any(h in (s or '') for h in hours())
+    p.wait(lambda: has_until(p.text('#auto_sleep_plan')))
+    check('S4 sentence: until when', has_until(p.text('#auto_sleep_plan')), p.text('#auto_sleep_plan'))
     # the line above the map is a queue with its own pace (and a slow machine): wait for the text, not 200 ms
-    check('S4 line: cancelled until when', p.until(re.escape(until)), p.line())
+    check('S4 line: cancelled until when', p.until('|'.join(re.escape(h) for h in sorted(hours()))), p.line())
     check('S4 no Cancel left', p.wait(lambda: p.pg.query_selector('#btn_notice_action') is None))
     if shots:
         p.pg.screenshot(path=os.path.join(shots, label + '-cancelled.png'))

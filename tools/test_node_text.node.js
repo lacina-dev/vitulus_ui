@@ -253,5 +253,29 @@ keys.forEach((k) => {
     check('cs.js has ' + k, k in D.cs);
 });
 
+// T8 V-q: the dock detector's map card (dock.js handleDockMapStatus): its code words
+// (dock_status_visualizer status_mode / nav_status / nav_error) in the UI language
+(() => {
+    const DK = fs.readFileSync(path.join(JS, 'dock.js'), 'utf8');
+    const f = /function dockWord\(prefix, raw\) \{[\s\S]*?\n\}/.exec(DK);
+    check('dock.js has dockWord()', !!f);
+    if (!f) { return; }
+    const words = { 'docking.map.mode.': ['mapping', 'localization'], 'docking.map.nav.': ['idle', 'navigate', 'finished'],
+                    'docking.map.err.': ['Obstacle detected'] };
+    [['cs', cs], ['en', en]].forEach(([lang, w]) => {
+        const c = vm.createContext({ window: w, VTI18n: w.VTI18n });
+        vm.runInContext(f[0] + '\nthis.dockWord = dockWord;', c);
+        Object.keys(words).forEach((pre) => words[pre].forEach((v) => {
+            const out = c.dockWord(pre, v);
+            check(lang + ' dock map card: ' + pre + v + ' has its key and words', out && !/^docking\./.test(out) && (lang === 'en' || out !== v), out);
+        }));
+        check(lang + ' dock map card: an unknown word is shown as sent', c.dockWord('docking.map.nav.', 'paused (new)') === 'paused (new)');
+        check(lang + ' dock map card: an empty word stays empty', c.dockWord('docking.map.err.', '') === '');
+    });
+    check('the card uses dockWord for mode, navigation and error',
+              /dockWord\('docking\.map\.mode\.', message\.status_mode\)/.test(DK) && /dockWord\('docking\.map\.nav\.', message\.nav_status\)/.test(DK) &&
+              /dockWord\('docking\.map\.err\.', message\.nav_error\)/.test(DK));
+})();
+
 console.log((fails ? 'FAILED ' + fails + ' of ' : 'OK — ') + n + ' checks');
 process.exit(fails ? 1 : 0);
